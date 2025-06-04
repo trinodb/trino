@@ -24,7 +24,6 @@ import java.util.List;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
-import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_91;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
@@ -38,7 +37,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestDeltaLakeSystemTableCompatibility
         extends BaseTestDeltaLakeS3Storage
 {
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_91, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testTablePropertiesCaseSensitivity()
     {
@@ -79,7 +78,7 @@ public class TestDeltaLakeSystemTableCompatibility
         List<Row> expectedRows = ImmutableList.of(
                 row("delta.columnMapping.mode", "id"),
                 row("delta.feature.columnMapping", "supported"),
-                row("delta.minReaderVersion", "3"),
+                row("delta.minReaderVersion", "2"), // https://github.com/delta-io/delta/issues/4024 Delta Lake 3.3.0 ignores minReaderVersion
                 row("delta.minWriterVersion", "7"));
         try {
             QueryResult deltaResult = onDelta().executeQuery("SHOW TBLPROPERTIES default." + tableName);
@@ -90,6 +89,68 @@ public class TestDeltaLakeSystemTableCompatibility
         }
         finally {
             dropDeltaTableWithRetry("default." + tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    public void testTablePartitionsWithDeletionVectors()
+    {
+        String tableName = "test_table_partitions_with_deletion_vectors_" + randomNameSuffix();
+        onDelta().executeQuery("" +
+                "CREATE TABLE default." + tableName +
+                "(a INT, b INT, c VARCHAR(10)) " +
+                "USING delta " +
+                "PARTITIONED BY (a, c) " +
+                "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "' " +
+                "TBLPROPERTIES ('delta.enableDeletionVectors' = true)");
+
+        List<Row> expectedBeforeDelete = ImmutableList.of(
+                row("{\"a\":1,\"c\":\"varchar_1\"}", 3L, 1347L, "{\"b\":{\"min\":11,\"max\":19,\"null_count\":0}}"),
+                row("{\"a\":1,\"c\":\"varchar_2\"}", 1L, 449L, "{\"b\":{\"min\":13,\"max\":13,\"null_count\":0}}"));
+
+        List<Row> expectedAfterFirstDelete = ImmutableList.of(
+                row("{\"a\":1,\"c\":\"varchar_1\"}", 2L, 898L, "{\"b\":{\"min\":11,\"max\":17,\"null_count\":0}}"),
+                row("{\"a\":1,\"c\":\"varchar_2\"}", 1L, 449L, "{\"b\":{\"min\":13,\"max\":13,\"null_count\":0}}"));
+
+        List<Row> expectedAfterSecondDelete = ImmutableList.of(
+                row("{\"a\":1,\"c\":\"varchar_1\"}", 2L, 898L, "{\"b\":{\"min\":11,\"max\":17,\"null_count\":0}}"));
+
+        try {
+            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (1, 11, 'varchar_1'), (1, 19, 'varchar_1'), (1, 17, 'varchar_1'), (1, 13, 'varchar_2')");
+            assertThat(onTrino().executeQuery(format("SELECT cast(partition as json), file_count, total_size, cast(data as json) FROM delta.default.\"%s$partitions\"", tableName))).containsOnly(expectedBeforeDelete);
+            onDelta().executeQuery("DELETE FROM default." + tableName + " WHERE b = 19");
+            assertThat(onTrino().executeQuery(format("SELECT cast(partition as json), file_count, total_size, cast(data as json) FROM delta.default.\"%s$partitions\"", tableName))).containsOnly(expectedAfterFirstDelete);
+            onDelta().executeQuery("DELETE FROM default." + tableName + " WHERE c = 'varchar_2'");
+            assertThat(onTrino().executeQuery(format("SELECT cast(partition as json), file_count, total_size, cast(data as json) FROM delta.default.\"%s$partitions\"", tableName))).containsOnly(expectedAfterSecondDelete);
+        }
+        finally {
+            onDelta().executeQuery("DROP TABLE IF EXISTS default." + tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    public void testTablePartitionsWithNoColumnStats()
+    {
+        String tableName = "test_table_partitions_with_no_column_stats_" + randomNameSuffix();
+        onDelta().executeQuery("" +
+                "CREATE TABLE default." + tableName +
+                "(a INT, b INT, c VARCHAR(10)) " +
+                "USING delta " +
+                "PARTITIONED BY (a, c) " +
+                "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "' " +
+                "TBLPROPERTIES ('delta.dataSkippingNumIndexedCols' = 0)");
+
+        List<Row> expected = ImmutableList.of(
+                row("{\"a\":1,\"c\":\"varchar_1\"}", 3L, 1347L, "{\"b\":{\"min\":null,\"max\":null,\"null_count\":null}}"),
+                row("{\"a\":1,\"c\":\"varchar_2\"}", 1L, 449L, "{\"b\":{\"min\":null,\"max\":null,\"null_count\":null}}"),
+                row("{\"a\":1,\"c\":\"varchar_3\"}", 1L, 413L, "{\"b\":{\"min\":null,\"max\":null,\"null_count\":null}}"));
+
+        try {
+            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (1, 11, 'varchar_1'), (1, 19, 'varchar_1'), (1, 17, 'varchar_1'), (1, 13, 'varchar_2'), (1, NULL, 'varchar_3')");
+            assertThat(onTrino().executeQuery(format("SELECT cast(partition as json), file_count, total_size, cast(data as json) FROM delta.default.\"%s$partitions\"", tableName))).containsOnly(expected);
+        }
+        finally {
+            onDelta().executeQuery("DROP TABLE IF EXISTS default." + tableName);
         }
     }
 }

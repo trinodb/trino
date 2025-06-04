@@ -13,56 +13,24 @@
  */
 package io.trino.plugin.deltalake.procedure;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.ConnectorTableExecuteHandle;
 import io.trino.spi.connector.SchemaTableName;
 
 import static java.util.Objects.requireNonNull;
 
-public class DeltaLakeTableExecuteHandle
+public record DeltaLakeTableExecuteHandle(
+        SchemaTableName schemaTableName,
+        DeltaLakeTableProcedureId procedureId,
+        DeltaTableProcedureHandle procedureHandle,
+        String tableLocation)
         implements ConnectorTableExecuteHandle
 {
-    private final SchemaTableName schemaTableName;
-    private final DeltaLakeTableProcedureId procedureId;
-    private final DeltaTableProcedureHandle procedureHandle;
-    private final String tableLocation;
-
-    @JsonCreator
-    public DeltaLakeTableExecuteHandle(
-            SchemaTableName schemaTableName,
-            DeltaLakeTableProcedureId procedureId,
-            DeltaTableProcedureHandle procedureHandle,
-            String tableLocation)
+    public DeltaLakeTableExecuteHandle
     {
-        this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
-        this.procedureId = requireNonNull(procedureId, "procedureId is null");
-        this.procedureHandle = requireNonNull(procedureHandle, "procedureHandle is null");
-        this.tableLocation = requireNonNull(tableLocation, "tableLocation is null");
-    }
-
-    @JsonProperty
-    public SchemaTableName getSchemaTableName()
-    {
-        return schemaTableName;
-    }
-
-    @JsonProperty
-    public DeltaLakeTableProcedureId getProcedureId()
-    {
-        return procedureId;
-    }
-
-    @JsonProperty
-    public DeltaTableProcedureHandle getProcedureHandle()
-    {
-        return procedureHandle;
-    }
-
-    @JsonProperty
-    public String getTableLocation()
-    {
-        return tableLocation;
+        requireNonNull(schemaTableName, "schemaTableName is null");
+        requireNonNull(procedureId, "procedureId is null");
+        requireNonNull(procedureHandle, "procedureHandle is null");
+        requireNonNull(tableLocation, "tableLocation is null");
     }
 
     public DeltaLakeTableExecuteHandle withProcedureHandle(DeltaTableProcedureHandle procedureHandle)

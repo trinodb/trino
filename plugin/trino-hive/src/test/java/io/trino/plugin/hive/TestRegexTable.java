@@ -45,7 +45,8 @@ public class TestRegexTable
         Location tempDir = Location.of("local:///temp_" + UUID.randomUUID());
 
         // REGEX format is read-only, so create data files using the text file format
-        @Language("SQL") String createTableSql = """
+        @Language("SQL") String createTableSql =
+                """
                 CREATE TABLE test_regex_data
                 WITH (
                     format = 'textfile',
@@ -60,7 +61,8 @@ public class TestRegexTable
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
 
         // REGEX table over the text file created data
-        createTableSql = """
+        createTableSql =
+                """
                 CREATE TABLE test_regex (
                     nationkey BIGINT,
                     name VARCHAR)
@@ -79,7 +81,8 @@ public class TestRegexTable
 
         // case insensitive
         assertUpdate("DROP TABLE test_regex");
-        createTableSql = """
+        createTableSql =
+                """
                 CREATE TABLE test_regex (
                     nationkey BIGINT,
                     name VARCHAR)
@@ -95,7 +98,8 @@ public class TestRegexTable
 
         // case-sensitive with no-match
         assertUpdate("DROP TABLE test_regex");
-        createTableSql = """
+        createTableSql =
+                """
                 CREATE TABLE test_regex (
                     nationkey BIGINT,
                     name VARCHAR)
@@ -115,7 +119,8 @@ public class TestRegexTable
     @Test
     public void testRegexPropertyIsRequired()
     {
-        assertQueryFails("""
+        assertQueryFails(
+                """
                 CREATE TABLE test_regex_property_required (
                     nationkey BIGINT,
                     name VARCHAR)
@@ -127,7 +132,8 @@ public class TestRegexTable
     @Test
     public void testInvalidRegexProperty()
     {
-        assertQueryFails("""
+        assertQueryFails(
+                """
                 CREATE TABLE test_regex_property_required (
                     nationkey BIGINT,
                     name VARCHAR)

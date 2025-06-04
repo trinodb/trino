@@ -28,7 +28,6 @@ import static io.trino.tests.product.utils.QueryExecutors.onCompatibilityTestSer
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 public class TestIcebergFormatVersionCompatibility
         extends ProductTest
@@ -52,7 +51,7 @@ public class TestIcebergFormatVersionCompatibility
         List<QueryAssert.Row> expected = onCompatibilityTestServer().executeQuery(format("SELECT * FROM %s", tableName)).rows().stream()
                 .map(row -> row(row.toArray()))
                 .collect(toImmutableList());
-        assertEquals(expected.size(), 3);
+        assertThat(expected).hasSize(3);
         assertThat(onTrino().executeQuery(format("SELECT * FROM %s FOR VERSION AS OF %d", tableName, latestSnapshotId))).containsOnly(expected);
 
         onCompatibilityTestServer().executeQuery(format("DROP TABLE %s", tableName));

@@ -197,7 +197,7 @@ public class TestTableWriterOperator
             throws Exception
     {
         PageSinkManager pageSinkManager = new PageSinkManager(CatalogServiceProvider.singleton(TEST_CATALOG_HANDLE, new ConstantPageSinkProvider(new TableWriteInfoTestPageSink())));
-        ImmutableList<Type> outputTypes = ImmutableList.of(BIGINT, VARBINARY, BIGINT);
+        List<Type> outputTypes = ImmutableList.of(BIGINT, VARBINARY, BIGINT);
         Session session = testSessionBuilder()
                 .setSystemProperty("statistics_cpu_timer_enabled", "true")
                 .build();
@@ -253,7 +253,7 @@ public class TestTableWriterOperator
         assertThat(tableWriterMemoryContext.getRevocableMemory()).isEqualTo(0);
 
         Operator statisticAggregationOperator = tableWriterOperator.getStatisticAggregationOperator();
-        assertThat(statisticAggregationOperator instanceof AggregationOperator).isTrue();
+        assertThat(statisticAggregationOperator).isInstanceOf(AggregationOperator.class);
         AggregationOperator aggregationOperator = (AggregationOperator) statisticAggregationOperator;
         OperatorContext aggregationOperatorOperatorContext = aggregationOperator.getOperatorContext();
         MemoryTrackingContext aggregationOperatorMemoryContext = aggregationOperatorOperatorContext.getOperatorMemoryContext();
@@ -354,9 +354,7 @@ public class TestTableWriterOperator
         }
 
         @Override
-        public void abort()
-        {
-        }
+        public void abort() {}
 
         void complete()
         {

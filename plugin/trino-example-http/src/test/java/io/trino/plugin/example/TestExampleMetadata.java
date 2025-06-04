@@ -20,6 +20,7 @@ import com.google.common.io.Resources;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
@@ -64,10 +65,10 @@ public class TestExampleMetadata
     @Test
     public void testGetTableHandle()
     {
-        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName("example", "numbers"))).isEqualTo(NUMBERS_TABLE_HANDLE);
-        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName("example", "unknown"))).isNull();
-        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName("unknown", "numbers"))).isNull();
-        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName("unknown", "unknown"))).isNull();
+        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName("example", "numbers"), Optional.empty(), Optional.empty())).isEqualTo(NUMBERS_TABLE_HANDLE);
+        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName("example", "unknown"), Optional.empty(), Optional.empty())).isNull();
+        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName("unknown", "numbers"), Optional.empty(), Optional.empty())).isNull();
+        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName("unknown", "unknown"), Optional.empty(), Optional.empty())).isNull();
     }
 
     @Test
@@ -143,7 +144,7 @@ public class TestExampleMetadata
                 new ConnectorTableMetadata(
                         new SchemaTableName("example", "foo"),
                         ImmutableList.of(new ColumnMetadata("text", createUnboundedVarcharType()))),
-                false))
+                SaveMode.FAIL))
                 .isInstanceOf(TrinoException.class)
                 .hasMessage("This connector does not support creating tables");
     }

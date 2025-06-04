@@ -46,7 +46,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Objects;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -82,6 +82,7 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public abstract class AbstractTestEngineOnlyQueries
         extends AbstractTestQueryFramework
@@ -193,27 +194,13 @@ public abstract class AbstractTestEngineOnlyQueries
         @Language("SQL") String sql = DateTimeFormatter.ofPattern("'SELECT TIMESTAMP '''uuuu-MM-dd HH:mm:ss.SSS''").format(localTimeThatDidNotExist);
         assertThat(computeScalar(sql)).isEqualTo(localTimeThatDidNotExist); // this tests Trino and the QueryRunner
         assertQuery(sql); // this tests H2QueryRunner
-
-        LocalDate localDateThatDidNotHaveMidnight = LocalDate.of(1970, 1, 1);
-        checkState(ZoneId.systemDefault().getRules().getValidOffsets(localDateThatDidNotHaveMidnight.atStartOfDay()).isEmpty(), "This test assumes certain JVM time zone");
-        // This tests that both Trino runner and H2 can return DATE value for a day which midnight never happened in JVM's zone (e.g. is not exactly representable using java.sql.Date)
-        sql = DateTimeFormatter.ofPattern("'SELECT DATE '''uuuu-MM-dd''").format(localDateThatDidNotHaveMidnight);
-        assertThat(computeScalar(sql)).isEqualTo(localDateThatDidNotHaveMidnight); // this tests Trino and the QueryRunner
-        assertQuery(sql); // this tests H2QueryRunner
-
-        LocalTime localTimeThatDidNotOccurOn19700101 = LocalTime.of(0, 10);
-        checkState(ZoneId.systemDefault().getRules().getValidOffsets(localTimeThatDidNotOccurOn19700101.atDate(LocalDate.ofEpochDay(0))).isEmpty(), "This test assumes certain JVM time zone");
-        checkState(!Objects.equals(java.sql.Time.valueOf(localTimeThatDidNotOccurOn19700101).toLocalTime(), localTimeThatDidNotOccurOn19700101), "This test assumes certain JVM time zone");
-        sql = DateTimeFormatter.ofPattern("'SELECT TIME '''HH:mm:ss''").format(localTimeThatDidNotOccurOn19700101);
-        assertThat(computeScalar(sql)).isEqualTo(localTimeThatDidNotOccurOn19700101); // this tests Trino and the QueryRunner
-        assertQuery(sql); // this tests H2QueryRunner
     }
 
     @Test
     public void testNodeRoster()
     {
         List<MaterializedRow> result = computeActual("SELECT * FROM system.runtime.nodes").getMaterializedRows();
-        assertThat(result.size()).isEqualTo(getNodeCount());
+        assertThat(result).hasSize(getNodeCount());
     }
 
     @Test
@@ -474,7 +461,7 @@ public abstract class AbstractTestEngineOnlyQueries
         assertQuery("SELECT NULL, NULL INTERSECT SELECT NULL, NULL FROM nation");
 
         MaterializedResult emptyResult = computeActual("SELECT 100 INTERSECT (SELECT regionkey FROM nation WHERE nationkey <10)");
-        assertThat(emptyResult.getMaterializedRows().size()).isEqualTo(0);
+        assertThat(emptyResult.getMaterializedRows()).isEmpty();
     }
 
     @Test
@@ -531,7 +518,7 @@ public abstract class AbstractTestEngineOnlyQueries
                         "EXCEPT (SELECT * FROM (VALUES 1) EXCEPT SELECT * FROM (VALUES 1))");
 
         MaterializedResult emptyResult = computeActual("SELECT 0 EXCEPT (SELECT regionkey FROM nation WHERE nationkey <10)");
-        assertThat(emptyResult.getMaterializedRows().size()).isEqualTo(0);
+        assertThat(emptyResult.getMaterializedRows()).isEmpty();
     }
 
     @Test
@@ -893,7 +880,7 @@ public abstract class AbstractTestEngineOnlyQueries
     public void testComplexCast()
     {
         Session session = Session.builder(getSession())
-                .setSystemProperty(SystemSessionProperties.OPTIMIZE_DISTINCT_AGGREGATIONS, "true")
+                .setSystemProperty(SystemSessionProperties.DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .build();
         // This is optimized using CAST(null AS interval day to second) which may be problematic to deserialize on worker
         assertQuery(session, "WITH t(a, b) AS (VALUES (1, INTERVAL '1' SECOND)) " +
@@ -1067,7 +1054,7 @@ public abstract class AbstractTestEngineOnlyQueries
         assertQueryFails(
                 session,
                 "EXECUTE my_query USING 2, 99999999999999999999",
-                "\\Qline 1:1: Invalid numeric literal: 99999999999999999999\\E");
+                "\\Qline 1:27: Invalid numeric literal: 99999999999999999999\\E");
     }
 
     @Test
@@ -1131,7 +1118,7 @@ public abstract class AbstractTestEngineOnlyQueries
         assertQueryFails(
                 session,
                 "EXECUTE my_query USING 2, 99999999999999999999",
-                "\\Qline 1:1: Invalid numeric literal: 99999999999999999999\\E");
+                "\\Qline 1:27: Invalid numeric literal: 99999999999999999999\\E");
     }
 
     @Test
@@ -1190,7 +1177,7 @@ public abstract class AbstractTestEngineOnlyQueries
         assertQueryFails(
                 session,
                 "EXECUTE my_query USING 2, 99999999999999999999",
-                "\\Qline 1:1: Invalid numeric literal: 99999999999999999999\\E");
+                "\\Qline 1:27: Invalid numeric literal: 99999999999999999999\\E");
     }
 
     @Test
@@ -1354,7 +1341,8 @@ public abstract class AbstractTestEngineOnlyQueries
     public void testDescribeInputWithClause()
     {
         Session session = Session.builder(getSession())
-                .addPreparedStatement("my_query", """
+                .addPreparedStatement("my_query",
+                        """
                         WITH t2 AS (
                             SELECT * FROM (VALUES 1) AS t2(b)
                             WHERE b = ?)
@@ -1474,8 +1462,6 @@ public abstract class AbstractTestEngineOnlyQueries
         assertDescribeOutputRowCount("CREATE TABLE foo AS SELECT * FROM nation");
 
         assertDescribeOutputEmpty("CALL foo()");
-        assertDescribeOutputEmpty("SET SESSION optimize_hash_generation=false");
-        assertDescribeOutputEmpty("RESET SESSION optimize_hash_generation");
         assertDescribeOutputEmpty("START TRANSACTION");
         assertDescribeOutputEmpty("COMMIT");
         assertDescribeOutputEmpty("ROLLBACK");
@@ -1638,8 +1624,8 @@ public abstract class AbstractTestEngineOnlyQueries
         assertQueryFails("SELECT ARRAY[42]['x']", "\\Qline 1:8: Cannot use varchar(1) for subscript of array(integer)\\E");
         assertQueryFails("SELECT 'a' BETWEEN 3 AND 'z'", "\\Qline 1:12: Cannot check if varchar(1) is BETWEEN integer and varchar(1)\\E");
         assertQueryFails("SELECT 'a' NOT BETWEEN 3 AND 'z'", "\\Qline 1:12: Cannot check if varchar(1) is BETWEEN integer and varchar(1)\\E");
-        assertQueryFails("SELECT 8 IS DISTINCT FROM 'x'", "\\Qline 1:10: Cannot check if integer is distinct from varchar(1)\\E");
-        assertQueryFails("SELECT 8 IS NOT DISTINCT FROM 'x'", "\\Qline 1:10: Cannot check if integer is distinct from varchar(1)\\E");
+        assertQueryFails("SELECT 8 IS DISTINCT FROM 'x'", "\\Qline 1:10: Cannot check if integer is identical to varchar(1)\\E");
+        assertQueryFails("SELECT 8 IS NOT DISTINCT FROM 'x'", "\\Qline 1:10: Cannot check if integer is identical to varchar(1)\\E");
     }
 
     @Test
@@ -1679,7 +1665,7 @@ public abstract class AbstractTestEngineOnlyQueries
         for (int i = 0; i < 3; i++) {
             MaterializedResult results = computeActual(format("SELECT shuffle(ARRAY %s) FROM orders LIMIT 10", expected));
             List<MaterializedRow> rows = results.getMaterializedRows();
-            assertThat(rows.size()).isEqualTo(10);
+            assertThat(rows).hasSize(10);
 
             for (MaterializedRow row : rows) {
                 @SuppressWarnings("unchecked")
@@ -2128,7 +2114,8 @@ public abstract class AbstractTestEngineOnlyQueries
     @Test
     public void testMergeQuantileDigest()
     {
-        assertThat(query("""
+        assertThat(query(
+                """
                 WITH
                     a(field_a, field_b) AS (
                         VALUES (DOUBLE '10.3', 'group1'), (DOUBLE '11.3', 'group2')),
@@ -2136,16 +2123,18 @@ public abstract class AbstractTestEngineOnlyQueries
                         SELECT CAST(qdigest_agg(field_a) AS varbinary) AS qdigest_binary
                         FROM a GROUP BY field_b)
                 SELECT CAST(merge(CAST(qdigest_binary AS qdigest(double))) AS varbinary)
-                FROM b"""))
-                .matches("""
-                    VALUES X'
-                        00 7b 14 ae 47 e1 7a 84 3f 00 00 00 00 00 00 00
-                        00 00 00 00 00 00 00 00 00 9a 99 99 99 99 99 24
-                        40 9a 99 99 99 99 99 26 40 03 00 00 00 00 00 00
-                        00 00 00 00 f0 3f 9a 99 99 99 99 99 24 c0 00 00
-                        00 00 00 00 00 f0 3f 9a 99 99 99 99 99 26 c0 c7
-                        00 00 00 00 00 00 00 00 9a 99 99 99 99 99 24 c0'
-                    """);
+                FROM b
+                """))
+                .matches(
+                        """
+                        VALUES X'
+                            00 7b 14 ae 47 e1 7a 84 3f 00 00 00 00 00 00 00
+                            00 00 00 00 00 00 00 00 00 9a 99 99 99 99 99 24
+                            40 9a 99 99 99 99 99 26 40 03 00 00 00 00 00 00
+                            00 00 00 00 f0 3f 9a 99 99 99 99 99 24 c0 00 00
+                            00 00 00 00 00 f0 3f 9a 99 99 99 99 99 26 c0 c7
+                            00 00 00 00 00 00 00 00 9a 99 99 99 99 99 24 c0'
+                        """);
     }
 
     @Test
@@ -2176,7 +2165,7 @@ public abstract class AbstractTestEngineOnlyQueries
         MaterializedResult actual = computeActual("VALUES (0E0/0E0, 1E0/0E0, -1E0/0E0)");
 
         List<MaterializedRow> rows = actual.getMaterializedRows();
-        assertThat(rows.size()).isEqualTo(1);
+        assertThat(rows).hasSize(1);
 
         MaterializedRow row = rows.get(0);
         assertThat(((Double) row.getField(0)).isNaN()).isTrue();
@@ -2190,7 +2179,7 @@ public abstract class AbstractTestEngineOnlyQueries
         MaterializedResult actual = computeActual("VALUES (current_timestamp, now())");
 
         List<MaterializedRow> rows = actual.getMaterializedRows();
-        assertThat(rows.size()).isEqualTo(1);
+        assertThat(rows).hasSize(1);
 
         MaterializedRow row = rows.get(0);
         assertThat(row.getField(0)).isEqualTo(row.getField(1));
@@ -2450,7 +2439,7 @@ public abstract class AbstractTestEngineOnlyQueries
                 "   FROM orders\n" +
                 ") WHERE NOT rn <= 10");
         MaterializedResult all = computeExpected("SELECT orderkey, orderstatus FROM orders", actual.getTypes());
-        assertThat(actual.getMaterializedRows().size()).isEqualTo(all.getMaterializedRows().size() - 10);
+        assertThat(actual.getMaterializedRows()).hasSize(all.getMaterializedRows().size() - 10);
         assertContains(all, actual);
 
         actual = computeActual("" +
@@ -2459,7 +2448,7 @@ public abstract class AbstractTestEngineOnlyQueries
                 "   FROM orders\n" +
                 ") WHERE rn - 5 <= 10");
         all = computeExpected("SELECT orderkey, orderstatus FROM orders", actual.getTypes());
-        assertThat(actual.getMaterializedRows().size()).isEqualTo(15);
+        assertThat(actual.getMaterializedRows()).hasSize(15);
         assertContains(all, actual);
     }
 
@@ -2470,25 +2459,25 @@ public abstract class AbstractTestEngineOnlyQueries
                 "SELECT row_number() OVER (PARTITION BY orderstatus) rn, orderstatus\n" +
                 "FROM orders\n" +
                 "LIMIT 10");
-        assertThat(actual.getMaterializedRows().size()).isEqualTo(10);
+        assertThat(actual.getMaterializedRows()).hasSize(10);
 
         actual = computeActual("" +
                 "SELECT row_number() OVER (PARTITION BY orderstatus ORDER BY orderkey) rn\n" +
                 "FROM orders\n" +
                 "LIMIT 10");
-        assertThat(actual.getMaterializedRows().size()).isEqualTo(10);
+        assertThat(actual.getMaterializedRows()).hasSize(10);
 
         actual = computeActual("" +
                 "SELECT row_number() OVER () rn, orderstatus\n" +
                 "FROM orders\n" +
                 "LIMIT 10");
-        assertThat(actual.getMaterializedRows().size()).isEqualTo(10);
+        assertThat(actual.getMaterializedRows()).hasSize(10);
 
         actual = computeActual("" +
                 "SELECT row_number() OVER (ORDER BY orderkey) rn\n" +
                 "FROM orders\n" +
                 "LIMIT 10");
-        assertThat(actual.getMaterializedRows().size()).isEqualTo(10);
+        assertThat(actual.getMaterializedRows()).hasSize(10);
     }
 
     @Test
@@ -2576,7 +2565,7 @@ public abstract class AbstractTestEngineOnlyQueries
                 .row(2, 1L)
                 .row(2, 2L)
                 .build();
-        assertThat(actual.getMaterializedRows().size()).isEqualTo(2);
+        assertThat(actual.getMaterializedRows()).hasSize(2);
         assertContains(expected, actual);
     }
 
@@ -2589,7 +2578,7 @@ public abstract class AbstractTestEngineOnlyQueries
                 "   FROM orders\n" +
                 ") WHERE rn <= 5 AND orderstatus != 'Z'");
         MaterializedResult all = computeExpected("SELECT orderkey, orderstatus FROM orders", actual.getTypes());
-        assertThat(actual.getMaterializedRows().size()).isEqualTo(5);
+        assertThat(actual.getMaterializedRows()).hasSize(5);
         assertContains(all, actual);
 
         actual = computeActual("" +
@@ -2599,7 +2588,7 @@ public abstract class AbstractTestEngineOnlyQueries
                 ") WHERE rn < 5");
         all = computeExpected("SELECT orderkey, orderstatus FROM orders", actual.getTypes());
 
-        assertThat(actual.getMaterializedRows().size()).isEqualTo(4);
+        assertThat(actual.getMaterializedRows()).hasSize(4);
         assertContains(all, actual);
 
         actual = computeActual("" +
@@ -2609,7 +2598,7 @@ public abstract class AbstractTestEngineOnlyQueries
                 ") LIMIT 5");
         all = computeExpected("SELECT orderkey, orderstatus FROM orders", actual.getTypes());
 
-        assertThat(actual.getMaterializedRows().size()).isEqualTo(5);
+        assertThat(actual.getMaterializedRows()).hasSize(5);
         assertContains(all, actual);
     }
 
@@ -2624,7 +2613,7 @@ public abstract class AbstractTestEngineOnlyQueries
         MaterializedResult all = computeExpected("SELECT orderkey, orderstatus FROM orders", actual.getTypes());
 
         // there are 3 DISTINCT orderstatus, so expect 15 rows.
-        assertThat(actual.getMaterializedRows().size()).isEqualTo(15);
+        assertThat(actual.getMaterializedRows()).hasSize(15);
         assertContains(all, actual);
 
         // Test for unreferenced outputs
@@ -2636,7 +2625,7 @@ public abstract class AbstractTestEngineOnlyQueries
         all = computeExpected("SELECT orderkey FROM orders", actual.getTypes());
 
         // there are 3 distinct orderstatus, so expect 15 rows.
-        assertThat(actual.getMaterializedRows().size()).isEqualTo(15);
+        assertThat(actual.getMaterializedRows()).hasSize(15);
         assertContains(all, actual);
     }
 
@@ -3452,16 +3441,16 @@ public abstract class AbstractTestEngineOnlyQueries
 
         assertQuery(
                 """
-                        WITH array_construct AS (
-                            SELECT ARRAY[1, 2, 3] AS array_actual, '[1,2,3]' AS expected
-                            UNION ALL
-                            SELECT NULL AS array_actual, '[]' AS expected)
-                        SELECT
-                            array_actual,
-                            '[' || (SELECT listagg(CAST(element AS varchar), ',') WITHIN GROUP(ORDER BY element) FROM UNNEST(array_actual) t(element)) || ']' AS actual,
-                            expected
-                        FROM array_construct
-                        """,
+                WITH array_construct AS (
+                    SELECT ARRAY[1, 2, 3] AS array_actual, '[1,2,3]' AS expected
+                    UNION ALL
+                    SELECT NULL AS array_actual, '[]' AS expected)
+                SELECT
+                    array_actual,
+                    '[' || (SELECT listagg(CAST(element AS varchar), ',') WITHIN GROUP(ORDER BY element) FROM UNNEST(array_actual) t(element)) || ']' AS actual,
+                    expected
+                FROM array_construct
+                """,
                 "VALUES (ARRAY[1, 2, 3], CAST('[1,2,3]' AS varchar), '[1,2,3]'), (null, null, '[]')");
     }
 
@@ -3643,7 +3632,7 @@ public abstract class AbstractTestEngineOnlyQueries
         MaterializedResult actual = computeActual("SELECT x FROM " + values + " OFFSET 2 ROWS");
         MaterializedResult all = computeExpected("SELECT x FROM " + values, actual.getTypes());
 
-        assertThat(actual.getMaterializedRows().size()).isEqualTo(2);
+        assertThat(actual.getMaterializedRows()).hasSize(2);
         assertThat(actual.getMaterializedRows().get(0))
                 .isNotEqualTo(actual.getMaterializedRows().get(1));
         assertContains(all, actual);
@@ -3657,7 +3646,7 @@ public abstract class AbstractTestEngineOnlyQueries
         MaterializedResult actual = computeActual("SELECT x FROM " + values + " OFFSET 2 ROWS FETCH NEXT ROW ONLY");
         MaterializedResult all = computeExpected("SELECT x FROM " + values, actual.getTypes());
 
-        assertThat(actual.getMaterializedRows().size()).isEqualTo(1);
+        assertThat(actual.getMaterializedRows()).hasSize(1);
         assertContains(all, actual);
     }
 
@@ -5374,10 +5363,11 @@ public abstract class AbstractTestEngineOnlyQueries
                 getQueryRunner().getSessionPropertyManager(),
                 getSession().getPreparedStatements(),
                 getSession().getProtocolHeaders(),
-                getSession().getExchangeEncryptionKey());
+                getSession().getExchangeEncryptionKey(),
+                getSession().getQueryDataEncoding());
         MaterializedResult result = computeActual(session, "SHOW SESSION");
 
-        ImmutableMap<String, MaterializedRow> properties = Maps.uniqueIndex(result.getMaterializedRows(), input -> {
+        Map<String, MaterializedRow> properties = Maps.uniqueIndex(result.getMaterializedRows(), input -> {
             assertThat(input.getFieldCount()).isEqualTo(5);
             return (String) input.getField(0);
         });
@@ -5422,6 +5412,12 @@ public abstract class AbstractTestEngineOnlyQueries
         result = computeActual(format("SET SESSION %s.connector_double = 11.1", TESTING_CATALOG));
         assertNoRelationalResult(result);
         assertThat(result.getSetSessionProperties()).isEqualTo(ImmutableMap.of(TESTING_CATALOG + ".connector_double", "11.1"));
+
+        assertThatThrownBy(() -> computeActual(format("SET SESSION %s.connector_l = 1", TESTING_CATALOG)))
+                .hasMessage("line 1:43: Session property 'testing_catalog.connector_l' does not exist. Did you mean to use 'testing_catalog.connector_long', 'testing_catalog.connector_double' or 'testing_catalog.connector_boolean'?");
+
+        assertThatThrownBy(() -> computeActual("SET SESSION task_writer_count = 1"))
+                .hasMessage("line 1:33: Session property 'task_writer_count' does not exist. Did you mean to use 'task_max_writer_count' or 'task_min_writer_count'?");
     }
 
     @Test
@@ -6179,7 +6175,7 @@ public abstract class AbstractTestEngineOnlyQueries
         assertThat(functions.containsKey("avg"))
                 .describedAs("Expected function names " + functions + " to contain 'avg'")
                 .isTrue();
-        assertThat(functions.get("avg").asList().size()).isEqualTo(6);
+        assertThat(functions.get("avg").asList()).hasSize(6);
         assertThat(functions.get("avg").asList().get(0).getField(1)).isEqualTo("decimal(p,s)");
         assertThat(functions.get("avg").asList().get(0).getField(2)).isEqualTo("decimal(p,s)");
         assertThat(functions.get("avg").asList().get(0).getField(3)).isEqualTo("aggregate");
@@ -6618,125 +6614,13 @@ public abstract class AbstractTestEngineOnlyQueries
     }
 
     @Test
-    public void testInlineSqlFunctions()
+    public void testCreateFunctionErrorReporting()
     {
-        assertThat(query("""
-                WITH FUNCTION abc(x integer) RETURNS integer RETURN x * 2
-                SELECT abc(21)
-                """))
-                .matches("VALUES 42");
-        assertThat(query("""
-                WITH FUNCTION abc(x integer) RETURNS integer RETURN abs(x)
-                SELECT abc(-21)
-                """))
-                .matches("VALUES 21");
+        assertQueryFails("CREATE FUNCTION a.b.c() RETURNS integer DETERMINISTIC DETERMINISTIC RETURN 8",
+                "line 1:55: Multiple deterministic clauses specified");
 
-        assertThat(query("""
-                WITH
-                  FUNCTION abc(x integer) RETURNS integer RETURN x * 2,
-                  FUNCTION xyz(x integer) RETURNS integer RETURN abc(x) + 1
-                SELECT xyz(21)
-                """))
-                .matches("VALUES 43");
-
-        assertThat(query("""
-                WITH
-                  FUNCTION my_pow(n int, p int)
-                  RETURNS int
-                  BEGIN
-                    DECLARE r int DEFAULT n;
-                    top: LOOP
-                      IF p <= 1 THEN
-                        LEAVE top;
-                      END IF;
-                      SET r = r * n;
-                      SET p = p - 1;
-                    END LOOP;
-                    RETURN r;
-                  END
-                SELECT my_pow(2, 8)
-                """))
-                .matches("VALUES 256");
-
-        // invoke function on data from connector to prevent constant folding on the coordinator
-        assertThat(query("""
-                WITH
-                  FUNCTION my_pow(n int, p int)
-                  RETURNS int
-                  BEGIN
-                    DECLARE r int DEFAULT n;
-                    top: LOOP
-                      IF p <= 1 THEN
-                        LEAVE top;
-                      END IF;
-                      SET r = r * n;
-                      SET p = p - 1;
-                    END LOOP;
-                    RETURN r;
-                  END
-                SELECT my_pow(CAST(nationkey AS integer), CAST(regionkey AS integer)) FROM nation WHERE nationkey IN (1,2,3,5,8)
-                """))
-                .matches("VALUES 1, 2, 3, 5, 64");
-
-        // function with dereference
-        assertThat(query("""
-                WITH FUNCTION get(input row(varchar))
-                    RETURNS varchar
-                    RETURN input[1]
-                SELECT get(ROW('abc'))
-                """))
-                .matches("VALUES VARCHAR 'abc'");
-
-        // validations for inline functions
-        assertQueryFails("WITH FUNCTION a.b() RETURNS int RETURN 42 SELECT a.b()",
-                "line 1:6: Inline function names cannot be qualified: a.b");
-
-        assertQueryFails("WITH FUNCTION x() RETURNS int SECURITY INVOKER RETURN 42 SELECT x()",
-                "line 1:31: Security mode not supported for inline functions");
-
-        assertQueryFails("WITH FUNCTION x() RETURNS bigint SECURITY DEFINER RETURN 42 SELECT x()",
-                "line 1:34: Security mode not supported for inline functions");
-
-        // Verify the current restrictions on inline functions are enforced
-
-        // inline function can mask a global function
-        assertThat(query("""
-                WITH FUNCTION abs(x integer) RETURNS integer RETURN x * 2
-                SELECT abs(-10)
-                """))
-                .matches("VALUES -20");
-        assertThat(query("""
-                WITH
-                  FUNCTION abs(x integer) RETURNS integer RETURN x * 2,
-                  FUNCTION wrap_abs(x integer) RETURNS integer RETURN abs(x)
-                SELECT wrap_abs(-10)
-                """))
-                .matches("VALUES -20");
-
-        // inline function can have the same name as a global function with a different signature
-        assertThat(query("""
-                WITH FUNCTION abs(x varchar) RETURNS varchar RETURN reverse(x)
-                SELECT abs('abc')
-                """))
-                .skippingTypesCheck()
-                .matches("VALUES 'cba'");
-
-        // inline functions must be declared before they are used
-        assertThat(query("""
-                WITH
-                  FUNCTION a(x integer) RETURNS integer RETURN b(x),
-                  FUNCTION b(x integer) RETURNS integer RETURN x * 2
-                SELECT a(10)
-                """))
-                .failure().hasMessage("line 3:8: Function 'b' not registered");
-
-        // inline function cannot be recursive
-        // note: mutual recursion is not supported either, but it is not tested due to the forward declaration limitation above
-        assertThat(query("""
-                WITH FUNCTION a(x integer) RETURNS integer RETURN a(x)
-                SELECT a(10)
-                """))
-                .failure().hasMessage("line 3:8: Recursive language functions are not supported: a(integer):integer");
+        assertQueryFails("CREATE FUNCTION a.b.c() RETURNS varchar RETURN 8",
+                "line 1:48: Value of RETURN must evaluate to varchar \\(actual: integer\\)");
     }
 
     private static ZonedDateTime zonedDateTime(String value)

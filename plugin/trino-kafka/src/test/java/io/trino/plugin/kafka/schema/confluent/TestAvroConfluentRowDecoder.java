@@ -15,6 +15,7 @@ package io.trino.plugin.kafka.schema.confluent;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.confluent.kafka.schemaregistry.avro.AvroSchema;
 import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.trino.decoder.DecoderColumnHandle;
@@ -84,8 +85,8 @@ public class TestAvroConfluentRowDecoder
                 .name("col6").type().optional().longType()
                 .endRecord();
 
-        mockSchemaRegistryClient.register(TOPIC + "-value", initialSchema);
-        mockSchemaRegistryClient.register(TOPIC + "-value", evolvedSchema);
+        mockSchemaRegistryClient.register(TOPIC + "-value", new AvroSchema(initialSchema));
+        mockSchemaRegistryClient.register(TOPIC + "-value", new AvroSchema(evolvedSchema));
 
         Set<DecoderColumnHandle> columnHandles = ImmutableSet.<DecoderColumnHandle>builder()
                 .add(new KafkaColumnHandle("col1", INTEGER, "col1", null, null, false, false, false))
@@ -110,7 +111,7 @@ public class TestAvroConfluentRowDecoder
     {
         MockSchemaRegistryClient mockSchemaRegistryClient = new MockSchemaRegistryClient();
         Schema schema = Schema.create(Schema.Type.LONG);
-        mockSchemaRegistryClient.register(format("%s-key", TOPIC), schema);
+        mockSchemaRegistryClient.register(format("%s-key", TOPIC), new AvroSchema(schema));
         Set<DecoderColumnHandle> columnHandles = ImmutableSet.of(new KafkaColumnHandle("col1", BIGINT, "col1", null, null, false, false, false));
         RowDecoder rowDecoder = getRowDecoder(mockSchemaRegistryClient, columnHandles, schema);
         testSingleValueRow(rowDecoder, 3L, schema, 1);
@@ -153,7 +154,7 @@ public class TestAvroConfluentRowDecoder
 
     private static RowDecoder getRowDecoder(SchemaRegistryClient schemaRegistryClient, Set<DecoderColumnHandle> columnHandles, Schema schema)
     {
-        ImmutableMap<String, String> decoderParams = ImmutableMap.of(DATA_SCHEMA, schema.toString());
+        Map<String, String> decoderParams = ImmutableMap.of(DATA_SCHEMA, schema.toString());
         return getAvroRowDecoderyFactory(schemaRegistryClient).create(TESTING_SESSION, new RowDecoderSpec(AvroRowDecoderFactory.NAME, decoderParams, columnHandles));
     }
 
@@ -212,7 +213,7 @@ public class TestAvroConfluentRowDecoder
                     Optional<Schema> nonNullSchema = schema.getTypes().stream()
                             .filter(type -> type.getType() != Schema.Type.NULL)
                             .findFirst();
-                    assertThat(nonNullSchema.isPresent()).isTrue();
+                    assertThat(nonNullSchema).isPresent();
 
                     if (expected == null) {
                         expected = getOnlyElement(schema.getFields()).defaultVal();

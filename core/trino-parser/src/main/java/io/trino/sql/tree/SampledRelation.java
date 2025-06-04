@@ -35,19 +35,9 @@ public class SampledRelation
     private final Type type;
     private final Expression samplePercentage;
 
-    public SampledRelation(Relation relation, Type type, Expression samplePercentage)
-    {
-        this(Optional.empty(), relation, type, samplePercentage);
-    }
-
     public SampledRelation(NodeLocation location, Relation relation, Type type, Expression samplePercentage)
     {
-        this(Optional.of(location), relation, type, samplePercentage);
-    }
-
-    private SampledRelation(Optional<NodeLocation> location, Relation relation, Type type, Expression samplePercentage)
-    {
-        super(location);
+        super(Optional.of(location));
         this.relation = requireNonNull(relation, "relation is null");
         this.type = requireNonNull(type, "type is null");
         this.samplePercentage = requireNonNull(samplePercentage, "samplePercentage is null");

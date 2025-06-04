@@ -149,7 +149,7 @@ public final class OpenSearchQueryRunner
             throws Exception
     {
         QueryRunner queryRunner = builder(new OpenSearchServer(OPENSEARCH_IMAGE, false, ImmutableMap.of()).getAddress())
-                .addExtraProperty("http-server.http.port", "8080")
+                .addCoordinatorProperty("http-server.http.port", "8080")
                 .setInitialTables(TpchTable.getTables())
                 .build();
 

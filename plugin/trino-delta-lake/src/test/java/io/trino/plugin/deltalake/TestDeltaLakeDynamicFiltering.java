@@ -22,7 +22,7 @@ import io.trino.execution.QueryStats;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.Split;
 import io.trino.metadata.TableHandle;
-import io.trino.plugin.hive.containers.HiveMinioDataLake;
+import io.trino.plugin.hive.containers.Hive3MinioDataLake;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.ColumnHandle;
@@ -45,8 +45,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 import static com.google.common.base.Verify.verify;
-import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
-import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
@@ -62,14 +60,14 @@ public class TestDeltaLakeDynamicFiltering
         extends AbstractTestQueryFramework
 {
     private final String bucketName = "delta-lake-test-dynamic-filtering-" + randomNameSuffix();
-    private HiveMinioDataLake hiveMinioDataLake;
+    private Hive3MinioDataLake hiveMinioDataLake;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
         verify(new DynamicFilterConfig().isEnableDynamicFiltering(), "this class assumes dynamic filtering is enabled by default");
-        hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName));
+        hiveMinioDataLake = closeAfterClass(new Hive3MinioDataLake(bucketName));
         hiveMinioDataLake.start();
 
         QueryRunner queryRunner = DeltaLakeQueryRunner.builder()
@@ -96,11 +94,11 @@ public class TestDeltaLakeDynamicFiltering
             String query = "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.totalprice > 59995 AND orders.totalprice < 60000";
             MaterializedResultWithPlan filteredResult = getDistributedQueryRunner().executeWithPlan(sessionWithDynamicFiltering(true, joinDistributionType), query);
             MaterializedResultWithPlan unfilteredResult = getDistributedQueryRunner().executeWithPlan(sessionWithDynamicFiltering(false, joinDistributionType), query);
-            assertEqualsIgnoreOrder(filteredResult.result().getMaterializedRows(), unfilteredResult.result().getMaterializedRows());
+            assertThat(filteredResult.result().getMaterializedRows()).containsExactlyInAnyOrderElementsOf(unfilteredResult.result().getMaterializedRows());
 
             QueryStats filteredStats = getQueryStats(filteredResult.queryId());
             QueryStats unfilteredStats = getQueryStats(unfilteredResult.queryId());
-            assertGreaterThan(unfilteredStats.getPhysicalInputPositions(), filteredStats.getPhysicalInputPositions());
+            assertThat(unfilteredStats.getPhysicalInputPositions()).isGreaterThan(filteredStats.getPhysicalInputPositions());
         }
     }
 
@@ -128,7 +126,7 @@ public class TestDeltaLakeDynamicFiltering
                 splits.addAll(splitSource.getNextBatch(1000).get().getSplits());
             }
             splitSource.close();
-            assertThat(splits.isEmpty()).isFalse();
+            assertThat(splits).isNotEmpty();
         }
         finally {
             dynamicFilterBlocked.complete(null);

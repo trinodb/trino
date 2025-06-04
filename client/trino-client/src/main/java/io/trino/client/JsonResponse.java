@@ -14,6 +14,7 @@
 package io.trino.client;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import io.airlift.units.DataSize;
 import jakarta.annotation.Nullable;
 import okhttp3.Call;
 import okhttp3.Headers;
@@ -25,14 +26,16 @@ import okhttp3.ResponseBody;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Optional;
-import java.util.OptionalLong;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class JsonResponse<T>
 {
+    private static final DataSize MATERIALIZED_BUFFER_SIZE = DataSize.of(8, KILOBYTE);
+
     private final int statusCode;
     private final Headers headers;
     @Nullable
@@ -108,37 +111,29 @@ public final class JsonResponse<T>
                 .toString();
     }
 
-    public static <T> JsonResponse<T> execute(JsonCodec<T> codec, Call.Factory client, Request request, OptionalLong materializedJsonSizeLimit)
+    public static <T> JsonResponse<T> execute(TrinoJsonCodec<T> codec, Call.Factory client, Request request)
     {
         try (Response response = client.newCall(request).execute()) {
             ResponseBody responseBody = requireNonNull(response.body());
             if (isJson(responseBody.contentType())) {
-                String body = null;
-                T value = null;
-                IllegalArgumentException exception = null;
+                MaterializingInputStream stream = new MaterializingInputStream(responseBody.byteStream(), MATERIALIZED_BUFFER_SIZE);
                 try {
-                    if (materializedJsonSizeLimit.isPresent() && (responseBody.contentLength() < 0 || responseBody.contentLength() > materializedJsonSizeLimit.getAsLong())) {
-                        // Parse from input stream, response is either of unknown size or too large to materialize. Raw response body
-                        // will not be available if parsing fails
-                        value = codec.fromJson(responseBody.byteStream());
-                    }
-                    else {
-                        // parse from materialized response body string
-                        body = responseBody.string();
-                        value = codec.fromJson(body);
-                    }
+                    // Parse from input stream, response is either of unknown size or too large to materialize.
+                    // 8K of the response body will be available if parsing fails.
+                    T value = codec.fromJson(stream);
+                    return new JsonResponse<>(response.code(), response.headers(), stream.getHeadString(responseBody.contentType().charset()), value, null);
                 }
                 catch (JsonProcessingException e) {
-                    String message;
-                    if (body != null) {
-                        message = format("Unable to create %s from JSON response:\n[%s]", codec.getType(), body);
-                    }
-                    else {
-                        message = format("Unable to create %s from JSON response", codec.getType());
-                    }
-                    exception = new IllegalArgumentException(message, e);
+                    return new JsonResponse<>(
+                            response.code(),
+                            response.headers(),
+                            stream.getHeadString(),
+                            null,
+                            new IllegalArgumentException(format("Unable to create %s from JSON response:\n[%s]", codec.getType(), stream.getHeadString()), e));
                 }
-                return new JsonResponse<>(response.code(), response.headers(), body, value, exception);
+                finally {
+                    stream.close();
+                }
             }
             return new JsonResponse<>(response.code(), response.headers(), responseBody.string());
         }

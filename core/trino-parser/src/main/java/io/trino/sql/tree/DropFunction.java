@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -29,17 +28,7 @@ public class DropFunction
     private final List<ParameterDeclaration> parameters;
     private final boolean exists;
 
-    public DropFunction(QualifiedName name, List<ParameterDeclaration> parameters, boolean exists)
-    {
-        this(Optional.empty(), name, parameters, exists);
-    }
-
     public DropFunction(NodeLocation location, QualifiedName name, List<ParameterDeclaration> parameters, boolean exists)
-    {
-        this(Optional.of(location), name, parameters, exists);
-    }
-
-    private DropFunction(Optional<NodeLocation> location, QualifiedName name, List<ParameterDeclaration> parameters, boolean exists)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");

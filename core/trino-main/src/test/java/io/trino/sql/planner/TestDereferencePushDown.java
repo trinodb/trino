@@ -31,6 +31,7 @@ import org.junit.jupiter.api.Test;
 
 import static io.trino.SystemSessionProperties.FILTERING_SEMI_JOIN_TO_INNER;
 import static io.trino.SystemSessionProperties.MERGE_PROJECT_WITH_VALUES;
+import static io.trino.SystemSessionProperties.PUSH_FILTER_INTO_VALUES_MAX_ROW_COUNT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -82,6 +83,7 @@ public class TestDereferencePushDown
                         "SELECT b.msg.x " +
                         "FROM t a, t b " +
                         "WHERE a.msg.y = b.msg.y",
+                disablePushFilterIntoValues(),
                 output(
                         project(
                                 ImmutableMap.of("b_x", expression(new Reference(BIGINT, "b_x"))),
@@ -105,6 +107,7 @@ public class TestDereferencePushDown
                         "SELECT b.msg.x " +
                         "FROM t a JOIN t b ON a.msg.y = b.msg.y " +
                         "WHERE a.msg.x + b.msg.x < BIGINT '10'",
+                disablePushFilterIntoValues(),
                 output(ImmutableList.of("b_x"),
                         join(INNER, builder -> builder
                                 .left(
@@ -127,6 +130,7 @@ public class TestDereferencePushDown
                         "SELECT a.msg.y, b.msg.x " +
                         "FROM t a CROSS JOIN t b " +
                         "WHERE a.msg.x = 7 OR IS_FINITE(b.msg.y)",
+                disablePushFilterIntoValues(),
                 any(
                         project(
                                 ImmutableMap.of("a_y", expression(new Reference(DOUBLE, "a_y")), "b_x", expression(new Reference(BIGINT, "b_x"))),
@@ -229,6 +233,7 @@ public class TestDereferencePushDown
                         "FROM t a, t b " +
                         "WHERE a.msg.y = b.msg.y " +
                         "LIMIT 100",
+                disablePushFilterIntoValues(),
                 output(
                         limit(
                                 100,
@@ -255,6 +260,7 @@ public class TestDereferencePushDown
                         "FROM t a JOIN t b ON a.msg.y = b.msg.y " +
                         "WHERE a.msg.x + b.msg.x < BIGINT '10' " +
                         "LIMIT 100",
+                disablePushFilterIntoValues(),
                 anyTree(
                         join(INNER, builder -> builder
                                 .left(
@@ -277,6 +283,7 @@ public class TestDereferencePushDown
                         "FROM t a JOIN t b ON a.msg.y = b.msg.y " +
                         "CROSS JOIN UNNEST (a.array) " +
                         "WHERE a.msg.x + b.msg.x < BIGINT '10'",
+                disablePushFilterIntoValues(),
                 output(ImmutableList.of("expr"),
                         strictProject(ImmutableMap.of("expr", expression(new Reference(BIGINT, "a_x"))),
                                 unnest(
@@ -291,5 +298,12 @@ public class TestDereferencePushDown
                                                                 filter(
                                                                         new Comparison(EQUAL, new Reference(DOUBLE, "b_y"), new Constant(DOUBLE, 2.0)),
                                                                         values(ImmutableList.of("b_y"), ImmutableList.of(ImmutableList.of(new Constant(DOUBLE, 2e0))))))))))));
+    }
+
+    private Session disablePushFilterIntoValues()
+    {
+        return Session.builder(getPlanTester().getDefaultSession())
+                .setSystemProperty(PUSH_FILTER_INTO_VALUES_MAX_ROW_COUNT, "0")
+                .build();
     }
 }

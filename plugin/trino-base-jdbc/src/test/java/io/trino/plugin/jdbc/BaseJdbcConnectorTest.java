@@ -25,6 +25,7 @@ import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
+import io.trino.sql.planner.plan.GroupIdNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
@@ -36,6 +37,7 @@ import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.query.QueryAssertions.QueryAssert;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
+import io.trino.testing.QueryFailedException;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.testing.TestingConnectorBehavior;
@@ -49,10 +51,12 @@ import org.junit.jupiter.api.Timeout;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -60,7 +64,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.trino.SystemSessionProperties.MARK_DISTINCT_STRATEGY;
+import static io.trino.SystemSessionProperties.DISTINCT_AGGREGATIONS_STRATEGY;
 import static io.trino.plugin.jdbc.JdbcDynamicFilteringSessionProperties.DYNAMIC_FILTERING_ENABLED;
 import static io.trino.plugin.jdbc.JdbcDynamicFilteringSessionProperties.DYNAMIC_FILTERING_WAIT_TIMEOUT;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.COMPLEX_JOIN_PUSHDOWN_ENABLED;
@@ -68,6 +72,7 @@ import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.DOMAIN_COMPACTI
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.JOIN_PUSHDOWN_ENABLED;
 import static io.trino.plugin.jdbc.JoinOperator.FULL_JOIN;
 import static io.trino.plugin.jdbc.JoinOperator.JOIN;
+import static io.trino.plugin.jdbc.JoinOperator.LEFT_JOIN;
 import static io.trino.plugin.jdbc.RemoteDatabaseEvent.Status.CANCELLED;
 import static io.trino.plugin.jdbc.RemoteDatabaseEvent.Status.RUNNING;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
@@ -76,6 +81,7 @@ import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAS
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.PARTITIONED;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUSHDOWN;
@@ -86,6 +92,8 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUS
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CANCELLATION;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_TABLE;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_SCHEMA;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_DATA;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DYNAMIC_FILTER_PUSHDOWN;
@@ -118,6 +126,7 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Fail.fail;
 import static org.junit.jupiter.api.Assumptions.abort;
 
 public abstract class BaseJdbcConnectorTest
@@ -140,11 +149,12 @@ public abstract class BaseJdbcConnectorTest
     {
         return switch (connectorBehavior) {
             case SUPPORTS_UPDATE -> true;
-            case SUPPORTS_CREATE_MATERIALIZED_VIEW,
-                    SUPPORTS_CREATE_VIEW,
-                    SUPPORTS_MERGE,
-                    SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN,
-                    SUPPORTS_ROW_LEVEL_UPDATE -> false;
+            case SUPPORTS_ADD_COLUMN_WITH_POSITION,
+                 SUPPORTS_CREATE_MATERIALIZED_VIEW,
+                 SUPPORTS_CREATE_VIEW,
+                 SUPPORTS_MERGE,
+                 SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN,
+                 SUPPORTS_ROW_LEVEL_UPDATE -> false;
             // Dynamic filters can be pushed down only if predicate push down is supported.
             // It is possible for a connector to have predicate push down support but not push down dynamic filters.
             // TODO default SUPPORTS_DYNAMIC_FILTER_PUSHDOWN to SUPPORTS_PREDICATE_PUSHDOWN
@@ -251,7 +261,7 @@ public abstract class BaseJdbcConnectorTest
                 getSession(),
                 "SELECT custkey, sum(totalprice) FROM (SELECT custkey, totalprice FROM orders ORDER BY orderdate ASC, totalprice ASC LIMIT 10) GROUP BY custkey",
                 hasBehavior(SUPPORTS_TOPN_PUSHDOWN),
-                node(TopNNode.class, anyTree(node(TableScanNode.class))));
+                project(node(TopNNode.class, anyTree(node(TableScanNode.class)))));
         // GROUP BY with JOIN
         assertConditionallyPushedDown(
                 joinPushdownEnabled(getSession()),
@@ -329,8 +339,7 @@ public abstract class BaseJdbcConnectorTest
 
         PlanMatchPattern aggregationOverTableScan = node(AggregationNode.class, node(TableScanNode.class));
         PlanMatchPattern groupingAggregationOverTableScan = node(AggregationNode.class, node(TableScanNode.class));
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_cs_agg_pushdown",
                 "(a_string varchar(1), a_char char(1), a_bigint bigint)",
                 ImmutableList.of(
@@ -393,34 +402,74 @@ public abstract class BaseJdbcConnectorTest
                     .skippingTypesCheck()
                     .matches("VALUES BIGINT '4'");
 
-            assertConditionallyPushedDown(getSession(),
-                    "SELECT count(DISTINCT a_string), count(DISTINCT a_bigint) FROM " + table.getName(),
-                    supportsPushdownWithVarcharInequality && supportsCountDistinctPushdown,
-                    node(ExchangeNode.class, node(AggregationNode.class, anyTree(node(TableScanNode.class)))))
-                    .skippingTypesCheck()
-                    .matches("VALUES (BIGINT '4', BIGINT '3')");
-
-            assertConditionallyPushedDown(getSession(),
-                    "SELECT count(DISTINCT a_char), count(DISTINCT a_bigint) FROM " + table.getName(),
-                    supportsPushdownWithVarcharInequality && supportsCountDistinctPushdown,
-                    node(ExchangeNode.class, node(AggregationNode.class, anyTree(node(TableScanNode.class)))))
-                    .skippingTypesCheck()
-                    .matches("VALUES (BIGINT '4', BIGINT '3')");
-
-            assertConditionallyPushedDown(getSession(),
-                    "SELECT count(DISTINCT a_string), sum(DISTINCT a_bigint) FROM " + table.getName(),
-                    supportsPushdownWithVarcharInequality && supportsSumDistinctPushdown,
-                    node(ExchangeNode.class, node(AggregationNode.class, anyTree(node(TableScanNode.class)))))
-                    .skippingTypesCheck()
-                    .matches(sumDistinctAggregationPushdownExpectedResult());
-
-            assertConditionallyPushedDown(getSession(),
-                    "SELECT count(DISTINCT a_char), sum(DISTINCT a_bigint) FROM " + table.getName(),
-                    supportsPushdownWithVarcharInequality && supportsSumDistinctPushdown,
-                    node(ExchangeNode.class, node(AggregationNode.class, anyTree(node(TableScanNode.class)))))
-                    .skippingTypesCheck()
-                    .matches(sumDistinctAggregationPushdownExpectedResult());
+            Session withMarkDistinct = Session.builder(getSession())
+                    .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "mark_distinct")
+                    .build();
+            Session withSingleStep = Session.builder(getSession())
+                    .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "single_step")
+                    .build();
+            Session withPreAggregate = Session.builder(getSession())
+                    .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
+                    .build();
+            verifyMultipleDistinctPushdown(
+                    withMarkDistinct,
+                    node(ExchangeNode.class, node(AggregationNode.class, anyTree(node(TableScanNode.class)))),
+                    supportsPushdownWithVarcharInequality,
+                    supportsCountDistinctPushdown,
+                    supportsSumDistinctPushdown,
+                    table);
+            verifyMultipleDistinctPushdown(
+                    withSingleStep,
+                    node(AggregationNode.class, anyTree(node(TableScanNode.class))),
+                    supportsPushdownWithVarcharInequality,
+                    supportsCountDistinctPushdown,
+                    supportsSumDistinctPushdown,
+                    table);
+            verifyMultipleDistinctPushdown(
+                    withPreAggregate,
+                    node(AggregationNode.class, project(node(AggregationNode.class, anyTree(node(GroupIdNode.class, node(TableScanNode.class)))))),
+                    supportsPushdownWithVarcharInequality,
+                    supportsCountDistinctPushdown,
+                    supportsSumDistinctPushdown,
+                    table);
         }
+    }
+
+    private void verifyMultipleDistinctPushdown(
+            Session session,
+            PlanMatchPattern otherwiseExpected,
+            boolean supportsPushdownWithVarcharInequality,
+            boolean supportsCountDistinctPushdown,
+            boolean supportsSumDistinctPushdown,
+            TestTable table)
+    {
+        assertConditionallyPushedDown(session,
+                "SELECT count(DISTINCT a_string), count(DISTINCT a_bigint) FROM " + table.getName(),
+                supportsPushdownWithVarcharInequality && supportsCountDistinctPushdown,
+                otherwiseExpected)
+                .skippingTypesCheck()
+                .matches("VALUES (BIGINT '4', BIGINT '3')");
+
+        assertConditionallyPushedDown(session,
+                "SELECT count(DISTINCT a_char), count(DISTINCT a_bigint) FROM " + table.getName(),
+                supportsPushdownWithVarcharInequality && supportsCountDistinctPushdown,
+                otherwiseExpected)
+                .skippingTypesCheck()
+                .matches("VALUES (BIGINT '4', BIGINT '3')");
+
+        assertConditionallyPushedDown(session,
+                "SELECT count(DISTINCT a_string), sum(DISTINCT a_bigint) FROM " + table.getName(),
+                supportsPushdownWithVarcharInequality && supportsSumDistinctPushdown,
+                otherwiseExpected)
+                .skippingTypesCheck()
+                .matches(sumDistinctAggregationPushdownExpectedResult());
+
+        assertConditionallyPushedDown(session,
+                "SELECT count(DISTINCT a_char), sum(DISTINCT a_bigint) FROM " + table.getName(),
+                supportsPushdownWithVarcharInequality && supportsSumDistinctPushdown,
+                otherwiseExpected)
+                .skippingTypesCheck()
+                .matches(sumDistinctAggregationPushdownExpectedResult());
     }
 
     protected String sumDistinctAggregationPushdownExpectedResult()
@@ -464,7 +513,7 @@ public abstract class BaseJdbcConnectorTest
         }
 
         Session withMarkDistinct = Session.builder(getSession())
-                .setSystemProperty(MARK_DISTINCT_STRATEGY, "always")
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "mark_distinct")
                 .build();
         // distinct aggregation
         assertThat(query(withMarkDistinct, "SELECT count(DISTINCT regionkey) FROM nation")).isFullyPushedDown();
@@ -499,42 +548,59 @@ public abstract class BaseJdbcConnectorTest
                 hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN),
                 node(MarkDistinctNode.class, node(ExchangeNode.class, node(ExchangeNode.class, node(TableScanNode.class)))));
 
-        Session withoutMarkDistinct = Session.builder(getSession())
-                .setSystemProperty(MARK_DISTINCT_STRATEGY, "none")
+        Session withSingleStep = Session.builder(getSession())
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "single_step")
                 .build();
+        Session withPreAggregate = Session.builder(getSession())
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
+                .build();
+
+        verifyDistinctAggregationPushdown(
+                withMarkDistinct,
+                node(MarkDistinctNode.class, node(ExchangeNode.class, node(ExchangeNode.class, node(TableScanNode.class)))));
+        verifyDistinctAggregationPushdown(
+                withSingleStep,
+                node(AggregationNode.class, node(ExchangeNode.class, node(ExchangeNode.class, node(TableScanNode.class)))));
+        verifyDistinctAggregationPushdown(
+                withPreAggregate,
+                node(AggregationNode.class, project(node(AggregationNode.class, anyTree(node(GroupIdNode.class, node(TableScanNode.class)))))));
+    }
+
+    private void verifyDistinctAggregationPushdown(Session session, PlanMatchPattern multiDistinctOtherwiseExpected)
+    {
         // distinct aggregation
-        assertThat(query(withoutMarkDistinct, "SELECT count(DISTINCT regionkey) FROM nation")).isFullyPushedDown();
+        assertThat(query(session, "SELECT count(DISTINCT regionkey) FROM nation")).isFullyPushedDown();
         // distinct aggregation with GROUP BY
-        assertThat(query(withoutMarkDistinct, "SELECT count(DISTINCT nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
+        assertThat(query(session, "SELECT count(DISTINCT nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
         // distinct aggregation with varchar
         assertConditionallyPushedDown(
-                withoutMarkDistinct,
+                session,
                 "SELECT count(DISTINCT comment) FROM nation",
                 hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY),
                 node(AggregationNode.class, node(TableScanNode.class)));
         // two distinct aggregations
         assertConditionallyPushedDown(
-                withoutMarkDistinct,
+                session,
                 "SELECT count(DISTINCT regionkey), count(DISTINCT nationkey) FROM nation",
                 hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT),
-                node(AggregationNode.class, node(ExchangeNode.class, node(ExchangeNode.class, node(TableScanNode.class)))));
+                multiDistinctOtherwiseExpected);
         assertConditionallyPushedDown(
-                withoutMarkDistinct,
+                session,
                 "SELECT sum(DISTINCT regionkey), sum(DISTINCT nationkey) FROM nation",
                 hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN),
-                node(AggregationNode.class, node(ExchangeNode.class, node(ExchangeNode.class, node(TableScanNode.class)))));
+                multiDistinctOtherwiseExpected);
 
         // distinct aggregation and a non-distinct aggregation
         assertConditionallyPushedDown(
-                withoutMarkDistinct,
+                session,
                 "SELECT count(DISTINCT regionkey), sum(nationkey) FROM nation",
                 hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT),
-                node(AggregationNode.class, node(ExchangeNode.class, node(ExchangeNode.class, node(TableScanNode.class)))));
+                multiDistinctOtherwiseExpected);
         assertConditionallyPushedDown(
-                withoutMarkDistinct,
+                session,
                 "SELECT sum(DISTINCT regionkey), sum(nationkey) FROM nation",
                 hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN),
-                node(AggregationNode.class, node(ExchangeNode.class, node(ExchangeNode.class, node(TableScanNode.class)))));
+                multiDistinctOtherwiseExpected);
     }
 
     @Test
@@ -591,27 +657,32 @@ public abstract class BaseJdbcConnectorTest
                 .map(value -> format("'%1$s', '%1$s'", value))
                 .collect(toImmutableList());
 
-        try (TestTable testTable = new TestTable(getQueryRunner()::execute, "distinct_strings", "(t_char CHAR(5), t_varchar VARCHAR(5))", rows)) {
-            if (!(hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN) && hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY))) {
-                // disabling hash generation to prevent extra projections in the plan which make it hard to write matchers for isNotFullyPushedDown
-                Session optimizeHashGenerationDisabled = Session.builder(getSession())
-                        .setSystemProperty("optimize_hash_generation", "false")
-                        .build();
+        Session withMarkDistinct = Session.builder(getSession())
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "mark_distinct")
+                .build();
+        Session withSingleStep = Session.builder(getSession())
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "single_step")
+                .build();
+        Session withPreAggregate = Session.builder(getSession())
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
+                .build();
 
+        try (TestTable testTable = newTrinoTable("distinct_strings", "(t_char CHAR(5), t_varchar VARCHAR(5))", rows)) {
+            if (!(hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN) && hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY))) {
                 // It is not captured in the `isNotFullyPushedDown` calls (can't do that) but depending on the connector in use some aggregations
                 // still can be pushed down to connector.
                 // If `SUPPORTS_AGGREGATION_PUSHDOWN == false` but `SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY == true` the DISTINCT part of aggregation
                 // will still be pushed down to connector as `GROUP BY`. Only the `count` part will remain on the Trino side.
                 // If `SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY == false` both parts of aggregation will be executed on Trino side.
 
-                assertThat(query(optimizeHashGenerationDisabled, "SELECT count(DISTINCT t_varchar) FROM " + testTable.getName()))
+                assertThat(query("SELECT count(DISTINCT t_varchar) FROM " + testTable.getName()))
                         .matches("VALUES BIGINT '7'")
                         .isNotFullyPushedDown(AggregationNode.class);
-                assertThat(query(optimizeHashGenerationDisabled, "SELECT count(DISTINCT t_char) FROM " + testTable.getName()))
+                assertThat(query("SELECT count(DISTINCT t_char) FROM " + testTable.getName()))
                         .matches("VALUES BIGINT '7'")
                         .isNotFullyPushedDown(AggregationNode.class);
 
-                assertThat(query("SELECT count(DISTINCT t_char), count(DISTINCT t_varchar) FROM " + testTable.getName()))
+                assertThat(query(withMarkDistinct, "SELECT count(DISTINCT t_char), count(DISTINCT t_varchar) FROM " + testTable.getName()))
                         .matches("VALUES (BIGINT '7', BIGINT '7')")
                         .isNotFullyPushedDown(MarkDistinctNode.class, ExchangeNode.class, ExchangeNode.class);
             }
@@ -627,10 +698,20 @@ public abstract class BaseJdbcConnectorTest
                         .isFullyPushedDown();
 
                 assertConditionallyPushedDown(
-                        getSession(),
+                        withMarkDistinct,
                         "SELECT count(DISTINCT t_char), count(DISTINCT t_varchar) FROM " + testTable.getName(),
                         hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT),
                         node(MarkDistinctNode.class, node(ExchangeNode.class, node(ExchangeNode.class, node(TableScanNode.class)))));
+                assertConditionallyPushedDown(
+                        withSingleStep,
+                        "SELECT count(DISTINCT t_char), count(DISTINCT t_varchar) FROM " + testTable.getName(),
+                        hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT),
+                        node(AggregationNode.class, anyTree(node(TableScanNode.class))));
+                assertConditionallyPushedDown(
+                        withPreAggregate,
+                        "SELECT count(DISTINCT t_char), count(DISTINCT t_varchar) FROM " + testTable.getName(),
+                        hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT),
+                        node(AggregationNode.class, project(node(AggregationNode.class, anyTree(node(GroupIdNode.class, node(TableScanNode.class)))))));
             }
         }
     }
@@ -908,7 +989,7 @@ public abstract class BaseJdbcConnectorTest
         }
 
         // with TopN over numeric column
-        PlanMatchPattern topnOverTableScan = node(TopNNode.class, anyTree(node(TableScanNode.class)));
+        PlanMatchPattern topnOverTableScan = project(node(TopNNode.class, anyTree(node(TableScanNode.class))));
         assertConditionallyPushedDown(
                 getSession(),
                 "SELECT * FROM (SELECT regionkey FROM nation ORDER BY nationkey ASC LIMIT 10) LIMIT 5",
@@ -1036,8 +1117,7 @@ public abstract class BaseJdbcConnectorTest
             return;
         }
 
-        try (TestTable testTable = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable testTable = newTrinoTable(
                 "test_null_sensitive_topn_pushdown",
                 "(name varchar(10), a bigint)",
                 List.of(
@@ -1099,10 +1179,9 @@ public abstract class BaseJdbcConnectorTest
 
         // topN over varchar/char columns should only be pushed down if the remote systems's sort order matches Trino
         boolean expectTopNPushdown = hasBehavior(SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR);
-        PlanMatchPattern topNOverTableScan = node(TopNNode.class, anyTree(node(TableScanNode.class)));
+        PlanMatchPattern topNOverTableScan = project(node(TopNNode.class, anyTree(node(TableScanNode.class))));
 
-        try (TestTable testTable = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable testTable = newTrinoTable(
                 "test_case_sensitive_topn_pushdown",
                 "(a_string varchar(10), a_char char(10), a_bigint bigint)",
                 List.of(
@@ -1175,7 +1254,6 @@ public abstract class BaseJdbcConnectorTest
                 // Disable dynamic filtering so that expected plans in case of no pushdown remain "simple"
                 .setSystemProperty("enable_dynamic_filtering", "false")
                 // Disable optimized hash generation so that expected plans in case of no pushdown remain "simple"
-                .setSystemProperty("optimize_hash_generation", "false")
                 .build();
 
         assertThat(query(noJoinPushdown, "SELECT r.name, n.name FROM nation n JOIN region r ON n.regionkey = r.regionkey"))
@@ -1193,9 +1271,8 @@ public abstract class BaseJdbcConnectorTest
             return;
         }
 
-        try (TestTable nationLowercaseTable = new TestTable(
+        try (TestTable nationLowercaseTable = newTrinoTable(
                 // If a connector supports Join pushdown, but does not allow CTAS, we need to make the table creation here overridable.
-                getQueryRunner()::execute,
                 "nation_lowercase",
                 "AS SELECT nationkey, lower(name) name, regionkey FROM nation")) {
             for (JoinOperator joinOperator : JoinOperator.values()) {
@@ -1212,12 +1289,11 @@ public abstract class BaseJdbcConnectorTest
                         .setSystemProperty("enable_dynamic_filtering", "false")
                         .build();
 
-                String notDistinctOperator = "IS NOT DISTINCT FROM";
                 List<String> nonEqualities = Stream.concat(
                                 Stream.of(JoinCondition.Operator.values())
-                                        .filter(operator -> operator != JoinCondition.Operator.EQUAL)
+                                        .filter(operator -> operator != JoinCondition.Operator.EQUAL && operator != JoinCondition.Operator.IDENTICAL)
                                         .map(JoinCondition.Operator::getValue),
-                                Stream.of(notDistinctOperator))
+                                Stream.of("IS DISTINCT FROM", "IS NOT DISTINCT FROM"))
                         .collect(toImmutableList());
 
                 // basic case
@@ -1225,6 +1301,13 @@ public abstract class BaseJdbcConnectorTest
 
                 // join over different columns
                 assertThat(query(session, format("SELECT r.name, n.name FROM nation n %s region r ON n.nationkey = r.regionkey", joinOperator))).isFullyPushedDown();
+
+                // filter join condition (effectively empty)
+                assertThat(query(session, format("SELECT n.name FROM nation n %s orders o ON DATE '2025-03-19' = o.orderdate", joinOperator))).joinIsNotFullyPushedDown();
+
+                // no projection on the probe side, only filter
+                assertJoinConditionallyPushedDown(session, format("SELECT n.name FROM nation n %s orders o ON n.regionkey = 1", joinOperator),
+                        expectJoinPushdownOnEmptyProjection(joinOperator));
 
                 // pushdown when using USING
                 assertThat(query(session, format("SELECT r.name, n.name FROM nation n %s region r USING(regionkey)", joinOperator))).isFullyPushedDown();
@@ -1409,13 +1492,18 @@ public abstract class BaseJdbcConnectorTest
 
     protected boolean expectJoinPushdown(String operator)
     {
-        if ("IS NOT DISTINCT FROM".equals(operator)) {
+        if ("IS DISTINCT FROM".equals(operator)) {
             return hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM);
         }
         return switch (toJoinConditionOperator(operator)) {
             case EQUAL, NOT_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> true;
-            case IS_DISTINCT_FROM -> hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM);
+            case IDENTICAL -> hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM);
         };
+    }
+
+    protected static boolean expectJoinPushdownOnEmptyProjection(JoinOperator joinOperator)
+    {
+        return joinOperator == LEFT_JOIN || joinOperator == FULL_JOIN;
     }
 
     protected boolean expectJoinPushdownOnInequalityOperator(JoinOperator joinOperator)
@@ -1426,18 +1514,21 @@ public abstract class BaseJdbcConnectorTest
 
     private boolean expectVarcharJoinPushdown(String operator)
     {
-        if ("IS NOT DISTINCT FROM".equals(operator)) {
+        if ("IS DISTINCT FROM".equals(operator)) {
             return hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM) && hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY);
         }
         return switch (toJoinConditionOperator(operator)) {
             case EQUAL, NOT_EQUAL -> hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY);
             case LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_INEQUALITY);
-            case IS_DISTINCT_FROM -> hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM) && hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY);
+            case IDENTICAL -> hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM) && hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY);
         };
     }
 
     private JoinCondition.Operator toJoinConditionOperator(String operator)
     {
+        if (operator.equals("IS NOT DISTINCT FROM")) {
+            return JoinCondition.Operator.IDENTICAL;
+        }
         return Stream.of(JoinCondition.Operator.values())
                 .filter(joinOperator -> joinOperator.getValue().equals(operator))
                 .collect(toOptional())
@@ -1451,6 +1542,137 @@ public abstract class BaseJdbcConnectorTest
         return Session.builder(session)
                 .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "join_pushdown_enabled", "true")
                 .build();
+    }
+
+    @Test
+    public void testBulkColumnListingOptions()
+    {
+        if (hasBehavior(SUPPORTS_CREATE_SCHEMA)) {
+            String schemaName = "test_columns_listing_" + randomNameSuffix();
+            assertUpdate("CREATE SCHEMA " + schemaName);
+            try {
+                try (TestTable newNation = newTrinoTable(
+                        schemaName + ".nation",
+                        "(name varchar(25), nationkey bigint)");
+                        TestTable newRegion = newTrinoTable(
+                                schemaName + ".region",
+                                "(name varchar(25), regionkey bigint)")) {
+                    if (hasBehavior(SUPPORTS_COMMENT_ON_TABLE)) {
+                        assertUpdate("COMMENT ON TABLE " + newNation.getName() + " IS 'tmp nation copy comment'");
+                    }
+                    String newNationName = newNation.getName().replaceFirst("^" + Pattern.quote(schemaName) + ".", "");
+                    String newRegionName = newRegion.getName().replaceFirst("^" + Pattern.quote(schemaName) + ".", "");
+                    testBulkColumnListingOptions(Optional.of(schemaName), Optional.of(newNationName), Optional.of(newRegionName));
+                }
+            }
+            finally {
+                assertUpdate("DROP SCHEMA " + schemaName);
+            }
+            return;
+        }
+
+        testBulkColumnListingOptions(Optional.empty(), Optional.empty(), Optional.empty());
+    }
+
+    private void testBulkColumnListingOptions(Optional<String> temporarySchema, Optional<String> temporaryNationTable, Optional<String> temporaryRegionTable)
+    {
+        for (boolean bulkListColumns : List.of(false, true)) {
+            try {
+                testBulkColumnListingOptions(temporarySchema, temporaryNationTable, temporaryRegionTable, bulkListColumns);
+            }
+            catch (RuntimeException | AssertionError e) {
+                fail("Failure for bulkListColumns " + bulkListColumns, e);
+            }
+        }
+    }
+
+    private void testBulkColumnListingOptions(Optional<String> temporarySchema, Optional<String> temporaryNationTable, Optional<String> temporaryRegionTable, boolean bulkListColumns)
+    {
+        String catalogName = getSession().getCatalog().orElseThrow();
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(catalogName, JdbcMetadataSessionProperties.BULK_LIST_COLUMNS, Boolean.toString(bulkListColumns))
+                .build();
+
+        try {
+            computeActual(session, "SELECT * FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA");
+        }
+        catch (QueryFailedException maybeExpected) {
+            // Perhaps given mode is not supported
+            assertThat(maybeExpected)
+                    .hasMessage("Error listing table columns for catalog %s: The requested column listing mode is not supported".formatted(catalogName));
+            return;
+        }
+
+        if (temporarySchema.isPresent()) {
+            // Hack for Druid, where numeric columns are NOT NULL by default
+            String numericNullable = (String) computeScalar(
+                    """
+                    SELECT is_nullable FROM information_schema.columns
+                    WHERE table_schema = CURRENT_SCHEMA AND table_name = 'nation' AND column_name = 'nationkey'
+                    """);
+
+            // information_schema.columns for single, isolated schema
+            assertThat(query(session,
+                    """
+                    SELECT table_name, column_name, is_nullable FROM information_schema.columns
+                    WHERE table_schema = '%s'
+                    """.formatted(temporarySchema.get())))
+                    .skippingTypesCheck()
+                    .matches(
+                            """
+                            VALUES
+                                ('%1$s', 'nationkey', '%3$s')
+                              , ('%1$s', 'name', 'YES')
+                              , ('%2$s', 'regionkey', '%3$s')
+                              , ('%2$s', 'name', 'YES')
+                            """.formatted(temporaryNationTable.orElseThrow(), temporaryRegionTable.orElseThrow(), numericNullable));
+
+            // system.jdbc.columns for single, isolated schema
+            assertThat(query(session,
+                    """
+                    SELECT table_name, column_name, is_nullable FROM system.jdbc.columns
+                    WHERE table_cat = CURRENT_CATALOG AND table_schem = '%s'
+                    """.formatted(temporarySchema.get())))
+                    .skippingTypesCheck()
+                    .matches(
+                            """
+                            VALUES
+                                ('%1$s', 'nationkey', '%3$s')
+                              , ('%1$s', 'name', 'YES')
+                              , ('%2$s', 'regionkey', '%3$s')
+                              , ('%2$s', 'name', 'YES')
+                            """.formatted(temporaryNationTable.orElseThrow(), temporaryRegionTable.orElseThrow(), numericNullable));
+        }
+
+        // information_schema.columns for single schema with more tables
+        assertThat(query(session,
+                """
+                SELECT table_name, column_name, is_nullable FROM information_schema.columns
+                WHERE table_schema = CURRENT_SCHEMA
+                AND ((column_name LIKE 'n_me' AND table_name IN ('customer', 'nation')) OR rand() = 42) -- not pushed down into connector
+                """))
+                .skippingTypesCheck()
+                .matches(
+                        """
+                        VALUES
+                            ('customer', 'name', 'YES')
+                          , ('nation', 'name', 'YES')
+                        """);
+
+        // system.jdbc.columns for single schema with more tables
+        assertThat(query(session,
+                """
+                SELECT table_name, column_name, is_nullable FROM system.jdbc.columns
+                WHERE table_cat = CURRENT_CATALOG AND table_schem = CURRENT_SCHEMA
+                AND ((column_name LIKE 'n_me' AND table_name IN ('customer', 'nation')) OR rand() = 42) -- not pushed down into connector
+                """))
+                .skippingTypesCheck()
+                .matches(
+                        """
+                        VALUES
+                            ('customer', 'name', 'YES')
+                          , ('nation', 'name', 'YES')
+                        """);
     }
 
     @Test
@@ -1535,7 +1757,7 @@ public abstract class BaseJdbcConnectorTest
             return;
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "update_not_null", "(nullable_col INTEGER, not_null_col INTEGER NOT NULL)")) {
+        try (TestTable table = newTrinoTable("update_not_null", "(nullable_col INTEGER, not_null_col INTEGER NOT NULL)")) {
             assertUpdate(format("INSERT INTO %s (nullable_col, not_null_col) VALUES (1, 10)", table.getName()), 1);
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 10)");
             assertQueryFails("UPDATE " + table.getName() + " SET not_null_col = NULL WHERE nullable_col = 1", MODIFYING_ROWS_MESSAGE);
@@ -1554,7 +1776,7 @@ public abstract class BaseJdbcConnectorTest
         }
 
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_UPDATE) && hasBehavior(SUPPORTS_ROW_TYPE));
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_update_with_predicates_on_row_types", "(int_t INT, row_t ROW(f1 INT, f2 INT))")) {
+        try (TestTable table = newTrinoTable("test_update_with_predicates_on_row_types", "(int_t INT, row_t ROW(f1 INT, f2 INT))")) {
             String tableName = table.getName();
             assertUpdate("INSERT INTO " + tableName + " VALUES (1, ROW(2, 3)), (11, ROW(12, 13)), (21, ROW(22, 23))", 3);
             assertQueryFails("UPDATE " + tableName + " SET int_t = int_t - 1 WHERE row_t.f2 = 3", MODIFYING_ROWS_MESSAGE);
@@ -1573,7 +1795,7 @@ public abstract class BaseJdbcConnectorTest
         }
 
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_UPDATE));
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_update_row", "(a INT, b INT, c INT)", ImmutableList.of("1, 2, 3"))) {
+        try (TestTable table = newTrinoTable("test_update_row", "(a INT, b INT, c INT)", ImmutableList.of("1, 2, 3"))) {
             assertQueryFails("UPDATE " + table.getName() + " SET a = a + 1", MODIFYING_ROWS_MESSAGE);
         }
     }
@@ -1589,7 +1811,7 @@ public abstract class BaseJdbcConnectorTest
         }
 
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_UPDATE));
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_update_all", "(a INT, b INT, c INT)", ImmutableList.of("1, 2, 3"))) {
+        try (TestTable table = newTrinoTable("test_update_all", "(a INT, b INT, c INT)", ImmutableList.of("1, 2, 3"))) {
             assertUpdate("UPDATE " + table.getName() + " SET a = 1, b = 1, c = 2", 1);
         }
     }
@@ -1606,7 +1828,7 @@ public abstract class BaseJdbcConnectorTest
         }
 
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_UPDATE));
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_row_predicates", "(a INT, b INT, c INT)")) {
+        try (TestTable table = newTrinoTable("test_row_predicates", "(a INT, b INT, c INT)")) {
             String tableName = table.getName();
             assertUpdate("INSERT INTO " + tableName + " VALUES (1, 2, 3), (11, 12, 13), (21, 22, 23)", 3);
             assertUpdate("UPDATE " + tableName + " SET a = 5 WHERE c = 3", 1);
@@ -1641,13 +1863,13 @@ public abstract class BaseJdbcConnectorTest
     public void testConstantUpdateWithVarcharEqualityPredicates()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_UPDATE));
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_update_varchar", "(col1 INT, col2 varchar(1))", ImmutableList.of("1, 'a'", "2, 'A'"))) {
-            if (!hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY)) {
+        try (TestTable table = createTestTableForWrites("test_update_varchar", "(col1 INT, col2 varchar(1), pk INT)", ImmutableList.of("1, 'a', 1", "2, 'A', 2"), "pk")) {
+            if (!hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY) && !hasBehavior(SUPPORTS_ROW_LEVEL_UPDATE)) {
                 assertQueryFails("UPDATE " + table.getName() + " SET col1 = 20 WHERE col2 = 'A'", MODIFYING_ROWS_MESSAGE);
                 return;
             }
             assertUpdate("UPDATE " + table.getName() + " SET col1 = 20 WHERE col2 = 'A'", 1);
-            assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 'a'), (20, 'A')");
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 'a', 1), (20, 'A', 2)");
         }
     }
 
@@ -1655,14 +1877,14 @@ public abstract class BaseJdbcConnectorTest
     public void testConstantUpdateWithVarcharInequalityPredicates()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_UPDATE));
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_update_varchar", "(col1 INT, col2 varchar(1))", ImmutableList.of("1, 'a'", "2, 'A'"))) {
-            if (!hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY)) {
+        try (TestTable table = createTestTableForWrites("test_update_varchar", "(col1 INT, col2 varchar(1), pk INT)", ImmutableList.of("1, 'a', 1", "2, 'A', 2"), "pk")) {
+            if (!hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY) && !hasBehavior(SUPPORTS_ROW_LEVEL_UPDATE)) {
                 assertQueryFails("UPDATE " + table.getName() + " SET col1 = 20 WHERE col2 != 'A'", MODIFYING_ROWS_MESSAGE);
                 return;
             }
 
             assertUpdate("UPDATE " + table.getName() + " SET col1 = 20 WHERE col2 != 'A'", 1);
-            assertQuery("SELECT * FROM " + table.getName(), "VALUES (20, 'a'), (2, 'A')");
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (20, 'a', 1), (2, 'A', 2)");
         }
     }
 
@@ -1670,18 +1892,18 @@ public abstract class BaseJdbcConnectorTest
     public void testConstantUpdateWithVarcharGreaterAndLowerPredicate()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_UPDATE));
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_update_varchar", "(col1 INT, col2 varchar(1))", ImmutableList.of("1, 'a'", "2, 'A'"))) {
-            if (!hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY)) {
+        try (TestTable table = createTestTableForWrites("test_update_varchar", "(col1 INT, col2 varchar(1), pk INT)", ImmutableList.of("1, 'a', 1", "2, 'A', 2"), "pk")) {
+            if (!hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY) && !hasBehavior(SUPPORTS_ROW_LEVEL_UPDATE)) {
                 assertQueryFails("UPDATE " + table.getName() + " SET col1 = 20 WHERE col2 > 'A'", MODIFYING_ROWS_MESSAGE);
                 assertQueryFails("UPDATE " + table.getName() + " SET col1 = 20 WHERE col2 < 'A'", MODIFYING_ROWS_MESSAGE);
                 return;
             }
 
             assertUpdate("UPDATE " + table.getName() + " SET col1 = 20 WHERE col2 > 'A'", 1);
-            assertQuery("SELECT * FROM " + table.getName(), "VALUES (20, 'a'), (2, 'A')");
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (20, 'a', 1), (2, 'A', 2)");
 
             assertUpdate("UPDATE " + table.getName() + " SET col1 = 20 WHERE col2 < 'a'", 1);
-            assertQuery("SELECT * FROM " + table.getName(), "VALUES (20, 'a'), (20, 'A')");
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (20, 'a', 1), (20, 'A', 2)");
         }
     }
 
@@ -1690,7 +1912,7 @@ public abstract class BaseJdbcConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
         // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_bigint", "AS SELECT * FROM region")) {
+        try (TestTable table = newTrinoTable("test_delete_bigint", "AS SELECT * FROM region")) {
             assertUpdate("DELETE FROM " + table.getName() + " WHERE regionkey = 1", 1);
             assertQuery(
                     "SELECT regionkey, name FROM " + table.getName(),
@@ -1707,14 +1929,14 @@ public abstract class BaseJdbcConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
         // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_varchar", "(col varchar(1))", ImmutableList.of("'a'", "'A'", "null"))) {
-            if (!hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY)) {
+        try (TestTable table = createTestTableForWrites( "test_delete_varchar", "(col varchar(1), pk INT)", ImmutableList.of("'a', 1", "'A', 2", "null, 3"), "pk")) {
+            if (!hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY) && !hasBehavior(SUPPORTS_ROW_LEVEL_UPDATE)) {
                 assertQueryFails("DELETE FROM " + table.getName() + " WHERE col = 'A'", MODIFYING_ROWS_MESSAGE);
                 return;
             }
 
             assertUpdate("DELETE FROM " + table.getName() + " WHERE col = 'A'", 1);
-            assertQuery("SELECT * FROM " + table.getName(), "VALUES 'a', null");
+            assertQuery("SELECT col FROM " + table.getName(), "VALUES 'a', null");
         }
     }
 
@@ -1723,14 +1945,14 @@ public abstract class BaseJdbcConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
         // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_varchar", "(col varchar(1))", ImmutableList.of("'a'", "'A'", "null"))) {
+        try (TestTable table = createTestTableForWrites("test_delete_varchar", "(col varchar(1), pk int)", ImmutableList.of("'a', 0", "'A', 1", "null, 2"), "pk")) {
             if (!hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY) && !hasBehavior(SUPPORTS_MERGE)) {
                 assertQueryFails("DELETE FROM " + table.getName() + " WHERE col != 'A'", MODIFYING_ROWS_MESSAGE);
                 return;
             }
 
             assertUpdate("DELETE FROM " + table.getName() + " WHERE col != 'A'", 1);
-            assertQuery("SELECT * FROM " + table.getName(), "VALUES 'A', null");
+            assertQuery("SELECT col FROM " + table.getName(), "VALUES 'A', null");
         }
     }
 
@@ -1739,7 +1961,7 @@ public abstract class BaseJdbcConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
         // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_varchar", "(col varchar(1))", ImmutableList.of("'0'", "'a'", "'A'", "'b'", "null"))) {
+        try (TestTable table = createTestTableForWrites("test_delete_varchar", "(col varchar(1), pk int)", ImmutableList.of("'0', 0", "'a', 1", "'A', 2", "'b', 3", "null, 4"), "pk")) {
             if (!hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY) && !hasBehavior(SUPPORTS_MERGE)) {
                 assertQueryFails("DELETE FROM " + table.getName() + " WHERE col < 'A'", MODIFYING_ROWS_MESSAGE);
                 assertQueryFails("DELETE FROM " + table.getName() + " WHERE col > 'A'", MODIFYING_ROWS_MESSAGE);
@@ -1747,9 +1969,9 @@ public abstract class BaseJdbcConnectorTest
             }
 
             assertUpdate("DELETE FROM " + table.getName() + " WHERE col < 'A'", 1);
-            assertQuery("SELECT * FROM " + table.getName(), "VALUES 'a', 'A', 'b', null");
+            assertQuery("SELECT col FROM " + table.getName(), "VALUES 'a', 'A', 'b', null");
             assertUpdate("DELETE FROM " + table.getName() + " WHERE col > 'A'", 2);
-            assertQuery("SELECT * FROM " + table.getName(), "VALUES 'A', null");
+            assertQuery("SELECT col FROM " + table.getName(), "VALUES 'A', null");
         }
     }
 
@@ -1806,6 +2028,25 @@ public abstract class BaseJdbcConnectorTest
     }
 
     @Test
+    public void testMergeTargetWithoutPrimaryKeys()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_MERGE));
+
+        String tableName = "test_merge_target_no_pks_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (a int, b int)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES(1, 1), (2, 2)", 2);
+
+        assertQueryFails(format("DELETE FROM %s WHERE a IS NOT NULL AND abs(a + b) > 10", tableName), "The connector can not perform merge on the target table without primary keys");
+        assertQueryFails(format("UPDATE %s SET a = a+b WHERE a IS NOT NULL AND (a + b) > 10", tableName), "The connector can not perform merge on the target table without primary keys");
+        assertQueryFails(format("MERGE INTO %s t USING (VALUES (3, 3)) AS s(x, y) " +
+                "   ON t.a = s.x " +
+                "   WHEN MATCHED THEN UPDATE SET b = y " +
+                "   WHEN NOT MATCHED THEN INSERT (a, b) VALUES (s.x, s.y) ", tableName), "The connector can not perform merge on the target table without primary keys");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     @Override
     public void testDeleteWithVarcharPredicate()
     {
@@ -1822,8 +2063,7 @@ public abstract class BaseJdbcConnectorTest
                 .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "non_transactional_insert", "false")
                 .build();
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_bypass_temp",
                 "(a varchar(36), b bigint)")) {
             int numberOfRows = 50;
@@ -1852,8 +2092,7 @@ public abstract class BaseJdbcConnectorTest
                 .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "write_batch_size", Integer.toString(batchSize))
                 .build();
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "write_batch_size",
                 "(a varchar(36), b bigint)")) {
             String values = String.join(",", buildRowsForInsert(numberOfRows));
@@ -1883,8 +2122,7 @@ public abstract class BaseJdbcConnectorTest
                 .build();
 
         QueryRunner queryRunner = getQueryRunner();
-        try (TestTable table = new TestTable(
-                queryRunner::execute,
+        try (TestTable table = newTrinoTable(
                 "write_parallelism",
                 "(a varchar(128), b bigint)")) {
             Plan plan = newTransaction()
@@ -2054,11 +2292,13 @@ public abstract class BaseJdbcConnectorTest
                 .orElse(65536 + 5);
 
         String validColumnName = baseColumnName + "z".repeat(maxLength - baseColumnName.length());
-        try (TestTable left = new TestTable(getQueryRunner()::execute, "test_long_id_l", format("(%s BIGINT)", validColumnName));
-                TestTable right = new TestTable(getQueryRunner()::execute, "test_long_id_r", format("(%s BIGINT)", validColumnName))) {
-            assertThat(query(joinPushdownEnabled(getSession()), """
+        try (TestTable left = newTrinoTable("test_long_id_l", format("(%s BIGINT)", validColumnName));
+                TestTable right = newTrinoTable("test_long_id_r", format("(%s BIGINT)", validColumnName))) {
+            assertThat(query(joinPushdownEnabled(getSession()),
+                    """
                     SELECT l.%1$s, r.%1$s
-                    FROM %2$s l JOIN %3$s r ON l.%1$s = r.%1$s""".formatted(validColumnName, left.getName(), right.getName())))
+                    FROM %2$s l JOIN %3$s r ON l.%1$s = r.%1$s\
+                    """.formatted(validColumnName, left.getName(), right.getName())))
                     .isFullyPushedDown();
         }
     }
@@ -2181,8 +2421,7 @@ public abstract class BaseJdbcConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
         skipTestUnless(hasBehavior(SUPPORTS_DYNAMIC_FILTER_PUSHDOWN));
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_caseinsensitive",
                 "(id varchar(1))",
                 ImmutableList.of("'0'", "'a'", "'B'"))) {
@@ -2194,6 +2433,55 @@ public abstract class BaseJdbcConnectorTest
                     .getOnlyValue())
                     .isEqualTo(3L);
         }
+    }
+
+    @Test
+    public void testExecuteProcedure()
+    {
+        String tableName = "test_execute" + randomNameSuffix();
+        String schemaTableName = getSession().getSchema().orElseThrow() + "." + tableName;
+
+        assertUpdate("CREATE TABLE " + schemaTableName + "(a int)");
+        try {
+            assertUpdate("CALL system.execute('INSERT INTO " + schemaTableName + " VALUES (1)')");
+            assertQuery("SELECT * FROM " + schemaTableName, "VALUES 1");
+
+            assertUpdate("CALL system.execute('UPDATE " + schemaTableName + " SET a = 2')");
+            assertQuery("SELECT * FROM " + schemaTableName, "VALUES 2");
+
+            assertUpdate("CALL system.execute('DELETE FROM " + schemaTableName + "')");
+            assertQueryReturnsEmptyResult("SELECT * FROM " + schemaTableName);
+
+            assertUpdate("CALL system.execute('DROP TABLE " + schemaTableName + "')");
+            assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + schemaTableName);
+        }
+    }
+
+    @Test
+    public void testExecuteProcedureWithNamedArgument()
+    {
+        String tableName = "test_execute" + randomNameSuffix();
+        String schemaTableName = getSession().getSchema().orElseThrow() + "." + tableName;
+
+        assertUpdate("CREATE TABLE " + schemaTableName + "(a int)");
+        try {
+            assertThat(getQueryRunner().tableExists(getSession(), tableName)).isTrue();
+            assertUpdate("CALL system.execute(query => 'DROP TABLE " + schemaTableName + "')");
+            assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + schemaTableName);
+        }
+    }
+
+    @Test
+    public void testExecuteProcedureWithInvalidQuery()
+    {
+        assertQueryFails("CALL system.execute('SELECT 1')", "(?s)Failed to execute query.*");
+        assertQueryFails("CALL system.execute('invalid')", "(?s)Failed to execute query.*");
     }
 
     protected void assertDynamicFiltering(@Language("SQL") String sql, JoinDistributionType joinDistributionType)

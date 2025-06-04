@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.tpch;
 
+import com.google.inject.Inject;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
@@ -21,18 +22,28 @@ import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.tpch.TpchTable;
 
 import java.util.List;
+
+import static io.trino.plugin.tpch.TpchRecordSet.getRecordSet;
+import static java.util.Objects.requireNonNull;
 
 public class TpchPageSourceProvider
         implements ConnectorPageSourceProvider
 {
-    private final TpchRecordSetProvider tpchRecordSetProvider;
+    private final DecimalTypeMapping decimalTypeMapping;
     private final int maxRowsPerPage;
 
-    TpchPageSourceProvider(int maxRowsPerPage, DecimalTypeMapping decimalTypeMapping)
+    @Inject
+    TpchPageSourceProvider(TpchConfig config)
     {
-        this.tpchRecordSetProvider = new TpchRecordSetProvider(decimalTypeMapping);
+        this(requireNonNull(config, "config is null").getMaxRowsPerPage(), config.getDecimalTypeMapping());
+    }
+
+    public TpchPageSourceProvider(int maxRowsPerPage, DecimalTypeMapping decimalTypeMapping)
+    {
+        this.decimalTypeMapping = requireNonNull(decimalTypeMapping, "decimalTypeMapping is null");
         this.maxRowsPerPage = maxRowsPerPage;
     }
 
@@ -45,6 +56,18 @@ public class TpchPageSourceProvider
             List<ColumnHandle> columns,
             DynamicFilter dynamicFilter)
     {
-        return new LazyRecordPageSource(maxRowsPerPage, tpchRecordSetProvider.getRecordSet(transaction, session, split, table, columns));
+        TpchSplit tpchSplit = (TpchSplit) split;
+        TpchTableHandle tpchTable = (TpchTableHandle) table;
+
+        return new TpchPageSource(
+                maxRowsPerPage,
+                getRecordSet(
+                        TpchTable.getTable(tpchTable.tableName()),
+                        columns,
+                        tpchTable.scaleFactor(),
+                        tpchSplit.getPartNumber(),
+                        tpchSplit.getTotalParts(),
+                        tpchTable.constraint(),
+                        decimalTypeMapping));
     }
 }

@@ -53,9 +53,7 @@ public class EnforceSingleRowOperator
         {
             Block[] columns = new Block[types.size()];
             for (int i = 0; i < types.size(); i++) {
-                columns[i] = types.get(i).createBlockBuilder(null, 1)
-                        .appendNull()
-                        .build();
+                columns[i] = types.get(i).createNullBlock();
             }
             return new Page(1, columns);
         }

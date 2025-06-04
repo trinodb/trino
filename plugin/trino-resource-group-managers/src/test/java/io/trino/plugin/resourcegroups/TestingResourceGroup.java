@@ -35,6 +35,7 @@ public class TestingResourceGroup
     private int schedulingWeight;
     private SchedulingPolicy policy;
     private boolean jmxExport;
+    private boolean disabled;
 
     public TestingResourceGroup(ResourceGroupId id)
     {
@@ -165,5 +166,17 @@ public class TestingResourceGroup
     public void setJmxExport(boolean export)
     {
         jmxExport = export;
+    }
+
+    @Override
+    public boolean isDisabled()
+    {
+        return disabled;
+    }
+
+    @Override
+    public void setDisabled(boolean disabled)
+    {
+        this.disabled = disabled;
     }
 }

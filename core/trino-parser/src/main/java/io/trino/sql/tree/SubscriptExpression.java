@@ -27,17 +27,15 @@ public class SubscriptExpression
     private final Expression base;
     private final Expression index;
 
+    @Deprecated
     public SubscriptExpression(Expression base, Expression index)
     {
-        this(Optional.empty(), base, index);
+        super(Optional.empty());
+        this.base = requireNonNull(base, "base is null");
+        this.index = requireNonNull(index, "index is null");
     }
 
     public SubscriptExpression(NodeLocation location, Expression base, Expression index)
-    {
-        this(Optional.of(location), base, index);
-    }
-
-    private SubscriptExpression(Optional<NodeLocation> location, Expression base, Expression index)
     {
         super(location);
         this.base = requireNonNull(base, "base is null");

@@ -20,7 +20,6 @@ import io.trino.testing.TestingConnectorContext;
 import org.junit.jupiter.api.Test;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.airlift.testing.Assertions.assertInstanceOf;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestRedisPlugin
@@ -31,7 +30,7 @@ public class TestRedisPlugin
         RedisPlugin plugin = new RedisPlugin();
 
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        assertInstanceOf(factory, RedisConnectorFactory.class);
+        assertThat(factory).isInstanceOf(RedisConnectorFactory.class);
 
         Connector connector = factory.create(
                 "test-connector",

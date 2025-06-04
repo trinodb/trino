@@ -13,8 +13,9 @@
  */
 package io.trino.verifier;
 
-import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 import org.junit.jupiter.api.Test;
@@ -40,20 +41,20 @@ public class TestVerifierConfig
                 .setTestPasswordOverride(null)
                 .setControlPasswordOverride(null)
                 .setSuite(null)
-                .setSuites(null)
-                .setControlQueryTypes(Joiner.on(",").join(READ, CREATE, MODIFY))
-                .setTestQueryTypes(Joiner.on(",").join(READ, CREATE, MODIFY))
+                .setSuites(ImmutableList.of())
+                .setControlQueryTypes(ImmutableSet.of(READ, CREATE, MODIFY))
+                .setTestQueryTypes(ImmutableSet.of(READ, CREATE, MODIFY))
                 .setSource(null)
                 .setRunId(new DateTime().toString("yyyy-MM-dd"))
-                .setEventClients("human-readable")
+                .setEventClients(ImmutableSet.of("human-readable"))
                 .setThreadCount(10)
                 .setQueryDatabase(null)
                 .setControlGateway(null)
                 .setTestGateway(null)
                 .setControlTimeout(new Duration(10, TimeUnit.MINUTES))
                 .setTestTimeout(new Duration(1, TimeUnit.HOURS))
-                .setBannedQueries("")
-                .setAllowedQueries("")
+                .setBannedQueries(ImmutableSet.of())
+                .setAllowedQueries(ImmutableSet.of())
                 .setMaxRowCount(10_000)
                 .setMaxQueries(1_000_000)
                 .setAlwaysReport(false)
@@ -94,8 +95,8 @@ public class TestVerifierConfig
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("suites", "my_suite")
                 .put("suite", "my_suite")
-                .put("control.query-types", Joiner.on(",").join(CREATE, MODIFY))
-                .put("test.query-types", MODIFY.name())
+                .put("control.query-types", "create,modify")
+                .put("test.query-types", "modify")
                 .put("source", "my_source")
                 .put("run-id", "my_run_id")
                 .put("event-client", "file,human-readable")
@@ -146,16 +147,16 @@ public class TestVerifierConfig
                 .buildOrThrow();
 
         VerifierConfig expected = new VerifierConfig().setTestUsernameOverride("verifier-test")
-                .setSuites("my_suite")
+                .setSuites(ImmutableList.of("my_suite"))
                 .setSuite("my_suite")
-                .setControlQueryTypes(Joiner.on(",").join(CREATE, MODIFY))
-                .setTestQueryTypes(MODIFY.name())
+                .setControlQueryTypes(ImmutableSet.of(CREATE, MODIFY))
+                .setTestQueryTypes(ImmutableSet.of(MODIFY))
                 .setSource("my_source")
                 .setRunId("my_run_id")
-                .setEventClients("file,human-readable")
+                .setEventClients(ImmutableSet.of("file", "human-readable"))
                 .setThreadCount(1)
-                .setBannedQueries("1,2")
-                .setAllowedQueries("3,4")
+                .setBannedQueries(ImmutableSet.of("1", "2"))
+                .setAllowedQueries(ImmutableSet.of("3", "4"))
                 .setMaxRowCount(1)
                 .setMaxQueries(1)
                 .setAlwaysReport(true)

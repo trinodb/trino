@@ -56,7 +56,7 @@ public class TestGeometryStateFactory
     {
         GeometryState state = factory.createGroupedState();
         assertThat(state.getGeometry()).isNull();
-        assertThat(state instanceof GeometryStateFactory.GroupedGeometryState).isTrue();
+        assertThat(state).isInstanceOf(GeometryStateFactory.GroupedGeometryState.class);
         GeometryStateFactory.GroupedGeometryState groupedState = (GeometryStateFactory.GroupedGeometryState) state;
 
         groupedState.setGroupId(1);

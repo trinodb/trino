@@ -5,19 +5,27 @@ users to access Trino using Java-based applications, and other non-Java
 applications running in a JVM. Both desktop and server-side applications, such
 as those used for reporting and database development, use the JDBC driver.
 
+The JDBC driver uses the [](/client/client-protocol) over HTTP/HTTPS to
+communicate with the coordinator on the cluster.
+
 ## Requirements
 
 The Trino JDBC driver has the following requirements:
 
-- Java version 8 or higher.
+- Java version 11 or higher. Java 22 or higher is recommended for improved
+  decompression performance.
 - All users that connect to Trino with the JDBC driver must be granted access to
   query tables in the `system.jdbc` schema.
+- Network access over HTTP/HTTPS to the coordinator of the Trino cluster.
+- Network access to the configured object storage, if the
+  [](jdbc-spooling-protocol) is enabled.
 
 The JDBC driver version should be identical to the version of the Trino cluster,
 or newer. Older versions typically work, but only a subset is regularly tested.
 Versions before 350 are not supported.
 
-## Installing
+(jdbc-installation)=
+## Installation
 
 Download {maven_download}`jdbc` and add it to the classpath of your Java application.
 
@@ -44,10 +52,6 @@ classpath, you'll typically need to restart your application in order to
 recognize the new driver. Then, depending on your application, you
 may need to manually register and configure the driver.
 
-The CLI uses the HTTP protocol and the
-{doc}`Trino client REST API </develop/client-protocol>` to communicate
-with Trino.
-
 ## Registering and configuring the driver
 
 Drivers are commonly loaded automatically by applications once they are added to
@@ -70,6 +74,9 @@ jdbc:trino://host:port/catalog
 jdbc:trino://host:port/catalog/schema
 ```
 
+The value for `port` is optional if Trino is available at the default HTTP port
+`80` or with `SSL=true` and the default HTTPS port `443`.
+
 The following is an example of a JDBC URL used to create a connection:
 
 ```text
@@ -86,7 +93,6 @@ classname is required.
 :::
 
 (jdbc-java-connection)=
-
 ## Connection parameters
 
 The driver supports various parameters that may be set as URL parameters,
@@ -112,7 +118,6 @@ while others are specified using properties. However, the same parameter
 may not be specified using both methods.
 
 (jdbc-parameter-reference)=
-
 ## Parameter reference
 
 :::{list-table}
@@ -135,6 +140,9 @@ may not be specified using both methods.
   - Extra information about the client.
 * - `clientTags`
   - Client tags for selecting resource groups. Example: `abc,xyz`
+* - `path`
+  - Set the default [SQL path](/sql/set-path) for the session. Useful for
+    setting a catalog and schema location for [](udf-catalog).
 * - `traceToken`
   - Trace token for correlating requests across systems.
 * - `source`
@@ -165,6 +173,12 @@ may not be specified using both methods.
 * - `SSLKeyStoreType`
   - The type of the KeyStore. The default type is provided by the Java
     `keystore.type` security property or `jks` if none exists.
+* - `SSLUseSystemKeyStore`
+  - Set `true` to automatically use the system KeyStore based on the operating
+    system. The supported OSes are Windows and macOS. For Windows, the
+    `Windows-MY` KeyStore is selected. For macOS, the `KeychainStore`
+    KeyStore is selected. For other OSes, the default Java KeyStore is loaded.
+    The KeyStore specification can be overridden using `SSLKeyStoreType`.
 * - `SSLTrustStorePath`
   - The location of the Java TrustStore file to use to validate HTTPS server
     certificates.
@@ -250,4 +264,25 @@ may not be specified using both methods.
     `PREPARE <statement>` followed by `EXECUTE <statement>`. This reduces
     network overhead and uses smaller HTTP headers and requires Trino 431 or
     greater.
+* - `encoding`
+  - Set the encoding when using the [spooling protocol](jdbc-spooling-protocol).
+    Valid values are JSON with Zstandard compression, `json+zstd` (recommended),
+    JSON with LZ4 compression `json+lz4`, and uncompressed JSON `json`. By
+    default, the default encoding configured on the cluster is used.
+* - `validateConnection`
+  - Defaults to `false`. If set to `true`, connectivity and credentials are validated 
+    when the connection is created, and when `java.sql.Connection.isValid(int)` is called.
 :::
+
+(jdbc-spooling-protocol)=
+## Spooling protocol
+
+The Trino JDBC driver automatically uses of the spooling protocol to improve
+throughput for client interactions with higher data transfer demands, if the
+[](protocol-spooling) is configured on the cluster.
+
+Optionally use the `encoding` parameter to configure a different desired
+encoding, compared to the default on the cluster.
+
+The JVM process using the JDBC driver must have network access to the spooling
+object storage.

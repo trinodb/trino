@@ -57,7 +57,7 @@ public final class DateCoercer
                 }
                 toType.writeLong(blockBuilder, localDate.toEpochDay());
             }
-            catch (DateTimeParseException ignored) {
+            catch (DateTimeParseException _) {
                 throw new IllegalArgumentException("Invalid date value: " + value + " is not a valid date");
             }
         }
@@ -85,7 +85,7 @@ public final class DateCoercer
                 }
                 toType.writeSlice(blockBuilder, converted);
             }
-            catch (DateTimeException ignored) {
+            catch (DateTimeException _) {
                 throw new IllegalArgumentException("Invalid date value: " + value + " is exceeding supported date range");
             }
         }

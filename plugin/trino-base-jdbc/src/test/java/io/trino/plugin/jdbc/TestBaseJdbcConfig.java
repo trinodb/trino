@@ -14,6 +14,7 @@
 package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.ConfigurationFactory;
 import io.airlift.units.Duration;
 import jakarta.validation.constraints.AssertTrue;
@@ -38,7 +39,7 @@ public class TestBaseJdbcConfig
     {
         assertRecordedDefaults(recordDefaults(BaseJdbcConfig.class)
                 .setConnectionUrl(null)
-                .setJdbcTypesMappedToVarchar("")
+                .setJdbcTypesMappedToVarchar(ImmutableSet.of())
                 .setMetadataCacheTtl(ZERO)
                 .setSchemaNamesCacheTtl(null)
                 .setTableNamesCacheTtl(null)
@@ -63,7 +64,7 @@ public class TestBaseJdbcConfig
 
         BaseJdbcConfig expected = new BaseJdbcConfig()
                 .setConnectionUrl("jdbc:h2:mem:config")
-                .setJdbcTypesMappedToVarchar("mytype, struct_type1")
+                .setJdbcTypesMappedToVarchar(ImmutableSet.of("mytype", "struct_type1"))
                 .setMetadataCacheTtl(new Duration(1, SECONDS))
                 .setSchemaNamesCacheTtl(new Duration(2, SECONDS))
                 .setTableNamesCacheTtl(new Duration(3, SECONDS))

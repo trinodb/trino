@@ -20,14 +20,16 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-class InMemoryTrinoResultSet
+import static io.trino.client.CloseableIterator.closeable;
+
+public class InMemoryTrinoResultSet
         extends AbstractTrinoResultSet
 {
     private final AtomicBoolean closed = new AtomicBoolean();
 
     public InMemoryTrinoResultSet(List<Column> columns, List<List<Object>> results)
     {
-        super(Optional.empty(), columns, results.iterator());
+        super(Optional.empty(), columns, closeable(results.iterator()));
     }
 
     @Override

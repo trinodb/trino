@@ -13,133 +13,141 @@
  */
 package io.trino.plugin.iceberg;
 
-import io.trino.plugin.iceberg.PartitionTransforms.ColumnTransform;
 import io.trino.plugin.iceberg.PartitionTransforms.ValueTransform;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.RowBlock;
 import io.trino.spi.connector.BucketFunction;
-import io.trino.spi.type.Type;
+import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.type.TypeOperators;
-import org.apache.iceberg.PartitionSpec;
 
 import java.lang.invoke.MethodHandle;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.function.ToIntFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.iceberg.PartitionTransforms.getColumnTransform;
+import static io.trino.plugin.iceberg.IcebergPartitionFunction.Transform.BUCKET;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.type.TypeUtils.NULL_HASH_CODE;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 public class IcebergBucketFunction
-        implements BucketFunction
+        implements BucketFunction, ToIntFunction<ConnectorSplit>
 {
     private final int bucketCount;
+    private final List<HashFunction> functions;
 
-    private final List<PartitionColumn> partitionColumns;
-    private final List<MethodHandle> hashCodeInvokers;
+    private final boolean singleBucketFunction;
 
-    public IcebergBucketFunction(
-            TypeOperators typeOperators,
-            PartitionSpec partitionSpec,
-            List<IcebergColumnHandle> partitioningColumns,
-            int bucketCount)
+    public IcebergBucketFunction(IcebergPartitioningHandle partitioningHandle, TypeOperators typeOperators, int bucketCount)
     {
-        requireNonNull(partitionSpec, "partitionSpec is null");
-        checkArgument(!partitionSpec.isUnpartitioned(), "empty partitionSpec");
-        requireNonNull(partitioningColumns, "partitioningColumns is null");
+        requireNonNull(partitioningHandle, "partitioningHandle is null");
         requireNonNull(typeOperators, "typeOperators is null");
         checkArgument(bucketCount > 0, "Invalid bucketCount: %s", bucketCount);
 
         this.bucketCount = bucketCount;
+        List<IcebergPartitionFunction> partitionFunctions = partitioningHandle.partitionFunctions();
+        this.functions = partitionFunctions.stream()
+                .map(partitionFunction -> HashFunction.create(partitionFunction, typeOperators))
+                .collect(toImmutableList());
 
-        Map<Integer, Integer> fieldIdToInputChannel = new HashMap<>();
-        for (int i = 0; i < partitioningColumns.size(); i++) {
-            Integer previous = fieldIdToInputChannel.put(partitioningColumns.get(i).getId(), i);
-            checkState(previous == null, "Duplicate id %s in %s at %s and %s", partitioningColumns.get(i).getId(), partitioningColumns, i, previous);
-        }
-        partitionColumns = partitionSpec.fields().stream()
-                .map(field -> {
-                    Integer channel = fieldIdToInputChannel.get(field.sourceId());
-                    checkArgument(channel != null, "partition field not found: %s", field);
-                    Type inputType = partitioningColumns.get(channel).getType();
-                    ColumnTransform transform = getColumnTransform(field, inputType);
-                    return new PartitionColumn(channel, transform.getValueTransform(), transform.getType());
-                })
-                .collect(toImmutableList());
-        hashCodeInvokers = partitionColumns.stream()
-                .map(PartitionColumn::getResultType)
-                .map(type -> typeOperators.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL)))
-                .collect(toImmutableList());
+        this.singleBucketFunction = partitionFunctions.size() == 1 &&
+                partitionFunctions.getFirst().transform() == BUCKET &&
+                partitionFunctions.getFirst().size().orElseThrow() == bucketCount;
     }
 
     @Override
     public int getBucket(Page page, int position)
     {
-        long hash = 0;
+        if (singleBucketFunction) {
+            long bucket = (long) requireNonNullElse(functions.getFirst().getValue(page, position), 0L);
+            checkArgument(0 <= bucket && bucket < bucketCount, "Bucket value out of range: %s (bucketCount: %s)", bucket, bucketCount);
+            return (int) bucket;
+        }
 
-        for (int i = 0; i < partitionColumns.size(); i++) {
-            PartitionColumn partitionColumn = partitionColumns.get(i);
-            Block block = page.getBlock(partitionColumn.getSourceChannel());
-            Object value = partitionColumn.getValueTransform().apply(block, position);
-            long valueHash = hashValue(hashCodeInvokers.get(i), value);
+        long hash = 0;
+        for (HashFunction function : functions) {
+            long valueHash = function.computeHash(page, position);
             hash = (31 * hash) + valueHash;
         }
 
         return (int) ((hash & Long.MAX_VALUE) % bucketCount);
     }
 
-    private static long hashValue(MethodHandle method, Object value)
+    @Override
+    public int applyAsInt(ConnectorSplit split)
     {
-        if (value == null) {
-            return NULL_HASH_CODE;
+        List<Object> partitionValues = ((IcebergSplit) split).getPartitionValues()
+                .orElseThrow(() -> new IllegalArgumentException("Split does not contain partition values"));
+
+        if (singleBucketFunction) {
+            long bucket = (long) requireNonNullElse(partitionValues.getFirst(), 0L);
+            checkArgument(0 <= bucket && bucket < bucketCount, "Bucket value out of range: %s (bucketCount: %s)", bucket, bucketCount);
+            return (int) bucket;
         }
-        try {
-            return (long) method.invoke(value);
+
+        long hash = 0;
+        for (int i = 0; i < functions.size(); i++) {
+            long valueHash = functions.get(i).computeHash(partitionValues.get(i));
+            hash = (31 * hash) + valueHash;
         }
-        catch (Throwable throwable) {
-            if (throwable instanceof Error) {
-                throw (Error) throwable;
-            }
-            if (throwable instanceof RuntimeException) {
-                throw (RuntimeException) throwable;
-            }
-            throw new RuntimeException(throwable);
-        }
+
+        return (int) ((hash & Long.MAX_VALUE) % bucketCount);
     }
 
-    private static class PartitionColumn
+    private record HashFunction(List<Integer> dataPath, ValueTransform valueTransform, MethodHandle hashCodeOperator)
     {
-        private final int sourceChannel;
-        private final ValueTransform valueTransform;
-        private final Type resultType;
-
-        public PartitionColumn(int sourceChannel, ValueTransform valueTransform, Type resultType)
+        private static HashFunction create(IcebergPartitionFunction partitionFunction, TypeOperators typeOperators)
         {
-            this.sourceChannel = sourceChannel;
-            this.valueTransform = requireNonNull(valueTransform, "valueTransform is null");
-            this.resultType = requireNonNull(resultType, "resultType is null");
+            PartitionTransforms.ColumnTransform columnTransform = PartitionTransforms.getColumnTransform(partitionFunction);
+            return new HashFunction(
+                    partitionFunction.dataPath(),
+                    columnTransform.valueTransform(),
+                    typeOperators.getHashCodeOperator(columnTransform.type(), simpleConvention(FAIL_ON_NULL, NEVER_NULL)));
         }
 
-        public int getSourceChannel()
+        private HashFunction
         {
-            return sourceChannel;
+            requireNonNull(valueTransform, "valueTransform is null");
+            requireNonNull(hashCodeOperator, "hashCodeOperator is null");
         }
 
-        public Type getResultType()
+        public Object getValue(Page page, int position)
         {
-            return resultType;
+            Block block = page.getBlock(dataPath.getFirst());
+            for (int i = 1; i < dataPath.size(); i++) {
+                position = block.getUnderlyingValuePosition(position);
+                block = ((RowBlock) block.getUnderlyingValueBlock()).getFieldBlock(dataPath.get(i));
+            }
+            return valueTransform.apply(block, position);
         }
 
-        public ValueTransform getValueTransform()
+        public long computeHash(Page page, int position)
         {
-            return valueTransform;
+            return computeHash(getValue(page, position));
+        }
+
+        private long computeHash(Object value)
+        {
+            if (value == null) {
+                return NULL_HASH_CODE;
+            }
+            try {
+                return (long) hashCodeOperator.invoke(value);
+            }
+            catch (Throwable throwable) {
+                if (throwable instanceof Error error) {
+                    throw error;
+                }
+                if (throwable instanceof RuntimeException runtimeException) {
+                    throw runtimeException;
+                }
+                throw new RuntimeException(throwable);
+            }
         }
     }
 }

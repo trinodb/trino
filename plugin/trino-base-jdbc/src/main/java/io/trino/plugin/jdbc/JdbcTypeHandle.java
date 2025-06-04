@@ -58,6 +58,6 @@ public record JdbcTypeHandle(
                 + sizeOf(columnSize, SizeOf::sizeOf)
                 + sizeOf(decimalDigits, SizeOf::sizeOf)
                 + sizeOf(arrayDimensions, SizeOf::sizeOf)
-                + sizeOf(caseSensitivity, ignored -> 0);
+                + sizeOf(caseSensitivity, _ -> 0);
     }
 }

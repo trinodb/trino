@@ -477,7 +477,7 @@ public class TableFunctionOperator
         PagesHashStrategy prePartitionedStrategy = hashStrategies.prePartitionedStrategy;
         Page prePartitionedPage = page.getColumns(hashStrategies.prePartitionedChannelsArray);
 
-        if (pagesIndex.getPositionCount() == 0 || pagesIndex.positionNotDistinctFromRow(prePartitionedStrategy, 0, startPosition, prePartitionedPage)) {
+        if (pagesIndex.getPositionCount() == 0 || pagesIndex.positionIdenticalToRow(prePartitionedStrategy, 0, startPosition, prePartitionedPage)) {
             // we are within the current group. find the position where the pre-grouped columns change
             int groupEnd = findGroupEnd(prePartitionedPage, prePartitionedStrategy, startPosition);
 
@@ -518,7 +518,7 @@ public class TableFunctionOperator
         checkArgument(page.getPositionCount() > 0, "Must have at least one position");
         checkPositionIndex(startPosition, page.getPositionCount(), "startPosition out of bounds");
 
-        return findEndPosition(startPosition, page.getPositionCount(), (firstPosition, secondPosition) -> pagesHashStrategy.rowNotDistinctFromRow(firstPosition, page, secondPosition, page));
+        return findEndPosition(startPosition, page.getPositionCount(), (firstPosition, secondPosition) -> pagesHashStrategy.rowIdenticalToRow(firstPosition, page, secondPosition, page));
     }
 
     // Assumes input grouped on relevant pagesHashStrategy columns
@@ -527,7 +527,7 @@ public class TableFunctionOperator
         checkArgument(pagesIndex.getPositionCount() > 0, "Must have at least one position");
         checkPositionIndex(startPosition, pagesIndex.getPositionCount(), "startPosition out of bounds");
 
-        return findEndPosition(startPosition, pagesIndex.getPositionCount(), (firstPosition, secondPosition) -> pagesIndex.positionNotDistinctFromPosition(pagesHashStrategy, firstPosition, secondPosition));
+        return findEndPosition(startPosition, pagesIndex.getPositionCount(), (firstPosition, secondPosition) -> pagesIndex.positionIdenticalToPosition(pagesHashStrategy, firstPosition, secondPosition));
     }
 
     private WorkProcessor<TableFunctionPartition> pagesIndexToTableFunctionPartitions(

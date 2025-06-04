@@ -16,13 +16,11 @@ package io.trino.plugin.thrift;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.thrift.api.TrinoThriftId;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -62,14 +60,6 @@ public class ThriftConnectorSplit
     }
 
     @Override
-    public Map<String, String> getSplitInfo()
-    {
-        return ImmutableMap.of(
-                "addresses", addresses.stream().map(HostAddress::toString).collect(joining(",")),
-                "splitId", splitId.toString());
-    }
-
-    @Override
     public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE
@@ -102,7 +92,7 @@ public class ThriftConnectorSplit
     {
         return toStringHelper(this)
                 .add("splitId", splitId)
-                .add("addresses", addresses)
+                .add("addresses", addresses.stream().map(HostAddress::toString).collect(joining(",")))
                 .toString();
     }
 }

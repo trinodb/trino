@@ -80,21 +80,21 @@ public class TestQueryStateInfo
 
         List<ResourceGroupInfo> chainInfo = query.getPathToRoot().get();
 
-        assertThat(chainInfo.size()).isEqualTo(3);
+        assertThat(chainInfo).hasSize(3);
 
         ResourceGroupInfo rootAInfo = chainInfo.get(1);
         ResourceGroupInfo expectedRootAInfo = rootA.getInfo();
-        assertThat(rootAInfo.getId()).isEqualTo(expectedRootAInfo.getId());
-        assertThat(rootAInfo.getState()).isEqualTo(expectedRootAInfo.getState());
-        assertThat(rootAInfo.getNumRunningQueries()).isEqualTo(expectedRootAInfo.getNumRunningQueries());
-        assertThat(rootAInfo.getNumQueuedQueries()).isEqualTo(expectedRootAInfo.getNumQueuedQueries());
+        assertThat(rootAInfo.id()).isEqualTo(expectedRootAInfo.id());
+        assertThat(rootAInfo.state()).isEqualTo(expectedRootAInfo.state());
+        assertThat(rootAInfo.numRunningQueries()).isEqualTo(expectedRootAInfo.numRunningQueries());
+        assertThat(rootAInfo.numQueuedQueries()).isEqualTo(expectedRootAInfo.numQueuedQueries());
 
         ResourceGroupInfo actualRootInfo = chainInfo.get(2);
         ResourceGroupInfo expectedRootInfo = root.getInfo();
-        assertThat(actualRootInfo.getId()).isEqualTo(expectedRootInfo.getId());
-        assertThat(actualRootInfo.getState()).isEqualTo(expectedRootInfo.getState());
-        assertThat(actualRootInfo.getNumRunningQueries()).isEqualTo(expectedRootInfo.getNumRunningQueries());
-        assertThat(actualRootInfo.getNumQueuedQueries()).isEqualTo(expectedRootInfo.getNumQueuedQueries());
+        assertThat(actualRootInfo.id()).isEqualTo(expectedRootInfo.id());
+        assertThat(actualRootInfo.state()).isEqualTo(expectedRootInfo.state());
+        assertThat(actualRootInfo.numRunningQueries()).isEqualTo(expectedRootInfo.numRunningQueries());
+        assertThat(actualRootInfo.numQueuedQueries()).isEqualTo(expectedRootInfo.numQueuedQueries());
     }
 
     private QueryInfo createQueryInfo(String queryId, QueryState state, String query)
@@ -120,6 +120,7 @@ public class TestQueryStateInfo
                         new Duration(10, MINUTES),
                         new Duration(11, MINUTES),
                         new Duration(1, SECONDS),
+                        new Duration(2, SECONDS),
                         new Duration(12, MINUTES),
                         13,
                         14,
@@ -188,6 +189,7 @@ public class TestQueryStateInfo
                 Optional.empty(),
                 Optional.empty(),
                 false,
+                ImmutableSet.of(),
                 ImmutableMap.of(),
                 ImmutableSet.of(),
                 ImmutableMap.of(),

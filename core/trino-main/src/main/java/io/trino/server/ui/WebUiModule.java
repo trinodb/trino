@@ -35,6 +35,10 @@ public class WebUiModule
             jaxrsBinder(binder).bind(ClusterResource.class);
             jaxrsBinder(binder).bind(ClusterStatsResource.class);
             jaxrsBinder(binder).bind(UiQueryResource.class);
+
+            if (buildConfigObject(WebUiConfig.class).isPreviewEnabled()) {
+                install(new WebUiPreviewModule());
+            }
         }
         else {
             binder.bind(WebUiAuthenticationFilter.class).to(DisabledWebUiAuthenticationFilter.class).in(Scopes.SINGLETON);

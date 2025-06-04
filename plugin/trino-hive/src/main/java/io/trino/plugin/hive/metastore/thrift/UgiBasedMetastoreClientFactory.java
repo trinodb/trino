@@ -15,7 +15,6 @@ package io.trino.plugin.hive.metastore.thrift;
 
 import com.google.inject.Inject;
 import io.trino.plugin.base.security.UserNameProvider;
-import io.trino.plugin.hive.ForHiveMetastore;
 import io.trino.spi.security.ConnectorIdentity;
 import org.apache.thrift.TException;
 

@@ -84,7 +84,6 @@ Number of refresh threads for metadata cache.
 This property is optional; the default is `1`.
 
 (trino-thrift-service)=
-
 ## TrinoThriftService implementation
 
 The following IDL describes the `TrinoThriftService` that must be implemented:
@@ -94,13 +93,11 @@ The following IDL describes the `TrinoThriftService` that must be implemented:
 ```
 
 (thrift-type-mapping)=
-
 ## Type mapping
 
 The Thrift service defines data type support and mappings to Trino data types.
 
 (thrift-sql-support)=
-
 ## SQL support
 
 The connector provides {ref}`globally available <sql-globally-available>` and

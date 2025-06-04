@@ -14,6 +14,8 @@
 package io.trino.client;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.Immutable;
@@ -21,29 +23,28 @@ import jakarta.annotation.Nullable;
 
 import java.net.URI;
 import java.util.List;
+import java.util.OptionalLong;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Iterables.unmodifiableIterable;
-import static io.trino.client.FixJsonDataUtils.fixData;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class QueryResults
-        implements QueryStatusInfo, QueryData
+        implements QueryStatusInfo
 {
     private final String id;
     private final URI infoUri;
     private final URI partialCancelUri;
     private final URI nextUri;
     private final List<Column> columns;
-    private final Iterable<List<Object>> data;
+    private final QueryData data;
     private final StatementStats stats;
     private final QueryError error;
     private final List<Warning> warnings;
     private final String updateType;
-    private final Long updateCount;
+    private final OptionalLong updateCount;
 
     @JsonCreator
     public QueryResults(
@@ -52,52 +53,25 @@ public class QueryResults
             @JsonProperty("partialCancelUri") URI partialCancelUri,
             @JsonProperty("nextUri") URI nextUri,
             @JsonProperty("columns") List<Column> columns,
-            @JsonProperty("data") List<List<Object>> data,
+            @JsonProperty("data") QueryData data,
             @JsonProperty("stats") StatementStats stats,
             @JsonProperty("error") QueryError error,
             @JsonProperty("warnings") List<Warning> warnings,
             @JsonProperty("updateType") String updateType,
-            @JsonProperty("updateCount") Long updateCount)
-    {
-        this(
-                id,
-                infoUri,
-                partialCancelUri,
-                nextUri,
-                columns,
-                fixData(columns, data),
-                stats,
-                error,
-                firstNonNull(warnings, ImmutableList.of()),
-                updateType,
-                updateCount);
-    }
-
-    public QueryResults(
-            String id,
-            URI infoUri,
-            URI partialCancelUri,
-            URI nextUri,
-            List<Column> columns,
-            Iterable<List<Object>> data,
-            StatementStats stats,
-            QueryError error,
-            List<Warning> warnings,
-            String updateType,
-            Long updateCount)
+            @JsonProperty("updateCount") OptionalLong updateCount)
     {
         this.id = requireNonNull(id, "id is null");
         this.infoUri = requireNonNull(infoUri, "infoUri is null");
         this.partialCancelUri = partialCancelUri;
         this.nextUri = nextUri;
         this.columns = (columns != null) ? ImmutableList.copyOf(columns) : null;
-        this.data = (data != null) ? unmodifiableIterable(data) : null;
-        checkArgument(data == null || columns != null, "data present without columns");
+        this.data = data;
+        checkArgument(!hasData(data) || columns != null, "data present without columns");
         this.stats = requireNonNull(stats, "stats is null");
         this.error = error;
-        this.warnings = ImmutableList.copyOf(requireNonNull(warnings, "warnings is null"));
+        this.warnings = ImmutableList.copyOf(firstNonNull(warnings, ImmutableList.of()));
         this.updateType = updateType;
-        this.updateCount = updateCount;
+        this.updateCount = requireNonNull(updateCount, "updateCount is null");
     }
 
     @JsonProperty
@@ -138,10 +112,17 @@ public class QueryResults
         return columns;
     }
 
-    @Nullable
-    @JsonProperty
-    @Override
-    public Iterable<List<Object>> getData()
+    @JsonIgnore
+    public QueryData getData()
+    {
+        return data;
+    }
+
+    @JsonProperty("data")
+    // This is important for some clients like ODBC that assume
+    // that data: null field won't be present in the JSON
+    @JsonInclude(JsonInclude.Include.NON_EMPTY)
+    public QueryData getRawData()
     {
         return data;
     }
@@ -179,7 +160,7 @@ public class QueryResults
     @Nullable
     @JsonProperty
     @Override
-    public Long getUpdateCount()
+    public OptionalLong getUpdateCount()
     {
         return updateCount;
     }
@@ -193,11 +174,16 @@ public class QueryResults
                 .add("partialCancelUri", partialCancelUri)
                 .add("nextUri", nextUri)
                 .add("columns", columns)
-                .add("hasData", data != null)
+                .add("hasData", hasData(data))
                 .add("stats", stats)
                 .add("error", error)
                 .add("updateType", updateType)
                 .add("updateCount", updateCount)
                 .toString();
+    }
+
+    private static boolean hasData(QueryData data)
+    {
+        return data != null && !data.isNull();
     }
 }

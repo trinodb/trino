@@ -13,66 +13,25 @@
  */
 package io.trino.plugin.hive;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.airlift.json.JsonCodec;
 
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class PartitionUpdateAndMergeResults
+public record PartitionUpdateAndMergeResults(
+        PartitionUpdate partitionUpdate,
+        long insertRowCount,
+        Optional<String> deltaDirectory,
+        long deleteRowCount,
+        Optional<String> deleteDeltaDirectory)
 {
     public static final JsonCodec<PartitionUpdateAndMergeResults> CODEC = JsonCodec.jsonCodec(PartitionUpdateAndMergeResults.class);
 
-    private final PartitionUpdate partitionUpdate;
-    private final long insertRowCount;
-    private final Optional<String> deltaDirectory;
-    private final long deleteRowCount;
-    private final Optional<String> deleteDeltaDirectory;
-
-    @JsonCreator
-    public PartitionUpdateAndMergeResults(
-            @JsonProperty("partitionUpdate") PartitionUpdate partitionUpdate,
-            @JsonProperty("insertRowCount") long insertRowCount,
-            @JsonProperty("deleteDirectory") Optional<String> deltaDirectory,
-            @JsonProperty("deleteRowCount") long deleteRowCount,
-            @JsonProperty("deleteDeltaDirectory") Optional<String> deleteDeltaDirectory)
+    public PartitionUpdateAndMergeResults
     {
-        this.partitionUpdate = requireNonNull(partitionUpdate, "partitionUpdate is null");
-        this.insertRowCount = insertRowCount;
-        this.deltaDirectory = requireNonNull(deltaDirectory, "deltaDirectory is null");
-        this.deleteRowCount = deleteRowCount;
-        this.deleteDeltaDirectory = requireNonNull(deleteDeltaDirectory, "deleteDeltaDirectory is null");
-    }
-
-    @JsonProperty
-    public PartitionUpdate getPartitionUpdate()
-    {
-        return partitionUpdate;
-    }
-
-    @JsonProperty
-    public long getInsertRowCount()
-    {
-        return insertRowCount;
-    }
-
-    @JsonProperty
-    public Optional<String> getDeltaDirectory()
-    {
-        return deltaDirectory;
-    }
-
-    @JsonProperty
-    public long getDeleteRowCount()
-    {
-        return deleteRowCount;
-    }
-
-    @JsonProperty
-    public Optional<String> getDeleteDeltaDirectory()
-    {
-        return deleteDeltaDirectory;
+        requireNonNull(partitionUpdate, "partitionUpdate is null");
+        requireNonNull(deltaDirectory, "deltaDirectory is null");
+        requireNonNull(deleteDeltaDirectory, "deleteDeltaDirectory is null");
     }
 }

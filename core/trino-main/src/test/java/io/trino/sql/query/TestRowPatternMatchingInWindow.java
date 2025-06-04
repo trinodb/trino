@@ -1123,9 +1123,8 @@ public class TestRowPatternMatchingInWindow
     public void testWindowFunctions()
     {
         // multiple partitions, unordered input
-        // function row_number() ignores frame and numbers rows within partition
         // function array_agg() respects frame, which is reduced to the match (and empty in case of unmatched or skipped rows)
-        assertThat(assertions.query("SELECT part as partition, id AS row_id, val OVER w, label OVER w, row_number() OVER w, array_agg(value) OVER w " +
+        assertThat(assertions.query("SELECT part as partition, id AS row_id, val OVER w, label OVER w, array_agg(value) OVER w " +
                 "          FROM (VALUES " +
                 "                   (1, 'p1', 90), " +
                 "                   (2, 'p1', 80), " +
@@ -1152,18 +1151,18 @@ public class TestRowPatternMatchingInWindow
                 "                   DEFINE B AS B.value > NEXT (B.value) " +
                 "                )"))
                 .matches("VALUES " +
-                        "     ('p1', 1, 80, CAST('B' AS varchar), BIGINT '1', ARRAY[90, 80]), " +
-                        "     ('p1', 2, null, null, 2, null), " +
-                        "     ('p1', 3, null, null, 3, null), " +
-                        "     ('p1', 4, null, null, 4, null), " +
-                        "     ('p1', 5, 90,   'B',  5, ARRAY[90]), " +
-                        "     ('p1', 6, null, null, 6, null), " +
-                        "     ('p2', 1, null, null, 1, null), " +
-                        "     ('p2', 2, 20,   'B',  2, ARRAY[20]), " +
-                        "     ('p2', 3, null, null, 3, null), " +
-                        "     ('p3', 1, null, null, 1, null), " +
-                        "     ('p3', 2, null, null, 2, null), " +
-                        "     ('p3', 3, null, null, 3, null) ");
+                        "     ('p1', 1, 80, CAST('B' AS varchar), ARRAY[90, 80]), " +
+                        "     ('p1', 2, null, null, null), " +
+                        "     ('p1', 3, null, null, null), " +
+                        "     ('p1', 4, null, null, null), " +
+                        "     ('p1', 5, 90,   'B',  ARRAY[90]), " +
+                        "     ('p1', 6, null, null, null), " +
+                        "     ('p2', 1, null, null, null), " +
+                        "     ('p2', 2, 20,   'B',  ARRAY[20]), " +
+                        "     ('p2', 3, null, null, null), " +
+                        "     ('p3', 1, null, null, null), " +
+                        "     ('p3', 2, null, null, null), " +
+                        "     ('p3', 3, null, null, null) ");
 
         // with the option SEEK, pattern for the current row can be found starting from some following row within the base frame
         // e.g. for row 1, the match starts at row 2.

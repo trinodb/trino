@@ -25,7 +25,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.base.authentication.KerberosTicketUtils.getRefreshTime;
 import static io.trino.plugin.base.authentication.KerberosTicketUtils.getTicketGrantingTicket;
 import static java.util.Objects.requireNonNull;
-import static org.apache.hadoop.security.UserGroupInformationShim.getSubject;
 
 public class CachingKerberosHadoopAuthentication
         implements HadoopAuthentication
@@ -47,9 +46,9 @@ public class CachingKerberosHadoopAuthentication
     public synchronized UserGroupInformation getUserGroupInformation()
     {
         if (nextRefreshTime < System.currentTimeMillis()) {
-            Subject existingSubject = getSubject(userGroupInformation);
+            Subject existingSubject = userGroupInformation.getSubject();
             UserGroupInformation newUserGroupInformation = requireNonNull(delegate.getUserGroupInformation(), "delegate.getUserGroupInformation() is null");
-            Subject newSubject = getSubject(newUserGroupInformation);
+            Subject newSubject = newUserGroupInformation.getSubject();
 
             // We modify the existing UGI's credentials in-place instead of returning new UGI because some parts of Hadoop code reuse UGI (e.g. DFSClient)
             // We also need to clear the old credentials because JDK assumes that the first credential is the TGT which is not always true
@@ -72,7 +71,7 @@ public class CachingKerberosHadoopAuthentication
 
     private static long calculateNextRefreshTime(UserGroupInformation userGroupInformation)
     {
-        Subject subject = getSubject(userGroupInformation);
+        Subject subject = userGroupInformation.getSubject();
         checkArgument(subject != null, "subject must be present in kerberos based UGI");
         KerberosTicket tgtTicket = getTicketGrantingTicket(subject);
         return getRefreshTime(tgtTicket);

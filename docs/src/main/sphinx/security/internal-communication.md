@@ -4,15 +4,16 @@ The Trino cluster can be configured to use secured communication with internal
 authentication of the nodes in the cluster, and to optionally use added security
 with {ref}`TLS <glossTLS>`.
 
+(internal-secret)=
 ## Configure shared secret
 
-Configure a shared secret to authenticate all communication between nodes of the
-cluster. Use this configuration under the following conditions:
+You must configure a shared secret to authenticate all communication between
+nodes of the cluster in the following scenarios:
 
-- When opting to configure [internal TLS encryption](internal-tls)
-  between nodes of the cluster
-- When using any {doc}`external authentication <authentication-types>` method
-  between clients and the coordinator
+- When using [any authentication](authentication-types) between clients and the
+  coordinator.
+- When using [internal TLS encryption](internal-tls) between all nodes of the
+  cluster.
 
 Set the shared secret to the same value in {ref}`config.properties
 <config-properties>` on all nodes of the cluster:
@@ -29,7 +30,6 @@ openssl rand 512 | base64
 ```
 
 (verify-secrets)=
-
 ### Verify configuration
 
 To verify shared secret configuration:
@@ -49,7 +49,6 @@ To verify shared secret configuration:
    configured with your shared secret.
 
 (internal-tls)=
-
 ## Configure internal TLS
 
 You can optionally add an extra layer of security by configuring the cluster to
@@ -100,16 +99,6 @@ configuration identical on all cluster nodes.
 Certificates are automatically created and used to ensure all communication
 inside the cluster is secured with TLS.
 
-:::{warning}
-Older versions of Trino required you to manually manage all the certificates
-on the nodes. If you upgrade from this setup, you must remove the following
-configuration properties:
-
-- `internal-communication.https.keystore.path`
-- `internal-communication.https.truststore.path`
-- `node.internal-address-source`
-:::
-
 ### Performance with SSL/TLS enabled
 
 Enabling encryption impacts performance. The performance degradation can vary
@@ -124,6 +113,13 @@ window functions, which require repartitioning), the performance impact can be
 considerable. The slowdown may vary from 10% to even 100%+, depending on the network
 traffic and the CPU utilization.
 
+:::{note}
+By default, internal communication with SSL/TLS enabled uses HTTP/2 for
+increased scalability. You can turn off this feature with
+`internal-communication.http2.enabled=false`.
+:::
+
+(internal-performance)=
 ### Advanced performance tuning
 
 In some cases, changing the source of random numbers improves performance
@@ -134,7 +130,7 @@ This device has limited throughput, so on environments with high network bandwid
 (e.g. InfiniBand), it may become a bottleneck. In such situations, it is recommended to try
 to switch the random number generator algorithm to `SHA1PRNG`, by setting it via
 `http-server.https.secure-random-algorithm` property in `config.properties` on the coordinator
-and all of the workers:
+and all the workers:
 
 ```text
 http-server.https.secure-random-algorithm=SHA1PRNG

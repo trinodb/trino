@@ -125,7 +125,6 @@ Set Digest structures.
 :::
 
 (setdigest-cardinality)=
-
 :::{function} cardinality(setdigest) -> long
 :noindex: true
 

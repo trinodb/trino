@@ -66,7 +66,8 @@ public class TestCloseIdleWriters
             // this order 0, 1, and then again 0. This way we are sure that during partition 1 write there will
             // be an idle writer for partition 0. Additionally, during second partition 0 write, there will be an idle
             // writer for partition 1.
-            @Language("SQL") String createTableSql = """
+            @Language("SQL") String createTableSql =
+                    """
                     CREATE TABLE %s WITH (partitioned_by = ARRAY['shipmodeVal'])
                     AS SELECT orderkey, partkey, suppkey, linenumber, quantity, extendedprice,
                     discount, tax, returnflag, linestatus, commitdate, receiptdate, shipinstruct,

@@ -15,11 +15,15 @@ package io.trino.plugin.base;
 
 import com.google.common.primitives.Ints;
 import io.trino.spi.Page;
+import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.SourcePage;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.function.ObjLongConsumer;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
 public class MappedPageSource
@@ -53,13 +57,13 @@ public class MappedPageSource
     }
 
     @Override
-    public Page getNextPage()
+    public SourcePage getNextSourcePage()
     {
-        Page nextPage = delegate.getNextPage();
+        SourcePage nextPage = delegate.getNextSourcePage();
         if (nextPage == null) {
             return null;
         }
-        return nextPage.getColumns(delegateFieldIndex);
+        return new MappedSourcePage(nextPage, delegateFieldIndex);
     }
 
     @Override
@@ -73,5 +77,80 @@ public class MappedPageSource
             throws IOException
     {
         delegate.close();
+    }
+
+    private record MappedSourcePage(SourcePage sourcePage, int[] channels)
+            implements SourcePage
+    {
+        private static final long INSTANCE_SIZE = instanceSize(MappedSourcePage.class);
+
+        private MappedSourcePage
+        {
+            requireNonNull(sourcePage, "sourcePage is null");
+            requireNonNull(channels, "channels is null");
+        }
+
+        @Override
+        public int getPositionCount()
+        {
+            return sourcePage.getPositionCount();
+        }
+
+        @Override
+        public long getSizeInBytes()
+        {
+            return sourcePage.getSizeInBytes();
+        }
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            // channels array is not considered retained since it is shared by all instances created from
+            // the same outer MappedPageSource instance
+            return INSTANCE_SIZE + sourcePage.getRetainedSizeInBytes();
+        }
+
+        @Override
+        public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
+        {
+            // channels array is not considered retained since it is shared by all instances created from
+            // the same outer MappedPageSource instance
+            consumer.accept(this, INSTANCE_SIZE);
+            sourcePage.retainedBytesForEachPart(consumer);
+        }
+
+        @Override
+        public int getChannelCount()
+        {
+            return channels.length;
+        }
+
+        @Override
+        public Block getBlock(int channel)
+        {
+            return sourcePage.getBlock(channels[channel]);
+        }
+
+        @Override
+        public Page getPage()
+        {
+            return sourcePage.getColumns(channels);
+        }
+
+        @Override
+        public Page getColumns(int[] channels)
+        {
+            int[] newChannels = new int[channels.length];
+            for (int i = 0; i < channels.length; i++) {
+                newChannels[i] = this.channels[channels[i]];
+            }
+            return sourcePage.getColumns(newChannels);
+        }
+
+        @Override
+        public void selectPositions(int[] positions, int offset, int size)
+        {
+            sourcePage.selectPositions(positions, offset, size);
+        }
     }
 }

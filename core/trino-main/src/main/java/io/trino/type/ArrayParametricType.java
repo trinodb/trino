@@ -30,9 +30,7 @@ public final class ArrayParametricType
 {
     public static final ArrayParametricType ARRAY = new ArrayParametricType();
 
-    private ArrayParametricType()
-    {
-    }
+    private ArrayParametricType() {}
 
     @Override
     public String getName()

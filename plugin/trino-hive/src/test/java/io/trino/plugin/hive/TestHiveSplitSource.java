@@ -68,15 +68,15 @@ public class TestHiveSplitSource
         }
 
         // remove 1 split
-        assertThat(getSplits(hiveSplitSource, 1).size()).isEqualTo(1);
+        assertThat(getSplits(hiveSplitSource, 1)).hasSize(1);
         assertThat(hiveSplitSource.getBufferedInternalSplitCount()).isEqualTo(9);
 
         // remove 4 splits
-        assertThat(getSplits(hiveSplitSource, 4).size()).isEqualTo(4);
+        assertThat(getSplits(hiveSplitSource, 4)).hasSize(4);
         assertThat(hiveSplitSource.getBufferedInternalSplitCount()).isEqualTo(5);
 
         // try to remove 20 splits, and verify we only got 5
-        assertThat(getSplits(hiveSplitSource, 20).size()).isEqualTo(5);
+        assertThat(getSplits(hiveSplitSource, 20)).hasSize(5);
         assertThat(hiveSplitSource.getBufferedInternalSplitCount()).isEqualTo(0);
     }
 
@@ -103,7 +103,7 @@ public class TestHiveSplitSource
         assertThat(hiveSplitSource.getBufferedInternalSplitCount()).isEqualTo(2);
 
         // try to remove 2 splits, only one should be returned
-        assertThat(getSplits(hiveSplitSource, 2).size()).isEqualTo(1);
+        assertThat(getSplits(hiveSplitSource, 2)).hasSize(1);
         assertThat(hiveSplitSource.getBufferedInternalSplitCount()).isEqualTo(0);
     }
 
@@ -161,7 +161,7 @@ public class TestHiveSplitSource
         }
 
         // remove a split and verify
-        assertThat(getSplits(hiveSplitSource, 1).size()).isEqualTo(1);
+        assertThat(getSplits(hiveSplitSource, 1)).hasSize(1);
         assertThat(hiveSplitSource.getBufferedInternalSplitCount()).isEqualTo(4);
 
         // fail source
@@ -214,7 +214,7 @@ public class TestHiveSplitSource
             try {
                 started.countDown();
                 List<ConnectorSplit> batch = getSplits(hiveSplitSource, 1);
-                assertThat(batch.size()).isEqualTo(1);
+                assertThat(batch).hasSize(1);
                 splits.set(batch.get(0));
             }
             catch (Throwable e) {
@@ -236,7 +236,7 @@ public class TestHiveSplitSource
 
             // wait for thread to get the split
             ConnectorSplit split = splits.get(800, TimeUnit.MILLISECONDS);
-            assertThat(((HiveSplit) split).getSchema()).containsEntry("id", "33");
+            assertThat(((HiveSplit) split).getSchema().serdeProperties()).containsEntry("id", "33");
         }
         finally {
             // make sure the thread exits
@@ -269,7 +269,7 @@ public class TestHiveSplitSource
             assertThat(hiveSplitSource.getBufferedInternalSplitCount()).isEqualTo(i + 1);
         }
 
-        assertThat(getSplits(hiveSplitSource, maxSplitCount).size()).isEqualTo(maxSplitCount);
+        assertThat(getSplits(hiveSplitSource, maxSplitCount)).hasSize(maxSplitCount);
 
         for (int i = 0; i < maxSplitCount; i++) {
             hiveSplitSource.addToQueue(new TestSplit(i));
@@ -289,14 +289,10 @@ public class TestHiveSplitSource
             implements HiveSplitLoader
     {
         @Override
-        public void start(HiveSplitSource splitSource)
-        {
-        }
+        public void start(HiveSplitSource splitSource) {}
 
         @Override
-        public void stop()
-        {
-        }
+        public void stop() {}
     }
 
     private static class TestSplit
@@ -331,7 +327,7 @@ public class TestHiveSplitSource
                     fileSize.toBytes(),
                     fileSize.toBytes(),
                     Instant.now().toEpochMilli(),
-                    ImmutableMap.of("id", String.valueOf(id)),
+                    new Schema("abc", false, ImmutableMap.of("id", String.valueOf(id))),
                     ImmutableList.of(),
                     ImmutableList.of(new InternalHiveBlock(0, fileSize.toBytes(), ImmutableList.of())),
                     bucketNumber,

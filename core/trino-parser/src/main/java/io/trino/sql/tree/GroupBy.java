@@ -28,14 +28,10 @@ public class GroupBy
     private final boolean isDistinct;
     private final List<GroupingElement> groupingElements;
 
+    @Deprecated
     public GroupBy(boolean isDistinct, List<GroupingElement> groupingElements)
     {
         this(Optional.empty(), isDistinct, groupingElements);
-    }
-
-    public GroupBy(NodeLocation location, boolean isDistinct, List<GroupingElement> groupingElements)
-    {
-        this(Optional.of(location), isDistinct, groupingElements);
     }
 
     private GroupBy(Optional<NodeLocation> location, boolean isDistinct, List<GroupingElement> groupingElements)
@@ -43,6 +39,13 @@ public class GroupBy
         super(location);
         this.isDistinct = isDistinct;
         this.groupingElements = ImmutableList.copyOf(requireNonNull(groupingElements));
+    }
+
+    public GroupBy(NodeLocation location, boolean isDistinct, List<GroupingElement> groupingElements)
+    {
+        super(location);
+        this.isDistinct = isDistinct;
+        this.groupingElements = ImmutableList.copyOf(groupingElements);
     }
 
     public boolean isDistinct()

@@ -31,6 +31,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Optional;
 
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
@@ -80,9 +81,9 @@ public class TestPruneSpatialJoinColumns
     {
         tester().assertThat(new PruneSpatialJoinColumns())
                 .on(p -> {
-                    Symbol a = p.symbol("a");
-                    Symbol b = p.symbol("b");
-                    Symbol r = p.symbol("r");
+                    Symbol a = p.symbol("a", BIGINT);
+                    Symbol b = p.symbol("b", BIGINT);
+                    Symbol r = p.symbol("r", BIGINT);
                     return p.project(
                             Assignments.identity(a, b, r),
                             p.spatialJoin(

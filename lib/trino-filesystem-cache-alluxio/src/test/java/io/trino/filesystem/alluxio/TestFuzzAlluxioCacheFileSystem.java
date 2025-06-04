@@ -13,6 +13,7 @@
  */
 package io.trino.filesystem.alluxio;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.tracing.Tracing;
@@ -34,13 +35,14 @@ import java.nio.file.Path;
 import java.util.Random;
 
 import static java.lang.Math.min;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static java.lang.Math.toIntExact;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @TestInstance(Lifecycle.PER_METHOD)
 public class TestFuzzAlluxioCacheFileSystem
 {
-    private static final int CACHE_SIZE = 8 * 1024;
-    private static final int PAGE_SIZE = 128;
+    private static final DataSize CACHE_SIZE = DataSize.ofBytes(8 * 1024);
+    private static final DataSize PAGE_SIZE = DataSize.ofBytes(128);
 
     @Test
     public void testFuzzTrinoInputReadFully()
@@ -91,7 +93,7 @@ public class TestFuzzAlluxioCacheFileSystem
                 Location expectedLocation = expectedFileSystemState.tempLocation();
                 Location testLocation = actualFileSystemState.tempLocation();
 
-                int fileSize = random.nextInt(0, CACHE_SIZE / 2);
+                int fileSize = random.nextInt(0, toIntExact(CACHE_SIZE.toBytes() / 2));
 
                 createTestFile(expectedFileSystem, expectedLocation, fileSize);
                 createTestFile(testFileSystem, testLocation, fileSize);
@@ -119,8 +121,8 @@ public class TestFuzzAlluxioCacheFileSystem
         int expectedBytesRead = operation.apply(expectedInput, position, bufferExpected, bufferOffset, length);
         int actualBytesRead = operation.apply(actualInput, position, bufferActual, bufferOffset, length);
 
-        assertEquals(expectedBytesRead, actualBytesRead);
-        assertEquals(Slices.wrappedBuffer(bufferExpected), Slices.wrappedBuffer(bufferActual));
+        assertThat(actualBytesRead).isEqualTo(expectedBytesRead);
+        assertThat(Slices.wrappedBuffer(bufferActual)).isEqualTo(Slices.wrappedBuffer(bufferExpected));
     }
 
     private static void createTestFile(TrinoFileSystem fileSystem, Location location, int fileSize)
@@ -161,9 +163,7 @@ public class TestFuzzAlluxioCacheFileSystem
         }
 
         @Override
-        public void close()
-        {
-        }
+        public void close() {}
     }
 
     private static class TestAlluxioFileSystem
@@ -179,10 +179,10 @@ public class TestFuzzAlluxioCacheFileSystem
             Path cacheDirectory = Files.createDirectory(tempDirectory.resolve("cache"));
 
             AlluxioFileSystemCacheConfig configuration = new AlluxioFileSystemCacheConfig()
-                    .setCacheDirectories(cacheDirectory.toAbsolutePath().toString())
-                    .setCachePageSize(DataSize.ofBytes(PAGE_SIZE))
+                    .setCacheDirectories(ImmutableList.of(cacheDirectory.toAbsolutePath().toString()))
+                    .setCachePageSize(PAGE_SIZE)
                     .disableTTL()
-                    .setMaxCacheSizes(CACHE_SIZE + "B");
+                    .setMaxCacheSizes(ImmutableList.of(CACHE_SIZE));
             AlluxioFileSystemCache alluxioCache = new AlluxioFileSystemCache(Tracing.noopTracer(), configuration, new AlluxioCacheStats());
             return new CacheFileSystem(new IncompleteStreamMemoryFileSystem(), alluxioCache, new TestingCacheKeyProvider());
         }

@@ -19,7 +19,6 @@ import java.io.IOException;
 
 import static com.google.common.base.Preconditions.checkState;
 
-@SuppressWarnings("NarrowingCompoundAssignment")
 public class BooleanInputStream
         implements ValueInputStream<BooleanStreamCheckpoint>
 {
@@ -41,6 +40,7 @@ public class BooleanInputStream
         bitsInData = 8;
     }
 
+    @SuppressWarnings("NarrowingCompoundAssignment")
     public boolean nextBit()
             throws IOException
     {
@@ -69,6 +69,7 @@ public class BooleanInputStream
     }
 
     @Override
+    @SuppressWarnings("NarrowingCompoundAssignment")
     public void skip(long items)
             throws IOException
     {
@@ -131,7 +132,7 @@ public class BooleanInputStream
     /**
      * Sets the vector element to 1 if the bit is set.
      */
-    @SuppressWarnings({"PointlessBitwiseExpression", "PointlessArithmeticExpression", "UnusedAssignment"})
+    @SuppressWarnings({"NarrowingCompoundAssignment", "PointlessBitwiseExpression", "PointlessArithmeticExpression", "UnusedAssignment"})
     public void getSetBits(byte[] vector, int batchSize)
             throws IOException
     {
@@ -220,7 +221,7 @@ public class BooleanInputStream
     /**
      * Sets the vector element to true if the bit is not set.
      */
-    @SuppressWarnings({"PointlessArithmeticExpression", "UnusedAssignment"})
+    @SuppressWarnings({"NarrowingCompoundAssignment", "PointlessArithmeticExpression", "UnusedAssignment"})
     public int getUnsetBits(int batchSize, boolean[] vector)
             throws IOException
     {

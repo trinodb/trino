@@ -40,7 +40,7 @@ public class ClassLoaderSafeRecordSet
     @Override
     public List<Type> getColumnTypes()
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             return delegate.getColumnTypes();
         }
     }
@@ -48,7 +48,7 @@ public class ClassLoaderSafeRecordSet
     @Override
     public RecordCursor cursor()
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             return delegate.cursor();
         }
     }

@@ -72,21 +72,21 @@ public class TestKafkaAvroReadsSmokeTest
     private static final String KAFKA_SCHEMA = "product_tests";
 
     private static final String ALL_DATATYPES_AVRO_TOPIC_NAME = "read_all_datatypes_avro";
-    private static final String ALL_DATATYPE_SCHEMA_PATH = "/docker/presto-product-tests/conf/presto/etc/catalog/kafka/all_datatypes_avro_schema.avsc";
+    private static final String ALL_DATATYPE_SCHEMA_PATH = "/docker/trino-product-tests/conf/trino/etc/catalog/kafka/all_datatypes_avro_schema.avsc";
 
     private static final String ALL_NULL_AVRO_TOPIC_NAME = "read_all_null_avro";
 
     private static final String STRUCTURAL_AVRO_TOPIC_NAME = "read_structural_datatype_avro";
-    private static final String STRUCTURAL_SCHEMA_PATH = "/docker/presto-product-tests/conf/presto/etc/catalog/kafka/structural_datatype_avro_schema.avsc";
+    private static final String STRUCTURAL_SCHEMA_PATH = "/docker/trino-product-tests/conf/trino/etc/catalog/kafka/structural_datatype_avro_schema.avsc";
 
     private static final String AVRO_SCHEMA_WITH_REFERENCES_TOPIC_NAME = "schema_with_references_avro";
-    private static final String AVRO_SCHEMA_WITH_REFERENCES_SCHEMA_PATH = "/docker/presto-product-tests/conf/presto/etc/catalog/kafka/schema_with_references.avsc";
+    private static final String AVRO_SCHEMA_WITH_REFERENCES_SCHEMA_PATH = "/docker/trino-product-tests/conf/trino/etc/catalog/kafka/schema_with_references.avsc";
 
     @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS}, dataProvider = "catalogs")
     public void testSelectPrimitiveDataType(KafkaCatalog kafkaCatalog)
             throws Exception
     {
-        ImmutableMap<String, Object> record = ImmutableMap.of(
+        Map<String, Object> record = ImmutableMap.of(
                 "a_varchar", "foobar",
                 "a_bigint", 127L,
                 "a_double", 234.567,
@@ -127,7 +127,7 @@ public class TestKafkaAvroReadsSmokeTest
     public void testSelectStructuralDataType(KafkaCatalog kafkaCatalog)
             throws Exception
     {
-        ImmutableMap<String, Object> record = ImmutableMap.of(
+        Map<String, Object> record = ImmutableMap.of(
                 "a_array", ImmutableList.of(100L, 102L),
                 "a_map", ImmutableMap.of("key1", "value1"));
         String topicName = STRUCTURAL_AVRO_TOPIC_NAME + kafkaCatalog.topicNameSuffix();

@@ -1,4 +1,4 @@
--- database: presto; groups: ml_functions
+-- database: trino; groups: ml_functions
 --!
 SELECT classify(features(1, 2 + random(1)), model)
 FROM (

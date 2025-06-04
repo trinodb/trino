@@ -43,9 +43,7 @@ import org.openjdk.jmh.runner.RunnerException;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
@@ -75,7 +73,7 @@ public class BenchmarkGroupByHash
     @OperationsPerInvocation(POSITIONS)
     public Object addPages(MultiChannelBenchmarkData data)
     {
-        GroupByHash groupByHash = new FlatGroupByHash(data.getTypes(), data.isHashEnabled(), EXPECTED_SIZE, false, new FlatHashStrategyCompiler(TYPE_OPERATORS), NOOP);
+        GroupByHash groupByHash = new FlatGroupByHash(data.getTypes(), data.getFlatGroupByHashMode(), EXPECTED_SIZE, false, new FlatHashStrategyCompiler(TYPE_OPERATORS), NOOP);
         addInputPagesToHash(groupByHash, data.getPages());
         return groupByHash;
     }
@@ -85,18 +83,15 @@ public class BenchmarkGroupByHash
     public Object writeData(WriteMultiChannelBenchmarkData data)
     {
         GroupByHash groupByHash = data.getPrefilledHash();
-        ImmutableList.Builder<Page> pages = ImmutableList.builder();
         PageBuilder pageBuilder = new PageBuilder(POSITIONS, data.getOutputTypes());
         int[] groupIdsByPhysicalOrder = data.getGroupIdsByPhysicalOrder();
         for (int groupId : groupIdsByPhysicalOrder) {
             pageBuilder.declarePosition();
             groupByHash.appendValuesTo(groupId, pageBuilder);
             if (pageBuilder.isFull()) {
-                pages.add(pageBuilder.build());
                 pageBuilder.reset();
             }
         }
-        pages.add(pageBuilder.build());
         return pageBuilder.build();
     }
 
@@ -112,11 +107,11 @@ public class BenchmarkGroupByHash
         }
     }
 
-    private static List<Page> createBigintPages(int positionCount, int groupCount, int channelCount, boolean hashEnabled, boolean useMixedBlockTypes)
+    private static List<Page> createBigintPages(int positionCount, int groupCount, int channelCount, boolean hashPrecomputed, boolean useMixedBlockTypes)
     {
         List<Type> types = Collections.nCopies(channelCount, BIGINT);
         ImmutableList.Builder<Page> pages = ImmutableList.builder();
-        if (hashEnabled) {
+        if (hashPrecomputed) {
             types = ImmutableList.copyOf(Iterables.concat(types, ImmutableList.of(BIGINT)));
         }
 
@@ -128,7 +123,7 @@ public class BenchmarkGroupByHash
             for (int numChannel = 0; numChannel < channelCount; numChannel++) {
                 BIGINT.writeLong(pageBuilder.getBlockBuilder(numChannel), rand);
             }
-            if (hashEnabled) {
+            if (hashPrecomputed) {
                 BIGINT.writeLong(pageBuilder.getBlockBuilder(channelCount), AbstractLongType.hash(rand));
             }
             if (pageBuilder.isFull()) {
@@ -166,11 +161,11 @@ public class BenchmarkGroupByHash
         return pages.build();
     }
 
-    private static List<Page> createVarcharPages(int positionCount, int groupCount, int channelCount, boolean hashEnabled)
+    private static List<Page> createVarcharPages(int positionCount, int groupCount, int channelCount, boolean hashPrecomputed)
     {
         List<Type> types = Collections.nCopies(channelCount, VARCHAR);
         ImmutableList.Builder<Page> pages = ImmutableList.builder();
-        if (hashEnabled) {
+        if (hashPrecomputed) {
             types = ImmutableList.copyOf(Iterables.concat(types, ImmutableList.of(BIGINT)));
         }
 
@@ -182,7 +177,7 @@ public class BenchmarkGroupByHash
             for (int channel = 0; channel < channelCount; channel++) {
                 VARCHAR.writeSlice(pageBuilder.getBlockBuilder(channel), value);
             }
-            if (hashEnabled) {
+            if (hashPrecomputed) {
                 BIGINT.writeLong(pageBuilder.getBlockBuilder(channelCount), XxHash64.hash(value));
             }
             if (pageBuilder.isFull()) {
@@ -205,8 +200,8 @@ public class BenchmarkGroupByHash
         @Param(GROUP_COUNT_STRING)
         private int groupCount = GROUP_COUNT;
 
-        @Param({"true", "false"})
-        private boolean hashEnabled;
+        @Param({"PRECOMPUTED", "CACHED", "ON_DEMAND"})
+        private GroupByHashMode hashMode = GroupByHashMode.ON_DEMAND;
 
         @Param({"VARCHAR", "BIGINT"})
         private String dataType = "VARCHAR";
@@ -220,11 +215,11 @@ public class BenchmarkGroupByHash
             switch (dataType) {
                 case "VARCHAR" -> {
                     types = Collections.nCopies(channelCount, VARCHAR);
-                    pages = createVarcharPages(POSITIONS, groupCount, channelCount, hashEnabled);
+                    pages = createVarcharPages(POSITIONS, groupCount, channelCount, isHashPrecomputed());
                 }
                 case "BIGINT" -> {
                     types = Collections.nCopies(channelCount, BIGINT);
-                    pages = createBigintPages(POSITIONS, groupCount, channelCount, hashEnabled, false);
+                    pages = createBigintPages(POSITIONS, groupCount, channelCount, isHashPrecomputed(), false);
                 }
                 default -> throw new UnsupportedOperationException("Unsupported dataType");
             }
@@ -240,14 +235,19 @@ public class BenchmarkGroupByHash
             return pages;
         }
 
-        public boolean isHashEnabled()
-        {
-            return hashEnabled;
-        }
-
         public List<Type> getTypes()
         {
             return types;
+        }
+
+        public boolean isHashPrecomputed()
+        {
+            return hashMode.isHashPrecomputed();
+        }
+
+        public GroupByHashMode getFlatGroupByHashMode()
+        {
+            return hashMode;
         }
     }
 
@@ -262,20 +262,16 @@ public class BenchmarkGroupByHash
         @Setup
         public void setup(MultiChannelBenchmarkData data)
         {
-            prefilledHash = new FlatGroupByHash(data.getTypes(), data.isHashEnabled(), EXPECTED_SIZE, false, new FlatHashStrategyCompiler(new TypeOperators()), NOOP);
+            prefilledHash = new FlatGroupByHash(data.getTypes(), data.getFlatGroupByHashMode(), EXPECTED_SIZE, false, new FlatHashStrategyCompiler(new TypeOperators()), NOOP);
             addInputPagesToHash(prefilledHash, data.getPages());
 
-            Integer[] groupIds = new Integer[prefilledHash.getGroupCount()];
-            for (int i = 0; i < groupIds.length; i++) {
-                groupIds[i] = i;
+            groupIdsByPhysicalOrder = new int[prefilledHash.getGroupCount()];
+            for (int i = 0; i < groupIdsByPhysicalOrder.length; i++) {
+                groupIdsByPhysicalOrder[i] = i;
             }
-            if (prefilledHash instanceof FlatGroupByHash flatGroupByHash) {
-                Arrays.sort(groupIds, Comparator.comparing(flatGroupByHash::getPhysicalPosition));
-            }
-            groupIdsByPhysicalOrder = Arrays.stream(groupIds).mapToInt(Integer::intValue).toArray();
 
             outputTypes = new ArrayList<>(data.getTypes());
-            if (data.isHashEnabled()) {
+            if (data.isHashPrecomputed()) {
                 outputTypes.add(BIGINT);
             }
         }

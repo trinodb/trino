@@ -34,7 +34,7 @@ public class TestDateType
 
     public static ValueBlock createTestBlock()
     {
-        BlockBuilder blockBuilder = DATE.createBlockBuilder(null, 15);
+        BlockBuilder blockBuilder = DATE.createFixedSizeBlockBuilder(15);
         DATE.writeLong(blockBuilder, 1111);
         DATE.writeLong(blockBuilder, 1111);
         DATE.writeLong(blockBuilder, 1111);

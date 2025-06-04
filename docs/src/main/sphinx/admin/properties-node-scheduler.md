@@ -90,7 +90,6 @@ across all worker nodes. Setting it too high may increase query
 latency and increase CPU usage on the coordinator.
 
 (node-scheduler-policy)=
-
 ## `node-scheduler.policy`
 
 - **Type:** {ref}`prop-type-string`

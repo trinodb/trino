@@ -13,7 +13,7 @@
  */
 package io.trino.hive.formats.compression;
 
-import io.airlift.compress.hadoop.HadoopStreams;
+import io.airlift.compress.v3.hadoop.HadoopStreams;
 import io.airlift.slice.Slice;
 
 import java.io.IOException;

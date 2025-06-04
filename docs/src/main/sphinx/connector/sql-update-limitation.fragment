@@ -1,4 +1,4 @@
-### UPDATE
+### UPDATE limitation
 
 Only `UPDATE` statements with constant assignments and predicates are
 supported. For example, the following statement is supported because the values
@@ -15,14 +15,6 @@ command:
 
 ```sql
 UPDATE table SET col1 = col2 + 2 WHERE col3 = 1
-```
-
-The `=`, `!=`, `>`, `<`, `>=`, `<=`, `IN`, `NOT IN` operators are supported in
-predicates. The following statement is not supported because the `AND` operator
-cannot be used in predicates:
-
-```sql
-UPDATE table SET col1 = 1 WHERE col3 = 1 AND col2 = 3
 ```
 
 All column values of a table row cannot be updated simultaneously. For a three

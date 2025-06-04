@@ -40,7 +40,7 @@ public class ClassLoaderSafeConnectorPageSink
     @Override
     public long getCompletedBytes()
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             return delegate.getCompletedBytes();
         }
     }
@@ -48,7 +48,7 @@ public class ClassLoaderSafeConnectorPageSink
     @Override
     public long getMemoryUsage()
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             return delegate.getMemoryUsage();
         }
     }
@@ -56,7 +56,7 @@ public class ClassLoaderSafeConnectorPageSink
     @Override
     public long getValidationCpuNanos()
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             return delegate.getValidationCpuNanos();
         }
     }
@@ -64,7 +64,7 @@ public class ClassLoaderSafeConnectorPageSink
     @Override
     public CompletableFuture<?> appendPage(Page page)
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             return delegate.appendPage(page);
         }
     }
@@ -72,7 +72,7 @@ public class ClassLoaderSafeConnectorPageSink
     @Override
     public void closeIdleWriters()
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             delegate.closeIdleWriters();
         }
     }
@@ -80,7 +80,7 @@ public class ClassLoaderSafeConnectorPageSink
     @Override
     public CompletableFuture<Collection<Slice>> finish()
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             return delegate.finish();
         }
     }
@@ -88,7 +88,7 @@ public class ClassLoaderSafeConnectorPageSink
     @Override
     public void abort()
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             delegate.abort();
         }
     }

@@ -13,14 +13,11 @@
  */
 package io.trino.plugin.base.util;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteSource;
 import com.google.inject.Injector;
-import com.google.inject.TypeLiteral;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.http.server.HttpServerInfo;
-import io.airlift.http.server.TheServlet;
 import io.airlift.http.server.testing.TestingHttpServerModule;
 import io.airlift.node.testing.TestingNodeModule;
 import jakarta.servlet.Servlet;
@@ -33,7 +30,6 @@ import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.Map;
 
 public class TestingHttpServer
         implements Closeable
@@ -47,8 +43,7 @@ public class TestingHttpServer
                 new TestingNodeModule(),
                 new TestingHttpServerModule(),
                 binder -> {
-                    binder.bind(new TypeLiteral<Map<String, String>>() {}).annotatedWith(TheServlet.class).toInstance(ImmutableMap.of());
-                    binder.bind(Servlet.class).annotatedWith(TheServlet.class).toInstance(new TestingHttpServlet());
+                    binder.bind(Servlet.class).toInstance(new TestingHttpServlet());
                 });
 
         Injector injector = app

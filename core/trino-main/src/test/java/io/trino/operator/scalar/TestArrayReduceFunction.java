@@ -108,7 +108,8 @@ public class TestArrayReduceFunction
     @Test
     public void testTwoValueState()
     {
-        assertThat(assertions.expression("""
+        assertThat(assertions.expression(
+                        """
                         reduce(
                             a,
                             CAST(ROW(0, 0) AS ROW(sum BIGINT, count INTEGER)),
@@ -117,7 +118,8 @@ public class TestArrayReduceFunction
                         """)
                 .binding("a", "ARRAY [5, 20, 50]"))
                 .isEqualTo(25L);
-        assertThat(assertions.expression("""
+        assertThat(assertions.expression(
+                        """
                         reduce(
                                 a,
                                 CAST(ROW(0.0E0, 0) AS ROW(sum DOUBLE, count INTEGER)),

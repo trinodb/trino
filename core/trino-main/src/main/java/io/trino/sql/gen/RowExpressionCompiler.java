@@ -17,6 +17,8 @@ import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
+import io.airlift.bytecode.ClassDefinition;
+import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.trino.metadata.FunctionManager;
@@ -31,6 +33,7 @@ import io.trino.sql.relational.RowExpressionVisitor;
 import io.trino.sql.relational.SpecialForm;
 import io.trino.sql.relational.VariableReferenceExpression;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -45,24 +48,30 @@ import static io.trino.sql.gen.LambdaBytecodeGenerator.generateLambda;
 
 public class RowExpressionCompiler
 {
+    private final ClassDefinition classDefinition;
     private final CallSiteBinder callSiteBinder;
     private final CachedInstanceBinder cachedInstanceBinder;
     private final RowExpressionVisitor<BytecodeNode, Scope> fieldReferenceCompiler;
     private final FunctionManager functionManager;
     private final Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap;
+    private final List<Parameter> contextArguments;  // arguments that need to be propagates to generated methods
 
     public RowExpressionCompiler(
+            ClassDefinition classDefinition,
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
             RowExpressionVisitor<BytecodeNode, Scope> fieldReferenceCompiler,
             FunctionManager functionManager,
-            Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap)
+            Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap,
+            List<Parameter> contextArguments)
     {
+        this.classDefinition = classDefinition;
         this.callSiteBinder = callSiteBinder;
         this.cachedInstanceBinder = cachedInstanceBinder;
         this.fieldReferenceCompiler = fieldReferenceCompiler;
         this.functionManager = functionManager;
         this.compiledLambdaMap = compiledLambdaMap;
+        this.contextArguments = ImmutableList.copyOf(contextArguments);
     }
 
     public BytecodeNode compile(RowExpression rowExpression, Scope scope)
@@ -86,15 +95,17 @@ public class RowExpressionCompiler
                     context.getScope(),
                     callSiteBinder,
                     cachedInstanceBinder,
-                    functionManager);
+                    functionManager,
+                    classDefinition,
+                    contextArguments);
 
-            return generatorContext.generateFullCall(call.getResolvedFunction(), call.getArguments());
+            return generatorContext.generateFullCall(call.resolvedFunction(), call.arguments());
         }
 
         @Override
         public BytecodeNode visitSpecialForm(SpecialForm specialForm, Context context)
         {
-            BytecodeGenerator generator = switch (specialForm.getForm()) {
+            BytecodeGenerator generator = switch (specialForm.form()) {
                 case IF -> new IfCodeGenerator(specialForm);
                 case NULL_IF -> new NullIfCodeGenerator(specialForm);
                 case SWITCH -> new SwitchCodeGenerator(specialForm);
@@ -108,7 +119,7 @@ public class RowExpressionCompiler
                 case ROW_CONSTRUCTOR -> new RowConstructorCodeGenerator(specialForm);
                 case ARRAY_CONSTRUCTOR -> new ArrayConstructorCodeGenerator(specialForm);
                 case BIND -> new BindCodeGenerator(specialForm, compiledLambdaMap, context.getLambdaInterface().get());
-                default -> throw new IllegalStateException("Cannot compile special form: " + specialForm.getForm());
+                default -> throw new IllegalStateException("Cannot compile special form: " + specialForm.form());
             };
 
             BytecodeGeneratorContext generatorContext = new BytecodeGeneratorContext(
@@ -116,7 +127,9 @@ public class RowExpressionCompiler
                     context.getScope(),
                     callSiteBinder,
                     cachedInstanceBinder,
-                    functionManager);
+                    functionManager,
+                    classDefinition,
+                    contextArguments);
 
             return generator.generateExpression(generatorContext);
         }
@@ -124,8 +137,8 @@ public class RowExpressionCompiler
         @Override
         public BytecodeNode visitConstant(ConstantExpression constant, Context context)
         {
-            Object value = constant.getValue();
-            Class<?> javaType = constant.getType().getJavaType();
+            Object value = constant.value();
+            Class<?> javaType = constant.type().getJavaType();
 
             BytecodeBlock block = new BytecodeBlock();
             if (value == null) {
@@ -135,7 +148,7 @@ public class RowExpressionCompiler
             }
 
             // use LDC for primitives (boolean, short, int, long, float, double)
-            block.comment("constant " + constant.getType().getTypeSignature());
+            block.comment("constant " + constant.type().getTypeSignature());
             if (javaType == boolean.class) {
                 return block.append(loadBoolean((Boolean) value));
             }
@@ -150,10 +163,10 @@ public class RowExpressionCompiler
             }
 
             // bind constant object directly into the call-site using invoke dynamic
-            Binding binding = callSiteBinder.bind(value, constant.getType().getJavaType());
+            Binding binding = callSiteBinder.bind(value, constant.type().getJavaType());
 
             return new BytecodeBlock()
-                    .setDescription("constant " + constant.getType())
+                    .setDescription("constant " + constant.type())
                     .comment(constant.toString())
                     .append(loadConstant(binding));
         }
@@ -178,7 +191,9 @@ public class RowExpressionCompiler
                     context.getScope(),
                     callSiteBinder,
                     cachedInstanceBinder,
-                    functionManager);
+                    functionManager,
+                    classDefinition,
+                    contextArguments);
 
             return generateLambda(
                     generatorContext,
@@ -190,8 +205,8 @@ public class RowExpressionCompiler
         @Override
         public BytecodeNode visitVariableReference(VariableReferenceExpression reference, Context context)
         {
-            if (reference.getName().startsWith(TEMP_PREFIX)) {
-                return context.getScope().getTempVariable(reference.getName().substring(TEMP_PREFIX.length()));
+            if (reference.name().startsWith(TEMP_PREFIX)) {
+                return context.getScope().getTempVariable(reference.name().substring(TEMP_PREFIX.length()));
             }
             return fieldReferenceCompiler.visitVariableReference(reference, context.getScope());
         }

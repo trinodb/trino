@@ -222,7 +222,7 @@ public class TestDbSessionPropertyManager
         assertThat(sessionProperties).containsEntry("prop_1", "val_1_3");
         assertThat(sessionProperties).containsEntry("prop_2", "val_2_2");
         assertThat(sessionProperties).containsEntry("prop_3", "val_3_1");
-        assertThat(sessionProperties.size()).isEqualTo(3);
+        assertThat(sessionProperties).hasSize(3);
     }
 
     @Test

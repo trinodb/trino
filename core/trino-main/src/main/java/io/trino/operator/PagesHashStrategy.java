@@ -56,7 +56,7 @@ public interface PagesHashStrategy
      * and {@code rightPage} must have the same number of entries as the hashed columns and each entry
      * is expected to be the same type. The values are compared under "not distinct from" semantics.
      */
-    boolean rowNotDistinctFromRow(int leftPosition, Page leftPage, int rightPosition, Page rightPage);
+    boolean rowIdenticalToRow(int leftPosition, Page leftPage, int rightPosition, Page rightPage);
 
     /**
      * Compares the hashed columns in this PagesHashStrategy to the values in the specified page. The
@@ -73,7 +73,7 @@ public interface PagesHashStrategy
      * {@code rightPage} is used if join uses filter function and must contain all columns from probe side of join.
      * The values are compared under "not distinct from" semantics.
      */
-    boolean positionNotDistinctFromRow(int leftBlockIndex, int leftPosition, int rightPosition, Page rightPage);
+    boolean positionIdenticalToRow(int leftBlockIndex, int leftPosition, int rightPosition, Page rightPage);
 
     /**
      * Compares the hashed columns in this PagesHashStrategy to the values in the specified page. The
@@ -91,7 +91,7 @@ public interface PagesHashStrategy
      * {@code rightChannels} must have the same number of entries as the hashed columns
      * and each entry is expected to be the same type.
      */
-    boolean positionNotDistinctFromRow(int leftBlockIndex, int leftPosition, int rightPosition, Page page, int[] rightChannels);
+    boolean positionIdenticalToRow(int leftBlockIndex, int leftPosition, int rightPosition, Page page, int[] rightChannels);
 
     /**
      * Compares the hashed columns in this PagesHashStrategy at the specified positions.
@@ -102,7 +102,7 @@ public interface PagesHashStrategy
      * Compares the hashed columns in this PagesHashStrategy at the specified positions.
      * The values are compared under "not distinct from" semantics.
      */
-    boolean positionNotDistinctFromPosition(int leftBlockIndex, int leftPosition, int rightBlockIndex, int rightPosition);
+    boolean positionIdenticalToPosition(int leftBlockIndex, int leftPosition, int rightBlockIndex, int rightPosition);
 
     /**
      * Compares the hashed columns in this PagesHashStrategy at the specified positions.

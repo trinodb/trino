@@ -16,17 +16,11 @@ package io.trino.sql.tree;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Optional;
 
 public class CurrentCatalog
         extends Expression
 {
     public CurrentCatalog(NodeLocation location)
-    {
-        this(Optional.of(location));
-    }
-
-    private CurrentCatalog(Optional<NodeLocation> location)
     {
         super(location);
     }

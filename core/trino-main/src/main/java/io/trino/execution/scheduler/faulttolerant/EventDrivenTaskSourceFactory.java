@@ -36,10 +36,10 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.RemoteSourceNode;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
-import java.util.function.LongConsumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -115,7 +115,7 @@ public class EventDrivenTaskSourceFactory
             PlanFragment fragment,
             Map<PlanFragmentId, Exchange> sourceExchanges,
             FaultTolerantPartitioningScheme sourcePartitioningScheme,
-            LongConsumer getSplitTimeRecorder,
+            SplitSourceMetricsRecorder metricsRecorder,
             Map<PlanNodeId, OutputDataSizeEstimate> outputDataSizeEstimates)
     {
         ImmutableSetMultimap.Builder<PlanNodeId, PlanFragmentId> remoteSources = ImmutableSetMultimap.builder();
@@ -143,7 +143,7 @@ public class EventDrivenTaskSourceFactory
                 splitBatchSize,
                 standardSplitSizeInBytes,
                 sourcePartitioningScheme,
-                getSplitTimeRecorder);
+                metricsRecorder);
     }
 
     private SplitAssigner createSplitAssigner(
@@ -171,11 +171,11 @@ public class EventDrivenTaskSourceFactory
 
         boolean coordinatorOnly = partitioning.equals(COORDINATOR_DISTRIBUTION);
         if (partitioning.equals(SINGLE_DISTRIBUTION) || coordinatorOnly) {
-            ImmutableSet<HostAddress> hostRequirement = ImmutableSet.of();
+            Optional<HostAddress> hostRequirement = Optional.empty();
             if (coordinatorOnly) {
                 Node currentNode = nodeManager.getCurrentNode();
                 verify(currentNode.isCoordinator(), "current node is expected to be a coordinator");
-                hostRequirement = ImmutableSet.of(currentNode.getHostAndPort());
+                hostRequirement = Optional.of(currentNode.getHostAndPort());
             }
             return new SingleDistributionSplitAssigner(
                     hostRequirement,
@@ -226,8 +226,7 @@ public class EventDrivenTaskSourceFactory
                     standardSplitSizeInBytes,
                     maxArbitraryDistributionTaskSplitCount);
         }
-        if (partitioning.equals(FIXED_HASH_DISTRIBUTION) || partitioning.getCatalogHandle().isPresent() ||
-                (partitioning.getConnectorHandle() instanceof MergePartitioningHandle)) {
+        if (partitioning.equals(FIXED_HASH_DISTRIBUTION)) {
             return HashDistributionSplitAssigner.create(
                     partitioning.getCatalogHandle(),
                     partitionedSources,
@@ -239,7 +238,9 @@ public class EventDrivenTaskSourceFactory
                     toIntExact(round(getFaultTolerantExecutionHashDistributionComputeTasksToNodesMinRatio(session) * nodeManager.getAllNodes().getActiveNodes().size())),
                     Integer.MAX_VALUE); // compute tasks are bounded by the number of partitions anyways
         }
-        if (partitioning.equals(SCALED_WRITER_HASH_DISTRIBUTION)) {
+        if (partitioning.equals(SCALED_WRITER_HASH_DISTRIBUTION)
+                || partitioning.getCatalogHandle().isPresent()
+                || (partitioning.getConnectorHandle() instanceof MergePartitioningHandle)) {
             return HashDistributionSplitAssigner.create(
                     partitioning.getCatalogHandle(),
                     partitionedSources,

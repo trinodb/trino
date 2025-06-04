@@ -78,9 +78,7 @@ public interface Operator
      * Clean up and release resources after completed memory revoking. Called by driver
      * once future returned by startMemoryRevoke is completed.
      */
-    default void finishMemoryRevoke()
-    {
-    }
+    default void finishMemoryRevoke() {}
 
     /**
      * Notifies the operator that no more pages will be added and the

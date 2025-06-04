@@ -15,7 +15,6 @@ package io.trino.plugin.resourcegroups;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.resourcegroups.SelectionContext;
@@ -27,6 +26,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -41,17 +42,14 @@ public class StaticSelector
     private static final String SOURCE_VARIABLE = "SOURCE";
 
     private final Optional<Pattern> userRegex;
-    private final Optional<Pattern> userGroupRegex;
-    private final Optional<Pattern> sourceRegex;
-    private final Set<String> clientTags;
-    private final Optional<SelectorResourceEstimate> selectorResourceEstimate;
-    private final Optional<String> queryType;
     private final ResourceGroupIdTemplate group;
-    private final Set<String> variableNames;
+    private final List<SelectionMatcher> selectionMatchers;
 
     public StaticSelector(
             Optional<Pattern> userRegex,
             Optional<Pattern> userGroupRegex,
+            Optional<Pattern> originalUserRegex,
+            Optional<Pattern> authenticatedUserRegex,
             Optional<Pattern> sourceRegex,
             Optional<List<String>> clientTags,
             Optional<SelectorResourceEstimate> selectorResourceEstimate,
@@ -59,18 +57,45 @@ public class StaticSelector
             ResourceGroupIdTemplate group)
     {
         this.userRegex = requireNonNull(userRegex, "userRegex is null");
-        this.userGroupRegex = requireNonNull(userGroupRegex, "userGroupRegex is null");
-        this.sourceRegex = requireNonNull(sourceRegex, "sourceRegex is null");
+        requireNonNull(userGroupRegex, "userGroupRegex is null");
+        requireNonNull(originalUserRegex, "originalUserRegex is null");
+        requireNonNull(authenticatedUserRegex, "authenticatedUserRegex is null");
+        requireNonNull(sourceRegex, "sourceRegex is null");
         requireNonNull(clientTags, "clientTags is null");
-        this.clientTags = ImmutableSet.copyOf(clientTags.orElse(ImmutableList.of()));
-        this.selectorResourceEstimate = requireNonNull(selectorResourceEstimate, "selectorResourceEstimate is null");
-        this.queryType = requireNonNull(queryType, "queryType is null");
+        requireNonNull(selectorResourceEstimate, "selectorResourceEstimate is null");
+        requireNonNull(queryType, "queryType is null");
         this.group = requireNonNull(group, "group is null");
 
         HashSet<String> variableNames = new HashSet<>(ImmutableList.of(USER_VARIABLE, SOURCE_VARIABLE));
-        userRegex.ifPresent(u -> addNamedGroups(u, variableNames));
-        sourceRegex.ifPresent(s -> addNamedGroups(s, variableNames));
-        this.variableNames = ImmutableSet.copyOf(variableNames);
+        this.selectionMatchers = ImmutableList.<Optional<SelectionMatcher>>builder()
+                .add(userRegex.map(userRegexValue -> {
+                    addNamedGroups(userRegexValue, variableNames);
+                    return new PatternMatcher(variableNames, userRegexValue, SelectionCriteria::getUser);
+                }))
+                .add(originalUserRegex.map(originalUserRegexValue -> {
+                    addNamedGroups(originalUserRegexValue, variableNames);
+                    return new PatternMatcher(variableNames, originalUserRegexValue, SelectionCriteria::getOriginalUser);
+                }))
+                .add(authenticatedUserRegex.map(authenticatedUserRegexValue -> {
+                    addNamedGroups(authenticatedUserRegexValue, variableNames);
+                    return new PatternMatcher(variableNames, authenticatedUserRegexValue, criteria -> criteria.getAuthenticatedUser().orElse(""));
+                }))
+                .add(sourceRegex.map(sourceRegexValue -> {
+                    addNamedGroups(sourceRegexValue, variableNames);
+                    return new PatternMatcher(variableNames, sourceRegexValue, criteria -> criteria.getSource().orElse(""));
+                }))
+                .add(userGroupRegex.map(userGroupRegexValue ->
+                    new BasicMatcher(criteria -> criteria.getUserGroups().stream().anyMatch(userGroup -> userGroupRegexValue.matcher(userGroup).matches()))))
+                .add(queryType.map(queryTypeValue ->
+                    new BasicMatcher(criteria -> queryTypeValue.equalsIgnoreCase(criteria.getQueryType().orElse("")))))
+                .add(selectorResourceEstimate.map(selectorResourceEstimateValue ->
+                    new BasicMatcher(criteria -> selectorResourceEstimateValue.match(criteria.getResourceEstimates()))))
+                .add(clientTags.map(clientTagsValue ->
+                    new BasicMatcher(criteria -> criteria.getTags().containsAll(clientTagsValue))))
+                .build()
+                .stream()
+                .flatMap(Optional::stream) // remove any empty optionals
+                .toList();
 
         Set<String> unresolvedVariables = Sets.difference(group.getVariableNames(), variableNames);
         checkArgument(unresolvedVariables.isEmpty(), "unresolved variables %s in resource group ID '%s', available: %s\"", unresolvedVariables, group, variableNames);
@@ -79,43 +104,12 @@ public class StaticSelector
     @Override
     public Optional<SelectionContext<ResourceGroupIdTemplate>> match(SelectionCriteria criteria)
     {
+        if (!selectionMatchers.stream().allMatch(matcher -> matcher.matches(criteria))) {
+            return Optional.empty();
+        }
         Map<String, String> variables = new HashMap<>();
-
-        if (userRegex.isPresent()) {
-            Matcher userMatcher = userRegex.get().matcher(criteria.getUser());
-            if (!userMatcher.matches()) {
-                return Optional.empty();
-            }
-
-            addVariableValues(userRegex.get(), criteria.getUser(), variables);
-        }
-
-        if (userGroupRegex.isPresent() && criteria.getUserGroups().stream().noneMatch(group -> userGroupRegex.get().matcher(group).matches())) {
-            return Optional.empty();
-        }
-
-        if (sourceRegex.isPresent()) {
-            String source = criteria.getSource().orElse("");
-            if (!sourceRegex.get().matcher(source).matches()) {
-                return Optional.empty();
-            }
-
-            addVariableValues(sourceRegex.get(), source, variables);
-        }
-
-        if (!clientTags.isEmpty() && !criteria.getTags().containsAll(clientTags)) {
-            return Optional.empty();
-        }
-
-        if (selectorResourceEstimate.isPresent() && !selectorResourceEstimate.get().match(criteria.getResourceEstimates())) {
-            return Optional.empty();
-        }
-
-        if (queryType.isPresent()) {
-            String contextQueryType = criteria.getQueryType().orElse("");
-            if (!queryType.get().equalsIgnoreCase(contextQueryType)) {
-                return Optional.empty();
-            }
+        for (SelectionMatcher matcher : selectionMatchers) {
+            matcher.populateVariables(criteria, variables);
         }
 
         variables.putIfAbsent(USER_VARIABLE, criteria.getUser());
@@ -137,19 +131,53 @@ public class StaticSelector
         }
     }
 
-    private void addVariableValues(Pattern pattern, String candidate, Map<String, String> mapping)
+    private interface SelectionMatcher
     {
-        for (String key : variableNames) {
-            Matcher keyMatcher = pattern.matcher(candidate);
-            if (keyMatcher.find()) {
-                try {
-                    String value = keyMatcher.group(key);
+        boolean matches(SelectionCriteria criteria);
+
+        void populateVariables(SelectionCriteria criteria, Map<String, String> variables);
+    }
+
+    private record BasicMatcher(Predicate<SelectionCriteria> matchPredicate)
+            implements SelectionMatcher
+    {
+        @Override
+        public boolean matches(SelectionCriteria criteria)
+        {
+            return matchPredicate.test(criteria);
+        }
+
+        @Override
+        public void populateVariables(SelectionCriteria criteria, Map<String, String> variables)
+        {
+            // no-op
+        }
+    }
+
+    private record PatternMatcher(Set<String> variableNames, Pattern pattern,
+                                  Function<SelectionCriteria, String> valueExtractor)
+            implements SelectionMatcher
+    {
+        @Override
+        public boolean matches(SelectionCriteria criteria)
+        {
+            return pattern.matcher(valueExtractor.apply(criteria)).matches();
+        }
+
+        @Override
+        public void populateVariables(SelectionCriteria criteria, Map<String, String> variables)
+        {
+            Matcher matcher = pattern.matcher(valueExtractor.apply(criteria));
+            if (!matcher.matches()) {
+                return;
+            }
+            Map<String, Integer> namedGroups = matcher.namedGroups();
+            for (String key : variableNames) {
+                if (namedGroups.containsKey(key)) {
+                    String value = matcher.group(namedGroups.get(key));
                     if (value != null) {
-                        mapping.put(key, value);
+                        variables.put(key, value);
                     }
-                }
-                catch (IllegalArgumentException ignored) {
-                    // there was no capturing group with the specified name
                 }
             }
         }

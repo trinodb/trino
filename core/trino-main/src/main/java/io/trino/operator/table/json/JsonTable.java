@@ -51,7 +51,7 @@ import static java.util.Objects.requireNonNull;
  * Implements feature ISO/IEC 9075-2:2023(E) 7.11 'JSON table'
  * including features T824, T827, T838
  */
-public class JsonTable
+public final class JsonTable
 {
     private JsonTable() {}
 
@@ -106,8 +106,8 @@ public class JsonTable
     public static class JsonTableFunctionProcessor
             implements TableFunctionDataProcessor
     {
+        private final Type[] outputTypes;
         private final PageBuilder pageBuilder;
-        private final int properColumnsCount;
         private final JsonTableProcessingFragment executionPlan;
         private final Object[] newRow;
         private final RowType parametersType;
@@ -119,11 +119,11 @@ public class JsonTable
 
         public JsonTableFunctionProcessor(JsonTableProcessingFragment executionPlan, Object[] newRow, Type[] outputTypes, RowType parametersType, boolean outer)
         {
+            this.outputTypes = requireNonNull(outputTypes, "outputTypes is null");
             this.pageBuilder = new PageBuilder(ImmutableList.<Type>builder()
                     .add(outputTypes)
                     .add(BIGINT) // add additional position for pass-through index
                     .build());
-            this.properColumnsCount = outputTypes.length;
             this.executionPlan = requireNonNull(executionPlan, "executionPlan is null");
             this.newRow = requireNonNull(newRow, "newRow is null");
             this.parametersType = requireNonNull(parametersType, "parametersType is null");
@@ -203,11 +203,11 @@ public class JsonTable
         private void addOutputRow()
         {
             pageBuilder.declarePosition();
-            for (int channel = 0; channel < properColumnsCount; channel++) {
-                writeNativeValue(pageBuilder.getType(channel), pageBuilder.getBlockBuilder(channel), newRow[channel]);
+            for (int channel = 0; channel < outputTypes.length; channel++) {
+                writeNativeValue(outputTypes[channel], pageBuilder.getBlockBuilder(channel), newRow[channel]);
             }
             // pass-through index from partition start
-            BIGINT.writeLong(pageBuilder.getBlockBuilder(properColumnsCount), totalPositionsProcessed - 1);
+            BIGINT.writeLong(pageBuilder.getBlockBuilder(outputTypes.length), totalPositionsProcessed - 1);
         }
 
         private void addNullPaddedRow()

@@ -93,7 +93,7 @@ public class LeastWastedEffortTaskLowMemoryKiller
                 if (taskInfo == null) {
                     return false;
                 }
-                return taskInfo.getTaskStatus().isSpeculative();
+                return taskInfo.taskStatus().isSpeculative();
             });
         }
 
@@ -103,7 +103,7 @@ public class LeastWastedEffortTaskLowMemoryKiller
                     Long memoryUsed = entry.getValue();
                     long wallTime = 0;
                     if (taskInfos.containsKey(taskId)) {
-                        TaskStats stats = taskInfos.get(taskId).getStats();
+                        TaskStats stats = taskInfos.get(taskId).stats();
                         wallTime = stats.getTotalScheduledTime().toMillis() + stats.getTotalBlockedTime().toMillis();
                     }
                     wallTime = Math.max(wallTime, MIN_WALL_TIME); // only look at memory consumption for fairly short-lived tasks

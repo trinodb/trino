@@ -35,7 +35,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
-import io.trino.type.BlockTypeOperators.BlockPositionIsDistinctFrom;
+import io.trino.type.BlockTypeOperators.BlockPositionIsIdentical;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -66,7 +66,7 @@ public final class MapToMapCast
             MethodHandle.class,
             MethodHandle.class,
             MapType.class,
-            BlockPositionIsDistinctFrom.class,
+            BlockPositionIsIdentical.class,
             BlockPositionHashCode.class,
             ConnectorSession.class,
             SqlMap.class);
@@ -122,9 +122,9 @@ public final class MapToMapCast
 
         MethodHandle keyProcessor = buildProcessor(functionDependencies, fromKeyType, toKeyType, true);
         MethodHandle valueProcessor = buildProcessor(functionDependencies, fromValueType, toValueType, false);
-        BlockPositionIsDistinctFrom keyEqual = blockTypeOperators.getDistinctFromOperator(toKeyType);
+        BlockPositionIsIdentical keyIdentical = blockTypeOperators.getIdenticalOperator(toKeyType);
         BlockPositionHashCode keyHashCode = blockTypeOperators.getHashCodeOperator(toKeyType);
-        MethodHandle target = MethodHandles.insertArguments(METHOD_HANDLE, 0, keyProcessor, valueProcessor, toMapType, keyEqual, keyHashCode);
+        MethodHandle target = MethodHandles.insertArguments(METHOD_HANDLE, 0, keyProcessor, valueProcessor, toMapType, keyIdentical, keyHashCode);
         return new ChoicesSpecializedSqlScalarFunction(boundSignature, NULLABLE_RETURN, ImmutableList.of(NEVER_NULL), target);
     }
 
@@ -243,7 +243,7 @@ public final class MapToMapCast
             MethodHandle keyProcessFunction,
             MethodHandle valueProcessFunction,
             MapType toType,
-            BlockPositionIsDistinctFrom keyDistinctOperator,
+            BlockPositionIsIdentical keyIdenticalOperator,
             BlockPositionHashCode keyHashCode,
             ConnectorSession session,
             SqlMap fromMap)

@@ -40,7 +40,6 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
-import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Decimals;
@@ -74,7 +73,7 @@ import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.block.BlockAssertions.createRandomBlockForType;
 import static io.trino.block.BlockAssertions.createRepeatedValuesBlock;
-import static io.trino.execution.buffer.CompressionCodec.NONE;
+import static io.trino.execution.buffer.TestingPagesSerdes.createTestingPagesSerdeFactory;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -110,7 +109,7 @@ public class TestPagePartitioner
     private static final int POSITIONS_PER_PAGE = 8;
     private static final int PARTITION_COUNT = 2;
 
-    private static final PagesSerdeFactory PAGES_SERDE_FACTORY = new PagesSerdeFactory(new TestingBlockEncodingSerde(), NONE);
+    private static final PagesSerdeFactory PAGES_SERDE_FACTORY = createTestingPagesSerdeFactory();
     private static final PageDeserializer PAGE_DESERIALIZER = PAGES_SERDE_FACTORY.createDeserializer(Optional.empty());
 
     private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-executor-%s"));
@@ -548,7 +547,7 @@ public class TestPagePartitioner
         pagePartitioner.close();
         List<Slice> output = outputBuffer.getEnqueued();
         // only a single page was flushed after the partitioner is closed, all output bytes were reported eagerly on release
-        assertThat(output.size()).isEqualTo(1);
+        assertThat(output).hasSize(1);
     }
 
     @Test
@@ -691,7 +690,7 @@ public class TestPagePartitioner
         private final OutputBuffer outputBuffer;
         private final DriverContextBuilder driverContextBuilder;
 
-        private ImmutableList<Integer> partitionChannels = ImmutableList.of(0);
+        private List<Integer> partitionChannels = ImmutableList.of(0);
         private List<Optional<NullableValue>> partitionConstants = ImmutableList.of();
         private PartitionFunction partitionFunction = new SumModuloPartitionFunction(PARTITION_COUNT, 0);
         private boolean shouldReplicate;
@@ -710,7 +709,7 @@ public class TestPagePartitioner
             return withPartitionChannels(ImmutableList.copyOf(partitionChannels));
         }
 
-        public PagePartitionerBuilder withPartitionChannels(ImmutableList<Integer> partitionChannels)
+        public PagePartitionerBuilder withPartitionChannels(List<Integer> partitionChannels)
         {
             this.partitionChannels = partitionChannels;
             return this;
@@ -907,14 +906,10 @@ public class TestPagePartitioner
         }
 
         @Override
-        public void addStateChangeListener(StateMachine.StateChangeListener<BufferState> stateChangeListener)
-        {
-        }
+        public void addStateChangeListener(StateMachine.StateChangeListener<BufferState> stateChangeListener) {}
 
         @Override
-        public void setOutputBuffers(OutputBuffers newOutputBuffers)
-        {
-        }
+        public void setOutputBuffers(OutputBuffers newOutputBuffers) {}
 
         @Override
         public ListenableFuture<BufferResult> get(OutputBufferId bufferId, long token, DataSize maxSize)
@@ -923,14 +918,10 @@ public class TestPagePartitioner
         }
 
         @Override
-        public void acknowledge(OutputBufferId bufferId, long token)
-        {
-        }
+        public void acknowledge(OutputBufferId bufferId, long token) {}
 
         @Override
-        public void destroy(OutputBufferId bufferId)
-        {
-        }
+        public void destroy(OutputBufferId bufferId) {}
 
         @Override
         public ListenableFuture<Void> isFull()
@@ -939,24 +930,16 @@ public class TestPagePartitioner
         }
 
         @Override
-        public void enqueue(List<Slice> pages)
-        {
-        }
+        public void enqueue(List<Slice> pages) {}
 
         @Override
-        public void setNoMorePages()
-        {
-        }
+        public void setNoMorePages() {}
 
         @Override
-        public void destroy()
-        {
-        }
+        public void destroy() {}
 
         @Override
-        public void abort()
-        {
-        }
+        public void abort() {}
 
         @Override
         public long getPeakMemoryUsage()

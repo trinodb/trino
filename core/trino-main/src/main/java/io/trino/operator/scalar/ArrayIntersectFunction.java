@@ -24,13 +24,13 @@ import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
-import io.trino.type.BlockTypeOperators.BlockPositionIsDistinctFrom;
+import io.trino.type.BlockTypeOperators.BlockPositionIsIdentical;
 
 import static io.trino.operator.scalar.BlockSet.MAX_FUNCTION_MEMORY;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
-import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
+import static io.trino.spi.function.OperatorType.IDENTICAL;
 
 @ScalarFunction("array_intersect")
 @Description("Intersects elements of the two given arrays")
@@ -49,9 +49,9 @@ public final class ArrayIntersectFunction
     public Block intersect(
             @TypeParameter("E") Type type,
             @OperatorDependency(
-                    operator = IS_DISTINCT_FROM,
+                    operator = IDENTICAL,
                     argumentTypes = {"E", "E"},
-                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL)) BlockPositionIsDistinctFrom elementIsDistinctFrom,
+                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL)) BlockPositionIsIdentical elementIdentical,
             @OperatorDependency(
                     operator = HASH_CODE,
                     argumentTypes = "E",
@@ -72,13 +72,13 @@ public final class ArrayIntersectFunction
             return rightArray;
         }
 
-        BlockSet rightSet = new BlockSet(type, elementIsDistinctFrom, elementHashCode, rightPositionCount);
+        BlockSet rightSet = new BlockSet(type, elementIdentical, elementHashCode, rightPositionCount);
         for (int i = 0; i < rightPositionCount; i++) {
             rightSet.add(rightArray, i);
         }
 
         // The intersected set can have at most rightPositionCount elements
-        BlockSet intersectSet = new BlockSet(type, elementIsDistinctFrom, elementHashCode, rightSet.size());
+        BlockSet intersectSet = new BlockSet(type, elementIdentical, elementHashCode, rightSet.size());
         for (int i = 0; i < leftPositionCount; i++) {
             if (rightSet.contains(leftArray, i)) {
                 intersectSet.add(leftArray, i);

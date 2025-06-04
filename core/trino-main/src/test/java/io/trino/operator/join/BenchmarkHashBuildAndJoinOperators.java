@@ -238,7 +238,6 @@ public class BenchmarkHashBuildAndJoinOperators
                     HASH_JOIN_OPERATOR_ID,
                     TEST_PLAN_NODE_ID,
                     lookupSourceFactory,
-                    false,
                     types,
                     hashChannels,
                     hashChannel,
@@ -351,7 +350,7 @@ public class BenchmarkHashBuildAndJoinOperators
                 incrementalLoadFactorHashArraySizeSupplier(buildContext.getSession()));
 
         Operator[] operators = IntStream.range(0, partitionCount)
-                .mapToObj(i -> buildContext.createTaskContext()
+                .mapToObj(_ -> buildContext.createTaskContext()
                         .addPipelineContext(0, true, true, partitionCount > 1)
                         .addDriverContext())
                 .map(hashBuilderOperatorFactory::createOperator)

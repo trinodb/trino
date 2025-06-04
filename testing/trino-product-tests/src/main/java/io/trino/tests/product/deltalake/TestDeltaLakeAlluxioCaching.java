@@ -14,12 +14,12 @@
 package io.trino.tests.product.deltalake;
 
 import io.airlift.units.Duration;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.ProductTest;
 import io.trino.tests.product.utils.CachingTestUtils.CacheStats;
 import org.testng.annotations.Test;
 
-import static io.airlift.testing.Assertions.assertGreaterThan;
-import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
+import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_ALLUXIO_CACHING;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.utils.CachingTestUtils.getCacheStats;
@@ -27,11 +27,18 @@ import static io.trino.tests.product.utils.QueryAssertions.assertEventually;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 public class TestDeltaLakeAlluxioCaching
         extends ProductTest
 {
+    private String bucketName;
+
+    @BeforeMethodWithContext
+    public void setUp()
+    {
+        bucketName = requireEnv("S3_BUCKET");
+    }
+
     @Test(groups = {DELTA_LAKE_ALLUXIO_CACHING, PROFILE_SPECIFIC_TESTS})
     public void testReadFromCache()
     {
@@ -41,42 +48,49 @@ public class TestDeltaLakeAlluxioCaching
 
     private void testReadFromTable(String tableNameSuffix)
     {
-        String cachedTableName = "delta.default.test_cache_read" + tableNameSuffix;
-        String nonCachedTableName = "delta_non_cached.default.test_cache_read" + tableNameSuffix;
+        String cachedSchemaName = "delta.test_caching";
+        String nonCachedTableName = "delta_non_cached.test_caching.test_cache_read" + tableNameSuffix;
 
-        createTestTable(cachedTableName);
+        try {
+            onTrino().executeQuery("CREATE SCHEMA " + cachedSchemaName + " WITH (location = 's3://" + bucketName + "/test_delta_cached')");
+            String cachedTableName = cachedSchemaName + ".test_cache_read" + tableNameSuffix;
 
-        CacheStats beforeCacheStats = getCacheStats("delta");
+            createTestTable(cachedTableName);
 
-        long tableSize = (Long) onTrino().executeQuery("SELECT SUM(size) as size FROM (SELECT \"$path\", \"$file_size\" AS size FROM " + nonCachedTableName + " GROUP BY 1, 2)").getOnlyValue();
+            CacheStats beforeCacheStats = getCacheStats("delta");
 
-        assertThat(onTrino().executeQuery("SELECT * FROM " + cachedTableName)).hasAnyRows();
+            long tableSize = (Long) onTrino().executeQuery("SELECT SUM(size) as size FROM (SELECT \"$path\", \"$file_size\" AS size FROM " + nonCachedTableName + " GROUP BY 1, 2)").getOnlyValue();
 
-        assertEventually(
-                new Duration(20, SECONDS),
-                () -> {
-                    // first query via caching catalog should fetch external data
-                    CacheStats afterQueryCacheStats = getCacheStats("delta");
-                    assertGreaterThanOrEqual(afterQueryCacheStats.cacheSpaceUsed(), beforeCacheStats.cacheSpaceUsed() + tableSize);
-                    assertGreaterThan(afterQueryCacheStats.externalReads(), beforeCacheStats.externalReads());
-                    assertGreaterThanOrEqual(afterQueryCacheStats.cacheReads(), beforeCacheStats.cacheReads());
-                });
+            assertThat(onTrino().executeQuery("SELECT * FROM " + cachedTableName)).hasAnyRows();
 
-        assertEventually(
-                new Duration(10, SECONDS),
-                () -> {
-                    CacheStats beforeQueryCacheStats = getCacheStats("delta");
+            assertEventually(
+                    new Duration(20, SECONDS),
+                    () -> {
+                        // first query via caching catalog should fetch external data
+                        CacheStats afterQueryCacheStats = getCacheStats("delta");
+                        assertThat(afterQueryCacheStats.cacheSpaceUsed()).isGreaterThanOrEqualTo(beforeCacheStats.cacheSpaceUsed() + tableSize);
+                        assertThat(afterQueryCacheStats.externalReads()).isGreaterThan(beforeCacheStats.externalReads());
+                        assertThat(afterQueryCacheStats.cacheReads()).isGreaterThanOrEqualTo(beforeCacheStats.cacheReads());
+                    });
 
-                    assertThat(onTrino().executeQuery("SELECT * FROM " + cachedTableName)).hasAnyRows();
+            assertEventually(
+                    new Duration(10, SECONDS),
+                    () -> {
+                        CacheStats beforeQueryCacheStats = getCacheStats("delta");
 
-                    // query via caching catalog should read exclusively from cache
-                    CacheStats afterQueryCacheStats = getCacheStats("delta");
-                    assertGreaterThan(afterQueryCacheStats.cacheReads(), beforeQueryCacheStats.cacheReads());
-                    assertEquals(afterQueryCacheStats.externalReads(), beforeQueryCacheStats.externalReads());
-                    assertEquals(afterQueryCacheStats.cacheSpaceUsed(), beforeQueryCacheStats.cacheSpaceUsed());
-                });
+                        assertThat(onTrino().executeQuery("SELECT * FROM " + cachedTableName)).hasAnyRows();
 
-        onTrino().executeQuery("DROP TABLE " + nonCachedTableName);
+                        // query via caching catalog should read exclusively from cache
+                        CacheStats afterQueryCacheStats = getCacheStats("delta");
+                        assertThat(afterQueryCacheStats.cacheReads()).isGreaterThan(beforeQueryCacheStats.cacheReads());
+                        assertThat(afterQueryCacheStats.externalReads()).isEqualTo(beforeQueryCacheStats.externalReads());
+                        assertThat(afterQueryCacheStats.cacheSpaceUsed()).isEqualTo(beforeQueryCacheStats.cacheSpaceUsed());
+                    });
+        }
+        finally {
+            onTrino().executeQuery("DROP TABLE IF EXISTS " + nonCachedTableName);
+            onTrino().executeQuery("DROP SCHEMA IF EXISTS " + cachedSchemaName);
+        }
     }
 
     /**

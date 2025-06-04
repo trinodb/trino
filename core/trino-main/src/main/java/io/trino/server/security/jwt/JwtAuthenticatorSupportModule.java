@@ -18,11 +18,13 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
+import com.google.inject.TypeLiteral;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.http.client.HttpClient;
-import io.jsonwebtoken.SigningKeyResolver;
+import io.jsonwebtoken.Locator;
 
 import java.net.URI;
+import java.security.Key;
 
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -39,7 +41,7 @@ public class JwtAuthenticatorSupportModule
                 JwtAuthenticatorConfig.class,
                 JwtAuthenticatorSupportModule::isHttp,
                 new JwkModule(),
-                jwkBinder -> jwkBinder.bind(SigningKeyResolver.class).annotatedWith(ForJwt.class).to(FileSigningKeyResolver.class).in(Scopes.SINGLETON)));
+                jwkBinder -> jwkBinder.bind(new TypeLiteral<Locator<Key>>() {}).annotatedWith(ForJwt.class).to(FileSigningKeyLocator.class).in(Scopes.SINGLETON)));
     }
 
     private static boolean isHttp(JwtAuthenticatorConfig config)
@@ -67,9 +69,9 @@ public class JwtAuthenticatorSupportModule
         @Provides
         @Singleton
         @ForJwt
-        public static SigningKeyResolver createJwkSigningKeyResolver(@ForJwt JwkService jwkService)
+        public static Locator<Key> createJwkSigningKeyLocator(@ForJwt JwkService jwkService)
         {
-            return new JwkSigningKeyResolver(jwkService);
+            return new JwkSigningKeyLocator(jwkService);
         }
 
         // this module can be added multiple times, and this prevents multiple processing by Guice

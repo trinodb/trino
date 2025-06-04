@@ -30,7 +30,7 @@ public class TestShortDecimalMinAggregation
     @Override
     protected Block[] getSequenceBlocks(int start, int length)
     {
-        BlockBuilder blockBuilder = SHORT_DECIMAL.createBlockBuilder(null, length);
+        BlockBuilder blockBuilder = SHORT_DECIMAL.createFixedSizeBlockBuilder(length);
         for (int i = start; i < start + length; i++) {
             SHORT_DECIMAL.writeLong(blockBuilder, i);
         }

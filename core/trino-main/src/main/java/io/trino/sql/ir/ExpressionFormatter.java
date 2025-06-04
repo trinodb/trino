@@ -159,12 +159,6 @@ public final class ExpressionFormatter
         }
 
         @Override
-        protected String visitNot(Not node, Void context)
-        {
-            return "(NOT " + process(node.value(), context) + ")";
-        }
-
-        @Override
         protected String visitComparison(Comparison node, Void context)
         {
             return formatBinaryExpression(node.operator().getValue(), node.left(), node.right());
@@ -191,8 +185,7 @@ public final class ExpressionFormatter
         @Override
         public String visitCast(Cast node, Void context)
         {
-            return (node.safe() ? "TRY_CAST" : "CAST") +
-                    "(" + process(node.expression(), context) + " AS " + node.type().getDisplayName() + ")";
+            return "CAST(" + process(node.expression(), context) + " AS " + node.type().getDisplayName() + ")";
         }
 
         @Override

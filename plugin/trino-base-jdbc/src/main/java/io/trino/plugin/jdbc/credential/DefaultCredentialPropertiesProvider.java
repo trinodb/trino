@@ -22,7 +22,7 @@ import java.util.Optional;
 import static java.util.Objects.requireNonNull;
 
 public class DefaultCredentialPropertiesProvider
-        implements CredentialPropertiesProvider<String, String>
+        implements CredentialPropertiesProvider
 {
     private final CredentialProvider provider;
 
@@ -32,9 +32,9 @@ public class DefaultCredentialPropertiesProvider
     }
 
     @Override
-    public Map<String, String> getCredentialProperties(ConnectorIdentity identity)
+    public Map<String, Object> getCredentialProperties(ConnectorIdentity identity)
     {
-        ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
+        ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
         provider.getConnectionUser(Optional.of(identity)).ifPresent(user -> properties.put("user", user));
         provider.getConnectionPassword(Optional.of(identity)).ifPresent(password -> properties.put("password", password));
         return properties.buildOrThrow();

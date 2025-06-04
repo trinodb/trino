@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -27,17 +26,7 @@ public final class PatternSearchMode
 {
     private final Mode mode;
 
-    public PatternSearchMode(Mode mode)
-    {
-        this(Optional.empty(), mode);
-    }
-
     public PatternSearchMode(NodeLocation location, Mode mode)
-    {
-        this(Optional.of(location), mode);
-    }
-
-    public PatternSearchMode(Optional<NodeLocation> location, Mode mode)
     {
         super(location);
         this.mode = requireNonNull(mode, "mode is null");

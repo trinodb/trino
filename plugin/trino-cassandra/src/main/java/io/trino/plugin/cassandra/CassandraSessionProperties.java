@@ -35,7 +35,7 @@ public final class CassandraSessionProperties
         sessionProperties = ImmutableList.of(
                 longProperty(
                         SPLITS_PER_NODE,
-                        "Number of splits per node. By default, the values from the system.size_estimates table are used. Only override when connecting to Cassandra versions < 2.1.5.",
+                        "Number of splits per node. By default, the values from the system.size_estimates table are used.",
                         cassandraClientConfig.getSplitsPerNode().orElse(null),
                         false));
     }

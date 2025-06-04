@@ -28,25 +28,12 @@ public class SimpleCaseExpression
     private final List<WhenClause> whenClauses;
     private final Optional<Expression> defaultValue;
 
-    public SimpleCaseExpression(Expression operand, List<WhenClause> whenClauses, Optional<Expression> defaultValue)
-    {
-        this(Optional.empty(), operand, whenClauses, defaultValue);
-    }
-
     public SimpleCaseExpression(NodeLocation location, Expression operand, List<WhenClause> whenClauses, Optional<Expression> defaultValue)
     {
-        this(Optional.of(location), operand, whenClauses, defaultValue);
-    }
-
-    private SimpleCaseExpression(Optional<NodeLocation> location, Expression operand, List<WhenClause> whenClauses, Optional<Expression> defaultValue)
-    {
         super(location);
-        requireNonNull(operand, "operand is null");
-        requireNonNull(whenClauses, "whenClauses is null");
-
-        this.operand = operand;
+        this.operand = requireNonNull(operand, "operand is null");
         this.whenClauses = ImmutableList.copyOf(whenClauses);
-        this.defaultValue = defaultValue;
+        this.defaultValue = requireNonNull(defaultValue, "defaultValue is null");
     }
 
     public Expression getOperand()

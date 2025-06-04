@@ -16,7 +16,6 @@ package io.trino.sql.tree;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -28,7 +27,7 @@ public final class ReturnsClause
 
     public ReturnsClause(NodeLocation location, DataType returnType)
     {
-        super(Optional.of(location));
+        super(location);
         this.returnType = requireNonNull(returnType, "returnType is null");
     }
 

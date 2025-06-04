@@ -36,6 +36,7 @@ public record DeltaLakeOutputTableHandle(
         boolean external,
         Optional<String> comment,
         Optional<Boolean> changeDataFeedEnabled,
+        boolean deletionVectorsEnabled,
         String schemaString,
         ColumnMappingMode columnMappingMode,
         OptionalInt maxColumnId,
@@ -63,8 +64,8 @@ public record DeltaLakeOutputTableHandle(
     public List<String> partitionedBy()
     {
         return inputColumns().stream()
-                .filter(column -> column.getColumnType() == PARTITION_KEY)
-                .map(DeltaLakeColumnHandle::getColumnName)
+                .filter(column -> column.columnType() == PARTITION_KEY)
+                .map(DeltaLakeColumnHandle::columnName)
                 .collect(toImmutableList());
     }
 }

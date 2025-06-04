@@ -1,4 +1,4 @@
--- database: presto; groups: tpch; tables: orders,customer
+-- database: trino; groups: tpch; tables: orders,customer
 SELECT
   cntrycode,
   count(*)       AS numcust,

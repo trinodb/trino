@@ -13,10 +13,12 @@
  */
 package io.trino.plugin.deltalake.metastore;
 
-import io.trino.plugin.hive.metastore.Database;
-import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.PrincipalPrivileges;
-import io.trino.plugin.hive.metastore.Table;
+import com.google.common.collect.ImmutableMap;
+import io.trino.metastore.Database;
+import io.trino.metastore.HiveMetastore;
+import io.trino.metastore.PrincipalPrivileges;
+import io.trino.metastore.Table;
+import io.trino.metastore.TableInfo;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
 
@@ -24,7 +26,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.PATH_PROPERTY;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
@@ -58,11 +59,9 @@ public class HiveMetastoreBackedDeltaLakeMetastore
     }
 
     @Override
-    public List<String> getAllTables(String databaseName)
+    public List<TableInfo> getAllTables(String databaseName)
     {
-        return delegate.getTables(databaseName).stream()
-                .map(tableInfo -> tableInfo.tableName().getTableName())
-                .collect(toImmutableList());
+        return delegate.getTables(databaseName);
     }
 
     @Override
@@ -74,13 +73,8 @@ public class HiveMetastoreBackedDeltaLakeMetastore
     @Override
     public Optional<DeltaMetastoreTable> getTable(String databaseName, String tableName)
     {
-        return getRawMetastoreTable(databaseName, tableName).map(table -> {
-            verifyDeltaLakeTable(table);
-            return new DeltaMetastoreTable(
-                    new SchemaTableName(databaseName, tableName),
-                    table.getTableType().equals(MANAGED_TABLE.name()),
-                    getTableLocation(table));
-        });
+        return getRawMetastoreTable(databaseName, tableName)
+                .map(HiveMetastoreBackedDeltaLakeMetastore::convertToDeltaMetastoreTable);
     }
 
     public static void verifyDeltaLakeTable(Table table)
@@ -115,7 +109,7 @@ public class HiveMetastoreBackedDeltaLakeMetastore
     @Override
     public void replaceTable(Table table, PrincipalPrivileges principalPrivileges)
     {
-        delegate.replaceTable(table.getDatabaseName(), table.getTableName(), table, principalPrivileges);
+        delegate.replaceTable(table.getDatabaseName(), table.getTableName(), table, principalPrivileges, ImmutableMap.of());
     }
 
     @Override
@@ -128,6 +122,15 @@ public class HiveMetastoreBackedDeltaLakeMetastore
     public void renameTable(SchemaTableName from, SchemaTableName to)
     {
         delegate.renameTable(from.getSchemaName(), from.getTableName(), to.getSchemaName(), to.getTableName());
+    }
+
+    public static DeltaMetastoreTable convertToDeltaMetastoreTable(Table table)
+    {
+        verifyDeltaLakeTable(table);
+        return new DeltaMetastoreTable(
+                new SchemaTableName(table.getDatabaseName(), table.getTableName()),
+                table.getTableType().equals(MANAGED_TABLE.name()),
+                getTableLocation(table));
     }
 
     public static String getTableLocation(Table table)

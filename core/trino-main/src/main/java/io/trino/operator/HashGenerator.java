@@ -17,6 +17,8 @@ import io.trino.spi.Page;
 
 public interface HashGenerator
 {
+    int INITIAL_HASH_VALUE = 0;
+
     long hashPosition(int position, Page page);
 
     default int getPartition(int partitionCount, int position, Page page)

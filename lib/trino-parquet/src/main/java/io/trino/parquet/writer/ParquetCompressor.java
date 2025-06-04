@@ -13,9 +13,10 @@
  */
 package io.trino.parquet.writer;
 
-import io.airlift.compress.Compressor;
-import io.airlift.compress.snappy.SnappyCompressor;
-import io.airlift.compress.zstd.ZstdCompressor;
+import io.airlift.compress.v3.Compressor;
+import io.airlift.compress.v3.lz4.Lz4Compressor;
+import io.airlift.compress.v3.snappy.SnappyCompressor;
+import io.airlift.compress.v3.zstd.ZstdCompressor;
 import io.airlift.slice.Slices;
 import org.apache.parquet.format.CompressionCodec;
 
@@ -37,13 +38,14 @@ interface ParquetCompressor
             case GZIP:
                 return new GzipCompressor();
             case SNAPPY:
-                return new AirLiftCompressor(new SnappyCompressor());
+                return new AirLiftCompressor(SnappyCompressor.create());
             case ZSTD:
-                return new AirLiftCompressor(new ZstdCompressor());
+                return new AirLiftCompressor(ZstdCompressor.create());
+            case LZ4:
+                return new AirLiftCompressor(Lz4Compressor.create());
             case UNCOMPRESSED:
                 return null;
             case LZO:
-            case LZ4:
             case LZ4_RAW:
                 // TODO Support LZO and LZ4_RAW compression
                 // Note: LZ4 compression scheme has been deprecated by parquet-format in favor of LZ4_RAW

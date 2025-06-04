@@ -13,6 +13,10 @@
  */
 package io.trino.spi.block;
 
+import io.trino.spi.Experimental;
+
+import java.util.Optional;
+
 public non-sealed interface ValueBlock
         extends Block
 {
@@ -39,4 +43,12 @@ public non-sealed interface ValueBlock
     {
         return position;
     }
+
+    /**
+     * Returns a ByteArrayBlock specifying whether the current positions in the Block contain a NULL.
+     * Returns Optional.empty() when there are no NULLs in the Block.
+     * The returned ByteArrayBlock must not contain NULL values.
+     */
+    @Experimental(eta = "2025-01-01")
+    Optional<ByteArrayBlock> getNulls();
 }

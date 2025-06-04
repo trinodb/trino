@@ -26,19 +26,9 @@ public final class CurrentTime
 {
     private final Optional<Integer> precision;
 
-    public CurrentTime(NodeLocation location, int precision)
+    public CurrentTime(NodeLocation location, Optional<Integer> precision)
     {
-        this(location, Optional.of(precision));
-    }
-
-    public CurrentTime(NodeLocation location)
-    {
-        this(location, Optional.empty());
-    }
-
-    private CurrentTime(NodeLocation location, Optional<Integer> precision)
-    {
-        super(Optional.of(location));
+        super(location);
 
         requireNonNull(precision, "precision is null");
         this.precision = precision;

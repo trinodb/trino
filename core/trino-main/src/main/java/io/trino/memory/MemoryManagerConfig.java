@@ -16,8 +16,8 @@ package io.trino.memory;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
+import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 import jakarta.validation.constraints.NotNull;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -25,12 +25,12 @@ import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
-import static java.util.concurrent.TimeUnit.MINUTES;
 
 @DefunctConfig({
         "experimental.cluster-memory-manager-enabled",
         "query.low-memory-killer.enabled",
-        "resources.reserved-system-memory"})
+        "resources.reserved-system-memory",
+        "query.low-memory-killer.delay"})
 public class MemoryManagerConfig
 {
     // enforced against user memory allocations
@@ -46,8 +46,6 @@ public class MemoryManagerConfig
     private DataSize faultTolerantExecutionEagerSpeculativeTasksNodeMemoryOvercommit = DataSize.of(20, GIGABYTE);
     private LowMemoryQueryKillerPolicy lowMemoryQueryKillerPolicy = LowMemoryQueryKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES;
     private LowMemoryTaskKillerPolicy lowMemoryTaskKillerPolicy = LowMemoryTaskKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES;
-    // default value is overwritten for fault tolerant execution in {@link #applyFaultTolerantExecutionDefaults()}}
-    private Duration killOnOutOfMemoryDelay = new Duration(5, MINUTES);
 
     @NotNull
     public DataSize getMaxQueryMemory()
@@ -154,7 +152,8 @@ public class MemoryManagerConfig
         return faultTolerantExecutionMemoryRequirementIncreaseOnWorkerCrashEnabled;
     }
 
-    @Config("fault-tolerant-execution.memory-requirement-increase-on-worker-crash-enabled")
+    @Config("fault-tolerant-execution-memory-requirement-increase-on-worker-crash-enabled")
+    @LegacyConfig("fault-tolerant-execution.memory-requirement-increase-on-worker-crash-enabled")
     @ConfigDescription("Increase memory requirement for tasks failed due to a suspected worker crash")
     public MemoryManagerConfig setFaultTolerantExecutionMemoryRequirementIncreaseOnWorkerCrashEnabled(boolean faultTolerantExecutionMemoryRequirementIncreaseOnWorkerCrashEnabled)
     {
@@ -167,7 +166,8 @@ public class MemoryManagerConfig
         return faultTolerantExecutionEagerSpeculativeTasksNodeMemoryOvercommit;
     }
 
-    @Config("fault-tolerant-execution-eager-speculative-tasks-node_memory-overcommit")
+    @Config("fault-tolerant-execution-eager-speculative-tasks-node-memory-overcommit")
+    @LegacyConfig("fault-tolerant-execution-eager-speculative-tasks-node_memory-overcommit")
     public MemoryManagerConfig setFaultTolerantExecutionEagerSpeculativeTasksNodeMemoryOvercommit(DataSize faultTolerantExecutionEagerSpeculativeTasksNodeMemoryOvercommit)
     {
         this.faultTolerantExecutionEagerSpeculativeTasksNodeMemoryOvercommit = faultTolerantExecutionEagerSpeculativeTasksNodeMemoryOvercommit;
@@ -196,25 +196,6 @@ public class MemoryManagerConfig
     {
         this.lowMemoryTaskKillerPolicy = lowMemoryTaskKillerPolicy;
         return this;
-    }
-
-    @NotNull
-    public Duration getKillOnOutOfMemoryDelay()
-    {
-        return killOnOutOfMemoryDelay;
-    }
-
-    @Config("query.low-memory-killer.delay")
-    @ConfigDescription("Delay between cluster running low on memory and invoking killer")
-    public MemoryManagerConfig setKillOnOutOfMemoryDelay(Duration killOnOutOfMemoryDelay)
-    {
-        this.killOnOutOfMemoryDelay = killOnOutOfMemoryDelay;
-        return this;
-    }
-
-    public void applyFaultTolerantExecutionDefaults()
-    {
-        killOnOutOfMemoryDelay = new Duration(0, MINUTES);
     }
 
     public enum LowMemoryQueryKillerPolicy

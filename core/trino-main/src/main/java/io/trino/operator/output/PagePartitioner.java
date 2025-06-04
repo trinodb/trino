@@ -13,7 +13,6 @@
  */
 package io.trino.operator.output;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
@@ -28,6 +27,7 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.type.Type;
 import io.trino.util.Ciphers;
@@ -45,7 +45,7 @@ import java.util.function.IntUnaryOperator;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
-import static io.trino.execution.buffer.PageSplitterUtil.splitPage;
+import static io.trino.execution.buffer.PageSplitterUtil.splitAndSerializePage;
 import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -192,7 +192,7 @@ public class PagePartitioner
      * that amount in {@link #outputSizeReportedBeforeRelease}. If the {@link PagePartitioner} is reused after having reported buffered bytes eagerly,
      * we then have to subtract that same amount from the subsequent output bytes to avoid double counting them.
      */
-    public void prepareForRelease(OperatorContext operatorContext)
+    public Metrics prepareForRelease(OperatorContext operatorContext)
     {
         long bufferedSizeInBytes = 0;
         long outputSizeInBytes = 0;
@@ -215,6 +215,7 @@ public class PagePartitioner
         outputSizeInBytes = adjustFlushedOutputSizeWithEagerlyReportedBytes(outputSizeInBytes);
         bufferedSizeInBytes = adjustEagerlyReportedBytesWithBufferedBytesOnRelease(bufferedSizeInBytes);
         operatorContext.recordOutput(outputSizeInBytes + bufferedSizeInBytes, 0 /* no new positions */);
+        return serializer.getAndResetMetrics();
     }
 
     public void partitionPageByRow(Page page)
@@ -505,17 +506,7 @@ public class PagePartitioner
 
     private void enqueuePage(Page pagePartition, int partition)
     {
-        outputBuffer.enqueue(partition, splitAndSerializePage(pagePartition));
-    }
-
-    private List<Slice> splitAndSerializePage(Page page)
-    {
-        List<Page> split = splitPage(page, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
-        ImmutableList.Builder<Slice> builder = ImmutableList.builderWithExpectedSize(split.size());
-        for (Page chunk : split) {
-            builder.add(serializer.serialize(chunk));
-        }
-        return builder.build();
+        outputBuffer.enqueue(partition, splitAndSerializePage(pagePartition, serializer));
     }
 
     private void updateMemoryUsage()
@@ -526,5 +517,10 @@ public class PagePartitioner
         }
         retainedSizeInBytes += serializer.getRetainedSizeInBytes();
         memoryContext.setBytes(retainedSizeInBytes);
+    }
+
+    public Metrics getMetrics()
+    {
+        return serializer.getMetrics();
     }
 }

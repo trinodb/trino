@@ -81,8 +81,8 @@ public class TestGroupedTopNRankBuilder
 
         GroupedTopNBuilder groupedTopNBuilder = new GroupedTopNRankBuilder(
                 types,
-                new SimplePageWithPositionComparator(types, ImmutableList.of(0), ImmutableList.of(ASC_NULLS_LAST), typeOperators),
-                new SimplePageWithPositionEqualsAndHash(types, ImmutableList.of(0), blockTypeOperators),
+                new SimplePageWithPositionComparator(ImmutableList.of(types.get(0)), ImmutableList.of(0), ImmutableList.of(ASC_NULLS_LAST), typeOperators),
+                new SimplePageWithPositionEqualsAndHash(ImmutableList.of(types.get(0)), ImmutableList.of(0), blockTypeOperators),
                 3,
                 produceRanking,
                 new int[0],
@@ -114,7 +114,7 @@ public class TestGroupedTopNRankBuilder
                         .build()).process()).isTrue();
 
         List<Page> output = ImmutableList.copyOf(groupedTopNBuilder.buildResult());
-        assertThat(output.size()).isEqualTo(1);
+        assertThat(output).hasSize(1);
 
         List<Type> outputTypes = ImmutableList.of(DOUBLE, BIGINT);
         Page expected = rowPageBuilder(outputTypes)
@@ -147,8 +147,8 @@ public class TestGroupedTopNRankBuilder
         GroupByHash groupByHash = createGroupByHash(types.get(0), NOOP, typeOperators);
         GroupedTopNBuilder groupedTopNBuilder = new GroupedTopNRankBuilder(
                 types,
-                new SimplePageWithPositionComparator(types, ImmutableList.of(1), ImmutableList.of(ASC_NULLS_LAST), typeOperators),
-                new SimplePageWithPositionEqualsAndHash(types, ImmutableList.of(1), blockTypeOperators),
+                new SimplePageWithPositionComparator(ImmutableList.of(types.get(1)), ImmutableList.of(1), ImmutableList.of(ASC_NULLS_LAST), typeOperators),
+                new SimplePageWithPositionEqualsAndHash(ImmutableList.of(types.get(1)), ImmutableList.of(1), blockTypeOperators),
                 3,
                 produceRanking,
                 new int[] {0},
@@ -190,7 +190,7 @@ public class TestGroupedTopNRankBuilder
                         .build()).process()).isTrue();
 
         List<Page> output = ImmutableList.copyOf(groupedTopNBuilder.buildResult());
-        assertThat(output.size()).isEqualTo(1);
+        assertThat(output).hasSize(1);
 
         List<Type> outputTypes = ImmutableList.of(BIGINT, DOUBLE, BIGINT);
         Page expected = rowPageBuilder(outputTypes)
@@ -229,8 +229,8 @@ public class TestGroupedTopNRankBuilder
         GroupByHash groupByHash = createGroupByHash(types.get(0), unblock::get, typeOperators);
         GroupedTopNBuilder groupedTopNBuilder = new GroupedTopNRankBuilder(
                 types,
-                new SimplePageWithPositionComparator(types, ImmutableList.of(1), ImmutableList.of(ASC_NULLS_LAST), typeOperators),
-                new SimplePageWithPositionEqualsAndHash(types, ImmutableList.of(1), blockTypeOperators),
+                new SimplePageWithPositionComparator(ImmutableList.of(types.get(1)), ImmutableList.of(1), ImmutableList.of(ASC_NULLS_LAST), typeOperators),
+                new SimplePageWithPositionEqualsAndHash(ImmutableList.of(types.get(1)), ImmutableList.of(1), blockTypeOperators),
                 5,
                 false,
                 new int[] {0},
@@ -242,7 +242,7 @@ public class TestGroupedTopNRankBuilder
         unblock.set(true);
         assertThat(work.process()).isTrue();
         List<Page> output = ImmutableList.copyOf(groupedTopNBuilder.buildResult());
-        assertThat(output.size()).isEqualTo(1);
+        assertThat(output).hasSize(1);
 
         Page expected = rowPagesBuilder(types)
                 .row(1L, 0.1)
@@ -258,7 +258,7 @@ public class TestGroupedTopNRankBuilder
     {
         return GroupByHash.createGroupByHash(
                 ImmutableList.of(partitionType),
-                false,
+                GroupByHash.selectGroupByHashMode(false, false, ImmutableList.of(partitionType)),
                 1,
                 false,
                 new FlatHashStrategyCompiler(typeOperators),

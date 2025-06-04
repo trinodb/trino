@@ -74,10 +74,7 @@ public class TestWindowNode
         Symbol columnB = symbolAllocator.newSymbol("b", BIGINT);
         Symbol columnC = symbolAllocator.newSymbol("c", BIGINT);
 
-        ValuesNode sourceNode = new ValuesNode(
-                newId(),
-                ImmutableList.of(columnA, columnB, columnC),
-                ImmutableList.of());
+        ValuesNode sourceNode = new ValuesNode(newId(), ImmutableList.of(columnA, columnB, columnC));
 
         Symbol windowSymbol = symbolAllocator.newSymbol("sum", BIGINT);
         ResolvedFunction resolvedFunction = functionResolution.resolveFunction("sum", fromTypes(BIGINT));
@@ -96,7 +93,7 @@ public class TestWindowNode
                 Optional.of(new OrderingScheme(
                         ImmutableList.of(columnB),
                         ImmutableMap.of(columnB, SortOrder.ASC_NULLS_FIRST))));
-        Map<Symbol, WindowNode.Function> functions = ImmutableMap.of(windowSymbol, new WindowNode.Function(resolvedFunction, ImmutableList.of(columnC.toSymbolReference()), frame, false));
+        Map<Symbol, WindowNode.Function> functions = ImmutableMap.of(windowSymbol, new WindowNode.Function(resolvedFunction, ImmutableList.of(columnC.toSymbolReference()), Optional.empty(), frame, false, false));
         Optional<Symbol> hashSymbol = Optional.of(columnB);
         Set<Symbol> prePartitionedInputs = ImmutableSet.of(columnA);
         WindowNode windowNode = new WindowNode(

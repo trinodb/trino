@@ -15,6 +15,7 @@ package io.trino.spi.connector;
 
 import io.trino.spi.predicate.TupleDomain;
 
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -42,9 +43,25 @@ public interface SystemTable
         throw new UnsupportedOperationException();
     }
 
-    default RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint, Set<Integer> requiredColumns)
+    default RecordCursor cursor(
+            ConnectorTransactionHandle transactionHandle,
+            ConnectorSession session,
+            TupleDomain<Integer> constraint,
+            Set<Integer> requiredColumns,
+            ConnectorSplit split)
     {
         return cursor(transactionHandle, session, constraint);
+    }
+
+    default RecordCursor cursor(
+            ConnectorTransactionHandle transactionHandle,
+            ConnectorSession session,
+            TupleDomain<Integer> constraint,
+            Set<Integer> requiredColumns,
+            ConnectorSplit split,
+            ConnectorAccessControl accessControl)
+    {
+        return cursor(transactionHandle, session, constraint, requiredColumns, split);
     }
 
     /**
@@ -56,5 +73,19 @@ public interface SystemTable
     default ConnectorPageSource pageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
         throw new UnsupportedOperationException();
+    }
+
+    default ConnectorPageSource pageSource(
+            ConnectorTransactionHandle transactionHandle,
+            ConnectorSession session,
+            TupleDomain<Integer> constraint,
+            ConnectorAccessControl accessControl)
+    {
+        return pageSource(transactionHandle, session, constraint);
+    }
+
+    default Optional<ConnectorSplitSource> splitSource(ConnectorSession connectorSession, TupleDomain<ColumnHandle> constraint)
+    {
+        return Optional.empty();
     }
 }

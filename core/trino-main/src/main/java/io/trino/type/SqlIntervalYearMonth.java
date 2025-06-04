@@ -13,8 +13,6 @@
  */
 package io.trino.type;
 
-import com.fasterxml.jackson.annotation.JsonValue;
-
 import java.util.Objects;
 
 import static io.trino.client.IntervalYearMonth.formatMonths;
@@ -50,10 +48,9 @@ public class SqlIntervalYearMonth
             return false;
         }
         SqlIntervalYearMonth other = (SqlIntervalYearMonth) obj;
-        return Objects.equals(this.months, other.months);
+        return this.months == other.months;
     }
 
-    @JsonValue
     @Override
     public String toString()
     {

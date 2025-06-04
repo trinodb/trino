@@ -14,7 +14,6 @@
 package io.trino.cli;
 
 import com.google.common.base.Splitter;
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import io.trino.cli.ClientOptions.OutputFormat;
 import io.trino.client.ClientSelectedRole;
@@ -86,7 +85,7 @@ public class Query
         return client.getSetSchema();
     }
 
-    public Optional<String> getSetPath()
+    public Optional<List<String>> getSetPath()
     {
         return client.getSetPath();
     }
@@ -99,6 +98,11 @@ public class Query
     public boolean isResetAuthorizationUser()
     {
         return client.isResetAuthorizationUser();
+    }
+
+    public Set<ClientSelectedRole> getSetOriginalRoles()
+    {
+        return client.getSetOriginalRoles();
     }
 
     public Map<String, String> getSetSessionProperties()
@@ -136,7 +140,7 @@ public class Query
         return client.isClearTransactionId();
     }
 
-    public boolean renderOutput(Terminal terminal, PrintStream out, PrintStream errorChannel, OutputFormat outputFormat, Optional<String> pager, boolean showProgress)
+    public boolean renderOutput(Terminal terminal, PrintStream out, PrintStream errorChannel, OutputFormat outputFormat, Optional<String> pager, boolean showProgress, boolean decimalDataSize)
     {
         Thread clientThread = Thread.currentThread();
         SignalHandler oldHandler = terminal.handle(Signal.INT, signal -> {
@@ -147,7 +151,7 @@ public class Query
             clientThread.interrupt();
         });
         try {
-            return renderQueryOutput(terminal, out, errorChannel, outputFormat, pager, showProgress);
+            return renderQueryOutput(terminal, out, errorChannel, outputFormat, pager, showProgress, decimalDataSize);
         }
         finally {
             terminal.handle(Signal.INT, oldHandler);
@@ -155,13 +159,13 @@ public class Query
         }
     }
 
-    private boolean renderQueryOutput(Terminal terminal, PrintStream out, PrintStream errorChannel, OutputFormat outputFormat, Optional<String> pager, boolean showProgress)
+    private boolean renderQueryOutput(Terminal terminal, PrintStream out, PrintStream errorChannel, OutputFormat outputFormat, Optional<String> pager, boolean showProgress, boolean decimalDataSize)
     {
         StatusPrinter statusPrinter = null;
         WarningsPrinter warningsPrinter = new PrintStreamWarningsPrinter(errorChannel);
 
         if (showProgress) {
-            statusPrinter = new StatusPrinter(client, errorChannel, debug, isInteractive(pager));
+            statusPrinter = new StatusPrinter(client, errorChannel, debug, isInteractive(pager), decimalDataSize);
             statusPrinter.printInitialStatusUpdates(terminal);
         }
         else {
@@ -215,12 +219,12 @@ public class Query
 
     private boolean isInteractive(Optional<String> pager)
     {
-        return pager.map(name -> name.trim().length() != 0).orElse(true);
+        return pager.map(name -> !name.trim().isEmpty()).orElse(true);
     }
 
     private void processInitialStatusUpdates(WarningsPrinter warningsPrinter)
     {
-        while (client.isRunning() && (client.currentData().getData() == null)) {
+        while (client.isRunning() && client.currentRows().isNull()) {
             warningsPrinter.print(client.currentStatusInfo().getWarnings(), true, false);
             try {
                 client.advance();
@@ -242,8 +246,8 @@ public class Query
     private void renderUpdate(Terminal terminal, PrintStream out, QueryStatusInfo results, OutputFormat outputFormat, Optional<String> pager)
     {
         String status = results.getUpdateType();
-        if (results.getUpdateCount() != null) {
-            long count = results.getUpdateCount();
+        if (results.getUpdateCount().isPresent()) {
+            long count = results.getUpdateCount().getAsLong();
             status += format(": %s row%s", count, (count != 1) ? "s" : "");
             out.println(status);
         }
@@ -424,7 +428,7 @@ public class Query
         }
         else {
             String prefix = format("LINE %s: ", location.getLineNumber());
-            String padding = Strings.repeat(" ", prefix.length() + (location.getColumnNumber() - 1));
+            String padding = " ".repeat(prefix.length() + (location.getColumnNumber() - 1));
             out.println(prefix + errorLine);
             out.println(padding + "^");
         }

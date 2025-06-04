@@ -18,20 +18,22 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.memory.MemoryFileSystemFactory;
+import io.trino.metastore.HiveType;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.orc.OrcWriterOptions;
-import io.trino.plugin.hive.FileFormatDataSourceStats;
+import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.hive.FileWriter;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveColumnProjectionInfo;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HivePageSourceProvider;
-import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.NodeVersion;
+import io.trino.plugin.hive.Schema;
 import io.trino.plugin.hive.WriterKind;
-import io.trino.plugin.hive.metastore.StorageFormat;
+import io.trino.plugin.hive.util.HiveTypeTranslator;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.IntArrayBlock;
@@ -40,6 +42,7 @@ import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.RowType;
@@ -80,7 +83,7 @@ class TestOrcPredicates
     private static final HiveColumnHandle STRUCT_COLUMN = createBaseColumn(
             "column1_struct",
             1,
-            HiveType.toHiveType(RowType.rowType(field("field0", BIGINT), field("field1", BIGINT))),
+            HiveTypeTranslator.toHiveType(RowType.rowType(field("field0", BIGINT), field("field1", BIGINT))),
             RowType.rowType(field("field0", BIGINT), field("field1", BIGINT)),
             REGULAR,
             Optional.empty());
@@ -141,7 +144,7 @@ class TestOrcPredicates
         try (ConnectorPageSource pageSource = createPageSource(fileSystemFactory, location, effectivePredicate, columnsToRead, session)) {
             int filteredRows = 0;
             while (!pageSource.isFinished()) {
-                Page page = pageSource.getNextPage();
+                SourcePage page = pageSource.getNextSourcePage();
                 if (page != null) {
                     filteredRows += page.getPositionCount();
                 }
@@ -160,7 +163,8 @@ class TestOrcPredicates
     {
         OrcPageSourceFactory readerFactory = new OrcPageSourceFactory(new OrcReaderOptions(), fileSystemFactory, STATS, UTC);
 
-        long length = fileSystemFactory.create(session).newInputFile(location).length();
+        TrinoInputFile inputFile = fileSystemFactory.create(session).newInputFile(location);
+        long length = inputFile.length();
         List<HivePageSourceProvider.ColumnMapping> columnMappings = buildColumnMappings(
                 "",
                 ImmutableList.of(),
@@ -180,7 +184,14 @@ class TestOrcPredicates
                         0,
                         length,
                         length,
-                        getTableProperties(),
+                        inputFile.lastModified().toEpochMilli(),
+                        new Schema(
+                                ORC.getSerde(),
+                                false,
+                                ImmutableMap.<String, String>builder()
+                                        .put(LIST_COLUMNS, COLUMNS.stream().map(HiveColumnHandle::getName).collect(Collectors.joining(",")))
+                                        .put(LIST_COLUMN_TYPES, COLUMNS.stream().map(HiveColumnHandle::getHiveType).map(HiveType::toString).collect(Collectors.joining(",")))
+                                        .buildOrThrow()),
                         effectivePredicate,
                         TESTING_TYPE_MANAGER,
                         Optional.empty(),
@@ -198,7 +209,7 @@ class TestOrcPredicates
                 .createFileWriter(
                         location,
                         COLUMNS.stream().map(HiveColumnHandle::getName).collect(toList()),
-                        StorageFormat.fromHiveStorageFormat(ORC),
+                        ORC.toStorageFormat(),
                         HiveCompressionCodec.NONE,
                         getTableProperties(),
                         session,

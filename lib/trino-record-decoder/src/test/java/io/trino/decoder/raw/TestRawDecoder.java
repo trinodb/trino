@@ -92,7 +92,7 @@ public class TestRawDecoder
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(row)
                 .orElseThrow(AssertionError::new);
 
-        assertThat(decodedRow.size()).isEqualTo(columns.size());
+        assertThat(decodedRow).hasSize(columns.size());
 
         checkValue(decodedRow, row1, 4815162342L);
         checkValue(decodedRow, row2, 12345678);
@@ -118,7 +118,7 @@ public class TestRawDecoder
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(row)
                 .orElseThrow(AssertionError::new);
 
-        assertThat(decodedRow.size()).isEqualTo(columns.size());
+        assertThat(decodedRow).hasSize(columns.size());
 
         checkValue(decodedRow, row1, str);
         checkValue(decodedRow, row2, str);
@@ -148,7 +148,7 @@ public class TestRawDecoder
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(row)
                 .orElseThrow(AssertionError::new);
 
-        assertThat(decodedRow.size()).isEqualTo(columns.size());
+        assertThat(decodedRow).hasSize(columns.size());
 
         checkValue(decodedRow, row1, Math.PI);
         checkValue(decodedRow, row2, Math.E);
@@ -222,7 +222,7 @@ public class TestRawDecoder
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(row)
                 .orElseThrow(AssertionError::new);
 
-        assertThat(decodedRow.size()).isEqualTo(columns.size());
+        assertThat(decodedRow).hasSize(columns.size());
 
         checkValue(decodedRow, row01, 127);
         checkValue(decodedRow, row02, false);
@@ -431,7 +431,7 @@ public class TestRawDecoder
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(row)
                 .orElseThrow(AssertionError::new);
 
-        assertThat(decodedRow.size()).isEqualTo(columns.size());
+        assertThat(decodedRow).hasSize(columns.size());
 
         for (DecoderColumnHandle handle : columns) {
             checkTwice(decodedRow, handle);

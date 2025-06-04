@@ -14,6 +14,7 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.matching.Capture;
@@ -33,7 +34,6 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.WhenClause;
-import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.sql.planner.iterative.Rule;
@@ -63,7 +63,9 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
+import static io.trino.sql.ir.IrExpressions.mayFail;
 import static io.trino.sql.ir.IrUtils.or;
+import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newOptimizer;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
@@ -159,6 +161,11 @@ public class PreAggregateCaseAggregations
         }
 
         Map<PreAggregationKey, PreAggregation> preAggregations = getPreAggregations(aggregations, context);
+        if (preAggregations.size() == aggregations.size()) {
+            // Prevent rule execution if number of pre-aggregations is equal to number of case aggregations.
+            // In such case there is no gain in performance, and it could lead to infinite rule execution loop.
+            return Result.empty();
+        }
 
         Assignments.Builder preGroupingExpressionsBuilder = Assignments.builder();
         preGroupingExpressionsBuilder.putIdentities(extraGroupingKeys);
@@ -294,11 +301,10 @@ public class PreAggregateCaseAggregations
                             Type aggregationInputType = getOnlyElement(key.getFunction().signature().getArgumentTypes());
                             if (!preProjectionType.equals(aggregationInputType)) {
                                 preProjection = new Cast(preProjection, aggregationInputType);
-                                preProjectionType = aggregationInputType;
                             }
 
                             // Wrap the preProjection with IF to retain the conditional nature on the CASE aggregation(s) during pre-aggregation
-                            if (!(preProjection instanceof Reference || preProjection instanceof Constant)) {
+                            if (mayFail(plannerContext, preProjection)) {
                                 Expression unionConditions = or(caseAggregations.stream()
                                         .map(CaseAggregation::getOperand)
                                         .collect(toImmutableSet()));
@@ -351,8 +357,8 @@ public class PreAggregateCaseAggregations
         Expression projection = projectNode.getAssignments().get(projectionSymbol);
         Expression unwrappedProjection;
         // unwrap top-level cast
-        if (projection instanceof Cast) {
-            unwrappedProjection = ((Cast) projection).expression();
+        if (projection instanceof Cast cast) {
+            unwrappedProjection = cast.expression();
         }
         else {
             unwrappedProjection = projection;
@@ -382,36 +388,39 @@ public class PreAggregateCaseAggregations
         }
 
         Expression defaultValue = optimizeExpression(caseExpression.defaultValue(), context);
-        if (defaultValue instanceof Constant(Type type, Object value) && value != null) {
-            if (!name.equals(SUM)) {
-                return Optional.empty();
-            }
+        if (defaultValue instanceof Constant(Type type, Object value)) {
+            if (value != null) {
+                if (!name.equals(SUM)) {
+                    return Optional.empty();
+                }
 
-            // sum aggregation is only supported if default value is null or 0, otherwise it wouldn't be cumulative
-            if (type instanceof BigintType
-                    || type == INTEGER
-                    || type == SMALLINT
-                    || type == TINYINT
-                    || type == DOUBLE
-                    || type == REAL
-                    || type instanceof DecimalType) {
+                // sum aggregation is only supported if default value is null or 0, otherwise it wouldn't be cumulative
                 if (!value.equals(0L) && !value.equals(0.0d) && !value.equals(Int128.ZERO)) {
                     return Optional.empty();
                 }
+
+                if (!(type instanceof BigintType)
+                        && type != INTEGER
+                        && type != SMALLINT
+                        && type != TINYINT
+                        && type != DOUBLE
+                        && type != REAL
+                        && !(type instanceof DecimalType)) {
+                    return Optional.empty();
+                }
             }
-            else {
-                return Optional.empty();
-            }
+
+            return Optional.of(new CaseAggregation(
+                    aggregationSymbol,
+                    resolvedFunction,
+                    cumulativeFunction,
+                    name,
+                    caseExpression.whenClauses().get(0).getOperand(),
+                    caseExpression.whenClauses().get(0).getResult(),
+                    new Cast(caseExpression.defaultValue(), aggregationType)));
         }
 
-        return Optional.of(new CaseAggregation(
-                aggregationSymbol,
-                resolvedFunction,
-                cumulativeFunction,
-                name,
-                caseExpression.whenClauses().get(0).getOperand(),
-                caseExpression.whenClauses().get(0).getResult(),
-                new Cast(caseExpression.defaultValue(), aggregationType)));
+        return Optional.empty();
     }
 
     private Type getType(Expression expression)
@@ -421,7 +430,7 @@ public class PreAggregateCaseAggregations
 
     private Expression optimizeExpression(Expression expression, Context context)
     {
-        return new IrExpressionInterpreter(expression, plannerContext, context.getSession()).optimize();
+        return newOptimizer(plannerContext).process(expression, context.getSession(), ImmutableMap.of()).orElse(expression);
     }
 
     private static class CaseAggregation

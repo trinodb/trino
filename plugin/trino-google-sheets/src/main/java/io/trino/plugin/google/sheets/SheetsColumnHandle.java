@@ -33,7 +33,7 @@ public record SheetsColumnHandle(
     }
 
     @JsonIgnore
-    public ColumnMetadata getColumnMetadata()
+    public ColumnMetadata columnMetadata()
     {
         return new ColumnMetadata(columnName, columnType);
     }

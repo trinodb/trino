@@ -17,6 +17,8 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.Unstable;
 
+import java.util.Map;
+
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -31,6 +33,7 @@ public class StageTaskStatistics
     private final LongDistribution cpuTimeDistribution;
     private final LongDistribution scheduledTimeDistribution;
     private final LongDistribution peakMemoryReservationDistribution;
+    private final LongDistribution estimatedMemoryReservationDistribution;
 
     // processing metrics
     private final LongDistribution rawInputDataSizeDistribution;
@@ -57,6 +60,9 @@ public class StageTaskStatistics
     private final DoubleSymmetricDistribution lastEndTimeScaledDistribution;
     private final DoubleSymmetricDistribution endTimeScaledDistribution;
 
+    // split generation stats
+    private final Map<String, DoubleSymmetricDistribution> getSplitDistribution;
+
     @JsonCreator
     @Unstable
     public StageTaskStatistics(
@@ -65,6 +71,7 @@ public class StageTaskStatistics
             @JsonProperty("cpuTimeDistribution") LongDistribution cpuTimeDistribution,
             @JsonProperty("scheduledTimeDistribution") LongDistribution scheduledTimeDistribution,
             @JsonProperty("peakMemoryReservationDistribution") LongDistribution peakMemoryReservationDistribution,
+            @JsonProperty("estimatedMemoryReservationDistribution") LongDistribution estimatedMemoryReservationDistribution,
             @JsonProperty("rawInputDataSizeDistribution") LongDistribution rawInputDataSizeDistribution,
             @JsonProperty("rawInputPositionsDistribution") LongDistribution rawInputPositionsDistribution,
             @JsonProperty("processedInputDataSizeDistribution") LongDistribution processedInputDataSizeDistribution,
@@ -83,13 +90,15 @@ public class StageTaskStatistics
             @JsonProperty("lastStartTimeScaledDistribution") DoubleSymmetricDistribution lastStartTimeScaledDistribution,
             @JsonProperty("terminatingStartTimeScaledDistribution") DoubleSymmetricDistribution terminatingStartTimeScaledDistribution,
             @JsonProperty("lastEndTimeScaledDistribution") DoubleSymmetricDistribution lastEndTimeScaledDistribution,
-            @JsonProperty("endTimeScaledDistribution") DoubleSymmetricDistribution endTimeScaledDistribution)
+            @JsonProperty("endTimeScaledDistribution") DoubleSymmetricDistribution endTimeScaledDistribution,
+            @JsonProperty("getSplitDistribution") Map<String, DoubleSymmetricDistribution> getSplitDistribution)
     {
         this.stageId = stageId;
         this.tasks = tasks;
         this.cpuTimeDistribution = requireNonNull(cpuTimeDistribution, "cpuTimeDistribution is null");
         this.scheduledTimeDistribution = requireNonNull(scheduledTimeDistribution, "scheduledTimeDistribution is null");
         this.peakMemoryReservationDistribution = requireNonNull(peakMemoryReservationDistribution, "peakMemoryReservationDistribution is null");
+        this.estimatedMemoryReservationDistribution = requireNonNull(estimatedMemoryReservationDistribution, "estimatedMemoryReservationDistribution is null");
         this.rawInputDataSizeDistribution = requireNonNull(rawInputDataSizeDistribution, "rawInputDataSizeDistribution is null");
         this.rawInputPositionsDistribution = requireNonNull(rawInputPositionsDistribution, "rawInputPositionsDistribution is null");
         this.processedInputDataSizeDistribution = requireNonNull(processedInputDataSizeDistribution, "processedInputDataSizeDistribution is null");
@@ -109,6 +118,7 @@ public class StageTaskStatistics
         this.terminatingStartTimeScaledDistribution = requireNonNull(terminatingStartTimeScaledDistribution, "terminatingStartTimeScaledDistribution is null");
         this.lastEndTimeScaledDistribution = requireNonNull(lastEndTimeScaledDistribution, "lastEndTimeScaledDistribution is null");
         this.endTimeScaledDistribution = requireNonNull(endTimeScaledDistribution, "endTimeScaledDistribution is null");
+        this.getSplitDistribution = requireNonNull(getSplitDistribution, "getSplitDistribution is null");
     }
 
     @JsonProperty
@@ -139,6 +149,12 @@ public class StageTaskStatistics
     public LongDistribution getPeakMemoryReservationDistribution()
     {
         return peakMemoryReservationDistribution;
+    }
+
+    @JsonProperty
+    public LongDistribution getEstimatedMemoryReservationDistribution()
+    {
+        return estimatedMemoryReservationDistribution;
     }
 
     @JsonProperty
@@ -253,5 +269,11 @@ public class StageTaskStatistics
     public DoubleSymmetricDistribution getEndTimeScaledDistribution()
     {
         return endTimeScaledDistribution;
+    }
+
+    @JsonProperty
+    public Map<String, DoubleSymmetricDistribution> getGetSplitDistribution()
+    {
+        return getSplitDistribution;
     }
 }

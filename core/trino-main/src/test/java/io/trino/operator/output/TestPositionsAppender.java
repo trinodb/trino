@@ -50,8 +50,6 @@ import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
-import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
-import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.trino.block.BlockAssertions.assertBlockEquals;
 import static io.trino.block.BlockAssertions.createArrayBigintBlock;
 import static io.trino.block.BlockAssertions.createBooleansBlock;
@@ -190,7 +188,7 @@ public class TestPositionsAppender
 
             Block actual = positionsAppender.build();
             assertThat(actual.getPositionCount()).isEqualTo(5);
-            assertInstanceOf(actual, RunLengthEncodedBlock.class);
+            assertThat(actual).isInstanceOf(RunLengthEncodedBlock.class);
         }
     }
 
@@ -211,7 +209,7 @@ public class TestPositionsAppender
 
         Block actual = positionsAppender.build();
         assertThat(actual.getPositionCount()).isEqualTo(5);
-        assertInstanceOf(actual, RunLengthEncodedBlock.class);
+        assertThat(actual).isInstanceOf(RunLengthEncodedBlock.class);
         assertBlockEquals(type.getType(), actual, RunLengthEncodedBlock.create(value, 5));
     }
 
@@ -254,7 +252,7 @@ public class TestPositionsAppender
 
         Block actual = positionsAppender.build();
         assertThat(actual.getPositionCount()).isEqualTo(5);
-        assertInstanceOf(actual, DictionaryBlock.class);
+        assertThat(actual).isInstanceOf(DictionaryBlock.class);
         assertThat(((DictionaryBlock) actual).getDictionary()).isEqualTo(dictionary);
     }
 
@@ -493,7 +491,7 @@ public class TestPositionsAppender
         Block actual = positionsAppender.build();
         assertThat(actual.isNull(0)).isTrue();
         assertThat(actual.getPositionCount()).isEqualTo(positions.size() * 2);
-        assertInstanceOf(actual, RunLengthEncodedBlock.class);
+        assertThat(actual).isInstanceOf(RunLengthEncodedBlock.class);
     }
 
     private static void testAppend(TestType type, List<BlockView> inputs)
@@ -514,7 +512,7 @@ public class TestPositionsAppender
     private static void assertBuildResult(TestType type, List<BlockView> inputs, UnnestingPositionsAppender positionsAppender, long initialRetainedSize)
     {
         long sizeInBytes = positionsAppender.getSizeInBytes();
-        assertGreaterThanOrEqual(positionsAppender.getRetainedSizeInBytes(), sizeInBytes);
+        assertThat(positionsAppender.getRetainedSizeInBytes()).isGreaterThanOrEqualTo(sizeInBytes);
         Block actual = positionsAppender.build();
 
         assertBlockIsValid(actual, sizeInBytes, type.getType(), inputs);
@@ -532,7 +530,7 @@ public class TestPositionsAppender
 
         inputs.forEach(input -> input.positions().forEach((int position) -> positionsAppender.append(position, input.block())));
         long sizeInBytes = positionsAppender.getSizeInBytes();
-        assertGreaterThanOrEqual(positionsAppender.getRetainedSizeInBytes(), sizeInBytes);
+        assertThat(positionsAppender.getRetainedSizeInBytes()).isGreaterThanOrEqualTo(sizeInBytes);
         Block actual = positionsAppender.build();
 
         assertBlockIsValid(actual, sizeInBytes, type.getType(), inputs);

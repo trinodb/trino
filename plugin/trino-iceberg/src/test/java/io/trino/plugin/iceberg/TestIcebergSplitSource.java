@@ -19,10 +19,9 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.cache.DefaultCachingHostAddressProvider;
+import io.trino.metastore.HiveMetastore;
+import io.trino.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.hive.TrinoViewHiveMetastore;
-import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
-import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
@@ -31,6 +30,8 @@ import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.file.FileMetastoreTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog;
 import io.trino.plugin.iceberg.catalog.rest.DefaultIcebergFileSystemFactory;
+import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
+import io.trino.spi.SplitWeight;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnHandle;
@@ -46,9 +47,19 @@ import io.trino.spi.type.TestingTypeManager;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorSession;
+import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.TableProperties;
+import org.apache.iceberg.data.GenericRecord;
+import org.apache.iceberg.data.Record;
+import org.apache.iceberg.data.parquet.GenericParquetWriter;
+import org.apache.iceberg.deletes.PositionDelete;
+import org.apache.iceberg.deletes.PositionDeleteWriter;
+import org.apache.iceberg.io.FileIO;
+import org.apache.iceberg.metrics.InMemoryMetricsReporter;
+import org.apache.iceberg.parquet.Parquet;
 import org.apache.iceberg.types.Conversions;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
@@ -57,6 +68,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
 
+import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -66,14 +78,18 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.createPerTransactionCache;
-import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
+import static io.trino.metastore.cache.CachingHiveMetastore.createPerTransactionCache;
 import static io.trino.plugin.iceberg.IcebergSplitSource.createFileStatisticsDomain;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
+import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDeleteForTable;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.tpch.TpchTable.NATION;
@@ -111,9 +127,7 @@ public class TestIcebergSplitSource
                 .setMetastoreDirectory(metastoreDir)
                 .build();
 
-        HiveMetastore metastore = ((IcebergConnector) queryRunner.getCoordinator().getConnector(ICEBERG_CATALOG)).getInjector()
-                .getInstance(HiveMetastoreFactory.class)
-                .createMetastore(Optional.empty());
+        HiveMetastore metastore = getHiveMetastore(queryRunner);
 
         this.fileSystemFactory = getFileSystemFactory(queryRunner);
         CachingHiveMetastore cachingHiveMetastore = createPerTransactionCache(metastore, 1000);
@@ -127,7 +141,8 @@ public class TestIcebergSplitSource
                 false,
                 false,
                 false,
-                new IcebergConfig().isHideMaterializedViewStorageTable());
+                new IcebergConfig().isHideMaterializedViewStorageTable(),
+                directExecutor());
 
         return queryRunner;
     }
@@ -154,7 +169,7 @@ public class TestIcebergSplitSource
                 new DefaultIcebergFileSystemFactory(fileSystemFactory),
                 SESSION,
                 tableHandle,
-                ImmutableMap.of(),
+                nationTable,
                 nationTable.newScan(),
                 Optional.empty(),
                 new DynamicFilter()
@@ -194,7 +209,9 @@ public class TestIcebergSplitSource
                 new TestingTypeManager(),
                 false,
                 new IcebergConfig().getMinimumAssignedSplitWeight(),
-                new DefaultCachingHostAddressProvider())) {
+                new DefaultCachingHostAddressProvider(),
+                new InMemoryMetricsReporter(),
+                newDirectExecutorService())) {
             ImmutableList.Builder<IcebergSplit> splits = ImmutableList.builder();
             while (!splitSource.isFinished()) {
                 splitSource.getNextBatch(100).get()
@@ -372,6 +389,56 @@ public class TestIcebergSplitSource
                 .isEqualTo(TupleDomain.withColumnDomains(ImmutableMap.of(bigintColumn, Domain.notNull(BIGINT))));
     }
 
+    @Test
+    public void testSplitWeight()
+            throws Exception
+    {
+        SchemaTableName schemaTableName = new SchemaTableName("tpch", "nation");
+        Table nationTable = catalog.loadTable(SESSION, schemaTableName);
+        // Decrease target split size so that changes in split weight are significant enough to be detected
+        nationTable.updateProperties()
+                .set(TableProperties.SPLIT_SIZE, "10000")
+                .commit();
+        IcebergTableHandle tableHandle = createTableHandle(schemaTableName, nationTable, TupleDomain.all());
+
+        IcebergSplit split = generateSplit(nationTable, tableHandle, DynamicFilter.EMPTY);
+        SplitWeight weightWithoutDelete = split.getSplitWeight();
+
+        String dataFilePath = (String) computeActual("SELECT file_path FROM \"" + schemaTableName.getTableName() + "$files\" LIMIT 1").getOnlyValue();
+
+        // Write position delete file
+        FileIO fileIo = new ForwardingFileIo(fileSystemFactory.create(SESSION));
+        PositionDeleteWriter<org.apache.iceberg.data.Record> writer = Parquet.writeDeletes(fileIo.newOutputFile("local:///delete_file_" + UUID.randomUUID()))
+                .createWriterFunc(GenericParquetWriter::create)
+                .forTable(nationTable)
+                .overwrite()
+                .rowSchema(nationTable.schema())
+                .withSpec(PartitionSpec.unpartitioned())
+                .buildPositionWriter();
+        PositionDelete<org.apache.iceberg.data.Record> positionDelete = PositionDelete.create();
+        PositionDelete<Record> record = positionDelete.set(dataFilePath, 0, GenericRecord.create(nationTable.schema()));
+        try (Closeable ignored = writer) {
+            writer.write(record);
+        }
+        nationTable.newRowDelta().addDeletes(writer.toDeleteFile()).commit();
+
+        split = generateSplit(nationTable, tableHandle, DynamicFilter.EMPTY);
+        SplitWeight splitWeightWithPositionDelete = split.getSplitWeight();
+        assertThat(splitWeightWithPositionDelete.getRawValue()).isGreaterThan(weightWithoutDelete.getRawValue());
+
+        // Write equality delete file
+        writeEqualityDeleteForTable(
+                nationTable,
+                fileSystemFactory,
+                Optional.of(nationTable.spec()),
+                Optional.of(new PartitionData(new Long[] {1L})),
+                ImmutableMap.of("regionkey", 1L),
+                Optional.empty());
+
+        split = generateSplit(nationTable, tableHandle, DynamicFilter.EMPTY);
+        assertThat(split.getSplitWeight().getRawValue()).isGreaterThan(splitWeightWithPositionDelete.getRawValue());
+    }
+
     private IcebergSplit generateSplit(Table nationTable, IcebergTableHandle tableHandle, DynamicFilter dynamicFilter)
             throws Exception
     {
@@ -379,7 +446,7 @@ public class TestIcebergSplitSource
                 new DefaultIcebergFileSystemFactory(fileSystemFactory),
                 SESSION,
                 tableHandle,
-                ImmutableMap.of(),
+                nationTable,
                 nationTable.newScan(),
                 Optional.empty(),
                 dynamicFilter,
@@ -387,8 +454,10 @@ public class TestIcebergSplitSource
                 alwaysTrue(),
                 new TestingTypeManager(),
                 false,
-                new IcebergConfig().getMinimumAssignedSplitWeight(),
-                new DefaultCachingHostAddressProvider())) {
+                0,
+                new DefaultCachingHostAddressProvider(),
+                new InMemoryMetricsReporter(),
+                newDirectExecutorService())) {
             ImmutableList.Builder<IcebergSplit> builder = ImmutableList.builder();
             while (!splitSource.isFinished()) {
                 splitSource.getNextBatch(100).get()
@@ -398,7 +467,7 @@ public class TestIcebergSplitSource
                         .forEach(builder::add);
             }
             List<IcebergSplit> splits = builder.build();
-            assertThat(splits.size()).isEqualTo(1);
+            assertThat(splits).hasSize(1);
             assertThat(splitSource.isFinished()).isTrue();
 
             return splits.getFirst();
@@ -423,6 +492,7 @@ public class TestIcebergSplitSource
                 Optional.empty(),
                 nationTable.location(),
                 nationTable.properties(),
+                Optional.empty(),
                 false,
                 Optional.empty(),
                 ImmutableSet.of(),

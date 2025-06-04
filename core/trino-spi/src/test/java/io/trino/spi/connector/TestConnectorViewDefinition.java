@@ -112,7 +112,7 @@ public class TestConnectorViewDefinition
     private static void assertBaseView(ConnectorViewDefinition view)
     {
         assertThat(view.getOriginalSql()).isEqualTo("SELECT 42 x");
-        assertThat(view.getColumns().size()).isEqualTo(1);
+        assertThat(view.getColumns()).hasSize(1);
         ViewColumn column = getOnlyElement(view.getColumns());
         assertThat(column.getName()).isEqualTo("x");
         assertThat(column.getType()).isEqualTo(BIGINT.getTypeId());

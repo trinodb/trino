@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
@@ -27,16 +26,6 @@ public class DescribeOutput
     private final Identifier name;
 
     public DescribeOutput(NodeLocation location, Identifier name)
-    {
-        this(Optional.of(location), name);
-    }
-
-    public DescribeOutput(Identifier name)
-    {
-        this(Optional.empty(), name);
-    }
-
-    private DescribeOutput(Optional<NodeLocation> location, Identifier name)
     {
         super(location);
         this.name = name;

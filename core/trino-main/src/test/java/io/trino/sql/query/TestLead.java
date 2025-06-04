@@ -23,7 +23,8 @@ public class TestLead
     public void testNullOffset()
     {
         try (QueryAssertions assertions = new QueryAssertions()) {
-            assertThat(assertions.query("""
+            assertThat(assertions.query(
+                    """
                     SELECT lead(v, null) OVER (ORDER BY k)
                     FROM (VALUES (1, 10), (2, 20)) t(k, v)
                     """))

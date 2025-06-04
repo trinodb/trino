@@ -105,6 +105,16 @@ public interface Type
     BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries);
 
     /**
+     * Creates a block containing as single  null values.
+     */
+    default ValueBlock createNullBlock()
+    {
+        return createBlockBuilder(null, 1, 0)
+                .appendNull()
+                .buildValueBlock();
+    }
+
+    /**
      * Gets an object representation of the type value in the {@code block}
      * {@code position}. This is the value returned to the user via the
      * REST endpoint and therefore must be JSON serializable.
@@ -237,14 +247,9 @@ public interface Type
     int getFlatVariableWidthSize(Block block, int position);
 
     /**
-     * Update the variable width offsets recorded in the value.
-     * This method is called after the value has been moved to a new location, and therefore the offsets
-     * need to be updated.
-     * Returns the length of the variable width data, so container types can update their offsets.
-     *
-     * @return the length of the variable width data
+     * Returns the variable width size of the value already written at the specified position within a flat buffer
      */
-    int relocateFlatVariableWidthOffsets(byte[] fixedSizeSlice, int fixedSizeOffset, byte[] variableSizeSlice, int variableSizeOffset);
+    int getFlatVariableWidthLength(byte[] fixedSizeSlice, int fixedSizeOffset);
 
     final class Range
     {

@@ -14,7 +14,6 @@
 package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -73,7 +72,7 @@ public class TestJdbcClient
     @Test
     public void testMetadata()
     {
-        assertThat(jdbcClient.getSchemaNames(session).containsAll(ImmutableSet.of("example", "tpch"))).isTrue();
+        assertThat(jdbcClient.getSchemaNames(session)).contains("example", "tpch");
         assertThat(jdbcClient.getTableNames(session, Optional.of("example"))).containsExactly(
                 new SchemaTableName("example", "numbers"),
                 new SchemaTableName("example", "timestamps"),
@@ -91,7 +90,7 @@ public class TestJdbcClient
         assertThat(table.get().getRequiredNamedRelation().getRemoteTableName().getSchemaName().orElse(null)).isEqualTo("EXAMPLE");
         assertThat(table.get().getRequiredNamedRelation().getRemoteTableName().getTableName()).isEqualTo("NUMBERS");
         assertThat(table.get().getRequiredNamedRelation().getSchemaTableName()).isEqualTo(schemaTableName);
-        assertThat(jdbcClient.getColumns(session, table.orElse(null))).containsExactly(
+        assertThat(jdbcClient.getColumns(session, schemaTableName, table.get().getRequiredNamedRelation().getRemoteTableName())).containsExactly(
                 new JdbcColumnHandle("TEXT", JDBC_VARCHAR, VARCHAR),
                 new JdbcColumnHandle("TEXT_SHORT", JDBC_VARCHAR, createVarcharType(32)),
                 new JdbcColumnHandle("VALUE", JDBC_BIGINT, BIGINT));
@@ -103,7 +102,7 @@ public class TestJdbcClient
         SchemaTableName schemaTableName = new SchemaTableName("exa_ple", "num_ers");
         Optional<JdbcTableHandle> table = jdbcClient.getTableHandle(session, schemaTableName);
         assertThat(table.isPresent()).withFailMessage("table is missing").isTrue();
-        assertThat(jdbcClient.getColumns(session, table.get())).containsExactly(
+        assertThat(jdbcClient.getColumns(session, schemaTableName, table.get().getRequiredNamedRelation().getRemoteTableName())).containsExactly(
                 new JdbcColumnHandle("TE_T", JDBC_VARCHAR, VARCHAR),
                 new JdbcColumnHandle("VA%UE", JDBC_BIGINT, BIGINT));
     }
@@ -114,7 +113,7 @@ public class TestJdbcClient
         SchemaTableName schemaTableName = new SchemaTableName("exa_ple", "table_with_float_col");
         Optional<JdbcTableHandle> table = jdbcClient.getTableHandle(session, schemaTableName);
         assertThat(table.isPresent()).withFailMessage("table is missing").isTrue();
-        assertThat(jdbcClient.getColumns(session, table.get())).containsExactly(
+        assertThat(jdbcClient.getColumns(session, schemaTableName, table.get().getRequiredNamedRelation().getRemoteTableName())).containsExactly(
                 new JdbcColumnHandle("COL1", JDBC_BIGINT, BIGINT),
                 new JdbcColumnHandle("COL2", JDBC_DOUBLE, DOUBLE),
                 new JdbcColumnHandle("COL3", JDBC_DOUBLE, DOUBLE),
@@ -127,7 +126,7 @@ public class TestJdbcClient
         SchemaTableName schemaTableName = new SchemaTableName("example", "timestamps");
         Optional<JdbcTableHandle> table = jdbcClient.getTableHandle(session, schemaTableName);
         assertThat(table.isPresent()).withFailMessage("table is missing").isTrue();
-        assertThat(jdbcClient.getColumns(session, table.get())).containsExactly(
+        assertThat(jdbcClient.getColumns(session, schemaTableName, table.get().getRequiredNamedRelation().getRemoteTableName())).containsExactly(
                 new JdbcColumnHandle("TS_3", JDBC_TIMESTAMP, TIMESTAMP_MILLIS),
                 new JdbcColumnHandle("TS_6", JDBC_TIMESTAMP, TIMESTAMP_MICROS),
                 new JdbcColumnHandle("TS_9", JDBC_TIMESTAMP, TIMESTAMP_NANOS));

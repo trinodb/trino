@@ -60,9 +60,7 @@ public final class ExpressionExtractor
         plan.accept(new Visitor(expressionConsumer, true, noLookup()), null);
     }
 
-    private ExpressionExtractor()
-    {
-    }
+    private ExpressionExtractor() {}
 
     private static class Visitor
             extends SimplePlanVisitor<Void>

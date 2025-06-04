@@ -13,54 +13,43 @@
  */
 package io.trino.plugin.deltalake.metastore.glue;
 
-import com.amazonaws.services.glue.AWSGlueAsync;
-import com.amazonaws.services.glue.AWSGlueAsyncClientBuilder;
-import com.amazonaws.services.glue.model.DeleteDatabaseRequest;
-import com.amazonaws.services.glue.model.EntityNotFoundException;
-import com.amazonaws.services.glue.model.GetDatabasesRequest;
-import com.amazonaws.services.glue.model.GetDatabasesResult;
 import io.airlift.log.Logger;
-import io.trino.plugin.hive.metastore.glue.AwsApiCallStats;
 import org.junit.jupiter.api.Test;
+import software.amazon.awssdk.services.glue.GlueClient;
+import software.amazon.awssdk.services.glue.model.Database;
+import software.amazon.awssdk.services.glue.model.EntityNotFoundException;
+import software.amazon.awssdk.services.glue.model.GetDatabasesResponse;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
-
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.getPaginatedResults;
-import static java.lang.System.currentTimeMillis;
-import static java.util.concurrent.TimeUnit.DAYS;
 
 public class TestDeltaLakeCleanUpGlueMetastore
 {
     private static final Logger log = Logger.get(TestDeltaLakeCleanUpGlueMetastore.class);
 
     private static final String TEST_DATABASE_NAME_PREFIX = "test_";
+    private static final Duration CLEANUP_THRESHOLD = Duration.ofDays(1);
 
     @Test
     public void cleanupOrphanedDatabases()
     {
-        AWSGlueAsync glueClient = AWSGlueAsyncClientBuilder.defaultClient();
-        long creationTimeMillisThreshold = currentTimeMillis() - DAYS.toMillis(1);
-        List<String> orphanedDatabases = getPaginatedResults(
-                glueClient::getDatabases,
-                new GetDatabasesRequest(),
-                GetDatabasesRequest::setNextToken,
-                GetDatabasesResult::getNextToken,
-                new AwsApiCallStats())
-                .map(GetDatabasesResult::getDatabaseList)
+        GlueClient glueClient = GlueClient.create();
+        Instant creationTimeThreshold = Instant.now().minus(CLEANUP_THRESHOLD);
+        List<String> orphanedDatabases = glueClient.getDatabasesPaginator(_ -> {}).stream()
+                .map(GetDatabasesResponse::databaseList)
                 .flatMap(List::stream)
-                .filter(glueDatabase -> glueDatabase.getName().startsWith(TEST_DATABASE_NAME_PREFIX) &&
-                        glueDatabase.getCreateTime().getTime() <= creationTimeMillisThreshold)
-                .map(com.amazonaws.services.glue.model.Database::getName)
-                .collect(toImmutableList());
+                .filter(database -> database.name().startsWith(TEST_DATABASE_NAME_PREFIX))
+                .filter(database -> database.createTime().isBefore(creationTimeThreshold))
+                .map(Database::name)
+                .toList();
 
         if (!orphanedDatabases.isEmpty()) {
             log.info("Found %s %s* databases that look orphaned, removing", orphanedDatabases.size(), TEST_DATABASE_NAME_PREFIX);
             orphanedDatabases.forEach(database -> {
                 try {
                     log.info("Deleting %s database", database);
-                    glueClient.deleteDatabase(new DeleteDatabaseRequest()
-                            .withName(database));
+                    glueClient.deleteDatabase(builder -> builder.name(database));
                 }
                 catch (EntityNotFoundException e) {
                     log.info("Database [%s] not found, could be removed by other cleanup process", database);

@@ -59,9 +59,6 @@ import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
-import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
-import static io.airlift.testing.Assertions.assertGreaterThan;
-import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.airlift.units.DataSize.succinctBytes;
@@ -69,10 +66,10 @@ import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.block.BlockAssertions.createRepeatedValuesBlock;
+import static io.trino.operator.AggregationMetrics.INPUT_ROWS_WITH_PARTIAL_AGGREGATION_DISABLED_METRIC_NAME;
 import static io.trino.operator.GroupByHashYieldAssertion.GroupByHashYieldResult;
 import static io.trino.operator.GroupByHashYieldAssertion.createPagesWithDistinctHashKeys;
 import static io.trino.operator.GroupByHashYieldAssertion.finishOperatorWithYieldingGroupByHash;
-import static io.trino.operator.HashAggregationOperator.INPUT_ROWS_WITH_PARTIAL_AGGREGATION_DISABLED_METRIC_NAME;
 import static io.trino.operator.OperatorAssertion.assertOperatorEqualsIgnoreOrder;
 import static io.trino.operator.OperatorAssertion.assertPagesEqualIgnoreOrder;
 import static io.trino.operator.OperatorAssertion.dropChannel;
@@ -187,7 +184,7 @@ public class TestHashAggregationOperator
         MaterializedResult expected = expectedBuilder.build();
 
         List<Page> pages = toPages(operatorFactory, driverContext, input, revokeMemoryWhenAddingPages);
-        assertGreaterThan(pages.size(), 1, "Expected more than one output page");
+        assertThat(pages).as("Expected more than one output page").hasSizeGreaterThan(1);
         assertPagesEqualIgnoreOrder(driverContext, pages, expected, hashEnabled, Optional.of(hashChannels.size()));
 
         assertThat(spillEnabled == (spillerFactory.getSpillsCount() > 0))
@@ -314,8 +311,8 @@ public class TestHashAggregationOperator
         Operator operator = operatorFactory.createOperator(driverContext);
         toPages(operator, input.iterator(), revokeMemoryWhenAddingPages);
         // TODO (https://github.com/trinodb/trino/issues/10596): it should be 0, since operator is finished
-        assertThat(getOnlyElement(operator.getOperatorContext().getNestedOperatorStats()).getUserMemoryReservation().toBytes()).isEqualTo(spillEnabled && revokeMemoryWhenAddingPages ? 4752672 : 0);
-        assertThat(getOnlyElement(operator.getOperatorContext().getNestedOperatorStats()).getRevocableMemoryReservation().toBytes()).isEqualTo(0);
+        assertThat(operator.getOperatorContext().getOperatorStats().getUserMemoryReservation().toBytes()).isEqualTo(spillEnabled && revokeMemoryWhenAddingPages ? 4752672 : 0);
+        assertThat(operator.getOperatorContext().getOperatorStats().getRevocableMemoryReservation().toBytes()).isEqualTo(0);
     }
 
     @Test
@@ -453,8 +450,8 @@ public class TestHashAggregationOperator
         // get result with yield; pick a relatively small buffer for aggregator's memory usage
         GroupByHashYieldResult result;
         result = finishOperatorWithYieldingGroupByHash(input, type, operatorFactory, this::getHashCapacity, 450_000);
-        assertGreaterThanOrEqual(result.getYieldCount(), 5);
-        assertGreaterThanOrEqual(result.getMaxReservedBytes(), 20L << 20);
+        assertThat(result.getYieldCount()).isGreaterThanOrEqualTo(5);
+        assertThat(result.getMaxReservedBytes()).isGreaterThanOrEqualTo(20L << 20);
 
         int count = 0;
         for (Page page : result.getOutput()) {
@@ -555,7 +552,7 @@ public class TestHashAggregationOperator
                 typeOperators,
                 Optional.empty());
 
-        assertThat(toPages(operatorFactory, createDriverContext(), input).size()).isEqualTo(2);
+        assertThat(toPages(operatorFactory, createDriverContext(), input)).hasSize(2);
     }
 
     @Test
@@ -624,7 +621,7 @@ public class TestHashAggregationOperator
             }
 
             // There should be some pages that were drained
-            assertThat(!outputPages.isEmpty()).isTrue();
+            assertThat(outputPages).isNotEmpty();
 
             // The operator need input again since this was a partial flush
             assertThat(operator.needsInput()).isTrue();
@@ -640,7 +637,7 @@ public class TestHashAggregationOperator
             actual = toMaterializedResult(operator.getOperatorContext().getSession(), expected.getTypes(), outputPages);
 
             assertThat(actual.getTypes()).isEqualTo(expected.getTypes());
-            assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+            assertThat(actual.getMaterializedRows()).containsExactlyInAnyOrderElementsOf(expected.getMaterializedRows());
         }
 
         assertThat(driverContext.getMemoryUsage()).isEqualTo(0);
@@ -698,7 +695,7 @@ public class TestHashAggregationOperator
         TestingAggregationFunction maxVarcharColumn = FUNCTION_RESOLUTION.getAggregateFunction("max", fromTypes(VARCHAR));
 
         List<Integer> hashChannels = Ints.asList(1);
-        ImmutableList<Type> types = ImmutableList.of(VARCHAR, BIGINT, VARCHAR, BIGINT);
+        List<Type> types = ImmutableList.of(VARCHAR, BIGINT, VARCHAR, BIGINT);
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(false, hashChannels, types);
         List<Page> input = rowPagesBuilder
                 .addSequencePage(10, 100, 0, 100, 0)
@@ -834,7 +831,7 @@ public class TestHashAggregationOperator
         assertOperatorEquals(operatorFactory, operator2Input, operator2Expected);
 
         // partial aggregation should be enabled again after enough data is processed
-        for (int i = 1; i <= 3; ++i) {
+        for (int i = 1; i <= 4; ++i) {
             List<Page> operatorInput = rowPagesBuilder(false, hashChannels, BIGINT)
                     .addBlocksPage(createLongsBlock(0, 1, 2, 3, 4, 5, 6, 7, 8))
                     .build();
@@ -842,7 +839,7 @@ public class TestHashAggregationOperator
                     .addBlocksPage(createLongsBlock(0, 1, 2, 3, 4, 5, 6, 7, 8), createLongsBlock(0, 1, 2, 3, 4, 5, 6, 7, 8))
                     .build();
             assertOperatorEquals(operatorFactory, operatorInput, operatorExpected);
-            if (i <= 2) {
+            if (i <= 3) {
                 assertThat(partialAggregationController.isPartialAggregationDisabled()).isTrue();
             }
             else {
@@ -964,7 +961,7 @@ public class TestHashAggregationOperator
         if (aggregationBuilder == null) {
             return 0;
         }
-        assertThat(aggregationBuilder instanceof InMemoryHashAggregationBuilder).isTrue();
+        assertThat(aggregationBuilder).isInstanceOf(InMemoryHashAggregationBuilder.class);
         return ((InMemoryHashAggregationBuilder) aggregationBuilder).getCapacity();
     }
 
@@ -989,9 +986,7 @@ public class TestHashAggregationOperator
                 }
 
                 @Override
-                public void close()
-                {
-                }
+                public void close() {}
             };
         }
     }

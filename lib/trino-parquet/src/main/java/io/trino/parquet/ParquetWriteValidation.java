@@ -18,9 +18,9 @@ import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
-import io.trino.parquet.metadata.BlockMetadata;
 import io.trino.parquet.metadata.ColumnChunkMetadata;
 import io.trino.parquet.metadata.IndexReference;
+import io.trino.parquet.metadata.PrunedBlockMetadata;
 import io.trino.parquet.reader.RowGroupInfo;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -135,7 +135,7 @@ public class ParquetWriteValidation
                 rowGroupInfos.size(),
                 rowGroups.size());
         for (int rowGroupIndex = 0; rowGroupIndex < rowGroupInfos.size(); rowGroupIndex++) {
-            BlockMetadata block = rowGroupInfos.get(rowGroupIndex).blockMetaData();
+            PrunedBlockMetadata block = rowGroupInfos.get(rowGroupIndex).prunedBlockMetadata();
             RowGroup rowGroup = rowGroups.get(rowGroupIndex);
             validateParquet(
                     block.getRowCount() == rowGroup.getNum_rows(),
@@ -355,7 +355,7 @@ public class ParquetWriteValidation
         }
     }
 
-    public void validateRowGroupStatistics(ParquetDataSourceId dataSourceId, BlockMetadata blockMetaData, List<ColumnStatistics> actualColumnStatistics)
+    public void validateRowGroupStatistics(ParquetDataSourceId dataSourceId, PrunedBlockMetadata blockMetaData, List<ColumnStatistics> actualColumnStatistics)
             throws ParquetCorruptionException
     {
         List<ColumnChunkMetadata> columnChunks = blockMetaData.getColumns();

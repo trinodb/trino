@@ -151,7 +151,7 @@ public class TestTaskStats
 
         assertThat(actual.getPhysicalWrittenDataSize()).isEqualTo(DataSize.ofBytes(25));
 
-        assertThat(actual.getPipelines().size()).isEqualTo(1);
+        assertThat(actual.getPipelines()).hasSize(1);
         assertExpectedPipelineStats(actual.getPipelines().get(0));
     }
 }

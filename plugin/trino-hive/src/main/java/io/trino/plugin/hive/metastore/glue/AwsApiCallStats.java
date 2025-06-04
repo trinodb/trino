@@ -32,7 +32,7 @@ public class AwsApiCallStats
     public <V, E extends Exception> V call(ThrowingCallable<V, E> callable)
             throws E
     {
-        try (TimeStat.BlockTimer ignored = time.time()) {
+        try (TimeStat.BlockTimer _ = time.time()) {
             return callable.call();
         }
         catch (Exception e) {
@@ -53,14 +53,6 @@ public class AwsApiCallStats
     public CounterStat getTotalFailures()
     {
         return totalFailures;
-    }
-
-    public void recordCall(long executionTimeNanos, boolean failure)
-    {
-        time.addNanos(executionTimeNanos);
-        if (failure) {
-            totalFailures.update(1);
-        }
     }
 
     public interface ThrowingCallable<V, E extends Exception>

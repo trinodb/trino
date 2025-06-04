@@ -115,6 +115,13 @@ public class TestSystemRuntimeConnector
     }
 
     @Test
+    void testOptimizerRuleStats()
+    {
+        assertThat(query("SELECT rule_name, invocations, matches, failures FROM system.runtime.optimizer_rule_stats"))
+                .result().hasTypes(ImmutableList.of(VARCHAR, BIGINT, BIGINT, BIGINT));
+    }
+
+    @Test
     public void testRuntimeQueriesTimestamps()
     {
         // Test is run multiple times because it is vulnerable to OS clock adjustment. See https://github.com/trinodb/trino/issues/5608
@@ -276,7 +283,7 @@ public class TestSystemRuntimeConnector
                 .collect(toOptional());
         assertThat(metadataFuture.isDone()).isFalse();
         assertThat(queryFuture.isDone()).isFalse();
-        assertThat(queryId.isPresent()).isTrue();
+        assertThat(queryId).isPresent();
 
         getQueryRunner().execute(format("CALL system.runtime.kill_query('%s', 'because')", queryId.get()));
         // Cancellation should happen within kill_query, but it still needs to be propagated to the thread performing analysis.

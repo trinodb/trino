@@ -25,6 +25,7 @@ import io.trino.spi.function.BlockIndex;
 import io.trino.spi.function.BlockPosition;
 import io.trino.spi.function.FlatFixed;
 import io.trino.spi.function.FlatFixedOffset;
+import io.trino.spi.function.FlatVariableOffset;
 import io.trino.spi.function.FlatVariableWidth;
 import io.trino.spi.function.IsNull;
 import io.trino.spi.function.ScalarOperator;
@@ -38,7 +39,7 @@ import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_FIRST;
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
-import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
+import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.function.OperatorType.READ_VALUE;
@@ -121,7 +122,7 @@ public final class DoubleType
     }
 
     @Override
-    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
+    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
         int maxBlockSizeInBytes;
         if (blockBuilderStatus == null) {
@@ -133,12 +134,6 @@ public final class DoubleType
         return new LongArrayBlockBuilder(
                 blockBuilderStatus,
                 Math.min(expectedEntries, maxBlockSizeInBytes / Double.BYTES));
-    }
-
-    @Override
-    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
-    {
-        return createBlockBuilder(blockBuilderStatus, expectedEntries, Double.BYTES);
     }
 
     @Override
@@ -184,7 +179,8 @@ public final class DoubleType
     private static double readFlat(
             @FlatFixed byte[] fixedSizeSlice,
             @FlatFixedOffset int fixedSizeOffset,
-            @FlatVariableWidth byte[] unusedVariableSizeSlice)
+            @FlatVariableWidth byte[] unusedVariableSizeSlice,
+            @FlatVariableOffset int unusedVariableSizeOffset)
     {
         return (double) DOUBLE_HANDLE.get(fixedSizeSlice, fixedSizeOffset);
     }
@@ -226,17 +222,17 @@ public final class DoubleType
     }
 
     @SuppressWarnings("FloatingPointEquality")
-    @ScalarOperator(IS_DISTINCT_FROM)
-    private static boolean distinctFromOperator(double left, @IsNull boolean leftNull, double right, @IsNull boolean rightNull)
+    @ScalarOperator(IDENTICAL)
+    private static boolean identical(double left, @IsNull boolean leftNull, double right, @IsNull boolean rightNull)
     {
         if (leftNull || rightNull) {
-            return leftNull != rightNull;
+            return leftNull == rightNull;
         }
 
         if (Double.isNaN(left) && Double.isNaN(right)) {
-            return false;
+            return true;
         }
-        return left != right;
+        return left == right;
     }
 
     @ScalarOperator(COMPARISON_UNORDERED_LAST)

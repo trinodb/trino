@@ -59,6 +59,82 @@ public class TestIcebergProcedureCalls
         onTrino().executeQuery("DROP TABLE IF EXISTS " + icebergTableName);
     }
 
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    public void testMigrateTimestampHiveTableWithOrc()
+    {
+        testMigrateTimestampHiveTable(
+                "MILLISECONDS",
+                "2021-01-01 10:11:12.123",
+                "2021-01-01 10:11:12.123000",
+                "2021-01-01 10:11:12.123",
+                "ORC");
+
+        testMigrateTimestampHiveTable(
+                "MICROSECONDS",
+                "2021-01-01 10:11:12.123456",
+                "2021-01-01 10:11:12.123456",
+                "2021-01-01 10:11:12.123456",
+                "ORC");
+
+        testMigrateTimestampHiveTable(
+                "NANOSECONDS",
+                "2021-01-01 10:11:12.123456789",
+                "2021-01-01 10:11:12.123457",
+                "2021-01-01 10:11:12.123456",
+                "ORC");
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    public void testMigrateTimestampHiveTableWithParquet()
+    {
+        testMigrateTimestampHiveTable(
+                "MILLISECONDS",
+                "2021-01-01 10:11:12.123",
+                "2021-01-01 10:11:12.123000 UTC",
+                "2021-01-01 10:11:12.123",
+                "PARQUET");
+
+        testMigrateTimestampHiveTable(
+                "MICROSECONDS",
+                "2021-01-01 10:11:12.123456",
+                "2021-01-01 10:11:12.123456 UTC",
+                "2021-01-01 10:11:12.123456",
+                "PARQUET");
+
+        testMigrateTimestampHiveTable(
+                "NANOSECONDS",
+                "2021-01-01 10:11:12.123456789",
+                "2021-01-01 10:11:12.123457 UTC",
+                "2021-01-01 10:11:12.123456",
+                "PARQUET");
+    }
+
+    private void testMigrateTimestampHiveTable(String precisionName, String inputValue, String expectedValueInTrino, String expectedValueInSpark, String format)
+    {
+        String tableName = "test_migrate_timestamp_" + randomNameSuffix();
+        String hiveTableName = "hive.default." + tableName;
+        String icebergTableName = "iceberg.default." + tableName;
+        String sparkTableName = "iceberg_test.default." + tableName;
+
+        onTrino().executeQuery("DROP TABLE IF EXISTS default." + tableName);
+        onTrino().executeQuery("SET SESSION hive.timestamp_precision = '" + precisionName + "'");
+        onTrino().executeQuery("CREATE TABLE " + hiveTableName + " WITH (format='" + format + "') AS SELECT TIMESTAMP '" + inputValue + "' x ");
+
+        assertThat(onHive().executeQuery("SELECT CAST(x AS string) FROM default." + tableName))
+                .containsOnly(row(inputValue));
+        assertThat(onTrino().executeQuery("SELECT CAST(x AS varchar) FROM " + hiveTableName))
+                .containsOnly(row(inputValue));
+
+        onTrino().executeQuery("CALL iceberg.system.migrate('default', '" + tableName + "')");
+
+        assertThat(onTrino().executeQuery("SELECT CAST(x AS varchar) FROM " + icebergTableName))
+                .containsOnly(row(expectedValueInTrino));
+        assertThat(onSpark().executeQuery("SELECT CAST(x AS string) FROM " + sparkTableName))
+                .containsOnly(row(expectedValueInSpark));
+
+        onTrino().executeQuery("DROP TABLE " + icebergTableName);
+    }
+
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "fileFormats")
     public void testMigrateHiveTableWithTinyintType(String fileFormat)
     {
@@ -284,22 +360,10 @@ public class TestIcebergProcedureCalls
         Thread.sleep(1);
         onTrino().executeQuery(format("INSERT INTO %s VALUES 2", tableName));
         long snapshotId = getSecondOldestTableSnapshot(tableName);
-        onTrino().executeQuery(format("call system.rollback_to_snapshot('default', '%s', %d)", tableName, snapshotId));
+        onTrino().executeQuery(format("ALTER TABLE %s EXECUTE rollback_to_snapshot(%d)", tableName, snapshotId));
         assertThat(onTrino().executeQuery(format("SELECT * FROM %s", tableName)))
                 .containsOnly(row(1));
         onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
-    }
-
-    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
-    public void testRollbackToSnapshotWithNullArgument()
-    {
-        onTrino().executeQuery("USE iceberg.default");
-        assertQueryFailure(() -> onTrino().executeQuery("CALL system.rollback_to_snapshot(NULL, 'customer_orders', 8954597067493422955)"))
-                .hasMessageMatching(".*schema cannot be null.*");
-        assertQueryFailure(() -> onTrino().executeQuery("CALL system.rollback_to_snapshot('testdb', NULL, 8954597067493422955)"))
-                .hasMessageMatching(".*table cannot be null.*");
-        assertQueryFailure(() -> onTrino().executeQuery("CALL system.rollback_to_snapshot('testdb', 'customer_orders', NULL)"))
-                .hasMessageMatching(".*snapshot_id cannot be null.*");
     }
 
     private long getSecondOldestTableSnapshot(String tableName)

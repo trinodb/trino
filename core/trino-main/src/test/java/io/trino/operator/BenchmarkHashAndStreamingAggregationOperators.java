@@ -148,9 +148,9 @@ public class BenchmarkHashAndStreamingAggregationOperators
                             .add(BIGINT)
                             .build());
             for (int i = 0; i < TOTAL_PAGES; i++) {
-                BlockBuilder bigintBlockBuilder = BIGINT.createBlockBuilder(null, ROWS_PER_PAGE);
+                BlockBuilder bigintBlockBuilder = BIGINT.createFixedSizeBlockBuilder(ROWS_PER_PAGE);
                 BlockBuilder varcharBlockBuilder = VARCHAR.createBlockBuilder(null, ROWS_PER_PAGE);
-                BlockBuilder doubleBlockBuilder = DOUBLE.createBlockBuilder(null, ROWS_PER_PAGE);
+                BlockBuilder doubleBlockBuilder = DOUBLE.createFixedSizeBlockBuilder(ROWS_PER_PAGE);
 
                 for (int j = 0; j < groupsPerPage; j++) {
                     long groupKey = i * groupsPerPage + j;

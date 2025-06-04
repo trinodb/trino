@@ -13,14 +13,17 @@
  */
 package io.trino.plugin.hive.coercions;
 
+import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.plugin.hive.coercions.CoercionUtils.CoercionContext;
 import io.trino.spi.block.Block;
 import org.junit.jupiter.api.Test;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.hive.HiveStorageFormat.ORC;
+import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
-import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.coercions.CoercionUtils.createCoercer;
+import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
 import static io.trino.spi.predicate.Utils.blockToNativeValue;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -53,18 +56,18 @@ public class TestVarcharToDoubleCoercer
     @Test
     public void testNaNToVarcharCoercions()
     {
-        assertVarcharToDoubleCoercion("NaN", true, null);
-        assertVarcharToDoubleCoercion("NaN", false, NaN);
+        assertVarcharToDoubleCoercion("NaN", ORC, null);
+        assertVarcharToDoubleCoercion("NaN", PARQUET, NaN);
     }
 
     private static void assertVarcharToDoubleCoercion(String actualValue, Double expectedValue)
     {
-        assertVarcharToDoubleCoercion(actualValue, false, expectedValue);
+        assertVarcharToDoubleCoercion(actualValue, PARQUET, expectedValue);
     }
 
-    private static void assertVarcharToDoubleCoercion(String actualValue, boolean isOrcFile, Double expectedValue)
+    private static void assertVarcharToDoubleCoercion(String actualValue, HiveStorageFormat storageFormat, Double expectedValue)
     {
-        Block coercedBlock = createCoercer(TESTING_TYPE_MANAGER, toHiveType(createUnboundedVarcharType()), toHiveType(DOUBLE), new CoercionContext(DEFAULT_PRECISION, isOrcFile)).orElseThrow()
+        Block coercedBlock = createCoercer(TESTING_TYPE_MANAGER, toHiveType(createUnboundedVarcharType()), toHiveType(DOUBLE), new CoercionContext(DEFAULT_PRECISION, storageFormat)).orElseThrow()
                 .apply(nativeValueToBlock(createUnboundedVarcharType(), utf8Slice(actualValue)));
         assertThat(blockToNativeValue(DOUBLE, coercedBlock))
                 .isEqualTo(expectedValue);

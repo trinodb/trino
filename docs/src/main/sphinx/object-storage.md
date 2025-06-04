@@ -24,8 +24,10 @@ availability.
 (file-system-configuration)=
 ## Configuration
 
-Use the following properties to control the support for different file systems
-in a catalog. Each catalog can only use one file system.
+By default, no file system support is activated for your catalog. You must
+select and configure one of the following properties to determine the support
+for different file systems in the catalog. Each catalog can only use one file
+system support.
 
 :::{list-table} File system support properties
 :widths: 35, 65
@@ -33,22 +35,19 @@ in a catalog. Each catalog can only use one file system.
 
 * - Property
   - Description
-* - `fs.hadoop.enabled`
-  - Activate the [legacy libraries and implementation based on the Hadoop](file-system-legacy)
-    ecosystem. Defaults to `true`.
 * - `fs.native-azure.enabled`
   - Activate the [native implementation for Azure Storage
-    support](/object-storage/file-system-azure), and deactivate all [legacy
-    support](file-system-legacy). Defaults to `false`.
+    support](/object-storage/file-system-azure). Defaults to `false`.
 * - `fs.native-gcs.enabled`
   - Activate the [native implementation for Google Cloud Storage
-    support](/object-storage/file-system-gcs), and deactivate all [legacy
-    support](file-system-legacy). Defaults to `false`.
+    support](/object-storage/file-system-gcs). Defaults to `false`.
 * - `fs.native-s3.enabled`
   - Activate the [native implementation for S3 storage
-    support](/object-storage/file-system-s3), and deactivate all [legacy
-    support](file-system-legacy) . Defaults to `false`.
-
+    support](/object-storage/file-system-s3). Defaults to `false`.
+* - `fs.hadoop.enabled`
+  - Activate [support for HDFS](/object-storage/file-system-hdfs) and [legacy
+    support for other file systems](file-system-legacy) using the HDFS
+    libraries. Defaults to `false`.
 :::
 
 (file-system-native)=
@@ -60,8 +59,10 @@ compatible replacements:
 * [](/object-storage/file-system-azure)
 * [](/object-storage/file-system-gcs)
 * [](/object-storage/file-system-s3)
+* [](/object-storage/file-system-local)
+* [](/object-storage/file-system-alluxio)
 
-The native support is available in all four connectors, but must be activated
+The native support is available in all four connectors, and must be activated
 for use.
 
 (file-system-legacy)=
@@ -73,15 +74,15 @@ System (HDFS):
 
 - [](/object-storage/file-system-hdfs)
 
-All four connectors can use the related `hive.*` properties for access to other
-object storage system as *legacy* support. Additional documentation is available
-with the Hive connector and relevant dedicated pages:
+All four connectors can use the deprecated `hive.*` properties for access to
+other object storage system as *legacy* support. These properties will be
+removed in a future release. Additional documentation is available with the Hive
+connector and relevant migration guides pages:
 
 - [](/connector/hive)
-- [](/object-storage/legacy-azure)
-- [](/object-storage/legacy-gcs)
-- [](/object-storage/legacy-cos)
-- [](/object-storage/legacy-s3)
+- [Azure Storage migration from hive.azure.* properties](fs-legacy-azure-migration)
+- [Google Cloud Storage migration from hive.gcs.* properties](fs-legacy-gcs-migration)
+- [S3 migration from hive.s3.* properties](fs-legacy-s3-migration) 
 
 (object-storage-other)=
 ## Other object storage support
@@ -90,6 +91,7 @@ Trino also provides the following additional support and features for object
 storage:
 
 * [](/object-storage/file-system-cache)
+* [](/object-storage/file-system-alluxio)
 * [](/object-storage/metastores)
 * [](/object-storage/file-formats)
 
@@ -100,12 +102,10 @@ storage:
 /object-storage/file-system-azure
 /object-storage/file-system-gcs
 /object-storage/file-system-s3
+/object-storage/file-system-local
 /object-storage/file-system-hdfs
-/object-storage/legacy-azure
-/object-storage/legacy-cos
-/object-storage/legacy-gcs
-/object-storage/legacy-s3
 /object-storage/file-system-cache
+/object-storage/file-system-alluxio
 /object-storage/metastores
 /object-storage/file-formats
 ```

@@ -1,7 +1,7 @@
 ---
 myst:
   substitutions:
-    default_domain_compaction_threshold: '`32`'
+    default_domain_compaction_threshold: '`256`'
 ---
 
 # SingleStore connector
@@ -17,12 +17,11 @@ creating tables in an external SingleStore database.
 
 To connect to SingleStore, you need:
 
-- SingleStore version 7.1.4 or higher.
+- SingleStore version 7.8 or higher.
 - Network access from the Trino coordinator and workers to SingleStore. Port
   3306 is the default port.
 
 (singlestore-configuration)=
-
 ## Configuration
 
 To configure the SingleStore connector, create a catalog properties file in
@@ -40,7 +39,8 @@ connection-password=secret
 
 The `connection-url` defines the connection information and parameters to pass
 to the SingleStore JDBC driver. The supported parameters for the URL are
-available in the [SingleStore JDBC driver documentation](https://docs.singlestore.com/db/v7.6/en/developer-resources/connect-with-application-development-tools/connect-with-java-jdbc/the-singlestore-jdbc-driver.html#connection-string-parameters).
+available in the [SingleStore JDBC driver
+documentation](https://docs.singlestore.com/db/latest/developer-resources/connect-with-application-development-tools/connect-with-java-jdbc/the-singlestore-jdbc-driver/#connection-string-parameters).
 
 The `connection-user` and `connection-password` are typically required and
 determine the user credentials for the connection, often a service user. You can
@@ -48,7 +48,6 @@ use {doc}`secrets </security/secrets>` to avoid actual values in the catalog
 properties files.
 
 (singlestore-tls)=
-
 ### Connection security
 
 If you have TLS configured with a globally-trusted certificate installed on your
@@ -64,7 +63,7 @@ connection-url=jdbc:singlestore://example.net:3306/?useSsl=true
 ```
 
 For more information on TLS configuration options, see the [JDBC driver
-documentation](https://docs.singlestore.com/db/v7.6/en/developer-resources/connect-with-application-development-tools/connect-with-java-jdbc/the-singlestore-jdbc-driver.html#tls-parameters).
+documentation](https://docs.singlestore.com/db/latest/developer-resources/connect-with-application-development-tools/connect-with-java-jdbc/the-singlestore-jdbc-driver/#tls-).
 
 ### Multiple SingleStore servers
 
@@ -83,13 +82,7 @@ will create a catalog named `sales` using the configured connector.
 ```{include} jdbc-domain-compaction-threshold.fragment
 ```
 
-```{include} jdbc-procedures.fragment
-```
-
 ```{include} jdbc-case-insensitive-matching.fragment
-```
-
-```{include} non-transactional-insert.fragment
 ```
 
 ## Querying SingleStore
@@ -126,7 +119,6 @@ If you used a different name for your catalog properties file, use
 that catalog name instead of `example` in the above examples.
 
 (singlestore-type-mapping)=
-
 ## Type mapping
 
 Because Trino and Singlestore each support types that the other does not, this
@@ -306,7 +298,6 @@ this table:
 No other types are supported.
 
 (singlestore-decimal-handling)=
-
 ```{include} decimal-type-handling.fragment
 ```
 
@@ -314,7 +305,6 @@ No other types are supported.
 ```
 
 (singlestore-sql-support)=
-
 ## SQL support
 
 The connector provides read access and write access to data and metadata in
@@ -322,24 +312,40 @@ a SingleStore database.  In addition to the {ref}`globally available
 <sql-globally-available>` and {ref}`read operation <sql-read-operations>`
 statements, the connector supports the following features:
 
-- {doc}`/sql/insert`
-- {doc}`/sql/update`
-- {doc}`/sql/delete`
-- {doc}`/sql/truncate`
-- {doc}`/sql/create-table`
-- {doc}`/sql/create-table-as`
-- {doc}`/sql/drop-table`
-- {doc}`/sql/alter-table`
-- {doc}`/sql/create-schema`
-- {doc}`/sql/drop-schema`
+- [](/sql/insert), see also [](singlestore-insert)
+- [](/sql/update), see also [](singlestore-update)
+- [](/sql/delete), see also [](singlestore-delete)
+- [](/sql/truncate)
+- [](/sql/create-table)
+- [](/sql/create-table-as)
+- [](/sql/alter-table), see also [](singlestore-alter-table)
+- [](/sql/drop-table)
+- [](/sql/create-schema)
+- [](/sql/drop-schema)
+- [](singlestore-procedures)
 
+(singlestore-insert)=
+```{include} non-transactional-insert.fragment
+```
+
+(singlestore-update)=
 ```{include} sql-update-limitation.fragment
 ```
 
+(singlestore-delete)=
 ```{include} sql-delete-limitation.fragment
 ```
 
+(singlestore-alter-table)=
 ```{include} alter-table-limitation.fragment
+```
+
+(singlestore-procedures)=
+### Procedures
+
+```{include} jdbc-procedures-flush.fragment
+```
+```{include} procedures-execute.fragment
 ```
 
 ## Performance
@@ -348,7 +354,6 @@ The connector includes a number of performance improvements, detailed in the
 following sections.
 
 (singlestore-pushdown)=
-
 ### Pushdown
 
 The connector supports pushdown for a number of operations:

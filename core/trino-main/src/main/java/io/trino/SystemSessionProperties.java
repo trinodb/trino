@@ -28,6 +28,7 @@ import io.trino.operator.RetryPolicy;
 import io.trino.spi.TrinoException;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.sql.planner.OptimizerConfig;
+import io.trino.sql.planner.OptimizerConfig.DistinctAggregationsStrategy;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.OptimizerConfig.MarkDistinctStrategy;
@@ -59,7 +60,6 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public final class SystemSessionProperties
         implements SystemSessionPropertiesProvider
 {
-    public static final String OPTIMIZE_HASH_GENERATION = "optimize_hash_generation";
     public static final String JOIN_DISTRIBUTION_TYPE = "join_distribution_type";
     public static final String JOIN_MAX_BROADCAST_TABLE_SIZE = "join_max_broadcast_table_size";
     public static final String JOIN_MULTI_CLAUSE_INDEPENDENCE_FACTOR = "join_multi_clause_independence_factor";
@@ -105,13 +105,13 @@ public final class SystemSessionProperties
     public static final String QUERY_PRIORITY = "query_priority";
     public static final String SPILL_ENABLED = "spill_enabled";
     public static final String AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT = "aggregation_operator_unspill_memory_limit";
-    public static final String OPTIMIZE_DISTINCT_AGGREGATIONS = "optimize_mixed_distinct_aggregations";
     public static final String ITERATIVE_OPTIMIZER_TIMEOUT = "iterative_optimizer_timeout";
     public static final String ENABLE_FORCED_EXCHANGE_BELOW_GROUP_ID = "enable_forced_exchange_below_group_id";
     public static final String EXCHANGE_COMPRESSION_CODEC = "exchange_compression_codec";
     public static final String ENABLE_INTERMEDIATE_AGGREGATIONS = "enable_intermediate_aggregations";
     public static final String PUSH_AGGREGATION_THROUGH_OUTER_JOIN = "push_aggregation_through_outer_join";
     public static final String PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN = "push_partial_aggregation_through_join";
+    public static final String ALLOW_UNSAFE_PUSHDOWN = "allow_unsafe_pushdown";
     public static final String PRE_AGGREGATE_CASE_AGGREGATIONS_ENABLED = "pre_aggregate_case_aggregations_enabled";
     public static final String FORCE_SINGLE_NODE_OUTPUT = "force_single_node_output";
     public static final String FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_SIZE = "filter_and_project_min_output_page_size";
@@ -121,6 +121,7 @@ public final class SystemSessionProperties
     public static final String USE_PARTIAL_DISTINCT_LIMIT = "use_partial_distinct_limit";
     public static final String MAX_RECURSION_DEPTH = "max_recursion_depth";
     public static final String MARK_DISTINCT_STRATEGY = "mark_distinct_strategy";
+    public static final String DISTINCT_AGGREGATIONS_STRATEGY = "distinct_aggregations_strategy";
     public static final String PREFER_PARTIAL_AGGREGATION = "prefer_partial_aggregation";
     public static final String OPTIMIZE_TOP_N_RANKING = "optimize_top_n_ranking";
     public static final String MAX_GROUPING_SETS = "max_grouping_sets";
@@ -138,8 +139,9 @@ public final class SystemSessionProperties
     public static final String COMPLEX_EXPRESSION_PUSHDOWN = "complex_expression_pushdown";
     public static final String PREDICATE_PUSHDOWN_USE_TABLE_PROPERTIES = "predicate_pushdown_use_table_properties";
     public static final String ENABLE_DYNAMIC_FILTERING = "enable_dynamic_filtering";
-    public static final String ENABLE_COORDINATOR_DYNAMIC_FILTERS_DISTRIBUTION = "enable_coordinator_dynamic_filters_distribution";
     public static final String ENABLE_LARGE_DYNAMIC_FILTERS = "enable_large_dynamic_filters";
+    public static final String ENABLE_DYNAMIC_ROW_FILTERING = "enable_dynamic_row_filtering";
+    public static final String DYNAMIC_ROW_FILTERING_SELECTIVITY_THRESHOLD = "dynamic_row_filtering_selectivity_threshold";
     public static final String QUERY_MAX_MEMORY_PER_NODE = "query_max_memory_per_node";
     public static final String IGNORE_DOWNSTREAM_PREFERENCES = "ignore_downstream_preferences";
     public static final String FILTERING_SEMI_JOIN_TO_INNER = "rewrite_filtering_semi_join_to_inner_join";
@@ -159,7 +161,7 @@ public final class SystemSessionProperties
     public static final String QUERY_RETRY_ATTEMPTS = "query_retry_attempts";
     public static final String TASK_RETRY_ATTEMPTS_PER_TASK = "task_retry_attempts_per_task";
     public static final String MAX_TASKS_WAITING_FOR_EXECUTION_PER_QUERY = "max_tasks_waiting_for_execution_per_query";
-    public static final String MAX_TASKS_WAITING_FOR_NODE_PER_STAGE = "max_tasks_waiting_for_node_per_stage";
+    public static final String MAX_TASKS_WAITING_FOR_NODE_PER_QUERY = "max_tasks_waiting_for_node_per_query";
     public static final String RETRY_INITIAL_DELAY = "retry_initial_delay";
     public static final String RETRY_MAX_DELAY = "retry_max_delay";
     public static final String RETRY_DELAY_SCALE_FACTOR = "retry_delay_scale_factor";
@@ -196,6 +198,9 @@ public final class SystemSessionProperties
     private static final String FAULT_TOLERANT_EXECUTION_SMALL_STAGE_REQUIRE_NO_MORE_PARTITIONS = "fault_tolerant_execution_small_stage_require_no_more_partitions";
     private static final String FAULT_TOLERANT_EXECUTION_STAGE_ESTIMATION_FOR_EAGER_PARENT_ENABLED = "fault_tolerant_execution_stage_estimation_for_eager_parent_enabled";
     public static final String FAULT_TOLERANT_EXECUTION_ADAPTIVE_QUERY_PLANNING_ENABLED = "fault_tolerant_execution_adaptive_query_planning_enabled";
+    public static final String FAULT_TOLERANT_EXECUTION_ADAPTIVE_JOIN_REORDERING_ENABLED = "fault_tolerant_execution_adaptive_join_reordering_enabled";
+    public static final String FAULT_TOLERANT_EXECUTION_ADAPTIVE_JOIN_REORDERING_SIZE_DIFFERENCE_RATIO = "fault_tolerant_execution_adaptive_join_reordering_size_difference_ratio";
+    public static final String FAULT_TOLERANT_EXECUTION_ADAPTIVE_JOIN_REORDERING_MIN_SIZE_THRESHOLD = "fault_tolerant_execution_adaptive_join_reordering_min_size_threshold";
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_ENABLED = "adaptive_partial_aggregation_enabled";
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_UNIQUE_ROWS_RATIO_THRESHOLD = "adaptive_partial_aggregation_unique_rows_ratio_threshold";
     public static final String REMOTE_TASK_ADAPTIVE_UPDATE_REQUEST_SIZE_ENABLED = "remote_task_adaptive_update_request_size_enabled";
@@ -207,10 +212,13 @@ public final class SystemSessionProperties
     public static final String MIN_INPUT_ROWS_PER_TASK = "min_input_rows_per_task";
     public static final String USE_EXACT_PARTITIONING = "use_exact_partitioning";
     public static final String USE_COST_BASED_PARTITIONING = "use_cost_based_partitioning";
+    public static final String PUSH_FILTER_INTO_VALUES_MAX_ROW_COUNT = "push_filter_into_values_max_row_count";
     public static final String FORCE_SPILLING_JOIN = "force_spilling_join";
     public static final String PAGE_PARTITIONING_BUFFER_POOL_SIZE = "page_partitioning_buffer_pool_size";
     public static final String IDLE_WRITER_MIN_DATA_SIZE_THRESHOLD = "idle_writer_min_data_size_threshold";
     public static final String CLOSE_IDLE_WRITERS_TRIGGER_DURATION = "close_idle_writers_trigger_duration";
+    public static final String COLUMNAR_FILTER_EVALUATION_ENABLED = "columnar_filter_evaluation_enabled";
+    public static final String SPOOLING_ENABLED = "spooling_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -243,11 +251,6 @@ public final class SystemSessionProperties
                         EXECUTION_POLICY,
                         "Policy used for scheduling query tasks",
                         queryManagerConfig.getQueryExecutionPolicy(),
-                        false),
-                booleanProperty(
-                        OPTIMIZE_HASH_GENERATION,
-                        "Compute hash codes for distribution, joins, and aggregations early in query plan",
-                        optimizerConfig.isOptimizeHashGeneration(),
                         false),
                 enumProperty(
                         JOIN_DISTRIBUTION_TYPE,
@@ -491,11 +494,6 @@ public final class SystemSessionProperties
                         "How much memory should be allocated per aggregation operator in unspilling process",
                         featuresConfig.getAggregationOperatorUnspillMemoryLimit(),
                         false),
-                booleanProperty(
-                        OPTIMIZE_DISTINCT_AGGREGATIONS,
-                        "Optimize mixed non-distinct and distinct aggregations",
-                        optimizerConfig.isOptimizeMixedDistinctAggregations(),
-                        false),
                 durationProperty(
                         ITERATIVE_OPTIMIZER_TIMEOUT,
                         "Timeout for plan optimization in iterative optimizer",
@@ -575,9 +573,15 @@ public final class SystemSessionProperties
                         object -> object),
                 enumProperty(
                         MARK_DISTINCT_STRATEGY,
-                        "",
+                        "Deprecated. Strategy to use for distinct aggregations.",
                         MarkDistinctStrategy.class,
                         optimizerConfig.getMarkDistinctStrategy(),
+                        false),
+                enumProperty(
+                        DISTINCT_AGGREGATIONS_STRATEGY,
+                        "Strategy to use for distinct aggregations.",
+                        DistinctAggregationsStrategy.class,
+                        optimizerConfig.getDistinctAggregationsStrategy(),
                         false),
                 booleanProperty(
                         PREFER_PARTIAL_AGGREGATION,
@@ -674,14 +678,24 @@ public final class SystemSessionProperties
                         dynamicFilterConfig.isEnableDynamicFiltering(),
                         false),
                 booleanProperty(
-                        ENABLE_COORDINATOR_DYNAMIC_FILTERS_DISTRIBUTION,
-                        "Enable distribution of dynamic filters from coordinator to all workers",
-                        dynamicFilterConfig.isEnableCoordinatorDynamicFiltersDistribution(),
-                        false),
-                booleanProperty(
                         ENABLE_LARGE_DYNAMIC_FILTERS,
                         "Enable collection of large dynamic filters",
                         dynamicFilterConfig.isEnableLargeDynamicFilters(),
+                        false),
+                booleanProperty(
+                        ENABLE_DYNAMIC_ROW_FILTERING,
+                        "Enable fine-grained filtering of rows in the scan operator using dynamic filters",
+                        dynamicFilterConfig.isEnableDynamicRowFiltering(),
+                        false),
+                doubleProperty(
+                        DYNAMIC_ROW_FILTERING_SELECTIVITY_THRESHOLD,
+                        "Avoid using dynamic row filters when fraction of rows selected is above threshold",
+                        dynamicFilterConfig.getDynamicRowFilterSelectivityThreshold(),
+                        value -> {
+                            if (value < 0 || value > 1) {
+                                throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be in the range [0, 1]: %s", DYNAMIC_ROW_FILTERING_SELECTIVITY_THRESHOLD, value));
+                            }
+                        },
                         false),
                 dataSizeProperty(
                         QUERY_MAX_MEMORY_PER_NODE,
@@ -797,9 +811,9 @@ public final class SystemSessionProperties
                         queryManagerConfig.getMaxTasksWaitingForExecutionPerQuery(),
                         false),
                 integerProperty(
-                        MAX_TASKS_WAITING_FOR_NODE_PER_STAGE,
-                        "Maximum possible number of tasks waiting for node allocation per stage before scheduling of new tasks for stage is paused",
-                        queryManagerConfig.getMaxTasksWaitingForNodePerStage(),
+                        MAX_TASKS_WAITING_FOR_NODE_PER_QUERY,
+                        "Maximum possible number of tasks waiting for node allocation per query before scheduling of new tasks is paused",
+                        queryManagerConfig.getMaxTasksWaitingForNodePerQuery(),
                         false),
                 durationProperty(
                         RETRY_INITIAL_DELAY,
@@ -1000,6 +1014,28 @@ public final class SystemSessionProperties
                         queryManagerConfig.isFaultTolerantExecutionAdaptiveQueryPlanningEnabled(),
                         false),
                 booleanProperty(
+                        FAULT_TOLERANT_EXECUTION_ADAPTIVE_JOIN_REORDERING_ENABLED,
+                        "Reorder partitioned join based on run time stats in fault tolerant execution",
+                        queryManagerConfig.isFaultTolerantExecutionAdaptiveJoinReorderingEnabled(),
+                        false),
+                doubleProperty(
+                        FAULT_TOLERANT_EXECUTION_ADAPTIVE_JOIN_REORDERING_SIZE_DIFFERENCE_RATIO,
+                        "The ratio of difference in estimated size of right and left side of join to consider reordering",
+                        queryManagerConfig.getFaultTolerantExecutionAdaptiveJoinReorderingSizeDifferenceRatio(),
+                        value -> {
+                            if (value < 1.0) {
+                                throw new TrinoException(
+                                        INVALID_SESSION_PROPERTY,
+                                        format("%s must be greater than or equal to 1.0: %s", FAULT_TOLERANT_EXECUTION_SMALL_STAGE_SOURCE_SIZE_MULTIPLIER, value));
+                            }
+                        },
+                        true),
+                dataSizeProperty(
+                        FAULT_TOLERANT_EXECUTION_ADAPTIVE_JOIN_REORDERING_MIN_SIZE_THRESHOLD,
+                        "The minimum size of the right side of join to consider reordering",
+                        queryManagerConfig.getFaultTolerantExecutionAdaptiveJoinReorderingMinSizeThreshold(),
+                        true),
+                booleanProperty(
                         ADAPTIVE_PARTIAL_AGGREGATION_ENABLED,
                         "When enabled, partial aggregation might be adaptively turned off when it does not provide any performance gain",
                         optimizerConfig.isAdaptivePartialAggregationEnabled(),
@@ -1056,10 +1092,20 @@ public final class SystemSessionProperties
                         "When enabled the cost based optimizer is used to determine if repartitioning the output of an already partitioned stage is necessary",
                         optimizerConfig.isUseCostBasedPartitioning(),
                         false),
+                integerProperty(
+                        PUSH_FILTER_INTO_VALUES_MAX_ROW_COUNT,
+                        "Maximum number of rows in values for which filter is pushed down into values",
+                        optimizerConfig.getPushFilterIntoValuesMaxRowCount(),
+                        false),
                 booleanProperty(
                         FORCE_SPILLING_JOIN,
                         "Force the usage of spliing join operator in favor of the non-spilling one, even if spill is not enabled",
                         featuresConfig.isForceSpillingJoin(),
+                        false),
+                booleanProperty(
+                        COLUMNAR_FILTER_EVALUATION_ENABLED,
+                        "Enables columnar evaluation of filters",
+                        featuresConfig.isColumnarFilterEvaluationEnabled(),
                         false),
                 integerProperty(PAGE_PARTITIONING_BUFFER_POOL_SIZE,
                         "Maximum number of free buffers in the per task partitioned page buffer pool. Setting this to zero effectively disables the pool",
@@ -1072,6 +1118,16 @@ public final class SystemSessionProperties
                 durationProperty(CLOSE_IDLE_WRITERS_TRIGGER_DURATION,
                         "The duration after which the writer operator tries to close the idle writers",
                         new Duration(5, SECONDS),
+                        true),
+                booleanProperty(
+                        ALLOW_UNSAFE_PUSHDOWN,
+                        "Allow pushing down expressions that may fail for some inputs",
+                        optimizerConfig.isUnsafePushdownAllowed(),
+                        true),
+                booleanProperty(
+                        SPOOLING_ENABLED,
+                        "Enable client spooling protocol",
+                        true,
                         true));
     }
 
@@ -1084,11 +1140,6 @@ public final class SystemSessionProperties
     public static String getExecutionPolicy(Session session)
     {
         return session.getSystemProperty(EXECUTION_POLICY, String.class);
-    }
-
-    public static boolean isOptimizeHashGenerationEnabled(Session session)
-    {
-        return session.getSystemProperty(OPTIMIZE_HASH_GENERATION, Boolean.class);
     }
 
     public static JoinDistributionType getJoinDistributionType(Session session)
@@ -1315,11 +1366,6 @@ public final class SystemSessionProperties
         return memoryLimitForMerge;
     }
 
-    public static boolean isOptimizeDistinctAggregationEnabled(Session session)
-    {
-        return session.getSystemProperty(OPTIMIZE_DISTINCT_AGGREGATIONS, Boolean.class);
-    }
-
     public static Duration getOptimizerTimeout(Session session)
     {
         return session.getSystemProperty(ITERATIVE_OPTIMIZER_TIMEOUT, Duration.class);
@@ -1370,9 +1416,26 @@ public final class SystemSessionProperties
         return session.getSystemProperty(FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_ROW_COUNT, Integer.class);
     }
 
-    public static MarkDistinctStrategy markDistinctStrategy(Session session)
+    public static DistinctAggregationsStrategy distinctAggregationsStrategy(Session session)
     {
-        return session.getSystemProperty(MARK_DISTINCT_STRATEGY, MarkDistinctStrategy.class);
+        DistinctAggregationsStrategy distinctAggregationsStrategy = session.getSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, DistinctAggregationsStrategy.class);
+
+        if (distinctAggregationsStrategy != null) {
+            // distinct_aggregations_strategy is set, so it takes precedence over mark_distinct_strategy
+            return distinctAggregationsStrategy;
+        }
+
+        MarkDistinctStrategy markDistinctStrategy = session.getSystemProperty(MARK_DISTINCT_STRATEGY, MarkDistinctStrategy.class);
+        if (markDistinctStrategy == null) {
+            // both distinct_aggregations_strategy and mark_distinct_strategy have default null values, use AUTOMATIC
+            return DistinctAggregationsStrategy.AUTOMATIC;
+        }
+        // mark_distinct_strategy is set but distinct_aggregations_strategy is not, map mark_distinct_strategy to distinct_aggregations_strategy
+        return switch (markDistinctStrategy) {
+            case AUTOMATIC -> DistinctAggregationsStrategy.AUTOMATIC;
+            case ALWAYS -> DistinctAggregationsStrategy.MARK_DISTINCT;
+            case NONE -> DistinctAggregationsStrategy.SINGLE_STEP;
+        };
     }
 
     public static boolean preferPartialAggregation(Session session)
@@ -1555,14 +1618,19 @@ public final class SystemSessionProperties
         return session.getSystemProperty(ENABLE_DYNAMIC_FILTERING, Boolean.class);
     }
 
-    public static boolean isEnableCoordinatorDynamicFiltersDistribution(Session session)
-    {
-        return session.getSystemProperty(ENABLE_COORDINATOR_DYNAMIC_FILTERS_DISTRIBUTION, Boolean.class);
-    }
-
     public static boolean isEnableLargeDynamicFilters(Session session)
     {
         return session.getSystemProperty(ENABLE_LARGE_DYNAMIC_FILTERS, Boolean.class);
+    }
+
+    public static boolean isEnableDynamicRowFiltering(Session session)
+    {
+        return session.getSystemProperty(ENABLE_DYNAMIC_ROW_FILTERING, Boolean.class);
+    }
+
+    public static double getDynamicRowFilterSelectivityThreshold(Session session)
+    {
+        return session.getSystemProperty(DYNAMIC_ROW_FILTERING_SELECTIVITY_THRESHOLD, Double.class);
     }
 
     public static DataSize getQueryMaxMemoryPerNode(Session session)
@@ -1660,9 +1728,9 @@ public final class SystemSessionProperties
         return session.getSystemProperty(MAX_TASKS_WAITING_FOR_EXECUTION_PER_QUERY, Integer.class);
     }
 
-    public static int getMaxTasksWaitingForNodePerStage(Session session)
+    public static int getMaxTasksWaitingForNodePerQuery(Session session)
     {
-        return session.getSystemProperty(MAX_TASKS_WAITING_FOR_NODE_PER_STAGE, Integer.class);
+        return session.getSystemProperty(MAX_TASKS_WAITING_FOR_NODE_PER_QUERY, Integer.class);
     }
 
     public static Duration getRetryInitialDelay(Session session)
@@ -1845,6 +1913,21 @@ public final class SystemSessionProperties
         return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_ADAPTIVE_QUERY_PLANNING_ENABLED, Boolean.class);
     }
 
+    public static boolean isFaultTolerantExecutionAdaptiveJoinReorderingEnabled(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_ADAPTIVE_JOIN_REORDERING_ENABLED, Boolean.class);
+    }
+
+    public static double getFaultTolerantExecutionAdaptiveJoinReorderingSizeDifferenceRatio(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_ADAPTIVE_JOIN_REORDERING_SIZE_DIFFERENCE_RATIO, Double.class);
+    }
+
+    public static DataSize getFaultTolerantExecutionAdaptiveJoinReorderingMinSizeThreshold(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_ADAPTIVE_JOIN_REORDERING_MIN_SIZE_THRESHOLD, DataSize.class);
+    }
+
     public static boolean isAdaptivePartialAggregationEnabled(Session session)
     {
         return session.getSystemProperty(ADAPTIVE_PARTIAL_AGGREGATION_ENABLED, Boolean.class);
@@ -1900,6 +1983,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(USE_COST_BASED_PARTITIONING, Boolean.class);
     }
 
+    public static int getPushFilterIntoValuesMaxRowCount(Session session)
+    {
+        return session.getSystemProperty(PUSH_FILTER_INTO_VALUES_MAX_ROW_COUNT, Integer.class);
+    }
+
     public static boolean isForceSpillingOperator(Session session)
     {
         return session.getSystemProperty(FORCE_SPILLING_JOIN, Boolean.class);
@@ -1918,5 +2006,20 @@ public final class SystemSessionProperties
     public static Duration getCloseIdleWritersTriggerDuration(Session session)
     {
         return session.getSystemProperty(CLOSE_IDLE_WRITERS_TRIGGER_DURATION, Duration.class);
+    }
+
+    public static boolean isColumnarFilterEvaluationEnabled(Session session)
+    {
+        return session.getSystemProperty(COLUMNAR_FILTER_EVALUATION_ENABLED, Boolean.class);
+    }
+
+    public static boolean isSpoolingEnabled(Session session)
+    {
+        return session.getSystemProperty(SPOOLING_ENABLED, Boolean.class);
+    }
+
+    public static boolean isUnsafePushdownAllowed(Session session)
+    {
+        return session.getSystemProperty(ALLOW_UNSAFE_PUSHDOWN, Boolean.class);
     }
 }

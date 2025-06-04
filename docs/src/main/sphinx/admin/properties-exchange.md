@@ -41,8 +41,9 @@ network utilization.
 - **Allowed values:** `NONE`, `LZ4`, `ZSTD`
 - **Default value:** `NONE`
 
-The compression codec to use when exchanging data between nodes.
-Defaults to `LZ4` with [](/admin/fault-tolerant-execution) mode.
+The compression codec to use for [](file-compression) when exchanging data
+between nodes and the exchange storage with [](/admin/fault-tolerant-execution)
+mode.
 
 ## `exchange.data-integrity-verification`
 
@@ -88,7 +89,7 @@ responses for more tasks, rather than hold more data from fewer tasks.
 
 Output buffer size for task data that is waiting to be pulled by upstream
 tasks. If the task output is hash partitioned, then the buffer is
-shared across all of the partitioned consumers. Increasing this value may
+shared across all the partitioned consumers. Increasing this value may
 improve network throughput for data transferred between stages, if the
 network has high latency, or if there are many nodes in the cluster.
 

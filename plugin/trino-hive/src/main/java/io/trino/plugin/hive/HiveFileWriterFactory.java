@@ -14,8 +14,8 @@
 package io.trino.plugin.hive;
 
 import io.trino.filesystem.Location;
+import io.trino.metastore.StorageFormat;
 import io.trino.plugin.hive.acid.AcidTransaction;
-import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.spi.connector.ConnectorSession;
 
 import java.util.List;

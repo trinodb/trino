@@ -35,12 +35,12 @@ public final class OAuthIdTokenCookie
         return MULTIPART_COOKIE.create(token, tokenExpiration, true);
     }
 
-    public static Optional<String> read(Map<String, Cookie> availableCookies)
+    public static Optional<String> read(Map<String, ? extends Cookie> availableCookies)
     {
         return MULTIPART_COOKIE.read(availableCookies);
     }
 
-    public static NewCookie[] delete(Map<String, Cookie> availableCookies)
+    public static NewCookie[] delete(Map<String, ? extends Cookie> availableCookies)
     {
         return MULTIPART_COOKIE.delete(availableCookies, true);
     }

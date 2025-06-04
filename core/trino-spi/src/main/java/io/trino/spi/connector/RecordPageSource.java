@@ -64,7 +64,7 @@ public class RecordPageSource
     @Override
     public long getMemoryUsage()
     {
-        return cursor.getMemoryUsage() + pageBuilder.getSizeInBytes();
+        return cursor.getMemoryUsage() + pageBuilder.getRetainedSizeInBytes();
     }
 
     @Override
@@ -81,6 +81,7 @@ public class RecordPageSource
     }
 
     @Override
+    @SuppressWarnings("removal")
     public Page getNextPage()
     {
         if (!closed) {

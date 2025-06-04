@@ -73,7 +73,7 @@ public class TestArbitraryOutputBuffer
 {
     private static final String TASK_INSTANCE_ID = "task-instance-id";
 
-    private static final ImmutableList<BigintType> TYPES = ImmutableList.of(BIGINT);
+    private static final List<BigintType> TYPES = ImmutableList.of(BIGINT);
     private static final OutputBufferId FIRST = new OutputBufferId(0);
     private static final OutputBufferId SECOND = new OutputBufferId(1);
 
@@ -464,7 +464,7 @@ public class TestArbitraryOutputBuffer
             secondReads.add(buffer.get(completed, result.getNextToken(), sizeOfPages(1)));
         }
         // Test sanity
-        assertThat(secondReads.size()).isEqualTo(ids.length);
+        assertThat(secondReads).hasSize(ids.length);
 
         // Completion order should be identical to the first iteration at this point
         for (int i = 0; i < ids.length; i++) {

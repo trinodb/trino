@@ -29,6 +29,7 @@ import io.trino.execution.scheduler.OutputDataSizeEstimate;
 import io.trino.execution.scheduler.faulttolerant.HashDistributionSplitAssigner.TaskPartition;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
+import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
 import org.junit.jupiter.api.Test;
 
@@ -720,6 +721,7 @@ public class TestHashDistributionSplitAssigner
                     splittableSources::contains,
                     mergeAllowed);
             HashDistributionSplitAssigner assigner = new HashDistributionSplitAssigner(
+                    new PlanFragmentId("fragment"),
                     Optional.of(TEST_CATALOG_HANDLE),
                     partitionedSources,
                     replicatedSources,
@@ -756,7 +758,7 @@ public class TestHashDistributionSplitAssigner
                 partitionToNodeMap.ifPresent(partitionToNode -> {
                     if (!taskDescriptor.getSplits().getSplitsFlat().isEmpty()) {
                         InternalNode node = partitionToNode.get(partitionId);
-                        assertThat(nodeRequirements.getAddresses()).containsExactly(node.getHostAndPort());
+                        assertThat(nodeRequirements.getAddress()).hasValue(node.getHostAndPort());
                     }
                 });
                 Set<Integer> taskDescriptorSplitIds = new HashSet<>();
@@ -895,7 +897,6 @@ public class TestHashDistributionSplitAssigner
         }
     }
 
-    @SuppressWarnings("unused")
     private record PartitionMapping(Set<Integer> sourcePartitions, int taskPartitionCount)
     {
         private PartitionMapping

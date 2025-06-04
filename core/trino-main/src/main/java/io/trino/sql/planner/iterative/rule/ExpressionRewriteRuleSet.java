@@ -302,9 +302,9 @@ public class ExpressionRewriteRuleSet
             ImmutableList.Builder<Expression> rows = ImmutableList.builder();
             for (Expression row : valuesNode.getRows().get()) {
                 Expression rewritten;
-                if (row instanceof Row) {
+                if (row instanceof Row value) {
                     // preserve the structure of row
-                    rewritten = new Row(((Row) row).items().stream()
+                    rewritten = new Row(value.items().stream()
                             .map(item -> rewriter.rewrite(item, context))
                             .collect(toImmutableList()));
                 }

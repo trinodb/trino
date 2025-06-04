@@ -13,12 +13,19 @@
  */
 package io.trino.hive.formats.avro;
 
-import com.google.common.base.VerifyException;
 import com.google.common.primitives.Longs;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.trino.hive.formats.avro.model.AvroLogicalType;
+import io.trino.hive.formats.avro.model.AvroLogicalType.BytesDecimalLogicalType;
+import io.trino.hive.formats.avro.model.AvroLogicalType.DateLogicalType;
+import io.trino.hive.formats.avro.model.AvroLogicalType.FixedDecimalLogicalType;
+import io.trino.hive.formats.avro.model.AvroLogicalType.StringUUIDLogicalType;
+import io.trino.hive.formats.avro.model.AvroLogicalType.TimeMicrosLogicalType;
+import io.trino.hive.formats.avro.model.AvroLogicalType.TimeMillisLogicalType;
+import io.trino.hive.formats.avro.model.AvroLogicalType.TimestampMicrosLogicalType;
+import io.trino.hive.formats.avro.model.AvroLogicalType.TimestampMillisLogicalType;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
@@ -33,22 +40,28 @@ import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
 import org.apache.avro.generic.GenericData;
-import org.apache.avro.generic.GenericFixed;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Arrays;
-import java.util.Map;
 import java.util.Optional;
-import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import static com.google.common.base.Verify.verify;
+import static io.trino.hive.formats.avro.model.AvroLogicalType.DATE;
+import static io.trino.hive.formats.avro.model.AvroLogicalType.DECIMAL;
+import static io.trino.hive.formats.avro.model.AvroLogicalType.LOCAL_TIMESTAMP_MICROS;
+import static io.trino.hive.formats.avro.model.AvroLogicalType.LOCAL_TIMESTAMP_MILLIS;
+import static io.trino.hive.formats.avro.model.AvroLogicalType.TIMESTAMP_MICROS;
+import static io.trino.hive.formats.avro.model.AvroLogicalType.TIMESTAMP_MILLIS;
+import static io.trino.hive.formats.avro.model.AvroLogicalType.TIME_MICROS;
+import static io.trino.hive.formats.avro.model.AvroLogicalType.TIME_MILLIS;
+import static io.trino.hive.formats.avro.model.AvroLogicalType.UUID;
+import static io.trino.hive.formats.avro.model.AvroLogicalType.fromAvroLogicalType;
 import static io.trino.spi.type.Timestamps.roundDiv;
-import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
 import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
 import static java.util.Objects.requireNonNull;
 import static org.apache.avro.LogicalTypes.fromSchemaIgnoreInvalid;
@@ -61,165 +74,120 @@ public class NativeLogicalTypesAvroTypeManager
 {
     private static final Logger log = Logger.get(NativeLogicalTypesAvroTypeManager.class);
 
-    public static final Schema TIMESTAMP_MILLIS_SCHEMA;
-    public static final Schema TIMESTAMP_MICROS_SCHEMA;
     public static final Schema DATE_SCHEMA;
     public static final Schema TIME_MILLIS_SCHEMA;
     public static final Schema TIME_MICROS_SCHEMA;
+    public static final Schema TIMESTAMP_MILLIS_SCHEMA;
+    public static final Schema TIMESTAMP_MICROS_SCHEMA;
     public static final Schema UUID_SCHEMA;
 
-    // Copied from org.apache.avro.LogicalTypes
-    protected static final String DECIMAL = "decimal";
-    protected static final String UUID = "uuid";
-    protected static final String DATE = "date";
-    protected static final String TIME_MILLIS = "time-millis";
-    protected static final String TIME_MICROS = "time-micros";
-    protected static final String TIMESTAMP_MILLIS = "timestamp-millis";
-    protected static final String TIMESTAMP_MICROS = "timestamp-micros";
-    protected static final String LOCAL_TIMESTAMP_MILLIS = "local-timestamp-millis";
-    protected static final String LOCAL_TIMESTAMP_MICROS = "local-timestamp-micros";
-
     static {
-        TIMESTAMP_MILLIS_SCHEMA = SchemaBuilder.builder().longType();
-        LogicalTypes.timestampMillis().addToSchema(TIMESTAMP_MILLIS_SCHEMA);
-        TIMESTAMP_MICROS_SCHEMA = SchemaBuilder.builder().longType();
-        LogicalTypes.timestampMicros().addToSchema(TIMESTAMP_MICROS_SCHEMA);
         DATE_SCHEMA = Schema.create(Schema.Type.INT);
         LogicalTypes.date().addToSchema(DATE_SCHEMA);
         TIME_MILLIS_SCHEMA = Schema.create(Schema.Type.INT);
         LogicalTypes.timeMillis().addToSchema(TIME_MILLIS_SCHEMA);
         TIME_MICROS_SCHEMA = Schema.create(Schema.Type.LONG);
         LogicalTypes.timeMicros().addToSchema(TIME_MICROS_SCHEMA);
+        TIMESTAMP_MILLIS_SCHEMA = SchemaBuilder.builder().longType();
+        LogicalTypes.timestampMillis().addToSchema(TIMESTAMP_MILLIS_SCHEMA);
+        TIMESTAMP_MICROS_SCHEMA = SchemaBuilder.builder().longType();
+        LogicalTypes.timestampMicros().addToSchema(TIMESTAMP_MICROS_SCHEMA);
         UUID_SCHEMA = Schema.create(Schema.Type.STRING);
         LogicalTypes.uuid().addToSchema(UUID_SCHEMA);
-    }
-
-    @Override
-    public void configure(Map<String, byte[]> fileMetadata) {}
-
-    @Override
-    public Optional<Type> overrideTypeForSchema(Schema schema)
-            throws AvroTypeException
-    {
-        return validateAndLogIssues(schema).map(NativeLogicalTypesAvroTypeManager::getAvroLogicalTypeSpiType);
-    }
-
-    @Override
-    public Optional<BiConsumer<BlockBuilder, Object>> overrideBuildingFunctionForSchema(Schema schema)
-            throws AvroTypeException
-    {
-        return validateAndLogIssues(schema).map(logicalType -> getLogicalTypeBuildingFunction(logicalType, schema));
     }
 
     @Override
     public Optional<BiFunction<Block, Integer, Object>> overrideBlockToAvroObject(Schema schema, Type type)
             throws AvroTypeException
     {
-        Optional<LogicalType> logicalType = validateAndLogIssues(schema);
+        Optional<AvroLogicalType> logicalType = validateAndLogIssues(schema);
         if (logicalType.isEmpty()) {
             return Optional.empty();
         }
         return Optional.of(getAvroFunction(logicalType.get(), schema, type));
     }
 
-    private static Type getAvroLogicalTypeSpiType(LogicalType logicalType)
+    static Type getAvroLogicalTypeSpiType(AvroLogicalType avroLogicalType)
+    {
+        return switch (avroLogicalType) {
+            case DateLogicalType __ -> DateType.DATE;
+            case BytesDecimalLogicalType bytesDecimalLogicalType -> DecimalType.createDecimalType(bytesDecimalLogicalType.precision(), bytesDecimalLogicalType.scale());
+            case FixedDecimalLogicalType fixedDecimalLogicalType -> DecimalType.createDecimalType(fixedDecimalLogicalType.precision(), fixedDecimalLogicalType.scale());
+            case TimeMillisLogicalType __ -> TimeType.TIME_MILLIS;
+            case TimeMicrosLogicalType __ -> TimeType.TIME_MICROS;
+            case TimestampMillisLogicalType __ -> TimestampType.TIMESTAMP_MILLIS;
+            case TimestampMicrosLogicalType __ -> TimestampType.TIMESTAMP_MICROS;
+            case StringUUIDLogicalType __ -> UuidType.UUID;
+        };
+    }
+
+    static Type getAvroLogicalTypeSpiType(LogicalType logicalType)
     {
         return switch (logicalType.getName()) {
-            case TIMESTAMP_MILLIS -> TimestampType.TIMESTAMP_MILLIS;
-            case TIMESTAMP_MICROS -> TimestampType.TIMESTAMP_MICROS;
+            case DATE -> DateType.DATE;
             case DECIMAL -> {
                 LogicalTypes.Decimal decimal = (LogicalTypes.Decimal) logicalType;
                 yield DecimalType.createDecimalType(decimal.getPrecision(), decimal.getScale());
             }
-            case DATE -> DateType.DATE;
             case TIME_MILLIS -> TimeType.TIME_MILLIS;
             case TIME_MICROS -> TimeType.TIME_MICROS;
+            case TIMESTAMP_MILLIS -> TimestampType.TIMESTAMP_MILLIS;
+            case TIMESTAMP_MICROS -> TimestampType.TIMESTAMP_MICROS;
             case UUID -> UuidType.UUID;
             default -> throw new IllegalStateException("Unreachable unfiltered logical type");
         };
     }
 
-    private static BiConsumer<BlockBuilder, Object> getLogicalTypeBuildingFunction(LogicalType logicalType, Schema schema)
-    {
-        return switch (logicalType.getName()) {
-            case TIMESTAMP_MILLIS -> {
-                if (schema.getType() == Schema.Type.LONG) {
-                    yield (builder, obj) -> {
-                        Long l = (Long) obj;
-                        TimestampType.TIMESTAMP_MILLIS.writeLong(builder, l * Timestamps.MICROSECONDS_PER_MILLISECOND);
-                    };
-                }
-                throw new IllegalStateException("Unreachable unfiltered logical type");
-            }
-            case TIMESTAMP_MICROS -> {
-                if (schema.getType() == Schema.Type.LONG) {
-                    yield (builder, obj) -> {
-                        Long l = (Long) obj;
-                        TimestampType.TIMESTAMP_MICROS.writeLong(builder, l);
-                    };
-                }
-                throw new IllegalStateException("Unreachable unfiltered logical type");
-            }
-            case DECIMAL -> {
-                LogicalTypes.Decimal decimal = (LogicalTypes.Decimal) logicalType;
-                DecimalType decimalType = DecimalType.createDecimalType(decimal.getPrecision(), decimal.getScale());
-                Function<Object, byte[]> byteExtract = switch (schema.getType()) {
-                    case BYTES -> // This is only safe because we don't reuse byte buffer objects which means each gets sized exactly for the bytes contained
-                            (obj) -> ((ByteBuffer) obj).array();
-                    case FIXED -> (obj) -> ((GenericFixed) obj).bytes();
-                    default -> throw new IllegalStateException("Unreachable unfiltered logical type");
-                };
-                if (decimalType.isShort()) {
-                    yield (builder, obj) -> decimalType.writeLong(builder, fromBigEndian(byteExtract.apply(obj)));
-                }
-                else {
-                    yield (builder, obj) -> decimalType.writeObject(builder, Int128.fromBigEndian(byteExtract.apply(obj)));
-                }
-            }
-            case DATE -> {
-                if (schema.getType() == Schema.Type.INT) {
-                    yield (builder, obj) -> {
-                        Integer i = (Integer) obj;
-                        DateType.DATE.writeLong(builder, i.longValue());
-                    };
-                }
-                throw new IllegalStateException("Unreachable unfiltered logical type");
-            }
-            case TIME_MILLIS -> {
-                if (schema.getType() == Schema.Type.INT) {
-                    yield (builder, obj) -> {
-                        Integer i = (Integer) obj;
-                        TimeType.TIME_MILLIS.writeLong(builder, i.longValue() * Timestamps.PICOSECONDS_PER_MILLISECOND);
-                    };
-                }
-                throw new IllegalStateException("Unreachable unfiltered logical type");
-            }
-            case TIME_MICROS -> {
-                if (schema.getType() == Schema.Type.LONG) {
-                    yield (builder, obj) -> {
-                        Long i = (Long) obj;
-                        TimeType.TIME_MICROS.writeLong(builder, i * Timestamps.PICOSECONDS_PER_MICROSECOND);
-                    };
-                }
-                throw new IllegalStateException("Unreachable unfiltered logical type");
-            }
-            case UUID -> {
-                if (schema.getType() == Schema.Type.STRING) {
-                    yield (builder, obj) -> UuidType.UUID.writeSlice(builder, javaUuidToTrinoUuid(java.util.UUID.fromString(obj.toString())));
-                }
-                throw new IllegalStateException("Unreachable unfiltered logical type");
-            }
-            default -> throw new IllegalStateException("Unreachable unfiltered logical type");
-        };
-    }
-
-    private static BiFunction<Block, Integer, Object> getAvroFunction(LogicalType logicalType, Schema schema, Type type)
+    private static BiFunction<Block, Integer, Object> getAvroFunction(AvroLogicalType logicalType, Schema schema, Type type)
             throws AvroTypeException
     {
-        return switch (logicalType.getName()) {
-            case TIMESTAMP_MILLIS -> {
+        return switch (logicalType) {
+            case DateLogicalType _ -> {
+                if (type != DateType.DATE) {
+                    throw new AvroTypeException("Can't represent Avro logical type %s with Trino Type %s".formatted(logicalType, type));
+                }
+                yield DateType.DATE::getLong;
+            }
+            case BytesDecimalLogicalType _ -> {
+                DecimalType decimalType = (DecimalType) getAvroLogicalTypeSpiType(logicalType);
+                if (decimalType.isShort()) {
+                    yield (block, pos) -> ByteBuffer.wrap(Longs.toByteArray(decimalType.getLong(block, pos)));
+                }
+                else {
+                    yield (block, pos) -> ByteBuffer.wrap(((Int128) decimalType.getObject(block, pos)).toBigEndianBytes());
+                }
+            }
+            case FixedDecimalLogicalType _ -> {
+                DecimalType decimalType = (DecimalType) getAvroLogicalTypeSpiType(logicalType);
+                Function<byte[], Object> wrapBytes = bytes -> new GenericData.Fixed(schema, fitBigEndianValueToByteArraySize(bytes, schema.getFixedSize()));
+                if (decimalType.isShort()) {
+                    yield (block, pos) -> wrapBytes.apply(Longs.toByteArray(decimalType.getLong(block, pos)));
+                }
+                else {
+                    yield (block, pos) -> wrapBytes.apply(((Int128) decimalType.getObject(block, pos)).toBigEndianBytes());
+                }
+            }
+            case TimeMillisLogicalType _ -> {
+                if (!(type instanceof TimeType timeType)) {
+                    throw new AvroTypeException("Can't represent Avro logical type %s with Trino Type %s".formatted(logicalType, type));
+                }
+                if (timeType.getPrecision() > 3) {
+                    throw new AvroTypeException("Can't write out Avro logical time-millis from Trino Time Type with precision %s".formatted(timeType.getPrecision()));
+                }
+                yield (block, pos) -> roundDiv(timeType.getLong(block, pos), Timestamps.PICOSECONDS_PER_MILLISECOND);
+            }
+            case TimeMicrosLogicalType _ -> {
+                if (!(type instanceof TimeType timeType)) {
+                    throw new AvroTypeException("Can't represent Avro logical type %s with Trino Type %s".formatted(logicalType, type));
+                }
+                if (timeType.getPrecision() > 6) {
+                    throw new AvroTypeException("Can't write out Avro logical time-millis from Trino Time Type with precision %s".formatted(timeType.getPrecision()));
+                }
+                yield (block, pos) -> roundDiv(timeType.getLong(block, pos), Timestamps.PICOSECONDS_PER_MICROSECOND);
+            }
+            case TimestampMillisLogicalType _ -> {
                 if (!(type instanceof TimestampType timestampType)) {
-                    throw new AvroTypeException("Can't represent Avro logical type %s with Trino Type %s".formatted(logicalType.getName(), type));
+                    throw new AvroTypeException("Can't represent Avro logical type %s with Trino Type %s".formatted(logicalType, type));
                 }
                 if (timestampType.isShort()) {
                     yield (block, integer) -> timestampType.getLong(block, integer) / Timestamps.MICROSECONDS_PER_MILLISECOND;
@@ -232,9 +200,9 @@ public class NativeLogicalTypesAvroTypeManager
                     };
                 }
             }
-            case TIMESTAMP_MICROS -> {
+            case TimestampMicrosLogicalType _ -> {
                 if (!(type instanceof TimestampType timestampType)) {
-                    throw new AvroTypeException("Can't represent Avro logical type %s with Trino Type %s".formatted(logicalType.getName(), type));
+                    throw new AvroTypeException("Can't represent Avro logical type %s with Trino Type %s".formatted(logicalType, type));
                 }
                 if (timestampType.isShort()) {
                     // Don't use method reference because it causes an NPE in errorprone
@@ -248,76 +216,36 @@ public class NativeLogicalTypesAvroTypeManager
                     };
                 }
             }
-            case DECIMAL -> {
-                DecimalType decimalType = (DecimalType) getAvroLogicalTypeSpiType(logicalType);
-                Function<byte[], Object> wrapBytes = switch (schema.getType()) {
-                    case BYTES -> ByteBuffer::wrap;
-                    case FIXED -> bytes -> new GenericData.Fixed(schema, fitBigEndianValueToByteArraySize(bytes, schema.getFixedSize()));
-                    default -> throw new VerifyException("Unreachable unfiltered logical type");
-                };
-                if (decimalType.isShort()) {
-                    yield (block, pos) -> wrapBytes.apply(Longs.toByteArray(decimalType.getLong(block, pos)));
-                }
-                else {
-                    yield (block, pos) -> wrapBytes.apply(((Int128) decimalType.getObject(block, pos)).toBigEndianBytes());
-                }
-            }
-            case DATE -> {
-                if (type != DateType.DATE) {
-                    throw new AvroTypeException("Can't represent Avro logical type %s with Trino Type %s".formatted(logicalType.getName(), type));
-                }
-                yield DateType.DATE::getLong;
-            }
-            case TIME_MILLIS -> {
-                if (!(type instanceof TimeType timeType)) {
-                    throw new AvroTypeException("Can't represent Avro logical type %s with Trino Type %s".formatted(logicalType.getName(), type));
-                }
-                if (timeType.getPrecision() > 3) {
-                    throw new AvroTypeException("Can't write out Avro logical time-millis from Trino Time Type with precision %s".formatted(timeType.getPrecision()));
-                }
-                yield (block, pos) -> roundDiv(timeType.getLong(block, pos), Timestamps.PICOSECONDS_PER_MILLISECOND);
-            }
-            case TIME_MICROS -> {
-                if (!(type instanceof TimeType timeType)) {
-                    throw new AvroTypeException("Can't represent Avro logical type %s with Trino Type %s".formatted(logicalType.getName(), type));
-                }
-                if (timeType.getPrecision() > 6) {
-                    throw new AvroTypeException("Can't write out Avro logical time-millis from Trino Time Type with precision %s".formatted(timeType.getPrecision()));
-                }
-                yield (block, pos) -> roundDiv(timeType.getLong(block, pos), Timestamps.PICOSECONDS_PER_MICROSECOND);
-            }
-            case UUID -> {
+            case StringUUIDLogicalType _ -> {
                 if (!(type instanceof UuidType uuidType)) {
-                    throw new AvroTypeException("Can't represent Avro logical type %s with Trino Type %s".formatted(logicalType.getName(), type));
+                    throw new AvroTypeException("Can't represent Avro logical type %s with Trino Type %s".formatted(logicalType, type));
                 }
                 yield (block, pos) -> trinoUuidToJavaUuid((Slice) uuidType.getObject(block, pos)).toString();
             }
-            default -> throw new VerifyException("Unreachable unfiltered logical type");
         };
     }
 
-    private Optional<LogicalType> validateAndLogIssues(Schema schema)
+    static Optional<AvroLogicalType> validateAndLogIssues(Schema schema)
     {
-        // TODO replace with switch sealed class syntax when stable
-        ValidateLogicalTypeResult logicalTypeResult = validateLogicalType(schema);
-        if (logicalTypeResult instanceof NoLogicalType ignored) {
-            return Optional.empty();
+        switch (validateLogicalType(schema)) {
+            case NoLogicalType ignored -> {
+                return Optional.empty();
+            }
+            case NonNativeAvroLogicalType ignored -> {
+                log.debug("Unrecognized logical type %s", schema);
+                return Optional.empty();
+            }
+            case InvalidNativeAvroLogicalType invalidNativeAvroLogicalType -> {
+                log.debug(invalidNativeAvroLogicalType.getCause(), "Invalidly configured native Avro logical type");
+                return Optional.empty();
+            }
+            case ValidNativeAvroLogicalType validNativeAvroLogicalType -> {
+                return Optional.of(validNativeAvroLogicalType.getLogicalType());
+            }
         }
-        if (logicalTypeResult instanceof NonNativeAvroLogicalType ignored) {
-            log.debug("Unrecognized logical type " + schema);
-            return Optional.empty();
-        }
-        if (logicalTypeResult instanceof InvalidNativeAvroLogicalType invalidNativeAvroLogicalType) {
-            log.debug(invalidNativeAvroLogicalType.getCause(), "Invalidly configured native Avro logical type");
-            return Optional.empty();
-        }
-        if (logicalTypeResult instanceof ValidNativeAvroLogicalType validNativeAvroLogicalType) {
-            return Optional.of(validNativeAvroLogicalType.getLogicalType());
-        }
-        throw new IllegalStateException("Unhandled validate logical type result");
     }
 
-    protected static ValidateLogicalTypeResult validateLogicalType(Schema schema)
+    public static ValidateLogicalTypeResult validateLogicalType(Schema schema)
     {
         final String typeName = schema.getProp(LogicalType.LOGICAL_TYPE_PROP);
         if (typeName == null) {
@@ -325,11 +253,11 @@ public class NativeLogicalTypesAvroTypeManager
         }
         LogicalType logicalType;
         switch (typeName) {
-            case TIMESTAMP_MILLIS, TIMESTAMP_MICROS, DECIMAL, DATE, TIME_MILLIS, TIME_MICROS, UUID:
+            case DATE, DECIMAL, TIME_MILLIS, TIME_MICROS, TIMESTAMP_MILLIS, TIMESTAMP_MICROS, UUID:
                 logicalType = fromSchemaIgnoreInvalid(schema);
                 break;
             case LOCAL_TIMESTAMP_MICROS + LOCAL_TIMESTAMP_MILLIS:
-                log.debug("Logical type " + typeName + " not currently supported by by Trino");
+                log.debug("Logical type %s not currently supported by by Trino", typeName);
                 // fall through
             default:
                 return new NonNativeAvroLogicalType(typeName);
@@ -342,14 +270,14 @@ public class NativeLogicalTypesAvroTypeManager
             catch (RuntimeException e) {
                 return new InvalidNativeAvroLogicalType(typeName, e);
             }
-            return new ValidNativeAvroLogicalType(logicalType);
+            return new ValidNativeAvroLogicalType(fromAvroLogicalType(logicalType, schema));
         }
         else {
             return new NonNativeAvroLogicalType(typeName);
         }
     }
 
-    protected abstract static sealed class ValidateLogicalTypeResult
+    public abstract static sealed class ValidateLogicalTypeResult
             permits NoLogicalType, NonNativeAvroLogicalType, InvalidNativeAvroLogicalType, ValidNativeAvroLogicalType {}
 
     protected static final class NoLogicalType
@@ -397,14 +325,14 @@ public class NativeLogicalTypesAvroTypeManager
     protected static final class ValidNativeAvroLogicalType
             extends ValidateLogicalTypeResult
     {
-        private final LogicalType logicalType;
+        private final AvroLogicalType logicalType;
 
-        public ValidNativeAvroLogicalType(LogicalType logicalType)
+        public ValidNativeAvroLogicalType(AvroLogicalType logicalType)
         {
             this.logicalType = requireNonNull(logicalType, "logicalType is null");
         }
 
-        public LogicalType getLogicalType()
+        public AvroLogicalType getLogicalType()
         {
             return logicalType;
         }

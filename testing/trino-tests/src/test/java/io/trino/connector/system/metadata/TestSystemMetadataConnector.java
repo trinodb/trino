@@ -34,6 +34,7 @@ import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.stream.Collectors.joining;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 @Execution(SAME_THREAD) // CountingMockConnector is shared mutable state
@@ -70,6 +71,17 @@ public class TestSystemMetadataConnector
             queryRunner.close();
             throw e;
         }
+    }
+
+    @Test
+    void testMetadataCatalogs()
+    {
+        assertThat(query("SELECT catalog_name, connector_id, connector_name FROM system.metadata.catalogs"))
+                .matches("VALUES " +
+                        "(CAST('system' AS VARCHAR), CAST('system' AS VARCHAR), CAST('system' AS VARCHAR))," +
+                        "(CAST('test_catalog' AS VARCHAR), CAST('test_catalog' AS VARCHAR), CAST('mock' AS VARCHAR))," +
+                        "(CAST('broken_catalog' AS VARCHAR), CAST('broken_catalog' AS VARCHAR), CAST('failing_mock' AS VARCHAR))," +
+                        "(CAST('tpch' AS VARCHAR), CAST('tpch' AS VARCHAR), CAST('tpch' AS VARCHAR))");
     }
 
     @Test

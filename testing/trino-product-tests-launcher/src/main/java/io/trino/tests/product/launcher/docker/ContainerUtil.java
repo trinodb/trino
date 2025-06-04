@@ -47,7 +47,7 @@ public final class ContainerUtil
                             .withForce(true)
                             .exec();
                 }
-                catch (ConflictException | NotFoundException ignored) {
+                catch (ConflictException | NotFoundException _) {
                 }
             }
         }
@@ -62,7 +62,7 @@ public final class ContainerUtil
                 dockerClient.removeNetworkCmd(network.getId())
                         .exec();
             }
-            catch (NotFoundException ignored) {
+            catch (NotFoundException _) {
                 // Possible when previous tests invocation leaves a network behind and it is being garbage collected by Ryuk in the background.
             }
         }

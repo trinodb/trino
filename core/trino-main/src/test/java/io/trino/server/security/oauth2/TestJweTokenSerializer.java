@@ -202,9 +202,7 @@ public class TestJweTokenSerializer
                 .build();
 
         @Override
-        public void load()
-        {
-        }
+        public void load() {}
 
         @Override
         public Request createAuthorizationRequest(String state, URI callbackUri)

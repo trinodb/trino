@@ -17,7 +17,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.LongArrayBlockBuilder;
 import io.trino.spi.block.ValueBlock;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.lang.invoke.MethodHandle;
@@ -31,6 +30,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FLAT_RETURN;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestFlatArrayBuilder
 {
@@ -54,9 +54,9 @@ public class TestFlatArrayBuilder
         flatArrayBuilder.writeAll(blockBuilder);
 
         Block block = blockBuilder.build();
-        Assertions.assertEquals(size, block.getPositionCount());
+        assertThat(block.getPositionCount()).isEqualTo(size);
         for (int i = 0; i < size; i++) {
-            Assertions.assertEquals(i, BIGINT.getLong(block, i));
+            assertThat(BIGINT.getLong(block, i)).isEqualTo(i);
         }
     }
 
@@ -83,9 +83,9 @@ public class TestFlatArrayBuilder
         }
 
         Block block = blockBuilder.build();
-        Assertions.assertEquals(size, block.getPositionCount());
+        assertThat(block.getPositionCount()).isEqualTo(size);
         for (int i = 0; i < size; i++) {
-            Assertions.assertEquals(i, BIGINT.getLong(block, i));
+            assertThat(BIGINT.getLong(block, i)).isEqualTo(i);
         }
     }
 }

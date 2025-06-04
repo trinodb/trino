@@ -48,6 +48,7 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.type.JsonType.JSON;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
@@ -735,11 +736,23 @@ public abstract class BaseBigQueryTypeMapping
     }
 
     @Test
+    public void testArrayType()
+    {
+        try (TestTable table = newTrinoTable("test_array_", "(a BIGINT, b ARRAY<DOUBLE>, c ARRAY<BIGINT>)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " (a, b, c) VALUES (5, ARRAY[1.23E1], ARRAY[15]), (6, ARRAY[1.24E1, 1.27E1, 2.23E1], ARRAY[25, 26, 36])", 2);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES " +
+                            "(BIGINT '5', ARRAY[DOUBLE '12.3'], ARRAY[BIGINT '15']), " +
+                            "(BIGINT '6', ARRAY[DOUBLE '12.4', DOUBLE '12.7', DOUBLE '22.3'], ARRAY[BIGINT '25', BIGINT '26', BIGINT '36'])");
+        }
+    }
+
+    @Test
     public void testUnsupportedNullArray()
     {
         // BigQuery translates a NULL ARRAY into an empty ARRAY in the query result
         // This test ensures that the connector disallows writing a NULL ARRAY
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test.test_null_array", "(col ARRAY(INT))")) {
+        try (TestTable table = newTrinoTable("test.test_null_array", "(col ARRAY(INT))")) {
             assertQueryFails("INSERT INTO " + table.getName() + " VALUES (NULL)", "NULL value not allowed for NOT NULL column: col");
         }
     }

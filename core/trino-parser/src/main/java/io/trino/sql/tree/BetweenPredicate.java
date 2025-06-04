@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -28,17 +27,7 @@ public class BetweenPredicate
     private final Expression min;
     private final Expression max;
 
-    public BetweenPredicate(Expression value, Expression min, Expression max)
-    {
-        this(Optional.empty(), value, min, max);
-    }
-
     public BetweenPredicate(NodeLocation location, Expression value, Expression min, Expression max)
-    {
-        this(Optional.of(location), value, min, max);
-    }
-
-    private BetweenPredicate(Optional<NodeLocation> location, Expression value, Expression min, Expression max)
     {
         super(location);
         requireNonNull(value, "value is null");

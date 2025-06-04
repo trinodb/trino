@@ -17,20 +17,20 @@ import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableList;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.metastore.Database;
+import io.trino.metastore.HiveType;
+import io.trino.metastore.Partition;
+import io.trino.metastore.Storage;
+import io.trino.metastore.Table;
+import io.trino.metastore.type.ListTypeInfo;
+import io.trino.metastore.type.MapTypeInfo;
+import io.trino.metastore.type.PrimitiveCategory;
+import io.trino.metastore.type.PrimitiveTypeInfo;
+import io.trino.metastore.type.StructTypeInfo;
+import io.trino.metastore.type.TypeInfo;
 import io.trino.plugin.hive.HiveReadOnlyException;
-import io.trino.plugin.hive.HiveType;
-import io.trino.plugin.hive.metastore.Database;
-import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.ProtectMode;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
-import io.trino.plugin.hive.metastore.Storage;
-import io.trino.plugin.hive.metastore.Table;
-import io.trino.plugin.hive.type.ListTypeInfo;
-import io.trino.plugin.hive.type.MapTypeInfo;
-import io.trino.plugin.hive.type.PrimitiveCategory;
-import io.trino.plugin.hive.type.PrimitiveTypeInfo;
-import io.trino.plugin.hive.type.StructTypeInfo;
-import io.trino.plugin.hive.type.TypeInfo;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -54,10 +54,10 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.io.BaseEncoding.base16;
+import static io.trino.metastore.Partitions.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_DATABASE_LOCATION_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
-import static io.trino.plugin.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
 import static io.trino.plugin.hive.TableType.MATERIALIZED_VIEW;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getProtectMode;
@@ -90,9 +90,7 @@ public final class HiveWriteUtils
             .optionalStart().appendFraction(ChronoField.NANO_OF_SECOND, 0, 9, true).optionalEnd()
             .toFormatter();
 
-    private HiveWriteUtils()
-    {
-    }
+    private HiveWriteUtils() {}
 
     public static List<String> createPartitionValues(List<Type> partitionColumnTypes, Page partitionColumns, int position)
     {
@@ -306,6 +304,7 @@ public final class HiveWriteUtils
             case TIMESTAMPLOCALTZ:
             case INTERVAL_YEAR_MONTH:
             case INTERVAL_DAY_TIME:
+            case VARIANT:
             case UNKNOWN:
                 // unsupported for writing
                 break;

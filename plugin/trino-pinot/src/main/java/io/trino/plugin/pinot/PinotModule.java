@@ -30,10 +30,9 @@ import io.trino.plugin.pinot.client.PinotGrpcDataFetcher;
 import io.trino.plugin.pinot.client.PinotGrpcServerQueryClientConfig;
 import io.trino.plugin.pinot.client.PinotGrpcServerQueryClientTlsConfig;
 import io.trino.plugin.pinot.client.PinotHostMapper;
-import io.trino.plugin.pinot.client.PinotLegacyDataFetcher;
-import io.trino.plugin.pinot.client.PinotLegacyServerQueryClientConfig;
 import io.trino.spi.NodeManager;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
+import org.apache.pinot.common.response.broker.BrokerResponseNative;
 import org.apache.pinot.common.utils.DataSchema;
 
 import java.io.IOException;
@@ -92,16 +91,14 @@ public class PinotModule
                 });
 
         jsonBinder(binder).addDeserializerBinding(DataSchema.class).to(DataSchemaDeserializer.class);
+        jsonBinder(binder).addDeserializerBinding(BrokerResponseNative.class).to(BrokerResponseNativeDeserializer.class);
+
         PinotClient.addJsonBinders(jsonCodecBinder(binder));
         binder.bind(NodeManager.class).toInstance(nodeManager);
         binder.bind(ConnectorNodePartitioningProvider.class).to(PinotNodePartitioningProvider.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, PinotHostMapper.class).setDefault().to(IdentityPinotHostMapper.class).in(Scopes.SINGLETON);
 
-        install(conditionalModule(
-                PinotConfig.class,
-                PinotConfig::isGrpcEnabled,
-                new PinotGrpcModule(),
-                new LegacyClientModule()));
+        install(new PinotGrpcModule());
     }
 
     public static final class DataSchemaDeserializer
@@ -126,6 +123,19 @@ public class PinotModule
         }
     }
 
+    public static class BrokerResponseNativeDeserializer
+            extends JsonDeserializer<BrokerResponseNative>
+    {
+        @Override
+        public BrokerResponseNative deserialize(JsonParser p, DeserializationContext ctxt)
+                throws IOException
+        {
+            JsonNode jsonNode = ctxt.readTree(p);
+            String value = jsonNode.toString();
+            return BrokerResponseNative.fromJsonString(value);
+        }
+    }
+
     public static class PinotGrpcModule
             extends AbstractConfigurationAwareModule
     {
@@ -142,17 +152,6 @@ public class PinotModule
                         configBinder(tlsBinder).bindConfig(PinotGrpcServerQueryClientTlsConfig.class);
                         tlsBinder.bind(PinotGrpcDataFetcher.GrpcQueryClientFactory.class).to(PinotGrpcDataFetcher.TlsGrpcQueryClientFactory.class).in(Scopes.SINGLETON);
                     }));
-        }
-    }
-
-    public static class LegacyClientModule
-            extends AbstractConfigurationAwareModule
-    {
-        @Override
-        public void setup(Binder binder)
-        {
-            configBinder(binder).bindConfig(PinotLegacyServerQueryClientConfig.class);
-            binder.bind(PinotDataFetcher.Factory.class).to(PinotLegacyDataFetcher.Factory.class).in(Scopes.SINGLETON);
         }
     }
 }

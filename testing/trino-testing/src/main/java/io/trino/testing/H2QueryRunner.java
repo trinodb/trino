@@ -177,7 +177,7 @@ public class H2QueryRunner
 
     private void insertRows(TpchMetadata tpchMetadata, TpchTable<?> tpchTable)
     {
-        TpchTableHandle tableHandle = tpchMetadata.getTableHandle(null, new SchemaTableName(TINY_SCHEMA_NAME, tpchTable.getTableName()));
+        TpchTableHandle tableHandle = tpchMetadata.getTableHandle(null, new SchemaTableName(TINY_SCHEMA_NAME, tpchTable.getTableName()), Optional.empty(), Optional.empty());
         insertRows(tpchMetadata.getTableMetadata(null, tableHandle), handle, createTpchRecordSet(tpchTable, tableHandle.scaleFactor()));
     }
 
@@ -190,6 +190,7 @@ public class H2QueryRunner
     public MaterializedResult execute(Session session, @Language("SQL") String sql, List<? extends Type> resultTypes)
     {
         MaterializedResult materializedRows = new MaterializedResult(
+                Optional.of(session),
                 handle.setSqlParser(new RawSqlParser())
                         .setTemplateEngine((template, context) -> template)
                         .createQuery(sql)

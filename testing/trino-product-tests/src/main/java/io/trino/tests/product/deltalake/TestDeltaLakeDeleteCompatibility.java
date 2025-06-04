@@ -31,7 +31,7 @@ import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
-import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_91;
+import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_113;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
@@ -39,6 +39,7 @@ import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICK
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getDatabricksRuntimeVersion;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getTablePropertiesOnDelta;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getTablePropertyOnDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -117,33 +118,6 @@ public class TestDeltaLakeDeleteCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
-    public void testDeleteOnAppendOnlyTableFails()
-    {
-        String tableName = "test_delete_on_append_only_table_fails_" + randomNameSuffix();
-        onDelta().executeQuery("" +
-                "CREATE TABLE default." + tableName +
-                "         (a INT, b INT)" +
-                "         USING delta " +
-                "         LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "' " +
-                "         TBLPROPERTIES ('delta.appendOnly' = true)");
-
-        onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (1,11), (2, 12)");
-        assertQueryFailure(() -> onDelta().executeQuery("DELETE FROM default." + tableName + " WHERE a = 1"))
-                .hasMessageContaining("This table is configured to only allow appends");
-        assertQueryFailure(() -> onTrino().executeQuery("DELETE FROM default." + tableName + " WHERE a = 1"))
-                .hasMessageContaining("Cannot modify rows from a table with 'delta.appendOnly' set to true");
-        // Whole table deletes should be disallowed as well
-        assertQueryFailure(() -> onTrino().executeQuery("DELETE FROM default." + tableName))
-                .hasMessageContaining("Cannot modify rows from a table with 'delta.appendOnly' set to true");
-        assertQueryFailure(() -> onTrino().executeQuery("TRUNCATE TABLE delta.default." + tableName))
-                .hasMessageContaining("Cannot modify rows from a table with 'delta.appendOnly' set to true");
-
-        assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))
-                .containsOnly(row(1, 11), row(2, 12));
-        onTrino().executeQuery("DROP TABLE " + tableName);
-    }
-
-    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testDeleteOnAppendOnlyWriterFeature()
     {
         String tableName = "test_delete_on_append_only_feature_" + randomNameSuffix();
@@ -212,8 +186,29 @@ public class TestDeltaLakeDeleteCompatibility
         }
     }
 
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    public void testTrinoDeletionVectors()
+    {
+        String tableName = "test_trino_deletion_vectors_" + randomNameSuffix();
+        onTrino().executeQuery("" +
+                "CREATE TABLE delta.default." + tableName +
+                "(a INT)" +
+                "WITH (deletion_vectors_enabled = true, location = 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "')");
+        try {
+            onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES 1, 2");
+            onTrino().executeQuery("DELETE FROM delta.default." + tableName + " WHERE a = 2");
+
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).containsOnly(row(1));
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName)).containsOnly(row(1));
+            assertThat(getTablePropertyOnDelta("default", tableName, "delta.enableDeletionVectors")).isEqualTo("true");
+        }
+        finally {
+            onTrino().executeQuery("DROP TABLE delta.default." + tableName);
+        }
+    }
+
     // Databricks 12.1 and OSS Delta 2.4.0 added support for deletion vectors
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingModeDataProvider")
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_113, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingModeDataProvider")
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testDeletionVectors(String mode)
     {
@@ -260,19 +255,44 @@ public class TestDeltaLakeDeleteCompatibility
             assertThat(onTrino().executeQuery("DESCRIBE delta.default." + tableName))
                     .contains(row("a", "integer", "", ""), row("b", "integer", "", ""));
 
-            // TODO https://github.com/trinodb/trino/issues/17063 Use Delta Deletion Vectors for row-level deletes
-            assertQueryFailure(() -> onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (3, 33)"))
-                    .hasMessageContaining("Unsupported writer features: [deletionVectors]");
-            assertQueryFailure(() -> onTrino().executeQuery("DELETE FROM delta.default." + tableName))
-                    .hasMessageContaining("Unsupported writer features: [deletionVectors]");
-            assertQueryFailure(() -> onTrino().executeQuery("UPDATE delta.default." + tableName + " SET a = 3"))
-                    .hasMessageContaining("Unsupported writer features: [deletionVectors]");
-            assertQueryFailure(() -> onTrino().executeQuery("MERGE INTO delta.default." + tableName + " t USING delta.default." + tableName + " s " +
-                    "ON (t.a = s.a) WHEN MATCHED THEN UPDATE SET b = -1"))
-                    .hasMessageContaining("Unsupported writer features: [deletionVectors]");
+            onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (3, 33)");
+            onTrino().executeQuery("DELETE FROM delta.default." + tableName + " WHERE a = 1");
+            onTrino().executeQuery("UPDATE delta.default." + tableName + " SET a = 30 WHERE b = 33");
+            onTrino().executeQuery("MERGE INTO delta.default." + tableName + " t USING delta.default." + tableName + " s " +
+                    "ON (t.a = s.a) WHEN MATCHED THEN UPDATE SET b = -1");
+
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))
+                    .containsOnly(row(2, -1), row(30, -1));
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
+                    .containsOnly(row(2, -1), row(30, -1));
         }
         finally {
             dropDeltaTableWithRetry("default." + tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    public void testDeletionVectorsWithPartitionedTable()
+    {
+        String tableName = "test_deletion_vectors_partitioned_table_" + randomNameSuffix();
+        onDelta().executeQuery("" +
+                "CREATE TABLE default." + tableName +
+                "(id INT, part STRING)" +
+                "USING delta " +
+                "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "' " +
+                "PARTITIONED BY (part)" +
+                "TBLPROPERTIES ('delta.enableDeletionVectors' = true)");
+        try {
+            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (1, 'part'), (2, 'part')");
+            onDelta().executeQuery("DELETE FROM default." + tableName + " WHERE id = 1");
+
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))
+                    .containsOnly(row(2, "part"));
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
+                    .containsOnly(row(2, "part"));
+        }
+        finally {
+            onDelta().executeQuery("DROP TABLE " + tableName);
         }
     }
 
@@ -287,9 +307,15 @@ public class TestDeltaLakeDeleteCompatibility
                 "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "' " +
                 "TBLPROPERTIES ('delta.enableDeletionVectors' = true, 'delta.randomizeFilePrefixes' = true)");
         try {
-            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (1, 11), (2, 22)");
-            onDelta().executeQuery("DELETE FROM default." + tableName + " WHERE a = 2");
+            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (1, 11), (2, 22), (3, 33)");
 
+            onDelta().executeQuery("DELETE FROM default." + tableName + " WHERE a = 2");
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))
+                    .containsOnly(row(1, 11), row(3, 33));
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
+                    .containsOnly(row(1, 11), row(3, 33));
+
+            onTrino().executeQuery("DELETE FROM delta.default." + tableName + " WHERE a = 3");
             assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))
                     .containsOnly(row(1, 11));
             assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
@@ -411,6 +437,35 @@ public class TestDeltaLakeDeleteCompatibility
         }
     }
 
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    public void testChangeDataFeedWithDeletionVectors()
+    {
+        String tableName = "test_change_data_feed_with_deletion_vectors_" + randomNameSuffix();
+        onDelta().executeQuery("" +
+                "CREATE TABLE default." + tableName +
+                "(col1 STRING, updated_column INT)" +
+                "USING delta " +
+                "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "' " +
+                "TBLPROPERTIES ('delta.enableChangeDataFeed' = true, 'delta.enableDeletionVectors' = true)");
+        onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES ('testValue1', 1), ('testValue2', 2), ('testValue3', 3)");
+        onTrino().executeQuery("UPDATE delta.default." + tableName + "  SET updated_column = 30 WHERE col1 = 'testValue3'");
+
+        assertThat(onDelta().executeQuery("SELECT col1, updated_column, _change_type FROM table_changes('default." + tableName + "', 0)"))
+                .containsOnly(
+                        row("testValue1", 1, "insert"),
+                        row("testValue2", 2, "insert"),
+                        row("testValue3", 3, "insert"),
+                        row("testValue3", 3, "update_preimage"),
+                        row("testValue3", 30, "update_postimage"));
+        assertThat(onTrino().executeQuery("SELECT col1, updated_column, _change_type FROM TABLE(delta.system.table_changes('default', '" + tableName + "', 0))"))
+                .containsOnly(
+                        row("testValue1", 1, "insert"),
+                        row("testValue2", 2, "insert"),
+                        row("testValue3", 3, "insert"),
+                        row("testValue3", 3, "update_preimage"),
+                        row("testValue3", 30, "update_postimage"));
+    }
+
     @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS},
             dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
     public void testDeletionVectorsAcrossAddFile(boolean partitioned)
@@ -440,7 +495,7 @@ public class TestDeltaLakeDeleteCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_113, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testDeletionVectorsTruncateTable()
     {
@@ -540,8 +595,7 @@ public class TestDeltaLakeDeleteCompatibility
                     "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-clone-" + baseTableName + "'");
 
             assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName)).contains(expected);
-            assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
-                    .hasMessageContaining("Unsupported storage type for deletion vector: p");
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).contains(expected);
         }
         finally {
             dropDeltaTableWithRetry("default." + baseTableName);

@@ -103,7 +103,7 @@ highlight_language = 'sql'
 
 default_role = 'backquote'
 
-# Any replace that is inside of a code block should be added here
+# Any replace that is inside a code block should be added here
 # https://stackoverflow.com/questions/8821511/substitutions-inside-sphinx-code-blocks-arent-replaced
 
 global_replacements = {
@@ -117,7 +117,7 @@ myst_enable_extensions = [
 ]
 
 myst_substitutions = {
-    "breaking": "<a href='../release.html#breaking-changes' title='Breaking change'>⚠️</a>"
+    "breaking": "<a href='../release.html#breaking-changes' title='Breaking change'>⚠️ Breaking change:</a>"
 }
 
 # -- Options for HTML output ---------------------------------------------------

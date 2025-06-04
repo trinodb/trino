@@ -257,7 +257,7 @@ public class TestMemo
     {
         assertThat(actual.getClass()).isEqualTo(expected.getClass());
         assertThat(actual.getId()).isEqualTo(expected.getId());
-        assertThat(actual.getSources().size()).isEqualTo(expected.getSources().size());
+        assertThat(actual.getSources()).hasSize(expected.getSources().size());
 
         for (int i = 0; i < actual.getSources().size(); i++) {
             assertMatchesStructure(actual.getSources().get(i), expected.getSources().get(i));

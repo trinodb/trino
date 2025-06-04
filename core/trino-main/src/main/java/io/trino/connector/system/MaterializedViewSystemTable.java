@@ -25,6 +25,7 @@ import io.trino.security.AccessControl;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.InMemoryRecordSet;
@@ -102,7 +103,8 @@ public class MaterializedViewSystemTable
             ConnectorTransactionHandle transactionHandle,
             ConnectorSession connectorSession,
             TupleDomain<Integer> constraint,
-            Set<Integer> requiredColumns)
+            Set<Integer> requiredColumns,
+            ConnectorSplit split)
     {
         Session session = ((FullConnectorSession) connectorSession).getSession();
         Set<String> requiredColumnNames = requiredColumns.stream()

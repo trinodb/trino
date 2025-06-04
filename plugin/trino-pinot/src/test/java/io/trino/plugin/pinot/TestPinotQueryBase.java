@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.pinot;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.pinot.client.PinotClient;
 import io.trino.spi.type.TestingTypeManager;
@@ -25,16 +26,17 @@ import java.util.Map;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.Threads.threadsNamed;
+import static io.trino.plugin.pinot.TestPinotTableHandle.newTableHandle;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class TestPinotQueryBase
 {
     protected static final PinotTypeConverter TESTING_TYPE_CONVERTER = new PinotTypeConverter(new TestingTypeManager());
 
-    protected static PinotTableHandle realtimeOnlyTable = new PinotTableHandle("schema", "realtimeOnly");
-    protected static PinotTableHandle hybridTable = new PinotTableHandle("schema", "hybrid");
+    protected static PinotTableHandle realtimeOnlyTable = newTableHandle("schema", "realtimeOnly");
+    protected static PinotTableHandle hybridTable = newTableHandle("schema", "hybrid");
 
-    protected final PinotConfig pinotConfig = new PinotConfig().setControllerUrls("localhost:9000");
+    protected final PinotConfig pinotConfig = new PinotConfig().setControllerUrls(ImmutableList.of("localhost:9000"));
 
     protected final PinotClient mockClusterInfoFetcher = new MockPinotClient(pinotConfig, getTestingMetadata());
     protected final PinotMetadata pinotMetadata = new PinotMetadata(

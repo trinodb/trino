@@ -34,7 +34,6 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.Properties;
 
-import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.trino.hdfs.s3.TestTrinoS3FileSystem.getAwsCredentialsProvider;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -93,7 +92,7 @@ public class TestHiveCosServiceConfigurationProvider
         fileSystem.initialize(URI.create(uri), configuration);
         assertThat(fileSystem.getBucketName(URI.create(uri))).isEqualTo(expectedBucket);
         AWSCredentialsProvider awsCredentialsProvider = getAwsCredentialsProvider(fileSystem);
-        assertInstanceOf(awsCredentialsProvider, AWSStaticCredentialsProvider.class);
+        assertThat(awsCredentialsProvider).isInstanceOf(AWSStaticCredentialsProvider.class);
         assertThat(awsCredentialsProvider.getCredentials().getAWSAccessKeyId()).isEqualTo(expectedAccessKey);
         assertThat(awsCredentialsProvider.getCredentials().getAWSSecretKey()).isEqualTo(expectedSecretKey);
     }

@@ -1185,12 +1185,12 @@ public class TestSignatureBinder
         {
             ImmutableList.Builder<TypeSignatureProvider> builder = ImmutableList.builder();
             for (Object argument : arguments) {
-                if (argument instanceof Type) {
-                    builder.add(new TypeSignatureProvider(((Type) argument).getTypeSignature()));
+                if (argument instanceof Type type) {
+                    builder.add(new TypeSignatureProvider(type.getTypeSignature()));
                     continue;
                 }
-                if (argument instanceof TypeSignatureProvider) {
-                    builder.add((TypeSignatureProvider) argument);
+                if (argument instanceof TypeSignatureProvider typeSignatureProvider) {
+                    builder.add(typeSignatureProvider);
                     continue;
                 }
                 throw new IllegalArgumentException(format("argument is of type %s. It should be Type or TypeSignatureProvider", argument.getClass()));
@@ -1208,20 +1208,20 @@ public class TestSignatureBinder
 
         public BindSignatureAssertion succeeds()
         {
-            Assertions.assertThat(bindVariables().isPresent()).isTrue();
+            Assertions.assertThat(bindVariables()).isPresent();
             return this;
         }
 
         public BindSignatureAssertion fails()
         {
-            Assertions.assertThat(bindVariables().isPresent()).isFalse();
+            Assertions.assertThat(bindVariables()).isEmpty();
             return this;
         }
 
         public BindSignatureAssertion produces(TypeVariables expected)
         {
             Optional<TypeVariables> actual = bindVariables();
-            Assertions.assertThat(actual.isPresent()).isTrue();
+            Assertions.assertThat(actual).isPresent();
             Assertions.assertThat(actual.get()).isEqualTo(expected);
             return this;
         }

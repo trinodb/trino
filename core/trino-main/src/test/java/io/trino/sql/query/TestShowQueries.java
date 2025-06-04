@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
 import io.trino.connector.MockConnectorTableHandle;
+import io.trino.connector.TestingTableFunctions.SimpleTableFunction;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
@@ -34,7 +35,6 @@ import java.util.Optional;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -66,6 +66,7 @@ public class TestShowQueries
                                 .build()))
                 .withListSchemaNames(session -> ImmutableList.of("mockschema"))
                 .withListTables((session, schemaName) -> ImmutableList.of("mockTable"))
+                .withTableFunctions(ImmutableList.of(new SimpleTableFunction()))
                 .withGetTableHandle((session, schemaTableName) -> {
                     if (schemaTableName.getTableName().equals("mockview")) {
                         return null;
@@ -127,6 +128,27 @@ public class TestShowQueries
                 .matches("VALUES " +
                         "('split_to_map', 'map(varchar,varchar)', 'varchar, varchar, varchar', 'scalar', true, 'Creates a map using entryDelimiter and keyValueDelimiter')," +
                         "('split_to_multimap', 'map(varchar,array(varchar))', 'varchar, varchar, varchar', 'scalar', true, 'Creates a multimap by splitting a string into key/value pairs')");
+    }
+
+    @Test
+    public void testShowFunctionsWithTableFunction()
+    {
+        // The table function exists in testing_catalog and mock catalogs
+        assertThat(assertions.query("SHOW FUNCTIONS FROM mock.system LIKE 'simple$_table$_function' ESCAPE '$'"))
+                .skippingTypesCheck()
+                .matches("VALUES " +
+                        "('simple_table_function', 'unknown', 'varchar, bigint', 'table', false, '')");
+
+        assertThat(assertions.query("SHOW FUNCTIONS FROM testing_catalog.system LIKE 'simple$_table$_function' ESCAPE '$'"))
+                .skippingTypesCheck()
+                .matches("VALUES " +
+                        "('simple_table_function', 'unknown', 'varchar, bigint', 'table', false, '')");
+
+        assertThat(assertions.query("SHOW FUNCTIONS LIKE 'simple$_table$_function' ESCAPE '$'"))
+                .skippingTypesCheck()
+                .matches("VALUES " +
+                        "('simple_table_function', 'unknown', 'varchar, bigint', 'table', false, '')," +
+                        "('simple_table_function', 'unknown', 'varchar, bigint', 'table', false, '')");
     }
 
     @Test
@@ -192,7 +214,7 @@ public class TestShowQueries
                         "(VARCHAR 'node_version', VARCHAR 'varchar' , VARCHAR '', VARCHAR '')");
         assertThat(assertions.query("SHOW COLUMNS FROM system.runtime.nodes LIKE 'node_id'"))
                 .matches("VALUES (VARCHAR 'node_id', VARCHAR 'varchar' , VARCHAR '', VARCHAR '')");
-        assertEquals(0, assertions.execute("SHOW COLUMNS FROM system.runtime.nodes LIKE ''").getRowCount());
+        assertThat(assertions.execute("SHOW COLUMNS FROM system.runtime.nodes LIKE ''").getRowCount()).isEqualTo(0);
     }
 
     @Test
@@ -210,7 +232,8 @@ public class TestShowQueries
     public void testShowCreateViewWithProperties()
     {
         assertThat(assertions.getQueryRunner().execute("SHOW CREATE VIEW mock.mockschema.mockview").getOnlyValue())
-                .isEqualTo("""
+                .isEqualTo(
+                        """
                         CREATE VIEW mock.mockschema.mockview SECURITY INVOKER
                         WITH (
                            boolean_property = true

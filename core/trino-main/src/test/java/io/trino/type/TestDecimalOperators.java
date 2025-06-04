@@ -27,8 +27,8 @@ import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.DIVIDE;
 import static io.trino.spi.function.OperatorType.EQUAL;
+import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
-import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.function.OperatorType.MODULUS;
@@ -2320,102 +2320,102 @@ public class TestDecimalOperators
     }
 
     @Test
-    public void testIsDistinctFrom()
+    public void testIdentical()
     {
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "CAST(NULL AS DECIMAL)", "CAST(NULL AS DECIMAL)"))
+        assertThat(assertions.operator(IDENTICAL, "CAST(NULL AS DECIMAL)", "CAST(NULL AS DECIMAL)"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(IDENTICAL, "DECIMAL '37'", "DECIMAL '37'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(IDENTICAL, "37", "38"))
                 .isEqualTo(false);
 
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "DECIMAL '37'", "DECIMAL '37'"))
+        assertThat(assertions.operator(IDENTICAL, "NULL", "37"))
                 .isEqualTo(false);
 
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "37", "38"))
-                .isEqualTo(true);
-
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "NULL", "37"))
-                .isEqualTo(true);
-
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "37", "NULL"))
-                .isEqualTo(true);
+        assertThat(assertions.operator(IDENTICAL, "37", "NULL"))
+                .isEqualTo(false);
 
         // short short
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "DECIMAL '-2'", "DECIMAL '-3'"))
-                .isEqualTo(true);
-
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "DECIMAL '-2'", "CAST(NULL AS DECIMAL(1,0))"))
-                .isEqualTo(true);
-
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "CAST(NULL AS DECIMAL(2,0))", "CAST(NULL AS DECIMAL(1,0))"))
+        assertThat(assertions.operator(IDENTICAL, "DECIMAL '-2'", "DECIMAL '-3'"))
                 .isEqualTo(false);
 
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "DECIMAL '-2'", "DECIMAL '-2'"))
+        assertThat(assertions.operator(IDENTICAL, "DECIMAL '-2'", "CAST(NULL AS DECIMAL(1,0))"))
                 .isEqualTo(false);
 
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "CAST(NULL AS DECIMAL(1,0))", "DECIMAL '-2'"))
+        assertThat(assertions.operator(IDENTICAL, "CAST(NULL AS DECIMAL(2,0))", "CAST(NULL AS DECIMAL(1,0))"))
                 .isEqualTo(true);
+
+        assertThat(assertions.operator(IDENTICAL, "DECIMAL '-2'", "DECIMAL '-2'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(IDENTICAL, "CAST(NULL AS DECIMAL(1,0))", "DECIMAL '-2'"))
+                .isEqualTo(false);
 
         // long long
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "DECIMAL '12345678901234567.89012345678901234567'", "DECIMAL '12345678901234567.8902345678901234567'"))
-                .isEqualTo(true);
-
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "DECIMAL '12345678901234567.89012345678901234567'", "CAST(NULL AS DECIMAL(36,1))"))
-                .isEqualTo(true);
-
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "CAST(NULL AS DECIMAL(36,1))", "CAST(NULL AS DECIMAL(27,3))"))
+        assertThat(assertions.operator(IDENTICAL, "DECIMAL '12345678901234567.89012345678901234567'", "DECIMAL '12345678901234567.8902345678901234567'"))
                 .isEqualTo(false);
 
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "DECIMAL '-12345678901234567.89012345678901234567'", "DECIMAL '-12345678901234567.89012345678901234567'"))
+        assertThat(assertions.operator(IDENTICAL, "DECIMAL '12345678901234567.89012345678901234567'", "CAST(NULL AS DECIMAL(36,1))"))
                 .isEqualTo(false);
 
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "CAST(NULL AS DECIMAL(36,1))", "DECIMAL '12345678901234567.89012345678901234567'"))
+        assertThat(assertions.operator(IDENTICAL, "CAST(NULL AS DECIMAL(36,1))", "CAST(NULL AS DECIMAL(27,3))"))
                 .isEqualTo(true);
+
+        assertThat(assertions.operator(IDENTICAL, "DECIMAL '-12345678901234567.89012345678901234567'", "DECIMAL '-12345678901234567.89012345678901234567'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(IDENTICAL, "CAST(NULL AS DECIMAL(36,1))", "DECIMAL '12345678901234567.89012345678901234567'"))
+                .isEqualTo(false);
 
         // short long
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "DECIMAL '12345678901234567.89012345678901234567'", "DECIMAL '-3'"))
-                .isEqualTo(true);
-
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "DECIMAL '12345678901234567.89012345678901234567'", "CAST(NULL AS DECIMAL(1,0))"))
-                .isEqualTo(true);
-
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "CAST(NULL AS DECIMAL(36,1))", "CAST(NULL AS DECIMAL(1,0))"))
+        assertThat(assertions.operator(IDENTICAL, "DECIMAL '12345678901234567.89012345678901234567'", "DECIMAL '-3'"))
                 .isEqualTo(false);
 
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "DECIMAL '00000000000000007.80000000000000000000'", "DECIMAL '7.8'"))
+        assertThat(assertions.operator(IDENTICAL, "DECIMAL '12345678901234567.89012345678901234567'", "CAST(NULL AS DECIMAL(1,0))"))
                 .isEqualTo(false);
 
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "CAST(NULL AS DECIMAL(36,1))", "DECIMAL '7.8'"))
+        assertThat(assertions.operator(IDENTICAL, "CAST(NULL AS DECIMAL(36,1))", "CAST(NULL AS DECIMAL(1,0))"))
                 .isEqualTo(true);
+
+        assertThat(assertions.operator(IDENTICAL, "DECIMAL '00000000000000007.80000000000000000000'", "DECIMAL '7.8'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(IDENTICAL, "CAST(NULL AS DECIMAL(36,1))", "DECIMAL '7.8'"))
+                .isEqualTo(false);
 
         // with unknown
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "NULL", "DECIMAL '-2'"))
-                .isEqualTo(true);
+        assertThat(assertions.operator(IDENTICAL, "NULL", "DECIMAL '-2'"))
+                .isEqualTo(false);
 
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "DECIMAL '-2'", "NULL"))
-                .isEqualTo(true);
+        assertThat(assertions.operator(IDENTICAL, "DECIMAL '-2'", "NULL"))
+                .isEqualTo(false);
 
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "NULL", "DECIMAL '12345678901234567.89012345678901234567'"))
-                .isEqualTo(true);
+        assertThat(assertions.operator(IDENTICAL, "NULL", "DECIMAL '12345678901234567.89012345678901234567'"))
+                .isEqualTo(false);
 
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "DECIMAL '12345678901234567.89012345678901234567'", "NULL"))
-                .isEqualTo(true);
+        assertThat(assertions.operator(IDENTICAL, "DECIMAL '12345678901234567.89012345678901234567'", "NULL"))
+                .isEqualTo(false);
 
         // delegation from other operator (exercises block-position convention implementation)
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "ARRAY [1.23, 4.56]", "ARRAY [1.23, 4.56]"))
+        assertThat(assertions.operator(IDENTICAL, "ARRAY [1.23, 4.56]", "ARRAY [1.23, 4.56]"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(IDENTICAL, "ARRAY [1.23, NULL]", "ARRAY [1.23, 4.56]"))
                 .isEqualTo(false);
 
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "ARRAY [1.23, NULL]", "ARRAY [1.23, 4.56]"))
-                .isEqualTo(true);
-
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "ARRAY [1.23, NULL]", "ARRAY [NULL, 4.56]"))
-                .isEqualTo(true);
-
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "ARRAY [1234567890.123456789, 9876543210.987654321]", "ARRAY [1234567890.123456789, 9876543210.987654321]"))
+        assertThat(assertions.operator(IDENTICAL, "ARRAY [1.23, NULL]", "ARRAY [NULL, 4.56]"))
                 .isEqualTo(false);
 
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "ARRAY [1234567890.123456789, NULL]", "ARRAY [1234567890.123456789, 9876543210.987654321]"))
+        assertThat(assertions.operator(IDENTICAL, "ARRAY [1234567890.123456789, 9876543210.987654321]", "ARRAY [1234567890.123456789, 9876543210.987654321]"))
                 .isEqualTo(true);
 
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "ARRAY [1234567890.123456789, NULL]", "ARRAY [NULL, 9876543210.987654321]"))
-                .isEqualTo(true);
+        assertThat(assertions.operator(IDENTICAL, "ARRAY [1234567890.123456789, NULL]", "ARRAY [1234567890.123456789, 9876543210.987654321]"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(IDENTICAL, "ARRAY [1234567890.123456789, NULL]", "ARRAY [NULL, 9876543210.987654321]"))
+                .isEqualTo(false);
     }
 
     @Test

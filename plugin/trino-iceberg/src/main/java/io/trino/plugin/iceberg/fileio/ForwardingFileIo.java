@@ -31,7 +31,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
@@ -104,35 +103,22 @@ public class ForwardingFileIo
         partitions.forEach(this::deleteBatch);
     }
 
-    // TODO: remove below workarounds after https://github.com/apache/iceberg/pull/9953
     @Override
     public InputFile newInputFile(ManifestFile manifest)
     {
-        checkArgument(
-                manifest.keyMetadata() == null,
-                "Cannot decrypt manifest: %s (use EncryptingFileIO)",
-                manifest.path());
-        return newInputFile(manifest.path(), manifest.length());
+        return SupportsBulkOperations.super.newInputFile(manifest);
     }
 
     @Override
     public InputFile newInputFile(DataFile file)
     {
-        checkArgument(
-                file.keyMetadata() == null,
-                "Cannot decrypt data file: %s (use EncryptingFileIO)",
-                file.path());
-        return newInputFile(file.path().toString(), file.fileSizeInBytes());
+        return SupportsBulkOperations.super.newInputFile(file);
     }
 
     @Override
     public InputFile newInputFile(DeleteFile file)
     {
-        checkArgument(
-                file.keyMetadata() == null,
-                "Cannot decrypt delete file: %s (use EncryptingFileIO)",
-                file.path());
-        return newInputFile(file.path().toString(), file.fileSizeInBytes());
+        return SupportsBulkOperations.super.newInputFile(file);
     }
 
     private void deleteBatch(List<String> filesToDelete)

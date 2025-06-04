@@ -28,6 +28,7 @@ import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
@@ -45,12 +46,14 @@ public class IcebergSplit
     private final long fileSize;
     private final long fileRecordCount;
     private final IcebergFileFormat fileFormat;
+    private final Optional<List<Object>> partitionValues;
     private final String partitionSpecJson;
     private final String partitionDataJson;
     private final List<DeleteFile> deletes;
     private final SplitWeight splitWeight;
     private final TupleDomain<IcebergColumnHandle> fileStatisticsDomain;
     private final Map<String, String> fileIoProperties;
+    private final long dataSequenceNumber;
     private final List<HostAddress> addresses;
 
     @JsonCreator
@@ -66,7 +69,8 @@ public class IcebergSplit
             @JsonProperty("deletes") List<DeleteFile> deletes,
             @JsonProperty("splitWeight") SplitWeight splitWeight,
             @JsonProperty("fileStatisticsDomain") TupleDomain<IcebergColumnHandle> fileStatisticsDomain,
-            @JsonProperty("fileIoProperties") Map<String, String> fileIoProperties)
+            @JsonProperty("fileIoProperties") Map<String, String> fileIoProperties,
+            @JsonProperty("dataSequenceNumber") long dataSequenceNumber)
     {
         this(
                 path,
@@ -75,13 +79,15 @@ public class IcebergSplit
                 fileSize,
                 fileRecordCount,
                 fileFormat,
+                Optional.empty(),
                 partitionSpecJson,
                 partitionDataJson,
                 deletes,
                 splitWeight,
                 fileStatisticsDomain,
                 fileIoProperties,
-                ImmutableList.of());
+                ImmutableList.of(),
+                dataSequenceNumber);
     }
 
     public IcebergSplit(
@@ -91,13 +97,15 @@ public class IcebergSplit
             long fileSize,
             long fileRecordCount,
             IcebergFileFormat fileFormat,
+            Optional<List<Object>> partitionValues,
             String partitionSpecJson,
             String partitionDataJson,
             List<DeleteFile> deletes,
             SplitWeight splitWeight,
             TupleDomain<IcebergColumnHandle> fileStatisticsDomain,
             Map<String, String> fileIoProperties,
-            List<HostAddress> addresses)
+            List<HostAddress> addresses,
+            long dataSequenceNumber)
     {
         this.path = requireNonNull(path, "path is null");
         this.start = start;
@@ -105,6 +113,7 @@ public class IcebergSplit
         this.fileSize = fileSize;
         this.fileRecordCount = fileRecordCount;
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
+        this.partitionValues = requireNonNull(partitionValues, "partitionValues is null");
         this.partitionSpecJson = requireNonNull(partitionSpecJson, "partitionSpecJson is null");
         this.partitionDataJson = requireNonNull(partitionDataJson, "partitionDataJson is null");
         this.deletes = ImmutableList.copyOf(requireNonNull(deletes, "deletes is null"));
@@ -112,12 +121,7 @@ public class IcebergSplit
         this.fileStatisticsDomain = requireNonNull(fileStatisticsDomain, "fileStatisticsDomain is null");
         this.fileIoProperties = ImmutableMap.copyOf(requireNonNull(fileIoProperties, "fileIoProperties is null"));
         this.addresses = requireNonNull(addresses, "addresses is null");
-    }
-
-    @Override
-    public boolean isRemotelyAccessible()
-    {
-        return true;
+        this.dataSequenceNumber = dataSequenceNumber;
     }
 
     @JsonIgnore
@@ -169,6 +173,16 @@ public class IcebergSplit
         return partitionSpecJson;
     }
 
+    /**
+     * Trino (stack) values of the partition columns. The values are the result of evaluating
+     * the partition expressions on the partition data.
+     */
+    @JsonIgnore
+    public Optional<List<Object>> getPartitionValues()
+    {
+        return partitionValues;
+    }
+
     @JsonProperty
     public String getPartitionDataJson()
     {
@@ -200,14 +214,10 @@ public class IcebergSplit
         return fileIoProperties;
     }
 
-    @Override
-    public Map<String, String> getSplitInfo()
+    @JsonProperty
+    public long getDataSequenceNumber()
     {
-        return ImmutableMap.<String, String>builder()
-                .put("path", path)
-                .put("start", String.valueOf(start))
-                .put("length", String.valueOf(length))
-                .buildOrThrow();
+        return dataSequenceNumber;
     }
 
     @Override
@@ -217,7 +227,7 @@ public class IcebergSplit
                 + estimatedSizeOf(path)
                 + estimatedSizeOf(partitionSpecJson)
                 + estimatedSizeOf(partitionDataJson)
-                + estimatedSizeOf(deletes, DeleteFile::getRetainedSizeInBytes)
+                + estimatedSizeOf(deletes, DeleteFile::retainedSizeInBytes)
                 + splitWeight.getRetainedSizeInBytes()
                 + fileStatisticsDomain.getRetainedSizeInBytes(IcebergColumnHandle::getRetainedSizeInBytes)
                 + estimatedSizeOf(fileIoProperties, SizeOf::estimatedSizeOf, SizeOf::estimatedSizeOf)

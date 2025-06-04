@@ -114,7 +114,7 @@ public class TestFileSingleStreamSpiller
                     encryption);
             LocalMemoryContext memoryContext = newSimpleAggregatedMemoryContext().newLocalMemoryContext("test");
             SingleStreamSpiller singleStreamSpiller = spillerFactory.create(TYPES, bytes -> {}, memoryContext);
-            assertThat(singleStreamSpiller instanceof FileSingleStreamSpiller).isTrue();
+            assertThat(singleStreamSpiller).isInstanceOf(FileSingleStreamSpiller.class);
             FileSingleStreamSpiller spiller = (FileSingleStreamSpiller) singleStreamSpiller;
 
             Page page = buildPage();
@@ -123,7 +123,7 @@ public class TestFileSingleStreamSpiller
             assertThat(memoryContext.getBytes()).isEqualTo(4096);
             spiller.spill(page).get();
             spiller.spill(Iterators.forArray(page, page, page)).get();
-            assertThat(listFiles(spillPath.toPath()).size()).isEqualTo(1);
+            assertThat(listFiles(spillPath.toPath())).hasSize(1);
 
             // Assert the spill codec flags match the expected configuration
             try (InputStream is = newInputStream(listFiles(spillPath.toPath()).get(0))) {
@@ -142,7 +142,7 @@ public class TestFileSingleStreamSpiller
 
             Iterator<Page> spilledPagesIterator = spiller.getSpilledPages();
             assertThat(memoryContext.getBytes()).isEqualTo(FileSingleStreamSpiller.BUFFER_SIZE);
-            ImmutableList<Page> spilledPages = ImmutableList.copyOf(spilledPagesIterator);
+            List<Page> spilledPages = ImmutableList.copyOf(spilledPagesIterator);
             // The spillers release their memory reservations when they are closed, therefore at this point
             // they will have non-zero memory reservation.
             // assertEquals(memoryContext.getBytes(), 0);
@@ -158,7 +158,7 @@ public class TestFileSingleStreamSpiller
                     .hasMessage("Repeated reads are disallowed to prevent potential resource leaks");
 
             spiller.close();
-            assertThat(listFiles(spillPath.toPath()).size()).isEqualTo(0);
+            assertThat(listFiles(spillPath.toPath())).isEmpty();
             assertThat(memoryContext.getBytes()).isEqualTo(0);
         }
         finally {
@@ -168,8 +168,8 @@ public class TestFileSingleStreamSpiller
 
     private Page buildPage()
     {
-        BlockBuilder col1 = BIGINT.createBlockBuilder(null, 1);
-        BlockBuilder col2 = DOUBLE.createBlockBuilder(null, 1);
+        BlockBuilder col1 = BIGINT.createFixedSizeBlockBuilder(1);
+        BlockBuilder col2 = DOUBLE.createFixedSizeBlockBuilder(1);
         BlockBuilder col3 = VARBINARY.createBlockBuilder(null, 1);
 
         BIGINT.writeLong(col1, 42);

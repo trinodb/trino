@@ -13,12 +13,11 @@
  */
 package io.trino.hive.formats.avro.model;
 
-import io.trino.hive.formats.avro.AvroPageDataReader;
 import org.apache.avro.Schema;
 import org.apache.avro.io.Decoder;
 
 import static com.google.common.base.Verify.verify;
-import static io.trino.hive.formats.avro.AvroPageDataReader.getFloatDecoderFunction;
+import static io.trino.hive.formats.avro.model.AvroReadAction.getFloatDecoderFunction;
 import static java.util.Objects.requireNonNull;
 
 public final class FloatRead
@@ -26,7 +25,7 @@ public final class FloatRead
 {
     private final Schema readSchema;
     private final Schema writeSchema;
-    private final AvroPageDataReader.FloatIoFunction<Decoder> floatDecoder;
+    private final FloatIoFunction<Decoder> floatDecoder;
 
     FloatRead(Schema readSchema, Schema writeSchema)
     {
@@ -48,7 +47,7 @@ public final class FloatRead
         return writeSchema;
     }
 
-    public AvroPageDataReader.FloatIoFunction<Decoder> getFloatDecoder()
+    public FloatIoFunction<Decoder> getFloatDecoder()
     {
         return floatDecoder;
     }

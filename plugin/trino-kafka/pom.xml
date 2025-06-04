@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>446-SNAPSHOT</version>
+        <version>476-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -14,7 +14,7 @@
     <description>Trino - Kafka connector</description>
 
     <properties>
-        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
     </properties>
 
     <dependencies>
@@ -106,11 +106,6 @@
         </dependency>
 
         <dependency>
-            <groupId>jakarta.annotation</groupId>
-            <artifactId>jakarta.annotation-api</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>jakarta.validation</groupId>
             <artifactId>jakarta.validation-api</artifactId>
         </dependency>
@@ -177,7 +172,6 @@
         <dependency>
             <groupId>com.google.api.grpc</groupId>
             <artifactId>proto-google-common-protos</artifactId>
-            <version>2.37.1</version>
             <scope>runtime</scope>
         </dependency>
 
@@ -214,6 +208,12 @@
         <dependency>
             <groupId>dev.failsafe</groupId>
             <artifactId>failsafe</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>configuration-testing</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -361,6 +361,24 @@
     </repositories>
 
     <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>com.github.os72</groupId>
+                    <artifactId>protoc-jar-maven-plugin</artifactId>
+                    <version>3.11.4</version>
+                    <configuration>
+                        <protocArtifact>com.google.protobuf:protoc:${dep.protobuf.version}</protocArtifact>
+                        <protocVersion>${dep.protobuf.version}</protocVersion>
+                        <addSources>none</addSources>
+                        <inputDirectories>
+                            <include>src/test/resources/protobuf-sources</include>
+                        </inputDirectories>
+                        <outputDirectory>target/generated-test-sources/</outputDirectory>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
         <plugins>
             <plugin>
                 <groupId>io.trino</groupId>
@@ -387,7 +405,6 @@
             <plugin>
                 <groupId>com.github.os72</groupId>
                 <artifactId>protoc-jar-maven-plugin</artifactId>
-                <version>3.11.4</version>
                 <executions>
                     <execution>
                         <id>generate-test-sources</id>
@@ -395,15 +412,6 @@
                             <goal>run</goal>
                         </goals>
                         <phase>generate-test-sources</phase>
-                        <configuration>
-                            <protocArtifact>com.google.protobuf:protoc:${dep.protobuf.version}</protocArtifact>
-                            <protocVersion>${dep.protobuf.version}</protocVersion>
-                            <addSources>none</addSources>
-                            <inputDirectories>
-                                <include>src/test/resources/protobuf-sources</include>
-                            </inputDirectories>
-                            <outputDirectory>target/generated-test-sources/</outputDirectory>
-                        </configuration>
                     </execution>
                 </executions>
             </plugin>

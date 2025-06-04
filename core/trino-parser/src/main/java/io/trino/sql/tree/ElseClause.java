@@ -15,7 +15,6 @@ package io.trino.sql.tree;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -25,17 +24,7 @@ public final class ElseClause
 {
     private final List<ControlStatement> statements;
 
-    public ElseClause(List<ControlStatement> statements)
-    {
-        this(Optional.empty(), statements);
-    }
-
     public ElseClause(NodeLocation location, List<ControlStatement> statements)
-    {
-        this(Optional.of(location), statements);
-    }
-
-    private ElseClause(Optional<NodeLocation> location, List<ControlStatement> statements)
     {
         super(location);
         this.statements = requireNonNull(statements, "statements is null");

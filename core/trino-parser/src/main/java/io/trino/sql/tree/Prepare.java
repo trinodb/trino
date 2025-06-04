@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -29,16 +28,6 @@ public class Prepare
     private final Statement statement;
 
     public Prepare(NodeLocation location, Identifier name, Statement statement)
-    {
-        this(Optional.of(location), name, statement);
-    }
-
-    public Prepare(Identifier name, Statement statement)
-    {
-        this(Optional.empty(), name, statement);
-    }
-
-    private Prepare(Optional<NodeLocation> location, Identifier name, Statement statement)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");

@@ -159,7 +159,7 @@ public class MapSubscriptOperator
                     castMethod = MethodHandles.dropArguments(castMethod, 0, ConnectorSession.class);
                 }
             }
-            catch (TrinoException ignored) {
+            catch (TrinoException _) {
             }
             this.castMethod = castMethod;
         }
@@ -172,7 +172,7 @@ public class MapSubscriptOperator
                 try {
                     varcharValue = (Slice) castMethod.invokeWithArguments(session, value);
                 }
-                catch (Throwable ignored) {
+                catch (Throwable _) {
                 }
 
                 additionalInfo = ": " + (varcharValue == null ? "NULL" : varcharValue.toStringUtf8());

@@ -30,9 +30,7 @@ import java.util.Optional;
 import static io.trino.block.BlockAssertions.createRandomBlockForType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.toIntExact;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPositionsAppenderPageBuilder
 {
@@ -47,23 +45,33 @@ public class TestPositionsAppenderPageBuilder
                 List.of(VARCHAR),
                 new PositionsAppenderFactory(new BlockTypeOperators()));
 
-        Block rleBlock = RunLengthEncodedBlock.create(VARCHAR, Slices.utf8Slice("test"), 10);
+        RunLengthEncodedBlock rleBlock = (RunLengthEncodedBlock) RunLengthEncodedBlock.create(VARCHAR, Slices.utf8Slice("test"), 10);
         Page inputPage = new Page(rleBlock);
 
         IntArrayList positions = IntArrayList.wrap(new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
         // Append 32760 positions, just less than MAX_POSITION_COUNT
-        assertEquals(32768, PositionsAppenderPageBuilder.MAX_POSITION_COUNT, "expected MAX_POSITION_COUNT to be 32768");
+        assertThat(PositionsAppenderPageBuilder.MAX_POSITION_COUNT)
+                .as("expected MAX_POSITION_COUNT to be 32768")
+                .isEqualTo(32768);
         for (int i = 0; i < 3276; i++) {
             pageBuilder.appendToOutputPartition(inputPage, positions);
         }
-        assertFalse(pageBuilder.isFull(), "pageBuilder should still not be full");
+        assertThat(pageBuilder.isFull())
+                .as("pageBuilder should still not be full")
+                .isFalse();
         // Append 10 more positions, crossing the threshold on position count
         pageBuilder.appendToOutputPartition(inputPage, positions);
-        assertTrue(pageBuilder.isFull(), "pageBuilder should be full");
+        assertThat(pageBuilder.isFull())
+                .as("pageBuilder should be full")
+                .isTrue();
         PositionsAppenderSizeAccumulator sizeAccumulator = pageBuilder.computeAppenderSizes();
-        assertEquals(rleBlock.getSizeInBytes(), sizeAccumulator.getSizeInBytes());
-        assertTrue(sizeAccumulator.getDirectSizeInBytes() < maxDirectSize, "direct size should still be below threshold");
-        assertEquals(sizeAccumulator.getSizeInBytes(), pageBuilder.getSizeInBytes(), "pageBuilder sizeInBytes must match sizeAccumulator value");
+        assertThat(sizeAccumulator.getSizeInBytes()).isEqualTo(rleBlock.getValue().getSizeInBytes());
+        assertThat(sizeAccumulator.getDirectSizeInBytes() < maxDirectSize)
+                .as("direct size should still be below threshold")
+                .isTrue();
+        assertThat(pageBuilder.getSizeInBytes())
+                .as("pageBuilder sizeInBytes must match sizeAccumulator value")
+                .isEqualTo(sizeAccumulator.getSizeInBytes());
     }
 
     @Test
@@ -78,21 +86,23 @@ public class TestPositionsAppenderPageBuilder
                 new PositionsAppenderFactory(new BlockTypeOperators()));
 
         PositionsAppenderSizeAccumulator sizeAccumulator = pageBuilder.computeAppenderSizes();
-        assertEquals(0L, sizeAccumulator.getSizeInBytes());
-        assertEquals(0L, sizeAccumulator.getDirectSizeInBytes());
-        assertFalse(pageBuilder.isFull());
+        assertThat(sizeAccumulator.getSizeInBytes()).isEqualTo(0L);
+        assertThat(sizeAccumulator.getDirectSizeInBytes()).isEqualTo(0L);
+        assertThat(pageBuilder.isFull()).isFalse();
 
-        Block rleBlock = RunLengthEncodedBlock.create(VARCHAR, Slices.utf8Slice("test"), 10);
+        RunLengthEncodedBlock rleBlock = (RunLengthEncodedBlock) RunLengthEncodedBlock.create(VARCHAR, Slices.utf8Slice("test"), 10);
         Page inputPage = new Page(rleBlock);
 
         IntArrayList positions = IntArrayList.wrap(new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
         pageBuilder.appendToOutputPartition(inputPage, positions);
         // 10 positions inserted, size in bytes is still the same since we're in RLE mode but direct size is 10x
         sizeAccumulator = pageBuilder.computeAppenderSizes();
-        assertEquals(rleBlock.getSizeInBytes(), sizeAccumulator.getSizeInBytes());
-        assertEquals(sizeAccumulator.getSizeInBytes(), pageBuilder.getSizeInBytes(), "pageBuilder sizeInBytes must match sizeAccumulator value");
-        assertEquals(rleBlock.getSizeInBytes() * 10, sizeAccumulator.getDirectSizeInBytes());
-        assertFalse(pageBuilder.isFull());
+        assertThat(sizeAccumulator.getSizeInBytes()).isEqualTo(rleBlock.getValue().getSizeInBytes());
+        assertThat(pageBuilder.getSizeInBytes())
+                .as("pageBuilder sizeInBytes must match sizeAccumulator value")
+                .isEqualTo(sizeAccumulator.getSizeInBytes());
+        assertThat(sizeAccumulator.getDirectSizeInBytes()).isEqualTo(rleBlock.getValue().getSizeInBytes() * 10);
+        assertThat(pageBuilder.isFull()).isFalse();
 
         // Keep inserting until the direct size limit is reached
         while (pageBuilder.computeAppenderSizes().getDirectSizeInBytes() < maxDirectSize) {
@@ -100,13 +110,21 @@ public class TestPositionsAppenderPageBuilder
         }
         // size in bytes is unchanged
         sizeAccumulator = pageBuilder.computeAppenderSizes();
-        assertEquals(rleBlock.getSizeInBytes(), sizeAccumulator.getSizeInBytes(), "sizeInBytes must still report the RLE block size only");
-        assertEquals(sizeAccumulator.getSizeInBytes(), pageBuilder.getSizeInBytes(), "pageBuilder sizeInBytes must match sizeAccumulator value");
+        assertThat(sizeAccumulator.getSizeInBytes())
+                .as("sizeInBytes must still report the RLE block size only")
+                .isEqualTo(rleBlock.getValue().getSizeInBytes());
+        assertThat(pageBuilder.getSizeInBytes())
+                .as("pageBuilder sizeInBytes must match sizeAccumulator value")
+                .isEqualTo(sizeAccumulator.getSizeInBytes());
         // builder reports full due to maximum size in bytes reached
-        assertTrue(pageBuilder.isFull());
+        assertThat(pageBuilder.isFull()).isTrue();
         Page result = pageBuilder.build();
-        assertEquals(120, result.getPositionCount(), "result positions should be below the 8192 maximum");
-        assertTrue(result.getBlock(0) instanceof RunLengthEncodedBlock, "result block is RLE encoded");
+        assertThat(result.getPositionCount())
+                .as("result positions should be below the 8192 maximum")
+                .isEqualTo(120);
+        assertThat(result.getBlock(0) instanceof RunLengthEncodedBlock)
+                .as("result block is RLE encoded")
+                .isTrue();
     }
 
     @Test
@@ -127,12 +145,16 @@ public class TestPositionsAppenderPageBuilder
         pageBuilder.appendToOutputPartition(inputPage, IntArrayList.wrap(new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}));
         // Dictionary mode appender should report the size of the ID's, but doesn't currently track
         // the per-position size at all because it would be inefficient
-        assertEquals(Integer.BYTES * 10, pageBuilder.getSizeInBytes());
-        assertFalse(pageBuilder.isFull());
+        assertThat(pageBuilder.getSizeInBytes()).isEqualTo(Integer.BYTES * 10);
+        assertThat(pageBuilder.isFull()).isFalse();
 
         Optional<Page> flushedPage = pageBuilder.flushOrFlattenBeforeRelease();
-        assertTrue(flushedPage.isPresent(), "pageBuilder should force flush the dictionary");
-        assertTrue(flushedPage.get().getBlock(0) instanceof DictionaryBlock, "result should be dictionary encoded");
+        assertThat(flushedPage.isPresent())
+                .as("pageBuilder should force flush the dictionary")
+                .isTrue();
+        assertThat(flushedPage.get().getBlock(0) instanceof DictionaryBlock)
+                .as("result should be dictionary encoded")
+                .isTrue();
     }
 
     @Test
@@ -153,14 +175,19 @@ public class TestPositionsAppenderPageBuilder
                 new PositionsAppenderFactory(new BlockTypeOperators()));
 
         pageBuilder.appendToOutputPartition(inputPage, IntArrayList.wrap(new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}));
-        assertEquals(Integer.BYTES * 10, pageBuilder.getSizeInBytes());
-        assertFalse(pageBuilder.isFull());
+        assertThat(pageBuilder.getSizeInBytes()).isEqualTo(Integer.BYTES * 10);
+        assertThat(pageBuilder.isFull()).isFalse();
 
-        assertEquals(Optional.empty(), pageBuilder.flushOrFlattenBeforeRelease(), "pageBuilder should not force a flush");
-        assertFalse(pageBuilder.isFull());
-        assertEquals(valueBlock.getSizeInBytes(), pageBuilder.getSizeInBytes(), "pageBuilder should have transitioned to direct mode");
+        assertThat(pageBuilder.flushOrFlattenBeforeRelease())
+                .as("pageBuilder should not force a flush")
+                .isEqualTo(Optional.empty());
+        assertThat(pageBuilder.isFull()).isFalse();
+        assertThat(pageBuilder.getSizeInBytes())
+                .as("pageBuilder should have transitioned to direct mode").isEqualTo(valueBlock.getSizeInBytes());
 
         Page result = pageBuilder.build();
-        assertTrue(result.getBlock(0) instanceof ValueBlock, "result should not be a dictionary block");
+        assertThat(result.getBlock(0) instanceof ValueBlock)
+                .as("result should not be a dictionary block")
+                .isTrue();
     }
 }

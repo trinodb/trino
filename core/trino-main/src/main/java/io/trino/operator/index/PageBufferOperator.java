@@ -51,9 +51,7 @@ public class PageBufferOperator
         }
 
         @Override
-        public void noMoreOperators()
-        {
-        }
+        public void noMoreOperators() {}
 
         @Override
         public OperatorFactory duplicate()

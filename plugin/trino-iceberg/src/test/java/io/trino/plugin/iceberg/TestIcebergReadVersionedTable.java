@@ -23,7 +23,6 @@ import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 
-import static io.trino.plugin.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -42,7 +41,7 @@ public class TestIcebergReadVersionedTable
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createIcebergQueryRunner();
+        return IcebergQueryRunner.builder().build();
     }
 
     @BeforeAll

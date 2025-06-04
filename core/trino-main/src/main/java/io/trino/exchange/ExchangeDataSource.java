@@ -16,8 +16,10 @@ package io.trino.exchange;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.trino.operator.OperatorInfo;
+import io.trino.spi.metrics.Metrics;
 
 import java.io.Closeable;
+import java.util.Optional;
 
 public interface ExchangeDataSource
         extends Closeable
@@ -33,6 +35,11 @@ public interface ExchangeDataSource
     void noMoreInputs();
 
     OperatorInfo getInfo();
+
+    default Optional<Metrics> getMetrics()
+    {
+        return Optional.empty();
+    }
 
     @Override
     void close();

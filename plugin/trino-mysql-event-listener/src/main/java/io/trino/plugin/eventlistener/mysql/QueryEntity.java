@@ -74,6 +74,7 @@ public class QueryEntity
     private final long analysisTimeMillis;
     private final long planningTimeMillis;
     private final long planningCpuTimeMillis;
+    private final long startingTimeMillis;
     private final long executionTimeMillis;
     private final long inputBlockedTimeMillis;
     private final long failedInputBlockedTimeMillis;
@@ -147,6 +148,7 @@ public class QueryEntity
             long analysisTimeMillis,
             long planningTimeMillis,
             long planningCpuTimeMillis,
+            long startingTimeMillis,
             long executionTimeMillis,
             long inputBlockedTimeMillis,
             long failedInputBlockedTimeMillis,
@@ -215,6 +217,7 @@ public class QueryEntity
         this.analysisTimeMillis = analysisTimeMillis;
         this.planningTimeMillis = planningTimeMillis;
         this.planningCpuTimeMillis = planningCpuTimeMillis;
+        this.startingTimeMillis = startingTimeMillis;
         this.executionTimeMillis = executionTimeMillis;
         this.inputBlockedTimeMillis = inputBlockedTimeMillis;
         this.failedInputBlockedTimeMillis = failedInputBlockedTimeMillis;
@@ -458,6 +461,11 @@ public class QueryEntity
     public long getPlanningCpuTimeMillis()
     {
         return planningCpuTimeMillis;
+    }
+
+    public long getStartingTimeMillis()
+    {
+        return startingTimeMillis;
     }
 
     public long getExecutionTimeMillis()

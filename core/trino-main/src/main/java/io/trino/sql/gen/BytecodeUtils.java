@@ -470,9 +470,9 @@ public final class BytecodeUtils
         // use temp variables to re-shuffle the stack to the right shape before Type.writeXXX is called
         // Unfortunately, because of the assumptions made by try_cast, we can't get around it yet.
         // TODO: clean up once try_cast is fixed
-        Variable tempValue = scope.createTempVariable(valueJavaType);
-        Variable tempOutput = scope.createTempVariable(BlockBuilder.class);
-        return new BytecodeBlock()
+        Variable tempValue = scope.getOrCreateTempVariable(valueJavaType);
+        Variable tempOutput = scope.getOrCreateTempVariable(BlockBuilder.class);
+        BytecodeBlock block = new BytecodeBlock()
                 .comment("if (wasNull)")
                 .append(new IfStatement()
                         .condition(wasNullVariable)
@@ -489,5 +489,8 @@ public final class BytecodeUtils
                                 .getVariable(tempOutput)
                                 .getVariable(tempValue)
                                 .invokeInterface(Type.class, methodName, void.class, BlockBuilder.class, valueJavaType)));
+        scope.releaseTempVariableForReuse(tempOutput);
+        scope.releaseTempVariableForReuse(tempValue);
+        return block;
     }
 }

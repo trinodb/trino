@@ -17,13 +17,13 @@ import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
+import io.trino.metastore.HiveMetastoreFactory;
+import io.trino.metastore.RawHiveMetastoreFactory;
 import io.trino.plugin.hive.AllowHiveTableRename;
-import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
-import io.trino.plugin.hive.metastore.RawHiveMetastoreFactory;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
-public class FileMetastoreModule
+public final class FileMetastoreModule
         implements Module
 {
     @Override
@@ -32,5 +32,17 @@ public class FileMetastoreModule
         configBinder(binder).bindConfig(FileHiveMetastoreConfig.class);
         binder.bind(HiveMetastoreFactory.class).annotatedWith(RawHiveMetastoreFactory.class).to(FileHiveMetastoreFactory.class).in(Scopes.SINGLETON);
         binder.bind(Key.get(boolean.class, AllowHiveTableRename.class)).toInstance(true);
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        return obj instanceof FileMetastoreModule;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return getClass().hashCode();
     }
 }

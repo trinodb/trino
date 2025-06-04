@@ -36,21 +36,15 @@ import io.trino.operator.Driver;
 import io.trino.operator.DriverContext;
 import io.trino.operator.Operator;
 import io.trino.operator.OperatorAssertion;
-import io.trino.operator.OperatorContext;
 import io.trino.operator.OperatorFactory;
-import io.trino.operator.ProcessorContext;
 import io.trino.operator.TaskContext;
 import io.trino.operator.ValuesOperator.ValuesOperatorFactory;
-import io.trino.operator.WorkProcessor;
-import io.trino.operator.WorkProcessorOperator;
-import io.trino.operator.WorkProcessorOperatorFactory;
 import io.trino.operator.index.PageBuffer;
 import io.trino.operator.index.PageBufferOperator.PageBufferOperatorFactory;
 import io.trino.operator.join.JoinTestUtils.BuildSideSetup;
 import io.trino.operator.join.JoinTestUtils.DummySpillerFactory;
 import io.trino.operator.join.JoinTestUtils.TestInternalJoinFilterFunction;
 import io.trino.spi.Page;
-import io.trino.spi.block.LazyBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
@@ -82,7 +76,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.operator.JoinOperatorType.fullOuterJoin;
@@ -93,8 +86,6 @@ import static io.trino.operator.OperatorAssertion.assertOperatorEquals;
 import static io.trino.operator.OperatorAssertion.dropChannel;
 import static io.trino.operator.OperatorAssertion.without;
 import static io.trino.operator.OperatorFactories.spillingJoin;
-import static io.trino.operator.WorkProcessor.ProcessState.finished;
-import static io.trino.operator.WorkProcessor.ProcessState.ofResult;
 import static io.trino.operator.join.JoinTestUtils.buildLookupSource;
 import static io.trino.operator.join.JoinTestUtils.getHashChannelAsInt;
 import static io.trino.operator.join.JoinTestUtils.innerJoinOperatorFactory;
@@ -102,7 +93,6 @@ import static io.trino.operator.join.JoinTestUtils.instantiateBuildDrivers;
 import static io.trino.operator.join.JoinTestUtils.runDriverInThread;
 import static io.trino.operator.join.JoinTestUtils.setupBuildSide;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Arrays.asList;
 import static java.util.Collections.nCopies;
@@ -232,54 +222,6 @@ public class TestHashJoinOperator
     }
 
     @Test
-    public void testUnwrapsLazyBlocks()
-    {
-        TaskContext taskContext = createTaskContext();
-        DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
-
-        InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction(
-                (leftPosition, leftPage, rightPosition, rightPage) -> {
-                    // force loading of probe block
-                    rightPage.getBlock(1).getLoadedBlock();
-                    return true;
-                });
-
-        RowPagesBuilder buildPages = rowPagesBuilder(false, Ints.asList(0), ImmutableList.of(BIGINT)).addSequencePage(1, 0);
-        BuildSideSetup buildSideSetup = setupBuildSide(nodePartitioningManager, true, taskContext, buildPages, Optional.of(filterFunction), false, SINGLE_STREAM_SPILLER_FACTORY);
-        JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory = buildSideSetup.getLookupSourceFactoryManager();
-
-        RowPagesBuilder probePages = rowPagesBuilder(false, Ints.asList(0), ImmutableList.of(BIGINT, BIGINT));
-        List<Page> probeInput = probePages.addSequencePage(1, 0, 0).build();
-        probeInput = probeInput.stream()
-                .map(page -> new Page(page.getBlock(0), new LazyBlock(1, () -> page.getBlock(1))))
-                .collect(toImmutableList());
-
-        OperatorFactory joinOperatorFactory = spillingJoin(
-                innerJoin(false, false),
-                0,
-                new PlanNodeId("test"),
-                lookupSourceFactory,
-                true,
-                probePages.getTypes(),
-                Ints.asList(0),
-                getHashChannelAsInt(probePages),
-                Optional.empty(),
-                OptionalInt.of(1),
-                PARTITIONING_SPILLER_FACTORY,
-                TYPE_OPERATORS);
-
-        instantiateBuildDrivers(buildSideSetup, taskContext);
-        buildLookupSource(executor, buildSideSetup);
-        Operator operator = joinOperatorFactory.createOperator(driverContext);
-        assertThat(operator.needsInput()).isTrue();
-        operator.addInput(probeInput.get(0));
-        operator.finish();
-
-        Page output = operator.getOutput();
-        assertThat(output.getBlock(1) instanceof LazyBlock).isFalse();
-    }
-
-    @Test
     public void testYield()
     {
         // create a filter function that yields for every probe match
@@ -312,7 +254,6 @@ public class TestHashJoinOperator
                 0,
                 new PlanNodeId("test"),
                 lookupSourceFactory,
-                true,
                 probePages.getTypes(),
                 Ints.asList(0),
                 getHashChannelAsInt(probePages),
@@ -463,7 +404,7 @@ public class TestHashJoinOperator
                 .pageBreak()
                 .addSequencePage(20, 0, 123_000)
                 .addSequencePage(10, 30, 123_000);
-        OperatorFactory joinOperatorFactory = innerJoinOperatorFactory(lookupSourceFactoryManager, probePages, joinSpillerFactory, true);
+        OperatorFactory joinOperatorFactory = innerJoinOperatorFactory(lookupSourceFactoryManager, probePages, joinSpillerFactory);
 
         // build drivers and operators
         instantiateBuildDrivers(buildSideSetup, taskContext);
@@ -542,7 +483,7 @@ public class TestHashJoinOperator
                     .row("33", 123_003L, "33", 303L)
                     .build();
 
-            assertEqualsIgnoreOrder(getProperColumns(joinOperator, concat(probePages.getTypes(), buildPages.getTypes()), probePages, actualPages).getMaterializedRows(), expected.getMaterializedRows());
+            assertThat(getProperColumns(joinOperator, concat(probePages.getTypes(), buildPages.getTypes()), probePages, actualPages).getMaterializedRows()).containsExactlyInAnyOrderElementsOf(expected.getMaterializedRows());
         }
         finally {
             joinOperatorFactory.noMoreOperators();
@@ -677,7 +618,7 @@ public class TestHashJoinOperator
                 .row("a")
                 .row("b")
                 .build();
-        OperatorFactory joinOperatorFactory = innerJoinOperatorFactory(lookupSourceFactory, probePages, PARTITIONING_SPILLER_FACTORY, false);
+        OperatorFactory joinOperatorFactory = innerJoinOperatorFactory(lookupSourceFactory, probePages, PARTITIONING_SPILLER_FACTORY);
 
         // build drivers and operators
         instantiateBuildDrivers(buildSideSetup, taskContext);
@@ -726,7 +667,7 @@ public class TestHashJoinOperator
                 .row("b")
                 .row("c")
                 .build();
-        OperatorFactory joinOperatorFactory = innerJoinOperatorFactory(lookupSourceFactory, probePages, PARTITIONING_SPILLER_FACTORY, true, false);
+        OperatorFactory joinOperatorFactory = innerJoinOperatorFactory(lookupSourceFactory, probePages, PARTITIONING_SPILLER_FACTORY, true);
 
         // build drivers and operators
         instantiateBuildDrivers(buildSideSetup, taskContext);
@@ -830,7 +771,7 @@ public class TestHashJoinOperator
                 .row((String) null)
                 .row("c")
                 .build();
-        OperatorFactory joinOperatorFactory = innerJoinOperatorFactory(lookupSourceFactory, probePages, PARTITIONING_SPILLER_FACTORY, false);
+        OperatorFactory joinOperatorFactory = innerJoinOperatorFactory(lookupSourceFactory, probePages, PARTITIONING_SPILLER_FACTORY);
 
         // build drivers and operators
         instantiateBuildDrivers(buildSideSetup, taskContext);
@@ -876,7 +817,7 @@ public class TestHashJoinOperator
         List<Page> probeInput = probePages
                 .addSequencePage(15, 20, 1020, 2020)
                 .build();
-        OperatorFactory joinOperatorFactory = probeOuterJoinOperatorFactory(lookupSourceFactory, probePages, false);
+        OperatorFactory joinOperatorFactory = probeOuterJoinOperatorFactory(lookupSourceFactory, probePages);
 
         // build drivers and operators
         instantiateBuildDrivers(buildSideSetup, taskContext);
@@ -937,7 +878,7 @@ public class TestHashJoinOperator
         List<Page> probeInput = probePages
                 .addSequencePage(15, 20, 1020, 2020)
                 .build();
-        OperatorFactory joinOperatorFactory = probeOuterJoinOperatorFactory(lookupSourceFactory, probePages, true);
+        OperatorFactory joinOperatorFactory = probeOuterJoinOperatorFactory(lookupSourceFactory, probePages);
 
         // build drivers and operators
         instantiateBuildDrivers(buildSideSetup, taskContext);
@@ -1001,7 +942,7 @@ public class TestHashJoinOperator
                 .row("a")
                 .row("b")
                 .build();
-        OperatorFactory joinOperatorFactory = probeOuterJoinOperatorFactory(lookupSourceFactory, probePages, false);
+        OperatorFactory joinOperatorFactory = probeOuterJoinOperatorFactory(lookupSourceFactory, probePages);
 
         // build drivers and operators
         instantiateBuildDrivers(buildSideSetup, taskContext);
@@ -1058,7 +999,7 @@ public class TestHashJoinOperator
                 .row("a")
                 .row("b")
                 .build();
-        OperatorFactory joinOperatorFactory = probeOuterJoinOperatorFactory(lookupSourceFactory, probePages, true);
+        OperatorFactory joinOperatorFactory = probeOuterJoinOperatorFactory(lookupSourceFactory, probePages);
 
         // build drivers and operators
         instantiateBuildDrivers(buildSideSetup, taskContext);
@@ -1112,7 +1053,7 @@ public class TestHashJoinOperator
                 .row("b")
                 .row("c")
                 .build();
-        OperatorFactory joinOperatorFactory = probeOuterJoinOperatorFactory(lookupSourceFactory, probePages, false);
+        OperatorFactory joinOperatorFactory = probeOuterJoinOperatorFactory(lookupSourceFactory, probePages);
 
         // build drivers and operators
         instantiateBuildDrivers(buildSideSetup, taskContext);
@@ -1169,7 +1110,7 @@ public class TestHashJoinOperator
                 .row("b")
                 .row("c")
                 .build();
-        OperatorFactory joinOperatorFactory = probeOuterJoinOperatorFactory(lookupSourceFactory, probePages, true);
+        OperatorFactory joinOperatorFactory = probeOuterJoinOperatorFactory(lookupSourceFactory, probePages);
 
         // build drivers and operators
         instantiateBuildDrivers(buildSideSetup, taskContext);
@@ -1222,7 +1163,7 @@ public class TestHashJoinOperator
                 .row((String) null)
                 .row("c")
                 .build();
-        OperatorFactory joinOperatorFactory = probeOuterJoinOperatorFactory(lookupSourceFactory, probePages, false);
+        OperatorFactory joinOperatorFactory = probeOuterJoinOperatorFactory(lookupSourceFactory, probePages);
 
         // build drivers and operators
         instantiateBuildDrivers(buildSideSetup, taskContext);
@@ -1280,7 +1221,7 @@ public class TestHashJoinOperator
                 .row((String) null)
                 .row("c")
                 .build();
-        OperatorFactory joinOperatorFactory = probeOuterJoinOperatorFactory(lookupSourceFactory, probePages, true);
+        OperatorFactory joinOperatorFactory = probeOuterJoinOperatorFactory(lookupSourceFactory, probePages);
 
         // build drivers and operators
         instantiateBuildDrivers(buildSideSetup, taskContext);
@@ -1352,7 +1293,6 @@ public class TestHashJoinOperator
                 0,
                 new PlanNodeId("test"),
                 lookupSourceFactoryManager,
-                false,
                 probePages.getTypes(),
                 Ints.asList(0),
                 getHashChannelAsInt(probePages),
@@ -1403,7 +1343,6 @@ public class TestHashJoinOperator
                 0,
                 new PlanNodeId("test"),
                 lookupSourceFactoryManager,
-                false,
                 probePages.getTypes(),
                 Ints.asList(0),
                 getHashChannelAsInt(probePages),
@@ -1460,7 +1399,6 @@ public class TestHashJoinOperator
                 0,
                 new PlanNodeId("test"),
                 lookupSourceFactoryManager,
-                false,
                 probePages.getTypes(),
                 Ints.asList(0),
                 getHashChannelAsInt(probePages),
@@ -1520,7 +1458,6 @@ public class TestHashJoinOperator
                 0,
                 new PlanNodeId("test"),
                 lookupSourceFactoryManager,
-                false,
                 probePages.getTypes(),
                 Ints.asList(0),
                 getHashChannelAsInt(probePages),
@@ -1579,7 +1516,6 @@ public class TestHashJoinOperator
                 0,
                 new PlanNodeId("test"),
                 lookupSourceFactoryManager,
-                false,
                 probePages.getTypes(),
                 Ints.asList(0),
                 getHashChannelAsInt(probePages),
@@ -1701,86 +1637,6 @@ public class TestHashJoinOperator
         }
     }
 
-    @Test
-    public void testInnerJoinLoadsPagesInOrder()
-    {
-        TaskContext taskContext = createTaskContext();
-
-        // build factory
-        List<Type> buildTypes = ImmutableList.of(VARCHAR);
-        RowPagesBuilder buildPages = rowPagesBuilder(false, Ints.asList(0), buildTypes);
-        for (int i = 0; i < 100_000; ++i) {
-            buildPages.row("a");
-        }
-        BuildSideSetup buildSideSetup = setupBuildSide(nodePartitioningManager, false, taskContext, buildPages, Optional.empty(), false, SINGLE_STREAM_SPILLER_FACTORY);
-        JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory = buildSideSetup.getLookupSourceFactoryManager();
-
-        // probe factory
-        List<Type> probeTypes = ImmutableList.of(VARCHAR, INTEGER, INTEGER);
-        RowPagesBuilder probePages = rowPagesBuilder(false, Ints.asList(0), probeTypes);
-        probePages.row("a", 1L, 2L);
-        WorkProcessorOperatorFactory joinOperatorFactory = (WorkProcessorOperatorFactory) innerJoinOperatorFactory(lookupSourceFactory, probePages, PARTITIONING_SPILLER_FACTORY, false);
-
-        // build drivers and operators
-        instantiateBuildDrivers(buildSideSetup, taskContext);
-        buildLookupSource(executor, buildSideSetup);
-
-        Page probePage = getOnlyElement(probePages.build());
-        AtomicInteger totalProbePages = new AtomicInteger();
-        WorkProcessor<Page> inputPages = WorkProcessor.create(() -> {
-            int probePageNumber = totalProbePages.incrementAndGet();
-            if (probePageNumber == 5) {
-                return finished();
-            }
-
-            return ofResult(new Page(
-                    1,
-                    probePage.getBlock(0),
-                    // this block should not be loaded by join operator as it's not being used by join
-                    new LazyBlock(1, () -> probePage.getBlock(1)),
-                    // this block is force loaded in test to ensure join doesn't fetch next probe page before joining
-                    // and outputting current probe page
-                    new LazyBlock(
-                            1,
-                            () -> {
-                                // when loaded this block should be the latest one
-                                assertThat(probePageNumber).isEqualTo(totalProbePages.get());
-                                return probePage.getBlock(2);
-                            })));
-        });
-
-        DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
-        OperatorContext operatorContext = driverContext.addOperatorContext(joinOperatorFactory.getOperatorId(), joinOperatorFactory.getPlanNodeId(), joinOperatorFactory.getOperatorType());
-        WorkProcessorOperator joinOperator = joinOperatorFactory.create(
-                new ProcessorContext(taskContext.getSession(), taskContext.getTaskMemoryContext(), operatorContext),
-                inputPages);
-        WorkProcessor<Page> outputPages = joinOperator.getOutputPages();
-        int totalOutputPages = 0;
-        for (int i = 0; i < 1_000_000; ++i) {
-            if (!outputPages.process()) {
-                // allow join to progress
-                driverContext.getYieldSignal().resetYieldForTesting();
-                continue;
-            }
-
-            if (outputPages.isFinished()) {
-                break;
-            }
-
-            Page page = outputPages.getResult();
-            totalOutputPages++;
-            assertThat(page.getBlock(1).isLoaded()).isFalse();
-            page.getBlock(2).getLoadedBlock();
-
-            // yield to enforce more complex execution
-            driverContext.getYieldSignal().forceYieldForTesting();
-        }
-
-        // make sure that multiple pages were produced for some probe pages
-        assertThat(totalOutputPages > totalProbePages.get()).isTrue();
-        assertThat(outputPages.isFinished()).isTrue();
-    }
-
     private OperatorFactory createJoinOperatorFactoryWithBlockingLookupSource(TaskContext taskContext, boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean waitForBuild)
     {
         // build factory
@@ -1797,7 +1653,6 @@ public class TestHashJoinOperator
                 0,
                 new PlanNodeId("test"),
                 lookupSourceFactoryManager,
-                false,
                 probePages.getTypes(),
                 Ints.asList(0),
                 getHashChannelAsInt(probePages),
@@ -1831,15 +1686,13 @@ public class TestHashJoinOperator
 
     private OperatorFactory probeOuterJoinOperatorFactory(
             JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager,
-            RowPagesBuilder probePages,
-            boolean hasFilter)
+            RowPagesBuilder probePages)
     {
         return spillingJoin(
                 probeOuterJoin(false),
                 0,
                 new PlanNodeId("test"),
                 lookupSourceFactoryManager,
-                hasFilter,
                 probePages.getTypes(),
                 Ints.asList(0),
                 getHashChannelAsInt(probePages),

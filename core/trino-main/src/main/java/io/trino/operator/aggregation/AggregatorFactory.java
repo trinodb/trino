@@ -14,6 +14,7 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.operator.AggregationMetrics;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.AggregationNode.Step;
 
@@ -57,7 +58,7 @@ public class AggregatorFactory
         checkArgument(step.isInputRaw() || inputChannels.size() == 1, "expected 1 input channel for intermediate aggregation");
     }
 
-    public Aggregator createAggregator()
+    public Aggregator createAggregator(AggregationMetrics metrics)
     {
         Accumulator accumulator;
         if (step.isInputRaw()) {
@@ -66,10 +67,10 @@ public class AggregatorFactory
         else {
             accumulator = accumulatorFactory.createIntermediateAccumulator(lambdaProviders);
         }
-        return new Aggregator(accumulator, step, intermediateType, finalType, inputChannels, maskChannel, accumulatorFactory.createAggregationMaskBuilder());
+        return new Aggregator(accumulator, step, intermediateType, finalType, inputChannels, maskChannel, accumulatorFactory.createAggregationMaskBuilder(), metrics);
     }
 
-    public GroupedAggregator createGroupedAggregator()
+    public GroupedAggregator createGroupedAggregator(AggregationMetrics metrics)
     {
         GroupedAccumulator accumulator;
         if (step.isInputRaw()) {
@@ -78,10 +79,10 @@ public class AggregatorFactory
         else {
             accumulator = accumulatorFactory.createGroupedIntermediateAccumulator(lambdaProviders);
         }
-        return new GroupedAggregator(accumulator, step, intermediateType, finalType, inputChannels, maskChannel, accumulatorFactory.createAggregationMaskBuilder());
+        return new GroupedAggregator(accumulator, step, intermediateType, finalType, inputChannels, maskChannel, accumulatorFactory.createAggregationMaskBuilder(), metrics);
     }
 
-    public GroupedAggregator createUnspillGroupedAggregator(Step step, int inputChannel)
+    public GroupedAggregator createUnspillGroupedAggregator(Step step, int inputChannel, AggregationMetrics metrics)
     {
         GroupedAccumulator accumulator;
         if (step.isInputRaw()) {
@@ -90,7 +91,7 @@ public class AggregatorFactory
         else {
             accumulator = accumulatorFactory.createGroupedIntermediateAccumulator(lambdaProviders);
         }
-        return new GroupedAggregator(accumulator, step, intermediateType, finalType, ImmutableList.of(inputChannel), maskChannel, accumulatorFactory.createAggregationMaskBuilder());
+        return new GroupedAggregator(accumulator, step, intermediateType, finalType, ImmutableList.of(inputChannel), maskChannel, accumulatorFactory.createAggregationMaskBuilder(), metrics);
     }
 
     public boolean isSpillable()

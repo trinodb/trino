@@ -45,14 +45,12 @@ DROP TABLE example.default.nation;
 ```
 
 (memory-type-mapping)=
-
 ## Type mapping
 
 Trino supports all data types used within the Memory schemas so no mapping is
 required.
 
 (memory-sql-support)=
-
 ## SQL support
 
 The connector provides read and write access to temporary data and metadata
@@ -61,22 +59,25 @@ stored in memory. In addition to the {ref}`globally available
 statements, the connector supports the following features:
 
 - {doc}`/sql/insert`
+- {doc}`/sql/truncate`
 - {doc}`/sql/create-table`
 - {doc}`/sql/create-table-as`
 - {doc}`/sql/drop-table`
+- {doc}`/sql/alter-table`
 - {doc}`/sql/create-schema`
 - {doc}`/sql/drop-schema`
+- {doc}`/sql/alter-schema`
 - {doc}`/sql/comment`
-- [](sql-routine-management)
+- [](sql-view-management)
+- [](udf-management)
 
-### DROP TABLE
+### TRUNCATE and DROP TABLE
 
-Upon execution of a `DROP TABLE` operation, memory is not released
+Upon execution of a `TRUNCATE` and a `DROP TABLE` operation, memory is not released
 immediately. It is instead released after the next write operation to the
 catalog.
 
 (memory-dynamic-filtering)=
-
 ## Dynamic filtering
 
 The Memory connector supports the {doc}`dynamic filtering </admin/dynamic-filtering>` optimization.
@@ -100,6 +101,3 @@ in the catalog file.
   or may return partial data.
 - When the coordinator fails/restarts, all metadata about tables is
   lost. The tables remain on the workers, but become inaccessible.
-- This connector does not work properly with multiple
-  coordinators, since each coordinator has different
-  metadata.

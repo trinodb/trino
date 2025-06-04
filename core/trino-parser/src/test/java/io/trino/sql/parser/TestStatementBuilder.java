@@ -24,20 +24,11 @@ import java.io.UncheckedIOException;
 
 import static io.trino.sql.testing.TreeAssertions.assertFormattedSql;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestStatementBuilder
 {
     private static final SqlParser SQL_PARSER = new SqlParser();
-
-    @Test
-    public void testPreparedGrantWithQuotes()
-    {
-        printStatement("prepare p from grant select on table hive.test.\"case\" to role test");
-        printStatement("prepare p from grant select on hive.test.\"case\" to role test");
-        printStatement("prepare p from grant select on table hive.test.\"case\" to role \"case\"");
-    }
 
     @Test
     public void testStatementBuilder()
@@ -208,6 +199,9 @@ public class TestStatementBuilder
         printStatement("alter table a.b.c set properties a=true, b=123, c='x'");
         printStatement("alter table a.b.c set properties a=DEFAULT, b=123");
 
+        printStatement("alter table a.b.c add column x bigint first");
+        printStatement("alter table a.b.c add column x bigint after y");
+        printStatement("alter table a.b.c add column x bigint last");
         printStatement("alter table a.b.c add column x bigint");
 
         printStatement("alter table a.b.c add column x bigint comment 'large x'");
@@ -314,7 +308,17 @@ public class TestStatementBuilder
         printStatement("show role grants");
         printStatement("show role grants from foo");
 
+        printStatement("show create schema abc");
+        printStatement("show create table abc");
+        printStatement("show create view abc");
+        printStatement("show create materialized view abc");
+        printStatement("show create function abc");
+
         printStatement("prepare p from select * from (select * from T) \"A B\"");
+
+        printStatement("prepare p from grant select on table hive.test.\"case\" to role test");
+        printStatement("prepare p from grant select on hive.test.\"case\" to role test");
+        printStatement("prepare p from grant select on table hive.test.\"case\" to role \"case\"");
 
         printStatement("SELECT * FROM table1 WHERE a >= ALL (VALUES 2, 3, 4)");
         printStatement("SELECT * FROM table1 WHERE a <> ANY (SELECT 2, 3, 4)");
@@ -400,7 +404,7 @@ public class TestStatementBuilder
     {
         Expression originalExpression = SQL_PARSER.createExpression(expression);
         String real = SqlFormatter.formatSql(originalExpression);
-        assertEquals(formatted, real);
+        assertThat(real).isEqualTo(formatted);
     }
 
     private static void println(String s)
@@ -423,7 +427,9 @@ public class TestStatementBuilder
             sql = sql.replaceAll(":%s".formatted(i + 1), String.valueOf(values[i]));
         }
 
-        assertFalse(sql.matches("(?s).*:[0-9].*"), "Not all bind parameters were replaced: " + sql);
+        assertThat(sql.matches("(?s).*:[0-9].*"))
+                .as("Not all bind parameters were replaced: " + sql)
+                .isFalse();
 
         sql = fixTpchQuery(sql);
         printStatement(sql);

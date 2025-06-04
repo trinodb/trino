@@ -93,7 +93,7 @@ public class TestPushProjectionThroughJoin
 
         Session session = testSessionBuilder().build();
         Optional<PlanNode> rewritten = pushProjectionThroughJoin(planNode, noLookup(), idAllocator);
-        assertThat(rewritten.isPresent()).isTrue();
+        assertThat(rewritten).isPresent();
         assertPlan(
                 session,
                 dummyMetadata(),

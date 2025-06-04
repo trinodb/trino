@@ -1,0 +1,24 @@
+remote exchange (GATHER, SINGLE, [])
+    local exchange (GATHER, UNKNOWN, [])
+        remote exchange (REPARTITION, ROUND_ROBIN, [])
+            final aggregation over (expr_gid)
+                local exchange (GATHER, SINGLE, [])
+                    remote exchange (REPARTITION, HASH, [expr_gid])
+                        partial aggregation over (expr_gid)
+                            join (LEFT, PARTITIONED):
+                                remote exchange (REPARTITION, HASH, [custkey])
+                                    cross join:
+                                        dynamic filter (acctbal::GREATER_THAN)
+                                            scan customer
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                final aggregation over ()
+                                                    local exchange (GATHER, SINGLE, [])
+                                                        remote exchange (GATHER, SINGLE, [])
+                                                            partial aggregation over ()
+                                                                scan customer
+                                final aggregation over (custkey_11)
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPARTITION, HASH, [custkey_11])
+                                            partial aggregation over (custkey_11)
+                                                scan orders

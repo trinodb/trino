@@ -26,21 +26,17 @@ public class NotExpression
 {
     private final Expression value;
 
+    @Deprecated
     public NotExpression(Expression value)
     {
-        this(Optional.empty(), value);
+        super(Optional.empty());
+        this.value = requireNonNull(value, "value is null");
     }
 
     public NotExpression(NodeLocation location, Expression value)
     {
-        this(Optional.of(location), value);
-    }
-
-    private NotExpression(Optional<NodeLocation> location, Expression value)
-    {
         super(location);
-        requireNonNull(value, "value is null");
-        this.value = value;
+        this.value = requireNonNull(value, "value is null");
     }
 
     public Expression getValue()

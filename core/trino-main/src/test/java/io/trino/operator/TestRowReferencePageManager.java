@@ -313,7 +313,7 @@ public class TestRowReferencePageManager
 
     private static Page createBigIntSingleBlockPage(long startInclusive, long endExclusive)
     {
-        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, toIntExact(endExclusive - startInclusive));
+        BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(toIntExact(endExclusive - startInclusive));
         for (long i = startInclusive; i < endExclusive; i++) {
             BIGINT.writeLong(blockBuilder, i);
         }

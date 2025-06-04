@@ -17,6 +17,7 @@ import com.google.common.math.LongMath;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.Type;
+import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.schema.PrimitiveType;
 
@@ -40,13 +41,16 @@ public class TimestampNanosValueWriter
     @Override
     public void write(Block block)
     {
+        ValuesWriter valuesWriter = requireNonNull(getValuesWriter(), "valuesWriter is null");
+        Statistics<?> statistics = requireNonNull(getStatistics(), "statistics is null");
+        boolean mayHaveNull = block.mayHaveNull();
         for (int i = 0; i < block.getPositionCount(); i++) {
-            if (!block.isNull(i)) {
+            if (!mayHaveNull || !block.isNull(i)) {
                 LongTimestamp value = (LongTimestamp) type.getObject(block, i);
                 long epochNanos = multiplyExact(value.getEpochMicros(), NANOSECONDS_PER_MICROSECOND) +
                         LongMath.divide(value.getPicosOfMicro(), PICOSECONDS_PER_NANOSECOND, UNNECESSARY);
-                getValueWriter().writeLong(epochNanos);
-                getStatistics().updateStats(epochNanos);
+                valuesWriter.writeLong(epochNanos);
+                statistics.updateStats(epochNanos);
             }
         }
     }

@@ -13,8 +13,6 @@
  */
 package io.trino.type;
 
-import com.fasterxml.jackson.annotation.JsonValue;
-
 import java.util.Objects;
 
 import static io.trino.client.IntervalDayTime.formatMillis;
@@ -50,10 +48,9 @@ public class SqlIntervalDayTime
             return false;
         }
         SqlIntervalDayTime other = (SqlIntervalDayTime) obj;
-        return Objects.equals(this.milliSeconds, other.milliSeconds);
+        return this.milliSeconds == other.milliSeconds;
     }
 
-    @JsonValue
     @Override
     public String toString()
     {

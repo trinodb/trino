@@ -23,6 +23,8 @@ import java.util.List;
 
 import static io.trino.tests.product.TestGroups.CONFIGURED_FEATURES;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_GCS;
+import static io.trino.tests.product.TestGroups.HIVE_GCS;
+import static io.trino.tests.product.TestGroups.ICEBERG_GCS;
 import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
 
 public class SuiteGcs
@@ -34,6 +36,12 @@ public class SuiteGcs
         return ImmutableList.of(
                 testOnEnvironment(EnvMultinodeGcs.class)
                         .withGroups(DELTA_LAKE_GCS, CONFIGURED_FEATURES)
+                        .build(),
+                testOnEnvironment(EnvMultinodeGcs.class)
+                        .withGroups(ICEBERG_GCS, CONFIGURED_FEATURES)
+                        .build(),
+                testOnEnvironment(EnvMultinodeGcs.class)
+                        .withGroups(HIVE_GCS, CONFIGURED_FEATURES)
                         .build());
     }
 }

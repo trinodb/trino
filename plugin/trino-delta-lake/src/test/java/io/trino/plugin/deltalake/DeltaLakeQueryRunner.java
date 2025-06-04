@@ -19,14 +19,15 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.log.Level;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
+import io.trino.plugin.hive.containers.Hive3MinioDataLake;
 import io.trino.plugin.hive.containers.HiveHadoop;
-import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.containers.Minio;
 import io.trino.tpch.TpchTable;
 
+import java.io.File;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -40,6 +41,7 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
 import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
+import static java.nio.file.Files.createTempDirectory;
 import static java.util.Objects.requireNonNull;
 
 public final class DeltaLakeQueryRunner
@@ -117,7 +119,6 @@ public final class DeltaLakeQueryRunner
         public Builder addS3Properties(Minio minio, String bucketName)
         {
             addDeltaProperties(ImmutableMap.<String, String>builder()
-                    .put("fs.hadoop.enabled", "false")
                     .put("fs.native-s3.enabled", "true")
                     .put("s3.aws-access-key", MINIO_ACCESS_KEY)
                     .put("s3.aws-secret-key", MINIO_SECRET_KEY)
@@ -159,6 +160,11 @@ public final class DeltaLakeQueryRunner
                 if (!deltaProperties.containsKey("hive.metastore") && !deltaProperties.containsKey("hive.metastore.uri")) {
                     deltaProperties.put("hive.metastore", "file");
                 }
+
+                if (deltaProperties.keySet().stream().noneMatch(key ->
+                        key.equals("fs.hadoop.enabled") || key.startsWith("fs.native-"))) {
+                    deltaProperties.put("fs.hadoop.enabled", "true");
+                }
                 queryRunner.createCatalog(DELTA_CATALOG, CONNECTOR_NAME, deltaProperties);
 
                 String schemaName = queryRunner.getDefaultSession().getSchema().orElseThrow();
@@ -186,9 +192,13 @@ public final class DeltaLakeQueryRunner
         public static void main(String[] args)
                 throws Exception
         {
+            File metastoreDir = createTempDirectory("delta_query_runner").toFile();
+            metastoreDir.deleteOnExit();
+
             QueryRunner queryRunner = builder()
-                    .addExtraProperty("http-server.http.port", "8080")
+                    .addCoordinatorProperty("http-server.http.port", "8080")
                     .addDeltaProperty("delta.enable-non-concurrent-writes", "true")
+                    .addDeltaProperty("hive.metastore.catalog.dir", metastoreDir.toURI().toString())
                     .setInitialTables(TpchTable.getTables())
                     .build();
 
@@ -207,10 +217,34 @@ public final class DeltaLakeQueryRunner
         {
             // Please set Delta Lake connector properties via VM options. e.g. -Dhive.metastore=glue -D..
             QueryRunner queryRunner = builder()
-                    .addExtraProperty("http-server.http.port", "8080")
+                    .addCoordinatorProperty("http-server.http.port", "8080")
+                    .addDeltaProperty("hive.metastore", System.getProperty("hive.metastore"))
                     .build();
 
             Logger log = Logger.get(DeltaLakeExternalQueryRunnerMain.class);
+            log.info("======== SERVER STARTED ========");
+            log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
+        }
+    }
+
+    public static final class DeltaLakeSparkQueryRunnerMain
+    {
+        private DeltaLakeSparkQueryRunnerMain() {}
+
+        public static void main(String[] args)
+                throws Exception
+        {
+            String bucketName = "test-bucket";
+            SparkDeltaLake sparkDeltaLake = new SparkDeltaLake(bucketName);
+
+            QueryRunner queryRunner = builder()
+                    .addCoordinatorProperty("http-server.http.port", "8080")
+                    .addMetastoreProperties(sparkDeltaLake.hiveHadoop())
+                    .addS3Properties(sparkDeltaLake.minio(), bucketName)
+                    .addDeltaProperty("delta.enable-non-concurrent-writes", "true")
+                    .build();
+
+            Logger log = Logger.get(DeltaLakeSparkQueryRunnerMain.class);
             log.info("======== SERVER STARTED ========");
             log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
         }
@@ -225,11 +259,11 @@ public final class DeltaLakeQueryRunner
         {
             String bucketName = "test-bucket";
 
-            HiveMinioDataLake hiveMinioDataLake = new HiveMinioDataLake(bucketName);
+            Hive3MinioDataLake hiveMinioDataLake = new Hive3MinioDataLake(bucketName);
             hiveMinioDataLake.start();
 
             QueryRunner queryRunner = builder()
-                    .addExtraProperty("http-server.http.port", "8080")
+                    .addCoordinatorProperty("http-server.http.port", "8080")
                     .addMetastoreProperties(hiveMinioDataLake.getHiveHadoop())
                     .addS3Properties(hiveMinioDataLake.getMinio(), bucketName)
                     .addDeltaProperty("delta.enable-non-concurrent-writes", "true")

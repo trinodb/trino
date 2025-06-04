@@ -16,10 +16,16 @@ package io.trino.filesystem.azure;
 import com.azure.core.exception.AzureException;
 import com.azure.storage.blob.models.BlobErrorCode;
 import com.azure.storage.blob.models.BlobStorageException;
+import com.azure.storage.file.datalake.models.CustomerProvidedKey;
 import com.azure.storage.file.datalake.models.DataLakeStorageException;
+import io.trino.filesystem.TrinoFileSystemException;
+import io.trino.filesystem.encryption.EncryptionKey;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Base64;
 
 final class AzureUtils
 {
@@ -32,7 +38,7 @@ final class AzureUtils
             throw withCause(new FileNotFoundException(location.toString()), exception);
         }
         if (exception instanceof AzureException) {
-            throw new IOException("Azure service error %s file: %s".formatted(action, location), exception);
+            throw new TrinoFileSystemException("Azure service error %s file: %s".formatted(action, location), exception);
         }
         throw new IOException("Error %s file: %s".formatted(action, location), exception);
     }
@@ -52,5 +58,32 @@ final class AzureUtils
     {
         throwable.initCause(cause);
         return throwable;
+    }
+
+    public static CustomerProvidedKey lakeCustomerProvidedKey(EncryptionKey key)
+    {
+        return new CustomerProvidedKey(encodedKey(key));
+    }
+
+    public static com.azure.storage.blob.models.CustomerProvidedKey blobCustomerProvidedKey(EncryptionKey key)
+    {
+        return new com.azure.storage.blob.models.CustomerProvidedKey(encodedKey(key));
+    }
+
+    public static String encodedKey(EncryptionKey key)
+    {
+        return Base64.getEncoder().encodeToString(key.key());
+    }
+
+    public static String keySha256Checksum(EncryptionKey key)
+    {
+        try {
+            MessageDigest sha256 = MessageDigest.getInstance("SHA-256");
+            byte[] hash = sha256.digest(key.key());
+            return Base64.getEncoder().encodeToString(hash);
+        }
+        catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

@@ -31,6 +31,7 @@ import static java.util.Objects.requireNonNull;
 @Immutable
 public final class Input
 {
+    private final Optional<String> connectorName;
     private final String catalogName;
     private final CatalogVersion catalogVersion;
     private final String schema;
@@ -42,6 +43,7 @@ public final class Input
 
     @JsonCreator
     public Input(
+            @JsonProperty("connectorName") Optional<String> connectorName,
             @JsonProperty("catalogName") String catalogName,
             @JsonProperty("catalogVersion") CatalogVersion catalogVersion,
             @JsonProperty("schema") String schema,
@@ -51,6 +53,7 @@ public final class Input
             @JsonProperty("fragmentId") PlanFragmentId fragmentId,
             @JsonProperty("planNodeId") PlanNodeId planNodeId)
     {
+        this.connectorName = requireNonNull(connectorName, "connectorName is null");
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.catalogVersion = requireNonNull(catalogVersion, "catalogVersion is null");
         this.schema = requireNonNull(schema, "schema is null");
@@ -59,6 +62,12 @@ public final class Input
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         this.fragmentId = requireNonNull(fragmentId, "fragmentId is null");
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
+    }
+
+    @JsonProperty
+    public Optional<String> getConnectorName()
+    {
+        return connectorName;
     }
 
     @JsonProperty

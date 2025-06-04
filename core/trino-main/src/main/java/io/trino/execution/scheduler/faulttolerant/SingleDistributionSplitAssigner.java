@@ -31,15 +31,16 @@ import static java.util.Objects.requireNonNull;
 class SingleDistributionSplitAssigner
         implements SplitAssigner
 {
-    private final Set<HostAddress> hostRequirement;
+    private final Optional<HostAddress> hostRequirement;
     private final Set<PlanNodeId> allSources;
 
     private boolean partitionAdded;
     private final Set<PlanNodeId> completedSources = new HashSet<>();
 
-    SingleDistributionSplitAssigner(Set<HostAddress> hostRequirement, Set<PlanNodeId> allSources)
+    SingleDistributionSplitAssigner(Optional<HostAddress> hostRequirement, Set<PlanNodeId> allSources)
     {
-        this.hostRequirement = ImmutableSet.copyOf(requireNonNull(hostRequirement, "hostRequirement is null"));
+        requireNonNull(hostRequirement, "hostRequirement is null");
+        this.hostRequirement = hostRequirement;
         this.allSources = ImmutableSet.copyOf(requireNonNull(allSources, "allSources is null"));
     }
 
@@ -49,7 +50,7 @@ class SingleDistributionSplitAssigner
         AssignmentResult.Builder assignment = AssignmentResult.builder();
         if (!partitionAdded) {
             partitionAdded = true;
-            assignment.addPartition(new Partition(0, new NodeRequirements(Optional.empty(), hostRequirement)));
+            assignment.addPartition(new Partition(0, new NodeRequirements(Optional.empty(), hostRequirement, hostRequirement.isEmpty())));
             assignment.setNoMorePartitions();
         }
         if (!splits.isEmpty()) {
@@ -83,7 +84,7 @@ class SingleDistributionSplitAssigner
         if (!partitionAdded) {
             partitionAdded = true;
             result
-                    .addPartition(new Partition(0, new NodeRequirements(Optional.empty(), hostRequirement)))
+                    .addPartition(new Partition(0, new NodeRequirements(Optional.empty(), hostRequirement, hostRequirement.isEmpty())))
                     .sealPartition(0)
                     .setNoMorePartitions();
         }

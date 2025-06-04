@@ -13,33 +13,36 @@
  */
 package io.trino.plugin.hive.util;
 
+import io.trino.metastore.HiveType;
+import io.trino.metastore.type.Category;
+import io.trino.metastore.type.ListTypeInfo;
+import io.trino.metastore.type.MapTypeInfo;
+import io.trino.metastore.type.StructTypeInfo;
 import io.trino.plugin.hive.HiveTimestampPrecision;
-import io.trino.plugin.hive.HiveType;
-import io.trino.plugin.hive.type.Category;
-import io.trino.plugin.hive.type.ListTypeInfo;
-import io.trino.plugin.hive.type.MapTypeInfo;
-import io.trino.plugin.hive.type.StructTypeInfo;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.plugin.hive.HiveType.HIVE_BOOLEAN;
-import static io.trino.plugin.hive.HiveType.HIVE_BYTE;
-import static io.trino.plugin.hive.HiveType.HIVE_DATE;
-import static io.trino.plugin.hive.HiveType.HIVE_DOUBLE;
-import static io.trino.plugin.hive.HiveType.HIVE_FLOAT;
-import static io.trino.plugin.hive.HiveType.HIVE_INT;
-import static io.trino.plugin.hive.HiveType.HIVE_LONG;
-import static io.trino.plugin.hive.HiveType.HIVE_SHORT;
-import static io.trino.plugin.hive.HiveType.HIVE_TIMESTAMP;
+import static io.trino.metastore.HiveType.HIVE_BOOLEAN;
+import static io.trino.metastore.HiveType.HIVE_BYTE;
+import static io.trino.metastore.HiveType.HIVE_DATE;
+import static io.trino.metastore.HiveType.HIVE_DOUBLE;
+import static io.trino.metastore.HiveType.HIVE_FLOAT;
+import static io.trino.metastore.HiveType.HIVE_INT;
+import static io.trino.metastore.HiveType.HIVE_LONG;
+import static io.trino.metastore.HiveType.HIVE_SHORT;
+import static io.trino.metastore.HiveType.HIVE_TIMESTAMP;
+import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
+import static io.trino.plugin.hive.util.HiveTypeUtil.getType;
+import static io.trino.plugin.hive.util.HiveTypeUtil.getTypeSignature;
 import static io.trino.plugin.hive.util.HiveUtil.extractStructFieldTypes;
 import static java.lang.Math.min;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class HiveCoercionPolicy
@@ -58,8 +61,8 @@ public final class HiveCoercionPolicy
 
     private boolean canCoerce(HiveType fromHiveType, HiveType toHiveType, HiveTimestampPrecision hiveTimestampPrecision)
     {
-        Type fromType = typeManager.getType(fromHiveType.getTypeSignature(hiveTimestampPrecision));
-        Type toType = typeManager.getType(toHiveType.getTypeSignature(hiveTimestampPrecision));
+        Type fromType = typeManager.getType(getTypeSignature(fromHiveType, hiveTimestampPrecision));
+        Type toType = typeManager.getType(getTypeSignature(toHiveType, hiveTimestampPrecision));
         if (fromType instanceof VarcharType) {
             return toType instanceof VarcharType ||
                     toType instanceof CharType ||
@@ -74,7 +77,8 @@ public final class HiveCoercionPolicy
                     toHiveType.equals(HIVE_TIMESTAMP);
         }
         if (fromType instanceof CharType) {
-            return toType instanceof CharType;
+            return toType instanceof CharType ||
+                    toType instanceof VarcharType;
         }
         if (toType instanceof VarcharType) {
             return fromHiveType.equals(HIVE_BOOLEAN) ||
@@ -83,9 +87,11 @@ public final class HiveCoercionPolicy
                     fromHiveType.equals(HIVE_INT) ||
                     fromHiveType.equals(HIVE_LONG) ||
                     fromHiveType.equals(HIVE_TIMESTAMP) ||
+                    fromHiveType.equals(HIVE_FLOAT) ||
                     fromHiveType.equals(HIVE_DOUBLE) ||
                     fromHiveType.equals(HIVE_DATE) ||
-                    fromType instanceof DecimalType;
+                    fromType instanceof DecimalType ||
+                    fromType instanceof VarbinaryType;
         }
         if (toHiveType.equals(HIVE_DATE)) {
             return fromHiveType.equals(HIVE_TIMESTAMP);
@@ -180,7 +186,7 @@ public final class HiveCoercionPolicy
 
     private static HiveType convertUnionToStruct(HiveType unionType, TypeManager typeManager, HiveTimestampPrecision hiveTimestampPrecision)
     {
-        checkArgument(unionType.getCategory() == Category.UNION, format("Can only convert union type to struct type, given type: %s", unionType.getTypeSignature(hiveTimestampPrecision)));
-        return HiveType.toHiveType(unionType.getType(typeManager, hiveTimestampPrecision));
+        checkArgument(unionType.getCategory() == Category.UNION, "Can only convert union type to struct type, given type: %s", getTypeSignature(unionType, hiveTimestampPrecision));
+        return toHiveType(getType(unionType, typeManager, hiveTimestampPrecision));
     }
 }

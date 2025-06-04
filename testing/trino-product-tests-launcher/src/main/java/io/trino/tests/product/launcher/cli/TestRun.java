@@ -53,6 +53,7 @@ import java.util.concurrent.Callable;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.testing.SystemEnvironmentUtils.isEnvSet;
 import static io.trino.tests.product.launcher.env.DockerContainer.cleanOrCreateHostPath;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.trino.tests.product.launcher.env.EnvironmentListener.getStandardListeners;
@@ -155,6 +156,7 @@ public final class TestRun
         private final EnvironmentFactory environmentFactory;
         private final boolean debug;
         private final boolean debugSuspend;
+        private final boolean ipv6;
         private final JdkProvider jdkProvider;
         private final File testJar;
         private final File cliJar;
@@ -185,6 +187,7 @@ public final class TestRun
             this.environmentFactory = requireNonNull(environmentFactory, "environmentFactory is null");
             requireNonNull(environmentOptions, "environmentOptions is null");
             this.debug = environmentOptions.debug;
+            this.ipv6 = environmentOptions.ipv6;
             this.debugSuspend = testRunOptions.debugSuspend;
             this.jdkProvider = requireNonNull(jdkProvider, "jdkProvider is null");
             this.testJar = requireNonNull(testRunOptions.testJar, "testRunOptions.testJar is null");
@@ -234,7 +237,7 @@ public final class TestRun
                 log.info("Tests execution completed with code %d", exitCode);
                 return exitCode;
             }
-            catch (TimeoutExceededException ignored) {
+            catch (TimeoutExceededException _) {
                 log.error("Test execution exceeded timeout of %s", timeout);
             }
             catch (Throwable e) {
@@ -305,7 +308,7 @@ public final class TestRun
                         .collect(toImmutableList());
                 testsContainer.dependsOn(environmentContainers);
 
-                log.info("Starting environment '%s' with config '%s' and options '%s'. Trino will be started using JAVA_HOME: %s.", this.environment, environmentConfig.getConfigName(), extraOptions, jdkProvider.getJavaHome());
+                log.info("Starting environment '%s' with config '%s' and options '%s'.", this.environment, environmentConfig.getConfigName(), extraOptions);
                 environment.start();
             }
             else {
@@ -322,7 +325,8 @@ public final class TestRun
             Environment.Builder builder = environmentFactory.get(environment, printStream, environmentConfig, extraOptions)
                     .setContainerOutputMode(outputMode)
                     .setStartupRetries(startupRetries)
-                    .setLogsBaseDir(logsDirBase);
+                    .setLogsBaseDir(logsDirBase)
+                    .setIpv6(ipv6);
 
             builder.configureContainer(TESTS, this::mountReportsDir);
             builder.configureContainer(TESTS, container -> {
@@ -335,7 +339,7 @@ public final class TestRun
                     unsafelyExposePort(container, 5007); // debug port
                 }
 
-                if (System.getenv("CONTINUOUS_INTEGRATION") != null) {
+                if (isEnvSet("CONTINUOUS_INTEGRATION")) {
                     container.withEnv("CONTINUOUS_INTEGRATION", "true");
                 }
 
@@ -344,17 +348,12 @@ public final class TestRun
                         // the test jar is hundreds MB and file system bind is much more efficient
                         .withFileSystemBind(testJar.getPath(), "/docker/test.jar", READ_ONLY)
                         .withFileSystemBind(cliJar.getPath(), "/docker/trino-cli", READ_ONLY)
-                        .withCopyFileToContainer(forClasspathResource("docker/presto-product-tests/common/standard/set-trino-cli.sh"), "/etc/profile.d/set-trino-cli.sh")
-                        .withEnv("JAVA_HOME", jdkProvider.getJavaHome())
+                        .withCopyFileToContainer(forClasspathResource("docker/trino-product-tests/common/standard/set-trino-cli.sh"), "/etc/profile.d/set-trino-cli.sh")
                         .withCommand(ImmutableList.<String>builder()
                                 .add(
-                                        jdkProvider.getJavaCommand(),
+                                        jdkProvider.getJavaHome() + "/bin/java",
                                         "-Xmx1g",
-                                        // Force Parallel GC to ensure MaxHeapFreeRatio is respected
-                                        "-XX:+UseParallelGC",
-                                        "-XX:MinHeapFreeRatio=10",
-                                        "-XX:MaxHeapFreeRatio=50",
-                                        "-Djava.util.logging.config.file=/docker/presto-product-tests/conf/tempto/logging.properties",
+                                        "-Djava.util.logging.config.file=/docker/trino-product-tests/conf/tempto/logging.properties",
                                         "-Duser.timezone=Asia/Kathmandu",
                                         // Tempto has progress logging built in
                                         "-DProgressLoggingListener.enabled=false")
@@ -363,7 +362,7 @@ public final class TestRun
                                         "-jar", "/docker/test.jar",
                                         "--config", String.join(",", ImmutableList.<String>builder()
                                                 .add("tempto-configuration.yaml") // this comes from classpath
-                                                .add("/docker/presto-product-tests/conf/tempto/tempto-configuration-for-docker-default.yaml")
+                                                .add("/docker/trino-product-tests/conf/tempto/tempto-configuration-for-docker-default.yaml")
                                                 .add(CONTAINER_TEMPTO_PROFILE_CONFIG)
                                                 .add(environmentConfig.getTemptoEnvironmentConfigFile())
                                                 .add(container.getEnvMap().getOrDefault("TEMPTO_CONFIG_FILES", "/dev/null"))

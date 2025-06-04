@@ -13,22 +13,10 @@
  */
 package io.trino.sql.tree;
 
-import java.util.Optional;
-
 public class ZeroOrOneQuantifier
         extends PatternQuantifier
 {
-    public ZeroOrOneQuantifier(boolean greedy)
-    {
-        this(Optional.empty(), greedy);
-    }
-
     public ZeroOrOneQuantifier(NodeLocation location, boolean greedy)
-    {
-        this(Optional.of(location), greedy);
-    }
-
-    public ZeroOrOneQuantifier(Optional<NodeLocation> location, boolean greedy)
     {
         super(location, greedy);
     }

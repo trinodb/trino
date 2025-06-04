@@ -41,7 +41,8 @@ public class TestIcebergNessieCatalogConfig
                 .setConnectionTimeout(new Duration(DEFAULT_CONNECT_TIMEOUT_MILLIS, MILLISECONDS))
                 .setReadTimeout(new Duration(DEFAULT_READ_TIMEOUT_MILLIS, MILLISECONDS))
                 .setSecurity(null)
-                .setBearerToken(null));
+                .setBearerToken(null)
+                .setClientAPIVersion(null));
     }
 
     @Test
@@ -49,24 +50,26 @@ public class TestIcebergNessieCatalogConfig
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("iceberg.nessie-catalog.default-warehouse-dir", "/tmp")
-                .put("iceberg.nessie-catalog.uri", "http://localhost:xxx/api/v1")
+                .put("iceberg.nessie-catalog.uri", "http://localhost:xxx/api/custom")
                 .put("iceberg.nessie-catalog.ref", "someRef")
                 .put("iceberg.nessie-catalog.enable-compression", "false")
                 .put("iceberg.nessie-catalog.connection-timeout", "2s")
                 .put("iceberg.nessie-catalog.read-timeout", "5m")
                 .put("iceberg.nessie-catalog.authentication.type", "BEARER")
                 .put("iceberg.nessie-catalog.authentication.token", "bearerToken")
+                .put("iceberg.nessie-catalog.client-api-version", "V1")
                 .buildOrThrow();
 
         IcebergNessieCatalogConfig expected = new IcebergNessieCatalogConfig()
                 .setDefaultWarehouseDir("/tmp")
-                .setServerUri(URI.create("http://localhost:xxx/api/v1"))
+                .setServerUri(URI.create("http://localhost:xxx/api/custom"))
                 .setDefaultReferenceName("someRef")
                 .setCompressionEnabled(false)
                 .setConnectionTimeout(new Duration(2, TimeUnit.SECONDS))
                 .setReadTimeout(new Duration(5, TimeUnit.MINUTES))
                 .setSecurity(IcebergNessieCatalogConfig.Security.BEARER)
-                .setBearerToken("bearerToken");
+                .setBearerToken("bearerToken")
+                .setClientAPIVersion(IcebergNessieCatalogConfig.ClientApiVersion.V1);
 
         assertFullMapping(properties, expected);
     }

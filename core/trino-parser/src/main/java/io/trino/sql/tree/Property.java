@@ -33,6 +33,7 @@ public class Property
     /**
      * Constructs an instance representing a property whose value is set to DEFAULT
      */
+    @Deprecated
     public Property(Identifier name)
     {
         this(Optional.empty(), name, Optional.empty());
@@ -46,6 +47,7 @@ public class Property
         this(Optional.of(requireNonNull(location, "location is null")), name, Optional.empty());
     }
 
+    @Deprecated
     public Property(Identifier name, Expression value)
     {
         this(Optional.empty(), name, Optional.of(requireNonNull(value, "value is null")));

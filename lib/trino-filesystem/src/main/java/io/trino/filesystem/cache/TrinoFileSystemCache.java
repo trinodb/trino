@@ -19,6 +19,7 @@ import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoInputStream;
 
 import java.io.IOException;
+import java.util.Collection;
 
 public interface TrinoFileSystemCache
 {
@@ -35,8 +36,20 @@ public interface TrinoFileSystemCache
             throws IOException;
 
     /**
+     * Get the length of the TrinoInputFile, potentially using or updating the data cached at key.
+     */
+    long cacheLength(TrinoInputFile delegate, String key)
+            throws IOException;
+
+    /**
      * Give a hint to the cache that the cache entry for location should be expired.
      */
     void expire(Location location)
+            throws IOException;
+
+    /**
+     * Give a hint to the cache that the cache entry for locations should be expired.
+     */
+    void expire(Collection<Location> locations)
             throws IOException;
 }

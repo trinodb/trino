@@ -68,28 +68,30 @@ public class TestOpaAccessControlFiltering
         assertThat(result).containsExactly(userOne);
 
         Set<String> expectedRequests = ImmutableSet.<String>builder()
-                .add("""
-                    {
-                        "operation": "FilterViewQueryOwnedBy",
-                        "resource": {
-                            "user": {
-                                "user": "user-one",
-                                "groups": []
+                .add(
+                        """
+                        {
+                            "operation": "FilterViewQueryOwnedBy",
+                            "resource": {
+                                "user": {
+                                    "user": "user-one",
+                                    "groups": []
+                                }
                             }
                         }
-                    }
-                    """)
-                .add("""
-                    {
-                        "operation": "FilterViewQueryOwnedBy",
-                        "resource": {
-                            "user": {
-                                "user": "user-two",
-                                "groups": []
+                        """)
+                .add(
+                        """
+                        {
+                            "operation": "FilterViewQueryOwnedBy",
+                            "resource": {
+                                "user": {
+                                    "user": "user-two",
+                                    "groups": []
+                                }
                             }
                         }
-                    }
-                    """)
+                        """)
                 .build();
         assertStringRequestsEqual(expectedRequests, mockClient.getRequests(), "/input/action");
     }
@@ -113,26 +115,28 @@ public class TestOpaAccessControlFiltering
         assertThat(result).containsExactly("catalog_two");
 
         Set<String> expectedRequests = ImmutableSet.<String>builder()
-                .add("""
-                    {
-                        "operation": "FilterCatalogs",
-                        "resource": {
-                            "catalog": {
-                                "name": "catalog_one"
+                .add(
+                        """
+                        {
+                            "operation": "FilterCatalogs",
+                            "resource": {
+                                "catalog": {
+                                    "name": "catalog_one"
+                                }
                             }
                         }
-                    }
-                    """)
-                .add("""
-                    {
-                        "operation": "FilterCatalogs",
-                        "resource": {
-                            "catalog": {
-                                "name": "catalog_two"
+                        """)
+                .add(
+                        """
+                        {
+                            "operation": "FilterCatalogs",
+                            "resource": {
+                                "catalog": {
+                                    "name": "catalog_two"
+                                }
                             }
                         }
-                    }
-                    """)
+                        """)
                 .build();
         assertStringRequestsEqual(expectedRequests, mockClient.getRequests(), "/input/action");
     }
@@ -157,17 +161,18 @@ public class TestOpaAccessControlFiltering
         assertThat(result).containsExactly("schema_one");
 
         Set<String> expectedRequests = requestedSchemas.stream()
-                .map("""
-                    {
-                        "operation": "FilterSchemas",
-                        "resource": {
-                            "schema": {
-                                "schemaName": "%s",
-                                "catalogName": "my_catalog"
+                .map(
+                        """
+                        {
+                            "operation": "FilterSchemas",
+                            "resource": {
+                                "schema": {
+                                    "schemaName": "%s",
+                                    "catalogName": "my_catalog"
+                                }
                             }
                         }
-                    }
-                    """::formatted)
+                        """::formatted)
                 .collect(toImmutableSet());
         assertStringRequestsEqual(expectedRequests, mockClient.getRequests(), "/input/action");
     }
@@ -196,17 +201,17 @@ public class TestOpaAccessControlFiltering
 
         Set<String> expectedRequests = tables.stream()
                 .map(table -> """
-                    {
-                        "operation": "FilterTables",
-                        "resource": {
-                            "table": {
-                                "tableName": "%s",
-                                "schemaName": "%s",
-                                "catalogName": "my_catalog"
-                            }
-                        }
-                    }
-                    """.formatted(table.getTableName(), table.getSchemaName()))
+                              {
+                                  "operation": "FilterTables",
+                                  "resource": {
+                                      "table": {
+                                          "tableName": "%s",
+                                          "schemaName": "%s",
+                                          "catalogName": "my_catalog"
+                                      }
+                                  }
+                              }
+                              """.formatted(table.getTableName(), table.getSchemaName()))
                 .collect(toImmutableSet());
         assertStringRequestsEqual(expectedRequests, mockClient.getRequests(), "/input/action");
     }
@@ -253,7 +258,8 @@ public class TestOpaAccessControlFiltering
         Set<String> expectedRequests = requestedColumns.entrySet().stream()
                 .<String>mapMulti(
                         (requestedColumnsForTable, accepter) -> requestedColumnsForTable.getValue().forEach(
-                                column -> accepter.accept("""
+                                column -> accepter.accept(
+                                        """
                                         {
                                             "operation": "FilterColumns",
                                             "resource": {
@@ -299,16 +305,17 @@ public class TestOpaAccessControlFiltering
 
         Set<String> expectedRequests = requestedFunctions.stream()
                 .map(function -> """
-                    {
-                        "operation": "FilterFunctions",
-                        "resource": {
-                            "function": {
-                                "catalogName": "my_catalog",
-                                "schemaName": "%s",
-                                "functionName": "%s"
-                            }
-                        }
-                    }""".formatted(function.getSchemaName(), function.getFunctionName()))
+                                 {
+                                     "operation": "FilterFunctions",
+                                     "resource": {
+                                         "function": {
+                                             "catalogName": "my_catalog",
+                                             "schemaName": "%s",
+                                             "functionName": "%s"
+                                         }
+                                     }
+                                 }\
+                                 """.formatted(function.getSchemaName(), function.getFunctionName()))
                 .collect(toImmutableSet());
         assertStringRequestsEqual(expectedRequests, mockClient.getRequests(), "/input/action");
     }

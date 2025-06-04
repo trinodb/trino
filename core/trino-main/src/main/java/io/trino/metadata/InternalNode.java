@@ -13,6 +13,7 @@
  */
 package io.trino.metadata;
 
+import io.airlift.slice.XxHash64;
 import io.trino.client.NodeVersion;
 import io.trino.spi.HostAddress;
 import io.trino.spi.Node;
@@ -20,12 +21,14 @@ import io.trino.spi.Node;
 import java.net.InetAddress;
 import java.net.URI;
 import java.net.UnknownHostException;
+import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.airlift.node.AddressToHostname.tryDecodeHostnameToAddress;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -38,6 +41,7 @@ public class InternalNode
     private final URI internalUri;
     private final NodeVersion nodeVersion;
     private final boolean coordinator;
+    private final long longHashCode;
 
     public InternalNode(String nodeIdentifier, URI internalUri, NodeVersion nodeVersion, boolean coordinator)
     {
@@ -46,6 +50,11 @@ public class InternalNode
         this.internalUri = requireNonNull(internalUri, "internalUri is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.coordinator = coordinator;
+        this.longHashCode = new XxHash64(coordinator ? 1 : 0)
+                .update(nodeIdentifier.getBytes(UTF_8))
+                .update(internalUri.toString().getBytes(UTF_8))
+                .update(nodeVersion.getVersion().getBytes(UTF_8))
+                .hash();
     }
 
     @Override
@@ -108,13 +117,21 @@ public class InternalNode
             return false;
         }
         InternalNode o = (InternalNode) obj;
-        return nodeIdentifier.equals(o.nodeIdentifier);
+        return coordinator == o.coordinator &&
+                Objects.equals(nodeIdentifier, o.nodeIdentifier) &&
+                Objects.equals(internalUri, o.internalUri) &&
+                Objects.equals(nodeVersion, o.nodeVersion);
+    }
+
+    public long longHashCode()
+    {
+        return longHashCode;
     }
 
     @Override
     public int hashCode()
     {
-        return nodeIdentifier.hashCode();
+        return (int) longHashCode;
     }
 
     @Override
@@ -124,6 +141,7 @@ public class InternalNode
                 .add("nodeIdentifier", nodeIdentifier)
                 .add("internalUri", internalUri)
                 .add("nodeVersion", nodeVersion)
+                .add("coordinator", coordinator)
                 .toString();
     }
 }

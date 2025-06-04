@@ -58,14 +58,19 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.deltalake.DeltaLakeAnalyzeProperties.AnalyzeMode.FULL_REFRESH;
-import static io.trino.plugin.deltalake.DeltaLakeColumnHandle.pathColumnHandle;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.createStatisticsPredicate;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getDynamicFilteringWaitTimeout;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getMaxSplitSize;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.deserializePartitionValue;
+import static io.trino.plugin.deltalake.util.DeltaLakeDomains.fileModifiedTimeMatchesPredicate;
+import static io.trino.plugin.deltalake.util.DeltaLakeDomains.fileSizeMatchesPredicate;
+import static io.trino.plugin.deltalake.util.DeltaLakeDomains.getFileModifiedTimeDomain;
+import static io.trino.plugin.deltalake.util.DeltaLakeDomains.getFileSizeDomain;
+import static io.trino.plugin.deltalake.util.DeltaLakeDomains.getPathDomain;
+import static io.trino.plugin.deltalake.util.DeltaLakeDomains.partitionMatchesPredicate;
+import static io.trino.plugin.deltalake.util.DeltaLakeDomains.pathMatchesPredicate;
 import static io.trino.spi.connector.FixedSplitSource.emptySplitSource;
 import static java.lang.Math.clamp;
 import static java.util.Objects.requireNonNull;
@@ -88,7 +93,7 @@ public class DeltaLakeSplitManager
     public DeltaLakeSplitManager(
             TypeManager typeManager,
             TransactionLogAccess transactionLogAccess,
-            ExecutorService executor,
+            @ForDeltaLakeSplitManager ExecutorService executor,
             DeltaLakeConfig config,
             TrinoFileSystemFactory fileSystemFactory,
             DeltaLakeTransactionManager deltaLakeTransactionManager,
@@ -163,14 +168,16 @@ public class DeltaLakeSplitManager
         TupleDomain<DeltaLakeColumnHandle> enforcedPartitionConstraint = tableHandle.getEnforcedPartitionConstraint();
         TupleDomain<DeltaLakeColumnHandle> nonPartitionConstraint = tableHandle.getNonPartitionConstraint();
         Domain pathDomain = getPathDomain(nonPartitionConstraint);
+        Domain fileModifiedDomain = getFileModifiedTimeDomain(nonPartitionConstraint);
+        Domain fileSizeDomain = getFileSizeDomain(nonPartitionConstraint);
 
         boolean splittable =
                 // Delta Lake handles updates and deletes by copying entire data files, minus updates/deletes. Because of this we can only have one Split/UpdatablePageSource
-                // per file. TODO (https://github.com/trinodb/trino/issues/17063) use deletion vectors instead of copy-on-write and remove DeltaLakeTableHandle.writeType
+                // per file. TODO The connector already supports deletion vectors. Update this condition.
                 tableHandle.getWriteType().isEmpty() &&
                         // When only partitioning columns projected, there is no point splitting the files
                         mayAnyDataColumnProjected(tableHandle);
-        Optional<Instant> filesModifiedAfter = tableHandle.getAnalyzeHandle().flatMap(AnalyzeHandle::getFilesModifiedAfter);
+        Optional<Instant> filesModifiedAfter = tableHandle.getAnalyzeHandle().flatMap(AnalyzeHandle::filesModifiedAfter);
         Optional<Long> maxScannedFileSizeInBytes = maxScannedFileSize.map(DataSize::toBytes);
 
         MetadataEntry metadataEntry = tableHandle.getMetadataEntry();
@@ -184,7 +191,7 @@ public class DeltaLakeSplitManager
                         nonPartitionConstraint.getDomains().orElseThrow().keySet().stream(),
                         columnsCoveredByDynamicFilter.stream()
                                 .map(DeltaLakeColumnHandle.class::cast))
-                .map(DeltaLakeColumnHandle::getBaseColumnName)
+                .map(DeltaLakeColumnHandle::baseColumnName)
                 .collect(toImmutableSet());
         List<DeltaLakeColumnMetadata> schema = extractSchema(metadataEntry, tableHandle.getProtocolEntry(), typeManager);
         List<DeltaLakeColumnMetadata> predicatedColumns = schema.stream()
@@ -193,7 +200,7 @@ public class DeltaLakeSplitManager
         return validDataFiles
                 .flatMap(addAction -> {
                     if (tableHandle.getAnalyzeHandle().isPresent() &&
-                            !(tableHandle.getAnalyzeHandle().get().getAnalyzeMode() == FULL_REFRESH) && !addAction.isDataChange()) {
+                            !(tableHandle.getAnalyzeHandle().get().analyzeMode() == FULL_REFRESH) && !addAction.isDataChange()) {
                         // skip files which do not introduce data change on non FULL REFRESH
                         return Stream.empty();
                     }
@@ -207,7 +214,15 @@ public class DeltaLakeSplitManager
                         return Stream.empty();
                     }
 
+                    if (!fileModifiedTimeMatchesPredicate(fileModifiedDomain, addAction.getModificationTime())) {
+                        return Stream.empty();
+                    }
+
                     if (addAction.getDeletionVector().isEmpty() && maxScannedFileSizeInBytes.isPresent() && addAction.getSize() > maxScannedFileSizeInBytes.get()) {
+                        return Stream.empty();
+                    }
+
+                    if (!fileSizeMatchesPredicate(fileSizeDomain, addAction.getSize())) {
                         return Stream.empty();
                     }
 
@@ -228,10 +243,10 @@ public class DeltaLakeSplitManager
                         Map<String, Optional<String>> partitionValues = addAction.getCanonicalPartitionValues();
                         Map<ColumnHandle, NullableValue> deserializedValues = constraint.getPredicateColumns().orElseThrow().stream()
                                 .map(DeltaLakeColumnHandle.class::cast)
-                                .filter(column -> column.isBaseColumn() && partitionValues.containsKey(column.getBaseColumnName()))
+                                .filter(column -> column.isBaseColumn() && partitionValues.containsKey(column.baseColumnName()))
                                 .collect(toImmutableMap(identity(), column -> new NullableValue(
-                                        column.getBaseType(),
-                                        deserializePartitionValue(column, partitionValues.get(column.getBaseColumnName())))));
+                                        column.baseType(),
+                                        deserializePartitionValue(column, partitionValues.get(column.baseColumnName())))));
                         if (!constraint.predicate().get().test(deserializedValues)) {
                             return Stream.empty();
                         }
@@ -277,32 +292,8 @@ public class DeltaLakeSplitManager
             return true;
         }
         return tableHandle.getProjectedColumns().get().stream()
-                .map(DeltaLakeColumnHandle::getColumnType)
+                .map(DeltaLakeColumnHandle::columnType)
                 .anyMatch(DeltaLakeColumnType.REGULAR::equals);
-    }
-
-    public static boolean partitionMatchesPredicate(Map<String, Optional<String>> partitionKeys, Map<DeltaLakeColumnHandle, Domain> domains)
-    {
-        for (Map.Entry<DeltaLakeColumnHandle, Domain> enforcedDomainsEntry : domains.entrySet()) {
-            DeltaLakeColumnHandle partitionColumn = enforcedDomainsEntry.getKey();
-            Domain partitionDomain = enforcedDomainsEntry.getValue();
-            if (!partitionDomain.includesNullableValue(deserializePartitionValue(partitionColumn, partitionKeys.get(partitionColumn.getBasePhysicalColumnName())))) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private static Domain getPathDomain(TupleDomain<DeltaLakeColumnHandle> effectivePredicate)
-    {
-        return effectivePredicate.getDomains()
-                .flatMap(domains -> Optional.ofNullable(domains.get(pathColumnHandle())))
-                .orElseGet(() -> Domain.all(pathColumnHandle().getBaseType()));
-    }
-
-    private static boolean pathMatchesPredicate(Domain pathDomain, String path)
-    {
-        return pathDomain.includesNullableValue(utf8Slice(path));
     }
 
     private List<DeltaLakeSplit> splitsForFile(

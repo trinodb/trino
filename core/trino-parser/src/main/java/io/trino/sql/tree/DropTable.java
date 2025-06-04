@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
@@ -27,17 +26,7 @@ public class DropTable
     private final QualifiedName tableName;
     private final boolean exists;
 
-    public DropTable(QualifiedName tableName, boolean exists)
-    {
-        this(Optional.empty(), tableName, exists);
-    }
-
     public DropTable(NodeLocation location, QualifiedName tableName, boolean exists)
-    {
-        this(Optional.of(location), tableName, exists);
-    }
-
-    private DropTable(Optional<NodeLocation> location, QualifiedName tableName, boolean exists)
     {
         super(location);
         this.tableName = tableName;

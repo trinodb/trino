@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -28,17 +27,7 @@ public final class RenameView
     private final QualifiedName source;
     private final QualifiedName target;
 
-    public RenameView(QualifiedName source, QualifiedName target)
-    {
-        this(Optional.empty(), source, target);
-    }
-
     public RenameView(NodeLocation location, QualifiedName source, QualifiedName target)
-    {
-        this(Optional.of(location), source, target);
-    }
-
-    private RenameView(Optional<NodeLocation> location, QualifiedName source, QualifiedName target)
     {
         super(location);
         this.source = requireNonNull(source, "source name is null");

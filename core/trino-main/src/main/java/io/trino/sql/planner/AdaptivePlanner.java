@@ -91,6 +91,7 @@ public class AdaptivePlanner
     private final WarningCollector warningCollector;
     private final PlanOptimizersStatsCollector planOptimizersStatsCollector;
     private final CachingTableStatsProvider tableStatsProvider;
+    private final Set<PlanNodeId> cummulativeChangedPlanNodes = new HashSet<>();
 
     public AdaptivePlanner(
             Session session,
@@ -129,7 +130,7 @@ public class AdaptivePlanner
 
         // rewrite remote source nodes to exchange nodes, except for fragments which are finisher or whose stats are
         // estimated by progress.
-        ReplaceUnchangedFragmentsWithRemoteSourcesRewriter rewriter = new ReplaceUnchangedFragmentsWithRemoteSourcesRewriter(runtimeInfoProvider);
+        ReplaceRemoteSourcesWithExchanges rewriter = new ReplaceRemoteSourcesWithExchanges(runtimeInfoProvider);
         PlanNode currentAdaptivePlan = rewriteWith(rewriter, root.getFragment().getRoot(), root.getChildren());
 
         // Remove the adaptive plan node and replace it with initial plan
@@ -140,7 +141,7 @@ public class AdaptivePlanner
         // Collect the sub plans for each remote exchange and remote source node. We will use this map during
         // re-fragmentation as a cache for all unchanged sub plans.
         ExchangeSourceIdToSubPlanCollector exchangeSourceIdToSubPlanCollector = new ExchangeSourceIdToSubPlanCollector();
-        currentPlan.accept(exchangeSourceIdToSubPlanCollector, subPlans);
+        currentAdaptivePlan.accept(exchangeSourceIdToSubPlanCollector, subPlans);
         Map<ExchangeSourceId, SubPlan> exchangeSourceIdToSubPlan = exchangeSourceIdToSubPlanCollector.getExchangeSourceIdToSubPlan();
 
         // optimize the current plan
@@ -152,10 +153,11 @@ public class AdaptivePlanner
             return root;
         }
 
+        this.cummulativeChangedPlanNodes.addAll(optimizationResult.changedPlanNodes());
         // Add the adaptive plan node recursively where initialPlan remain as it is and optimizedPlan as new currentPlan
-        PlanNode adaptivePlan = addAdaptivePlanNode(idAllocator, initialPlan, optimizationResult.plan(), optimizationResult.changedPlanNodes());
+        PlanNode adaptivePlan = addAdaptivePlanNode(idAllocator, initialPlan, optimizationResult.plan(), cummulativeChangedPlanNodes);
         // validate the adaptive plan
-        try (var ignored = scopedSpan(plannerContext.getTracer(), "validate-adaptive-plan")) {
+        try (var _ = scopedSpan(plannerContext.getTracer(), "validate-adaptive-plan")) {
             planSanityChecker.validateAdaptivePlan(adaptivePlan, session, plannerContext, warningCollector);
         }
 
@@ -255,7 +257,7 @@ public class AdaptivePlanner
         return upstreamNodes;
     }
 
-    private PlanNode getCurrentPlan(PlanNode node)
+    public static PlanNode getCurrentPlan(PlanNode node)
     {
         return rewriteWith(new CurrentPlanRewriter(), node);
     }
@@ -306,12 +308,12 @@ public class AdaptivePlanner
         return StreamSupport.stream(iterable.spliterator(), false);
     }
 
-    private static class ReplaceUnchangedFragmentsWithRemoteSourcesRewriter
+    private static class ReplaceRemoteSourcesWithExchanges
             extends SimplePlanRewriter<List<SubPlan>>
     {
         private final RuntimeInfoProvider runtimeInfoProvider;
 
-        private ReplaceUnchangedFragmentsWithRemoteSourcesRewriter(RuntimeInfoProvider runtimeInfoProvider)
+        private ReplaceRemoteSourcesWithExchanges(RuntimeInfoProvider runtimeInfoProvider)
         {
             this.runtimeInfoProvider = requireNonNull(runtimeInfoProvider, "runtimeInfoProvider is null");
         }
@@ -348,18 +350,24 @@ public class AdaptivePlanner
             }
 
             List<PlanNode> sourceNodes = sourceNodesBuilder.build();
-            List<List<Symbol>> inputs = sourceNodes.stream().map(PlanNode::getOutputSymbols).collect(toImmutableList());
-            PartitioningScheme partitioningScheme = node.getSourceFragmentIds().stream()
+
+            // Find the input symbols for the exchange node
+            List<PartitioningScheme> outputPartitioningSchemes = node.getSourceFragmentIds().stream()
                     .map(runtimeInfoProvider::getPlanFragment)
                     .map(PlanFragment::getOutputPartitioningScheme)
-                    .findFirst()
-                    .orElseThrow();
+                    .collect(toImmutableList());
+            verify(outputPartitioningSchemes.size() == sourceNodes.size(), "Output partitioning schemes size does not match source nodes size");
+            List<List<Symbol>> inputs = outputPartitioningSchemes.stream()
+                    .map(PartitioningScheme::getOutputLayout)
+                    .collect(toImmutableList());
 
             return new ExchangeNode(
                     node.getId(),
                     node.getExchangeType(),
                     REMOTE,
-                    partitioningScheme,
+                    // We need to translate the output layout of the partitioning scheme to the output layout
+                    // of the RemoteSourceNode.
+                    outputPartitioningSchemes.getFirst().translateOutputLayout(node.getOutputSymbols()),
                     sourceNodes,
                     inputs,
                     node.getOrderingScheme());
@@ -383,13 +391,19 @@ public class AdaptivePlanner
             }
 
             // Find the sub plans for this exchange node
-            List<PlanNodeId> sourceIds = node.getSources().stream().map(PlanNode::getId).collect(toImmutableList());
+            Set<PlanNodeId> sourceIds = node.getSources().stream().map(PlanNode::getId).collect(toImmutableSet());
             List<SubPlan> sourceSubPlans = context.stream()
                     .filter(subPlan -> sourceIds.contains(subPlan.getFragment().getRoot().getId()))
                     .collect(toImmutableList());
-            verify(
-                    sourceSubPlans.size() == sourceIds.size(),
-                    "Source subPlans not found for exchange node");
+
+            if (sourceSubPlans.size() != sourceIds.size()) {
+                throw new IllegalStateException(
+                        String.format("Source subPlans not found for exchange node %s; sourceIds: %s; filteredSubPlans: %s; allSubPlans: %s",
+                                node.getId(),
+                                sourceIds,
+                                sourceSubPlans.stream().map(subPlan -> subPlan.getFragment().getId() + "->" + subPlan.getFragment().getRoot().getId()).collect(toImmutableList()),
+                                context.stream().map(subPlan -> subPlan.getFragment().getId() + "->" + subPlan.getFragment().getRoot().getId()).collect(toImmutableList())));
+            }
 
             for (SubPlan sourceSubPlan : sourceSubPlans) {
                 PlanNodeId sourceId = sourceSubPlan.getFragment().getRoot().getId();

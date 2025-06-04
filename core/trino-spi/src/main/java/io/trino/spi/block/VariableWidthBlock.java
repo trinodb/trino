@@ -19,7 +19,6 @@ import io.airlift.slice.Slices;
 import jakarta.annotation.Nullable;
 
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
 import static io.airlift.slice.SizeOf.instanceSize;
@@ -119,12 +118,6 @@ public final class VariableWidthBlock
     }
 
     @Override
-    public OptionalInt fixedSizeInBytesPerPosition()
-    {
-        return OptionalInt.empty(); // size varies per element and is not fixed
-    }
-
-    @Override
     public long getSizeInBytes()
     {
         return sizeInBytes;
@@ -134,24 +127,6 @@ public final class VariableWidthBlock
     public long getRegionSizeInBytes(int position, int length)
     {
         return offsets[arrayOffset + position + length] - offsets[arrayOffset + position] + ((Integer.BYTES + Byte.BYTES) * (long) length);
-    }
-
-    @Override
-    public long getPositionsSizeInBytes(boolean[] positions, int selectedPositionsCount)
-    {
-        if (selectedPositionsCount == 0) {
-            return 0;
-        }
-        if (selectedPositionsCount == positionCount) {
-            return getSizeInBytes();
-        }
-        long sizeInBytes = 0;
-        for (int i = 0; i < positions.length; ++i) {
-            if (positions[i]) {
-                sizeInBytes += offsets[arrayOffset + i + 1] - offsets[arrayOffset + i];
-            }
-        }
-        return sizeInBytes + (Integer.BYTES + Byte.BYTES) * (long) selectedPositionsCount;
     }
 
     @Override
@@ -189,6 +164,20 @@ public final class VariableWidthBlock
     public boolean mayHaveNull()
     {
         return valueIsNull != null;
+    }
+
+    @Override
+    public boolean hasNull()
+    {
+        if (valueIsNull == null) {
+            return false;
+        }
+        for (int i = 0; i < positionCount; i++) {
+            if (valueIsNull[i + arrayOffset]) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override
@@ -282,12 +271,6 @@ public final class VariableWidthBlock
     }
 
     @Override
-    public String getEncodingName()
-    {
-        return VariableWidthBlockEncoding.NAME;
-    }
-
-    @Override
     public VariableWidthBlock copyWithAppendedNull()
     {
         boolean[] newValueIsNull = copyIsNullAndAppendNull(valueIsNull, arrayOffset, positionCount);
@@ -321,5 +304,11 @@ public final class VariableWidthBlock
     public String toString()
     {
         return "VariableWidthBlock{positionCount=" + getPositionCount() + ", slice=" + slice + '}';
+    }
+
+    @Override
+    public Optional<ByteArrayBlock> getNulls()
+    {
+        return BlockUtil.getNulls(valueIsNull, arrayOffset, positionCount);
     }
 }

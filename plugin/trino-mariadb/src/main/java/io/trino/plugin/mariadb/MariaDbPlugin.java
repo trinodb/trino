@@ -20,6 +20,6 @@ public class MariaDbPlugin
 {
     public MariaDbPlugin()
     {
-        super("mariadb", new MariaDbClientModule());
+        super("mariadb", MariaDbClientModule::new);
     }
 }

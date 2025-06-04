@@ -51,6 +51,14 @@ public class ValuesNode
     }
 
     /**
+     * Constructor of ValuesNode with non-empty output symbols list and zero rows
+     */
+    public ValuesNode(PlanNodeId id, List<Symbol> outputSymbols)
+    {
+        this(id, outputSymbols, 0, Optional.of(ImmutableList.of()));
+    }
+
+    /**
      * Constructor of ValuesNode with empty output symbols list
      */
     public ValuesNode(PlanNodeId id, int rowCount)

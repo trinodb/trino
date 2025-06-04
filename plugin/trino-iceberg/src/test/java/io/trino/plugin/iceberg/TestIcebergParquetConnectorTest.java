@@ -13,9 +13,12 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.collect.Iterables;
 import io.trino.Session;
+import io.trino.execution.QueryManagerConfig;
 import io.trino.filesystem.Location;
 import io.trino.operator.OperatorStats;
+import io.trino.parquet.metadata.ParquetMetadata;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
@@ -23,16 +26,20 @@ import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getParquetFileMetadata;
 import static io.trino.plugin.iceberg.IcebergTestUtils.withSmallRowGroups;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
+import static java.lang.String.format;
+import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestIcebergParquetConnectorTest
         extends BaseIcebergConnectorTest
@@ -61,8 +68,7 @@ public class TestIcebergParquetConnectorTest
     @Test
     public void testRowGroupResetDictionary()
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_row_group_reset_dictionary",
                 "(plain_col varchar, dict_col int)")) {
             String tableName = table.getName();
@@ -71,7 +77,7 @@ public class TestIcebergParquetConnectorTest
                     .collect(Collectors.joining(", "));
             assertUpdate(withSmallRowGroups(getSession()), "INSERT INTO " + tableName + " VALUES " + values, 100);
 
-            MaterializedResult result = getDistributedQueryRunner().execute(String.format("SELECT * FROM %s", tableName));
+            MaterializedResult result = getDistributedQueryRunner().execute("SELECT * FROM " + tableName);
             assertThat(result.getRowCount()).isEqualTo(100);
         }
     }
@@ -88,19 +94,9 @@ public class TestIcebergParquetConnectorTest
     }
 
     @Test
-    @Override
-    public void testDropAmbiguousRowFieldCaseSensitivity()
-    {
-        // TODO https://github.com/trinodb/trino/issues/16273 The connector can't read row types having ambiguous field names in Parquet files. e.g. row(X int, x int)
-        assertThatThrownBy(super::testDropAmbiguousRowFieldCaseSensitivity)
-                .hasMessage("Invalid schema: multiple fields for name col.some_field: 2 and 3");
-    }
-
-    @Test
     public void testIgnoreParquetStatistics()
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_ignore_parquet_statistics",
                 "WITH (sorted_by = ARRAY['custkey']) AS TABLE tpch.tiny.customer WITH NO DATA")) {
             assertUpdate(
@@ -132,8 +128,7 @@ public class TestIcebergParquetConnectorTest
     @Test
     public void testPushdownPredicateToParquetAfterColumnRename()
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_pushdown_predicate_statistics",
                 "WITH (sorted_by = ARRAY['custkey']) AS TABLE tpch.tiny.customer WITH NO DATA")) {
             assertUpdate(
@@ -157,6 +152,56 @@ public class TestIcebergParquetConnectorTest
                     .isLessThan(queryStatsWithoutPredicate.getPhysicalInputPositions());
             assertThat(selectiveQueryResult.result()).hasSize(1);
         }
+    }
+
+    @Test
+    void testTableChangesOnMultiRowGroups()
+            throws Exception
+    {
+        try (TestTable table = newTrinoTable(
+                "test_table_changes_function_multi_row_groups_",
+                "AS SELECT orderkey, partkey, suppkey FROM tpch.tiny.lineitem WITH NO DATA")) {
+            long initialSnapshot = getMostRecentSnapshotId(table.getName());
+            assertUpdate(
+                    withSmallRowGroups(getSession()),
+                    "INSERT INTO %s SELECT orderkey, partkey, suppkey FROM tpch.tiny.lineitem".formatted(table.getName()),
+                    60175L);
+            long snapshotAfterInsert = getMostRecentSnapshotId(table.getName());
+            DateTimeFormatter instantMillisFormatter = DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ss.SSSVV").withZone(UTC);
+            String snapshotAfterInsertTime = getSnapshotTime(table.getName(), snapshotAfterInsert).format(instantMillisFormatter);
+
+            // make sure splits are processed in more than one batch
+            // Decrease parquet row groups size or add more columns if this test fails
+            String filePath = getOnlyTableFilePath(table.getName());
+            ParquetMetadata parquetMetadata = getParquetFileMetadata(fileSystem.newInputFile(Location.of(filePath)));
+            int blocksSize = parquetMetadata.getBlocks().size();
+            int splitBatchSize = new QueryManagerConfig().getScheduleSplitBatchSize();
+            assertThat(blocksSize > splitBatchSize && blocksSize % splitBatchSize != 0).isTrue();
+
+            assertQuery(
+                    """
+                            SELECT orderkey, partkey, suppkey, _change_type, _change_version_id, to_iso8601(_change_timestamp), _change_ordinal
+                            FROM TABLE(system.table_changes(CURRENT_SCHEMA, '%s', %s, %s))
+                            """.formatted(table.getName(), initialSnapshot, snapshotAfterInsert),
+                    "SELECT orderkey, partkey, suppkey, 'insert', %s, '%s', 0 FROM lineitem".formatted(snapshotAfterInsert, snapshotAfterInsertTime));
+        }
+    }
+
+    private String getOnlyTableFilePath(String tableName)
+    {
+        return (String) Iterables.getOnlyElement(getQueryRunner().execute(format("SELECT file_path FROM \"%s$files\"", tableName)).getOnlyColumnAsSet());
+    }
+
+    private long getMostRecentSnapshotId(String tableName)
+    {
+        return (long) Iterables.getOnlyElement(getQueryRunner().execute(format("SELECT snapshot_id FROM \"%s$snapshots\" ORDER BY committed_at DESC LIMIT 1", tableName))
+                .getOnlyColumnAsSet());
+    }
+
+    private ZonedDateTime getSnapshotTime(String tableName, long snapshotId)
+    {
+        return (ZonedDateTime) Iterables.getOnlyElement(getQueryRunner().execute(format("SELECT committed_at FROM \"%s$snapshots\" WHERE snapshot_id = %s", tableName, snapshotId))
+                .getOnlyColumnAsSet());
     }
 
     @Override

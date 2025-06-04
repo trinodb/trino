@@ -58,24 +58,21 @@ import io.trino.hive.thrift.metastore.TxnAbortedException;
 import io.trino.hive.thrift.metastore.TxnToWriteId;
 import io.trino.hive.thrift.metastore.UnknownDBException;
 import io.trino.hive.thrift.metastore.UnknownTableException;
-import io.trino.plugin.hive.HiveBasicStatistics;
-import io.trino.plugin.hive.HivePartition;
-import io.trino.plugin.hive.HiveType;
+import io.trino.metastore.AcidTransactionOwner;
+import io.trino.metastore.Column;
+import io.trino.metastore.HiveBasicStatistics;
+import io.trino.metastore.HiveColumnStatistics;
+import io.trino.metastore.HivePartition;
+import io.trino.metastore.HivePrincipal;
+import io.trino.metastore.HivePrivilegeInfo;
+import io.trino.metastore.HivePrivilegeInfo.HivePrivilege;
+import io.trino.metastore.HiveType;
+import io.trino.metastore.PartitionStatistics;
+import io.trino.metastore.PartitionWithStatistics;
+import io.trino.metastore.SchemaAlreadyExistsException;
+import io.trino.metastore.StatisticsUpdateMode;
+import io.trino.metastore.TableAlreadyExistsException;
 import io.trino.plugin.hive.PartitionNotFoundException;
-import io.trino.plugin.hive.PartitionStatistics;
-import io.trino.plugin.hive.SchemaAlreadyExistsException;
-import io.trino.plugin.hive.TableAlreadyExistsException;
-import io.trino.plugin.hive.acid.AcidOperation;
-import io.trino.plugin.hive.acid.AcidTransaction;
-import io.trino.plugin.hive.metastore.AcidTransactionOwner;
-import io.trino.plugin.hive.metastore.Column;
-import io.trino.plugin.hive.metastore.HiveColumnStatistics;
-import io.trino.plugin.hive.metastore.HivePrincipal;
-import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
-import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
-import io.trino.plugin.hive.metastore.PartitionWithStatistics;
-import io.trino.plugin.hive.metastore.StatisticsUpdateMode;
-import io.trino.plugin.hive.util.RetryDriver;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
@@ -115,10 +112,10 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Sets.difference;
 import static io.trino.hive.thrift.metastore.HiveObjectType.TABLE;
+import static io.trino.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_TABLE_LOCK_NOT_ACQUIRED;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
-import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.adjustRowCount;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getHiveBasicStatistics;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.partitionKeyFilterToStringList;
@@ -271,6 +268,30 @@ public final class ThriftHiveMetastore
     }
 
     @Override
+    public List<String> getTableNamesWithParameters(String databaseName, String parameterKey, Set<String> parameterValues)
+    {
+        try {
+            return retry()
+                    .stopOn(NoSuchObjectException.class)
+                    .stopOnIllegalExceptions()
+                    .run("getTableNamesWithParameters", () -> {
+                        try (ThriftMetastoreClient client = createMetastoreClient()) {
+                            return client.getTableNamesWithParameters(databaseName, parameterKey, parameterValues);
+                        }
+                    });
+        }
+        catch (NoSuchObjectException e) {
+            return ImmutableList.of();
+        }
+        catch (TException e) {
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        }
+        catch (Exception e) {
+            throw propagate(e);
+        }
+    }
+
+    @Override
     public Optional<Table> getTable(String databaseName, String tableName)
     {
         try {
@@ -400,7 +421,7 @@ public final class ThriftHiveMetastore
     }
 
     @Override
-    public void updateTableStatistics(String databaseName, String tableName, AcidTransaction transaction, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
+    public void updateTableStatistics(String databaseName, String tableName, OptionalLong acidWriteId, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
     {
         Table originalTable = getTable(databaseName, tableName)
                 .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
@@ -409,14 +430,14 @@ public final class ThriftHiveMetastore
         PartitionStatistics updatedStatistics = mode.updatePartitionStatistics(currentStatistics, statisticsUpdate);
 
         Table modifiedTable = originalTable.deepCopy();
-        modifiedTable.setParameters(updateStatisticsParameters(modifiedTable.getParameters(), updatedStatistics.getBasicStatistics()));
-        if (transaction.isAcidTransactionRunning()) {
-            modifiedTable.setWriteId(transaction.getWriteId());
+        modifiedTable.setParameters(updateStatisticsParameters(modifiedTable.getParameters(), updatedStatistics.basicStatistics()));
+        if (acidWriteId.isPresent()) {
+            modifiedTable.setWriteId(acidWriteId.getAsLong());
         }
-        alterTable(databaseName, tableName, modifiedTable);
+        alterTable(databaseName, tableName, modifiedTable, ImmutableMap.of());
 
-        io.trino.plugin.hive.metastore.Table table = fromMetastoreApiTable(modifiedTable);
-        List<ColumnStatisticsObj> metastoreColumnStatistics = updatedStatistics.getColumnStatistics().entrySet().stream()
+        io.trino.metastore.Table table = fromMetastoreApiTable(modifiedTable);
+        List<ColumnStatisticsObj> metastoreColumnStatistics = updatedStatistics.columnStatistics().entrySet().stream()
                 .flatMap(entry -> {
                     Optional<Column> column = table.getColumn(entry.getKey());
                     if (column.isEmpty() && isAvroTableWithSchemaSet(modifiedTable)) {
@@ -432,7 +453,7 @@ public final class ThriftHiveMetastore
         if (!metastoreColumnStatistics.isEmpty()) {
             setTableColumnStatistics(databaseName, tableName, metastoreColumnStatistics);
         }
-        Set<String> removedColumnStatistics = difference(currentStatistics.getColumnStatistics().keySet(), updatedStatistics.getColumnStatistics().keySet());
+        Set<String> removedColumnStatistics = difference(currentStatistics.columnStatistics().keySet(), updatedStatistics.columnStatistics().keySet());
         removedColumnStatistics.forEach(column -> deleteTableColumnStatistics(databaseName, tableName, column));
     }
 
@@ -525,15 +546,15 @@ public final class ThriftHiveMetastore
         PartitionStatistics updatedStatistics = mode.updatePartitionStatistics(new PartitionStatistics(currentBasicStats, currentColumnStats), statisticsUpdate);
 
         Partition modifiedPartition = originalPartition.deepCopy();
-        HiveBasicStatistics basicStatistics = updatedStatistics.getBasicStatistics();
+        HiveBasicStatistics basicStatistics = updatedStatistics.basicStatistics();
         modifiedPartition.setParameters(updateStatisticsParameters(modifiedPartition.getParameters(), basicStatistics));
         alterPartitionWithoutStatistics(table.getDbName(), table.getTableName(), modifiedPartition);
 
         Map<String, HiveType> columns = modifiedPartition.getSd().getCols().stream()
                 .collect(toImmutableMap(FieldSchema::getName, schema -> HiveType.valueOf(schema.getType())));
-        setPartitionColumnStatistics(table.getDbName(), table.getTableName(), partitionName, columns, updatedStatistics.getColumnStatistics());
+        setPartitionColumnStatistics(table.getDbName(), table.getTableName(), partitionName, columns, updatedStatistics.columnStatistics());
 
-        Set<String> removedStatistics = difference(currentColumnStats.keySet(), updatedStatistics.getColumnStatistics().keySet());
+        Set<String> removedStatistics = difference(currentColumnStats.keySet(), updatedStatistics.columnStatistics().keySet());
         removedStatistics.forEach(column -> deletePartitionColumnStatistics(table.getDbName(), table.getTableName(), partitionName, column));
     }
 
@@ -941,7 +962,7 @@ public final class ThriftHiveMetastore
     }
 
     @Override
-    public void alterTable(String databaseName, String tableName, Table table)
+    public void alterTable(String databaseName, String tableName, Table table, Map<String, String> environmentContext)
     {
         if (!Objects.equals(databaseName, table.getDbName())) {
             validateObjectName(table.getDbName());
@@ -959,7 +980,10 @@ public final class ThriftHiveMetastore
                             // This prevents Hive 3.x from collecting basic table stats at table creation time.
                             // These stats are not useful by themselves and can take a very long time to collect when creating an
                             // external table over a large data set.
-                            context.setProperties(ImmutableMap.of("DO_NOT_UPDATE_STATS", "true"));
+                            context.setProperties(ImmutableMap.<String, String>builder()
+                                    .put("DO_NOT_UPDATE_STATS", "true")
+                                    .putAll(environmentContext)
+                                    .buildOrThrow());
                             client.alterTableWithEnvironmentContext(databaseName, tableName, table, context);
                         }
                         return null;
@@ -1175,7 +1199,7 @@ public final class ThriftHiveMetastore
     private void storePartitionColumnStatistics(String databaseName, String tableName, String partitionName, PartitionWithStatistics partitionWithStatistics)
     {
         PartitionStatistics statistics = partitionWithStatistics.getStatistics();
-        Map<String, HiveColumnStatistics> columnStatistics = statistics.getColumnStatistics();
+        Map<String, HiveColumnStatistics> columnStatistics = statistics.columnStatistics();
         if (columnStatistics.isEmpty()) {
             return;
         }
@@ -1202,7 +1226,7 @@ public final class ThriftHiveMetastore
                 .collect(toImmutableList());
 
         Set<String> columnsWithMissingStatistics = new HashSet<>(dataColumns);
-        columnsWithMissingStatistics.removeAll(partitionWithStatistics.getStatistics().getColumnStatistics().keySet());
+        columnsWithMissingStatistics.removeAll(partitionWithStatistics.getStatistics().columnStatistics().keySet());
 
         // In case new partition had the statistics computed for all the columns, the storePartitionColumnStatistics
         // call in the alterPartition will just overwrite the old statistics. There is no need to explicitly remove anything.
@@ -1581,16 +1605,9 @@ public final class ThriftHiveMetastore
 
     private long acquireLock(String context, LockRequest lockRequest)
     {
+        LockResponse response = acquireLock(lockRequest);
+        long lockId = response.getLockid();
         try {
-            LockResponse response = retry()
-                    .stopOn(NoSuchTxnException.class, TxnAbortedException.class, MetaException.class)
-                    .run("acquireLock", stats.getAcquireLock().wrap(() -> {
-                        try (ThriftMetastoreClient metastoreClient = createMetastoreClient()) {
-                            return metastoreClient.acquireLock(lockRequest);
-                        }
-                    }));
-
-            long lockId = response.getLockid();
             long waitStart = nanoTime();
             while (response.getState() == LockState.WAITING) {
                 if (Duration.nanosSince(waitStart).compareTo(maxWaitForLock) > 0) {
@@ -1614,6 +1631,25 @@ public final class ThriftHiveMetastore
             }
 
             return response.getLockid();
+        }
+        catch (TException e) {
+            throw unlockSuppressing(lockId, new TrinoException(HIVE_METASTORE_ERROR, e));
+        }
+        catch (Exception e) {
+            throw propagate(e);
+        }
+    }
+
+    private LockResponse acquireLock(LockRequest lockRequest)
+    {
+        try {
+            return retry()
+                    .stopOn(NoSuchTxnException.class, TxnAbortedException.class, MetaException.class)
+                    .run("acquireLock", stats.getAcquireLock().wrap(() -> {
+                        try (ThriftMetastoreClient metastoreClient = createMetastoreClient()) {
+                            return metastoreClient.acquireLock(lockRequest);
+                        }
+                    }));
         }
         catch (TException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
@@ -1788,7 +1824,7 @@ public final class ThriftHiveMetastore
     }
 
     @Override
-    public void addDynamicPartitions(String dbName, String tableName, List<String> partitionNames, long transactionId, long writeId, AcidOperation operation)
+    public void addDynamicPartitions(String dbName, String tableName, List<String> partitionNames, long transactionId, long writeId, DataOperationType operation)
     {
         checkArgument(writeId > 0, "writeId should be a positive integer, but was %s", writeId);
         requireNonNull(partitionNames, "partitionNames is null");

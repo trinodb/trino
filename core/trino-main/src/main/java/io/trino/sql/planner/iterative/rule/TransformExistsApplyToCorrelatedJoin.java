@@ -19,10 +19,7 @@ import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.ir.Booleans;
 import io.trino.sql.ir.Coalesce;
-import io.trino.sql.ir.Comparison;
-import io.trino.sql.ir.Constant;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.optimizations.PlanNodeDecorrelator;
@@ -38,10 +35,10 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.planner.plan.AggregationNode.globalAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.JoinType.INNER;
@@ -63,9 +60,10 @@ import static java.util.Objects.requireNonNull;
  * <pre>
  *     - CorrelatedJoin(LEFT)
  *       - input
- *       - Project($0 > 0)
- *         - Aggregation(COUNT(*))
- *           - subquery
+ *       - Project(exists := COALESCE($0, false))
+ *         - Aggregation(bool_or(subqueryTrue))
+ *           - Project(subqueryTrue := true)
+ *             - subquery
  * </pre>
  * otherwise
  */
@@ -143,7 +141,7 @@ public class TransformExistsApplyToCorrelatedJoin
         Symbol exists = getOnlyElement(applyNode.getSubqueryAssignments().keySet());
         Assignments.Builder assignments = Assignments.builder()
                 .putIdentities(applyNode.getInput().getOutputSymbols())
-                .put(exists, new Coalesce(ImmutableList.of(subqueryTrue.toSymbolReference(), Booleans.FALSE)));
+                .put(exists, new Coalesce(ImmutableList.of(subqueryTrue.toSymbolReference(), FALSE)));
 
         return Optional.of(new ProjectNode(context.getIdAllocator().getNextId(),
                 new CorrelatedJoinNode(
@@ -159,9 +157,11 @@ public class TransformExistsApplyToCorrelatedJoin
 
     private PlanNode rewriteToDefaultAggregation(ApplyNode applyNode, Context context)
     {
-        ResolvedFunction countFunction = plannerContext.getMetadata().resolveBuiltinFunction("count", ImmutableList.of());
-        Symbol count = context.getSymbolAllocator().newSymbol("count", BIGINT);
+        ResolvedFunction boolOr = plannerContext.getMetadata().resolveBuiltinFunction("bool_or", fromTypes(BOOLEAN));
+        Symbol bool = context.getSymbolAllocator().newSymbol("aggrBool", BOOLEAN);
+
         Symbol exists = getOnlyElement(applyNode.getSubqueryAssignments().keySet());
+        Symbol subqueryTrue = context.getSymbolAllocator().newSymbol("subqueryTrue", BOOLEAN);
 
         return new CorrelatedJoinNode(
                 applyNode.getId(),
@@ -170,16 +170,19 @@ public class TransformExistsApplyToCorrelatedJoin
                         context.getIdAllocator().getNextId(),
                         singleAggregation(
                                 context.getIdAllocator().getNextId(),
-                                applyNode.getSubquery(),
-                                ImmutableMap.of(count, new Aggregation(
-                                        countFunction,
-                                        ImmutableList.of(),
+                                new ProjectNode(
+                                        context.getIdAllocator().getNextId(),
+                                        applyNode.getSubquery(),
+                                        Assignments.of(subqueryTrue, TRUE)),
+                                ImmutableMap.of(bool, new Aggregation(
+                                        boolOr,
+                                        ImmutableList.of(subqueryTrue.toSymbolReference()),
                                         false,
                                         Optional.empty(),
                                         Optional.empty(),
                                         Optional.empty())),
                                 globalAggregation()),
-                        Assignments.of(exists, new Comparison(GREATER_THAN, count.toSymbolReference(), new Constant(BIGINT, 0L)))),
+                        Assignments.of(exists, new Coalesce(ImmutableList.of(bool.toSymbolReference(), FALSE)))),
                 applyNode.getCorrelation(),
                 INNER,
                 TRUE,

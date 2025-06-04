@@ -27,34 +27,27 @@ public class SingleColumn
     private final Optional<Identifier> alias;
     private final Expression expression;
 
+    @Deprecated
     public SingleColumn(Expression expression)
     {
-        this(Optional.empty(), expression, Optional.empty());
+        super(Optional.empty());
+        this.expression = requireNonNull(expression, "expression is null");
+        this.alias = Optional.empty();
     }
 
-    public SingleColumn(Expression expression, Optional<Identifier> alias)
-    {
-        this(Optional.empty(), expression, alias);
-    }
-
+    @Deprecated
     public SingleColumn(Expression expression, Identifier alias)
     {
-        this(Optional.empty(), expression, Optional.of(alias));
+        super(Optional.empty());
+        this.expression = requireNonNull(expression, "expression is null");
+        this.alias = Optional.of(alias);
     }
 
     public SingleColumn(NodeLocation location, Expression expression, Optional<Identifier> alias)
     {
-        this(Optional.of(location), expression, alias);
-    }
-
-    private SingleColumn(Optional<NodeLocation> location, Expression expression, Optional<Identifier> alias)
-    {
         super(location);
-        requireNonNull(expression, "expression is null");
-        requireNonNull(alias, "alias is null");
-
-        this.expression = expression;
-        this.alias = alias;
+        this.expression = requireNonNull(expression, "expression is null");
+        this.alias = requireNonNull(alias, "alias is null");
     }
 
     public Optional<Identifier> getAlias()

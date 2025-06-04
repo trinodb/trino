@@ -22,8 +22,10 @@ import io.trino.filesystem.TrinoInputStream;
 import io.trino.filesystem.cache.TrinoFileSystemCache;
 
 import java.io.IOException;
+import java.util.Collection;
 
 import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_LOCATION;
+import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_LOCATION_COUNT;
 import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_KEY;
 import static io.trino.filesystem.tracing.Tracing.withTracing;
 import static java.util.Objects.requireNonNull;
@@ -65,6 +67,18 @@ public class TracingFileSystemCache
     }
 
     @Override
+    public long cacheLength(TrinoInputFile delegate, String key)
+            throws IOException
+    {
+        Span span = tracer.spanBuilder("FileSystemCache.cacheLength")
+                .setAttribute(CACHE_FILE_LOCATION, delegate.location().toString())
+                .setAttribute(CACHE_KEY, key)
+                .startSpan();
+
+        return withTracing(span, () -> this.delegate.cacheLength(delegate, key));
+    }
+
+    @Override
     public void expire(Location location)
             throws IOException
     {
@@ -73,5 +87,16 @@ public class TracingFileSystemCache
                 .startSpan();
 
         withTracing(span, () -> delegate.expire(location));
+    }
+
+    @Override
+    public void expire(Collection<Location> locations)
+            throws IOException
+    {
+        Span span = tracer.spanBuilder("FileSystemCache.expire")
+                .setAttribute(CACHE_FILE_LOCATION_COUNT, (long) locations.size())
+                .startSpan();
+
+        withTracing(span, () -> delegate.expire(locations));
     }
 }

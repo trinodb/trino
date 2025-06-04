@@ -139,7 +139,7 @@ public class TestDatabaseEventClient
     public void testFull()
             throws SQLException
     {
-        eventClient.post(FULL_EVENT);
+        eventClient.postEvent(FULL_EVENT);
 
         try (Connection connection = DriverManager.getConnection(mysqlContainerUrl)) {
             try (Statement statement = connection.createStatement()) {
@@ -176,7 +176,7 @@ public class TestDatabaseEventClient
     public void testMinimal()
             throws SQLException
     {
-        eventClient.post(MINIMAL_EVENT);
+        eventClient.postEvent(MINIMAL_EVENT);
 
         try (Connection connection = DriverManager.getConnection(mysqlContainerUrl)) {
             try (Statement statement = connection.createStatement()) {

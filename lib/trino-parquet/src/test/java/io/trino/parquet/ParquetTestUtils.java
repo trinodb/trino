@@ -53,6 +53,7 @@ import java.util.Random;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.parquet.ParquetTypeUtils.constructField;
 import static io.trino.parquet.ParquetTypeUtils.getColumnIO;
 import static io.trino.parquet.ParquetTypeUtils.getDescriptors;
@@ -78,7 +79,7 @@ public class ParquetTestUtils
             throws IOException
     {
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        ParquetWriter writer = createParquetWriter(outputStream, writerOptions, types, columnNames);
+        ParquetWriter writer = createParquetWriter(outputStream, writerOptions, types, columnNames, CompressionCodec.SNAPPY);
 
         for (io.trino.spi.Page inputPage : inputPages) {
             checkArgument(types.size() == inputPage.getChannelCount());
@@ -88,7 +89,7 @@ public class ParquetTestUtils
         return Slices.wrappedBuffer(outputStream.toByteArray());
     }
 
-    public static ParquetWriter createParquetWriter(OutputStream outputStream, ParquetWriterOptions writerOptions, List<Type> types, List<String> columnNames)
+    public static ParquetWriter createParquetWriter(OutputStream outputStream, ParquetWriterOptions writerOptions, List<Type> types, List<String> columnNames, CompressionCodec compression)
     {
         checkArgument(types.size() == columnNames.size());
         ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(types, columnNames, false, false);
@@ -97,10 +98,20 @@ public class ParquetTestUtils
                 schemaConverter.getMessageType(),
                 schemaConverter.getPrimitiveTypes(),
                 writerOptions,
-                CompressionCodec.SNAPPY,
+                compression,
                 "test-version",
                 Optional.of(DateTimeZone.getDefault()),
                 Optional.empty());
+    }
+
+    public static ParquetReader createParquetReader(
+            ParquetDataSource input,
+            ParquetMetadata parquetMetadata,
+            List<Type> types,
+            List<String> columnNames)
+            throws IOException
+    {
+        return createParquetReader(input, parquetMetadata, ParquetReaderOptions.defaultOptions(), newSimpleAggregatedMemoryContext(), types, columnNames, TupleDomain.all());
     }
 
     public static ParquetReader createParquetReader(
@@ -111,7 +122,7 @@ public class ParquetTestUtils
             List<String> columnNames)
             throws IOException
     {
-        return createParquetReader(input, parquetMetadata, new ParquetReaderOptions(), memoryContext, types, columnNames, TupleDomain.all());
+        return createParquetReader(input, parquetMetadata, ParquetReaderOptions.defaultOptions(), memoryContext, types, columnNames, TupleDomain.all());
     }
 
     public static ParquetReader createParquetReader(
@@ -144,7 +155,7 @@ public class ParquetTestUtils
                 0,
                 input.getEstimatedSize(),
                 input,
-                parquetMetadata.getBlocks(),
+                parquetMetadata,
                 ImmutableList.of(parquetTupleDomain),
                 ImmutableList.of(parquetPredicate),
                 descriptorsByPath,
@@ -154,6 +165,7 @@ public class ParquetTestUtils
         return new ParquetReader(
                 Optional.ofNullable(fileMetaData.getCreatedBy()),
                 columnFields.build(),
+                false,
                 rowGroups,
                 input,
                 UTC,

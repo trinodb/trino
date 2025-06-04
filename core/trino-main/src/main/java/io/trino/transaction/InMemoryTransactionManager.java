@@ -498,7 +498,7 @@ public class InMemoryTransactionManager
             if (commitBlockedReason != null) {
                 return Futures.transform(
                         abortInternal(),
-                        ignored -> {
+                        _ -> {
                             throw new TrinoException(ADMINISTRATIVELY_KILLED, commitBlockedReason);
                         },
                         directExecutor());
@@ -529,7 +529,7 @@ public class InMemoryTransactionManager
 
             CatalogMetadata writeCatalog = activeCatalogs.get(writeCatalogHandle);
             ListenableFuture<Void> commitFuture = Futures.submit(writeCatalog::commit, finishingExecutor);
-            ListenableFuture<Void> readOnlyCommitFuture = Futures.transformAsync(commitFuture, ignored -> commitReadOnlyConnectors.get(), directExecutor());
+            ListenableFuture<Void> readOnlyCommitFuture = Futures.transformAsync(commitFuture, _ -> commitReadOnlyConnectors.get(), directExecutor());
             addExceptionCallback(readOnlyCommitFuture, this::abortInternal);
             return nonCancellationPropagating(readOnlyCommitFuture);
         }

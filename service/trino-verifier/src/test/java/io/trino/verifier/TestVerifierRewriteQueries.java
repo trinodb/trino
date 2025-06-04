@@ -57,7 +57,7 @@ public class TestVerifierRewriteQueries
     private final Handle handle;
     private final SqlParser parser;
     private final VerifierConfig config;
-    private final ImmutableList<QueryPair> queryPairs;
+    private final List<QueryPair> queryPairs;
 
     public TestVerifierRewriteQueries()
     {
@@ -100,7 +100,7 @@ public class TestVerifierRewriteQueries
         config.setControlGateway(URL);
         config.setThreadCount(1);
         List<QueryPair> rewrittenQueries = rewriteQueries(parser, config, queryPairs);
-        assertThat(rewrittenQueries.size()).isEqualTo(queryPairs.size());
+        assertThat(rewrittenQueries).hasSize(queryPairs.size());
     }
 
     @Test
@@ -109,7 +109,7 @@ public class TestVerifierRewriteQueries
         config.setControlGateway(URL);
         config.setThreadCount(5);
         List<QueryPair> rewrittenQueries = rewriteQueries(parser, config, queryPairs);
-        assertThat(rewrittenQueries.size()).isEqualTo(queryPairs.size());
+        assertThat(rewrittenQueries).hasSize(queryPairs.size());
     }
 
     @Test
@@ -129,7 +129,7 @@ public class TestVerifierRewriteQueries
                 .addAll(queryPairs)
                 .add(new QueryPair(QUERY_SUITE, QUERY_NAME, invalidQuery, invalidQuery))
                 .build());
-        assertThat(rewrittenQueries.size()).isEqualTo(queryPairs.size());
+        assertThat(rewrittenQueries).hasSize(queryPairs.size());
     }
 
     @Test
@@ -137,6 +137,6 @@ public class TestVerifierRewriteQueries
     {
         config.setControlGateway("invalid:url");
         List<QueryPair> rewrittenQueries = rewriteQueries(parser, config, queryPairs);
-        assertThat(rewrittenQueries.size()).isEqualTo(0);
+        assertThat(rewrittenQueries).isEmpty();
     }
 }

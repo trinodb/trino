@@ -15,7 +15,6 @@ package io.trino.sql.tree;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -27,17 +26,7 @@ public class SubsetDefinition
     private final Identifier name;
     private final List<Identifier> identifiers;
 
-    public SubsetDefinition(Identifier name, List<Identifier> identifiers)
-    {
-        this(Optional.empty(), name, identifiers);
-    }
-
     public SubsetDefinition(NodeLocation location, Identifier name, List<Identifier> identifiers)
-    {
-        this(Optional.of(location), name, identifiers);
-    }
-
-    private SubsetDefinition(Optional<NodeLocation> location, Identifier name, List<Identifier> identifiers)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");

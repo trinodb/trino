@@ -26,6 +26,7 @@ import java.security.spec.InvalidKeySpecException;
 import java.security.spec.KeySpec;
 import java.util.List;
 
+import static at.favre.lib.crypto.bcrypt.BCrypt.Version.SUPPORTED_VERSIONS;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.io.BaseEncoding.base16;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -38,10 +39,10 @@ public final class EncryptionUtil
 
     private EncryptionUtil() {}
 
-    public static int getBCryptCost(String password)
+    public static int getBCryptCost(BCrypt.Version version, String password)
     {
         try {
-            return BCrypt.Version.VERSION_2A.parser.parse(password.getBytes(UTF_8)).cost;
+            return version.parser.parse(password.getBytes(UTF_8)).cost;
         }
         catch (IllegalBCryptFormatException e) {
             throw new HashedPasswordException("Invalid BCrypt password", e);
@@ -79,11 +80,13 @@ public final class EncryptionUtil
 
     public static HashingAlgorithm getHashingAlgorithm(String password)
     {
-        if (password.startsWith("$2y")) {
-            if (getBCryptCost(password) < BCRYPT_MIN_COST) {
-                throw new HashedPasswordException("Minimum cost of BCrypt password must be " + BCRYPT_MIN_COST);
+        for (BCrypt.Version version : SUPPORTED_VERSIONS) {
+            if (password.startsWith(version.toString())) {
+                if (getBCryptCost(version, password) < BCRYPT_MIN_COST) {
+                    throw new HashedPasswordException("Minimum cost of BCrypt password must be " + BCRYPT_MIN_COST);
+                }
+                return HashingAlgorithm.BCRYPT;
             }
-            return HashingAlgorithm.BCRYPT;
         }
 
         if (password.contains(":")) {

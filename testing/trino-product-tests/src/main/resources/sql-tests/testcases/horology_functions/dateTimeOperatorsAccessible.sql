@@ -1,4 +1,4 @@
--- database: presto; groups: qe, horology_functions
+-- database: trino; groups: qe, horology_functions
 SELECT  date '2012-08-08' + interval '2' day,
         time '01:00' + interval '3' hour,
         timestamp '2012-08-08 01:00' + interval '29' hour,

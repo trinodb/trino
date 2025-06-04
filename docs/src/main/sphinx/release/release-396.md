@@ -34,8 +34,9 @@
 
 * Add verification for files written by the optimized Parquet writer. This can
   be configured with the [`parquet.optimized-writer.validation-percentage`
-  configuration property](hive-parquet-configuration) or the
-  `parquet_optimized_writer_validation_percentage` session property. ({issue}`13246`)
+  configuration property](parquet-format-configuration) or the
+  `parquet_optimized_writer_validation_percentage` session property.
+  ({issue}`13246`)
 * Improve optimized Parquet writer performance for
   [structural data types](structural-data-types). ({issue}`13714`)
 * Fix performance regression in reading Parquet files. ({issue}`14094`)

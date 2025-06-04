@@ -19,25 +19,25 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import io.airlift.event.client.EventClient;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.hive.formats.compression.CompressionKind;
+import io.trino.metastore.Column;
+import io.trino.metastore.HiveType;
+import io.trino.metastore.HiveTypeName;
+import io.trino.metastore.Partition;
+import io.trino.metastore.SortingColumn;
+import io.trino.metastore.StorageFormat;
+import io.trino.metastore.Table;
 import io.trino.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior;
 import io.trino.plugin.hive.LocationService.WriteInfo;
 import io.trino.plugin.hive.PartitionUpdate.UpdateMode;
 import io.trino.plugin.hive.acid.AcidTransaction;
-import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.HivePageSinkMetadataProvider;
-import io.trino.plugin.hive.metastore.Partition;
-import io.trino.plugin.hive.metastore.SortingColumn;
-import io.trino.plugin.hive.metastore.StorageFormat;
-import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.orc.OrcFileWriterFactory;
 import io.trino.plugin.hive.util.HiveWriteUtils;
-import io.trino.spi.NodeManager;
 import io.trino.spi.Page;
 import io.trino.spi.PageSorter;
 import io.trino.spi.TrinoException;
@@ -48,27 +48,24 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 
 import java.io.IOException;
-import java.security.Principal;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.UUID;
-import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.Maps.immutableEntry;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.hive.formats.HiveClassNames.HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS;
+import static io.trino.metastore.AcidOperation.CREATE_TABLE;
+import static io.trino.metastore.Partitions.makePartName;
 import static io.trino.plugin.hive.HiveCompressionCodecs.selectCompressionCodec;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
@@ -79,17 +76,15 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_TABLE_READ_ONLY;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static io.trino.plugin.hive.HiveSessionProperties.getInsertExistingPartitionsBehavior;
 import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
-import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY;
-import static io.trino.plugin.hive.acid.AcidOperation.CREATE_TABLE;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getHiveSchema;
-import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.trino.plugin.hive.util.AcidTables.deltaSubdir;
 import static io.trino.plugin.hive.util.AcidTables.isFullAcidTable;
 import static io.trino.plugin.hive.util.AcidTables.isInsertOnlyTable;
+import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
+import static io.trino.plugin.hive.util.HiveTypeUtil.getType;
 import static io.trino.plugin.hive.util.HiveUtil.getColumnNames;
 import static io.trino.plugin.hive.util.HiveUtil.getColumnTypes;
-import static io.trino.plugin.hive.util.HiveUtil.makePartName;
 import static io.trino.plugin.hive.util.HiveWriteUtils.createPartitionValues;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMNS;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_TYPES;
@@ -145,11 +140,6 @@ public class HiveWriterFactory
     private final ConnectorSession session;
     private final OptionalInt bucketCount;
     private final List<SortingColumn> sortedBy;
-
-    private final NodeManager nodeManager;
-    private final EventClient eventClient;
-    private final Map<String, String> sessionProperties;
-
     private final HiveWriterStats hiveWriterStats;
     private final Optional<Type> rowType;
     private final Optional<HiveType> hiveRowtype;
@@ -176,9 +166,6 @@ public class HiveWriterFactory
             DataSize sortBufferSize,
             int maxOpenSortFiles,
             ConnectorSession session,
-            NodeManager nodeManager,
-            EventClient eventClient,
-            HiveSessionProperties hiveSessionProperties,
             HiveWriterStats hiveWriterStats,
             boolean sortedWritingTempStagingPathEnabled,
             String sortedWritingTempStagingPath)
@@ -254,20 +241,7 @@ public class HiveWriterFactory
         }
 
         this.sortedBy = ImmutableList.copyOf(requireNonNull(sortedBy, "sortedBy is null"));
-
         this.session = requireNonNull(session, "session is null");
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
-        this.eventClient = requireNonNull(eventClient, "eventClient is null");
-
-        requireNonNull(hiveSessionProperties, "hiveSessionProperties is null");
-        this.sessionProperties = hiveSessionProperties.getSessionProperties().stream()
-                .map(propertyMetadata -> immutableEntry(
-                        propertyMetadata.getName(),
-                        session.getProperty(propertyMetadata.getName(), propertyMetadata.getJavaType())))
-                // The session properties collected here are used for events only. Filter out nulls to avoid problems with downstream consumers
-                .filter(entry -> entry.getValue() != null)
-                .collect(toImmutableMap(Entry::getKey, entry -> entry.getValue().toString()));
-
         this.hiveWriterStats = requireNonNull(hiveWriterStats, "hiveWriterStats is null");
     }
 
@@ -372,12 +346,12 @@ public class HiveWriterFactory
 
             if (partitionName.isPresent()) {
                 // Write to a new partition
-                outputStorageFormat = fromHiveStorageFormat(partitionStorageFormat);
+                outputStorageFormat = partitionStorageFormat.toStorageFormat();
                 compressionCodec = selectCompressionCodec(session, partitionStorageFormat);
             }
             else {
                 // Write to a new/existing unpartitioned table
-                outputStorageFormat = fromHiveStorageFormat(tableStorageFormat);
+                outputStorageFormat = tableStorageFormat.toStorageFormat();
                 compressionCodec = selectCompressionCodec(session, tableStorageFormat);
             }
         }
@@ -425,7 +399,7 @@ public class HiveWriterFactory
                     // * Table schema and storage format is used for the new partition (instead of existing partition schema and storage format).
                     updateMode = UpdateMode.OVERWRITE;
 
-                    outputStorageFormat = fromHiveStorageFormat(partitionStorageFormat);
+                    outputStorageFormat = partitionStorageFormat.toStorageFormat();
                     compressionCodec = selectCompressionCodec(session, partitionStorageFormat);
                     schema.putAll(getHiveSchema(table));
 
@@ -503,36 +477,6 @@ public class HiveWriterFactory
             throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, "Writing not supported for " + outputStorageFormat);
         }
 
-        String writePath = path.toString();
-        String writerImplementation = hiveFileWriter.getClass().getName();
-
-        Consumer<HiveWriter> onCommit = hiveWriter -> {
-            Optional<Long> size;
-            try {
-                size = Optional.of(hiveWriter.getWrittenBytes());
-            }
-            catch (RuntimeException e) {
-                // Do not fail the query if file system is not available
-                size = Optional.empty();
-            }
-
-            eventClient.post(new WriteCompletedEvent(
-                    session.getQueryId(),
-                    writePath,
-                    schemaName,
-                    tableName,
-                    partitionName.orElse(null),
-                    outputStorageFormat.getOutputFormat(),
-                    writerImplementation,
-                    nodeManager.getCurrentNode().getVersion(),
-                    nodeManager.getCurrentNode().getHost(),
-                    session.getIdentity().getPrincipal().map(Principal::getName).orElse(null),
-                    nodeManager.getEnvironment(),
-                    sessionProperties,
-                    size.orElse(null),
-                    hiveWriter.getRowCount()));
-        };
-
         if (!sortedBy.isEmpty()) {
             Location tempFilePath;
             if (sortedWritingTempStagingPathEnabled) {
@@ -545,7 +489,7 @@ public class HiveWriterFactory
             }
 
             List<Type> types = dataColumns.stream()
-                    .map(column -> column.getHiveType().getType(typeManager, getTimestampPrecision(session)))
+                    .map(column -> getType(column.getHiveType(), typeManager, getTimestampPrecision(session)))
                     .collect(toImmutableList());
 
             Map<String, Integer> columnIndexes = new HashMap<>();
@@ -556,12 +500,12 @@ public class HiveWriterFactory
             List<Integer> sortFields = new ArrayList<>();
             List<SortOrder> sortOrders = new ArrayList<>();
             for (SortingColumn column : sortedBy) {
-                Integer index = columnIndexes.get(column.getColumnName());
+                Integer index = columnIndexes.get(column.columnName());
                 if (index == null) {
-                    throw new TrinoException(HIVE_INVALID_METADATA, format("Sorting column '%s' does exist in table '%s.%s'", column.getColumnName(), schemaName, tableName));
+                    throw new TrinoException(HIVE_INVALID_METADATA, format("Sorting column '%s' does exist in table '%s.%s'", column.columnName(), schemaName, tableName));
                 }
                 sortFields.add(index);
-                sortOrders.add(column.getOrder().getSortOrder());
+                sortOrders.add(column.order().getSortOrder());
             }
 
             hiveFileWriter = new SortingFileWriter(
@@ -585,7 +529,6 @@ public class HiveWriterFactory
                 path.fileName(),
                 writeInfo.writePath().toString(),
                 writeInfo.targetPath().toString(),
-                onCommit,
                 hiveWriterStats);
     }
 
@@ -733,7 +676,7 @@ public class HiveWriterFactory
     {
         // text format files must have the correct extension when compressed
         return compression.getHiveCompressionKind()
-                .filter(ignored -> format.getOutputFormat().equals(HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS))
+                .filter(_ -> format.getOutputFormat().equals(HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS))
                 .map(CompressionKind::getFileExtension)
                 .orElse("");
     }

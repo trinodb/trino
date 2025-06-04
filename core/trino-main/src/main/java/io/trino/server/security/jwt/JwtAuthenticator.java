@@ -17,7 +17,7 @@ import com.google.inject.Inject;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtParser;
 import io.jsonwebtoken.JwtParserBuilder;
-import io.jsonwebtoken.SigningKeyResolver;
+import io.jsonwebtoken.Locator;
 import io.trino.server.security.AbstractBearerAuthenticator;
 import io.trino.server.security.AuthenticationException;
 import io.trino.server.security.UserMapping;
@@ -26,6 +26,7 @@ import io.trino.spi.security.BasicPrincipal;
 import io.trino.spi.security.Identity;
 import jakarta.ws.rs.container.ContainerRequestContext;
 
+import java.security.Key;
 import java.util.Collection;
 import java.util.Optional;
 
@@ -43,13 +44,13 @@ public class JwtAuthenticator
     private final Optional<String> requiredAudience;
 
     @Inject
-    public JwtAuthenticator(JwtAuthenticatorConfig config, @ForJwt SigningKeyResolver signingKeyResolver)
+    public JwtAuthenticator(JwtAuthenticatorConfig config, @ForJwt Locator<Key> signingKeyLocator)
     {
         principalField = config.getPrincipalField();
         requiredAudience = Optional.ofNullable(config.getRequiredAudience());
 
         JwtParserBuilder jwtParser = newJwtParserBuilder()
-                .setSigningKeyResolver(signingKeyResolver);
+                .keyLocator(signingKeyLocator);
 
         if (config.getRequiredIssuer() != null) {
             jwtParser.requireIssuer(config.getRequiredIssuer());
@@ -62,7 +63,7 @@ public class JwtAuthenticator
     protected Optional<Identity> createIdentity(String token)
             throws UserMappingException
     {
-        Claims claims = jwtParser.parseClaimsJws(token).getBody();
+        Claims claims = jwtParser.parseSignedClaims(token).getPayload();
         validateAudience(claims);
 
         Optional<String> principal = Optional.ofNullable(claims.get(principalField, String.class));
@@ -81,22 +82,19 @@ public class JwtAuthenticator
         }
 
         Object tokenAudience = claims.get(AUDIENCE);
-        if (tokenAudience == null) {
-            throw new InvalidClaimException(format("Expected %s claim to be: %s, but was not present in the JWT claims.", AUDIENCE, requiredAudience.get()));
-        }
-
-        if (tokenAudience instanceof String) {
-            if (!requiredAudience.get().equals((String) tokenAudience)) {
-                throw new InvalidClaimException(format("Invalid Audience: %s. Allowed audiences: %s", tokenAudience, requiredAudience.get()));
+        switch (tokenAudience) {
+            case String value -> {
+                if (!requiredAudience.get().equals(value)) {
+                    throw new InvalidClaimException(format("Invalid Audience: %s. Allowed audiences: %s", tokenAudience, requiredAudience.get()));
+                }
             }
-        }
-        else if (tokenAudience instanceof Collection) {
-            if (((Collection<?>) tokenAudience).stream().map(String.class::cast).noneMatch(aud -> requiredAudience.get().equals(aud))) {
-                throw new InvalidClaimException(format("Invalid Audience: %s. Allowed audiences: %s", tokenAudience, requiredAudience.get()));
+            case Collection<?> collection -> {
+                if (collection.stream().noneMatch(aud -> requiredAudience.get().equals(aud))) {
+                    throw new InvalidClaimException(format("Invalid Audience: %s. Allowed audiences: %s", tokenAudience, requiredAudience.get()));
+                }
             }
-        }
-        else {
-            throw new InvalidClaimException(format("Invalid Audience: %s", tokenAudience));
+            case null -> throw new InvalidClaimException(format("Expected %s claim to be: %s, but was not present in the JWT claims.", AUDIENCE, requiredAudience.get()));
+            default -> throw new InvalidClaimException(format("Invalid Audience: %s", tokenAudience));
         }
     }
 

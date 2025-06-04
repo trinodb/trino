@@ -29,7 +29,7 @@ public class TestSecurityConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(SecurityConfig.class)
-                .setAuthenticationTypes("insecure")
+                .setAuthenticationTypes(ImmutableList.of("insecure"))
                 .setInsecureAuthenticationOverHttpAllowed(true)
                 .setFixedManagementUser(null)
                 .setFixedManagementUserForHttps(false));

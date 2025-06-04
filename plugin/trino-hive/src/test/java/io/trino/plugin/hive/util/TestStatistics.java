@@ -14,9 +14,9 @@
 package io.trino.plugin.hive.util;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.metastore.DoubleStatistics;
+import io.trino.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.HiveColumnStatisticType;
-import io.trino.plugin.hive.metastore.DoubleStatistics;
-import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.spi.block.Block;
 import org.junit.jupiter.api.Test;
 

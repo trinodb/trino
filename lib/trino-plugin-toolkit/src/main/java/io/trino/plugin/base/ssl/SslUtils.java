@@ -61,7 +61,7 @@ public final class SslUtils
                 // for PEM encoded keys, the password is used to decrypt the specific key (and does not protect the keystore itself)
                 keyManagerPassword = new char[0];
             }
-            catch (IOException | GeneralSecurityException ignored) {
+            catch (IOException | GeneralSecurityException _) {
                 keyManagerPassword = keyStorePassword.map(String::toCharArray).orElse(null);
 
                 keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
@@ -112,7 +112,7 @@ public final class SslUtils
                 return trustStore;
             }
         }
-        catch (IOException | GeneralSecurityException ignored) {
+        catch (IOException | GeneralSecurityException _) {
         }
 
         try (InputStream in = new FileInputStream(trustStorePath)) {
@@ -129,12 +129,12 @@ public final class SslUtils
                 continue;
             }
             Certificate certificate = keyStore.getCertificate(alias);
-            if (!(certificate instanceof X509Certificate)) {
+            if (!(certificate instanceof X509Certificate x509Certificate)) {
                 continue;
             }
 
             try {
-                ((X509Certificate) certificate).checkValidity();
+                x509Certificate.checkValidity();
             }
             catch (CertificateExpiredException e) {
                 throw new CertificateExpiredException("KeyStore certificate is expired: " + e.getMessage());

@@ -179,10 +179,8 @@ public class InlineProjections
                     // skip dereferences, otherwise, inlining can cause conflicts with PushdownDereferences
                     Expression assignment = child.getAssignments().get(entry.getKey());
 
-                    if (assignment instanceof FieldReference) {
-                        if (((FieldReference) assignment).base().type() instanceof RowType) {
-                            return false;
-                        }
+                    if (assignment instanceof FieldReference fieldReference) {
+                        return !(fieldReference.base().type() instanceof RowType);
                     }
 
                     return true;

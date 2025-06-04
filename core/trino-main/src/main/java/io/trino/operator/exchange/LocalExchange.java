@@ -66,7 +66,7 @@ import static java.util.function.Function.identity;
 @ThreadSafe
 public class LocalExchange
 {
-    private static final int SCALE_WRITERS_MAX_PARTITIONS_PER_WRITER = 128;
+    public static final int SCALE_WRITERS_MAX_PARTITIONS_PER_WRITER = 128;
 
     private final Supplier<LocalExchanger> exchangerSupplier;
 
@@ -287,9 +287,9 @@ public class LocalExchange
     {
         if (partitioning.getConnectorHandle() instanceof MergePartitioningHandle) {
             // TODO: can we always use this code path?
-            return nodePartitioningManager.getNodePartitioningMap(session, partitioning).getBucketToPartition().length;
+            return nodePartitioningManager.getNodePartitioningMap(session, partitioning, 1000).getBucketToPartition().length;
         }
-        return nodePartitioningManager.getBucketNodeMap(session, partitioning).getBucketCount();
+        return nodePartitioningManager.getBucketCount(session, partitioning);
     }
 
     private static boolean isSystemPartitioning(PartitioningHandle partitioning)
@@ -306,7 +306,7 @@ public class LocalExchange
         }
 
         // all sources are finished, so finish the sinks
-        ImmutableList<LocalExchangeSink> openSinks;
+        List<LocalExchangeSink> openSinks;
         synchronized (this) {
             allSourcesFinished = true;
 

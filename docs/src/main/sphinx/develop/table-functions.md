@@ -89,7 +89,6 @@ column, i.e. produced by the function, or a pass-through column.
 :::
 
 (tf-argument-types)=
-
 ### Argument types
 
 Table functions take three types of arguments:
@@ -98,7 +97,6 @@ Table functions take three types of arguments:
 {ref}`table arguments<tf-table-arguments>`.
 
 (tf-scalar-arguments)=
-
 #### Scalar arguments
 
 They can be of any supported data type. You can specify a default value.
@@ -119,7 +117,6 @@ ScalarArgumentSpecification.builder()
 ```
 
 (tf-descriptor-arguments)=
-
 #### Descriptor arguments
 
 Descriptors consist of fields with names and optional data types. They are a
@@ -135,7 +132,6 @@ DescriptorArgumentSpecification.builder()
 ```
 
 (tf-table-arguments)=
-
 #### Table arguments
 
 A table function can take any number of input relations. It allows you to
@@ -155,7 +151,6 @@ TableArgumentSpecification.builder()
 ```
 
 (tf-set-or-row-semantics)=
-
 ##### Set or row semantics
 
 Set semantics is the default for table arguments. A table argument with set

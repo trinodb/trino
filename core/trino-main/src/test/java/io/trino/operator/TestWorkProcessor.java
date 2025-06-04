@@ -253,6 +253,9 @@ public class TestWorkProcessor
         WorkProcessor<Integer> processor = processorFrom(scenario)
                 .blocking(phase2::get);
 
+        // Make sure processor is initially blocked
+        assertThat(processor.isBlocked()).isTrue();
+
         // WorkProcessor.blocking future overrides phase1 future
         assertBlocks(processor);
         assertUnblocks(processor, phase2.get());

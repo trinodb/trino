@@ -196,7 +196,8 @@ public class TestJsonArrayFunction
     @Test
     public void testNestedAggregation()
     {
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 SELECT json_array('x', max(a))
                 FROM (VALUES ('abc'), ('def')) t(a)
                 """))

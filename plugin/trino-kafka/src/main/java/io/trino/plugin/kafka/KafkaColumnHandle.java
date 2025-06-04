@@ -174,9 +174,9 @@ public final class KafkaColumnHandle
                 Objects.equals(this.mapping, other.mapping) &&
                 Objects.equals(this.dataFormat, other.dataFormat) &&
                 Objects.equals(this.formatHint, other.formatHint) &&
-                Objects.equals(this.keyCodec, other.keyCodec) &&
-                Objects.equals(this.hidden, other.hidden) &&
-                Objects.equals(this.internal, other.internal);
+                this.keyCodec == other.keyCodec &&
+                this.hidden == other.hidden &&
+                this.internal == other.internal;
     }
 
     @Override

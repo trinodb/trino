@@ -31,6 +31,7 @@ import static io.trino.spi.connector.ConnectorMergeSink.INSERT_OPERATION_NUMBER;
 import static io.trino.spi.connector.ConnectorMergeSink.UPDATE_DELETE_OPERATION_NUMBER;
 import static io.trino.spi.connector.ConnectorMergeSink.UPDATE_INSERT_OPERATION_NUMBER;
 import static io.trino.spi.connector.ConnectorMergeSink.UPDATE_OPERATION_NUMBER;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.util.Objects.requireNonNull;
 
@@ -99,22 +100,24 @@ public class DeleteAndInsertMergeProcessor
         int originalPositionCount = inputPage.getPositionCount();
         checkArgument(originalPositionCount > 0, "originalPositionCount should be > 0, but is %s", originalPositionCount);
 
-        List<Block> fields = getRowFieldsFromBlock(inputPage.getBlock(mergeRowChannel));
+        Block mergeRow = inputPage.getBlock(mergeRowChannel);
+        List<Block> fields = getRowFieldsFromBlock(mergeRow);
         Block operationChannelBlock = fields.get(fields.size() - 2);
 
         int updatePositions = 0;
         int insertPositions = 0;
         int deletePositions = 0;
         for (int position = 0; position < originalPositionCount; position++) {
-            byte operation = TINYINT.getByte(operationChannelBlock, position);
-            switch (operation) {
-                case DEFAULT_CASE_OPERATION_NUMBER -> { /* ignored */ }
-                case INSERT_OPERATION_NUMBER -> insertPositions++;
-                case DELETE_OPERATION_NUMBER -> deletePositions++;
-                case UPDATE_OPERATION_NUMBER -> updatePositions++;
-                // This class will create such rows, they are not expected on input
-                case UPDATE_INSERT_OPERATION_NUMBER, UPDATE_DELETE_OPERATION_NUMBER -> throw new IllegalArgumentException("Unexpected operator number: " + operation);
-                default -> throw new IllegalArgumentException("Unknown operator number: " + operation);
+            if (!mergeRow.isNull(position)) {
+                byte operation = TINYINT.getByte(operationChannelBlock, position);
+                switch (operation) {
+                    case INSERT_OPERATION_NUMBER -> insertPositions++;
+                    case DELETE_OPERATION_NUMBER -> deletePositions++;
+                    case UPDATE_OPERATION_NUMBER -> updatePositions++;
+                    // This class will create such rows, they are not expected on input
+                    case UPDATE_INSERT_OPERATION_NUMBER, UPDATE_DELETE_OPERATION_NUMBER -> throw new IllegalArgumentException("Unexpected operator number: " + operation);
+                    default -> throw new IllegalArgumentException("Unknown operator number: " + operation);
+                }
             }
         }
 
@@ -122,14 +125,15 @@ public class DeleteAndInsertMergeProcessor
         List<Type> pageTypes = ImmutableList.<Type>builder()
                 .addAll(dataColumnTypes)
                 .add(TINYINT)
+                .add(INTEGER)
                 .add(rowIdType)
                 .add(TINYINT)
                 .build();
 
         PageBuilder pageBuilder = new PageBuilder(totalPositions, pageTypes);
         for (int position = 0; position < originalPositionCount; position++) {
-            byte operation = TINYINT.getByte(operationChannelBlock, position);
-            if (operation != DEFAULT_CASE_OPERATION_NUMBER) {
+            if (!mergeRow.isNull(position)) {
+                byte operation = TINYINT.getByte(operationChannelBlock, position);
                 // Delete and Update because both create a delete row
                 if (operation == DELETE_OPERATION_NUMBER || operation == UPDATE_OPERATION_NUMBER) {
                     addDeleteRow(pageBuilder, inputPage, position, operation != DELETE_OPERATION_NUMBER);
@@ -169,11 +173,14 @@ public class DeleteAndInsertMergeProcessor
         // Add the operation column == deleted
         TINYINT.writeLong(pageBuilder.getBlockBuilder(dataColumnChannels.size()), causedByUpdate ? UPDATE_DELETE_OPERATION_NUMBER : DELETE_OPERATION_NUMBER);
 
+        // Add the dummy case number, delete and insert won't use it, use -1 to mark it shouldn't be used
+        INTEGER.writeLong(pageBuilder.getBlockBuilder(dataColumnChannels.size() + 1), -1);
+
         // Copy row ID column
-        rowIdType.appendTo(originalPage.getBlock(rowIdChannel), position, pageBuilder.getBlockBuilder(dataColumnChannels.size() + 1));
+        rowIdType.appendTo(originalPage.getBlock(rowIdChannel), position, pageBuilder.getBlockBuilder(dataColumnChannels.size() + 2));
 
         // Write 0, meaning this row is not an insert derived from an update
-        TINYINT.writeLong(pageBuilder.getBlockBuilder(dataColumnChannels.size() + 2), 0);
+        TINYINT.writeLong(pageBuilder.getBlockBuilder(dataColumnChannels.size() + 3), 0);
 
         pageBuilder.declarePosition();
     }
@@ -191,11 +198,14 @@ public class DeleteAndInsertMergeProcessor
         // Add the operation column == insert
         TINYINT.writeLong(pageBuilder.getBlockBuilder(dataColumnChannels.size()), causedByUpdate ? UPDATE_INSERT_OPERATION_NUMBER : INSERT_OPERATION_NUMBER);
 
+        // Add the dummy case number, delete and insert won't use it
+        INTEGER.writeLong(pageBuilder.getBlockBuilder(dataColumnChannels.size() + 1), 0);
+
         // Add null row ID column
-        pageBuilder.getBlockBuilder(dataColumnChannels.size() + 1).appendNull();
+        pageBuilder.getBlockBuilder(dataColumnChannels.size() + 2).appendNull();
 
         // Write 1 if this row is an insert derived from an update, 0 otherwise
-        TINYINT.writeLong(pageBuilder.getBlockBuilder(dataColumnChannels.size() + 2), causedByUpdate ? 1 : 0);
+        TINYINT.writeLong(pageBuilder.getBlockBuilder(dataColumnChannels.size() + 3), causedByUpdate ? 1 : 0);
 
         pageBuilder.declarePosition();
     }

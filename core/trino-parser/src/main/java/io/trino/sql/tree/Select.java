@@ -28,21 +28,19 @@ public class Select
     private final boolean distinct;
     private final List<SelectItem> selectItems;
 
+    @Deprecated
     public Select(boolean distinct, List<SelectItem> selectItems)
     {
-        this(Optional.empty(), distinct, selectItems);
+        super(Optional.empty());
+        this.distinct = distinct;
+        this.selectItems = ImmutableList.copyOf(requireNonNull(selectItems, "selectItems"));
     }
 
     public Select(NodeLocation location, boolean distinct, List<SelectItem> selectItems)
     {
-        this(Optional.of(location), distinct, selectItems);
-    }
-
-    private Select(Optional<NodeLocation> location, boolean distinct, List<SelectItem> selectItems)
-    {
         super(location);
         this.distinct = distinct;
-        this.selectItems = ImmutableList.copyOf(requireNonNull(selectItems, "selectItems"));
+        this.selectItems = ImmutableList.copyOf(selectItems);
     }
 
     public boolean isDistinct()

@@ -78,8 +78,8 @@ public class TestGenericPartitioningSpiller
     {
         tempDirectory = createTempDirectory(getClass().getSimpleName());
         FeaturesConfig featuresConfig = new FeaturesConfig();
-        featuresConfig.setSpillerSpillPaths(tempDirectory.toString());
-        featuresConfig.setSpillerThreads(8);
+        featuresConfig.setSpillerSpillPaths(ImmutableList.of(tempDirectory.toString()));
+        featuresConfig.setSpillerThreads("8");
         featuresConfig.setSpillMaxUsedSpaceThreshold(1.0);
         SingleStreamSpillerFactory singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(
                 new TestingBlockEncodingSerde(),
@@ -214,7 +214,7 @@ public class TestGenericPartitioningSpiller
             List<Page> actualSpill = ImmutableList.copyOf(spiller.getSpilledPages(partition));
             List<Page> expectedSpill = expectedPartitions.get(partition);
 
-            assertThat(actualSpill.size()).isEqualTo(expectedSpill.size());
+            assertThat(actualSpill).hasSize(expectedSpill.size());
             for (int j = 0; j < actualSpill.size(); j++) {
                 assertPageEquals(types, actualSpill.get(j), expectedSpill.get(j));
             }

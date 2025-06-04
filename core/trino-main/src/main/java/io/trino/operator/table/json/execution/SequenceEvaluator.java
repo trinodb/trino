@@ -28,11 +28,9 @@ import static io.trino.json.JsonInputErrorNode.JSON_ERROR;
 import static io.trino.json.ir.SqlJsonLiteralConverter.getJsonNode;
 import static java.lang.String.format;
 
-public class SequenceEvaluator
+public final class SequenceEvaluator
 {
-    private SequenceEvaluator()
-    {
-    }
+    private SequenceEvaluator() {}
 
     // creates a sequence of JSON items, and applies error handling
     public static List<JsonNode> getSequence(JsonNode item, Object[] pathParameters, JsonPathEvaluator pathEvaluator, boolean errorOnError)

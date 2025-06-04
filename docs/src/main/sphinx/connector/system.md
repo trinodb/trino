@@ -51,7 +51,6 @@ The table properties table contains the list of available properties
 that can be set when creating a new table.
 
 (system-metadata-materialized-views)=
-
 ### `metadata.materialized_views`
 
 The materialized views table contains the following information about all
@@ -104,7 +103,6 @@ The nodes table contains the list of visible nodes in the Trino
 cluster along with their status.
 
 (optimizer-rule-stats)=
-
 ### `runtime.optimizer_rule_stats`
 
 The `optimizer_rule_stats` table contains the statistics for optimizer
@@ -145,14 +143,12 @@ specified `message`. `message` is optional.
 :::
 
 (system-type-mapping)=
-
 ## Type mapping
 
 Trino supports all data types used within the System schemas so no mapping
 is required.
 
 (system-sql-support)=
-
 ## SQL support
 
 The connector provides {ref}`globally available <sql-globally-available>` and

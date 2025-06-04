@@ -15,25 +15,29 @@ package io.trino.server.security.oauth2;
 
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
+import io.trino.server.ExternalUriInfo;
 import io.trino.server.security.ResourceSecurity;
+import jakarta.ws.rs.BeanParam;
 import jakarta.ws.rs.CookieParam;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
-import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.Cookie;
 import jakarta.ws.rs.core.Response;
-import jakarta.ws.rs.core.UriInfo;
+
+import java.net.URLEncoder;
 
 import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static io.trino.server.security.oauth2.NonceCookie.NONCE_COOKIE;
 import static io.trino.server.security.oauth2.OAuth2CallbackResource.CALLBACK_ENDPOINT;
 import static jakarta.ws.rs.core.MediaType.TEXT_HTML;
 import static jakarta.ws.rs.core.Response.Status.BAD_REQUEST;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 @Path(CALLBACK_ENDPOINT)
+@ResourceSecurity(PUBLIC)
 public class OAuth2CallbackResource
 {
     private static final Logger LOG = Logger.get(OAuth2CallbackResource.class);
@@ -48,7 +52,6 @@ public class OAuth2CallbackResource
         this.service = requireNonNull(service, "service is null");
     }
 
-    @ResourceSecurity(PUBLIC)
     @GET
     @Produces(TEXT_HTML)
     public Response callback(
@@ -58,16 +61,16 @@ public class OAuth2CallbackResource
             @QueryParam("error_description") String errorDescription,
             @QueryParam("error_uri") String errorUri,
             @CookieParam(NONCE_COOKIE) Cookie nonce,
-            @Context UriInfo uriInfo)
+            @BeanParam ExternalUriInfo externalUriInfo)
     {
         if (error != null) {
-            return service.handleOAuth2Error(state, error, errorDescription, errorUri);
+            return service.handleOAuth2Error(state, URLEncoder.encode(error, UTF_8), errorDescription, errorUri);
         }
 
         try {
             requireNonNull(state, "state is null");
             requireNonNull(code, "code is null");
-            return service.finishOAuth2Challenge(state, code, uriInfo.getBaseUri().resolve(CALLBACK_ENDPOINT), NonceCookie.read(nonce));
+            return service.finishOAuth2Challenge(state, code, externalUriInfo, NonceCookie.read(nonce));
         }
         catch (RuntimeException e) {
             LOG.debug(e, "Authentication response could not be verified: state=%s", state);

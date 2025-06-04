@@ -35,7 +35,6 @@ import java.util.function.Predicate;
 import java.util.stream.Collector;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 
@@ -131,7 +130,7 @@ public class Assignments
     {
         Expression expression = assignments.get(output);
 
-        return expression instanceof Reference && ((Reference) expression).name().equals(output.name());
+        return expression instanceof Reference reference && reference.name().equals(output.name());
     }
 
     public boolean isIdentity()
@@ -139,7 +138,7 @@ public class Assignments
         for (Map.Entry<Symbol, Expression> entry : assignments.entrySet()) {
             Expression expression = entry.getValue();
             Symbol symbol = entry.getKey();
-            if (!(expression instanceof Reference && ((Reference) expression).name().equals(symbol.name()))) {
+            if (!(expression instanceof Reference reference && reference.name().equals(symbol.name()))) {
                 return false;
             }
         }
@@ -257,16 +256,11 @@ public class Assignments
         {
             checkArgument(symbol.type().equals(expression.type()), "Types don't match: %s vs %s, for %s and %s", symbol.type(), expression.type(), symbol, expression);
 
-            if (assignments.containsKey(symbol)) {
-                Expression assignment = assignments.get(symbol);
-                checkState(
-                        assignment.equals(expression),
-                        "Symbol %s already has assignment %s, while adding %s",
-                        symbol.name(),
-                        assignment,
-                        expression);
+            Expression replaced = assignments.put(symbol, expression);
+            if (replaced != null && !replaced.equals(expression)) {
+                assignments.put(symbol, replaced); // restore previous value
+                throw new IllegalStateException("Symbol %s already has assignment %s, while adding %s".formatted(symbol.name(), replaced, expression));
             }
-            assignments.put(symbol, expression);
             return this;
         }
 

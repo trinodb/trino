@@ -410,7 +410,7 @@ public class MemoryPool
             return;
         }
 
-        Map<String, Long> allocations = taggedMemoryAllocations.computeIfAbsent(queryId, ignored -> new HashMap<>());
+        Map<String, Long> allocations = taggedMemoryAllocations.computeIfAbsent(queryId, _ -> new HashMap<>());
         allocations.compute(allocationTag, (ignored, oldValue) -> {
             if (oldValue == null) {
                 return delta;

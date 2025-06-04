@@ -16,7 +16,9 @@ package io.trino.hdfs.authentication;
 import com.google.inject.Inject;
 import io.trino.spi.security.ConnectorIdentity;
 
-import static io.trino.hdfs.authentication.UserGroupInformationUtils.executeActionInDoAs;
+import java.io.IOException;
+import java.io.InterruptedIOException;
+
 import static java.util.Objects.requireNonNull;
 
 public class DirectHdfsAuthentication
@@ -31,9 +33,15 @@ public class DirectHdfsAuthentication
     }
 
     @Override
-    public <R, E extends Exception> R doAs(ConnectorIdentity identity, GenericExceptionAction<R, E> action)
-            throws E
+    public <T> T doAs(ConnectorIdentity identity, ExceptionAction<T> action)
+            throws IOException
     {
-        return executeActionInDoAs(hadoopAuthentication.getUserGroupInformation(), action);
+        try {
+            return hadoopAuthentication.getUserGroupInformation().callAs(action::run);
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new InterruptedIOException();
+        }
     }
 }

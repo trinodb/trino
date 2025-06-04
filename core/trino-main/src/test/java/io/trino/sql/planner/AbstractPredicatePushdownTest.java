@@ -33,6 +33,7 @@ import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.ProjectNode;
+import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.WindowNode;
 import org.junit.jupiter.api.Test;
 
@@ -290,9 +291,9 @@ public abstract class AbstractPredicatePushdownTest
                         join(LEFT, builder -> builder
                                 .equiCriteria("A", "B")
                                 .left(
-                                        assignUniqueId("unique", filter(new Comparison(EQUAL, new Reference(INTEGER, "A"), new Constant(INTEGER, 1L)), values("A"))))
+                                        assignUniqueId("unique", values("A")))
                                 .right(
-                                        filter(new Comparison(EQUAL, new Constant(INTEGER, 1L), new Reference(INTEGER, "B")), values("B"))))));
+                                        values("B")))));
     }
 
     @Test
@@ -425,7 +426,30 @@ public abstract class AbstractPredicatePushdownTest
     }
 
     @Test
-    public void testPredicateOnNonDeterministicSymbolsPushedDown()
+    public void testPredicateOnPartitionSymbolsPushedThroughTopNRanking()
+    {
+        assertPlan(
+                "SELECT * FROM (" +
+                        "SELECT custkey, orderkey, rank() OVER (PARTITION BY custkey  ORDER BY orderdate ASC) rank " +
+                        "FROM orders " +
+                        ") WHERE rank < 5 AND custkey = 0 AND orderkey > 0 ",
+                anyTree(
+                        filter(
+                                new Comparison(GREATER_THAN, new Reference(BIGINT, "ORDER_KEY"), new Constant(BIGINT, 0L)),
+                                anyTree(
+                                        node(TopNRankingNode.class,
+                                                anyTree(
+                                                        filter(
+                                                                new Comparison(EQUAL, new Reference(BIGINT, "CUST_KEY"), new Constant(BIGINT, 0L)),
+                                                                tableScan(
+                                                                        "orders",
+                                                                        ImmutableMap.of(
+                                                                                "CUST_KEY", "custkey",
+                                                                                "ORDER_KEY", "orderkey")))))))));
+    }
+
+    @Test
+    public void testPredicateOnNonDeterministicSymbolsPushedDownThroughWindow()
     {
         assertPlan(
                 "SELECT * FROM (" +
@@ -444,7 +468,26 @@ public abstract class AbstractPredicatePushdownTest
     }
 
     @Test
-    public void testNonDeterministicPredicateNotPushedDown()
+    public void testPredicateOnNonDeterministicSymbolsPushedDownThroughTopNRanking()
+    {
+        assertPlan(
+                "SELECT * FROM (" +
+                        "SELECT random_column, orderkey, rank() OVER (PARTITION BY random_column  ORDER BY orderdate ASC) rank " +
+                        "FROM (select round(custkey*rand()) random_column, * from orders) " +
+                        ") WHERE rank < 5 AND random_column > 100",
+                anyTree(
+                        node(TopNRankingNode.class,
+                                anyTree(
+                                        filter(
+                                                new Comparison(GREATER_THAN, new Reference(DOUBLE, "ROUND"), new Constant(DOUBLE, 100.0)),
+                                                project(ImmutableMap.of("ROUND", expression(new Call(ROUND, ImmutableList.of(new Call(MULTIPLY_DOUBLE, ImmutableList.of(new Cast(new Reference(BIGINT, "CUST_KEY"), DOUBLE), new Call(RANDOM, ImmutableList.of()))))))),
+                                                        tableScan(
+                                                                "orders",
+                                                                ImmutableMap.of("CUST_KEY", "custkey"))))))));
+    }
+
+    @Test
+    public void testNonDeterministicPredicateNotPushedDownThroughWindow()
     {
         assertPlan(
                 "SELECT * FROM (" +
@@ -456,6 +499,25 @@ public abstract class AbstractPredicatePushdownTest
                                 new Comparison(GREATER_THAN, new Cast(new Reference(BIGINT, "CUST_KEY"), DOUBLE), new Call(MULTIPLY_DOUBLE, ImmutableList.of(new Call(RANDOM, ImmutableList.of()), new Constant(DOUBLE, 100.0)))),
                                 anyTree(
                                         node(WindowNode.class,
+                                                anyTree(
+                                                        tableScan(
+                                                                "orders",
+                                                                ImmutableMap.of("CUST_KEY", "custkey"))))))));
+    }
+
+    @Test
+    public void testNonDeterministicPredicateNotPushedDownThroughTopNRanking()
+    {
+        assertPlan(
+                "SELECT * FROM (" +
+                        "SELECT custkey, orderkey, rank() OVER (PARTITION BY custkey  ORDER BY orderdate ASC) rank " +
+                        "FROM orders" +
+                        ") WHERE rank < 5 AND custkey > 100*rand()",
+                anyTree(
+                        filter(
+                                new Comparison(GREATER_THAN, new Cast(new Reference(BIGINT, "CUST_KEY"), DOUBLE), new Call(MULTIPLY_DOUBLE, ImmutableList.of(new Call(RANDOM, ImmutableList.of()), new Constant(DOUBLE, 100.0)))),
+                                anyTree(
+                                        node(TopNRankingNode.class,
                                                 anyTree(
                                                         tableScan(
                                                                 "orders",
@@ -480,8 +542,7 @@ public abstract class AbstractPredicatePushdownTest
                                                         ImmutableMap.of(
                                                                 "ORDERSTATUS", "orderstatus",
                                                                 "ORDERKEY", "orderkey")))),
-                                anyTree(
-                                        values("COL")))));
+                                values())));
     }
 
     @Test

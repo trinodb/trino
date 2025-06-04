@@ -147,7 +147,7 @@ public final class TestFixedWidthByteArrayValueDecoders
     {
         DecimalType decimalType = DecimalType.createDecimalType(precision, 2);
         PrimitiveField primitiveField = createField(FIXED_LEN_BYTE_ARRAY, OptionalInt.of(typeLength), decimalType);
-        ValueDecoders valueDecoders = new ValueDecoders(primitiveField);
+        ValueDecoders valueDecoders = new ValueDecoders(primitiveField, false);
         return new TestType<>(
                 primitiveField,
                 valueDecoders::getFixedWidthShortDecimalDecoder,

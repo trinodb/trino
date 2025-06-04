@@ -16,9 +16,10 @@ package io.trino.plugin.password.ldap;
 import com.google.common.io.Closer;
 import io.trino.plugin.base.ldap.JdkLdapClient;
 import io.trino.plugin.base.ldap.LdapClientConfig;
-import io.trino.plugin.password.ldap.TestingOpenLdapServer.DisposableSubContext;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.BasicPrincipal;
+import io.trino.testing.containers.TestingOpenLdapServer;
+import io.trino.testing.containers.TestingOpenLdapServer.DisposableSubContext;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -151,7 +152,7 @@ public class TestLdapAuthenticator
                     new LdapAuthenticatorConfig()
                             .setUserBaseDistinguishedName(organization.getDistinguishedName())
                             .setGroupAuthorizationSearchPattern("(&(objectClass=inetOrgPerson))")
-                            .setBindDistingushedName("cn=admin,dc=trino,dc=testldap,dc=com")
+                            .setBindDistinguishedName("cn=admin,dc=trino,dc=testldap,dc=com")
                             .setBindPassword("invalid-password"));
 
             assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass"))
@@ -173,7 +174,7 @@ public class TestLdapAuthenticator
                     new LdapAuthenticatorConfig()
                             .setUserBaseDistinguishedName(organization.getDistinguishedName())
                             .setGroupAuthorizationSearchPattern(format("(&(objectClass=inetOrgPerson)(memberof=%s))", group.getDistinguishedName()))
-                            .setBindDistingushedName("cn=admin,dc=trino,dc=testldap,dc=com")
+                            .setBindDistinguishedName("cn=admin,dc=trino,dc=testldap,dc=com")
                             .setBindPassword("admin"));
 
             assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("unknown_user", "invalid"))

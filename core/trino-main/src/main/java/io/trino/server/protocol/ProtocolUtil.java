@@ -81,51 +81,47 @@ public final class ProtocolUtil
 
     private static String formatType(DataType type, boolean supportsParametricDateTime)
     {
-        if (type instanceof DateTimeDataType dataTimeType) {
-            if (!supportsParametricDateTime) {
-                if (dataTimeType.getType() == DateTimeDataType.Type.TIMESTAMP && dataTimeType.isWithTimeZone()) {
-                    return TIMESTAMP_WITH_TIME_ZONE;
+        return switch (type) {
+            case DateTimeDataType dataTimeType -> {
+                if (!supportsParametricDateTime) {
+                    if (dataTimeType.getType() == DateTimeDataType.Type.TIMESTAMP && dataTimeType.isWithTimeZone()) {
+                        yield TIMESTAMP_WITH_TIME_ZONE;
+                    }
+                    if (dataTimeType.getType() == DateTimeDataType.Type.TIMESTAMP && !dataTimeType.isWithTimeZone()) {
+                        yield TIMESTAMP;
+                    }
+                    if (dataTimeType.getType() == DateTimeDataType.Type.TIME && !dataTimeType.isWithTimeZone()) {
+                        yield TIME;
+                    }
+                    if (dataTimeType.getType() == DateTimeDataType.Type.TIME && dataTimeType.isWithTimeZone()) {
+                        yield TIME_WITH_TIME_ZONE;
+                    }
                 }
-                if (dataTimeType.getType() == DateTimeDataType.Type.TIMESTAMP && !dataTimeType.isWithTimeZone()) {
-                    return TIMESTAMP;
-                }
-                if (dataTimeType.getType() == DateTimeDataType.Type.TIME && !dataTimeType.isWithTimeZone()) {
-                    return TIME;
-                }
-                if (dataTimeType.getType() == DateTimeDataType.Type.TIME && dataTimeType.isWithTimeZone()) {
-                    return TIME_WITH_TIME_ZONE;
-                }
-            }
 
-            return ExpressionFormatter.formatExpression(type);
-        }
-        if (type instanceof RowDataType rowDataType) {
-            return rowDataType.getFields().stream()
+                yield ExpressionFormatter.formatExpression(type);
+            }
+            case RowDataType rowDataType -> rowDataType.getFields().stream()
                     .map(field -> field.getName().map(name -> name + " ").orElse("") + formatType(field.getType(), supportsParametricDateTime))
                     .collect(Collectors.joining(", ", ROW + "(", ")"));
-        }
-        if (type instanceof GenericDataType dataType) {
-            if (dataType.getArguments().isEmpty()) {
-                return dataType.getName().getValue();
+            case GenericDataType dataType -> {
+                if (dataType.getArguments().isEmpty()) {
+                    yield dataType.getName().getValue();
+                }
+
+                yield dataType.getArguments().stream()
+                        .map(parameter -> {
+                            if (parameter instanceof NumericParameter numericParameter) {
+                                return numericParameter.getValue();
+                            }
+                            if (parameter instanceof TypeParameter typeParameter) {
+                                return formatType(typeParameter.getValue(), supportsParametricDateTime);
+                            }
+                            throw new IllegalArgumentException("Unsupported parameter type: " + parameter.getClass().getName());
+                        })
+                        .collect(Collectors.joining(", ", dataType.getName().getValue() + "(", ")"));
             }
-
-            return dataType.getArguments().stream()
-                    .map(parameter -> {
-                        if (parameter instanceof NumericParameter) {
-                            return ((NumericParameter) parameter).getValue();
-                        }
-                        if (parameter instanceof TypeParameter) {
-                            return formatType(((TypeParameter) parameter).getValue(), supportsParametricDateTime);
-                        }
-                        throw new IllegalArgumentException("Unsupported parameter type: " + parameter.getClass().getName());
-                    })
-                    .collect(Collectors.joining(", ", dataType.getName().getValue() + "(", ")"));
-        }
-        if (type instanceof IntervalDayTimeDataType) {
-            return ExpressionFormatter.formatExpression(type);
-        }
-
-        throw new IllegalArgumentException("Unsupported data type: " + type.getClass().getName());
+            case IntervalDayTimeDataType _ -> ExpressionFormatter.formatExpression(type);
+        };
     }
 
     private static ClientTypeSignature toClientTypeSignature(TypeSignature signature, boolean supportsParametricDateTime)
@@ -186,14 +182,19 @@ public final class ProtocolUtil
                 .setQueuedSplits(queryStats.getQueuedDrivers())
                 .setRunningSplits(queryStats.getRunningDrivers() + queryStats.getBlockedDrivers())
                 .setCompletedSplits(queryStats.getCompletedDrivers())
+                .setPlanningTimeMillis(queryStats.getPlanningTime().toMillis())
+                .setAnalysisTimeMillis(queryStats.getAnalysisTime().toMillis())
                 .setCpuTimeMillis(queryStats.getTotalCpuTime().toMillis())
                 .setWallTimeMillis(queryStats.getTotalScheduledTime().toMillis())
                 .setQueuedTimeMillis(queryStats.getQueuedTime().toMillis())
                 .setElapsedTimeMillis(queryStats.getElapsedTime().toMillis())
+                .setFinishingTimeMillis(queryStats.getFinishingTime().toMillis())
+                .setPhysicalInputTimeMillis(queryStats.getPhysicalInputReadTime().toMillis())
                 .setProcessedRows(queryStats.getRawInputPositions())
                 .setProcessedBytes(queryStats.getRawInputDataSize().toBytes())
                 .setPhysicalInputBytes(queryStats.getPhysicalInputDataSize().toBytes())
                 .setPhysicalWrittenBytes(queryStats.getPhysicalWrittenDataSize().toBytes())
+                .setInternalNetworkInputBytes(queryStats.getInternalNetworkInputDataSize().toBytes())
                 .setPeakMemoryBytes(queryStats.getPeakUserMemoryReservation().toBytes())
                 .setSpilledBytes(queryStats.getSpilledDataSize().toBytes())
                 .setRootStage(rootStageStats)
@@ -247,7 +248,7 @@ public final class ProtocolUtil
         List<TaskInfo> tasks = stageInfo.getTasks();
         Set<String> stageUniqueNodes = Sets.newHashSetWithExpectedSize(tasks.size());
         for (TaskInfo task : tasks) {
-            String nodeId = task.getTaskStatus().getNodeId();
+            String nodeId = task.taskStatus().getNodeId();
             stageUniqueNodes.add(nodeId);
             globalUniqueNodes.add(nodeId);
         }

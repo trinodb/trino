@@ -18,8 +18,6 @@ import io.trino.tempto.ProductTest;
 import io.trino.tests.product.utils.CachingTestUtils.CacheStats;
 import org.testng.annotations.Test;
 
-import static io.airlift.testing.Assertions.assertGreaterThan;
-import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.trino.tests.product.TestGroups.HIVE_ALLUXIO_CACHING;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.utils.CachingTestUtils.getCacheStats;
@@ -27,7 +25,6 @@ import static io.trino.tests.product.utils.QueryAssertions.assertEventually;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 public class TestHiveAlluxioCaching
         extends ProductTest
@@ -57,9 +54,9 @@ public class TestHiveAlluxioCaching
                 () -> {
                     // first query via caching catalog should fetch remote data
                     CacheStats afterQueryCacheStats = getCacheStats("hive");
-                    assertGreaterThanOrEqual(afterQueryCacheStats.cacheSpaceUsed(), beforeCacheStats.cacheSpaceUsed() + tableSize);
-                    assertGreaterThan(afterQueryCacheStats.externalReads(), beforeCacheStats.externalReads());
-                    assertGreaterThanOrEqual(afterQueryCacheStats.cacheReads(), beforeCacheStats.cacheReads());
+                    assertThat(afterQueryCacheStats.cacheSpaceUsed()).isGreaterThanOrEqualTo(beforeCacheStats.cacheSpaceUsed() + tableSize);
+                    assertThat(afterQueryCacheStats.externalReads()).isGreaterThan(beforeCacheStats.externalReads());
+                    assertThat(afterQueryCacheStats.cacheReads()).isGreaterThanOrEqualTo(beforeCacheStats.cacheReads());
                 });
 
         assertEventually(
@@ -71,9 +68,9 @@ public class TestHiveAlluxioCaching
 
                     // query via caching catalog should read exclusively from cache
                     CacheStats afterQueryCacheStats = getCacheStats("hive");
-                    assertGreaterThan(afterQueryCacheStats.cacheReads(), beforeQueryCacheStats.cacheReads());
-                    assertEquals(afterQueryCacheStats.externalReads(), beforeQueryCacheStats.externalReads());
-                    assertEquals(afterQueryCacheStats.cacheSpaceUsed(), beforeQueryCacheStats.cacheSpaceUsed());
+                    assertThat(afterQueryCacheStats.cacheReads()).isGreaterThan(beforeQueryCacheStats.cacheReads());
+                    assertThat(afterQueryCacheStats.externalReads()).isEqualTo(beforeQueryCacheStats.externalReads());
+                    assertThat(afterQueryCacheStats.cacheSpaceUsed()).isEqualTo(beforeQueryCacheStats.cacheSpaceUsed());
                 });
 
         onTrino().executeQuery("DROP TABLE " + nonCachedTableName);

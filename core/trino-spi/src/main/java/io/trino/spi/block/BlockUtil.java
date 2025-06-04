@@ -17,6 +17,7 @@ import io.airlift.slice.Slice;
 import jakarta.annotation.Nullable;
 
 import java.util.Arrays;
+import java.util.Optional;
 
 import static java.lang.Math.ceil;
 import static java.lang.Math.clamp;
@@ -32,9 +33,7 @@ final class BlockUtil
     // Two additional positions are reserved for a spare null position and offset position
     static final int MAX_ARRAY_SIZE = Integer.MAX_VALUE - 8 - 2;
 
-    private BlockUtil()
-    {
-    }
+    private BlockUtil() {}
 
     static void checkArrayRange(int[] array, int offset, int length)
     {
@@ -247,27 +246,6 @@ final class BlockUtil
         return true;
     }
 
-    /**
-     * Returns the input blocks array if all blocks are already loaded, otherwise returns a new blocks array with all blocks loaded
-     */
-    static Block[] ensureBlocksAreLoaded(Block[] blocks)
-    {
-        for (int i = 0; i < blocks.length; i++) {
-            Block loaded = blocks[i].getLoadedBlock();
-            if (loaded != blocks[i]) {
-                // Transition to new block creation mode after the first newly loaded block is encountered
-                Block[] loadedBlocks = blocks.clone();
-                loadedBlocks[i++] = loaded;
-                for (; i < blocks.length; i++) {
-                    loadedBlocks[i] = blocks[i].getLoadedBlock();
-                }
-                return loadedBlocks;
-            }
-        }
-        // No newly loaded blocks
-        return blocks;
-    }
-
     static boolean[] copyIsNullAndAppendNull(@Nullable boolean[] isNull, int offsetBase, int positionCount)
     {
         int desiredLength = offsetBase + positionCount + 1;
@@ -361,12 +339,31 @@ final class BlockUtil
 
     static void appendRawBlockRange(Block rawBlock, int offset, int length, BlockBuilder blockBuilder)
     {
-        rawBlock = rawBlock.getLoadedBlock();
         switch (rawBlock) {
             case RunLengthEncodedBlock rleBlock -> blockBuilder.appendRepeated(rleBlock.getValue(), 0, length);
             case DictionaryBlock dictionaryBlock -> blockBuilder.appendPositions(dictionaryBlock.getDictionary(), dictionaryBlock.getRawIds(), offset, length);
             case ValueBlock valueBlock -> blockBuilder.appendRange(valueBlock, offset, length);
-            case LazyBlock ignored -> throw new IllegalStateException("Did not expect LazyBlock after loading " + rawBlock.getClass().getSimpleName());
         }
+    }
+
+    /**
+     * Ideally, the underlying nulls array in Block implementations should be a byte array instead of a boolean array.
+     * This method is used to perform that conversion until the Block implementations are changed.
+     */
+    static Optional<ByteArrayBlock> getNulls(@Nullable boolean[] valueIsNull, int arrayOffset, int positionCount)
+    {
+        if (valueIsNull == null) {
+            return Optional.empty();
+        }
+        byte[] booleansAsBytes = new byte[positionCount];
+        boolean foundAnyNull = false;
+        for (int i = 0; i < positionCount; i++) {
+            booleansAsBytes[i] = (byte) (valueIsNull[arrayOffset + i] ? 1 : 0);
+            foundAnyNull = foundAnyNull || valueIsNull[arrayOffset + i];
+        }
+        if (!foundAnyNull) {
+            return Optional.empty();
+        }
+        return Optional.of(new ByteArrayBlock(booleansAsBytes.length, Optional.empty(), booleansAsBytes));
     }
 }

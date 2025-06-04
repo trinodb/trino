@@ -13,6 +13,7 @@
  */
 package io.trino.testing;
 
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import io.trino.Session;
@@ -21,6 +22,7 @@ import io.trino.client.ClientSession;
 import io.trino.client.Column;
 import io.trino.client.QueryStatusInfo;
 import io.trino.client.StatementClient;
+import io.trino.client.spooling.EncodedQueryData;
 import io.trino.metadata.MetadataUtil;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.QualifiedTablePrefix;
@@ -105,7 +107,10 @@ public abstract class AbstractTestingTrinoClient<T>
         ClientSession clientSession = toClientSession(session, trinoServer.getBaseUrl(), new Duration(2, TimeUnit.MINUTES));
         try (StatementClient client = statementClientFactory.create(httpClient, session, clientSession, sql)) {
             while (client.isRunning()) {
-                resultsSession.addResults(client.currentStatusInfo(), client.currentData());
+                resultsSession.addResults(client.currentStatusInfo(), client.currentRows());
+                if (client.currentData() instanceof EncodedQueryData encodedQueryData) {
+                    resultsSession.setQueryDataEncoding(encodedQueryData.getEncoding());
+                }
                 client.advance();
             }
 
@@ -117,8 +122,8 @@ public abstract class AbstractTestingTrinoClient<T>
                 if (results.getUpdateType() != null) {
                     resultsSession.setUpdateType(results.getUpdateType());
                 }
-                if (results.getUpdateCount() != null) {
-                    resultsSession.setUpdateCount(results.getUpdateCount());
+                if (results.getUpdateCount().isPresent()) {
+                    resultsSession.setUpdateCount(results.getUpdateCount().getAsLong());
                 }
 
                 resultsSession.setWarnings(results.getWarnings());
@@ -135,7 +140,7 @@ public abstract class AbstractTestingTrinoClient<T>
             throw new QueryFailedException(queryId, "Query failed: " + results.getError().getMessage());
 
             // dump query info to console for debugging (NOTE: not pretty printed)
-            // JsonCodec<QueryInfo> queryInfoJsonCodec = createCodecFactory().prettyPrint().jsonCodec(QueryInfo.class);
+            // TrinoJsonCodec<QueryInfo> queryInfoJsonCodec = createCodecFactory().prettyPrint().jsonCodec(QueryInfo.class);
             // log.info("\n" + queryInfoJsonCodec.toJson(queryInfo));
         }
     }
@@ -156,17 +161,16 @@ public abstract class AbstractTestingTrinoClient<T>
         estimates.getExecutionTime().ifPresent(e -> resourceEstimates.put(EXECUTION_TIME, e.toString()));
         estimates.getCpuTime().ifPresent(e -> resourceEstimates.put(CPU_TIME, e.toString()));
         estimates.getPeakMemoryBytes().ifPresent(e -> resourceEstimates.put(PEAK_MEMORY, e.toString()));
-
         return ClientSession.builder()
                 .server(server)
-                .principal(Optional.of(session.getIdentity().getUser()))
-                .source(session.getSource().orElse(null))
+                .user(Optional.of(session.getIdentity().getUser()))
+                .source(session.getSource().orElse("test"))
                 .traceToken(session.getTraceToken())
                 .clientTags(session.getClientTags())
                 .clientInfo(session.getClientInfo().orElse(null))
                 .catalog(session.getCatalog().orElse(null))
                 .schema(session.getSchema().orElse(null))
-                .path(session.getPath().toString())
+                .path(Splitter.on(",").splitToList(session.getPath().getRawPath()))
                 .timeZone(session.getTimeZoneKey().getZoneId())
                 .locale(session.getLocale())
                 .resourceEstimates(resourceEstimates.buildOrThrow())

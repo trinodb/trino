@@ -25,9 +25,9 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
-import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_104;
-import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_113;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_122;
+import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_133;
+import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_143;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
@@ -42,9 +42,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestDeltaLakeCreateTableAsSelectCompatibility
         extends BaseTestDeltaLakeS3Storage
 {
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_DATABRICKS_104, DELTA_LAKE_DATABRICKS_113, DELTA_LAKE_DATABRICKS_122, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_DATABRICKS_122, DELTA_LAKE_DATABRICKS_133, DELTA_LAKE_DATABRICKS_143, PROFILE_SPECIFIC_TESTS})
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testPrestoTypesWithDatabricks()
+    public void testTrinoTypesWithDatabricks()
     {
         String tableName = "test_dl_ctas_" + randomNameSuffix();
 
@@ -62,8 +62,8 @@ public class TestDeltaLakeCreateTableAsSelectCompatibility
                     .containsOnly(row(7));
 
             QueryResult databricksResult = onDelta().executeQuery(format("SELECT * FROM default.%s", tableName));
-            QueryResult prestoResult = onTrino().executeQuery(format("SELECT * FROM delta.default.\"%s\"", tableName));
-            assertThat(databricksResult).containsOnly(prestoResult.rows().stream()
+            QueryResult trinoResult = onTrino().executeQuery(format("SELECT * FROM delta.default.\"%s\"", tableName));
+            assertThat(databricksResult).containsOnly(trinoResult.rows().stream()
                     .map(QueryAssert.Row::new)
                     .collect(toImmutableList()));
         }
@@ -74,7 +74,7 @@ public class TestDeltaLakeCreateTableAsSelectCompatibility
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testPrestoTimestampsWithDatabricks()
+    public void testTrinoTimestampsWithDatabricks()
     {
         String tableName = "test_dl_ctas_timestamps_" + randomNameSuffix();
 
@@ -89,8 +89,8 @@ public class TestDeltaLakeCreateTableAsSelectCompatibility
                     .containsOnly(row(4));
 
             QueryResult databricksResult = onDelta().executeQuery("SELECT id, date_format(timestamp_in_utc, \"yyyy-MM-dd HH:mm:ss.SSS\"), date_format(timestamp_in_new_york, \"yyyy-MM-dd HH:mm:ss.SSS\"), date_format(timestamp_in_warsaw, \"yyyy-MM-dd HH:mm:ss.SSS\") FROM default." + tableName);
-            QueryResult prestoResult = onTrino().executeQuery("SELECT id, format('%1$tF %1$tT.%1$tL', timestamp_in_utc), format('%1$tF %1$tT.%1$tL', timestamp_in_new_york), format('%1$tF %1$tT.%1$tL', timestamp_in_warsaw) FROM delta.default.\"" + tableName + "\"");
-            assertThat(databricksResult).containsOnly(prestoResult.rows().stream()
+            QueryResult trinoResult = onTrino().executeQuery("SELECT id, format('%1$tF %1$tT.%1$tL', timestamp_in_utc), format('%1$tF %1$tT.%1$tL', timestamp_in_new_york), format('%1$tF %1$tT.%1$tL', timestamp_in_warsaw) FROM delta.default.\"" + tableName + "\"");
+            assertThat(databricksResult).containsOnly(trinoResult.rows().stream()
                     .map(QueryAssert.Row::new)
                     .collect(toImmutableList()));
         }

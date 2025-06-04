@@ -23,6 +23,7 @@ import io.trino.metadata.TablePropertyManager;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.Property;
 import io.trino.sql.tree.SetProperties;
 import io.trino.sql.tree.StringLiteral;
@@ -43,6 +44,7 @@ public class TestSetPropertiesTask
         // set all properties to non-DEFAULT values and check the results
         executeSetProperties(
                 new SetProperties(
+                        new NodeLocation(1, 1),
                         MATERIALIZED_VIEW,
                         asQualifiedName(materializedViewName),
                         ImmutableList.of(
@@ -57,6 +59,7 @@ public class TestSetPropertiesTask
         // set all properties to DEFAULT and check the results
         executeSetProperties(
                 new SetProperties(
+                        new NodeLocation(1, 1),
                         MATERIALIZED_VIEW,
                         asQualifiedName(materializedViewName),
                         ImmutableList.of(

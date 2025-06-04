@@ -13,7 +13,8 @@
  */
 package io.trino.plugin.hive;
 
-import io.trino.plugin.hive.type.TypeInfo;
+import io.trino.metastore.HiveType;
+import io.trino.metastore.type.TypeInfo;
 import io.trino.plugin.hive.util.HiveBucketing;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.spi.Page;

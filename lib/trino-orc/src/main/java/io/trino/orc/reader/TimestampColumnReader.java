@@ -139,22 +139,23 @@ public class TimestampColumnReader
     private static TimestampKind getTimestampKind(Type type, OrcColumn column)
             throws OrcCorruptionException
     {
-        if (type.equals(TIMESTAMP_MILLIS) && (column.getColumnType() == OrcTypeKind.TIMESTAMP)) {
+        OrcTypeKind orcTypeKind = column.getColumnType().getOrcTypeKind();
+        if (type.equals(TIMESTAMP_MILLIS) && (orcTypeKind == OrcTypeKind.TIMESTAMP)) {
             return TimestampKind.TIMESTAMP_MILLIS;
         }
-        if (type.equals(TIMESTAMP_MICROS) && (column.getColumnType() == OrcTypeKind.TIMESTAMP)) {
+        if (type.equals(TIMESTAMP_MICROS) && (orcTypeKind == OrcTypeKind.TIMESTAMP)) {
             return TimestampKind.TIMESTAMP_MICROS;
         }
-        if (type.equals(TIMESTAMP_NANOS) && (column.getColumnType() == OrcTypeKind.TIMESTAMP)) {
+        if (type.equals(TIMESTAMP_NANOS) && (orcTypeKind == OrcTypeKind.TIMESTAMP)) {
             return TimestampKind.TIMESTAMP_NANOS;
         }
-        if (type.equals(TIMESTAMP_TZ_MILLIS) && (column.getColumnType() == OrcTypeKind.TIMESTAMP_INSTANT)) {
+        if (type.equals(TIMESTAMP_TZ_MILLIS) && (orcTypeKind == OrcTypeKind.TIMESTAMP_INSTANT)) {
             return TimestampKind.INSTANT_MILLIS;
         }
-        if (type.equals(TIMESTAMP_TZ_MICROS) && (column.getColumnType() == OrcTypeKind.TIMESTAMP_INSTANT)) {
+        if (type.equals(TIMESTAMP_TZ_MICROS) && (orcTypeKind == OrcTypeKind.TIMESTAMP_INSTANT)) {
             return TimestampKind.INSTANT_MICROS;
         }
-        if (type.equals(TIMESTAMP_TZ_NANOS) && (column.getColumnType() == OrcTypeKind.TIMESTAMP_INSTANT)) {
+        if (type.equals(TIMESTAMP_TZ_NANOS) && (orcTypeKind == OrcTypeKind.TIMESTAMP_INSTANT)) {
             return TimestampKind.INSTANT_NANOS;
         }
         throw invalidStreamType(column, type);

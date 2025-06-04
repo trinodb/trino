@@ -34,7 +34,7 @@ public final class ClassLoaderSafeTableFunctionSplitProcessor
     @Override
     public TableFunctionProcessorState process()
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             return delegate.process();
         }
     }

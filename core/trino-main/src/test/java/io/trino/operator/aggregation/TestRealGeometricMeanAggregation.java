@@ -29,7 +29,7 @@ public class TestRealGeometricMeanAggregation
     @Override
     protected Block[] getSequenceBlocks(int start, int length)
     {
-        BlockBuilder blockBuilder = REAL.createBlockBuilder(null, length);
+        BlockBuilder blockBuilder = REAL.createFixedSizeBlockBuilder(length);
         for (int i = start; i < start + length; i++) {
             REAL.writeLong(blockBuilder, floatToRawIntBits((float) i));
         }

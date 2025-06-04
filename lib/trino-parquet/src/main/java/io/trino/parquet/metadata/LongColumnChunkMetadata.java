@@ -30,7 +30,7 @@ class LongColumnChunkMetadata
     private final long valueCount;
     private final long totalSize;
     private final long totalUncompressedSize;
-    private final Statistics statistics;
+    private final Statistics<?> statistics;
 
     LongColumnChunkMetadata(
             ColumnPath path,
@@ -38,14 +38,14 @@ class LongColumnChunkMetadata
             CompressionCodecName codec,
             EncodingStats encodingStats,
             Set<Encoding> encodings,
-            Statistics statistics,
+            Statistics<?> statistics,
             long firstDataPageOffset,
             long dictionaryPageOffset,
             long valueCount,
             long totalSize,
             long totalUncompressedSize)
     {
-        super(encodingStats, ColumnChunkProperties.get(path, type, codec, encodings));
+        super(encodingStats, new ColumnChunkProperties(path, type, codec, encodings));
         this.firstDataPageOffset = firstDataPageOffset;
         this.dictionaryPageOffset = dictionaryPageOffset;
         this.valueCount = valueCount;
@@ -85,7 +85,7 @@ class LongColumnChunkMetadata
     }
 
     @Override
-    public Statistics getStatistics()
+    public Statistics<?> getStatistics()
     {
         return statistics;
     }

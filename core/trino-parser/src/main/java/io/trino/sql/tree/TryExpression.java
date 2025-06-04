@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -26,17 +25,7 @@ public class TryExpression
 {
     private final Expression innerExpression;
 
-    public TryExpression(Expression innerExpression)
-    {
-        this(Optional.empty(), innerExpression);
-    }
-
     public TryExpression(NodeLocation location, Expression innerExpression)
-    {
-        this(Optional.of(location), innerExpression);
-    }
-
-    private TryExpression(Optional<NodeLocation> location, Expression innerExpression)
     {
         super(location);
         this.innerExpression = requireNonNull(innerExpression, "innerExpression is null");

@@ -13,104 +13,80 @@
  */
 package io.trino.server.ui;
 
+import io.trino.server.ExternalUriInfo;
 import io.trino.server.security.ResourceSecurity;
-import jakarta.servlet.ServletContext;
+import jakarta.ws.rs.BeanParam;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
-import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.Response;
 
 import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URL;
 
 import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;
-import static jakarta.ws.rs.core.Response.Status.NOT_FOUND;
+import static io.trino.web.ui.WebUiResources.webUiResource;
 
 @Path("")
+@ResourceSecurity(PUBLIC)
 public class WebUiStaticResource
 {
     @ResourceSecurity(PUBLIC)
     @GET
-    public Response getRoot()
+    public Response getRoot(@BeanParam ExternalUriInfo externalUriInfo)
     {
-        return Response.seeOther(URI.create("/ui/")).build();
+        return Response.seeOther(externalUriInfo.absolutePath("/ui/")).build();
     }
 
-    @ResourceSecurity(PUBLIC)
     @GET
     @Path("/ui")
-    public Response getUi()
+    public Response getUi(@BeanParam ExternalUriInfo externalUriInfo)
     {
-        return Response.seeOther(URI.create("/ui/")).build();
+        return Response.seeOther(externalUriInfo.absolutePath("/ui/")).build();
     }
 
     @ResourceSecurity(WEB_UI)
     @POST
     @Path("/ui/{path: .*}")
-    public Response postFile(@PathParam("path") String path)
+    public Response postFile()
     {
         // The "getFile" resource method matches all GET requests, and without a
         // resource for POST requests, a METHOD_NOT_ALLOWED error will be returned
         // instead of a NOT_FOUND error
-        return Response.status(NOT_FOUND).build();
+        throw new NotFoundException();
     }
 
     // asset files are always visible
     @ResourceSecurity(PUBLIC)
     @GET
     @Path("/ui/assets/{path: .*}")
-    public Response getAssetsFile(@PathParam("path") String path, @Context ServletContext servletContext)
+    public Response getAssetsFile(@PathParam("path") String path)
             throws IOException
     {
-        return getFile("assets/" + path, servletContext);
+        return getFile("assets/" + path);
     }
 
     // vendor files are always visible
     @ResourceSecurity(PUBLIC)
     @GET
     @Path("/ui/vendor/{path: .*}")
-    public Response getVendorFile(@PathParam("path") String path, @Context ServletContext servletContext)
+    public Response getVendorFile(@PathParam("path") String path)
             throws IOException
     {
-        return getFile("vendor/" + path, servletContext);
+        return getFile("vendor/" + path);
     }
 
     @ResourceSecurity(WEB_UI)
     @GET
     @Path("/ui/{path: .*}")
-    public Response getFile(@PathParam("path") String path, @Context ServletContext servletContext)
+    public Response getFile(@PathParam("path") String path)
             throws IOException
     {
         if (path.isEmpty()) {
             path = "index.html";
         }
-
-        String fullPath = "/webapp/" + path;
-        if (!isCanonical(fullPath)) {
-            // consider redirecting to the absolute path
-            return Response.status(NOT_FOUND).build();
-        }
-
-        URL resource = getClass().getResource(fullPath);
-        if (resource == null) {
-            return Response.status(NOT_FOUND).build();
-        }
-
-        return Response.ok(resource.openStream(), servletContext.getMimeType(resource.toString())).build();
-    }
-
-    private static boolean isCanonical(String fullPath)
-    {
-        try {
-            return new URI(fullPath).normalize().getPath().equals(fullPath);
-        }
-        catch (URISyntaxException e) {
-            return false;
-        }
+        return webUiResource("/webapp/" + path);
     }
 }

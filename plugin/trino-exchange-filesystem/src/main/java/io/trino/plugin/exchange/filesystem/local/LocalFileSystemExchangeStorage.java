@@ -27,8 +27,9 @@ import io.trino.plugin.exchange.filesystem.ExchangeStorageReader;
 import io.trino.plugin.exchange.filesystem.ExchangeStorageWriter;
 import io.trino.plugin.exchange.filesystem.FileStatus;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangeStorage;
+import io.trino.plugin.exchange.filesystem.MetricsBuilder;
+import io.trino.plugin.exchange.filesystem.MetricsBuilder.CounterMetricBuilder;
 
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -50,8 +51,10 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
+import static io.trino.plugin.exchange.filesystem.MetricsBuilder.SOURCE_FILES_PROCESSED;
 import static java.lang.Math.toIntExact;
 import static java.nio.file.Files.createFile;
+import static java.nio.file.Files.newInputStream;
 import static java.util.Objects.requireNonNull;
 
 public class LocalFileSystemExchangeStorage
@@ -67,9 +70,9 @@ public class LocalFileSystemExchangeStorage
     }
 
     @Override
-    public ExchangeStorageReader createExchangeStorageReader(List<ExchangeSourceFile> sourceFiles, int maxPageStorageSize)
+    public ExchangeStorageReader createExchangeStorageReader(List<ExchangeSourceFile> sourceFiles, int maxPageStorageSize, MetricsBuilder metricsBuilder)
     {
-        return new LocalExchangeStorageReader(sourceFiles);
+        return new LocalExchangeStorageReader(sourceFiles, metricsBuilder);
     }
 
     @Override
@@ -128,9 +131,7 @@ public class LocalFileSystemExchangeStorage
     }
 
     @Override
-    public void close()
-    {
-    }
+    public void close() {}
 
     @ThreadSafe
     private static class LocalExchangeStorageReader
@@ -140,15 +141,18 @@ public class LocalFileSystemExchangeStorage
 
         @GuardedBy("this")
         private final Queue<ExchangeSourceFile> sourceFiles;
+        CounterMetricBuilder sourceFilesProcessedMetric;
 
         @GuardedBy("this")
         private InputStreamSliceInput sliceInput;
         @GuardedBy("this")
         private boolean closed;
 
-        public LocalExchangeStorageReader(List<ExchangeSourceFile> sourceFiles)
+        public LocalExchangeStorageReader(List<ExchangeSourceFile> sourceFiles, MetricsBuilder metricsBuilder)
         {
             this.sourceFiles = new ArrayDeque<>(requireNonNull(sourceFiles, "sourceFiles is null"));
+            requireNonNull(metricsBuilder, "metricsBuilder is null");
+            sourceFilesProcessedMetric = metricsBuilder.getCounterMetric(SOURCE_FILES_PROCESSED);
         }
 
         @Override
@@ -165,6 +169,7 @@ public class LocalFileSystemExchangeStorage
                 }
                 else {
                     sliceInput.close();
+                    sourceFilesProcessedMetric.increment();
                 }
             }
 
@@ -210,9 +215,9 @@ public class LocalFileSystemExchangeStorage
         }
 
         private InputStreamSliceInput getSliceInput(ExchangeSourceFile sourceFile)
-                throws FileNotFoundException
+                throws IOException
         {
-            return new InputStreamSliceInput(new FileInputStream(Paths.get(sourceFile.getFileUri()).toFile()), BUFFER_SIZE_IN_BYTES);
+            return new InputStreamSliceInput(newInputStream(Paths.get(sourceFile.getFileUri())), BUFFER_SIZE_IN_BYTES);
         }
     }
 

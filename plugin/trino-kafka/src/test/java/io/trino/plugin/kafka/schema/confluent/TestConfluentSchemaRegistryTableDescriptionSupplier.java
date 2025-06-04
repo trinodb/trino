@@ -16,6 +16,7 @@ package io.trino.plugin.kafka.schema.confluent;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
+import io.confluent.kafka.schemaregistry.avro.AvroSchema;
 import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.trino.plugin.kafka.KafkaTopicDescription;
@@ -27,7 +28,6 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
 import io.trino.testing.TestingConnectorSession;
-import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
 import org.junit.jupiter.api.Test;
 
@@ -198,13 +198,13 @@ public class TestConfluentSchemaRegistryTableDescriptionSupplier
                 new Duration(1, SECONDS));
     }
 
-    private static Schema getAvroSchema(String topicName, String columnNamePrefix)
+    private static AvroSchema getAvroSchema(String topicName, String columnNamePrefix)
     {
-        return SchemaBuilder.record(topicName)
+        return new AvroSchema(SchemaBuilder.record(topicName)
                 .fields()
                 .name(columnNamePrefix + "col1").type().intType().noDefault()
                 .name(columnNamePrefix + "col2").type().stringType().noDefault()
-                .endRecord();
+                .endRecord());
     }
 
     private static KafkaTopicFieldGroup getTopicFieldGroup(String topicName, List<KafkaTopicFieldDescription> fieldDescriptions)

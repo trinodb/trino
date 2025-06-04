@@ -56,7 +56,7 @@ public class TestCassandraTypeManager
             continueWhileNotNull(parser, parser.nextToken());
             valid = true;
         }
-        catch (IOException ignored) {
+        catch (IOException _) {
         }
         return valid;
     }

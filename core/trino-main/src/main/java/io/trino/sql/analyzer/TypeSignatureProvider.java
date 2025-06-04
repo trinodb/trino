@@ -35,7 +35,7 @@ public final class TypeSignatureProvider
     {
         this.hasDependency = false;
         requireNonNull(typeSignature, "typeSignature is null");
-        this.typeSignatureResolver = ignored -> typeSignature;
+        this.typeSignatureResolver = _ -> typeSignature;
     }
 
     public TypeSignatureProvider(Function<List<Type>, TypeSignature> typeSignatureResolver)

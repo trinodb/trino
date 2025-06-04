@@ -81,7 +81,5 @@ public class FixedSplitSource
     }
 
     @Override
-    public void close()
-    {
-    }
+    public void close() {}
 }

@@ -302,7 +302,7 @@ public class IoPlanPrinter
                 return false;
             }
             Constraint o = (Constraint) obj;
-            return Objects.equals(isNone, o.isNone) &&
+            return isNone == o.isNone &&
                     Objects.equals(columnConstraints, o.columnConstraints);
         }
 
@@ -452,11 +452,11 @@ public class IoPlanPrinter
                 return false;
             }
             EstimatedStatsAndCost o = (EstimatedStatsAndCost) obj;
-            return Objects.equals(outputRowCount, o.outputRowCount) &&
-                    Objects.equals(outputSizeInBytes, o.outputSizeInBytes) &&
-                    Objects.equals(cpuCost, o.cpuCost) &&
-                    Objects.equals(maxMemory, o.maxMemory) &&
-                    Objects.equals(networkCost, o.networkCost);
+            return Double.compare(outputRowCount, o.outputRowCount) == 0 &&
+                    Double.compare(outputSizeInBytes, o.outputSizeInBytes) == 0 &&
+                    Double.compare(cpuCost, o.cpuCost) == 0 &&
+                    Double.compare(maxMemory, o.maxMemory) == 0 &&
+                    Double.compare(networkCost, o.networkCost) == 0;
         }
 
         @Override
@@ -514,7 +514,7 @@ public class IoPlanPrinter
                 return false;
             }
             FormattedDomain o = (FormattedDomain) obj;
-            return Objects.equals(nullsAllowed, o.nullsAllowed) &&
+            return nullsAllowed == o.nullsAllowed &&
                     Objects.equals(ranges, o.ranges);
         }
 

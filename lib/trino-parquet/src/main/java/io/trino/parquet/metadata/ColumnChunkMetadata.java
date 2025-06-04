@@ -15,75 +15,17 @@ package io.trino.parquet.metadata;
 
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.column.EncodingStats;
-import org.apache.parquet.column.statistics.BooleanStatistics;
 import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
-import org.apache.parquet.schema.Types;
 
 import java.util.Set;
-
-import static org.apache.parquet.column.Encoding.PLAIN_DICTIONARY;
-import static org.apache.parquet.column.Encoding.RLE_DICTIONARY;
 
 public abstract class ColumnChunkMetadata
 {
     protected int rowGroupOrdinal = -1;
-
-    @Deprecated
-    public static ColumnChunkMetadata get(
-            ColumnPath path,
-            PrimitiveTypeName type,
-            CompressionCodecName codec,
-            Set<Encoding> encodings,
-            long firstDataPage,
-            long dictionaryPageOffset,
-            long valueCount,
-            long totalSize,
-            long totalUncompressedSize)
-    {
-        return get(
-                path, type, codec, null, encodings, new BooleanStatistics(), firstDataPage,
-                dictionaryPageOffset, valueCount, totalSize, totalUncompressedSize);
-    }
-
-    @Deprecated
-    public static ColumnChunkMetadata get(
-            ColumnPath path,
-            PrimitiveTypeName type,
-            CompressionCodecName codec,
-            Set<Encoding> encodings,
-            Statistics statistics,
-            long firstDataPage,
-            long dictionaryPageOffset,
-            long valueCount,
-            long totalSize,
-            long totalUncompressedSize)
-    {
-        return get(
-                path, type, codec, null, encodings, statistics, firstDataPage, dictionaryPageOffset,
-                valueCount, totalSize, totalUncompressedSize);
-    }
-
-    @Deprecated
-    public static ColumnChunkMetadata get(
-            ColumnPath path,
-            PrimitiveTypeName type,
-            CompressionCodecName codec,
-            EncodingStats encodingStats,
-            Set<Encoding> encodings,
-            Statistics statistics,
-            long firstDataPage,
-            long dictionaryPageOffset,
-            long valueCount,
-            long totalSize,
-            long totalUncompressedSize)
-    {
-        return get(path, Types.optional(type).named("fake_type"), codec, encodingStats, encodings, statistics,
-                firstDataPage, dictionaryPageOffset, valueCount, totalSize, totalUncompressedSize);
-    }
 
     public static ColumnChunkMetadata get(
             ColumnPath path,
@@ -91,7 +33,7 @@ public abstract class ColumnChunkMetadata
             CompressionCodecName codec,
             EncodingStats encodingStats,
             Set<Encoding> encodings,
-            Statistics statistics,
+            Statistics<?> statistics,
             long firstDataPage,
             long dictionaryPageOffset,
             long valueCount,
@@ -175,24 +117,24 @@ public abstract class ColumnChunkMetadata
     public CompressionCodecName getCodec()
     {
         decryptIfNeeded();
-        return properties.getCodec();
+        return properties.codec();
     }
 
     public ColumnPath getPath()
     {
-        return properties.getPath();
+        return properties.path();
     }
 
     public PrimitiveTypeName getType()
     {
         decryptIfNeeded();
-        return properties.getType();
+        return properties.type().getPrimitiveTypeName();
     }
 
     public PrimitiveType getPrimitiveType()
     {
         decryptIfNeeded();
-        return properties.getPrimitiveType();
+        return properties.type();
     }
 
     public abstract long getFirstDataPageOffset();
@@ -205,7 +147,7 @@ public abstract class ColumnChunkMetadata
 
     public abstract long getTotalSize();
 
-    public abstract Statistics getStatistics();
+    public abstract Statistics<?> getStatistics();
 
     public IndexReference getColumnIndexReference()
     {
@@ -243,7 +185,7 @@ public abstract class ColumnChunkMetadata
     public Set<Encoding> getEncodings()
     {
         decryptIfNeeded();
-        return properties.getEncodings();
+        return properties.encodings();
     }
 
     public EncodingStats getEncodingStats()
@@ -257,21 +199,5 @@ public abstract class ColumnChunkMetadata
     {
         decryptIfNeeded();
         return "ColumnMetaData{" + properties.toString() + ", " + getFirstDataPageOffset() + "}";
-    }
-
-    public boolean hasDictionaryPage()
-    {
-        EncodingStats stats = getEncodingStats();
-        if (stats != null) {
-            return stats.hasDictionaryPages() && stats.hasDictionaryEncodedPages();
-        }
-
-        Set<Encoding> encodings = getEncodings();
-        return encodings.contains(PLAIN_DICTIONARY) || encodings.contains(RLE_DICTIONARY);
-    }
-
-    public boolean isEncrypted()
-    {
-        return false;
     }
 }

@@ -21,11 +21,14 @@ import io.trino.client.auth.kerberos.DelegatedUnconstrainedContextProvider;
 import io.trino.client.auth.kerberos.GSSContextProvider;
 import io.trino.client.auth.kerberos.LoginBasedUnconstrainedContextProvider;
 import io.trino.client.auth.kerberos.SpnegoHandler;
+import io.trino.client.uri.LoggingLevel;
 import okhttp3.Credentials;
 import okhttp3.Interceptor;
 import okhttp3.JavaNetCookieJar;
 import okhttp3.OkHttpClient;
 import okhttp3.internal.tls.LegacyHostnameVerifier;
+import okhttp3.logging.HttpLoggingInterceptor;
+import okhttp3.logging.HttpLoggingInterceptor.Level;
 import org.ietf.jgss.GSSCredential;
 
 import javax.net.ssl.KeyManager;
@@ -60,11 +63,19 @@ import static com.google.common.net.HttpHeaders.AUTHORIZATION;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static java.net.Proxy.Type.HTTP;
 import static java.net.Proxy.Type.SOCKS;
+import static java.nio.file.Files.newInputStream;
 import static java.util.Collections.list;
 import static java.util.Objects.requireNonNull;
 
 public final class OkHttpUtil
 {
+    // Mac KeyStore. See JDK documentation for Apple Provider.
+    private static final String KEYSTORE_MACOS = "KeychainStore";
+
+    // Windows KeyStores. See JDK documentation for MSCAPI Provider.
+    private static final String KEYSTORE_WINDOWS_MY = "Windows-MY-CURRENTUSER";
+    private static final String KEYSTORE_WINDOWS_ROOT = "Windows-ROOT-CURRENTUSER";
+
     private OkHttpUtil() {}
 
     public static Interceptor userAgent(String userAgent)
@@ -128,6 +139,30 @@ public final class OkHttpUtil
                 .ifPresent(clientBuilder::proxy);
     }
 
+    public static void setupHttpLogging(OkHttpClient.Builder clientBuilder, LoggingLevel level)
+    {
+        switch (level) {
+            case NONE:
+                return;
+
+            case BODY:
+                clientBuilder.addNetworkInterceptor(
+                        new HttpLoggingInterceptor(System.err::println)
+                                .setLevel(Level.BODY));
+                break;
+            case BASIC:
+                clientBuilder.addNetworkInterceptor(
+                        new HttpLoggingInterceptor(System.err::println)
+                                .setLevel(Level.BASIC));
+                break;
+            case HEADERS:
+                clientBuilder.addNetworkInterceptor(
+                        new HttpLoggingInterceptor(System.err::println)
+                                .setLevel(Level.HEADERS));
+                break;
+        }
+    }
+
     private static InetSocketAddress toUnresolvedAddress(HostAndPort address)
     {
         return InetSocketAddress.createUnresolved(address.getHost(), address.getPort());
@@ -173,12 +208,13 @@ public final class OkHttpUtil
             Optional<String> keyStorePath,
             Optional<String> keyStorePassword,
             Optional<String> keyStoreType,
+            boolean useSystemKeyStore,
             Optional<String> trustStorePath,
             Optional<String> trustStorePassword,
             Optional<String> trustStoreType,
             boolean useSystemTrustStore)
     {
-        if (!keyStorePath.isPresent() && !trustStorePath.isPresent() && !useSystemTrustStore) {
+        if (!keyStorePath.isPresent() && !useSystemKeyStore && !trustStorePath.isPresent() && !useSystemTrustStore) {
             return;
         }
 
@@ -186,8 +222,12 @@ public final class OkHttpUtil
             // load KeyStore if configured and get KeyManagers
             KeyStore keyStore = null;
             KeyManager[] keyManagers = null;
-            if (keyStorePath.isPresent()) {
-                char[] keyManagerPassword;
+            char[] keyManagerPassword = null;
+
+            if (useSystemKeyStore) {
+                keyStore = loadSystemKeyStore(keyStoreType);
+            }
+            else if (keyStorePath.isPresent()) {
                 try {
                     // attempt to read the key store as a PEM file
                     keyStore = PemReader.loadKeyStore(new File(keyStorePath.get()), new File(keyStorePath.get()), keyStorePassword);
@@ -203,6 +243,9 @@ public final class OkHttpUtil
                     }
                 }
                 validateCertificates(keyStore);
+            }
+
+            if (keyStore != null) {
                 KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
                 keyManagerFactory.init(keyStore, keyManagerPassword);
                 keyManagers = keyManagerFactory.getKeyManagers();
@@ -283,29 +326,41 @@ public final class OkHttpUtil
         catch (IOException | GeneralSecurityException ignored) {
         }
 
-        try (InputStream in = new FileInputStream(trustStorePath)) {
+        try (InputStream in = newInputStream(trustStorePath.toPath())) {
             trustStore.load(in, trustStorePassword.map(String::toCharArray).orElse(null));
         }
         return trustStore;
     }
 
+    private static KeyStore loadSystemKeyStore(Optional<String> keyStoreType)
+            throws IOException, GeneralSecurityException
+    {
+        return loadSystemStore(keyStoreType, KEYSTORE_MACOS, KEYSTORE_WINDOWS_MY);
+    }
+
     private static KeyStore loadSystemTrustStore(Optional<String> trustStoreType)
             throws IOException, GeneralSecurityException
     {
+        return loadSystemStore(trustStoreType, KEYSTORE_MACOS, KEYSTORE_WINDOWS_ROOT);
+    }
+
+    private static KeyStore loadSystemStore(Optional<String> storeType, String mac, String windows)
+            throws IOException, GeneralSecurityException
+    {
         String osName = Optional.ofNullable(StandardSystemProperty.OS_NAME.value()).orElse("");
-        Optional<String> systemTrustStoreType = trustStoreType;
-        if (!systemTrustStoreType.isPresent()) {
+        Optional<String> systemStoreType = storeType;
+        if (!systemStoreType.isPresent()) {
             if (osName.contains("Windows")) {
-                systemTrustStoreType = Optional.of("Windows-ROOT");
+                systemStoreType = Optional.of(windows);
             }
             else if (osName.contains("Mac")) {
-                systemTrustStoreType = Optional.of("KeychainStore");
+                systemStoreType = Optional.of(mac);
             }
         }
 
-        KeyStore trustStore = KeyStore.getInstance(systemTrustStoreType.orElseGet(KeyStore::getDefaultType));
-        trustStore.load(null, null);
-        return trustStore;
+        KeyStore store = KeyStore.getInstance(systemStoreType.orElseGet(KeyStore::getDefaultType));
+        store.load(null, null);
+        return store;
     }
 
     public static void setupKerberos(

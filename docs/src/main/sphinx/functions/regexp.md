@@ -1,6 +1,6 @@
 # Regular expression functions
 
-All of the regular expression functions use the [Java pattern] syntax,
+All the regular expression functions use the [Java pattern] syntax,
 with a few notable exceptions:
 
 - When using multi-line mode (enabled via the `(?m)` flag),
@@ -184,6 +184,6 @@ SELECT regexp_split('1a 2b 14m', '\s*[a-z]+\s*'); -- [1, 2, 14, ]
 ```
 :::
 
-[capturing group number]: https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/regex/Pattern.html#gnumber
-[capturing groups]: https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/regex/Pattern.html#cg
-[java pattern]: https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/regex/Pattern.html
+[capturing group number]: https://docs.oracle.com/en/java/javase/23/docs/api/java.base/java/util/regex/Pattern.html#gnumber
+[capturing groups]: https://docs.oracle.com/en/java/javase/23/docs/api/java.base/java/util/regex/Pattern.html#cg
+[java pattern]: https://docs.oracle.com/en/java/javase/23/docs/api/java.base/java/util/regex/Pattern.html

@@ -26,6 +26,7 @@ import static java.util.Objects.requireNonNull;
 public class Query
         extends Statement
 {
+    private final List<SessionProperty> sessionProperties;
     private final List<FunctionSpecification> functions;
     private final Optional<With> with;
     private final QueryBody queryBody;
@@ -33,7 +34,9 @@ public class Query
     private final Optional<Offset> offset;
     private final Optional<Node> limit;
 
+    @Deprecated
     public Query(
+            List<SessionProperty> sessionProperties,
             List<FunctionSpecification> functions,
             Optional<With> with,
             QueryBody queryBody,
@@ -41,11 +44,12 @@ public class Query
             Optional<Offset> offset,
             Optional<Node> limit)
     {
-        this(Optional.empty(), functions, with, queryBody, orderBy, offset, limit);
+        this(Optional.empty(), sessionProperties, functions, with, queryBody, orderBy, offset, limit);
     }
 
     public Query(
             NodeLocation location,
+            List<SessionProperty> sessionProperties,
             List<FunctionSpecification> functions,
             Optional<With> with,
             QueryBody queryBody,
@@ -53,11 +57,12 @@ public class Query
             Optional<Offset> offset,
             Optional<Node> limit)
     {
-        this(Optional.of(location), functions, with, queryBody, orderBy, offset, limit);
+        this(Optional.of(location), sessionProperties, functions, with, queryBody, orderBy, offset, limit);
     }
 
     private Query(
             Optional<NodeLocation> location,
+            List<SessionProperty> sessionProperties,
             List<FunctionSpecification> functions,
             Optional<With> with,
             QueryBody queryBody,
@@ -66,7 +71,8 @@ public class Query
             Optional<Node> limit)
     {
         super(location);
-        requireNonNull(functions, "function si snull");
+        requireNonNull(sessionProperties, "sessionProperties is null");
+        requireNonNull(functions, "functions is null");
         requireNonNull(with, "with is null");
         requireNonNull(queryBody, "queryBody is null");
         requireNonNull(orderBy, "orderBy is null");
@@ -74,12 +80,18 @@ public class Query
         requireNonNull(limit, "limit is null");
         checkArgument(!limit.isPresent() || limit.get() instanceof FetchFirst || limit.get() instanceof Limit, "limit must be optional of either FetchFirst or Limit type");
 
+        this.sessionProperties = ImmutableList.copyOf(sessionProperties);
         this.functions = ImmutableList.copyOf(functions);
         this.with = with;
         this.queryBody = queryBody;
         this.orderBy = orderBy;
         this.offset = offset;
         this.limit = limit;
+    }
+
+    public List<SessionProperty> getSessionProperties()
+    {
+        return sessionProperties;
     }
 
     public List<FunctionSpecification> getFunctions()
@@ -121,27 +133,30 @@ public class Query
     @Override
     public List<Node> getChildren()
     {
-        ImmutableList.Builder<Node> nodes = ImmutableList.builder();
-        nodes.addAll(functions);
-        with.ifPresent(nodes::add);
-        nodes.add(queryBody);
-        orderBy.ifPresent(nodes::add);
-        offset.ifPresent(nodes::add);
-        limit.ifPresent(nodes::add);
-        return nodes.build();
+        return ImmutableList.<Node>builder()
+                .addAll(functions)
+                .addAll(sessionProperties)
+                .addAll(with.stream().toList())
+                .add(queryBody)
+                .addAll(orderBy.stream().toList())
+                .addAll(offset.stream().toList())
+                .addAll(limit.stream().toList())
+                .build();
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("functions", functions.isEmpty() ? null : functions)
+                .add("sessionProperties", sessionProperties)
+                .add("functions", functions)
                 .add("with", with.orElse(null))
                 .add("queryBody", queryBody)
-                .add("orderBy", orderBy)
+                .add("orderBy", orderBy.orElse(null))
                 .add("offset", offset.orElse(null))
                 .add("limit", limit.orElse(null))
                 .omitNullValues()
+                .omitEmptyValues()
                 .toString();
     }
 
@@ -155,7 +170,8 @@ public class Query
             return false;
         }
         Query o = (Query) obj;
-        return Objects.equals(functions, o.functions) &&
+        return Objects.equals(sessionProperties, o.sessionProperties) &&
+                Objects.equals(functions, o.functions) &&
                 Objects.equals(with, o.with) &&
                 Objects.equals(queryBody, o.queryBody) &&
                 Objects.equals(orderBy, o.orderBy) &&
@@ -166,7 +182,7 @@ public class Query
     @Override
     public int hashCode()
     {
-        return Objects.hash(functions, with, queryBody, orderBy, offset, limit);
+        return Objects.hash(sessionProperties, functions, with, queryBody, orderBy, offset, limit);
     }
 
     @Override

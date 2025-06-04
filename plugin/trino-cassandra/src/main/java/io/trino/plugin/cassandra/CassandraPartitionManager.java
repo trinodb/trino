@@ -160,7 +160,7 @@ public class CassandraPartitionManager
                             Object value = range.getSingleValue();
 
                             CassandraType valueType = columnHandle.cassandraType();
-                            if (valueType.getKind().isSupportedPartitionKey()) {
+                            if (valueType.kind().isSupportedPartitionKey()) {
                                 columnValues.add(value);
                             }
                         }

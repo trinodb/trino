@@ -26,7 +26,6 @@ import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
 
 @DefunctConfig("hive.orc.optimized-writer.enabled")
-@SuppressWarnings("unused")
 public class OrcWriterConfig
 {
     private OrcWriterOptions options = new OrcWriterOptions();

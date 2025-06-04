@@ -73,7 +73,7 @@ public class TestSliceDictionaryColumnWriter
         writer.writeBlock(data);
         writer.finishRowGroup();
 
-        assertThat(writer.tryConvertToDirect(megabytes(64)).isPresent()).isFalse();
+        assertThat(writer.tryConvertToDirect(megabytes(64))).isEmpty();
     }
 
     @Test

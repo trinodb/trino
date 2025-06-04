@@ -51,8 +51,6 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
 
 @TestInstance(PER_CLASS)
 @Execution(SAME_THREAD)
@@ -108,13 +106,13 @@ public class TestJdbcWarnings
                 Statement statement = connection.createStatement()) {
             assertThat(statement.execute("CREATE SCHEMA blackhole.test_schema")).isFalse();
             SQLWarning warning = statement.getWarnings();
-            assertNotNull(warning);
+            assertThat((Object) warning).isNotNull();
             TestingWarningCollectorConfig warningCollectorConfig = new TestingWarningCollectorConfig().setPreloadedWarnings(PRELOADED_WARNINGS);
             TestingWarningCollector warningCollector = new TestingWarningCollector(new WarningCollectorConfig(), warningCollectorConfig);
             List<TrinoWarning> expectedWarnings = warningCollector.getWarnings();
             assertStartsWithExpectedWarnings(warning, fromTrinoWarnings(expectedWarnings));
             statement.clearWarnings();
-            assertNull(statement.getWarnings());
+            assertThat((Object) statement.getWarnings()).isNull();
         }
     }
 
@@ -157,7 +155,7 @@ public class TestJdbcWarnings
         try (Connection connection = createConnection();
                 Statement statement = connection.createStatement();
                 ResultSet rs = statement.executeQuery("SELECT a FROM (VALUES 1, 2, 3) t(a)")) {
-            assertNull(statement.getConnection().getWarnings());
+            assertThat((Object) statement.getConnection().getWarnings()).isNull();
             Set<WarningEntry> currentWarnings = new HashSet<>();
             assertWarnings(rs.getWarnings(), currentWarnings);
             while (rs.next()) {
@@ -229,7 +227,7 @@ public class TestJdbcWarnings
     private static SQLWarning fromTrinoWarnings(List<TrinoWarning> warnings)
     {
         requireNonNull(warnings, "warnings is null");
-        assertThat(warnings.isEmpty()).isFalse();
+        assertThat(warnings).isNotEmpty();
         Iterator<TrinoWarning> iterator = warnings.iterator();
         TrinoSqlWarning first = toTrinoSqlWarning(iterator.next());
         SQLWarning current = first;
@@ -288,8 +286,8 @@ public class TestJdbcWarnings
 
     private static void assertStartsWithExpectedWarnings(SQLWarning warning, SQLWarning expected)
     {
-        assertNotNull(expected);
-        assertNotNull(warning);
+        assertThat((Object) expected).isNotNull();
+        assertThat((Object) warning).isNotNull();
         while (true) {
             assertWarningsEqual(warning, expected);
             warning = warning.getNextWarning();
@@ -297,7 +295,7 @@ public class TestJdbcWarnings
             if (expected == null) {
                 return;
             }
-            assertNotNull(warning);
+            assertThat((Object) warning).isNotNull();
         }
     }
 

@@ -15,10 +15,12 @@ package io.trino.spi.exchange;
 
 import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.slice.Slice;
+import io.trino.spi.metrics.Metrics;
 import jakarta.annotation.Nullable;
 
 import java.io.Closeable;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 @ThreadSafe
@@ -89,6 +91,15 @@ public interface ExchangeSource
      * This memory should include any buffers, etc. that are used for reading data
      */
     long getMemoryUsage();
+
+    /**
+     * Get metrics describing ExchangeSource.
+     * Metrics will be exposed via matching ExchangeOperator description.
+     */
+    default Optional<Metrics> getMetrics()
+    {
+        return Optional.empty();
+    }
 
     @Override
     void close();

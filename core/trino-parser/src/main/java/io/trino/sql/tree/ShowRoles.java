@@ -28,17 +28,7 @@ public class ShowRoles
     private final Optional<Identifier> catalog;
     private final boolean current;
 
-    public ShowRoles(Optional<Identifier> catalog, boolean current)
-    {
-        this(Optional.empty(), catalog, current);
-    }
-
     public ShowRoles(NodeLocation location, Optional<Identifier> catalog, boolean current)
-    {
-        this(Optional.of(location), catalog, current);
-    }
-
-    public ShowRoles(Optional<NodeLocation> location, Optional<Identifier> catalog, boolean current)
     {
         super(location);
         this.catalog = requireNonNull(catalog, "catalog is null");

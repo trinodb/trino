@@ -54,8 +54,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.IpAddressType.IPADDRESS;
 import static java.util.Collections.nCopies;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.assertj.core.api.Assertions.assertThatCode;
 
 class TestFlatHashStrategy
 {
@@ -88,12 +87,12 @@ class TestFlatHashStrategy
                 assertThat(fixedChunk).startsWith(new byte[FIXED_CHUNK_OFFSET]);
                 assertThat(variableChunk).startsWith(new byte[VARIABLE_CHUNK_OFFSET]);
 
-                assertThat(flatHashStrategy.hash(fixedChunk, FIXED_CHUNK_OFFSET, variableChunk)).isEqualTo(manualHash(types, blocks, position));
-                assertThat(flatHashStrategy.valueNotDistinctFrom(fixedChunk, FIXED_CHUNK_OFFSET, variableChunk, blocks, position)).isTrue();
-                assertThat(flatHashStrategy.valueNotDistinctFrom(fixedChunk, FIXED_CHUNK_OFFSET, variableChunk, blocks, 3)).isFalse();
+                assertThat(flatHashStrategy.hash(fixedChunk, FIXED_CHUNK_OFFSET, variableChunk, VARIABLE_CHUNK_OFFSET)).isEqualTo(manualHash(types, blocks, position));
+                assertThat(flatHashStrategy.valueIdentical(fixedChunk, FIXED_CHUNK_OFFSET, variableChunk, VARIABLE_CHUNK_OFFSET, blocks, position)).isTrue();
+                assertThat(flatHashStrategy.valueIdentical(fixedChunk, FIXED_CHUNK_OFFSET, variableChunk, VARIABLE_CHUNK_OFFSET, blocks, 3)).isFalse();
 
                 BlockBuilder[] blockBuilders = types.stream().map(type -> type.createBlockBuilder(null, 1)).toArray(BlockBuilder[]::new);
-                flatHashStrategy.readFlat(fixedChunk, FIXED_CHUNK_OFFSET, variableChunk, blockBuilders);
+                flatHashStrategy.readFlat(fixedChunk, FIXED_CHUNK_OFFSET, variableChunk, VARIABLE_CHUNK_OFFSET, blockBuilders);
                 List<Block> output = Arrays.stream(blockBuilders).map(BlockBuilder::build).toList();
                 Page actualPage = new Page(output.toArray(Block[]::new));
                 Page expectedPage = new Page(blocks).getSingleValuePage(position);
@@ -110,7 +109,8 @@ class TestFlatHashStrategy
 
         int positionCount = 10;
         // Attempting to touch any of the blocks would result in a NullPointerException
-        assertDoesNotThrow(() -> flatHashStrategy.hashBlocksBatched(new Block[types.size()], new long[positionCount], 0, 0));
+        assertThatCode(() -> flatHashStrategy.hashBlocksBatched(new Block[types.size()], new long[positionCount], 0, 0))
+                .doesNotThrowAnyException();
     }
 
     @Test
@@ -134,7 +134,7 @@ class TestFlatHashStrategy
         assertHashesEqual(types, blocks, hashes, flatHashStrategy);
 
         // Ensure the formatting logic produces a real string and doesn't blow up since otherwise this code wouldn't be exercised
-        assertNotNull(singleRowTypesAndValues(types, blocks, 0));
+        assertThat(singleRowTypesAndValues(types, blocks, 0)).isNotNull();
     }
 
     private void assertHashesEqual(List<Type> types, Block[] blocks, long[] batchedHashes, FlatHashStrategy flatHashStrategy)

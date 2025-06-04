@@ -16,21 +16,17 @@ package io.trino.spi.block;
 import jakarta.annotation.Nullable;
 
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkReadablePosition;
-import static io.trino.spi.block.BlockUtil.checkValidPositions;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactArray;
 import static io.trino.spi.block.BlockUtil.compactOffsets;
 import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
 import static io.trino.spi.block.BlockUtil.copyOffsetsAndAppendNull;
-import static io.trino.spi.block.BlockUtil.countAndMarkSelectedPositionsFromOffsets;
-import static io.trino.spi.block.BlockUtil.countSelectedPositionsFromOffsets;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -128,9 +124,6 @@ public final class ArrayBlock
     public long getSizeInBytes()
     {
         if (sizeInBytes < 0) {
-            if (!values.isLoaded()) {
-                return getBaseSizeInBytes();
-            }
             calculateSize();
         }
         return sizeInBytes;
@@ -165,6 +158,13 @@ public final class ArrayBlock
         consumer.accept(this, INSTANCE_SIZE);
     }
 
+    public Block getElementsBlock()
+    {
+        int start = offsets[arrayOffset];
+        int end = offsets[arrayOffset + positionCount];
+        return values.getRegion(start, end - start);
+    }
+
     Block getRawElementBlock()
     {
         return values;
@@ -186,43 +186,29 @@ public final class ArrayBlock
     }
 
     @Override
-    public String getEncodingName()
-    {
-        return ArrayBlockEncoding.NAME;
-    }
-
-    @Override
     public boolean mayHaveNull()
     {
         return valueIsNull != null;
     }
 
     @Override
+    public boolean hasNull()
+    {
+        if (valueIsNull == null) {
+            return false;
+        }
+        for (int i = 0; i < positionCount; i++) {
+            if (valueIsNull[i + arrayOffset]) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
     public String toString()
     {
         return "ArrayBlock{positionCount=" + getPositionCount() + '}';
-    }
-
-    @Override
-    public boolean isLoaded()
-    {
-        return values.isLoaded();
-    }
-
-    @Override
-    public ArrayBlock getLoadedBlock()
-    {
-        Block loadedValuesBlock = values.getLoadedBlock();
-
-        if (loadedValuesBlock == values) {
-            return this;
-        }
-        return createArrayBlockInternal(
-                arrayOffset,
-                positionCount,
-                valueIsNull,
-                offsets,
-                loadedValuesBlock);
     }
 
     @Override
@@ -286,12 +272,6 @@ public final class ArrayBlock
     }
 
     @Override
-    public OptionalInt fixedSizeInBytesPerPosition()
-    {
-        return OptionalInt.empty(); // size per position varies based on the number of entries in each array
-    }
-
-    @Override
     public long getRegionSizeInBytes(int position, int length)
     {
         int positionCount = getPositionCount();
@@ -301,39 +281,6 @@ public final class ArrayBlock
         int valueEnd = offsets[arrayOffset + position + length];
 
         return values.getRegionSizeInBytes(valueStart, valueEnd - valueStart) + ((Integer.BYTES + Byte.BYTES) * (long) length);
-    }
-
-    @Override
-    public long getPositionsSizeInBytes(boolean[] positions, int selectedArrayPositions)
-    {
-        int positionCount = getPositionCount();
-        checkValidPositions(positions, positionCount);
-        if (selectedArrayPositions == 0) {
-            return 0;
-        }
-        if (selectedArrayPositions == positionCount) {
-            return getSizeInBytes();
-        }
-
-        Block rawElementBlock = values;
-        OptionalInt fixedPerElementSizeInBytes = rawElementBlock.fixedSizeInBytesPerPosition();
-        int[] offsets = this.offsets;
-        int offsetBase = arrayOffset;
-        long sizeInBytes;
-
-        if (fixedPerElementSizeInBytes.isPresent()) {
-            sizeInBytes = fixedPerElementSizeInBytes.getAsInt() * (long) countSelectedPositionsFromOffsets(positions, offsets, offsetBase);
-        }
-        else if (rawElementBlock instanceof RunLengthEncodedBlock) {
-            // RLE blocks don't have a fixed-size per position, but accept null for the position array
-            sizeInBytes = rawElementBlock.getPositionsSizeInBytes(null, countSelectedPositionsFromOffsets(positions, offsets, offsetBase));
-        }
-        else {
-            boolean[] selectedElements = new boolean[rawElementBlock.getPositionCount()];
-            int selectedElementCount = countAndMarkSelectedPositionsFromOffsets(positions, offsets, offsetBase, selectedElements);
-            sizeInBytes = rawElementBlock.getPositionsSizeInBytes(selectedElements, selectedElementCount);
-        }
-        return sizeInBytes + ((Integer.BYTES + Byte.BYTES) * (long) selectedArrayPositions);
     }
 
     @Override
@@ -414,6 +361,12 @@ public final class ArrayBlock
     public ArrayBlock getUnderlyingValueBlock()
     {
         return this;
+    }
+
+    @Override
+    public Optional<ByteArrayBlock> getNulls()
+    {
+        return BlockUtil.getNulls(valueIsNull, arrayOffset, positionCount);
     }
 
     public <T> T apply(ArrayBlockFunction<T> function, int position)

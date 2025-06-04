@@ -22,9 +22,11 @@ import io.trino.spi.connector.CatalogHandle.CatalogHandleType;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.ConnectorCapabilities;
 import io.trino.spi.connector.ConnectorMetadata;
+import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -130,13 +132,14 @@ public class CatalogMetadata
         return catalogTransaction.getCatalogHandle();
     }
 
-    public CatalogHandle getCatalogHandle(Session session, QualifiedObjectName table)
+    public CatalogHandle getCatalogHandle(Session session, QualifiedObjectName table, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
     {
         if (table.schemaName().equals(INFORMATION_SCHEMA_NAME)) {
             return informationSchemaTransaction.getCatalogHandle();
         }
 
-        if (systemTransaction.getConnectorMetadata(session).getTableHandle(session.toConnectorSession(systemTransaction.getCatalogHandle()), table.asSchemaTableName()) != null) {
+        if (systemTransaction.getConnectorMetadata(session)
+                .getTableHandle(session.toConnectorSession(systemTransaction.getCatalogHandle()), table.asSchemaTableName(), startVersion, endVersion) != null) {
             return systemTransaction.getCatalogHandle();
         }
 

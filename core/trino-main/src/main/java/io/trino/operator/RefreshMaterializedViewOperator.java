@@ -114,9 +114,7 @@ public class RefreshMaterializedViewOperator
     }
 
     @Override
-    public void finish()
-    {
-    }
+    public void finish() {}
 
     @Override
     public void close()

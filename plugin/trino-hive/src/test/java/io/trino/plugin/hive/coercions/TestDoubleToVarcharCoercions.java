@@ -14,15 +14,18 @@
 package io.trino.plugin.hive.coercions;
 
 import io.airlift.slice.Slices;
+import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.plugin.hive.coercions.CoercionUtils.CoercionContext;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.plugin.hive.HiveStorageFormat.ORC;
+import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
-import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.coercions.CoercionUtils.createCoercer;
+import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
 import static io.trino.spi.predicate.Utils.blockToNativeValue;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -52,7 +55,7 @@ public class TestDoubleToVarcharCoercions
 
     private void testDoubleToVarcharCoercions(Double doubleValue, boolean treatNaNAsNull)
     {
-        assertCoercions(DOUBLE, doubleValue, createUnboundedVarcharType(), Slices.utf8Slice(doubleValue.toString()), treatNaNAsNull);
+        assertCoercions(DOUBLE, doubleValue, createUnboundedVarcharType(), Slices.utf8Slice(doubleValue.toString()), treatNaNAsNull ? ORC : PARQUET);
     }
 
     @Test
@@ -73,7 +76,7 @@ public class TestDoubleToVarcharCoercions
 
     private void testDoubleSmallerVarcharCoercions(Double doubleValue, boolean treatNaNAsNull)
     {
-        assertThatThrownBy(() -> assertCoercions(DOUBLE, doubleValue, createVarcharType(1), doubleValue.toString(), treatNaNAsNull))
+        assertThatThrownBy(() -> assertCoercions(DOUBLE, doubleValue, createVarcharType(1), doubleValue.toString(), treatNaNAsNull ? ORC : PARQUET))
                 .isInstanceOf(TrinoException.class)
                 .hasMessageContaining("Varchar representation of %s exceeds varchar(1) bounds", doubleValue);
     }
@@ -81,17 +84,17 @@ public class TestDoubleToVarcharCoercions
     @Test
     public void testNaNToVarcharCoercions()
     {
-        assertCoercions(DOUBLE, Double.NaN, createUnboundedVarcharType(), null, true);
+        assertCoercions(DOUBLE, Double.NaN, createUnboundedVarcharType(), null, ORC);
 
-        assertCoercions(DOUBLE, Double.NaN, createUnboundedVarcharType(), Slices.utf8Slice("NaN"), false);
-        assertThatThrownBy(() -> assertCoercions(DOUBLE, Double.NaN, createVarcharType(1), "NaN", false))
+        assertCoercions(DOUBLE, Double.NaN, createUnboundedVarcharType(), Slices.utf8Slice("NaN"), PARQUET);
+        assertThatThrownBy(() -> assertCoercions(DOUBLE, Double.NaN, createVarcharType(1), "NaN", PARQUET))
                 .isInstanceOf(TrinoException.class)
                 .hasMessageContaining("Varchar representation of NaN exceeds varchar(1) bounds");
     }
 
-    public static void assertCoercions(Type fromType, Object valueToBeCoerced, Type toType, Object expectedValue, boolean isOrcFile)
+    public static void assertCoercions(Type fromType, Object valueToBeCoerced, Type toType, Object expectedValue, HiveStorageFormat storageFormat)
     {
-        Block coercedValue = createCoercer(TESTING_TYPE_MANAGER, toHiveType(fromType), toHiveType(toType), new CoercionContext(DEFAULT_PRECISION, isOrcFile)).orElseThrow()
+        Block coercedValue = createCoercer(TESTING_TYPE_MANAGER, toHiveType(fromType), toHiveType(toType), new CoercionContext(DEFAULT_PRECISION, storageFormat)).orElseThrow()
                 .apply(nativeValueToBlock(fromType, valueToBeCoerced));
         assertThat(blockToNativeValue(toType, coercedValue))
                 .isEqualTo(expectedValue);

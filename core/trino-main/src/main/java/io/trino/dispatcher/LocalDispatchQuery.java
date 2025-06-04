@@ -93,8 +93,13 @@ public class LocalDispatchQuery
 
         stateMachine.addStateChangeListener(state -> {
             if (state == QueryState.FAILED) {
+                // notificationSentOrGuaranteed.compareAndSet(false, true) ensures the queryCompletedEvent is only fired once.
+                // Either via an immediateFailureEvent or a finalQueryInfoListener.
+                // In cases when finalQueryInfoListener wins the race AND finalQueryInfo is not set the listener isn't triggered.
+                // getFullQueryInfo() force sets finalQueryInfo so the finalQueryInfoListener condition is met.
+                ExecutionFailureInfo failureInfo = getFullQueryInfo().getFailureInfo();
                 if (notificationSentOrGuaranteed.compareAndSet(false, true)) {
-                    queryMonitor.queryImmediateFailureEvent(getBasicQueryInfo(), getFullQueryInfo().getFailureInfo());
+                    queryMonitor.queryImmediateFailureEvent(getBasicQueryInfo(), failureInfo);
                 }
             }
             // any PLANNING or later state means the query has been submitted for execution
@@ -324,7 +329,7 @@ public class LocalDispatchQuery
         try {
             return tryGetFutureValue(queryExecutionFuture);
         }
-        catch (Exception ignored) {
+        catch (Exception _) {
             return Optional.empty();
         }
         catch (Error e) {

@@ -306,7 +306,7 @@ public class FileSystemExchange
     {
         // Add a randomized prefix to evenly distribute data into different S3 shards
         // Data output file path format: {randomizedHexPrefix}.{queryId}.{stageId}.{sinkPartitionId}/{attemptId}/{sourcePartitionId}_{splitId}.data
-        return outputDirectories.computeIfAbsent(taskPartitionId, ignored -> baseDirectories.get(ThreadLocalRandom.current().nextInt(baseDirectories.size()))
+        return outputDirectories.computeIfAbsent(taskPartitionId, _ -> baseDirectories.get(ThreadLocalRandom.current().nextInt(baseDirectories.size()))
                 .resolve(generateRandomizedHexPrefix() + "." + exchangeContext.getQueryId() + "." + exchangeContext.getExchangeId() + "." + taskPartitionId + PATH_SEPARATOR));
     }
 
@@ -330,11 +330,12 @@ public class FileSystemExchange
     public void close()
     {
         if (!skipDeletes) {
-            ImmutableList<URI> toDelete;
-            synchronized (this) {
-                toDelete = allSinks.stream()
-                        .map(this::getTaskOutputDirectory)
-                        .collect(toImmutableList());
+          List<URI> toDelete;
+          synchronized (this) {
+              toDelete = allSinks.stream()
+                      .map(this::getTaskOutputDirectory)
+                      .collect(toImmutableList());
+
             }
             stats.getCloseExchange().record(exchangeStorage.deleteRecursively(toDelete));
         }

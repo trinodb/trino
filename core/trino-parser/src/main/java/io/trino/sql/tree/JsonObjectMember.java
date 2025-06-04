@@ -32,16 +32,6 @@ public class JsonObjectMember
 
     public JsonObjectMember(NodeLocation location, Expression key, Expression value, Optional<JsonFormat> format)
     {
-        this(Optional.of(location), key, value, format);
-    }
-
-    public JsonObjectMember(Expression key, Expression value, Optional<JsonFormat> format)
-    {
-        this(Optional.empty(), key, value, format);
-    }
-
-    private JsonObjectMember(Optional<NodeLocation> location, Expression key, Expression value, Optional<JsonFormat> format)
-    {
         super(location);
 
         requireNonNull(key, "key is null");

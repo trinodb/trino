@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -28,17 +27,7 @@ public final class CreateFunction
     private final FunctionSpecification specification;
     private final boolean replace;
 
-    public CreateFunction(FunctionSpecification specification, boolean replace)
-    {
-        this(Optional.empty(), specification, replace);
-    }
-
     public CreateFunction(NodeLocation location, FunctionSpecification specification, boolean replace)
-    {
-        this(Optional.of(location), specification, replace);
-    }
-
-    private CreateFunction(Optional<NodeLocation> location, FunctionSpecification specification, boolean replace)
     {
         super(location);
         this.specification = requireNonNull(specification, "specification is null");
@@ -72,7 +61,7 @@ public final class CreateFunction
     {
         return (obj instanceof CreateFunction other) &&
                 Objects.equals(specification, other.specification) &&
-                Objects.equals(replace, other.replace);
+                replace == other.replace;
     }
 
     @Override

@@ -44,7 +44,7 @@ public record CassandraColumnHandle(
     {
         return ColumnMetadata.builder()
                 .setName(CassandraCqlUtils.cqlNameToSqlName(name))
-                .setType(cassandraType.getTrinoType())
+                .setType(cassandraType.trinoType())
                 .setHidden(hidden)
                 .build();
     }
@@ -52,6 +52,6 @@ public record CassandraColumnHandle(
     @JsonIgnore
     public Type getType()
     {
-        return cassandraType.getTrinoType();
+        return cassandraType.trinoType();
     }
 }

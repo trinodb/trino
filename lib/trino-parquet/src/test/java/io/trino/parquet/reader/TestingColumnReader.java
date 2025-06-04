@@ -39,6 +39,7 @@ import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimeZoneKey;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Timestamps;
 import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
@@ -89,8 +90,14 @@ import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_PICOS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_PICOS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
+import static io.trino.spi.type.Timestamps.round;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -622,6 +629,26 @@ public class TestingColumnReader
         };
     }
 
+    private static Assertion<DecodedTimestamp> assertInt96LongTimestampWithTimeZone(int precision)
+    {
+        TimestampWithTimeZoneType type = createTimestampWithTimeZoneType(precision);
+        return (values, block, offset, blockOffset) ->
+        {
+            long epochSeconds = values[offset].epochSeconds();
+            int nanos = values[offset].nanosOfSecond();
+            long epochNanos = epochSeconds * Timestamps.NANOSECONDS_PER_SECOND + nanos;
+            if (precision < 9) {
+                epochNanos = round(epochNanos, 9 - precision);
+            }
+
+            LongTimestampWithTimeZone packed = (LongTimestampWithTimeZone) type.getObject(block, blockOffset);
+            long picos = (packed.getEpochMillis() * PICOSECONDS_PER_MILLISECOND) + packed.getPicosOfMilli();
+            TimeZoneKey timeZoneKey = getTimeZoneKey(packed.getTimeZoneKey());
+            assertThat(timeZoneKey).isEqualTo(UTC_KEY);
+            assertThat(picos).isEqualTo(epochNanos * PICOSECONDS_PER_NANOSECOND);
+        };
+    }
+
     private TestingColumnReader() {}
 
     public enum DataPageVersion
@@ -679,6 +706,7 @@ public class TestingColumnReader
                 new ColumnReaderFormat<>(INT32, decimalType(0, 8), createDecimalType(8), PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_LONG),
                 // INT32 can be read as a ShortDecimalType in Trino without decimal logical type annotation as well
                 new ColumnReaderFormat<>(INT32, createDecimalType(8, 0), PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_LONG),
+                new ColumnReaderFormat<>(INT32, createDecimalType(8, 2), PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, assertShortDecimal(createDecimalType(8, 2))),
                 new ColumnReaderFormat<>(INT32, BIGINT, PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_LONG),
                 new ColumnReaderFormat<>(INT32, INTEGER, PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_INT),
                 new ColumnReaderFormat<>(INT32, SMALLINT, PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_SHORT, ASSERT_SHORT),
@@ -753,6 +781,9 @@ public class TestingColumnReader
                 new ColumnReaderFormat<>(INT96, 12, null, TIMESTAMP_NANOS, FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_INT96, assertTimestampNanos()),
                 new ColumnReaderFormat<>(INT96, 12, null, TIMESTAMP_PICOS, FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_INT96, assertTimestampNanos()),
                 new ColumnReaderFormat<>(INT96, 12, null, TIMESTAMP_TZ_MILLIS, FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_INT96, assertTimestampWithTimeZoneMillis()),
+                new ColumnReaderFormat<>(INT96, 12, null, TIMESTAMP_TZ_MICROS, FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_INT96, assertInt96LongTimestampWithTimeZone(6)),
+                new ColumnReaderFormat<>(INT96, 12, null, TIMESTAMP_TZ_NANOS, FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_INT96, assertInt96LongTimestampWithTimeZone(9)),
+                new ColumnReaderFormat<>(INT96, 12, null, TIMESTAMP_TZ_PICOS, FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_INT96, assertInt96LongTimestampWithTimeZone(12)),
                 // timestamps read as bigint
                 new ColumnReaderFormat<>(INT64, timestampType(false, MILLIS), BIGINT, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, ASSERT_LONG),
                 new ColumnReaderFormat<>(INT64, timestampType(false, MICROS), BIGINT, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, ASSERT_LONG),

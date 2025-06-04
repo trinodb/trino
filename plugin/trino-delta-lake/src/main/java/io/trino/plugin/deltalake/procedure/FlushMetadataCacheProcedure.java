@@ -16,9 +16,9 @@ package io.trino.plugin.deltalake.procedure;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
+import io.trino.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
-import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.spi.TrinoException;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.SchemaTableName;
@@ -81,7 +81,7 @@ public class FlushMetadataCacheProcedure
 
     public void flushMetadataCache(String schemaName, String tableName)
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(getClass().getClassLoader())) {
             doFlushMetadataCache(Optional.ofNullable(schemaName), Optional.ofNullable(tableName));
         }
     }

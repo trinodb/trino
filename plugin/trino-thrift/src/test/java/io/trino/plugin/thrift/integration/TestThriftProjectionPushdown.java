@@ -16,15 +16,16 @@ package io.trino.plugin.thrift.integration;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.io.Closer;
 import io.airlift.drift.server.DriftServer;
 import io.trino.Session;
 import io.trino.cost.ScalarStatsCalculator;
 import io.trino.metadata.TableHandle;
+import io.trino.plugin.base.util.AutoCloseableCloser;
 import io.trino.plugin.thrift.ThriftColumnHandle;
 import io.trino.plugin.thrift.ThriftPlugin;
 import io.trino.plugin.thrift.ThriftTableHandle;
 import io.trino.plugin.thrift.ThriftTransactionHandle;
+import io.trino.plugin.thrift.integration.ThriftQueryRunner.StartedServers;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.predicate.TupleDomain;
@@ -40,7 +41,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 import java.io.IOException;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -62,7 +62,7 @@ public class TestThriftProjectionPushdown
         extends BaseRuleTest
 {
     private static final String TINY_SCHEMA = "tiny";
-    private List<DriftServer> servers;
+    private StartedServers startedServers;
 
     private static final Session SESSION = testSessionBuilder()
             .setCatalog(TEST_CATALOG_NAME)
@@ -73,7 +73,7 @@ public class TestThriftProjectionPushdown
     protected Optional<PlanTester> createPlanTester()
     {
         try {
-            servers = startThriftServers(1, false);
+            startedServers = startThriftServers(1, false);
         }
         catch (Throwable t) {
             try {
@@ -86,7 +86,7 @@ public class TestThriftProjectionPushdown
             throw t;
         }
 
-        String addresses = servers.stream()
+        String addresses = startedServers.servers().stream()
                 .map(server -> "localhost:" + driftServerPort(server))
                 .collect(joining(","));
 
@@ -104,18 +104,20 @@ public class TestThriftProjectionPushdown
 
     @AfterAll
     public void cleanup()
+            throws Exception
     {
-        if (servers != null) {
-            try (Closer closer = Closer.create()) {
-                for (DriftServer server : servers) {
+        if (startedServers != null) {
+            try (AutoCloseableCloser closer = AutoCloseableCloser.create()) {
+                for (DriftServer server : startedServers.servers()) {
                     closer.register(server::shutdown);
                 }
+                startedServers.resources().forEach(closer::register);
             }
             catch (IOException e) {
                 throw new RuntimeException(e);
             }
 
-            servers = null;
+            startedServers = null;
         }
     }
 

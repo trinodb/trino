@@ -91,9 +91,7 @@ public final class LongBitUnpackers
         return UNPACKERS[bitWidth - 1];
     }
 
-    private LongBitUnpackers()
-    {
-    }
+    private LongBitUnpackers() {}
 
     private static final class Unpacker1
             implements LongBitUnpacker

@@ -277,7 +277,7 @@ class PreferredProperties
                 return false;
             }
             Global other = (Global) obj;
-            return Objects.equals(this.distributed, other.distributed)
+            return this.distributed == other.distributed
                     && Objects.equals(this.partitioningProperties, other.partitioningProperties);
         }
 

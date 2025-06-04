@@ -36,7 +36,7 @@ public class HistogramStateFactory
     private final MethodHandle readFlat;
     private final MethodHandle writeFlat;
     private final MethodHandle hashFlat;
-    private final MethodHandle distinctFlatBlock;
+    private final MethodHandle identicalFlatBlock;
     private final MethodHandle hashBlock;
 
     public HistogramStateFactory(
@@ -54,9 +54,9 @@ public class HistogramStateFactory
                     argumentTypes = "T",
                     convention = @Convention(arguments = FLAT, result = FAIL_ON_NULL)) MethodHandle hashFlat,
             @OperatorDependency(
-                    operator = OperatorType.IS_DISTINCT_FROM,
+                    operator = OperatorType.IDENTICAL,
                     argumentTypes = {"T", "T"},
-                    convention = @Convention(arguments = {FLAT, VALUE_BLOCK_POSITION_NOT_NULL}, result = FAIL_ON_NULL)) MethodHandle distinctFlatBlock,
+                    convention = @Convention(arguments = {FLAT, VALUE_BLOCK_POSITION_NOT_NULL}, result = FAIL_ON_NULL)) MethodHandle identicalFlatBlock,
             @OperatorDependency(
                     operator = OperatorType.HASH_CODE,
                     argumentTypes = "T",
@@ -66,19 +66,19 @@ public class HistogramStateFactory
         this.readFlat = requireNonNull(readFlat, "readFlat is null");
         this.writeFlat = requireNonNull(writeFlat, "writeFlat is null");
         this.hashFlat = requireNonNull(hashFlat, "hashFlat is null");
-        this.distinctFlatBlock = requireNonNull(distinctFlatBlock, "distinctFlatBlock is null");
+        this.identicalFlatBlock = requireNonNull(identicalFlatBlock, "identicalFlatBlock is null");
         this.hashBlock = requireNonNull(hashBlock, "hashBlock is null");
     }
 
     @Override
     public HistogramState createSingleState()
     {
-        return new SingleHistogramState(type, readFlat, writeFlat, hashFlat, distinctFlatBlock, hashBlock);
+        return new SingleHistogramState(type, readFlat, writeFlat, hashFlat, identicalFlatBlock, hashBlock);
     }
 
     @Override
     public HistogramState createGroupedState()
     {
-        return new GroupedHistogramState(type, readFlat, writeFlat, hashFlat, distinctFlatBlock, hashBlock);
+        return new GroupedHistogramState(type, readFlat, writeFlat, hashFlat, identicalFlatBlock, hashBlock);
     }
 }

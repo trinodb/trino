@@ -16,12 +16,12 @@ package io.trino.plugin.hive;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.plugin.base.util.UncheckedCloseable;
+import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SelectedRole;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 
-import java.net.URI;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
@@ -30,12 +30,13 @@ import java.util.regex.Pattern;
 import static io.trino.plugin.hive.BaseS3AndGlueMetastoreTest.LocationPattern.DOUBLE_SLASH;
 import static io.trino.plugin.hive.BaseS3AndGlueMetastoreTest.LocationPattern.TRIPLE_SLASH;
 import static io.trino.plugin.hive.BaseS3AndGlueMetastoreTest.LocationPattern.TWO_TRAILING_SLASHES;
-import static io.trino.plugin.hive.metastore.glue.TestingGlueHiveMetastore.createTestingGlueHiveMetastore;
+import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
 import static io.trino.spi.security.SelectedRole.Type.ROLE;
 import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.util.Objects.requireNonNull;
+import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -44,27 +45,30 @@ public class TestHiveS3AndGlueMetastoreTest
 {
     public TestHiveS3AndGlueMetastoreTest()
     {
-        super("partitioned_by", "external_location", requireNonNull(System.getenv("S3_BUCKET"), "Environment S3_BUCKET was not set"));
+        super("partitioned_by", "external_location", requireEnv("S3_BUCKET"));
     }
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        metastore = createTestingGlueHiveMetastore(URI.create(schemaPath()));
-
         Session session = createSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin"))));
         QueryRunner queryRunner = HiveQueryRunner.builder(session)
                 .addExtraProperty("sql.path", "hive.functions")
                 .addExtraProperty("sql.default-function-catalog", "hive")
                 .addExtraProperty("sql.default-function-schema", "functions")
                 .setCreateTpchSchemas(false)
+                .addHiveProperty("hive.metastore", "glue")
+                .addHiveProperty("hive.metastore.glue.default-warehouse-dir", schemaPath())
                 .addHiveProperty("hive.security", "allow-all")
                 .addHiveProperty("hive.non-managed-table-writes-enabled", "true")
-                .setMetastore(runner -> metastore)
+                .addHiveProperty("fs.native-s3.enabled", "true")
                 .build();
         queryRunner.execute("CREATE SCHEMA " + schemaName + " WITH (location = '" + schemaPath() + "')");
         queryRunner.execute("CREATE SCHEMA IF NOT EXISTS functions");
+
+        metastore = getConnectorService(queryRunner, GlueHiveMetastore.class);
+
         return queryRunner;
     }
 
@@ -261,37 +265,108 @@ public class TestHiveS3AndGlueMetastoreTest
 
             // Check statistics collection on write
             if (partitioned) {
-                assertQuery("SHOW STATS FOR " + tableName, """
+                assertQuery("SHOW STATS FOR " + tableName,
+                        """
                         VALUES
                         ('col_str', 16.0, 1.0, 0.0, null, null, null),
                         ('col_int', null, 4.0, 0.0, null, 1, 4),
-                        (null, null, null, null, 4.0, null, null)""");
+                        (null, null, null, null, 4.0, null, null)\
+                        """);
             }
             else {
-                assertQuery("SHOW STATS FOR " + tableName, """
+                assertQuery("SHOW STATS FOR " + tableName,
+                        """
                         VALUES
                         ('col_str', 16.0, 3.0, 0.0, null, null, null),
                         ('col_int', null, 3.0, 0.0, null, 1, 4),
-                        (null, null, null, null, 4.0, null, null)""");
+                        (null, null, null, null, 4.0, null, null)\
+                        """);
             }
 
             // Check statistics collection explicitly
             assertUpdate("ANALYZE " + tableName, 4);
 
             if (partitioned) {
-                assertQuery("SHOW STATS FOR " + tableName, """
+                assertQuery("SHOW STATS FOR " + tableName,
+                        """
                         VALUES
                         ('col_str', 16.0, 1.0, 0.0, null, null, null),
                         ('col_int', null, 4.0, 0.0, null, 1, 4),
-                        (null, null, null, null, 4.0, null, null)""");
+                        (null, null, null, null, 4.0, null, null)\
+                        """);
             }
             else {
-                assertQuery("SHOW STATS FOR " + tableName, """
+                assertQuery("SHOW STATS FOR " + tableName,
+                        """
                         VALUES
                         ('col_str', 16.0, 4.0, 0.0, null, null, null),
                         ('col_int', null, 4.0, 0.0, null, 1, 4),
-                        (null, null, null, null, 4.0, null, null)""");
+                        (null, null, null, null, 4.0, null, null)\
+                        """);
             }
+        }
+    }
+
+    @Test
+    public void testPartitionProjectionWithProvidedTableLocation()
+    {
+        for (LocationPattern locationPattern : LocationPattern.values()) {
+            if (locationPattern == DOUBLE_SLASH || locationPattern == TRIPLE_SLASH || locationPattern == TWO_TRAILING_SLASHES) {
+                assertThatThrownBy(() -> testPartitionProjectionWithProvidedTableLocation(locationPattern))
+                        .hasMessageStartingWith("Unsupported location that cannot be internally represented: ")
+                        .hasStackTraceContaining("SQL: CREATE TABLE");
+                continue;
+            }
+            testPartitionProjectionWithProvidedTableLocation(locationPattern);
+        }
+    }
+
+    private void testPartitionProjectionWithProvidedTableLocation(LocationPattern locationPattern)
+    {
+        String tableName = "test_partition_projection_" + randomNameSuffix();
+        String tableLocation = locationPattern.locationForTable(bucketName, schemaName, tableName);
+
+        computeActual(format(
+                """
+                CREATE TABLE %s (
+                name varchar(25),
+                short_name varchar WITH (
+                    partition_projection_type='date',
+                    partition_projection_format='yyyy-MM-dd HH',
+                    partition_projection_range=ARRAY['2001-01-22 00', '2001-01-22 06'],
+                    partition_projection_interval=1,
+                    partition_projection_interval_unit='HOURS'
+                  )
+                )
+                WITH (
+                  partitioned_by=ARRAY['short_name'],
+                  partition_projection_enabled=true,
+                  external_location = '%s'
+                )
+                """,
+                tableName,
+                tableLocation));
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('name1', '2001-01-22 00')", 1);
+
+        assertQuery(format("SELECT name FROM %s", tableName), "VALUES ('name1')");
+    }
+
+    @Test
+    public void testInvalidSchemaNameLocation()
+    {
+        String schemaNameSuffix = randomNameSuffix();
+        String schemaName = "../test_create_schema_invalid_location_" + schemaNameSuffix;
+        String tableName = "test_table_schema_invalid_location_" + randomNameSuffix();
+
+        assertUpdate("CREATE SCHEMA \"%2$s\" WITH (location = 's3://%1$s/%2$s')".formatted(bucketName, schemaName));
+        try (var _ = onClose("DROP SCHEMA \"" + schemaName + "\"")) {
+            assertThat(query("CREATE TABLE \"" + schemaName + "\"." + tableName + " (col) AS VALUES 1"))
+                    .failure().hasMessage("Error committing write to Hive")
+                    .cause()
+                    .cause().hasMessageMatching("Put failed for bucket \\[\\S+] key \\[\\.\\./test_create_schema_invalid_location_\\w+/test_table_schema_invalid_location_\\w+/\\S+]: .*")
+                    // The message could be better. In AWS SDK v1 it used to be "Invalid URI".
+                    .cause().hasMessageMatching("\\(Service: S3, Status Code: 400, Request ID: .*");
         }
     }
 
@@ -302,11 +377,10 @@ public class TestHiveS3AndGlueMetastoreTest
         String schemaName = "../test_create_schema_escaped_" + schemaNameSuffix;
         String tableName = "test_table_schema_escaped_" + randomNameSuffix();
 
-        assertUpdate("CREATE SCHEMA \"%2$s\" WITH (location = 's3://%1$s/%2$s')".formatted(bucketName, schemaName));
-        try (UncheckedCloseable ignored = onClose("DROP SCHEMA \"" + schemaName + "\"")) {
-            assertThatThrownBy(() -> computeActual("CREATE TABLE \"" + schemaName + "\"." + tableName + " (col) AS VALUES 1"))
-                    .hasMessage("Error committing write to Hive")
-                    .hasStackTraceContaining("Invalid URI (Service: Amazon S3; Status Code: 400");
+        assertUpdate("CREATE SCHEMA \"%2$s\"".formatted(bucketName, schemaName));
+        try (var _ = onClose("DROP SCHEMA \"" + schemaName + "\"")) {
+            assertUpdate("CREATE TABLE \"" + schemaName + "\"." + tableName + " (col) AS VALUES 1", 1);
+            assertUpdate("DROP TABLE \"" + schemaName + "\"." + tableName);
         }
     }
 

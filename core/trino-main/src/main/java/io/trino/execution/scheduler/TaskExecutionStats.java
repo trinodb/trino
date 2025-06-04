@@ -43,17 +43,17 @@ public class TaskExecutionStats
 
     public void update(TaskInfo info)
     {
-        TaskState state = info.getTaskStatus().getState();
+        TaskState state = info.taskStatus().getState();
         switch (state) {
             case FINISHED:
-                finishedTasks.update(info.getStats());
+                finishedTasks.update(info.stats());
                 break;
             case FAILED:
                 failedTasks.update(info);
                 break;
             case CANCELED:
             case ABORTED:
-                abortedTasks.update(info.getStats());
+                abortedTasks.update(info.stats());
                 break;
             case PLANNED:
             case RUNNING:
@@ -155,11 +155,11 @@ public class TaskExecutionStats
 
         public void update(TaskInfo info)
         {
-            ExecutionFailureInfo failureInfo = info.getTaskStatus().getFailures().stream()
+            ExecutionFailureInfo failureInfo = info.taskStatus().getFailures().stream()
                     .findFirst()
                     .orElseGet(() -> toFailure(new TrinoException(GENERIC_INTERNAL_ERROR, "A task failed for an unknown reason")));
             ErrorType errorType = Optional.ofNullable(failureInfo.getErrorCode()).map(ErrorCode::getType).orElse(INTERNAL_ERROR);
-            TaskStats stats = info.getStats();
+            TaskStats stats = info.stats();
             switch (errorType) {
                 case USER_ERROR:
                     userError.update(stats);

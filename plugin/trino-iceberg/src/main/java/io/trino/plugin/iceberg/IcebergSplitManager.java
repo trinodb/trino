@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.inject.Inject;
 import io.airlift.units.Duration;
 import io.trino.filesystem.cache.CachingHostAddressProvider;
@@ -30,8 +31,15 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.type.TypeManager;
+import org.apache.iceberg.CombinedScanTask;
+import org.apache.iceberg.DataOperations;
+import org.apache.iceberg.FileScanTask;
+import org.apache.iceberg.Scan;
+import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.Table;
-import org.apache.iceberg.TableScan;
+import org.apache.iceberg.metrics.InMemoryMetricsReporter;
+import org.apache.iceberg.metrics.MetricsReporter;
+import org.apache.iceberg.util.SnapshotUtil;
 
 import java.util.concurrent.ExecutorService;
 
@@ -48,7 +56,8 @@ public class IcebergSplitManager
     private final IcebergTransactionManager transactionManager;
     private final TypeManager typeManager;
     private final IcebergFileSystemFactory fileSystemFactory;
-    private final ExecutorService executor;
+    private final ListeningExecutorService splitSourceExecutor;
+    private final ExecutorService icebergPlanningExecutor;
     private final CachingHostAddressProvider cachingHostAddressProvider;
 
     @Inject
@@ -56,13 +65,15 @@ public class IcebergSplitManager
             IcebergTransactionManager transactionManager,
             TypeManager typeManager,
             IcebergFileSystemFactory fileSystemFactory,
-            @ForIcebergSplitManager ExecutorService executor,
+            @ForIcebergSplitSource ListeningExecutorService splitSourceExecutor,
+            @ForIcebergSplitManager ExecutorService icebergPlanningExecutor,
             CachingHostAddressProvider cachingHostAddressProvider)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
-        this.executor = requireNonNull(executor, "executor is null");
+        this.splitSourceExecutor = requireNonNull(splitSourceExecutor, "splitSourceExecutor is null");
+        this.icebergPlanningExecutor = requireNonNull(icebergPlanningExecutor, "icebergPlanningExecutor is null");
         this.cachingHostAddressProvider = requireNonNull(cachingHostAddressProvider, "cachingHostAddressProvider is null");
     }
 
@@ -83,19 +94,19 @@ public class IcebergSplitManager
             return emptySplitSource();
         }
 
-        Table icebergTable = transactionManager.get(transaction, session.getIdentity()).getIcebergTable(session, table.getSchemaTableName());
+        IcebergMetadata icebergMetadata = transactionManager.get(transaction, session.getIdentity());
+        Table icebergTable = icebergMetadata.getIcebergTable(session, table.getSchemaTableName());
         Duration dynamicFilteringWaitTimeout = getDynamicFilteringWaitTimeout(session);
 
-        TableScan tableScan = icebergTable.newScan()
-                .useSnapshot(table.getSnapshotId().get())
-                .planWith(executor);
+        InMemoryMetricsReporter metricsReporter = new InMemoryMetricsReporter();
+        Scan scan = getScan(icebergMetadata, icebergTable, table, metricsReporter, icebergPlanningExecutor);
 
         IcebergSplitSource splitSource = new IcebergSplitSource(
                 fileSystemFactory,
                 session,
                 table,
-                icebergTable.io().properties(),
-                tableScan,
+                icebergTable,
+                scan,
                 table.getMaxScannedFileSize(),
                 dynamicFilter,
                 dynamicFilteringWaitTimeout,
@@ -103,9 +114,41 @@ public class IcebergSplitManager
                 typeManager,
                 table.isRecordScannedFiles(),
                 getMinimumAssignedSplitWeight(session),
-                cachingHostAddressProvider);
+                cachingHostAddressProvider,
+                metricsReporter,
+                splitSourceExecutor);
 
         return new ClassLoaderSafeConnectorSplitSource(splitSource, IcebergSplitManager.class.getClassLoader());
+    }
+
+    private Scan<?, FileScanTask, CombinedScanTask> getScan(IcebergMetadata icebergMetadata, Table icebergTable, IcebergTableHandle table, MetricsReporter metricsReporter, ExecutorService executor)
+    {
+        Long fromSnapshot = icebergMetadata.getIncrementalRefreshFromSnapshot().orElse(null);
+        if (fromSnapshot != null) {
+            // check if fromSnapshot is still part of the table's snapshot history
+            if (SnapshotUtil.isAncestorOf(icebergTable, fromSnapshot)) {
+                boolean containsModifiedRows = false;
+                for (Snapshot snapshot : SnapshotUtil.ancestorsBetween(icebergTable, icebergTable.currentSnapshot().snapshotId(), fromSnapshot)) {
+                    if (snapshot.operation().equals(DataOperations.OVERWRITE) || snapshot.operation().equals(DataOperations.DELETE)) {
+                        containsModifiedRows = true;
+                        break;
+                    }
+                }
+                if (!containsModifiedRows) {
+                    return icebergTable.newIncrementalAppendScan()
+                            .fromSnapshotExclusive(fromSnapshot)
+                            .planWith(executor)
+                            .metricsReporter(metricsReporter);
+                }
+            }
+            // fromSnapshot is missing (could be due to snapshot expiration or rollback), or snapshot range contains modifications
+            // (deletes or overwrites), so we cannot perform incremental refresh. Falling back to full refresh.
+            icebergMetadata.disableIncrementalRefresh();
+        }
+        return icebergTable.newScan()
+                .useSnapshot(table.getSnapshotId().get())
+                .planWith(executor)
+                .metricsReporter(metricsReporter);
     }
 
     @Override

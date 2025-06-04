@@ -13,32 +13,60 @@
  */
 package io.trino.plugin.iceberg.catalog.jdbc;
 
+import io.trino.plugin.iceberg.catalog.jdbc.IcebergJdbcCatalogConfig.SchemaVersion;
 import org.apache.iceberg.exceptions.CommitFailedException;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 
 import java.util.Optional;
 
+import static io.trino.plugin.iceberg.catalog.jdbc.IcebergJdbcCatalogConfig.SchemaVersion.V0;
+import static io.trino.plugin.iceberg.catalog.jdbc.IcebergJdbcCatalogConfig.SchemaVersion.V1;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergJdbcClient
 {
     private final IcebergJdbcConnectionFactory connectionFactory;
     private final String catalogName;
+    private final SchemaVersion schemaVersion;
 
-    public IcebergJdbcClient(IcebergJdbcConnectionFactory connectionFactory, String catalogName)
+    public IcebergJdbcClient(IcebergJdbcConnectionFactory connectionFactory, String catalogName, SchemaVersion schemaVersion)
     {
         this.connectionFactory = requireNonNull(connectionFactory, "connectionFactory is null");
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        this.schemaVersion = requireNonNull(schemaVersion, "schemaVersion is null");
     }
 
     public void createTable(String schemaName, String tableName, String metadataLocation)
+    {
+        switch (schemaVersion) {
+            case V0 -> createTableV0(schemaName, tableName, metadataLocation);
+            case V1 -> createTableV1(schemaName, tableName, metadataLocation);
+        }
+    }
+
+    private void createTableV0(String schemaName, String tableName, String metadataLocation)
     {
         try (Handle handle = Jdbi.open(connectionFactory)) {
             handle.createUpdate("" +
                             "INSERT INTO iceberg_tables " +
                             "(catalog_name, table_namespace, table_name, metadata_location, previous_metadata_location) " +
                             "VALUES (:catalog, :schema, :table, :metadata_location, null)")
+                    .bind("catalog", catalogName)
+                    .bind("schema", schemaName)
+                    .bind("table", tableName)
+                    .bind("metadata_location", metadataLocation)
+                    .execute();
+        }
+    }
+
+    private void createTableV1(String schemaName, String tableName, String metadataLocation)
+    {
+        try (Handle handle = Jdbi.open(connectionFactory)) {
+            handle.createUpdate("" +
+                            "INSERT INTO iceberg_tables " +
+                            "(catalog_name, table_namespace, table_name, metadata_location, previous_metadata_location, iceberg_type) " +
+                            "VALUES (:catalog, :schema, :table, :metadata_location, null, 'TABLE')")
                     .bind("catalog", catalogName)
                     .bind("schema", schemaName)
                     .bind("table", tableName)

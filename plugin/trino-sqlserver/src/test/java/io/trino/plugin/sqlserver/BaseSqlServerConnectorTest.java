@@ -50,28 +50,29 @@ public abstract class BaseSqlServerConnectorTest
     {
         return switch (connectorBehavior) {
             case SUPPORTS_JOIN_PUSHDOWN,
-                    SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY,
-                    SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN,
-                    SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY -> true;
+                 SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY,
+                 SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN,
+                 SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY -> true;
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT,
-                    SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION,
-                    SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT,
-                    SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE,
-                    SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION,
-                    SUPPORTS_ARRAY,
-                    SUPPORTS_COMMENT_ON_COLUMN,
-                    SUPPORTS_COMMENT_ON_TABLE,
-                    SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
-                    SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT,
-                    SUPPORTS_DROP_NOT_NULL_CONSTRAINT,
-                    SUPPORTS_DROP_SCHEMA_CASCADE,
-                    SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM,
-                    SUPPORTS_NEGATIVE_DATE,
-                    SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY,
-                    SUPPORTS_RENAME_SCHEMA,
-                    SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS,
-                    SUPPORTS_ROW_TYPE,
-                    SUPPORTS_SET_COLUMN_TYPE -> false;
+                 SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION,
+                 SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT,
+                 SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE,
+                 SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION,
+                 SUPPORTS_ARRAY,
+                 SUPPORTS_COMMENT_ON_COLUMN,
+                 SUPPORTS_COMMENT_ON_TABLE,
+                 SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
+                 SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT,
+                 SUPPORTS_DROP_NOT_NULL_CONSTRAINT,
+                 SUPPORTS_DROP_SCHEMA_CASCADE,
+                 SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM,
+                 SUPPORTS_MAP_TYPE,
+                 SUPPORTS_NEGATIVE_DATE,
+                 SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY,
+                 SUPPORTS_RENAME_SCHEMA,
+                 SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS,
+                 SUPPORTS_ROW_TYPE,
+                 SUPPORTS_SET_COLUMN_TYPE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
@@ -322,6 +323,18 @@ public abstract class BaseSqlServerConnectorTest
                     .matches("VALUES " +
                             "(CAST('collation' AS varchar(25)))")
                     .isNotFullyPushedDown(FilterNode.class);
+            assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE collate_column LIKE 'collation'"))
+                    .matches("VALUES " +
+                            "(CAST('collation' AS varchar(25)))")
+                    .isNotFullyPushedDown(FilterNode.class);
+            assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE collate_column LIKE '%no_collation%'"))
+                    .matches("VALUES " +
+                            "(CAST('no_collation' AS varchar(25)))")
+                    .isNotFullyPushedDown(FilterNode.class);
+            assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE collate_column LIKE '%no_collation%'  ESCAPE '$'"))
+                    .matches("VALUES " +
+                            "(CAST('no_collation' AS varchar(25)))")
+                    .isNotFullyPushedDown(FilterNode.class);
         }
     }
 
@@ -362,7 +375,7 @@ public abstract class BaseSqlServerConnectorTest
         // Override this because by enabling this flag SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY,
         // we assume that we also support range pushdowns, but for now we only support 'not equal' pushdown,
         // so cannot enable this flag for now
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_varchar", "(col varchar(1))", ImmutableList.of("'a'", "'A'", "null"))) {
+        try (TestTable table = newTrinoTable("test_delete_varchar", "(col varchar(1))", ImmutableList.of("'a'", "'A'", "null"))) {
             assertUpdate("DELETE FROM " + table.getName() + " WHERE col != 'A'", 1);
             assertQuery("SELECT * FROM " + table.getName(), "VALUES 'A', null");
         }
@@ -809,7 +822,8 @@ public abstract class BaseSqlServerConnectorTest
     {
         try (TestTable sourceTable = new TestTable(onRemoteDatabase(), "source_table", "(id BIGINT)", ImmutableList.of("1", "2", "3"));
                 TestTable targetTable = new TestTable(onRemoteDatabase(), "destination_table", "(id BIGINT)", ImmutableList.of("3", "4", "5"))) {
-            String mergeQuery = """
+            String mergeQuery =
+                    """
                     MERGE %s AS TARGET USING %s AS SOURCE
                     ON (TARGET.id = SOURCE.id)
                     WHEN NOT MATCHED BY TARGET
@@ -832,10 +846,51 @@ public abstract class BaseSqlServerConnectorTest
     public void testConstantUpdateWithVarcharInequalityPredicates()
     {
         // Sql Server supports push down predicate for not equal operator
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_update_varchar", "(col1 INT, col2 varchar(1))", ImmutableList.of("1, 'a'", "2, 'A'"))) {
+        try (TestTable table = newTrinoTable("test_update_varchar", "(col1 INT, col2 varchar(1))", ImmutableList.of("1, 'a'", "2, 'A'"))) {
             assertUpdate("UPDATE " + table.getName() + " SET col1 = 20 WHERE col2 != 'A'", 1);
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (20, 'a'), (2, 'A')");
         }
+    }
+
+    @Test
+    void testInvalidTable()
+    {
+        String tableName = "sqlserver.dbo.bogus";
+        assertQueryFails("SELECT * FROM " + tableName, ".* Table '%s' does not exist".formatted(tableName));
+    }
+
+    @Test
+    void testInvalidSchema()
+    {
+        assertQueryFails(
+                "SELECT * FROM sqlserver.does_not_exist.bogus",
+                ".* Schema 'does_not_exist' does not exist");
+    }
+
+    @Test
+    void testNationJoinRegion()
+    {
+        assertQuery(
+                "SELECT c.name, t.name FROM nation c JOIN " +
+                        "tpch.tiny.region t ON c.regionkey = t.regionkey " +
+                        "WHERE c.nationkey = 3",
+                "VALUES ('CANADA', 'AMERICA')");
+    }
+
+    @Test
+    void testNationSelfInnerJoin()
+    {
+        assertQuery(
+                "SELECT n1.name, n2.regionkey FROM nation n1 JOIN " +
+                        "nation n2 ON n1.nationkey = n2.regionkey " +
+                        "WHERE n1.nationkey = 3",
+                "VALUES ('CANADA', 3), ('CANADA', 3), ('CANADA', 3), ('CANADA', 3), ('CANADA', 3)");
+    }
+
+    @Test
+    void testInvalidColumn()
+    {
+        assertQueryFails("SELECT bogus FROM nation", ".* Column 'bogus' cannot be resolved");
     }
 
     private TestProcedure createTestingProcedure(String baseQuery)

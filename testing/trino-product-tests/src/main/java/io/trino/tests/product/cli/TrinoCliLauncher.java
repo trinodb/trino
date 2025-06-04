@@ -37,11 +37,11 @@ public class TrinoCliLauncher
     protected final List<String> nationTableBatchLines;
 
     @Inject
-    @Named("databases.presto.host")
+    @Named("databases.trino.host")
     protected String serverHost;
 
     @Inject
-    @Named("databases.presto.server_address")
+    @Named("databases.trino.server_address")
     protected String serverAddress;
 
     protected TrinoCliProcess trino;

@@ -13,135 +13,70 @@
  */
 package io.trino.plugin.iceberg.delete;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import io.airlift.slice.SizeOf;
 import org.apache.iceberg.FileContent;
 import org.apache.iceberg.FileFormat;
+import org.apache.iceberg.types.Conversions;
 
-import java.nio.ByteBuffer;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
-import static io.trino.plugin.base.io.ByteBuffers.getWrappedBytes;
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.MetadataColumns.DELETE_FILE_POS;
 
-public final class DeleteFile
+public record DeleteFile(
+        FileContent content,
+        String path,
+        FileFormat format,
+        long recordCount,
+        long fileSizeInBytes,
+        List<Integer> equalityFieldIds,
+        Optional<Long> rowPositionLowerBound,
+        Optional<Long> rowPositionUpperBound,
+        long dataSequenceNumber)
 {
     private static final long INSTANCE_SIZE = instanceSize(DeleteFile.class);
 
-    private final FileContent content;
-    private final String path;
-    private final FileFormat format;
-    private final long recordCount;
-    private final long fileSizeInBytes;
-    private final List<Integer> equalityFieldIds;
-    private final Map<Integer, byte[]> lowerBounds;
-    private final Map<Integer, byte[]> upperBounds;
-
     public static DeleteFile fromIceberg(org.apache.iceberg.DeleteFile deleteFile)
     {
-        Map<Integer, byte[]> lowerBounds = firstNonNull(deleteFile.lowerBounds(), ImmutableMap.<Integer, ByteBuffer>of())
-                .entrySet().stream().collect(toImmutableMap(Map.Entry::getKey, entry -> getWrappedBytes(entry.getValue()).clone()));
-        Map<Integer, byte[]> upperBounds = firstNonNull(deleteFile.upperBounds(), ImmutableMap.<Integer, ByteBuffer>of())
-                .entrySet().stream().collect(toImmutableMap(Map.Entry::getKey, entry -> getWrappedBytes(entry.getValue()).clone()));
+        Optional<Long> rowPositionLowerBound = Optional.ofNullable(deleteFile.lowerBounds())
+                .map(bounds -> bounds.get(DELETE_FILE_POS.fieldId()))
+                .map(bytes -> Conversions.fromByteBuffer(DELETE_FILE_POS.type(), bytes));
+        Optional<Long> rowPositionUpperBound = Optional.ofNullable(deleteFile.upperBounds())
+                .map(bounds -> bounds.get(DELETE_FILE_POS.fieldId()))
+                .map(bytes -> Conversions.fromByteBuffer(DELETE_FILE_POS.type(), bytes));
 
         return new DeleteFile(
                 deleteFile.content(),
-                deleteFile.path().toString(),
+                deleteFile.location(),
                 deleteFile.format(),
                 deleteFile.recordCount(),
                 deleteFile.fileSizeInBytes(),
                 Optional.ofNullable(deleteFile.equalityFieldIds()).orElseGet(ImmutableList::of),
-                lowerBounds,
-                upperBounds);
+                rowPositionLowerBound,
+                rowPositionUpperBound,
+                deleteFile.dataSequenceNumber());
     }
 
-    @JsonCreator
-    public DeleteFile(
-            FileContent content,
-            String path,
-            FileFormat format,
-            long recordCount,
-            long fileSizeInBytes,
-            List<Integer> equalityFieldIds,
-            Map<Integer, byte[]> lowerBounds,
-            Map<Integer, byte[]> upperBounds)
+    public DeleteFile
     {
-        this.content = requireNonNull(content, "content is null");
-        this.path = requireNonNull(path, "path is null");
-        this.format = requireNonNull(format, "format is null");
-        this.recordCount = recordCount;
-        this.fileSizeInBytes = fileSizeInBytes;
-        this.equalityFieldIds = ImmutableList.copyOf(requireNonNull(equalityFieldIds, "equalityFieldIds is null"));
-        this.lowerBounds = ImmutableMap.copyOf(requireNonNull(lowerBounds, "lowerBounds is null"));
-        this.upperBounds = ImmutableMap.copyOf(requireNonNull(upperBounds, "upperBounds is null"));
+        requireNonNull(content, "content is null");
+        requireNonNull(path, "path is null");
+        requireNonNull(format, "format is null");
+        equalityFieldIds = ImmutableList.copyOf(requireNonNull(equalityFieldIds, "equalityFieldIds is null"));
+        requireNonNull(rowPositionLowerBound, "rowPositionLowerBound is null");
+        requireNonNull(rowPositionUpperBound, "rowPositionUpperBound is null");
     }
 
-    @JsonProperty
-    public FileContent content()
-    {
-        return content;
-    }
-
-    @JsonProperty
-    public String path()
-    {
-        return path;
-    }
-
-    @JsonProperty
-    public FileFormat format()
-    {
-        return format;
-    }
-
-    @JsonProperty
-    public long recordCount()
-    {
-        return recordCount;
-    }
-
-    @JsonProperty
-    public long fileSizeInBytes()
-    {
-        return fileSizeInBytes;
-    }
-
-    @JsonProperty
-    public List<Integer> equalityFieldIds()
-    {
-        return equalityFieldIds;
-    }
-
-    @JsonProperty
-    public Map<Integer, byte[]> getLowerBounds()
-    {
-        return lowerBounds;
-    }
-
-    @JsonProperty
-    public Map<Integer, byte[]> getUpperBounds()
-    {
-        return upperBounds;
-    }
-
-    public long getRetainedSizeInBytes()
+    public long retainedSizeInBytes()
     {
         return INSTANCE_SIZE
                 + estimatedSizeOf(path)
-                + estimatedSizeOf(equalityFieldIds, ignored -> SIZE_OF_INT)
-                + estimatedSizeOf(lowerBounds, entry -> SIZE_OF_INT, SizeOf::sizeOf)
-                + estimatedSizeOf(upperBounds, entry -> SIZE_OF_INT, SizeOf::sizeOf);
+                + estimatedSizeOf(equalityFieldIds, _ -> SIZE_OF_INT);
     }
 
     @Override

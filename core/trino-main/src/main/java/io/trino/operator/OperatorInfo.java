@@ -15,6 +15,7 @@ package io.trino.operator;
 
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import io.trino.operator.OutputSpoolingOperatorFactory.OutputSpoolingInfo;
 import io.trino.operator.TableWriterOperator.TableWriterInfo;
 import io.trino.operator.exchange.LocalExchangeBufferInfo;
 import io.trino.operator.join.JoinOperatorInfo;
@@ -25,13 +26,14 @@ import io.trino.operator.output.PartitionedOutputOperator.PartitionedOutputInfo;
         property = "@type")
 @JsonSubTypes({
         @JsonSubTypes.Type(value = DirectExchangeClientStatus.class, name = "directExchangeClientStatus"),
-        @JsonSubTypes.Type(value = LocalExchangeBufferInfo.class, name = "localExchangeBuffer"),
-        @JsonSubTypes.Type(value = TableFinishInfo.class, name = "tableFinish"),
-        @JsonSubTypes.Type(value = SplitOperatorInfo.class, name = "splitOperator"),
-        @JsonSubTypes.Type(value = PartitionedOutputInfo.class, name = "partitionedOutput"),
         @JsonSubTypes.Type(value = JoinOperatorInfo.class, name = "joinOperatorInfo"),
+        @JsonSubTypes.Type(value = LocalExchangeBufferInfo.class, name = "localExchangeBuffer"),
+        @JsonSubTypes.Type(value = OutputSpoolingInfo.class, name = "outputSpooling"),
+        @JsonSubTypes.Type(value = PartitionedOutputInfo.class, name = "partitionedOutput"),
+        @JsonSubTypes.Type(value = TableFinishInfo.class, name = "tableFinish"),
+        @JsonSubTypes.Type(value = TableWriterInfo.class, name = "tableWriter"),
         @JsonSubTypes.Type(value = WindowInfo.class, name = "windowInfo"),
-        @JsonSubTypes.Type(value = TableWriterInfo.class, name = "tableWriter")})
+})
 public interface OperatorInfo
 {
     /**

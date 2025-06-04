@@ -13,12 +13,10 @@
  */
 package io.trino.plugin.google.sheets;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.plugin.google.sheets.SheetsQueryRunner.createSheetsQueryRunner;
 import static io.trino.plugin.google.sheets.TestSheetsPlugin.DATA_SHEET_ID;
 
 public class TestGoogleSheetsWithoutMetadataSheetId
@@ -28,7 +26,9 @@ public class TestGoogleSheetsWithoutMetadataSheetId
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createSheetsQueryRunner(ImmutableMap.of(), ImmutableMap.of("gsheets.read-timeout", "1m"));
+        return SheetsQueryRunner.builder()
+                .addConnectorProperty("gsheets.read-timeout", "1m")
+                .build();
     }
 
     @Test

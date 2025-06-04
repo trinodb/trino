@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -28,11 +27,6 @@ public class ExcludedPattern
     private final RowPattern pattern;
 
     public ExcludedPattern(NodeLocation location, RowPattern pattern)
-    {
-        this(Optional.of(location), pattern);
-    }
-
-    private ExcludedPattern(Optional<NodeLocation> location, RowPattern pattern)
     {
         super(location);
         this.pattern = requireNonNull(pattern, "pattern is null");

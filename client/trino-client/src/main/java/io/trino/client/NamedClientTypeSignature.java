@@ -71,10 +71,9 @@ public class NamedClientTypeSignature
     @Override
     public String toString()
     {
-        if (fieldName.isPresent()) {
-            return fieldName.get() + " " + typeSignature;
-        }
-        return typeSignature.toString();
+        return fieldName
+                .map(rowFieldName -> rowFieldName + " " + typeSignature)
+                .orElseGet(typeSignature::toString);
     }
 
     @Override

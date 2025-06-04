@@ -35,6 +35,7 @@ public record TableInfo(
         String schemaName,
         String tableName,
         List<ColumnInfo> columns,
+        boolean truncated,
         Map<HostAddress, MemoryDataFragment> dataFragments,
         Optional<String> comment)
 {

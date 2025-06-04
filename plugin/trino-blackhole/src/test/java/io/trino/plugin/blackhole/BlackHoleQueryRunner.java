@@ -15,57 +15,59 @@ package io.trino.plugin.blackhole;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
-import io.trino.Session;
+import io.trino.plugin.base.util.Closables;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 
-import java.util.Map;
-
-import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public final class BlackHoleQueryRunner
 {
     private BlackHoleQueryRunner() {}
 
-    public static QueryRunner createQueryRunner()
-            throws Exception
+    public static Builder builder()
     {
-        return createQueryRunner(ImmutableMap.of());
+        return new Builder();
     }
 
-    public static QueryRunner createQueryRunner(Map<String, String> extraProperties)
-            throws Exception
+    public static class Builder
+            extends DistributedQueryRunner.Builder<Builder>
     {
-        Session session = testSessionBuilder()
-                .setCatalog("blackhole")
-                .setSchema("default")
-                .build();
-
-        QueryRunner queryRunner = DistributedQueryRunner.builder(session)
-                .setExtraProperties(extraProperties)
-                .build();
-
-        try {
-            queryRunner.installPlugin(new BlackHolePlugin());
-            queryRunner.createCatalog("blackhole", "blackhole", ImmutableMap.of());
-
-            queryRunner.installPlugin(new TpchPlugin());
-            queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of());
-
-            return queryRunner;
+        protected Builder()
+        {
+            super(testSessionBuilder()
+                    .setCatalog("blackhole")
+                    .setSchema("default")
+                    .build());
         }
-        catch (Exception e) {
-            closeAllSuppress(e, queryRunner);
-            throw e;
+
+        @Override
+        public DistributedQueryRunner build()
+                throws Exception
+        {
+            DistributedQueryRunner queryRunner = super.build();
+            try {
+                queryRunner.installPlugin(new BlackHolePlugin());
+                queryRunner.createCatalog("blackhole", "blackhole", ImmutableMap.of());
+
+                queryRunner.installPlugin(new TpchPlugin());
+                queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of());
+            }
+            catch (Throwable e) {
+                Closables.closeAllSuppress(e, queryRunner);
+                throw e;
+            }
+            return queryRunner;
         }
     }
 
     public static void main(String[] args)
             throws Exception
     {
-        QueryRunner queryRunner = createQueryRunner(ImmutableMap.of("http-server.http.port", "8080"));
+        QueryRunner queryRunner = builder()
+                .addCoordinatorProperty("http-server.http.port", "8080")
+                .build();
         Logger log = Logger.get(BlackHoleQueryRunner.class);
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());

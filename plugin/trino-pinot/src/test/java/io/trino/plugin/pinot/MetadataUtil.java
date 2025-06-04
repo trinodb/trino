@@ -45,9 +45,7 @@ public class MetadataUtil
     public static final JsonCodec<BrokerResponseNative> BROKER_RESPONSE_NATIVE_JSON_CODEC;
     public static final String TEST_TABLE = "airlineStats";
 
-    private MetadataUtil()
-    {
-    }
+    private MetadataUtil() {}
 
     public static final class TestingTypeDeserializer
             extends FromStringDeserializer<Type>
@@ -77,6 +75,7 @@ public class MetadataUtil
         objectMapperProvider.setJsonDeserializers(ImmutableMap.<Class<?>, JsonDeserializer<?>>builder()
                 .put(Type.class, new TestingTypeDeserializer())
                 .put(DataSchema.class, new PinotModule.DataSchemaDeserializer())
+                .put(BrokerResponseNative.class, new PinotModule.BrokerResponseNativeDeserializer())
                 .buildOrThrow());
         JsonCodecFactory codecFactory = new JsonCodecFactory(objectMapperProvider);
         COLUMN_CODEC = codecFactory.jsonCodec(PinotColumnHandle.class);

@@ -103,5 +103,5 @@ along with the server.
 
 ## Other connectors
 
-- Add support for `varchar(n)` to the Redis, TPCH, MongoDB, Local File
+- Add support for `varchar(n)` to the Redis, TPC-H, MongoDB, Local File
   and Example HTTP connectors.

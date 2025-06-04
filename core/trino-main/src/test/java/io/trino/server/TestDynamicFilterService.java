@@ -63,8 +63,9 @@ import java.util.stream.LongStream;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
+import static io.trino.SystemSessionProperties.ENABLE_LARGE_DYNAMIC_FILTERS;
 import static io.trino.SystemSessionProperties.RETRY_POLICY;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.metadata.TestMetadataManager.createTestMetadataManager;
 import static io.trino.server.DynamicFilterService.DynamicFilterDomainStats;
 import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import static io.trino.server.DynamicFilterService.getOutboundDynamicFilters;
@@ -91,7 +92,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDynamicFilterService
 {
-    private static final Session session = TestingSession.testSessionBuilder().build();
+    private static final Session session = TestingSession.testSessionBuilder()
+            .setSystemProperty(ENABLE_LARGE_DYNAMIC_FILTERS, "false")
+            .build();
 
     @Test
     public void testDynamicFilterSummaryCompletion()
@@ -103,7 +106,7 @@ public class TestDynamicFilterService
 
         dynamicFilterService.registerQuery(queryId, session, ImmutableSet.of(filterId), ImmutableSet.of(filterId), ImmutableSet.of());
         dynamicFilterService.stageCannotScheduleMoreTasks(stageId, 0, 3);
-        assertThat(dynamicFilterService.getSummary(queryId, filterId).isPresent()).isFalse();
+        assertThat(dynamicFilterService.getSummary(queryId, filterId)).isEmpty();
 
         // assert initial dynamic filtering stats
         DynamicFiltersStats stats = dynamicFilterService.getDynamicFilteringStats(queryId, session);
@@ -115,7 +118,7 @@ public class TestDynamicFilterService
         dynamicFilterService.addTaskDynamicFilters(
                 new TaskId(stageId, 0, 0),
                 ImmutableMap.of(filterId, singleValue(INTEGER, 1L)));
-        assertThat(dynamicFilterService.getSummary(queryId, filterId).isPresent()).isFalse();
+        assertThat(dynamicFilterService.getSummary(queryId, filterId)).isEmpty();
 
         stats = dynamicFilterService.getDynamicFilteringStats(queryId, session);
         assertThat(stats.getDynamicFiltersCompleted()).isEqualTo(0);
@@ -123,7 +126,7 @@ public class TestDynamicFilterService
         dynamicFilterService.addTaskDynamicFilters(
                 new TaskId(stageId, 1, 0),
                 ImmutableMap.of(filterId, singleValue(INTEGER, 2L)));
-        assertThat(dynamicFilterService.getSummary(queryId, filterId).isPresent()).isFalse();
+        assertThat(dynamicFilterService.getSummary(queryId, filterId)).isEmpty();
 
         stats = dynamicFilterService.getDynamicFilteringStats(queryId, session);
         assertThat(stats.getDynamicFiltersCompleted()).isEqualTo(0);
@@ -132,7 +135,7 @@ public class TestDynamicFilterService
                 new TaskId(stageId, 2, 0),
                 ImmutableMap.of(filterId, singleValue(INTEGER, 3L)));
         Optional<Domain> summary = dynamicFilterService.getSummary(queryId, filterId);
-        assertThat(summary.isPresent()).isTrue();
+        assertThat(summary).isPresent();
         assertThat(summary.get()).isEqualTo(multipleValues(INTEGER, ImmutableList.of(1L, 2L, 3L)));
 
         stats = dynamicFilterService.getDynamicFilteringStats(queryId, session);
@@ -661,12 +664,12 @@ public class TestDynamicFilterService
                 0,
                 dynamicFilters,
                 domains -> domains.forEach((filter, domain) -> assertThat(consumerCollectedFilters.put(filter, domain)).isNull()));
-        assertThat(consumerCollectedFilters.isEmpty()).isTrue();
+        assertThat(consumerCollectedFilters).isEmpty();
 
         dynamicFilterService.addTaskDynamicFilters(
                 new TaskId(stageId, 0, 0),
                 ImmutableMap.of(filterId1, singleValue(INTEGER, 1L)));
-        assertThat(consumerCollectedFilters.isEmpty()).isTrue();
+        assertThat(consumerCollectedFilters).isEmpty();
 
         // complete only filterId1
         dynamicFilterService.addTaskDynamicFilters(
@@ -788,7 +791,7 @@ public class TestDynamicFilterService
 
         dynamicFilterService.registerQuery(queryId, session, ImmutableSet.of(filterId), ImmutableSet.of(filterId), ImmutableSet.of());
         dynamicFilterService.stageCannotScheduleMoreTasks(stageId, 0, 3);
-        assertThat(dynamicFilterService.getSummary(queryId, filterId).isPresent()).isFalse();
+        assertThat(dynamicFilterService.getSummary(queryId, filterId)).isEmpty();
 
         // Collect DF from 2 tasks
         dynamicFilterService.addTaskDynamicFilters(
@@ -797,7 +800,7 @@ public class TestDynamicFilterService
         dynamicFilterService.addTaskDynamicFilters(
                 new TaskId(stageId, 1, 0),
                 ImmutableMap.of(filterId, singleValue(INTEGER, 2L)));
-        assertThat(dynamicFilterService.getSummary(queryId, filterId).isPresent()).isFalse();
+        assertThat(dynamicFilterService.getSummary(queryId, filterId)).isEmpty();
 
         // Register query retry
         dynamicFilterService.registerQueryRetry(queryId, 1);
@@ -807,7 +810,7 @@ public class TestDynamicFilterService
         dynamicFilterService.addTaskDynamicFilters(
                 new TaskId(stageId, 2, 0),
                 ImmutableMap.of(filterId, singleValue(INTEGER, 3L)));
-        assertThat(dynamicFilterService.getSummary(queryId, filterId).isPresent()).isFalse();
+        assertThat(dynamicFilterService.getSummary(queryId, filterId)).isEmpty();
 
         // Collect DF from 3 tasks in new attempt
         dynamicFilterService.addTaskDynamicFilters(
@@ -835,7 +838,8 @@ public class TestDynamicFilterService
     {
         DataSize sizeLimit = DataSize.of(1, KILOBYTE);
         DynamicFilterConfig config = new DynamicFilterConfig();
-        config.setSmallMaxSizePerFilter(sizeLimit);
+        config.setEnableLargeDynamicFilters(false)
+                .setSmallMaxSizePerFilter(sizeLimit);
         DynamicFilterService dynamicFilterService = new DynamicFilterService(
                 PLANNER_CONTEXT.getMetadata(),
                 PLANNER_CONTEXT.getFunctionManager(),
@@ -966,7 +970,7 @@ public class TestDynamicFilterService
                 .build();
         dynamicFilterService.registerQuery(queryId, taskRetriesEnabled, ImmutableSet.of(filterId), ImmutableSet.of(filterId), ImmutableSet.of());
         dynamicFilterService.stageCannotScheduleMoreTasks(stageId, 0, 3);
-        assertThat(dynamicFilterService.getSummary(queryId, filterId).isPresent()).isFalse();
+        assertThat(dynamicFilterService.getSummary(queryId, filterId)).isEmpty();
 
         // Collect DF from 2 tasks
         dynamicFilterService.addTaskDynamicFilters(
@@ -975,13 +979,13 @@ public class TestDynamicFilterService
         dynamicFilterService.addTaskDynamicFilters(
                 new TaskId(stageId, 1, 0),
                 ImmutableMap.of(filterId, singleValue(INTEGER, 2L)));
-        assertThat(dynamicFilterService.getSummary(queryId, filterId).isPresent()).isFalse();
+        assertThat(dynamicFilterService.getSummary(queryId, filterId)).isEmpty();
 
         // Collect DF from task retry of partitionId 0
         dynamicFilterService.addTaskDynamicFilters(
                 new TaskId(stageId, 0, 1),
                 ImmutableMap.of(filterId, singleValue(INTEGER, 0L)));
-        assertThat(dynamicFilterService.getSummary(queryId, filterId).isPresent()).isFalse();
+        assertThat(dynamicFilterService.getSummary(queryId, filterId)).isEmpty();
 
         // Collect DF from 3rd partition
         dynamicFilterService.addTaskDynamicFilters(
@@ -1023,11 +1027,13 @@ public class TestDynamicFilterService
         Symbol buildSymbol = new Symbol(VARCHAR, "buildColumn");
 
         PlanNodeId tableScanNodeId = new PlanNodeId("plan_id");
-        TableScanNode tableScan = TableScanNode.newInstance(
+        TableScanNode tableScan = new TableScanNode(
                 tableScanNodeId,
                 TEST_TABLE_HANDLE,
                 ImmutableList.of(symbol),
                 ImmutableMap.of(symbol, new TestingMetadata.TestingColumnHandle("column")),
+                TupleDomain.all(),
+                Optional.empty(),
                 false,
                 Optional.empty());
         FilterNode filterNode = new FilterNode(

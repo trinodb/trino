@@ -14,7 +14,7 @@
 package io.trino.plugin.hive;
 
 import com.google.inject.Inject;
-import io.trino.plugin.hive.metastore.Table;
+import io.trino.metastore.Table;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -34,7 +34,7 @@ import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.trino.plugin.hive.SystemTableHandler.PARTITIONS;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getProtectMode;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.verifyOnline;
-import static io.trino.plugin.hive.util.HiveBucketing.getHiveBucketHandle;
+import static io.trino.plugin.hive.util.HiveBucketing.getHiveTablePartitioningForRead;
 import static io.trino.plugin.hive.util.HiveUtil.getPartitionKeyColumnHandles;
 import static io.trino.plugin.hive.util.HiveUtil.getRegularColumnHandles;
 import static io.trino.plugin.hive.util.HiveUtil.isDeltaLakeTable;
@@ -87,7 +87,7 @@ public class PartitionsSystemTableProvider
                 sourceTable.getParameters(),
                 getPartitionKeyColumnHandles(sourceTable, typeManager),
                 getRegularColumnHandles(sourceTable, typeManager, getTimestampPrecision(session)),
-                getHiveBucketHandle(session, sourceTable, typeManager));
+                getHiveTablePartitioningForRead(session, sourceTable, typeManager));
 
         List<HiveColumnHandle> partitionColumns = sourceTableHandle.getPartitionColumns();
         if (partitionColumns.isEmpty()) {

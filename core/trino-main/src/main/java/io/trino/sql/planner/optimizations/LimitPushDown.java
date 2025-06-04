@@ -13,7 +13,6 @@
  */
 package io.trino.sql.planner.optimizations;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.DistinctLimitNode;
@@ -110,9 +109,7 @@ public class LimitPushDown
 
             // return empty ValuesNode in case of limit 0
             if (count == 0) {
-                return new ValuesNode(idAllocator.getNextId(),
-                        node.getOutputSymbols(),
-                        ImmutableList.of());
+                return new ValuesNode(idAllocator.getNextId(), node.getOutputSymbols());
             }
 
             if (!node.requiresPreSortedInputs() && (!node.isWithTies() || (limit != null && node.getCount() >= limit.getCount()))) {

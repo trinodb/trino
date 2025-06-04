@@ -13,14 +13,17 @@
  */
 package io.trino.plugin.hive.coercions;
 
+import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.plugin.hive.coercions.CoercionUtils.CoercionContext;
 import io.trino.spi.block.Block;
 import org.junit.jupiter.api.Test;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.hive.HiveStorageFormat.ORC;
+import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
-import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.coercions.CoercionUtils.createCoercer;
+import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
@@ -68,18 +71,18 @@ public class TestVarcharToFloatCoercer
     @Test
     public void testVarcharToFloatNaNCoercions()
     {
-        assertVarcharToFloatCoercion("NaN", true, null);
-        assertVarcharToFloatCoercion("NaN", false, NaN);
+        assertVarcharToFloatCoercion("NaN", ORC, null);
+        assertVarcharToFloatCoercion("NaN", PARQUET, NaN);
     }
 
     private static void assertVarcharToFloatCoercion(String actualValue, Float expectedValue)
     {
-        assertVarcharToFloatCoercion(actualValue, false, expectedValue);
+        assertVarcharToFloatCoercion(actualValue, PARQUET, expectedValue);
     }
 
-    private static void assertVarcharToFloatCoercion(String actualValue, boolean isOrcFile, Float expectedValue)
+    private static void assertVarcharToFloatCoercion(String actualValue, HiveStorageFormat storageFormat, Float expectedValue)
     {
-        Block coercedBlock = createCoercer(TESTING_TYPE_MANAGER, toHiveType(createUnboundedVarcharType()), toHiveType(REAL), new CoercionContext(DEFAULT_PRECISION, isOrcFile)).orElseThrow()
+        Block coercedBlock = createCoercer(TESTING_TYPE_MANAGER, toHiveType(createUnboundedVarcharType()), toHiveType(REAL), new CoercionContext(DEFAULT_PRECISION, storageFormat)).orElseThrow()
                 .apply(nativeValueToBlock(createUnboundedVarcharType(), utf8Slice(actualValue)));
         Float coercedValue = coercedBlock.isNull(0) ? null : REAL.getFloat(coercedBlock, 0);
         assertThat(coercedValue).isEqualTo(expectedValue);

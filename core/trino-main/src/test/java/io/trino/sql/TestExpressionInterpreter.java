@@ -14,6 +14,7 @@
 package io.trino.sql;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slices;
 import io.trino.metadata.ResolvedFunction;
@@ -31,21 +32,20 @@ import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
-import io.trino.sql.ir.Not;
 import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.Switch;
 import io.trino.sql.ir.WhenClause;
-import io.trino.sql.planner.IrExpressionInterpreter;
+import io.trino.sql.ir.optimizer.IrExpressionEvaluator;
+import io.trino.sql.ir.optimizer.IrExpressionOptimizer;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.SymbolResolver;
 import io.trino.sql.planner.assertions.SymbolAliases;
 import io.trino.transaction.TestingTransactionManager;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
-import java.util.Optional;
+import java.util.Map;
 import java.util.Set;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
@@ -60,14 +60,14 @@ import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.IS_DISTINCT_FROM;
+import static io.trino.sql.ir.Comparison.Operator.IDENTICAL;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
+import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.ir.Logical.Operator.OR;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.type.UnknownType.UNKNOWN;
-import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestExpressionInterpreter
@@ -76,13 +76,8 @@ public class TestExpressionInterpreter
             new Symbol(INTEGER, "bound_value"),
             new Symbol(INTEGER, "unbound_value"));
 
-    private static final SymbolResolver INPUTS = symbol -> {
-        if (symbol.name().toLowerCase(ENGLISH).equals("bound_value")) {
-            return Optional.of(new Constant(INTEGER, 1234L));
-        }
-
-        return Optional.empty();
-    };
+    private static final Map<Symbol, Expression> INPUTS = ImmutableMap.of(
+            new Symbol(INTEGER, "bound_value"), new Constant(INTEGER, 1234L));
 
     private static final TestingTransactionManager TRANSACTION_MANAGER = new TestingTransactionManager();
     private static final PlannerContext PLANNER_CONTEXT = plannerContextBuilder()
@@ -190,34 +185,34 @@ public class TestExpressionInterpreter
     }
 
     @Test
-    public void testIsDistinctFrom()
+    public void testIdentical()
     {
         assertOptimizedEquals(
-                new Comparison(IS_DISTINCT_FROM, new Constant(UNKNOWN, null), new Constant(UNKNOWN, null)),
-                FALSE);
-
-        assertOptimizedEquals(
-                new Comparison(IS_DISTINCT_FROM, new Constant(INTEGER, 3L), new Constant(INTEGER, 4L)),
-                TRUE);
-        assertOptimizedEquals(
-                new Comparison(IS_DISTINCT_FROM, new Constant(INTEGER, 3L), new Constant(INTEGER, 3L)),
-                FALSE);
-        assertOptimizedEquals(
-                new Comparison(IS_DISTINCT_FROM, new Constant(INTEGER, 3L), new Constant(INTEGER, null)),
-                TRUE);
-        assertOptimizedEquals(
-                new Comparison(IS_DISTINCT_FROM, new Constant(INTEGER, null), new Constant(INTEGER, 3L)),
+                new Comparison(IDENTICAL, new Constant(UNKNOWN, null), new Constant(UNKNOWN, null)),
                 TRUE);
 
+        assertOptimizedEquals(
+                new Comparison(IDENTICAL, new Constant(INTEGER, 3L), new Constant(INTEGER, 4L)),
+                FALSE);
+        assertOptimizedEquals(
+                new Comparison(IDENTICAL, new Constant(INTEGER, 3L), new Constant(INTEGER, 3L)),
+                TRUE);
+        assertOptimizedEquals(
+                new Comparison(IDENTICAL, new Constant(INTEGER, 3L), new Constant(INTEGER, null)),
+                FALSE);
+        assertOptimizedEquals(
+                new Comparison(IDENTICAL, new Constant(INTEGER, null), new Constant(INTEGER, 3L)),
+                FALSE);
+
         assertOptimizedMatches(
-                new Comparison(IS_DISTINCT_FROM, new Reference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L)),
-                new Comparison(IS_DISTINCT_FROM, new Reference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L)));
+                new Comparison(IDENTICAL, new Reference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L)),
+                new Comparison(IDENTICAL, new Reference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L)));
         assertOptimizedMatches(
-                new Comparison(IS_DISTINCT_FROM, new Reference(INTEGER, "unbound_value"), new Constant(INTEGER, null)),
-                new Not(new IsNull(new Reference(INTEGER, "unbound_value"))));
+                new Comparison(IDENTICAL, new Reference(INTEGER, "unbound_value"), new Constant(INTEGER, null)),
+                new IsNull(new Reference(INTEGER, "unbound_value")));
         assertOptimizedMatches(
-                new Comparison(IS_DISTINCT_FROM, new Constant(INTEGER, null), new Reference(INTEGER, "unbound_value")),
-                new Not(new IsNull(new Reference(INTEGER, "unbound_value"))));
+                new Comparison(IDENTICAL, new Constant(INTEGER, null), new Reference(INTEGER, "unbound_value")),
+                new IsNull(new Reference(INTEGER, "unbound_value")));
     }
 
     @Test
@@ -238,13 +233,13 @@ public class TestExpressionInterpreter
     public void testIsNotNull()
     {
         assertOptimizedEquals(
-                new Not(new IsNull(new Constant(UNKNOWN, null))),
+                not(FUNCTIONS.getMetadata(), new IsNull(new Constant(UNKNOWN, null))),
                 FALSE);
         assertOptimizedEquals(
-                new Not(new IsNull(new Constant(INTEGER, 1L))),
+                not(FUNCTIONS.getMetadata(), new IsNull(new Constant(INTEGER, 1L))),
                 TRUE);
         assertOptimizedEquals(
-                new Not(new IsNull(new Call(ADD_INTEGER, ImmutableList.of(new Constant(INTEGER, null), new Constant(INTEGER, 1L))))),
+                not(FUNCTIONS.getMetadata(), new IsNull(new Call(ADD_INTEGER, ImmutableList.of(new Constant(INTEGER, null), new Constant(INTEGER, 1L))))),
                 FALSE);
     }
 
@@ -283,17 +278,17 @@ public class TestExpressionInterpreter
     public void testNot()
     {
         assertOptimizedEquals(
-                new Not(TRUE),
+                not(PLANNER_CONTEXT.getMetadata(), TRUE),
                 FALSE);
         assertOptimizedEquals(
-                new Not(FALSE),
+                not(PLANNER_CONTEXT.getMetadata(), FALSE),
                 TRUE);
         assertOptimizedEquals(
-                new Not(new Constant(BOOLEAN, null)),
+                not(PLANNER_CONTEXT.getMetadata(), new Constant(BOOLEAN, null)),
                 new Constant(BOOLEAN, null));
         assertOptimizedEquals(
-                new Not(new Comparison(EQUAL, new Reference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L))),
-                new Not(new Comparison(EQUAL, new Reference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L))));
+                not(PLANNER_CONTEXT.getMetadata(), new Comparison(EQUAL, new Reference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L))),
+                not(PLANNER_CONTEXT.getMetadata(), new Comparison(EQUAL, new Reference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L))));
     }
 
     @Test
@@ -349,7 +344,7 @@ public class TestExpressionInterpreter
 
         assertOptimizedEquals(
                 new Between(new Reference(INTEGER, "unbound_value"), new Constant(INTEGER, 3L), new Constant(INTEGER, 0L)),
-                ifExpression(new Not(new IsNull(new Reference(INTEGER, "unbound_value"))), FALSE));
+                ifExpression(not(PLANNER_CONTEXT.getMetadata(), new IsNull(new Reference(INTEGER, "unbound_value"))), FALSE));
     }
 
     @Test
@@ -436,16 +431,16 @@ public class TestExpressionInterpreter
     public void testTryCast()
     {
         assertOptimizedEquals(
-                new Cast(new Constant(UNKNOWN, null), BIGINT, true),
+                new Cast(new Constant(UNKNOWN, null), BIGINT),
                 new Constant(BIGINT, null));
         assertOptimizedEquals(
-                new Cast(new Constant(INTEGER, 123L), BIGINT, true),
+                new Cast(new Constant(INTEGER, 123L), BIGINT),
                 new Constant(BIGINT, 123L));
         assertOptimizedEquals(
-                new Cast(new Constant(UNKNOWN, null), INTEGER, true),
+                new Cast(new Constant(UNKNOWN, null), INTEGER),
                 new Constant(INTEGER, null));
         assertOptimizedEquals(
-                new Cast(new Constant(INTEGER, 123L), INTEGER, true),
+                new Cast(new Constant(INTEGER, 123L), INTEGER),
                 new Constant(INTEGER, 123L));
     }
 
@@ -627,8 +622,7 @@ public class TestExpressionInterpreter
                 new Switch(
                         new Constant(INTEGER, 1L),
                         ImmutableList.of(
-                                new WhenClause(new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))), new Constant(INTEGER, 1L)),
-                                new WhenClause(new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))), new Constant(INTEGER, 2L))),
+                                new WhenClause(new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))), new Constant(INTEGER, 1L))),
                         new Constant(INTEGER, 1L)));
 
         assertOptimizedEquals(
@@ -637,7 +631,12 @@ public class TestExpressionInterpreter
                         ImmutableList.of(
                                 new WhenClause(new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))), new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))))),
                         new Constant(INTEGER, 1L)),
-                new Constant(INTEGER, 1L));
+                new Switch(
+                        new Constant(INTEGER, null),
+                        ImmutableList.of(
+                                new WhenClause(new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))), new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))))),
+                        new Constant(INTEGER, 1L)));
+
         assertOptimizedEquals(
                 new Switch(
                         new Constant(INTEGER, null),
@@ -916,8 +915,8 @@ public class TestExpressionInterpreter
 
     static Object optimize(Expression parsedExpression)
     {
-        IrExpressionInterpreter interpreter = new IrExpressionInterpreter(parsedExpression, PLANNER_CONTEXT, TEST_SESSION);
-        return interpreter.optimize(INPUTS);
+        return IrExpressionOptimizer.newOptimizer(PLANNER_CONTEXT).process(parsedExpression, TEST_SESSION, INPUTS)
+                .orElse(parsedExpression);
     }
 
     private static void assertEvaluatedEquals(Expression actual, Expression expected)
@@ -927,8 +926,6 @@ public class TestExpressionInterpreter
 
     private static Object evaluate(Expression expression)
     {
-        IrExpressionInterpreter interpreter = new IrExpressionInterpreter(expression, PLANNER_CONTEXT, TEST_SESSION);
-
-        return interpreter.evaluate();
+        return new IrExpressionEvaluator(PLANNER_CONTEXT).evaluate(expression, TEST_SESSION, ImmutableMap.of());
     }
 }

@@ -405,7 +405,8 @@ public abstract class AbstractTestIndexedQueries
     @Test
     public void testReducedIndexProjection()
     {
-        assertQuery("""
+        assertQuery(
+                """
                 SELECT *
                 FROM lineitem l
                 INNER JOIN (
@@ -419,7 +420,8 @@ public abstract class AbstractTestIndexedQueries
     @Test
     public void testReducedIndexAggregation()
     {
-        assertQuery("""
+        assertQuery(
+                """
                 SELECT *
                 FROM (
                   SELECT orderkey % 64 AS a, suppkey % 107 AS b
@@ -436,7 +438,8 @@ public abstract class AbstractTestIndexedQueries
     @Test
     public void testReducedIndexWindow()
     {
-        assertQuery("""
+        assertQuery(
+                """
                 SELECT *
                 FROM lineitem l
                 INNER JOIN (

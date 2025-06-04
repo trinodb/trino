@@ -67,7 +67,7 @@ public class IcebergTransactionManager
         MemoizedMetadata transactionalMetadata = transactions.remove(transaction);
         checkArgument(transactionalMetadata != null, "no such transaction: %s", transaction);
         transactionalMetadata.optionalGet().ifPresent(metadata -> {
-            try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
                 metadata.rollback();
             }
         });
@@ -86,7 +86,7 @@ public class IcebergTransactionManager
         public synchronized IcebergMetadata get(ConnectorIdentity identity)
         {
             if (metadata == null) {
-                try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+                try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
                     metadata = metadataFactory.create(identity);
                 }
             }

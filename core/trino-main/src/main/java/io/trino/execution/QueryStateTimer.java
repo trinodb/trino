@@ -40,6 +40,7 @@ class QueryStateTimer
     private final AtomicReference<Long> beginDispatchingNanos = new AtomicReference<>();
     private final AtomicReference<Long> beginPlanningNanos = new AtomicReference<>();
     private final AtomicReference<Long> beginPlanningCpuNanos = new AtomicReference<>();
+    private final AtomicReference<Long> beginStartingNanos = new AtomicReference<>();
     private final AtomicReference<Long> beginFinishingNanos = new AtomicReference<>();
     private final AtomicReference<Long> endNanos = new AtomicReference<>();
 
@@ -49,6 +50,7 @@ class QueryStateTimer
     private final AtomicReference<Duration> executionTime = new AtomicReference<>();
     private final AtomicReference<Duration> planningTime = new AtomicReference<>();
     private final AtomicReference<Duration> planningCpuTime = new AtomicReference<>();
+    private final AtomicReference<Duration> startingTime = new AtomicReference<>();
     private final AtomicReference<Duration> finishingTime = new AtomicReference<>();
 
     private final AtomicReference<Long> beginAnalysisNanos = new AtomicReference<>();
@@ -113,6 +115,7 @@ class QueryStateTimer
         beginPlanning(now, cpuNow);
         planningTime.compareAndSet(null, nanosSince(beginPlanningNanos, now));
         planningCpuTime.compareAndSet(null, nanosSince(beginPlanningCpuNanos, cpuNow));
+        beginStartingNanos.compareAndSet(null, now);
     }
 
     public void beginRunning()
@@ -123,6 +126,7 @@ class QueryStateTimer
     private void beginRunning(long now)
     {
         beginStarting(now, currentThreadCpuTime());
+        startingTime.compareAndSet(null, nanosSince(beginStartingNanos, now));
     }
 
     public void beginFinishing()
@@ -238,6 +242,11 @@ class QueryStateTimer
     public Duration getPlanningCpuTime()
     {
         return getDuration(planningCpuTime, beginPlanningCpuNanos);
+    }
+
+    public Duration getStartingTime()
+    {
+        return getDuration(startingTime, beginStartingNanos);
     }
 
     public Duration getFinishingTime()

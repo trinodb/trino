@@ -81,7 +81,5 @@ public final class HiveTableDefinitions
         return format("io/trino/tests/product/hive/data/partitioned_nation_%s/nation_region_%s.textfile", key, partition);
     }
 
-    private HiveTableDefinitions()
-    {
-    }
+    private HiveTableDefinitions() {}
 }

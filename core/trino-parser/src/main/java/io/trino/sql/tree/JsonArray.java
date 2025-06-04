@@ -30,7 +30,7 @@ public class JsonArray
     private final Optional<DataType> returnedType;
     private final Optional<JsonFormat> outputFormat;
 
-    public JsonArray(Optional<NodeLocation> location, List<JsonArrayElement> elements, boolean nullOnNull, Optional<DataType> returnedType, Optional<JsonFormat> outputFormat)
+    public JsonArray(NodeLocation location, List<JsonArrayElement> elements, boolean nullOnNull, Optional<DataType> returnedType, Optional<JsonFormat> outputFormat)
     {
         super(location);
 

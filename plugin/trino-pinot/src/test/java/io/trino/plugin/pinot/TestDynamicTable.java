@@ -46,7 +46,7 @@ public class TestDynamicTable
     @Test
     public void testSelectNoFilter()
     {
-        String tableName = realtimeOnlyTable.getTableName();
+        String tableName = realtimeOnlyTable.tableName();
         List<String> columnNames = getColumnNames(tableName);
         List<String> orderByColumns = columnNames.subList(0, 5);
         List<OrderByExpression> orderByExpressions = orderByColumns.stream()
@@ -72,7 +72,7 @@ public class TestDynamicTable
     @Test
     public void testGroupBy()
     {
-        String tableName = realtimeOnlyTable.getTableName();
+        String tableName = realtimeOnlyTable.tableName();
         long limit = 25;
         String query = "SELECT Origin, AirlineID, max(CarrierDelay), avg(CarrierDelay) FROM %s GROUP BY Origin, AirlineID LIMIT %s".formatted(tableName, limit);
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query), mockClusterInfoFetcher, TESTING_TYPE_CONVERTER);
@@ -88,23 +88,27 @@ public class TestDynamicTable
     @Test
     public void testFilter()
     {
-        String tableName = realtimeOnlyTable.getTableName();
-        String query = """
+        String tableName = realtimeOnlyTable.tableName();
+        String query =
+                """
                 SELECT FlightNum, AirlineID
                 FROM %s
                 WHERE ((CancellationCode IN ('strike', 'weather', 'pilot_bac')) AND (Origin = 'jfk'))
                 OR ((OriginCityName != 'catfish paradise') AND (OriginState != 'az') AND (AirTime BETWEEN 1 AND 5))
                 AND AirTime NOT IN (7,8,9)
                 OR ((DepDelayMinutes < 10) AND (Distance >= 3) AND (ArrDelay > 4) AND (SecurityDelay < 5) AND (LateAircraftDelay <= 7))
-                LIMIT 60""".formatted(tableName);
+                LIMIT 60\
+                """.formatted(tableName);
 
-        String expected = """
+        String expected =
+                """
                 SELECT "FlightNum", "AirlineID"\
                  FROM %s\
                  WHERE OR(AND("CancellationCode" IN ('strike', 'weather', 'pilot_bac'), ("Origin") = 'jfk'),\
                  AND(("OriginCityName") != 'catfish paradise', ("OriginState") != 'az', ("AirTime") BETWEEN '1' AND '5', "AirTime" NOT IN ('7', '8', '9')),\
                  AND(("DepDelayMinutes") < '10', ("Distance") >= '3', ("ArrDelay") > '4', ("SecurityDelay") < '5', ("LateAircraftDelay") <= '7'))\
-                 LIMIT 60""".formatted(tableName);
+                 LIMIT 60\
+                 """.formatted(tableName);
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query), mockClusterInfoFetcher, TESTING_TYPE_CONVERTER);
         assertThat(extractPql(dynamicTable, TupleDomain.all())).isEqualTo(expected);
     }
@@ -117,18 +121,22 @@ public class TestDynamicTable
         // ci will interpret as a string, i.e. "X''ABCD"
         // intellij will expand the X'abcd' to binary 0b10011100001111
         // Pinot will interpret both forms as a string regardless, so we cannot use X'....'
-        String query = """
+        String query =
+                """
                 SELECT string_col, long_col, int_col, bool_col, double_col, float_col, bytes_col
                 FROM primitive_types_table
                 WHERE string_col = 'string' AND long_col = 12345678901 AND int_col = 123456789
                 AND double_col = 3.56 AND float_col = 3.56 AND bytes_col = 'abcd'
-                LIMIT 60""";
-        String expected = """
+                LIMIT 60\
+                """;
+        String expected =
+                """
                 SELECT "string_col", "long_col", "int_col", "bool_col", "double_col", "float_col", "bytes_col"\
                  FROM primitive_types_table\
                  WHERE AND(("string_col") = 'string', ("long_col") = '12345678901',\
                  ("int_col") = '123456789', ("double_col") = '3.56', ("float_col") = '3.56', ("bytes_col") = 'abcd')\
-                 LIMIT 60""";
+                 LIMIT 60\
+                 """;
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query), mockClusterInfoFetcher, TESTING_TYPE_CONVERTER);
         assertThat(extractPql(dynamicTable, TupleDomain.all())).isEqualTo(expected);
     }
@@ -138,8 +146,10 @@ public class TestDynamicTable
     {
         // Pinot recognizes double literals with scientific notation as of version 0.8.0
         String query = "SELECT string_col FROM primitive_types_table WHERE double_col = 3.5E5";
-        String expected = """
-                SELECT "string_col" FROM primitive_types_table WHERE ("double_col") = '350000.0' LIMIT 10""";
+        String expected =
+                """
+                SELECT "string_col" FROM primitive_types_table WHERE ("double_col") = '350000.0' LIMIT 10\
+                """;
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query), mockClusterInfoFetcher, TESTING_TYPE_CONVERTER);
         assertThat(extractPql(dynamicTable, TupleDomain.all())).isEqualTo(expected);
     }
@@ -147,12 +157,15 @@ public class TestDynamicTable
     @Test
     public void testFilterWithCast()
     {
-        String query = """
+        String query =
+                """
                 SELECT string_col, long_col
                 FROM primitive_types_table
                 WHERE string_col = CAST(123 AS STRING) AND long_col = CAST('123' AS LONG)
-                LIMIT 60""";
-        String expected = """
+                LIMIT 60\
+                """;
+        String expected =
+                """
                 SELECT "string_col", "long_col" FROM primitive_types_table\
                  WHERE AND(("string_col") = '123', ("long_col") = '123')\
                  LIMIT 60""";
@@ -163,20 +176,22 @@ public class TestDynamicTable
     @Test
     public void testFilterWithCaseStatements()
     {
-        String tableName = realtimeOnlyTable.getTableName();
-        String query = """
+        String tableName = realtimeOnlyTable.tableName();
+        String query =
+                """
                 SELECT FlightNum, AirlineID
                 FROM %s
                 WHERE CASE WHEN cancellationcode = 'strike' THEN 3 ELSE 4 END != 5
                 AND CASE origincityname WHEN 'nyc' THEN 'pizza' WHEN 'la' THEN 'burrito' WHEN 'boston' THEN 'clam chowder'
                 ELSE 'burger' END != 'salad'""".formatted(tableName);
-        String expected = """
-                SELECT "FlightNum", "AirlineID"\
-                 FROM %s\
-                 WHERE AND((CASE WHEN equals("CancellationCode", 'strike')\
-                 THEN '3' ELSE '4' END) != '5', (CASE WHEN equals("OriginCityName", 'nyc')\
-                 THEN 'pizza' WHEN equals("OriginCityName", 'la') THEN 'burrito' WHEN equals("OriginCityName", 'boston')\
-                 THEN 'clam chowder' ELSE 'burger' END) != 'salad') LIMIT 10""".formatted(tableName);
+        String expected =
+                """
+                SELECT "FlightNum", "AirlineID" \
+                FROM %s \
+                WHERE AND((CASE WHEN equals("CancellationCode", 'strike') THEN '3' ELSE '4' END) != '5', \
+                (CASE WHEN equals("OriginCityName", 'nyc') THEN 'pizza' WHEN equals("OriginCityName", 'la') THEN 'burrito' WHEN equals("OriginCityName", 'boston') THEN 'clam chowder' \
+                ELSE 'burger' END) != 'salad') LIMIT 10""".formatted(tableName);
+
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query), mockClusterInfoFetcher, TESTING_TYPE_CONVERTER);
         assertThat(extractPql(dynamicTable, TupleDomain.all())).isEqualTo(expected);
     }
@@ -184,14 +199,15 @@ public class TestDynamicTable
     @Test
     public void testFilterWithPushdownConstraint()
     {
-        String tableName = realtimeOnlyTable.getTableName();
+        String tableName = realtimeOnlyTable.tableName();
         String query = "SELECT FlightNum FROM %s LIMIT 60".formatted(tableName.toLowerCase(ENGLISH));
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query), mockClusterInfoFetcher, TESTING_TYPE_CONVERTER);
         PinotColumnHandle columnHandle = new PinotColumnHandle("OriginCityName", VARCHAR);
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
                 columnHandle,
                 Domain.create(ValueSet.ofRanges(Range.equal(VARCHAR, Slices.utf8Slice("Catfish Paradise"))), false)));
-        String expectedPql = """
+        String expectedPql =
+                """
                 SELECT "FlightNum"\
                  FROM realtimeOnly\
                  WHERE ("OriginCityName" = 'Catfish Paradise')\
@@ -202,12 +218,13 @@ public class TestDynamicTable
     @Test
     public void testFilterWithUdf()
     {
-        String tableName = realtimeOnlyTable.getTableName();
+        String tableName = realtimeOnlyTable.tableName();
         // Note: before Pinot 0.12.1 the below query produced different results due to handling IEEE-754 approximate numerics
         // See https://github.com/apache/pinot/issues/10637
         String query = "SELECT FlightNum FROM %s WHERE DivLongestGTimes = FLOOR(EXP(2 * LN(3)) + 0.1) AND 5 < EXP(CarrierDelay) LIMIT 60".formatted(tableName.toLowerCase(ENGLISH));
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query), mockClusterInfoFetcher, TESTING_TYPE_CONVERTER);
-        String expectedPql = """
+        String expectedPql =
+                """
                 SELECT "FlightNum"\
                  FROM realtimeOnly\
                  WHERE AND(("DivLongestGTimes") = '9.0', (exp("CarrierDelay")) > '5')\
@@ -218,7 +235,7 @@ public class TestDynamicTable
     @Test
     public void testSelectStarDynamicTable()
     {
-        String tableName = realtimeOnlyTable.getTableName();
+        String tableName = realtimeOnlyTable.tableName();
         String query = "SELECT * FROM %s LIMIT 70".formatted(tableName.toLowerCase(ENGLISH));
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query), mockClusterInfoFetcher, TESTING_TYPE_CONVERTER);
         String expectedPql = "SELECT %s FROM %s LIMIT 70".formatted(getColumnNames(tableName).stream().map(TestDynamicTable::quoteIdentifier).collect(joining(", ")), tableName);
@@ -228,7 +245,7 @@ public class TestDynamicTable
     @Test
     public void testOfflineDynamicTable()
     {
-        String tableName = hybridTable.getTableName();
+        String tableName = hybridTable.tableName();
         String tableNameWithSuffix = tableName + OFFLINE_SUFFIX;
         String query = "SELECT * FROM %s LIMIT 70".formatted(tableNameWithSuffix);
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query), mockClusterInfoFetcher, TESTING_TYPE_CONVERTER);
@@ -240,7 +257,7 @@ public class TestDynamicTable
     @Test
     public void testRealtimeOnlyDynamicTable()
     {
-        String tableName = hybridTable.getTableName();
+        String tableName = hybridTable.tableName();
         String tableNameWithSuffix = tableName + REALTIME_SUFFIX;
         String query = "SELECT * FROM %s LIMIT 70".formatted(tableNameWithSuffix);
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query), mockClusterInfoFetcher, TESTING_TYPE_CONVERTER);
@@ -252,7 +269,7 @@ public class TestDynamicTable
     @Test
     public void testLimitAndOffset()
     {
-        String tableName = hybridTable.getTableName();
+        String tableName = hybridTable.tableName();
         String tableNameWithSuffix = tableName + REALTIME_SUFFIX;
         String query = "SELECT * FROM %s LIMIT 70, 40".formatted(tableNameWithSuffix);
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query), mockClusterInfoFetcher, TESTING_TYPE_CONVERTER);
@@ -269,11 +286,12 @@ public class TestDynamicTable
     @Test
     public void testRegexpLike()
     {
-        String tableName = hybridTable.getTableName();
+        String tableName = hybridTable.tableName();
         String tableNameWithSuffix = tableName + REALTIME_SUFFIX;
         String query = "SELECT origincityname FROM %s WHERE regexp_like(origincityname, '.*york.*') LIMIT 70".formatted(tableNameWithSuffix);
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query), mockClusterInfoFetcher, TESTING_TYPE_CONVERTER);
-        String expectedPql = """
+        String expectedPql =
+                """
                 SELECT "OriginCityName" FROM %s WHERE regexp_like("OriginCityName", '.*york.*') LIMIT 70""".formatted(tableNameWithSuffix);
         assertThat(extractPql(dynamicTable, TupleDomain.all())).isEqualTo(expectedPql);
         assertThat(dynamicTable.tableName()).isEqualTo(tableName);
@@ -282,11 +300,12 @@ public class TestDynamicTable
     @Test
     public void testTextMatch()
     {
-        String tableName = hybridTable.getTableName();
+        String tableName = hybridTable.tableName();
         String tableNameWithSuffix = tableName + REALTIME_SUFFIX;
         String query = "SELECT origincityname FROM %s WHERE text_match(origincityname, 'new AND york') LIMIT 70".formatted(tableNameWithSuffix);
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query), mockClusterInfoFetcher, TESTING_TYPE_CONVERTER);
-        String expectedPql = """
+        String expectedPql =
+                """
                 SELECT "OriginCityName" FROM %s WHERE text_match("OriginCityName", 'new and york') LIMIT 70""".formatted(tableNameWithSuffix);
         assertThat(extractPql(dynamicTable, TupleDomain.all())).isEqualTo(expectedPql);
         assertThat(dynamicTable.tableName()).isEqualTo(tableName);
@@ -295,12 +314,14 @@ public class TestDynamicTable
     @Test
     public void testJsonMatch()
     {
-        String tableName = hybridTable.getTableName();
+        String tableName = hybridTable.tableName();
         String tableNameWithSuffix = tableName + REALTIME_SUFFIX;
-        String query = """
+        String query =
+                """
                 SELECT origincityname FROM %s WHERE json_match(origincityname, '"$.name"=''new york''') LIMIT 70""".formatted(tableNameWithSuffix);
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query), mockClusterInfoFetcher, TESTING_TYPE_CONVERTER);
-        String expectedPql = """
+        String expectedPql =
+                """
                 SELECT "OriginCityName" FROM %s WHERE json_match("OriginCityName", '"$.name"=''new york''') LIMIT 70""".formatted(tableNameWithSuffix);
         assertThat(extractPql(dynamicTable, TupleDomain.all())).isEqualTo(expectedPql);
         assertThat(dynamicTable.tableName()).isEqualTo(tableName);
@@ -309,9 +330,10 @@ public class TestDynamicTable
     @Test
     public void testSelectExpressionsWithAliases()
     {
-        String tableName = hybridTable.getTableName();
+        String tableName = hybridTable.tableName();
         String tableNameWithSuffix = tableName + REALTIME_SUFFIX;
-        String query = """
+        String query =
+                """
                 SELECT datetimeconvert(dayssinceEpoch, '1:seconds:epoch', '1:milliseconds:epoch', '15:minutes'),
                 CASE origincityname WHEN 'nyc' THEN 'pizza' WHEN 'la' THEN 'burrito' WHEN 'boston' THEN 'clam chowder'
                 ELSE 'burger' END != 'salad',
@@ -320,12 +342,14 @@ public class TestDynamicTable
                 LIMIT 70""".formatted(tableNameWithSuffix);
 
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query), mockClusterInfoFetcher, TESTING_TYPE_CONVERTER);
-        String expectedPql = """
-                SELECT datetimeconvert("DaysSinceEpoch", '1:SECONDS:EPOCH', '1:MILLISECONDS:EPOCH', '15:MINUTES'),\
-                 not_equals(CASE WHEN equals("OriginCityName", 'nyc') THEN 'pizza' WHEN equals("OriginCityName", 'la') THEN 'burrito' WHEN equals(\"OriginCityName\", 'boston') THEN 'clam chowder' ELSE 'burger' END, 'salad'),\
-                 timeconvert("DaysSinceEpoch", 'SECONDS', 'MINUTES') AS "foo"\
-                 FROM %s\
-                 LIMIT 70""".formatted(tableNameWithSuffix);
+        String expectedPql =
+                """
+                SELECT datetimeconvert("DaysSinceEpoch", '1:SECONDS:EPOCH', '1:MILLISECONDS:EPOCH', '15:MINUTES'), \
+                not_equals(CASE WHEN equals("OriginCityName", 'nyc') THEN 'pizza' WHEN equals("OriginCityName", 'la') THEN 'burrito' WHEN equals("OriginCityName", 'boston') THEN 'clam chowder' ELSE 'burger' END, 'salad'), \
+                timeconvert("DaysSinceEpoch", 'SECONDS', 'MINUTES') AS "foo" \
+                FROM %s \
+                LIMIT 70""".formatted(tableNameWithSuffix);
+
         assertThat(extractPql(dynamicTable, TupleDomain.all())).isEqualTo(expectedPql);
         assertThat(dynamicTable.tableName()).isEqualTo(tableName);
     }
@@ -333,9 +357,10 @@ public class TestDynamicTable
     @Test
     public void testAggregateExpressionsWithAliases()
     {
-        String tableName = hybridTable.getTableName();
+        String tableName = hybridTable.tableName();
         String tableNameWithSuffix = tableName + REALTIME_SUFFIX;
-        String query = """
+        String query =
+                """
                 SELECT datetimeconvert(dayssinceEpoch, '1:seconds:epoch', '1:milliseconds:epoch', '15:minutes'),
                 count(*) AS bar,
                 CASE origincityname WHEN 'nyc' then 'pizza' WHEN 'la' THEN 'burrito' WHEN 'boston' THEN 'clam chowder'
@@ -347,18 +372,18 @@ public class TestDynamicTable
                 LIMIT 70""".formatted(tableNameWithSuffix);
 
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query), mockClusterInfoFetcher, TESTING_TYPE_CONVERTER);
-        String expectedPql = """
-                SELECT datetimeconvert("DaysSinceEpoch", '1:SECONDS:EPOCH',\
-                 '1:MILLISECONDS:EPOCH', '15:MINUTES'), count(*) AS "bar",\
-                 not_equals(CASE WHEN equals("OriginCityName", 'nyc') THEN 'pizza' WHEN equals("OriginCityName", 'la') THEN 'burrito'\
-                 WHEN equals("OriginCityName", 'boston') THEN 'clam chowder' ELSE 'burger' END, 'salad'),\
-                 timeconvert("DaysSinceEpoch", 'SECONDS', 'MINUTES') AS "foo",\
-                 max("AirTime") AS "baz"\
-                 FROM %s\
-                 GROUP BY datetimeconvert("DaysSinceEpoch", '1:SECONDS:EPOCH', '1:MILLISECONDS:EPOCH', '15:MINUTES'),\
-                 not_equals(CASE WHEN equals("OriginCityName", 'nyc') THEN 'pizza' WHEN equals("OriginCityName", 'la') THEN 'burrito' WHEN equals("OriginCityName", 'boston') THEN 'clam chowder' ELSE 'burger' END, 'salad'),\
-                 timeconvert("DaysSinceEpoch", 'SECONDS', 'MINUTES')\
-                 LIMIT 70""".formatted(tableNameWithSuffix);
+        String expectedPql =
+                """
+                SELECT datetimeconvert("DaysSinceEpoch", '1:SECONDS:EPOCH', \
+                '1:MILLISECONDS:EPOCH', '15:MINUTES'), count(*) AS "bar", \
+                not_equals(CASE WHEN equals("OriginCityName", 'nyc') THEN 'pizza' \
+                WHEN equals("OriginCityName", 'la') THEN 'burrito' WHEN equals("OriginCityName", 'boston') THEN 'clam chowder' ELSE 'burger' END, 'salad'), \
+                timeconvert("DaysSinceEpoch", 'SECONDS', 'MINUTES') AS "foo", max("AirTime") AS "baz" FROM %s \
+                GROUP BY datetimeconvert("DaysSinceEpoch", '1:SECONDS:EPOCH', '1:MILLISECONDS:EPOCH', '15:MINUTES'), \
+                not_equals(CASE WHEN equals("OriginCityName", 'nyc') THEN 'pizza' WHEN equals("OriginCityName", 'la') THEN 'burrito' WHEN equals("OriginCityName", 'boston') THEN 'clam chowder' ELSE 'burger' END, 'salad'), \
+                timeconvert("DaysSinceEpoch", 'SECONDS', 'MINUTES') \
+                LIMIT 70""".formatted(tableNameWithSuffix);
+
         assertThat(extractPql(dynamicTable, TupleDomain.all())).isEqualTo(expectedPql);
         assertThat(dynamicTable.tableName()).isEqualTo(tableName);
     }
@@ -366,11 +391,12 @@ public class TestDynamicTable
     @Test
     public void testOrderBy()
     {
-        String tableName = hybridTable.getTableName();
+        String tableName = hybridTable.tableName();
         String tableNameWithSuffix = tableName + REALTIME_SUFFIX;
         String query = "SELECT ArrDelay + 34 - DaysSinceEpoch, FlightNum FROM %s ORDER BY ArrDelay ASC, DaysSinceEpoch DESC".formatted(tableNameWithSuffix);
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query), mockClusterInfoFetcher, TESTING_TYPE_CONVERTER);
-        String expectedPql = """
+        String expectedPql =
+                """
                 SELECT plus("ArrDelay", '34') - "DaysSinceEpoch", "FlightNum"\
                  FROM %s\
                  ORDER BY "ArrDelay", "DaysSinceEpoch" DESC\
@@ -382,11 +408,12 @@ public class TestDynamicTable
     @Test
     public void testOrderByCountStar()
     {
-        String tableName = hybridTable.getTableName();
+        String tableName = hybridTable.tableName();
         String tableNameWithSuffix = tableName + REALTIME_SUFFIX;
         String query = "SELECT count(*) FROM %s ORDER BY count(*)".formatted(tableNameWithSuffix);
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query), mockClusterInfoFetcher, TESTING_TYPE_CONVERTER);
-        String expectedPql = """
+        String expectedPql =
+                """
                 SELECT count(*)\
                  FROM %s\
                  ORDER BY count(*)\
@@ -398,11 +425,12 @@ public class TestDynamicTable
     @Test
     public void testOrderByExpression()
     {
-        String tableName = hybridTable.getTableName();
+        String tableName = hybridTable.tableName();
         String tableNameWithSuffix = tableName + REALTIME_SUFFIX;
         String query = "SELECT ArrDelay + 34 - DaysSinceEpoch, FlightNum FROM %s ORDER BY ArrDelay + 34 - DaysSinceEpoch desc".formatted(tableNameWithSuffix);
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query), mockClusterInfoFetcher, TESTING_TYPE_CONVERTER);
-        String expectedPql = """
+        String expectedPql =
+                """
                 SELECT plus("ArrDelay", '34') - "DaysSinceEpoch", "FlightNum"\
                  FROM %s\
                  ORDER BY plus("ArrDelay", '34') - "DaysSinceEpoch" DESC\
@@ -416,12 +444,14 @@ public class TestDynamicTable
     {
         String tableName = "quotes_in_column_names";
         String tableNameWithSuffix = tableName + REALTIME_SUFFIX;
-        String query = """
+        String query =
+                """
                 SELECT non_quoted AS "non""quoted"
                 FROM %s
                 LIMIT 50""".formatted(tableNameWithSuffix);
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query), mockClusterInfoFetcher, TESTING_TYPE_CONVERTER);
-        String expectedPql = """
+        String expectedPql =
+                """
                 SELECT "non_quoted" AS "non""quoted"\
                  FROM %s\
                  LIMIT 50""".formatted(tableNameWithSuffix);
@@ -434,12 +464,14 @@ public class TestDynamicTable
     {
         String tableName = "quotes_in_column_names";
         String tableNameWithSuffix = tableName + REALTIME_SUFFIX;
-        String query = """
+        String query =
+                """
                 SELECT "qu""ot""ed"
                 FROM %s
                 LIMIT 50""".formatted(tableNameWithSuffix);
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query), mockClusterInfoFetcher, TESTING_TYPE_CONVERTER);
-        String expectedPql = """
+        String expectedPql =
+                """
                 SELECT "qu""ot""ed"\
                  FROM %s\
                  LIMIT 50""".formatted(tableNameWithSuffix);
@@ -450,9 +482,10 @@ public class TestDynamicTable
     @Test
     public void testQueryOptions()
     {
-        String tableName = realtimeOnlyTable.getTableName();
+        String tableName = realtimeOnlyTable.tableName();
         String tableNameWithSuffix = tableName + REALTIME_SUFFIX;
-        String query = """
+        String query =
+                """
                 SET skipUpsert='true';
                 SET useMultistageEngine='true';
                 SELECT FlightNum
@@ -460,7 +493,8 @@ public class TestDynamicTable
                 LIMIT 50;
                 """.formatted(tableNameWithSuffix);
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query), mockClusterInfoFetcher, TESTING_TYPE_CONVERTER);
-        String expectedPql = """
+        String expectedPql =
+                """
                 SET skipUpsert = 'true';
                 SET useMultistageEngine = 'true';
                 SELECT "FlightNum" \

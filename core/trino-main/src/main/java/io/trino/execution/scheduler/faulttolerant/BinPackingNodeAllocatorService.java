@@ -15,8 +15,14 @@ package io.trino.execution.scheduler.faulttolerant;
 
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Ticker;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
 import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Multimap;
+import com.google.common.collect.Multimaps;
+import com.google.common.collect.Ordering;
 import com.google.common.collect.SetMultimap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -24,8 +30,11 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
+import io.airlift.stats.CounterStat;
+import io.airlift.stats.DistributionStat;
 import io.airlift.units.DataSize;
 import io.trino.Session;
+import io.trino.cache.NonEvictableLoadingCache;
 import io.trino.execution.TaskId;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.memory.ClusterMemoryManager;
@@ -35,26 +44,36 @@ import io.trino.metadata.InternalNode;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.InternalNodeManager.NodesSnapshot;
 import io.trino.spi.HostAddress;
+import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.memory.MemoryPoolInfo;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.assertj.core.util.VisibleForTesting;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.ConcurrentNavigableMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -67,6 +86,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.execution.scheduler.faulttolerant.TaskExecutionClass.EAGER_SPECULATIVE;
 import static io.trino.execution.scheduler.faulttolerant.TaskExecutionClass.SPECULATIVE;
 import static io.trino.execution.scheduler.faulttolerant.TaskExecutionClass.STANDARD;
@@ -75,10 +95,11 @@ import static java.lang.Math.max;
 import static java.lang.Thread.currentThread;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toCollection;
 
 @ThreadSafe
 public class BinPackingNodeAllocatorService
-        implements NodeAllocatorService, NodeAllocator
+        implements NodeAllocatorService
 {
     private static final Logger log = Logger.get(BinPackingNodeAllocatorService.class);
 
@@ -88,7 +109,7 @@ public class BinPackingNodeAllocatorService
     private final InternalNodeManager nodeManager;
     private final Supplier<Map<String, Optional<MemoryInfo>>> workerMemoryInfoSupplier;
 
-    private final ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(2, daemonThreadsNamed("bin-packing-node-allocator"));
+    private final ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(3, daemonThreadsNamed("bin-packing-node-allocator"));
     private final AtomicBoolean started = new AtomicBoolean();
     private final AtomicBoolean stopped = new AtomicBoolean();
     private final Semaphore processSemaphore = new Semaphore(0);
@@ -98,9 +119,16 @@ public class BinPackingNodeAllocatorService
     private final DataSize eagerSpeculativeTasksNodeMemoryOvercommit;
     private final Ticker ticker;
 
-    private final Deque<PendingAcquire> pendingAcquires = new ConcurrentLinkedDeque<>();
+    private final ConcurrentNavigableMap<QueryId, Deque<PendingAcquire>> pendingAcquires = new ConcurrentSkipListMap<>(Ordering.natural().onResultOf(QueryId::getId));
     private final Set<BinPackingNodeLease> fulfilledAcquires = newConcurrentHashSet();
     private final Duration allowedNoMatchingNodePeriod;
+    private final Duration exhaustedNodeWaitPeriod;
+    private final boolean optimizedLocalScheduling;
+
+    private final StatsHolder stats = new StatsHolder();
+    private final CounterStat processCalls = new CounterStat();
+    private final CounterStat processPending = new CounterStat();
+    private Optional<QueryId> startingQueryId = Optional.empty();
 
     @Inject
     public BinPackingNodeAllocatorService(
@@ -110,9 +138,11 @@ public class BinPackingNodeAllocatorService
             MemoryManagerConfig memoryManagerConfig)
     {
         this(nodeManager,
-                clusterMemoryManager::getWorkerMemoryInfo,
+                clusterMemoryManager::getAllNodesMemoryInfo,
                 nodeSchedulerConfig.isIncludeCoordinator(),
                 Duration.ofMillis(nodeSchedulerConfig.getAllowedNoMatchingNodePeriod().toMillis()),
+                Duration.ofMillis(nodeSchedulerConfig.getExhaustedNodeWaitPeriod().toMillis()),
+                nodeSchedulerConfig.getOptimizedLocalScheduling(),
                 memoryManagerConfig.getFaultTolerantExecutionTaskRuntimeMemoryEstimationOverhead(),
                 memoryManagerConfig.getFaultTolerantExecutionEagerSpeculativeTasksNodeMemoryOvercommit(),
                 Ticker.systemTicker());
@@ -124,6 +154,8 @@ public class BinPackingNodeAllocatorService
             Supplier<Map<String, Optional<MemoryInfo>>> workerMemoryInfoSupplier,
             boolean scheduleOnCoordinator,
             Duration allowedNoMatchingNodePeriod,
+            Duration exhaustedNodeWaitPeriod,
+            boolean optimizedLocalScheduling,
             DataSize taskRuntimeMemoryEstimationOverhead,
             DataSize eagerSpeculativeTasksNodeMemoryOvercommit,
             Ticker ticker)
@@ -132,6 +164,8 @@ public class BinPackingNodeAllocatorService
         this.workerMemoryInfoSupplier = requireNonNull(workerMemoryInfoSupplier, "workerMemoryInfoSupplier is null");
         this.scheduleOnCoordinator = scheduleOnCoordinator;
         this.allowedNoMatchingNodePeriod = requireNonNull(allowedNoMatchingNodePeriod, "allowedNoMatchingNodePeriod is null");
+        this.exhaustedNodeWaitPeriod = requireNonNull(exhaustedNodeWaitPeriod, "exhaustedNodeWaitPeriod is null");
+        this.optimizedLocalScheduling = optimizedLocalScheduling;
         this.taskRuntimeMemoryEstimationOverhead = requireNonNull(taskRuntimeMemoryEstimationOverhead, "taskRuntimeMemoryEstimationOverhead is null");
         this.eagerSpeculativeTasksNodeMemoryOvercommit = eagerSpeculativeTasksNodeMemoryOvercommit;
         this.ticker = requireNonNull(ticker, "ticker is null");
@@ -153,9 +187,9 @@ public class BinPackingNodeAllocatorService
                     catch (InterruptedException e) {
                         currentThread().interrupt();
                     }
-                    catch (Exception e) {
+                    catch (Throwable e) {
                         // ignore to avoid getting unscheduled
-                        log.warn(e, "Error updating nodes");
+                        log.error(e, "Error processing pending acquires");
                     }
                 }
             }, 0, TimeUnit.SECONDS);
@@ -169,6 +203,16 @@ public class BinPackingNodeAllocatorService
             catch (Throwable e) {
                 // ignore to avoid getting unscheduled
                 log.error(e, "Unexpected error while refreshing node pool memory infos");
+            }
+        }, 1, 1, TimeUnit.SECONDS);
+
+        executor.scheduleWithFixedDelay(() -> {
+            try {
+                updateStats();
+            }
+            catch (Throwable e) {
+                // ignore to avoid getting unscheduled
+                log.error(e, "Unexpected error while updating stats");
             }
         }, 1, 1, TimeUnit.SECONDS);
     }
@@ -201,12 +245,14 @@ public class BinPackingNodeAllocatorService
     @VisibleForTesting
     synchronized void processPendingAcquires()
     {
+        // synchronized only for sake manual triggering in test code. In production code it should only be called by single thread
+        processCalls.update(1);
         // Process EAGER_SPECULATIVE first; it increases the chance that tasks which have potential to end query early get scheduled to worker nodes.
         // Even though EAGER_SPECULATIVE tasks depend on upstream STANDARD tasks this logic will not lead to deadlock.
         // When processing STANDARD acquires below, we will ignore EAGER_SPECULATIVE (and SPECULATIVE) tasks when assessing if node has enough resources for processing task.
         processPendingAcquires(EAGER_SPECULATIVE);
         processPendingAcquires(STANDARD);
-        boolean hasNonSpeculativePendingAcquires = pendingAcquires.stream().anyMatch(pendingAcquire -> !pendingAcquire.isSpeculative());
+        boolean hasNonSpeculativePendingAcquires = pendingAcquires.values().stream().flatMap(Collection::stream).anyMatch(pendingAcquire -> !pendingAcquire.isSpeculative());
         if (!hasNonSpeculativePendingAcquires) {
             processPendingAcquires(SPECULATIVE);
         }
@@ -214,18 +260,20 @@ public class BinPackingNodeAllocatorService
 
     private void processPendingAcquires(TaskExecutionClass executionClass)
     {
-        // synchronized only for sake manual triggering in test code. In production code it should only be called by single thread
-        Iterator<PendingAcquire> iterator = pendingAcquires.iterator();
+        Iterator<PendingAcquire> iterator = pendingAcquiresIterator(startingQueryId);
 
         BinPackingSimulation simulation = new BinPackingSimulation(
                 nodeManager.getActiveNodesSnapshot(),
                 nodePoolMemoryInfos.get(),
                 fulfilledAcquires,
                 scheduleOnCoordinator,
+                optimizedLocalScheduling,
                 taskRuntimeMemoryEstimationOverhead,
                 executionClass == EAGER_SPECULATIVE ? eagerSpeculativeTasksNodeMemoryOvercommit : DataSize.ofBytes(0),
-                executionClass == STANDARD); // if we are processing non-speculative pending acquires we are ignoring speculative acquired ones
+                executionClass == STANDARD,  // if we are processing non-speculative pending acquires we are ignoring speculative acquired ones
+                exhaustedNodeWaitPeriod);
 
+        boolean allReservedSoFar = true;
         while (iterator.hasNext()) {
             PendingAcquire pendingAcquire = iterator.next();
 
@@ -239,7 +287,15 @@ public class BinPackingNodeAllocatorService
                 continue;
             }
 
+            processPending.update(1);
             BinPackingSimulation.ReserveResult result = simulation.tryReserve(pendingAcquire);
+            pendingAcquire.setLastReservationStatus(result.getStatus());
+
+            if (result.getStatus() != BinPackingSimulation.ReservationStatus.RESERVED && allReservedSoFar) {
+                allReservedSoFar = false;
+                startingQueryId = Optional.of(pendingAcquire.getQueryId());
+            }
+
             switch (result.getStatus()) {
                 case RESERVED:
                     InternalNode reservedNode = result.getNode();
@@ -274,6 +330,101 @@ public class BinPackingNodeAllocatorService
         }
     }
 
+    private record QueryPendingAcquires(
+            QueryId queryId,
+            Iterator<PendingAcquire> iterator)
+    {
+        private QueryPendingAcquires
+        {
+            requireNonNull(queryId, "queryId is null");
+            requireNonNull(iterator, "iterator is null");
+        }
+    }
+
+    private Iterator<PendingAcquire> pendingAcquiresIterator(Optional<QueryId> startingQueryId)
+    {
+        if (pendingAcquires.isEmpty()) {
+            return List.<PendingAcquire>of().iterator();
+        }
+
+        List<QueryPendingAcquires> iterators = pendingAcquires.entrySet().stream()
+                .map(entry -> new QueryPendingAcquires(entry.getKey(), entry.getValue().iterator()))
+                .collect(toCollection(ArrayList::new));
+
+        if (iterators.isEmpty()) {
+            return ImmutableList.<PendingAcquire>of().iterator();
+        }
+
+        int startingIteratorIndex = 0;
+        if (startingQueryId.isPresent()) {
+            startingIteratorIndex = -1;
+            for (int i = 0; i < iterators.size(); i++) {
+                if (iterators.get(i).queryId().equals(startingQueryId.get())) {
+                    startingIteratorIndex = i;
+                    break;
+                }
+            }
+            if (startingIteratorIndex == -1) {
+                startingIteratorIndex = ThreadLocalRandom.current().nextInt(iterators.size());
+            }
+        }
+
+        int finalStartingIteratorIndex = startingIteratorIndex;
+
+        return new Iterator<>()
+        {
+            int currentIterator = finalStartingIteratorIndex;
+            int removeIterator = -1;
+
+            @Override
+            public boolean hasNext()
+            {
+                while (!iterators.isEmpty()) {
+                    Iterator<PendingAcquire> iterator = iterators.get(currentIterator).iterator();
+                    if (!iterator.hasNext()) {
+                        dropCurrentIterator();
+                        continue;
+                    }
+                    return true;
+                }
+                return false;
+            }
+
+            @Override
+            public PendingAcquire next()
+            {
+                while (!iterators.isEmpty()) {
+                    Iterator<PendingAcquire> iterator = iterators.get(currentIterator).iterator();
+                    if (!iterator.hasNext()) {
+                        dropCurrentIterator();
+                        continue;
+                    }
+                    removeIterator = currentIterator;
+                    currentIterator++;
+                    currentIterator = currentIterator % iterators.size();
+                    return iterator.next();
+                }
+                throw new NoSuchElementException();
+            }
+
+            private void dropCurrentIterator()
+            {
+                iterators.remove(currentIterator);
+                if (currentIterator >= iterators.size()) {
+                    currentIterator = 0;
+                }
+            }
+
+            @Override
+            public void remove()
+            {
+                checkState(removeIterator != -1, "next() not called or already removed");
+                iterators.get(removeIterator).iterator().remove();
+                removeIterator = -1;
+            }
+        };
+    }
+
     private void wakeupProcessPendingAcquires()
     {
         processSemaphore.release();
@@ -282,38 +433,150 @@ public class BinPackingNodeAllocatorService
     @Override
     public NodeAllocator getNodeAllocator(Session session)
     {
-        return this;
+        return new NodeAllocator() {
+            @Override
+            public NodeLease acquire(NodeRequirements nodeRequirements, DataSize memoryRequirement, TaskExecutionClass executionClass)
+            {
+                return BinPackingNodeAllocatorService.this.acquire(nodeRequirements, memoryRequirement, executionClass, session.getQueryId());
+            }
+
+            @Override
+            public void close()
+            {
+                pendingAcquires.remove(session.getQueryId());
+            }
+        };
     }
 
-    @Override
-    public NodeLease acquire(NodeRequirements nodeRequirements, DataSize memoryRequirement, TaskExecutionClass executionClass)
+    public NodeAllocator.NodeLease acquire(NodeRequirements nodeRequirements, DataSize memoryRequirement, TaskExecutionClass executionClass, QueryId queryId)
     {
-        BinPackingNodeLease nodeLease = new BinPackingNodeLease(memoryRequirement.toBytes(), executionClass);
-        PendingAcquire pendingAcquire = new PendingAcquire(nodeRequirements, nodeLease, ticker);
-        pendingAcquires.add(pendingAcquire);
+        BinPackingNodeLease nodeLease = new BinPackingNodeLease(memoryRequirement.toBytes(), executionClass, nodeRequirements);
+        PendingAcquire pendingAcquire = new PendingAcquire(nodeRequirements, nodeLease, queryId, ticker);
+        Deque<PendingAcquire> requesterPendingAcquires = pendingAcquires.computeIfAbsent(queryId, _ -> new ConcurrentLinkedDeque<>());
+        requesterPendingAcquires.add(pendingAcquire);
         wakeupProcessPendingAcquires();
         return nodeLease;
     }
 
-    @Override
-    public void close()
+    @Managed
+    @Nested
+    public StatsHolder getStats()
     {
-        // nothing to do here. leases should be released by the calling party.
-        // TODO would be great to be able to validate if it actually happened but close() is called from SqlQueryScheduler code
-        //      and that can be done before all leases are yet returned from running (soon to be failed) tasks.
+        // it is required that @Managed annotated method returns same object instance every time;
+        // we return mutable wrapper while we keep Stats object immutable.
+        return stats;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getProcessCalls()
+    {
+        return processCalls;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getProcessPending()
+    {
+        return processPending;
+    }
+
+    private void updateStats()
+    {
+        long pendingStandardNoneMatching = 0;
+        long pendingStandardNotEnoughResources = 0;
+        long pendingStandardUnknown = 0;
+        long pendingSpeculativeNoneMatching = 0;
+        long pendingSpeculativeNotEnoughResources = 0;
+        long pendingSpeculativeUnknown = 0;
+        long pendingEagerSpeculativeNoneMatching = 0;
+        long pendingEagerSpeculativeNotEnoughResources = 0;
+        long pendingEagerSpeculativeUnknown = 0;
+        long fulfilledStandard = 0;
+        long fulfilledSpeculative = 0;
+        long fulfilledEagerSpeculative = 0;
+
+        for (Iterator<PendingAcquire> it = pendingAcquiresIterator(Optional.empty()); it.hasNext(); ) {
+            PendingAcquire acquire = it.next();
+            switch (acquire.getExecutionClass()) {
+                case STANDARD -> {
+                    switch (acquire.getLastReservationStatus()) {
+                        case NONE_MATCHING -> pendingStandardNoneMatching++;
+                        case NOT_ENOUGH_RESOURCES_NOW -> pendingStandardNotEnoughResources++;
+                        case UNKNOWN -> pendingStandardUnknown++;
+                        case RESERVED -> {} // reserved in the meantime
+                    }
+                }
+                case SPECULATIVE -> {
+                    switch (acquire.getLastReservationStatus()) {
+                        case NONE_MATCHING -> pendingSpeculativeNoneMatching++;
+                        case NOT_ENOUGH_RESOURCES_NOW -> pendingSpeculativeNotEnoughResources++;
+                        case UNKNOWN -> pendingSpeculativeUnknown++;
+                        case RESERVED -> {} // reserved in the meantime
+                    }
+                }
+                case EAGER_SPECULATIVE -> {
+                    switch (acquire.getLastReservationStatus()) {
+                        case NONE_MATCHING -> pendingEagerSpeculativeNoneMatching++;
+                        case NOT_ENOUGH_RESOURCES_NOW -> pendingEagerSpeculativeNotEnoughResources++;
+                        case UNKNOWN -> pendingEagerSpeculativeUnknown++;
+                        case RESERVED -> {} // reserved in the meantime
+                    }
+                }
+            }
+        }
+
+        Multimap<InternalNode, BinPackingNodeLease> acquiresByNode = HashMultimap.create();
+        for (BinPackingNodeLease acquire : fulfilledAcquires) {
+            switch (acquire.getExecutionClass()) {
+                case STANDARD -> fulfilledStandard++;
+                case SPECULATIVE -> fulfilledSpeculative++;
+                case EAGER_SPECULATIVE -> fulfilledEagerSpeculative++;
+            }
+            acquiresByNode.put(acquire.getAssignedNode(), acquire);
+        }
+
+        DistributionStat fulfilledByNodeCountDistribution = new DistributionStat();
+        DistributionStat fulfilledByNodeMemoryDistribution = new DistributionStat();
+        acquiresByNode.asMap().values().forEach(nodeAcquires -> {
+            fulfilledByNodeCountDistribution.add(nodeAcquires.size());
+            fulfilledByNodeMemoryDistribution.add(nodeAcquires.stream().mapToLong(BinPackingNodeLease::getMemoryLease).sum());
+        });
+
+        stats.updateStats(new Stats(
+                pendingStandardNoneMatching,
+                pendingStandardNotEnoughResources,
+                pendingStandardUnknown,
+                pendingSpeculativeNoneMatching,
+                pendingSpeculativeNotEnoughResources,
+                pendingSpeculativeUnknown,
+                pendingEagerSpeculativeNoneMatching,
+                pendingEagerSpeculativeNotEnoughResources,
+                pendingEagerSpeculativeUnknown,
+                fulfilledStandard,
+                fulfilledSpeculative,
+                fulfilledEagerSpeculative,
+                fulfilledByNodeCountDistribution,
+                fulfilledByNodeMemoryDistribution));
     }
 
     private static class PendingAcquire
     {
         private final NodeRequirements nodeRequirements;
         private final BinPackingNodeLease lease;
+        private final QueryId queryId;
         private final Stopwatch noMatchingNodeStopwatch;
+        private final Stopwatch notEnoughResourcesStopwatch;
 
-        private PendingAcquire(NodeRequirements nodeRequirements, BinPackingNodeLease lease, Ticker ticker)
+        private volatile BinPackingSimulation.ReservationStatus lastReservationStatus = BinPackingSimulation.ReservationStatus.UNKNOWN;
+
+        private PendingAcquire(NodeRequirements nodeRequirements, BinPackingNodeLease lease, QueryId queryId, Ticker ticker)
         {
             this.nodeRequirements = requireNonNull(nodeRequirements, "nodeRequirements is null");
             this.lease = requireNonNull(lease, "lease is null");
+            this.queryId = requireNonNull(queryId, "queryId is null");
             this.noMatchingNodeStopwatch = Stopwatch.createUnstarted(ticker);
+            this.notEnoughResourcesStopwatch = Stopwatch.createStarted(ticker);
         }
 
         public NodeRequirements getNodeRequirements()
@@ -324,6 +587,11 @@ public class BinPackingNodeAllocatorService
         public BinPackingNodeLease getLease()
         {
             return lease;
+        }
+
+        public QueryId getQueryId()
+        {
+            return queryId;
         }
 
         public SettableFuture<InternalNode> getFuture()
@@ -344,6 +612,11 @@ public class BinPackingNodeAllocatorService
             return noMatchingNodeStopwatch.elapsed();
         }
 
+        public Duration getNotEnoughResourcesPeriod()
+        {
+            return notEnoughResourcesStopwatch.elapsed();
+        }
+
         public void resetNoMatchingNodeFound()
         {
             noMatchingNodeStopwatch.reset();
@@ -358,6 +631,17 @@ public class BinPackingNodeAllocatorService
         {
             return lease.getExecutionClass();
         }
+
+        public BinPackingSimulation.ReservationStatus getLastReservationStatus()
+        {
+            return lastReservationStatus;
+        }
+
+        public void setLastReservationStatus(BinPackingSimulation.ReservationStatus lastReservationStatus)
+        {
+            requireNonNull(lastReservationStatus, "lastReservationStatus is null");
+            this.lastReservationStatus = lastReservationStatus;
+        }
     }
 
     private class BinPackingNodeLease
@@ -368,12 +652,14 @@ public class BinPackingNodeAllocatorService
         private final AtomicLong memoryLease;
         private final AtomicReference<TaskId> taskId = new AtomicReference<>();
         private final AtomicReference<TaskExecutionClass> executionClass;
+        private final NodeRequirements nodeRequirements;
 
-        private BinPackingNodeLease(long memoryLease, TaskExecutionClass executionClass)
+        private BinPackingNodeLease(long memoryLease, TaskExecutionClass executionClass, NodeRequirements nodeRequirements)
         {
             this.memoryLease = new AtomicLong(memoryLease);
             requireNonNull(executionClass, "executionClass is null");
             this.executionClass = new AtomicReference<>(executionClass);
+            this.nodeRequirements = requireNonNull(nodeRequirements, "nodeRequirements is null");
         }
 
         @Override
@@ -472,36 +758,65 @@ public class BinPackingNodeAllocatorService
                     .add("memoryLease", memoryLease)
                     .add("taskId", taskId)
                     .add("executionClass", executionClass)
+                    .add("nodeRequirements", nodeRequirements)
                     .toString();
         }
     }
 
     private static class BinPackingSimulation
     {
-        private final NodesSnapshot nodesSnapshot;
         private final List<InternalNode> allNodesSorted;
+        private final List<InternalNode> workerNodesSorted;
+        private final Multimap<HostAddress, InternalNode> allNodesByAddress;
         private final boolean ignoreAcquiredSpeculative;
         private final Map<String, Long> nodesRemainingMemory;
+        private final Set<String> nodesWithoutMemory;
         private final Map<String, Long> nodesRemainingMemoryRuntimeAdjusted;
         private final Map<String, Long> speculativeMemoryReserved;
+        private final NonEvictableLoadingCache<CatalogHandle, List<InternalNode>> catalogNodes;
+        private final NonEvictableLoadingCache<CatalogHandle, List<InternalNode>> catalogWorkerNodes;
 
         private final Map<String, MemoryPoolInfo> nodeMemoryPoolInfos;
         private final boolean scheduleOnCoordinator;
+        private final boolean optimizedLocalScheduling;
+        private final Duration exhaustedNodeWaitPeriod;
 
         public BinPackingSimulation(
                 NodesSnapshot nodesSnapshot,
                 Map<String, MemoryPoolInfo> nodeMemoryPoolInfos,
                 Set<BinPackingNodeLease> fulfilledAcquires,
                 boolean scheduleOnCoordinator,
+                boolean optimizedLocalScheduling,
                 DataSize taskRuntimeMemoryEstimationOverhead,
                 DataSize nodeMemoryOvercommit,
-                boolean ignoreAcquiredSpeculative)
+                boolean ignoreAcquiredSpeculative,
+                Duration exhaustedNodeWaitPeriod)
         {
-            this.nodesSnapshot = requireNonNull(nodesSnapshot, "nodesSnapshot is null");
+            requireNonNull(nodesSnapshot, "nodesSnapshot is null");
             // use same node ordering for each simulation
             this.allNodesSorted = nodesSnapshot.getAllNodes().stream()
                     .sorted(comparing(InternalNode::getNodeIdentifier))
                     .collect(toImmutableList());
+
+            this.workerNodesSorted = allNodesSorted.stream().filter(node -> !node.isCoordinator()).collect(toImmutableList());
+
+            this.catalogNodes = buildNonEvictableCache(
+                    CacheBuilder.newBuilder(),
+                    CacheLoader.from(catalogHandle -> {
+                        List<InternalNode> nodes = new ArrayList<>(allNodesSorted);
+                        nodes.retainAll(nodesSnapshot.getConnectorNodes(catalogHandle));
+                        return nodes;
+                    }));
+
+            this.catalogWorkerNodes = buildNonEvictableCache(
+                    CacheBuilder.newBuilder(),
+                    CacheLoader.from(catalogHandle -> {
+                        List<InternalNode> nodes = new ArrayList<>(workerNodesSorted);
+                        nodes.retainAll(nodesSnapshot.getConnectorNodes(catalogHandle));
+                        return nodes;
+                    }));
+
+            allNodesByAddress = Multimaps.index(nodesSnapshot.getAllNodes(), InternalNode::getHostAndPort);
 
             this.ignoreAcquiredSpeculative = ignoreAcquiredSpeculative;
 
@@ -509,6 +824,8 @@ public class BinPackingNodeAllocatorService
             this.nodeMemoryPoolInfos = ImmutableMap.copyOf(nodeMemoryPoolInfos);
 
             this.scheduleOnCoordinator = scheduleOnCoordinator;
+            this.optimizedLocalScheduling = optimizedLocalScheduling;
+            this.exhaustedNodeWaitPeriod = exhaustedNodeWaitPeriod;
 
             Map<String, Map<String, Long>> realtimeTasksMemoryPerNode = new HashMap<>();
             for (InternalNode node : nodesSnapshot.getAllNodes()) {
@@ -545,6 +862,7 @@ public class BinPackingNodeAllocatorService
                 long nodeReservedMemory = preReservedMemory.getOrDefault(node.getNodeIdentifier(), 0L);
                 nodesRemainingMemory.put(node.getNodeIdentifier(), max(memoryPoolInfo.getMaxBytes() + nodeMemoryOvercommit.toBytes() - nodeReservedMemory, 0L));
             }
+            nodesWithoutMemory = new HashSet<>();
 
             nodesRemainingMemoryRuntimeAdjusted = new HashMap<>();
             for (InternalNode node : nodesSnapshot.getAllNodes()) {
@@ -569,34 +887,42 @@ public class BinPackingNodeAllocatorService
                 }
 
                 // if globally reported memory usage of node is greater than computed one lets use that.
-                // it can be greater if there are tasks executed on cluster which do not have task retries enabled.
+                // it can be greater if tasks exceeded the memory region assigned for them or there are
+                // non FTE tasks running on cluster.
                 nodeUsedMemoryRuntimeAdjusted = max(nodeUsedMemoryRuntimeAdjusted, memoryPoolInfo.getReservedBytes());
                 nodesRemainingMemoryRuntimeAdjusted.put(node.getNodeIdentifier(), max(memoryPoolInfo.getMaxBytes() + nodeMemoryOvercommit.toBytes() - nodeUsedMemoryRuntimeAdjusted, 0L));
             }
         }
 
-        private List<InternalNode> dropCoordinatorsIfNecessary(List<InternalNode> candidates)
-        {
-            return scheduleOnCoordinator ? candidates : candidates.stream().filter(node -> !node.isCoordinator()).collect(toImmutableList());
-        }
-
         public ReserveResult tryReserve(PendingAcquire acquire)
         {
             NodeRequirements requirements = acquire.getNodeRequirements();
-            Optional<Set<InternalNode>> catalogNodes = requirements.getCatalogHandle().map(nodesSnapshot::getConnectorNodes);
 
-            List<InternalNode> candidates = new ArrayList<>(allNodesSorted);
-            catalogNodes.ifPresent(candidates::retainAll); // Drop non-catalog nodes, if any.
-            Set<HostAddress> addresses = requirements.getAddresses();
-            if (!addresses.isEmpty()) {
-                candidates = candidates.stream().filter(node -> addresses.contains(node.getHostAndPort())).collect(toImmutableList());
+            List<InternalNode> candidates;
+            Optional<HostAddress> address = requirements.getAddress();
+            if (address.isPresent() && (optimizedLocalScheduling || !requirements.isRemotelyAccessible())) {
+                Collection<InternalNode> preferred = allNodesByAddress.get(address.get());
+                if ((!preferred.isEmpty() && acquire.getNotEnoughResourcesPeriod().compareTo(exhaustedNodeWaitPeriod) < 0) || !requirements.isRemotelyAccessible()) {
+                    // use preferred node if available
+                    candidates = getCandidatesWithCoordinator(requirements).stream().filter(preferred::contains).collect(toImmutableList());
+                }
+                else {
+                    // use all nodes if we do not have preferences or waited to long
+                    candidates = scheduleOnCoordinator ? getCandidatesWithCoordinator(requirements) : getCandidatesExceptCoordinator(requirements);
+                }
             }
             else {
-                candidates = dropCoordinatorsIfNecessary(candidates);
+                // standard candidates
+                candidates = scheduleOnCoordinator ? getCandidatesWithCoordinator(requirements) : getCandidatesExceptCoordinator(requirements);
             }
 
             if (candidates.isEmpty()) {
                 return ReserveResult.NONE_MATCHING;
+            }
+
+            candidates = candidates.stream().filter(node -> !nodesWithoutMemory.contains(node.getNodeIdentifier())).collect(toImmutableList());
+            if (candidates.isEmpty()) {
+                return ReserveResult.NOT_ENOUGH_RESOURCES_NOW;
             }
 
             Comparator<InternalNode> comparator = comparing(node -> nodesRemainingMemoryRuntimeAdjusted.get(node.getNodeIdentifier()));
@@ -636,6 +962,20 @@ public class BinPackingNodeAllocatorService
             return ReserveResult.NOT_ENOUGH_RESOURCES_NOW;
         }
 
+        private List<InternalNode> getCandidatesExceptCoordinator(NodeRequirements requirements)
+        {
+            return requirements.getCatalogHandle()
+                    .map(catalogWorkerNodes::getUnchecked)
+                    .orElse(workerNodesSorted);
+        }
+
+        private List<InternalNode> getCandidatesWithCoordinator(NodeRequirements requirements)
+        {
+            return requirements.getCatalogHandle()
+                    .map(catalogNodes::getUnchecked)
+                    .orElse(allNodesSorted);
+        }
+
         private Comparator<InternalNode> resolveTiesWithSpeculativeMemory(Comparator<InternalNode> comparator)
         {
             return comparator.thenComparing(node -> -speculativeMemoryReserved.getOrDefault(node.getNodeIdentifier(), 0L));
@@ -649,6 +989,9 @@ public class BinPackingNodeAllocatorService
             nodesRemainingMemory.compute(
                     nodeIdentifier,
                     (key, free) -> max(free - memoryLease, 0));
+            if (nodesRemainingMemory.get(nodeIdentifier) == 0) {
+                nodesWithoutMemory.add(nodeIdentifier);
+            }
         }
 
         private boolean isNodeEmpty(String nodeIdentifier)
@@ -659,6 +1002,7 @@ public class BinPackingNodeAllocatorService
 
         public enum ReservationStatus
         {
+            UNKNOWN,
             NONE_MATCHING,
             NOT_ENOUGH_RESOURCES_NOW,
             RESERVED
@@ -693,6 +1037,125 @@ public class BinPackingNodeAllocatorService
             {
                 return node.orElseThrow(() -> new IllegalStateException("node not set"));
             }
+        }
+    }
+
+    public static class StatsHolder
+    {
+        private final AtomicReference<Stats> statsReference = new AtomicReference<>(Stats.ZERO);
+
+        public void updateStats(Stats stats)
+        {
+            statsReference.set(stats);
+        }
+
+        @Managed
+        public long getPendingStandardNoneMatching()
+        {
+            return statsReference.get().pendingStandardNoneMatching();
+        }
+
+        @Managed
+        public long getPendingStandardNotEnoughResources()
+        {
+            return statsReference.get().pendingStandardNotEnoughResources();
+        }
+
+        @Managed
+        public long getPendingStandardUnknown()
+        {
+            return statsReference.get().pendingStandardUnknown();
+        }
+
+        @Managed
+        public long getPendingSpeculativeNoneMatching()
+        {
+            return statsReference.get().pendingSpeculativeNoneMatching();
+        }
+
+        @Managed
+        public long getPendingSpeculativeNotEnoughResources()
+        {
+            return statsReference.get().pendingSpeculativeNotEnoughResources();
+        }
+
+        @Managed
+        public long getPendingSpeculativeUnknown()
+        {
+            return statsReference.get().pendingSpeculativeUnknown();
+        }
+
+        @Managed
+        public long getPendingEagerSpeculativeNoneMatching()
+        {
+            return statsReference.get().pendingEagerSpeculativeNoneMatching();
+        }
+
+        @Managed
+        public long getPendingEagerSpeculativeNotEnoughResources()
+        {
+            return statsReference.get().pendingEagerSpeculativeNotEnoughResources();
+        }
+
+        @Managed
+        public long getPendingEagerSpeculativeUnknown()
+        {
+            return statsReference.get().pendingEagerSpeculativeUnknown();
+        }
+
+        @Managed
+        public long getFulfilledStandard()
+        {
+            return statsReference.get().fulfilledStandard();
+        }
+
+        @Managed
+        public long getFulfilledSpeculative()
+        {
+            return statsReference.get().fulfilledSpeculative();
+        }
+
+        @Managed
+        public long getFulfilledEagerSpeculative()
+        {
+            return statsReference.get().fulfilledEagerSpeculative();
+        }
+
+        @Managed
+        public DistributionStat getFulfilledByNodeCountDistribution()
+        {
+            return statsReference.get().fulfilledByNodeCountDistribution();
+        }
+
+        @Managed
+        public DistributionStat getFulfilledByNodeMemoryDistribution()
+        {
+            return statsReference.get().fulfilledByNodeMemoryDistribution();
+        }
+    }
+
+    private record Stats(
+            long pendingStandardNoneMatching,
+            long pendingStandardNotEnoughResources,
+            long pendingStandardUnknown,
+            long pendingSpeculativeNoneMatching,
+            long pendingSpeculativeNotEnoughResources,
+            long pendingSpeculativeUnknown,
+            long pendingEagerSpeculativeNoneMatching,
+            long pendingEagerSpeculativeNotEnoughResources,
+            long pendingEagerSpeculativeUnknown,
+            long fulfilledStandard,
+            long fulfilledSpeculative,
+            long fulfilledEagerSpeculative,
+            DistributionStat fulfilledByNodeCountDistribution,
+            DistributionStat fulfilledByNodeMemoryDistribution)
+    {
+        static final Stats ZERO = new Stats(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, new DistributionStat(), new DistributionStat());
+
+        private Stats
+        {
+            requireNonNull(fulfilledByNodeCountDistribution, "fulfilledByNodeCountDistribution is null");
+            requireNonNull(fulfilledByNodeMemoryDistribution, "fulfilledByNodeMemoryDistribution is null");
         }
     }
 }

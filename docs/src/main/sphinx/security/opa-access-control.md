@@ -20,20 +20,11 @@ with the following minimal configuration:
 
 ```properties
 access-control.name=opa
-opa.policy.uri=https://your-opa-endpoint/v1/data/allow
+opa.policy.uri=https://opa.example.com/v1/data/trino/allow
 ```
 
-To combine OPA access control with file-based or other access control systems,
-configure multiple access control configuration file paths in
-`etc/config.properties`:
-
-```properties
-access-control.config-files=etc/trino/file-based.properties,etc/trino/opa.properties
-```
-
-Order the configuration files list in the desired order of the different systems
-for overall access control. Configure each access-control system in the
-specified files.
+To combine OPA access control with file-based or other access control
+systems, follow the instructions about [](multiple-access-control).
 
 The following table lists the configuration properties for the OPA access control:
 
@@ -45,11 +36,21 @@ The following table lists the configuration properties for the OPA access contro
   - Description
 * - `opa.policy.uri`
   - The **required** URI for the OPA endpoint, for example,
-    `https://opa.example.com/v1/data/allow`.
+    `https://opa.example.com/v1/data/trino/allow`.
+* - `opa.policy.row-filters-uri`
+  - The **optional** URI for fetching row filters - if not set no row filtering
+    is applied. For example, `https://opa.example.com/v1/data/trino/rowFilters`.
+* - `opa.policy.column-masking-uri`
+  - The **optional** URI for fetching column masks - if not set no masking
+    is applied. For example, `https://opa.example.com/v1/data/trino/columnMask`.
+* - `opa.policy.batch-column-masking-uri`
+  -  The **optional** URI for fetching columns masks in batches; must **not**
+     be used with `opa.policy.column-masking-uri`. For example,
+     `http://opa.example.com/v1/data/trino/batchColumnMasks`.
 * - `opa.policy.batched-uri`
   - The **optional** URI for activating batch mode for certain authorization
     queries where batching is applicable, for example
-    `https://opa.example.com/v1/data/batch`. Batch mode is described
+    `https://opa.example.com/v1/data/trino/batch`. Batch mode is described
     [](opa-batch-mode).
 * - `opa.log-requests`
   - Configure if request details, including URI, headers and the entire body, are
@@ -57,7 +58,7 @@ The following table lists the configuration properties for the OPA access contro
 * - `opa.log-responses`
   - Configure if OPA response details, including URI, status code, headers and
     the entire body, are logged. Defaults to `false`.
-* - `opa.allow-permission-management`
+* - `opa.allow-permission-management-operations`
   - Configure if permission management operations are allowed. Find more details in
     [](opa-permission-management). Defaults to `false`.
 * - `opa.http-client.*`
@@ -79,7 +80,7 @@ Note that enabling these options produces very large amounts of log data.
 ### Permission management
 
 The following operations are allowed or denied based on the setting of
-`opa.allow-permission-management` If set to `true`, these operations are
+`opa.allow-permission-management-operations` If set to `true`, these operations are
 allowed. If set to `false`, they are denied. In both cases, no request is sent
 to OPA.
 
@@ -211,6 +212,215 @@ The `targetResource` is used in cases where a new resource, distinct from the on
     }
   }
 }
+```
+## Row filtering
+
+Row filtering allows Trino to remove some rows from the result before returning
+it to the caller, controlling what data different users can see. The plugin
+supports retrieving filter definitions from OPA by configuring the OPA endpoint
+for row filter processing with `opa.policy.row-filters-uri`.
+
+For example, an OPA policy for row filtering may be defined by the following
+rego script:
+
+```text
+  package trino
+  import future.keywords.in
+  import future.keywords.if
+  import future.keywords.contains
+
+  default allow := true
+
+  table_resource := input.action.resource.table
+  is_admin {
+    input.context.identity.user == "admin"
+  }
+
+  rowFilters contains {"expression": "user_type <> 'customer'"} if {
+      not is_admin
+      table_resource.catalogName == "sample_catalog"
+      table_resource.schemaName == "sample_schema"
+      table_resource.tableName == "restricted_table"
+  }
+```
+
+The response expected by the plugin is an array of objects, each of them in the
+format `{"expression":"clause"}`. Each expression essentially behaves like an
+additional `WHERE` clause. The script can also return multiple row filters for a
+single OPA request, and all filters are subsequently applied.
+
+Each object may contain an identity field. The identity field allows Trino to
+evaluate these row filters under a **different** identity - such that a filter
+can target a column the requesting user cannot see.
+
+## Column masking
+
+Column masking allows Trino to obscure data in one or more columns of the result
+set for specific users, without outright denying access. The plugin supports
+fetching column masks from OPA by configuring the OPA endpoint for columns mask
+processing with `opa.policy.column-masking-uri` in the opa-plugin configuration.
+
+For example, a policy configuring column masking may be defined by the following
+rego script:
+
+```text
+  package trino
+  import future.keywords.in
+  import future.keywords.if
+  import future.keywords.contains
+
+  default allow := true
+
+  column_resource := input.action.resource.column
+  is_admin {
+    input.context.identity.user == "admin"
+  }
+
+  columnMask := {"expression": "NULL"} if {
+      not is_admin
+      column_resource.catalogName == "sample_catalog"
+      column_resource.schemaName == "sample_schema"
+      column_resource.tableName == "restricted_table"
+      column_resource.columnName == "user_phone"
+  }
+
+  columnMask := {"expression": "'****' || substring(user_name, -3)"} if {
+      not is_admin
+      column_resource.catalogName == "sample_catalog"
+      column_resource.schemaName == "sample_schema"
+      column_resource.tableName == "restricted_table"
+      column_resource.columnName == "user_name"
+  }
+```
+
+Unlike row filtering, only a **single column mask** may be returned for a given
+column.
+
+The same "identity" field may be returned to evaluate column masks under a
+different identity.
+
+### Batch column masking
+
+If column masking is enabled, by default, the plugin will fetch each column
+mask individually from OPA. When working with very wide tables this
+can result in a performance degradation.
+
+Configuring `opa.policy.batch-column-masking-uri` allows Trino to fetch the masks
+for multiple columns in a single request. The list of requested columns is included
+in the request under `action.filterResources`.
+
+If `opa.policy.batch-column-masking-uri` is set it overrides the value of
+`opa.policy.column-masking-uri` so that the plugin uses batch column
+masking.
+
+An OPA policy supporting batch column masking must return a list of objects,
+each containing the following data:
+- `viewExpression`:
+    - `expression`: the expression to apply to the column, as a string
+    - `identity` (optional): the identity to evaluate the expression as, as a
+      string
+- `index`: a reference the index of the column in the request to which this mask
+  applies
+
+For example, a policy configuring batch column masking may be defined by the
+following rego script:
+
+```text
+package trino
+import future.keywords.in
+import future.keywords.if
+import future.keywords.contains
+
+default allow := true
+
+batchColumnMasks contains {
+  "index": i,
+  "viewExpression": {
+    "expression": "NULL"
+  }
+} if {
+  some i
+  column_resource := input.action.filterResources[i]
+  column_resource.catalogName == "sample_catalog"
+  column_resource.schemaName == "sample_schema"
+  column_resource.tableName == "restricted_table"
+  column_resource.columnName == "user_phone"
+}
+
+
+batchColumnMasks contains {
+  "index": i,
+  "viewExpression": {
+    "expression": "'****' || substring(user_name, -3)",
+    "identity": "admin"
+  }
+} if {
+  some i
+  column_resource := input.action.filterResources[i]
+  column_resource.catalogName == "sample_catalog"
+  column_resource.schemaName == "sample_schema"
+  column_resource.tableName == "restricted_table"
+  column_resource.columnName == "user_name"
+}
+```
+
+A batch column masking request is similar to the following example:
+
+```json
+{
+    "context": {
+        "identity": {
+            "user": "foo",
+            "groups": ["some-group"]
+        },
+        "softwareStack": {
+            "trinoVersion": "434"
+        }
+    },
+    "action": {
+        "operation": "GetColumnMask",
+        "filterResources": [
+            {
+                "column": {
+                    "catalogName": "sample_catalog",
+                    "schemaName": "sample_schema",
+                    "tableName": "restricted_table",
+                    "columnName": "user_phone",
+                    "columnType": "VARCHAR"
+                }
+            },
+            {
+                "column": {
+                    "catalogName": "sample_catalog",
+                    "schemaName": "sample_schema",
+                    "tableName": "restricted_table",
+                    "columnName": "user_name",
+                    "columnType": "VARCHAR"
+                }
+            }
+        ]
+    }
+}
+```
+
+The related OPA response is displayed in the following snippet:
+
+```json
+[
+    {
+        "index": 0,
+        "viewExpression": {
+            "expression": "NULL"
+        }
+    },
+    {
+        "index": 1,
+        "viewExpression": {
+            "expression": "'****' || substring(user_name, -3)",
+            "identity": "admin"
+        }
+    }
+]
 ```
 
 (opa-batch-mode)=

@@ -59,7 +59,6 @@ public final class MapZipWithFunction
                         .argumentType(mapType(new TypeSignature("K"), new TypeSignature("V2")))
                         .argumentType(functionType(new TypeSignature("K"), new TypeSignature("V1"), new TypeSignature("V2"), new TypeSignature("V3")))
                         .build())
-                .nondeterministic()
                 .description("Merge two maps into a single map by applying the lambda function to the pair of values with the same key")
                 .build());
     }

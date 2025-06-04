@@ -17,12 +17,16 @@ import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
-import io.opentelemetry.semconv.SemanticAttributes;
 
 import java.util.Optional;
 
-final class Tracing
+import static io.opentelemetry.api.common.AttributeKey.booleanKey;
+
+public final class Tracing
 {
+    // This attribute was deprecated and removed from stable attributes
+    public static final AttributeKey<Boolean> EXCEPTION_ESCAPED = booleanKey("exception.escaped");
+
     private Tracing() {}
 
     public static <T> Attributes attribute(AttributeKey<T> key, Optional<T> optionalValue)
@@ -43,12 +47,12 @@ final class Tracing
     public static <T, E extends Exception> T withTracing(Span span, CheckedSupplier<T, E> supplier)
             throws E
     {
-        try (var ignored = span.makeCurrent()) {
+        try (var _ = span.makeCurrent()) {
             return supplier.get();
         }
         catch (Throwable t) {
             span.setStatus(StatusCode.ERROR, t.getMessage());
-            span.recordException(t, Attributes.of(SemanticAttributes.EXCEPTION_ESCAPED, true));
+            span.recordException(t, Attributes.of(EXCEPTION_ESCAPED, true));
             throw t;
         }
         finally {

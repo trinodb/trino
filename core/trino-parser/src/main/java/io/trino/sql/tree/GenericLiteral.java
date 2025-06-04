@@ -26,6 +26,7 @@ public final class GenericLiteral
     private final String type;
     private final String value;
 
+    @Deprecated
     public GenericLiteral(String type, String value)
     {
         this(Optional.empty(), type, value);

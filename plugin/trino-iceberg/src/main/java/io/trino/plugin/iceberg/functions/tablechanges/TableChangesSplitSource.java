@@ -96,7 +96,7 @@ public class TableChangesSplitSource
     @Override
     public boolean isFinished()
     {
-        return changelogScanIterator != null && !changelogScanIterator.hasNext();
+        return changelogScanIterator != null && !changelogScanIterator.hasNext() && !fileTasksIterator.hasNext();
     }
 
     @Override
@@ -127,11 +127,11 @@ public class TableChangesSplitSource
     private ConnectorSplit toIcebergSplit(ChangelogScanTask task)
     {
         // TODO: Support DeletedRowsScanTask (requires https://github.com/apache/iceberg/pull/6182)
-        if (task instanceof AddedRowsScanTask) {
-            return toSplit((AddedRowsScanTask) task);
+        if (task instanceof AddedRowsScanTask addedRowsScanTask) {
+            return toSplit(addedRowsScanTask);
         }
-        else if (task instanceof DeletedDataFileScanTask) {
-            return toSplit((DeletedDataFileScanTask) task);
+        else if (task instanceof DeletedDataFileScanTask deletedDataFileScanTask) {
+            return toSplit(deletedDataFileScanTask);
         }
         else {
             throw new TrinoException(NOT_SUPPORTED, "ChangelogScanTask type is not supported:" + task);
@@ -145,7 +145,7 @@ public class TableChangesSplitSource
                 task.commitSnapshotId(),
                 DateTimeEncoding.packDateTimeWithZone(icebergTable.snapshot(task.commitSnapshotId()).timestampMillis(), UTC_KEY),
                 task.changeOrdinal(),
-                task.file().path().toString(),
+                task.file().location(),
                 task.start(),
                 task.length(),
                 task.file().fileSizeInBytes(),
@@ -164,7 +164,7 @@ public class TableChangesSplitSource
                 task.commitSnapshotId(),
                 DateTimeEncoding.packDateTimeWithZone(icebergTable.snapshot(task.commitSnapshotId()).timestampMillis(), UTC_KEY),
                 task.changeOrdinal(),
-                task.file().path().toString(),
+                task.file().location(),
                 task.start(),
                 task.length(),
                 task.file().fileSizeInBytes(),

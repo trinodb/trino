@@ -37,8 +37,8 @@ public class CoalesceCodeGenerator
     public CoalesceCodeGenerator(SpecialForm specialForm)
     {
         requireNonNull(specialForm, "specialForm is null");
-        returnType = specialForm.getType();
-        arguments = specialForm.getArguments();
+        returnType = specialForm.type();
+        arguments = specialForm.arguments();
     }
 
     @Override

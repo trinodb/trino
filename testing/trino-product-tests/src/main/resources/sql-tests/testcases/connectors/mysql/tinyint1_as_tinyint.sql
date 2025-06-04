@@ -1,4 +1,4 @@
--- database: presto; groups: mysql,profile_specific_tests; tables: mysql.test.workers_mysql
+-- database: trino; groups: mysql,profile_specific_tests; tables: mysql.test.workers_mysql
 --!
 select * from mysql.test.workers_mysql where department = 2
 --!

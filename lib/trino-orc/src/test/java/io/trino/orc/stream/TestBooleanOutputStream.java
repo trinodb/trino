@@ -69,7 +69,7 @@ public class TestBooleanOutputStream
             buffer.writeDataTo(slice);
             Slice singleWriteBuffer = slice.slice();
 
-            assertThat(batchWriteCheckpoints.size()).isEqualTo(singleWriteCheckpoints.size());
+            assertThat(batchWriteCheckpoints).hasSize(singleWriteCheckpoints.size());
             for (int i = 0; i < batchWriteCheckpoints.size(); i++) {
                 assertThat(checkpointsEqual(batchWriteCheckpoints.get(i), singleWriteCheckpoints.get(i))).isTrue();
             }

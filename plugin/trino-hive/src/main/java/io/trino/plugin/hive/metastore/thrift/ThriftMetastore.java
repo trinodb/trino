@@ -19,17 +19,15 @@ import io.trino.hive.thrift.metastore.FieldSchema;
 import io.trino.hive.thrift.metastore.Partition;
 import io.trino.hive.thrift.metastore.Table;
 import io.trino.hive.thrift.metastore.TableMeta;
-import io.trino.plugin.hive.HivePartition;
-import io.trino.plugin.hive.PartitionStatistics;
-import io.trino.plugin.hive.acid.AcidOperation;
-import io.trino.plugin.hive.acid.AcidTransaction;
-import io.trino.plugin.hive.metastore.AcidTransactionOwner;
-import io.trino.plugin.hive.metastore.HiveColumnStatistics;
-import io.trino.plugin.hive.metastore.HivePrincipal;
-import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
-import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
-import io.trino.plugin.hive.metastore.PartitionWithStatistics;
-import io.trino.plugin.hive.metastore.StatisticsUpdateMode;
+import io.trino.metastore.AcidTransactionOwner;
+import io.trino.metastore.HiveColumnStatistics;
+import io.trino.metastore.HivePartition;
+import io.trino.metastore.HivePrincipal;
+import io.trino.metastore.HivePrivilegeInfo;
+import io.trino.metastore.HivePrivilegeInfo.HivePrivilege;
+import io.trino.metastore.PartitionStatistics;
+import io.trino.metastore.PartitionWithStatistics;
+import io.trino.metastore.StatisticsUpdateMode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
@@ -59,13 +57,15 @@ public sealed interface ThriftMetastore
 
     void dropTable(String databaseName, String tableName, boolean deleteData);
 
-    void alterTable(String databaseName, String tableName, Table table);
+    void alterTable(String databaseName, String tableName, Table table, Map<String, String> environmentContext);
 
     void alterTransactionalTable(Table table, long transactionId, long writeId);
 
     List<String> getAllDatabases();
 
     List<TableMeta> getTables(String databaseName);
+
+    List<String> getTableNamesWithParameters(String databaseName, String parameterKey, Set<String> parameterValues);
 
     Optional<Database> getDatabase(String databaseName);
 
@@ -89,7 +89,7 @@ public sealed interface ThriftMetastore
 
     boolean useSparkTableStatistics();
 
-    void updateTableStatistics(String databaseName, String tableName, AcidTransaction transaction, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate);
+    void updateTableStatistics(String databaseName, String tableName, OptionalLong acidWriteId, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate);
 
     void updatePartitionStatistics(Table table, String partitionName, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate);
 
@@ -207,7 +207,7 @@ public sealed interface ThriftMetastore
         throw new UnsupportedOperationException();
     }
 
-    default void addDynamicPartitions(String dbName, String tableName, List<String> partitionNames, long transactionId, long writeId, AcidOperation operation)
+    default void addDynamicPartitions(String dbName, String tableName, List<String> partitionNames, long transactionId, long writeId, DataOperationType operation)
     {
         throw new UnsupportedOperationException();
     }

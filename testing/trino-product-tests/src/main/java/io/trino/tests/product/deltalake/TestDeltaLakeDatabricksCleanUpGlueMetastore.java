@@ -13,22 +13,16 @@
  */
 package io.trino.tests.product.deltalake;
 
-import com.amazonaws.services.glue.AWSGlueAsync;
-import com.amazonaws.services.glue.AWSGlueAsyncClientBuilder;
-import com.amazonaws.services.glue.model.Database;
-import com.amazonaws.services.glue.model.DeleteDatabaseRequest;
-import com.amazonaws.services.glue.model.EntityNotFoundException;
-import com.amazonaws.services.glue.model.GetDatabasesRequest;
-import com.amazonaws.services.glue.model.GetDatabasesResult;
 import io.airlift.log.Logger;
-import io.trino.plugin.hive.metastore.glue.AwsApiCallStats;
 import io.trino.tempto.ProductTest;
 import org.testng.annotations.Test;
+import software.amazon.awssdk.services.glue.GlueClient;
+import software.amazon.awssdk.services.glue.model.Database;
+import software.amazon.awssdk.services.glue.model.EntityNotFoundException;
+import software.amazon.awssdk.services.glue.model.GetDatabasesResponse;
 
 import java.util.List;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.getPaginatedResults;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static java.lang.System.currentTimeMillis;
@@ -43,27 +37,21 @@ public class TestDeltaLakeDatabricksCleanUpGlueMetastore
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
     public void testCleanupOrphanedDatabases()
     {
-        AWSGlueAsync glueClient = AWSGlueAsyncClientBuilder.defaultClient();
+        GlueClient glueClient = GlueClient.create();
         long creationTimeMillisThreshold = currentTimeMillis() - DAYS.toMillis(1);
-        List<String> orphanedDatabases = getPaginatedResults(
-                glueClient::getDatabases,
-                new GetDatabasesRequest(),
-                GetDatabasesRequest::setNextToken,
-                GetDatabasesResult::getNextToken,
-                new AwsApiCallStats())
-                .map(GetDatabasesResult::getDatabaseList)
+        List<String> orphanedDatabases = glueClient.getDatabasesPaginator(_ -> {}).stream()
+                .map(GetDatabasesResponse::databaseList)
                 .flatMap(List::stream)
                 .filter(database -> isOrphanedTestDatabase(database, creationTimeMillisThreshold))
-                .map(Database::getName)
-                .collect(toImmutableList());
+                .map(Database::name)
+                .toList();
 
         if (!orphanedDatabases.isEmpty()) {
             log.info("Found %s %s* databases that look orphaned, removing", orphanedDatabases.size(), TEST_DATABASE_NAME_PREFIX);
             orphanedDatabases.forEach(database -> {
                 try {
                     log.info("Deleting %s database", database);
-                    glueClient.deleteDatabase(new DeleteDatabaseRequest()
-                            .withName(database));
+                    glueClient.deleteDatabase(builder -> builder.name(database));
                 }
                 catch (EntityNotFoundException e) {
                     log.info("Database [%s] not found, could be removed by other cleanup process", database);
@@ -77,7 +65,7 @@ public class TestDeltaLakeDatabricksCleanUpGlueMetastore
 
     private static boolean isOrphanedTestDatabase(Database database, long creationTimeMillisThreshold)
     {
-        return database.getName().startsWith(TEST_DATABASE_NAME_PREFIX) &&
-                database.getCreateTime().getTime() <= creationTimeMillisThreshold;
+        return database.name().startsWith(TEST_DATABASE_NAME_PREFIX) &&
+                database.createTime().toEpochMilli() <= creationTimeMillisThreshold;
     }
 }

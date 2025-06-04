@@ -30,17 +30,7 @@ public class Revoke
     private final GrantObject grantObject;
     private final PrincipalSpecification grantee;
 
-    public Revoke(boolean grantOptionFor, Optional<List<String>> privileges, GrantObject grantObject, PrincipalSpecification grantee)
-    {
-        this(Optional.empty(), grantOptionFor, privileges, grantObject, grantee);
-    }
-
     public Revoke(NodeLocation location, boolean grantOptionFor, Optional<List<String>> privileges, GrantObject grantObject, PrincipalSpecification grantee)
-    {
-        this(Optional.of(location), grantOptionFor, privileges, grantObject, grantee);
-    }
-
-    private Revoke(Optional<NodeLocation> location, boolean grantOptionFor, Optional<List<String>> privileges, GrantObject grantObject, PrincipalSpecification grantee)
     {
         super(location);
         this.grantOptionFor = grantOptionFor;
@@ -98,7 +88,7 @@ public class Revoke
             return false;
         }
         Revoke o = (Revoke) obj;
-        return Objects.equals(grantOptionFor, o.grantOptionFor) &&
+        return grantOptionFor == o.grantOptionFor &&
                 Objects.equals(privileges, o.privileges) &&
                 Objects.equals(grantObject, o.grantObject) &&
                 Objects.equals(grantee, o.grantee);

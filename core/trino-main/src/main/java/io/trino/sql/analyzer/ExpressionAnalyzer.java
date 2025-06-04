@@ -25,6 +25,7 @@ import com.google.common.collect.Multimap;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.FunctionResolver;
+import io.trino.metadata.LanguageFunctionAnalysisException;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.ResolvedFunction;
@@ -248,6 +249,7 @@ import static io.trino.sql.analyzer.ExpressionTreeUtils.extractLocation;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractWindowExpressions;
 import static io.trino.sql.analyzer.PatternRecognitionAnalysis.NavigationAnchor.FIRST;
 import static io.trino.sql.analyzer.PatternRecognitionAnalysis.NavigationAnchor.LAST;
+import static io.trino.sql.analyzer.SemanticExceptions.invalidReferenceException;
 import static io.trino.sql.analyzer.SemanticExceptions.missingAttributeException;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -664,9 +666,9 @@ public class ExpressionAnalyzer
         @Override
         public Type process(Node node, @Nullable Context context)
         {
-            if (node instanceof Expression) {
+            if (node instanceof Expression expression) {
                 // don't double process a node
-                Type type = expressionTypes.get(NodeRef.of(((Expression) node)));
+                Type type = expressionTypes.get(NodeRef.of(expression));
                 if (type != null) {
                     return type;
                 }
@@ -851,7 +853,8 @@ public class ExpressionAnalyzer
             }
 
             if (rowFieldType == null) {
-                throw missingAttributeException(node, qualifiedName);
+                throw invalidReferenceException(node, Optional.ofNullable(qualifiedName)
+                        .orElseGet(() -> QualifiedName.of(fieldName)));
             }
 
             return setExpressionType(node, rowFieldType);
@@ -882,7 +885,7 @@ public class ExpressionAnalyzer
                 case EQUAL, NOT_EQUAL -> OperatorType.EQUAL;
                 case LESS_THAN, GREATER_THAN -> OperatorType.LESS_THAN;
                 case LESS_THAN_OR_EQUAL, GREATER_THAN_OR_EQUAL -> OperatorType.LESS_THAN_OR_EQUAL;
-                case IS_DISTINCT_FROM -> OperatorType.IS_DISTINCT_FROM;
+                case IS_DISTINCT_FROM -> OperatorType.IDENTICAL;
             };
 
             return getOperator(context, node, operatorType, node.getLeft(), node.getRight());
@@ -1256,6 +1259,9 @@ public class ExpressionAnalyzer
             try {
                 literalInterpreter.evaluate(node, type);
             }
+            catch (TrinoException e) {
+                throw new TrinoException(e::getErrorCode, extractLocation(node), e.getMessage(), e);
+            }
             catch (RuntimeException e) {
                 throw semanticException(INVALID_LITERAL, node, e, "'%s' is not a valid INTERVAL literal", node.getValue());
             }
@@ -1365,6 +1371,11 @@ public class ExpressionAnalyzer
                 if (e.getLocation().isPresent()) {
                     // If analysis of any of the argument types (which is done lazily to deal with lambda
                     // expressions) fails, we want to report the original reason for the failure
+                    throw e;
+                }
+
+                if (e instanceof LanguageFunctionAnalysisException) {
+                    // report the original reason for language function analysis errors
                     throw e;
                 }
 
@@ -1531,7 +1542,7 @@ public class ExpressionAnalyzer
 
                 // validate frame start and end types
                 FrameBound.Type startType = frame.getStart().getType();
-                FrameBound.Type endType = frame.getEnd().orElse(new FrameBound(CURRENT_ROW)).getType();
+                FrameBound.Type endType = frame.getEnd().map(FrameBound::getType).orElse(CURRENT_ROW);
                 if (startType == UNBOUNDED_FOLLOWING) {
                     throw semanticException(INVALID_WINDOW_FRAME, frame, "Window frame start cannot be UNBOUNDED FOLLOWING");
                 }
@@ -2113,11 +2124,11 @@ public class ExpressionAnalyzer
                 throw semanticException(TYPE_MISMATCH, node.getValue(), "Type of value must be a time or timestamp with or without time zone (actual %s)", valueType);
             }
             Type resultType = valueType;
-            if (valueType instanceof TimeType) {
-                resultType = createTimeWithTimeZoneType(((TimeType) valueType).getPrecision());
+            if (valueType instanceof TimeType timeType) {
+                resultType = createTimeWithTimeZoneType(timeType.getPrecision());
             }
-            else if (valueType instanceof TimestampType) {
-                resultType = createTimestampWithTimeZoneType(((TimestampType) valueType).getPrecision());
+            else if (valueType instanceof TimestampType timestampType) {
+                resultType = createTimestampWithTimeZoneType(timestampType.getPrecision());
             }
 
             return setExpressionType(node, resultType);
@@ -2403,9 +2414,9 @@ public class ExpressionAnalyzer
                         ImmutableList.<Expression>builder().add(value).addAll(inListExpression.getValues()).build());
                 setExpressionType(inListExpression, type);
             }
-            else if (valueList instanceof SubqueryExpression) {
+            else if (valueList instanceof SubqueryExpression subqueryExpression) {
                 subqueryInPredicates.add(NodeRef.of(node));
-                analyzePredicateWithSubquery(node, process(value, context), (SubqueryExpression) valueList, context);
+                analyzePredicateWithSubquery(node, process(value, context), subqueryExpression, context);
             }
             else {
                 throw new IllegalArgumentException("Unexpected value list type for InPredicate: " + node.getValueList().getClass().getName());
@@ -3893,7 +3904,7 @@ public class ExpressionAnalyzer
                 type.equals(INTEGER) ||
                 type.equals(SMALLINT) ||
                 type.equals(TINYINT) ||
-                type instanceof DecimalType && ((DecimalType) type).getScale() == 0;
+                type instanceof DecimalType decimalType && decimalType.getScale() == 0;
     }
 
     public static boolean isStringType(Type type)

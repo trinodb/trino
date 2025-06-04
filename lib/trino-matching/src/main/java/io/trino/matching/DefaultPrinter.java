@@ -16,8 +16,11 @@ package io.trino.matching;
 import io.trino.matching.pattern.CapturePattern;
 import io.trino.matching.pattern.EqualsPattern;
 import io.trino.matching.pattern.FilterPattern;
+import io.trino.matching.pattern.OrPattern;
 import io.trino.matching.pattern.TypeOfPattern;
 import io.trino.matching.pattern.WithPattern;
+
+import java.util.Iterator;
 
 import static java.lang.String.format;
 
@@ -68,6 +71,22 @@ public class DefaultPrinter
     {
         visitPrevious(pattern);
         appendLine("filter(%s)", pattern.predicate());
+    }
+
+    @Override
+    public void visitOr(OrPattern<?> pattern)
+    {
+        visitPrevious(pattern);
+        level += 1;
+        Iterator<?> iterator = pattern.getPatterns().iterator();
+        while (iterator.hasNext()) {
+            Pattern<?> subPattern = (Pattern<?>) iterator.next();
+            subPattern.accept(this);
+            if (iterator.hasNext()) {
+                appendLine("or");
+            }
+        }
+        level -= 1;
     }
 
     private void appendLine(String template, Object... arguments)

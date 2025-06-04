@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.mariadb;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.jdbc.BaseCaseInsensitiveMappingTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.SqlExecutor;
@@ -22,7 +20,6 @@ import io.trino.testing.sql.SqlExecutor;
 import java.nio.file.Path;
 
 import static io.trino.plugin.base.mapping.RuleBasedIdentifierMappingUtils.createRuleBasedIdentifierMappingFile;
-import static io.trino.plugin.mariadb.MariaDbQueryRunner.createMariaDbQueryRunner;
 import static java.util.Objects.requireNonNull;
 
 // With case-insensitive-name-matching enabled colliding schema/table names are considered as errors.
@@ -39,15 +36,11 @@ public class TestMariaDbCaseInsensitiveMapping
     {
         mappingFile = createRuleBasedIdentifierMappingFile();
         server = closeAfterClass(new TestingMariaDbServer());
-        return createMariaDbQueryRunner(
-                server,
-                ImmutableMap.of(),
-                ImmutableMap.<String, String>builder()
-                        .put("case-insensitive-name-matching", "true")
-                        .put("case-insensitive-name-matching.config-file", mappingFile.toFile().getAbsolutePath())
-                        .put("case-insensitive-name-matching.config-file.refresh-period", "1ms") // ~always refresh
-                        .buildOrThrow(),
-                ImmutableList.of());
+        return MariaDbQueryRunner.builder(server)
+                .addConnectorProperty("case-insensitive-name-matching", "true")
+                .addConnectorProperty("case-insensitive-name-matching.config-file", mappingFile.toFile().getAbsolutePath())
+                .addConnectorProperty("case-insensitive-name-matching.config-file.refresh-period", "1ms") // ~always refresh
+                .build();
     }
 
     @Override

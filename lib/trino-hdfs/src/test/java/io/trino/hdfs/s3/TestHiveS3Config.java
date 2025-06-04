@@ -71,7 +71,7 @@ public class TestHiveS3Config
                 .setSkipGlacierObjects(false)
                 .setRequesterPaysEnabled(false)
                 .setS3StreamingUploadEnabled(true)
-                .setS3StreamingPartSize(DataSize.of(16, Unit.MEGABYTE))
+                .setS3StreamingPartSize(DataSize.of(32, Unit.MEGABYTE))
                 .setS3ProxyHost(null)
                 .setS3ProxyPort(-1)
                 .setS3ProxyProtocol("HTTPS")

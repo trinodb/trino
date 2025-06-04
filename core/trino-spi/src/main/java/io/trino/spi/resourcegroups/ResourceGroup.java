@@ -94,4 +94,16 @@ public interface ResourceGroup
      * Whether to export statistics about this group and allow configuration via JMX.
      */
     void setJmxExport(boolean export);
+
+    boolean isDisabled();
+
+    /**
+     * Marks the group as disabled. Both queued and running queries already assigned to
+     * the group will not be affected by this change, i.e., they will run until completion,
+     * and the resources they consume will be considered when calculating overall resource
+     * utilization. Once its query queue is empty, the group is treated by the engine as
+     * non-existent. For example, if it was a leaf group, its parent now becomes a leaf,
+     * unless it has other active subgroups.
+     */
+    void setDisabled(boolean disabled);
 }

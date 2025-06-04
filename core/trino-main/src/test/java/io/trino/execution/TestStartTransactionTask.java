@@ -14,6 +14,8 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import io.airlift.configuration.secrets.SecretsResolver;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.Session;
@@ -27,6 +29,7 @@ import io.trino.security.AccessControlManager;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.transaction.IsolationLevel;
 import io.trino.sql.tree.Isolation;
+import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.StartTransaction;
 import io.trino.sql.tree.TransactionAccessMode;
 import io.trino.transaction.InMemoryTransactionManager;
@@ -49,7 +52,7 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.metadata.CatalogManager.NO_CATALOGS;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.metadata.TestMetadataManager.createTestMetadataManager;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.StandardErrorCode.INCOMPATIBLE_CLIENT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -87,17 +90,17 @@ public class TestStartTransactionTask
         Session session = sessionBuilder().build();
         TransactionManager transactionManager = createTestTransactionManager();
         QueryStateMachine stateMachine = createQueryStateMachine("START TRANSACTION", session, transactionManager);
-        assertThat(stateMachine.getSession().getTransactionId().isPresent()).isFalse();
+        assertThat(stateMachine.getSession().getTransactionId()).isEmpty();
 
         assertTrinoExceptionThrownBy(
                 () -> getFutureValue(new StartTransactionTask(transactionManager)
-                        .execute(new StartTransaction(ImmutableList.of()), stateMachine, emptyList(), WarningCollector.NOOP)))
+                        .execute(new StartTransaction(new NodeLocation(1, 1), ImmutableList.of()), stateMachine, emptyList(), WarningCollector.NOOP)))
                 .hasErrorCode(INCOMPATIBLE_CLIENT);
 
-        assertThat(transactionManager.getAllTransactionInfos().isEmpty()).isTrue();
+        assertThat(transactionManager.getAllTransactionInfos()).isEmpty();
 
         assertThat(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId()).isFalse();
-        assertThat(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent()).isFalse();
+        assertThat(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId()).isEmpty();
     }
 
     @Test
@@ -112,13 +115,13 @@ public class TestStartTransactionTask
 
         assertTrinoExceptionThrownBy(
                 () -> getFutureValue(new StartTransactionTask(transactionManager)
-                        .execute(new StartTransaction(ImmutableList.of()), stateMachine, emptyList(), WarningCollector.NOOP)))
+                        .execute(new StartTransaction(new NodeLocation(1, 1), ImmutableList.of()), stateMachine, emptyList(), WarningCollector.NOOP)))
                 .hasErrorCode(NOT_SUPPORTED);
 
-        assertThat(transactionManager.getAllTransactionInfos().isEmpty()).isTrue();
+        assertThat(transactionManager.getAllTransactionInfos()).isEmpty();
 
         assertThat(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId()).isFalse();
-        assertThat(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent()).isFalse();
+        assertThat(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId()).isEmpty();
     }
 
     @Test
@@ -129,12 +132,12 @@ public class TestStartTransactionTask
                 .build();
         TransactionManager transactionManager = createTestTransactionManager();
         QueryStateMachine stateMachine = createQueryStateMachine("START TRANSACTION", session, transactionManager);
-        assertThat(stateMachine.getSession().getTransactionId().isPresent()).isFalse();
+        assertThat(stateMachine.getSession().getTransactionId()).isEmpty();
 
-        getFutureValue(new StartTransactionTask(transactionManager).execute(new StartTransaction(ImmutableList.of()), stateMachine, emptyList(), WarningCollector.NOOP));
+        getFutureValue(new StartTransactionTask(transactionManager).execute(new StartTransaction(new NodeLocation(1, 1), ImmutableList.of()), stateMachine, emptyList(), WarningCollector.NOOP));
         assertThat(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId()).isFalse();
-        assertThat(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent()).isTrue();
-        assertThat(transactionManager.getAllTransactionInfos().size()).isEqualTo(1);
+        assertThat(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId()).isPresent();
+        assertThat(transactionManager.getAllTransactionInfos()).hasSize(1);
 
         TransactionInfo transactionInfo = transactionManager.getTransactionInfo(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().get());
         assertThat(transactionInfo.isAutoCommitContext()).isFalse();
@@ -148,16 +151,16 @@ public class TestStartTransactionTask
                 .build();
         TransactionManager transactionManager = createTestTransactionManager();
         QueryStateMachine stateMachine = createQueryStateMachine("START TRANSACTION", session, transactionManager);
-        assertThat(stateMachine.getSession().getTransactionId().isPresent()).isFalse();
+        assertThat(stateMachine.getSession().getTransactionId()).isEmpty();
 
         getFutureValue(new StartTransactionTask(transactionManager).execute(
-                new StartTransaction(ImmutableList.of(new Isolation(Isolation.Level.SERIALIZABLE), new TransactionAccessMode(true))),
+                new StartTransaction(new NodeLocation(1, 1), ImmutableList.of(new Isolation(new NodeLocation(1, 1), Isolation.Level.SERIALIZABLE), new TransactionAccessMode(new NodeLocation(1, 1), true))),
                 stateMachine,
                 emptyList(),
                 WarningCollector.NOOP));
         assertThat(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId()).isFalse();
-        assertThat(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent()).isTrue();
-        assertThat(transactionManager.getAllTransactionInfos().size()).isEqualTo(1);
+        assertThat(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId()).isPresent();
+        assertThat(transactionManager.getAllTransactionInfos()).hasSize(1);
 
         TransactionInfo transactionInfo = transactionManager.getTransactionInfo(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().get());
         assertThat(transactionInfo.getIsolationLevel()).isEqualTo(IsolationLevel.SERIALIZABLE);
@@ -173,20 +176,20 @@ public class TestStartTransactionTask
                 .build();
         TransactionManager transactionManager = createTestTransactionManager();
         QueryStateMachine stateMachine = createQueryStateMachine("START TRANSACTION", session, transactionManager);
-        assertThat(stateMachine.getSession().getTransactionId().isPresent()).isFalse();
+        assertThat(stateMachine.getSession().getTransactionId()).isEmpty();
 
         assertTrinoExceptionThrownBy(() ->
                 getFutureValue(new StartTransactionTask(transactionManager).execute(
-                        new StartTransaction(ImmutableList.of(new Isolation(Isolation.Level.READ_COMMITTED), new Isolation(Isolation.Level.READ_COMMITTED))),
+                        new StartTransaction(new NodeLocation(1, 1), ImmutableList.of(new Isolation(new NodeLocation(1, 1), Isolation.Level.READ_COMMITTED), new Isolation(new NodeLocation(1, 1), Isolation.Level.READ_COMMITTED))),
                         stateMachine,
                         emptyList(),
                         WarningCollector.NOOP)))
                 .hasErrorCode(SYNTAX_ERROR);
 
-        assertThat(transactionManager.getAllTransactionInfos().isEmpty()).isTrue();
+        assertThat(transactionManager.getAllTransactionInfos()).isEmpty();
 
         assertThat(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId()).isFalse();
-        assertThat(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent()).isFalse();
+        assertThat(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId()).isEmpty();
     }
 
     @Test
@@ -197,20 +200,20 @@ public class TestStartTransactionTask
                 .build();
         TransactionManager transactionManager = createTestTransactionManager();
         QueryStateMachine stateMachine = createQueryStateMachine("START TRANSACTION", session, transactionManager);
-        assertThat(stateMachine.getSession().getTransactionId().isPresent()).isFalse();
+        assertThat(stateMachine.getSession().getTransactionId()).isEmpty();
 
         assertTrinoExceptionThrownBy(() ->
                 getFutureValue(new StartTransactionTask(transactionManager).execute(
-                        new StartTransaction(ImmutableList.of(new TransactionAccessMode(true), new TransactionAccessMode(true))),
+                        new StartTransaction(new NodeLocation(1, 1), ImmutableList.of(new TransactionAccessMode(new NodeLocation(1, 1), true), new TransactionAccessMode(new NodeLocation(1, 1), true))),
                         stateMachine,
                         emptyList(),
                         WarningCollector.NOOP)))
                 .hasErrorCode(SYNTAX_ERROR);
 
-        assertThat(transactionManager.getAllTransactionInfos().isEmpty()).isTrue();
+        assertThat(transactionManager.getAllTransactionInfos()).isEmpty();
 
         assertThat(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId()).isFalse();
-        assertThat(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent()).isFalse();
+        assertThat(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId()).isEmpty();
     }
 
     @Test
@@ -228,15 +231,15 @@ public class TestStartTransactionTask
                 NO_CATALOGS,
                 executor);
         QueryStateMachine stateMachine = createQueryStateMachine("START TRANSACTION", session, transactionManager);
-        assertThat(stateMachine.getSession().getTransactionId().isPresent()).isFalse();
+        assertThat(stateMachine.getSession().getTransactionId()).isEmpty();
 
         getFutureValue(new StartTransactionTask(transactionManager).execute(
-                new StartTransaction(ImmutableList.of()),
+                new StartTransaction(new NodeLocation(1, 1), ImmutableList.of()),
                 stateMachine,
                 emptyList(),
                 WarningCollector.NOOP));
         assertThat(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId()).isFalse();
-        assertThat(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent()).isTrue();
+        assertThat(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId()).isPresent();
 
         long start = System.nanoTime();
         while (!transactionManager.getAllTransactionInfos().isEmpty()) {
@@ -258,13 +261,14 @@ public class TestStartTransactionTask
                 new ResourceGroupId("test"),
                 true,
                 transactionManager,
-                new AccessControlManager(NodeVersion.UNKNOWN, transactionManager, emptyEventListenerManager(), new AccessControlConfig(), OpenTelemetry.noop(), DefaultSystemAccessControl.NAME),
+                new AccessControlManager(NodeVersion.UNKNOWN, transactionManager, emptyEventListenerManager(), new AccessControlConfig(), OpenTelemetry.noop(), new SecretsResolver(ImmutableMap.of()), DefaultSystemAccessControl.NAME),
                 executor,
                 metadata,
                 WarningCollector.NOOP,
                 createPlanOptimizersStatsCollector(),
                 Optional.empty(),
                 true,
+                Optional.empty(),
                 new NodeVersion("test"));
     }
 

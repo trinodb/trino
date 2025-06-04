@@ -63,7 +63,7 @@ public final class Range
         if (lowValue.isPresent() && highValue.isPresent()) {
             int compare = compareValues(comparisonOperator, lowValue.get(), highValue.get());
             if (compare > 0) {
-                throw new IllegalArgumentException("low must be less than or equal to high");
+                throw new IllegalArgumentException("low must be less than or equal to high. Actual: low=" + lowValue.get() + ", high=" + highValue.get());
             }
             if (compare == 0) {
                 if (!highInclusive || !lowInclusive) {

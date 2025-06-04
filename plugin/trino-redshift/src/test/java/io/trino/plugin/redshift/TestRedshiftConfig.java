@@ -28,18 +28,24 @@ public class TestRedshiftConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(RedshiftConfig.class)
-                .setLegacyTypeMapping(false));
+                .setFetchSize(null)
+                .setUnloadLocation(null)
+                .setUnloadIamRole(null));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("redshift.use-legacy-type-mapping", "true")
+                .put("redshift.fetch-size", "2000")
+                .put("redshift.unload-location", "s3://bucket")
+                .put("redshift.unload-iam-role", "arn:aws:iam::123456789000:role/redshift_iam_role")
                 .buildOrThrow();
 
         RedshiftConfig expected = new RedshiftConfig()
-                .setLegacyTypeMapping(true);
+                .setFetchSize(2000)
+                .setUnloadLocation("s3://bucket")
+                .setUnloadIamRole("arn:aws:iam::123456789000:role/redshift_iam_role");
 
         assertFullMapping(properties, expected);
     }

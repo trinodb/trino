@@ -121,7 +121,7 @@ public class Query
                 throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Only lowercase collection name is supported");
             }
             SchemaTableName schemaTableName = new SchemaTableName(database, collection);
-            MongoTableHandle tableHandle = metadata.getTableHandle(session, schemaTableName);
+            MongoTableHandle tableHandle = metadata.getTableHandle(session, schemaTableName, Optional.empty(), Optional.empty());
             if (tableHandle == null) {
                 throw new TableNotFoundException(schemaTableName);
             }

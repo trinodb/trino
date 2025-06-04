@@ -46,8 +46,15 @@ public final class OrcDataSourceUtils
         DiskRange last = ranges.get(0);
         for (int i = 1; i < ranges.size(); i++) {
             DiskRange current = ranges.get(i);
-            DiskRange merged = last.span(current);
-            if (merged.getLength() <= maxReadSizeBytes && last.getEnd() + maxMergeDistanceBytes >= current.getOffset()) {
+            DiskRange merged = null;
+            boolean blockTooLong = false;
+            try {
+                merged = last.span(current);
+            }
+            catch (ArithmeticException e) {
+                blockTooLong = true;
+            }
+            if (!blockTooLong && merged.getLength() <= maxReadSizeBytes && last.getEnd() + maxMergeDistanceBytes >= current.getOffset()) {
                 last = merged;
             }
             else {

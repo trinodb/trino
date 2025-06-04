@@ -12,6 +12,12 @@ implemented on the application level to address specific needs of Trino.
 
 Properties related to spilling are described in {doc}`properties-spilling`.
 
+:::{warning} 
+The spill to disk feature and implementation are a legacy functionality of
+Trino. Consider using [](/admin/fault-tolerant-execution) with the `task` retry
+policy and a configured [](fte-exchange-manager).
+:::
+
 ## Memory management and spill
 
 By default, Trino kills queries, if the memory requested by the query execution
@@ -28,7 +34,7 @@ query runner spills intermediate data from memory to disk and continues to
 process it later.
 
 In practice, when the cluster is idle, and all memory is available, a memory
-intensive query may use all of the memory in the cluster. On the other hand,
+intensive query may use all the memory in the cluster. On the other hand,
 when the cluster does not have much free memory, the same query may be forced to
 use disk as storage for intermediate data. A query, that is forced to spill to
 disk, may have a longer execution time by orders of magnitude than a query that

@@ -51,16 +51,14 @@ import io.trino.execution.ResetSessionTask;
 import io.trino.execution.RevokeRolesTask;
 import io.trino.execution.RevokeTask;
 import io.trino.execution.RollbackTask;
+import io.trino.execution.SetAuthorizationTask;
 import io.trino.execution.SetColumnTypeTask;
 import io.trino.execution.SetPathTask;
 import io.trino.execution.SetPropertiesTask;
 import io.trino.execution.SetRoleTask;
-import io.trino.execution.SetSchemaAuthorizationTask;
 import io.trino.execution.SetSessionAuthorizationTask;
 import io.trino.execution.SetSessionTask;
-import io.trino.execution.SetTableAuthorizationTask;
 import io.trino.execution.SetTimeZoneTask;
-import io.trino.execution.SetViewAuthorizationTask;
 import io.trino.execution.StartTransactionTask;
 import io.trino.execution.TruncateTableTask;
 import io.trino.execution.UseTask;
@@ -111,16 +109,14 @@ import io.trino.sql.tree.ResetSessionAuthorization;
 import io.trino.sql.tree.Revoke;
 import io.trino.sql.tree.RevokeRoles;
 import io.trino.sql.tree.Rollback;
+import io.trino.sql.tree.SetAuthorizationStatement;
 import io.trino.sql.tree.SetColumnType;
 import io.trino.sql.tree.SetPath;
 import io.trino.sql.tree.SetProperties;
 import io.trino.sql.tree.SetRole;
-import io.trino.sql.tree.SetSchemaAuthorization;
 import io.trino.sql.tree.SetSession;
 import io.trino.sql.tree.SetSessionAuthorization;
-import io.trino.sql.tree.SetTableAuthorization;
 import io.trino.sql.tree.SetTimeZone;
-import io.trino.sql.tree.SetViewAuthorization;
 import io.trino.sql.tree.ShowCatalogs;
 import io.trino.sql.tree.ShowColumns;
 import io.trino.sql.tree.ShowCreate;
@@ -236,13 +232,11 @@ public final class StatementUtils
             .add(dataDefinitionStatement(DropNotNullConstraint.class, DropNotNullConstraintTask.class))
             .add(dataDefinitionStatement(SetPath.class, SetPathTask.class))
             .add(dataDefinitionStatement(SetRole.class, SetRoleTask.class))
-            .add(dataDefinitionStatement(SetSchemaAuthorization.class, SetSchemaAuthorizationTask.class))
+            .add(dataDefinitionStatement(SetAuthorizationStatement.class, SetAuthorizationTask.class))
             .add(dataDefinitionStatement(SetSession.class, SetSessionTask.class))
             .add(dataDefinitionStatement(SetSessionAuthorization.class, SetSessionAuthorizationTask.class))
             .add(dataDefinitionStatement(SetProperties.class, SetPropertiesTask.class))
-            .add(dataDefinitionStatement(SetTableAuthorization.class, SetTableAuthorizationTask.class))
             .add(dataDefinitionStatement(SetTimeZone.class, SetTimeZoneTask.class))
-            .add(dataDefinitionStatement(SetViewAuthorization.class, SetViewAuthorizationTask.class))
             .add(dataDefinitionStatement(StartTransaction.class, StartTransactionTask.class))
             .add(dataDefinitionStatement(Use.class, UseTask.class))
             .build().stream()
@@ -250,8 +244,8 @@ public final class StatementUtils
 
     public static Optional<QueryType> getQueryType(Statement statement)
     {
-        if (statement instanceof ExplainAnalyze) {
-            return getQueryType(((ExplainAnalyze) statement).getStatement());
+        if (statement instanceof ExplainAnalyze explainAnalyze) {
+            return getQueryType(explainAnalyze.getStatement());
         }
         return Optional.ofNullable(STATEMENT_QUERY_TYPES.get(statement.getClass()))
                 .map(StatementTypeInfo::getQueryType);

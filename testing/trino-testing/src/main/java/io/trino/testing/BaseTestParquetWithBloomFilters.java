@@ -13,6 +13,7 @@
  */
 package io.trino.testing;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.spi.connector.CatalogSchemaTableName;
@@ -49,6 +50,12 @@ public abstract class BaseTestParquetWithBloomFilters
     {
         CatalogSchemaTableName tableName = createParquetTableWithBloomFilter(COLUMN_NAME, TEST_VALUES);
         testBloomFilterRowGroupPruning(tableName, COLUMN_NAME);
+    }
+
+    @Test
+    void testBloomFilterColumnWithDictionaryPage()
+    {
+        createParquetTableWithBloomFilter(COLUMN_NAME, ImmutableList.of(1, 1));
     }
 
     protected void testBloomFilterRowGroupPruning(CatalogSchemaTableName tableName, String columnName)

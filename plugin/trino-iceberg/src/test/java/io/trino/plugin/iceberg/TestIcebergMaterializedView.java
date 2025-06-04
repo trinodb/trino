@@ -14,18 +14,16 @@
 package io.trino.plugin.iceberg;
 
 import io.trino.Session;
-import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
-import io.trino.plugin.hive.metastore.Table;
+import io.trino.metastore.HiveMetastore;
+import io.trino.metastore.Table;
 import io.trino.sql.tree.ExplainType;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
-import java.util.Optional;
 
 import static io.trino.plugin.base.util.Closables.closeAllSuppress;
-import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
 import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -42,14 +40,13 @@ public class TestIcebergMaterializedView
         QueryRunner queryRunner = IcebergQueryRunner.builder()
                 .build();
         try {
-            metastore = ((IcebergConnector) queryRunner.getCoordinator().getConnector(ICEBERG_CATALOG)).getInjector()
-                    .getInstance(HiveMetastoreFactory.class)
-                    .createMetastore(Optional.empty());
+            metastore = getHiveMetastore(queryRunner);
 
             queryRunner.createCatalog("iceberg2", "iceberg", Map.of(
                     "iceberg.catalog.type", "TESTING_FILE_METASTORE",
                     "hive.metastore.catalog.dir", queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg2-catalog").toString(),
-                    "iceberg.hive-catalog-name", "hive"));
+                    "iceberg.hive-catalog-name", "hive",
+                    "fs.hadoop.enabled", "true"));
 
             secondIceberg = Session.builder(queryRunner.getDefaultSession())
                     .setCatalog("iceberg2")
@@ -59,7 +56,8 @@ public class TestIcebergMaterializedView
                     "iceberg.catalog.type", "TESTING_FILE_METASTORE",
                     "hive.metastore.catalog.dir", queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data").toString(),
                     "iceberg.hive-catalog-name", "hive",
-                    "iceberg.materialized-views.hide-storage-table", "false"));
+                    "iceberg.materialized-views.hide-storage-table", "false",
+                    "fs.hadoop.enabled", "true"));
 
             queryRunner.execute(secondIceberg, "CREATE SCHEMA " + secondIceberg.getSchema().orElseThrow());
 
@@ -96,9 +94,10 @@ public class TestIcebergMaterializedView
         assertUpdate(secondIceberg, createTable, 1); // this one will be used by MV
         assertUpdate(defaultIceberg, createTable, 1); // this one exists so that it can be mistakenly treated as the base table
 
-        assertUpdate(defaultIceberg, """
-                            CREATE MATERIALIZED VIEW iceberg.tpch.mv_on_iceberg2
-                            AS SELECT sum(value) AS s FROM iceberg2.tpch.common_base_table
+        assertUpdate(defaultIceberg,
+                """
+                CREATE MATERIALIZED VIEW iceberg.tpch.mv_on_iceberg2
+                AS SELECT sum(value) AS s FROM iceberg2.tpch.common_base_table
                 """);
 
         // The MV is initially stale

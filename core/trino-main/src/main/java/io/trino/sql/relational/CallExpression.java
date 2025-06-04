@@ -14,77 +14,36 @@
 package io.trino.sql.relational;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.Type;
 
 import java.util.List;
-import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-public final class CallExpression
-        extends RowExpression
+public record CallExpression(ResolvedFunction resolvedFunction, List<RowExpression> arguments)
+        implements RowExpression
 {
-    private final ResolvedFunction resolvedFunction;
-    private final List<RowExpression> arguments;
-
     @JsonCreator
-    public CallExpression(
-            @JsonProperty ResolvedFunction resolvedFunction,
-            @JsonProperty List<RowExpression> arguments)
+    public CallExpression
     {
         requireNonNull(resolvedFunction, "resolvedFunction is null");
         requireNonNull(arguments, "arguments is null");
-
-        this.resolvedFunction = resolvedFunction;
-        this.arguments = ImmutableList.copyOf(arguments);
-    }
-
-    @JsonProperty
-    public ResolvedFunction getResolvedFunction()
-    {
-        return resolvedFunction;
+        arguments = ImmutableList.copyOf(arguments);
     }
 
     @Override
-    public Type getType()
+    public Type type()
     {
         return resolvedFunction.signature().getReturnType();
-    }
-
-    @JsonProperty
-    public List<RowExpression> getArguments()
-    {
-        return arguments;
     }
 
     @Override
     public String toString()
     {
         return resolvedFunction.signature().getName() + "(" + Joiner.on(", ").join(arguments) + ")";
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        CallExpression that = (CallExpression) o;
-        return Objects.equals(resolvedFunction, that.resolvedFunction) &&
-                Objects.equals(arguments, that.arguments);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(resolvedFunction, arguments);
     }
 
     @Override

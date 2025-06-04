@@ -14,6 +14,7 @@
 package io.trino.plugin.kafka.schema.confluent;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 import org.junit.jupiter.api.Test;
 
@@ -32,7 +33,7 @@ public class TestConfluentSchemaRegistryConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(ConfluentSchemaRegistryConfig.class)
-                .setConfluentSchemaRegistryUrls(null)
+                .setConfluentSchemaRegistryUrls(ImmutableSet.of())
                 .setConfluentSchemaRegistryClientCacheSize(1000)
                 .setEmptyFieldStrategy(IGNORE)
                 .setConfluentSubjectsCacheRefreshInterval(new Duration(1, SECONDS)));
@@ -49,7 +50,7 @@ public class TestConfluentSchemaRegistryConfig
                 .buildOrThrow();
 
         ConfluentSchemaRegistryConfig expected = new ConfluentSchemaRegistryConfig()
-                .setConfluentSchemaRegistryUrls("http://schema-registry-a:8081, http://schema-registry-b:8081")
+                .setConfluentSchemaRegistryUrls(ImmutableSet.of("http://schema-registry-a:8081", "http://schema-registry-b:8081"))
                 .setConfluentSchemaRegistryClientCacheSize(1500)
                 .setEmptyFieldStrategy(MARK)
                 .setConfluentSubjectsCacheRefreshInterval(new Duration(2, SECONDS));

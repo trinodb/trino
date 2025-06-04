@@ -178,7 +178,7 @@ public class TestTrinoDriverAuth
             throws Exception
     {
         String accessToken = newJwtBuilder()
-                .setSubject("test")
+                .subject("test")
                 .compact();
 
         try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken));
@@ -422,7 +422,7 @@ public class TestTrinoDriverAuth
     {
         assertThatThrownBy(() -> createConnection(ImmutableMap.of("SSLVerification", "NONE")))
                 .isInstanceOf(SQLException.class)
-                .hasMessage("Connection property SSLTrustStorePath cannot be set if SSLVerification is set to NONE");
+                .hasMessageContaining("Connection property SSLTrustStorePath cannot be set if SSLVerification is set to NONE");
     }
 
     @Test

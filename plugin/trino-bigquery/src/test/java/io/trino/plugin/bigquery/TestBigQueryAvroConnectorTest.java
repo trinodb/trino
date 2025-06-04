@@ -15,6 +15,7 @@ package io.trino.plugin.bigquery;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.Session;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 
@@ -35,6 +36,7 @@ public class TestBigQueryAvroConnectorTest
             .add("a:colon")
             .add("an'apostrophe")
             .add("0startwithdigit")
+            .add("カラム")
             .build();
 
     @Override
@@ -72,16 +74,21 @@ public class TestBigQueryAvroConnectorTest
                 assertUpdate("INSERT INTO " + tableName + " VALUES ('test value')", 1);
                 // The storage API can't read the table, but query based API can read it
                 assertThat(query("SELECT * FROM " + tableName))
-                        // TODO should be TrinoException, provide better error message
-                        .nonTrinoExceptionFailure().cause()
-                        .hasMessageMatching(".*(Illegal initial character|Invalid name).*");
+                        .failure().hasMessageMatching("(Cannot create read|Invalid Avro schema).*(Illegal initial character|Invalid name).*");
                 assertThat(bigQuerySqlExecutor.executeQuery("SELECT * FROM " + tableName).getValues())
-                        .extracting(field -> field.get(0).getStringValue())
+                        .extracting(field -> field.getFirst().getStringValue())
                         .containsExactly("test value");
             }
             finally {
                 assertUpdate("DROP TABLE " + tableName);
             }
         }
+    }
+
+    @Override
+    protected Session withoutSmallFileThreshold(Session session)
+    {
+        // Bigquery does not have small file threshold properties
+        return session;
     }
 }

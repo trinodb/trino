@@ -69,7 +69,7 @@ public class SliceDictionaryColumnWriter
         implements ColumnWriter, DictionaryColumn
 {
     private static final int INSTANCE_SIZE = instanceSize(SliceDictionaryColumnWriter.class);
-    private static final int DIRECT_CONVERSION_CHUNK_MAX_LOGICAL_BYTES = toIntExact(DataSize.of(32, MEGABYTE).toBytes());
+    private static final int DIRECT_CONVERSION_CHUNK_MAX_BYTES = toIntExact(DataSize.of(32, MEGABYTE).toBytes());
 
     private final OrcColumnId columnId;
     private final Type type;
@@ -224,7 +224,7 @@ public class SliceDictionaryColumnWriter
                 Block chunk = block.getRegion(0, chunkPositionCount);
 
                 // avoid chunk with huge logical size
-                while (chunkPositionCount > 1 && chunk.getLogicalSizeInBytes() > DIRECT_CONVERSION_CHUNK_MAX_LOGICAL_BYTES) {
+                while (chunkPositionCount > 1 && chunk.getSizeInBytes() > DIRECT_CONVERSION_CHUNK_MAX_BYTES) {
                     chunkPositionCount /= 2;
                     chunk = chunk.getRegion(0, chunkPositionCount);
                 }

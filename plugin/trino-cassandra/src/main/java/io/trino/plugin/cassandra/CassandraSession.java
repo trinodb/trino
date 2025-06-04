@@ -17,7 +17,6 @@ import com.datastax.oss.driver.api.core.AllNodesFailedException;
 import com.datastax.oss.driver.api.core.CqlIdentifier;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.ProtocolVersion;
-import com.datastax.oss.driver.api.core.Version;
 import com.datastax.oss.driver.api.core.connection.ReconnectionPolicy;
 import com.datastax.oss.driver.api.core.cql.PreparedStatement;
 import com.datastax.oss.driver.api.core.cql.ResultSet;
@@ -46,6 +45,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -76,12 +76,10 @@ import java.util.stream.Stream;
 import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.literal;
 import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.selectFrom;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Suppliers.memoize;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.transform;
-import static io.trino.plugin.cassandra.CassandraErrorCode.CASSANDRA_VERSION_ERROR;
 import static io.trino.plugin.cassandra.CassandraMetadata.PRESTO_COMMENT_METADATA;
 import static io.trino.plugin.cassandra.util.CassandraCqlUtils.selectDistinctFrom;
 import static io.trino.plugin.cassandra.util.CassandraCqlUtils.validSchemaName;
@@ -101,12 +99,15 @@ public class CassandraSession
 
     private static final String SYSTEM = "system";
     private static final String SIZE_ESTIMATES = "size_estimates";
-    private static final Version PARTITION_FETCH_WITH_IN_PREDICATE_VERSION = Version.parse("2.2");
 
     private final CassandraTypeManager cassandraTypeManager;
     private final JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec;
-    private final Supplier<CqlSession> session;
     private final Duration noHostAvailableRetryTimeout;
+
+    @GuardedBy("this")
+    private Supplier<CqlSession> sessionSupplier;
+    @GuardedBy("this")
+    private CqlSession session;
 
     public CassandraSession(
             CassandraTypeManager cassandraTypeManager,
@@ -117,19 +118,16 @@ public class CassandraSession
         this.cassandraTypeManager = requireNonNull(cassandraTypeManager, "cassandraTypeManager is null");
         this.extraColumnMetadataCodec = requireNonNull(extraColumnMetadataCodec, "extraColumnMetadataCodec is null");
         this.noHostAvailableRetryTimeout = requireNonNull(noHostAvailableRetryTimeout, "noHostAvailableRetryTimeout is null");
-        this.session = memoize(sessionSupplier::get);
+        this.sessionSupplier = requireNonNull(sessionSupplier, "sessionSupplier is null");
     }
 
-    public Version getCassandraVersion()
+    private synchronized CqlSession session()
     {
-        ResultSet result = executeWithSession(session -> session.execute("select release_version from system.local"));
-        Row versionRow = result.one();
-        if (versionRow == null) {
-            throw new TrinoException(CASSANDRA_VERSION_ERROR, "The cluster version is not available. " +
-                    "Please make sure that the Cassandra cluster is up and running, " +
-                    "and that the contact points are specified correctly.");
+        if (session == null) {
+            checkState(sessionSupplier != null, "already closed");
+            session = sessionSupplier.get();
         }
-        return Version.parse(versionRow.getString("release_version"));
+        return session;
     }
 
     public ProtocolVersion getProtocolVersion()
@@ -201,12 +199,26 @@ public class CassandraSession
         return builder.build();
     }
 
+    public List<CassandraTable> listTables(String caseInsensitiveSchemaName)
+            throws SchemaNotFoundException
+    {
+        KeyspaceMetadata keyspace = getKeyspaceByCaseInsensitiveName(caseInsensitiveSchemaName);
+        ImmutableList.Builder<CassandraTable> tables = ImmutableList.builder();
+        keyspace.getTables().values().forEach(table -> tables.add(getTable(table)));
+        keyspace.getViews().values().forEach(view -> tables.add(getTable(view)));
+        return tables.build();
+    }
+
     public CassandraTable getTable(SchemaTableName schemaTableName)
             throws TableNotFoundException
     {
         KeyspaceMetadata keyspace = getKeyspaceByCaseInsensitiveName(schemaTableName.getSchemaName());
-        RelationMetadata tableMeta = getTableMetadata(keyspace, schemaTableName.getTableName());
+        return getTable(getTableMetadata(keyspace, schemaTableName.getTableName()));
+    }
 
+    private CassandraTable getTable(RelationMetadata tableMeta)
+            throws TableNotFoundException
+    {
         List<String> columnNames = new ArrayList<>();
         Collection<ColumnMetadata> columns = tableMeta.getColumns().values();
         checkColumnNames(columns);
@@ -217,8 +229,8 @@ public class CassandraSession
         // check if there is a comment to establish column ordering
         Object comment = tableMeta.getOptions().get(CqlIdentifier.fromInternal("comment"));
         Set<String> hiddenColumns = ImmutableSet.of();
-        if (comment instanceof String && ((String) comment).startsWith(PRESTO_COMMENT_METADATA)) {
-            String columnOrderingString = ((String) comment).substring(PRESTO_COMMENT_METADATA.length());
+        if (comment instanceof String string && string.startsWith(PRESTO_COMMENT_METADATA)) {
+            String columnOrderingString = string.substring(PRESTO_COMMENT_METADATA.length());
 
             // column ordering
             List<ExtraColumnMetadata> extras = extraColumnMetadataCodec.fromJson(columnOrderingString);
@@ -304,8 +316,8 @@ public class CassandraSession
     private static RelationMetadata getTableMetadata(KeyspaceMetadata keyspace, String caseInsensitiveTableName)
     {
         List<RelationMetadata> tables = Stream.concat(
-                keyspace.getTables().values().stream(),
-                keyspace.getViews().values().stream())
+                        keyspace.getTables().values().stream(),
+                        keyspace.getViews().values().stream())
                 .filter(table -> table.getName().asInternal().equalsIgnoreCase(caseInsensitiveTableName))
                 .collect(toImmutableList());
         if (tables.isEmpty()) {
@@ -390,15 +402,7 @@ public class CassandraSession
             return ImmutableList.of(CassandraPartition.UNPARTITIONED);
         }
 
-        Iterable<Row> rows;
-        if (getCassandraVersion().compareTo(PARTITION_FETCH_WITH_IN_PREDICATE_VERSION) > 0) {
-            log.debug("Using IN predicate to fetch partitions.");
-            rows = queryPartitionKeysWithInClauses(table, filterPrefixes);
-        }
-        else {
-            log.debug("Using combination of partition values to fetch partitions.");
-            rows = queryPartitionKeysLegacyWithMultipleQueries(table, filterPrefixes);
-        }
+        Iterable<Row> rows = queryPartitionKeysLegacyWithMultipleQueries(table, filterPrefixes);
 
         ByteBuffer buffer = ByteBuffer.allocate(1000);
         HashMap<ColumnHandle, NullableValue> map = new HashMap<>();
@@ -509,7 +513,7 @@ public class CassandraSession
     {
         List<Term> values = filterPrefixes
                 .stream()
-                .map(value -> cassandraTypeManager.getJavaValue(column.cassandraType().getKind(), value))
+                .map(value -> cassandraTypeManager.getJavaValue(column.cassandraType().kind(), value))
                 .map(QueryBuilder::literal)
                 .collect(toList());
 
@@ -522,7 +526,7 @@ public class CassandraSession
                 .range(0, Math.min(partitionKeyColumns.size(), filterPrefix.size()))
                 .mapToObj(i -> {
                     CassandraColumnHandle column = partitionKeyColumns.get(i);
-                    Object value = cassandraTypeManager.getJavaValue(column.cassandraType().getKind(), filterPrefix.get(i));
+                    Object value = cassandraTypeManager.getJavaValue(column.cassandraType().kind(), filterPrefix.get(i));
                     return Relation.column(CassandraCqlUtils.validColumnName(column.name())).isEqualTo(literal(value));
                 })
                 .collect(toImmutableList());
@@ -530,7 +534,6 @@ public class CassandraSession
 
     public List<SizeEstimate> getSizeEstimates(String keyspaceName, String tableName)
     {
-        checkSizeEstimatesTableExist();
         SimpleStatement statement = selectFrom(SYSTEM, SIZE_ESTIMATES)
                 .column("partitions_count")
                 .where(Relation.column("keyspace_name").isEqualTo(literal(keyspaceName)),
@@ -547,24 +550,14 @@ public class CassandraSession
         return estimates.build();
     }
 
-    private void checkSizeEstimatesTableExist()
-    {
-        Optional<KeyspaceMetadata> keyspaceMetadata = executeWithSession(session -> session.getMetadata().getKeyspace(SYSTEM));
-        checkState(keyspaceMetadata.isPresent(), "system keyspace metadata must not be null");
-        Optional<TableMetadata> sizeEstimatesTableMetadata = keyspaceMetadata.flatMap(metadata -> metadata.getTable(SIZE_ESTIMATES));
-        if (sizeEstimatesTableMetadata.isEmpty()) {
-            throw new TrinoException(NOT_SUPPORTED, "Cassandra versions prior to 2.1.5 are not supported");
-        }
-    }
-
     private <T> T executeWithSession(SessionCallable<T> sessionCallable)
     {
-        ReconnectionPolicy reconnectionPolicy = session.get().getContext().getReconnectionPolicy();
+        ReconnectionPolicy reconnectionPolicy = session().getContext().getReconnectionPolicy();
         ReconnectionPolicy.ReconnectionSchedule schedule = reconnectionPolicy.newControlConnectionSchedule(false);
         long deadline = System.currentTimeMillis() + noHostAvailableRetryTimeout.toMillis();
         while (true) {
             try {
-                return sessionCallable.executeWithSession(session.get());
+                return sessionCallable.executeWithSession(session());
             }
             catch (AllNodesFailedException e) {
                 long timeLeft = deadline - System.currentTimeMillis();
@@ -611,9 +604,13 @@ public class CassandraSession
     }
 
     @Override
-    public void close()
+    public synchronized void close()
     {
-        session.get().close();
+        sessionSupplier = null;
+        if (session != null) {
+            session.close();
+            session = null;
+        }
     }
 
     private interface SessionCallable<T>

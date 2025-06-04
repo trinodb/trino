@@ -93,10 +93,10 @@ public class BufferResult
             return false;
         }
         BufferResult that = (BufferResult) o;
-        return Objects.equals(token, that.token) &&
-                Objects.equals(nextToken, that.nextToken) &&
+        return token == that.token &&
+                nextToken == that.nextToken &&
                 Objects.equals(taskInstanceId, that.taskInstanceId) &&
-                Objects.equals(bufferComplete, that.bufferComplete) &&
+                bufferComplete == that.bufferComplete &&
                 Objects.equals(serializedPages, that.serializedPages);
     }
 

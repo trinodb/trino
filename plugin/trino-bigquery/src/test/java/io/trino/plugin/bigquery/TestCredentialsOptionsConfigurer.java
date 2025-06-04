@@ -15,12 +15,13 @@ package io.trino.plugin.bigquery;
 
 import com.google.auth.Credentials;
 import com.google.auth.oauth2.GoogleCredentials;
+import com.google.common.io.Resources;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.Optional;
 
-import static io.trino.plugin.bigquery.CredentialsOptionsConfigurer.calculateBillingProjectId;
+import static io.trino.plugin.bigquery.CredentialsOptionsConfigurer.resolveProjectId;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestCredentialsOptionsConfigurer
@@ -28,7 +29,7 @@ public class TestCredentialsOptionsConfigurer
     @Test
     public void testConfigurationOnly()
     {
-        String projectId = calculateBillingProjectId(Optional.of("pid"), Optional.empty());
+        String projectId = resolveProjectId(Optional.of("pid"), Optional.empty());
         assertThat(projectId).isEqualTo("pid");
     }
 
@@ -36,7 +37,7 @@ public class TestCredentialsOptionsConfigurer
     public void testCredentialsOnly()
             throws Exception
     {
-        String projectId = calculateBillingProjectId(Optional.empty(), credentials());
+        String projectId = resolveProjectId(Optional.empty(), loadCredentials());
         assertThat(projectId).isEqualTo("presto-bq-credentials-test");
     }
 
@@ -44,13 +45,13 @@ public class TestCredentialsOptionsConfigurer
     public void testBothConfigurationAndCredentials()
             throws Exception
     {
-        String projectId = calculateBillingProjectId(Optional.of("pid"), credentials());
+        String projectId = resolveProjectId(Optional.of("pid"), loadCredentials());
         assertThat(projectId).isEqualTo("pid");
     }
 
-    private Optional<Credentials> credentials()
+    private static Optional<Credentials> loadCredentials()
             throws IOException
     {
-        return Optional.of(GoogleCredentials.fromStream(getClass().getResourceAsStream("/test-account.json")));
+        return Optional.of(GoogleCredentials.fromStream(Resources.getResource("test-account.json").openStream()));
     }
 }

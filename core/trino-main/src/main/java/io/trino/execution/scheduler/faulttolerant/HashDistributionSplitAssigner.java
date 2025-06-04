@@ -26,6 +26,7 @@ import io.trino.metadata.Split;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.sql.planner.PlanFragment;
+import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.PlanVisitor;
@@ -54,6 +55,7 @@ import static java.util.Objects.requireNonNull;
 class HashDistributionSplitAssigner
         implements SplitAssigner
 {
+    private final PlanFragmentId fragmentId;
     private final Optional<CatalogHandle> catalogRequirement;
     private final Set<PlanNodeId> replicatedSources;
     private final Set<PlanNodeId> allSources;
@@ -83,6 +85,7 @@ class HashDistributionSplitAssigner
                     "fragments using scale-writers partitioning are expected to have exactly one remote source and no table scans");
         }
         return new HashDistributionSplitAssigner(
+                fragment.getId(),
                 catalogRequirement,
                 partitionedSources,
                 replicatedSources,
@@ -101,12 +104,14 @@ class HashDistributionSplitAssigner
 
     @VisibleForTesting
     HashDistributionSplitAssigner(
+            PlanFragmentId fragmentId,
             Optional<CatalogHandle> catalogRequirement,
             Set<PlanNodeId> partitionedSources,
             Set<PlanNodeId> replicatedSources,
             FaultTolerantPartitioningScheme sourcePartitioningScheme,
             Map<Integer, TaskPartition> sourcePartitionToTaskPartition)
     {
+        this.fragmentId = requireNonNull(fragmentId, "fragmentId is null");
         this.catalogRequirement = requireNonNull(catalogRequirement, "catalogRequirement is null");
         this.replicatedSources = ImmutableSet.copyOf(requireNonNull(replicatedSources, "replicatedSources is null"));
         this.allSources = ImmutableSet.<PlanNodeId>builder()
@@ -127,19 +132,17 @@ class HashDistributionSplitAssigner
             int nextTaskPartitionId = 0;
             for (int sourcePartitionId = 0; sourcePartitionId < sourcePartitioningScheme.getPartitionCount(); sourcePartitionId++) {
                 TaskPartition taskPartition = sourcePartitionToTaskPartition.get(sourcePartitionId);
-                verify(taskPartition != null, "taskPartition not found for sourcePartitionId: %s", sourcePartitionId);
+                verify(taskPartition != null, "taskPartition not found for fragment %s plan node %s for sourcePartitionId %s", fragmentId, planNodeId, sourcePartitionId);
 
                 for (SubPartition subPartition : taskPartition.getSubPartitions()) {
                     if (!subPartition.isIdAssigned()) {
                         int taskPartitionId = nextTaskPartitionId++;
                         subPartition.assignId(taskPartitionId);
-                        Set<HostAddress> hostRequirement = sourcePartitioningScheme.getNodeRequirement(sourcePartitionId)
-                                .map(InternalNode::getHostAndPort)
-                                .map(ImmutableSet::of)
-                                .orElse(ImmutableSet.of());
+                        Optional<HostAddress> hostRequirement = sourcePartitioningScheme.getNodeRequirement(sourcePartitionId)
+                                .map(InternalNode::getHostAndPort);
                         assignment.addPartition(new Partition(
                                 taskPartitionId,
-                                new NodeRequirements(catalogRequirement, hostRequirement)));
+                                new NodeRequirements(catalogRequirement, hostRequirement, hostRequirement.isEmpty())));
                         createdTaskPartitions.add(taskPartitionId);
                     }
                 }
@@ -158,7 +161,7 @@ class HashDistributionSplitAssigner
         else {
             splits.forEach((sourcePartitionId, split) -> {
                 TaskPartition taskPartition = sourcePartitionToTaskPartition.get(sourcePartitionId);
-                verify(taskPartition != null, "taskPartition not found for sourcePartitionId: %s", sourcePartitionId);
+                verify(taskPartition != null, "taskPartition not found for fragment %s plan node %s for sourcePartitionId %s", fragmentId, planNodeId, sourcePartitionId);
 
                 List<SubPartition> subPartitions;
                 if (taskPartition.getSplitBy().isPresent() && taskPartition.getSplitBy().get().equals(planNodeId)) {

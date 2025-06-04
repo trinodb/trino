@@ -22,10 +22,10 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.filesystem.tracing.TracingFileSystemFactory;
 import io.trino.parquet.ParquetReaderOptions;
+import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.LastCheckpoint;
-import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
@@ -40,12 +40,15 @@ import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.trino.filesystem.tracing.FileSystemAttributes.FILE_LOCATION;
+import static io.trino.plugin.deltalake.DeltaLakeConfig.DEFAULT_TRANSACTION_LOG_MAX_CACHED_SIZE;
 import static io.trino.plugin.deltalake.transactionlog.TableSnapshot.MetadataAndProtocolEntry;
 import static io.trino.plugin.deltalake.transactionlog.TableSnapshot.load;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.readLastCheckpoint;
@@ -62,7 +65,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTableSnapshot
 {
-    private final ParquetReaderOptions parquetReaderOptions = new ParquetReaderConfig().toParquetReaderOptions();
+    private final ParquetReaderOptions parquetReaderOptions = ParquetReaderOptions.defaultOptions();
     private final int domainCompactionThreshold = 32;
 
     private CheckpointSchemaManager checkpointSchemaManager;
@@ -98,19 +101,23 @@ public class TestTableSnapshot
                             parquetReaderOptions,
                             true,
                             domainCompactionThreshold,
+                            DEFAULT_TRANSACTION_LOG_MAX_CACHED_SIZE,
                             Optional.empty()));
                 },
                 ImmutableMultiset.<FileOperation>builder()
-                        .addCopies(new FileOperation("_last_checkpoint", "InputFile.newStream"), 1)
-                        .addCopies(new FileOperation("00000000000000000011.json", "InputFile.newStream"), 1)
-                        .addCopies(new FileOperation("00000000000000000012.json", "InputFile.newStream"), 1)
-                        .addCopies(new FileOperation("00000000000000000013.json", "InputFile.newStream"), 1)
-                        .addCopies(new FileOperation("00000000000000000014.json", "InputFile.newStream"), 1)
+                        .add(new FileOperation("_last_checkpoint", "InputFile.newStream"))
+                        .add(new FileOperation("00000000000000000011.json", "InputFile.newStream"))
+                        .add(new FileOperation("00000000000000000012.json", "InputFile.newStream"))
+                        .add(new FileOperation("00000000000000000013.json", "InputFile.newStream"))
+                        .add(new FileOperation("00000000000000000011.json", "InputFile.length"))
+                        .add(new FileOperation("00000000000000000012.json", "InputFile.length"))
+                        .add(new FileOperation("00000000000000000013.json", "InputFile.length"))
+                        .add(new FileOperation("00000000000000000014.json", "InputFile.length"))
                         .build());
 
         assertFileSystemAccesses(
                 () -> {
-                    tableSnapshot.get().getJsonTransactionLogEntries().forEach(entry -> {});
+                    tableSnapshot.get().getJsonTransactionLogEntries(trackingFileSystem).forEach(entry -> {});
                 },
                 ImmutableMultiset.of());
     }
@@ -120,6 +127,7 @@ public class TestTableSnapshot
     public void readsCheckpointFile()
             throws IOException
     {
+        ExecutorService executorService = newDirectExecutorService();
         Optional<LastCheckpoint> lastCheckpoint = readLastCheckpoint(trackingFileSystem, tableLocation);
         TableSnapshot tableSnapshot = load(
                 new SchemaTableName("schema", "person"),
@@ -129,6 +137,7 @@ public class TestTableSnapshot
                 parquetReaderOptions,
                 true,
                 domainCompactionThreshold,
+                DEFAULT_TRANSACTION_LOG_MAX_CACHED_SIZE,
                 Optional.empty());
         TestingConnectorContext context = new TestingConnectorContext();
         TypeManager typeManager = context.getTypeManager();
@@ -138,7 +147,8 @@ public class TestTableSnapshot
                 new DeltaLakeConfig(),
                 new FileFormatDataSourceStats(),
                 tracingFileSystemFactory,
-                new ParquetReaderConfig());
+                new ParquetReaderConfig(),
+                executorService);
         MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(SESSION, tableSnapshot);
         ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, tableSnapshot);
         tableSnapshot.setCachedMetadata(Optional.of(metadataEntry));
@@ -151,7 +161,8 @@ public class TestTableSnapshot
                 new FileFormatDataSourceStats(),
                 Optional.of(new MetadataAndProtocolEntry(metadataEntry, protocolEntry)),
                 TupleDomain.all(),
-                Optional.of(alwaysTrue()))) {
+                Optional.of(alwaysTrue()),
+                executorService)) {
             List<DeltaLakeTransactionLogEntry> entries = stream.collect(toImmutableList());
 
             assertThat(entries).hasSize(9);
@@ -201,7 +212,8 @@ public class TestTableSnapshot
                 new FileFormatDataSourceStats(),
                 Optional.of(new MetadataAndProtocolEntry(metadataEntry, protocolEntry)),
                 TupleDomain.all(),
-                Optional.of(alwaysTrue()))) {
+                Optional.of(alwaysTrue()),
+                executorService)) {
             List<DeltaLakeTransactionLogEntry> entries = stream.collect(toImmutableList());
 
             assertThat(entries).hasSize(10);
@@ -257,6 +269,7 @@ public class TestTableSnapshot
                 parquetReaderOptions,
                 true,
                 domainCompactionThreshold,
+                DEFAULT_TRANSACTION_LOG_MAX_CACHED_SIZE,
                 Optional.empty());
         assertThat(tableSnapshot.getVersion()).isEqualTo(13L);
     }

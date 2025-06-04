@@ -24,6 +24,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.security.AccessControl;
 import io.trino.spi.resourcegroups.ResourceGroupId;
+import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.ResetSession;
 import io.trino.testing.QueryRunner;
@@ -119,10 +120,11 @@ public class TestResetSessionTask
                 createPlanOptimizersStatsCollector(),
                 Optional.empty(),
                 true,
+                Optional.empty(),
                 new NodeVersion("test"));
 
         getFutureValue(new ResetSessionTask(metadata, sessionPropertyManager).execute(
-                new ResetSession(QualifiedName.of(CATALOG_NAME, "baz")),
+                new ResetSession(new NodeLocation(1, 1), QualifiedName.of(CATALOG_NAME, "baz")),
                 stateMachine,
                 emptyList(),
                 WarningCollector.NOOP));

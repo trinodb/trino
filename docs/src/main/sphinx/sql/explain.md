@@ -262,7 +262,7 @@ EXPLAIN (TYPE LOGICAL, FORMAT JSON) SELECT regionkey, count(*) FROM nation GROUP
                               {
                                  "id": "226",
                                  "name": "Project",
-                                 "descriptor": {}
+                                 "descriptor": {},
                                  "outputs": [
                                     {
                                        "symbol": "regionkey",

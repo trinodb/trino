@@ -93,7 +93,8 @@ class TestSqlFunctions
     @Test
     void testConstantReturn()
     {
-        @Language("SQL") String sql = """
+        @Language("SQL") String sql =
+                """
                 FUNCTION answer()
                 RETURNS BIGINT
                 RETURN 42
@@ -104,7 +105,8 @@ class TestSqlFunctions
     @Test
     void testSimpleReturn()
     {
-        @Language("SQL") String sql = """
+        @Language("SQL") String sql =
+                """
                 FUNCTION hello(s VARCHAR)
                 RETURNS VARCHAR
                 RETURN 'Hello, ' || s || '!'
@@ -120,7 +122,8 @@ class TestSqlFunctions
     @Test
     void testSimpleExpression()
     {
-        @Language("SQL") String sql = """
+        @Language("SQL") String sql =
+                """
                 FUNCTION test(a bigint)
                 RETURNS bigint
                 BEGIN
@@ -139,7 +142,8 @@ class TestSqlFunctions
     @Test
     void testSimpleCase()
     {
-        @Language("SQL") String sql = """
+        @Language("SQL") String sql =
+                """
                 FUNCTION simple_case(a bigint)
                 RETURNS varchar
                 BEGIN
@@ -165,7 +169,8 @@ class TestSqlFunctions
     @Test
     void testSingleIf()
     {
-        @Language("SQL") String sql = """
+        @Language("SQL") String sql =
+                """
                 FUNCTION test_if(a bigint)
                   RETURNS varchar
                   BEGIN
@@ -174,7 +179,7 @@ class TestSqlFunctions
                     END IF;
                     RETURN 'other';
                   END
-                  """;
+                """;
         assertFunction(sql, handle -> {
             assertThat(handle.invoke(0L)).isEqualTo(utf8Slice("zero"));
             assertThat(handle.invoke(1L)).isEqualTo(utf8Slice("other"));
@@ -185,7 +190,8 @@ class TestSqlFunctions
     @Test
     void testSingleBranchIfElse()
     {
-        @Language("SQL") String sql = """
+        @Language("SQL") String sql =
+                """
                 FUNCTION if_else(a bigint)
                   RETURNS varchar
                   BEGIN
@@ -196,7 +202,7 @@ class TestSqlFunctions
                     END IF;
                     RETURN NULL;
                   END
-                  """;
+                """;
         assertFunction(sql, handle -> {
             assertThat(handle.invoke(0L)).isEqualTo(utf8Slice("zero"));
             assertThat(handle.invoke(1L)).isEqualTo(utf8Slice("other"));
@@ -207,7 +213,8 @@ class TestSqlFunctions
     @Test
     void testMultiBranchIfElse()
     {
-        @Language("SQL") String sql = """
+        @Language("SQL") String sql =
+                """
                 FUNCTION multi_if_else(a bigint)
                   RETURNS varchar
                   BEGIN
@@ -222,7 +229,7 @@ class TestSqlFunctions
                     END IF;
                     RETURN NULL;
                   END
-                  """;
+                """;
         assertFunction(sql, handle -> {
             assertThat(handle.invoke(0L)).isEqualTo(utf8Slice("zero"));
             assertThat(handle.invoke(1L)).isEqualTo(utf8Slice("one"));
@@ -234,7 +241,8 @@ class TestSqlFunctions
     @Test
     void testSearchCase()
     {
-        @Language("SQL") String sql = """
+        @Language("SQL") String sql =
+                """
                 FUNCTION search_case(a bigint, b bigint)
                 RETURNS varchar
                 BEGIN
@@ -266,7 +274,8 @@ class TestSqlFunctions
     @Test
     void testFibonacciWhileLoop()
     {
-        @Language("SQL") String sql = """
+        @Language("SQL") String sql =
+                """
                 FUNCTION fib(n bigint)
                 RETURNS bigint
                 BEGIN
@@ -299,7 +308,8 @@ class TestSqlFunctions
     @Test
     void testBreakContinue()
     {
-        @Language("SQL") String sql = """
+        @Language("SQL") String sql =
+                """
                 FUNCTION test()
                 RETURNS bigint
                 BEGIN
@@ -323,7 +333,8 @@ class TestSqlFunctions
     @Test
     void testRepeat()
     {
-        @Language("SQL") String sql = """
+        @Language("SQL") String sql =
+                """
                 FUNCTION test_repeat(a bigint)
                 RETURNS bigint
                 BEGIN
@@ -342,7 +353,8 @@ class TestSqlFunctions
     @Test
     void testRepeatContinue()
     {
-        @Language("SQL") String sql = """
+        @Language("SQL") String sql =
+                """
                 FUNCTION test_repeat_continue()
                 RETURNS bigint
                 BEGIN
@@ -364,7 +376,8 @@ class TestSqlFunctions
     @Test
     void testLoop()
     {
-        @Language("SQL") String sql = """
+        @Language("SQL") String sql =
+                """
                 FUNCTION test()
                 RETURNS bigint
                 BEGIN
@@ -388,7 +401,8 @@ class TestSqlFunctions
     @Test
     void testReuseLabels()
     {
-        @Language("SQL") String sql = """
+        @Language("SQL") String sql =
+                """
                 FUNCTION test()
                 RETURNS int
                 BEGIN
@@ -408,9 +422,25 @@ class TestSqlFunctions
     }
 
     @Test
+    void testSpecialForm()
+    {
+        @Language("SQL") String sql =
+                """
+                FUNCTION test(a varchar)
+                RETURNS varchar
+                BEGIN
+                  RETURN NULLIF(a, 'test');
+                END
+                """;
+        assertFunction(sql, handle -> assertThat(handle.invoke(utf8Slice("test"))).isEqualTo(null));
+        assertFunction(sql, handle -> assertThat(handle.invoke(utf8Slice("test2"))).isEqualTo(utf8Slice("test2")));
+    }
+
+    @Test
     void testReuseVariables()
     {
-        @Language("SQL") String sql = """
+        @Language("SQL") String sql =
+                """
                 FUNCTION test()
                 RETURNS bigint
                 BEGIN
@@ -432,7 +462,8 @@ class TestSqlFunctions
     @Test
     void testAssignParameter()
     {
-        @Language("SQL") String sql = """
+        @Language("SQL") String sql =
+                """
                 FUNCTION test(x int)
                 RETURNS int
                 BEGIN
@@ -472,7 +503,7 @@ class TestSqlFunctions
     @Test
     void testLambda()
     {
-        testSingleExpression(INTEGER, 3L, INTEGER, 9L, "(transform(ARRAY [5, 6], x -> x + p)[2])", false);
+        testSingleExpression(INTEGER, 3L, INTEGER, 9L, "(transform(ARRAY [5, 6], x -> x + p)[2])", true);
     }
 
     @Test
@@ -589,7 +620,7 @@ class TestSqlFunctions
         SqlRoutineAnalysis analysis = analyzer.analyze(session, new AllowAllAccessControl(), function);
 
         SqlRoutinePlanner planner = new SqlRoutinePlanner(PLANNER_CONTEXT);
-        IrRoutine routine = planner.planSqlFunction(session, function, analysis);
+        IrRoutine routine = planner.planSqlFunction(session, analysis);
 
         if (serialize) {
             // Simulate worker communication

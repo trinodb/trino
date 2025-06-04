@@ -34,8 +34,8 @@ import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.optimizer.IrExpressionOptimizer;
 import io.trino.sql.planner.DomainTranslator;
-import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.optimizations.ActualProperties.Global;
@@ -99,6 +99,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.predicate.TupleDomain.extractFixedValues;
+import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newOptimizer;
 import static io.trino.sql.planner.SystemPartitioningHandle.ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.optimizations.ActualProperties.Global.arbitraryPartition;
 import static io.trino.sql.planner.optimizations.ActualProperties.Global.coordinatorSinglePartition;
@@ -162,11 +163,13 @@ public final class PropertyDerivations
             extends PlanVisitor<ActualProperties, List<ActualProperties>>
     {
         private final PlannerContext plannerContext;
+        private final IrExpressionOptimizer optimizer;
         private final Session session;
 
         public Visitor(PlannerContext plannerContext, Session session)
         {
             this.plannerContext = plannerContext;
+            this.optimizer = newOptimizer(plannerContext);
             this.session = session;
         }
 
@@ -773,7 +776,7 @@ public final class PropertyDerivations
                 // to take advantage of constant-folding for complex expressions
                 // However, that currently causes errors when those expressions operate on arrays or row types
                 // ("ROW comparison not supported for fields with null elements", etc)
-                Expression value = new IrExpressionInterpreter(expression, plannerContext, session).optimize();
+                Expression value = optimizer.process(expression, session, ImmutableMap.of()).orElse(expression);
 
                 if (value instanceof Reference) {
                     Symbol symbol = Symbol.from(value);
@@ -966,11 +969,11 @@ public final class PropertyDerivations
     private static Optional<Symbol> rewriteExpression(Map<Symbol, Expression> assignments, Expression expression)
     {
         // Only simple coalesce expressions supported currently
-        if (!(expression instanceof Coalesce)) {
+        if (!(expression instanceof Coalesce coalesce)) {
             return Optional.empty();
         }
 
-        Set<Expression> arguments = ImmutableSet.copyOf(((Coalesce) expression).operands());
+        Set<Expression> arguments = ImmutableSet.copyOf(coalesce.operands());
         if (!arguments.stream().allMatch(Reference.class::isInstance)) {
             return Optional.empty();
         }
@@ -979,8 +982,8 @@ public final class PropertyDerivations
         // of the arguments. Thus we extract and compare the symbols of the CoalesceExpression as a set rather than compare the
         // CoalesceExpression directly.
         for (Map.Entry<Symbol, Expression> entry : assignments.entrySet()) {
-            if (entry.getValue() instanceof Coalesce) {
-                Set<Expression> candidateArguments = ImmutableSet.copyOf(((Coalesce) entry.getValue()).operands());
+            if (entry.getValue() instanceof Coalesce value) {
+                Set<Expression> candidateArguments = ImmutableSet.copyOf(value.operands());
                 if (!candidateArguments.stream().allMatch(Reference.class::isInstance)) {
                     return Optional.empty();
                 }

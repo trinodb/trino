@@ -25,7 +25,6 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IrUtils;
 import io.trino.sql.ir.IsNull;
-import io.trino.sql.ir.Not;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.PlanNodeIdAllocator;
@@ -56,6 +55,7 @@ import static io.trino.matching.Pattern.nonEmpty;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.ir.Booleans.FALSE;
+import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.ir.IrUtils.or;
 import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
@@ -192,7 +192,7 @@ public class TransformCorrelatedInPredicateToJoin
         Symbol nullMatchConditionSymbol = symbolAllocator.newSymbol("nullMatchConditionSymbol", BOOLEAN);
         Expression nullMatchCondition = and(
                 isNotNull(buildSideKnownNonNull),
-                not(matchCondition));
+                not(metadata, matchCondition));
 
         ProjectNode preProjection = new ProjectNode(
                 idAllocator.getNextId(),
@@ -269,14 +269,9 @@ public class TransformCorrelatedInPredicateToJoin
                 bigint(value));
     }
 
-    private static Expression not(Expression booleanExpression)
+    private Expression isNotNull(Symbol symbol)
     {
-        return new Not(booleanExpression);
-    }
-
-    private static Expression isNotNull(Symbol symbol)
-    {
-        return new Not(new IsNull(symbol.toSymbolReference()));
+        return not(metadata, new IsNull(symbol.toSymbolReference()));
     }
 
     private static Expression bigint(long value)

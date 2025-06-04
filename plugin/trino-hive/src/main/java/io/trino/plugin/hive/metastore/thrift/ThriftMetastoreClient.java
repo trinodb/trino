@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.metastore.thrift;
 
 import io.trino.hive.thrift.metastore.ColumnStatisticsObj;
+import io.trino.hive.thrift.metastore.DataOperationType;
 import io.trino.hive.thrift.metastore.Database;
 import io.trino.hive.thrift.metastore.EnvironmentContext;
 import io.trino.hive.thrift.metastore.FieldSchema;
@@ -30,13 +31,13 @@ import io.trino.hive.thrift.metastore.RolePrincipalGrant;
 import io.trino.hive.thrift.metastore.Table;
 import io.trino.hive.thrift.metastore.TableMeta;
 import io.trino.hive.thrift.metastore.TxnToWriteId;
-import io.trino.plugin.hive.acid.AcidOperation;
 import org.apache.thrift.TException;
 
 import java.io.Closeable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public interface ThriftMetastoreClient
         extends Closeable
@@ -51,6 +52,9 @@ public interface ThriftMetastoreClient
             throws TException;
 
     List<TableMeta> getTableMeta(String databaseName)
+            throws TException;
+
+    List<String> getTableNamesWithParameters(String databaseName, String parameterKey, Set<String> parameterValues)
             throws TException;
 
     void createDatabase(Database database)
@@ -191,7 +195,7 @@ public interface ThriftMetastoreClient
     void alterPartitions(String dbName, String tableName, List<Partition> partitions, long writeId)
             throws TException;
 
-    void addDynamicPartitions(String dbName, String tableName, List<String> partitionNames, long transactionId, long writeId, AcidOperation operation)
+    void addDynamicPartitions(String dbName, String tableName, List<String> partitionNames, long transactionId, long writeId, DataOperationType operation)
             throws TException;
 
     void alterTransactionalTable(Table table, long transactionId, long writeId, EnvironmentContext context)

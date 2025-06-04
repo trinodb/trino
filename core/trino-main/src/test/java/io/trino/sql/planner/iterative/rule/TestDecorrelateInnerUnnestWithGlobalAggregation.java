@@ -25,7 +25,6 @@ import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
-import io.trino.sql.ir.Not;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -41,6 +40,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.UnnestMapping.unnestMapping;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
@@ -70,7 +70,7 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
     @Test
     public void doesNotFireWithoutGlobalAggregation()
     {
-        tester().assertThat(new DecorrelateInnerUnnestWithGlobalAggregation())
+        tester().assertThat(new DecorrelateInnerUnnestWithGlobalAggregation(FUNCTIONS.getMetadata()))
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -88,7 +88,7 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
     @Test
     public void doesNotFireWithoutUnnest()
     {
-        tester().assertThat(new DecorrelateInnerUnnestWithGlobalAggregation())
+        tester().assertThat(new DecorrelateInnerUnnestWithGlobalAggregation(FUNCTIONS.getMetadata()))
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -101,7 +101,7 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
     @Test
     public void doesNotFireOnSourceDependentUnnest()
     {
-        tester().assertThat(new DecorrelateInnerUnnestWithGlobalAggregation())
+        tester().assertThat(new DecorrelateInnerUnnestWithGlobalAggregation(FUNCTIONS.getMetadata()))
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -121,7 +121,7 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
     @Test
     public void testTransformCorrelatedUnnest()
     {
-        tester().assertThat(new DecorrelateInnerUnnestWithGlobalAggregation())
+        tester().assertThat(new DecorrelateInnerUnnestWithGlobalAggregation(FUNCTIONS.getMetadata()))
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -144,7 +144,7 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                                         Optional.empty(),
                                         SINGLE,
                                         project(
-                                                ImmutableMap.of("mask", expression(new Not(new IsNull(new Reference(BIGINT, "ordinality"))))),
+                                                ImmutableMap.of("mask", expression(not(FUNCTIONS.getMetadata(), new IsNull(new Reference(BIGINT, "ordinality"))))),
                                                 unnest(
                                                         ImmutableList.of("corr", "unique"),
                                                         ImmutableList.of(unnestMapping("corr", ImmutableList.of("unnested_corr"))),
@@ -156,7 +156,7 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
     @Test
     public void testPreexistingMask()
     {
-        tester().assertThat(new DecorrelateInnerUnnestWithGlobalAggregation())
+        tester().assertThat(new DecorrelateInnerUnnestWithGlobalAggregation(FUNCTIONS.getMetadata()))
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr"), p.symbol("old_masks", BOOLEAN)),
                         p.values(p.symbol("corr"), p.symbol("old_masks", BOOLEAN)),
@@ -183,7 +183,7 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                                         project(
                                                 ImmutableMap.of("new_mask", expression(new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "old_mask"), new Reference(BOOLEAN, "mask"))))),
                                                 project(
-                                                        ImmutableMap.of("mask", expression(new Not(new IsNull(new Reference(BIGINT, "ordinality"))))),
+                                                        ImmutableMap.of("mask", expression(not(FUNCTIONS.getMetadata(), new IsNull(new Reference(BIGINT, "ordinality"))))),
                                                         unnest(
                                                                 ImmutableList.of("corr", "old_masks", "unique"),
                                                                 ImmutableList.of(
@@ -197,7 +197,7 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
     @Test
     public void testWithPreexistingOrdinality()
     {
-        tester().assertThat(new DecorrelateInnerUnnestWithGlobalAggregation())
+        tester().assertThat(new DecorrelateInnerUnnestWithGlobalAggregation(FUNCTIONS.getMetadata()))
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -220,7 +220,7 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                                         Optional.empty(),
                                         SINGLE,
                                         project(
-                                                ImmutableMap.of("mask", expression(new Not(new IsNull(new Reference(BIGINT, "ordinality"))))),
+                                                ImmutableMap.of("mask", expression(not(FUNCTIONS.getMetadata(), new IsNull(new Reference(BIGINT, "ordinality"))))),
                                                 unnest(
                                                         ImmutableList.of("corr", "unique"),
                                                         ImmutableList.of(unnestMapping("corr", ImmutableList.of("unnested_corr"))),
@@ -233,7 +233,7 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
     public void testMultipleGlobalAggregations()
     {
         // the innermost aggregation is rewritten with mask
-        tester().assertThat(new DecorrelateInnerUnnestWithGlobalAggregation())
+        tester().assertThat(new DecorrelateInnerUnnestWithGlobalAggregation(FUNCTIONS.getMetadata()))
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -267,7 +267,7 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                                                 Optional.empty(),
                                                 SINGLE,
                                                 project(
-                                                        ImmutableMap.of("mask", expression(new Not(new IsNull(new Reference(BIGINT, "ordinality"))))),
+                                                        ImmutableMap.of("mask", expression(not(FUNCTIONS.getMetadata(), new IsNull(new Reference(BIGINT, "ordinality"))))),
                                                         unnest(
                                                                 ImmutableList.of("corr", "unique"),
                                                                 ImmutableList.of(unnestMapping("corr", ImmutableList.of("unnested_corr"))),
@@ -279,7 +279,7 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
     @Test
     public void testProjectOverGlobalAggregation()
     {
-        tester().assertThat(new DecorrelateInnerUnnestWithGlobalAggregation())
+        tester().assertThat(new DecorrelateInnerUnnestWithGlobalAggregation(FUNCTIONS.getMetadata()))
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -306,7 +306,7 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                                                 Optional.empty(),
                                                 SINGLE,
                                                 project(
-                                                        ImmutableMap.of("mask", expression(new Not(new IsNull(new Reference(BIGINT, "ordinality"))))),
+                                                        ImmutableMap.of("mask", expression(not(FUNCTIONS.getMetadata(), new IsNull(new Reference(BIGINT, "ordinality"))))),
                                                         unnest(
                                                                 ImmutableList.of("corr", "unique"),
                                                                 ImmutableList.of(unnestMapping("corr", ImmutableList.of("unnested_corr"))),
@@ -318,7 +318,7 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
     @Test
     public void testPreprojectUnnestSymbol()
     {
-        tester().assertThat(new DecorrelateInnerUnnestWithGlobalAggregation())
+        tester().assertThat(new DecorrelateInnerUnnestWithGlobalAggregation(FUNCTIONS.getMetadata()))
                 .on(p -> {
                     Symbol corr = p.symbol("corr", VARCHAR);
                     Call regexpExtractAll = new Call(
@@ -350,7 +350,7 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                                         Optional.empty(),
                                         SINGLE,
                                         project(
-                                                ImmutableMap.of("mask", expression(new Not(new IsNull(new Reference(BIGINT, "ordinality"))))),
+                                                ImmutableMap.of("mask", expression(not(FUNCTIONS.getMetadata(), new IsNull(new Reference(BIGINT, "ordinality"))))),
                                                 unnest(
                                                         ImmutableList.of("corr", "unique", "char_array"),
                                                         ImmutableList.of(unnestMapping("char_array", ImmutableList.of("unnested_corr"))),
@@ -366,7 +366,7 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
     {
         // in the following case, the correlated subquery is shaped as follows:
         // project(global_aggregation(project(grouped_aggregation(project(unnest)))))
-        tester().assertThat(new DecorrelateInnerUnnestWithGlobalAggregation())
+        tester().assertThat(new DecorrelateInnerUnnestWithGlobalAggregation(FUNCTIONS.getMetadata()))
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("groups"), p.symbol("numbers")),
                         p.values(p.symbol("groups"), p.symbol("numbers")),
@@ -419,7 +419,7 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                                                                 project(
                                                                         ImmutableMap.of("modulo", expression(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "number"), new Constant(BIGINT, 10L))))),
                                                                         project(
-                                                                                ImmutableMap.of("mask", expression(new Not(new IsNull(new Reference(BIGINT, "ordinality"))))),
+                                                                                ImmutableMap.of("mask", expression(not(FUNCTIONS.getMetadata(), new IsNull(new Reference(BIGINT, "ordinality"))))),
                                                                                 unnest(
                                                                                         ImmutableList.of("groups", "numbers", "unique"),
                                                                                         ImmutableList.of(

@@ -327,7 +327,7 @@ final class SchedulingQueue<G, T>
         StringBuilder builder = new StringBuilder();
 
         builder.append("Baseline weight: %s\n".formatted(baselineWeight()));
-        builder.append("\n");
+        builder.append("Groups:\n");
 
         for (Map.Entry<G, SchedulingGroup<T>> entry : groups.entrySet()) {
             G group = entry.getKey();

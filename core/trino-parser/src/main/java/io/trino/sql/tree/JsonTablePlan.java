@@ -13,14 +13,12 @@
  */
 package io.trino.sql.tree;
 
-import java.util.Optional;
-
 public abstract class JsonTablePlan
         extends Node
 {
     protected JsonTablePlan(NodeLocation location)
     {
-        super(Optional.of(location));
+        super(location);
     }
 
     public enum ParentChildPlanType

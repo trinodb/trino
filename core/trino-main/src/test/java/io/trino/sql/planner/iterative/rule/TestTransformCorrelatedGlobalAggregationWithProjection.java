@@ -19,6 +19,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
 import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Logical;
@@ -33,6 +34,7 @@ import java.util.Optional;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
@@ -57,7 +59,7 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
     private static final ResolvedFunction SUBTRACT_INTEGER = FUNCTIONS.resolveOperator(OperatorType.SUBTRACT, ImmutableList.of(INTEGER, INTEGER));
 
     @Test
-    public void doesNotFireOnPlanWithoutCorrelatedJoinNode()
+    public void testDoesNotFireOnPlanWithoutCorrelatedJoinNode()
     {
         tester().assertThat(new TransformCorrelatedGlobalAggregationWithProjection(tester().getPlannerContext()))
                 .on(p -> p.values(p.symbol("a")))
@@ -65,7 +67,7 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
     }
 
     @Test
-    public void doesNotFireOnCorrelatedWithoutAggregation()
+    public void testDoesNotFireOnCorrelatedWithoutAggregation()
     {
         tester().assertThat(new TransformCorrelatedGlobalAggregationWithProjection(tester().getPlannerContext()))
                 .on(p -> p.correlatedJoin(
@@ -76,7 +78,7 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
     }
 
     @Test
-    public void doesNotFireOnUncorrelated()
+    public void testDoesNotFireOnUncorrelated()
     {
         tester().assertThat(new TransformCorrelatedGlobalAggregationWithProjection(tester().getPlannerContext()))
                 .on(p -> p.correlatedJoin(
@@ -87,7 +89,7 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
     }
 
     @Test
-    public void doesNotFireOnCorrelatedWithNonScalarAggregation()
+    public void testDoesNotFireOnCorrelatedWithNonScalarAggregation()
     {
         tester().assertThat(new TransformCorrelatedGlobalAggregationWithProjection(tester().getPlannerContext()))
                 .on(p -> p.correlatedJoin(
@@ -101,7 +103,7 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
     }
 
     @Test
-    public void doesNotFireOnMultipleProjections()
+    public void testDoesNotFireOnMultipleProjections()
     {
         tester().assertThat(new TransformCorrelatedGlobalAggregationWithProjection(tester().getPlannerContext()))
                 .on(p -> p.correlatedJoin(
@@ -119,7 +121,7 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
     }
 
     @Test
-    public void doesNotFireOnSubqueryWithoutProjection()
+    public void testDoesNotFireOnSubqueryWithoutProjection()
     {
         tester().assertThat(new TransformCorrelatedGlobalAggregationWithProjection(tester().getPlannerContext()))
                 .on(p -> p.correlatedJoin(
@@ -133,7 +135,7 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
     }
 
     @Test
-    public void rewritesOnSubqueryWithProjection()
+    public void testRewritesOnSubqueryWithProjection()
     {
         tester().assertThat(new TransformCorrelatedGlobalAggregationWithProjection(tester().getPlannerContext()))
                 .on(p -> p.correlatedJoin(
@@ -155,7 +157,7 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
     }
 
     @Test
-    public void rewritesOnSubqueryWithDistinct()
+    public void testRewritesOnSubqueryWithDistinct()
     {
         tester().assertThat(new TransformCorrelatedGlobalAggregationWithProjection(tester().getPlannerContext()))
                 .on(p -> p.correlatedJoin(
@@ -206,7 +208,7 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
     }
 
     @Test
-    public void rewritesOnSubqueryWithDecorrelatableDistinct()
+    public void testRewritesOnSubqueryWithDecorrelatableDistinct()
     {
         // distinct aggregation can be decorrelated in the subquery by PlanNodeDecorrelator
         // because the correlated predicate is equality comparison
@@ -286,5 +288,40 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
                                                                 values(ImmutableMap.of("corr", 0))))
                                                         .right(project(ImmutableMap.of("non_null", expression(TRUE)),
                                                                 values(ImmutableMap.of("a", 0, "mask", 1)))))))));
+    }
+
+    @Test
+    public void testRewritesOnSubqueryWithBoolOr()
+    {
+        tester().assertThat(new TransformCorrelatedGlobalAggregationWithProjection(tester().getPlannerContext()))
+                .on(p -> p.correlatedJoin(
+                        ImmutableList.of(p.symbol("corr", BIGINT)),
+                        p.values(p.symbol("corr", BIGINT)),
+                        p.project(
+                                Assignments.of(p.symbol("exists", BOOLEAN),
+                                        new Coalesce(new Reference(BOOLEAN, "aggrbool"), FALSE)),
+                                p.aggregation(ab -> ab
+                                        .source(p.values(p.symbol("subquery", BOOLEAN)))
+                                        .addAggregation(
+                                                p.symbol("aggrbool", BOOLEAN),
+                                                PlanBuilder.aggregation("bool_or", ImmutableList.of(new Reference(BOOLEAN, "subquery"))), ImmutableList.of(BOOLEAN))
+                                        .globalGrouping()))))
+                .matches(
+                        project(
+                                ImmutableMap.of("corr", expression(new Reference(BIGINT, "corr")),
+                                        "exists", expression(new Coalesce(new Reference(BOOLEAN, "aggrbool"), FALSE))),
+                                aggregation(
+                                        singleGroupingSet("unique", "corr"),
+                                        ImmutableMap.of(Optional.of("aggrbool"), aggregationFunction("bool_or", ImmutableList.of("subquery"))),
+                                        ImmutableList.of(),
+                                        ImmutableList.of(),
+                                        Optional.empty(),
+                                        SINGLE,
+                                        join(LEFT, builder -> builder
+                                                .left(
+                                                        assignUniqueId("unique",
+                                                                values(ImmutableMap.of("corr", 0))))
+                                                .right(
+                                                        values(ImmutableMap.of("subquery", 0)))))));
     }
 }

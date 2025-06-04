@@ -35,7 +35,6 @@ import io.trino.sql.tree.BinaryLiteral;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.DecimalLiteral;
 import io.trino.sql.tree.DoubleLiteral;
-import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.IntervalLiteral;
 import io.trino.sql.tree.Literal;
@@ -73,11 +72,8 @@ public final class LiteralInterpreter
         this.functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
     }
 
-    public Object evaluate(Expression node, Type type)
+    public Object evaluate(Literal node, Type type)
     {
-        if (!(node instanceof Literal)) {
-            throw new IllegalArgumentException("node must be a Literal");
-        }
         return new LiteralVisitor(type).process(node, null);
     }
 

@@ -35,8 +35,8 @@ import jakarta.annotation.Nullable;
 
 import java.io.Closeable;
 import java.net.URI;
-import java.util.Deque;
-import java.util.LinkedList;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -73,7 +73,9 @@ public class DirectExchangeClient
     private final Map<URI, HttpPageBufferClient> allClients = new ConcurrentHashMap<>();
 
     @GuardedBy("this")
-    private final Deque<HttpPageBufferClient> queuedClients = new LinkedList<>();
+    private final Set<HttpPageBufferClient> queuedClients = new LinkedHashSet<>();
+    @GuardedBy("this")
+    private final Set<HttpPageBufferClient> runningClients = new LinkedHashSet<>();
 
     private final Set<HttpPageBufferClient> completedClients = newConcurrentHashSet();
     private final DirectExchangeBuffer buffer;
@@ -277,24 +279,29 @@ public class DirectExchangeClient
             return 0;
         }
 
-        long reservedBytesForScheduledClients = allClients.values().stream()
-                .filter(client -> !queuedClients.contains(client) && !completedClients.contains(client))
+        long reservedBytesForScheduledClients = runningClients.stream()
                 .mapToLong(HttpPageBufferClient::getAverageRequestSizeInBytes)
                 .sum();
         long projectedBytesToBeRequested = 0;
         int clientCount = 0;
 
-        for (HttpPageBufferClient client : queuedClients) {
+        Iterator<HttpPageBufferClient> clientIterator = queuedClients.iterator();
+        while (clientIterator.hasNext()) {
+            HttpPageBufferClient client = clientIterator.next();
             if (projectedBytesToBeRequested >= neededBytes * concurrentRequestMultiplier - reservedBytesForScheduledClients) {
                 break;
             }
             projectedBytesToBeRequested += client.getAverageRequestSizeInBytes();
+
+            client.scheduleRequest();
+
+            // Remove the client from the queuedClient's set.
+            clientIterator.remove();
+            runningClients.add(client);
+
             clientCount++;
         }
-        for (int i = 0; i < clientCount; i++) {
-            HttpPageBufferClient client = queuedClients.poll();
-            client.scheduleRequest();
-        }
+
         return clientCount;
     }
 
@@ -304,9 +311,15 @@ public class DirectExchangeClient
     }
 
     @VisibleForTesting
-    Deque<HttpPageBufferClient> getQueuedClients()
+    Set<HttpPageBufferClient> getQueuedClients()
     {
         return queuedClients;
+    }
+
+    @VisibleForTesting
+    Set<HttpPageBufferClient> getRunningClients()
+    {
+        return runningClients;
     }
 
     @VisibleForTesting
@@ -317,7 +330,11 @@ public class DirectExchangeClient
 
     private boolean addPages(HttpPageBufferClient client, List<Slice> pages)
     {
-        checkState(!completedClients.contains(client), "client is already marked as completed");
+        // If client is already completed, addPages is a no-op
+        if (completedClients.contains(client)) {
+            return false;
+        }
+
         // Compute stats before acquiring the lock
         long responseSize = 0;
         if (!pages.isEmpty()) {
@@ -376,6 +393,7 @@ public class DirectExchangeClient
         requestDuration.add(client.getLastRequestDurationMillis());
         if (!completedClients.contains(client) && !queuedClients.contains(client)) {
             queuedClients.add(client);
+            runningClients.remove(client);
         }
         scheduleRequestIfNecessary();
     }
@@ -384,6 +402,7 @@ public class DirectExchangeClient
     {
         requireNonNull(client, "client is null");
         if (completedClients.add(client)) {
+            runningClients.remove(client);
             buffer.taskFinished(client.getRemoteTaskId());
         }
         scheduleRequestIfNecessary();
@@ -393,6 +412,7 @@ public class DirectExchangeClient
     {
         requireNonNull(client, "client is null");
         if (completedClients.add(client)) {
+            runningClients.remove(client);
             buffer.taskFailed(client.getRemoteTaskId(), cause);
             scheduledExecutor.execute(() -> taskFailureListener.onTaskFailed(client.getRemoteTaskId(), cause));
             closeQuietly(client);

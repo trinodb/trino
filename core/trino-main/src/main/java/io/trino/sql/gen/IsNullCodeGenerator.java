@@ -33,14 +33,14 @@ public class IsNullCodeGenerator
     public IsNullCodeGenerator(SpecialForm specialForm)
     {
         requireNonNull(specialForm, "specialForm is null");
-        checkArgument(specialForm.getArguments().size() == 1);
-        argument = specialForm.getArguments().get(0);
+        checkArgument(specialForm.arguments().size() == 1);
+        argument = specialForm.arguments().get(0);
     }
 
     @Override
     public BytecodeNode generateExpression(BytecodeGeneratorContext generatorContext)
     {
-        if (argument.getType().equals(UNKNOWN)) {
+        if (argument.type().equals(UNKNOWN)) {
             return loadBoolean(true);
         }
 
@@ -51,7 +51,7 @@ public class IsNullCodeGenerator
         BytecodeBlock block = new BytecodeBlock()
                 .comment("is null")
                 .append(value)
-                .pop(argument.getType().getJavaType())
+                .pop(argument.type().getJavaType())
                 .append(wasNull);
 
         // clear the null flag

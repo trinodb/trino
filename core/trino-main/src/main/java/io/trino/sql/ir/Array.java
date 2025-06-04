@@ -18,6 +18,7 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static io.trino.sql.ir.IrUtils.validateType;
 import static java.util.Objects.requireNonNull;
@@ -51,5 +52,15 @@ public record Array(Type elementType, List<Expression> elements)
     public List<? extends Expression> children()
     {
         return elements;
+    }
+
+    @Override
+    public String toString()
+    {
+        return "[" +
+                elements.stream()
+                        .map(Expression::toString)
+                        .collect(Collectors.joining(", ")) +
+                "]";
     }
 }

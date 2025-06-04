@@ -42,11 +42,11 @@ public class TestSqlStandardAccessControlChecks
     @BeforeMethodWithContext
     public void setup()
     {
-        aliceExecutor = connectToTrino("alice@presto");
-        bobExecutor = connectToTrino("bob@presto");
-        charlieExecutor = connectToTrino("charlie@presto");
-        caseSensitiveUserNameExecutor = connectToTrino("CaseSensitiveUserName@presto");
-        hdfsExecutor = connectToTrino("hdfs@presto");
+        aliceExecutor = connectToTrino("alice@trino");
+        bobExecutor = connectToTrino("bob@trino");
+        charlieExecutor = connectToTrino("charlie@trino");
+        caseSensitiveUserNameExecutor = connectToTrino("CaseSensitiveUserName@trino");
+        hdfsExecutor = connectToTrino("hdfs@trino");
 
         aliceExecutor.executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
         aliceExecutor.executeQuery(format("CREATE TABLE %s(month bigint, day bigint) WITH (partitioned_by = ARRAY['day'])", tableName));

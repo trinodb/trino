@@ -22,6 +22,7 @@ import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Optional;
 
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
@@ -45,7 +46,7 @@ public class TestIcebergInputInfo
     {
         String tableName = "test_input_info_with_part_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['regionkey', 'truncate(name, 1)']) AS SELECT * FROM nation WHERE nationkey < 10", 10);
-        assertInputInfo(tableName, true, "PARQUET");
+        assertInputInfo(tableName, ImmutableList.of("regionkey: identity", "name_trunc: truncate[1]"), "PARQUET", 9);
         assertUpdate("DROP TABLE " + tableName);
     }
 
@@ -54,7 +55,7 @@ public class TestIcebergInputInfo
     {
         String tableName = "test_input_info_without_part_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM nation WHERE nationkey < 10", 10);
-        assertInputInfo(tableName, false, "PARQUET");
+        assertInputInfo(tableName, ImmutableList.of(), "PARQUET", 1);
         assertUpdate("DROP TABLE " + tableName);
     }
 
@@ -63,11 +64,11 @@ public class TestIcebergInputInfo
     {
         String tableName = "test_input_info_with_orc_file_format_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " WITH (format = 'ORC') AS SELECT * FROM nation WHERE nationkey < 10", 10);
-        assertInputInfo(tableName, false, "ORC");
+        assertInputInfo(tableName, ImmutableList.of(), "ORC", 1);
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    private void assertInputInfo(String tableName, boolean expectedPartition, String expectedFileFormat)
+    private void assertInputInfo(String tableName, List<String> partitionFields, String expectedFileFormat, long dataFiles)
     {
         inTransaction(session -> {
             Metadata metadata = getQueryRunner().getPlannerContext().getMetadata();
@@ -81,9 +82,13 @@ public class TestIcebergInputInfo
             assertThat(tableInfo).isPresent();
             IcebergInputInfo icebergInputInfo = (IcebergInputInfo) tableInfo.get();
             assertThat(icebergInputInfo).isEqualTo(new IcebergInputInfo(
-                    icebergInputInfo.getSnapshotId(),
-                    Optional.of(expectedPartition),
-                    expectedFileFormat));
+                    icebergInputInfo.snapshotId(),
+                    partitionFields,
+                    expectedFileFormat,
+                    Optional.of("10"),
+                    Optional.empty(),
+                    Optional.of(String.valueOf(dataFiles)),
+                    Optional.of("0")));
         });
     }
 }

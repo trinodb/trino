@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Key;
 import com.google.inject.Scopes;
-import io.airlift.testing.Assertions;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
@@ -38,15 +37,18 @@ import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.EntityKindAndName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.FunctionProvider;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.ScalarFunctionImplementation;
+import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.function.Signature;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.Identity;
@@ -273,7 +275,7 @@ public class TestAccessControl
                 }))
                 .build()));
         queryRunner.createCatalog("mock", "mock");
-        queryRunner.installPlugin(new JdbcPlugin("base_jdbc", new TestingH2JdbcModule()));
+        queryRunner.installPlugin(new JdbcPlugin("base_jdbc", TestingH2JdbcModule::new));
         queryRunner.createCatalog("jdbc", "base_jdbc", TestingH2JdbcModule.createProperties());
         for (String tableName : ImmutableList.of("orders", "nation", "region", "lineitem")) {
             queryRunner.execute(format("CREATE TABLE %1$s AS SELECT * FROM tpch.tiny.%1$s WITH NO DATA", tableName));
@@ -477,9 +479,9 @@ public class TestAccessControl
         String viewName = "test_view_column_access_" + randomNameSuffix();
 
         systemSecurityMetadata.grantRoles(getSession(), Set.of("view_owner_role"), Set.of(viewOwnerPrincipal), false, Optional.empty());
-        systemSecurityMetadata.setViewOwner(
+        systemSecurityMetadata.setEntityOwner(
                 getSession(),
-                new CatalogSchemaTableName("blackhole", "default", viewName),
+                new EntityKindAndName("VIEW", List.of("blackhole", "default", viewName)),
                 viewOwnerPrincipal);
 
         Session viewOwnerSession = TestingSession.testSessionBuilder()
@@ -519,9 +521,9 @@ public class TestAccessControl
         String viewName = "test_join_base_table_with_view_" + randomNameSuffix();
 
         systemSecurityMetadata.grantRoles(getSession(), Set.of("view_owner_role"), Set.of(viewOwnerPrincipal), false, Optional.empty());
-        systemSecurityMetadata.setViewOwner(
+        systemSecurityMetadata.setEntityOwner(
                 getSession(),
-                new CatalogSchemaTableName("blackhole", "default", viewName),
+                new EntityKindAndName("VIEW", List.of("blackhole", "default", viewName)),
                 viewOwnerPrincipal);
 
         Session viewOwnerSession = TestingSession.testSessionBuilder()
@@ -551,6 +553,183 @@ public class TestAccessControl
                 .hasMessageMatching(errorMessage);
 
         assertAccessAllowed(viewOwnerSession, "DROP VIEW " + viewName);
+    }
+
+    @Test
+    public void testAllowCallFunction()
+    {
+        reset();
+
+        String functionOwner = "function_owner";
+        CatalogSchemaFunctionName outerFunction = new CatalogSchemaFunctionName("memory", new SchemaFunctionName("default", "function_allow_outer"));
+        CatalogSchemaFunctionName innerFunction = new CatalogSchemaFunctionName("memory", new SchemaFunctionName("default", "function_allow_inner"));
+
+        Session functionOwnerSession = TestingSession.testSessionBuilder()
+                .setIdentity(Identity.ofUser(functionOwner))
+                .setCatalog(getSession().getCatalog())
+                .setSchema(getSession().getSchema())
+                .build();
+
+        // simply create a function
+        assertAccessAllowed(
+                functionOwnerSession,
+                "CREATE FUNCTION memory.default.function_allow_inner (x integer) RETURNS bigint RETURN x + 42");
+        assertThat(systemSecurityMetadata.getFunctionOwner(innerFunction)).isEqualTo(functionOwner);
+
+        // assert that function can be called for both definer session and default session
+        assertAccessAllowed(
+                functionOwnerSession,
+                "SELECT memory.default.function_allow_inner(2)");
+        assertAccessAllowed("SELECT memory.default.function_allow_inner(2)");
+
+        // simply create another function, internally calls the first function
+        assertAccessAllowed(
+                functionOwnerSession,
+                "CREATE FUNCTION memory.default.function_allow_outer (x integer) RETURNS bigint RETURN x + memory.default.function_allow_inner(58)");
+        assertThat(systemSecurityMetadata.getFunctionOwner(outerFunction)).isEqualTo(functionOwner);
+
+        // assert that THE outer function can be called for both definer session and default session
+        assertAccessAllowed(
+                functionOwnerSession,
+                "SELECT memory.default.function_allow_outer(2)");
+        assertAccessAllowed("SELECT memory.default.function_allow_outer(2)");
+
+        // assert that lack of privileges to execute inner function doesn't block calling it through outer one
+        assertAccessAllowed(
+                "SELECT memory.default.function_allow_outer(2)",
+                privilege(getSession().getUser(), "memory.default.function_allow_inner", EXECUTE_FUNCTION));
+
+        assertAccessDenied(
+                "SELECT memory.default.function_allow_inner(2)",
+                "Cannot execute function memory.default.function_allow_inner",
+                privilege(getSession().getUser(), "memory.default.function_allow_inner", EXECUTE_FUNCTION));
+    }
+
+    @Test
+    public void testAllowCallFunctionWithRoleGrant()
+    {
+        reset();
+
+        String functionOwner = "function_owner";
+        CatalogSchemaFunctionName outerFunction = new CatalogSchemaFunctionName("memory", new SchemaFunctionName("default", "function_deny_outer"));
+        CatalogSchemaFunctionName innerFunction = new CatalogSchemaFunctionName("memory", new SchemaFunctionName("default", "function_deny_inner"));
+        TrinoPrincipal functionOwnerPrincipal = new TrinoPrincipal(USER, functionOwner);
+        systemSecurityMetadata.grantRoles(getSession(), ImmutableSet.of("function_owner_role"), ImmutableSet.of(functionOwnerPrincipal), false, Optional.empty());
+
+        Session functionOwnerSession = TestingSession.testSessionBuilder()
+                .setIdentity(Identity.forUser(functionOwner)
+                        .withEnabledRoles(Set.of("function_owner_role"))
+                        .build())
+                .setCatalog(getSession().getCatalog())
+                .setSchema(getSession().getSchema())
+                .build();
+
+        // simply create a function
+        assertAccessAllowed(
+                functionOwnerSession,
+                "CREATE FUNCTION memory.default.function_deny_inner (x integer) RETURNS bigint RETURN x + 42");
+        assertThat(systemSecurityMetadata.getFunctionOwner(innerFunction)).isEqualTo(functionOwner);
+
+        // simply create another function that internally calls the first function
+        assertAccessAllowed(
+                functionOwnerSession,
+                "CREATE FUNCTION memory.default.function_deny_outer (x integer) RETURNS bigint RETURN x + memory.default.function_deny_inner(58)");
+        assertThat(systemSecurityMetadata.getFunctionOwner(outerFunction)).isEqualTo(functionOwner);
+
+        // assert that outer function can be called for both definer session and default session
+        assertAccessAllowed(
+                functionOwnerSession,
+                "SELECT memory.default.function_deny_outer(2)");
+        assertAccessAllowed("SELECT memory.default.function_deny_outer(2)");
+
+        // block role function_owner_role_without_access from calling inner function
+        getQueryRunner().getAccessControl()
+                .denyIdentityFunction((identity, function) -> !(identity.getEnabledRoles().contains("function_owner_role_without_access") && "default.function_deny_inner".equals(function)));
+        // assign function_owner_role_without_access to function definer
+        systemSecurityMetadata.grantRoles(getSession(), ImmutableSet.of("function_owner_role_without_access"), ImmutableSet.of(functionOwnerPrincipal), false, Optional.empty());
+
+        // assert that because definer has function_owner_role_without_access role assigned it is impossible to call outer function
+        assertAccessDenied(
+                functionOwnerSession,
+                "SELECT memory.default.function_deny_outer(2)",
+                "Cannot execute function memory.default.function_deny_inner");
+        assertAccessDenied(
+                "SELECT memory.default.function_deny_outer(2)",
+                "Cannot execute function memory.default.function_deny_inner");
+
+        systemSecurityMetadata.revokeRoles(getSession(), ImmutableSet.of("function_owner_role_without_access"), ImmutableSet.of(functionOwnerPrincipal), false, Optional.empty());
+
+        // assert that after revoking function_owner_role_without_access from definer function can be called once more
+        assertAccessAllowed(
+                functionOwnerSession,
+                "SELECT memory.default.function_deny_outer(2)");
+        assertAccessAllowed("SELECT memory.default.function_deny_outer(2)");
+    }
+
+    @Test
+    public void testFunctionOwnerWhenDroppingFunction()
+    {
+        reset();
+
+        String functionOwner1 = "function_owner1";
+        String functionOwner2 = "function_owner2";
+        CatalogSchemaFunctionName functionName = new CatalogSchemaFunctionName("memory", new SchemaFunctionName("default", "my_function"));
+
+        Session functionOwnerSession1 = TestingSession.testSessionBuilder()
+                .setIdentity(Identity.ofUser(functionOwner1))
+                .setCatalog(getSession().getCatalog())
+                .setSchema(getSession().getSchema())
+                .build();
+        Session functionOwnerSession2 = TestingSession.testSessionBuilder()
+                .setIdentity(Identity.ofUser(functionOwner2))
+                .setCatalog(getSession().getCatalog())
+                .setSchema(getSession().getSchema())
+                .build();
+
+        assertAccessAllowed(
+                functionOwnerSession1,
+                "CREATE FUNCTION memory.default.my_function (x integer) RETURNS bigint RETURN x + 42");
+        assertThat(systemSecurityMetadata.getFunctionOwner(functionName)).isEqualTo(functionOwner1);
+
+        assertAccessAllowed(
+                functionOwnerSession1,
+                "DROP FUNCTION memory.default.my_function(integer)");
+
+        assertAccessAllowed(
+                functionOwnerSession2,
+                "CREATE FUNCTION memory.default.my_function (x integer) RETURNS bigint RETURN x + 42");
+        assertThat(systemSecurityMetadata.getFunctionOwner(functionName)).isEqualTo(functionOwner2);
+    }
+
+    @Test
+    public void testFunctionOwnerWhenReplacingFunction()
+    {
+        reset();
+
+        String functionOwner1 = "function_owner1";
+        String functionOwner2 = "function_owner2";
+        CatalogSchemaFunctionName functionName = new CatalogSchemaFunctionName("memory", new SchemaFunctionName("default", "my_replace_function"));
+
+        Session functionOwnerSession1 = TestingSession.testSessionBuilder()
+                .setIdentity(Identity.ofUser(functionOwner1))
+                .setCatalog(getSession().getCatalog())
+                .setSchema(getSession().getSchema())
+                .build();
+        Session functionOwnerSession2 = TestingSession.testSessionBuilder()
+                .setIdentity(Identity.ofUser(functionOwner2))
+                .setCatalog(getSession().getCatalog())
+                .setSchema(getSession().getSchema())
+                .build();
+
+        assertAccessAllowed(
+                functionOwnerSession1,
+                "CREATE FUNCTION memory.default.my_replace_function (x integer) RETURNS bigint RETURN x + 42");
+        assertThat(systemSecurityMetadata.getFunctionOwner(functionName)).isEqualTo(functionOwner1);
+
+        assertAccessAllowed(
+                functionOwnerSession2,
+                "CREATE OR REPLACE FUNCTION memory.default.my_replace_function (x integer) RETURNS bigint RETURN x + 42");
+        assertThat(systemSecurityMetadata.getFunctionOwner(functionName)).isEqualTo(functionOwner2);
     }
 
     @Test
@@ -739,6 +918,42 @@ public class TestAccessControl
     }
 
     @Test
+    public void testAddColumn()
+    {
+        reset();
+
+        String tableName = "test_add_column" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders", 0);
+
+        assertAccessDenied("ALTER TABLE " + tableName + " ADD COLUMN new_col char(100)", "Cannot add a column to table .*." + tableName + ".*", privilege(tableName, ADD_COLUMN));
+        assertAccessAllowed("ALTER TABLE " + tableName + " ADD COLUMN new_col char(100)", privilege(tableName + ".orderkey", ADD_COLUMN));
+    }
+
+    @Test
+    public void testDropColumn()
+    {
+        reset();
+
+        String tableName = "test_drop_column" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders", 0);
+
+        assertAccessDenied("ALTER TABLE " + tableName + " DROP COLUMN orderkey", "Cannot drop a column from table .*." + tableName + ".*", privilege(tableName, DROP_COLUMN));
+        assertAccessAllowed("ALTER TABLE " + tableName + " DROP COLUMN orderkey", privilege(tableName + ".orderkey", DROP_COLUMN));
+    }
+
+    @Test
+    public void testRenameColumn()
+    {
+        reset();
+
+        String tableName = "test_rename_column" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders", 0);
+
+        assertAccessDenied("ALTER TABLE " + tableName + " RENAME COLUMN orderkey TO renamed", "Cannot rename a column in table .*." + tableName + ".*", privilege(tableName, RENAME_COLUMN));
+        assertAccessAllowed("ALTER TABLE " + tableName + " RENAME COLUMN orderkey TO renamed", privilege(tableName + ".orderkey", RENAME_COLUMN));
+    }
+
+    @Test
     public void testSetColumnType()
     {
         reset();
@@ -849,7 +1064,8 @@ public class TestAccessControl
         // Show that without UPDATE on the target table, the MERGE fails
         assertAccessDenied(baseMergeSql + updateCase, "Cannot update columns \\[nation_name] in table " + targetName, privilege(targetTable, UPDATE_TABLE));
 
-        assertAccessAllowed("""
+        assertAccessAllowed(
+                """
                 MERGE INTO orders o USING region r ON (o.orderkey = r.regionkey)
                 WHEN MATCHED AND o.orderkey % 2 = 0 THEN DELETE
                 WHEN MATCHED AND o.orderkey % 2 = 1 THEN UPDATE SET orderkey = null
@@ -885,7 +1101,7 @@ public class TestAccessControl
         }
         catch (AssertionError e) {
             // There is no clean exception message for authorization failure.  We simply get a 403
-            Assertions.assertContains(e.getMessage(), "statusCode=403");
+            assertThat(e).hasMessageContaining("statusCode=403");
         }
     }
 

@@ -33,7 +33,8 @@ public class TestJdbcMetadataConfig
                 .setComplexJoinPushdownEnabled(true)
                 .setAggregationPushdownEnabled(true)
                 .setTopNPushdownEnabled(true)
-                .setDomainCompactionThreshold(32));
+                .setBulkListColumns(false)
+                .setDomainCompactionThreshold(256));
     }
 
     @Test
@@ -44,6 +45,7 @@ public class TestJdbcMetadataConfig
                 .put("join-pushdown.enabled", "true")
                 .put("join-pushdown.with-expressions", "false")
                 .put("aggregation-pushdown.enabled", "false")
+                .put("jdbc.bulk-list-columns.enabled", "true")
                 .put("domain-compaction-threshold", "42")
                 .put("topn-pushdown.enabled", "false")
                 .buildOrThrow();
@@ -54,6 +56,7 @@ public class TestJdbcMetadataConfig
                 .setComplexJoinPushdownEnabled(false)
                 .setAggregationPushdownEnabled(false)
                 .setTopNPushdownEnabled(false)
+                .setBulkListColumns(true)
                 .setDomainCompactionThreshold(42);
 
         assertFullMapping(properties, expected);

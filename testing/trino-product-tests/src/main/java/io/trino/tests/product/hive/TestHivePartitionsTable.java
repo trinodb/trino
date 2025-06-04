@@ -48,7 +48,6 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestHivePartitionsTable
         extends ProductTest
@@ -185,8 +184,10 @@ public class TestHivePartitionsTable
     private static void assertColumnNames(QueryResult queryResult, String... columnNames)
     {
         for (int i = 0; i < columnNames.length; i++) {
-            assertEquals(queryResult.tryFindColumnIndex(columnNames[i]), Optional.of(i + 1), "Index of column " + columnNames[i]);
+            assertThat(queryResult.tryFindColumnIndex(columnNames[i]))
+                    .as("Index of column " + columnNames[i])
+                    .isEqualTo(Optional.of(i + 1));
         }
-        assertEquals(queryResult.getColumnsCount(), columnNames.length);
+        assertThat(queryResult.getColumnsCount()).isEqualTo(columnNames.length);
     }
 }

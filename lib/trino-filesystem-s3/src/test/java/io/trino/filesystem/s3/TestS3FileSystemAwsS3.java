@@ -19,6 +19,8 @@ import io.trino.filesystem.FileEntry;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.core.checksums.RequestChecksumCalculation;
+import software.amazon.awssdk.core.checksums.ResponseChecksumValidation;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -26,10 +28,12 @@ import software.amazon.awssdk.services.s3.model.ObjectStorageClass;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import java.io.IOException;
+import java.net.URI;
 import java.util.List;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static java.util.Objects.requireNonNull;
+import static io.trino.testing.SystemEnvironmentUtils.isEnvSet;
+import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestS3FileSystemAwsS3
@@ -39,14 +43,23 @@ public class TestS3FileSystemAwsS3
     private String secretKey;
     private String region;
     private String bucket;
+    private String endpoint;
 
     @Override
     protected void initEnvironment()
     {
-        accessKey = environmentVariable("AWS_ACCESS_KEY_ID");
-        secretKey = environmentVariable("AWS_SECRET_ACCESS_KEY");
-        region = environmentVariable("AWS_REGION");
-        bucket = environmentVariable("EMPTY_S3_BUCKET");
+        accessKey = requireEnv("AWS_ACCESS_KEY_ID");
+        secretKey = requireEnv("AWS_SECRET_ACCESS_KEY");
+        region = requireEnv("AWS_REGION");
+
+        bucket = requireEnv("EMPTY_S3_BUCKET");
+
+        if (isEnvSet("AWS_ENDPOINT")) {
+            endpoint = requireEnv("AWS_ENDPOINT");
+        }
+        else {
+            endpoint = "https://s3." + region + ".amazonaws.com";
+        }
     }
 
     @Override
@@ -61,6 +74,9 @@ public class TestS3FileSystemAwsS3
         return S3Client.builder()
                 .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(accessKey, secretKey)))
                 .region(Region.of(region))
+                .responseChecksumValidation(ResponseChecksumValidation.WHEN_REQUIRED)
+                .requestChecksumCalculation(RequestChecksumCalculation.WHEN_REQUIRED)
+                .endpointOverride(URI.create(endpoint))
                 .build();
     }
 
@@ -71,12 +87,10 @@ public class TestS3FileSystemAwsS3
                 .setAwsAccessKey(accessKey)
                 .setAwsSecretKey(secretKey)
                 .setRegion(region)
-                .setStreamingPartSize(DataSize.valueOf("5.5MB")));
-    }
-
-    private static String environmentVariable(String name)
-    {
-        return requireNonNull(System.getenv(name), "Environment variable not set: " + name);
+                .setEndpoint(endpoint)
+                .setSupportsExclusiveCreate(true)
+                .setSignerType(S3FileSystemConfig.SignerType.AwsS3V4Signer)
+                .setStreamingPartSize(DataSize.valueOf("5.5MB")), new S3FileSystemStats());
     }
 
     @Test
@@ -99,7 +113,7 @@ public class TestS3FileSystemAwsS3
                 List<FileEntry> listing = toList(getFileSystem().listFiles(getRootLocation().appendPath("test")));
                 FileEntry fileEntry = getOnlyElement(listing);
 
-                assertThat(fileEntry.tags().contains("s3:glacier")).isTrue();
+                assertThat(fileEntry.tags()).contains("s3:glacier");
             }
             finally {
                 s3Client.deleteObject(delete -> delete.bucket(bucket()).key(key));

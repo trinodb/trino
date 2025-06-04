@@ -33,6 +33,7 @@ import java.util.OptionalLong;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.plugin.pinot.PinotSplit.SplitType.BROKER;
 import static io.trino.plugin.pinot.PinotSplit.SplitType.SEGMENT;
+import static io.trino.plugin.pinot.TestPinotTableHandle.newTableHandle;
 import static io.trino.plugin.pinot.query.DynamicTableBuilder.buildFromPql;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static java.lang.String.format;
@@ -52,7 +53,7 @@ public class TestPinotSplitManager
         SchemaTableName schemaTableName = new SchemaTableName("default", format("SELECT %s, %s FROM %s LIMIT %d", "AirlineID", "OriginStateName", "airlineStats", 100));
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, schemaTableName, mockClusterInfoFetcher, TESTING_TYPE_CONVERTER);
 
-        PinotTableHandle pinotTableHandle = new PinotTableHandle("default", dynamicTable.tableName(), TupleDomain.all(), OptionalLong.empty(), Optional.of(dynamicTable));
+        PinotTableHandle pinotTableHandle = new PinotTableHandle("default", dynamicTable.tableName(), false, TupleDomain.all(), OptionalLong.empty(), Optional.of(dynamicTable));
         List<PinotSplit> splits = getSplitsHelper(pinotTableHandle, 1, false);
         assertSplits(splits, 1, BROKER);
     }
@@ -61,7 +62,7 @@ public class TestPinotSplitManager
     public void testBrokerNonShortQuery()
     {
         assertThatThrownBy(() -> {
-            PinotTableHandle pinotTableHandle = new PinotTableHandle(realtimeOnlyTable.getSchemaName(), realtimeOnlyTable.getTableName());
+            PinotTableHandle pinotTableHandle = newTableHandle(realtimeOnlyTable.schemaName(), realtimeOnlyTable.tableName());
             List<PinotSplit> splits = getSplitsHelper(pinotTableHandle, 1, true);
             assertSplits(splits, 1, BROKER);
         })
@@ -76,7 +77,7 @@ public class TestPinotSplitManager
 
     private void testSegmentSplitsHelperNoFilter(PinotTableHandle table, int segmentsPerSplit, int expectedNumSplits)
     {
-        PinotTableHandle pinotTableHandle = new PinotTableHandle(table.getSchemaName(), table.getTableName());
+        PinotTableHandle pinotTableHandle = newTableHandle(table.schemaName(), table.tableName());
         List<PinotSplit> splits = getSplitsHelper(pinotTableHandle, segmentsPerSplit, false);
         assertSplits(splits, expectedNumSplits, SEGMENT);
         splits.forEach(this::assertSegmentSplitWellFormed);
@@ -84,7 +85,7 @@ public class TestPinotSplitManager
 
     private void testSegmentSplitsHelperWithFilter(PinotTableHandle table, int segmentsPerSplit, int expectedNumSplits)
     {
-        PinotTableHandle pinotTableHandle = new PinotTableHandle(table.getSchemaName(), table.getTableName());
+        PinotTableHandle pinotTableHandle = newTableHandle(table.schemaName(), table.tableName());
         List<PinotSplit> splits = getSplitsHelper(pinotTableHandle, segmentsPerSplit, false);
         assertSplits(splits, expectedNumSplits, SEGMENT);
         splits.forEach(this::assertSegmentSplitWellFormed);
@@ -99,15 +100,15 @@ public class TestPinotSplitManager
 
     private void assertSplits(List<PinotSplit> splits, int numSplitsExpected, PinotSplit.SplitType splitType)
     {
-        assertThat(splits.size()).isEqualTo(numSplitsExpected);
+        assertThat(splits).hasSize(numSplitsExpected);
         splits.forEach(s -> assertThat(s.getSplitType()).isEqualTo(splitType));
     }
 
     private void assertSegmentSplitWellFormed(PinotSplit split)
     {
         assertThat(split.getSplitType()).isEqualTo(SEGMENT);
-        assertThat(split.getSegmentHost().isPresent()).isTrue();
-        assertThat(split.getSegments().isEmpty()).isFalse();
+        assertThat(split.getSegmentHost()).isPresent();
+        assertThat(split.getSegments()).isNotEmpty();
     }
 
     public static ConnectorSession createSessionWithNumSplits(int numSegmentsPerSplit, boolean forbidSegmentQueries, PinotConfig pinotConfig)
@@ -117,8 +118,8 @@ public class TestPinotSplitManager
                 .setStart(Instant.now())
                 .setPropertyMetadata(new PinotSessionProperties(pinotConfig).getSessionProperties())
                 .setPropertyValues(ImmutableMap.<String, Object>builder()
-                        .put(PinotSessionProperties.SEGMENTS_PER_SPLIT, numSegmentsPerSplit)
-                        .put(PinotSessionProperties.FORBID_SEGMENT_QUERIES, forbidSegmentQueries)
+                        .put("segments_per_split", numSegmentsPerSplit)
+                        .put("forbid_segment_queries", forbidSegmentQueries)
                         .buildOrThrow())
                 .build();
     }

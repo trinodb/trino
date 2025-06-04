@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive;
 
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.Config;
@@ -39,6 +38,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TimeZone;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -66,10 +66,6 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 })
 public class HiveConfig
 {
-    public static final String CONFIGURATION_HIVE_PARTITION_PROJECTION_ENABLED = "hive.partition-projection-enabled";
-
-    private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
-
     private boolean singleStatementWritesOnly;
 
     private DataSize maxSplitSize = DataSize.of(64, MEGABYTE);
@@ -128,7 +124,7 @@ public class HiveConfig
     private boolean sortedWritingEnabled = true;
     private boolean propagateTableScanSortingProperties;
 
-    private boolean optimizeMismatchedBucketCount;
+    private boolean optimizeMismatchedBucketCount = true;
     private boolean writesToNonManagedTablesEnabled;
     private boolean createsOfNonManagedTablesEnabled = true;
 
@@ -144,6 +140,7 @@ public class HiveConfig
     private Duration fileStatusCacheExpireAfterWrite = new Duration(1, MINUTES);
     private DataSize fileStatusCacheMaxRetainedSize = DataSize.of(1, GIGABYTE);
     private List<String> fileStatusCacheTables = ImmutableList.of();
+    private List<String> fileStatusCacheExcludedTables = ImmutableList.of();
     private DataSize perTransactionFileStatusCacheMaxRetainedSize = DataSize.of(100, MEGABYTE);
 
     private boolean translateHiveViews;
@@ -174,9 +171,11 @@ public class HiveConfig
     private double minimumAssignedSplitWeight = 0.05;
     private boolean autoPurge;
 
-    private boolean partitionProjectionEnabled;
+    private boolean partitionProjectionEnabled = true;
 
-    private S3StorageClassFilter s3StorageClassFilter = S3StorageClassFilter.READ_ALL;
+    private S3GlacierFilter s3GlacierFilter = S3GlacierFilter.READ_ALL;
+
+    private int metadataParallelism = 8;
 
     public boolean isSingleStatementWritesOnly()
     {
@@ -767,9 +766,22 @@ public class HiveConfig
     }
 
     @Config("hive.file-status-cache-tables")
-    public HiveConfig setFileStatusCacheTables(String fileStatusCacheTables)
+    public HiveConfig setFileStatusCacheTables(List<String> fileStatusCacheTables)
     {
-        this.fileStatusCacheTables = SPLITTER.splitToList(fileStatusCacheTables);
+        this.fileStatusCacheTables = ImmutableList.copyOf(fileStatusCacheTables);
+        return this;
+    }
+
+    public List<String> getFileStatusCacheExcludedTables()
+    {
+        return fileStatusCacheExcludedTables;
+    }
+
+    @Config("hive.file-status-cache.excluded-tables")
+    @ConfigDescription("List of tables that should be excluded from file status caching")
+    public HiveConfig setFileStatusCacheExcludedTables(List<String> fileStatusCacheExcludedTables)
+    {
+        this.fileStatusCacheExcludedTables = ImmutableList.copyOf(fileStatusCacheExcludedTables);
         return this;
     }
 
@@ -906,7 +918,7 @@ public class HiveConfig
     }
 
     @Config("hive.bucket-execution")
-    @ConfigDescription("Enable bucket-aware execution: only use a single worker per bucket")
+    @ConfigDescription("Enable bucket-aware execution: use physical bucketing information to optimize queries")
     public HiveConfig setBucketExecutionEnabled(boolean bucketExecutionEnabled)
     {
         this.bucketExecutionEnabled = bucketExecutionEnabled;
@@ -1117,9 +1129,11 @@ public class HiveConfig
 
     @Config("hive.query-partition-filter-required-schemas")
     @ConfigDescription("List of schemas for which filter on partition column is enforced")
-    public HiveConfig setQueryPartitionFilterRequiredSchemas(String queryPartitionFilterRequiredSchemas)
+    public HiveConfig setQueryPartitionFilterRequiredSchemas(List<String> queryPartitionFilterRequiredSchemas)
     {
-        this.queryPartitionFilterRequiredSchemas = ImmutableSet.copyOf(SPLITTER.splitToList(queryPartitionFilterRequiredSchemas.toLowerCase(ENGLISH)));
+        this.queryPartitionFilterRequiredSchemas = queryPartitionFilterRequiredSchemas.stream()
+                .map(value -> value.toLowerCase(ENGLISH))
+                .collect(toImmutableSet());
         return this;
     }
 
@@ -1247,7 +1261,7 @@ public class HiveConfig
         return partitionProjectionEnabled;
     }
 
-    @Config(CONFIGURATION_HIVE_PARTITION_PROJECTION_ENABLED)
+    @Config("hive.partition-projection-enabled")
     @ConfigDescription("Enables AWS Athena partition projection")
     public HiveConfig setPartitionProjectionEnabled(boolean enabledAthenaPartitionProjection)
     {
@@ -1255,16 +1269,31 @@ public class HiveConfig
         return this;
     }
 
-    public S3StorageClassFilter getS3StorageClassFilter()
+    public S3GlacierFilter getS3GlacierFilter()
     {
-        return s3StorageClassFilter;
+        return s3GlacierFilter;
     }
 
-    @Config("hive.s3.storage-class-filter")
+    @LegacyConfig("hive.s3.storage-class-filter")
+    @Config("hive.s3-glacier-filter")
     @ConfigDescription("Filter based on storage class of S3 object")
-    public HiveConfig setS3StorageClassFilter(S3StorageClassFilter s3StorageClassFilter)
+    public HiveConfig setS3GlacierFilter(S3GlacierFilter s3GlacierFilter)
     {
-        this.s3StorageClassFilter = s3StorageClassFilter;
+        this.s3GlacierFilter = s3GlacierFilter;
+        return this;
+    }
+
+    @Min(1)
+    public int getMetadataParallelism()
+    {
+        return metadataParallelism;
+    }
+
+    @ConfigDescription("Limits metadata enumeration calls parallelism")
+    @Config("hive.metadata.parallelism")
+    public HiveConfig setMetadataParallelism(int metadataParallelism)
+    {
+        this.metadataParallelism = metadataParallelism;
         return this;
     }
 }

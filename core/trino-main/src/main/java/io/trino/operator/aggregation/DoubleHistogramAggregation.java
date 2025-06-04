@@ -39,9 +39,7 @@ public final class DoubleHistogramAggregation
 {
     public static final int ENTRY_BUFFER_SIZE = 100;
 
-    private DoubleHistogramAggregation()
-    {
-    }
+    private DoubleHistogramAggregation() {}
 
     @AccumulatorStateMetadata(stateSerializerClass = DoubleHistogramStateSerializer.class, stateFactoryClass = NumericHistogramStateFactory.class)
     public interface State

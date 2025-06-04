@@ -60,7 +60,7 @@ public class DeltaLakePageSink
     @Override
     protected void processSynthesizedColumn(DeltaLakeColumnHandle column)
     {
-        throw new IllegalStateException("Unexpected column type: " + column.getColumnType());
+        throw new IllegalStateException("Unexpected column type: " + column.columnType());
     }
 
     @Override

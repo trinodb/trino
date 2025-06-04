@@ -13,22 +13,27 @@
  */
 package io.trino.plugin.deltalake;
 
+import com.google.inject.AbstractModule;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.filesystem.s3.S3FileSystemConfig;
 import io.trino.plugin.deltalake.transactionlog.writer.AzureTransactionLogSynchronizer;
 import io.trino.plugin.deltalake.transactionlog.writer.GcsTransactionLogSynchronizer;
-import io.trino.plugin.deltalake.transactionlog.writer.S3NativeTransactionLogSynchronizer;
+import io.trino.plugin.deltalake.transactionlog.writer.S3ConditionalWriteLogSynchronizer;
+import io.trino.plugin.deltalake.transactionlog.writer.S3LockBasedTransactionLogSynchronizer;
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogSynchronizer;
 
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 
 public class DeltaLakeSynchronizerModule
-        implements Module
+        extends AbstractConfigurationAwareModule
 {
     @Override
-    public void configure(Binder binder)
+    protected void setup(Binder binder)
     {
         var synchronizerBinder = newMapBinder(binder, String.class, TransactionLogSynchronizer.class);
 
@@ -40,9 +45,27 @@ public class DeltaLakeSynchronizerModule
         synchronizerBinder.addBinding("gs").to(GcsTransactionLogSynchronizer.class).in(Scopes.SINGLETON);
 
         // S3
-        jsonCodecBinder(binder).bindJsonCodec(S3NativeTransactionLogSynchronizer.LockFileContents.class);
-        synchronizerBinder.addBinding("s3").to(S3NativeTransactionLogSynchronizer.class).in(Scopes.SINGLETON);
-        synchronizerBinder.addBinding("s3a").to(S3NativeTransactionLogSynchronizer.class).in(Scopes.SINGLETON);
-        synchronizerBinder.addBinding("s3n").to(S3NativeTransactionLogSynchronizer.class).in(Scopes.SINGLETON);
+        jsonCodecBinder(binder).bindJsonCodec(S3LockBasedTransactionLogSynchronizer.LockFileContents.class);
+        binder.bind(S3LockBasedTransactionLogSynchronizer.class).in(Scopes.SINGLETON);
+        binder.bind(S3ConditionalWriteLogSynchronizer.class).in(Scopes.SINGLETON);
+
+        install(conditionalModule(S3FileSystemConfig.class, S3FileSystemConfig::isSupportsExclusiveCreate,
+                s3SynchronizerModule(S3ConditionalWriteLogSynchronizer.class),
+                s3SynchronizerModule(S3LockBasedTransactionLogSynchronizer.class)));
+    }
+
+    private static Module s3SynchronizerModule(Class<? extends TransactionLogSynchronizer> synchronizerClass)
+    {
+        return new AbstractModule()
+        {
+            @Override
+            protected void configure()
+            {
+                var synchronizerBinder = newMapBinder(binder(), String.class, TransactionLogSynchronizer.class);
+                synchronizerBinder.addBinding("s3").to(synchronizerClass).in(Scopes.SINGLETON);
+                synchronizerBinder.addBinding("s3a").to(synchronizerClass).in(Scopes.SINGLETON);
+                synchronizerBinder.addBinding("s3n").to(synchronizerClass).in(Scopes.SINGLETON);
+            }
+        };
     }
 }

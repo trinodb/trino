@@ -24,8 +24,10 @@ import com.google.common.cache.RemovalCause;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import jakarta.annotation.Nullable;
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
+import org.jetbrains.annotations.NotNullByDefault;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -38,7 +40,6 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -54,7 +55,7 @@ import static java.util.Objects.requireNonNull;
  *
  * @see EvictableCacheBuilder
  */
-@ElementTypesAreNonnullByDefault
+@NotNullByDefault
 class EvictableCache<K, V>
         extends AbstractLoadingCache<K, V>
         implements LoadingCache<K, V>
@@ -68,8 +69,6 @@ class EvictableCache<K, V>
     // The dataCache must be bounded.
     private final LoadingCache<Token<K>, V> dataCache;
 
-    private final AtomicInteger invalidations = new AtomicInteger();
-
     EvictableCache(CacheBuilder<? super Token<K>, ? super V> cacheBuilder, CacheLoader<? super K, V> cacheLoader)
     {
         dataCache = buildUnsafeCache(
@@ -77,7 +76,14 @@ class EvictableCache<K, V>
                         .<Token<K>, V>removalListener(removal -> {
                             Token<K> token = removal.getKey();
                             verify(token != null, "token is null");
-                            if (removal.getCause() != RemovalCause.REPLACED) {
+                            // synchronize ongoing load check and token removal
+                            synchronized (token) {
+                                if (removal.getCause() == RemovalCause.REPLACED) {
+                                    return;
+                                }
+                                if (removal.getCause() == RemovalCause.EXPIRED && token.hasOngoingLoad()) {
+                                    return;
+                                }
                                 tokens.remove(token.getKey(), token);
                             }
                         }),
@@ -106,22 +112,15 @@ class EvictableCache<K, V>
             throws ExecutionException
     {
         Token<K> newToken = new Token<>(key);
-        int invalidations = this.invalidations.get();
-        Token<K> token = tokens.computeIfAbsent(key, ignored -> newToken);
+        Token<K> token = tokens.computeIfAbsent(key, _ -> newToken);
         try {
-            V value = dataCache.get(token, valueLoader);
-            if (invalidations == this.invalidations.get()) {
-                // Revive token if it got expired before reloading
-                if (tokens.putIfAbsent(key, token) == null) {
-                    // Revived
-                    if (!dataCache.asMap().containsKey(token)) {
-                        // We revived, but the token does not correspond to a live entry anymore.
-                        // It would stay in tokens forever, so let's remove it.
-                        tokens.remove(key, token);
-                    }
-                }
+            token.startLoading();
+            try {
+                return dataCache.get(token, valueLoader);
             }
-            return value;
+            finally {
+                token.endLoading();
+            }
         }
         catch (Throwable e) {
             if (newToken == token) {
@@ -131,6 +130,9 @@ class EvictableCache<K, V>
                 tokens.remove(key, newToken);
             }
             throw e;
+        }
+        finally {
+            removeDangling(token);
         }
     }
 
@@ -139,22 +141,15 @@ class EvictableCache<K, V>
             throws ExecutionException
     {
         Token<K> newToken = new Token<>(key);
-        int invalidations = this.invalidations.get();
-        Token<K> token = tokens.computeIfAbsent(key, ignored -> newToken);
+        Token<K> token = tokens.computeIfAbsent(key, _ -> newToken);
         try {
-            V value = dataCache.get(token);
-            if (invalidations == this.invalidations.get()) {
-                // Revive token if it got expired before reloading
-                if (tokens.putIfAbsent(key, token) == null) {
-                    // Revived
-                    if (!dataCache.asMap().containsKey(token)) {
-                        // We revived, but the token does not correspond to a live entry anymore.
-                        // It would stay in tokens forever, so let's remove it.
-                        tokens.remove(key, token);
-                    }
-                }
+            token.startLoading();
+            try {
+                return dataCache.get(token);
             }
-            return value;
+            finally {
+                token.endLoading();
+            }
         }
         catch (Throwable e) {
             if (newToken == token) {
@@ -164,6 +159,9 @@ class EvictableCache<K, V>
                 tokens.remove(key, newToken);
             }
             throw e;
+        }
+        finally {
+            removeDangling(token);
         }
     }
 
@@ -218,6 +216,17 @@ class EvictableCache<K, V>
         }
     }
 
+    // Token eviction via removalListener is blocked during loading, so we may need to do manual cleanup
+    private void removeDangling(Token<K> token)
+    {
+        // synchronize to make accessing both collections thread-safe
+        synchronized (token) {
+            if (!dataCache.asMap().containsKey(token) && !token.hasOngoingLoad()) {
+                tokens.remove(token.getKey(), token);
+            }
+        }
+    }
+
     @Override
     public void refresh(K key)
     {
@@ -248,7 +257,6 @@ class EvictableCache<K, V>
     @Override
     public void invalidate(Object key)
     {
-        invalidations.incrementAndGet();
         @SuppressWarnings("SuspiciousMethodCalls") // Object passed to map as key K
         Token<K> token = tokens.remove(key);
         if (token != null) {
@@ -259,7 +267,6 @@ class EvictableCache<K, V>
     @Override
     public void invalidateAll()
     {
-        invalidations.incrementAndGet();
         dataCache.invalidateAll();
         tokens.clear();
     }
@@ -283,7 +290,7 @@ class EvictableCache<K, V>
     @Override
     public ConcurrentMap<K, V> asMap()
     {
-        return new ConcurrentMap<K, V>()
+        return new ConcurrentMap<>()
         {
             private final ConcurrentMap<Token<K>, V> dataCacheMap = dataCache.asMap();
 
@@ -412,6 +419,8 @@ class EvictableCache<K, V>
     static final class Token<K>
     {
         private final K key;
+        @GuardedBy("this")
+        private int ongoingLoads;
 
         Token(K key)
         {
@@ -427,6 +436,22 @@ class EvictableCache<K, V>
         public String toString()
         {
             return format("CacheToken(%s; %s)", Integer.toHexString(hashCode()), key);
+        }
+
+        synchronized boolean hasOngoingLoad()
+        {
+            return ongoingLoads > 0;
+        }
+
+        synchronized void startLoading()
+        {
+            ongoingLoads++;
+        }
+
+        synchronized void endLoading()
+        {
+            ongoingLoads--;
+            verify(ongoingLoads >= 0, "ongoingLoads must be greater than or equal 0");
         }
     }
 

@@ -77,6 +77,7 @@ public class WindowFilterPushDown
         private final Session session;
         private final FunctionId rowNumberFunctionId;
         private final FunctionId rankFunctionId;
+        private final DomainTranslator domainTranslator;
 
         private Rewriter(
                 PlanNodeIdAllocator idAllocator,
@@ -88,6 +89,7 @@ public class WindowFilterPushDown
             this.session = requireNonNull(session, "session is null");
             rowNumberFunctionId = plannerContext.getMetadata().resolveBuiltinFunction("row_number", ImmutableList.of()).functionId();
             rankFunctionId = plannerContext.getMetadata().resolveBuiltinFunction("rank", ImmutableList.of()).functionId();
+            this.domainTranslator = new DomainTranslator(plannerContext.getMetadata());
         }
 
         @Override
@@ -159,7 +161,7 @@ public class WindowFilterPushDown
 
                 if (upperBound.isPresent()) {
                     if (upperBound.getAsInt() <= 0) {
-                        return new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of());
+                        return new ValuesNode(node.getId(), node.getOutputSymbols());
                     }
                     source = mergeLimit((RowNumberNode) source, upperBound.getAsInt());
                     return rewriteFilterSource(node, source, rowNumberSymbol, ((RowNumberNode) source).getMaxRowCountPerPartition().get());
@@ -173,7 +175,7 @@ public class WindowFilterPushDown
 
                     if (upperBound.isPresent()) {
                         if (upperBound.getAsInt() <= 0) {
-                            return new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of());
+                            return new ValuesNode(node.getId(), node.getOutputSymbols());
                         }
                         source = convertToTopNRanking(windowNode, rankingType.get(), upperBound.getAsInt());
                         return rewriteFilterSource(node, source, rankingSymbol, upperBound.getAsInt());
@@ -196,7 +198,7 @@ public class WindowFilterPushDown
             TupleDomain<Symbol> newTupleDomain = tupleDomain.filter((symbol, domain) -> !symbol.equals(rankingSymbol));
             Expression newPredicate = combineConjuncts(
                     extractionResult.getRemainingExpression(),
-                    DomainTranslator.toPredicate(newTupleDomain));
+                    domainTranslator.toPredicate(newTupleDomain));
 
             if (newPredicate.equals(Booleans.TRUE)) {
                 return source;

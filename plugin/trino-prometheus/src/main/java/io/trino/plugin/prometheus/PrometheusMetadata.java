@@ -17,24 +17,32 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
+import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.TableNotFoundException;
 
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.UnaryOperator;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.connector.RelationColumnsMetadata.forTable;
 import static java.util.Objects.requireNonNull;
 
 public class PrometheusMetadata
@@ -60,8 +68,12 @@ public class PrometheusMetadata
     }
 
     @Override
-    public PrometheusTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
+    public PrometheusTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
     {
+        if (startVersion.isPresent() || endVersion.isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
+        }
+
         if (!listSchemaNames(session).contains(tableName.getSchemaName())) {
             return null;
         }
@@ -70,7 +82,7 @@ public class PrometheusMetadata
             return null;
         }
 
-        return new PrometheusTableHandle(tableName.getSchemaName(), tableName.getTableName());
+        return new PrometheusTableHandle(tableName.getSchemaName(), tableName.getTableName(), Optional.empty());
     }
 
     @Override
@@ -96,7 +108,7 @@ public class PrometheusMetadata
     {
         PrometheusTableHandle prometheusTableHandle = (PrometheusTableHandle) tableHandle;
 
-        PrometheusTable table = prometheusClient.getTable(prometheusTableHandle.getSchemaName(), prometheusTableHandle.getTableName());
+        PrometheusTable table = prometheusClient.getTable(prometheusTableHandle.schemaName(), prometheusTableHandle.tableName());
         if (table == null) {
             throw new TableNotFoundException(prometheusTableHandle.toSchemaTableName());
         }
@@ -111,18 +123,23 @@ public class PrometheusMetadata
     }
 
     @Override
-    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
+    public Iterator<RelationColumnsMetadata> streamRelationColumns(ConnectorSession session, Optional<String> schemaName, UnaryOperator<Set<SchemaTableName>> relationFilter)
     {
-        requireNonNull(prefix, "prefix is null");
-        ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
+        Map<SchemaTableName, RelationColumnsMetadata> relationColumns = new HashMap<>();
+
+        SchemaTablePrefix prefix = schemaName.map(SchemaTablePrefix::new)
+                .orElseGet(SchemaTablePrefix::new);
         for (SchemaTableName tableName : listTables(session, prefix)) {
             ConnectorTableMetadata tableMetadata = getTableMetadata(tableName);
             // table can disappear during listing operation
             if (tableMetadata != null) {
-                columns.put(tableName, tableMetadata.getColumns());
+                relationColumns.put(tableName, forTable(tableName, tableMetadata.getColumns()));
             }
         }
-        return columns.buildOrThrow();
+
+        return relationFilter.apply(relationColumns.keySet()).stream()
+                .map(relationColumns::get)
+                .iterator();
     }
 
     private ConnectorTableMetadata getTableMetadata(SchemaTableName tableName)
@@ -150,7 +167,7 @@ public class PrometheusMetadata
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
-        return ((PrometheusColumnHandle) columnHandle).getColumnMetadata();
+        return ((PrometheusColumnHandle) columnHandle).columnMetadata();
     }
 
     @Override

@@ -52,11 +52,13 @@ The following configuration properties are available:
   - Where to find Prometheus coordinator host.
   - `http://localhost:9090`
 * - `prometheus.query.chunk.size.duration`
-  - The duration of each query to Prometheus.
+  - The duration of each query to Prometheus. 
+    The equivalent catalog session property is `query_chunk_size_duration`.
   - `1d`
 * - `prometheus.max.query.range.duration`
   - Width of overall query to Prometheus, will be divided into
-    `prometheus.query.chunk.size.duration` queries.
+    `prometheus.query.chunk.size.duration` queries. 
+    The equivalent catalog session property is `max_query_range_duration`.
   - `21d`
 * - `prometheus.cache.ttl`
   - How long values from this config file are cached.
@@ -82,6 +84,13 @@ The following configuration properties are available:
 * - `prometheus.case-insensitive-name-matching`
   - Match Prometheus metric names case insensitively.
   - `false`
+* - `prometheus.http.additional-headers`
+  -  Additional headers to send to Prometheus endpoint. These headers
+     must be comma-separated and delimited using `:`. For example,
+     `header1:value1,header2:value2` sends two headers `header1` and `header2`
+     with the values as `value1` and `value2`. Escape comma (`,`) or colon(`:`)
+     characters in a header name or value with a backslash (`\`).
+  -
 :::
 
 ## Not exhausting your Trino available heap
@@ -90,7 +99,7 @@ The `prometheus.query.chunk.size.duration` and `prometheus.max.query.range.durat
 too much data coming back from Prometheus. The `prometheus.max.query.range.duration` is the item of
 particular interest.
 
-On a Prometheus instance that has been running for awhile and depending
+On a Prometheus instance that has been running for a while and depending
 on data retention settings, `21d` might be far too much. Perhaps `1h` might be a more reasonable setting.
 In the case of `1h` it might be then useful to set `prometheus.query.chunk.size.duration` to `10m`, dividing the
 query window into 6 queries each of which can be handled in a Trino split.
@@ -114,7 +123,6 @@ is optional and not required unless your Prometheus setup requires it.
 `prometheus.auth.http.header.name` allows you to use a custom header name for bearer token. Default value is `Authorization`.
 
 (prometheus-type-mapping)=
-
 ## Type mapping
 
 Because Trino and Prometheus each support types that the other does not, this
@@ -156,7 +164,6 @@ SELECT * FROM example.default.up;
 ```
 
 (prometheus-sql-support)=
-
 ## SQL support
 
 The connector provides {ref}`globally available <sql-globally-available>` and

@@ -33,7 +33,7 @@ public class TestSmallintType
 
     public static ValueBlock createTestBlock()
     {
-        BlockBuilder blockBuilder = SMALLINT.createBlockBuilder(null, 15);
+        BlockBuilder blockBuilder = SMALLINT.createFixedSizeBlockBuilder(15);
         SMALLINT.writeLong(blockBuilder, 1111);
         SMALLINT.writeLong(blockBuilder, 1111);
         SMALLINT.writeLong(blockBuilder, 1111);

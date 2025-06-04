@@ -57,7 +57,7 @@ public class TestPartitionedPipelinedOutputBufferManager
         assertThat(outputBuffers.getVersion() > 0).isTrue();
         assertThat(outputBuffers.isNoMoreBufferIds()).isTrue();
         Map<OutputBufferId, Integer> buffers = outputBuffers.getBuffers();
-        assertThat(buffers.size()).isEqualTo(4);
+        assertThat(buffers).hasSize(4);
         for (int partition = 0; partition < 4; partition++) {
             assertThat(buffers).containsEntry(new OutputBufferId(partition), Integer.valueOf(partition));
         }

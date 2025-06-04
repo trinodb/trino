@@ -44,7 +44,7 @@ final class ReaderUtils
                 "Cannot read SQL type '%s' from ORC stream '%s' of type %s with attributes %s",
                 type,
                 column.getPath(),
-                column.getColumnType(),
+                column.getColumnType().getOrcTypeKind(),
                 column.getAttributes());
     }
 
@@ -168,7 +168,6 @@ final class ReaderUtils
         }
         // if there are no null positions, append a null to the end of the block
         if (nullIndex == -1) {
-            fieldBlock = fieldBlock.getLoadedBlock();
             nullIndex = fieldBlock.getPositionCount();
             fieldBlock = fieldBlock.copyWithAppendedNull();
         }

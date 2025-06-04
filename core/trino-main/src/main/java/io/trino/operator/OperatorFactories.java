@@ -30,8 +30,9 @@ import java.util.OptionalInt;
 import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.operator.WorkProcessorOperatorAdapter.createAdapterOperatorFactory;
 
-public class OperatorFactories
+public final class OperatorFactories
 {
     private OperatorFactories() {}
 
@@ -44,15 +45,14 @@ public class OperatorFactories
             List<Type> probeTypes,
             List<Integer> probeJoinChannel,
             OptionalInt probeHashChannel,
-            Optional<List<Integer>> probeOutputChannelsOptional,
-            TypeOperators typeOperators)
+            Optional<List<Integer>> probeOutputChannelsOptional)
     {
         List<Integer> probeOutputChannels = probeOutputChannelsOptional.orElseGet(() -> rangeList(probeTypes.size()));
         List<Type> probeOutputChannelTypes = probeOutputChannels.stream()
                 .map(probeTypes::get)
                 .collect(toImmutableList());
 
-        return new io.trino.operator.join.unspilled.LookupJoinOperatorFactory(
+        return createAdapterOperatorFactory(new io.trino.operator.join.unspilled.LookupJoinOperatorFactory(
                 operatorId,
                 planNodeId,
                 lookupSourceFactory,
@@ -60,10 +60,7 @@ public class OperatorFactories
                 probeOutputChannelTypes,
                 lookupSourceFactory.getBuildOutputTypes(),
                 joinType,
-                new JoinProbe.JoinProbeFactory(probeOutputChannels, probeJoinChannel, probeHashChannel, hasFilter),
-                typeOperators,
-                probeJoinChannel,
-                probeHashChannel);
+                new JoinProbe.JoinProbeFactory(probeOutputChannels, probeJoinChannel, probeHashChannel, hasFilter)));
     }
 
     public static OperatorFactory spillingJoin(
@@ -71,7 +68,6 @@ public class OperatorFactories
             int operatorId,
             PlanNodeId planNodeId,
             JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactory,
-            boolean hasFilter,
             List<Type> probeTypes,
             List<Integer> probeJoinChannel,
             OptionalInt probeHashChannel,
@@ -85,7 +81,7 @@ public class OperatorFactories
                 .map(probeTypes::get)
                 .collect(toImmutableList());
 
-        return new LookupJoinOperatorFactory(
+        return createAdapterOperatorFactory(new LookupJoinOperatorFactory(
                 operatorId,
                 planNodeId,
                 lookupSourceFactory,
@@ -98,7 +94,7 @@ public class OperatorFactories
                 totalOperatorsCount,
                 probeJoinChannel,
                 probeHashChannel,
-                partitioningSpillerFactory);
+                partitioningSpillerFactory));
     }
 
     private static List<Integer> rangeList(int endExclusive)

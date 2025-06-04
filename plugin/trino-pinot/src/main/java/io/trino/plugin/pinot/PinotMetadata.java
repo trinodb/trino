@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.pinot;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -35,6 +34,7 @@ import io.trino.plugin.pinot.query.aggregation.ImplementCountAll;
 import io.trino.plugin.pinot.query.aggregation.ImplementCountDistinct;
 import io.trino.plugin.pinot.query.aggregation.ImplementMinMax;
 import io.trino.plugin.pinot.query.aggregation.ImplementSum;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.Assignment;
@@ -44,11 +44,13 @@ import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.LimitApplicationResult;
+import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.connector.SchemaTablePrefix;
+import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.Domain;
@@ -59,6 +61,7 @@ import io.trino.spi.type.Type;
 import org.apache.pinot.spi.data.Schema;
 
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -68,6 +71,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
+import java.util.function.UnaryOperator;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -79,6 +83,8 @@ import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.pinot.PinotSessionProperties.isAggregationPushdownEnabled;
 import static io.trino.plugin.pinot.query.AggregateExpression.replaceIdentifier;
 import static io.trino.plugin.pinot.query.DynamicTablePqlExtractor.quoteIdentifier;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.connector.RelationColumnsMetadata.forTable;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -96,7 +102,7 @@ public class PinotMetadata
     // See https://github.com/apache/incubator-pinot/issues/10601
     private static final Set<Type> SUPPORTS_ALWAYS_FALSE = Set.of(BIGINT, INTEGER, REAL, DOUBLE);
 
-    private final NonEvictableLoadingCache<String, List<PinotColumnHandle>> pinotTableColumnCache;
+    private final NonEvictableLoadingCache<String, Schema> pinotTableSchemaCache;
     private final int maxRowsPerBrokerQuery;
     private final AggregateFunctionRewriter<AggregateExpression, Void> aggregateFunctionRewriter;
     private final ImplementCountDistinct implementCountDistinct;
@@ -113,17 +119,16 @@ public class PinotMetadata
         this.pinotClient = requireNonNull(pinotClient, "pinotClient is null");
         long metadataCacheExpiryMillis = pinotConfig.getMetadataCacheExpiry().roundTo(TimeUnit.MILLISECONDS);
         this.typeConverter = requireNonNull(typeConverter, "typeConverter is null");
-        this.pinotTableColumnCache = buildNonEvictableCache(
+        this.pinotTableSchemaCache = buildNonEvictableCache(
                 CacheBuilder.newBuilder()
                         .refreshAfterWrite(metadataCacheExpiryMillis, TimeUnit.MILLISECONDS),
                 asyncReloading(new CacheLoader<>()
                 {
                     @Override
-                    public List<PinotColumnHandle> load(String tableName)
+                    public Schema load(String tableName)
                             throws Exception
                     {
-                        Schema tablePinotSchema = pinotClient.getTableSchema(tableName);
-                        return getPinotColumnHandlesForPinotSchema(tablePinotSchema);
+                        return pinotClient.getTableSchema(tableName);
                     }
                 }, executor));
 
@@ -149,37 +154,47 @@ public class PinotMetadata
     }
 
     @Override
-    public PinotTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
+    public PinotTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
     {
+        if (startVersion.isPresent() || endVersion.isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
+        }
+
         if (tableName.getTableName().trim().contains("select ")) {
             DynamicTable dynamicTable = DynamicTableBuilder.buildFromPql(this, tableName, pinotClient, typeConverter);
-            return new PinotTableHandle(tableName.getSchemaName(), dynamicTable.tableName(), TupleDomain.all(), OptionalLong.empty(), Optional.of(dynamicTable));
+            return new PinotTableHandle(tableName.getSchemaName(), dynamicTable.tableName(), false, TupleDomain.all(), OptionalLong.empty(), Optional.of(dynamicTable));
         }
         String pinotTableName = pinotClient.getPinotTableNameFromTrinoTableNameIfExists(tableName.getTableName());
         if (pinotTableName == null) {
             return null;
         }
-        return new PinotTableHandle(tableName.getSchemaName(), pinotTableName);
+        return new PinotTableHandle(
+                tableName.getSchemaName(),
+                pinotTableName,
+                getFromCache(pinotTableSchemaCache, pinotTableName).isEnableColumnBasedNullHandling(),
+                TupleDomain.all(),
+                OptionalLong.empty(),
+                Optional.empty());
     }
 
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
         PinotTableHandle pinotTableHandle = (PinotTableHandle) table;
-        if (pinotTableHandle.getQuery().isPresent()) {
-            DynamicTable dynamicTable = pinotTableHandle.getQuery().get();
+        if (pinotTableHandle.query().isPresent()) {
+            DynamicTable dynamicTable = pinotTableHandle.query().get();
             ImmutableList.Builder<ColumnMetadata> columnMetadataBuilder = ImmutableList.builder();
             for (PinotColumnHandle pinotColumnHandle : dynamicTable.projections()) {
                 columnMetadataBuilder.add(pinotColumnHandle.getColumnMetadata());
             }
             dynamicTable.aggregateColumns()
                     .forEach(columnHandle -> columnMetadataBuilder.add(columnHandle.getColumnMetadata()));
-            SchemaTableName schemaTableName = new SchemaTableName(pinotTableHandle.getSchemaName(), dynamicTable.tableName());
+            SchemaTableName schemaTableName = new SchemaTableName(pinotTableHandle.schemaName(), dynamicTable.tableName());
             return new ConnectorTableMetadata(schemaTableName, columnMetadataBuilder.build());
         }
-        SchemaTableName tableName = new SchemaTableName(pinotTableHandle.getSchemaName(), pinotTableHandle.getTableName());
+        SchemaTableName tableName = new SchemaTableName(pinotTableHandle.schemaName(), pinotTableHandle.tableName());
 
-        return getTableMetadata(tableName);
+        return new ConnectorTableMetadata(tableName, getColumnsMetadata(tableName.getTableName()));
     }
 
     @Override
@@ -196,35 +211,42 @@ public class PinotMetadata
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         PinotTableHandle pinotTableHandle = (PinotTableHandle) tableHandle;
-        if (pinotTableHandle.getQuery().isPresent()) {
+        if (pinotTableHandle.query().isPresent()) {
             return getDynamicTableColumnHandles(pinotTableHandle);
         }
-        return getPinotColumnHandles(pinotTableHandle.getTableName());
+        return getPinotColumnHandles(pinotTableHandle.tableName());
     }
 
     public Map<String, ColumnHandle> getPinotColumnHandles(String tableName)
     {
         ImmutableMap.Builder<String, ColumnHandle> columnHandlesBuilder = ImmutableMap.builder();
         String pinotTableName = pinotClient.getPinotTableNameFromTrinoTableName(tableName);
-        for (PinotColumnHandle columnHandle : getFromCache(pinotTableColumnCache, pinotTableName)) {
+        for (PinotColumnHandle columnHandle : getPinotColumnHandlesForPinotSchema(pinotTableName)) {
             columnHandlesBuilder.put(columnHandle.getColumnName().toLowerCase(ENGLISH), columnHandle);
         }
         return columnHandlesBuilder.buildOrThrow();
     }
 
     @Override
-    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
+    public Iterator<RelationColumnsMetadata> streamRelationColumns(
+            ConnectorSession session,
+            Optional<String> schemaName,
+            UnaryOperator<Set<SchemaTableName>> relationFilter)
     {
-        requireNonNull(prefix, "prefix is null");
-        ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
-        for (SchemaTableName tableName : listTables(session, prefix)) {
-            ConnectorTableMetadata tableMetadata = getTableMetadata(tableName);
-            // table can disappear during listing operation
-            if (tableMetadata != null) {
-                columns.put(tableName, tableMetadata.getColumns());
+        Map<SchemaTableName, RelationColumnsMetadata> relationColumns = new HashMap<>();
+
+        for (SchemaTableName tableName : listTables(session, schemaName)) {
+            try {
+                relationColumns.put(tableName, forTable(tableName, getColumnsMetadata(tableName.getTableName())));
+            }
+            catch (TableNotFoundException e) {
+                // table disappeared during listing operation
             }
         }
-        return columns.buildOrThrow();
+
+        return relationFilter.apply(relationColumns.keySet()).stream()
+                .map(relationColumns::get)
+                .iterator();
     }
 
     @Override
@@ -240,10 +262,10 @@ public class PinotMetadata
     public Optional<LimitApplicationResult<ConnectorTableHandle>> applyLimit(ConnectorSession session, ConnectorTableHandle table, long limit)
     {
         PinotTableHandle handle = (PinotTableHandle) table;
-        if (handle.getLimit().isPresent() && handle.getLimit().getAsLong() <= limit) {
+        if (handle.limit().isPresent() && handle.limit().getAsLong() <= limit) {
             return Optional.empty();
         }
-        Optional<DynamicTable> dynamicTable = handle.getQuery();
+        Optional<DynamicTable> dynamicTable = handle.query();
         if (dynamicTable.isPresent() &&
                 (dynamicTable.get().limit().isEmpty() || dynamicTable.get().limit().getAsLong() > limit)) {
             dynamicTable = Optional.of(new DynamicTable(dynamicTable.get().tableName(),
@@ -261,9 +283,10 @@ public class PinotMetadata
         }
 
         handle = new PinotTableHandle(
-                handle.getSchemaName(),
-                handle.getTableName(),
-                handle.getConstraint(),
+                handle.schemaName(),
+                handle.tableName(),
+                handle.enableNullHandling(),
+                handle.constraint(),
                 OptionalLong.of(limit),
                 dynamicTable);
         boolean singleSplit = dynamicTable.isPresent();
@@ -274,7 +297,7 @@ public class PinotMetadata
     public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint constraint)
     {
         PinotTableHandle handle = (PinotTableHandle) table;
-        TupleDomain<ColumnHandle> oldDomain = handle.getConstraint();
+        TupleDomain<ColumnHandle> oldDomain = handle.constraint();
 
         TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary());
         TupleDomain<ColumnHandle> remainingFilter;
@@ -312,11 +335,12 @@ public class PinotMetadata
         }
 
         handle = new PinotTableHandle(
-                handle.getSchemaName(),
-                handle.getTableName(),
+                handle.schemaName(),
+                handle.tableName(),
+                handle.enableNullHandling(),
                 newDomain,
-                handle.getLimit(),
-                handle.getQuery());
+                handle.limit(),
+                handle.query());
         return Optional.of(new ConstraintApplicationResult<>(handle, remainingFilter, constraint.getExpression(), false));
     }
 
@@ -354,6 +378,13 @@ public class PinotMetadata
             return Optional.empty();
         }
 
+        PinotTableHandle tableHandle = (PinotTableHandle) handle;
+        Schema schema = getFromCache(pinotTableSchemaCache, tableHandle.tableName());
+        if (schema.isEnableColumnBasedNullHandling()) {
+            // Pinot has a correctness issue when null handling is enabled
+            return Optional.empty();
+        }
+
         // Do not push aggregations down if a grouping column is an array type.
         // Pinot treats each element of array as a grouping key
         // See https://github.com/apache/pinot/issues/8353 for more details.
@@ -362,15 +393,14 @@ public class PinotMetadata
                 .findFirst().isPresent()) {
             return Optional.empty();
         }
-        PinotTableHandle tableHandle = (PinotTableHandle) handle;
         // If aggregates are present than no further aggregations
         // can be pushed down: there are currently no subqueries in pinot.
         // If there is an offset then do not push the aggregation down as the results will not be correct
-        if (tableHandle.getQuery().isPresent() &&
-                (!isAggregationPushdownSupported(session, tableHandle.getQuery(), aggregates, assignments) ||
-                        !tableHandle.getQuery().get().aggregateColumns().isEmpty() ||
-                        tableHandle.getQuery().get().aggregateInProjections() ||
-                        tableHandle.getQuery().get().offset().isPresent())) {
+        if (tableHandle.query().isPresent() &&
+                (!isAggregationPushdownSupported(session, tableHandle.query(), aggregates, assignments) ||
+                        !tableHandle.query().get().aggregateColumns().isEmpty() ||
+                        tableHandle.query().get().aggregateInProjections() ||
+                        tableHandle.query().get().offset().isPresent())) {
             return Optional.empty();
         }
 
@@ -400,15 +430,15 @@ public class PinotMetadata
         // Ensure that pinot default limit of 10 rows is not used
         // By setting the limit to maxRowsPerBrokerQuery + 1 the connector will
         // know when the limit was exceeded and throw an error
-        if (tableHandle.getLimit().isEmpty() && !groupingColumns.isEmpty()) {
+        if (tableHandle.limit().isEmpty() && !groupingColumns.isEmpty()) {
             limitForDynamicTable = OptionalLong.of(maxRowsPerBrokerQuery + 1);
         }
         List<PinotColumnHandle> aggregationColumns = aggregateColumnsBuilder.build();
         String newQuery = "";
         List<PinotColumnHandle> newSelections = groupingColumns;
-        if (tableHandle.getQuery().isPresent()) {
-            newQuery = tableHandle.getQuery().get().query();
-            Map<String, PinotColumnHandle> projectionsMap = tableHandle.getQuery().get().projections().stream()
+        if (tableHandle.query().isPresent()) {
+            newQuery = tableHandle.query().get().query();
+            Map<String, PinotColumnHandle> projectionsMap = tableHandle.query().get().projections().stream()
                     .collect(toImmutableMap(PinotColumnHandle::getColumnName, identity()));
             groupingColumns = groupingColumns.stream()
                     .map(groupIngColumn -> projectionsMap.getOrDefault(groupIngColumn.getColumnName(), groupIngColumn))
@@ -424,10 +454,10 @@ public class PinotMetadata
         }
 
         DynamicTable dynamicTable = new DynamicTable(
-                tableHandle.getTableName(),
+                tableHandle.tableName(),
                 Optional.empty(),
                 newSelections,
-                tableHandle.getQuery().flatMap(DynamicTable::filter),
+                tableHandle.query().flatMap(DynamicTable::filter),
                 groupingColumns,
                 aggregationColumns,
                 Optional.empty(),
@@ -436,7 +466,13 @@ public class PinotMetadata
                 OptionalLong.empty(),
                 ImmutableMap.of(),
                 newQuery);
-        tableHandle = new PinotTableHandle(tableHandle.getSchemaName(), tableHandle.getTableName(), tableHandle.getConstraint(), tableHandle.getLimit(), Optional.of(dynamicTable));
+        tableHandle = new PinotTableHandle(
+                tableHandle.schemaName(),
+                tableHandle.tableName(),
+                tableHandle.enableNullHandling(),
+                tableHandle.constraint(),
+                tableHandle.limit(),
+                Optional.of(dynamicTable));
 
         return Optional.of(new AggregationApplicationResult<>(tableHandle, projections.build(), resultAssignments.build(), ImmutableMap.of(), false));
     }
@@ -477,7 +513,7 @@ public class PinotMetadata
             // This is to avoid count(column_name) being pushed into pinot, which is currently unsupported.
             // Currently Pinot treats count(column_name) as count(*), i.e. it counts nulls.
             PinotColumnHandle columnHandle = (PinotColumnHandle) assignments.get(argument.getName());
-            if (tableHandle.getQuery().isEmpty() || tableHandle.getQuery().get().groupingColumns().stream()
+            if (tableHandle.query().isEmpty() || tableHandle.query().get().groupingColumns().stream()
                     .noneMatch(groupingExpression -> groupingExpression.getColumnName().equals(columnHandle.getColumnName()))) {
                 return Optional.empty();
             }
@@ -507,11 +543,10 @@ public class PinotMetadata
         return aggregateColumn;
     }
 
-    @VisibleForTesting
-    public List<ColumnMetadata> getColumnsMetadata(String tableName)
+    private List<ColumnMetadata> getColumnsMetadata(String tableName)
     {
         String pinotTableName = pinotClient.getPinotTableNameFromTrinoTableName(tableName);
-        return getFromCache(pinotTableColumnCache, pinotTableName).stream()
+        return getPinotColumnHandlesForPinotSchema(pinotTableName).stream()
                 .map(PinotColumnHandle::getColumnMetadata)
                 .collect(toImmutableList());
     }
@@ -528,8 +563,8 @@ public class PinotMetadata
 
     private Map<String, ColumnHandle> getDynamicTableColumnHandles(PinotTableHandle pinotTableHandle)
     {
-        checkState(pinotTableHandle.getQuery().isPresent(), "dynamic table not present");
-        DynamicTable dynamicTable = pinotTableHandle.getQuery().get();
+        checkState(pinotTableHandle.query().isPresent(), "dynamic table not present");
+        DynamicTable dynamicTable = pinotTableHandle.query().get();
 
         ImmutableMap.Builder<String, ColumnHandle> columnHandlesBuilder = ImmutableMap.builder();
         for (PinotColumnHandle pinotColumnHandle : dynamicTable.projections()) {
@@ -540,25 +575,13 @@ public class PinotMetadata
         return columnHandlesBuilder.buildOrThrow();
     }
 
-    private ConnectorTableMetadata getTableMetadata(SchemaTableName tableName)
+    private List<PinotColumnHandle> getPinotColumnHandlesForPinotSchema(String tableName)
     {
-        return new ConnectorTableMetadata(tableName, getColumnsMetadata(tableName.getTableName()));
-    }
-
-    private List<PinotColumnHandle> getPinotColumnHandlesForPinotSchema(Schema pinotTableSchema)
-    {
+        Schema pinotTableSchema = getFromCache(pinotTableSchemaCache, tableName);
         return pinotTableSchema.getColumnNames().stream()
                 .filter(columnName -> !columnName.startsWith("$")) // Hidden columns starts with "$", ignore them as we can't use them in PQL
                 .map(columnName -> new PinotColumnHandle(columnName, typeConverter.toTrinoType(pinotTableSchema.getFieldSpecFor(columnName))))
                 .collect(toImmutableList());
-    }
-
-    private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
-    {
-        if (prefix.getSchema().isEmpty() || prefix.getTable().isEmpty()) {
-            return listTables(session, Optional.empty());
-        }
-        return ImmutableList.of(new SchemaTableName(prefix.getSchema().get(), prefix.getTable().get()));
     }
 
     private static class CountDistinctContext

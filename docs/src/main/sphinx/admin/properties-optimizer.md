@@ -8,25 +8,11 @@
 
 Enables optimization for aggregations on dictionaries.
 
-## `optimizer.optimize-hash-generation`
-
-- **Type:** {ref}`prop-type-boolean`
-- **Default value:** `false`
-- **Session property:** `optimize_hash_generation`
-
-Compute hash codes for distribution, joins, and aggregations early during execution,
-allowing result to be shared between operations later in the query. This can reduce
-CPU usage by avoiding computing the same hash multiple times, but at the cost of
-additional network transfer for the hashes. In most cases it decreases overall
-query processing time.
-
-It is often helpful to disable this property, when using {doc}`/sql/explain` in order
-to make the query plan easier to read.
-
 ## `optimizer.optimize-metadata-queries`
 
 - **Type:** {ref}`prop-type-boolean`
 - **Default value:** `false`
+- **Session property:** `optimize_metadata_queries`
 
 Enable optimization of some aggregations by using values that are stored as metadata.
 This allows Trino to execute some simple queries in constant time. Currently, this
@@ -39,19 +25,24 @@ partition keys for partitions that have no rows. In particular, the Hive connect
 can return empty partitions, if they were created by other systems. Trino cannot
 create them.
 
-## `optimizer.mark-distinct-strategy`
+## `optimizer.distinct-aggregations-strategy`
 
 - **Type:** {ref}`prop-type-string`
-- **Allowed values:** `AUTOMATIC`, `ALWAYS`, `NONE`
+- **Allowed values:** `AUTOMATIC`, `MARK_DISTINCT`, `SINGLE_STEP`, `PRE_AGGREGATE`, `SPLIT_TO_SUBQUERIES`
 - **Default value:** `AUTOMATIC`
-- **Session property:**  `mark_distinct_strategy`
+- **Session property:** `distinct_aggregations_strategy`
 
-The mark distinct strategy to use for distinct aggregations. `NONE` does not use
-`MarkDistinct` operator.  `ALWAYS` uses `MarkDistinct` for multiple distinct
-aggregations or for mix of distinct and non-distinct aggregations.
-`AUTOMATIC` limits the use of `MarkDistinct` only for cases with limited
-concurrency (global or small cardinality aggregations), where direct distinct
-aggregation implementation cannot utilize CPU efficiently.
+The strategy to use for multiple distinct aggregations.
+- `SINGLE_STEP` Computes distinct aggregations in single-step without any pre-aggregations.
+This strategy will perform poorly if the number of distinct grouping keys is small.
+- `MARK_DISTINCT` uses `MarkDistinct` for multiple distinct aggregations or for mix of distinct and non-distinct aggregations.
+- `PRE_AGGREGATE` Computes distinct aggregations using a combination of aggregation and pre-aggregation steps.
+- `SPLIT_TO_SUBQUERIES` Splits the aggregation input to independent sub-queries, where each subquery computes single distinct aggregation thus improving parallelism
+- `AUTOMATIC` chooses the strategy automatically.
+
+Single-step strategy is preferred. However, for cases with limited concurrency due to
+a small number of distinct grouping keys, it will choose an alternative strategy
+based on input data statistics.
 
 ## `optimizer.push-aggregation-through-outer-join`
 
@@ -87,6 +78,16 @@ additional synchronization when collecting results. Enabling this optimization c
 `UNION ALL` speed, when write speed is not yet saturated. However, it may slow down queries
 in an already heavily loaded system.
 
+## `optimizer.push-filter-into-values-max-row-count`
+
+- **Type:** {ref}`prop-type-integer`
+- **Default value:** `100`
+- **Minimum value:** `0`
+- **Session property:** `push_filter_into_values_max_row_count`
+ 
+The number of rows in [](/sql/values) below which the planner evaluates a filter
+on top of `VALUES` to optimize the query plan.
+
 ## `optimizer.join-reordering-strategy`
 
 - **Type:** {ref}`prop-type-string`
@@ -105,6 +106,7 @@ for any reason a cost could not be computed, the `ELIMINATE_CROSS_JOINS` strateg
 
 - **Type:** {ref}`prop-type-integer`
 - **Default value:** `8`
+- **Session property:** `max_reordered_joins`
 
 When optimizer.join-reordering-strategy is set to cost-based, this property determines
 the maximum number of joins that can be reordered at once.
@@ -118,6 +120,7 @@ relations, so increasing this value can cause serious performance issues.
 
 - **Type:** {ref}`prop-type-boolean`
 - **Default value:** `true`
+- **Session property:** `optimize_duplicate_insensitive_joins`
 
 Reduces number of rows produced by joins when optimizer detects that duplicated
 join output rows can be skipped.
@@ -126,16 +129,17 @@ join output rows can be skipped.
 
 - **Type:** {ref}`prop-type-boolean`
 - **Default value:** `false`
+- **Session property:** `use_exact_partitioning` 
 
 Re-partition data unless the partitioning of the upstream
 {ref}`stage <trino-concept-stage>` exactly matches what the downstream stage
-expects. This can also be specified using the `use_exact_partitioning` session
-property.
+expects.
 
 ## `optimizer.use-table-scan-node-partitioning`
 
 - **Type:** {ref}`prop-type-boolean`
 - **Default value:** `true`
+- **Session property:** `use_table_scan_node_partitioning`
 
 Use connector provided table node partitioning when reading tables.
 For example, table node partitioning corresponds to Hive table buckets.
@@ -154,6 +158,7 @@ low compared to number of workers.
 
 - **Type:** {ref}`prop-type-double`
 - **Default value:** `0.5`
+- **Session property:** `table_scan_node_partitioning_min_bucket_to_task_ratio`
 
 Specifies minimal bucket to task ratio that has to be matched or exceeded in order
 to use table scan node partitioning. When the table bucket count is small
@@ -177,6 +182,7 @@ avoid exchanging data between workers using a co-located join to improve query p
 - **Default value:** `0.75`
 - **Min allowed value:** `0`
 - **Max allowed value:** `1`
+- **Session property:** `filter_conjunction_independence_factor`
 
 Scales the strength of independence assumption for estimating the selectivity of
 the conjunction of multiple predicates. Lower values for this property will produce
@@ -191,6 +197,7 @@ the most selective predicate drives the selectivity of a conjunction of predicat
 - **Default value:** `0.25`
 - **Min allowed value:** `0`
 - **Max allowed value:** `1`
+- **Session property:** `join_multi_clause_independence_factor` 
 
 Scales the strength of independence assumption for estimating the output of a
 multi-clause join. Lower values for this property will produce more
@@ -203,6 +210,7 @@ the most selective clause drives the selectivity of the join.
 
 - **Type:** {ref}`prop-type-boolean`
 - **Default value:** `true`
+- **Session property:** `non_estimatable_predicate_approximation_enabled`
 
 Enables approximation of the output row count of filters whose costs cannot be
 accurately estimated even with complete statistics. This allows the optimizer to
@@ -214,6 +222,7 @@ not estimated.
 - **Type:** {ref}`prop-type-integer`
 - **Default value:** `1000000`
 - **Min allowed value:** `0`
+- **Session property:** `join_partitioned_build_min_row_count`
 
 The minimum number of join build side rows required to use partitioned join lookup.
 If the build side of a join is estimated to be smaller than the configured threshold,

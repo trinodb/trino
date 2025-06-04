@@ -37,17 +37,7 @@ public class CreateView
     private final Optional<Security> security;
     private final List<Property> properties;
 
-    public CreateView(QualifiedName name, Query query, boolean replace, Optional<String> comment, Optional<Security> security, List<Property> properties)
-    {
-        this(Optional.empty(), name, query, replace, comment, security, properties);
-    }
-
     public CreateView(NodeLocation location, QualifiedName name, Query query, boolean replace, Optional<String> comment, Optional<Security> security, List<Property> properties)
-    {
-        this(Optional.of(location), name, query, replace, comment, security, properties);
-    }
-
-    private CreateView(Optional<NodeLocation> location, QualifiedName name, Query query, boolean replace, Optional<String> comment, Optional<Security> security, List<Property> properties)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");
@@ -55,7 +45,7 @@ public class CreateView
         this.replace = replace;
         this.comment = requireNonNull(comment, "comment is null");
         this.security = requireNonNull(security, "security is null");
-        this.properties = ImmutableList.copyOf(requireNonNull(properties, "properties is null"));
+        this.properties = ImmutableList.copyOf(properties);
     }
 
     public QualifiedName getName()
@@ -121,7 +111,7 @@ public class CreateView
         CreateView o = (CreateView) obj;
         return Objects.equals(name, o.name)
                 && Objects.equals(query, o.query)
-                && Objects.equals(replace, o.replace)
+                && replace == o.replace
                 && Objects.equals(comment, o.comment)
                 && Objects.equals(security, o.security)
                 && Objects.equals(properties, o.properties);

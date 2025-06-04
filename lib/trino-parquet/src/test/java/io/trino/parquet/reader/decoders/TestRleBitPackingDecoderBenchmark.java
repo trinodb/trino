@@ -17,6 +17,8 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 
+import static io.trino.parquet.reader.TestData.UnsignedIntsGenerator;
+
 public class TestRleBitPackingDecoderBenchmark
 {
     @Test
@@ -24,13 +26,14 @@ public class TestRleBitPackingDecoderBenchmark
             throws IOException
     {
         for (int bitWidth = 1; bitWidth <= 20; bitWidth++) {
-            for (BenchmarkRleBitPackingDecoder.DataSet dataSet : BenchmarkRleBitPackingDecoder.DataSet.values()) {
+            for (UnsignedIntsGenerator dataSet : UnsignedIntsGenerator.values()) {
                 BenchmarkRleBitPackingDecoder benchmark = new BenchmarkRleBitPackingDecoder();
                 benchmark.bitWidth = bitWidth;
                 benchmark.dataSet = dataSet;
                 benchmark.setup();
                 benchmark.apacheRunLengthBitPackingHybridDecoder();
                 benchmark.rleBitPackingHybridDecoder();
+                benchmark.vectorRleBitPackingHybridDecoder();
             }
         }
     }

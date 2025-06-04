@@ -32,7 +32,7 @@ public final class QueryExecutors
 
     public static QueryExecutor onTrino()
     {
-        return connectToTrino("presto");
+        return connectToTrino("trino");
     }
 
     public static QueryExecutor onCompatibilityTestServer()
@@ -66,6 +66,11 @@ public final class QueryExecutors
                 delegate.close();
             }
         };
+    }
+
+    public static QueryExecutor onExasol()
+    {
+        return testContext().getDependency(QueryExecutor.class, "exasol");
     }
 
     public static QueryExecutor onHive()

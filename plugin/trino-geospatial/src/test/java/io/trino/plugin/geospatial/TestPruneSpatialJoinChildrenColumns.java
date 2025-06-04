@@ -15,6 +15,7 @@ package io.trino.plugin.geospatial;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slices;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.sql.ir.Call;
@@ -52,7 +53,7 @@ public class TestPruneSpatialJoinChildrenColumns
                     Symbol a = p.symbol("a", GEOMETRY);
                     Symbol b = p.symbol("b", GEOMETRY);
                     Symbol r = p.symbol("r", DOUBLE);
-                    Symbol unused = p.symbol("unused");
+                    Symbol unused = p.symbol("unused", BIGINT);
                     return p.spatialJoin(
                             SpatialJoinNode.Type.INNER,
                             p.values(a, unused),
@@ -144,7 +145,7 @@ public class TestPruneSpatialJoinChildrenColumns
                             new Comparison(LESS_THAN_OR_EQUAL, new Call(TEST_ST_DISTANCE_FUNCTION, ImmutableList.of(new Reference(GEOMETRY, "a"), new Reference(GEOMETRY, "b"))), new Reference(DOUBLE, "r")),
                             Optional.of(leftPartitionSymbol),
                             Optional.of(rightPartitionSymbol),
-                            Optional.of("some nice kdb tree"));
+                            Optional.of(Slices.utf8Slice("some nice kdb tree")));
                 })
                 .doesNotFire();
     }

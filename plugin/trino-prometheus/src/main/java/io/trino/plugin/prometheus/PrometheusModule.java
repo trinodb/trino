@@ -16,9 +16,10 @@ package io.trino.plugin.prometheus;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
+import io.trino.plugin.base.session.SessionPropertiesProvider;
 
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.airlift.json.JsonCodec.listJsonCodec;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 
 public class PrometheusModule
@@ -33,9 +34,11 @@ public class PrometheusModule
         binder.bind(PrometheusSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(PrometheusClock.class).in(Scopes.SINGLETON);
         binder.bind(PrometheusRecordSetProvider.class).in(Scopes.SINGLETON);
+        binder.bind(PrometheusSessionProperties.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(PrometheusConnectorConfig.class);
 
-        jsonCodecBinder(binder).bindMapJsonCodec(String.class, listJsonCodec(PrometheusTable.class));
+        newSetBinder(binder, SessionPropertiesProvider.class).addBinding().to(PrometheusSessionProperties.class).in(Scopes.SINGLETON);
+
         jsonCodecBinder(binder).bindMapJsonCodec(String.class, Object.class);
     }
 }

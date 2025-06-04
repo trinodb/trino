@@ -46,17 +46,16 @@ public class ArithmeticBinaryExpression
     private final Expression left;
     private final Expression right;
 
+    @Deprecated
     public ArithmeticBinaryExpression(Operator operator, Expression left, Expression right)
     {
-        this(Optional.empty(), operator, left, right);
+        super(Optional.empty());
+        this.operator = operator;
+        this.left = left;
+        this.right = right;
     }
 
     public ArithmeticBinaryExpression(NodeLocation location, Operator operator, Expression left, Expression right)
-    {
-        this(Optional.of(location), operator, left, right);
-    }
-
-    private ArithmeticBinaryExpression(Optional<NodeLocation> location, Operator operator, Expression left, Expression right)
     {
         super(location);
         this.operator = operator;

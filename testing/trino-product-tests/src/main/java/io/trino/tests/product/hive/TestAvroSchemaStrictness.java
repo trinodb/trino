@@ -41,7 +41,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestAvroSchemaStrictness
         extends ProductTest
 {
-    private static final Path ILLEGAL_UNION_DEFAULT_SCHEMA = Path.of("/docker/presto-product-tests/avro/invalid_default.avsc");
+    private static final Path ILLEGAL_UNION_DEFAULT_SCHEMA = Path.of("/docker/trino-product-tests/avro/invalid_default.avsc");
     /**
      *  The data in the avro data file was generated from the following JSON data using avro-tools.
      *  <pre>
@@ -54,7 +54,7 @@ public class TestAvroSchemaStrictness
      *  java.jar avro-tools-1.8.2.jar fromjson --schema-file "$SCHEMA_FILE" data.json > invalid_default.avro
      *  }</pre>
      */
-    private static final Path ILLEGAL_UNION_DEFAULT_DATA = Path.of("/docker/presto-product-tests/avro/invalid_default.avro");
+    private static final Path ILLEGAL_UNION_DEFAULT_DATA = Path.of("/docker/trino-product-tests/avro/invalid_default.avro");
 
     @Inject
     private HdfsClient hdfsClient;

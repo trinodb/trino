@@ -32,7 +32,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Streams.stream;
-import static io.trino.plugin.mariadb.MariaDbQueryRunner.createMariaDbQueryRunner;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.sql.TestTable.fromColumns;
 import static io.trino.tpch.TpchTable.ORDERS;
@@ -67,11 +66,10 @@ public abstract class BaseMariaDbTableStatisticsTest
     {
         mariaDbServer = closeAfterClass(new TestingMariaDbServer(dockerImageName));
 
-        return createMariaDbQueryRunner(
-                mariaDbServer,
-                Map.of(),
-                Map.of("case-insensitive-name-matching", "true"),
-                List.of(ORDERS));
+        return MariaDbQueryRunner.builder(mariaDbServer)
+                .addConnectorProperty("case-insensitive-name-matching", "true")
+                .setInitialTables(List.of(ORDERS))
+                .build();
     }
 
     @Test

@@ -41,14 +41,14 @@ public class TestGroupedTopNRowNumberAccumulator
         assertThat(accumulator.add(0, rowReference)).isTrue();
         accumulator.verifyIntegrity();
         assertThat(rowReference.isRowIdExtracted()).isTrue();
-        assertThat(evicted.isEmpty()).isTrue();
+        assertThat(evicted).isEmpty();
 
         // Add a row which should be ignored because it is not in the topN and group is full
         rowReference.setRowId(1);
         assertThat(accumulator.add(0, rowReference)).isFalse();
         accumulator.verifyIntegrity();
         assertThat(rowReference.isRowIdExtracted()).isFalse();
-        assertThat(evicted.isEmpty()).isTrue();
+        assertThat(evicted).isEmpty();
 
         // Add a row which should replace the existing buffered row
         rowReference.setRowId(-1);
@@ -78,21 +78,21 @@ public class TestGroupedTopNRowNumberAccumulator
         assertThat(accumulator.add(0, rowReference)).isTrue();
         accumulator.verifyIntegrity();
         assertThat(rowReference.isRowIdExtracted()).isTrue();
-        assertThat(evicted.isEmpty()).isTrue();
+        assertThat(evicted).isEmpty();
 
         // Add another row to fill the group
         rowReference.setRowId(1);
         assertThat(accumulator.add(0, rowReference)).isTrue();
         accumulator.verifyIntegrity();
         assertThat(rowReference.isRowIdExtracted()).isTrue();
-        assertThat(evicted.isEmpty()).isTrue();
+        assertThat(evicted).isEmpty();
 
         // Add a row which should be ignored because it is not in the topN and group is full
         rowReference.setRowId(2);
         assertThat(accumulator.add(0, rowReference)).isFalse();
         accumulator.verifyIntegrity();
         assertThat(rowReference.isRowIdExtracted()).isFalse();
-        assertThat(evicted.isEmpty()).isTrue();
+        assertThat(evicted).isEmpty();
 
         // Add a row which should replace the leaf of the heap
         rowReference.setRowId(-2);
@@ -129,7 +129,7 @@ public class TestGroupedTopNRowNumberAccumulator
         assertThat(accumulator.add(0, rowReference)).isTrue();
         accumulator.verifyIntegrity();
         assertThat(rowReference.isRowIdExtracted()).isTrue();
-        assertThat(evicted.isEmpty()).isTrue();
+        assertThat(evicted).isEmpty();
 
         LongBigArray rowIdOutput = new LongBigArray();
         assertThat(accumulator.drainTo(0, rowIdOutput)).isEqualTo(1);
@@ -154,7 +154,7 @@ public class TestGroupedTopNRowNumberAccumulator
         assertThat(accumulator.add(0, rowReference)).isTrue();
         accumulator.verifyIntegrity();
         assertThat(rowReference.isRowIdExtracted()).isTrue();
-        assertThat(evicted.isEmpty()).isTrue();
+        assertThat(evicted).isEmpty();
 
         LongBigArray rowIdOutput = new LongBigArray();
         assertThat(accumulator.drainTo(0, rowIdOutput)).isEqualTo(2);
@@ -182,7 +182,7 @@ public class TestGroupedTopNRowNumberAccumulator
             assertThat(accumulator.add(groupId, rowReference)).isTrue();
             accumulator.verifyIntegrity();
             assertThat(rowReference.isRowIdExtracted()).isTrue();
-            assertThat(evicted.isEmpty()).isTrue();
+            assertThat(evicted).isEmpty();
             firstInsertionBatch.add((long) i);
         }
 
@@ -193,7 +193,7 @@ public class TestGroupedTopNRowNumberAccumulator
             assertThat(accumulator.add(groupId, rowReference)).isFalse();
             accumulator.verifyIntegrity();
             assertThat(rowReference.isRowIdExtracted()).isFalse();
-            assertThat(evicted.isEmpty()).isTrue();
+            assertThat(evicted).isEmpty();
         }
 
         // Add monotonically decreasing smaller elements to force every group to be fully replaced

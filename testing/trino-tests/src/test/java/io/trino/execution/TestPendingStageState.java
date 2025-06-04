@@ -30,7 +30,6 @@ import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.QueryRunnerUtil.createQuery;
 import static io.trino.execution.QueryRunnerUtil.waitForQueryState;
 import static io.trino.execution.QueryState.RUNNING;
-import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_SPLITS_PER_NODE;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -48,7 +47,7 @@ public class TestPendingStageState
             throws Exception
     {
         queryRunner = TpchQueryRunner.builder()
-                .withConnectorProperties(Map.of(TPCH_SPLITS_PER_NODE, "10000"))
+                .withConnectorProperties(Map.of("tpch.splits-per-node", "10000"))
                 .build();
     }
 
@@ -73,7 +72,7 @@ public class TestPendingStageState
         QueryInfo queryInfo = queryRunner.getCoordinator().getFullQueryInfo(queryId);
         assertThat(queryInfo.getState()).isEqualTo(RUNNING);
         assertThat(queryInfo.getOutputStage().get().getState()).isEqualTo(StageState.RUNNING);
-        assertThat(queryInfo.getOutputStage().get().getSubStages().size()).isEqualTo(1);
+        assertThat(queryInfo.getOutputStage().get().getSubStages()).hasSize(1);
         assertThat(queryInfo.getOutputStage().get().getSubStages().get(0).getState()).isEqualTo(StageState.PENDING);
     }
 

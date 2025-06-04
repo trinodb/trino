@@ -4,10 +4,11 @@
 
 - **Type:** {ref}`prop-type-string`
 
-An optional properties file that contains annotations to be included with
-each log message. This can be used to include machine-specific or
-environment-specific information into logs which are centrally aggregated.
-The annotation values can contain references to environment variables.
+An optional properties file that contains annotations to include with each log
+message for TCP output or file output in JSON format, defined with `log.path`
+and `log.format`. This can be used to include machine-specific or
+environment-specific information into logs which are centrally aggregated. The
+annotation values can contain references to environment variables.
 
 ```properties
 environment=production
@@ -24,6 +25,18 @@ set to `JSON`, the log record is formatted as a JSON object, one record per
 line. Any newlines in the field values, such as exception stack traces, are
 escaped as normal in the JSON object. This allows for capturing and indexing
 exceptions as singular fields in a logging search system.
+
+## `log.console-format`
+
+- **Type:** {ref}`prop-type-string`
+- **Default value:** `TEXT`
+
+The format for log records written to the console output, set to either `TEXT`
+or `JSON`. When set to `JSON`, the log record is formatted as a JSON object, one
+record per line. Any newlines in the field values, such as exception stack
+traces, are escaped as normal in the JSON object. This allows for capturing and
+indexing exceptions as singular fields in a logging search system when using
+console output and capturing it, as commonly configured in containers.
 
 ## `log.path`
 

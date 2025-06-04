@@ -31,12 +31,13 @@ public class JsonArrayElement
 
     public JsonArrayElement(NodeLocation location, Expression value, Optional<JsonFormat> format)
     {
-        this(Optional.of(location), value, format);
-    }
+        super(location);
 
-    public JsonArrayElement(Expression value, Optional<JsonFormat> format)
-    {
-        this(Optional.empty(), value, format);
+        requireNonNull(value, "value is null");
+        requireNonNull(format, "format is null");
+
+        this.value = value;
+        this.format = format;
     }
 
     public JsonArrayElement(Optional<NodeLocation> location, Expression value, Optional<JsonFormat> format)

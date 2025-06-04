@@ -573,7 +573,7 @@ public class Validator
             connection.setCatalog(query.getCatalog());
             connection.setSchema(query.getSchema());
         }
-        catch (SQLClientInfoException ignored) {
+        catch (SQLClientInfoException _) {
             // Do nothing
         }
     }

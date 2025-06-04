@@ -84,7 +84,7 @@ public class TestHiveStorageFormats
     private static final String TPCH_SCHEMA = "tiny";
 
     @Inject(optional = true)
-    @Named("databases.presto.admin_role_enabled")
+    @Named("databases.trino.admin_role_enabled")
     private boolean adminRoleEnabled;
 
     @Inject
@@ -959,7 +959,7 @@ public class TestHiveStorageFormats
         try {
             JdbcDriverUtils.setRole(connection, "admin");
         }
-        catch (SQLException ignored) {
+        catch (SQLException _) {
             // The test environments do not properly setup or manage
             // roles, so try to set the role, but ignore any errors
         }

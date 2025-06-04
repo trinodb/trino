@@ -139,7 +139,7 @@ public class RedisRecordCursor
         if (redisCursor == null) {
             return false;
         }
-        // no more keys are unscanned when
+        // no more keys are unscanned
         // when redis scan command
         // returns 0 string cursor
         return !redisCursor.getCursor().equals("0");
@@ -210,8 +210,8 @@ public class RedisRecordCursor
         for (int i = 0; i < currentKeys.size(); i++) {
             String keyString = currentKeys.get(i);
             Object object = hashValues.get(i);
-            if (object instanceof JedisDataException) {
-                throw (JedisDataException) object;
+            if (object instanceof JedisDataException jedisDataException) {
+                throw jedisDataException;
             }
             Map<String, String> hashValueMap = (Map<String, String>) object;
             if (hashValueMap.isEmpty()) {
@@ -230,8 +230,8 @@ public class RedisRecordCursor
         // decode a row from map, whereas for the STRING type decoders are optional. The redis keyData is always byte array,
         // so the decoder of key always decodes a row from bytes.
         Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedKey = keyDecoder.decodeRow(keyData);
-        Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedValue = valueDecoder instanceof RedisRowDecoder
-                ? ((RedisRowDecoder) valueDecoder).decodeRow(hashValueMap)
+        Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedValue = valueDecoder instanceof RedisRowDecoder redisRowDecoder
+                ? redisRowDecoder.decodeRow(hashValueMap)
                 : valueDecoder.decodeRow(stringValueData);
 
         totalBytes += stringValueData.length;
@@ -331,9 +331,7 @@ public class RedisRecordCursor
     }
 
     @Override
-    public void close()
-    {
-    }
+    public void close() {}
 
     private ScanParams setScanParams()
     {
@@ -383,8 +381,8 @@ public class RedisRecordCursor
                     return;
                 }
                 ValueSet valueSet = domain.getValues();
-                if (valueSet instanceof SortedRangeSet) {
-                    Ranges ranges = ((SortedRangeSet) valueSet).getRanges();
+                if (valueSet instanceof SortedRangeSet sortedRangeSet) {
+                    Ranges ranges = sortedRangeSet.getRanges();
                     List<Range> rangeList = ranges.getOrderedRanges();
                     if (rangeList.stream().allMatch(Range::isSingleValue)) {
                         keys = rangeList.stream()

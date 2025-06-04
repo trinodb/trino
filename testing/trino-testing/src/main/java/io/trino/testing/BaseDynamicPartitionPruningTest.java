@@ -116,7 +116,7 @@ public abstract class BaseDynamicPartitionPruningTest
 
         DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
         assertThat(domainStats.getSimplifiedDomain()).isEqualTo(none(BIGINT).toString(getSession().toConnectorSession()));
-        assertThat(domainStats.getCollectionDuration().isPresent()).isTrue();
+        assertThat(domainStats.getCollectionDuration()).isPresent();
     }
 
     @Test

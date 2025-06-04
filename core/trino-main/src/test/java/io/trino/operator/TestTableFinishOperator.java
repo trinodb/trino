@@ -154,8 +154,8 @@ public class TestTableFinishOperator
         operator.close();
 
         assertThat(tableFinisher.getFragments()).isEqualTo(ImmutableList.of(Slices.wrappedBuffer(new byte[] {1}), Slices.wrappedBuffer(new byte[] {2})));
-        assertThat(tableFinisher.getComputedStatistics().size()).isEqualTo(1);
-        assertThat(getOnlyElement(tableFinisher.getComputedStatistics()).getColumnStatistics().size()).isEqualTo(1);
+        assertThat(tableFinisher.getComputedStatistics()).hasSize(1);
+        assertThat(getOnlyElement(tableFinisher.getComputedStatistics()).getColumnStatistics()).hasSize(1);
 
         LongArrayBlockBuilder expectedStatistics = new LongArrayBlockBuilder(null, 1);
         BIGINT.writeLong(expectedStatistics, 7);

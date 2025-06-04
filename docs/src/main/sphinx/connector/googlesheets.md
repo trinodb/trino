@@ -21,16 +21,17 @@ gsheets.metadata-sheet-id=exampleId
 
 The following configuration properties are available:
 
-| Property name                 | Description                                                      |
-| ----------------------------- | ---------------------------------------------------------------- |
-| `gsheets.credentials-path`    | Path to the Google API JSON key file                             |
-| `gsheets.credentials-key`     | The base64 encoded credentials key                               |
-| `gsheets.metadata-sheet-id`   | Sheet ID of the spreadsheet, that contains the table mapping     |
-| `gsheets.max-data-cache-size` | Maximum number of spreadsheets to cache, defaults to `1000`      |
-| `gsheets.data-cache-ttl`      | How long to cache spreadsheet data or metadata, defaults to `5m` |
-| `gsheets.connection-timeout`  | Timeout when connection to Google Sheets API, defaults to `20s`  |
-| `gsheets.read-timeout`        | Timeout when reading from Google Sheets API, defaults to `20s`   |
-| `gsheets.write-timeout`       | Timeout when writing to Google Sheets API, defaults to `20s`     |
+| Property name                  | Description                                                                       |
+|--------------------------------|-----------------------------------------------------------------------------------|
+| `gsheets.credentials-path`     | Path to the Google API JSON key file                                              |
+| `gsheets.credentials-key`      | The base64 encoded credentials key                                                |
+| `gsheets.delegated-user-email` | User email to impersonate the service account with domain-wide delegation enabled |
+| `gsheets.metadata-sheet-id`    | Sheet ID of the spreadsheet, that contains the table mapping                      |
+| `gsheets.max-data-cache-size`  | Maximum number of spreadsheets to cache, defaults to `1000`                       |
+| `gsheets.data-cache-ttl`       | How long to cache spreadsheet data or metadata, defaults to `5m`                  |
+| `gsheets.connection-timeout`   | Timeout when connection to Google Sheets API, defaults to `20s`                   |
+| `gsheets.read-timeout`         | Timeout when reading from Google Sheets API, defaults to `20s`                    |
+| `gsheets.write-timeout`        | Timeout when writing to Google Sheets API, defaults to `20s`                      |
 
 ## Credentials
 
@@ -38,7 +39,7 @@ The connector requires credentials in order to access the Google Sheets API.
 
 1. Open the [Google Sheets API](https://console.developers.google.com/apis/library/sheets.googleapis.com)
    page and click the *Enable* button. This takes you to the API manager page.
-2. Select a project using the drop down menu at the top of the page.
+2. Select a project using the drop-down menu at the top of the page.
    Create a new project, if you do not already have one.
 3. Choose *Credentials* in the left panel.
 4. Click *Manage service accounts*, then create a service account for the connector.
@@ -50,6 +51,9 @@ The exact name of the file does not matter -- it can be named anything.
 
 Alternatively, set the `gsheets.credentials-key` configuration property.
 It should contain the contents of the JSON file, encoded using base64.
+
+Optionally, set the `gsheets.delegated-user-email` property to impersonate a user.
+This allows you to share Google Sheets with this email instead of the service account.
 
 ## Metadata sheet
 
@@ -134,7 +138,6 @@ following this table:
 No other types are supported.
 
 (google-sheets-sql-support)=
-
 ## SQL support
 
 In addition to the {ref}`globally available <sql-globally-available>` and {ref}`read operation <sql-read-operations>` statements,
@@ -142,13 +145,12 @@ this connector supports the following features:
 
 - {doc}`/sql/insert`
 
-## Table functions
+### Table functions
 
 The connector provides specific {doc}`/functions/table` to access Google Sheets.
 
 (google-sheets-sheet-function)=
-
-### `sheet(id, range) -> table`
+#### `sheet(id, range) -> table`
 
 The `sheet` function allows you to query a Google Sheet directly without
 specifying it as a named table in the metadata sheet.

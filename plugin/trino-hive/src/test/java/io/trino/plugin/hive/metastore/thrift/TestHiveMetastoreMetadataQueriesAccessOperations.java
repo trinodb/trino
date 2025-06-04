@@ -18,15 +18,15 @@ import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
 import io.airlift.log.Logger;
 import io.trino.Session;
+import io.trino.metastore.Column;
+import io.trino.metastore.Database;
+import io.trino.metastore.HiveMetastore;
+import io.trino.metastore.HiveMetastoreFactory;
+import io.trino.metastore.HiveType;
+import io.trino.metastore.Table;
 import io.trino.plugin.hive.HiveQueryRunner;
-import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.containers.HiveHadoop;
-import io.trino.plugin.hive.metastore.Column;
-import io.trino.plugin.hive.metastore.Database;
-import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.MetastoreMethod;
-import io.trino.plugin.hive.metastore.Table;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
@@ -38,6 +38,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.airlift.units.Duration.nanosSince;
+import static io.trino.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
 import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
@@ -45,8 +46,6 @@ import static io.trino.plugin.hive.metastore.MetastoreInvocations.assertMetastor
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_ALL_DATABASES;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_TABLE;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_TABLES;
-import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
-import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
@@ -128,7 +127,7 @@ public class TestHiveMetastoreMetadataQueriesAccessOperations
                                 new Column("name", HiveType.HIVE_STRING, Optional.empty(), Map.of())))
                         .setOwner(Optional.empty());
                 table.getStorageBuilder()
-                        .setStorageFormat(fromHiveStorageFormat(PARQUET));
+                        .setStorageFormat(PARQUET.toStorageFormat());
                 metastore.createTable(table.build(), NO_PRIVILEGES);
             }
         }

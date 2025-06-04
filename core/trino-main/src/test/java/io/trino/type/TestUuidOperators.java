@@ -24,8 +24,8 @@ import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
+import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
-import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.UuidType.UUID;
@@ -182,22 +182,22 @@ public class TestUuidOperators
     }
 
     @Test
-    public void testDistinctFrom()
+    public void testIdentical()
     {
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "UUID '6b5f5b65-67e4-43b0-8ee3-586cd49f58a0'", "UUID '6b5f5b65-67e4-43b0-8ee3-586cd49f58a0'"))
+        assertThat(assertions.operator(IDENTICAL, "UUID '6b5f5b65-67e4-43b0-8ee3-586cd49f58a0'", "UUID '6b5f5b65-67e4-43b0-8ee3-586cd49f58a0'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(IDENTICAL, "CAST(NULL AS UUID)", "CAST(NULL AS UUID)"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(IDENTICAL, "UUID '6b5f5b65-67e4-43b0-8ee3-586cd49f58a0'", "UUID '6b5f5b65-67e4-43b0-8ee3-586cd49f58a1'"))
                 .isEqualTo(false);
 
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "CAST(NULL AS UUID)", "CAST(NULL AS UUID)"))
+        assertThat(assertions.operator(IDENTICAL, "UUID '6b5f5b65-67e4-43b0-8ee3-586cd49f58a0'", "CAST(NULL AS UUID)"))
                 .isEqualTo(false);
 
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "UUID '6b5f5b65-67e4-43b0-8ee3-586cd49f58a0'", "UUID '6b5f5b65-67e4-43b0-8ee3-586cd49f58a1'"))
-                .isEqualTo(true);
-
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "UUID '6b5f5b65-67e4-43b0-8ee3-586cd49f58a0'", "CAST(NULL AS UUID)"))
-                .isEqualTo(true);
-
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "CAST(NULL AS UUID)", "UUID '6b5f5b65-67e4-43b0-8ee3-586cd49f58a0'"))
-                .isEqualTo(true);
+        assertThat(assertions.operator(IDENTICAL, "CAST(NULL AS UUID)", "UUID '6b5f5b65-67e4-43b0-8ee3-586cd49f58a0'"))
+                .isEqualTo(false);
     }
 
     @Test

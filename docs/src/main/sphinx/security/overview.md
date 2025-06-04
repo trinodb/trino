@@ -53,7 +53,6 @@ Configure one step at a time. Always restart the Trino server after each
 change, and verify the results before proceeding.
 
 (security-client)=
-
 ## Securing client access to the cluster
 
 Trino {doc}`clients </client>` include the Trino {doc}`CLI </client/cli>`,
@@ -71,14 +70,12 @@ There are three aspects to consider:
 - {ref}`cl-access-control`: validating each user's access rights.
 
 (cl-access-encrypt)=
-
 ### Encryption
 
 The Trino server uses the standard {doc}`HTTPS protocol and TLS encryption
 <tls>`, formerly known as SSL.
 
 (cl-access-auth)=
-
 ### Authentication
 
 Trino supports several authentication providers. When setting up a new cluster,
@@ -94,21 +91,19 @@ provider.
 - {doc}`Kerberos authentication <kerberos>`
 
 (user-name-management)=
-
 #### User name management
 
 Trino provides ways to map the user and group names from authentication
-providers to Trino user names.
+providers to Trino usernames.
 
 - {doc}`User mapping <user-mapping>` applies to all authentication systems,
-  and allows for regular expression rules to be specified that map complex user
-  names from other systems (`alice@example.com`) to simple user names
+  and allows for regular expression rules to be specified that map complex 
+  usernames from other systems (`alice@example.com`) to simple usernames
   (`alice`).
 - {doc}`File group provider <group-file>` provides a way to assign a set
-  of user names to a group name to ease access control.
+  of usernames to a group name to ease access control.
 
 (cl-access-control)=
-
 ### Authorization and access control
 
 Trino's {doc}`default method of access control <built-in-system-access-control>`
@@ -121,6 +116,9 @@ To implement access control, use:
   the catalog, schema, or table level.
 - [](opa-access-control), where you use Open Policy Agent to make access control
   decisions on a fined-grained level.
+- [](ranger-access-control), where you use Apache Ranger to make fine-grained
+  access control decisions, apply dynamic row-filters and column-masking at
+  query execution time, and generate audit logs.
 
 In addition, Trino {doc}`provides an API </develop/system-access-control>` that
 allows you to create a custom access control method, or to extend an existing
@@ -139,7 +137,6 @@ hide-inaccessible-columns = true
 ```
 
 (security-inside-cluster)=
-
 ## Securing inside the cluster
 
 You can {doc}`secure the internal communication <internal-communication>`
@@ -149,7 +146,6 @@ Secrets in properties files, such as passwords in catalog files, can be secured
 with {doc}`secrets management <secrets>`.
 
 (security-data-sources)=
-
 ## Securing cluster access to data sources
 
 Communication between the Trino cluster and data sources is configured for each

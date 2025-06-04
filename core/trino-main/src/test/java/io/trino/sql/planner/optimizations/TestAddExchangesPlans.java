@@ -50,13 +50,14 @@ import org.junit.jupiter.api.Test;
 import java.util.Optional;
 
 import static io.trino.SystemSessionProperties.COLOCATED_JOIN;
+import static io.trino.SystemSessionProperties.DISTINCT_AGGREGATIONS_STRATEGY;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.SystemSessionProperties.ENABLE_STATS_CALCULATOR;
 import static io.trino.SystemSessionProperties.IGNORE_DOWNSTREAM_PREFERENCES;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_PARTITIONED_BUILD_MIN_ROW_COUNT;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
-import static io.trino.SystemSessionProperties.MARK_DISTINCT_STRATEGY;
+import static io.trino.SystemSessionProperties.PUSH_FILTER_INTO_VALUES_MAX_ROW_COUNT;
 import static io.trino.SystemSessionProperties.SPILL_ENABLED;
 import static io.trino.SystemSessionProperties.TASK_CONCURRENCY;
 import static io.trino.SystemSessionProperties.USE_COST_BASED_PARTITIONING;
@@ -201,7 +202,8 @@ public class TestAddExchangesPlans
     @Test
     public void testSingleGatheringExchangeForUnionAllWithLimit()
     {
-        assertDistributedPlan("""
+        assertDistributedPlan(
+                """
                 SELECT * FROM (
                     SELECT nationkey FROM nation
                     UNION ALL
@@ -267,7 +269,7 @@ public class TestAddExchangesPlans
                 query,
                 Session.builder(getPlanTester().getDefaultSession())
                         .setSystemProperty(IGNORE_DOWNSTREAM_PREFERENCES, "true")
-                        .setSystemProperty(MARK_DISTINCT_STRATEGY, "always")
+                        .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "mark_distinct")
                         .build(),
                 anyTree(
                         node(MarkDistinctNode.class,
@@ -285,7 +287,7 @@ public class TestAddExchangesPlans
                 query,
                 Session.builder(getPlanTester().getDefaultSession())
                         .setSystemProperty(IGNORE_DOWNSTREAM_PREFERENCES, "false")
-                        .setSystemProperty(MARK_DISTINCT_STRATEGY, "always")
+                        .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "mark_distinct")
                         .build(),
                 anyTree(
                         node(MarkDistinctNode.class,
@@ -376,6 +378,7 @@ public class TestAddExchangesPlans
         // ==> Projection is planned with multiple distribution and gathering exchange is added on top of Projection.
         assertPlan(
                 "SELECT b, row_number() OVER () FROM (VALUES (1, 2)) t(a, b) WHERE a < 10",
+                disablePushFilterIntoValues(),
                 any(
                         rowNumber(
                                 pattern -> pattern
@@ -407,7 +410,7 @@ public class TestAddExchangesPlans
                                         ImmutableList.of(),
                                         ImmutableSet.of("regionkey"),
                                         project(
-                                                ImmutableMap.of("regionkey", expression(new Reference(BIGINT,"regionkey"))),
+                                                ImmutableMap.of("regionkey", expression(new Reference(BIGINT, "regionkey"))),
                                                 topN(
                                                         5,
                                                         ImmutableList.of(sort("nationkey", ASCENDING, LAST)),
@@ -420,6 +423,7 @@ public class TestAddExchangesPlans
         // ==> Projection is planned with multiple distribution (no exchange added below). Hash partitioning exchange is added on top of Projection.
         assertPlan(
                 "SELECT row_number() OVER (PARTITION BY b) FROM (VALUES (1, 2)) t(a,b) WHERE a < 10",
+                disablePushFilterIntoValues(),
                 anyTree(
                         rowNumber(
                                 pattern -> pattern
@@ -464,6 +468,7 @@ public class TestAddExchangesPlans
         // ==> Projection is planned with multiple distribution (no exchange added)
         assertPlan(
                 "SELECT count(b) FROM (VALUES (1, 2)) t(a,b) WHERE a < 10",
+                disablePushFilterIntoValues(),
                 anyTree(
                         aggregation(
                                 ImmutableMap.of("count", aggregationFunction("count", ImmutableList.of("b"))),
@@ -607,7 +612,8 @@ public class TestAddExchangesPlans
     @Test
     public void testAggregationPrefersParentPartitioning()
     {
-        String singleColumnParentGroupBy = """
+        String singleColumnParentGroupBy =
+                """
                 SELECT (partkey, sum(count))
                 FROM (
                     SELECT suppkey, partkey, count(*) as count
@@ -672,13 +678,15 @@ public class TestAddExchangesPlans
         // no stats. fallback to exact partitioning expected
         assertDistributedPlan(singleColumnParentGroupBy, disableStats(), exactPartitioningPlan);
         // parent partitioning with estimated small number of distinct values. fallback to exact partitioning expected
-        assertDistributedPlan("""
-                        SELECT (partkey_expr, sum(count))
-                        FROM (
-                            SELECT suppkey, partkey % 10 as partkey_expr, count(*) as count
-                            FROM lineitem
-                            GROUP BY suppkey, partkey % 10)
-                        GROUP BY partkey_expr""",
+        assertDistributedPlan(
+                """
+                SELECT (partkey_expr, sum(count))
+                FROM (
+                    SELECT suppkey, partkey % 10 as partkey_expr, count(*) as count
+                    FROM lineitem
+                    GROUP BY suppkey, partkey % 10)
+                GROUP BY partkey_expr
+                """,
                 anyTree(aggregation(
                         singleGroupingSet("partkey_expr"),
                         ImmutableMap.of(Optional.of("sum"), aggregationFunction("sum", false, ImmutableList.of(symbol("sum_partial")))),
@@ -710,13 +718,15 @@ public class TestAddExchangesPlans
                                                                                                 "suppkey", "suppkey"))))))))))))));
 
         // parent aggregation partitioned by multiple columns
-        assertDistributedPlan("""
-                        SELECT (orderkey % 10000, partkey, sum(count))
-                        FROM (
-                            SELECT orderkey % 10000 as orderkey, partkey, suppkey, count(*) as count
-                            FROM lineitem
-                            GROUP BY orderkey % 10000, partkey, suppkey)
-                        GROUP BY orderkey, partkey""",
+        assertDistributedPlan(
+                """
+                SELECT (orderkey % 10000, partkey, sum(count))
+                FROM (
+                    SELECT orderkey % 10000 as orderkey, partkey, suppkey, count(*) as count
+                    FROM lineitem
+                    GROUP BY orderkey % 10000, partkey, suppkey)
+                GROUP BY orderkey, partkey
+                """,
                 anyTree(aggregation(
                         singleGroupingSet("orderkey_expr", "partkey"),
                         ImmutableMap.of(Optional.of("sum"), aggregationFunction("sum", false, ImmutableList.of(symbol("count")))),
@@ -888,7 +898,7 @@ public class TestAddExchangesPlans
                         "    GROUP BY\n" +
                         "        orderkey,\n" +
                         "        orderstatus\n",
-                useExactPartitioning(),
+                useExactPartitioningWithMarkDistinct(),
                 anyTree(
                         exchange(REMOTE, REPARTITION,
                                 anyTree(
@@ -992,8 +1002,8 @@ public class TestAddExchangesPlans
         // Put union at probe side
         assertDistributedPlan(
                 """
-                            SELECT * FROM (SELECT nationkey FROM nation UNION ALL SELECT nationkey as key FROM nation) n JOIN region r ON r.regionkey = n.nationkey
-                        """,
+                SELECT * FROM (SELECT nationkey FROM nation UNION ALL SELECT nationkey as key FROM nation) n JOIN region r ON r.regionkey = n.nationkey
+                """,
                 noJoinReordering(),
                 anyTree(
                         join(INNER, join -> join
@@ -1231,6 +1241,17 @@ public class TestAddExchangesPlans
                 .build();
     }
 
+    private Session useExactPartitioningWithMarkDistinct()
+    {
+        return Session.builder(getPlanTester().getDefaultSession())
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, ELIMINATE_CROSS_JOINS.name())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, PARTITIONED.name())
+                .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "false")
+                .setSystemProperty(USE_EXACT_PARTITIONING, "true")
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "mark_distinct")
+                .build();
+    }
+
     private Session doNotUseCostBasedPartitioning()
     {
         return Session.builder(getPlanTester().getDefaultSession())
@@ -1242,6 +1263,13 @@ public class TestAddExchangesPlans
     {
         return Session.builder(getPlanTester().getDefaultSession())
                 .setSystemProperty(ENABLE_STATS_CALCULATOR, "false")
+                .build();
+    }
+
+    private Session disablePushFilterIntoValues()
+    {
+        return Session.builder(getPlanTester().getDefaultSession())
+                .setSystemProperty(PUSH_FILTER_INTO_VALUES_MAX_ROW_COUNT, "0")
                 .build();
     }
 }

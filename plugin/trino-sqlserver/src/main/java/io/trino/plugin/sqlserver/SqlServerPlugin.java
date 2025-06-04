@@ -15,11 +15,13 @@ package io.trino.plugin.sqlserver;
 
 import io.trino.plugin.jdbc.JdbcPlugin;
 
+import static io.airlift.configuration.ConfigurationAwareModule.combine;
+
 public class SqlServerPlugin
         extends JdbcPlugin
 {
     public SqlServerPlugin()
     {
-        super("sqlserver", new SqlServerClientModule());
+        super("sqlserver", () -> combine(new SqlServerClientModule(), new SqlServerConnectionFactoryModule()));
     }
 }

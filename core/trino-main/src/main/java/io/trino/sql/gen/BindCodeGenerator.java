@@ -44,7 +44,7 @@ public class BindCodeGenerator
         // It takes the captured values and the uncaptured lambda, and produces captured lambda as the output.
         // The uncaptured lambda is just a method, and does not have a stack representation during execution.
         // As a result, the bind expression generates the captured lambda in one step.
-        List<RowExpression> arguments = specialForm.getArguments();
+        List<RowExpression> arguments = specialForm.arguments();
         int numCaptures = arguments.size() - 1;
         LambdaDefinitionExpression lambda = (LambdaDefinitionExpression) arguments.get(numCaptures);
         checkArgument(compiledLambdaMap.containsKey(lambda), "lambda expressions map does not contain this lambda definition");

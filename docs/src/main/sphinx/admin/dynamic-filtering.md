@@ -32,10 +32,6 @@ This is known as **dynamic partition pruning**.
 After completing the collection of dynamic filters, the coordinator also distributes them
 to worker nodes over the network for partitioned joins. This allows push down of dynamic
 filters from partitioned joins into the table scans on the left side of that join.
-Distribution of dynamic filters from the coordinator to workers is enabled by default.
-It can be disabled by setting either the `enable-coordinator-dynamic-filters-distribution`
-configuration property, or the session property
-`enable_coordinator_dynamic_filters_distribution` to `false`.
 
 The results of dynamic filtering optimization can include the following benefits:
 
@@ -227,10 +223,10 @@ is not enabled can be configured using configuration properties like
 
 The `dynamic-filtering.large.*` and `dynamic-filtering.small.*` limits are applied
 when dynamic filters are collected before build side is partitioned on join
-keys (when broadcast join is chosen or when fault tolerant execution is enabled). The
+keys (when broadcast join is chosen or when fault-tolerant execution is enabled). The
 `dynamic-filtering.large-partitioned.*` and `dynamic-filtering.small-partitioned.*`
 limits are applied when dynamic filters are collected after build side is partitioned
-on join keys (when partitioned join is chosen and fault tolerant execution is disabled).
+on join keys (when partitioned join is chosen and fault-tolerant execution is disabled).
 
 The properties based on `max-distinct-values-per-driver` and `max-size-per-driver`
 define thresholds for the size up to which dynamic filters are collected in a

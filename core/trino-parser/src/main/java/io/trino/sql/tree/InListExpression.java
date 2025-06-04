@@ -17,30 +17,17 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.util.Objects.requireNonNull;
 
 public class InListExpression
         extends Expression
 {
     private final List<Expression> values;
 
-    public InListExpression(List<Expression> values)
-    {
-        this(Optional.empty(), values);
-    }
-
     public InListExpression(NodeLocation location, List<Expression> values)
     {
-        this(Optional.of(location), values);
-    }
-
-    private InListExpression(Optional<NodeLocation> location, List<Expression> values)
-    {
         super(location);
-        requireNonNull(values, "values is null");
         checkArgument(!values.isEmpty(), "values cannot be empty");
         this.values = ImmutableList.copyOf(values);
     }

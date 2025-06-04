@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -28,17 +27,7 @@ public final class ExplainAnalyze
     private final Statement statement;
     private final boolean verbose;
 
-    public ExplainAnalyze(Statement statement, boolean verbose)
-    {
-        this(Optional.empty(), statement, verbose);
-    }
-
-    public ExplainAnalyze(NodeLocation location, boolean verbose, Statement statement)
-    {
-        this(Optional.of(location), statement, verbose);
-    }
-
-    public ExplainAnalyze(Optional<NodeLocation> location, Statement statement, boolean verbose)
+    public ExplainAnalyze(NodeLocation location, Statement statement, boolean verbose)
     {
         super(location);
         this.statement = requireNonNull(statement, "statement is null");

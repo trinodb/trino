@@ -15,6 +15,7 @@ package io.trino.cost;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
 import com.google.inject.Inject;
 import io.trino.Session;
@@ -30,9 +31,7 @@ import io.trino.sql.ir.In;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
-import io.trino.sql.ir.Not;
 import io.trino.sql.ir.Reference;
-import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.Symbol;
 import io.trino.util.DisjointSet;
 import jakarta.annotation.Nullable;
@@ -54,13 +53,16 @@ import static io.trino.cost.PlanNodeStatsEstimateMath.capStats;
 import static io.trino.cost.PlanNodeStatsEstimateMath.estimateCorrelatedConjunctionRowCount;
 import static io.trino.cost.PlanNodeStatsEstimateMath.intersectCorrelatedStats;
 import static io.trino.cost.PlanNodeStatsEstimateMath.subtractSubsetStats;
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.statistics.StatsUtil.toStatsRepresentation;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.DynamicFilters.isDynamicFilter;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.IrUtils.and;
+import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newOptimizer;
 import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
 import static java.lang.Double.NaN;
 import static java.lang.Double.isInfinite;
@@ -98,7 +100,7 @@ public class FilterStatsCalculator
     private Expression simplifyExpression(Session session, Expression predicate)
     {
         // TODO reuse io.trino.sql.planner.iterative.rule.SimplifyExpressions.rewrite
-        Expression value = new IrExpressionInterpreter(predicate, plannerContext, session).optimize();
+        Expression value = newOptimizer(plannerContext).process(predicate, session, ImmutableMap.of()).orElse(predicate);
 
         if (value instanceof Constant constant && constant.value() == null) {
             // Expression evaluates to SQL null, which in Filter is equivalent to false. This assumes the expression is a top-level expression (eg. not in NOT).
@@ -137,23 +139,6 @@ public class FilterStatsCalculator
         protected PlanNodeStatsEstimate visitExpression(Expression node, Void context)
         {
             return PlanNodeStatsEstimate.unknown();
-        }
-
-        @Override
-        protected PlanNodeStatsEstimate visitNot(Not node, Void context)
-        {
-            if (node.value() instanceof IsNull inner) {
-                if (inner.value() instanceof Reference) {
-                    Symbol symbol = Symbol.from(inner.value());
-                    SymbolStatsEstimate symbolStats = input.getSymbolStatistics(symbol);
-                    PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.buildFrom(input);
-                    result.setOutputRowCount(input.getOutputRowCount() * (1 - symbolStats.getNullsFraction()));
-                    result.addSymbolStatistics(symbol, symbolStats.mapNullsFraction(x -> 0.0));
-                    return result.build();
-                }
-                return PlanNodeStatsEstimate.unknown();
-            }
-            return subtractSubsetStats(input, process(node.value()));
         }
 
         @Override
@@ -316,7 +301,7 @@ public class FilterStatsCalculator
         @Override
         protected PlanNodeStatsEstimate visitIn(In node, Void context)
         {
-            ImmutableList<PlanNodeStatsEstimate> equalityEstimates = node.valueList().stream()
+            List<PlanNodeStatsEstimate> equalityEstimates = node.valueList().stream()
                     .map(inValue -> process(new Comparison(EQUAL, node.value(), inValue)))
                     .collect(toImmutableList());
 
@@ -372,7 +357,7 @@ public class FilterStatsCalculator
             }
 
             if (left instanceof Reference && left.equals(right)) {
-                return process(new Not(new IsNull(left)));
+                return process(not(plannerContext.getMetadata(), new IsNull(left)));
             }
 
             SymbolStatsEstimate leftStats = getExpressionStats(left);
@@ -404,6 +389,22 @@ public class FilterStatsCalculator
             if (isDynamicFilter(node)) {
                 return process(Booleans.TRUE, context);
             }
+            else if (node.function().name().equals(builtinFunctionName("$not"))) {
+                Expression argument = node.arguments().getFirst();
+                if (argument instanceof IsNull inner) {
+                    if (inner.value() instanceof Reference) {
+                        Symbol symbol = Symbol.from(inner.value());
+                        SymbolStatsEstimate symbolStats = input.getSymbolStatistics(symbol);
+                        PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.buildFrom(input);
+                        result.setOutputRowCount(input.getOutputRowCount() * (1 - symbolStats.getNullsFraction()));
+                        result.addSymbolStatistics(symbol, symbolStats.mapNullsFraction(x -> 0.0));
+                        return result.build();
+                    }
+                    return PlanNodeStatsEstimate.unknown();
+                }
+                return subtractSubsetStats(input, process(argument));
+            }
+
             return PlanNodeStatsEstimate.unknown();
         }
 

@@ -58,7 +58,7 @@ public class TestServiceConfig
             throws IOException
     {
         try (TempFile tempFile = new TempFile()) {
-            assertThat(ServiceConfig.loadServiceConfigs(tempFile.file()).isEmpty()).isTrue();
+            assertThat(ServiceConfig.loadServiceConfigs(tempFile.file())).isEmpty();
 
             writeProperties(tempFile, ImmutableMap.<String, String>builder()
                     .put("a.access-key", "a-accessValue")
@@ -105,7 +105,7 @@ public class TestServiceConfig
                         .buildOrThrow());
     }
 
-    private static void assertInvalidLoad(String message, ImmutableMap<String, String> properties)
+    private static void assertInvalidLoad(String message, Map<String, String> properties)
             throws IOException
     {
         try (TempFile tempFile = new TempFile()) {

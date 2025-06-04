@@ -21,6 +21,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.parquet.ParquetReaderUtils.readFixedWidthInt;
 import static io.trino.parquet.ParquetReaderUtils.readUleb128Int;
 import static io.trino.parquet.reader.decoders.IntBitUnpackers.getIntBitUnpacker;
+import static io.trino.parquet.reader.decoders.VectorIntBitUnpackers.getVectorIntBitUnpacker;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
@@ -28,7 +29,7 @@ import static java.util.Objects.requireNonNull;
  * <a href="https://github.com/apache/parquet-format/blob/master/Encodings.md#run-length-encoding--bit-packing-hybrid-rle--3">
  * Run Length Encoding / Bit-Packing Hybrid (RLE)
  * </a>
- * This class is similar to {@link io.trino.parquet.reader.flat.NullsDecoder} but specialized for reading integers stored in bit width of 0 - 32.
+ * This class is similar to {@link io.trino.parquet.reader.flat.NullsDecoders} but specialized for reading integers stored in bit width of 0 - 32.
  * It is used specifically for decoding dictionary ids currently.
  * It can be used for decoding definition and repetition levels of nested columns in future.
  */
@@ -55,12 +56,12 @@ public final class RleBitPackingHybridDecoder
     // Number of values already read in the current buffer while reading bit-packed values
     private int alreadyReadInBuffer;
 
-    public RleBitPackingHybridDecoder(int bitWidth)
+    public RleBitPackingHybridDecoder(int bitWidth, boolean vectorizedDecodingEnabled)
     {
         checkArgument(bitWidth >= 0 && bitWidth <= 32, "bit width need to be between 0 and 32");
         this.bitWidth = bitWidth;
         this.byteWidth = byteWidth(bitWidth);
-        this.unpacker = getIntBitUnpacker(bitWidth);
+        this.unpacker = vectorizedDecodingEnabled ? getVectorIntBitUnpacker(bitWidth) : getIntBitUnpacker(bitWidth);
     }
 
     @Override

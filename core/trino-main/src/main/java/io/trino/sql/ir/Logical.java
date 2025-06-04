@@ -87,8 +87,8 @@ public record Logical(Operator operator, List<Expression> terms)
     {
         return "%s(%s)".formatted(
                 switch (operator) {
-                    case AND -> "$and";
-                    case OR -> "$or";
+                    case AND -> "And";
+                    case OR -> "Or";
                 },
                 terms.stream()
                         .map(Expression::toString)

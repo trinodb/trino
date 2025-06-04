@@ -1,7 +1,6 @@
 # Resource management properties
 
 (prop-resource-query-max-cpu-time)=
-
 ## `query.max-cpu-time`
 
 - **Type:** {ref}`prop-type-duration`
@@ -11,11 +10,10 @@ This is the max amount of CPU time that a query can use across the entire
 cluster. Queries that exceed this limit are killed.
 
 (prop-resource-query-max-memory-per-node)=
-
 ## `query.max-memory-per-node`
 
-- **Type:** {ref}`prop-type-data-size`
-- **Default value:** (JVM max memory * 0.3)
+- **Type:** {ref}`prop-type-heap-size`
+- **Default value:** (30% of maximum heap size on the node)
 
 This is the max amount of user memory a query can use on a worker.
 User memory is allocated during execution for things that are directly
@@ -35,7 +33,6 @@ Does not apply for queries with task level retries enabled (`retry-policy=TASK`)
 :::
 
 (prop-resource-query-max-memory)=
-
 ## `query.max-memory`
 
 - **Type:** {ref}`prop-type-data-size`
@@ -58,7 +55,6 @@ Does not apply for queries with task level retries enabled (`retry-policy=TASK`)
 :::
 
 (prop-resource-query-max-total-memory)=
-
 ## `query.max-total-memory`
 
 - **Type:** {ref}`prop-type-data-size`
@@ -79,11 +75,10 @@ Does not apply for queries with task level retries enabled (`retry-policy=TASK`)
 :::
 
 (prop-resource-memory-heap-headroom-per-node)=
-
 ## `memory.heap-headroom-per-node`
 
-- **Type:** {ref}`prop-type-data-size`
-- **Default value:** (JVM max memory * 0.3)
+- **Type:** {ref}`prop-type-heap-size`
+- **Default value:** (30% of maximum heap size on the node)
 
 This is the amount of memory set aside as headroom/buffer in the JVM heap
 for allocations that are not tracked by Trino.
@@ -95,7 +90,6 @@ maximum heap size in the JVM on the node. See {ref}`jvm-config`.
 :::
 
 (prop-resource-exchange-deduplication-buffer-size)=
-
 ## `exchange.deduplication-buffer-size`
 
 - **Type:** {ref}`prop-type-data-size`

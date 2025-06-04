@@ -39,15 +39,15 @@ public abstract class BaseCassandraConnectorSmokeTest
     {
         return switch (connectorBehavior) {
             case SUPPORTS_ARRAY,
-                    SUPPORTS_COMMENT_ON_COLUMN,
-                    SUPPORTS_COMMENT_ON_TABLE,
-                    SUPPORTS_CREATE_MATERIALIZED_VIEW,
-                    SUPPORTS_CREATE_SCHEMA,
-                    SUPPORTS_CREATE_VIEW,
-                    SUPPORTS_MERGE,
-                    SUPPORTS_RENAME_TABLE,
-                    SUPPORTS_TOPN_PUSHDOWN,
-                    SUPPORTS_UPDATE -> false;
+                 SUPPORTS_COMMENT_ON_COLUMN,
+                 SUPPORTS_COMMENT_ON_TABLE,
+                 SUPPORTS_CREATE_MATERIALIZED_VIEW,
+                 SUPPORTS_CREATE_SCHEMA,
+                 SUPPORTS_CREATE_VIEW,
+                 SUPPORTS_MERGE,
+                 SUPPORTS_RENAME_TABLE,
+                 SUPPORTS_TOPN_PUSHDOWN,
+                 SUPPORTS_UPDATE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
@@ -76,7 +76,7 @@ public abstract class BaseCassandraConnectorSmokeTest
     @Test
     public void testInsertDate()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_", "(a_date date)")) {
+        try (TestTable table = newTrinoTable("test_insert_", "(a_date date)")) {
             assertUpdate("INSERT INTO " + table.getName() + " (a_date) VALUES ( DATE '2020-05-11')", 1);
             assertThat(query("SELECT a_date FROM " + table.getName())).matches("VALUES (DATE '2020-05-11')");
         }

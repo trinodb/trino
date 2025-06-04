@@ -13,7 +13,6 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.planner.iterative.Lookup;
@@ -40,11 +39,7 @@ public class RemoveRedundantJoin
     public Result apply(JoinNode node, Captures captures, Context context)
     {
         if (canRemoveJoin(node, context.getLookup())) {
-            return Result.ofPlanNode(
-                    new ValuesNode(
-                            context.getIdAllocator().getNextId(),
-                            node.getOutputSymbols(),
-                            ImmutableList.of()));
+            return Result.ofPlanNode(new ValuesNode(context.getIdAllocator().getNextId(), node.getOutputSymbols()));
         }
 
         return Result.empty();

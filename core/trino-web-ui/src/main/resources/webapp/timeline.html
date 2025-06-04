@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+
+    <meta name="description" content="Query Details - Trino">
+    <title>Worker Status - Trino</title>
+
+    <link rel="icon" href="assets/favicon.ico">
+
+    <script src="vendor/vis/vis.min.js"></script>
+    <link rel="stylesheet" href="vendor/vis/vis.min.css">
+
+    <!-- Bootstrap core -->
+    <link href="vendor/bootstrap/css/bootstrap.css" rel="stylesheet">
+
+    <!-- jQuery -->
+    <script type="text/javascript" src="vendor/jquery/jquery-3.7.1.min.js"></script>
+
+    <!-- Bootstrap JS -->
+    <script type="text/javascript" src="vendor/bootstrap/js/bootstrap.js"></script>
+
+    <!-- Sparkline -->
+    <script type="text/javascript" src="vendor/jquery.sparkline/jquery.sparkline.min.js"></script>
+
+    <!-- CSS loader -->
+    <link href="vendor/css-loaders/loader.css" rel="stylesheet">
+
+    <!-- Clipboard -->
+    <script src="vendor/clipboardjs/clipboard.min.js"></script>
+
+    <!-- Custom CSS -->
+    <link href="assets/trino.css" rel="stylesheet">
+    <link href="assets/css/timeline.css" rel="stylesheet">
+</head>
+
+<body>
+
+<div class="container">
+    <div id="title"></div>
+
+    <div class="page-header">
+        <h1>Trino :: Query <span id="queryId"></span></h1>
+    </div>
+
+    <h2>Timeline</h2>
+
+    <div id="legend">
+        <div>
+            <div class="gray bar"></div>
+            <div class="text">Created</div>
+        </div><div>
+            <div class="red bar"></div>
+            <div class="text">First split started</div>
+        </div><div>
+            <div class="blue bar"></div>
+            <div class="text">Last split started</div>
+        </div><div>
+            <div class="orange bar"></div>
+            <div class="text">Last split ended</div>
+        </div><div>
+            <div class="bar empty"></div>
+            <div class="text">Ended</div>
+        </div>
+    </div>
+    <div id="timeline"></div>
+</div>
+
+</body>
+
+<script type="text/javascript" src="dist/timeline.js"></script>
+
+<script src="assets/js/timeline.js"></script>
+</html>

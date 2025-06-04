@@ -13,10 +13,12 @@
  */
 package io.trino.jdbc;
 
+import io.trino.client.uri.ConnectionProperty;
 import io.trino.client.uri.TrinoUri;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.sql.DriverPropertyInfo;
 import java.sql.SQLException;
 import java.util.Properties;
 
@@ -38,10 +40,15 @@ public final class TrinoDriverUri
         super(parseDriverUrl(uri), driverProperties);
     }
 
-    public static TrinoDriverUri create(String url, Properties properties)
+    static TrinoDriverUri createDriverUri(String url, Properties properties)
             throws SQLException
     {
-        return new TrinoDriverUri(url, firstNonNull(properties, new Properties()));
+        try {
+            return new TrinoDriverUri(url, firstNonNull(properties, new Properties()));
+        }
+        catch (RuntimeException e) {
+            throw new SQLException(e.getMessage(), e.getCause());
+        }
     }
 
     public static boolean acceptsURL(String url)
@@ -58,10 +65,7 @@ public final class TrinoDriverUri
         if (isNullOrEmpty(uri.getHost())) {
             throw new SQLException("No host specified: " + url);
         }
-        if (uri.getPort() == -1) {
-            throw new SQLException("No port number specified: " + url);
-        }
-        if ((uri.getPort() < 1) || (uri.getPort() > 65535)) {
+        if (uri.getPort() == 0 || uri.getPort() > 65535) {
             throw new SQLException("Invalid port number: " + url);
         }
         return uri;
@@ -88,5 +92,37 @@ public final class TrinoDriverUri
         if (url.equals(JDBC_URL_START)) {
             throw new SQLException("Empty JDBC URL: " + url);
         }
+    }
+
+    public static DriverPropertyInfo[] getPropertyInfo(String url, Properties info)
+    {
+        Properties properties = urlProperties(url, info);
+        return allProperties().stream()
+                .filter(property -> property.isValid(properties))
+                .map(property -> getDriverPropertyInfo(property, properties))
+                .toArray(DriverPropertyInfo[]::new);
+    }
+
+    /*
+     * Combines properties extracted from url with provided ones
+     */
+    private static Properties urlProperties(String url, Properties info)
+    {
+        try {
+            return create(url, info).getProperties();
+        }
+        catch (RuntimeException e) {
+            return info;
+        }
+    }
+
+    private static DriverPropertyInfo getDriverPropertyInfo(ConnectionProperty<?, ?> property, Properties properties)
+    {
+        String currentValue = properties.getProperty(property.getKey());
+        DriverPropertyInfo result = new DriverPropertyInfo(property.getKey(), currentValue);
+        result.required = property.isRequired(properties);
+        result.choices = property.getChoices();
+        property.getValue(properties).ifPresent(value -> result.value = value.toString());
+        return result;
     }
 }

@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -29,17 +28,7 @@ public final class DropSchema
     private final boolean exists;
     private final boolean cascade;
 
-    public DropSchema(QualifiedName schemaName, boolean exists, boolean cascade)
-    {
-        this(Optional.empty(), schemaName, exists, cascade);
-    }
-
     public DropSchema(NodeLocation location, QualifiedName schemaName, boolean exists, boolean cascade)
-    {
-        this(Optional.of(location), schemaName, exists, cascade);
-    }
-
-    private DropSchema(Optional<NodeLocation> location, QualifiedName schemaName, boolean exists, boolean cascade)
     {
         super(location);
         this.schemaName = requireNonNull(schemaName, "schemaName is null");

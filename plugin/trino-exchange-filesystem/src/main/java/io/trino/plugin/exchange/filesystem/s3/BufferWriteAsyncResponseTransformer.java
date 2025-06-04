@@ -53,7 +53,7 @@ public final class BufferWriteAsyncResponseTransformer<ResponseT>
     public CompletableFuture<ResponseT> prepare()
     {
         cf = new CompletableFuture<>();
-        return cf.thenApply(ignored -> response);
+        return cf.thenApply(_ -> response);
     }
 
     @Override

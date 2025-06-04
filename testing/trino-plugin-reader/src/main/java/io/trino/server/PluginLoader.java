@@ -33,6 +33,7 @@ public class PluginLoader
     public static final String BLOCK_ENCODING = "blockEncoding:";
     public static final String PARAMETRIC_TYPE = "parametricType:";
     public static final String FUNCTION = "function:";
+    public static final String LANGUAGE_FUNCTION_ENGINE = "languageFunctionEngine:";
     public static final String SYSTEM_ACCESS_CONTROL = "systemAccessControl:";
     public static final String GROUP_PROVIDER = "groupProvider:";
     public static final String PASSWORD_AUTHENTICATOR = "passwordAuthenticator:";
@@ -54,6 +55,7 @@ public class PluginLoader
         plugin.getFunctions().forEach(functionClass -> extractFunctions(functionClass)
                 .getFunctions()
                 .forEach(function -> System.out.println(FUNCTION + function.getSignature())));
+        plugin.getLanguageFunctionEngines().forEach(engine -> System.out.println(LANGUAGE_FUNCTION_ENGINE + engine.getLanguage()));
         plugin.getSystemAccessControlFactories().forEach(factory -> System.out.println(SYSTEM_ACCESS_CONTROL + factory.getName()));
         plugin.getGroupProviderFactories().forEach(factory -> System.out.println(GROUP_PROVIDER + factory.getName()));
         plugin.getPasswordAuthenticatorFactories().forEach(factory -> System.out.println(PASSWORD_AUTHENTICATOR + factory.getName()));
@@ -78,7 +80,7 @@ public class PluginLoader
     private static void loadPlugin(Supplier<PluginClassLoader> createClassLoader, ImmutableList.Builder<Plugin> plugins)
     {
         PluginClassLoader pluginClassLoader = createClassLoader.get();
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(pluginClassLoader)) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(pluginClassLoader)) {
             loadServicePlugin(pluginClassLoader, plugins);
         }
     }

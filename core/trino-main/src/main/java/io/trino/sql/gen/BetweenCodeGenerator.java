@@ -13,6 +13,7 @@
  */
 package io.trino.sql.gen;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.Variable;
@@ -45,27 +46,27 @@ public class BetweenCodeGenerator
     public BetweenCodeGenerator(SpecialForm specialForm)
     {
         requireNonNull(specialForm, "specialForm is null");
-        List<RowExpression> arguments = specialForm.getArguments();
+        List<RowExpression> arguments = specialForm.arguments();
         checkArgument(arguments.size() == 3);
         value = arguments.get(0);
         min = arguments.get(1);
         max = arguments.get(2);
 
-        checkArgument(specialForm.getFunctionDependencies().size() == 1);
+        checkArgument(specialForm.functionDependencies().size() == 1);
         lessThanOrEqual = specialForm.getOperatorDependency(LESS_THAN_OR_EQUAL);
     }
 
     @Override
     public BytecodeNode generateExpression(BytecodeGeneratorContext context)
     {
-        Variable firstValue = context.getScope().createTempVariable(value.getType().getJavaType());
-        VariableReferenceExpression valueReference = createTempVariableReferenceExpression(firstValue, value.getType());
+        Variable firstValue = context.getScope().getOrCreateTempVariable(value.type().getJavaType());
+        VariableReferenceExpression valueReference = createTempVariableReferenceExpression(firstValue, value.type());
 
         SpecialForm newExpression = new SpecialForm(
                 AND,
                 BOOLEAN,
-                call(lessThanOrEqual, min, valueReference),
-                call(lessThanOrEqual, valueReference, max));
+                ImmutableList.of(call(lessThanOrEqual, min, valueReference), call(lessThanOrEqual, valueReference, max)),
+                ImmutableList.of());
 
         LabelNode done = new LabelNode("done");
 
@@ -73,10 +74,12 @@ public class BetweenCodeGenerator
         BytecodeBlock block = new BytecodeBlock()
                 .comment("check if value is null")
                 .append(context.generate(value))
-                .append(ifWasNullPopAndGoto(context.getScope(), done, boolean.class, value.getType().getJavaType()))
+                .append(ifWasNullPopAndGoto(context.getScope(), done, boolean.class, value.type().getJavaType()))
                 .putVariable(firstValue)
                 .append(context.generate(newExpression))
                 .visitLabel(done);
+
+        context.getScope().releaseTempVariableForReuse(firstValue);
 
         return block;
     }

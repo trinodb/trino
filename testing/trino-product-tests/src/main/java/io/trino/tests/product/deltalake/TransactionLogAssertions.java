@@ -23,7 +23,6 @@ import java.util.function.Predicate;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 public final class TransactionLogAssertions
 {
@@ -36,14 +35,14 @@ public final class TransactionLogAssertions
         Optional<String> lastCheckpointEntry = listCheckpointEntries(s3Client, bucketName, tableName).stream().max(String::compareTo);
         assertThat(lastCheckpointEntry).isPresent();
 
-        assertEquals(lastJsonEntry.get().replace(".json", ""), lastCheckpointEntry.get().replace(".checkpoint.parquet", ""));
+        assertThat(lastJsonEntry.get().replace(".json", "")).isEqualTo(lastCheckpointEntry.get().replace(".checkpoint.parquet", ""));
     }
 
     public static void assertTransactionLogVersion(AmazonS3 s3Client, String bucketName, String tableName, int versionNumber)
     {
         Optional<String> lastJsonEntry = listJsonLogEntries(s3Client, bucketName, tableName).stream().max(String::compareTo);
         assertThat(lastJsonEntry).isPresent();
-        assertEquals(lastJsonEntry.get(), format("%020d.json", versionNumber));
+        assertThat(lastJsonEntry.get()).isEqualTo(format("%020d.json", versionNumber));
     }
 
     private static List<String> listJsonLogEntries(AmazonS3 s3Client, String bucketName, String tableName)

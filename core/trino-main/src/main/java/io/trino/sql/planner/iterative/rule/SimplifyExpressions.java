@@ -13,16 +13,18 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
-import io.trino.sql.planner.IrExpressionInterpreter;
+import io.trino.sql.ir.optimizer.IrExpressionOptimizer;
 import io.trino.sql.planner.iterative.Rule;
 
 import java.util.Set;
 
+import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newOptimizer;
 import static io.trino.sql.planner.iterative.rule.ExtractCommonPredicatesExpressionRewriter.extractCommonPredicates;
 import static io.trino.sql.planner.iterative.rule.NormalizeOrExpressionRewriter.normalizeOrExpression;
 import static io.trino.sql.planner.iterative.rule.PushDownNegationsExpressionRewriter.pushDownNegations;
@@ -31,16 +33,15 @@ import static java.util.Objects.requireNonNull;
 public class SimplifyExpressions
         extends ExpressionRewriteRuleSet
 {
-    public static Expression rewrite(Expression expression, Session session, PlannerContext plannerContext)
+    public static Expression rewrite(Expression expression, Session session, IrExpressionOptimizer optimizer)
     {
-        requireNonNull(plannerContext, "plannerContext is null");
         if (expression instanceof Reference) {
             return expression;
         }
         expression = pushDownNegations(expression);
         expression = extractCommonPredicates(expression);
         expression = normalizeOrExpression(expression);
-        return new IrExpressionInterpreter(expression, plannerContext, session).optimize();
+        return optimizer.process(expression, session, ImmutableMap.of()).orElse(expression);
     }
 
     public SimplifyExpressions(PlannerContext plannerContext)
@@ -63,6 +64,6 @@ public class SimplifyExpressions
     {
         requireNonNull(plannerContext, "plannerContext is null");
 
-        return (expression, context) -> rewrite(expression, context.getSession(), plannerContext);
+        return (expression, context) -> rewrite(expression, context.getSession(), newOptimizer(plannerContext));
     }
 }

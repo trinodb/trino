@@ -51,7 +51,7 @@ public class TestTypeSignature
     public void parseSignatureWithLiterals()
     {
         TypeSignature result = new TypeSignature("decimal", typeVariable("X"), numericParameter(42));
-        assertThat(result.getParameters().size()).isEqualTo(2);
+        assertThat(result.getParameters()).hasSize(2);
         assertThat(result.getParameters().get(0).isVariable()).isEqualTo(true);
         assertThat(result.getParameters().get(1).isLongLiteral()).isEqualTo(true);
     }
@@ -315,7 +315,7 @@ public class TestTypeSignature
     {
         TypeSignature signature = parseTypeSignature(typeName, ImmutableSet.of());
         assertThat(signature.getBase()).isEqualTo(base);
-        assertThat(signature.getParameters().size()).isEqualTo(parameters.size());
+        assertThat(signature.getParameters()).hasSize(parameters.size());
         for (int i = 0; i < signature.getParameters().size(); i++) {
             assertThat(signature.getParameters().get(i).toString()).isEqualTo(parameters.get(i));
         }

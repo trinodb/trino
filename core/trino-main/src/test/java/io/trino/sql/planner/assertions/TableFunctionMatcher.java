@@ -235,9 +235,9 @@ public class TableFunctionMatcher
     public record DescriptorArgumentValue(Optional<Descriptor> descriptor)
             implements ArgumentValue
     {
-        public DescriptorArgumentValue(Optional<Descriptor> descriptor)
+        public DescriptorArgumentValue
         {
-            this.descriptor = requireNonNull(descriptor, "descriptor is null");
+            requireNonNull(descriptor, "descriptor is null");
         }
 
         public static DescriptorArgumentValue descriptorArgument(Descriptor descriptor)
@@ -264,20 +264,10 @@ public class TableFunctionMatcher
             Set<String> passThroughSymbols)
             implements ArgumentValue
     {
-        public TableArgumentValue(
-                int sourceIndex,
-                boolean rowSemantics,
-                boolean pruneWhenEmpty,
-                boolean passThroughColumns,
-                Optional<ExpectedValueProvider<DataOrganizationSpecification>> specification,
-                Set<String> passThroughSymbols)
+        public TableArgumentValue
         {
-            this.sourceIndex = sourceIndex;
-            this.rowSemantics = rowSemantics;
-            this.pruneWhenEmpty = pruneWhenEmpty;
-            this.passThroughColumns = passThroughColumns;
-            this.specification = requireNonNull(specification, "specification is null");
-            this.passThroughSymbols = ImmutableSet.copyOf(passThroughSymbols);
+            requireNonNull(specification, "specification is null");
+            passThroughSymbols = ImmutableSet.copyOf(passThroughSymbols);
         }
 
         public static class Builder

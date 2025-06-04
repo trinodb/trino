@@ -33,23 +33,13 @@ public class CreateTableAsSelect
     private final Optional<List<Identifier>> columnAliases;
     private final Optional<String> comment;
 
-    public CreateTableAsSelect(QualifiedName name, Query query, SaveMode saveMode, List<Property> properties, boolean withData, Optional<List<Identifier>> columnAliases, Optional<String> comment)
-    {
-        this(Optional.empty(), name, query, saveMode, properties, withData, columnAliases, comment);
-    }
-
     public CreateTableAsSelect(NodeLocation location, QualifiedName name, Query query, SaveMode saveMode, List<Property> properties, boolean withData, Optional<List<Identifier>> columnAliases, Optional<String> comment)
-    {
-        this(Optional.of(location), name, query, saveMode, properties, withData, columnAliases, comment);
-    }
-
-    private CreateTableAsSelect(Optional<NodeLocation> location, QualifiedName name, Query query, SaveMode saveMode, List<Property> properties, boolean withData, Optional<List<Identifier>> columnAliases, Optional<String> comment)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");
         this.query = requireNonNull(query, "query is null");
         this.saveMode = requireNonNull(saveMode, "saveMode is null");
-        this.properties = ImmutableList.copyOf(requireNonNull(properties, "properties is null"));
+        this.properties = ImmutableList.copyOf(properties);
         this.withData = withData;
         this.columnAliases = columnAliases;
         this.comment = requireNonNull(comment, "comment is null");
@@ -123,9 +113,9 @@ public class CreateTableAsSelect
         CreateTableAsSelect o = (CreateTableAsSelect) obj;
         return Objects.equals(name, o.name)
                 && Objects.equals(query, o.query)
-                && Objects.equals(saveMode, o.saveMode)
+                && saveMode == o.saveMode
                 && Objects.equals(properties, o.properties)
-                && Objects.equals(withData, o.withData)
+                && withData == o.withData
                 && Objects.equals(columnAliases, o.columnAliases)
                 && Objects.equals(comment, o.comment);
     }

@@ -140,7 +140,6 @@ public class TestAggregationLoopBuilder
         return invocationList;
     }
 
-    @SuppressWarnings("UnusedVariable")
     private record TestParameter(Block inputBlock, ValueBlock invokedBlock, int[] invokedPositions) {}
 
     public static void input(

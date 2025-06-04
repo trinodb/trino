@@ -15,7 +15,6 @@ package io.trino.orc.reader;
 
 import com.google.common.io.Closer;
 import io.trino.memory.context.AggregatedMemoryContext;
-import io.trino.orc.OrcBlockFactory;
 import io.trino.orc.OrcColumn;
 import io.trino.orc.OrcCorruptionException;
 import io.trino.orc.OrcReader.FieldMapperFactory;
@@ -29,7 +28,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
-import jakarta.annotation.Nonnull;
 import jakarta.annotation.Nullable;
 
 import java.io.IOException;
@@ -57,7 +55,6 @@ public class MapColumnReader
 
     private final MapType type;
     private final OrcColumn column;
-    private final OrcBlockFactory blockFactory;
 
     private final ColumnReader keyColumnReader;
     private final ColumnReader valueColumnReader;
@@ -65,19 +62,17 @@ public class MapColumnReader
     private int readOffset;
     private int nextBatchSize;
 
-    @Nonnull
     private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
     @Nullable
     private BooleanInputStream presentStream;
 
-    @Nonnull
     private InputStreamSource<LongInputStream> lengthStreamSource = missingStreamSource(LongInputStream.class);
     @Nullable
     private LongInputStream lengthStream;
 
     private boolean rowGroupOpen;
 
-    public MapColumnReader(Type type, OrcColumn column, AggregatedMemoryContext memoryContext, OrcBlockFactory blockFactory, FieldMapperFactory fieldMapperFactory)
+    public MapColumnReader(Type type, OrcColumn column, AggregatedMemoryContext memoryContext, FieldMapperFactory fieldMapperFactory)
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
@@ -85,20 +80,17 @@ public class MapColumnReader
         this.type = (MapType) type;
 
         this.column = requireNonNull(column, "column is null");
-        this.blockFactory = requireNonNull(blockFactory, "blockFactory is null");
         this.keyColumnReader = createColumnReader(
                 this.type.getKeyType(),
                 column.getNestedColumns().get(0),
                 fullyProjectedLayout(),
                 memoryContext,
-                blockFactory,
                 fieldMapperFactory);
         this.valueColumnReader = createColumnReader(
                 this.type.getValueType(),
                 column.getNestedColumns().get(1),
                 fullyProjectedLayout(),
                 memoryContext,
-                blockFactory,
                 fieldMapperFactory);
     }
 
@@ -168,7 +160,7 @@ public class MapColumnReader
             keyColumnReader.prepareNextRead(entryCount);
             valueColumnReader.prepareNextRead(entryCount);
             keys = keyColumnReader.readBlock();
-            values = blockFactory.createBlock(entryCount, valueColumnReader::readBlock, true);
+            values = valueColumnReader.readBlock();
         }
         else {
             keys = type.getKeyType().createBlockBuilder(null, 0).build();

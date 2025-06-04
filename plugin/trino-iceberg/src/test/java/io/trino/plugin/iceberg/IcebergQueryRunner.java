@@ -20,9 +20,14 @@ import io.airlift.http.server.testing.TestingHttpServer;
 import io.airlift.log.Level;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
+import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
+import io.trino.plugin.hive.containers.Hive3MinioDataLake;
 import io.trino.plugin.hive.containers.HiveHadoop;
-import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.plugin.iceberg.catalog.jdbc.TestingIcebergJdbcServer;
+import io.trino.plugin.iceberg.catalog.rest.TestingPolarisCatalog;
+import io.trino.plugin.iceberg.containers.NessieContainer;
+import io.trino.plugin.iceberg.containers.UnityCatalogContainer;
+import io.trino.plugin.tpcds.TpcdsPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -30,9 +35,9 @@ import io.trino.testing.containers.Minio;
 import io.trino.tpch.TpchTable;
 import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.rest.DelegatingRestSessionCatalog;
-import org.assertj.core.util.Files;
 
 import java.io.File;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileAttribute;
 import java.nio.file.attribute.PosixFilePermission;
@@ -41,7 +46,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.iceberg.catalog.jdbc.TestingIcebergJdbcServer.PASSWORD;
 import static io.trino.plugin.iceberg.catalog.jdbc.TestingIcebergJdbcServer.USER;
@@ -52,25 +56,18 @@ import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
 import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.file.Files.createTempDirectory;
 import static java.util.Objects.requireNonNull;
 
 public final class IcebergQueryRunner
 {
+    private IcebergQueryRunner() {}
+
     public static final String ICEBERG_CATALOG = "iceberg";
 
     static {
         Logging logging = Logging.initialize();
         logging.setLevel("org.apache.iceberg", Level.OFF);
-    }
-
-    private IcebergQueryRunner() {}
-
-    public static QueryRunner createIcebergQueryRunner(TpchTable<?>... tables)
-            throws Exception
-    {
-        return builder()
-                .setInitialTables(tables)
-                .build();
     }
 
     public static Builder builder()
@@ -88,7 +85,8 @@ public final class IcebergQueryRunner
     {
         private Optional<File> metastoreDirectory = Optional.empty();
         private ImmutableMap.Builder<String, String> icebergProperties = ImmutableMap.builder();
-        private Optional<SchemaInitializer> schemaInitializer = Optional.empty();
+        private Optional<SchemaInitializer> schemaInitializer = Optional.of(SchemaInitializer.builder().build());
+        private boolean tpcdsCatalogEnabled;
 
         protected Builder()
         {
@@ -138,9 +136,20 @@ public final class IcebergQueryRunner
 
         public Builder setSchemaInitializer(SchemaInitializer schemaInitializer)
         {
-            checkState(this.schemaInitializer.isEmpty(), "schemaInitializer is already set");
             this.schemaInitializer = Optional.of(requireNonNull(schemaInitializer, "schemaInitializer is null"));
             amendSession(sessionBuilder -> sessionBuilder.setSchema(schemaInitializer.getSchemaName()));
+            return self();
+        }
+
+        public Builder disableSchemaInitializer()
+        {
+            schemaInitializer = Optional.empty();
+            return self();
+        }
+
+        public Builder setTpcdsCatalogEnabled(boolean tpcdsCatalogEnabled)
+        {
+            this.tpcdsCatalogEnabled = tpcdsCatalogEnabled;
             return self();
         }
 
@@ -153,10 +162,20 @@ public final class IcebergQueryRunner
                 queryRunner.installPlugin(new TpchPlugin());
                 queryRunner.createCatalog("tpch", "tpch");
 
+                if (tpcdsCatalogEnabled) {
+                    queryRunner.installPlugin(new TpcdsPlugin());
+                    queryRunner.createCatalog("tpcds", "tpcds");
+                }
+
+                if (icebergProperties.buildOrThrow().keySet().stream().noneMatch(key ->
+                        key.equals("fs.hadoop.enabled") || key.startsWith("fs.native-"))) {
+                    icebergProperties.put("fs.hadoop.enabled", "true");
+                }
+
                 Path dataDir = metastoreDirectory.map(File::toPath).orElseGet(() -> queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data"));
                 queryRunner.installPlugin(new TestingIcebergPlugin(dataDir));
                 queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", icebergProperties.buildOrThrow());
-                schemaInitializer.orElseGet(() -> SchemaInitializer.builder().build()).accept(queryRunner);
+                schemaInitializer.ifPresent(initializer -> initializer.accept(queryRunner));
 
                 return queryRunner;
             }
@@ -167,6 +186,13 @@ public final class IcebergQueryRunner
         }
     }
 
+    private static Builder icebergQueryRunnerMainBuilder()
+    {
+        return IcebergQueryRunner.builder()
+                .addCoordinatorProperty("http-server.http.port", "8080")
+                .setTpcdsCatalogEnabled(true);
+    }
+
     public static final class IcebergRestQueryRunnerMain
     {
         private IcebergRestQueryRunnerMain() {}
@@ -174,8 +200,8 @@ public final class IcebergQueryRunner
         public static void main(String[] args)
                 throws Exception
         {
-            File warehouseLocation = Files.newTemporaryFolder();
-            warehouseLocation.deleteOnExit();
+            Path warehouseLocation = Files.createTempDirectory(null);
+            warehouseLocation.toFile().deleteOnExit();
 
             Catalog backend = backendCatalog(warehouseLocation);
 
@@ -187,9 +213,8 @@ public final class IcebergQueryRunner
             testServer.start();
 
             @SuppressWarnings("resource")
-            QueryRunner queryRunner = IcebergQueryRunner.builder()
-                    .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
-                    .setBaseDataDir(Optional.of(warehouseLocation.toPath()))
+            QueryRunner queryRunner = icebergQueryRunnerMainBuilder()
+                    .setBaseDataDir(Optional.of(warehouseLocation))
                     .setIcebergProperties(ImmutableMap.of(
                             "iceberg.catalog.type", "rest",
                             "iceberg.rest-catalog.uri", testServer.getBaseUrl().toString()))
@@ -202,22 +227,84 @@ public final class IcebergQueryRunner
         }
     }
 
-    public static final class IcebergGlueQueryRunnerMain
+    public static final class IcebergPolarisQueryRunnerMain
     {
-        private IcebergGlueQueryRunnerMain() {}
+        private IcebergPolarisQueryRunnerMain() {}
 
         public static void main(String[] args)
                 throws Exception
         {
-            // Requires AWS credentials, which can be provided any way supported by the DefaultProviderChain
-            // See https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/credentials.html#credentials-default
+            Path warehouseLocation = Files.createTempDirectory(null);
+            warehouseLocation.toFile().deleteOnExit();
+
             @SuppressWarnings("resource")
-            QueryRunner queryRunner = IcebergQueryRunner.builder()
-                    .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
-                    .setIcebergProperties(ImmutableMap.of("iceberg.catalog.type", "glue"))
+            TestingPolarisCatalog polarisCatalog = new TestingPolarisCatalog(warehouseLocation.toString());
+
+            @SuppressWarnings("resource")
+            QueryRunner queryRunner = icebergQueryRunnerMainBuilder()
+                    .setBaseDataDir(Optional.of(warehouseLocation))
+                    .addIcebergProperty("iceberg.catalog.type", "rest")
+                    .addIcebergProperty("iceberg.rest-catalog.uri", polarisCatalog.restUri() + "/api/catalog")
+                    .addIcebergProperty("iceberg.rest-catalog.warehouse", TestingPolarisCatalog.WAREHOUSE)
+                    .addIcebergProperty("iceberg.rest-catalog.security", "OAUTH2")
+                    .addIcebergProperty("iceberg.rest-catalog.oauth2.credential", TestingPolarisCatalog.CREDENTIAL)
+                    .addIcebergProperty("iceberg.rest-catalog.oauth2.scope", "PRINCIPAL_ROLE:ALL")
+                    .setInitialTables(TpchTable.getTables())
                     .build();
 
-            Logger log = Logger.get(IcebergGlueQueryRunnerMain.class);
+            Logger log = Logger.get(IcebergPolarisQueryRunnerMain.class);
+            log.info("======== SERVER STARTED ========");
+            log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
+        }
+    }
+
+    public static final class IcebergUnityQueryRunnerMain
+    {
+        private IcebergUnityQueryRunnerMain() {}
+
+        public static void main(String[] args)
+                throws Exception
+        {
+            Path warehouseLocation = Files.createTempDirectory(null);
+            warehouseLocation.toFile().deleteOnExit();
+
+            @SuppressWarnings("resource")
+            UnityCatalogContainer unityCatalog = new UnityCatalogContainer("unity", "tpch");
+
+            @SuppressWarnings("resource")
+            QueryRunner queryRunner = IcebergQueryRunner.builder()
+                    .addCoordinatorProperty("http-server.http.port", "8080")
+                    .setBaseDataDir(Optional.of(warehouseLocation))
+                    .addIcebergProperty("iceberg.security", "read_only")
+                    .addIcebergProperty("iceberg.catalog.type", "rest")
+                    .addIcebergProperty("iceberg.rest-catalog.uri", unityCatalog.uri() + "/iceberg")
+                    .addIcebergProperty("iceberg.rest-catalog.warehouse", "unity")
+                    .addIcebergProperty("iceberg.register-table-procedure.enabled", "true")
+                    .disableSchemaInitializer()
+                    .build();
+
+            unityCatalog.copyTpchTables(TpchTable.getTables());
+
+            Logger log = Logger.get(IcebergUnityQueryRunnerMain.class);
+            log.info("======== SERVER STARTED ========");
+            log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
+        }
+    }
+
+    public static final class IcebergExternalQueryRunnerMain
+    {
+        private IcebergExternalQueryRunnerMain() {}
+
+        public static void main(String[] args)
+                throws Exception
+        {
+            // Please set Iceberg connector properties via VM options. e.g. -Diceberg.catalog.type=glue -D..
+            @SuppressWarnings("resource")
+            QueryRunner queryRunner = icebergQueryRunnerMainBuilder()
+                    .setIcebergProperties(ImmutableMap.of("iceberg.catalog.type", System.getProperty("iceberg.catalog.type")))
+                    .build();
+
+            Logger log = Logger.get(IcebergExternalQueryRunnerMain.class);
             log.info("======== SERVER STARTED ========");
             log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
         }
@@ -232,17 +319,15 @@ public final class IcebergQueryRunner
         {
             String bucketName = "test-bucket";
             @SuppressWarnings("resource")
-            HiveMinioDataLake hiveMinioDataLake = new HiveMinioDataLake(bucketName);
+            Hive3MinioDataLake hiveMinioDataLake = new Hive3MinioDataLake(bucketName);
             hiveMinioDataLake.start();
 
             @SuppressWarnings("resource")
             QueryRunner queryRunner = IcebergQueryRunner.builder()
-                    .setCoordinatorProperties(Map.of(
-                            "http-server.http.port", "8080"))
+                    .addCoordinatorProperty("http-server.http.port", "8080")
                     .setIcebergProperties(Map.of(
                             "iceberg.catalog.type", "HIVE_METASTORE",
                             "hive.metastore.uri", hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint().toString(),
-                            "fs.hadoop.enabled", "false",
                             "fs.native-s3.enabled", "true",
                             "s3.aws-access-key", MINIO_ACCESS_KEY,
                             "s3.aws-secret-key", MINIO_SECRET_KEY,
@@ -280,13 +365,10 @@ public final class IcebergQueryRunner
             minio.createBucket(bucketName);
 
             @SuppressWarnings("resource")
-            QueryRunner queryRunner = IcebergQueryRunner.builder()
-                    .setCoordinatorProperties(Map.of(
-                            "http-server.http.port", "8080"))
+            QueryRunner queryRunner = icebergQueryRunnerMainBuilder()
                     .setIcebergProperties(Map.of(
                             "iceberg.catalog.type", "TESTING_FILE_METASTORE",
                             "hive.metastore.catalog.dir", "s3://%s/".formatted(bucketName),
-                            "fs.hadoop.enabled", "false",
                             "fs.native-s3.enabled", "true",
                             "s3.aws-access-key", MINIO_ACCESS_KEY,
                             "s3.aws-secret-key", MINIO_SECRET_KEY,
@@ -335,13 +417,10 @@ public final class IcebergQueryRunner
             hiveHadoop.start();
 
             @SuppressWarnings("resource")
-            QueryRunner queryRunner = IcebergQueryRunner.builder()
-                    .setCoordinatorProperties(Map.of(
-                            "http-server.http.port", "8080"))
+            QueryRunner queryRunner = icebergQueryRunnerMainBuilder()
                     .setIcebergProperties(Map.of(
                             "iceberg.catalog.type", "HIVE_METASTORE",
                             "hive.metastore.uri", hiveHadoop.getHiveMetastoreEndpoint().toString(),
-                            "fs.hadoop.enabled", "false",
                             "fs.native-azure.enabled", "true",
                             "azure.auth-type", "ACCESS_KEY",
                             "azure.access-key", azureAccessKey))
@@ -366,14 +445,13 @@ public final class IcebergQueryRunner
         public static void main(String[] args)
                 throws Exception
         {
-            File warehouseLocation = Files.newTemporaryFolder();
-            warehouseLocation.deleteOnExit();
+            Path warehouseLocation = Files.createTempDirectory(null);
+            warehouseLocation.toFile().deleteOnExit();
 
             TestingIcebergJdbcServer server = new TestingIcebergJdbcServer();
 
             @SuppressWarnings("resource")
-            QueryRunner queryRunner = IcebergQueryRunner.builder()
-                    .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
+            QueryRunner queryRunner = icebergQueryRunnerMainBuilder()
                     .setIcebergProperties(ImmutableMap.<String, String>builder()
                             .put("iceberg.catalog.type", "jdbc")
                             .put("iceberg.jdbc-catalog.driver-class", "org.postgresql.Driver")
@@ -381,7 +459,7 @@ public final class IcebergQueryRunner
                             .put("iceberg.jdbc-catalog.connection-user", USER)
                             .put("iceberg.jdbc-catalog.connection-password", PASSWORD)
                             .put("iceberg.jdbc-catalog.catalog-name", "tpch")
-                            .put("iceberg.jdbc-catalog.default-warehouse-dir", warehouseLocation.getAbsolutePath())
+                            .put("iceberg.jdbc-catalog.default-warehouse-dir", warehouseLocation.toAbsolutePath().toString())
                             .buildOrThrow())
                     .setInitialTables(TpchTable.getTables())
                     .build();
@@ -400,8 +478,7 @@ public final class IcebergQueryRunner
                 throws Exception
         {
             @SuppressWarnings("resource")
-            QueryRunner queryRunner = IcebergQueryRunner.builder()
-                    .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
+            QueryRunner queryRunner = icebergQueryRunnerMainBuilder()
                     .setIcebergProperties(ImmutableMap.<String, String>builder()
                             .put("iceberg.catalog.type", "snowflake")
                             .put("fs.native-s3.enabled", "true")
@@ -426,6 +503,36 @@ public final class IcebergQueryRunner
         }
     }
 
+    public static final class IcebergNessieQueryRunnerMain
+    {
+        private IcebergNessieQueryRunnerMain() {}
+
+        public static void main(String[] args)
+                throws Exception
+        {
+            NessieContainer nessieContainer = NessieContainer.builder().build();
+            nessieContainer.start();
+
+            Path tempDir = createTempDirectory("trino_nessie_catalog");
+
+            @SuppressWarnings("resource")
+            QueryRunner queryRunner = IcebergQueryRunner.builder()
+                    .addCoordinatorProperty("http-server.http.port", "8080")
+                    .setBaseDataDir(Optional.of(tempDir))
+                    .setIcebergProperties(ImmutableMap.<String, String>builder()
+                            .put("iceberg.catalog.type", "nessie")
+                            .put("iceberg.nessie-catalog.uri", nessieContainer.getRestApiUri())
+                            .put("iceberg.nessie-catalog.default-warehouse-dir", tempDir.toString())
+                            .buildOrThrow())
+                    .setInitialTables(TpchTable.getTables())
+                    .build();
+
+            Logger log = Logger.get(IcebergNessieQueryRunnerMain.class);
+            log.info("======== SERVER STARTED ========");
+            log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
+        }
+    }
+
     public static final class DefaultIcebergQueryRunnerMain
     {
         private DefaultIcebergQueryRunnerMain() {}
@@ -434,11 +541,51 @@ public final class IcebergQueryRunner
                 throws Exception
         {
             Logger log = Logger.get(DefaultIcebergQueryRunnerMain.class);
+            File metastoreDir = createTempDirectory("iceberg_query_runner").toFile();
+            metastoreDir.deleteOnExit();
+
             @SuppressWarnings("resource")
-            QueryRunner queryRunner = IcebergQueryRunner.builder()
-                    .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
+            QueryRunner queryRunner = icebergQueryRunnerMainBuilder()
+                    .addIcebergProperty("hive.metastore.catalog.dir", metastoreDir.toURI().toString())
                     .setInitialTables(TpchTable.getTables())
                     .build();
+            log.info("======== SERVER STARTED ========");
+            log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
+        }
+    }
+
+    public static final class IcebergQueryRunnerWithTaskRetries
+    {
+        private IcebergQueryRunnerWithTaskRetries() {}
+
+        public static void main(String[] args)
+                throws Exception
+        {
+            Logger log = Logger.get(IcebergQueryRunnerWithTaskRetries.class);
+
+            File exchangeManagerDirectory = createTempDirectory("exchange_manager").toFile();
+            Map<String, String> exchangeManagerProperties = ImmutableMap.<String, String>builder()
+                    .put("exchange.base-directories", exchangeManagerDirectory.getAbsolutePath())
+                    .buildOrThrow();
+            exchangeManagerDirectory.deleteOnExit();
+
+            File metastoreDir = createTempDirectory("iceberg_query_runner").toFile();
+            metastoreDir.deleteOnExit();
+
+            @SuppressWarnings("resource")
+            QueryRunner queryRunner = icebergQueryRunnerMainBuilder()
+                    .addIcebergProperty("hive.metastore.catalog.dir", metastoreDir.toURI().toString())
+                    .setExtraProperties(ImmutableMap.<String, String>builder()
+                            .put("retry-policy", "TASK")
+                            .put("fault-tolerant-execution-task-memory", "1GB")
+                            .buildOrThrow())
+                    .setInitialTables(TpchTable.getTables())
+                    .setAdditionalSetup(runner -> {
+                        runner.installPlugin(new FileSystemExchangePlugin());
+                        runner.loadExchangeManager("filesystem", exchangeManagerProperties);
+                    })
+                    .build();
+
             log.info("======== SERVER STARTED ========");
             log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
         }

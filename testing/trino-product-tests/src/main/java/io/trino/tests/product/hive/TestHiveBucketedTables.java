@@ -43,7 +43,7 @@ import static io.trino.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.N
 import static io.trino.tempto.query.QueryExecutor.param;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.LARGE_QUERY;
-import static io.trino.tests.product.TpchTableResults.PRESTO_NATION_RESULT;
+import static io.trino.tests.product.TpchTableResults.TRINO_NATION_RESULT;
 import static io.trino.tests.product.hive.BucketingType.BUCKETED_DEFAULT;
 import static io.trino.tests.product.hive.BucketingType.BUCKETED_V1;
 import static io.trino.tests.product.hive.BucketingType.BUCKETED_V2;
@@ -112,7 +112,7 @@ public class TestHiveBucketedTables
         String tableName = mutableTableInstanceOf(BUCKETED_NATION).getNameInDatabase();
         populateHiveTable(tableName, NATION.getName());
 
-        assertThat(onTrino().executeQuery("SELECT * FROM " + tableName)).matches(PRESTO_NATION_RESULT);
+        assertThat(onTrino().executeQuery("SELECT * FROM " + tableName)).matches(TRINO_NATION_RESULT);
     }
 
     @Test(groups = LARGE_QUERY)
@@ -286,7 +286,7 @@ public class TestHiveBucketedTables
         // nations has 25 rows and NDV=5 for n_regionkey, setting bucket_count=10 will surely create empty buckets
         onTrino().executeQuery(format("CREATE TABLE %s WITH (bucket_count = 10, bucketed_by = ARRAY['n_regionkey']) AS SELECT * FROM %s", tableName, NATION.getName()));
 
-        assertThat(onTrino().executeQuery(format("SELECT * FROM %s", tableName))).matches(PRESTO_NATION_RESULT);
+        assertThat(onTrino().executeQuery(format("SELECT * FROM %s", tableName))).matches(TRINO_NATION_RESULT);
         assertThat(onTrino().executeQuery(format("SELECT count(*) FROM %s WHERE n_regionkey=0", tableName))).containsExactlyInOrder(row(5));
     }
 

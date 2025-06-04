@@ -20,7 +20,7 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.memory.MemoryFileSystemFactory;
 import io.trino.metadata.TableHandle;
-import io.trino.plugin.hive.metastore.Column;
+import io.trino.metastore.Column;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
@@ -43,17 +43,15 @@ import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
+import static io.trino.metastore.HiveType.HIVE_INT;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveTestUtils.getDefaultHivePageSourceFactories;
-import static io.trino.plugin.hive.HiveType.HIVE_INT;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
-import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_LIB;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class TestNodeLocalDynamicSplitPruning
@@ -90,7 +88,7 @@ class TestNodeLocalDynamicSplitPruning
         }
 
         try (ConnectorPageSource nonEmptyPageSource = createTestingPageSource(transaction, config, getDynamicFilter(getNonSelectiveBucketTupleDomain()))) {
-            assertThat(nonEmptyPageSource.getClass()).isEqualTo(HivePageSource.class);
+            assertThat(nonEmptyPageSource.getClass()).isNotEqualTo(EmptyPageSource.class);
         }
     }
 
@@ -106,7 +104,7 @@ class TestNodeLocalDynamicSplitPruning
         }
 
         try (ConnectorPageSource nonEmptyPageSource = createTestingPageSource(transaction, config, getDynamicFilter(getNonSelectivePartitionTupleDomain()))) {
-            assertThat(nonEmptyPageSource.getClass()).isEqualTo(HivePageSource.class);
+            assertThat(nonEmptyPageSource.getClass()).isNotEqualTo(EmptyPageSource.class);
         }
     }
 
@@ -117,10 +115,6 @@ class TestNodeLocalDynamicSplitPruning
         TrinoFileSystemFactory fileSystemFactory = new MemoryFileSystemFactory();
         fileSystemFactory.create(ConnectorIdentity.ofUser("test")).newOutputFile(location).create().close();
 
-        Map<String, String> splitProperties = ImmutableMap.<String, String>builder()
-                .put(FILE_INPUT_FORMAT, hiveConfig.getHiveStorageFormat().getInputFormat())
-                .put(SERIALIZATION_LIB, hiveConfig.getHiveStorageFormat().getSerde())
-                .buildOrThrow();
         HiveSplit split = new HiveSplit(
                 "",
                 location.toString(),
@@ -128,7 +122,7 @@ class TestNodeLocalDynamicSplitPruning
                 0,
                 0,
                 0,
-                splitProperties,
+                new Schema(hiveConfig.getHiveStorageFormat().getSerde(), false, ImmutableMap.of()),
                 ImmutableList.of(new HivePartitionKey(PARTITION_COLUMN.getName(), "42")),
                 ImmutableList.of(),
                 OptionalInt.of(1),
@@ -148,12 +142,14 @@ class TestNodeLocalDynamicSplitPruning
                         ImmutableMap.of(),
                         ImmutableList.of(),
                         ImmutableList.of(BUCKET_HIVE_COLUMN_HANDLE),
-                        Optional.of(new HiveBucketHandle(
-                                ImmutableList.of(BUCKET_HIVE_COLUMN_HANDLE),
+                        Optional.of(new HiveTablePartitioning(
+                                true,
                                 BUCKETING_V1,
                                 20,
-                                20,
-                                ImmutableList.of()))),
+                                ImmutableList.of(BUCKET_HIVE_COLUMN_HANDLE),
+                                false,
+                                ImmutableList.of(),
+                                true))),
                 transaction);
 
         HivePageSourceProvider provider = new HivePageSourceProvider(

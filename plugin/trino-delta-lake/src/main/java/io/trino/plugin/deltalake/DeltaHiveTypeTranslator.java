@@ -14,9 +14,9 @@
 package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.plugin.hive.HiveType;
-import io.trino.plugin.hive.type.DecimalTypeInfo;
-import io.trino.plugin.hive.type.TypeInfo;
+import io.trino.metastore.HiveType;
+import io.trino.metastore.type.DecimalTypeInfo;
+import io.trino.metastore.type.TypeInfo;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
@@ -29,26 +29,28 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.spi.type.VarcharType;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.hive.HiveType.HIVE_BINARY;
-import static io.trino.plugin.hive.HiveType.HIVE_BOOLEAN;
-import static io.trino.plugin.hive.HiveType.HIVE_BYTE;
-import static io.trino.plugin.hive.HiveType.HIVE_DATE;
-import static io.trino.plugin.hive.HiveType.HIVE_DOUBLE;
-import static io.trino.plugin.hive.HiveType.HIVE_FLOAT;
-import static io.trino.plugin.hive.HiveType.HIVE_INT;
-import static io.trino.plugin.hive.HiveType.HIVE_LONG;
-import static io.trino.plugin.hive.HiveType.HIVE_SHORT;
-import static io.trino.plugin.hive.HiveType.HIVE_STRING;
-import static io.trino.plugin.hive.HiveType.HIVE_TIMESTAMP;
-import static io.trino.plugin.hive.type.CharTypeInfo.MAX_CHAR_LENGTH;
-import static io.trino.plugin.hive.type.TypeInfoFactory.getCharTypeInfo;
-import static io.trino.plugin.hive.type.TypeInfoFactory.getListTypeInfo;
-import static io.trino.plugin.hive.type.TypeInfoFactory.getMapTypeInfo;
-import static io.trino.plugin.hive.type.TypeInfoFactory.getStructTypeInfo;
-import static io.trino.plugin.hive.type.TypeInfoFactory.getVarcharTypeInfo;
-import static io.trino.plugin.hive.type.VarcharTypeInfo.MAX_VARCHAR_LENGTH;
+import static io.trino.metastore.HiveType.HIVE_BINARY;
+import static io.trino.metastore.HiveType.HIVE_BOOLEAN;
+import static io.trino.metastore.HiveType.HIVE_BYTE;
+import static io.trino.metastore.HiveType.HIVE_DATE;
+import static io.trino.metastore.HiveType.HIVE_DOUBLE;
+import static io.trino.metastore.HiveType.HIVE_FLOAT;
+import static io.trino.metastore.HiveType.HIVE_INT;
+import static io.trino.metastore.HiveType.HIVE_LONG;
+import static io.trino.metastore.HiveType.HIVE_SHORT;
+import static io.trino.metastore.HiveType.HIVE_STRING;
+import static io.trino.metastore.HiveType.HIVE_TIMESTAMP;
+import static io.trino.metastore.HiveType.HIVE_VARIANT;
+import static io.trino.metastore.type.CharTypeInfo.MAX_CHAR_LENGTH;
+import static io.trino.metastore.type.TypeInfoFactory.getCharTypeInfo;
+import static io.trino.metastore.type.TypeInfoFactory.getListTypeInfo;
+import static io.trino.metastore.type.TypeInfoFactory.getMapTypeInfo;
+import static io.trino.metastore.type.TypeInfoFactory.getStructTypeInfo;
+import static io.trino.metastore.type.TypeInfoFactory.getVarcharTypeInfo;
+import static io.trino.metastore.type.VarcharTypeInfo.MAX_VARCHAR_LENGTH;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -57,6 +59,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.StandardTypes.JSON;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.String.format;
@@ -68,7 +71,7 @@ public class DeltaHiveTypeTranslator
 
     public static HiveType toHiveType(Type type)
     {
-        return HiveType.toHiveType(translate(type));
+        return HiveType.fromTypeInfo(translate(type));
     }
 
     // Copy from HiveTypeTranslator with custom mappings for TimestampType and TimestampWithTimeZone
@@ -118,8 +121,8 @@ public class DeltaHiveTypeTranslator
         if (DATE.equals(type)) {
             return HIVE_DATE.getTypeInfo();
         }
-        if (type instanceof TimestampWithTimeZoneType) {
-            verify(((TimestampWithTimeZoneType) type).getPrecision() == 3, "Unsupported type: %s", type);
+        if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
+            verify(timestampWithTimeZoneType.getPrecision() == 3, "Unsupported type: %s", type);
             return HIVE_TIMESTAMP.getTypeInfo();
         }
         if (type instanceof TimestampType timestampType) {
@@ -128,6 +131,10 @@ public class DeltaHiveTypeTranslator
         }
         if (type instanceof DecimalType decimalType) {
             return new DecimalTypeInfo(decimalType.getPrecision(), decimalType.getScale());
+        }
+        if (type.getTypeSignature().getBase().equals(JSON)) {
+            checkArgument(type.getTypeSignature().getParameters().isEmpty(), "JSON type should not have parameters");
+            return HIVE_VARIANT.getTypeInfo();
         }
         if (type instanceof ArrayType arrayType) {
             TypeInfo elementType = translate(arrayType.getElementType());

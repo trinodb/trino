@@ -483,7 +483,7 @@ class AggregationAnalyzer
 
             if (node.getWindow().isPresent()) {
                 Window window = node.getWindow().get();
-                if (window instanceof WindowSpecification && !process((WindowSpecification) window, context)) {
+                if (window instanceof WindowSpecification windowSpecification && !process(windowSpecification, context)) {
                     return false;
                 }
             }
@@ -677,11 +677,7 @@ class AggregationAnalyzer
                 }
             }
 
-            if (node.getDefaultValue().isPresent() && !process(node.getDefaultValue().get(), context)) {
-                return false;
-            }
-
-            return true;
+            return node.getDefaultValue().isEmpty() || process(node.getDefaultValue().get(), context);
         }
 
         @Override

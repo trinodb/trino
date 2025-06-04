@@ -1,7 +1,6 @@
 # Mathematical functions and operators
 
 (mathematical-operators)=
-
 ## Mathematical operators
 
 | Operator | Description                                     |
@@ -99,8 +98,9 @@ Returns the signum function of `x`, that is:
 - 1 if the argument is greater than 0,
 - -1 if the argument is less than 0.
 
-For double arguments, the function additionally returns:
+For floating point arguments, the function additionally returns:
 
+- -0 if the argument is -0,
 - NaN if the argument is NaN,
 - 1 if the argument is +Infinity,
 - -1 if the argument is -Infinity.
@@ -194,6 +194,36 @@ Returns the tangent of `x`.
 Returns the hyperbolic tangent of `x`.
 :::
 
+## Geometric functions
+
+:::{function} cosine_distance(array(double), array(double)) -> double
+Calculates the cosine distance between two dense vectors:
+
+```sql
+SELECT cosine_distance(ARRAY[1.0, 2.0], ARRAY[3.0, 4.0]);
+-- 0.01613008990009257
+```
+:::
+
+:::{function} cosine_similarity(array(double), array(double)) -> double
+Calculates the cosine similarity of two dense vectors:
+
+```sql
+SELECT cosine_similarity(ARRAY[1.0, 2.0], ARRAY[3.0, 4.0]);
+-- 0.9838699100999074
+```
+:::
+
+:::{function} cosine_similarity(x, y) -> double
+:no-index:
+Calculates the cosine similarity of two sparse vectors:
+
+```sql
+SELECT cosine_similarity(MAP(ARRAY['a'], ARRAY[1.0]), MAP(ARRAY['a'], ARRAY[2.0]));
+-- 1.0
+```
+:::
+
 ## Floating point functions
 
 :::{function} infinity() -> double
@@ -228,12 +258,10 @@ Returns the base-`radix` representation of `x`.
 
 ## Statistical functions
 
-:::{function} cosine_similarity(x, y) -> double
-Returns the cosine similarity between the sparse vectors `x` and `y`:
-
-```
-SELECT cosine_similarity(MAP(ARRAY['a'], ARRAY[1.0]), MAP(ARRAY['a'], ARRAY[2.0])); -- 1.0
-```
+:::{function} t_pdf(x, df) -> double
+Computes the Student's t-distribution probability density function for given x and
+degrees of freedom (df). The x must be a real value and degrees of freedom must be
+an integer and positive value.
 :::
 
 :::{function} wilson_interval_lower(successes, trials, z) -> double
@@ -271,4 +299,9 @@ The probability p must lie on the interval (0, 1).
 Compute the Normal cdf with given mean and standard deviation (sd):  P(N \< v; mean, sd).
 The mean and value v must be real values and the standard deviation must be a real
 and positive value.
+:::
+
+:::{function} t_cdf(x, df) -> double
+Compute the Student's t-distribution cumulative density function for given x and degrees of freedom (df).
+The x must be a real value and degrees of freedom must be an integer and positive value.
 :::

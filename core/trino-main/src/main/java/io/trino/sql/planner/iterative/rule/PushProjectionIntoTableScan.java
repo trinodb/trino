@@ -34,7 +34,6 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.NodeRef;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
-import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.Assignments;
@@ -54,6 +53,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.SystemSessionProperties.isAllowPushdownIntoConnectors;
 import static io.trino.matching.Capture.newCapture;
+import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newOptimizer;
 import static io.trino.sql.planner.PartialTranslator.extractPartialTranslations;
 import static io.trino.sql.planner.ReferenceAwareExpressionNodeInliner.replaceExpression;
 import static io.trino.sql.planner.plan.Patterns.project;
@@ -147,7 +147,7 @@ public class PushProjectionIntoTableScan
                     Expression translated = ConnectorExpressionTranslator.translate(session, expression, plannerContext, variableMappings);
                     // ConnectorExpressionTranslator may or may not preserve optimized form of expressions during round-trip. Avoid potential optimizer loop
                     // by ensuring expression is optimized.
-                    return new IrExpressionInterpreter(translated, plannerContext, session).optimize();
+                    return newOptimizer(plannerContext).process(translated, session, ImmutableMap.of()).orElse(translated);
                 })
                 .collect(toImmutableList());
 
@@ -171,10 +171,10 @@ public class PushProjectionIntoTableScan
             for (int i = 0; i < connectorPartialProjections.size(); i++) {
                 ConnectorExpression inputConnectorExpression = connectorPartialProjections.get(i);
                 ConnectorExpression resultConnectorExpression = newConnectorPartialProjections.get(i);
-                if (!(resultConnectorExpression instanceof Variable)) {
+                if (!(resultConnectorExpression instanceof Variable variable)) {
                     continue;
                 }
-                String resultVariableName = ((Variable) resultConnectorExpression).getName();
+                String resultVariableName = variable.getName();
                 Expression inputExpression = ConnectorExpressionTranslator.translate(session, inputConnectorExpression, plannerContext, inputVariableMappings);
                 SymbolStatsEstimate symbolStatistics = scalarStatsCalculator.calculate(inputExpression, statistics, session);
                 builder.addSymbolStatistics(variableMappings.get(resultVariableName), symbolStatistics);

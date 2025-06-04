@@ -60,9 +60,9 @@ public final class ArrayHistogramFunction
                     argumentTypes = "T",
                     convention = @Convention(arguments = FLAT, result = FAIL_ON_NULL)) MethodHandle hashFlat,
             @OperatorDependency(
-                    operator = OperatorType.IS_DISTINCT_FROM,
+                    operator = OperatorType.IDENTICAL,
                     argumentTypes = {"T", "T"},
-                    convention = @Convention(arguments = {FLAT, VALUE_BLOCK_POSITION_NOT_NULL}, result = FAIL_ON_NULL)) MethodHandle distinctFlatBlock,
+                    convention = @Convention(arguments = {FLAT, VALUE_BLOCK_POSITION_NOT_NULL}, result = FAIL_ON_NULL)) MethodHandle identicalFlatBlock,
             @OperatorDependency(
                     operator = OperatorType.HASH_CODE,
                     argumentTypes = "T",
@@ -70,11 +70,11 @@ public final class ArrayHistogramFunction
             @TypeParameter("map(T, bigint)") MapType mapType,
             @SqlType("array(T)") Block arrayBlock)
     {
-        TypedHistogram histogram = new TypedHistogram(elementType, readFlat, writeFlat, hashFlat, distinctFlatBlock, hashBlock, false);
+        TypedHistogram histogram = new TypedHistogram(elementType, readFlat, writeFlat, hashFlat, identicalFlatBlock, hashBlock, false);
         ValueBlock valueBlock = arrayBlock.getUnderlyingValueBlock();
         for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
             int position = arrayBlock.getUnderlyingValuePosition(i);
-            if (!arrayBlock.isNull(position)) {
+            if (!valueBlock.isNull(position)) {
                 histogram.add(0, valueBlock, position, 1L);
             }
         }

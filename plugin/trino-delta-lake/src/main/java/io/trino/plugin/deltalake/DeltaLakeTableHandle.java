@@ -371,7 +371,7 @@ public class DeltaLakeTableHandle
                 Objects.equals(updatedColumns, that.updatedColumns) &&
                 Objects.equals(updateRowIdColumns, that.updateRowIdColumns) &&
                 Objects.equals(analyzeHandle, that.analyzeHandle) &&
-                Objects.equals(isOptimize, that.isOptimize) &&
+                isOptimize == that.isOptimize &&
                 Objects.equals(maxScannedFileSize, that.maxScannedFileSize) &&
                 readVersion == that.readVersion &&
                 timeTravel == that.timeTravel;

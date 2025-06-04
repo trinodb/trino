@@ -20,6 +20,6 @@ public class SnowflakePlugin
 {
     public SnowflakePlugin()
     {
-        super("snowflake", new SnowflakeClientModule());
+        super("snowflake", SnowflakeClientModule::new);
     }
 }

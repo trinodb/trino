@@ -13,7 +13,6 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
@@ -58,6 +57,7 @@ public class PushdownFilterIntoWindow
 
     private final Pattern<FilterNode> pattern;
     private final PlannerContext plannerContext;
+    private final DomainTranslator domainTranslator;
 
     public PushdownFilterIntoWindow(PlannerContext plannerContext)
     {
@@ -67,6 +67,7 @@ public class PushdownFilterIntoWindow
                         .matching(window -> window.getOrderingScheme().isPresent())
                         .matching(window -> toTopNRankingType(window).isPresent())
                         .capturedAs(childCapture)));
+        this.domainTranslator = new DomainTranslator(plannerContext.getMetadata());
     }
 
     @Override
@@ -101,7 +102,7 @@ public class PushdownFilterIntoWindow
         }
 
         if (upperBound.getAsInt() <= 0) {
-            return Result.ofPlanNode(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));
+            return Result.ofPlanNode(new ValuesNode(node.getId(), node.getOutputSymbols()));
         }
         TopNRankingNode newSource = new TopNRankingNode(
                 windowNode.getId(),
@@ -121,7 +122,7 @@ public class PushdownFilterIntoWindow
         TupleDomain<Symbol> newTupleDomain = tupleDomain.filter((symbol, domain) -> !symbol.equals(rankingSymbol));
         Expression newPredicate = combineConjuncts(
                 extractionResult.getRemainingExpression(),
-                DomainTranslator.toPredicate(newTupleDomain));
+                domainTranslator.toPredicate(newTupleDomain));
 
         if (newPredicate.equals(Booleans.TRUE)) {
             return Result.ofPlanNode(newSource);

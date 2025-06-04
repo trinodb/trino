@@ -15,23 +15,24 @@ package io.trino.plugin.hive;
 
 import io.trino.filesystem.Location;
 import io.trino.plugin.hive.acid.AcidTransaction;
+import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 
 public interface HivePageSourceFactory
 {
-    Optional<ReaderPageSource> createPageSource(
+    Optional<ConnectorPageSource> createPageSource(
             ConnectorSession session,
             Location path,
             long start,
             long length,
             long estimatedFileSize,
-            Map<String, String> schema,
+            long fileModifiedTime,
+            Schema schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             Optional<AcidInfo> acidInfo,

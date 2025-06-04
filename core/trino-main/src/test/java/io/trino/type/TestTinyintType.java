@@ -33,7 +33,7 @@ public class TestTinyintType
 
     public static ValueBlock createTestBlock()
     {
-        BlockBuilder blockBuilder = TINYINT.createBlockBuilder(null, 15);
+        BlockBuilder blockBuilder = TINYINT.createFixedSizeBlockBuilder(15);
         TINYINT.writeLong(blockBuilder, 111);
         TINYINT.writeLong(blockBuilder, 111);
         TINYINT.writeLong(blockBuilder, 111);

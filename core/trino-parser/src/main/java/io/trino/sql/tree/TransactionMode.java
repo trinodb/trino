@@ -13,12 +13,10 @@
  */
 package io.trino.sql.tree;
 
-import java.util.Optional;
-
 public abstract class TransactionMode
         extends Node
 {
-    public TransactionMode(Optional<NodeLocation> location)
+    public TransactionMode(NodeLocation location)
     {
         super(location);
     }

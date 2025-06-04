@@ -14,7 +14,6 @@
 package io.trino.decoder.json;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.common.io.ByteStreams;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.DecoderTestColumnHandle;
@@ -63,7 +62,7 @@ public class TestJsonDecoder
     public void testSimple()
             throws Exception
     {
-        byte[] json = ByteStreams.toByteArray(TestJsonDecoder.class.getResourceAsStream("/decoder/json/message.json"));
+        byte[] json = TestJsonDecoder.class.getResourceAsStream("/decoder/json/message.json").readAllBytes();
 
         DecoderTestColumnHandle column1 = new DecoderTestColumnHandle(0, "column1", createVarcharType(100), "source", null, null, false, false, false);
         DecoderTestColumnHandle column2 = new DecoderTestColumnHandle(1, "column2", createVarcharType(10), "user/screen_name", null, null, false, false, false);
@@ -77,7 +76,7 @@ public class TestJsonDecoder
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(json)
                 .orElseThrow(AssertionError::new);
 
-        assertThat(decodedRow.size()).isEqualTo(columns.size());
+        assertThat(decodedRow).hasSize(columns.size());
 
         checkValue(decodedRow, column1, "<a href=\"http://twitterfeed.com\" rel=\"nofollow\">twitterfeed</a>");
         checkValue(decodedRow, column2, "EKentuckyN");
@@ -102,7 +101,7 @@ public class TestJsonDecoder
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(json)
                 .orElseThrow(AssertionError::new);
 
-        assertThat(decodedRow.size()).isEqualTo(columns.size());
+        assertThat(decodedRow).hasSize(columns.size());
 
         checkIsNull(decodedRow, column1);
         checkIsNull(decodedRow, column2);
@@ -124,9 +123,9 @@ public class TestJsonDecoder
         RowDecoder rowDecoder = DECODER_FACTORY.create(TESTING_SESSION, new RowDecoderSpec(JsonRowDecoder.NAME, emptyMap(), columns));
 
         Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedRow = rowDecoder.decodeRow(json);
-        assertThat(decodedRow.isPresent()).isTrue();
+        assertThat(decodedRow).isPresent();
 
-        assertThat(decodedRow.get().size()).isEqualTo(columns.size());
+        assertThat(decodedRow.get()).hasSize(columns.size());
 
         checkValue(decodedRow.get(), column1, "481516");
         checkValue(decodedRow.get(), column2, 481516);

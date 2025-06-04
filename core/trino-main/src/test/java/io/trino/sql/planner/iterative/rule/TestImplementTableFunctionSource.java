@@ -20,7 +20,6 @@ import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Logical;
-import io.trino.sql.ir.Not;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
@@ -43,7 +42,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
-import static io.trino.sql.ir.Comparison.Operator.IS_DISTINCT_FROM;
+import static io.trino.sql.ir.Comparison.Operator.IDENTICAL;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.ir.Logical.Operator.OR;
@@ -486,7 +485,7 @@ public class TestImplementTableFunctionSource
                                                 LEFT,
                                                 joinBuilder -> joinBuilder
                                                         .filter(new Logical(AND, ImmutableList.of(
-                                                                new Not(new Comparison(IS_DISTINCT_FROM, new Reference(BIGINT, "c"), new Reference(BIGINT, "e"))),
+                                                                new Comparison(IDENTICAL, new Reference(BIGINT, "c"), new Reference(BIGINT, "e")),
                                                                 new Logical(OR, ImmutableList.of(
                                                                         new Comparison(EQUAL, new Reference(BIGINT, "input_1_row_number"), new Reference(BIGINT, "input_2_row_number")),
                                                                         new Logical(AND, ImmutableList.of(
@@ -566,7 +565,7 @@ public class TestImplementTableFunctionSource
                                                 INNER,
                                                 joinBuilder -> joinBuilder
                                                         .filter(new Logical(AND, ImmutableList.of(
-                                                                new Not(new Comparison(IS_DISTINCT_FROM, new Reference(BIGINT, "c"), new Reference(BIGINT, "d"))),
+                                                                new Comparison(IDENTICAL, new Reference(BIGINT, "c"), new Reference(BIGINT, "d")),
                                                                 new Logical(OR, ImmutableList.of(
                                                                         new Comparison(EQUAL, new Reference(BIGINT, "input_1_row_number"), new Reference(BIGINT, "input_2_row_number")),
                                                                         new Logical(AND, ImmutableList.of(
@@ -642,7 +641,7 @@ public class TestImplementTableFunctionSource
                                                 LEFT,
                                                 joinBuilder -> joinBuilder
                                                         .filter(new Logical(AND, ImmutableList.of(
-                                                                new Not(new Comparison(IS_DISTINCT_FROM, new Reference(BIGINT, "c"), new Reference(BIGINT, "d"))),
+                                                                new Comparison(IDENTICAL, new Reference(BIGINT, "c"), new Reference(BIGINT, "d")),
                                                                 new Logical(OR, ImmutableList.of(
                                                                         new Comparison(EQUAL, new Reference(BIGINT, "input_1_row_number"), new Reference(BIGINT, "input_2_row_number")),
                                                                         new Logical(AND, ImmutableList.of(
@@ -718,7 +717,7 @@ public class TestImplementTableFunctionSource
                                                 LEFT,
                                                 joinBuilder -> joinBuilder
                                                         .filter(new Logical(AND, ImmutableList.of(
-                                                                new Not(new Comparison(IS_DISTINCT_FROM, new Reference(BIGINT, "d"), new Reference(BIGINT, "c"))),
+                                                                new Comparison(IDENTICAL, new Reference(BIGINT, "d"), new Reference(BIGINT, "c")),
                                                                 new Logical(OR, ImmutableList.of(
                                                                         new Comparison(EQUAL, new Reference(BIGINT, "input_2_row_number"), new Reference(BIGINT, "input_1_row_number")),
                                                                         new Logical(AND, ImmutableList.of(
@@ -794,7 +793,7 @@ public class TestImplementTableFunctionSource
                                                 FULL,
                                                 joinBuilder -> joinBuilder
                                                         .filter(new Logical(AND, ImmutableList.of(
-                                                                new Not(new Comparison(IS_DISTINCT_FROM, new Reference(BIGINT, "c"), new Reference(BIGINT, "d"))),
+                                                                new Comparison(IDENTICAL, new Reference(BIGINT, "c"), new Reference(BIGINT, "d")),
                                                                 new Logical(OR, ImmutableList.of(
                                                                         new Comparison(EQUAL, new Reference(BIGINT, "input_1_row_number"), new Reference(BIGINT, "input_2_row_number")),
                                                                         new Logical(AND, ImmutableList.of(
@@ -884,7 +883,7 @@ public class TestImplementTableFunctionSource
                                                 LEFT,
                                                 joinBuilder -> joinBuilder
                                                         .filter(new Logical(AND, ImmutableList.of(
-                                                                new Not(new Comparison(IS_DISTINCT_FROM, new Reference(BIGINT, "combined_partition_column_1_2"), new Reference(BIGINT, "e"))),
+                                                                new Comparison(IDENTICAL, new Reference(BIGINT, "combined_partition_column_1_2"), new Reference(BIGINT, "e")),
                                                                 new Logical(OR, ImmutableList.of(
                                                                         new Comparison(EQUAL, new Reference(BIGINT, "combined_row_number_1_2"), new Reference(BIGINT, "input_3_row_number")),
                                                                         new Logical(AND, ImmutableList.of(
@@ -902,7 +901,7 @@ public class TestImplementTableFunctionSource
                                                                         INNER,
                                                                         nestedJoinBuilder -> nestedJoinBuilder
                                                                                 .filter(new Logical(AND, ImmutableList.of(
-                                                                                        new Not(new Comparison(IS_DISTINCT_FROM, new Reference(BIGINT, "c"), new Reference(BIGINT, "d"))),
+                                                                                        new Comparison(IDENTICAL, new Reference(BIGINT, "c"), new Reference(BIGINT, "d")),
                                                                                         new Logical(OR, ImmutableList.of(
                                                                                                 new Comparison(EQUAL, new Reference(BIGINT, "input_1_row_number"), new Reference(BIGINT, "input_2_row_number")),
                                                                                                 new Logical(AND, ImmutableList.of(
@@ -1029,7 +1028,7 @@ public class TestImplementTableFunctionSource
                                                                         INNER,
                                                                         nestedJoinBuilder -> nestedJoinBuilder
                                                                                 .filter(new Logical(AND, ImmutableList.of(
-                                                                                        new Not(new Comparison(IS_DISTINCT_FROM, new Reference(BIGINT, "c"), new Reference(BIGINT, "d"))),
+                                                                                        new Comparison(IDENTICAL, new Reference(BIGINT, "c"), new Reference(BIGINT, "d")),
                                                                                         new Logical(OR, ImmutableList.of(
                                                                                                 new Comparison(EQUAL, new Reference(BIGINT, "input_1_row_number"), new Reference(BIGINT, "input_2_row_number")),
                                                                                                 new Logical(AND, ImmutableList.of(
@@ -1061,7 +1060,7 @@ public class TestImplementTableFunctionSource
                                                                         FULL,
                                                                         nestedJoinBuilder -> nestedJoinBuilder
                                                                                 .filter(new Logical(AND, ImmutableList.of(
-                                                                                        new Not(new Comparison(IS_DISTINCT_FROM, new Reference(BIGINT, "e"), new Reference(BIGINT, "f"))),
+                                                                                        new Comparison(IDENTICAL, new Reference(BIGINT, "e"), new Reference(BIGINT, "f")),
                                                                                         new Logical(OR, ImmutableList.of(
                                                                                                 new Comparison(EQUAL, new Reference(BIGINT, "input_3_row_number"), new Reference(BIGINT, "input_4_row_number")),
                                                                                                 new Logical(AND, ImmutableList.of(
@@ -1166,7 +1165,7 @@ public class TestImplementTableFunctionSource
                                                                         LEFT,
                                                                         nestedJoinBuilder -> nestedJoinBuilder
                                                                                 .filter(new Logical(AND, ImmutableList.of(
-                                                                                        new Not(new Comparison(IS_DISTINCT_FROM, new Reference(BIGINT, "d"), new Reference(BIGINT, "e"))),
+                                                                                        new Comparison(IDENTICAL, new Reference(BIGINT, "d"), new Reference(BIGINT, "e")),
                                                                                         new Logical(OR, ImmutableList.of(
                                                                                                 new Comparison(EQUAL, new Reference(BIGINT, "input_2_row_number"), new Reference(BIGINT, "input_3_row_number")),
                                                                                                 new Logical(AND, ImmutableList.of(
@@ -1265,7 +1264,7 @@ public class TestImplementTableFunctionSource
                                                 LEFT,
                                                 joinBuilder -> joinBuilder
                                                         .filter(new Logical(AND, ImmutableList.of(
-                                                                new Not(new Comparison(IS_DISTINCT_FROM, new Reference(BIGINT, "c_coerced"), new Reference(BIGINT, "e"))),
+                                                                new Comparison(IDENTICAL, new Reference(BIGINT, "c_coerced"), new Reference(BIGINT, "e")),
                                                                 new Logical(OR, ImmutableList.of(
                                                                         new Comparison(EQUAL, new Reference(BIGINT, "input_1_row_number"), new Reference(BIGINT, "input_2_row_number")),
                                                                         new Logical(AND, ImmutableList.of(
@@ -1351,8 +1350,8 @@ public class TestImplementTableFunctionSource
                                                 LEFT,
                                                 joinBuilder -> joinBuilder
                                                         .filter(new Logical(AND, ImmutableList.of(
-                                                                new Not(new Comparison(IS_DISTINCT_FROM, new Reference(BIGINT, "c"), new Reference(BIGINT, "e"))),
-                                                                new Not(new Comparison(IS_DISTINCT_FROM, new Reference(BIGINT, "d"), new Reference(BIGINT, "f"))),
+                                                                new Comparison(IDENTICAL, new Reference(BIGINT, "c"), new Reference(BIGINT, "e")),
+                                                                new Comparison(IDENTICAL, new Reference(BIGINT, "d"), new Reference(BIGINT, "f")),
                                                                 new Logical(OR, ImmutableList.of(
                                                                         new Comparison(EQUAL, new Reference(BIGINT, "input_1_row_number"), new Reference(BIGINT, "input_2_row_number")),
                                                                         new Logical(AND, ImmutableList.of(new Comparison(GREATER_THAN, new Reference(BIGINT, "input_1_row_number"), new Reference(BIGINT, "input_2_partition_size")), new Comparison(EQUAL, new Reference(BIGINT, "input_2_row_number"), new Constant(BIGINT, 1L)))),

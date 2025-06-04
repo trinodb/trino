@@ -326,7 +326,8 @@ public class TestRecursiveCte
     @Test
     public void testLambda()
     {
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 WITH RECURSIVE t(list) AS (
                     SELECT ARRAY[0]
                     UNION ALL
@@ -338,7 +339,8 @@ public class TestRecursiveCte
                 .matches("VALUES (ARRAY[0]), (ARRAY[0, 0]), (ARRAY[0, 0, 0]), (ARRAY[0, 0, 0, 0])");
 
         // lambda contains a symbol other than lambda argument (a)
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 WITH RECURSIVE t(list, a) AS (
                     SELECT ARRAY[0], 1
                     UNION ALL

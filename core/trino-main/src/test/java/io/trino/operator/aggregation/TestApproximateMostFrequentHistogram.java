@@ -37,7 +37,7 @@ public class TestApproximateMostFrequentHistogram
 
         Map<Long, Long> buckets = histogram.getBuckets();
 
-        assertThat(buckets.size()).isEqualTo(3);
+        assertThat(buckets).hasSize(3);
         assertThat(buckets).isEqualTo(ImmutableMap.of(1L, 2L, 2L, 1L, 3L, 1L));
     }
 
@@ -75,7 +75,7 @@ public class TestApproximateMostFrequentHistogram
         histogram1.merge(histogram2);
         Map<Long, Long> buckets = histogram1.getBuckets();
 
-        assertThat(buckets.size()).isEqualTo(3);
+        assertThat(buckets).hasSize(3);
         assertThat(buckets).isEqualTo(ImmutableMap.of(1L, 2L, 2L, 1L, 3L, 1L));
     }
 
@@ -105,7 +105,7 @@ public class TestApproximateMostFrequentHistogram
         histogram1.merge(histogram2);
         Map<Long, Long> buckets = histogram1.getBuckets();
 
-        assertThat(buckets.size()).isEqualTo(3);
+        assertThat(buckets).hasSize(3);
         assertThat(buckets).isEqualTo(ImmutableMap.of(1L, 4L, 2L, 4L, 3L, 4L));
     }
 
@@ -122,7 +122,7 @@ public class TestApproximateMostFrequentHistogram
 
         Map<Slice, Long> buckets = histogram.getBuckets();
 
-        assertThat(buckets.size()).isEqualTo(3);
+        assertThat(buckets).hasSize(3);
         assertThat(buckets).isEqualTo(ImmutableMap.of(Slices.utf8Slice("A"), 2L, Slices.utf8Slice("B"), 1L, Slices.utf8Slice("C"), 1L));
     }
 
@@ -170,7 +170,7 @@ public class TestApproximateMostFrequentHistogram
         histogram1.merge(histogram2);
         Map<Slice, Long> buckets = histogram1.getBuckets();
 
-        assertThat(buckets.size()).isEqualTo(3);
+        assertThat(buckets).hasSize(3);
         assertThat(buckets).isEqualTo(ImmutableMap.of(Slices.utf8Slice("A"), 4L, Slices.utf8Slice("B"), 4L, Slices.utf8Slice("C"), 4L));
     }
 }

@@ -28,10 +28,10 @@ import java.util.Optional;
 import static com.google.common.base.Verify.verify;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.basicAggregation;
-import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.expressionType;
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.functionName;
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.singleArgument;
-import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.variable;
+import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.type;
+import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.variable;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static java.lang.String.format;
@@ -51,7 +51,7 @@ public class ImplementAvgFloatingPoint
                 .with(functionName().equalTo("avg"))
                 .with(singleArgument().matching(
                         variable()
-                                .with(expressionType().matching(type -> type == REAL || type == DOUBLE))
+                                .with(type().matching(type -> type == REAL || type == DOUBLE))
                                 .capturedAs(ARGUMENT)));
     }
 

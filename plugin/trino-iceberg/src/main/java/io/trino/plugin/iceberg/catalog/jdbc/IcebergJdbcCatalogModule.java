@@ -64,6 +64,7 @@ public class IcebergJdbcCatalogModule
         }
         return new IcebergJdbcClient(
                 new IcebergJdbcConnectionFactory(driver, config.getConnectionUrl(), config.getConnectionUser(), config.getConnectionPassword()),
-                config.getCatalogName());
+                config.getCatalogName(),
+                config.getSchemaVersion());
     }
 }

@@ -81,7 +81,7 @@ public class TestCyclingGroupByHash
 
     private static Page createPage(int positionCount)
     {
-        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, positionCount);
+        BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(positionCount);
         for (int i = 0; i < positionCount; i++) {
             BIGINT.writeLong(blockBuilder, i);
         }

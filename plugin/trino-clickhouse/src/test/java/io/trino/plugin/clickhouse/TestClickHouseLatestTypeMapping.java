@@ -15,7 +15,6 @@ package io.trino.plugin.clickhouse;
 
 import io.trino.testing.QueryRunner;
 
-import static io.trino.plugin.clickhouse.ClickHouseQueryRunner.createClickHouseQueryRunner;
 import static io.trino.plugin.clickhouse.TestingClickHouseServer.CLICKHOUSE_LATEST_IMAGE;
 
 public class TestClickHouseLatestTypeMapping
@@ -26,6 +25,6 @@ public class TestClickHouseLatestTypeMapping
             throws Exception
     {
         clickhouseServer = closeAfterClass(new TestingClickHouseServer(CLICKHOUSE_LATEST_IMAGE));
-        return createClickHouseQueryRunner(clickhouseServer);
+        return ClickHouseQueryRunner.builder(clickhouseServer).build();
     }
 }

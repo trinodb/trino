@@ -60,10 +60,10 @@ public final class SqlMapBigArray
      */
     public void set(long index, SqlMap value)
     {
-        SqlMap currentValue = array.get(index);
-        if (currentValue != null) {
-            currentValue.retainedBytesForEachPart((object, size) -> {
-                if (currentValue == object) {
+        SqlMap previousValue = array.getAndSet(index, value);
+        if (previousValue != null) {
+            previousValue.retainedBytesForEachPart((object, size) -> {
+                if (previousValue == object) {
                     // track instance size separately as the reference count for an instance is always 1
                     sizeOfBlocks -= size;
                     return;
@@ -87,7 +87,6 @@ public final class SqlMapBigArray
                 }
             });
         }
-        array.set(index, value);
     }
 
     /**

@@ -22,23 +22,25 @@ import io.trino.client.Row;
 
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Strings.repeat;
 import static com.google.common.collect.Iterables.partition;
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.io.BaseEncoding.base16;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 
 public final class FormatUtils
 {
+    private static final DecimalFormatSymbols DECIMAL_FORMAT_SYMBOLS = DecimalFormatSymbols.getInstance(ENGLISH);
     private static final Splitter HEX_SPLITTER = Splitter.fixedLength(2);
     private static final Joiner HEX_BYTE_JOINER = Joiner.on(' ');
     private static final Joiner HEX_LINE_JOINER = Joiner.on('\n');
@@ -90,49 +92,55 @@ public final class FormatUtils
         return rateString;
     }
 
-    public static String formatDataSize(DataSize size, boolean longForm)
+    public static String formatDataSize(DataSize size, boolean longForm, boolean decimalDataSize)
     {
+        int divisor = decimalDataSize ? 1000 : 1024;
         double fractional = size.toBytes();
         String unit = null;
-        if (fractional >= 1024) {
-            fractional /= 1024;
+        if (fractional >= divisor) {
+            fractional /= divisor;
             unit = "K";
         }
-        if (fractional >= 1024) {
-            fractional /= 1024;
+        if (fractional >= divisor) {
+            fractional /= divisor;
             unit = "M";
         }
-        if (fractional >= 1024) {
-            fractional /= 1024;
+        if (fractional >= divisor) {
+            fractional /= divisor;
             unit = "G";
         }
-        if (fractional >= 1024) {
-            fractional /= 1024;
+        if (fractional >= divisor) {
+            fractional /= divisor;
             unit = "T";
         }
-        if (fractional >= 1024) {
-            fractional /= 1024;
+        if (fractional >= divisor) {
+            fractional /= divisor;
             unit = "P";
         }
 
         if (unit == null) {
             unit = "B";
         }
-        else if (longForm) {
-            unit += "B";
+        else {
+            if (!decimalDataSize) {
+                unit += "i";
+            }
+            if (longForm) {
+                unit += "B";
+            }
         }
 
         return format("%s%s", getFormat(fractional).format(fractional), unit);
     }
 
-    public static String formatDataRate(DataSize dataSize, Duration duration, boolean longForm)
+    public static String formatDataRate(DataSize dataSize, Duration duration, boolean longForm, boolean decimalDataSize)
     {
         long rate = Math.round(dataSize.toBytes() / duration.getValue(SECONDS));
-        if (Double.isNaN(rate) || Double.isInfinite(rate)) {
+        if (rate == Long.MAX_VALUE) {
             rate = 0;
         }
 
-        String rateString = formatDataSize(DataSize.ofBytes(rate), false);
+        String rateString = formatDataSize(DataSize.ofBytes(rate), false, decimalDataSize);
         if (longForm) {
             if (!rateString.endsWith("B")) {
                 rateString += "B";
@@ -159,6 +167,7 @@ public final class FormatUtils
         }
 
         format.setRoundingMode(RoundingMode.HALF_UP);
+        format.setDecimalFormatSymbols(DECIMAL_FORMAT_SYMBOLS);
         return format;
     }
 
@@ -187,7 +196,7 @@ public final class FormatUtils
             return formatTime(duration);
         }
 
-        return format("%.2f", (totalMillis / 1000.0));
+        return format(ENGLISH, "%.2f", (totalMillis / 1000.0));
     }
 
     /**
@@ -204,9 +213,9 @@ public final class FormatUtils
             lower = range - lower;
         }
 
-        return repeat(" ", lower) +
-                "<" + repeat("=", markerWidth - 2) + ">" +
-                repeat(" ", width - (lower + markerWidth));
+        return " ".repeat(lower) +
+                "<" + "=".repeat(markerWidth - 2) + ">" +
+                " ".repeat(width - (lower + markerWidth));
     }
 
     public static String formatProgressBar(int width, int progressPercentage, int runningPercentage)
@@ -241,7 +250,7 @@ public final class FormatUtils
                 "Expected completeLength (%s) + runningLength (%s) + pendingLength (%s) == width (%s), was %s for progressPercentage = %s, runningPercentage = %s, totalPercentage = %s",
                 completeLength, runningLength, pendingLength, width, completeLength + runningLength + pendingLength, progressPercentage, runningPercentage, totalPercentage);
 
-        return repeat("=", completeLength) + repeat(">", runningLength) + repeat(" ", pendingLength);
+        return "=".repeat(completeLength) + ">".repeat(runningLength) + " ".repeat(pendingLength);
     }
 
     /**

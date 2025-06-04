@@ -39,7 +39,7 @@ public class Minio
 
     private static final String MINIO_ACCESS_KEY = "minio-access-key";
     private static final String MINIO_SECRET_KEY = "minio-secret-key";
-    private static final String MINIO_RELEASE = "RELEASE.2022-05-26T05-48-41Z";
+    private static final String MINIO_RELEASE = "RELEASE.2025-01-20T14-49-07Z";
 
     private static final int MINIO_PORT = 9080; // minio uses 9000 by default, which conflicts with hadoop
     private static final int MINIO_CONSOLE_PORT = 9001;

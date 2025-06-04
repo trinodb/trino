@@ -19,6 +19,8 @@ import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.Type;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -30,7 +32,9 @@ import java.util.OptionalDouble;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.IntStream;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.memory.MemoryErrorCode.MEMORY_LIMIT_EXCEEDED;
 import static io.trino.plugin.memory.MemoryErrorCode.MISSING_DATA;
 import static java.lang.String.format;
@@ -81,10 +85,13 @@ public class MemoryPagesStore
             int partNumber,
             int totalParts,
             int[] columnIndexes,
+            List<Type> columnTypes,
             long expectedRows,
             OptionalLong limit,
             OptionalDouble sampleRatio)
     {
+        checkArgument(columnIndexes.length == columnTypes.size(), "columnIndexes and columnTypes must have the same size");
+
         if (!contains(tableId)) {
             throw new TrinoException(MISSING_DATA, "Failed to find table on a worker.");
         }
@@ -109,6 +116,13 @@ public class MemoryPagesStore
                 page = page.getRegion(0, (int) (page.getPositionCount() - (totalRows - limit.getAsLong())));
                 done = true;
             }
+            // Append missing columns with null values. This situation happens when a new column is added without additional insert.
+            for (int j = page.getChannelCount(); j < columnIndexes.length; j++) {
+                Type type = columnTypes.get(j);
+                BlockBuilder builder = type.createBlockBuilder(null, page.getPositionCount());
+                IntStream.range(0, page.getPositionCount()).forEach(_ -> builder.appendNull());
+                page = page.appendColumn(builder.build());
+            }
             partitionedPages.add(page.getColumns(columnIndexes));
         }
 
@@ -118,6 +132,14 @@ public class MemoryPagesStore
     public synchronized boolean contains(Long tableId)
     {
         return tables.containsKey(tableId);
+    }
+
+    public synchronized void purge(long tableId)
+    {
+        TableData tableData = tables.remove(tableId);
+        if (tableData != null) {
+            currentBytes = currentBytes - tableData.getPages().stream().mapToLong(Page::getRetainedSizeInBytes).sum();
+        }
     }
 
     public synchronized void cleanUp(Set<Long> activeTableIds)

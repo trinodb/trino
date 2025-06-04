@@ -56,7 +56,7 @@ public class BloomFilterStore
         requireNonNull(columnsFiltered, "columnsFiltered is null");
 
         ImmutableMap.Builder<ColumnPath, Long> bloomFilterOffsetBuilder = ImmutableMap.builder();
-        for (ColumnChunkMetadata column : block.getColumns()) {
+        for (ColumnChunkMetadata column : block.columns()) {
             ColumnPath path = column.getPath();
             if (hasBloomFilter(column) && columnsFiltered.contains(path)) {
                 bloomFilterOffsetBuilder.put(path, column.getBloomFilterOffset());
@@ -106,7 +106,7 @@ public class BloomFilterStore
             return Optional.empty();
         }
 
-        boolean hasBloomFilter = blockMetadata.getColumns().stream().anyMatch(BloomFilterStore::hasBloomFilter);
+        boolean hasBloomFilter = blockMetadata.columns().stream().anyMatch(BloomFilterStore::hasBloomFilter);
         if (!hasBloomFilter) {
             return Optional.empty();
         }

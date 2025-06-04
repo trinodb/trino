@@ -21,7 +21,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class RowDataType
+public final class RowDataType
         extends DataType
 {
     private final List<Field> fields;
@@ -82,12 +82,13 @@ public class RowDataType
 
         public Field(NodeLocation location, Optional<Identifier> name, DataType type)
         {
-            super(Optional.of(location));
+            super(location);
 
             this.name = requireNonNull(name, "name is null");
             this.type = requireNonNull(type, "type is null");
         }
 
+        @Deprecated
         public Field(Optional<NodeLocation> location, Optional<Identifier> name, DataType type)
         {
             super(location);

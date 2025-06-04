@@ -52,13 +52,14 @@ public class TestReadingTimeLogicalAnnotation
                 Resources.copy(resourceLocation, out);
             }
 
-            queryRunner.execute("""
-                            CREATE TABLE table_with_time_logical_annotation (
-                                "opens" row(member0 bigint, member_1 varchar))
-                            WITH (
-                                external_location = '%s',
-                                format = 'PARQUET')
-                            """.formatted(dataFile.parentDirectory()));
+            queryRunner.execute(
+                    """
+                    CREATE TABLE table_with_time_logical_annotation (
+                        "opens" row(member0 bigint, member_1 varchar))
+                    WITH (
+                        external_location = '%s',
+                        format = 'PARQUET')
+                    """.formatted(dataFile.parentDirectory()));
 
             assertThat(assertions.query("SELECT opens.member0 FROM table_with_time_logical_annotation GROUP BY 1 ORDER BY 1 LIMIT 5"))
                     .result().matches(resultBuilder(queryRunner.getDefaultSession(), BIGINT)

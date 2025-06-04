@@ -12,11 +12,10 @@ provider into the simple username format of Trino users:
 - With a {ref}`file of regex mapping rules <pattern-file>` in JSON format
 
 (pattern-rule)=
-
 ## Pattern mapping rule
 
 If you can map all of your authentication method’s usernames with a single
-reqular expression, consider using a **Pattern mapping rule**.
+regular expression, consider using a **Pattern mapping rule**.
 
 For example, your authentication method uses all usernames in the form
 `alice@example.com`, with no exceptions. In this case, choose a regex that
@@ -58,7 +57,6 @@ types when multiple authentication methods are enabled:
 | Insecure                          | `http-server.authentication.insecure.user-mapping.pattern`    |
 
 (pattern-file)=
-
 ## File mapping rules
 
 Use the **File mapping rules** method if your authentication provider expresses

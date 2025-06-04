@@ -35,30 +35,35 @@ public class FallthroughRetryPolicy
     public FallthroughRetryPolicy(DriverContext context, String profileName) {}
 
     @Override
+    @SuppressWarnings("deprecation")
     public RetryDecision onReadTimeout(Request request, ConsistencyLevel consistencyLevel, int blockFor, int received, boolean dataPresent, int retryCount)
     {
         return RetryDecision.RETHROW;
     }
 
     @Override
+    @SuppressWarnings("deprecation")
     public RetryDecision onWriteTimeout(Request request, ConsistencyLevel consistencyLevel, WriteType writeType, int blockFor, int received, int retryCount)
     {
         return RetryDecision.RETHROW;
     }
 
     @Override
+    @SuppressWarnings("deprecation")
     public RetryDecision onUnavailable(Request request, ConsistencyLevel consistencyLevel, int required, int alive, int retries)
     {
         return RetryDecision.RETHROW;
     }
 
     @Override
+    @SuppressWarnings("deprecation")
     public RetryDecision onRequestAborted(Request request, Throwable error, int retryCount)
     {
         return RetryDecision.RETHROW;
     }
 
     @Override
+    @SuppressWarnings("deprecation")
     public RetryDecision onErrorResponse(Request request, CoordinatorException error, int retryCount)
     {
         return RetryDecision.RETHROW;

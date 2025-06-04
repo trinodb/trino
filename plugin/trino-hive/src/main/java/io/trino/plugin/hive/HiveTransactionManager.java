@@ -54,7 +54,7 @@ public class HiveTransactionManager
         MemoizedMetadata transactionalMetadata = transactions.remove(transaction);
         checkArgument(transactionalMetadata != null, "no such transaction: %s", transaction);
         transactionalMetadata.optionalGet().ifPresent(metadata -> {
-            try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
+            try (ThreadContextClassLoader _ = new ThreadContextClassLoader(getClass().getClassLoader())) {
                 metadata.commit();
             }
         });
@@ -65,7 +65,7 @@ public class HiveTransactionManager
         MemoizedMetadata transactionalMetadata = transactions.remove(transaction);
         checkArgument(transactionalMetadata != null, "no such transaction: %s", transaction);
         transactionalMetadata.optionalGet().ifPresent(metadata -> {
-            try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
+            try (ThreadContextClassLoader _ = new ThreadContextClassLoader(getClass().getClassLoader())) {
                 metadata.rollback();
             }
         });
@@ -84,7 +84,7 @@ public class HiveTransactionManager
         public synchronized TransactionalMetadata get(ConnectorIdentity identity, boolean autoCommit)
         {
             if (metadata == null) {
-                try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
+                try (ThreadContextClassLoader _ = new ThreadContextClassLoader(getClass().getClassLoader())) {
                     metadata = metadataFactory.create(identity, autoCommit);
                 }
             }

@@ -30,7 +30,7 @@ public class TestIntervalDayTimeType
 
     public static ValueBlock createTestBlock()
     {
-        BlockBuilder blockBuilder = INTERVAL_DAY_TIME.createBlockBuilder(null, 15);
+        BlockBuilder blockBuilder = INTERVAL_DAY_TIME.createFixedSizeBlockBuilder(15);
         INTERVAL_DAY_TIME.writeLong(blockBuilder, 1111);
         INTERVAL_DAY_TIME.writeLong(blockBuilder, 1111);
         INTERVAL_DAY_TIME.writeLong(blockBuilder, 1111);

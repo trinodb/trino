@@ -83,8 +83,8 @@ public final class DiskRange
             return false;
         }
         DiskRange other = (DiskRange) obj;
-        return Objects.equals(this.offset, other.offset)
-                && Objects.equals(this.length, other.length);
+        return this.offset == other.offset &&
+               this.length == other.length;
     }
 
     @Override

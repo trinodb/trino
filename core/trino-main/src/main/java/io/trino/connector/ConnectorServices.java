@@ -13,7 +13,6 @@
  */
 package io.trino.connector;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import io.airlift.log.Logger;
@@ -30,14 +29,13 @@ import io.trino.spi.connector.ConnectorCapabilities;
 import io.trino.spi.connector.ConnectorIndexProvider;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
-import io.trino.spi.connector.ConnectorPageSourceProvider;
+import io.trino.spi.connector.ConnectorPageSourceProviderFactory;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSecurityContext;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.SchemaRoutineName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableProcedureMetadata;
-import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.function.FunctionKind;
 import io.trino.spi.function.FunctionProvider;
 import io.trino.spi.function.table.ArgumentSpecification;
@@ -78,12 +76,11 @@ public class ConnectorServices
     private final Optional<FunctionProvider> functionProvider;
     private final CatalogTableFunctions tableFunctions;
     private final Optional<ConnectorSplitManager> splitManager;
-    private final Optional<ConnectorPageSourceProvider> pageSourceProvider;
+    private final Optional<ConnectorPageSourceProviderFactory> pageSourceProviderFactory;
     private final Optional<ConnectorPageSinkProvider> pageSinkProvider;
     private final Optional<ConnectorIndexProvider> indexProvider;
     private final Optional<ConnectorNodePartitioningProvider> partitioningProvider;
     private final Optional<ConnectorAccessControl> accessControl;
-    private final List<EventListener> eventListeners;
     private final Map<String, PropertyMetadata<?>> sessionProperties;
     private final Map<String, PropertyMetadata<?>> tableProperties;
     private final Map<String, PropertyMetadata<?>> viewProperties;
@@ -125,34 +122,35 @@ public class ConnectorServices
         try {
             splitManager = connector.getSplitManager();
         }
-        catch (UnsupportedOperationException ignored) {
+        catch (UnsupportedOperationException _) {
         }
         this.splitManager = Optional.ofNullable(splitManager);
 
-        ConnectorPageSourceProvider connectorPageSourceProvider = null;
+        ConnectorPageSourceProviderFactory connectorPageSourceProviderFactory = null;
         try {
-            connectorPageSourceProvider = connector.getPageSourceProvider();
-            requireNonNull(connectorPageSourceProvider, format("Connector '%s' returned a null page source provider", catalogHandle));
+            connectorPageSourceProviderFactory = connector.getPageSourceProviderFactory();
+            requireNonNull(connectorPageSourceProviderFactory, format("Connector '%s' returned a null page source provider factory", catalogHandle));
         }
-        catch (UnsupportedOperationException ignored) {
+        catch (UnsupportedOperationException _) {
         }
 
         try {
             ConnectorRecordSetProvider connectorRecordSetProvider = connector.getRecordSetProvider();
             requireNonNull(connectorRecordSetProvider, format("Connector '%s' returned a null record set provider", catalogHandle));
-            verify(connectorPageSourceProvider == null, "Connector '%s' returned both page source and record set providers", catalogHandle);
-            connectorPageSourceProvider = new RecordPageSourceProvider(connectorRecordSetProvider);
+            verify(connectorPageSourceProviderFactory == null, "Connector '%s' returned both page source and record set providers", catalogHandle);
+            var pageSourceProvider = new RecordPageSourceProvider(connectorRecordSetProvider);
+            connectorPageSourceProviderFactory = () -> pageSourceProvider;
         }
-        catch (UnsupportedOperationException ignored) {
+        catch (UnsupportedOperationException _) {
         }
-        this.pageSourceProvider = Optional.ofNullable(connectorPageSourceProvider);
+        this.pageSourceProviderFactory = Optional.ofNullable(connectorPageSourceProviderFactory);
 
         ConnectorPageSinkProvider connectorPageSinkProvider = null;
         try {
             connectorPageSinkProvider = connector.getPageSinkProvider();
             requireNonNull(connectorPageSinkProvider, format("Connector '%s' returned a null page sink provider", catalogHandle));
         }
-        catch (UnsupportedOperationException ignored) {
+        catch (UnsupportedOperationException _) {
         }
         this.pageSinkProvider = Optional.ofNullable(connectorPageSinkProvider);
 
@@ -161,7 +159,7 @@ public class ConnectorServices
             indexProvider = connector.getIndexProvider();
             requireNonNull(indexProvider, format("Connector '%s' returned a null index provider", catalogHandle));
         }
-        catch (UnsupportedOperationException ignored) {
+        catch (UnsupportedOperationException _) {
         }
         this.indexProvider = Optional.ofNullable(indexProvider);
 
@@ -170,7 +168,7 @@ public class ConnectorServices
             partitioningProvider = connector.getNodePartitioningProvider();
             requireNonNull(partitioningProvider, format("Connector '%s' returned a null partitioning provider", catalogHandle));
         }
-        catch (UnsupportedOperationException ignored) {
+        catch (UnsupportedOperationException _) {
         }
         this.partitioningProvider = Optional.ofNullable(partitioningProvider);
 
@@ -178,14 +176,10 @@ public class ConnectorServices
         try {
             accessControl = connector.getAccessControl();
         }
-        catch (UnsupportedOperationException ignored) {
+        catch (UnsupportedOperationException _) {
         }
         verifyAccessControl(accessControl);
         this.accessControl = Optional.ofNullable(accessControl);
-
-        Iterable<EventListener> eventListeners = connector.getEventListeners();
-        requireNonNull(eventListeners, format("Connector '%s' returned a null event listeners iterable", eventListeners));
-        this.eventListeners = ImmutableList.copyOf(eventListeners);
 
         List<PropertyMetadata<?>> sessionProperties = connector.getSessionProperties();
         requireNonNull(sessionProperties, format("Connector '%s' returned a null system properties set", catalogHandle));
@@ -266,9 +260,9 @@ public class ConnectorServices
         return splitManager;
     }
 
-    public Optional<ConnectorPageSourceProvider> getPageSourceProvider()
+    public Optional<ConnectorPageSourceProviderFactory> getPageSourceProviderFactory()
     {
-        return pageSourceProvider;
+        return pageSourceProviderFactory;
     }
 
     public Optional<ConnectorPageSinkProvider> getPageSinkProvider()
@@ -294,11 +288,6 @@ public class ConnectorServices
     public Optional<ConnectorAccessControl> getAccessControl()
     {
         return accessControl;
-    }
-
-    public List<EventListener> getEventListeners()
-    {
-        return eventListeners;
     }
 
     public Map<String, PropertyMetadata<?>> getSessionProperties()
@@ -347,7 +336,7 @@ public class ConnectorServices
             return;
         }
 
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(connector.getClass().getClassLoader())) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(connector.getClass().getClassLoader())) {
             connector.shutdown();
         }
         catch (Throwable t) {
@@ -403,7 +392,7 @@ public class ConnectorServices
                     clazz.getName(),
                     name, Arrays.stream(parameterTypes).map(Class::getName).collect(Collectors.joining(", "))));
         }
-        catch (ReflectiveOperationException ignored) {
+        catch (ReflectiveOperationException _) {
         }
     }
 }

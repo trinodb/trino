@@ -21,7 +21,6 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.StandaloneQueryRunner;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_SPLITS_PER_NODE;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
@@ -38,7 +37,7 @@ public class TestMLQueries
 
         QueryRunner queryRunner = new StandaloneQueryRunner(defaultSession);
         queryRunner.installPlugin(new TpchPlugin());
-        queryRunner.createCatalog(defaultSession.getCatalog().get(), "tpch", ImmutableMap.of(TPCH_SPLITS_PER_NODE, "1"));
+        queryRunner.createCatalog(defaultSession.getCatalog().get(), "tpch", ImmutableMap.of("tpch.splits-per-node", "1"));
 
         queryRunner.installPlugin(new MLPlugin());
         return queryRunner;

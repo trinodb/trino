@@ -37,9 +37,7 @@ public final class Bootstrap
         }
     }
 
-    private Bootstrap()
-    {
-    }
+    private Bootstrap() {}
 
     public static CallSite bootstrap(MethodHandles.Lookup callerLookup, String name, MethodType type, long bindingId)
     {

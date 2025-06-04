@@ -15,6 +15,7 @@ package io.trino.plugin.kafka;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.kafka.schema.file.FileTableDescriptionSupplier;
 import org.junit.jupiter.api.Test;
 
@@ -34,7 +35,7 @@ public class TestKafkaConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(KafkaConfig.class)
-                .setNodes("")
+                .setNodes(ImmutableSet.of())
                 .setKafkaBufferSize("64kB")
                 .setDefaultSchema("default")
                 .setTableDescriptionSupplier(FileTableDescriptionSupplier.NAME)
@@ -67,7 +68,7 @@ public class TestKafkaConfig
         KafkaConfig expected = new KafkaConfig()
                 .setDefaultSchema("kafka")
                 .setTableDescriptionSupplier("test")
-                .setNodes("localhost:12345, localhost:23456")
+                .setNodes(ImmutableSet.of("localhost:12345", "localhost:23456"))
                 .setKafkaBufferSize("1MB")
                 .setHideInternalColumns(false)
                 .setMessagesPerSplit(1)

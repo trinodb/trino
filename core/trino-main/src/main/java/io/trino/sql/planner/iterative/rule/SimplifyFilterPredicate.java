@@ -16,12 +16,12 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
+import io.trino.metadata.Metadata;
 import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
-import io.trino.sql.ir.Not;
 import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Switch;
 import io.trino.sql.ir.WhenClause;
@@ -35,6 +35,7 @@ import java.util.Optional;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
+import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.extractConjuncts;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
@@ -52,11 +53,17 @@ public class SimplifyFilterPredicate
         implements Rule<FilterNode>
 {
     private static final Pattern<FilterNode> PATTERN = filter();
+    private final Metadata metadata;
 
     @Override
     public Pattern<FilterNode> getPattern()
     {
         return PATTERN;
+    }
+
+    public SimplifyFilterPredicate(Metadata metadata)
+    {
+        this.metadata = metadata;
     }
 
     @Override
@@ -96,7 +103,7 @@ public class SimplifyFilterPredicate
                 predicate));
     }
 
-    private static Optional<Expression> simplify(Expression condition, Expression trueValue, Expression falseValue)
+    private Optional<Expression> simplify(Expression condition, Expression trueValue, Expression falseValue)
     {
         if (trueValue.equals(TRUE) && isNotTrue(falseValue)) {
             return Optional.of(condition);
@@ -119,7 +126,7 @@ public class SimplifyFilterPredicate
         return Optional.empty();
     }
 
-    private static Optional<Expression> simplify(Case caseExpression)
+    private Optional<Expression> simplify(Case caseExpression)
     {
         if (caseExpression.whenClauses().size() == 1) {
             // if-like expression
@@ -220,8 +227,8 @@ public class SimplifyFilterPredicate
                 expression instanceof Constant literal && literal.value() == null;
     }
 
-    private static Expression isFalseOrNullPredicate(Expression expression)
+    private Expression isFalseOrNullPredicate(Expression expression)
     {
-        return Logical.or(new IsNull(expression), new Not(expression));
+        return Logical.or(new IsNull(expression), not(metadata, expression));
     }
 }

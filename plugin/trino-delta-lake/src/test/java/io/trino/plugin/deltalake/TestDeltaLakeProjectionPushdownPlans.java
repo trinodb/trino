@@ -21,9 +21,9 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TestingFunctionResolution;
-import io.trino.plugin.hive.metastore.Database;
-import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
+import io.trino.metastore.Database;
+import io.trino.metastore.HiveMetastore;
+import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.predicate.Domain;
@@ -105,6 +105,7 @@ public class TestDeltaLakeProjectionPushdownPlans
         planTester.createCatalog(DELTA_CATALOG, "delta_lake", ImmutableMap.<String, String>builder()
                 .put("hive.metastore", "file")
                 .put("hive.metastore.catalog.dir", baseDir.toString())
+                .put("fs.hadoop.enabled", "true")
                 .buildOrThrow());
 
         HiveMetastore metastore = TestingDeltaLakeUtils.getConnectorService(planTester, HiveMetastoreFactory.class)
@@ -263,11 +264,11 @@ public class TestDeltaLakeProjectionPushdownPlans
             List<String> dereferenceNames)
     {
         return new DeltaLakeColumnHandle(
-                baseColumnHandle.getBaseColumnName(),
-                baseColumnHandle.getBaseType(),
-                baseColumnHandle.getBaseFieldId(),
-                baseColumnHandle.getBasePhysicalColumnName(),
-                baseColumnHandle.getBasePhysicalType(),
+                baseColumnHandle.baseColumnName(),
+                baseColumnHandle.baseType(),
+                baseColumnHandle.baseFieldId(),
+                baseColumnHandle.basePhysicalColumnName(),
+                baseColumnHandle.basePhysicalType(),
                 DeltaLakeColumnType.REGULAR,
                 Optional.of(new DeltaLakeColumnProjectionInfo(
                         BIGINT,

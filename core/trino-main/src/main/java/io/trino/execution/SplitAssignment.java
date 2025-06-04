@@ -22,6 +22,8 @@ import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.util.Comparator.comparingLong;
 import static java.util.Objects.requireNonNull;
 
 public class SplitAssignment
@@ -37,7 +39,10 @@ public class SplitAssignment
             @JsonProperty("noMoreSplits") boolean noMoreSplits)
     {
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-        this.splits = ImmutableSet.copyOf(requireNonNull(splits, "splits is null"));
+        // Sort the splits to make sure that the order of scheduling splits is deterministic
+        this.splits = requireNonNull(splits, "splits is null").stream()
+                .sorted(comparingLong(ScheduledSplit::getSequenceId))
+                .collect(toImmutableSet());
         this.noMoreSplits = noMoreSplits;
     }
 

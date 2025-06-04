@@ -13,6 +13,8 @@
  */
 package io.trino.testing;
 
+import com.google.common.collect.ImmutableMap;
+import io.airlift.configuration.secrets.SecretsResolver;
 import io.trino.security.GroupProviderManager;
 import io.trino.spi.security.GroupProvider;
 
@@ -21,6 +23,11 @@ import java.util.Map;
 public class TestingGroupProviderManager
         extends GroupProviderManager
 {
+    public TestingGroupProviderManager()
+    {
+        super(new SecretsResolver(ImmutableMap.of()));
+    }
+
     @Override
     public void setConfiguredGroupProvider(String name, Map<String, String> properties)
     {

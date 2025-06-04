@@ -39,18 +39,22 @@ import io.trino.spi.type.VarcharType;
 import org.apache.iceberg.types.Types;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.spi.StandardErrorCode.DUPLICATE_COLUMN_NAME;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.TimeType.TIME_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.UuidType.UUID;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 
 public final class TypeConverter
 {
@@ -81,6 +85,9 @@ public final class TypeConverter
                 return TIME_MICROS;
             case TIMESTAMP:
                 return ((Types.TimestampType) type).shouldAdjustToUTC() ? TIMESTAMP_TZ_MICROS : TIMESTAMP_MICROS;
+            case TIMESTAMP_NANO:
+                // TODO https://github.com/trinodb/trino/issues/19753 Support Iceberg timestamp types with nanosecond precision
+                break;
             case STRING:
                 return VarcharType.createUnboundedVarcharType();
             case UUID:
@@ -98,6 +105,13 @@ public final class TypeConverter
                 return RowType.from(fields.stream()
                         .map(field -> new RowType.Field(Optional.of(field.name()), toTrinoType(field.type(), typeManager)))
                         .collect(toImmutableList()));
+            case VARIANT:
+                // TODO https://github.com/trinodb/trino/issues/24538 Support variant type
+                break;
+            case GEOMETRY:
+            case GEOGRAPHY:
+            case UNKNOWN:
+                break;
         }
         throw new UnsupportedOperationException(format("Cannot convert from Iceberg type '%s' (%s) to Trino type", type, type.typeId()));
     }
@@ -129,8 +143,8 @@ public final class TypeConverter
         if (type instanceof DoubleType) {
             return Types.DoubleType.get();
         }
-        if (type instanceof DecimalType) {
-            return fromDecimal((DecimalType) type);
+        if (type instanceof DecimalType decimalType) {
+            return fromDecimal(decimalType);
         }
         if (type instanceof VarcharType) {
             return Types.StringType.get();
@@ -153,23 +167,23 @@ public final class TypeConverter
         if (type.equals(UUID)) {
             return Types.UUIDType.get();
         }
-        if (type instanceof RowType) {
-            return fromRow((RowType) type, columnIdentity, nextFieldId);
+        if (type instanceof RowType rowType) {
+            return fromRow(rowType, columnIdentity, nextFieldId);
         }
-        if (type instanceof ArrayType) {
-            return fromArray((ArrayType) type, columnIdentity, nextFieldId);
+        if (type instanceof ArrayType arrayType) {
+            return fromArray(arrayType, columnIdentity, nextFieldId);
         }
-        if (type instanceof MapType) {
-            return fromMap((MapType) type, columnIdentity, nextFieldId);
+        if (type instanceof MapType mapType) {
+            return fromMap(mapType, columnIdentity, nextFieldId);
         }
-        if (type instanceof TimeType) {
-            throw new TrinoException(NOT_SUPPORTED, format("Time precision (%s) not supported for Iceberg. Use \"time(6)\" instead.", ((TimeType) type).getPrecision()));
+        if (type instanceof TimeType timeType) {
+            throw new TrinoException(NOT_SUPPORTED, format("Time precision (%s) not supported for Iceberg. Use \"time(6)\" instead.", timeType.getPrecision()));
         }
-        if (type instanceof TimestampType) {
-            throw new TrinoException(NOT_SUPPORTED, format("Timestamp precision (%s) not supported for Iceberg. Use \"timestamp(6)\" instead.", ((TimestampType) type).getPrecision()));
+        if (type instanceof TimestampType timestampType) {
+            throw new TrinoException(NOT_SUPPORTED, format("Timestamp precision (%s) not supported for Iceberg. Use \"timestamp(6)\" instead.", timestampType.getPrecision()));
         }
-        if (type instanceof TimestampWithTimeZoneType) {
-            throw new TrinoException(NOT_SUPPORTED, format("Timestamp precision (%s) not supported for Iceberg. Use \"timestamp(6) with time zone\" instead.", ((TimestampWithTimeZoneType) type).getPrecision()));
+        if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
+            throw new TrinoException(NOT_SUPPORTED, format("Timestamp precision (%s) not supported for Iceberg. Use \"timestamp(6) with time zone\" instead.", timestampWithTimeZoneType.getPrecision()));
         }
         throw new TrinoException(NOT_SUPPORTED, "Type not supported for Iceberg: " + type.getDisplayName());
     }
@@ -183,6 +197,7 @@ public final class TypeConverter
     {
         checkExactlyOne(columnIdentity, nextFieldId);
 
+        Set<String> fieldNames = new HashSet<>();
         List<Types.NestedField> fields = new ArrayList<>();
         for (int i = 0; i < type.getFields().size(); i++) {
             int fieldIndex = i;
@@ -194,6 +209,9 @@ public final class TypeConverter
             RowType.Field field = type.getFields().get(fieldIndex);
             String name = field.getName().orElseThrow(() ->
                     new TrinoException(NOT_SUPPORTED, "Row type field does not have a name: " + type.getDisplayName()));
+            if (!fieldNames.add(name.toLowerCase(ENGLISH))) {
+                throw new TrinoException(DUPLICATE_COLUMN_NAME, "Field name '%s' specified more than once".formatted(name.toLowerCase(ENGLISH)));
+            }
             fields.add(Types.NestedField.optional(id, name, toIcebergTypeInternal(field.getType(), childColumnIdentity, nextFieldId)));
         }
         return Types.StructType.of(fields);

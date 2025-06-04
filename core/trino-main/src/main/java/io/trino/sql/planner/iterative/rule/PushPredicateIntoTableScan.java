@@ -14,7 +14,6 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableBiMap;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.cost.StatsProvider;
@@ -37,7 +36,6 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
 import io.trino.sql.planner.ConnectorExpressionTranslator.ConnectorExpressionTranslation;
 import io.trino.sql.planner.DomainTranslator;
-import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.LayoutConstraintEvaluator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
@@ -62,6 +60,7 @@ import static io.trino.matching.Capture.newCapture;
 import static io.trino.sql.DynamicFilters.isDynamicFilter;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.extractConjuncts;
+import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newOptimizer;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.iterative.rule.Rules.deriveTableStatisticsForPushdown;
 import static io.trino.sql.planner.plan.Patterns.filter;
@@ -184,7 +183,7 @@ public class PushPredicateIntoTableScan
                             splitExpression.getDeterministicPredicate(),
                             // Simplify the tuple domain to avoid creating an expression with too many nodes,
                             // which would be expensive to evaluate in the call to isCandidate below.
-                            DomainTranslator.toPredicate(newDomain.simplify().transformKeys(assignments::get))));
+                            new DomainTranslator(plannerContext.getMetadata()).toPredicate(newDomain.simplify().transformKeys(assignments::get))));
             constraint = new Constraint(newDomain, expressionTranslation.connectorExpression(), connectorExpressionAssignments, evaluator::isCandidate, evaluator.getArguments());
         }
         else {
@@ -217,7 +216,7 @@ public class PushPredicateIntoTableScan
             // TODO: DomainTranslator.fromPredicate can infer that the expression is "false" in some cases (TupleDomain.none()).
             // This should move to another rule that simplifies the filter using that logic and then rely on RemoveTrivialFilters
             // to turn the subtree into a Values node
-            return Optional.of(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));
+            return Optional.of(new ValuesNode(node.getId(), node.getOutputSymbols()));
         }
 
         Optional<ConstraintApplicationResult<TableHandle>> result = plannerContext.getMetadata().applyFilter(session, node.getTable(), constraint);
@@ -231,7 +230,7 @@ public class PushPredicateIntoTableScan
         TableProperties newTableProperties = plannerContext.getMetadata().getTableProperties(session, newTable);
         Optional<TablePartitioning> newTablePartitioning = newTableProperties.getTablePartitioning();
         if (newTableProperties.getPredicate().isNone()) {
-            return Optional.of(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));
+            return Optional.of(new ValuesNode(node.getId(), node.getOutputSymbols()));
         }
 
         TupleDomain<ColumnHandle> remainingFilter = result.get().getRemainingFilter();
@@ -261,7 +260,7 @@ public class PushPredicateIntoTableScan
             Expression translatedExpression = ConnectorExpressionTranslator.translate(session, remainingConnectorExpression.get(), plannerContext, variableMappings);
             // ConnectorExpressionTranslator may or may not preserve optimized form of expressions during round-trip. Avoid potential optimizer loop
             // by ensuring expression is optimized.
-            translatedExpression = new IrExpressionInterpreter(translatedExpression, plannerContext, session).optimize();
+            translatedExpression = newOptimizer(plannerContext).process(translatedExpression, session, ImmutableMap.of()).orElse(translatedExpression);
             remainingDecomposedPredicate = combineConjuncts(translatedExpression, expressionTranslation.remainingExpression());
         }
 
@@ -269,7 +268,7 @@ public class PushPredicateIntoTableScan
                 plannerContext,
                 session,
                 splitExpression.getDynamicFilter(),
-                DomainTranslator.toPredicate(remainingFilter.transformKeys(assignments::get)),
+                new DomainTranslator(plannerContext.getMetadata()).toPredicate(remainingFilter.transformKeys(assignments::get)),
                 splitExpression.getNonDeterministicPredicate(),
                 remainingDecomposedPredicate);
 
@@ -345,7 +344,7 @@ public class PushPredicateIntoTableScan
 
         // Make sure we produce an expression whose terms are consistent with the canonical form used in other optimizations
         // Otherwise, we'll end up ping-ponging among rules
-        expression = SimplifyExpressions.rewrite(expression, session, plannerContext);
+        expression = SimplifyExpressions.rewrite(expression, session, newOptimizer(plannerContext));
 
         return expression;
     }

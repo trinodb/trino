@@ -15,16 +15,19 @@ package io.trino.plugin.deltalake.transactionlog.checkpoint;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
+import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.json.JsonCodec;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoOutputFile;
+import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
+import io.trino.plugin.deltalake.DeltaLakeConfig;
+import io.trino.plugin.deltalake.ForDeltaLakeMetadata;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot.MetadataAndProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
-import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
@@ -36,6 +39,8 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -45,7 +50,6 @@ import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SC
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.LAST_CHECKPOINT_FILENAME;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.ADD;
-import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.COMMIT;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.METADATA;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.PROTOCOL;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.REMOVE;
@@ -61,6 +65,8 @@ public class CheckpointWriterManager
     private final TransactionLogAccess transactionLogAccess;
     private final FileFormatDataSourceStats fileFormatDataSourceStats;
     private final JsonCodec<LastCheckpoint> lastCheckpointCodec;
+    private final Executor executorService;
+    private final int checkpointProcessingParallelism;
 
     @Inject
     public CheckpointWriterManager(
@@ -70,7 +76,9 @@ public class CheckpointWriterManager
             NodeVersion nodeVersion,
             TransactionLogAccess transactionLogAccess,
             FileFormatDataSourceStats fileFormatDataSourceStats,
-            JsonCodec<LastCheckpoint> lastCheckpointCodec)
+            JsonCodec<LastCheckpoint> lastCheckpointCodec,
+            DeltaLakeConfig deltaLakeConfig,
+            @ForDeltaLakeMetadata ExecutorService executorService)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.checkpointSchemaManager = requireNonNull(checkpointSchemaManager, "checkpointSchemaManager is null");
@@ -79,6 +87,8 @@ public class CheckpointWriterManager
         this.transactionLogAccess = requireNonNull(transactionLogAccess, "transactionLogAccess is null");
         this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
         this.lastCheckpointCodec = requireNonNull(lastCheckpointCodec, "lastCheckpointCodec is null");
+        this.executorService = requireNonNull(executorService, "ExecutorService is null");
+        this.checkpointProcessingParallelism = deltaLakeConfig.getCheckpointProcessingParallelism();
     }
 
     public void writeCheckpoint(ConnectorSession session, TableSnapshot snapshot)
@@ -107,7 +117,8 @@ public class CheckpointWriterManager
                     fileFormatDataSourceStats,
                     Optional.empty(),
                     TupleDomain.all(),
-                    Optional.empty())) {
+                    Optional.empty(),
+                    new BoundedExecutor(executorService, checkpointProcessingParallelism))) {
                 checkpointLogEntries = checkpointLogEntriesStream.filter(entry -> entry.getMetaData() != null || entry.getProtocol() != null)
                         .collect(toImmutableList());
             }
@@ -135,19 +146,20 @@ public class CheckpointWriterManager
                 // read remaining entries from checkpoint register them in writer
                 try (Stream<DeltaLakeTransactionLogEntry> checkpointLogEntriesStream = snapshot.getCheckpointTransactionLogEntries(
                         session,
-                        ImmutableSet.of(TRANSACTION, ADD, REMOVE, COMMIT),
+                        ImmutableSet.of(TRANSACTION, ADD, REMOVE),
                         checkpointSchemaManager,
                         typeManager,
                         fileSystem,
                         fileFormatDataSourceStats,
                         Optional.of(new MetadataAndProtocolEntry(metadataLogEntry.getMetaData(), protocolLogEntry.getProtocol())),
                         TupleDomain.all(),
-                        Optional.of(alwaysTrue()))) {
+                        Optional.of(alwaysTrue()),
+                        new BoundedExecutor(executorService, checkpointProcessingParallelism))) {
                     checkpointLogEntriesStream.forEach(checkpointBuilder::addLogEntry);
                 }
             }
 
-            snapshot.getJsonTransactionLogEntries()
+            snapshot.getJsonTransactionLogEntries(fileSystem)
                     .forEach(checkpointBuilder::addLogEntry);
 
             Location transactionLogDir = Location.of(getTransactionLogDir(snapshot.getTableLocation()));

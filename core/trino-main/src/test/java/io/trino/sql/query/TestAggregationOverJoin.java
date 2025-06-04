@@ -30,7 +30,8 @@ public class TestAggregationOverJoin
     {
         // https://github.com/prestodb/presto/issues/10592
         try (QueryAssertions assertions = new QueryAssertions()) {
-            assertThat(assertions.query("""
+            assertThat(assertions.query(
+                    """
                     WITH
                         t (a, b) AS (VALUES (1, 'a'), (1, 'b')),
                         u (a) AS (VALUES 1)

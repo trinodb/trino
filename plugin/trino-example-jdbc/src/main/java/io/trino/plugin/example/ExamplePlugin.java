@@ -20,6 +20,6 @@ public class ExamplePlugin
 {
     public ExamplePlugin()
     {
-        super("example_jdbc", new ExampleClientModule());
+        super("example_jdbc", ExampleClientModule::new);
     }
 }

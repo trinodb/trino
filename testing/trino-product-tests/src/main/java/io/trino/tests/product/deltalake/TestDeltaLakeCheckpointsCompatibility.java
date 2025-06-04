@@ -24,7 +24,6 @@ import io.trino.tempto.assertions.QueryAssert.Row;
 import io.trino.tempto.query.QueryResult;
 import io.trino.testng.services.Flaky;
 import io.trino.tests.product.deltalake.util.DatabricksVersion;
-import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -38,15 +37,14 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
-import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_104;
-import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_113;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_122;
+import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_133;
+import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_143;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.TransactionLogAssertions.assertLastEntryIsCheckpointed;
 import static io.trino.tests.product.deltalake.TransactionLogAssertions.assertTransactionLogVersion;
-import static io.trino.tests.product.deltalake.util.DatabricksVersion.DATABRICKS_104_RUNTIME_VERSION;
-import static io.trino.tests.product.deltalake.util.DatabricksVersion.DATABRICKS_91_RUNTIME_VERSION;
+import static io.trino.tests.product.deltalake.util.DatabricksVersion.DATABRICKS_113_RUNTIME_VERSION;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
@@ -55,7 +53,6 @@ import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestDeltaLakeCheckpointsCompatibility
         extends BaseTestDeltaLakeS3Storage
@@ -104,7 +101,7 @@ public class TestDeltaLakeCheckpointsCompatibility
                     row(4, "lwa"));
 
             // sanity check
-            assertThat(listCheckpointFiles(bucketName, tableDirectory)).hasSize(0);
+            assertThat(listCheckpointFiles(bucketName, tableDirectory)).isEmpty();
             assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))
                     .containsOnly(expectedRows);
             assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
@@ -252,7 +249,7 @@ public class TestDeltaLakeCheckpointsCompatibility
 
             // sanity check
             fillWithInserts("delta.default." + tableName, "(1, 'trino')", 4);
-            assertThat(listCheckpointFiles(bucketName, tableDirectory)).hasSize(0);
+            assertThat(listCheckpointFiles(bucketName, tableDirectory)).isEmpty();
             assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName + " WHERE a_string <> 'trino'")).hasNoRows();
 
             // fill to first checkpoint using Trino
@@ -277,7 +274,7 @@ public class TestDeltaLakeCheckpointsCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_DATABRICKS_104, DELTA_LAKE_DATABRICKS_113, DELTA_LAKE_DATABRICKS_122, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_DATABRICKS_122, DELTA_LAKE_DATABRICKS_133, DELTA_LAKE_DATABRICKS_143, PROFILE_SPECIFIC_TESTS})
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testDatabricksUsesCheckpointInterval()
     {
@@ -299,7 +296,7 @@ public class TestDeltaLakeCheckpointsCompatibility
             // sanity check
             onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (1, 'databricks')");
             onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (2, 'databricks')");
-            assertThat(listCheckpointFiles(bucketName, tableDirectory)).hasSize(0);
+            assertThat(listCheckpointFiles(bucketName, tableDirectory)).isEmpty();
             assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName + " WHERE a_string <> 'databricks'")).hasNoRows();
 
             // fill to first checkpoint using Databricks
@@ -369,7 +366,7 @@ public class TestDeltaLakeCheckpointsCompatibility
 
             // Assert min/max queries can be computed from just metadata
             String explainSelectMax = getOnlyElement(onDelta().executeQuery("EXPLAIN SELECT max(root.entry_one) FROM default." + tableName).column(1));
-            String column = databricksRuntimeVersion.orElseThrow().isAtLeast(DATABRICKS_104_RUNTIME_VERSION) ? "root.entry_one" : "root.entry_one AS `entry_one`";
+            String column = databricksRuntimeVersion.orElseThrow().isAtLeast(DATABRICKS_113_RUNTIME_VERSION) ? "root.entry_one" : "root.entry_one AS `entry_one`";
             assertThat(explainSelectMax).matches("== Physical Plan ==\\s*LocalTableScan \\[max\\(" + column + "\\).*]\\s*");
 
             // check both engines can read both tables
@@ -435,7 +432,7 @@ public class TestDeltaLakeCheckpointsCompatibility
 
             // Assert counting non null entries can be computed from just metadata
             String explainCountNotNull = getOnlyElement(onDelta().executeQuery("EXPLAIN SELECT count(root.entry_two) FROM default." + tableName).column(1));
-            String column = databricksRuntimeVersion.orElseThrow().isAtLeast(DATABRICKS_104_RUNTIME_VERSION) ? "root.entry_two" : "root.entry_two AS `entry_two`";
+            String column = databricksRuntimeVersion.orElseThrow().isAtLeast(DATABRICKS_113_RUNTIME_VERSION) ? "root.entry_two" : "root.entry_two AS `entry_two`";
             assertThat(explainCountNotNull).matches("== Physical Plan ==\\s*LocalTableScan \\[count\\(" + column + "\\).*]\\s*");
 
             // check both engines can read both tables
@@ -560,11 +557,6 @@ public class TestDeltaLakeCheckpointsCompatibility
                         " delta.checkpoint.writeStatsAsJson = false, " +
                         " delta.checkpoint.writeStatsAsStruct = true)",
                 tableName, type, bucketName);
-
-        if (databricksRuntimeVersion.isPresent() && databricksRuntimeVersion.get().equals(DATABRICKS_91_RUNTIME_VERSION) && type.equals("struct<x bigint>")) {
-            assertThatThrownBy(() -> onDelta().executeQuery(createTableSql)).hasStackTraceContaining("ParseException");
-            throw new SkipException("New runtime version covers the type");
-        }
 
         onDelta().executeQuery(createTableSql);
 

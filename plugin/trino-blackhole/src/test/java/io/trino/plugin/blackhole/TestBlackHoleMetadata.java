@@ -34,7 +34,7 @@ import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExcept
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestBlackHoleMetadata
+final class TestBlackHoleMetadata
 {
     private final BlackHoleMetadata metadata = new BlackHoleMetadata();
     private final Map<String, Object> tableProperties = ImmutableMap.of(
@@ -45,7 +45,7 @@ public class TestBlackHoleMetadata
             BlackHoleConnector.PAGE_PROCESSING_DELAY, new Duration(0, SECONDS));
 
     @Test
-    public void testCreateSchema()
+    void testCreateSchema()
     {
         assertThat(metadata.listSchemaNames(SESSION)).isEqualTo(ImmutableList.of("default"));
         metadata.createSchema(SESSION, "test", ImmutableMap.of(), new TrinoPrincipal(USER, SESSION.getUser()));
@@ -53,7 +53,7 @@ public class TestBlackHoleMetadata
     }
 
     @Test
-    public void tableIsCreatedAfterCommits()
+    void tableIsCreatedAfterCommits()
     {
         assertThatNoTableIsCreated();
 
@@ -63,7 +63,8 @@ public class TestBlackHoleMetadata
                 SESSION,
                 new ConnectorTableMetadata(schemaTableName, ImmutableList.of(), tableProperties),
                 Optional.empty(),
-                NO_RETRIES);
+                NO_RETRIES,
+                false);
 
         assertThatNoTableIsCreated();
 
@@ -75,10 +76,10 @@ public class TestBlackHoleMetadata
     }
 
     @Test
-    public void testCreateTableInNotExistSchema()
+    void testCreateTableInNotExistSchema()
     {
         SchemaTableName schemaTableName = new SchemaTableName("schema1", "test_table");
-        assertTrinoExceptionThrownBy(() -> metadata.beginCreateTable(SESSION, new ConnectorTableMetadata(schemaTableName, ImmutableList.of(), tableProperties), Optional.empty(), NO_RETRIES))
+        assertTrinoExceptionThrownBy(() -> metadata.beginCreateTable(SESSION, new ConnectorTableMetadata(schemaTableName, ImmutableList.of(), tableProperties), Optional.empty(), NO_RETRIES, false))
                 .hasErrorCode(NOT_FOUND)
                 .hasMessage("Schema schema1 not found");
     }

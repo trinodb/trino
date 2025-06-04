@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.hive.procedure;
 
-import io.trino.plugin.hive.metastore.Column;
-import io.trino.plugin.hive.metastore.Table;
+import io.trino.metastore.Column;
+import io.trino.metastore.Table;
 import io.trino.spi.TrinoException;
 
 import java.util.List;

@@ -4,7 +4,7 @@ Trino Geospatial functions that begin with the `ST_` prefix support the SQL/MM s
 and are compliant with the Open Geospatial Consortium’s (OGC) OpenGIS Specifications.
 As such, many Trino Geospatial functions require, or more accurately, assume that
 geometries that are operated on are both simple and valid. For example, it does not
-make sense to calculate the area of a polygon that has a hole defined outside of the
+make sense to calculate the area of a polygon that has a hole defined outside the
 polygon, or to construct a polygon from a non-simple boundary line.
 
 Trino Geospatial functions support the Well-Known Text (WKT) and Well-Known Binary (WKB) form of spatial objects:
@@ -25,12 +25,12 @@ The `SphericalGeography` type provides native support for spatial features repre
 Geographic coordinates are spherical coordinates expressed in angular units (degrees).
 
 The basis for the `Geometry` type is a plane. The shortest path between two points on the plane is a
-straight line. That means calculations on geometries (areas, distances, lengths, intersections, etc)
+straight line. That means calculations on geometries (areas, distances, lengths, intersections, etc.)
 can be calculated using cartesian mathematics and straight line vectors.
 
 The basis for the `SphericalGeography` type is a sphere. The shortest path between two points on the
 sphere is a great circle arc. That means that calculations on geographies (areas, distances,
-lengths, intersections, etc) must be calculated on the sphere, using more complicated mathematics.
+lengths, intersections, etc.) must be calculated on the sphere, using more complicated mathematics.
 More accurate measurements that take the actual spheroidal shape of the world into account are not
 supported.
 
@@ -40,7 +40,7 @@ values returned by {func}`ST_Area` are in square meters.
 Use {func}`to_spherical_geography()` function to convert a geometry object to geography object.
 
 For example, `ST_Distance(ST_Point(-71.0882, 42.3607), ST_Point(-74.1197, 40.6976))` returns
-`3.4577` in the unit of the passed-in values on the euclidean plane, while
+`3.4577` in the unit of the passed-in values on the Euclidean plane, while
 `ST_Distance(to_spherical_geography(ST_Point(-71.0882, 42.3607)), to_spherical_geography(ST_Point(-74.1197, 40.6976)))`
 returns `312822.179` in meters.
 
@@ -61,7 +61,11 @@ Returns a geometry type object from WKT representation.
 :::
 
 :::{function} ST_GeomFromBinary(varbinary) -> Geometry
-Returns a geometry type object from WKB representation.
+Returns a geometry type object from WKB or EWKB representation.
+:::
+
+:::{function} ST_GeomFromKML(varchar) -> Geometry
+Returns a geometry type object from KML representation.
 :::
 
 :::{function} geometry_from_hadoop_shape(varbinary) -> Geometry
@@ -86,7 +90,7 @@ Array elements must not be `NULL` or empty.
 The returned geometry may not be simple and may contain duplicate points if input array has duplicates.
 :::
 
-:::{function} ST_Point(lat: double, lon: double) -> Point
+:::{function} ST_Point(lon: double, lat: double) -> Point
 Returns a geometry type point object with the given coordinate values.
 :::
 
@@ -292,13 +296,13 @@ Returns `true` if and only if the line is closed and simple.
 :::
 
 :::{function} ST_IsValid(Geometry) -> boolean
-Returns `true` if and only if the input geometry is well formed.
-Use {func}`geometry_invalid_reason` to determine why the geometry is not well formed.
+Returns `true` if and only if the input geometry is well-formed.
+Use {func}`geometry_invalid_reason` to determine why the geometry is not well-formed.
 :::
 
 :::{function} ST_Length(Geometry) -> double
 Returns the length of a linestring or multi-linestring using Euclidean measurement on a
-two dimensional plane (based on spatial ref) in projected units.
+two-dimensional plane (based on spatial ref) in projected units.
 :::
 
 :::{function} ST_Length(SphericalGeography) -> double

@@ -16,22 +16,11 @@ package io.trino.sql.tree;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Optional;
 
 public class ResetSessionAuthorization
         extends Statement
 {
-    public ResetSessionAuthorization()
-    {
-        this(Optional.empty());
-    }
-
     public ResetSessionAuthorization(NodeLocation location)
-    {
-        this(Optional.of(location));
-    }
-
-    private ResetSessionAuthorization(Optional<NodeLocation> location)
     {
         super(location);
     }

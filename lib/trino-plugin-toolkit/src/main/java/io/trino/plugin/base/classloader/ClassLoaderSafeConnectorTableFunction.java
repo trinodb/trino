@@ -43,7 +43,7 @@ public class ClassLoaderSafeConnectorTableFunction
     @Override
     public String getSchema()
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             return delegate.getSchema();
         }
     }
@@ -51,7 +51,7 @@ public class ClassLoaderSafeConnectorTableFunction
     @Override
     public String getName()
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             return delegate.getName();
         }
     }
@@ -59,7 +59,7 @@ public class ClassLoaderSafeConnectorTableFunction
     @Override
     public List<ArgumentSpecification> getArguments()
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             return delegate.getArguments();
         }
     }
@@ -67,7 +67,7 @@ public class ClassLoaderSafeConnectorTableFunction
     @Override
     public ReturnTypeSpecification getReturnTypeSpecification()
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             return delegate.getReturnTypeSpecification();
         }
     }
@@ -78,7 +78,7 @@ public class ClassLoaderSafeConnectorTableFunction
             Map<String, Argument> arguments,
             ConnectorAccessControl accessControl)
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             return delegate.analyze(session, transaction, arguments, accessControl);
         }
     }

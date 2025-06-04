@@ -127,33 +127,15 @@ public class TestHiveAndDeltaLakeRedirect
     }
 
     @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
-    public void testHiveToUnpartitionedDeltaPartitionsRedirectFailure()
+    public void testHiveToUnpartitionedDeltaPartitionsRedirect()
     {
         String tableName = "test_delta_lake_unpartitioned_table_" + randomNameSuffix();
 
         onDelta().executeQuery(createTableOnDelta(tableName, false));
 
         try {
-            assertQueryFailure(() -> onTrino().executeQuery(format("SELECT * FROM hive.default.\"%s$partitions\"", tableName)))
-                    .hasMessageMatching(".*Table 'hive.default.\"test_delta_lake_unpartitioned_table_.*\\$partitions\"' redirected to 'delta.default.\"test_delta_lake_unpartitioned_table_.*\\$partitions\"', " +
-                            "but the target table 'delta.default.\"test_delta_lake_unpartitioned_table_.*\\$partitions\"' does not exist");
-        }
-        finally {
-            dropDeltaTableWithRetry(tableName);
-        }
-    }
-
-    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
-    public void testHiveToPartitionedDeltaPartitionsRedirectFailure()
-    {
-        String tableName = "test_delta_lake_partitioned_table_" + randomNameSuffix();
-
-        onDelta().executeQuery(createTableOnDelta(tableName, true));
-
-        try {
-            assertQueryFailure(() -> onTrino().executeQuery(format("SELECT * FROM hive.default.\"%s$partitions\"", tableName)))
-                    .hasMessageMatching(".*Table 'hive.default.\"test_delta_lake_partitioned_table_.*\\$partitions\"' redirected to 'delta.default.\"test_delta_lake_partitioned_table_.*\\$partitions\"', " +
-                            "but the target table 'delta.default.\"test_delta_lake_partitioned_table_.*\\$partitions\"' does not exist");
+            assertThat(onTrino().executeQuery(format("SELECT * FROM hive.default.\"%s$partitions\"", tableName)))
+                    .hasRowsCount(0);
         }
         finally {
             dropDeltaTableWithRetry(tableName);

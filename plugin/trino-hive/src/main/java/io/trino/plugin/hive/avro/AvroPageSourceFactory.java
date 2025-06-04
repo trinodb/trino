@@ -23,14 +23,13 @@ import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoInputStream;
 import io.trino.filesystem.memory.MemoryInputFile;
 import io.trino.hive.formats.avro.AvroTypeException;
+import io.trino.hive.formats.avro.HiveAvroTypeBlockHandler;
 import io.trino.plugin.hive.AcidInfo;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HivePageSourceFactory;
-import io.trino.plugin.hive.HiveTimestampPrecision;
-import io.trino.plugin.hive.ReaderColumns;
-import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.predicate.TupleDomain;
@@ -52,16 +51,14 @@ import java.util.UUID;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.hive.formats.HiveClassNames.AVRO_SERDE_CLASS;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
-import static io.trino.plugin.hive.HivePageSourceProvider.projectBaseColumns;
+import static io.trino.plugin.hive.HivePageSourceProvider.projectColumnDereferences;
 import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
-import static io.trino.plugin.hive.ReaderPageSource.noProjectionAdaptation;
 import static io.trino.plugin.hive.avro.AvroHiveFileUtils.getCanonicalToGivenFieldName;
 import static io.trino.plugin.hive.avro.AvroHiveFileUtils.wrapInUnionWithNull;
-import static io.trino.plugin.hive.util.HiveUtil.getDeserializerClassName;
 import static io.trino.plugin.hive.util.HiveUtil.splitError;
+import static io.trino.spi.type.TimestampType.createTimestampType;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
@@ -79,13 +76,14 @@ public class AvroPageSourceFactory
     }
 
     @Override
-    public Optional<ReaderPageSource> createPageSource(
+    public Optional<ConnectorPageSource> createPageSource(
             ConnectorSession session,
             Location path,
             long start,
             long length,
             long estimatedFileSize,
-            Map<String, String> schema,
+            long fileModifiedTime,
+            io.trino.plugin.hive.Schema schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             Optional<AcidInfo> acidInfo,
@@ -93,68 +91,64 @@ public class AvroPageSourceFactory
             boolean originalFile,
             AcidTransaction transaction)
     {
-        if (!AVRO_SERDE_CLASS.equals(getDeserializerClassName(schema))) {
+        if (!AVRO_SERDE_CLASS.equals(schema.serializationLibraryName())) {
             return Optional.empty();
         }
         checkArgument(acidInfo.isEmpty(), "Acid is not supported");
 
-        List<HiveColumnHandle> projectedReaderColumns = columns;
-        Optional<ReaderColumns> readerProjections = projectBaseColumns(columns);
+        TrinoFileSystem trinoFileSystem = trinoFileSystemFactory.create(session);
+        TrinoInputFile inputFile = cacheInputIfSmall(path, start, length, estimatedFileSize, trinoFileSystem);
 
-        if (readerProjections.isPresent()) {
-            projectedReaderColumns = readerProjections.get().get().stream()
-                    .map(HiveColumnHandle.class::cast)
-                    .collect(toImmutableList());
+        long actualSplitSize;
+        try {
+            actualSplitSize = min(inputFile.length() - start, length);
+        }
+        catch (IOException e) {
+            throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, splitError(e, path, start, length), e);
         }
 
-        TrinoFileSystem trinoFileSystem = trinoFileSystemFactory.create(session);
-        TrinoInputFile inputFile = trinoFileSystem.newInputFile(path);
-        HiveTimestampPrecision hiveTimestampPrecision = getTimestampPrecision(session);
+        // Split may be empty now that the correct file size is known
+        if (actualSplitSize <= 0) {
+            return Optional.of(new EmptyPageSource());
+        }
 
+        return Optional.of(projectColumnDereferences(columns, baseColumns -> createPageSource(session, trinoFileSystem, inputFile, start, actualSplitSize, schema, baseColumns)));
+    }
+
+    private static AvroPageSource createPageSource(
+            ConnectorSession session,
+            TrinoFileSystem trinoFileSystem,
+            TrinoInputFile inputFile,
+            long start,
+            long length,
+            io.trino.plugin.hive.Schema schema,
+            List<HiveColumnHandle> columns)
+    {
+        verify(columns.stream().allMatch(HiveColumnHandle::isBaseColumn), "All columns must be base columns");
         Schema tableSchema;
         try {
-            tableSchema = AvroHiveFileUtils.determineSchemaOrThrowException(trinoFileSystem, schema);
+            tableSchema = AvroHiveFileUtils.determineSchemaOrThrowException(trinoFileSystem, schema.serdeProperties());
         }
         catch (IOException | org.apache.avro.AvroTypeException e) {
             throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, "Unable to load or parse schema", e);
         }
 
-        try {
-            length = min(inputFile.length() - start, length);
-            if (estimatedFileSize < BUFFER_SIZE.toBytes()) {
-                try (TrinoInputStream input = inputFile.newStream()) {
-                    byte[] data = input.readAllBytes();
-                    inputFile = new MemoryInputFile(path, Slices.wrappedBuffer(data));
-                }
-            }
-        }
-        catch (TrinoException e) {
-            throw e;
-        }
-        catch (Exception e) {
-            throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, splitError(e, path, start, length), e);
-        }
-
-        // Split may be empty now that the correct file size is known
-        if (length <= 0) {
-            return Optional.of(noProjectionAdaptation(new EmptyPageSource()));
-        }
-
         Schema maskedSchema;
         try {
-            maskedSchema = maskColumnsFromTableSchema(projectedReaderColumns, tableSchema);
+            maskedSchema = maskColumnsFromTableSchema(columns, tableSchema);
         }
         catch (org.apache.avro.AvroTypeException e) {
-            throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, "Avro type resolution error when initializing split from %s".formatted(path), e);
+            throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, "Avro type resolution error when initializing split from %s".formatted(inputFile.location()), e);
         }
 
+        int hiveTimestampPrecision = getTimestampPrecision(session).getPrecision();
         if (maskedSchema.getFields().isEmpty()) {
-            // no non-masked columns to select from partition schema
-            // hack to return null rows with same total count as underlying data file
-            // will error if UUID is same name as base column for underlying storage table but should never
-            // return false data. If file data has f+uuid column in schema then resolution of read null from not null will fail.
+            // No non-masked columns to select from partition schema.
+            // Hack to return null rows with the same total count as the underlying data file.
+            // This will error if UUID is the same name as base column for underlying storage table, but this should never
+            // return false data. If file data has f+uuid column in schema, then the resolution of read null from not null will fail.
             SchemaBuilder.FieldAssembler<Schema> nullSchema = SchemaBuilder.record("null_only").fields();
-            for (int i = 0; i < Math.max(projectedReaderColumns.size(), 1); i++) {
+            for (int i = 0; i < Math.max(columns.size(), 1); i++) {
                 String notAColumnName = null;
                 while (Objects.isNull(notAColumnName) || Objects.nonNull(tableSchema.getField(notAColumnName))) {
                     notAColumnName = "f" + UUID.randomUUID().toString().replace('-', '_');
@@ -162,28 +156,28 @@ public class AvroPageSourceFactory
                 nullSchema = nullSchema.name(notAColumnName).type(Schema.create(Schema.Type.NULL)).withDefault(null);
             }
             try {
-                return Optional.of(noProjectionAdaptation(new AvroPageSource(inputFile, nullSchema.endRecord(), new HiveAvroTypeManager(hiveTimestampPrecision), start, length)));
+                return new AvroPageSource(inputFile, nullSchema.endRecord(), new HiveAvroTypeBlockHandler(createTimestampType(hiveTimestampPrecision)), start, length);
             }
             catch (IOException e) {
                 throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, e);
             }
             catch (AvroTypeException e) {
-                throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, "Avro type resolution error when initializing split from %s".formatted(path), e);
+                throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, "Avro type resolution error when initializing split from %s".formatted(inputFile.location()), e);
             }
         }
 
         try {
-            return Optional.of(new ReaderPageSource(new AvroPageSource(inputFile, maskedSchema, new HiveAvroTypeManager(hiveTimestampPrecision), start, length), readerProjections));
+            return new AvroPageSource(inputFile, maskedSchema, new HiveAvroTypeBlockHandler(createTimestampType(hiveTimestampPrecision)), start, length);
         }
         catch (IOException e) {
             throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, e);
         }
         catch (AvroTypeException e) {
-            throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, "Avro type resolution error when initializing split from %s".formatted(path), e);
+            throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, "Avro type resolution error when initializing split from %s".formatted(inputFile.location()), e);
         }
     }
 
-    private Schema maskColumnsFromTableSchema(List<HiveColumnHandle> columns, Schema tableSchema)
+    private static Schema maskColumnsFromTableSchema(List<HiveColumnHandle> columns, Schema tableSchema)
     {
         verify(tableSchema.getType() == Schema.Type.RECORD);
         Set<String> maskedColumns = columns.stream().map(HiveColumnHandle::getBaseColumnName).collect(LinkedHashSet::new, HashSet::add, AbstractCollection::addAll);
@@ -213,9 +207,9 @@ public class AvroPageSourceFactory
                             .withDefault(defaultObj);
                 }
                 catch (org.apache.avro.AvroTypeException e) {
-                    // in order to maintain backwards compatibility invalid defaults are mapped to null
-                    // behavior defined by io.trino.tests.product.hive.TestAvroSchemaStrictness.testInvalidUnionDefaults
-                    // solution is to make the field nullable and default-able to null. Any place default would be used, null will be
+                    // To maintain backwards compatibility, invalid defaults are mapped to null.
+                    // This behavior defined by io.trino.tests.product.hive.TestAvroSchemaStrictness.testInvalidUnionDefaults.
+                    // The solution is to make the field nullable and default-able to null. Any place default would be used, null will be.
                     if (e.getMessage().contains("Invalid default")) {
                         maskedSchema = maskedSchema
                                 .name(field.name())
@@ -239,5 +233,25 @@ public class AvroPageSourceFactory
             }
         }
         return maskedSchema.endRecord();
+    }
+
+    private static TrinoInputFile cacheInputIfSmall(Location path, long start, long length, long estimatedFileSize, TrinoFileSystem trinoFileSystem)
+    {
+        TrinoInputFile inputFile = trinoFileSystem.newInputFile(path);
+        try {
+            if (estimatedFileSize < BUFFER_SIZE.toBytes()) {
+                try (TrinoInputStream input = inputFile.newStream()) {
+                    byte[] data = input.readAllBytes();
+                    inputFile = new MemoryInputFile(path, Slices.wrappedBuffer(data));
+                }
+            }
+        }
+        catch (TrinoException e) {
+            throw e;
+        }
+        catch (RuntimeException | IOException e) {
+            throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, splitError(e, path, start, length), e);
+        }
+        return inputFile;
     }
 }

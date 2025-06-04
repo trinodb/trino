@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -28,17 +27,7 @@ public final class CaseStatementWhenClause
     private final Expression expression;
     private final List<ControlStatement> statements;
 
-    public CaseStatementWhenClause(Expression expression, List<ControlStatement> statements)
-    {
-        this(Optional.empty(), expression, statements);
-    }
-
     public CaseStatementWhenClause(NodeLocation location, Expression expression, List<ControlStatement> statements)
-    {
-        this(Optional.of(location), expression, statements);
-    }
-
-    private CaseStatementWhenClause(Optional<NodeLocation> location, Expression expression, List<ControlStatement> statements)
     {
         super(location);
         this.expression = requireNonNull(expression, "expression is null");

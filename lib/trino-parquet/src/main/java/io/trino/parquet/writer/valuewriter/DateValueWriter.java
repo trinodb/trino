@@ -14,6 +14,7 @@
 package io.trino.parquet.writer.valuewriter;
 
 import io.trino.spi.block.Block;
+import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.schema.PrimitiveType;
 
@@ -23,22 +24,22 @@ import static java.util.Objects.requireNonNull;
 public class DateValueWriter
         extends PrimitiveValueWriter
 {
-    private final ValuesWriter valuesWriter;
-
     public DateValueWriter(ValuesWriter valuesWriter, PrimitiveType parquetType)
     {
         super(parquetType, valuesWriter);
-        this.valuesWriter = requireNonNull(valuesWriter, "valuesWriter is null");
     }
 
     @Override
     public void write(Block block)
     {
+        ValuesWriter valuesWriter = requireNonNull(getValuesWriter(), "valuesWriter is null");
+        Statistics<?> statistics = requireNonNull(getStatistics(), "statistics is null");
+        boolean mayHaveNull = block.mayHaveNull();
         for (int position = 0; position < block.getPositionCount(); position++) {
-            if (!block.isNull(position)) {
+            if (!mayHaveNull || !block.isNull(position)) {
                 int value = DATE.getInt(block, position);
                 valuesWriter.writeInteger(value);
-                getStatistics().updateStats(value);
+                statistics.updateStats(value);
             }
         }
     }

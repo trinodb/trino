@@ -10,7 +10,6 @@ values in the count. The `coalesce` function can be used to convert null into
 zero.
 
 (aggregate-function-ordering-during-aggregation)=
-
 ## Ordering during aggregation
 
 Some aggregate functions such as {func}`array_agg` produce different results
@@ -23,7 +22,6 @@ array_agg(x ORDER BY x, y, z)
 ```
 
 (aggregate-function-filtering-during-aggregation)=
-
 ## Filtering during aggregation
 
 The `FILTER` keyword can be used to remove rows from aggregation processing
@@ -100,7 +98,7 @@ versicolor |   34
 :::{function} any_value(x) -> [same as input]
 Returns an arbitrary non-null value `x`, if one exists. `x` can be any
 valid expression. This allows you to return values from columns that are not
-directly part of the aggregation, inluding expressions using these columns,
+directly part of the aggregation, including expressions using these columns,
 in a query.
 
 For example, the following query returns the customer name from the `name`
@@ -183,6 +181,12 @@ LISTAGG( expression [, separator] [ON OVERFLOW overflow_behaviour])
     WITHIN GROUP (ORDER BY sort_item, [...]) [FILTER (WHERE condition)]
 ```
 
+:::{note}
+The `expression` value must evaluate to a string data type (`varchar`). You must
+explicitly cast non-string datatypes to `varchar` using `CAST(expression AS
+VARCHAR)` before you use them with `listagg`.
+:::
+
 If `separator` is not specified, the empty string will be used as `separator`.
 
 In its simplest form the function looks like:
@@ -198,6 +202,21 @@ and results in:
 csv_value
 -----------
 'a,b,c'
+```
+
+The following example casts the `v` column to `varchar`:
+
+```
+SELECT listagg(CAST(v AS VARCHAR), ',') WITHIN GROUP (ORDER BY v) csv_value
+FROM (VALUES 1, 3, 2) t(v);
+```
+
+and results in
+
+```
+csv_value
+-----------
+'1,2,3'
 ```
 
 The overflow behaviour is by default to throw an error in case that the length of the output
@@ -325,11 +344,18 @@ Returns the sum of all input values.
 ## Bitwise aggregate functions
 
 :::{function} bitwise_and_agg(x) -> bigint
-Returns the bitwise AND of all input values in 2's complement representation.
+Returns the bitwise AND of all input non-NULL values in 2's complement representation.
+If all records inside the group are NULL, or if the group is empty, the function returns NULL.
 :::
 
 :::{function} bitwise_or_agg(x) -> bigint
-Returns the bitwise OR of all input values in 2's complement representation.
+Returns the bitwise OR of all input non-NULL values in 2's complement representation.
+If all records inside the group are NULL, or if the group is empty, the function returns NULL.
+:::
+
+:::{function} bitwise_xor_agg(x) -> bigint
+Returns the bitwise XOR of all input non-NULL values in 2's complement representation.
+If all records inside the group are NULL, or if the group is empty, the function returns NULL.
 :::
 
 ## Map aggregate functions

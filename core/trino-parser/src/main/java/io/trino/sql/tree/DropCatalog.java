@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -29,17 +28,7 @@ public final class DropCatalog
     private final boolean exists;
     private final boolean cascade;
 
-    public DropCatalog(Identifier catalogName, boolean exists, boolean cascade)
-    {
-        this(Optional.empty(), catalogName, exists, cascade);
-    }
-
     public DropCatalog(NodeLocation location, Identifier catalogName, boolean exists, boolean cascade)
-    {
-        this(Optional.of(location), catalogName, exists, cascade);
-    }
-
-    private DropCatalog(Optional<NodeLocation> location, Identifier catalogName, boolean exists, boolean cascade)
     {
         super(location);
         this.catalogName = requireNonNull(catalogName, "catalogName is null");

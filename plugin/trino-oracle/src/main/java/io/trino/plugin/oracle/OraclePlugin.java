@@ -20,6 +20,6 @@ public class OraclePlugin
 {
     public OraclePlugin()
     {
-        super("oracle", new OracleClientModule());
+        super("oracle", OracleClientModule::new);
     }
 }

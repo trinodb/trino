@@ -14,6 +14,7 @@
 package io.trino.execution.resourcegroups;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.execution.resourcegroups.IndexedPriorityQueue.Prioritized;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -46,27 +47,12 @@ public class TestUpdateablePriorityQueue
         queue.addOrUpdate("b", 3);
         queue.addOrUpdate("c", 2);
 
-        IndexedPriorityQueue.Prioritized<Object> peek1 = queue.peekPrioritized();
-        assertThat(peek1.getValue()).isEqualTo("b");
-        assertThat(peek1.getPriority()).isEqualTo(3);
-        IndexedPriorityQueue.Prioritized<Object> poll1 = queue.pollPrioritized();
-        assertThat(poll1.getValue()).isEqualTo("b");
-        assertThat(poll1.getPriority()).isEqualTo(3);
-
-        IndexedPriorityQueue.Prioritized<Object> peek2 = queue.peekPrioritized();
-        assertThat(peek2.getValue()).isEqualTo("c");
-        assertThat(peek2.getPriority()).isEqualTo(2);
-        IndexedPriorityQueue.Prioritized<Object> poll2 = queue.pollPrioritized();
-        assertThat(poll2.getValue()).isEqualTo("c");
-        assertThat(poll2.getPriority()).isEqualTo(2);
-
-        IndexedPriorityQueue.Prioritized<Object> peek3 = queue.peekPrioritized();
-        assertThat(peek3.getValue()).isEqualTo("a");
-        assertThat(peek3.getPriority()).isEqualTo(1);
-        IndexedPriorityQueue.Prioritized<Object> poll3 = queue.pollPrioritized();
-        assertThat(poll3.getValue()).isEqualTo("a");
-        assertThat(poll3.getPriority()).isEqualTo(1);
-
+        assertThat(queue.peekPrioritized()).isEqualTo(new Prioritized<>("b", 3));
+        assertThat(queue.pollPrioritized()).isEqualTo(new Prioritized<>("b", 3));
+        assertThat(queue.peekPrioritized()).isEqualTo(new Prioritized<>("c", 2));
+        assertThat(queue.pollPrioritized()).isEqualTo(new Prioritized<>("c", 2));
+        assertThat(queue.peekPrioritized()).isEqualTo(new Prioritized<>("a", 1));
+        assertThat(queue.pollPrioritized()).isEqualTo(new Prioritized<>("a", 1));
         assertThat(queue.peekPrioritized()).isNull();
         assertThat(queue.pollPrioritized()).isNull();
     }

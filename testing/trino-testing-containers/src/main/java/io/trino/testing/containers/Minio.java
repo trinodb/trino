@@ -41,7 +41,7 @@ public class Minio
 {
     private static final Logger log = Logger.get(Minio.class);
 
-    public static final String DEFAULT_IMAGE = "minio/minio:RELEASE.2023-05-18T00-05-36Z";
+    public static final String DEFAULT_IMAGE = "minio/minio:RELEASE.2024-12-18T13-15-44Z";
     public static final String DEFAULT_HOST_NAME = "minio";
 
     public static final int MINIO_API_PORT = 4566;
@@ -112,6 +112,11 @@ public class Minio
 
     public void createBucket(String bucketName)
     {
+        createBucket(bucketName, false);
+    }
+
+    public void createBucket(String bucketName, boolean objectLock)
+    {
         try (MinioClient minioClient = createMinioClient()) {
             // use retry loop for minioClient.makeBucket as minio container tends to return "Server not initialized, please try again" error
             // for some time after starting up
@@ -120,7 +125,7 @@ public class Minio
                     .withMaxAttempts(Integer.MAX_VALUE) // limited by MaxDuration
                     .withDelay(Duration.of(10, SECONDS))
                     .build();
-            Failsafe.with(retryPolicy).run(() -> minioClient.makeBucket(bucketName));
+            Failsafe.with(retryPolicy).run(() -> minioClient.makeBucket(bucketName, objectLock));
         }
     }
 

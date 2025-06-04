@@ -14,7 +14,6 @@
 package io.trino.split;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -22,10 +21,10 @@ import com.google.errorprone.annotations.ThreadSafe;
 import io.trino.metadata.Split;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.metrics.Metrics;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -56,9 +55,7 @@ public class MockSplitSource
     private SettableFuture<List<Split>> nextBatchFuture = COMPLETED_FUTURE;
     private int nextBatchMaxSize;
 
-    public MockSplitSource()
-    {
-    }
+    public MockSplitSource() {}
 
     public synchronized MockSplitSource setBatchSize(int batchSize)
     {
@@ -129,9 +126,7 @@ public class MockSplitSource
     }
 
     @Override
-    public void close()
-    {
-    }
+    public void close() {}
 
     @Override
     public synchronized boolean isFinished()
@@ -145,6 +140,12 @@ public class MockSplitSource
         return Optional.empty();
     }
 
+    @Override
+    public Metrics getMetrics()
+    {
+        return Metrics.EMPTY;
+    }
+
     public synchronized int getNextBatchInvocationCount()
     {
         return nextBatchInvocationCount;
@@ -153,12 +154,6 @@ public class MockSplitSource
     public static class MockConnectorSplit
             implements ConnectorSplit
     {
-        @Override
-        public Map<String, String> getSplitInfo()
-        {
-            return ImmutableMap.of("name", "A mock split");
-        }
-
         @Override
         public long getRetainedSizeInBytes()
         {

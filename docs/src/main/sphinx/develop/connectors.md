@@ -158,7 +158,6 @@ WHERE url = 'https://github.com/trinodb/trino.git'
 ```
 
 (connector-metadata)=
-
 ## ConnectorMetadata
 
 The connector metadata interface allows Trino to get a lists of schemas,
@@ -258,7 +257,6 @@ implements, like the `ConnectorRecordSetProvider` or
 `ConnectorPageSourceProvider`.
 
 (connector-limit-pushdown)=
-
 ### Limit and top-N pushdown
 
 When executing a `SELECT` query with `LIMIT` or `ORDER BY` clauses,
@@ -271,7 +269,7 @@ only a `Limit`, the `applyLimit` method is called, and the connector can
 return results in an arbitrary order.
 
 If the connector could benefit from the information passed to these methods but
-can't guarantee that it's be able to produce fewer rows than the provided
+can't guarantee that it'd be able to produce fewer rows than the provided
 limit, it should return a non-empty result containing a new handle for the
 derived table and the `limitGuaranteed` (in `LimitApplicationResult`) or
 `topNGuaranteed` (in `TopNApplicationResult`) flag set to false.
@@ -296,7 +294,6 @@ error code and an actionable message, to let users know how to write a valid
 query.
 
 (dev-predicate-pushdown)=
-
 ### Predicate pushdown
 
 When executing a query with a `WHERE` clause, the query plan can
@@ -606,7 +603,6 @@ conjuncts are returned as `remainingExpression` and are evaluated by
 the Trino engine.
 
 (connector-split-manager)=
-
 ## ConnectorSplitManager
 
 The split manager partitions the data for a table into the individual chunks
@@ -617,7 +613,6 @@ strategy here is to simply return a single split for the entire table. This is
 the strategy employed by the Example HTTP connector.
 
 (connector-record-set-provider)=
-
 ## ConnectorRecordSetProvider
 
 Given a split, a table handle, and a list of columns, the record set provider
@@ -645,7 +640,7 @@ set can be built using lists of values for every row, which can be simpler than
 implementing a `RecordCursor`.
 
 A `RecordCursor` implementation needs to keep track of the current record.
-It return values for columns by a numerical position, in the data type matching
+It returns values for columns by a numerical position, in the data type matching
 the column definition in the table. When the engine is done reading the current
 record it calls `advanceNextPosition` on the cursor.
 
@@ -795,7 +790,6 @@ private SqlMap encodeMap(Map<String, ?> map)
 ```
 
 (connector-page-source-provider)=
-
 ## ConnectorPageSourceProvider
 
 Given a split, a table handle, and a list of columns, the page source provider
@@ -813,7 +807,6 @@ individual records from a record set provider into pages adds overheads during
 query execution.
 
 (connector-page-sink-provider)=
-
 ## ConnectorPageSinkProvider
 
 Given an insert table handle, the page sink provider is responsible for

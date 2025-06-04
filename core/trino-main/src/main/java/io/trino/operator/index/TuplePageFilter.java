@@ -20,6 +20,7 @@ import io.trino.operator.project.SelectedPositions;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SourcePage;
 import io.trino.type.BlockTypeOperators.BlockPositionEqual;
 
 import java.util.List;
@@ -66,7 +67,7 @@ public class TuplePageFilter
     }
 
     @Override
-    public SelectedPositions filter(ConnectorSession session, Page page)
+    public SelectedPositions filter(ConnectorSession session, SourcePage page)
     {
         if (selectedPositions.length < page.getPositionCount()) {
             selectedPositions = new boolean[page.getPositionCount()];
@@ -79,7 +80,7 @@ public class TuplePageFilter
         return PageFilter.positionsArrayToSelectedPositions(selectedPositions, page.getPositionCount());
     }
 
-    private boolean matches(Page page, int position)
+    private boolean matches(SourcePage page, int position)
     {
         for (int channel = 0; channel < inputChannels.size(); channel++) {
             BlockPositionEqual equalOperator = equalOperators.get(channel);

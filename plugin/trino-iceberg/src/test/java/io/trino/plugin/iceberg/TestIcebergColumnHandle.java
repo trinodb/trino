@@ -90,7 +90,7 @@ public class TestIcebergColumnHandle
         assertThat(actual.getQualifiedName()).isEqualTo(expected.getQualifiedName());
         assertThat(actual.getName()).isEqualTo(expected.getName());
         assertThat(actual.getColumnIdentity()).isEqualTo(expected.getColumnIdentity());
-        assertThat(actual.getId()).isEqualTo(actual.getId());
+        assertThat(actual.getId()).isEqualTo(expected.getId());
         assertThat(actual.getType()).isEqualTo(expected.getType());
         assertThat(actual.getComment()).isEqualTo(expected.getComment());
     }

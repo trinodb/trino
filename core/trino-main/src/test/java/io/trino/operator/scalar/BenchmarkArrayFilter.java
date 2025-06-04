@@ -25,6 +25,7 @@ import io.trino.spi.Page;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
@@ -112,7 +113,7 @@ public class BenchmarkArrayFilter
                         SESSION,
                         new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
-                        data.getPage()));
+                        SourcePage.create(data.getPage())));
     }
 
     @Benchmark
@@ -124,7 +125,7 @@ public class BenchmarkArrayFilter
                         SESSION,
                         new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
-                        data.getPage()));
+                        SourcePage.create(data.getPage())));
     }
 
     @SuppressWarnings("FieldMayBeFinal")
@@ -159,7 +160,7 @@ public class BenchmarkArrayFilter
                 blocks[i] = createChannel(POSITIONS, ARRAY_SIZE, arrayType);
             }
 
-            ImmutableList<RowExpression> projections = projectionsBuilder.build();
+            List<RowExpression> projections = projectionsBuilder.build();
             pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections).get();
             page = new Page(blocks);
         }
@@ -227,12 +228,12 @@ public class BenchmarkArrayFilter
                                                 new SpecialForm(
                                                         DEREFERENCE,
                                                         BIGINT,
-                                                        new VariableReferenceExpression("x", elementType),
-                                                        constant(0, INTEGER))))))));
+                                                        ImmutableList.of(new VariableReferenceExpression("x", elementType), constant(0, INTEGER)),
+                                                        ImmutableList.of())))))));
                 blocks[i] = createChannel(POSITIONS, arrayType);
             }
 
-            ImmutableList<RowExpression> projections = projectionsBuilder.build();
+            List<RowExpression> projections = projectionsBuilder.build();
             pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections).get();
             page = new Page(blocks);
         }

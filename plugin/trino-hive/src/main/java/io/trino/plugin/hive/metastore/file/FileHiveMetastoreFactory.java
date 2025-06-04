@@ -16,11 +16,11 @@ package io.trino.plugin.hive.metastore.file;
 import com.google.inject.Inject;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.metastore.HiveMetastore;
+import io.trino.metastore.HiveMetastoreFactory;
+import io.trino.metastore.tracing.TracingHiveMetastore;
 import io.trino.plugin.hive.HideDeltaLakeTables;
 import io.trino.plugin.hive.NodeVersion;
-import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
-import io.trino.plugin.hive.metastore.tracing.TracingHiveMetastore;
 import io.trino.spi.security.ConnectorIdentity;
 
 import java.util.Optional;

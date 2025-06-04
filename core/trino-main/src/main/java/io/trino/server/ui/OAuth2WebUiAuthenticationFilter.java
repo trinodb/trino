@@ -16,6 +16,7 @@ package io.trino.server.ui;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
+import io.trino.server.ExternalUriInfo;
 import io.trino.server.security.UserMapping;
 import io.trino.server.security.UserMappingException;
 import io.trino.server.security.oauth2.ChallengeFailedException;
@@ -43,7 +44,6 @@ import static io.trino.server.ServletSecurityUtils.sendWwwAuthenticate;
 import static io.trino.server.ServletSecurityUtils.setAuthenticatedIdentity;
 import static io.trino.server.security.oauth2.OAuth2CallbackResource.CALLBACK_ENDPOINT;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.DISABLED_LOCATION;
-import static io.trino.server.ui.FormWebUiAuthenticationFilter.DISABLED_LOCATION_URI;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.TRINO_FORM_LOGIN;
 import static jakarta.ws.rs.core.Response.Status.UNAUTHORIZED;
 import static java.util.Objects.requireNonNull;
@@ -89,7 +89,7 @@ public class OAuth2WebUiAuthenticationFilter
                 sendWwwAuthenticate(request, "Unauthorized", ImmutableSet.of(TRINO_FORM_LOGIN));
                 return;
             }
-            request.abortWith(Response.seeOther(DISABLED_LOCATION_URI).build());
+            request.abortWith(Response.seeOther(ExternalUriInfo.from(request).absolutePath(DISABLED_LOCATION)).build());
             return;
         }
         Optional<TokenPair> tokenPair = getTokenPair(request);
@@ -163,7 +163,7 @@ public class OAuth2WebUiAuthenticationFilter
         OAuth2Client.Response response = client.refreshTokens(refreshToken);
         String serializedToken = tokenPairSerializer.serialize(TokenPair.fromOAuth2Response(response));
         Instant newExpirationTime = tokenExpiration.map(expiration -> Instant.now().plus(expiration)).orElse(response.getExpiration());
-        Response.ResponseBuilder builder = Response.temporaryRedirect(request.getUriInfo().getRequestUri())
+        Response.ResponseBuilder builder = Response.temporaryRedirect(ExternalUriInfo.from(request).fullRequestUri())
                 .cookie(OAuthWebUiCookie.create(serializedToken, newExpirationTime));
 
         OAuthIdTokenCookie.read(request.getCookies())
@@ -192,6 +192,6 @@ public class OAuth2WebUiAuthenticationFilter
 
     private static boolean isValidPrincipal(Object principal)
     {
-        return principal instanceof String && !((String) principal).isEmpty();
+        return principal instanceof String string && !string.isEmpty();
     }
 }

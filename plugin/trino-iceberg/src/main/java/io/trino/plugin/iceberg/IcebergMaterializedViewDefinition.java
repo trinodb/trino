@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
@@ -39,21 +37,20 @@ import static java.util.Objects.requireNonNull;
 /*
  * Serializable version of ConnectorMaterializedViewDefinition stored by iceberg connector
  */
-public class IcebergMaterializedViewDefinition
+public record IcebergMaterializedViewDefinition(
+        String originalSql,
+        Optional<String> catalog,
+        Optional<String> schema,
+        List<Column> columns,
+        Optional<Duration> gracePeriod,
+        Optional<String> comment,
+        List<CatalogSchemaName> path)
 {
     private static final String MATERIALIZED_VIEW_PREFIX = "/* Presto Materialized View: ";
     private static final String MATERIALIZED_VIEW_SUFFIX = " */";
 
     private static final JsonCodec<IcebergMaterializedViewDefinition> materializedViewCodec =
             new JsonCodecFactory(new ObjectMapperProvider()).jsonCodec(IcebergMaterializedViewDefinition.class);
-
-    private final String originalSql;
-    private final Optional<String> catalog;
-    private final Optional<String> schema;
-    private final List<Column> columns;
-    private final Optional<Duration> gracePeriod;
-    private final Optional<String> comment;
-    private final List<CatalogSchemaName> path;
 
     public static String encodeMaterializedViewData(IcebergMaterializedViewDefinition definition)
     {
@@ -86,24 +83,15 @@ public class IcebergMaterializedViewDefinition
                 definition.getPath());
     }
 
-    @JsonCreator
-    public IcebergMaterializedViewDefinition(
-            @JsonProperty("originalSql") String originalSql,
-            @JsonProperty("catalog") Optional<String> catalog,
-            @JsonProperty("schema") Optional<String> schema,
-            @JsonProperty("columns") List<Column> columns,
-            @JsonProperty("gracePeriod") Optional<Duration> gracePeriod,
-            @JsonProperty("comment") Optional<String> comment,
-            @JsonProperty("path") List<CatalogSchemaName> path)
+    public IcebergMaterializedViewDefinition
     {
-        this.originalSql = requireNonNull(originalSql, "originalSql is null");
-        this.catalog = requireNonNull(catalog, "catalog is null");
-        this.schema = requireNonNull(schema, "schema is null");
-        this.columns = List.copyOf(requireNonNull(columns, "columns is null"));
+        requireNonNull(originalSql, "originalSql is null");
+        requireNonNull(catalog, "catalog is null");
+        requireNonNull(schema, "schema is null");
+        columns = List.copyOf(requireNonNull(columns, "columns is null"));
         checkArgument(gracePeriod.isEmpty() || !gracePeriod.get().isNegative(), "gracePeriod cannot be negative: %s", gracePeriod);
-        this.gracePeriod = gracePeriod;
-        this.comment = requireNonNull(comment, "comment is null");
-        this.path = path == null ? ImmutableList.of() : ImmutableList.copyOf(path);
+        requireNonNull(comment, "comment is null");
+        path = path == null ? ImmutableList.of() : ImmutableList.copyOf(path);
 
         if (catalog.isEmpty() && schema.isPresent()) {
             throw new IllegalArgumentException("catalog must be present if schema is present");
@@ -111,48 +99,6 @@ public class IcebergMaterializedViewDefinition
         if (columns.isEmpty()) {
             throw new IllegalArgumentException("columns list is empty");
         }
-    }
-
-    @JsonProperty
-    public String getOriginalSql()
-    {
-        return originalSql;
-    }
-
-    @JsonProperty
-    public Optional<String> getCatalog()
-    {
-        return catalog;
-    }
-
-    @JsonProperty
-    public Optional<String> getSchema()
-    {
-        return schema;
-    }
-
-    @JsonProperty
-    public List<Column> getColumns()
-    {
-        return columns;
-    }
-
-    @JsonProperty
-    public Optional<Duration> getGracePeriod()
-    {
-        return gracePeriod;
-    }
-
-    @JsonProperty
-    public Optional<String> getComment()
-    {
-        return comment;
-    }
-
-    @JsonProperty
-    public List<CatalogSchemaName> getPath()
-    {
-        return path;
     }
 
     @Override
@@ -169,39 +115,13 @@ public class IcebergMaterializedViewDefinition
         return getClass().getSimpleName() + joiner;
     }
 
-    public static final class Column
+    public record Column(String name, TypeId type, Optional<String> comment)
     {
-        private final String name;
-        private final TypeId type;
-        private final Optional<String> comment;
-
-        @JsonCreator
-        public Column(
-                @JsonProperty("name") String name,
-                @JsonProperty("type") TypeId type,
-                @JsonProperty("comment") Optional<String> comment)
+        public Column
         {
-            this.name = requireNonNull(name, "name is null");
-            this.type = requireNonNull(type, "type is null");
-            this.comment = requireNonNull(comment, "comment is null");
-        }
-
-        @JsonProperty
-        public String getName()
-        {
-            return name;
-        }
-
-        @JsonProperty
-        public TypeId getType()
-        {
-            return type;
-        }
-
-        @JsonProperty
-        public Optional<String> getComment()
-        {
-            return comment;
+            requireNonNull(name, "name is null");
+            requireNonNull(type, "type is null");
+            requireNonNull(comment, "comment is null");
         }
 
         @Override

@@ -1,4 +1,4 @@
--- database: presto; groups: postgresql,profile_specific_tests; queryType: SELECT;
+-- database: trino; groups: postgresql,profile_specific_tests; queryType: SELECT;
 --!
 show schemas from postgresql
 --!

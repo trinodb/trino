@@ -18,8 +18,10 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
+import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.optimizations.PlanNodeDecorrelator;
@@ -42,9 +44,11 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.matching.Pattern.empty;
 import static io.trino.matching.Pattern.nonEmpty;
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.ir.Booleans.TRUE;
@@ -121,6 +125,7 @@ import static java.util.Objects.requireNonNull;
 public class TransformCorrelatedGlobalAggregationWithProjection
         implements Rule<CorrelatedJoinNode>
 {
+    private static final CatalogSchemaFunctionName BOOL_OR = builtinFunctionName("bool_or");
     private static final Capture<ProjectNode> PROJECTION = newCapture();
     private static final Capture<AggregationNode> AGGREGATION = newCapture();
     private static final Capture<PlanNode> SOURCE = newCapture();
@@ -175,16 +180,22 @@ public class TransformCorrelatedGlobalAggregationWithProjection
         }
 
         source = decorrelatedSource.get().getNode();
+        Optional<Symbol> nonNull = Optional.empty();
 
-        // append non-null symbol on nested plan. It will be used to restore semantics of null-sensitive aggregations after LEFT join
-        Symbol nonNull = context.getSymbolAllocator().newSymbol("non_null", BOOLEAN);
-        source = new ProjectNode(
-                context.getIdAllocator().getNextId(),
-                source,
-                Assignments.builder()
-                        .putIdentities(source.getOutputSymbols())
-                        .put(nonNull, TRUE)
-                        .build());
+        AggregationNode globalAggregation = captures.get(AGGREGATION);
+        // Null-insensitive aggregations don't distinguish empty input from null input, so they don't need a special mask true symbol
+        // to distinguish between these two cases after decorrelation. For example, count(*) needs a mask symbol because it returns 0
+        // for an empty set but 1 for a set with a single null row, but boolean_or returns null for both an empty set and a set with a single null row.
+        if (!isNullInsensitiveAggregation(globalAggregation)) {
+            nonNull = Optional.of(context.getSymbolAllocator().newSymbol("non_null", BOOLEAN));
+            source = new ProjectNode(
+                    context.getIdAllocator().getNextId(),
+                    source,
+                    Assignments.builder()
+                            .putIdentities(source.getOutputSymbols())
+                            .put(nonNull.get(), TRUE)
+                            .build());
+        }
 
         // assign unique id on correlated join's input. It will be used to distinguish between original input rows after join
         PlanNode inputWithUniqueId = new AssignUniqueId(
@@ -213,55 +224,59 @@ public class TransformCorrelatedGlobalAggregationWithProjection
 
         // restore distinct aggregation
         if (distinct != null) {
+            ImmutableList.Builder<Symbol> distinctSymbols = ImmutableList.<Symbol>builder()
+                    .addAll(join.getLeftOutputSymbols())
+                    .addAll(distinct.getGroupingKeys());
+            nonNull.ifPresent(distinctSymbols::add);
+
             root = restoreDistinctAggregation(
                     distinct,
                     join,
-                    ImmutableList.<Symbol>builder()
-                            .addAll(join.getLeftOutputSymbols())
-                            .add(nonNull)
-                            .addAll(distinct.getGroupingKeys())
-                            .build());
+                    distinctSymbols.build());
         }
 
-        // prepare mask symbols for aggregations
-        // Every original aggregation agg() will be rewritten to agg() mask(non_null). If the aggregation
-        // already has a mask, it will be replaced with conjunction of the existing mask and non_null.
-        // This is necessary to restore the original aggregation result in case when:
-        // - the nested lateral subquery returned empty result for some input row,
-        // - aggregation is null-sensitive, which means that its result over a single null row is different
-        //   than result for empty input (with global grouping)
-        // It applies to the following aggregate functions: count(*), checksum(), array_agg().
-        AggregationNode globalAggregation = captures.get(AGGREGATION);
-        ImmutableMap.Builder<Symbol, Symbol> masks = ImmutableMap.builder();
-        Assignments.Builder assignmentsBuilder = Assignments.builder();
-        for (Map.Entry<Symbol, Aggregation> entry : globalAggregation.getAggregations().entrySet()) {
-            Aggregation aggregation = entry.getValue();
-            if (aggregation.getMask().isPresent()) {
-                Symbol newMask = context.getSymbolAllocator().newSymbol("mask", BOOLEAN);
-                Expression expression = and(aggregation.getMask().get().toSymbolReference(), nonNull.toSymbolReference());
-                assignmentsBuilder.put(newMask, expression);
-                masks.put(entry.getKey(), newMask);
+        Map<Symbol, Aggregation> aggregations = globalAggregation.getAggregations();
+        if (nonNull.isPresent()) {
+            // prepare mask symbols for aggregations
+            // Every original aggregation agg() will be rewritten to agg() mask(non_null). If the aggregation
+            // already has a mask, it will be replaced with conjunction of the existing mask and non_null.
+            // This is necessary to restore the original aggregation result in case when:
+            // - the nested lateral subquery returned empty result for some input row,
+            // - aggregation is null-sensitive, which means that its result over a single null row is different
+            //   than result for empty input (with global grouping)
+            // It applies to the following aggregate functions: count(*), checksum(), array_agg().
+            ImmutableMap.Builder<Symbol, Symbol> masksBuilder = ImmutableMap.builder();
+            Assignments.Builder assignmentsBuilder = Assignments.builder();
+            for (Map.Entry<Symbol, Aggregation> entry : globalAggregation.getAggregations().entrySet()) {
+                Aggregation aggregation = entry.getValue();
+                if (aggregation.getMask().isPresent()) {
+                    Symbol newMask = context.getSymbolAllocator().newSymbol("mask", BOOLEAN);
+                    Expression expression = and(aggregation.getMask().get().toSymbolReference(), nonNull.get().toSymbolReference());
+                    assignmentsBuilder.put(newMask, expression);
+                    masksBuilder.put(entry.getKey(), newMask);
+                }
+                else {
+                    masksBuilder.put(entry.getKey(), nonNull.get());
+                }
             }
-            else {
-                masks.put(entry.getKey(), nonNull);
+            Assignments maskAssignments = assignmentsBuilder.build();
+            if (!maskAssignments.isEmpty()) {
+                root = new ProjectNode(
+                        context.getIdAllocator().getNextId(),
+                        root,
+                        Assignments.builder()
+                                .putIdentities(root.getOutputSymbols())
+                                .putAll(maskAssignments)
+                                .build());
             }
-        }
-        Assignments maskAssignments = assignmentsBuilder.build();
-        if (!maskAssignments.isEmpty()) {
-            root = new ProjectNode(
-                    context.getIdAllocator().getNextId(),
-                    root,
-                    Assignments.builder()
-                            .putIdentities(root.getOutputSymbols())
-                            .putAll(maskAssignments)
-                            .build());
+            aggregations = rewriteWithMasks(globalAggregation.getAggregations(), masksBuilder.buildOrThrow());
         }
 
         // restore global aggregation
         globalAggregation = new AggregationNode(
                 globalAggregation.getId(),
                 root,
-                rewriteWithMasks(globalAggregation.getAggregations(), masks.buildOrThrow()),
+                aggregations,
                 singleGroupingSet(ImmutableList.<Symbol>builder()
                         .addAll(join.getLeftOutputSymbols())
                         .addAll(globalAggregation.getGroupingKeys())
@@ -286,5 +301,19 @@ public class TransformCorrelatedGlobalAggregationWithProjection
                 context.getIdAllocator().getNextId(),
                 globalAggregation,
                 assignments));
+    }
+
+    private static boolean isNullInsensitiveAggregation(AggregationNode node)
+    {
+        if (node.getAggregations().size() != 1) {
+            return false;
+        }
+
+        Aggregation aggregation = getOnlyElement(node.getAggregations().values());
+        if (aggregation.getFilter().isPresent() || aggregation.getMask().isPresent()) {
+            return false;
+        }
+
+        return aggregation.getResolvedFunction().name().equals(BOOL_OR) && aggregation.getArguments().getFirst() instanceof Reference;
     }
 }

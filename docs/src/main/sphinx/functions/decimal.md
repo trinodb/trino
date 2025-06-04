@@ -1,7 +1,6 @@
 # Decimal functions and operators
 
 (decimal-literal)=
-
 ## Decimal literals
 
 Use the `DECIMAL 'xxxxxxx.yyyyyyy'` syntax to define a decimal literal.

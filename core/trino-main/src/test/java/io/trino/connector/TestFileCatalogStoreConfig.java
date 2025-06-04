@@ -31,7 +31,7 @@ public class TestFileCatalogStoreConfig
     {
         assertRecordedDefaults(recordDefaults(FileCatalogStoreConfig.class)
                 .setCatalogConfigurationDir(new File("etc/catalog"))
-                .setDisabledCatalogs((String) null)
+                .setDisabledCatalogs(ImmutableList.of())
                 .setReadOnly(false));
     }
 

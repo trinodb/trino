@@ -27,6 +27,7 @@ public final class ProtocolHeaders
     private final String name;
     private final String requestUser;
     private final String requestOriginalUser;
+    private final String requestOriginalRole;
     private final String requestSource;
     private final String requestCatalog;
     private final String requestSchema;
@@ -43,18 +44,21 @@ public final class ProtocolHeaders
     private final String requestClientCapabilities;
     private final String requestResourceEstimate;
     private final String requestExtraCredential;
+    private final String requestQueryDataEncoding;
     private final String responseSetCatalog;
     private final String responseSetSchema;
     private final String responseSetPath;
     private final String responseSetSession;
     private final String responseClearSession;
     private final String responseSetRole;
+    private final String responseQueryDataEncoding;
     private final String responseAddedPrepare;
     private final String responseDeallocatedPrepare;
     private final String responseStartedTransactionId;
     private final String responseClearTransactionId;
     private final String responseSetAuthorizationUser;
     private final String responseResetAuthorizationUser;
+    private final String responseOriginalRole;
 
     public static ProtocolHeaders createProtocolHeaders(String name)
     {
@@ -73,6 +77,7 @@ public final class ProtocolHeaders
         String prefix = "X-" + name + "-";
         requestUser = prefix + "User";
         requestOriginalUser = prefix + "Original-User";
+        requestOriginalRole = prefix + "Original-Roles";
         requestSource = prefix + "Source";
         requestCatalog = prefix + "Catalog";
         requestSchema = prefix + "Schema";
@@ -89,18 +94,21 @@ public final class ProtocolHeaders
         requestClientCapabilities = prefix + "Client-Capabilities";
         requestResourceEstimate = prefix + "Resource-Estimate";
         requestExtraCredential = prefix + "Extra-Credential";
+        requestQueryDataEncoding = prefix + "Query-Data-Encoding";
         responseSetCatalog = prefix + "Set-Catalog";
         responseSetSchema = prefix + "Set-Schema";
         responseSetPath = prefix + "Set-Path";
         responseSetSession = prefix + "Set-Session";
         responseClearSession = prefix + "Clear-Session";
         responseSetRole = prefix + "Set-Role";
+        responseQueryDataEncoding = prefix + "Query-Data-Encoding";
         responseAddedPrepare = prefix + "Added-Prepare";
         responseDeallocatedPrepare = prefix + "Deallocated-Prepare";
         responseStartedTransactionId = prefix + "Started-Transaction-Id";
         responseClearTransactionId = prefix + "Clear-Transaction-Id";
         responseSetAuthorizationUser = prefix + "Set-Authorization-User";
         responseResetAuthorizationUser = prefix + "Reset-Authorization-User";
+        responseOriginalRole = prefix + "Set-Original-Roles";
     }
 
     public String getProtocolName()
@@ -116,6 +124,11 @@ public final class ProtocolHeaders
     public String requestOriginalUser()
     {
         return requestOriginalUser;
+    }
+
+    public String requestOriginalRole()
+    {
+        return requestOriginalRole;
     }
 
     public String requestSource()
@@ -198,6 +211,11 @@ public final class ProtocolHeaders
         return requestExtraCredential;
     }
 
+    public String requestQueryDataEncoding()
+    {
+        return requestQueryDataEncoding;
+    }
+
     public String responseSetCatalog()
     {
         return responseSetCatalog;
@@ -228,6 +246,11 @@ public final class ProtocolHeaders
         return responseSetRole;
     }
 
+    public String responseQueryDataEncoding()
+    {
+        return responseQueryDataEncoding;
+    }
+
     public String responseAddedPrepare()
     {
         return responseAddedPrepare;
@@ -256,6 +279,11 @@ public final class ProtocolHeaders
     public String responseResetAuthorizationUser()
     {
         return responseResetAuthorizationUser;
+    }
+
+    public String responseOriginalRole()
+    {
+        return responseOriginalRole;
     }
 
     public static ProtocolHeaders detectProtocol(Optional<String> alternateHeaderName, Set<String> headerNames)

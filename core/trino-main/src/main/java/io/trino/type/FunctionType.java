@@ -86,7 +86,7 @@ public class FunctionType
     @Override
     public String getDisplayName()
     {
-        ImmutableList<String> names = getTypeParameters().stream()
+        List<String> names = getTypeParameters().stream()
                 .map(Type::getDisplayName)
                 .collect(toImmutableList());
         return "function(" + Joiner.on(",").join(names) + ")";
@@ -225,7 +225,7 @@ public class FunctionType
     }
 
     @Override
-    public int relocateFlatVariableWidthOffsets(byte[] fixedSizeSlice, int fixedSizeOffset, byte[] variableSizeSlice, int variableSizeOffset)
+    public int getFlatVariableWidthLength(byte[] fixedSizeSlice, int fixedSizeOffset)
     {
         throw new UnsupportedOperationException();
     }

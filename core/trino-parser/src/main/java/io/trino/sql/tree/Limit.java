@@ -27,6 +27,7 @@ public class Limit
 {
     private final Expression rowCount;
 
+    @Deprecated
     public Limit(Expression rowCount)
     {
         this(Optional.empty(), rowCount);
@@ -37,7 +38,7 @@ public class Limit
         this(Optional.of(location), rowCount);
     }
 
-    public Limit(Optional<NodeLocation> location, Expression rowCount)
+    private Limit(Optional<NodeLocation> location, Expression rowCount)
     {
         super(location);
         checkArgument(

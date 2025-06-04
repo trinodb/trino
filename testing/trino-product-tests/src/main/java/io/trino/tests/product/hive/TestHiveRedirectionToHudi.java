@@ -192,7 +192,7 @@ public class TestHiveRedirectionToHudi
         createHudiCowTable(schemaTableName, false);
 
         assertQueryFailure(() -> onTrino().executeQuery("INSERT INTO " + hiveTableName + " VALUES (3, 'a3', 60, 3000)"))
-                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Insert query has mismatched column types: Table: [varchar, varchar, varchar, varchar, varchar, bigint, varchar, integer, bigint], Query: [integer, varchar(2), integer, integer]");
+                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): line 1:1: Insert query has mismatched column types: Table: [varchar, varchar, varchar, varchar, varchar, bigint, varchar, integer, bigint], Query: [integer, varchar(2), integer, integer]");
 
         onHudi().executeQuery("DROP TABLE " + schemaTableName);
     }
@@ -412,17 +412,18 @@ public class TestHiveRedirectionToHudi
     {
         onHudi().executeQuery(format(
                 """
-                        CREATE TABLE %s (
-                          id bigint,
-                          name string,
-                          price int,
-                          ts bigint)
-                        USING hudi
-                        TBLPROPERTIES (
-                          type = '%s',
-                          primaryKey = 'id',
-                          preCombineField = 'ts')
-                        LOCATION 's3://%s/%s'""",
+                CREATE TABLE %s (
+                  id bigint,
+                  name string,
+                  price int,
+                  ts bigint)
+                USING hudi
+                TBLPROPERTIES (
+                  type = '%s',
+                  primaryKey = 'id',
+                  preCombineField = 'ts')
+                LOCATION 's3://%s/%s'
+                """,
                 tableName,
                 tableType,
                 bucketName,
@@ -435,19 +436,20 @@ public class TestHiveRedirectionToHudi
     {
         onHudi().executeQuery(format(
                 """
-                        CREATE TABLE %s (
-                          id bigint,
-                          name string,
-                          ts bigint,
-                          dt string,
-                          hh string)
-                        USING hudi
-                        TBLPROPERTIES (
-                          type = '%s',
-                          primaryKey = 'id',
-                          preCombineField = 'ts')
-                        PARTITIONED BY (dt, hh)
-                        LOCATION 's3://%s/%s'""",
+                CREATE TABLE %s (
+                  id bigint,
+                  name string,
+                  ts bigint,
+                  dt string,
+                  hh string)
+                USING hudi
+                TBLPROPERTIES (
+                  type = '%s',
+                  primaryKey = 'id',
+                  preCombineField = 'ts')
+                PARTITIONED BY (dt, hh)
+                LOCATION 's3://%s/%s'
+                """,
                 tableName,
                 tableType,
                 bucketName,

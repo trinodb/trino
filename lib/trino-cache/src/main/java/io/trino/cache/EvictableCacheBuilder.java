@@ -24,6 +24,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.CheckReturnValue;
 import io.trino.cache.EvictableCache.Token;
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
+import org.jetbrains.annotations.NotNullByDefault;
 
 import java.time.Duration;
 import java.util.Optional;
@@ -234,12 +235,12 @@ public final class EvictableCacheBuilder<K, V>
 
     private static <K, V> CacheLoader<K, V> unimplementedCacheLoader()
     {
-        return CacheLoader.from(ignored -> {
+        return CacheLoader.from(_ -> {
             throw new UnsupportedOperationException();
         });
     }
 
-    @ElementTypesAreNonnullByDefault
+    @NotNullByDefault
     private record TokenWeigher<K, V>(Weigher<? super K, ? super V> delegate)
             implements Weigher<Token<K>, V>
     {

@@ -24,12 +24,11 @@ import io.airlift.slice.Slice;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.metastore.Partitions;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.deltalake.DataFileInfo.DataFileType;
 import io.trino.plugin.deltalake.util.DeltaLakeWriteUtils;
-import io.trino.plugin.hive.HivePartitionKey;
 import io.trino.plugin.hive.parquet.ParquetFileWriter;
-import io.trino.plugin.hive.util.HiveUtil;
 import io.trino.spi.Page;
 import io.trino.spi.PageIndexer;
 import io.trino.spi.PageIndexerFactory;
@@ -52,17 +51,19 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.wrappedBuffer;
-import static io.trino.filesystem.Locations.appendPath;
+import static io.trino.metastore.Partitions.HIVE_DEFAULT_DYNAMIC_PARTITION;
+import static io.trino.metastore.Partitions.escapePathName;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_BAD_WRITE;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getCompressionCodec;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterBlockSize;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterPageSize;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterPageValueCount;
 import static io.trino.plugin.deltalake.DeltaLakeTypes.toParquetType;
-import static io.trino.plugin.hive.util.HiveUtil.escapePathName;
+import static io.trino.plugin.hive.HiveCompressionCodecs.toCompressionCodec;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -104,6 +105,7 @@ public abstract class AbstractDeltaLakePageSink
     private final long idleWriterMinFileSize;
     private long writtenBytes;
     private long memoryUsage;
+    private long validationCpuNanos;
 
     private final List<Closeable> closedWriterRollbackActions = new ArrayList<>();
     private final List<Boolean> activeWriters = new ArrayList<>();
@@ -154,25 +156,25 @@ public abstract class AbstractDeltaLakePageSink
         }
         for (int inputIndex = 0; inputIndex < inputColumns.size(); inputIndex++) {
             DeltaLakeColumnHandle column = inputColumns.get(inputIndex);
-            switch (column.getColumnType()) {
+            switch (column.columnType()) {
                 case PARTITION_KEY:
-                    int partitionPosition = toOriginalPartitionPositions.get(column.getColumnName());
+                    int partitionPosition = toOriginalPartitionPositions.get(column.columnName());
                     partitionColumnInputIndex[partitionPosition] = inputIndex;
-                    originalPartitionColumnNames[partitionPosition] = column.getColumnName();
-                    partitionColumnTypes[partitionPosition] = column.getBaseType();
+                    originalPartitionColumnNames[partitionPosition] = column.columnName();
+                    partitionColumnTypes[partitionPosition] = column.baseType();
                     break;
                 case REGULAR:
                     verify(column.isBaseColumn(), "Unexpected dereference: %s", column);
                     dataColumnHandles.add(column);
                     dataColumnsInputIndex.add(inputIndex);
-                    dataColumnNames.add(column.getBasePhysicalColumnName());
-                    dataColumnTypes.add(column.getBasePhysicalType());
+                    dataColumnNames.add(column.basePhysicalColumnName());
+                    dataColumnTypes.add(column.basePhysicalType());
                     break;
                 case SYNTHESIZED:
                     processSynthesizedColumn(column);
                     break;
                 default:
-                    throw new IllegalStateException("Unexpected column type: " + column.getColumnType());
+                    throw new IllegalStateException("Unexpected column type: " + column.columnType());
             }
         }
 
@@ -217,7 +219,7 @@ public abstract class AbstractDeltaLakePageSink
     @Override
     public long getValidationCpuNanos()
     {
-        return 0;
+        return validationCpuNanos;
     }
 
     @Override
@@ -404,7 +406,13 @@ public abstract class AbstractDeltaLakePageSink
 
     private String getRelativeFilePath(Optional<String> partitionName, String fileName)
     {
-        return getPathPrefix() + partitionName.map(partition -> appendPath(partition, fileName)).orElse(fileName);
+        return getPathPrefix() + partitionName
+                .map(partition -> {
+                    // partition is escaped by makePartName
+                    checkArgument(!partition.endsWith("/"), "Partition name should not end with '/'");
+                    return partition + "/" + fileName;
+                })
+                .orElse(fileName);
     }
 
     protected void closeWriter(int writerIndex)
@@ -421,6 +429,7 @@ public abstract class AbstractDeltaLakePageSink
 
         writtenBytes += writer.getWrittenBytes() - currentWritten;
         memoryUsage -= currentMemory;
+        validationCpuNanos += writer.getValidationCpuNanos();
 
         writers.set(writerIndex, null);
         currentOpenWriters--;
@@ -436,7 +445,7 @@ public abstract class AbstractDeltaLakePageSink
     }
 
     /**
-     * Copy of {@link HiveUtil#makePartName} modified to preserve case of partition columns.
+     * Copy of {@link Partitions#makePartName} modified to preserve case of partition columns.
      */
     private static String makePartName(List<String> partitionColumns, List<String> partitionValues)
     {
@@ -458,7 +467,7 @@ public abstract class AbstractDeltaLakePageSink
     public static List<String> createPartitionValues(List<Type> partitionColumnTypes, Page partitionColumns, int position)
     {
         return DeltaLakeWriteUtils.createPartitionValues(partitionColumnTypes, partitionColumns, position).stream()
-                .map(value -> value.equals(HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION) ? null : value)
+                .map(value -> value.equals(HIVE_DEFAULT_DYNAMIC_PARTITION) ? null : value)
                 .collect(toList());
     }
 
@@ -469,7 +478,7 @@ public abstract class AbstractDeltaLakePageSink
                 .setMaxPageSize(getParquetWriterPageSize(session))
                 .setMaxPageValueCount(getParquetWriterPageValueCount(session))
                 .build();
-        CompressionCodec compressionCodec = getCompressionCodec(session).getParquetCompressionCodec()
+        CompressionCodec compressionCodec = toCompressionCodec(getCompressionCodec(session)).getParquetCompressionCodec()
                 .orElseThrow(); // validated on the session property level
 
         try {

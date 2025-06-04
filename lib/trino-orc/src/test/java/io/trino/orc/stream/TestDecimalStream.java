@@ -307,8 +307,6 @@ public class TestDecimalStream
         }
 
         @Override
-        public void seekToCheckpoint(long checkpoint)
-        {
-        }
+        public void seekToCheckpoint(long checkpoint) {}
     }
 }

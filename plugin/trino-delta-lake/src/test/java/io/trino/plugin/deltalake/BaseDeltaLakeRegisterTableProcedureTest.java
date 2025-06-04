@@ -16,8 +16,8 @@ package io.trino.plugin.deltalake;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
+import io.trino.metastore.HiveMetastore;
+import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
@@ -317,13 +317,6 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
             return location;
         }
         throw new IllegalStateException("Location not found in SHOW CREATE TABLE result");
-    }
-
-    private String getTableComment(String tableName)
-    {
-        return (String) computeScalar(format(
-                "SELECT comment FROM system.metadata.table_comments WHERE catalog_name = CURRENT_CATALOG AND schema_name = CURRENT_SCHEMA AND table_name = '%s'",
-                tableName));
     }
 
     protected HiveMetastore metastore()

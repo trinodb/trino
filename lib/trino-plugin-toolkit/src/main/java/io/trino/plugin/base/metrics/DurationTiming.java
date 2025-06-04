@@ -32,7 +32,7 @@ public class DurationTiming
     private final Duration duration;
 
     @JsonCreator
-    public DurationTiming(Duration duration)
+    public DurationTiming(@JsonProperty("duration") Duration duration)
     {
         this.duration = requireNonNull(duration, "duration is null");
     }

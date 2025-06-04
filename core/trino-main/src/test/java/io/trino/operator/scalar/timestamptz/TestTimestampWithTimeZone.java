@@ -2798,6 +2798,33 @@ public class TestTimestampWithTimeZone
                 .hasMessage("Value cannot be cast to timestamp: 2022-01-01 00:00:00 ABC");
     }
 
+    @Test
+    public void testExtractTimeZone()
+    {
+        assertThat(assertions.expression("timezone(TIMESTAMP '2024-01-01 12:00:00 Asia/Tokyo')")).isEqualTo("Asia/Tokyo");
+        assertThat(assertions.expression("timezone(TIMESTAMP '2024-01-01 12:00:00 America/New_York')")).isEqualTo("America/New_York");
+        assertThat(assertions.expression("timezone(TIMESTAMP '2024-01-01 12:00:00 Europe/London')")).isEqualTo("Europe/London");
+        assertThat(assertions.expression("timezone(TIMESTAMP '2024-01-01 12:00:00 UTC')")).isEqualTo("UTC");
+        assertThat(assertions.expression("timezone(TIMESTAMP '2024-01-01 12:00:00 +01:00')")).isEqualTo("+01:00");
+        assertThat(assertions.expression("timezone(TIMESTAMP '2024-01-01 12:00:00 -08:00')")).isEqualTo("-08:00");
+        assertThat(assertions.expression("timezone(TIMESTAMP '1500-01-01 12:00:00 Europe/London')")).isEqualTo("Europe/London");
+        assertThat(assertions.expression("timezone(TIMESTAMP '2500-01-01 12:00:00 Asia/Tokyo')")).isEqualTo("Asia/Tokyo");
+        assertThat(assertions.expression("timezone(TIMESTAMP '2024-02-29 12:00:00 UTC')")).isEqualTo("UTC");
+        assertThat(assertions.expression("timezone(TIMESTAMP '2024-01-01 12:00:00 +14:00')")).isEqualTo("+14:00");
+        assertThat(assertions.expression("timezone(TIMESTAMP '2024-01-01 12:00:00 -12:00')")).isEqualTo("-12:00");
+        assertThat(assertions.expression("timezone(TIMESTAMP '0001-01-01 00:00:00 UTC')")).isEqualTo("UTC");
+        assertThat(assertions.expression("timezone(TIMESTAMP '9999-12-31 23:59:59 UTC')")).isEqualTo("UTC");
+        assertThat(assertions.expression("timezone(TIMESTAMP '2024-01-01 12:00:00.123 UTC')")).isEqualTo("UTC");
+        assertThat(assertions.expression("timezone(TIMESTAMP '2024-01-01 12:00:00.123456789 UTC')")).isEqualTo("UTC");
+
+        assertThatThrownBy(() -> assertions.expression("timezone(TIMESTAMP '2024-13-01 12:00:00 UTC')").evaluate())
+                .hasMessageContaining("is not a valid TIMESTAMP literal");
+        assertThatThrownBy(() -> assertions.expression("timezone(TIMESTAMP '2024-01-01 12:00:00 +25:00')").evaluate())
+                .hasMessageContaining("is not a valid TIMESTAMP literal");
+        assertThatThrownBy(() -> assertions.expression("timezone(TIMESTAMP '2024-01-01 12:00:00 asia/tokyo')").evaluate())
+                .hasMessageContaining("is not a valid TIMESTAMP literal");
+    }
+
     private BiFunction<Session, QueryRunner, Object> timestampWithTimeZone(int precision, int year, int month, int day, int hour, int minute, int second, long picoOfSecond, TimeZoneKey timeZoneKey)
     {
         return (session, queryRunner) -> {

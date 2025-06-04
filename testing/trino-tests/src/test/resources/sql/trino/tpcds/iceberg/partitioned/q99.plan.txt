@@ -1,0 +1,27 @@
+local exchange (GATHER, SINGLE, [])
+    remote exchange (GATHER, SINGLE, [])
+        local exchange (GATHER, SINGLE, [])
+            local exchange (REPARTITION, ROUND_ROBIN, [])
+                final aggregation over (cc_name, gid, sm_type)
+                    local exchange (GATHER, SINGLE, [])
+                        remote exchange (REPARTITION, HASH, [cc_name, gid, sm_type])
+                            intermediate aggregation over (cc_name, gid, sm_type)
+                                join (INNER, REPLICATED):
+                                    join (INNER, REPLICATED):
+                                        join (INNER, REPLICATED):
+                                            partial aggregation over (cs_call_center_sk, cs_ship_mode_sk, cs_warehouse_sk)
+                                                join (INNER, REPLICATED):
+                                                    dynamic filter (cs_call_center_sk::EQUAL, cs_ship_date_sk::EQUAL, cs_ship_mode_sk::EQUAL, cs_warehouse_sk::EQUAL)
+                                                        scan catalog_sales
+                                                    local exchange (GATHER, SINGLE, [])
+                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                            scan date_dim
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                    scan call_center
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                scan ship_mode
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPLICATE, BROADCAST, [])
+                                            scan warehouse

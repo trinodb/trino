@@ -18,6 +18,7 @@ import io.trino.spi.catalog.CatalogStoreFactory;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.eventlistener.EventListenerFactory;
 import io.trino.spi.exchange.ExchangeManagerFactory;
+import io.trino.spi.function.LanguageFunctionEngine;
 import io.trino.spi.resourcegroups.ResourceGroupConfigurationManagerFactory;
 import io.trino.spi.security.CertificateAuthenticatorFactory;
 import io.trino.spi.security.GroupProviderFactory;
@@ -25,6 +26,7 @@ import io.trino.spi.security.HeaderAuthenticatorFactory;
 import io.trino.spi.security.PasswordAuthenticatorFactory;
 import io.trino.spi.security.SystemAccessControlFactory;
 import io.trino.spi.session.SessionPropertyConfigurationManagerFactory;
+import io.trino.spi.spool.SpoolingManagerFactory;
 import io.trino.spi.type.ParametricType;
 import io.trino.spi.type.Type;
 
@@ -63,6 +65,11 @@ public interface Plugin
     default Set<Class<?>> getFunctions()
     {
         return emptySet();
+    }
+
+    default Iterable<LanguageFunctionEngine> getLanguageFunctionEngines()
+    {
+        return emptyList();
     }
 
     default Iterable<SystemAccessControlFactory> getSystemAccessControlFactories()
@@ -106,6 +113,11 @@ public interface Plugin
     }
 
     default Iterable<ExchangeManagerFactory> getExchangeManagerFactories()
+    {
+        return emptyList();
+    }
+
+    default Iterable<SpoolingManagerFactory> getSpoolingManagerFactories()
     {
         return emptyList();
     }

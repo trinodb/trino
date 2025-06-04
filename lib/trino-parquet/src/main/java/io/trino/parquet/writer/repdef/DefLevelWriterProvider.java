@@ -14,14 +14,14 @@
 package io.trino.parquet.writer.repdef;
 
 import com.google.common.collect.Iterables;
-import org.apache.parquet.column.values.ValuesWriter;
+import io.trino.parquet.writer.valuewriter.ColumnDescriptorValuesWriter;
 
 import java.util.List;
 import java.util.Optional;
 
 public interface DefLevelWriterProvider
 {
-    DefinitionLevelWriter getDefinitionLevelWriter(Optional<DefinitionLevelWriter> nestedWriter, ValuesWriter encoder);
+    DefinitionLevelWriter getDefinitionLevelWriter(Optional<DefinitionLevelWriter> nestedWriter, ColumnDescriptorValuesWriter encoder);
 
     interface DefinitionLevelWriter
     {
@@ -30,11 +30,9 @@ public interface DefLevelWriterProvider
         ValuesCount writeDefinitionLevels();
     }
 
-    record ValuesCount(int totalValuesCount, int maxDefinitionLevelValuesCount)
-    {
-    }
+    record ValuesCount(int totalValuesCount, int maxDefinitionLevelValuesCount) {}
 
-    static DefinitionLevelWriter getRootDefinitionLevelWriter(List<DefLevelWriterProvider> defLevelWriterProviders, ValuesWriter encoder)
+    static DefinitionLevelWriter getRootDefinitionLevelWriter(List<DefLevelWriterProvider> defLevelWriterProviders, ColumnDescriptorValuesWriter encoder)
     {
         // Constructs hierarchy of DefinitionLevelWriter from leaf to root
         DefinitionLevelWriter rootDefinitionLevelWriter = Iterables.getLast(defLevelWriterProviders)

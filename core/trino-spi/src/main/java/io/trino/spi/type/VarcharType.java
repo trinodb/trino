@@ -23,7 +23,6 @@ import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
 
-import java.util.Objects;
 import java.util.Optional;
 
 import static io.airlift.slice.SliceUtf8.countCodePoints;
@@ -218,13 +217,12 @@ public final class VarcharType
         }
 
         VarcharType other = (VarcharType) o;
-
-        return Objects.equals(this.length, other.length);
+        return this.length == other.length;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(length);
+        return (length * 31) + getClass().hashCode();
     }
 }

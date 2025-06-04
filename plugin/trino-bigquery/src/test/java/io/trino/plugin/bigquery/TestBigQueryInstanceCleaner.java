@@ -155,18 +155,13 @@ public class TestBigQueryInstanceCleaner
 
     private static String getDropStatement(String schemaName, String objectName, String objectType)
     {
-        switch (objectType) {
-            case "BASE TABLE":
-                return format("DROP TABLE IF EXISTS %s.%s", quoted(schemaName), quoted(objectName));
-            case "VIEW":
-                return format("DROP VIEW IF EXISTS %s.%s", quoted(schemaName), quoted(objectName));
-            case "MATERIALIZED VIEW":
-                return format("DROP MATERIALIZED VIEW IF EXISTS %s.%s", quoted(schemaName), quoted(objectName));
-            case "SNAPSHOT":
-                return format("DROP SNAPSHOT TABLE IF EXISTS %s.%s", quoted(schemaName), quoted(objectName));
-            default:
-                throw new IllegalArgumentException("Unexpected object type " + objectType);
-        }
+        return switch (objectType) {
+            case "BASE TABLE" -> format("DROP TABLE IF EXISTS %s.%s", quoted(schemaName), quoted(objectName));
+            case "VIEW" -> format("DROP VIEW IF EXISTS %s.%s", quoted(schemaName), quoted(objectName));
+            case "MATERIALIZED VIEW" -> format("DROP MATERIALIZED VIEW IF EXISTS %s.%s", quoted(schemaName), quoted(objectName));
+            case "SNAPSHOT" -> format("DROP SNAPSHOT TABLE IF EXISTS %s.%s", quoted(schemaName), quoted(objectName));
+            default -> throw new IllegalArgumentException("Unexpected object type " + objectType);
+        };
     }
 
     private static String quoted(String identifier)

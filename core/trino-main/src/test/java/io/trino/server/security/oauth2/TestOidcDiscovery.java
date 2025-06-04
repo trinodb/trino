@@ -51,28 +51,31 @@ public class TestOidcDiscovery
     public void testStaticConfiguration()
             throws Exception
     {
-        testStaticConfiguration(Optional.empty(), Optional.empty());
-        testStaticConfiguration(Optional.of("/access-token-issuer"), Optional.of("/userinfo"));
+        testStaticConfiguration(Optional.empty(), Optional.empty(), Optional.empty());
+        testStaticConfiguration(Optional.of("/access-token-issuer"), Optional.of("/userinfo"), Optional.empty());
+        testStaticConfiguration(Optional.empty(), Optional.empty(), Optional.of("/connect/logout"));
+        testStaticConfiguration(Optional.of("/access-token-issuer"), Optional.of("/userinfo"), Optional.of("/connect/logout"));
     }
 
-    private void testStaticConfiguration(Optional<String> accessTokenPath, Optional<String> userinfoPath)
+    private void testStaticConfiguration(Optional<String> accessTokenPath, Optional<String> userinfoPath, Optional<String> endSessionPath)
             throws Exception
     {
         try (MetadataServer metadataServer = new MetadataServer(ImmutableMap.of("/jwks.json", "jwk/jwk-public.json"))) {
             URI issuer = metadataServer.getBaseUrl();
             Optional<URI> accessTokenIssuer = accessTokenPath.map(issuer::resolve);
             Optional<URI> userinfoUrl = userinfoPath.map(issuer::resolve);
+            Optional<URI> endSessionUrl = endSessionPath.map(issuer::resolve);
             ImmutableMap.Builder<String, String> properties = ImmutableMap.<String, String>builder()
                     .put("http-server.authentication.oauth2.issuer", metadataServer.getBaseUrl().toString())
                     .put("http-server.authentication.oauth2.oidc.discovery", "false")
                     .put("http-server.authentication.oauth2.auth-url", issuer.resolve("/connect/authorize").toString())
                     .put("http-server.authentication.oauth2.token-url", issuer.resolve("/connect/token").toString())
-                    .put("http-server.authentication.oauth2.jwks-url", issuer.resolve("/jwks.json").toString())
-                    .put("http-server.authentication.oauth2.end-session-url", issuer.resolve("/connect/logout").toString());
+                    .put("http-server.authentication.oauth2.jwks-url", issuer.resolve("/jwks.json").toString());
             accessTokenIssuer.map(URI::toString).ifPresent(uri -> properties.put("http-server.authentication.oauth2.access-token-issuer", uri));
             userinfoUrl.map(URI::toString).ifPresent(uri -> properties.put("http-server.authentication.oauth2.userinfo-url", uri));
+            endSessionUrl.map(URI::toString).ifPresent(uri -> properties.put("http-server.authentication.oauth2.end-session-url", uri));
             try (TestingTrinoServer server = createServer(properties.buildOrThrow())) {
-                assertConfiguration(server, issuer, accessTokenIssuer.map(issuer::resolve), userinfoUrl.map(issuer::resolve));
+                assertConfiguration(server, issuer, accessTokenIssuer.map(issuer::resolve), userinfoUrl.map(issuer::resolve), endSessionUrl.map(issuer::resolve));
             }
         }
     }
@@ -81,12 +84,25 @@ public class TestOidcDiscovery
     public void testOidcDiscovery()
             throws Exception
     {
-        testOidcDiscovery("openid-configuration.json", Optional.empty(), Optional.of("/connect/userinfo"));
-        testOidcDiscovery("openid-configuration-without-userinfo.json", Optional.empty(), Optional.empty());
-        testOidcDiscovery("openid-configuration-with-access-token-issuer.json", Optional.of("http://access-token-issuer.com/adfs/services/trust"), Optional.of("/connect/userinfo"));
+        testOidcDiscovery("openid-configuration.json",
+                Optional.empty(),
+                Optional.of("/connect/userinfo"),
+                Optional.of("/connect/end_session"));
+        testOidcDiscovery("openid-configuration-without-userinfo.json",
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of("/connect/end_session"));
+        testOidcDiscovery("openid-configuration-with-access-token-issuer.json",
+                Optional.of("http://access-token-issuer.com/adfs/services/trust"),
+                Optional.of("/connect/userinfo"),
+                Optional.of("/adfs/oauth2/logout"));
+        testOidcDiscovery("openid-configuration-without-end-session-url.json",
+                Optional.empty(),
+                Optional.of("/connect/userinfo"),
+                Optional.empty());
     }
 
-    private void testOidcDiscovery(String configuration, Optional<String> accessTokenIssuer, Optional<String> userinfoUrl)
+    private void testOidcDiscovery(String configuration, Optional<String> accessTokenIssuer, Optional<String> userinfoUrl, Optional<String> endSessionUrl)
             throws Exception
     {
         try (MetadataServer metadataServer = new MetadataServer(
@@ -100,7 +116,7 @@ public class TestOidcDiscovery
                                 .put("http-server.authentication.oauth2.oidc.discovery", "true")
                                 .buildOrThrow())) {
             URI issuer = metadataServer.getBaseUrl();
-            assertConfiguration(server, issuer, accessTokenIssuer.map(issuer::resolve), userinfoUrl.map(issuer::resolve));
+            assertConfiguration(server, issuer, accessTokenIssuer.map(issuer::resolve), userinfoUrl.map(issuer::resolve), endSessionUrl.map(issuer::resolve));
         }
     }
 
@@ -158,7 +174,7 @@ public class TestOidcDiscovery
                                 .put("http-server.authentication.oauth2.oidc.discovery.timeout", "10s")
                                 .buildOrThrow())) {
             URI issuer = metadataServer.getBaseUrl();
-            assertConfiguration(server, issuer, Optional.empty(), Optional.of(issuer.resolve("/connect/userinfo")));
+            assertConfiguration(server, issuer, Optional.empty(), Optional.of(issuer.resolve("/connect/userinfo")), Optional.of(issuer.resolve("/connect/end_session")));
         }
     }
 
@@ -199,7 +215,7 @@ public class TestOidcDiscovery
                                 .put("http-server.authentication.oauth2.oidc.use-userinfo-endpoint", "false")
                                 .buildOrThrow())) {
             URI issuer = metadataServer.getBaseUrl();
-            assertConfiguration(server, issuer, Optional.empty(), Optional.empty());
+            assertConfiguration(server, issuer, Optional.empty(), Optional.empty(), Optional.of(issuer.resolve("/connect/end_session")));
         }
     }
 
@@ -239,7 +255,7 @@ public class TestOidcDiscovery
         }
     }
 
-    private static void assertConfiguration(TestingTrinoServer server, URI issuer, Optional<URI> accessTokenIssuer, Optional<URI> userinfoUrl)
+    private static void assertConfiguration(TestingTrinoServer server, URI issuer, Optional<URI> accessTokenIssuer, Optional<URI> userinfoUrl, Optional<URI> endSessionUrl)
     {
         assertComponents(server);
         OAuth2ServerConfig config = server.getInstance(Key.get(OAuth2ServerConfigProvider.class)).get();
@@ -248,6 +264,7 @@ public class TestOidcDiscovery
         assertThat(config.tokenUrl()).isEqualTo(issuer.resolve("/connect/token"));
         assertThat(config.jwksUrl()).isEqualTo(issuer.resolve("/jwks.json"));
         assertThat(config.userinfoUrl()).isEqualTo(userinfoUrl);
+        assertThat(config.endSessionUrl()).isEqualTo(endSessionUrl);
     }
 
     private static void assertComponents(TestingTrinoServer server)
@@ -294,7 +311,7 @@ public class TestOidcDiscovery
             NodeInfo nodeInfo = new NodeInfo("test");
             HttpServerConfig config = new HttpServerConfig().setHttpPort(0);
             HttpServerInfo httpServerInfo = new HttpServerInfo(config, nodeInfo);
-            httpServer = new TestingHttpServer(httpServerInfo, nodeInfo, config, servlet, ImmutableMap.of());
+            httpServer = new TestingHttpServer(httpServerInfo, nodeInfo, config, servlet);
             httpServer.start();
         }
 

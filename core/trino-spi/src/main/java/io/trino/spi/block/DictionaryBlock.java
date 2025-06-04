@@ -16,14 +16,12 @@ package io.trino.spi.block;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkValidPosition;
-import static io.trino.spi.block.BlockUtil.checkValidPositions;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactArray;
 import static io.trino.spi.block.DictionaryId.randomDictionaryId;
@@ -42,7 +40,6 @@ public final class DictionaryBlock
     private final int[] ids;
     private final long retainedSizeInBytes;
     private volatile long sizeInBytes = -1;
-    private volatile long logicalSizeInBytes = -1;
     private volatile int uniqueIds = -1;
     // isSequentialIds is only valid when uniqueIds is computed
     private volatile boolean isSequentialIds;
@@ -107,11 +104,9 @@ public final class DictionaryBlock
         this.ids = ids;
         this.dictionarySourceId = requireNonNull(dictionarySourceId, "dictionarySourceId is null");
         this.retainedSizeInBytes = INSTANCE_SIZE + sizeOf(ids);
-        // avoid eager loading of lazy dictionaries
-        this.mayHaveNull = positionCount > 0 && (!dictionary.isLoaded() || dictionary.mayHaveNull());
+        this.mayHaveNull = positionCount > 0 && dictionary.mayHaveNull();
 
         if (dictionaryIsCompacted) {
-            this.sizeInBytes = dictionary.getSizeInBytes() + (Integer.BYTES * (long) positionCount);
             this.uniqueIds = dictionary.getPositionCount();
         }
 
@@ -144,31 +139,19 @@ public final class DictionaryBlock
     }
 
     @Override
-    public OptionalInt fixedSizeInBytesPerPosition()
-    {
-        if (uniqueIds == positionCount) {
-            // Each position is unique, so the per-position fixed size of the dictionary plus the dictionary id overhead
-            // is our fixed size per position
-            OptionalInt dictionarySizePerPosition = dictionary.fixedSizeInBytesPerPosition();
-            // Nested dictionaries should not include the additional id array overhead in the result
-            if (dictionarySizePerPosition.isPresent()) {
-                dictionarySizePerPosition = OptionalInt.of(dictionarySizePerPosition.getAsInt() + Integer.BYTES);
-            }
-            return dictionarySizePerPosition;
-        }
-        return OptionalInt.empty();
-    }
-
-    @Override
     public long getSizeInBytes()
     {
+        long sizeInBytes = this.sizeInBytes;
         if (sizeInBytes == -1) {
-            calculateCompactSize();
+            // size is estimated based on the average dictionary entry size
+            double averageEntrySize = dictionary.getSizeInBytes() / (double) dictionary.getPositionCount();
+            sizeInBytes = (long) (averageEntrySize * positionCount) + (Integer.BYTES * (long) positionCount);
+            this.sizeInBytes = sizeInBytes;
         }
         return sizeInBytes;
     }
 
-    private void calculateCompactSize()
+    private void countUniqueIds()
     {
         int uniqueIds = 0;
         boolean[] used = new boolean[dictionary.getPositionCount()];
@@ -187,39 +170,8 @@ public final class DictionaryBlock
             }
         }
 
-        this.sizeInBytes = getSizeInBytesForSelectedPositions(used, uniqueIds, positionCount);
         this.uniqueIds = uniqueIds;
         this.isSequentialIds = isSequentialIds;
-    }
-
-    @Override
-    public long getLogicalSizeInBytes()
-    {
-        if (logicalSizeInBytes >= 0) {
-            return logicalSizeInBytes;
-        }
-
-        OptionalInt dictionarySizePerPosition = dictionary.fixedSizeInBytesPerPosition();
-        if (dictionarySizePerPosition.isPresent()) {
-            logicalSizeInBytes = dictionarySizePerPosition.getAsInt() * (long) getPositionCount();
-            return logicalSizeInBytes;
-        }
-
-        // Calculation of logical size can be performed as part of calculateCompactSize() with minor modifications.
-        // Keeping this calculation separate as this is a little more expensive and may not be called as often.
-        long sizeInBytes = 0;
-        long[] seenSizes = new long[dictionary.getPositionCount()];
-        Arrays.fill(seenSizes, -1L);
-        for (int i = 0; i < getPositionCount(); i++) {
-            int position = getId(i);
-            if (seenSizes[position] < 0) {
-                seenSizes[position] = dictionary.getRegionSizeInBytes(position, 1);
-            }
-            sizeInBytes += seenSizes[position];
-        }
-
-        logicalSizeInBytes = sizeInBytes;
-        return sizeInBytes;
     }
 
     @Override
@@ -231,62 +183,8 @@ public final class DictionaryBlock
             return getSizeInBytes();
         }
 
-        OptionalInt fixedSizeInBytesPerPosition = fixedSizeInBytesPerPosition();
-        if (fixedSizeInBytesPerPosition.isPresent()) {
-            // no ids repeat and the dictionary block has a fixed size per position
-            return fixedSizeInBytesPerPosition.getAsInt() * (long) length;
-        }
-
-        int uniqueIds = 0;
-        boolean[] used = new boolean[dictionary.getPositionCount()];
-        int startOffset = idsOffset + positionOffset;
-        for (int i = 0; i < length; i++) {
-            int id = ids[startOffset + i];
-            uniqueIds += used[id] ? 0 : 1;
-            used[id] = true;
-        }
-
-        return getSizeInBytesForSelectedPositions(used, uniqueIds, length);
-    }
-
-    @Override
-    public long getPositionsSizeInBytes(boolean[] positions, int selectedPositionsCount)
-    {
-        checkValidPositions(positions, positionCount);
-        if (selectedPositionsCount == 0) {
-            return 0;
-        }
-        if (selectedPositionsCount == positionCount) {
-            return getSizeInBytes();
-        }
-        OptionalInt fixedSizeInBytesPerPosition = fixedSizeInBytesPerPosition();
-        if (fixedSizeInBytesPerPosition.isPresent()) {
-            // no ids repeat and the dictionary block has a fixed sizer per position
-            return fixedSizeInBytesPerPosition.getAsInt() * (long) selectedPositionsCount;
-        }
-
-        int uniqueIds = 0;
-        boolean[] used = new boolean[dictionary.getPositionCount()];
-        for (int i = 0; i < positions.length; i++) {
-            int id = ids[idsOffset + i];
-            if (positions[i]) {
-                uniqueIds += used[id] ? 0 : 1;
-                used[id] = true;
-            }
-        }
-
-        return getSizeInBytesForSelectedPositions(used, uniqueIds, selectedPositionsCount);
-    }
-
-    private long getSizeInBytesForSelectedPositions(boolean[] usedIds, int uniqueIds, int selectedPositions)
-    {
-        long dictionarySize = dictionary.getPositionsSizeInBytes(usedIds, uniqueIds);
-        if (uniqueIds == dictionary.getPositionCount() && this.sizeInBytes == -1) {
-            // All positions in the dictionary are referenced, store the uniqueId count and sizeInBytes
-            this.uniqueIds = uniqueIds;
-            this.sizeInBytes = dictionarySize + (Integer.BYTES * (long) positionCount);
-        }
-        return dictionarySize + (Integer.BYTES * (long) selectedPositions);
+        double averageEntrySize = dictionary.getSizeInBytes() / (double) dictionary.getPositionCount();
+        return (long) (averageEntrySize * length) + (Integer.BYTES * (long) length);
     }
 
     @Override
@@ -307,12 +205,6 @@ public final class DictionaryBlock
         consumer.accept(dictionary, dictionary.getRetainedSizeInBytes());
         consumer.accept(ids, sizeOf(ids));
         consumer.accept(this, INSTANCE_SIZE);
-    }
-
-    @Override
-    public String getEncodingName()
-    {
-        return DictionaryBlockEncoding.NAME;
     }
 
     @Override
@@ -412,6 +304,12 @@ public final class DictionaryBlock
     }
 
     @Override
+    public boolean hasNull()
+    {
+        return mayHaveNull && dictionary.hasNull();
+    }
+
+    @Override
     public boolean isNull(int position)
     {
         if (!mayHaveNull) {
@@ -444,7 +342,6 @@ public final class DictionaryBlock
         if (usedIds != null && !isCompact) {
             // resulting dictionary is not compact, but we know the number of unique ids and which positions are used
             result.uniqueIds = uniqueIds;
-            result.sizeInBytes = dictionary.getPositionsSizeInBytes(usedIds, uniqueIds) + (Integer.BYTES * (long) length);
         }
         return result;
     }
@@ -489,23 +386,6 @@ public final class DictionaryBlock
     }
 
     @Override
-    public boolean isLoaded()
-    {
-        return dictionary.isLoaded();
-    }
-
-    @Override
-    public Block getLoadedBlock()
-    {
-        Block loadedDictionary = dictionary.getLoadedBlock();
-
-        if (loadedDictionary == dictionary) {
-            return this;
-        }
-        return createInternal(idsOffset, getPositionCount(), loadedDictionary, ids, randomDictionaryId());
-    }
-
-    @Override
     public ValueBlock getUnderlyingValueBlock()
     {
         return dictionary;
@@ -528,13 +408,6 @@ public final class DictionaryBlock
             throw new IllegalArgumentException("newDictionary must have the same position count");
         }
 
-        // if the new dictionary is lazy be careful to not materialize it
-        if (newDictionary instanceof LazyBlock lazyBlock) {
-            return new LazyBlock(positionCount, () -> {
-                Block newDictionaryBlock = lazyBlock.getBlock();
-                return createProjection(newDictionaryBlock);
-            });
-        }
         if (newDictionary instanceof ValueBlock valueBlock) {
             return new DictionaryBlock(idsOffset, positionCount, valueBlock, ids, isCompact(), false, dictionarySourceId);
         }
@@ -553,7 +426,7 @@ public final class DictionaryBlock
     boolean isSequentialIds()
     {
         if (uniqueIds == -1) {
-            calculateCompactSize();
+            countUniqueIds();
         }
 
         return isSequentialIds;
@@ -562,7 +435,7 @@ public final class DictionaryBlock
     int getUniqueIds()
     {
         if (uniqueIds == -1) {
-            calculateCompactSize();
+            countUniqueIds();
         }
 
         return uniqueIds;
@@ -587,7 +460,7 @@ public final class DictionaryBlock
     public boolean isCompact()
     {
         if (uniqueIds == -1) {
-            calculateCompactSize();
+            countUniqueIds();
         }
         return uniqueIds == dictionary.getPositionCount();
     }

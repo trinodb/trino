@@ -151,6 +151,41 @@ public final class StateCompiler
         return ObjectBigArray.class;
     }
 
+    private static Class<?> bigArrayElementType(Class<?> bigArrayType)
+    {
+        if (bigArrayType.equals(LongBigArray.class)) {
+            return long.class;
+        }
+        if (bigArrayType.equals(ByteBigArray.class)) {
+            return byte.class;
+        }
+        if (bigArrayType.equals(DoubleBigArray.class)) {
+            return double.class;
+        }
+        if (bigArrayType.equals(BooleanBigArray.class)) {
+            return boolean.class;
+        }
+        if (bigArrayType.equals(IntBigArray.class)) {
+            return int.class;
+        }
+        if (bigArrayType.equals(SliceBigArray.class)) {
+            return Slice.class;
+        }
+        if (bigArrayType.equals(BlockBigArray.class)) {
+            return Block.class;
+        }
+        if (bigArrayType.equals(SqlMapBigArray.class)) {
+            return SqlMap.class;
+        }
+        if (bigArrayType.equals(SqlRowBigArray.class)) {
+            return SqlRow.class;
+        }
+        if (bigArrayType.equals(ObjectBigArray.class)) {
+            return Object.class;
+        }
+        throw new IllegalArgumentException("Unsupported bigArrayType: " + bigArrayType.getName());
+    }
+
     public static <T extends AccumulatorState> AccumulatorStateSerializer<T> generateStateSerializer(Class<T> clazz)
     {
         return generateStateSerializer(clazz, ImmutableMap.of());
@@ -338,14 +373,14 @@ public final class StateCompiler
         Scope scope = method.getScope();
         BytecodeBlock body = method.getBody();
 
-        Variable fieldBuilder = scope.createTempVariable(BlockBuilder.class);
+        Variable fieldBuilder = scope.getOrCreateTempVariable(BlockBuilder.class);
         for (int i = 0; i < fields.size(); i++) {
             StateField field = fields.get(i);
             Method getter = getGetter(clazz, field);
 
             SqlTypeBytecodeExpression sqlType = constantType(binder, field.getSqlType());
 
-            Variable fieldValue = scope.createTempVariable(getter.getReturnType());
+            Variable fieldValue = scope.getOrCreateTempVariable(getter.getReturnType());
             body.append(fieldValue.set(state.cast(getter.getDeclaringClass()).invoke(getter)));
 
             body.append(fieldBuilder.set(fieldBuilders.invoke("get", Object.class, constantInt(i)).cast(BlockBuilder.class)));
@@ -359,7 +394,9 @@ public final class StateCompiler
                 // For primitive type, we need to cast here because we serialize byte fields with TINYINT/INTEGER (whose java type is long).
                 body.append(sqlType.writeValue(fieldBuilder, fieldValue.cast(field.getSqlType().getJavaType())));
             }
+            scope.releaseTempVariableForReuse(fieldValue);
         }
+        scope.releaseTempVariableForReuse(fieldBuilder);
         body.ret();
         return method;
     }
@@ -473,8 +510,9 @@ public final class StateCompiler
 
         ImmutableList.Builder<FieldDefinition> fieldDefinitions = ImmutableList.builder();
         FieldDefinition groupIdField = definition.declareField(a(PRIVATE), "groupId", int.class);
-        Class<?> valueElementType = inOutGetterReturnType(type);
-        FieldDefinition valueField = definition.declareField(a(PRIVATE, FINAL), "value", getBigArrayType(valueElementType));
+        Class<?> bigArrayType = getBigArrayType(type.getJavaType());
+        Class<?> valueElementType = bigArrayElementType(bigArrayType);
+        FieldDefinition valueField = definition.declareField(a(PRIVATE, FINAL), "value", bigArrayType);
         fieldDefinitions.add(valueField);
         constructor.getBody().append(constructor.getThis().setField(valueField, newInstance(valueField.getType())));
         Function<Scope, BytecodeExpression> valueGetter = scope -> scope.getThis().getField(valueField).invoke("get", valueElementType, scope.getThis().getField(groupIdField).cast(long.class));
@@ -1038,20 +1076,20 @@ public final class StateCompiler
         Object value = null;
 
         for (Annotation annotation : method.getAnnotations()) {
-            if (annotation instanceof InitialLongValue) {
+            if (annotation instanceof InitialLongValue initialValue) {
                 checkArgument(value == null, "%s has multiple initialValue annotations", method.getName());
                 checkArgument(method.getReturnType() == long.class, "%s does not return a long, but is annotated with @InitialLongValue", method.getName());
-                value = ((InitialLongValue) annotation).value();
+                value = initialValue.value();
             }
-            else if (annotation instanceof InitialDoubleValue) {
+            else if (annotation instanceof InitialDoubleValue initialValue) {
                 checkArgument(value == null, "%s has multiple initialValue annotations", method.getName());
                 checkArgument(method.getReturnType() == double.class, "%s does not return a double, but is annotated with @InitialDoubleValue", method.getName());
-                value = ((InitialDoubleValue) annotation).value();
+                value = initialValue.value();
             }
-            else if (annotation instanceof InitialBooleanValue) {
+            else if (annotation instanceof InitialBooleanValue initialValue) {
                 checkArgument(value == null, "%s has multiple initialValue annotations", method.getName());
                 checkArgument(method.getReturnType() == boolean.class, "%s does not return a boolean, but is annotated with @InitialBooleanValue", method.getName());
-                value = ((InitialBooleanValue) annotation).value();
+                value = initialValue.value();
             }
         }
 
@@ -1203,16 +1241,12 @@ public final class StateCompiler
 
         public BytecodeExpression initialValueExpression()
         {
-            if (initialValue == null) {
-                return defaultValue(type);
-            }
-            if (initialValue instanceof Number) {
-                return constantNumber((Number) initialValue);
-            }
-            if (initialValue instanceof Boolean) {
-                return constantBoolean((boolean) initialValue);
-            }
-            throw new IllegalArgumentException("Unsupported initial value type: " + initialValue.getClass());
+            return switch (initialValue) {
+                case null -> defaultValue(type);
+                case Number number -> constantNumber(number);
+                case Boolean _ -> constantBoolean((boolean) initialValue);
+                default -> throw new IllegalArgumentException("Unsupported initial value type: " + initialValue.getClass());
+            };
         }
     }
 }

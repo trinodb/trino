@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -28,17 +27,7 @@ public final class Call
     private final QualifiedName name;
     private final List<CallArgument> arguments;
 
-    public Call(QualifiedName name, List<CallArgument> arguments)
-    {
-        this(Optional.empty(), name, arguments);
-    }
-
     public Call(NodeLocation location, QualifiedName name, List<CallArgument> arguments)
-    {
-        this(Optional.of(location), name, arguments);
-    }
-
-    public Call(Optional<NodeLocation> location, QualifiedName name, List<CallArgument> arguments)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");

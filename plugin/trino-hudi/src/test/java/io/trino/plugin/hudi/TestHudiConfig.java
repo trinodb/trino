@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hudi;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import org.junit.jupiter.api.Test;
@@ -30,7 +31,7 @@ public class TestHudiConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(HudiConfig.class)
-                .setColumnsToHide(null)
+                .setColumnsToHide(ImmutableList.of())
                 .setUseParquetColumnNames(true)
                 .setSizeBasedSplitWeightsEnabled(true)
                 .setStandardSplitWeightSize(DataSize.of(128, MEGABYTE))
@@ -40,7 +41,8 @@ public class TestHudiConfig
                 .setSplitLoaderParallelism(4)
                 .setSplitGeneratorParallelism(4)
                 .setPerTransactionMetastoreCacheMaximumSize(2000)
-                .setQueryPartitionFilterRequired(false));
+                .setQueryPartitionFilterRequired(false)
+                .setIgnoreAbsentPartitions(false));
     }
 
     @Test
@@ -58,10 +60,11 @@ public class TestHudiConfig
                 .put("hudi.split-generator-parallelism", "32")
                 .put("hudi.per-transaction-metastore-cache-maximum-size", "1000")
                 .put("hudi.query-partition-filter-required", "true")
+                .put("hudi.ignore-absent-partitions", "true")
                 .buildOrThrow();
 
         HudiConfig expected = new HudiConfig()
-                .setColumnsToHide("_hoodie_record_key")
+                .setColumnsToHide(ImmutableList.of("_hoodie_record_key"))
                 .setUseParquetColumnNames(false)
                 .setSizeBasedSplitWeightsEnabled(false)
                 .setStandardSplitWeightSize(DataSize.of(64, MEGABYTE))
@@ -71,7 +74,8 @@ public class TestHudiConfig
                 .setSplitLoaderParallelism(16)
                 .setSplitGeneratorParallelism(32)
                 .setPerTransactionMetastoreCacheMaximumSize(1000)
-                .setQueryPartitionFilterRequired(true);
+                .setQueryPartitionFilterRequired(true)
+                .setIgnoreAbsentPartitions(true);
 
         assertFullMapping(properties, expected);
     }

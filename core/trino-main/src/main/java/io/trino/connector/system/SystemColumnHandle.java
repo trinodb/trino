@@ -13,8 +13,6 @@
  */
 package io.trino.connector.system;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -26,43 +24,14 @@ import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
-public class SystemColumnHandle
+public record SystemColumnHandle(String columnName)
         implements ColumnHandle
 {
     private static final int INSTANCE_SIZE = instanceSize(SystemColumnHandle.class);
 
-    private final String columnName;
-
-    @JsonCreator
-    public SystemColumnHandle(
-            @JsonProperty("columnName") String columnName)
+    public SystemColumnHandle
     {
-        this.columnName = requireNonNull(columnName, "columnName is null");
-    }
-
-    @JsonProperty
-    public String getColumnName()
-    {
-        return columnName;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return columnName.hashCode();
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        SystemColumnHandle other = (SystemColumnHandle) obj;
-        return columnName.equals(other.columnName);
+        requireNonNull(columnName, "columnName is null");
     }
 
     @Override

@@ -240,14 +240,10 @@ public class TestDeprecatedFunctionWarning
     public static class TestDeprecatedAggregation
     {
         @InputFunction
-        public static void input(LongAndDoubleState state, @SqlType(StandardTypes.DOUBLE) double value)
-        {
-        }
+        public static void input(LongAndDoubleState state, @SqlType(StandardTypes.DOUBLE) double value) {}
 
         @CombineFunction
-        public static void combine(LongAndDoubleState state, LongAndDoubleState otherState)
-        {
-        }
+        public static void combine(LongAndDoubleState state, LongAndDoubleState otherState) {}
 
         @OutputFunction(StandardTypes.DOUBLE)
         public static void output(LongAndDoubleState state, BlockBuilder out)
@@ -260,14 +256,10 @@ public class TestDeprecatedFunctionWarning
     public static class TestNonDeprecatedAggregation
     {
         @InputFunction
-        public static void input(LongAndDoubleState state, @SqlType(StandardTypes.DOUBLE) double value)
-        {
-        }
+        public static void input(LongAndDoubleState state, @SqlType(StandardTypes.DOUBLE) double value) {}
 
         @CombineFunction
-        public static void combine(LongAndDoubleState state, LongAndDoubleState otherState)
-        {
-        }
+        public static void combine(LongAndDoubleState state, LongAndDoubleState otherState) {}
 
         @OutputFunction(StandardTypes.DOUBLE)
         public static void output(LongAndDoubleState state, BlockBuilder out)

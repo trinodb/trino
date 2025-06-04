@@ -45,12 +45,6 @@ public class TestMemoryFileSystem
     }
 
     @Override
-    protected boolean supportsCreateExclusive()
-    {
-        return true;
-    }
-
-    @Override
     protected TrinoFileSystem getFileSystem()
     {
         return fileSystem;

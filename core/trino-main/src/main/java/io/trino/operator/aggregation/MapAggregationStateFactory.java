@@ -36,7 +36,7 @@ public class MapAggregationStateFactory
     private final MethodHandle keyReadFlat;
     private final MethodHandle keyWriteFlat;
     private final MethodHandle keyHashFlat;
-    private final MethodHandle keyDistinctFlatBlock;
+    private final MethodHandle keyIdenticalFlatBlock;
     private final MethodHandle keyHashBlock;
 
     private final Type valueType;
@@ -58,9 +58,9 @@ public class MapAggregationStateFactory
                     argumentTypes = "K",
                     convention = @Convention(arguments = FLAT, result = FAIL_ON_NULL)) MethodHandle keyHashFlat,
             @OperatorDependency(
-                    operator = OperatorType.IS_DISTINCT_FROM,
+                    operator = OperatorType.IDENTICAL,
                     argumentTypes = {"K", "K"},
-                    convention = @Convention(arguments = {FLAT, VALUE_BLOCK_POSITION_NOT_NULL}, result = FAIL_ON_NULL)) MethodHandle keyDistinctFlatBlock,
+                    convention = @Convention(arguments = {FLAT, VALUE_BLOCK_POSITION_NOT_NULL}, result = FAIL_ON_NULL)) MethodHandle keyIdenticalFlatBlock,
             @OperatorDependency(
                     operator = OperatorType.HASH_CODE,
                     argumentTypes = "K",
@@ -79,7 +79,7 @@ public class MapAggregationStateFactory
         this.keyReadFlat = requireNonNull(keyReadFlat, "keyReadFlat is null");
         this.keyWriteFlat = requireNonNull(keyWriteFlat, "keyWriteFlat is null");
         this.keyHashFlat = requireNonNull(keyHashFlat, "keyHashFlat is null");
-        this.keyDistinctFlatBlock = requireNonNull(keyDistinctFlatBlock, "keyDistinctFlatBlock is null");
+        this.keyIdenticalFlatBlock = requireNonNull(keyIdenticalFlatBlock, "keyIdenticalFlatBlock is null");
         this.keyHashBlock = requireNonNull(keyHashBlock, "keyHashBlock is null");
 
         this.valueType = requireNonNull(valueType, "valueType is null");
@@ -90,12 +90,12 @@ public class MapAggregationStateFactory
     @Override
     public MapAggregationState createSingleState()
     {
-        return new SingleMapAggregationState(keyType, keyReadFlat, keyWriteFlat, keyHashFlat, keyDistinctFlatBlock, keyHashBlock, valueType, valueReadFlat, valueWriteFlat);
+        return new SingleMapAggregationState(keyType, keyReadFlat, keyWriteFlat, keyHashFlat, keyIdenticalFlatBlock, keyHashBlock, valueType, valueReadFlat, valueWriteFlat);
     }
 
     @Override
     public MapAggregationState createGroupedState()
     {
-        return new GroupedMapAggregationState(keyType, keyReadFlat, keyWriteFlat, keyHashFlat, keyDistinctFlatBlock, keyHashBlock, valueType, valueReadFlat, valueWriteFlat);
+        return new GroupedMapAggregationState(keyType, keyReadFlat, keyWriteFlat, keyHashFlat, keyIdenticalFlatBlock, keyHashBlock, valueType, valueReadFlat, valueWriteFlat);
     }
 }

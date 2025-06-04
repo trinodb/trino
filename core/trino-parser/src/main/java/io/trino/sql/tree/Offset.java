@@ -27,6 +27,7 @@ public class Offset
 {
     private final Expression rowCount;
 
+    @Deprecated
     public Offset(Expression rowCount)
     {
         this(Optional.empty(), rowCount);
@@ -37,7 +38,7 @@ public class Offset
         this(Optional.of(location), rowCount);
     }
 
-    public Offset(Optional<NodeLocation> location, Expression rowCount)
+    private Offset(Optional<NodeLocation> location, Expression rowCount)
     {
         super(location);
         checkArgument(rowCount instanceof LongLiteral || rowCount instanceof Parameter,

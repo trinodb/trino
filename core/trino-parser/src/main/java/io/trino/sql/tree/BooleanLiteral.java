@@ -28,6 +28,7 @@ public class BooleanLiteral
 
     private final boolean value;
 
+    @Deprecated
     public BooleanLiteral(String value)
     {
         this(Optional.empty(), value);
@@ -74,7 +75,7 @@ public class BooleanLiteral
             return false;
         }
         BooleanLiteral other = (BooleanLiteral) obj;
-        return Objects.equals(this.value, other.value);
+        return this.value == other.value;
     }
 
     @Override

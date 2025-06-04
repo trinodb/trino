@@ -17,11 +17,12 @@ import com.google.common.base.CaseFormat;
 import com.google.common.reflect.ClassPath;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
-import io.trino.tests.product.launcher.env.Environments;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
+import io.trino.tests.product.launcher.env.jdk.JdkProvider;
 import io.trino.tests.product.launcher.suite.Suite;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -35,7 +36,7 @@ public final class Configurations
     public static List<Class<? extends EnvironmentProvider>> findEnvironmentsByBasePackage(String packageName)
     {
         try {
-            return ClassPath.from(Environments.class.getClassLoader()).getTopLevelClassesRecursive(packageName).stream()
+            return ClassPath.from(Configurations.class.getClassLoader()).getTopLevelClassesRecursive(packageName).stream()
                     .map(ClassPath.ClassInfo::load)
                     .filter(clazz -> clazz.isAnnotationPresent(TestsEnvironment.class))
                     .map(clazz -> (Class<? extends EnvironmentProvider>) clazz.asSubclass(EnvironmentProvider.class))
@@ -49,7 +50,7 @@ public final class Configurations
     public static List<Class<? extends EnvironmentConfig>> findConfigsByBasePackage(String packageName)
     {
         try {
-            return ClassPath.from(Environments.class.getClassLoader()).getTopLevelClassesRecursive(packageName).stream()
+            return ClassPath.from(Configurations.class.getClassLoader()).getTopLevelClassesRecursive(packageName).stream()
                     .map(ClassPath.ClassInfo::load)
                     .filter(clazz -> !isAbstract(clazz.getModifiers()))
                     .filter(EnvironmentConfig.class::isAssignableFrom)
@@ -64,7 +65,7 @@ public final class Configurations
     public static List<Class<? extends Suite>> findSuitesByPackageName(String packageName)
     {
         try {
-            return ClassPath.from(Environments.class.getClassLoader()).getTopLevelClassesRecursive(packageName).stream()
+            return ClassPath.from(Configurations.class.getClassLoader()).getTopLevelClassesRecursive(packageName).stream()
                     .map(ClassPath.ClassInfo::load)
                     .filter(clazz -> !isAbstract(clazz.getModifiers()))
                     .filter(Suite.class::isAssignableFrom)
@@ -74,6 +75,28 @@ public final class Configurations
         catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public static List<Class<? extends JdkProvider>> findJdkProvidersByPackageName(String packageName)
+    {
+        try {
+            return ClassPath.from(Configurations.class.getClassLoader()).getTopLevelClassesRecursive(packageName).stream()
+                    .map(ClassPath.ClassInfo::load)
+                    .filter(clazz -> !isAbstract(clazz.getModifiers()))
+                    .filter(JdkProvider.class::isAssignableFrom)
+                    .filter(Configurations::hasDefaultConstructor)
+                    .map(clazz -> (Class<? extends JdkProvider>) clazz.asSubclass(JdkProvider.class))
+                    .collect(toImmutableList());
+        }
+        catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static boolean hasDefaultConstructor(Class<?> clazz)
+    {
+        return Arrays.stream(clazz.getConstructors())
+                .anyMatch(constructor -> constructor.getParameterCount() == 0);
     }
 
     public static String nameForEnvironmentClass(Class<? extends EnvironmentProvider> clazz)
@@ -98,6 +121,11 @@ public final class Configurations
         return "suite-" + CaseFormat.UPPER_CAMEL.to(CaseFormat.LOWER_HYPHEN, className.replaceFirst("^Suite", ""));
     }
 
+    public static String nameForJdkProviderName(Class<? extends JdkProvider> clazz)
+    {
+        return canonicalJdkProviderName(clazz.getSimpleName().replaceAll("JdkProvider$", ""));
+    }
+
     public static String canonicalEnvironmentName(String name)
     {
         if (name.matches("^Env[A-Z].*")) {
@@ -109,6 +137,11 @@ public final class Configurations
     public static String canonicalConfigName(String name)
     {
         return canonicalName(name);
+    }
+
+    public static String canonicalJdkProviderName(String name)
+    {
+        return canonicalName(name).replaceAll("-", "");
     }
 
     /**

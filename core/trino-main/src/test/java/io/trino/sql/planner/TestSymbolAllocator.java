@@ -34,6 +34,20 @@ public class TestSymbolAllocator
                 .add(allocator.newSymbol("foo", BigintType.BIGINT))
                 .build();
 
-        assertThat(symbols.size()).isEqualTo(4);
+        assertThat(symbols).hasSize(4);
+    }
+
+    @Test
+    public void testNonAscii()
+    {
+        SymbolAllocator allocator = new SymbolAllocator();
+        Set<Symbol> symbols = ImmutableSet.<Symbol>builder()
+                .add(allocator.newSymbol("カラム", BigintType.BIGINT))
+                .add(allocator.newSymbol("col", BigintType.BIGINT))
+                .build();
+
+        assertThat(symbols).containsExactlyInAnyOrder(
+                new Symbol(BigintType.BIGINT, "col"),
+                new Symbol(BigintType.BIGINT, "col_0"));
     }
 }

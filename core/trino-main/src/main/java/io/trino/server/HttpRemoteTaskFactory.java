@@ -28,7 +28,6 @@ import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.trino.execution.LocationFactory;
 import io.trino.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import io.trino.execution.QueryManagerConfig;
-import io.trino.execution.RemoteTask;
 import io.trino.execution.RemoteTaskFactory;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskInfo;
@@ -135,7 +134,7 @@ public class HttpRemoteTaskFactory
     }
 
     @Override
-    public RemoteTask createRemoteTask(
+    public HttpRemoteTask createRemoteTask(
             Session session,
             Span stageSpan,
             TaskId taskId,

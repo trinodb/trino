@@ -13,10 +13,7 @@
  */
 package io.trino.spi.type;
 
-import com.fasterxml.jackson.annotation.JsonValue;
-
 import java.time.LocalDate;
-import java.util.Objects;
 
 public final class SqlDate
 {
@@ -49,10 +46,9 @@ public final class SqlDate
             return false;
         }
         SqlDate other = (SqlDate) obj;
-        return Objects.equals(days, other.days);
+        return days == other.days;
     }
 
-    @JsonValue
     @Override
     public String toString()
     {

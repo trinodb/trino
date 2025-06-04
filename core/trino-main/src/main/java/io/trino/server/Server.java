@@ -13,7 +13,6 @@
  */
 package io.trino.server;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.StandardSystemProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
@@ -22,11 +21,12 @@ import com.google.inject.Module;
 import com.google.inject.TypeLiteral;
 import io.airlift.bootstrap.ApplicationConfigurationException;
 import io.airlift.bootstrap.Bootstrap;
+import io.airlift.compress.v3.lz4.Lz4NativeCompressor;
+import io.airlift.compress.v3.snappy.SnappyNativeCompressor;
+import io.airlift.compress.v3.zstd.ZstdNativeCompressor;
 import io.airlift.discovery.client.Announcer;
 import io.airlift.discovery.client.DiscoveryModule;
 import io.airlift.discovery.client.ServiceAnnouncement;
-import io.airlift.event.client.EventModule;
-import io.airlift.event.client.JsonEventModule;
 import io.airlift.http.server.HttpServerModule;
 import io.airlift.jaxrs.JaxrsModule;
 import io.airlift.jmx.JmxHttpModule;
@@ -36,7 +36,6 @@ import io.airlift.log.LogJmxModule;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeModule;
 import io.airlift.openmetrics.JmxOpenMetricsModule;
-import io.airlift.tracetoken.TraceTokenModule;
 import io.airlift.tracing.TracingModule;
 import io.airlift.units.Duration;
 import io.trino.client.NodeVersion;
@@ -44,7 +43,6 @@ import io.trino.connector.CatalogManagerConfig;
 import io.trino.connector.CatalogManagerConfig.CatalogMangerKind;
 import io.trino.connector.CatalogManagerModule;
 import io.trino.connector.CatalogStoreManager;
-import io.trino.connector.ConnectorServices;
 import io.trino.connector.ConnectorServicesProvider;
 import io.trino.eventlistener.EventListenerManager;
 import io.trino.eventlistener.EventListenerModule;
@@ -57,6 +55,7 @@ import io.trino.metadata.CatalogManager;
 import io.trino.security.AccessControlManager;
 import io.trino.security.AccessControlModule;
 import io.trino.security.GroupProviderManager;
+import io.trino.server.protocol.spooling.SpoolingManagerRegistry;
 import io.trino.server.security.CertificateAuthenticatorManager;
 import io.trino.server.security.HeaderAuthenticatorManager;
 import io.trino.server.security.PasswordAuthenticatorManager;
@@ -71,19 +70,17 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.airlift.discovery.client.ServiceAnnouncement.ServiceAnnouncementBuilder;
 import static io.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncement;
-import static io.trino.server.TrinoSystemRequirements.verifyJvmRequirements;
-import static io.trino.server.TrinoSystemRequirements.verifySystemTimeIsReasonable;
+import static io.trino.server.TrinoSystemRequirements.verifySystemRequirements;
 import static java.lang.String.format;
 import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
-import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.joining;
 
 public class Server
@@ -100,8 +97,7 @@ public class Server
         Locale.setDefault(Locale.US);
 
         long startTime = System.nanoTime();
-        verifyJvmRequirements();
-        verifySystemTimeIsReasonable();
+        verifySystemRequirements();
 
         Logger log = Logger.get(Server.class);
         log.info("Java version: %s", StandardSystemProperty.JAVA_VERSION.value());
@@ -119,10 +115,7 @@ public class Server
                 new JmxHttpModule(),
                 new JmxOpenMetricsModule(),
                 new LogJmxModule(),
-                new TraceTokenModule(),
                 new TracingModule("trino", trinoVersion),
-                new EventModule(),
-                new JsonEventModule(),
                 new ServerSecurityModule(),
                 new AccessControlModule(),
                 new EventListenerModule(),
@@ -131,40 +124,37 @@ public class Server
                 new CatalogManagerModule(),
                 new TransactionManagerModule(),
                 new ServerMainModule(trinoVersion),
-                new GracefulShutdownModule(),
+                new NodeStateManagerModule(),
                 new WarningCollectorModule());
 
         modules.addAll(getAdditionalModules());
 
-        Bootstrap app = new Bootstrap(modules.build());
+        Bootstrap app = new Bootstrap(modules.build())
+                .loadSecretsPlugins();
 
         try {
             Injector injector = app.initialize();
 
             log.info("Trino version: %s", injector.getInstance(NodeVersion.class).getVersion());
+            log.info("Zstandard native compression: %s", formatEnabled(ZstdNativeCompressor.isEnabled()));
+            log.info("Lz4 native compression: %s", formatEnabled(Lz4NativeCompressor.isEnabled()));
+            log.info("Snappy native compression: %s", formatEnabled(SnappyNativeCompressor.isEnabled()));
+
             logLocation(log, "Working directory", Paths.get("."));
             logLocation(log, "Etc directory", Paths.get("etc"));
 
             injector.getInstance(PluginInstaller.class).loadPlugins();
 
             var catalogStoreManager = injector.getInstance(Key.get(new TypeLiteral<Optional<CatalogStoreManager>>() {}));
-            if (catalogStoreManager.isPresent()) {
-                catalogStoreManager.get().loadConfiguredCatalogStore();
-            }
+            catalogStoreManager.ifPresent(CatalogStoreManager::loadConfiguredCatalogStore);
 
             ConnectorServicesProvider connectorServicesProvider = injector.getInstance(ConnectorServicesProvider.class);
             connectorServicesProvider.loadInitialCatalogs();
 
             // Only static catalog manager announces catalogs
             // Connector event listeners are only supported for statically loaded catalogs
-            // TODO: remove connector event listeners or add support for dynamic loading from connector
             if (injector.getInstance(CatalogManagerConfig.class).getCatalogMangerKind() == CatalogMangerKind.STATIC) {
                 CatalogManager catalogManager = injector.getInstance(CatalogManager.class);
-                addConnectorEventListeners(
-                        catalogManager,
-                        injector.getInstance(ConnectorServicesProvider.class),
-                        injector.getInstance(EventListenerManager.class));
-
                 // TODO: remove this huge hack
                 updateConnectorIds(injector.getInstance(Announcer.class), catalogManager);
             }
@@ -174,12 +164,16 @@ public class Server
             injector.getInstance(AccessControlManager.class).loadSystemAccessControl();
             injector.getInstance(Key.get(new TypeLiteral<Optional<PasswordAuthenticatorManager>>() {}))
                     .ifPresent(PasswordAuthenticatorManager::loadPasswordAuthenticator);
-            injector.getInstance(EventListenerManager.class).loadEventListeners();
             injector.getInstance(GroupProviderManager.class).loadConfiguredGroupProvider();
             injector.getInstance(ExchangeManagerRegistry.class).loadExchangeManager();
+            injector.getInstance(SpoolingManagerRegistry.class).loadSpoolingManager();
             injector.getInstance(CertificateAuthenticatorManager.class).loadCertificateAuthenticator();
             injector.getInstance(Key.get(new TypeLiteral<Optional<HeaderAuthenticatorManager>>() {}))
                     .ifPresent(HeaderAuthenticatorManager::loadHeaderAuthenticator);
+
+            if (injector.getInstance(ServerConfig.class).isCoordinator()) {
+                injector.getInstance(EventListenerManager.class).loadEventListeners();
+            }
 
             injector.getInstance(Key.get(new TypeLiteral<Optional<OAuth2Client>>() {}))
                     .ifPresent(OAuth2Client::load);
@@ -187,7 +181,6 @@ public class Server
             injector.getInstance(Announcer.class).start();
 
             injector.getInstance(StartupStatus.class).startupComplete();
-
             log.info("Server startup completed in %s", Duration.nanosSince(startTime).convertToMostSuccinctTimeUnit());
             log.info("======== SERVER STARTED ========");
         }
@@ -206,23 +199,6 @@ public class Server
             log.error(e);
             System.exit(100);
         }
-    }
-
-    @VisibleForTesting
-    public static void addConnectorEventListeners(
-            CatalogManager catalogManager,
-            ConnectorServicesProvider connectorServicesProvider,
-            EventListenerManager eventListenerManager)
-    {
-        catalogManager.getCatalogNames().stream()
-                .map(catalogManager::getCatalog)
-                .flatMap(Optional::stream)
-                .filter(not(Catalog::isFailed))
-                .map(Catalog::getCatalogHandle)
-                .map(connectorServicesProvider::getConnectorServices)
-                .map(ConnectorServices::getEventListeners)
-                .flatMap(Collection::stream)
-                .forEach(eventListenerManager::addEventListener);
     }
 
     private static void addMessages(StringBuilder output, String type, List<Object> messages)
@@ -268,12 +244,10 @@ public class Server
 
     private static ServiceAnnouncement getTrinoAnnouncement(Set<ServiceAnnouncement> announcements)
     {
-        for (ServiceAnnouncement announcement : announcements) {
-            if (announcement.getType().equals("trino")) {
-                return announcement;
-            }
-        }
-        throw new IllegalArgumentException("Trino announcement not found: " + announcements);
+        return announcements.stream()
+                .filter(announcement -> announcement.getType().equals("trino"))
+                .collect(toOptional())
+                .orElseThrow(() -> new IllegalArgumentException("Trino announcement not found: " + announcements));
     }
 
     private static void logLocation(Logger log, String name, Path path)
@@ -290,5 +264,10 @@ public class Server
             return;
         }
         log.info("%s: %s", name, path);
+    }
+
+    private static String formatEnabled(boolean flag)
+    {
+        return flag ? "enabled" : "disabled";
     }
 }

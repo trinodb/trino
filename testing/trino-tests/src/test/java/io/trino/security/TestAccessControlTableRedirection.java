@@ -25,6 +25,7 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SystemSecurityMetadata;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.EntityKindAndName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
@@ -95,14 +96,10 @@ public class TestAccessControlTableRedirection
                             .toInstance(new DisabledSystemSecurityMetadata()
                             {
                                 @Override
-                                public void grantTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
-                                {
-                                }
+                                public void grantTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption) {}
 
                                 @Override
-                                public void revokeTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
-                                {
-                                }
+                                public void revokeTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption) {}
 
                                 @Override
                                 public boolean roleExists(Session session, String role)
@@ -111,14 +108,10 @@ public class TestAccessControlTableRedirection
                                 }
 
                                 @Override
-                                public void setTableOwner(Session session, CatalogSchemaTableName table, TrinoPrincipal principal)
-                                {
-                                }
+                                public void setEntityOwner(Session session, EntityKindAndName entityKindAndName, TrinoPrincipal principal) {}
 
                                 @Override
-                                public void denyTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, TrinoPrincipal grantee)
-                                {
-                                }
+                                public void denyTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, TrinoPrincipal grantee) {}
                             });
                 })
                 .build();

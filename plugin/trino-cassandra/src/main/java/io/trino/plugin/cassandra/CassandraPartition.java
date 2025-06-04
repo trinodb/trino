@@ -106,7 +106,7 @@ public class CassandraPartition
         return Objects.equals(this.partitionId, other.partitionId) &&
                 Arrays.equals(this.key, other.key) &&
                 Objects.equals(this.tupleDomain, other.tupleDomain) &&
-                Objects.equals(this.indexedColumnPredicatePushdown, other.indexedColumnPredicatePushdown);
+                this.indexedColumnPredicatePushdown == other.indexedColumnPredicatePushdown;
     }
 
     @Override

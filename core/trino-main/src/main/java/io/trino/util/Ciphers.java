@@ -26,7 +26,7 @@ import java.security.NoSuchAlgorithmException;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 
-public class Ciphers
+public final class Ciphers
 {
     private static final int AES_ENCRYPTION_KEY_BITS = 256;
 
@@ -55,11 +55,8 @@ public class Ciphers
         return new SecretKeySpec(key.byteArray(), key.byteArrayOffset(), key.length(), "AES");
     }
 
-    public static boolean is256BitSecretKeySpec(SecretKey secretKey)
+    public static boolean is256BitSecretKeySpec(SecretKey key)
     {
-        if (secretKey instanceof SecretKeySpec spec) {
-            return spec.getAlgorithm().equals("AES") && spec.getEncoded().length == AES_ENCRYPTION_KEY_BITS / 8;
-        }
-        return false;
+        return key.getAlgorithm().equals("AES") && key.getEncoded().length == AES_ENCRYPTION_KEY_BITS / 8;
     }
 }

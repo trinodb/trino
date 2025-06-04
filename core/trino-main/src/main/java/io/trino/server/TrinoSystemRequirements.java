@@ -42,7 +42,13 @@ final class TrinoSystemRequirements
 
     private TrinoSystemRequirements() {}
 
-    public static void verifyJvmRequirements()
+    public static void verifySystemRequirements()
+    {
+        verifyJvmRequirements();
+        verifySystemTimeIsReasonable();
+    }
+
+    private static void verifyJvmRequirements()
     {
         verifyJavaVersion();
         verify64BitJvm();
@@ -94,8 +100,7 @@ final class TrinoSystemRequirements
 
     private static void verifyJavaVersion()
     {
-        Version required = Version.parse("21.0.1");
-
+        Version required = Version.parse("24.0.1");
         if (Runtime.version().compareTo(required) < 0) {
             failRequirement("Trino requires Java %s at minimum (found %s)", required, Runtime.version());
         }
@@ -166,10 +171,10 @@ final class TrinoSystemRequirements
      * Perform a sanity check to make sure that the year is reasonably current, to guard against
      * issues in third party libraries.
      */
-    public static void verifySystemTimeIsReasonable()
+    private static void verifySystemTimeIsReasonable()
     {
         int currentYear = DateTime.now().year().get();
-        if (currentYear < 2022) {
+        if (currentYear < 2024) {
             failRequirement("Trino requires the system time to be current (found year %s)", currentYear);
         }
     }

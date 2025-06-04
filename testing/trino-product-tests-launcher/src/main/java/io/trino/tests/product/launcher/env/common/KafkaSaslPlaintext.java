@@ -53,7 +53,7 @@ public class KafkaSaslPlaintext
                         "password=\"admin-secret\" " +
                         "user_admin=\"admin-secret\";")
                 .withEnv("ZOOKEEPER_SASL_ENABLED", "false")
-                .withClasspathResourceMapping("docker/presto-product-tests/conf/environment/multinode-kafka-sasl-plaintext/kafka_server_jaas.conf", "/tmp/kafka_server_jaas.conf", BindMode.READ_ONLY));
+                .withClasspathResourceMapping("docker/trino-product-tests/conf/environment/multinode-kafka-sasl-plaintext/kafka_server_jaas.conf", "/tmp/kafka_server_jaas.conf", BindMode.READ_ONLY));
         builder.configureContainer(Kafka.SCHEMA_REGISTRY, container -> container
                 .withStartupAttempts(3)
                 .withStartupTimeout(Duration.ofMinutes(5))
@@ -63,7 +63,7 @@ public class KafkaSaslPlaintext
                 .withEnv("SCHEMA_REGISTRY_KAFKASTORE_SASL_JAAS_CONFIG", "org.apache.kafka.common.security.plain.PlainLoginModule required " +
                         "username=\"admin\" " +
                         "password=\"admin-secret\";")
-                .withClasspathResourceMapping("docker/presto-product-tests/conf/environment/multinode-kafka-sasl-plaintext/kafka_server_jaas.conf", "/tmp/kafka_server_jaas.conf", BindMode.READ_ONLY));
+                .withClasspathResourceMapping("docker/trino-product-tests/conf/environment/multinode-kafka-sasl-plaintext/kafka_server_jaas.conf", "/tmp/kafka_server_jaas.conf", BindMode.READ_ONLY));
     }
 
     @Override

@@ -23,6 +23,7 @@ import io.trino.plugin.kafka.encoder.EncoderColumnHandle;
 import io.trino.plugin.kafka.encoder.json.format.DateTimeFormat;
 import io.trino.plugin.kafka.encoder.json.format.JsonDateTimeFormatter;
 import io.trino.plugin.kafka.encoder.json.format.UnimplementedJsonDateTimeFormatter;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.SqlDate;
 import io.trino.spi.type.SqlTime;
@@ -40,6 +41,7 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.base.io.ByteBuffers.getWrappedBytes;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -73,12 +75,16 @@ public class JsonRowEncoder
 
         ImmutableList.Builder<JsonDateTimeFormatter> dateTimeFormatters = ImmutableList.builder();
         for (EncoderColumnHandle columnHandle : this.columnHandles) {
-            checkArgument(isSupportedType(columnHandle.getType()), "Unsupported column type '%s' for column '%s'", columnHandle.getType(), columnHandle.getName());
+            if (!isSupportedType(columnHandle.getType())) {
+                throw new TrinoException(NOT_SUPPORTED, "Unsupported column type '%s' for column '%s'".formatted(columnHandle.getType(), columnHandle.getName()));
+            }
 
             if (isSupportedTemporalType(columnHandle.getType())) {
                 checkArgument(columnHandle.getDataFormat() != null, "Unsupported or no dataFormat '%s' defined for temporal column '%s'", columnHandle.getDataFormat(), columnHandle.getName());
                 DateTimeFormat dataFormat = parseDataFormat(columnHandle.getDataFormat(), columnHandle.getName());
-                checkArgument(dataFormat.isSupportedType(columnHandle.getType()), "Unsupported column type '%s' for column '%s'", columnHandle.getType(), columnHandle.getName());
+                if (!dataFormat.isSupportedType(columnHandle.getType())) {
+                    throw new TrinoException(NOT_SUPPORTED, "Unsupported column type '%s' for column '%s'".formatted(columnHandle.getType(), columnHandle.getName()));
+                }
 
                 if (dataFormat == DateTimeFormat.CUSTOM_DATE_TIME) {
                     checkArgument(columnHandle.getFormatHint() != null, "No format hint defined for column '%s'", columnHandle.getName());

@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.SetMultimap;
-import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
@@ -56,9 +55,7 @@ import static com.google.common.collect.Sets.difference;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.trino.connector.system.GlobalSystemConnector.CATALOG_HANDLE;
-import static io.trino.metadata.NodeState.ACTIVE;
 import static io.trino.metadata.NodeState.INACTIVE;
-import static io.trino.metadata.NodeState.SHUTTING_DOWN;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -169,10 +166,12 @@ public final class DiscoveryNodeManager
         AllNodes allNodes = getAllNodes();
         Set<InternalNode> aliveNodes = ImmutableSet.<InternalNode>builder()
                 .addAll(allNodes.getActiveNodes())
+                .addAll(allNodes.getDrainingNodes())
+                .addAll(allNodes.getDrainedNodes())
                 .addAll(allNodes.getShuttingDownNodes())
                 .build();
 
-        ImmutableSet<String> aliveNodeIds = aliveNodes.stream()
+        Set<String> aliveNodeIds = aliveNodes.stream()
                 .map(InternalNode::getNodeIdentifier)
                 .collect(toImmutableSet());
 
@@ -216,6 +215,8 @@ public final class DiscoveryNodeManager
 
         ImmutableSet.Builder<InternalNode> activeNodesBuilder = ImmutableSet.builder();
         ImmutableSet.Builder<InternalNode> inactiveNodesBuilder = ImmutableSet.builder();
+        ImmutableSet.Builder<InternalNode> drainingNodesBuilder = ImmutableSet.builder();
+        ImmutableSet.Builder<InternalNode> drainedNodesBuilder = ImmutableSet.builder();
         ImmutableSet.Builder<InternalNode> shuttingDownNodesBuilder = ImmutableSet.builder();
         ImmutableSet.Builder<InternalNode> coordinatorsBuilder = ImmutableSet.builder();
         ImmutableSetMultimap.Builder<CatalogHandle, InternalNode> byCatalogHandleBuilder = ImmutableSetMultimap.builder();
@@ -250,6 +251,12 @@ public final class DiscoveryNodeManager
                     case INACTIVE:
                         inactiveNodesBuilder.add(node);
                         break;
+                    case DRAINING:
+                        drainingNodesBuilder.add(node);
+                        break;
+                    case DRAINED:
+                        drainedNodesBuilder.add(node);
+                        break;
                     case SHUTTING_DOWN:
                         shuttingDownNodesBuilder.add(node);
                         break;
@@ -259,9 +266,21 @@ public final class DiscoveryNodeManager
             }
         }
 
+        Set<InternalNode> activeNodes = activeNodesBuilder.build();
+        Set<InternalNode> drainingNodes = drainingNodesBuilder.build();
+        Set<InternalNode> drainedNodes = drainedNodesBuilder.build();
+        Set<InternalNode> inactiveNodes = inactiveNodesBuilder.build();
+        Set<InternalNode> coordinators = coordinatorsBuilder.build();
+        Set<InternalNode> shuttingDownNodes = shuttingDownNodesBuilder.build();
         if (allNodes != null) {
             // log node that are no longer active (but not shutting down)
-            SetView<InternalNode> missingNodes = difference(allNodes.getActiveNodes(), Sets.union(activeNodesBuilder.build(), shuttingDownNodesBuilder.build()));
+            Set<InternalNode> aliveNodes = ImmutableSet.<InternalNode>builder()
+                    .addAll(activeNodes)
+                    .addAll(drainingNodes)
+                    .addAll(drainedNodes)
+                    .addAll(shuttingDownNodes)
+                    .build();
+            SetView<InternalNode> missingNodes = difference(allNodes.getActiveNodes(), aliveNodes);
             for (InternalNode missingNode : missingNodes) {
                 log.info("Previously active node is missing: %s (last seen at %s)", missingNode.getNodeIdentifier(), missingNode.getHost());
             }
@@ -272,12 +291,12 @@ public final class DiscoveryNodeManager
             activeNodesByCatalogHandle = Optional.of(byCatalogHandleBuilder.build());
         }
 
-        AllNodes allNodes = new AllNodes(activeNodesBuilder.build(), inactiveNodesBuilder.build(), shuttingDownNodesBuilder.build(), coordinatorsBuilder.build());
+        AllNodes allNodes = new AllNodes(activeNodes, inactiveNodes, drainingNodes, drainedNodes, shuttingDownNodes, coordinators);
         // only update if all nodes actually changed (note: this does not include the connectors registered with the nodes)
         if (!allNodes.equals(this.allNodes)) {
             // assign allNodes to a local variable for use in the callback below
             this.allNodes = allNodes;
-            coordinators = coordinatorsBuilder.build();
+            this.coordinators = coordinators;
 
             // notify listeners
             List<Consumer<AllNodes>> listeners = ImmutableList.copyOf(this.listeners);
@@ -288,20 +307,15 @@ public final class DiscoveryNodeManager
     private NodeState getNodeState(InternalNode node)
     {
         if (expectedNodeVersion.equals(node.getNodeVersion())) {
-            if (isNodeShuttingDown(node.getNodeIdentifier())) {
-                return SHUTTING_DOWN;
-            }
-            return ACTIVE;
+            String nodeId = node.getNodeIdentifier();
+            // The empty case that is being set to a default value of ACTIVE is limited to the case where a node
+            // has announced itself but no state has yet been successfully retrieved. RemoteNodeState will retain
+            // the previously known state if any has been reported.
+            return Optional.ofNullable(nodeStates.get(nodeId))
+                    .flatMap(RemoteNodeState::getNodeState)
+                    .orElse(NodeState.ACTIVE);
         }
         return INACTIVE;
-    }
-
-    private boolean isNodeShuttingDown(String nodeId)
-    {
-        Optional<NodeState> remoteNodeState = nodeStates.containsKey(nodeId)
-                ? nodeStates.get(nodeId).getNodeState()
-                : Optional.empty();
-        return remoteNodeState.isPresent() && remoteNodeState.get() == SHUTTING_DOWN;
     }
 
     @Override
@@ -323,6 +337,18 @@ public final class DiscoveryNodeManager
     }
 
     @Managed
+    public int getDrainingNodeCount()
+    {
+        return getAllNodes().getDrainingNodes().size();
+    }
+
+    @Managed
+    public int getDrainedNodeCount()
+    {
+        return getAllNodes().getDrainedNodes().size();
+    }
+
+    @Managed
     public int getShuttingDownNodeCount()
     {
         return getAllNodes().getShuttingDownNodes().size();
@@ -334,6 +360,8 @@ public final class DiscoveryNodeManager
         return switch (state) {
             case ACTIVE -> getAllNodes().getActiveNodes();
             case INACTIVE -> getAllNodes().getInactiveNodes();
+            case DRAINING -> getAllNodes().getDrainingNodes();
+            case DRAINED -> getAllNodes().getDrainedNodes();
             case SHUTTING_DOWN -> getAllNodes().getShuttingDownNodes();
         };
     }

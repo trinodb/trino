@@ -65,7 +65,7 @@
 
 ## Hive connector
 
-* Add support for `varchar` to `timestamp` coercion in Hive tables. ({issue}`18014`)
+* Add support for changing a column's type from `varchar` to `timestamp`. ({issue}`18014`)
 * Improve memory accounting of the Parquet writer. ({issue}`18564`)
 * Remove the legacy Parquet writer, along with the
   `parquet.optimized-writer.enabled` configuration property and the

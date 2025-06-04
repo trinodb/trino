@@ -45,8 +45,6 @@ import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.execution.buffer.CompressionCodec.NONE;
-import static io.trino.execution.buffer.PagesSerdeFactory.createCompressor;
-import static io.trino.execution.buffer.PagesSerdeFactory.createDecompressor;
 import static io.trino.execution.buffer.PagesSerdeUtil.readPages;
 import static io.trino.execution.buffer.PagesSerdeUtil.writePages;
 import static io.trino.operator.PageAssertions.assertPageEquals;
@@ -146,8 +144,10 @@ public class TestPagesSerde
     {
         Optional<SecretKey> encryptionKey = encryptionEnabled ? Optional.of(createRandomAesEncryptionKey()) : Optional.empty();
         for (CompressionCodec compressionCodec : CompressionCodec.values()) {
-            PageSerializer serializer = new PageSerializer(blockEncodingSerde, createCompressor(compressionCodec), encryptionKey, blockSizeInBytes);
-            PageDeserializer deserializer = new PageDeserializer(blockEncodingSerde, createDecompressor(compressionCodec), encryptionKey, blockSizeInBytes);
+            PagesSerdeFactory pagesSerdeFactory = new PagesSerdeFactory(blockEncodingSerde, compressionCodec, blockSizeInBytes);
+            PageSerializer serializer = pagesSerdeFactory.createSerializer(encryptionKey);
+            PageDeserializer deserializer = pagesSerdeFactory.createDeserializer(encryptionKey);
+
             for (Page page : pages) {
                 Slice serialized = serializer.serialize(page);
                 Page deserialized = deserializer.deserialize(serialized);
@@ -182,7 +182,7 @@ public class TestPagesSerde
     @Test
     public void testBigintSerializedSize()
     {
-        BlockBuilder builder = BIGINT.createBlockBuilder(null, 5);
+        BlockBuilder builder = BIGINT.createFixedSizeBlockBuilder(5);
 
         // empty page
         Page page = new Page(builder.build());
@@ -270,8 +270,9 @@ public class TestPagesSerde
         RolloverBlockSerde blockSerde = new RolloverBlockSerde();
         Optional<SecretKey> encryptionKey = encryptionEnabled ? Optional.of(createRandomAesEncryptionKey()) : Optional.empty();
         for (CompressionCodec compressionCodec : CompressionCodec.values()) {
-            PageSerializer serializer = new PageSerializer(blockSerde, createCompressor(compressionCodec), encryptionKey, blockSize);
-            PageDeserializer deserializer = new PageDeserializer(blockSerde, createDecompressor(compressionCodec), encryptionKey, blockSize);
+            PagesSerdeFactory pagesSerdeFactory = new PagesSerdeFactory(blockSerde, compressionCodec, blockSize);
+            PageSerializer serializer = pagesSerdeFactory.createSerializer(encryptionKey);
+            PageDeserializer deserializer = pagesSerdeFactory.createDeserializer(encryptionKey);
 
             Page page = createTestPage(numberOfEntries);
             Slice serialized = serializer.serialize(page);

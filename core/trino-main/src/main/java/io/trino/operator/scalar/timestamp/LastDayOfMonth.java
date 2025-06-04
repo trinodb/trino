@@ -26,7 +26,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 @Description("Last day of the month of the given timestamp")
 @ScalarFunction("last_day_of_month")
-public class LastDayOfMonth
+public final class LastDayOfMonth
 {
     private static final int MILLISECONDS_IN_DAY = 24 * 3600 * 1000;
 

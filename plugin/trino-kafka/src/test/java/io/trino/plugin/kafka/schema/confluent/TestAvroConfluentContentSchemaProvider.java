@@ -22,7 +22,6 @@ import io.trino.decoder.avro.AvroRowDecoderFactory;
 import io.trino.plugin.kafka.KafkaTableHandle;
 import io.trino.spi.TrinoException;
 import io.trino.spi.predicate.TupleDomain;
-import org.apache.avro.Schema;
 import org.apache.avro.Schema.Parser;
 import org.apache.avro.SchemaBuilder;
 import org.junit.jupiter.api.Test;
@@ -43,11 +42,11 @@ public class TestAvroConfluentContentSchemaProvider
             throws Exception
     {
         MockSchemaRegistryClient mockSchemaRegistryClient = new MockSchemaRegistryClient();
-        Schema schema = getAvroSchema();
+        AvroSchema schema = getAvroSchema();
         mockSchemaRegistryClient.register(SUBJECT_NAME, schema);
         AvroConfluentContentSchemaProvider avroConfluentSchemaProvider = new AvroConfluentContentSchemaProvider(mockSchemaRegistryClient);
         KafkaTableHandle tableHandle = new KafkaTableHandle("default", TOPIC, TOPIC, AvroRowDecoderFactory.NAME, AvroRowDecoderFactory.NAME, Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(SUBJECT_NAME), ImmutableList.of(), TupleDomain.all());
-        assertThat(avroConfluentSchemaProvider.getMessage(tableHandle)).isEqualTo(Optional.of(schema).map(Schema::toString));
+        assertThat(avroConfluentSchemaProvider.getMessage(tableHandle)).isEqualTo(Optional.of(schema).map(AvroSchema::toString));
         assertThat(avroConfluentSchemaProvider.getKey(tableHandle)).isEqualTo(Optional.empty());
         KafkaTableHandle invalidTableHandle = new KafkaTableHandle("default", TOPIC, TOPIC, AvroRowDecoderFactory.NAME, AvroRowDecoderFactory.NAME, Optional.empty(), Optional.empty(), Optional.empty(), Optional.of("another-schema"), ImmutableList.of(), TupleDomain.all());
         assertThatThrownBy(() -> avroConfluentSchemaProvider.getMessage(invalidTableHandle))
@@ -60,7 +59,7 @@ public class TestAvroConfluentContentSchemaProvider
             throws Exception
     {
         MockSchemaRegistryClient mockSchemaRegistryClient = new MockSchemaRegistryClient();
-        int schemaId = mockSchemaRegistryClient.register("base_schema-value", new AvroSchema(getAvroSchema()));
+        int schemaId = mockSchemaRegistryClient.register("base_schema-value", getAvroSchema());
         ParsedSchema schemaWithReference = mockSchemaRegistryClient.parseSchema(null, getAvroSchemaWithReference(), ImmutableList.of(new SchemaReference(TOPIC, "base_schema-value", schemaId)))
                 .orElseThrow();
         mockSchemaRegistryClient.register(SUBJECT_NAME, schemaWithReference);
@@ -81,12 +80,12 @@ public class TestAvroConfluentContentSchemaProvider
                 "}";
     }
 
-    private static Schema getAvroSchema()
+    private static AvroSchema getAvroSchema()
     {
-        return SchemaBuilder.record(TOPIC)
+        return new AvroSchema(SchemaBuilder.record(TOPIC)
                 .fields()
                 .name("col1").type().intType().noDefault()
                 .name("col2").type().stringType().noDefault()
-                .endRecord();
+                .endRecord());
     }
 }

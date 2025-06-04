@@ -58,18 +58,22 @@ public class TestProtocolEntry
     @Test
     public void testProtocolEntryToJson()
     {
-        assertThat(codec.toJson(new ProtocolEntry(2, 5, Optional.empty(), Optional.empty()))).isEqualTo("""
-                                                                                                        {
-                                                                                                          "minReaderVersion" : 2,
-                                                                                                          "minWriterVersion" : 5
-                                                                                                        }""");
+        assertThat(codec.toJson(new ProtocolEntry(2, 5, Optional.empty(), Optional.empty()))).isEqualTo(
+                """
+                {
+                  "minReaderVersion" : 2,
+                  "minWriterVersion" : 5
+                }\
+                """);
 
-        assertThat(codec.toJson(new ProtocolEntry(3, 7, Optional.of(ImmutableSet.of("deletionVectors")), Optional.of(ImmutableSet.of("timestampNTZ"))))).isEqualTo("""
-                                                                                                                                                                   {
-                                                                                                                                                                     "minReaderVersion" : 3,
-                                                                                                                                                                     "minWriterVersion" : 7,
-                                                                                                                                                                     "readerFeatures" : [ "deletionVectors" ],
-                                                                                                                                                                     "writerFeatures" : [ "timestampNTZ" ]
-                                                                                                                                                                   }""");
+        assertThat(codec.toJson(new ProtocolEntry(3, 7, Optional.of(ImmutableSet.of("deletionVectors")), Optional.of(ImmutableSet.of("timestampNTZ"))))).isEqualTo(
+                """
+                {
+                  "minReaderVersion" : 3,
+                  "minWriterVersion" : 7,
+                  "readerFeatures" : [ "deletionVectors" ],
+                  "writerFeatures" : [ "timestampNTZ" ]
+                }\
+                """);
     }
 }

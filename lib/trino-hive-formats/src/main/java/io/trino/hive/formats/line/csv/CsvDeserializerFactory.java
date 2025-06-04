@@ -16,6 +16,7 @@ package io.trino.hive.formats.line.csv;
 import io.trino.hive.formats.line.Column;
 import io.trino.hive.formats.line.LineDeserializer;
 import io.trino.hive.formats.line.LineDeserializerFactory;
+import io.trino.spi.TrinoException;
 
 import java.util.List;
 import java.util.Map;
@@ -31,6 +32,7 @@ import static io.trino.hive.formats.line.csv.CsvConstants.QUOTE_KEY;
 import static io.trino.hive.formats.line.csv.CsvConstants.SEPARATOR_KEY;
 import static io.trino.hive.formats.line.csv.CsvConstants.SERIALIZER_DEFAULT_ESCAPE;
 import static io.trino.hive.formats.line.csv.CsvConstants.getCharProperty;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 
 public class CsvDeserializerFactory
         implements LineDeserializerFactory
@@ -44,18 +46,23 @@ public class CsvDeserializerFactory
     @Override
     public LineDeserializer create(List<Column> columns, Map<String, String> serdeProperties)
     {
-        char separatorChar = getCharProperty(serdeProperties, SEPARATOR_KEY, DEFAULT_SEPARATOR);
-        char quoteChar = getCharProperty(serdeProperties, QUOTE_KEY, DEFAULT_QUOTE);
-        char escapeChar = getCharProperty(serdeProperties, ESCAPE_KEY, DESERIALIZER_DEFAULT_ESCAPE);
-        // Hive has a bug where when the escape character is explicitly set to double quote (char 34),
-        // it changes the escape character to backslash (char 92) when deserializing.
-        if (escapeChar == SERIALIZER_DEFAULT_ESCAPE) {
-            // Add an explicit checks for separator or quote being backslash, so a more helpful error message can be provided
-            // as this Hive behavior is not obvious
-            checkArgument(separatorChar != DESERIALIZER_DEFAULT_ESCAPE, "Separator character cannot be '\\' when escape character is '\"'");
-            checkArgument(quoteChar != DESERIALIZER_DEFAULT_ESCAPE, "Quote character cannot be '\\' when escape character is '\"'");
-            escapeChar = DESERIALIZER_DEFAULT_ESCAPE;
+        try {
+            char separatorChar = getCharProperty(serdeProperties, SEPARATOR_KEY, DEFAULT_SEPARATOR);
+            char quoteChar = getCharProperty(serdeProperties, QUOTE_KEY, DEFAULT_QUOTE);
+            char escapeChar = getCharProperty(serdeProperties, ESCAPE_KEY, DESERIALIZER_DEFAULT_ESCAPE);
+            // Hive has a bug where when the escape character is explicitly set to double quote (char 34),
+            // it changes the escape character to backslash (char 92) when deserializing.
+            if (escapeChar == SERIALIZER_DEFAULT_ESCAPE) {
+                // Add an explicit checks for separator or quote being backslash, so a more helpful error message can be provided
+                // as this Hive behavior is not obvious
+                checkArgument(separatorChar != DESERIALIZER_DEFAULT_ESCAPE, "Separator character cannot be '\\' when escape character is '\"'");
+                checkArgument(quoteChar != DESERIALIZER_DEFAULT_ESCAPE, "Quote character cannot be '\\' when escape character is '\"'");
+                escapeChar = DESERIALIZER_DEFAULT_ESCAPE;
+            }
+            return new CsvDeserializer(columns, separatorChar, quoteChar, escapeChar);
         }
-        return new CsvDeserializer(columns, separatorChar, quoteChar, escapeChar);
+        catch (IllegalArgumentException e) {
+            throw new TrinoException(NOT_SUPPORTED, "CSV not supported", e);
+        }
     }
 }

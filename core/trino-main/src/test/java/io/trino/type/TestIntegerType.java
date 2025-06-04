@@ -33,7 +33,7 @@ public class TestIntegerType
 
     public static ValueBlock createTestBlock()
     {
-        BlockBuilder blockBuilder = INTEGER.createBlockBuilder(null, 15);
+        BlockBuilder blockBuilder = INTEGER.createFixedSizeBlockBuilder(15);
         INTEGER.writeLong(blockBuilder, 1111);
         INTEGER.writeLong(blockBuilder, 1111);
         INTEGER.writeLong(blockBuilder, 1111);

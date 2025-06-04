@@ -94,7 +94,7 @@ public class TestHashBuilderOperator
                 .addOperatorContext(0, new PlanNodeId("0"), HashBuilderOperator.class.getName());
         OperatorContext anotherOperatorContext = driverContext
                 .addOperatorContext(1, new PlanNodeId("1"), "another operator");
-        ImmutableList<Type> types = ImmutableList.of(BIGINT, BIGINT);
+        List<Type> types = ImmutableList.of(BIGINT, BIGINT);
         PartitionedLookupSourceFactory lookupSourceFactory = new PartitionedLookupSourceFactory(
                 types,
                 ImmutableList.of(BIGINT),
@@ -114,7 +114,9 @@ public class TestHashBuilderOperator
                 ImmutableList.of(),
                 10_000,
                 new PagesIndex.TestingFactory(false),
-                defaultHashArraySizeSupplier())) {
+                defaultHashArraySizeSupplier(),
+                // sync memory usage to delegate memory pool more frequently
+                4096)) {
             assertThat(operator.getState()).isEqualTo(CONSUMING_INPUT);
 
             ListenableFuture<Void> whenBuildFinishes = lookupSourceFactory.whenBuildFinishes();

@@ -23,6 +23,7 @@ import io.trino.plugin.resourcegroups.ResourceGroupManagerPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.QueryId;
 import io.trino.spi.resourcegroups.ResourceGroupId;
+import io.trino.spi.security.Identity;
 import io.trino.spi.session.ResourceEstimates;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -175,7 +176,7 @@ public class TestQueues
             QueryId firstDashboardQuery = createDashboardQuery(queryRunner);
             QueryId secondDashboardQuery = createDashboardQuery(queryRunner);
 
-            ImmutableSet<QueryState> queuedOrRunning = ImmutableSet.of(QUEUED, RUNNING);
+            Set<QueryState> queuedOrRunning = ImmutableSet.of(QUEUED, RUNNING);
             waitForQueryState(queryRunner, firstDashboardQuery, queuedOrRunning);
             waitForQueryState(queryRunner, secondDashboardQuery, queuedOrRunning);
         }
@@ -221,6 +222,24 @@ public class TestQueues
             assertResourceGroup(queryRunner, newSessionWithTags(ImmutableSet.of("a")), LONG_LASTING_QUERY, createResourceGroupId("global", "a", "default"));
             assertResourceGroup(queryRunner, newSessionWithTags(ImmutableSet.of("b")), LONG_LASTING_QUERY, createResourceGroupId("global", "b"));
             assertResourceGroup(queryRunner, newSessionWithTags(ImmutableSet.of("a", "c")), LONG_LASTING_QUERY, createResourceGroupId("global", "a", "c"));
+        }
+    }
+
+    @Test
+    public void testOriginalUserBasedSelection()
+            throws Exception
+    {
+        try (QueryRunner queryRunner = createQueryRunner()) {
+            queryRunner.installPlugin(new ResourceGroupManagerPlugin());
+            queryRunner.getCoordinator().getResourceGroupManager().get()
+                    .setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_original_user.json")));
+            // match both
+            assertResourceGroup(queryRunner, newSessionWithUsers("usr-foo", Optional.of("usr-foo-original")), LONG_LASTING_QUERY, createResourceGroupId("global", "a"));
+            // match only "user"
+            assertResourceGroup(queryRunner, newSessionWithUsers("usr-foo", Optional.empty()), LONG_LASTING_QUERY, createResourceGroupId("global", "c"));
+            assertResourceGroup(queryRunner, newSessionWithUsers("usr-foo", Optional.of("other")), LONG_LASTING_QUERY, createResourceGroupId("global", "c"));
+            // match only "originalUser"
+            assertResourceGroup(queryRunner, newSessionWithUsers("other", Optional.of("usr-foo-original")), LONG_LASTING_QUERY, createResourceGroupId("global", "b"));
         }
     }
 
@@ -378,15 +397,26 @@ public class TestQueues
         return newSession("sessionWithTags", ImmutableSet.of(), resourceEstimates);
     }
 
+    private static Session newSessionWithUsers(String user, Optional<String> originalUser)
+    {
+        Session.SessionBuilder builder = newSessionBuilder()
+                .setIdentity(Identity.ofUser(user));
+        originalUser.ifPresent(usr -> builder.setOriginalIdentity(Identity.ofUser(usr)));
+        return builder.build();
+    }
+
     private static Session newSession(String source, Set<String> clientTags, ResourceEstimates resourceEstimates)
     {
-        return testSessionBuilder()
-                .setCatalog("tpch")
-                .setSchema("sf100000")
+        return newSessionBuilder()
                 .setSource(source)
                 .setClientTags(clientTags)
                 .setResourceEstimates(resourceEstimates)
                 .build();
+    }
+
+    private static Session.SessionBuilder newSessionBuilder()
+    {
+        return testSessionBuilder().setCatalog("tpch").setSchema("sf100000");
     }
 
     public static ResourceGroupId createResourceGroupId(String root, String... subGroups)

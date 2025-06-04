@@ -15,8 +15,6 @@ package io.trino.plugin.clickhouse;
 
 import io.trino.testing.QueryRunner;
 
-import static io.trino.plugin.clickhouse.ClickHouseQueryRunner.createClickHouseQueryRunner;
-
 public class TestClickHouseTypeMapping
         extends BaseClickHouseTypeMapping
 {
@@ -25,6 +23,6 @@ public class TestClickHouseTypeMapping
             throws Exception
     {
         clickhouseServer = closeAfterClass(new TestingClickHouseServer());
-        return createClickHouseQueryRunner(clickhouseServer);
+        return ClickHouseQueryRunner.builder(clickhouseServer).build();
     }
 }

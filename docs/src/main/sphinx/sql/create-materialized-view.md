@@ -35,7 +35,6 @@ created if it does not exist yet.
 Note that `OR REPLACE` and `IF NOT EXISTS` are mutually exclusive clauses.
 
 (mv-grace-period)=
-
 The optional `GRACE PERIOD` clause specifies how long the query materialization
 is used for querying:
 

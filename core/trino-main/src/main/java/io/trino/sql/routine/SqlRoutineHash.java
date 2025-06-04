@@ -196,9 +196,9 @@ public final class SqlRoutineHash
         public Void visitCall(CallExpression call, Void context)
         {
             hashClassName(call.getClass());
-            hashResolvedFunction(call.getResolvedFunction());
-            hasher.putInt(call.getArguments().size());
-            call.getArguments().forEach(this::visitRowExpression);
+            hashResolvedFunction(call.resolvedFunction());
+            hasher.putInt(call.arguments().size());
+            call.arguments().forEach(this::visitRowExpression);
             return null;
         }
 
@@ -206,8 +206,8 @@ public final class SqlRoutineHash
         public Void visitInputReference(InputReferenceExpression reference, Void context)
         {
             hashClassName(reference.getClass());
-            hasher.putInt(reference.getField());
-            hashType(reference.getType());
+            hasher.putInt(reference.field());
+            hashType(reference.type());
             return null;
         }
 
@@ -215,9 +215,9 @@ public final class SqlRoutineHash
         public Void visitConstant(ConstantExpression literal, Void context)
         {
             hashClassName(literal.getClass());
-            hashType(literal.getType());
+            hashType(literal.type());
 
-            Object value = literal.getValue();
+            Object value = literal.value();
             hasher.putBoolean(value == null);
 
             switch (value) {
@@ -234,7 +234,7 @@ public final class SqlRoutineHash
                 case Slice sliceValue -> hasher.putBytes(sliceValue.getBytes());
                 default -> {
                     Block block = literal.getBlockValue();
-                    SliceOutput output = new DynamicSliceOutput(toIntExact(block.getSizeInBytes() + block.getEncodingName().length() + (2 * Integer.BYTES)));
+                    SliceOutput output = new DynamicSliceOutput(toIntExact(blockEncodingSerde.estimatedWriteSize(block)));
                     blockEncodingSerde.writeBlock(output, block);
                     hasher.putBytes(output.slice().getBytes());
                 }
@@ -248,13 +248,13 @@ public final class SqlRoutineHash
         {
             hashClassName(lambda.getClass());
 
-            hasher.putInt(lambda.getArguments().size());
-            lambda.getArguments().forEach(symbol -> {
+            hasher.putInt(lambda.arguments().size());
+            lambda.arguments().forEach(symbol -> {
                 hashString(symbol.name());
                 hashType(symbol.type());
             });
 
-            visitRowExpression(lambda.getBody());
+            visitRowExpression(lambda.body());
             return null;
         }
 
@@ -262,8 +262,8 @@ public final class SqlRoutineHash
         public Void visitVariableReference(VariableReferenceExpression reference, Void context)
         {
             hashClassName(reference.getClass());
-            hashString(reference.getName());
-            hashType(reference.getType());
+            hashString(reference.name());
+            hashType(reference.type());
             return null;
         }
 
@@ -272,14 +272,14 @@ public final class SqlRoutineHash
         {
             hashClassName(specialForm.getClass());
 
-            hashType(specialForm.getType());
-            hasher.putInt(specialForm.getForm().ordinal());
+            hashType(specialForm.type());
+            hasher.putInt(specialForm.form().ordinal());
 
-            hasher.putInt(specialForm.getArguments().size());
-            specialForm.getArguments().forEach(this::visitRowExpression);
+            hasher.putInt(specialForm.arguments().size());
+            specialForm.arguments().forEach(this::visitRowExpression);
 
-            hasher.putInt(specialForm.getFunctionDependencies().size());
-            specialForm.getFunctionDependencies().forEach(this::hashResolvedFunction);
+            hasher.putInt(specialForm.functionDependencies().size());
+            specialForm.functionDependencies().forEach(this::hashResolvedFunction);
 
             return null;
         }

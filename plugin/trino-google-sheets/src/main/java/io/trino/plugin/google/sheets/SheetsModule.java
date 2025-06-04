@@ -21,8 +21,6 @@ import io.trino.spi.function.table.ConnectorTableFunction;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.airlift.json.JsonCodec.listJsonCodec;
-import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 
 public class SheetsModule
         implements Module
@@ -38,8 +36,6 @@ public class SheetsModule
         binder.bind(SheetsPageSinkProvider.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(SheetsConfig.class);
-
-        jsonCodecBinder(binder).bindMapJsonCodec(String.class, listJsonCodec(SheetsTable.class));
 
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Sheet.class).in(Scopes.SINGLETON);
     }

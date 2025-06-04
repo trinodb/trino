@@ -19,9 +19,10 @@ import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
-import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.coercions.CoercionUtils.createCoercer;
+import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
 import static io.trino.spi.predicate.Utils.blockToNativeValue;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.CharType.createCharType;
@@ -48,7 +49,7 @@ public class TestVarcharToCharCoercer
 
     private static void assertVarcharToCharCoercion(String actualValue, Type fromType, String expectedValue, Type toType)
     {
-        Block coercedBlock = createCoercer(TESTING_TYPE_MANAGER, toHiveType(fromType), toHiveType(toType), new CoercionContext(DEFAULT_PRECISION, false)).orElseThrow()
+        Block coercedBlock = createCoercer(TESTING_TYPE_MANAGER, toHiveType(fromType), toHiveType(toType), new CoercionContext(DEFAULT_PRECISION, PARQUET)).orElseThrow()
                 .apply(nativeValueToBlock(fromType, utf8Slice(actualValue)));
         assertThat(blockToNativeValue(toType, coercedBlock))
                 .isEqualTo(utf8Slice(expectedValue));

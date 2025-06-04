@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.snowflake;
 
+import com.google.common.collect.ImmutableMultimap;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
@@ -32,11 +33,14 @@ import io.trino.spi.function.table.ConnectorTableFunction;
 import net.snowflake.client.jdbc.SnowflakeDriver;
 
 import java.net.MalformedURLException;
+import java.net.URI;
 import java.net.URL;
 import java.util.Properties;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.trino.plugin.base.JdkCompatibilityChecks.verifyConnectorAccessOpened;
+import static io.trino.plugin.base.JdkCompatibilityChecks.verifyConnectorUnsafeAllowed;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 
 public class SnowflakeClientModule
@@ -45,6 +49,12 @@ public class SnowflakeClientModule
     @Override
     public void configure(Binder binder)
     {
+        // Check reflective access allowed - required by Apache Arrow usage in Snowflake JDBC driver
+        verifyConnectorAccessOpened(
+                binder,
+                "snowflake",
+                ImmutableMultimap.of("java.base", "java.nio"));
+        verifyConnectorUnsafeAllowed(binder, "snowflake");
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(SnowflakeClient.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(SnowflakeConfig.class);
         configBinder(binder).bindConfig(TypeHandlingJdbcConfig.class);
@@ -63,18 +73,13 @@ public class SnowflakeClientModule
         snowflakeConfig.getRole().ifPresent(role -> properties.setProperty("role", role));
         snowflakeConfig.getWarehouse().ifPresent(warehouse -> properties.setProperty("warehouse", warehouse));
 
-        // Set the expected date/time formatting we expect for our plugin to parse
-        properties.setProperty("TIMESTAMP_OUTPUT_FORMAT", "YYYY-MM-DD\"T\"HH24:MI:SS.FF9TZH:TZM");
-        properties.setProperty("TIMESTAMP_NTZ_OUTPUT_FORMAT", "YYYY-MM-DD\"T\"HH24:MI:SS.FF9TZH:TZM");
-        properties.setProperty("TIMESTAMP_TZ_OUTPUT_FORMAT", "YYYY-MM-DD\"T\"HH24:MI:SS.FF9TZH:TZM");
-        properties.setProperty("TIMESTAMP_LTZ_OUTPUT_FORMAT", "YYYY-MM-DD\"T\"HH24:MI:SS.FF9TZH:TZM");
-        properties.setProperty("TIME_OUTPUT_FORMAT", "HH24:MI:SS.FF9");
+        setOutputProperties(properties);
 
         // Support for Corporate proxies
         if (snowflakeConfig.getHttpProxy().isPresent()) {
             String proxy = snowflakeConfig.getHttpProxy().get();
 
-            URL url = new URL(proxy);
+            URL url = URI.create(proxy).toURL();
 
             properties.setProperty("useProxy", "true");
             properties.setProperty("proxyHost", url.getHost());
@@ -98,5 +103,17 @@ public class SnowflakeClientModule
                 .setConnectionProperties(properties)
                 .setOpenTelemetry(openTelemetry)
                 .build();
+    }
+
+    protected static void setOutputProperties(Properties properties)
+    {
+        // Set the expected date/time formatting we expect for our plugin to parse
+        properties.setProperty("TIMESTAMP_OUTPUT_FORMAT", "YYYY-MM-DD\"T\"HH24:MI:SS.FF9TZH:TZM");
+        properties.setProperty("TIMESTAMP_NTZ_OUTPUT_FORMAT", "YYYY-MM-DD\"T\"HH24:MI:SS.FF9TZH:TZM");
+        properties.setProperty("TIMESTAMP_TZ_OUTPUT_FORMAT", "YYYY-MM-DD\"T\"HH24:MI:SS.FF9TZH:TZM");
+        properties.setProperty("TIMESTAMP_LTZ_OUTPUT_FORMAT", "YYYY-MM-DD\"T\"HH24:MI:SS.FF9TZH:TZM");
+        properties.setProperty("TIME_OUTPUT_FORMAT", "HH24:MI:SS.FF9");
+        // Don't treat decimals as bigints as they may overflow
+        properties.setProperty("JDBC_TREAT_DECIMAL_AS_INT", "FALSE");
     }
 }

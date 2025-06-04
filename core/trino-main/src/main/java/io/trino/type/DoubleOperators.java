@@ -59,9 +59,7 @@ public final class DoubleOperators
 
     private static final ThreadLocal<DecimalFormat> FORMAT = ThreadLocal.withInitial(() -> new DecimalFormat("0.0###################E0", new DecimalFormatSymbols(ENGLISH)));
 
-    private DoubleOperators()
-    {
-    }
+    private DoubleOperators() {}
 
     @ScalarOperator(ADD)
     @SqlType(StandardTypes.DOUBLE)

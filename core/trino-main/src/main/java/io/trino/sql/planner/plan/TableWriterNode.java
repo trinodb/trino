@@ -14,12 +14,12 @@
 package io.trino.sql.planner.plan;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Multimap;
 import com.google.errorprone.annotations.Immutable;
 import io.trino.Session;
 import io.trino.metadata.InsertTableHandle;
@@ -30,6 +30,7 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableLayout;
+import io.trino.spi.RefreshType;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.RowChangeParadigm;
@@ -488,17 +489,20 @@ public class TableWriterNode
         private final TableHandle storageTableHandle;
         private final List<TableHandle> sourceTableHandles;
         private final List<String> sourceTableFunctions;
+        private final RefreshType refreshType;
 
         public RefreshMaterializedViewReference(
                 String table,
                 TableHandle storageTableHandle,
                 List<TableHandle> sourceTableHandles,
-                List<String> sourceTableFunctions)
+                List<String> sourceTableFunctions,
+                RefreshType refreshType)
         {
             this.table = requireNonNull(table, "table is null");
             this.storageTableHandle = requireNonNull(storageTableHandle, "storageTableHandle is null");
             this.sourceTableHandles = ImmutableList.copyOf(sourceTableHandles);
             this.sourceTableFunctions = ImmutableList.copyOf(sourceTableFunctions);
+            this.refreshType = requireNonNull(refreshType, "refreshType is null");
         }
 
         public TableHandle getStorageTableHandle()
@@ -540,6 +544,16 @@ public class TableWriterNode
         public WriterScalingOptions getWriterScalingOptions(Metadata metadata, Session session)
         {
             return metadata.getInsertWriterScalingOptions(session, storageTableHandle);
+        }
+
+        public RefreshType getRefreshType()
+        {
+            return refreshType;
+        }
+
+        public RefreshMaterializedViewReference withRefreshType(RefreshType refreshType)
+        {
+            return new RefreshMaterializedViewReference(table, storageTableHandle, sourceTableHandles, sourceTableFunctions, refreshType);
         }
     }
 
@@ -633,141 +647,6 @@ public class TableWriterNode
         }
     }
 
-    public static class DeleteTarget
-            extends WriterTarget
-    {
-        private final Optional<TableHandle> handle;
-        private final SchemaTableName schemaTableName;
-
-        @JsonCreator
-        public DeleteTarget(
-                @JsonProperty("handle") Optional<TableHandle> handle,
-                @JsonProperty("schemaTableName") SchemaTableName schemaTableName)
-        {
-            this.handle = requireNonNull(handle, "handle is null");
-            this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
-        }
-
-        @JsonProperty
-        public Optional<TableHandle> getHandle()
-        {
-            return handle;
-        }
-
-        @JsonIgnore
-        public TableHandle getHandleOrElseThrow()
-        {
-            return handle.orElseThrow(() -> new IllegalStateException("DeleteTarget does not contain handle"));
-        }
-
-        @JsonProperty
-        public SchemaTableName getSchemaTableName()
-        {
-            return schemaTableName;
-        }
-
-        @Override
-        public String toString()
-        {
-            return handle.map(Object::toString).orElse("[]");
-        }
-
-        @Override
-        public boolean supportsMultipleWritersPerPartition(Metadata metadata, Session session)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public OptionalInt getMaxWriterTasks(Metadata metadata, Session session)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public WriterScalingOptions getWriterScalingOptions(Metadata metadata, Session session)
-        {
-            throw new UnsupportedOperationException();
-        }
-    }
-
-    public static class UpdateTarget
-            extends WriterTarget
-    {
-        private final Optional<TableHandle> handle;
-        private final SchemaTableName schemaTableName;
-        private final List<String> updatedColumns;
-        private final List<ColumnHandle> updatedColumnHandles;
-
-        @JsonCreator
-        public UpdateTarget(
-                @JsonProperty("handle") Optional<TableHandle> handle,
-                @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
-                @JsonProperty("updatedColumns") List<String> updatedColumns,
-                @JsonProperty("updatedColumnHandles") List<ColumnHandle> updatedColumnHandles)
-        {
-            this.handle = requireNonNull(handle, "handle is null");
-            this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
-            checkArgument(updatedColumns.size() == updatedColumnHandles.size(), "updatedColumns size %s must equal updatedColumnHandles size %s", updatedColumns.size(), updatedColumnHandles.size());
-            this.updatedColumns = requireNonNull(updatedColumns, "updatedColumns is null");
-            this.updatedColumnHandles = requireNonNull(updatedColumnHandles, "updatedColumnHandles is null");
-        }
-
-        @JsonProperty
-        public Optional<TableHandle> getHandle()
-        {
-            return handle;
-        }
-
-        @JsonIgnore
-        public TableHandle getHandleOrElseThrow()
-        {
-            return handle.orElseThrow(() -> new IllegalStateException("UpdateTarge does not contain handle"));
-        }
-
-        @JsonProperty
-        public SchemaTableName getSchemaTableName()
-        {
-            return schemaTableName;
-        }
-
-        @JsonProperty
-        public List<String> getUpdatedColumns()
-        {
-            return updatedColumns;
-        }
-
-        @JsonProperty
-        public List<ColumnHandle> getUpdatedColumnHandles()
-        {
-            return updatedColumnHandles;
-        }
-
-        @Override
-        public String toString()
-        {
-            return handle.map(Object::toString).orElse("[]");
-        }
-
-        @Override
-        public boolean supportsMultipleWritersPerPartition(Metadata metadata, Session session)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public OptionalInt getMaxWriterTasks(Metadata metadata, Session session)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public WriterScalingOptions getWriterScalingOptions(Metadata metadata, Session session)
-        {
-            throw new UnsupportedOperationException();
-        }
-    }
-
     public static class TableExecuteTarget
             extends WriterTarget
     {
@@ -852,18 +731,24 @@ public class TableWriterNode
         private final Optional<MergeHandle> mergeHandle;
         private final SchemaTableName schemaTableName;
         private final MergeParadigmAndTypes mergeParadigmAndTypes;
+        private final List<TableHandle> sourceTableHandles;
+        private final Multimap<Integer, ColumnHandle> updateCaseColumnHandles;
 
         @JsonCreator
         public MergeTarget(
                 @JsonProperty("handle") TableHandle handle,
                 @JsonProperty("mergeHandle") Optional<MergeHandle> mergeHandle,
                 @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
-                @JsonProperty("mergeParadigmAndTypes") MergeParadigmAndTypes mergeParadigmAndTypes)
+                @JsonProperty("mergeParadigmAndTypes") MergeParadigmAndTypes mergeParadigmAndTypes,
+                @JsonProperty("sourceTableHandles") List<TableHandle> sourceTableHandles,
+                @JsonProperty("updateCaseColumnHandles") Multimap<Integer, ColumnHandle> updateCaseColumnHandles)
         {
             this.handle = requireNonNull(handle, "handle is null");
             this.mergeHandle = requireNonNull(mergeHandle, "mergeHandle is null");
             this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
             this.mergeParadigmAndTypes = requireNonNull(mergeParadigmAndTypes, "mergeElements is null");
+            this.sourceTableHandles = ImmutableList.copyOf(requireNonNull(sourceTableHandles, "sourceTableHandles is null"));
+            this.updateCaseColumnHandles = requireNonNull(updateCaseColumnHandles, "updateCaseColumnHandles is null");
         }
 
         @JsonProperty
@@ -912,6 +797,18 @@ public class TableWriterNode
         public WriterScalingOptions getWriterScalingOptions(Metadata metadata, Session session)
         {
             return WriterScalingOptions.DISABLED;
+        }
+
+        @JsonProperty
+        public List<TableHandle> getSourceTableHandles()
+        {
+            return sourceTableHandles;
+        }
+
+        @JsonProperty
+        public Multimap<Integer, ColumnHandle> getUpdateCaseColumnHandles()
+        {
+            return updateCaseColumnHandles;
         }
     }
 

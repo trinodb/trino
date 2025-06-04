@@ -14,6 +14,7 @@
 package io.trino.operator.project;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.trino.sql.relational.CallExpression;
 import io.trino.sql.relational.ConstantExpression;
 import io.trino.sql.relational.InputReferenceExpression;
@@ -63,24 +64,24 @@ public final class PageFieldsToInputParametersRewriter
             return ImmutableList.copyOf(inputChannels);
         }
 
-        public List<Integer> getEagerlyLoadedChannels()
+        public Set<Integer> getEagerlyLoadedChannels()
         {
-            return ImmutableList.copyOf(eagerlyLoadedChannels);
+            return ImmutableSet.copyOf(eagerlyLoadedChannels);
         }
 
         @Override
         public RowExpression visitInputReference(InputReferenceExpression reference, Boolean unconditionallyEvaluated)
         {
             if (unconditionallyEvaluated) {
-                eagerlyLoadedChannels.add(reference.getField());
+                eagerlyLoadedChannels.add(reference.field());
             }
             int parameter = getParameterForField(reference);
-            return field(parameter, reference.getType());
+            return field(parameter, reference.type());
         }
 
         private Integer getParameterForField(InputReferenceExpression reference)
         {
-            return fieldToParameter.computeIfAbsent(reference.getField(), field -> {
+            return fieldToParameter.computeIfAbsent(reference.field(), field -> {
                 inputChannels.add(field);
                 return nextParameter++;
             });
@@ -89,10 +90,10 @@ public final class PageFieldsToInputParametersRewriter
         @Override
         public RowExpression visitCall(CallExpression call, Boolean unconditionallyEvaluated)
         {
-            boolean containsLambdaExpression = call.getArguments().stream().anyMatch(LambdaDefinitionExpression.class::isInstance);
+            boolean containsLambdaExpression = call.arguments().stream().anyMatch(LambdaDefinitionExpression.class::isInstance);
             return new CallExpression(
-                    call.getResolvedFunction(),
-                    call.getArguments().stream()
+                    call.resolvedFunction(),
+                    call.arguments().stream()
                             // Lambda expressions may use only some of their input references, e.g. transform(elements, x -> 1)
                             // TODO: Currently we fallback to assuming that all the arguments are conditionally evaluated when
                             //   a lambda expression is encountered for the sake of simplicity.
@@ -103,25 +104,25 @@ public final class PageFieldsToInputParametersRewriter
         @Override
         public RowExpression visitSpecialForm(SpecialForm specialForm, Boolean unconditionallyEvaluated)
         {
-            return switch (specialForm.getForm()) {
+            return switch (specialForm.form()) {
                 case IF, SWITCH, BETWEEN, AND, OR, COALESCE -> {
-                    List<RowExpression> arguments = specialForm.getArguments();
+                    List<RowExpression> arguments = specialForm.arguments();
                     yield new SpecialForm(
-                            specialForm.getForm(),
-                            specialForm.getType(),
+                            specialForm.form(),
+                            specialForm.type(),
                             IntStream.range(0, arguments.size()).boxed()
                                     // All the arguments after the first one are assumed to be conditionally evaluated
                                     .map(index -> arguments.get(index).accept(this, index == 0 && unconditionallyEvaluated))
                                     .collect(toImmutableList()),
-                            specialForm.getFunctionDependencies());
+                            specialForm.functionDependencies());
                 }
                 case BIND, IN, WHEN, IS_NULL, NULL_IF, DEREFERENCE, ROW_CONSTRUCTOR, ARRAY_CONSTRUCTOR -> new SpecialForm(
-                        specialForm.getForm(),
-                        specialForm.getType(),
-                        specialForm.getArguments().stream()
+                        specialForm.form(),
+                        specialForm.type(),
+                        specialForm.arguments().stream()
                                 .map(expression -> expression.accept(this, unconditionallyEvaluated))
                                 .collect(toImmutableList()),
-                        specialForm.getFunctionDependencies());
+                        specialForm.functionDependencies());
             };
         }
 
@@ -135,8 +136,8 @@ public final class PageFieldsToInputParametersRewriter
         public RowExpression visitLambda(LambdaDefinitionExpression lambda, Boolean unconditionallyEvaluated)
         {
             return new LambdaDefinitionExpression(
-                    lambda.getArguments(),
-                    lambda.getBody().accept(this, unconditionallyEvaluated));
+                    lambda.arguments(),
+                    lambda.body().accept(this, unconditionallyEvaluated));
         }
 
         @Override

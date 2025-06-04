@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.jdbc;
 
-import com.google.inject.Guice;
-import com.google.inject.Injector;
 import io.trino.plugin.jdbc.credential.EmptyCredentialProvider;
 import org.h2.Driver;
 import org.junit.jupiter.api.Test;
@@ -32,15 +30,10 @@ public class TestLazyConnectionFactory
     public void testNoConnectionIsCreated()
             throws Exception
     {
-        Injector injector = Guice.createInjector(binder -> {
-            binder.bind(ConnectionFactory.class).annotatedWith(ForBaseJdbc.class).toInstance(
-                    session -> {
-                        throw new AssertionError("Expected no connection creation");
-                    });
-            binder.install(new RetryingConnectionFactoryModule());
-        });
-
-        try (LazyConnectionFactory lazyConnectionFactory = injector.getInstance(LazyConnectionFactory.class);
+        ConnectionFactory failingConnectionFactory = _ -> {
+            throw new AssertionError("Expected no connection creation");
+        };
+        try (LazyConnectionFactory lazyConnectionFactory = new LazyConnectionFactory(failingConnectionFactory);
                 Connection ignored = lazyConnectionFactory.openConnection(SESSION)) {
             // no-op
         }
@@ -50,16 +43,9 @@ public class TestLazyConnectionFactory
     public void testConnectionCannotBeReusedAfterClose()
             throws Exception
     {
-        BaseJdbcConfig config = new BaseJdbcConfig()
-                .setConnectionUrl(format("jdbc:h2:mem:test%s;DB_CLOSE_DELAY=-1", System.nanoTime() + ThreadLocalRandom.current().nextLong()));
-
-        Injector injector = Guice.createInjector(binder -> {
-            binder.bind(ConnectionFactory.class).annotatedWith(ForBaseJdbc.class).toInstance(
-                    DriverConnectionFactory.builder(new Driver(), config.getConnectionUrl(), new EmptyCredentialProvider()).build());
-            binder.install(new RetryingConnectionFactoryModule());
-        });
-
-        try (LazyConnectionFactory lazyConnectionFactory = injector.getInstance(LazyConnectionFactory.class)) {
+        String url = format("jdbc:h2:mem:test%s;DB_CLOSE_DELAY=-1", System.nanoTime() + ThreadLocalRandom.current().nextLong());
+        try (DriverConnectionFactory driverConnectionFactory = DriverConnectionFactory.builder(new Driver(), url, new EmptyCredentialProvider()).build();
+                LazyConnectionFactory lazyConnectionFactory = new LazyConnectionFactory(driverConnectionFactory)) {
             Connection connection = lazyConnectionFactory.openConnection(SESSION);
             connection.close();
             assertThatThrownBy(connection::createStatement)

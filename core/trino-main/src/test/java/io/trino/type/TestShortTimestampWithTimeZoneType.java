@@ -34,7 +34,7 @@ public class TestShortTimestampWithTimeZoneType
 
     public static ValueBlock createTestBlock()
     {
-        BlockBuilder blockBuilder = TIMESTAMP_TZ_MILLIS.createBlockBuilder(null, 15);
+        BlockBuilder blockBuilder = TIMESTAMP_TZ_MILLIS.createFixedSizeBlockBuilder(15);
         TIMESTAMP_TZ_MILLIS.writeLong(blockBuilder, packDateTimeWithZone(1111, getTimeZoneKeyForOffset(0)));
         TIMESTAMP_TZ_MILLIS.writeLong(blockBuilder, packDateTimeWithZone(1111, getTimeZoneKeyForOffset(1)));
         TIMESTAMP_TZ_MILLIS.writeLong(blockBuilder, packDateTimeWithZone(1111, getTimeZoneKeyForOffset(2)));

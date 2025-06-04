@@ -16,6 +16,7 @@ package io.trino.matching;
 import io.trino.matching.pattern.CapturePattern;
 import io.trino.matching.pattern.EqualsPattern;
 import io.trino.matching.pattern.FilterPattern;
+import io.trino.matching.pattern.OrPattern;
 import io.trino.matching.pattern.TypeOfPattern;
 import io.trino.matching.pattern.WithPattern;
 
@@ -32,6 +33,8 @@ public interface PatternVisitor
     void visitEquals(EqualsPattern<?> equalsPattern);
 
     void visitFilter(FilterPattern<?> pattern);
+
+    void visitOr(OrPattern<?> pattern);
 
     default void visitPrevious(Pattern<?> pattern)
     {

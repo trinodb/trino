@@ -13,19 +13,24 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multiset;
-import io.opentelemetry.sdk.trace.data.SpanData;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
+import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.metastore.HiveMetastore;
+import io.trino.plugin.iceberg.util.FileOperationUtils.Scope;
 import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.sql.planner.plan.FilterNode;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
+import org.apache.iceberg.Table;
 import org.apache.iceberg.util.ThreadPools;
 import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
@@ -33,36 +38,40 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import java.nio.file.Path;
-import java.util.List;
-import java.util.function.Predicate;
+import java.util.Optional;
 
 import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
 import static io.trino.SystemSessionProperties.MIN_INPUT_SIZE_PER_TASK;
-import static io.trino.filesystem.tracing.FileSystemAttributes.FILE_LOCATION;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.COLLECT_EXTENDED_STATISTICS_ON_WRITE;
-import static io.trino.plugin.iceberg.TestIcebergFileOperations.FileType.DATA;
-import static io.trino.plugin.iceberg.TestIcebergFileOperations.FileType.MANIFEST;
-import static io.trino.plugin.iceberg.TestIcebergFileOperations.FileType.METADATA_JSON;
-import static io.trino.plugin.iceberg.TestIcebergFileOperations.FileType.METASTORE;
-import static io.trino.plugin.iceberg.TestIcebergFileOperations.FileType.SNAPSHOT;
-import static io.trino.plugin.iceberg.TestIcebergFileOperations.FileType.STATS;
-import static io.trino.plugin.iceberg.TestIcebergFileOperations.FileType.fromFilePath;
-import static io.trino.plugin.iceberg.TestIcebergFileOperations.Scope.ALL_FILES;
-import static io.trino.plugin.iceberg.TestIcebergFileOperations.Scope.METADATA_FILES;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
+import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDeleteForTable;
+import static io.trino.plugin.iceberg.util.FileOperationUtils.FileOperation;
+import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.DATA;
+import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.DELETE;
+import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.MANIFEST;
+import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.METADATA_JSON;
+import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.SNAPSHOT;
+import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.STATS;
+import static io.trino.plugin.iceberg.util.FileOperationUtils.Scope.ALL_FILES;
+import static io.trino.plugin.iceberg.util.FileOperationUtils.Scope.METADATA_FILES;
+import static io.trino.plugin.iceberg.util.FileOperationUtils.getOperations;
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.Math.min;
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toCollection;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @Execution(ExecutionMode.SAME_THREAD)
 public class TestIcebergFileOperations
         extends AbstractTestQueryFramework
 {
     private static final int MAX_PREFIXES_COUNT = 10;
+
+    private HiveMetastore metastore;
+    private TrinoFileSystemFactory fileSystemFactory;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -78,6 +87,9 @@ public class TestIcebergFileOperations
                 .build();
 
         QueryRunner queryRunner = DistributedQueryRunner.builder(session)
+                // the delete test must run with a single task, so we can verify the delete file is read once per task
+                // currently the only way to achieve this is to set worker count to 0
+                .setWorkerCount(0)
                 .addCoordinatorProperty("optimizer.experimental-max-prefetched-information-schema-prefixes", Integer.toString(MAX_PREFIXES_COUNT))
                 .build();
 
@@ -86,7 +98,12 @@ public class TestIcebergFileOperations
         queryRunner.installPlugin(new TestingIcebergPlugin(dataDirectory));
         queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", ImmutableMap.<String, String>builder()
                 .put("iceberg.split-manager-threads", "0")
+                // FS accesses with metadata cache are tested separately in io.trino.plugin.iceberg.TestIcebergMemoryCacheFileOperations
+                .put("iceberg.metadata-cache.enabled", "false")
                 .buildOrThrow());
+
+        metastore = getHiveMetastore(queryRunner);
+
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
 
@@ -95,14 +112,18 @@ public class TestIcebergFileOperations
         return queryRunner;
     }
 
+    @BeforeAll
+    public void initFileSystemFactory()
+    {
+        fileSystemFactory = getFileSystemFactory(getDistributedQueryRunner());
+    }
+
     @Test
     public void testCreateTable()
     {
         assertFileSystemAccesses("CREATE TABLE test_create (id VARCHAR, age INT)",
                 ImmutableMultiset.<FileOperation>builder()
                         .add(new FileOperation(METADATA_JSON, "OutputFile.create"))
-                        .add(new FileOperation(SNAPSHOT, "InputFile.length"))
-                        .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
                         .add(new FileOperation(SNAPSHOT, "OutputFile.create"))
                         .build());
     }
@@ -113,16 +134,12 @@ public class TestIcebergFileOperations
         assertFileSystemAccesses("CREATE OR REPLACE TABLE test_create_or_replace (id VARCHAR, age INT)",
                 ImmutableMultiset.<FileOperation>builder()
                         .add(new FileOperation(METADATA_JSON, "OutputFile.create"))
-                        .add(new FileOperation(SNAPSHOT, "InputFile.length"))
-                        .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
                         .add(new FileOperation(SNAPSHOT, "OutputFile.create"))
                         .build());
         assertFileSystemAccesses("CREATE OR REPLACE TABLE test_create_or_replace (id VARCHAR, age INT)",
                 ImmutableMultiset.<FileOperation>builder()
                         .add(new FileOperation(METADATA_JSON, "OutputFile.create"))
                         .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
-                        .add(new FileOperation(SNAPSHOT, "InputFile.length"))
-                        .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
                         .add(new FileOperation(SNAPSHOT, "OutputFile.create"))
                         .build());
     }
@@ -175,11 +192,41 @@ public class TestIcebergFileOperations
                 ImmutableMultiset.<FileOperation>builder()
                         .addCopies(new FileOperation(METADATA_JSON, "OutputFile.create"), 2)
                         .addCopies(new FileOperation(METADATA_JSON, "InputFile.newStream"), 2)
-                        .addCopies(new FileOperation(SNAPSHOT, "InputFile.newStream"), 2)
-                        .addCopies(new FileOperation(SNAPSHOT, "InputFile.length"), 2)
+                        .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
+                        .add(new FileOperation(SNAPSHOT, "InputFile.length"))
                         .add(new FileOperation(SNAPSHOT, "OutputFile.create"))
                         .add(new FileOperation(MANIFEST, "OutputFile.create"))
-                        .add(new FileOperation(MANIFEST, "InputFile.newStream"))
+                        .add(new FileOperation(STATS, "OutputFile.create"))
+                        .build());
+    }
+
+    @Test
+    public void testInsert()
+    {
+        assertUpdate("CREATE TABLE test_insert (id VARCHAR, age INT)");
+
+        assertFileSystemAccesses(
+                "INSERT INTO test_insert VALUES('a', 1)",
+                ImmutableMultiset.<FileOperation>builder()
+                        .addCopies(new FileOperation(METADATA_JSON, "OutputFile.create"), 2)
+                        .addCopies(new FileOperation(METADATA_JSON, "InputFile.newStream"), 3)
+                        .addCopies(new FileOperation(SNAPSHOT, "InputFile.length"), 3)
+                        .addCopies(new FileOperation(SNAPSHOT, "InputFile.newStream"), 3)
+                        .add(new FileOperation(SNAPSHOT, "OutputFile.create"))
+                        .add(new FileOperation(MANIFEST, "OutputFile.create"))
+                        .add(new FileOperation(STATS, "OutputFile.create"))
+                        .build());
+
+        assertFileSystemAccesses(
+                "INSERT INTO test_insert VALUES('b', 2)",
+                ImmutableMultiset.<FileOperation>builder()
+                        .addCopies(new FileOperation(METADATA_JSON, "OutputFile.create"), 2)
+                        .addCopies(new FileOperation(METADATA_JSON, "InputFile.newStream"), 3)
+                        .addCopies(new FileOperation(SNAPSHOT, "InputFile.newStream"), 3)
+                        .addCopies(new FileOperation(SNAPSHOT, "InputFile.length"), 3)
+                        .add(new FileOperation(STATS, "InputFile.newStream"))
+                        .add(new FileOperation(SNAPSHOT, "OutputFile.create"))
+                        .add(new FileOperation(MANIFEST, "OutputFile.create"))
                         .add(new FileOperation(STATS, "OutputFile.create"))
                         .build());
     }
@@ -465,6 +512,62 @@ public class TestIcebergFileOperations
     }
 
     @Test
+    public void testPartialTimestampPartitionPruningEffectivenessWithPartitionTransform()
+    {
+        testPartialTimestampPartitionPruningEffectivenessWithPartitionTransform("hour(d)", 4);
+        testPartialTimestampPartitionPruningEffectivenessWithPartitionTransform("day(d)", 2);
+        testPartialTimestampPartitionPruningEffectivenessWithPartitionTransform("month(d)", 2);
+        testPartialTimestampPartitionPruningEffectivenessWithPartitionTransform("year(d)", 2);
+        testPartialTimestampPartitionPruningEffectivenessWithPartitionTransform("bucket(d, 4)", 2);
+    }
+
+    private void testPartialTimestampPartitionPruningEffectivenessWithPartitionTransform(String partitionTransform, int expectedDataFileOperations)
+    {
+        String tableName = "test_transform_timestamp" + randomNameSuffix();
+        assertUpdate(format("CREATE TABLE %s (d TIMESTAMP(6), b BIGINT) WITH (partitioning = ARRAY['%s'])", tableName, partitionTransform));
+
+        @Language("SQL") String values =
+                """
+                VALUES
+                    (NULL, 101),
+                    (TIMESTAMP '1969-12-25 15:13:12.876543', 8),
+                    (TIMESTAMP '1969-12-30 18:47:33.345678', 9),
+                    (TIMESTAMP '1969-12-31 00:00:00.000000', 10),
+                    (TIMESTAMP '1969-12-31 05:06:07.234567', 11),
+                    (TIMESTAMP '1970-01-01 12:03:08.456789', 12),
+                    (TIMESTAMP '2015-01-01 10:01:23.123456', 1),
+                    (TIMESTAMP '2015-01-01 11:10:02.987654', 2),
+                    (TIMESTAMP '2015-01-01 12:55:00.456789', 3),
+                    (TIMESTAMP '2015-05-15 13:05:01.234567', 4),
+                    (TIMESTAMP '2015-05-15 14:21:02.345678', 5),
+                    (TIMESTAMP '2020-02-21 15:11:11.876543', 6),
+                    (TIMESTAMP '2020-02-21 16:12:12.654321', 7)
+                """;
+        assertUpdate("INSERT INTO " + tableName + " " + values, 13);
+        assertQuery("SELECT * FROM " + tableName, values);
+
+        @Language("SQL") String selectQuery = "SELECT * FROM " + tableName + " WHERE d >= TIMESTAMP '2015-05-15 01:23:45.678901'";
+        assertThat(query(selectQuery)).isNotFullyPushedDown(FilterNode.class);
+
+        assertFileSystemAccesses(
+                getSession(),
+                selectQuery,
+                ALL_FILES,
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
+                        .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
+                        .add(new FileOperation(MANIFEST, "InputFile.newStream"))
+                        .add(new FileOperation(SNAPSHOT, "InputFile.length"))
+                        .addCopies(new FileOperation(DATA, "InputFile.newInput"), expectedDataFileOperations)
+                        .build());
+
+        assertThat((long) computeScalar("SELECT COUNT(DISTINCT file_path) FROM \"" + tableName + "$files\""))
+                .isGreaterThan(expectedDataFileOperations);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testJoin()
     {
         assertUpdate("CREATE TABLE test_join_t1 AS SELECT 2 AS age, 'id1' AS id", 1);
@@ -476,6 +579,40 @@ public class TestIcebergFileOperations
                         .addCopies(new FileOperation(SNAPSHOT, "InputFile.length"), 2)
                         .addCopies(new FileOperation(SNAPSHOT, "InputFile.newStream"), 2)
                         .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), 4)
+                        .build());
+    }
+
+    @Test
+    public void testSelfJoinStatistics()
+    {
+        assertUpdate("CREATE TABLE test_self_join AS SELECT 'name1' AS name, 2 AS age, 'id1' AS id", 1);
+
+        // We use column statistics for all three columns from t1 and single column from t2.
+        // IcebergMetadata#tableStatisticsCache should be able to avoid multiple reads by re-using stats from t1.
+        assertFileSystemAccesses("EXPLAIN SELECT t1.name, t1.age FROM test_self_join t1 JOIN test_self_join t2 ON t1.id = t2.id",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
+                        .add(new FileOperation(SNAPSHOT, "InputFile.length"))
+                        .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
+                        .add(new FileOperation(MANIFEST, "InputFile.newStream"))
+                        .build());
+
+        // Same columns projected from both t1 and t2, but with different predicate which prevents reuse of statistics from IcebergMetadata#tableStatisticsCache
+        assertFileSystemAccesses("EXPLAIN SELECT t1.age FROM test_self_join t1 JOIN test_self_join t2 ON t1.id = t2.id WHERE t2.age > 0",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
+                        .add(new FileOperation(SNAPSHOT, "InputFile.length"))
+                        .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
+                        .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), 2)
+                        .build());
+
+        // Different columns projected from t1 and t2 prevents reuse of statistics from IcebergMetadata#tableStatisticsCache
+        assertFileSystemAccesses("EXPLAIN SELECT t1.name FROM test_self_join t1 JOIN test_self_join t2 ON t1.name = t2.id",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
+                        .add(new FileOperation(SNAPSHOT, "InputFile.length"))
+                        .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
+                        .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), 2)
                         .build());
     }
 
@@ -652,13 +789,13 @@ public class TestIcebergFileOperations
         // Pointed lookup
         assertFileSystemAccesses(session, "SELECT * FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA AND table_name = 'test_select_i_s_columns0'",
                 ImmutableMultiset.<FileOperation>builder()
-                        .add(new FileOperation(FileType.METADATA_JSON, "InputFile.newStream"))
+                        .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
                         .build());
 
         // Pointed lookup via DESCRIBE (which does some additional things before delegating to information_schema.columns)
         assertFileSystemAccesses(session, "DESCRIBE test_select_i_s_columns0",
                 ImmutableMultiset.<FileOperation>builder()
-                        .add(new FileOperation(FileType.METADATA_JSON, "InputFile.newStream"))
+                        .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
                         .build());
 
         for (int i = 0; i < tables; i++) {
@@ -776,6 +913,43 @@ public class TestIcebergFileOperations
     }
 
     @Test
+    public void testV2TableEnsureEqualityDeleteFilesAreReadOnce()
+            throws Exception
+    {
+        String tableName = "test_equality_deletes_ensure_delete_read_count" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id INT, age INT)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (2, 20), (3, 30)", 2);
+        // change the schema and do another insert to force at least 2 splits
+        // use the same ID in both files so the delete file doesn't get optimized away by statstics
+        assertUpdate("INSERT INTO " + tableName + "  VALUES (2, 22)", 1);
+        Table icebergTable = IcebergTestUtils.loadTable(tableName, metastore, fileSystemFactory, "iceberg", "test_schema");
+
+        // Delete only 1 row in the file so the data file is not pruned completely
+        writeEqualityDeleteForTable(icebergTable,
+                fileSystemFactory,
+                Optional.of(icebergTable.spec()),
+                Optional.empty(),
+                ImmutableMap.of("id", 2),
+                Optional.empty());
+
+        ImmutableMultiset<FileOperation> expectedAccesses = ImmutableMultiset.<FileOperation>builder()
+                .addCopies(new FileOperation(DATA, "InputFile.newInput"), 2)
+                .addCopies(new FileOperation(DELETE, "InputFile.newInput"), 1)
+                .build();
+
+        QueryRunner.MaterializedResultWithPlan queryResult = getDistributedQueryRunner().executeWithPlan(getSession(), "SELECT * FROM " + tableName);
+        assertThat(queryResult.result().getRowCount())
+                .describedAs("query result row count")
+                .isEqualTo(1);
+        assertMultisetsEqual(
+                getOperations(getDistributedQueryRunner().getSpans()).stream()
+                        .filter(operation -> ImmutableSet.of(DATA, DELETE).contains(operation.fileType()))
+                        .collect(toImmutableMultiset()),
+                expectedAccesses);
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testShowTables()
     {
         assertFileSystemAccesses("SHOW TABLES", ImmutableMultiset.of());
@@ -806,14 +980,6 @@ public class TestIcebergFileOperations
                 expectedAccesses);
     }
 
-    private Multiset<FileOperation> getOperations(List<SpanData> spans)
-    {
-        return spans.stream()
-                .filter(span -> span.getName().startsWith("InputFile.") || span.getName().startsWith("OutputFile."))
-                .map(span -> new FileOperation(fromFilePath(span.getAttributes().get(FILE_LOCATION)), span.getName()))
-                .collect(toCollection(HashMultiset::create));
-    }
-
     private long getLatestSnapshotId(String tableName)
     {
         return (long) computeScalar(format("SELECT snapshot_id FROM \"%s$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES", tableName));
@@ -825,67 +991,5 @@ public class TestIcebergFileOperations
         return Session.builder(session)
                 .setCatalogSessionProperty(catalog, COLLECT_EXTENDED_STATISTICS_ON_WRITE, Boolean.toString(enabled))
                 .build();
-    }
-
-    private record FileOperation(FileType fileType, String operationType)
-    {
-        public FileOperation
-        {
-            requireNonNull(fileType, "fileType is null");
-            requireNonNull(operationType, "operationType is null");
-        }
-    }
-
-    enum Scope
-            implements Predicate<FileOperation>
-    {
-        METADATA_FILES {
-            @Override
-            public boolean test(FileOperation fileOperation)
-            {
-                return fileOperation.fileType() != DATA && fileOperation.fileType() != METASTORE;
-            }
-        },
-        ALL_FILES {
-            @Override
-            public boolean test(FileOperation fileOperation)
-            {
-                return fileOperation.fileType() != METASTORE;
-            }
-        },
-    }
-
-    enum FileType
-    {
-        METADATA_JSON,
-        SNAPSHOT,
-        MANIFEST,
-        STATS,
-        DATA,
-        METASTORE,
-        /**/;
-
-        public static FileType fromFilePath(String path)
-        {
-            if (path.endsWith("metadata.json")) {
-                return METADATA_JSON;
-            }
-            if (path.contains("/snap-")) {
-                return SNAPSHOT;
-            }
-            if (path.endsWith("-m0.avro")) {
-                return MANIFEST;
-            }
-            if (path.endsWith(".stats")) {
-                return STATS;
-            }
-            if (path.contains("/data/") && (path.endsWith(".orc") || path.endsWith(".parquet"))) {
-                return DATA;
-            }
-            if (path.endsWith(".trinoSchema") || path.contains("/.trinoPermissions/")) {
-                return METASTORE;
-            }
-            throw new IllegalArgumentException("File not recognized: " + path);
-        }
     }
 }

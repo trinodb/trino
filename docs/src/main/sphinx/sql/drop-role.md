@@ -3,7 +3,7 @@
 ## Synopsis
 
 ```text
-DROP ROLE role_name
+DROP ROLE [ IF EXISTS ] role_name
 [ IN catalog ]
 ```
 
@@ -13,6 +13,9 @@ DROP ROLE role_name
 
 For `DROP ROLE` statement to succeed, the user executing it should possess
 admin privileges for the given role.
+
+The optional `IF EXISTS` prevents the statement from failing if the role
+isn't found.
 
 The optional `IN catalog` clause drops the role in a catalog as opposed
 to a system role.

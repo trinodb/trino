@@ -43,11 +43,13 @@ public class TestOpaResponseDecoding
 
     private void testCanDeserializeOpaSingleResponse(boolean response)
     {
-        OpaQueryResult result = this.responseCodec.fromJson("""
+        OpaQueryResult result = this.responseCodec.fromJson(
+                """
                 {
                     "decision_id": "foo",
                     "result": %s
-                }""".formatted(String.valueOf(response)));
+                }\
+                """.formatted(String.valueOf(response)));
         assertThat(response).isEqualTo(result.result());
         assertThat(result.decisionId()).isEqualTo("foo");
     }
@@ -61,10 +63,12 @@ public class TestOpaResponseDecoding
 
     private void testCanDeserializeOpaSingleResponseWithNoDecisionId(boolean response)
     {
-        OpaQueryResult result = this.responseCodec.fromJson("""
+        OpaQueryResult result = this.responseCodec.fromJson(
+                """
                 {
                     "result": %s
-                }""".formatted(String.valueOf(response)));
+                }\
+                """.formatted(String.valueOf(response)));
         assertThat(response).isEqualTo(result.result());
         assertThat(result.decisionId()).isNull();
     }
@@ -72,11 +76,13 @@ public class TestOpaResponseDecoding
     @Test
     public void testSingleResponseWithExtraFields()
     {
-        OpaQueryResult result = this.responseCodec.fromJson("""
+        OpaQueryResult result = this.responseCodec.fromJson(
+                """
                 {
                     "result": true,
                     "someExtraInfo": ["foo"]
-                }""");
+                }\
+                """);
         assertThat(result.result()).isTrue();
         assertThat(result.decisionId()).isNull();
     }
@@ -112,10 +118,12 @@ public class TestOpaResponseDecoding
     @Test
     public void testBatchResponseWithItemsNoDecisionId()
     {
-        OpaBatchQueryResult result = this.batchResponseCodec.fromJson("""
+        OpaBatchQueryResult result = this.batchResponseCodec.fromJson(
+                """
                 {
                     "result": [1, 2, 3]
-                }""");
+                }\
+                """);
         assertThat(result.result()).containsExactly(1, 2, 3);
         assertThat(result.decisionId()).isNull();
     }
@@ -123,11 +131,13 @@ public class TestOpaResponseDecoding
     @Test
     public void testBatchResponseWithItemsAndDecisionId()
     {
-        OpaBatchQueryResult result = this.batchResponseCodec.fromJson("""
+        OpaBatchQueryResult result = this.batchResponseCodec.fromJson(
+                """
                 {
                     "result": [1, 2, 3],
                     "decision_id": "foobar"
-                }""");
+                }\
+                """);
         assertThat(result.result()).containsExactly(1, 2, 3);
         assertThat(result.decisionId()).isEqualTo("foobar");
     }
@@ -135,23 +145,27 @@ public class TestOpaResponseDecoding
     @Test
     public void testBatchResponseIllegalResponseThrows()
     {
-        testIllegalResponseDecodingThrows("""
+        testIllegalResponseDecodingThrows(
+                """
                 {
                     "result": ["foo"],
                     "decision_id": "foobar"
-                }""", batchResponseCodec);
+                }\
+                """, batchResponseCodec);
     }
 
     @Test
     public void testBatchResponseWithExtraFields()
     {
-        OpaBatchQueryResult result = this.batchResponseCodec.fromJson("""
+        OpaBatchQueryResult result = this.batchResponseCodec.fromJson(
+                """
                 {
                     "result": [1, 2, 3],
                     "decision_id": "foobar",
                     "someInfo": "foo",
                     "andAnObject": {}
-                }""");
+                }\
+                """);
         assertThat(result.result()).containsExactly(1, 2, 3);
         assertThat(result.decisionId()).isEqualTo("foobar");
     }
@@ -173,13 +187,15 @@ public class TestOpaResponseDecoding
     @Test
     public void testRowFilteringResponseWithItemsNoDecisionId()
     {
-        OpaRowFiltersQueryResult result = this.rowFilteringResponseCodec.fromJson("""
+        OpaRowFiltersQueryResult result = this.rowFilteringResponseCodec.fromJson(
+                """
                 {
                     "result": [
                         {"expression": "foo"},
                         {"expression": "bar", "identity": "some_identity"}
                     ]
-                }""");
+                }\
+                """);
         assertThat(result.result()).containsExactlyInAnyOrder(
                 new OpaViewExpression("foo", Optional.empty()),
                 new OpaViewExpression("bar", Optional.of("some_identity")));
@@ -189,11 +205,13 @@ public class TestOpaResponseDecoding
     @Test
     public void testRowFilteringResponseWithItemsAndDecisionId()
     {
-        OpaRowFiltersQueryResult result = this.rowFilteringResponseCodec.fromJson("""
+        OpaRowFiltersQueryResult result = this.rowFilteringResponseCodec.fromJson(
+                """
                 {
                     "result": [{"expression": "test_expression"}],
                     "decision_id": "some_id"
-                }""");
+                }\
+                """);
         assertThat(result.result()).containsExactly(new OpaViewExpression("test_expression", Optional.empty()));
         assertThat(result.decisionId()).isEqualTo("some_id");
     }
@@ -201,13 +219,15 @@ public class TestOpaResponseDecoding
     @Test
     public void testRowFilteringResponseWithExtraFields()
     {
-        OpaRowFiltersQueryResult result = this.rowFilteringResponseCodec.fromJson("""
+        OpaRowFiltersQueryResult result = this.rowFilteringResponseCodec.fromJson(
+                """
                 {
                     "result": [{"expression": "test_expression"}],
                     "decision_id": "foobar",
                     "someInfo": "foo",
                     "andAnObject": {}
-                }""");
+                }\
+                """);
         assertThat(result.result()).containsExactly(new OpaViewExpression("test_expression", Optional.empty()));
         assertThat(result.decisionId()).isEqualTo("foobar");
     }
@@ -215,10 +235,12 @@ public class TestOpaResponseDecoding
     @Test
     public void testRowFilteringResponseIllegalResponseThrows()
     {
-        testIllegalResponseDecodingThrows("""
-               {
-                   "result": ["foo"]
-               }""", rowFilteringResponseCodec);
+        testIllegalResponseDecodingThrows(
+                """
+                {
+                    "result": ["foo"]
+                }\
+                """, rowFilteringResponseCodec);
     }
 
     @Test
@@ -235,10 +257,12 @@ public class TestOpaResponseDecoding
     @Test
     public void testColumnMaskingResponsesWithNoDecisionId()
     {
-        OpaColumnMaskQueryResult result = this.columnMaskingResponseCodec.fromJson("""
+        OpaColumnMaskQueryResult result = this.columnMaskingResponseCodec.fromJson(
+                """
                 {
                     "result": {"expression": "test_expression"}
-                }""");
+                }\
+                """);
         assertThat(result.result()).contains(new OpaViewExpression("test_expression", Optional.empty()));
         assertThat(result.decisionId()).isNull();
     }
@@ -246,16 +270,20 @@ public class TestOpaResponseDecoding
     @Test
     public void testColumnMaskingResponsesWithDecisionId()
     {
-        OpaColumnMaskQueryResult resultWithExpression = this.columnMaskingResponseCodec.fromJson("""
+        OpaColumnMaskQueryResult resultWithExpression = this.columnMaskingResponseCodec.fromJson(
+                """
                 {
                     "result": {"expression": "test_expression"},
                     "decision_id": "foobar"
-                }""");
-        OpaColumnMaskQueryResult resultWithExpressionAndIdentity = this.columnMaskingResponseCodec.fromJson("""
+                }\
+                """);
+        OpaColumnMaskQueryResult resultWithExpressionAndIdentity = this.columnMaskingResponseCodec.fromJson(
+                """
                 {
                     "result": {"expression": "test_expression", "identity": "some_identity"},
                     "decision_id": "foobar"
-                }""");
+                }\
+                """);
         assertThat(resultWithExpression.result()).contains(new OpaViewExpression("test_expression", Optional.empty()));
         assertThat(resultWithExpressionAndIdentity.result()).contains(new OpaViewExpression("test_expression", Optional.of("some_identity")));
         assertThat(resultWithExpression.decisionId()).isEqualTo("foobar");
@@ -265,13 +293,15 @@ public class TestOpaResponseDecoding
     @Test
     public void testColumnMaskingResponseWithExtraFields()
     {
-        OpaColumnMaskQueryResult result = this.columnMaskingResponseCodec.fromJson("""
+        OpaColumnMaskQueryResult result = this.columnMaskingResponseCodec.fromJson(
+                """
                 {
                     "result": {"expression": "test_expression"},
                     "decision_id": "foobar",
                     "someInfo": "foo",
                     "andAnObject": {}
-                }""");
+                }\
+                """);
         assertThat(result.result()).contains(new OpaViewExpression("test_expression", Optional.empty()));
         assertThat(result.decisionId()).isEqualTo("foobar");
     }
@@ -279,10 +309,12 @@ public class TestOpaResponseDecoding
     @Test
     public void testColumnMaskingResponseIllegalResponseThrows()
     {
-        testIllegalResponseDecodingThrows("""
-               {
-                   "result": {"foo": "bar"}
-               }""", columnMaskingResponseCodec);
+        testIllegalResponseDecodingThrows(
+                """
+                {
+                    "result": {"foo": "bar"}
+                }\
+                """, columnMaskingResponseCodec);
     }
 
     private <T> void testIllegalResponseDecodingThrows(String rawResponse, JsonCodec<T> codec)

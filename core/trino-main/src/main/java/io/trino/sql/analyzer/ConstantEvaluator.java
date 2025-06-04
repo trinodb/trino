@@ -21,7 +21,7 @@ import io.trino.security.AccessControl;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.planner.IrExpressionInterpreter;
+import io.trino.sql.ir.optimizer.IrExpressionEvaluator;
 import io.trino.sql.planner.TranslationMap;
 import io.trino.sql.tree.Expression;
 import io.trino.type.TypeCoercion;
@@ -32,7 +32,7 @@ import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_CONSTANT;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 
-public class ConstantEvaluator
+public final class ConstantEvaluator
 {
     private ConstantEvaluator() {}
 
@@ -66,9 +66,9 @@ public class ConstantEvaluator
         }
 
         if (!actualType.equals(expectedType)) {
-            rewritten = new Cast(rewritten, expectedType, false);
+            rewritten = new Cast(rewritten, expectedType);
         }
 
-        return new IrExpressionInterpreter(rewritten, plannerContext, session).evaluate();
+        return new IrExpressionEvaluator(plannerContext).evaluate(rewritten, session, ImmutableMap.of());
     }
 }

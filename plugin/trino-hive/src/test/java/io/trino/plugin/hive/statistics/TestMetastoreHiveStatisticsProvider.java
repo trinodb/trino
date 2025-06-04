@@ -15,16 +15,16 @@ package io.trino.plugin.hive.statistics;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.hive.HiveBasicStatistics;
+import io.trino.metastore.DateStatistics;
+import io.trino.metastore.DecimalStatistics;
+import io.trino.metastore.DoubleStatistics;
+import io.trino.metastore.HiveBasicStatistics;
+import io.trino.metastore.HiveColumnStatistics;
+import io.trino.metastore.HivePartition;
+import io.trino.metastore.IntegerStatistics;
+import io.trino.metastore.PartitionStatistics;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveConfig;
-import io.trino.plugin.hive.HivePartition;
-import io.trino.plugin.hive.PartitionStatistics;
-import io.trino.plugin.hive.metastore.DateStatistics;
-import io.trino.plugin.hive.metastore.DecimalStatistics;
-import io.trino.plugin.hive.metastore.DoubleStatistics;
-import io.trino.plugin.hive.metastore.HiveColumnStatistics;
-import io.trino.plugin.hive.metastore.IntegerStatistics;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
@@ -45,22 +45,22 @@ import java.util.OptionalDouble;
 import java.util.OptionalLong;
 import java.util.Set;
 
+import static io.trino.metastore.HiveColumnStatistics.createBooleanColumnStatistics;
+import static io.trino.metastore.HiveColumnStatistics.createDateColumnStatistics;
+import static io.trino.metastore.HiveColumnStatistics.createDecimalColumnStatistics;
+import static io.trino.metastore.HiveColumnStatistics.createDoubleColumnStatistics;
+import static io.trino.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
+import static io.trino.metastore.HivePartition.UNPARTITIONED_ID;
+import static io.trino.metastore.HiveType.HIVE_LONG;
+import static io.trino.metastore.HiveType.HIVE_STRING;
+import static io.trino.metastore.Partitions.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CORRUPTED_COLUMN_STATISTICS;
-import static io.trino.plugin.hive.HivePartition.UNPARTITIONED_ID;
-import static io.trino.plugin.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static io.trino.plugin.hive.HivePartitionManager.parsePartition;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
-import static io.trino.plugin.hive.HiveType.HIVE_LONG;
-import static io.trino.plugin.hive.HiveType.HIVE_STRING;
-import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createBooleanColumnStatistics;
-import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createDateColumnStatistics;
-import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createDecimalColumnStatistics;
-import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createDoubleColumnStatistics;
-import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
 import static io.trino.plugin.hive.statistics.AbstractHiveStatisticsProvider.PartitionsRowCount;
 import static io.trino.plugin.hive.statistics.AbstractHiveStatisticsProvider.calculateDataSize;
 import static io.trino.plugin.hive.statistics.AbstractHiveStatisticsProvider.calculateDataSizeForPartitioningKey;
@@ -713,7 +713,7 @@ public class TestMetastoreHiveStatisticsProvider
             protected Map<String, PartitionStatistics> getPartitionsStatistics(ConnectorSession session, SchemaTableName table, List<HivePartition> hivePartitions, Set<String> columns)
             {
                 assertThat(table).isEqualTo(TABLE);
-                assertThat(hivePartitions.size()).isEqualTo(1);
+                assertThat(hivePartitions).hasSize(1);
                 return ImmutableMap.of();
             }
         };

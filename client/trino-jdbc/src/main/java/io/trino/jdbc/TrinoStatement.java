@@ -33,7 +33,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
-import static io.trino.jdbc.AbstractTrinoResultSet.resultsException;
+import static io.trino.jdbc.ResultUtils.resultsException;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -48,11 +48,10 @@ public class TrinoStatement
     private final Consumer<TrinoStatement> onClose;
     private final AtomicReference<StatementClient> executingClient = new AtomicReference<>();
     private final AtomicReference<TrinoResultSet> currentResult = new AtomicReference<>();
-    private final AtomicReference<Optional<WarningsManager>> currentWarningsManager = new AtomicReference<>(Optional.empty());
+    private final AtomicReference<WarningsManager> currentWarningsManager = new AtomicReference<>();
     private final AtomicLong currentUpdateCount = new AtomicLong(-1);
     private final AtomicReference<String> currentUpdateType = new AtomicReference<>();
-    private final AtomicReference<Optional<Consumer<QueryStats>>> progressCallback = new AtomicReference<>(Optional.empty());
-    private final Consumer<QueryStats> progressConsumer = value -> progressCallback.get().ifPresent(callback -> callback.accept(value));
+    private final AtomicReference<Consumer<QueryStats>> progressCallback = new AtomicReference<>();
 
     TrinoStatement(TrinoConnection connection, Consumer<TrinoStatement> onClose)
     {
@@ -62,12 +61,20 @@ public class TrinoStatement
 
     public void setProgressMonitor(Consumer<QueryStats> progressMonitor)
     {
-        progressCallback.set(Optional.of(requireNonNull(progressMonitor, "progressMonitor is null")));
+        progressCallback.set(requireNonNull(progressMonitor, "progressMonitor is null"));
+    }
+
+    private void progressCallback(QueryStats stats)
+    {
+        Consumer<QueryStats> consumer = progressCallback.get();
+        if (consumer != null) {
+            consumer.accept(stats);
+        }
     }
 
     public void clearProgressMonitor()
     {
-        progressCallback.set(Optional.empty());
+        progressCallback.set(null);
     }
 
     @Override
@@ -202,7 +209,11 @@ public class TrinoStatement
             throws SQLException
     {
         checkOpen();
-        return currentWarningsManager.get().map(WarningsManager::getWarnings).orElse(null);
+        WarningsManager manager = currentWarningsManager.get();
+        if (manager == null) {
+            return null;
+        }
+        return manager.getWarnings();
     }
 
     @Override
@@ -210,7 +221,10 @@ public class TrinoStatement
             throws SQLException
     {
         checkOpen();
-        currentWarningsManager.get().ifPresent(WarningsManager::clearWarnings);
+        WarningsManager manager = currentWarningsManager.get();
+        if (manager != null) {
+            manager.clearWarnings();
+        }
     }
 
     @Override
@@ -258,8 +272,8 @@ public class TrinoStatement
             }
             executingClient.set(client);
             WarningsManager warningsManager = new WarningsManager();
-            currentWarningsManager.set(Optional.of(warningsManager));
-            resultSet = TrinoResultSet.create(this, client, maxRows.get(), progressConsumer, warningsManager);
+            currentWarningsManager.set(warningsManager);
+            resultSet = TrinoResultSet.create(this, client, maxRows.get(), this::progressCallback, warningsManager);
 
             // check if this is a query
             if (client.currentStatusInfo().getUpdateType() == null) {
@@ -274,8 +288,7 @@ public class TrinoStatement
 
             connection().updateSession(client);
 
-            Long updateCount = client.finalStatusInfo().getUpdateCount();
-            currentUpdateCount.set((updateCount != null) ? updateCount : 0);
+            currentUpdateCount.set(client.finalStatusInfo().getUpdateCount().orElse(0));
             currentUpdateType.set(client.finalStatusInfo().getUpdateType());
             warningsManager.addWarnings(client.finalStatusInfo().getWarnings());
             return false;
@@ -304,7 +317,7 @@ public class TrinoStatement
         currentResult.set(null);
         currentUpdateCount.set(-1);
         currentUpdateType.set(null);
-        currentWarningsManager.set(Optional.empty());
+        currentWarningsManager.set(null);
     }
 
     @Override

@@ -61,7 +61,5 @@ public class ReportInnerTestClasses
     }
 
     @Override
-    public void onAfterClass(ITestClass iTestClass)
-    {
-    }
+    public void onAfterClass(ITestClass iTestClass) {}
 }

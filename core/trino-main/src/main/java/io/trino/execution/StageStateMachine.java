@@ -31,6 +31,7 @@ import io.trino.operator.PipelineStats;
 import io.trino.operator.TaskStats;
 import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.spi.eventlistener.StageGcStatistics;
+import io.trino.spi.metrics.Metrics;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.tracing.TrinoAttributes;
@@ -45,6 +46,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -55,6 +57,7 @@ import java.util.function.Supplier;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.succinctDuration;
 import static io.trino.execution.StageState.ABORTED;
@@ -88,7 +91,8 @@ public class StageStateMachine
     private final AtomicReference<ExecutionFailureInfo> failureCause = new AtomicReference<>();
 
     private final AtomicReference<DateTime> schedulingComplete = new AtomicReference<>();
-    private final Distribution getSplitDistribution = new Distribution();
+    private final Map<PlanNodeId, Distribution> getSplitDistribution = new ConcurrentHashMap<>();
+    private final Map<PlanNodeId, Metrics> splitSourceMetrics = new ConcurrentHashMap<>();
 
     private final AtomicLong peakUserMemory = new AtomicLong();
     private final AtomicLong peakRevocableMemory = new AtomicLong();
@@ -298,8 +302,8 @@ public class StageStateMachine
         Set<BlockedReason> blockedReasons = new HashSet<>();
 
         for (TaskInfo taskInfo : taskInfos) {
-            TaskState taskState = taskInfo.getTaskStatus().getState();
-            TaskStats taskStats = taskInfo.getStats();
+            TaskState taskState = taskInfo.taskStatus().getState();
+            TaskStats taskStats = taskInfo.stats();
 
             boolean taskFailedOrFailing = taskState == TaskState.FAILED || taskState == TaskState.FAILING;
 
@@ -473,6 +477,7 @@ public class StageStateMachine
         long failedOutputDataSize = 0;
         long outputPositions = 0;
         long failedOutputPositions = 0;
+        Metrics.Accumulator outputBufferMetrics = Metrics.accumulator();
 
         long outputBlockedTime = 0;
         long failedOutputBlockedTime = 0;
@@ -491,7 +496,7 @@ public class StageStateMachine
 
         int maxTaskOperatorSummaries = 0;
         for (TaskInfo taskInfo : taskInfos) {
-            TaskState taskState = taskInfo.getTaskStatus().getState();
+            TaskState taskState = taskInfo.taskStatus().getState();
             if (taskState.isDone()) {
                 completedTasks++;
             }
@@ -504,7 +509,7 @@ public class StageStateMachine
                 failedTasks++;
             }
 
-            TaskStats taskStats = taskInfo.getStats();
+            TaskStats taskStats = taskInfo.stats();
 
             totalDrivers += taskStats.getTotalDrivers();
             queuedDrivers += taskStats.getQueuedDrivers();
@@ -544,10 +549,14 @@ public class StageStateMachine
 
             inputBlockedTime += taskStats.getInputBlockedTime().roundTo(NANOSECONDS);
 
-            bufferedDataSize += taskInfo.getOutputBuffers().getTotalBufferedBytes();
-            taskInfo.getOutputBuffers().getUtilization().ifPresent(bufferUtilizationHistograms::add);
+            bufferedDataSize += taskInfo.outputBuffers().getTotalBufferedBytes();
+
+            Optional<Metrics> bufferMetrics = taskInfo.outputBuffers().getMetrics();
+
+            taskInfo.outputBuffers().getUtilization().ifPresent(bufferUtilizationHistograms::add);
             outputDataSize += taskStats.getOutputDataSize().toBytes();
             outputPositions += taskStats.getOutputPositions();
+            bufferMetrics.ifPresent(outputBufferMetrics::add);
 
             outputBlockedTime += taskStats.getOutputBlockedTime().roundTo(NANOSECONDS);
 
@@ -598,7 +607,8 @@ public class StageStateMachine
 
         StageStats stageStats = new StageStats(
                 schedulingComplete.get(),
-                getSplitDistribution.snapshot(),
+                getSplitDistributionSnapshot(),
+                splitSourceMetrics,
 
                 totalTasks,
                 runningTasks,
@@ -650,11 +660,12 @@ public class StageStateMachine
                 succinctDuration(inputBlockedTime, NANOSECONDS),
                 succinctDuration(failedInputBlockedTime, NANOSECONDS),
                 succinctBytes(bufferedDataSize),
-                TDigestHistogram.merge(bufferUtilizationHistograms.build()),
+                TDigestHistogram.merge(bufferUtilizationHistograms.build()).map(DistributionSnapshot::new),
                 succinctBytes(outputDataSize),
                 succinctBytes(failedOutputDataSize),
                 outputPositions,
                 failedOutputPositions,
+                outputBufferMetrics.get(),
                 succinctDuration(outputBlockedTime, NANOSECONDS),
                 succinctDuration(failedOutputBlockedTime, NANOSECONDS),
                 succinctBytes(physicalWrittenDataSize),
@@ -712,7 +723,7 @@ public class StageStateMachine
         int taskInfoCount = taskInfos.size();
         LongFunction<List<OperatorStats>> statsListCreator = key -> new ArrayList<>(taskInfoCount);
         for (TaskInfo taskInfo : taskInfos) {
-            for (PipelineStats pipeline : taskInfo.getStats().getPipelines()) {
+            for (PipelineStats pipeline : taskInfo.stats().getPipelines()) {
                 // Place the pipelineId in the high bits of the combinedKey mask
                 long pipelineKeyMask = Integer.toUnsignedLong(pipeline.getPipelineId()) << 32;
                 for (OperatorStats operator : pipeline.getOperatorSummaries()) {
@@ -734,11 +745,12 @@ public class StageStateMachine
         return operatorStatsBuilder.build();
     }
 
-    public void recordGetSplitTime(long startNanos)
+    public void recordSplitSourceMetrics(PlanNodeId nodeId, Metrics metrics, long startNanos)
     {
         long elapsedNanos = System.nanoTime() - startNanos;
-        getSplitDistribution.add(elapsedNanos);
+        getSplitDistribution.computeIfAbsent(nodeId, (_) -> new Distribution()).add(elapsedNanos);
         scheduledStats.getGetSplitTime().add(elapsedNanos, NANOSECONDS);
+        splitSourceMetrics.put(nodeId, metrics);
     }
 
     @Override
@@ -748,5 +760,12 @@ public class StageStateMachine
                 .add("stageId", stageId)
                 .add("stageState", stageState)
                 .toString();
+    }
+
+    private Map<PlanNodeId, Distribution.DistributionSnapshot> getSplitDistributionSnapshot()
+    {
+        return getSplitDistribution.entrySet()
+                .stream()
+                .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().snapshot()));
     }
 }

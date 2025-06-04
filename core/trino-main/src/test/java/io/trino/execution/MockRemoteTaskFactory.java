@@ -22,6 +22,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
+import io.airlift.configuration.secrets.SecretsResolver;
 import io.airlift.stats.TestingGcMonitor;
 import io.airlift.tracing.Tracing;
 import io.airlift.units.DataSize;
@@ -44,6 +45,7 @@ import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
 import io.trino.operator.TaskContext;
 import io.trino.operator.TaskStats;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.spiller.SpillSpaceTracker;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningScheme;
@@ -109,11 +111,13 @@ public class MockRemoteTaskFactory
         PlanNodeId sourceId = new PlanNodeId("sourceId");
         PlanFragment testFragment = new PlanFragment(
                 new PlanFragmentId("test"),
-                TableScanNode.newInstance(
+                new TableScanNode(
                         sourceId,
                         TEST_TABLE_HANDLE,
                         ImmutableList.of(symbol),
                         ImmutableMap.of(symbol, new TestingColumnHandle("column")),
+                        TupleDomain.all(),
+                        Optional.empty(),
                         false,
                         Optional.empty()),
                 ImmutableSet.of(symbol),
@@ -229,7 +233,7 @@ public class MockRemoteTaskFactory
                     DataSize.ofBytes(1),
                     () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                     () -> {},
-                    new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer()));
+                    new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of())));
 
             this.fragment = requireNonNull(fragment, "fragment is null");
             this.nodeId = requireNonNull(nodeId, "nodeId is null");
@@ -521,7 +525,7 @@ public class MockRemoteTaskFactory
         }
 
         @Override
-        public SpoolingOutputStats.Snapshot retrieveAndDropSpoolingOutputStats()
+        public Optional<SpoolingOutputStats.Snapshot> retrieveAndDropSpoolingOutputStats()
         {
             throw new UnsupportedOperationException();
         }

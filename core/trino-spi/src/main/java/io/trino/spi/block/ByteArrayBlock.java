@@ -18,7 +18,6 @@ import io.airlift.slice.Slices;
 import jakarta.annotation.Nullable;
 
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
 import static io.airlift.slice.SizeOf.instanceSize;
@@ -73,6 +72,22 @@ public final class ByteArrayBlock
         retainedSizeInBytes = (INSTANCE_SIZE + sizeOf(valueIsNull) + sizeOf(values));
     }
 
+    /**
+     * Gets the raw byte array that keeps the actual data values.
+     */
+    public byte[] getRawValues()
+    {
+        return values;
+    }
+
+    /**
+     * Gets the offset into raw byte array where the data values start.
+     */
+    public int getRawValuesOffset()
+    {
+        return arrayOffset;
+    }
+
     @Override
     public long getSizeInBytes()
     {
@@ -80,21 +95,9 @@ public final class ByteArrayBlock
     }
 
     @Override
-    public OptionalInt fixedSizeInBytesPerPosition()
-    {
-        return OptionalInt.of(SIZE_IN_BYTES_PER_POSITION);
-    }
-
-    @Override
     public long getRegionSizeInBytes(int position, int length)
     {
         return SIZE_IN_BYTES_PER_POSITION * (long) length;
-    }
-
-    @Override
-    public long getPositionsSizeInBytes(boolean[] positions, int selectedPositionsCount)
-    {
-        return (long) SIZE_IN_BYTES_PER_POSITION * selectedPositionsCount;
     }
 
     @Override
@@ -135,6 +138,20 @@ public final class ByteArrayBlock
     public boolean mayHaveNull()
     {
         return valueIsNull != null;
+    }
+
+    @Override
+    public boolean hasNull()
+    {
+        if (valueIsNull == null) {
+            return false;
+        }
+        for (int i = 0; i < positionCount; i++) {
+            if (valueIsNull[i + arrayOffset]) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override
@@ -200,12 +217,6 @@ public final class ByteArrayBlock
     }
 
     @Override
-    public String getEncodingName()
-    {
-        return ByteArrayBlockEncoding.NAME;
-    }
-
-    @Override
     public ByteArrayBlock copyWithAppendedNull()
     {
         boolean[] newValueIsNull = copyIsNullAndAppendNull(valueIsNull, arrayOffset, positionCount);
@@ -226,23 +237,19 @@ public final class ByteArrayBlock
         return "ByteArrayBlock{positionCount=" + getPositionCount() + '}';
     }
 
+    @Override
+    public Optional<ByteArrayBlock> getNulls()
+    {
+        return BlockUtil.getNulls(valueIsNull, arrayOffset, positionCount);
+    }
+
     Slice getValuesSlice()
     {
         return Slices.wrappedBuffer(values, arrayOffset, positionCount);
     }
 
-    int getRawValuesOffset()
-    {
-        return arrayOffset;
-    }
-
     boolean[] getRawValueIsNull()
     {
         return valueIsNull;
-    }
-
-    byte[] getRawValues()
-    {
-        return values;
     }
 }

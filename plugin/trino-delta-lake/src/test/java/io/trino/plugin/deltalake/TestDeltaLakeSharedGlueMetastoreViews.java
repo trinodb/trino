@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.deltalake;
 
-import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.metastore.HiveMetastore;
 
 import java.nio.file.Path;
 
@@ -29,6 +29,6 @@ public class TestDeltaLakeSharedGlueMetastoreViews
     @Override
     protected HiveMetastore createTestMetastore(Path dataDirectory)
     {
-        return createTestingGlueHiveMetastore(dataDirectory);
+        return createTestingGlueHiveMetastore(dataDirectory, this::closeAfterClass);
     }
 }

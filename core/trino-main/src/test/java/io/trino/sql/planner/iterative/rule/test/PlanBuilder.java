@@ -15,10 +15,12 @@ package io.trino.sql.planner.iterative.rule.test;
 
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Maps;
+import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.metadata.FunctionResolver;
@@ -268,14 +270,14 @@ public class PlanBuilder
         return new EnforceSingleRowNode(idAllocator.getNextId(), source);
     }
 
-    public SortNode sort(List<Symbol> orderBy, PlanNode source)
+    public SortNode sort(List<Symbol> orderBySymbols, PlanNode source)
     {
         return new SortNode(
                 idAllocator.getNextId(),
                 source,
                 new OrderingScheme(
-                        orderBy,
-                        Maps.toMap(orderBy, Functions.constant(SortOrder.ASC_NULLS_FIRST))),
+                        orderBySymbols,
+                        Maps.toMap(orderBySymbols, Functions.constant(SortOrder.ASC_NULLS_FIRST))),
                 false);
     }
 
@@ -317,25 +319,25 @@ public class PlanBuilder
                 preSortedInputs);
     }
 
-    public TopNNode topN(long count, List<Symbol> orderBy, PlanNode source)
+    public TopNNode topN(long count, List<Symbol> orderBySymbols, PlanNode source)
     {
-        return topN(count, orderBy, TopNNode.Step.SINGLE, source);
+        return topN(count, orderBySymbols, TopNNode.Step.SINGLE, source);
     }
 
-    public TopNNode topN(long count, List<Symbol> orderBy, TopNNode.Step step, PlanNode source)
+    public TopNNode topN(long count, List<Symbol> orderBySymbols, TopNNode.Step step, PlanNode source)
     {
-        return topN(count, orderBy, step, SortOrder.ASC_NULLS_FIRST, source);
+        return topN(count, orderBySymbols, step, SortOrder.ASC_NULLS_FIRST, source);
     }
 
-    public TopNNode topN(long count, List<Symbol> orderBy, TopNNode.Step step, SortOrder sortOrder, PlanNode source)
+    public TopNNode topN(long count, List<Symbol> orderBySymbols, TopNNode.Step step, SortOrder sortOrder, PlanNode source)
     {
         return new TopNNode(
                 idAllocator.getNextId(),
                 source,
                 count,
                 new OrderingScheme(
-                        orderBy,
-                        Maps.toMap(orderBy, Functions.constant(sortOrder))),
+                        orderBySymbols,
+                        Maps.toMap(orderBySymbols, Functions.constant(sortOrder))),
                 step);
     }
 
@@ -422,6 +424,7 @@ public class PlanBuilder
         private Optional<Symbol> hashSymbol = Optional.empty();
         private Optional<Symbol> groupIdSymbol = Optional.empty();
         private Optional<PlanNodeId> nodeId = Optional.empty();
+        private Optional<Boolean> exchangeInputAggregation = Optional.empty();
 
         public AggregationBuilder source(PlanNode source)
         {
@@ -447,7 +450,7 @@ public class PlanBuilder
                     aggregation.arguments(),
                     aggregation.distinct(),
                     aggregation.filter(),
-                    aggregation.orderBy(),
+                    aggregation.orderingScheme(),
                     mask));
         }
 
@@ -501,6 +504,12 @@ public class PlanBuilder
             return this;
         }
 
+        public AggregationBuilder exchangeInputAggregation(boolean exchangeInputAggregation)
+        {
+            this.exchangeInputAggregation = Optional.of(exchangeInputAggregation);
+            return this;
+        }
+
         protected AggregationNode build()
         {
             checkState(groupingSets != null, "No grouping sets defined; use globalGrouping/groupingKeys method");
@@ -512,7 +521,8 @@ public class PlanBuilder
                     preGroupedSymbols,
                     step,
                     hashSymbol,
-                    groupIdSymbol);
+                    groupIdSymbol,
+                    exchangeInputAggregation);
         }
     }
 
@@ -620,6 +630,7 @@ public class PlanBuilder
         private Optional<PlanNodeStatsEstimate> statistics = Optional.empty();
         private boolean updateTarget;
         private Optional<Boolean> useConnectorNodePartitioning = Optional.empty();
+        private Optional<PlanNodeId> nodeId = Optional.empty();
 
         private TableScanBuilder(PlanNodeIdAllocator idAllocator)
         {
@@ -667,6 +678,12 @@ public class PlanBuilder
             return this;
         }
 
+        public TableScanBuilder setNodeId(PlanNodeId id)
+        {
+            this.nodeId = Optional.of(id);
+            return this;
+        }
+
         public TableScanBuilder setUseConnectorNodePartitioning(Optional<Boolean> useConnectorNodePartitioning)
         {
             this.useConnectorNodePartitioning = useConnectorNodePartitioning;
@@ -676,7 +693,7 @@ public class PlanBuilder
         public TableScanNode build()
         {
             return new TableScanNode(
-                    idAllocator.getNextId(),
+                    nodeId.orElseGet(idAllocator::getNextId),
                     tableHandle,
                     symbols,
                     assignments,
@@ -779,7 +796,9 @@ public class PlanBuilder
                         TestingTransactionHandle.create()),
                 Optional.empty(),
                 schemaTableName,
-                mergeParadigmAndTypes);
+                mergeParadigmAndTypes,
+                List.of(),
+                ImmutableListMultimap.of());
     }
 
     public ExchangeNode gatheringExchange(ExchangeNode.Scope scope, PlanNode child)
@@ -1078,8 +1097,36 @@ public class PlanBuilder
             Optional<JoinNode.DistributionType> distributionType,
             Map<DynamicFilterId, Symbol> dynamicFilters)
     {
+        return join(idAllocator.getNextId(),
+                type,
+                left,
+                right,
+                criteria,
+                leftOutputSymbols,
+                rightOutputSymbols,
+                filter,
+                leftHashSymbol,
+                rightHashSymbol,
+                distributionType,
+                dynamicFilters);
+    }
+
+    public JoinNode join(
+            PlanNodeId id,
+            JoinType type,
+            PlanNode left,
+            PlanNode right,
+            List<JoinNode.EquiJoinClause> criteria,
+            List<Symbol> leftOutputSymbols,
+            List<Symbol> rightOutputSymbols,
+            Optional<Expression> filter,
+            Optional<Symbol> leftHashSymbol,
+            Optional<Symbol> rightHashSymbol,
+            Optional<JoinNode.DistributionType> distributionType,
+            Map<DynamicFilterId, Symbol> dynamicFilters)
+    {
         return new JoinNode(
-                idAllocator.getNextId(),
+                id,
                 type,
                 left,
                 right,
@@ -1137,7 +1184,7 @@ public class PlanBuilder
             Expression filter,
             Optional<Symbol> leftPartitionSymbol,
             Optional<Symbol> rightPartitionSymbol,
-            Optional<String> kdbTree)
+            Optional<Slice> kdbTree)
     {
         return new SpatialJoinNode(
                 idAllocator.getNextId(),
@@ -1304,7 +1351,7 @@ public class PlanBuilder
                 aggregation.arguments(),
                 aggregation.distinct(),
                 aggregation.filter(),
-                aggregation.orderBy(),
+                aggregation.orderingScheme(),
                 Optional.empty());
     }
 
@@ -1413,6 +1460,17 @@ public class PlanBuilder
         return new RemoteSourceNode(idAllocator.getNextId(), sourceFragmentIds, outputs, orderingScheme, exchangeType, retryPolicy);
     }
 
+    public RemoteSourceNode remoteSource(
+            PlanNodeId id,
+            List<PlanFragmentId> sourceFragmentIds,
+            List<Symbol> outputs,
+            Optional<OrderingScheme> orderingScheme,
+            ExchangeNode.Type exchangeType,
+            RetryPolicy retryPolicy)
+    {
+        return new RemoteSourceNode(id, sourceFragmentIds, outputs, orderingScheme, exchangeType, retryPolicy);
+    }
+
     public static AggregationFunction aggregation(String name, List<Expression> arguments)
     {
         return new AggregationFunction(name, Optional.empty(), Optional.empty(), false, arguments);
@@ -1433,9 +1491,9 @@ public class PlanBuilder
         return new AggregationFunction(name, Optional.of(filter), Optional.empty(), false, arguments);
     }
 
-    public static AggregationFunction aggregation(String name, List<Expression> arguments, OrderingScheme orderBy)
+    public static AggregationFunction aggregation(String name, List<Expression> arguments, OrderingScheme orderingScheme)
     {
-        return new AggregationFunction(name, Optional.empty(), Optional.of(orderBy), false, arguments);
+        return new AggregationFunction(name, Optional.empty(), Optional.of(orderingScheme), false, arguments);
     }
 
     public Collection<Symbol> getSymbols()

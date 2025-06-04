@@ -20,21 +20,13 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
-public record PrometheusTable(String name, List<PrometheusColumn> columns)
+public record PrometheusTable(String name, List<ColumnMetadata> columnsMetadata)
 {
     public PrometheusTable
     {
         checkArgument(!isNullOrEmpty(name), "name is null or is empty");
-        columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
-    }
-
-    public List<ColumnMetadata> columnsMetadata()
-    {
-        return columns.stream()
-                .map(column -> new ColumnMetadata(column.name(), column.type()))
-                .collect(toImmutableList());
+        columnsMetadata = ImmutableList.copyOf(requireNonNull(columnsMetadata, "columnsMetadata is null"));
     }
 }

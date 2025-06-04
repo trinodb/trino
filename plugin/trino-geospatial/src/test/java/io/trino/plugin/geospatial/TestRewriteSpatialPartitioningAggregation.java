@@ -28,6 +28,7 @@ import io.trino.sql.planner.plan.AggregationNode;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
@@ -54,8 +55,8 @@ public class TestRewriteSpatialPartitioningAggregation
                 .on(p -> p.aggregation(a ->
                         a.globalGrouping()
                                 .step(AggregationNode.Step.SINGLE)
-                                .addAggregation(p.symbol("sp"), PlanBuilder.aggregation("spatial_partitioning", ImmutableList.of(new Reference(GEOMETRY, "geometry"), new Reference(INTEGER, "n"))), ImmutableList.of(GEOMETRY, INTEGER))
-                                .source(p.values(p.symbol("geometry"), p.symbol("n")))))
+                                .addAggregation(p.symbol("sp", BIGINT), PlanBuilder.aggregation("spatial_partitioning", ImmutableList.of(new Reference(GEOMETRY, "geometry"), new Reference(INTEGER, "n"))), ImmutableList.of(GEOMETRY, INTEGER))
+                                .source(p.values(p.symbol("geometry", BIGINT), p.symbol("n", BIGINT)))))
                 .doesNotFire();
     }
 
@@ -66,8 +67,8 @@ public class TestRewriteSpatialPartitioningAggregation
                 .on(p -> p.aggregation(a ->
                         a.globalGrouping()
                                 .step(AggregationNode.Step.SINGLE)
-                                .addAggregation(p.symbol("sp"), PlanBuilder.aggregation("spatial_partitioning", ImmutableList.of(new Reference(GEOMETRY, "geometry"))), ImmutableList.of(GEOMETRY))
-                                .source(p.values(p.symbol("geometry")))))
+                                .addAggregation(p.symbol("sp", BIGINT), PlanBuilder.aggregation("spatial_partitioning", ImmutableList.of(new Reference(GEOMETRY, "geometry"))), ImmutableList.of(GEOMETRY))
+                                .source(p.values(p.symbol("geometry", BIGINT)))))
                 .matches(
                         aggregation(
                                 ImmutableMap.of("sp", aggregationFunction("spatial_partitioning", ImmutableList.of("envelope", "partition_count"))),
@@ -80,8 +81,8 @@ public class TestRewriteSpatialPartitioningAggregation
                 .on(p -> p.aggregation(a ->
                         a.globalGrouping()
                                 .step(AggregationNode.Step.SINGLE)
-                                .addAggregation(p.symbol("sp"), PlanBuilder.aggregation("spatial_partitioning", ImmutableList.of(new Reference(GEOMETRY, "envelope"))), ImmutableList.of(GEOMETRY))
-                                .source(p.values(p.symbol("envelope")))))
+                                .addAggregation(p.symbol("sp", BIGINT), PlanBuilder.aggregation("spatial_partitioning", ImmutableList.of(new Reference(GEOMETRY, "envelope"))), ImmutableList.of(GEOMETRY))
+                                .source(p.values(p.symbol("envelope", BIGINT)))))
                 .matches(
                         aggregation(
                                 ImmutableMap.of("sp", aggregationFunction("spatial_partitioning", ImmutableList.of("envelope", "partition_count"))),

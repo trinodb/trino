@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
@@ -27,17 +26,7 @@ public class DropMaterializedView
     private final QualifiedName name;
     private final boolean exists;
 
-    public DropMaterializedView(QualifiedName name, boolean exists)
-    {
-        this(Optional.empty(), name, exists);
-    }
-
     public DropMaterializedView(NodeLocation location, QualifiedName name, boolean exists)
-    {
-        this(Optional.of(location), name, exists);
-    }
-
-    private DropMaterializedView(Optional<NodeLocation> location, QualifiedName name, boolean exists)
     {
         super(location);
         this.name = name;

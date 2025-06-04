@@ -404,7 +404,7 @@ public final class FormatTestUtils
         if (type instanceof ArrayType) {
             List<?> actualArray = (List<?>) actual;
             List<?> expectedArray = (List<?>) expected;
-            assertThat(actualArray.size()).isEqualTo(expectedArray.size());
+            assertThat(actualArray).hasSize(expectedArray.size());
 
             Type elementType = type.getTypeParameters().get(0);
             for (int i = 0; i < actualArray.size(); i++) {
@@ -416,7 +416,7 @@ public final class FormatTestUtils
         else if (type instanceof MapType) {
             Map<?, ?> actualMap = (Map<?, ?>) actual;
             Map<?, ?> expectedMap = (Map<?, ?>) expected;
-            assertThat(actualMap.size()).isEqualTo(expectedMap.size());
+            assertThat(actualMap).hasSize(expectedMap.size());
 
             Type keyType = type.getTypeParameters().get(0);
             Type valueType = type.getTypeParameters().get(1);
@@ -431,7 +431,7 @@ public final class FormatTestUtils
                         assertColumnValueEquals(valueType, value, expectedEntry.getValue());
                         iterator.remove();
                     }
-                    catch (AssertionError ignored) {
+                    catch (AssertionError _) {
                     }
                 }
             });
@@ -442,8 +442,8 @@ public final class FormatTestUtils
 
             List<?> actualRow = (List<?>) actual;
             List<?> expectedRow = (List<?>) expected;
-            assertThat(actualRow.size()).isEqualTo(fieldTypes.size());
-            assertThat(actualRow.size()).isEqualTo(expectedRow.size());
+            assertThat(actualRow).hasSize(fieldTypes.size());
+            assertThat(actualRow).hasSize(expectedRow.size());
 
             for (int fieldId = 0; fieldId < actualRow.size(); fieldId++) {
                 Type fieldType = fieldTypes.get(fieldId);

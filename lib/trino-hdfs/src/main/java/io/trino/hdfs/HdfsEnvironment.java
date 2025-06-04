@@ -19,8 +19,8 @@ import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.hadoop.HadoopNative;
-import io.trino.hdfs.authentication.GenericExceptionAction;
 import io.trino.hdfs.authentication.HdfsAuthentication;
+import io.trino.hdfs.authentication.HdfsAuthentication.ExceptionAction;
 import io.trino.hdfs.gcs.GcsStorageFactory;
 import io.trino.spi.Plugin;
 import io.trino.spi.classloader.ThreadContextClassLoader;
@@ -105,7 +105,7 @@ public class HdfsEnvironment
     public FileSystem getFileSystem(ConnectorIdentity identity, Path path, Configuration configuration)
             throws IOException
     {
-        try (var ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
+        try (var _ = new ThreadContextClassLoader(getClass().getClassLoader())) {
             return hdfsAuthentication.doAs(identity, () -> {
                 FileSystem fileSystem = path.getFileSystem(configuration);
                 fileSystem.setVerifyChecksum(verifyChecksum);
@@ -127,10 +127,10 @@ public class HdfsEnvironment
         return newFileInheritOwnership;
     }
 
-    public <R, E extends Exception> R doAs(ConnectorIdentity identity, GenericExceptionAction<R, E> action)
-            throws E
+    public <T> T doAs(ConnectorIdentity identity, ExceptionAction<T> action)
+            throws IOException
     {
-        try (var ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
+        try (var _ = new ThreadContextClassLoader(getClass().getClassLoader())) {
             return hdfsAuthentication.doAs(identity, action);
         }
     }

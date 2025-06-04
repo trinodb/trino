@@ -22,7 +22,7 @@ import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.log.Level;
 import io.airlift.log.Logging;
 import io.trino.server.security.jwt.JwkService;
-import io.trino.server.security.jwt.JwkSigningKeyResolver;
+import io.trino.server.security.jwt.JwkSigningKeyLocator;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.server.ui.OAuth2WebUiAuthenticationFilter;
 import io.trino.server.ui.WebUiModule;
@@ -207,11 +207,11 @@ public class TestOAuth2WebUiAuthenticationFilterWithRefreshTokens
                 .setTrustStorePath(Resources.getResource("cert/localhost.pem").getPath());
         try (JettyHttpClient httpClient = new JettyHttpClient(httpClientConfig)) {
             assertThatThrownBy(() -> newJwtParserBuilder()
-                    .setSigningKeyResolver(new JwkSigningKeyResolver(new JwkService(
+                    .keyLocator(new JwkSigningKeyLocator(new JwkService(
                             URI.create("https://localhost:" + hydraIdP.getAuthPort() + "/.well-known/jwks.json"),
                             httpClient)))
                     .build()
-                    .parseClaimsJws(claimsJws));
+                    .parseSignedClaims(claimsJws));
         }
     }
 

@@ -14,48 +14,66 @@
 
 package io.trino.plugin.example;
 
-import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.log.Level;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
-import io.trino.Session;
+import io.trino.plugin.base.util.Closables;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
-public class ExampleQueryRunner
+public final class ExampleQueryRunner
 {
     private ExampleQueryRunner() {}
 
-    public static QueryRunner createQueryRunner()
-            throws Exception
+    public static Builder builder()
     {
-        Session defaultSession = testSessionBuilder()
-                .setCatalog("example")
-                .setSchema("default")
-                .build();
+        return new Builder()
+                .addConnectorProperty("connection-url", "jdbc:h2:mem:test;init=CREATE TABLE IF NOT EXISTS TEST AS SELECT * FROM (VALUES (1, 'one'), (2, 'two')) AS t(id, name)")
+                .addConnectorProperty("connection-user", "test")
+                .addConnectorProperty("connection-password", "");
+    }
 
-        Map<String, String> extraProperties = ImmutableMap.<String, String>builder()
-                .put("http-server.http.port", "8080")
-                .buildOrThrow();
-        QueryRunner queryRunner = DistributedQueryRunner.builder(defaultSession)
-                .setExtraProperties(extraProperties)
-                .build();
-        queryRunner.installPlugin(new ExamplePlugin());
+    public static class Builder
+            extends DistributedQueryRunner.Builder<Builder>
+    {
+        private final Map<String, String> connectorProperties = new HashMap<>();
 
-        Map<String, String> connectorProperties = Map.of(
-                "connection-url", "jdbc:h2:mem:test;init=CREATE TABLE IF NOT EXISTS TEST AS SELECT * FROM (VALUES (1, 'one'), (2, 'two')) AS t(id, name)",
-                "connection-user", "test",
-                "connection-password", "");
-        queryRunner.createCatalog(
-                "example",
-                "example_jdbc",
-                connectorProperties);
+        protected Builder()
+        {
+            super(testSessionBuilder()
+                    .setCatalog("example")
+                    .setSchema("default")
+                    .build());
+        }
 
-        return queryRunner;
+        @CanIgnoreReturnValue
+        public Builder addConnectorProperty(String key, String value)
+        {
+            this.connectorProperties.put(key, value);
+            return this;
+        }
+
+        @Override
+        public DistributedQueryRunner build()
+                throws Exception
+        {
+            DistributedQueryRunner queryRunner = super.build();
+            try {
+                queryRunner.installPlugin(new ExamplePlugin());
+                queryRunner.createCatalog("example", "example_jdbc", connectorProperties);
+                return queryRunner;
+            }
+            catch (Throwable e) {
+                Closables.closeAllSuppress(e, queryRunner);
+                throw e;
+            }
+        }
     }
 
     public static void main(String[] args)
@@ -65,7 +83,9 @@ public class ExampleQueryRunner
         logger.setLevel("io.trino.plugin.example_jdbc", Level.DEBUG);
         logger.setLevel("io.trino", Level.INFO);
 
-        QueryRunner queryRunner = createQueryRunner();
+        QueryRunner queryRunner = builder()
+                .addCoordinatorProperty("http-server.http.port", "8080")
+                .build();
 
         Logger log = Logger.get(ExampleQueryRunner.class);
         log.info("======== SERVER STARTED ========");

@@ -14,13 +14,10 @@
 package io.trino.hive.formats.avro;
 
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 import org.apache.avro.Schema;
 
-import java.util.Map;
 import java.util.Optional;
-import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 
 public class NoOpAvroTypeManager
@@ -29,23 +26,6 @@ public class NoOpAvroTypeManager
     public static final NoOpAvroTypeManager INSTANCE = new NoOpAvroTypeManager();
 
     private NoOpAvroTypeManager() {}
-
-    @Override
-    public void configure(Map<String, byte[]> fileMetadata) {}
-
-    @Override
-    public Optional<Type> overrideTypeForSchema(Schema schema)
-            throws AvroTypeException
-    {
-        return Optional.empty();
-    }
-
-    @Override
-    public Optional<BiConsumer<BlockBuilder, Object>> overrideBuildingFunctionForSchema(Schema schema)
-            throws AvroTypeException
-    {
-        return Optional.empty();
-    }
 
     @Override
     public Optional<BiFunction<Block, Integer, Object>> overrideBlockToAvroObject(Schema schema, Type type)

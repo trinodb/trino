@@ -13,12 +13,11 @@
  */
 package io.trino.plugin.singlestore;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.jdbc.BaseJdbcConnectorSmokeTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 
-import static io.trino.plugin.singlestore.SingleStoreQueryRunner.createSingleStoreQueryRunner;
+import static io.trino.plugin.singlestore.TestingSingleStoreServer.LATEST_TESTED_VERSION;
 
 public class TestSingleStoreLatestConnectorSmokeTest
         extends BaseJdbcConnectorSmokeTest
@@ -27,8 +26,10 @@ public class TestSingleStoreLatestConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        TestingSingleStoreServer singleStoreServer = closeAfterClass(new TestingSingleStoreServer(TestingSingleStoreServer.LATEST_TESTED_TAG));
-        return createSingleStoreQueryRunner(singleStoreServer, ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
+        TestingSingleStoreServer singleStoreServer = closeAfterClass(new TestingSingleStoreServer(LATEST_TESTED_VERSION));
+        return SingleStoreQueryRunner.builder(singleStoreServer)
+                .setInitialTables(REQUIRED_TPCH_TABLES)
+                .build();
     }
 
     @Override
@@ -36,7 +37,7 @@ public class TestSingleStoreLatestConnectorSmokeTest
     {
         return switch (connectorBehavior) {
             case SUPPORTS_RENAME_SCHEMA,
-                    SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS -> false;
+                 SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }

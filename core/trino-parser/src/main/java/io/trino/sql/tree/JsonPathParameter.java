@@ -29,7 +29,7 @@ public class JsonPathParameter
     private final Expression parameter;
     private final Optional<JsonFormat> format;
 
-    public JsonPathParameter(Optional<NodeLocation> location, Identifier name, Expression parameter, Optional<JsonFormat> format)
+    public JsonPathParameter(NodeLocation location, Identifier name, Expression parameter, Optional<JsonFormat> format)
     {
         super(location);
 

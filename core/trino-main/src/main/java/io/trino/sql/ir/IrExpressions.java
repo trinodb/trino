@@ -14,18 +14,42 @@
 package io.trino.sql.ir;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.function.CatalogSchemaFunctionName;
+import io.trino.spi.type.RowType;
 import io.trino.sql.PlannerContext;
 import io.trino.type.TypeCoercion;
 
+import java.util.List;
+
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
+import static io.trino.spi.block.RowValueBuilder.buildRowValue;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.DynamicFilters.isDynamicFilterFunction;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.type.LikeFunctions.LIKE_FUNCTION_NAME;
 
-public class IrExpressions
+public final class IrExpressions
 {
+    // TODO: these should be attributes of the function
+    private static final List<CatalogSchemaFunctionName> NEVER_FAIL = ImmutableList.of(
+            builtinFunctionName("length"),
+            builtinFunctionName("try_cast"),
+            builtinFunctionName("$not"),
+            builtinFunctionName("substring"),
+            builtinFunctionName("trim"),
+            builtinFunctionName("ltrim"),
+            builtinFunctionName("rtrim"),
+            builtinFunctionName("replace"),
+            builtinFunctionName("reverse"),
+            builtinFunctionName("lower"),
+            builtinFunctionName("upper"),
+            builtinFunctionName("to_utf8"),
+            builtinFunctionName(LIKE_FUNCTION_NAME));
+
     private IrExpressions() {}
 
     public static Expression ifExpression(Expression condition, Expression trueCase)
@@ -36,6 +60,26 @@ public class IrExpressions
     public static Expression ifExpression(Expression condition, Expression trueCase, Expression falseCase)
     {
         return new Case(ImmutableList.of(new WhenClause(condition, trueCase)), falseCase);
+    }
+
+    public static Constant row(List<Constant> fields)
+    {
+        RowType type = RowType.anonymous(fields.stream()
+                .map(Constant::type)
+                .toList());
+
+        return new Constant(
+                type,
+                buildRowValue(type, builders -> {
+                    for (int i = 0; i < fields.size(); ++i) {
+                        writeNativeValue(fields.get(i).type(), builders.get(i), fields.get(i).value());
+                    }
+                }));
+    }
+
+    public static boolean isConstantNull(Expression expression)
+    {
+        return expression instanceof Constant constant && constant.value() == null;
     }
 
     public static boolean mayFail(PlannerContext plannerContext, Expression expression)
@@ -56,7 +100,6 @@ public class IrExpressions
             case IsNull e -> mayFail(plannerContext, e.value());
             case Lambda e -> false;
             case Logical e -> e.terms().stream().anyMatch(argument -> mayFail(plannerContext, argument));
-            case Not e -> mayFail(plannerContext, e.value());
             case NullIf e -> mayFail(plannerContext, e.first()) || mayFail(plannerContext, e.second());
             case Reference e -> false;
             case Row e -> e.items().stream().anyMatch(argument -> mayFail(plannerContext, argument));
@@ -65,11 +108,11 @@ public class IrExpressions
         };
     }
 
-    // TODO: record "safety" (can the cast fail at runtime) in Cast node (separate from "may return null" that's currently implied by try_cast)
+    // TODO: record "safety" (can the cast fail at runtime) in Cast node
     private static boolean mayFail(PlannerContext plannerContext, Cast cast)
     {
-        if (cast.safe()) {
-            return false;
+        if (mayFail(plannerContext, cast.expression())) {
+            return true;
         }
 
         TypeCoercion coercions = new TypeCoercion(plannerContext.getTypeManager()::getType);
@@ -77,20 +120,18 @@ public class IrExpressions
             return false;
         }
 
-        if (cast.type().equals(VARCHAR)) {
-            return false;
-        }
-
-        return true;
+        return !cast.type().equals(VARCHAR);
     }
 
     private static boolean mayFail(ResolvedFunction function)
     {
-        // TODO: these should be attributes of the function
-        CatalogSchemaFunctionName name = function.name();
-        return !name.equals(builtinFunctionName("length")) &&
-                !name.equals(builtinFunctionName("substring")) &&
-                !name.equals(builtinFunctionName(LIKE_FUNCTION_NAME)) &&
-                !isDynamicFilterFunction(function.name());
+        return !NEVER_FAIL.contains(function.name()) && !isDynamicFilterFunction(function.name());
+    }
+
+    public static Expression not(Metadata metadata, Expression expression)
+    {
+        return new Call(
+                metadata.resolveBuiltinFunction("$not", fromTypes(BOOLEAN)),
+                ImmutableList.of(expression));
     }
 }

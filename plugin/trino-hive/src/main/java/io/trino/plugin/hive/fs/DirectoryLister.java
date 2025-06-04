@@ -15,8 +15,8 @@ package io.trino.plugin.hive.fs;
 
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.metastore.Table;
 import io.trino.plugin.hive.TableInvalidationCallback;
-import io.trino.plugin.hive.metastore.Table;
 
 import java.io.IOException;
 

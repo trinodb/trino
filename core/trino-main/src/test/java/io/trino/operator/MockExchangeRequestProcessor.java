@@ -28,7 +28,6 @@ import io.airlift.units.DataSize;
 import io.trino.execution.buffer.BufferResult;
 import io.trino.execution.buffer.PageSerializer;
 import io.trino.execution.buffer.PagesSerdeFactory;
-import io.trino.execution.buffer.TestingPagesSerdeFactory;
 import io.trino.server.InternalHeaders;
 import io.trino.spi.Page;
 
@@ -47,13 +46,15 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static io.trino.TrinoMediaTypes.TRINO_PAGES;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.execution.buffer.CompressionCodec.LZ4;
 import static io.trino.execution.buffer.PagesSerdeUtil.calculateChecksum;
+import static io.trino.execution.buffer.TestingPagesSerdes.createTestingPagesSerdeFactory;
 import static io.trino.server.InternalHeaders.TRINO_BUFFER_COMPLETE;
 import static io.trino.server.InternalHeaders.TRINO_PAGE_NEXT_TOKEN;
 import static io.trino.server.InternalHeaders.TRINO_PAGE_TOKEN;
 import static io.trino.server.InternalHeaders.TRINO_TASK_FAILED;
 import static io.trino.server.InternalHeaders.TRINO_TASK_INSTANCE_ID;
-import static io.trino.server.PagesResponseWriter.SERIALIZED_PAGES_MAGIC;
+import static io.trino.server.PagesInputStreamFactory.SERIALIZED_PAGES_MAGIC;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class MockExchangeRequestProcessor
@@ -61,7 +62,7 @@ public class MockExchangeRequestProcessor
 {
     private static final String TASK_INSTANCE_ID = "task-instance-id";
 
-    private final PagesSerdeFactory serdeFactory = new TestingPagesSerdeFactory();
+    private final PagesSerdeFactory serdeFactory = createTestingPagesSerdeFactory(LZ4);
 
     private final LoadingCache<URI, MockBuffer> buffers = buildNonEvictableCache(CacheBuilder.newBuilder(), CacheLoader.from(location -> new MockBuffer(location, serdeFactory.createSerializer(Optional.empty()))));
 
@@ -100,7 +101,7 @@ public class MockExchangeRequestProcessor
         }
 
         // verify we got a data size and it parses correctly
-        assertThat(!request.getHeaders().get(InternalHeaders.TRINO_MAX_SIZE).isEmpty()).isTrue();
+        assertThat(request.getHeaders().get(InternalHeaders.TRINO_MAX_SIZE)).isNotEmpty();
         DataSize maxSize = DataSize.valueOf(request.getHeader(InternalHeaders.TRINO_MAX_SIZE));
         assertThat(maxSize).isEqualTo(expectedMaxSize);
 
@@ -185,13 +186,13 @@ public class MockExchangeRequestProcessor
 
         public synchronized void addPage(Slice page)
         {
-            checkState(completed.get() != Boolean.TRUE, "Location %s is complete", location);
+            checkState(!completed.get(), "Location %s is complete", location);
             serializedPages.add(page);
         }
 
         public synchronized void addPage(Page page)
         {
-            checkState(completed.get() != Boolean.TRUE, "Location %s is complete", location);
+            checkState(!completed.get(), "Location %s is complete", location);
             serializedPages.add(serializer.serialize(page));
         }
 

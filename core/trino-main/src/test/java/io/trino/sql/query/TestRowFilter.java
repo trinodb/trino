@@ -41,7 +41,6 @@ import static io.trino.connector.MockConnectorEntities.TPCH_NATION_SCHEMA;
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_WITH_HIDDEN_COLUMN;
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_WITH_OPTIONAL_COLUMN;
 import static io.trino.connector.MockConnectorEntities.TPCH_WITH_HIDDEN_COLUMN_DATA;
-import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_SPLITS_PER_NODE;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_SCALAR;
@@ -78,7 +77,7 @@ public class TestRowFilter
     {
         QueryRunner runner = new StandaloneQueryRunner(SESSION);
         runner.installPlugin(new TpchPlugin());
-        runner.createCatalog(LOCAL_CATALOG, "tpch", ImmutableMap.of(TPCH_SPLITS_PER_NODE, "1"));
+        runner.createCatalog(LOCAL_CATALOG, "tpch", ImmutableMap.of("tpch.splits-per-node", "1"));
 
         ConnectorViewDefinition view = new ConnectorViewDefinition(
                 "SELECT nationkey, name FROM local.tiny.nation",
@@ -582,29 +581,37 @@ public class TestRowFilter
                 ViewExpression.builder().expression("nationkey < 10").build());
 
         // Within allowed row filter
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation USING (VALUES 1,2) t(x) ON nationkey = x
-                WHEN MATCHED THEN DELETE"""))
+                WHEN MATCHED THEN DELETE
+                """))
                 .failure()
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:1: Cannot merge into a table with row filters");
 
         // Outside allowed row filter
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation USING (VALUES 1,2,3,4,5) t(x) ON regionkey = x
-                WHEN MATCHED THEN DELETE"""))
+                WHEN MATCHED THEN DELETE
+                """))
                 .failure()
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:1: Cannot merge into a table with row filters");
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation USING (VALUES 1,11) t(x) ON nationkey = x
-                WHEN MATCHED THEN DELETE"""))
+                WHEN MATCHED THEN DELETE
+                """))
                 .failure()
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:1: Cannot merge into a table with row filters");
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation USING (VALUES 11,12,13,14,15) t(x) ON nationkey = x
-                WHEN MATCHED THEN DELETE"""))
+                WHEN MATCHED THEN DELETE
+                """))
                 .failure()
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:1: Cannot merge into a table with row filters");
@@ -681,63 +688,81 @@ public class TestRowFilter
                 ViewExpression.builder().expression("nationkey < 10").build());
 
         // Within allowed row filter
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation USING (VALUES 5) t(x) ON nationkey = x
-                WHEN MATCHED THEN UPDATE SET regionkey = regionkey * 2"""))
+                WHEN MATCHED THEN UPDATE SET regionkey = regionkey * 2
+                """))
                 .failure()
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:1: Cannot merge into a table with row filters");
 
         // Outside allowed row filter
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation USING (VALUES 1,2,3,4,5,6) t(x) ON regionkey = x
-                WHEN MATCHED THEN UPDATE SET regionkey = regionkey * 2"""))
+                WHEN MATCHED THEN UPDATE SET regionkey = regionkey * 2
+                """))
                 .failure()
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:1: Cannot merge into a table with row filters");
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation USING (VALUES 1, 11) t(x) ON nationkey = x
-                WHEN MATCHED THEN UPDATE SET regionkey = regionkey * 2"""))
+                WHEN MATCHED THEN UPDATE SET regionkey = regionkey * 2
+                """))
                 .failure()
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:1: Cannot merge into a table with row filters");
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation USING (VALUES 11) t(x) ON nationkey = x
-                WHEN MATCHED THEN UPDATE SET regionkey = regionkey * 2"""))
+                WHEN MATCHED THEN UPDATE SET regionkey = regionkey * 2
+                """))
                 .failure()
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:1: Cannot merge into a table with row filters");
 
         // Within allowed row filter, but updated rows are outside the row filter
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation USING (VALUES 1,2,3) t(x) ON nationkey = x
-                WHEN MATCHED THEN UPDATE SET nationkey = 10"""))
+                WHEN MATCHED THEN UPDATE SET nationkey = 10
+                """))
                 .failure()
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:1: Cannot merge into a table with row filters");
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation USING (VALUES 1,2,3) t(x) ON nationkey = x
-                WHEN MATCHED THEN UPDATE SET nationkey = NULL"""))
+                WHEN MATCHED THEN UPDATE SET nationkey = NULL
+                """))
                 .failure()
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:1: Cannot merge into a table with row filters");
 
         // Outside allowed row filter, but updated rows are outside the row filter
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation USING (VALUES 10) t(x) ON nationkey = x
-                WHEN MATCHED THEN UPDATE SET nationkey = 13"""))
+                WHEN MATCHED THEN UPDATE SET nationkey = 13
+                """))
                 .failure()
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:1: Cannot merge into a table with row filters");
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation USING (VALUES 10) t(x) ON nationkey = x
-                WHEN MATCHED THEN UPDATE SET nationkey = NULL"""))
+                WHEN MATCHED THEN UPDATE SET nationkey = NULL
+                """))
                 .failure()
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:1: Cannot merge into a table with row filters");
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation USING (VALUES 10) t(x) ON nationkey IS NULL
-                WHEN MATCHED THEN UPDATE SET nationkey = 13"""))
+                WHEN MATCHED THEN UPDATE SET nationkey = 13
+                """))
                 .failure()
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:1: Cannot merge into a table with row filters");
@@ -795,36 +820,46 @@ public class TestRowFilter
                 ViewExpression.builder().expression("nationkey > 100").build());
 
         // Within allowed row filter
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation USING (VALUES 42) t(dummy) ON false
-                WHEN NOT MATCHED THEN INSERT VALUES (101, 'POLAND', 0, 'No comment')"""))
+                WHEN NOT MATCHED THEN INSERT VALUES (101, 'POLAND', 0, 'No comment')
+                """))
                 .failure()
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:1: Cannot merge into a table with row filters");
 
         // Outside allowed row filter
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation USING (VALUES 42) t(dummy) ON false
-                WHEN NOT MATCHED THEN INSERT VALUES (26, 'POLAND', 0, 'No comment')"""))
+                WHEN NOT MATCHED THEN INSERT VALUES (26, 'POLAND', 0, 'No comment')
+                """))
                 .failure()
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:1: Cannot merge into a table with row filters");
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation USING (VALUES (26, 'POLAND', 0, 'No comment'), (27, 'HOLLAND', 0, 'A comment')) t(a,b,c,d) ON nationkey = a
-                WHEN NOT MATCHED THEN INSERT VALUES (a,b,c,d)"""))
+                WHEN NOT MATCHED THEN INSERT VALUES (a,b,c,d)
+                """))
                 .failure()
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:1: Cannot merge into a table with row filters");
 
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation USING (VALUES 42) t(dummy) ON false
-                WHEN NOT MATCHED THEN INSERT (nationkey) VALUES (NULL)"""))
+                WHEN NOT MATCHED THEN INSERT (nationkey) VALUES (NULL)
+                """))
                 .failure()
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:1: Cannot merge into a table with row filters");
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation USING (VALUES 42) t(dummy) ON false
-                WHEN NOT MATCHED THEN INSERT (nationkey) VALUES (0)"""))
+                WHEN NOT MATCHED THEN INSERT (nationkey) VALUES (0)
+                """))
                 .failure()
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:1: Cannot merge into a table with row filters");

@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -28,11 +27,6 @@ public class PatternVariable
     private final Identifier name;
 
     public PatternVariable(NodeLocation location, Identifier name)
-    {
-        this(Optional.of(location), name);
-    }
-
-    private PatternVariable(Optional<NodeLocation> location, Identifier name)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");

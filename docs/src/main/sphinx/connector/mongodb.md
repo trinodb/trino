@@ -65,7 +65,7 @@ The following configuration properties are available:
 ### `mongodb.connection-url`
 
 A connection string containing the protocol, credential, and host info for use
-inconnection to your MongoDB deployment.
+in connecting to your MongoDB deployment.
 
 For example, the connection string may use the format
 `mongodb://<user>:<pass>@<host>:<port>/?<options>` or
@@ -221,7 +221,6 @@ Duration to wait for completion of dynamic filters during split generation.
 This property is optional; the default is `5s`.
 
 (table-definition-label)=
-
 ## Table definition
 
 MongoDB maintains table definitions on the special collection where `mongodb.schema-collection` configuration value specifies.
@@ -365,8 +364,13 @@ FROM collection
 WHERE _id > timestamp_objectid(TIMESTAMP '2021-08-07 17:51:36 +00:00');
 ```
 
-(mongodb-type-mapping)=
+(mongodb-fte-support)=
+### Fault-tolerant execution support
 
+The connector supports {doc}`/admin/fault-tolerant-execution` of query
+processing. Read and write operations are both supported with any retry policy.
+
+(mongodb-type-mapping)=
 ## Type mapping
 
 Because Trino and MongoDB each support types that the other does not, this
@@ -463,7 +467,6 @@ this table:
 No other types are supported.
 
 (mongodb-sql-support)=
-
 ## SQL support
 
 The connector provides read and write access to data and metadata in
@@ -487,21 +490,13 @@ The connector supports `ALTER TABLE RENAME TO`, `ALTER TABLE ADD COLUMN`
 and `ALTER TABLE DROP COLUMN` operations.
 Other uses of `ALTER TABLE` are not supported.
 
-(mongodb-fte-support)=
-
-## Fault-tolerant execution support
-
-The connector supports {doc}`/admin/fault-tolerant-execution` of query
-processing. Read and write operations are both supported with any retry policy.
-
-## Table functions
+### Table functions
 
 The connector provides specific {doc}`table functions </functions/table>` to
 access MongoDB.
 
 (mongodb-query-function)=
-
-### `query(database, collection, filter) -> table`
+#### `query(database, collection, filter) -> table`
 
 The `query` function allows you to query the underlying MongoDB directly. It
 requires syntax native to MongoDB, because the full query is pushed down and

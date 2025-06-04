@@ -3,16 +3,7 @@
 Object storage connectors support one or more file formats specified by the
 underlying data source.
 
-In the case of serializable formats, only specific
-[SerDes](https://www.wikipedia.org/wiki/SerDes) are allowed:
-
-- RCText - RCFile `ColumnarSerDe`
-- RCBinary - RCFile `LazyBinaryColumnarSerDe`
-- JSON - `org.apache.hive.hcatalog.data.JsonSerDe`
-- CSV - `org.apache.hadoop.hive.serde2.OpenCSVSerde`
-
-(hive-orc-configuration)=
-
+(orc-format-configuration)=
 ## ORC format configuration properties
 
 The following properties are used to configure the read and write operations
@@ -25,25 +16,22 @@ with ORC files performed by supported object storage connectors:
 * - Property Name
   - Description
   - Default
-* - `hive.orc.time-zone`
+* - `orc.time-zone`
   - Sets the default time zone for legacy ORC files that did not declare a time
     zone.
   - JVM default
-* - `hive.orc.use-column-names`
-  - Access ORC columns by name. By default, columns in ORC files are accessed by
-    their ordinal position in the Hive table definition. The equivalent catalog
-    session property is `orc_use_column_names`.
-  - `false`
-* - `hive.orc.bloom-filters.enabled`
+* - `orc.bloom-filters.enabled`
   - Enable bloom filters for predicate pushdown.
   - `false`
-* - `hive.orc.read-legacy-short-zone-id`
+* - `orc.read-legacy-short-zone-id`
   - Allow reads on ORC files with short zone ID in the stripe footer.
   - `false`
 :::
 
-(hive-parquet-configuration)=
+[](file-compression) is automatically performed and some details can be
+configured.
 
+(parquet-format-configuration)=
 ## Parquet format configuration properties
 
 The following properties are used to configure the read and write operations
@@ -56,15 +44,10 @@ with Parquet files performed by supported object storage connectors:
 * - Property Name
   - Description
   - Default
-* - `hive.parquet.time-zone`
+* - `parquet.time-zone`
   - Adjusts timestamp values to a specific time zone. For Hive 3.1+, set this to
     UTC.
   - JVM default
-* - `hive.parquet.use-column-names`
-  - Access Parquet columns by name by default. Set this property to `false` to
-    access columns by their ordinal position in the Hive table definition. The
-    equivalent catalog session property is `parquet_use_column_names`.
-  - `true`
 * - `parquet.writer.validation-percentage`
   - Percentage of parquet files to validate after write by re-reading the whole
     file. The equivalent catalog session property is
@@ -72,16 +55,20 @@ with Parquet files performed by supported object storage connectors:
     off by setting this property to `0`.
   - `5`
 * - `parquet.writer.page-size`
-  - Maximum size of pages written by Parquet writer.
+  - Maximum size of pages written by Parquet writer. The equivalent catalog 
+    session property is `parquet_writer_page_size`.
   - `1 MB`
 * - `parquet.writer.page-value-count`
-  - Maximum values count of pages written by Parquet writer.
+  - Maximum values count of pages written by Parquet writer. The equivalent 
+    catalog session property is `parquet_writer_page_value_count`.
   - `80000`
 * - `parquet.writer.block-size`
-  - Maximum size of row groups written by Parquet writer.
+  - Maximum size of row groups written by Parquet writer. The equivalent 
+    catalog session property is `parquet_writer_block_size`.
   - `128 MB`
 * - `parquet.writer.batch-size`
   - Maximum number of rows processed by the parquet writer in a batch.
+    The equivalent catalog session property is `parquet_writer_batch_size`.
   - `10000`
 * - `parquet.use-bloom-filter`
   - Whether bloom filters are used for predicate pushdown when reading Parquet
@@ -109,4 +96,12 @@ with Parquet files performed by supported object storage connectors:
     entirely. The equivalent catalog session property is named
     `parquet_small_file_threshold`.
   - `3MB`
+* - `parquet.experimental.vectorized-decoding.enabled`
+  - Enable using Java Vector API (SIMD) for faster decoding of parquet files.
+    The equivalent catalog session property is
+    `parquet_vectorized_decoding_enabled`.
+  - `true`
 :::
+
+[](file-compression) is automatically performed and some details can be
+configured.

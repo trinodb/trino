@@ -34,9 +34,7 @@ import static java.util.Objects.requireNonNull;
 
 public class DecoderFactory
 {
-    private DecoderFactory()
-    {
-    }
+    private DecoderFactory() {}
 
     public static Decoder createDecoder(Type type)
     {

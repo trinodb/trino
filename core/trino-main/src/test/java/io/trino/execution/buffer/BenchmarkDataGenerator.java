@@ -35,9 +35,7 @@ public class BenchmarkDataGenerator
     public static final int LONG_DECIMAL_PRECISION = 30;
     public static final int LONG_DECIMAL_SCALE = 5;
 
-    private BenchmarkDataGenerator()
-    {
-    }
+    private BenchmarkDataGenerator() {}
 
     public static <T> Iterator<T> createValues(int size, Function<Random, T> valueGenerator, double nullChance)
     {

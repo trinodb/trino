@@ -14,10 +14,9 @@
 package io.trino.plugin.hive.s3;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.hive.HiveQueryRunner;
+import io.trino.plugin.hive.containers.Hive3MinioDataLake;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.containers.Minio;
 import org.junit.jupiter.api.Test;
 
 import java.util.regex.Matcher;
@@ -25,30 +24,26 @@ import java.util.regex.Pattern;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
-import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
+import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHiveS3MinioQueries
         extends AbstractTestQueryFramework
 {
-    private Minio minio;
+    private Hive3MinioDataLake hiveMinioDataLake;
+    private String bucketName;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        minio = closeAfterClass(Minio.builder().build());
-        minio.start();
+        this.bucketName = "test-hive-minio-queries-" + randomNameSuffix();
+        this.hiveMinioDataLake = closeAfterClass(new Hive3MinioDataLake(bucketName));
+        this.hiveMinioDataLake.start();
 
-        return HiveQueryRunner.builder()
+        return S3HiveQueryRunner.builder(hiveMinioDataLake)
                 .setHiveProperties(ImmutableMap.<String, String>builder()
-                        .put("hive.metastore.disable-location-checks", "true")
-                        .put("hive.s3.aws-access-key", MINIO_ACCESS_KEY)
-                        .put("hive.s3.aws-secret-key", MINIO_SECRET_KEY)
-                        .put("hive.s3.endpoint", minio.getMinioAddress())
-                        .put("hive.s3.path-style-access", "true")
                         .put("hive.non-managed-table-writes-enabled", "true")
                         .buildOrThrow())
                 .build();
@@ -58,8 +53,8 @@ public class TestHiveS3MinioQueries
     public void testTableLocationTopOfTheBucket()
     {
         String bucketName = "test-bucket-" + randomNameSuffix();
-        minio.createBucket(bucketName);
-        minio.writeFile("We are\nawesome at\nmultiple slashes.".getBytes(UTF_8), bucketName, "a_file");
+        hiveMinioDataLake.getMinio().createBucket(bucketName);
+        hiveMinioDataLake.getMinio().writeFile("We are\nawesome at\nmultiple slashes.".getBytes(UTF_8), bucketName, "a_file");
 
         // without trailing slash
         assertQueryFails(
@@ -104,5 +99,32 @@ public class TestHiveS3MinioQueries
             return location;
         }
         throw new IllegalStateException("Location not found in: " + result);
+    }
+
+    @Test
+    public void testPathContainsSpecialCharacter()
+    {
+        String tableName = "test_path_special_character" + randomNameSuffix();
+        String location = "s3://%s/%s/".formatted(bucketName, tableName);
+        assertUpdate(format(
+                "CREATE TABLE %s (id bigint, part varchar) WITH (partitioned_by = ARRAY['part'], external_location='%s')",
+                tableName,
+                location));
+
+        String values = "(1, 'with-hyphen')," +
+                "(2, 'with.dot')," +
+                "(3, 'with:colon')," +
+                "(4, 'with/slash')," +
+                "(5, 'with\\\\backslashes')," +
+                "(6, 'with\\backslash')," +
+                "(7, 'with=equal')," +
+                "(8, 'with?question')," +
+                "(9, 'with!exclamation')," +
+                "(10, 'with%percent')," +
+                "(11, 'with%%percents')," +
+                "(12, 'with space')";
+        assertUpdate("INSERT INTO " + tableName + " VALUES " + values, 12);
+        assertQuery("SELECT * FROM " + tableName, "VALUES " + values);
+        assertUpdate("DROP TABLE " + tableName);
     }
 }

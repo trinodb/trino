@@ -23,7 +23,6 @@ import io.trino.spi.type.Type;
 import io.trino.sql.DynamicFilters;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.Not;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.DynamicFilterId;
@@ -46,7 +45,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.operator.join.JoinUtils.getJoinDynamicFilters;
 import static io.trino.sql.DynamicFilters.extractDynamicFilters;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.IS_DISTINCT_FROM;
+import static io.trino.sql.ir.Comparison.Operator.IDENTICAL;
 import static io.trino.sql.planner.ExpressionExtractor.extractExpressions;
 import static io.trino.sql.planner.assertions.MatchResult.NO_MATCH;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.DynamicFilterPattern;
@@ -64,6 +63,7 @@ public final class JoinMatcher
     private final Optional<Expression> filter;
     private final Optional<DistributionType> distributionType;
     private final Optional<Boolean> spillable;
+    private final Optional<Boolean> maySkipOutputDuplicates;
     // LEFT_SYMBOL -> RIGHT_SYMBOL
     private final Optional<List<DynamicFilterPattern>> expectedDynamicFilter;
 
@@ -74,6 +74,7 @@ public final class JoinMatcher
             Optional<Expression> filter,
             Optional<DistributionType> distributionType,
             Optional<Boolean> spillable,
+            Optional<Boolean> maySkipOutputDuplicates,
             Optional<List<DynamicFilterPattern>> expectedDynamicFilter)
     {
         this.joinType = requireNonNull(joinType, "joinType is null");
@@ -85,6 +86,7 @@ public final class JoinMatcher
         this.filter = requireNonNull(filter, "filter cannot be null");
         this.distributionType = requireNonNull(distributionType, "distributionType is null");
         this.spillable = requireNonNull(spillable, "spillable is null");
+        this.maySkipOutputDuplicates = requireNonNull(maySkipOutputDuplicates, "MaySkipOutputDuplicates is null");
         this.expectedDynamicFilter = requireNonNull(expectedDynamicFilter, "expectedDynamicFilter is null");
     }
 
@@ -128,6 +130,10 @@ public final class JoinMatcher
         }
 
         if (spillable.isPresent() && !spillable.equals(joinNode.isSpillable())) {
+            return NO_MATCH;
+        }
+
+        if (maySkipOutputDuplicates.isPresent() && maySkipOutputDuplicates.get() != joinNode.isMaySkipOutputDuplicates()) {
             return NO_MATCH;
         }
 
@@ -176,7 +182,7 @@ public final class JoinMatcher
             }
             Expression expression;
             if (descriptor.isNullAllowed()) {
-                expression = new Not(new Comparison(IS_DISTINCT_FROM, probe, build.toSymbolReference()));
+                expression = new Comparison(IDENTICAL, probe, build.toSymbolReference());
             }
             else {
                 expression = new Comparison(descriptor.getOperator(), probe, build.toSymbolReference());
@@ -211,6 +217,7 @@ public final class JoinMatcher
         private Optional<List<PlanMatchPattern.DynamicFilterPattern>> dynamicFilter = Optional.empty();
         private Optional<DistributionType> distributionType = Optional.empty();
         private Optional<Boolean> expectedSpillable = Optional.empty();
+        private Optional<Boolean> expectedMaySkipOutputDuplicates = Optional.empty();
         private PlanMatchPattern left;
         private PlanMatchPattern right;
         private Optional<Expression> filter = Optional.empty();
@@ -288,6 +295,14 @@ public final class JoinMatcher
         }
 
         @CanIgnoreReturnValue
+        public Builder maySkipOutputDuplicates(Boolean expectedMaySkipOutputDuplicates)
+        {
+            this.expectedMaySkipOutputDuplicates = Optional.of(expectedMaySkipOutputDuplicates);
+
+            return this;
+        }
+
+        @CanIgnoreReturnValue
         public Builder left(PlanMatchPattern left)
         {
             this.left = left;
@@ -320,6 +335,7 @@ public final class JoinMatcher
                                     filter,
                                     distributionType,
                                     expectedSpillable,
+                                    expectedMaySkipOutputDuplicates,
                                     dynamicFilter));
         }
     }

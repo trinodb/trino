@@ -26,17 +26,7 @@ public class ShowGrants
 {
     private final Optional<GrantObject> grantObject;
 
-    public ShowGrants(Optional<GrantObject> grantObject)
-    {
-        this(Optional.empty(), grantObject);
-    }
-
     public ShowGrants(NodeLocation location, Optional<GrantObject> grantObject)
-    {
-        this(Optional.of(location), grantObject);
-    }
-
-    public ShowGrants(Optional<NodeLocation> location, Optional<GrantObject> grantObject)
     {
         super(location);
         this.grantObject = grantObject == null ? Optional.empty() : grantObject;

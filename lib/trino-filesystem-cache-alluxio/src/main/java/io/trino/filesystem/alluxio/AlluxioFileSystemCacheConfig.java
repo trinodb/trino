@@ -13,7 +13,6 @@
  */
 package io.trino.filesystem.alluxio;
 
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
@@ -29,18 +28,13 @@ import jakarta.validation.constraints.NotNull;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
-import static com.google.common.collect.ImmutableList.toImmutableList;
-
 public class AlluxioFileSystemCacheConfig
 {
-    private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
-
     static final String CACHE_DIRECTORIES = "fs.cache.directories";
     static final String CACHE_MAX_SIZES = "fs.cache.max-sizes";
     static final String CACHE_MAX_PERCENTAGES = "fs.cache.max-disk-usage-percentages";
 
-    private List<String> cacheDirectories;
+    private List<String> cacheDirectories = ImmutableList.of();
     private List<DataSize> maxCacheSizes = ImmutableList.of();
     private Optional<Duration> cacheTTL = Optional.of(Duration.valueOf("7d"));
     private List<Integer> maxCacheDiskUsagePercentages = ImmutableList.of();
@@ -54,9 +48,9 @@ public class AlluxioFileSystemCacheConfig
 
     @Config(CACHE_DIRECTORIES)
     @ConfigDescription("Base directory to cache data. Use a comma-separated list to cache data in multiple directories.")
-    public AlluxioFileSystemCacheConfig setCacheDirectories(String cacheDirectories)
+    public AlluxioFileSystemCacheConfig setCacheDirectories(List<String> cacheDirectories)
     {
-        this.cacheDirectories = cacheDirectories == null ? null : SPLITTER.splitToList(cacheDirectories);
+        this.cacheDirectories = ImmutableList.copyOf(cacheDirectories);
         return this;
     }
 
@@ -67,9 +61,9 @@ public class AlluxioFileSystemCacheConfig
 
     @Config(CACHE_MAX_SIZES)
     @ConfigDescription("The maximum cache size for a cache directory. Use a comma-separated list of sizes to specify allowed maximum values for each directory.")
-    public AlluxioFileSystemCacheConfig setMaxCacheSizes(String maxCacheSizes)
+    public AlluxioFileSystemCacheConfig setMaxCacheSizes(List<DataSize> maxCacheSizes)
     {
-        this.maxCacheSizes = SPLITTER.splitToStream(firstNonNull(maxCacheSizes, "")).map(DataSize::valueOf).collect(toImmutableList());
+        this.maxCacheSizes = ImmutableList.copyOf(maxCacheSizes);
         return this;
     }
 
@@ -100,11 +94,9 @@ public class AlluxioFileSystemCacheConfig
 
     @Config(CACHE_MAX_PERCENTAGES)
     @ConfigDescription("The maximum percentage (0-100) of total disk size the cache can use. Use a comma-separated list of percentage values if supplying several cache directories.")
-    public AlluxioFileSystemCacheConfig setMaxCacheDiskUsagePercentages(String maxCacheDiskUsagePercentages)
+    public AlluxioFileSystemCacheConfig setMaxCacheDiskUsagePercentages(List<Integer> maxCacheDiskUsagePercentages)
     {
-        this.maxCacheDiskUsagePercentages = SPLITTER.splitToStream(firstNonNull(maxCacheDiskUsagePercentages, ""))
-                .map(Integer::valueOf)
-                .collect(toImmutableList());
+        this.maxCacheDiskUsagePercentages = ImmutableList.copyOf(maxCacheDiskUsagePercentages);
         return this;
     }
 

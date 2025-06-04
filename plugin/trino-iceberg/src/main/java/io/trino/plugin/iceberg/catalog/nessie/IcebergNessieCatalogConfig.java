@@ -24,7 +24,10 @@ import jakarta.validation.constraints.NotNull;
 
 import java.net.URI;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.iceberg.catalog.nessie.IcebergNessieCatalogConfig.Security.BEARER;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.function.Predicate.isEqual;
@@ -38,6 +41,12 @@ public class IcebergNessieCatalogConfig
         BEARER,
     }
 
+    public enum ClientApiVersion
+    {
+        V1,
+        V2,
+    }
+
     private String defaultReferenceName = "main";
     private String defaultWarehouseDir;
     private URI serverUri;
@@ -46,6 +55,8 @@ public class IcebergNessieCatalogConfig
     private boolean enableCompression = true;
     private Security security;
     private Optional<String> bearerToken = Optional.empty();
+    private Optional<ClientApiVersion> clientAPIVersion = Optional.empty();
+    private static final Pattern VERSION_PATTERN = Pattern.compile("/v(\\d+)$");
 
     @NotNull
     public String getDefaultReferenceName()
@@ -167,5 +178,34 @@ public class IcebergNessieCatalogConfig
     public boolean isMissingTokenForBearerAuth()
     {
         return getSecurity().filter(isEqual(BEARER)).isEmpty() || getBearerToken().isPresent();
+    }
+
+    public Optional<ClientApiVersion> getClientAPIVersion()
+    {
+        return clientAPIVersion;
+    }
+
+    @Config("iceberg.nessie-catalog.client-api-version")
+    @ConfigDescription("Client API version to use")
+    public IcebergNessieCatalogConfig setClientAPIVersion(ClientApiVersion version)
+    {
+        this.clientAPIVersion = Optional.ofNullable(version);
+        return this;
+    }
+
+    protected IcebergNessieCatalogConfig.ClientApiVersion inferVersionFromURI()
+    {
+        checkArgument(serverUri != null, "URI is not specified in the catalog properties");
+        // match for uri ending with /v1, /v2 etc
+        Matcher matcher = VERSION_PATTERN.matcher(serverUri.toString());
+        if (!matcher.find()) {
+            throw new IllegalArgumentException("URI doesn't end with the version: %s. Please configure `client-api-version` in the catalog properties explicitly.".formatted(serverUri));
+        }
+
+        return switch (matcher.group(1)) {
+            case "1" -> ClientApiVersion.V1;
+            case "2" -> ClientApiVersion.V2;
+            default -> throw new IllegalArgumentException("Unknown API version in the URI: " + matcher.group(1));
+        };
     }
 }

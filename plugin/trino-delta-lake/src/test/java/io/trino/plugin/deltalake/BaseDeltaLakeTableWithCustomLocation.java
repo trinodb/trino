@@ -15,9 +15,9 @@ package io.trino.plugin.deltalake;
 
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
-import io.trino.plugin.hive.metastore.Table;
+import io.trino.metastore.HiveMetastore;
+import io.trino.metastore.HiveMetastoreFactory;
+import io.trino.metastore.Table;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedRow;
 import org.junit.jupiter.api.Test;
@@ -65,7 +65,7 @@ public abstract class BaseDeltaLakeTableWithCustomLocation
                 .describedAs("The directory corresponding to the table storage location should exist")
                 .isTrue();
         List<MaterializedRow> materializedRows = computeActual("SELECT \"$path\" FROM " + tableName).getMaterializedRows();
-        assertThat(materializedRows.size()).isEqualTo(1);
+        assertThat(materializedRows).hasSize(1);
         Location filePath = Location.of((String) materializedRows.get(0).getField(0));
         assertThat(fileSystem.listFiles(filePath).hasNext())
                 .describedAs("The data file should exist")

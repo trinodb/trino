@@ -67,7 +67,7 @@ public class QueryPreparer
         else if (statement instanceof ExecuteImmediate executeImmediateStatement) {
             statement = sqlParser.createStatement(
                     executeImmediateStatement.getStatement().getValue(),
-                    executeImmediateStatement.getStatement().getLocation().orElseThrow(() -> new ParsingException("Missing location for embedded statement")));
+                    executeImmediateStatement.getStatement().getLocation().orElseThrow());
         }
         else if (statement instanceof ExplainAnalyze explainAnalyzeStatement) {
             Statement innerStatement = explainAnalyzeStatement.getStatement();

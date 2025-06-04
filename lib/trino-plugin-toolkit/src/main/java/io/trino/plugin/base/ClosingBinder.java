@@ -14,21 +14,23 @@
 package io.trino.plugin.base;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.common.io.Closer;
 import com.google.inject.Binder;
 import com.google.inject.BindingAnnotation;
 import com.google.inject.Inject;
+import com.google.inject.Injector;
 import com.google.inject.Key;
+import com.google.inject.Provider;
 import com.google.inject.multibindings.Multibinder;
+import io.trino.plugin.base.util.AutoCloseableCloser;
 import jakarta.annotation.PreDestroy;
 
-import java.io.Closeable;
-import java.io.IOException;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Consumer;
 
+import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.METHOD;
@@ -44,12 +46,12 @@ public class ClosingBinder
     }
 
     private final Multibinder<ExecutorService> executors;
-    private final Multibinder<Closeable> closeables;
+    private final Multibinder<AutoCloseable> closeables;
 
     private ClosingBinder(Binder binder)
     {
         executors = newSetBinder(binder, ExecutorService.class, ForCleanup.class);
-        closeables = newSetBinder(binder, Closeable.class, ForCleanup.class);
+        closeables = newSetBinder(binder, AutoCloseable.class, ForCleanup.class);
         binder.bind(Cleanup.class).asEagerSingleton();
     }
 
@@ -63,19 +65,58 @@ public class ClosingBinder
         executors.addBinding().to(requireNonNull(key, "key is null"));
     }
 
-    public void registerCloseable(Class<? extends Closeable> type)
+    public void registerCloseable(Class<? extends AutoCloseable> type)
     {
         registerCloseable(Key.get(type));
     }
 
-    public void registerCloseable(Key<? extends Closeable> key)
+    public void registerCloseable(Key<? extends AutoCloseable> key)
     {
         closeables.addBinding().to(key);
     }
 
+    public <T> void registerResource(Class<T> type, Consumer<? super T> close)
+    {
+        registerResource(Key.get(type), close);
+    }
+
+    public <T> void registerResource(Key<T> key, Consumer<? super T> close)
+    {
+        closeables.addBinding().toProvider(new ResourceCloser<T>(key, close));
+    }
+
+    private static class ResourceCloser<T>
+            implements Provider<AutoCloseable>
+    {
+        private final Key<T> key;
+        private final Consumer<? super T> close;
+        private Injector injector;
+
+        private ResourceCloser(Key<T> key, Consumer<? super T> close)
+        {
+            this.key = requireNonNull(key, "key is null");
+            this.close = requireNonNull(close, "close is null");
+        }
+
+        @Inject
+        public void setInjector(Injector injector)
+        {
+            this.injector = injector;
+        }
+
+        @Override
+        public AutoCloseable get()
+        {
+            T object = injector.getInstance(key);
+            verifyNotNull(object, "null at key %s", key);
+            Consumer<? super T> close = this.close;
+            return () -> close.accept(object);
+        }
+    }
+
     private record Cleanup(
             @ForCleanup Set<ExecutorService> executors,
-            @ForCleanup Set<Closeable> closeables)
+            @ForCleanup Set<AutoCloseable> closeables)
     {
         @Inject
         private Cleanup
@@ -86,9 +127,10 @@ public class ClosingBinder
 
         @PreDestroy
         public void shutdown()
-                throws IOException
+                throws Exception
         {
-            try (Closer closer = Closer.create()) {
+            try (var closer = AutoCloseableCloser.create()) {
+                // TODO should this await termination?
                 executors.forEach(executor -> closer.register(executor::shutdownNow));
                 closeables.forEach(closer::register);
             }

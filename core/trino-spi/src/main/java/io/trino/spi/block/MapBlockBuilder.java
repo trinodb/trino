@@ -206,10 +206,8 @@ public class MapBlockBuilder
     @Override
     public void resetTo(int position)
     {
-        if (currentEntryOpened) {
-            throw new IllegalStateException("Expected current entry to be closed but was opened");
-        }
         checkIndex(position, positionCount + 1);
+        currentEntryOpened = false;
         positionCount = position;
         keyBlockBuilder.resetTo(offsets[positionCount]);
         valueBlockBuilder.resetTo(offsets[positionCount]);

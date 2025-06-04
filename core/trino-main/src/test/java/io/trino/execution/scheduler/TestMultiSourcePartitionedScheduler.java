@@ -101,7 +101,7 @@ import static io.trino.execution.scheduler.ScheduleResult.BlockedReason.WAITING_
 import static io.trino.execution.scheduler.StageExecution.State.PLANNED;
 import static io.trino.execution.scheduler.StageExecution.State.SCHEDULING;
 import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.metadata.TestMetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.DynamicFilters.createDynamicFilterExpression;
@@ -193,7 +193,7 @@ public class TestMultiSourcePartitionedScheduler
             assertThat(scheduleResult.getBlocked().isDone()).isTrue();
 
             // first three splits create new tasks
-            assertThat(scheduleResult.getNewTasks().size()).isEqualTo(i == 0 ? 3 : 0);
+            assertThat(scheduleResult.getNewTasks()).hasSize(i == 0 ? 3 : 0);
         }
 
         for (RemoteTask remoteTask : stage.getAllTasks()) {
@@ -221,12 +221,12 @@ public class TestMultiSourcePartitionedScheduler
         ScheduleResult scheduleResult = scheduler.schedule();
         assertThat(scheduleResult.isFinished()).isFalse();
         assertThat(scheduleResult.getBlocked().isDone()).isTrue();
-        assertThat(scheduleResult.getNewTasks().size()).isEqualTo(3);
+        assertThat(scheduleResult.getNewTasks()).hasSize(3);
 
         scheduleResult = scheduler.schedule();
         assertThat(scheduleResult.isFinished()).isFalse();
         assertThat(scheduleResult.getBlocked().isDone()).isFalse();
-        assertThat(scheduleResult.getNewTasks().size()).isEqualTo(0);
+        assertThat(scheduleResult.getNewTasks()).isEmpty();
         assertThat(scheduleResult.getBlockedReason()).isEqualTo(Optional.of(WAITING_FOR_SOURCE));
 
         blockingSplitSource.addSplits(2, true);
@@ -234,7 +234,7 @@ public class TestMultiSourcePartitionedScheduler
         scheduleResult = scheduler.schedule();
         assertThat(scheduleResult.getBlocked().isDone()).isTrue();
         assertThat(scheduleResult.getSplitsScheduled()).isEqualTo(2);
-        assertThat(scheduleResult.getNewTasks().size()).isEqualTo(0);
+        assertThat(scheduleResult.getNewTasks()).isEmpty();
         assertThat(scheduleResult.getBlockedReason()).isEqualTo(Optional.empty());
         assertThat(scheduleResult.isFinished()).isTrue();
 
@@ -266,7 +266,7 @@ public class TestMultiSourcePartitionedScheduler
         assertThat(scheduleResult.getSplitsScheduled()).isEqualTo(300);
         assertThat(scheduleResult.isFinished()).isFalse();
         assertThat(scheduleResult.getBlocked().isDone()).isFalse();
-        assertThat(scheduleResult.getNewTasks().size()).isEqualTo(3);
+        assertThat(scheduleResult.getNewTasks()).hasSize(3);
         assertThat(scheduleResult.getBlockedReason()).isEqualTo(Optional.of(SPLIT_QUEUES_FULL));
 
         assertThat(stage.getAllTasks().stream().mapToInt(task -> task.getPartitionedSplitsInfo().getCount()).sum()).isEqualTo(300);
@@ -301,8 +301,8 @@ public class TestMultiSourcePartitionedScheduler
 
         ScheduleResult scheduleResult = scheduler.schedule();
         assertThat(scheduleResult.getBlocked().isDone()).isFalse();
-        assertThat(scheduleResult.getNewTasks().size()).isEqualTo(3);
-        assertThat(firstStage.getAllTasks().size()).isEqualTo(3);
+        assertThat(scheduleResult.getNewTasks()).hasSize(3);
+        assertThat(firstStage.getAllTasks()).hasSize(3);
         for (RemoteTask remoteTask : firstStage.getAllTasks()) {
             PartitionedSplitsInfo splitsInfo = remoteTask.getPartitionedSplitsInfo();
             // All splits were balanced between nodes
@@ -321,8 +321,8 @@ public class TestMultiSourcePartitionedScheduler
         assertEffectivelyFinished(scheduleResult, scheduler);
         assertThat(scheduleResult.getBlocked().isDone()).isTrue();
         assertThat(scheduleResult.isFinished()).isTrue();
-        assertThat(scheduleResult.getNewTasks().size()).isEqualTo(1);
-        assertThat(firstStage.getAllTasks().size()).isEqualTo(4);
+        assertThat(scheduleResult.getNewTasks()).hasSize(1);
+        assertThat(firstStage.getAllTasks()).hasSize(4);
 
         assertThat(firstStage.getAllTasks().get(0).getPartitionedSplitsInfo().getCount()).isEqualTo(5);
         assertThat(firstStage.getAllTasks().get(1).getPartitionedSplitsInfo().getCount()).isEqualTo(5);
@@ -342,8 +342,8 @@ public class TestMultiSourcePartitionedScheduler
         assertEffectivelyFinished(scheduleResult, secondScheduler);
         assertThat(scheduleResult.getBlocked().isDone()).isTrue();
         assertThat(scheduleResult.isFinished()).isTrue();
-        assertThat(scheduleResult.getNewTasks().size()).isEqualTo(4);
-        assertThat(secondStage.getAllTasks().size()).isEqualTo(4);
+        assertThat(scheduleResult.getNewTasks()).hasSize(4);
+        assertThat(secondStage.getAllTasks()).hasSize(4);
 
         for (RemoteTask task : secondStage.getAllTasks()) {
             assertThat(task.getPartitionedSplitsInfo().getCount()).isEqualTo(5);
@@ -368,7 +368,7 @@ public class TestMultiSourcePartitionedScheduler
         ScheduleResult scheduleResult = scheduler.schedule();
 
         // If both split sources produce no splits then internal schedulers add one split - it can be expected by some operators e.g. AggregationOperator
-        assertThat(scheduleResult.getNewTasks().size()).isEqualTo(2);
+        assertThat(scheduleResult.getNewTasks()).hasSize(2);
         assertEffectivelyFinished(scheduleResult, scheduler);
 
         stage.abort();
@@ -406,7 +406,7 @@ public class TestMultiSourcePartitionedScheduler
         // make sure dynamic filtering collecting task was created immediately
         assertThat(stage.getState()).isEqualTo(PLANNED);
         scheduler.start();
-        assertThat(stage.getAllTasks().size()).isEqualTo(1);
+        assertThat(stage.getAllTasks()).hasSize(1);
         assertThat(stage.getState()).isEqualTo(SCHEDULING);
 
         // make sure dynamic filter is initially blocked
@@ -442,7 +442,7 @@ public class TestMultiSourcePartitionedScheduler
         // the queues of 3 running nodes should be full
         ScheduleResult scheduleResult = scheduler.schedule();
         assertThat(scheduleResult.getBlockedReason()).isEqualTo(Optional.of(SPLIT_QUEUES_FULL));
-        assertThat(scheduleResult.getNewTasks().size()).isEqualTo(3);
+        assertThat(scheduleResult.getNewTasks()).hasSize(3);
         assertThat(scheduleResult.getSplitsScheduled()).isEqualTo(300);
         for (RemoteTask remoteTask : scheduleResult.getNewTasks()) {
             PartitionedSplitsInfo splitsInfo = remoteTask.getPartitionedSplitsInfo();
@@ -453,7 +453,7 @@ public class TestMultiSourcePartitionedScheduler
         nodeManager.addNodes(new InternalNode("other4", URI.create("http://127.0.0.4:14"), NodeVersion.UNKNOWN, false));
         scheduleResult = scheduler.schedule();
         assertThat(scheduleResult.getBlockedReason()).isEqualTo(Optional.of(SPLIT_QUEUES_FULL));
-        assertThat(scheduleResult.getNewTasks().size()).isEqualTo(0);
+        assertThat(scheduleResult.getNewTasks()).isEmpty();
         assertThat(scheduleResult.getSplitsScheduled()).isEqualTo(0);
     }
 
@@ -473,7 +473,7 @@ public class TestMultiSourcePartitionedScheduler
         ScheduleResult nextScheduleResult = scheduler.schedule();
         assertThat(nextScheduleResult.isFinished()).isTrue();
         assertThat(nextScheduleResult.getBlocked().isDone()).isTrue();
-        assertThat(nextScheduleResult.getNewTasks().size()).isEqualTo(0);
+        assertThat(nextScheduleResult.getNewTasks()).isEmpty();
         assertThat(nextScheduleResult.getSplitsScheduled()).isEqualTo(0);
     }
 
@@ -523,22 +523,26 @@ public class TestMultiSourcePartitionedScheduler
         Symbol symbol = new Symbol(VARCHAR, "column");
         Symbol buildSymbol = new Symbol(VARCHAR, "buildColumn");
 
-        TableScanNode tableScanOne = TableScanNode.newInstance(
+        TableScanNode tableScanOne = new TableScanNode(
                 TABLE_SCAN_1_NODE_ID,
                 firstTableHandle,
                 ImmutableList.of(symbol),
                 ImmutableMap.of(symbol, new TestingColumnHandle("column")),
+                TupleDomain.all(),
+                Optional.empty(),
                 false,
                 Optional.empty());
         FilterNode filterNodeOne = new FilterNode(
                 new PlanNodeId("filter_node_id"),
                 tableScanOne,
                 createDynamicFilterExpression(createTestMetadataManager(), DYNAMIC_FILTER_ID, VARCHAR, symbol.toSymbolReference()));
-        TableScanNode tableScanTwo = TableScanNode.newInstance(
+        TableScanNode tableScanTwo = new TableScanNode(
                 TABLE_SCAN_2_NODE_ID,
                 secondTableHandle,
                 ImmutableList.of(symbol),
                 ImmutableMap.of(symbol, new TestingColumnHandle("column")),
+                TupleDomain.all(),
+                Optional.empty(),
                 false,
                 Optional.empty());
         FilterNode filterNodeTwo = new FilterNode(

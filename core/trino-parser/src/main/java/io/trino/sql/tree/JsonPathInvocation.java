@@ -33,7 +33,7 @@ public class JsonPathInvocation
     private final List<JsonPathParameter> pathParameters;
 
     public JsonPathInvocation(
-            Optional<NodeLocation> location,
+            NodeLocation location,
             Expression inputExpression,
             JsonFormat inputFormat,
             StringLiteral jsonPath,

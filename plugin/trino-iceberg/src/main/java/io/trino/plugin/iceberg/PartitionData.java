@@ -166,6 +166,13 @@ public class PartitionData
                 return rescale(
                         partitionValue.decimalValue(),
                         createDecimalType(decimalType.precision(), decimalType.scale()));
+            // TODO https://github.com/trinodb/trino/issues/19753 Support Iceberg timestamp types with nanosecond precision
+            case TIMESTAMP_NANO:
+            // TODO https://github.com/trinodb/trino/issues/24538 Support variant type
+            case VARIANT:
+            case GEOMETRY:
+            case GEOGRAPHY:
+            case UNKNOWN:
             case LIST:
             case MAP:
             case STRUCT:

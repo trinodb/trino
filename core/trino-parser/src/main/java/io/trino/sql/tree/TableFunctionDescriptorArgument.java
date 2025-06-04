@@ -39,7 +39,7 @@ public class TableFunctionDescriptorArgument
 
     private TableFunctionDescriptorArgument(NodeLocation location, Optional<Descriptor> descriptor)
     {
-        super(Optional.of(location));
+        super(location);
         this.descriptor = descriptor;
     }
 

@@ -13,7 +13,6 @@
  */
 package io.trino.server;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -30,158 +29,33 @@ import static java.util.Objects.requireNonNull;
  * This class is exposed to external systems via ResourceGroupStateInfoResource and QueryStateInfoResource.
  * Be careful while changing it.
  */
-public class ResourceGroupInfo
+public record ResourceGroupInfo(
+        ResourceGroupId id,
+        ResourceGroupState state,
+        SchedulingPolicy schedulingPolicy,
+        int schedulingWeight,
+        DataSize softMemoryLimit,
+        int softConcurrencyLimit,
+        int hardConcurrencyLimit,
+        int maxQueuedQueries,
+        DataSize memoryUsage,
+        Duration cpuUsage,
+        int numQueuedQueries,
+        int numRunningQueries,
+        int numEligibleSubGroups,
+        Optional<List<ResourceGroupInfo>> subGroups,
+        Optional<List<QueryStateInfo>> runningQueries)
 {
-    private final ResourceGroupId id;
-    private final ResourceGroupState state;
-
-    private final SchedulingPolicy schedulingPolicy;
-    private final int schedulingWeight;
-
-    private final DataSize softMemoryLimit;
-    private final int softConcurrencyLimit;
-    private final int hardConcurrencyLimit;
-    private final int maxQueuedQueries;
-
-    private final DataSize memoryUsage;
-    private final Duration cpuUsage;
-    private final int numQueuedQueries;
-    private final int numRunningQueries;
-    private final int numEligibleSubGroups;
-
-    private final Optional<List<ResourceGroupInfo>> subGroups;
-    private final Optional<List<QueryStateInfo>> runningQueries;
-
-    public ResourceGroupInfo(
-            ResourceGroupId id,
-            ResourceGroupState state,
-
-            SchedulingPolicy schedulingPolicy,
-            int schedulingWeight,
-
-            DataSize softMemoryLimit,
-            int softConcurrencyLimit,
-            int hardConcurrencyLimit,
-            int maxQueuedQueries,
-
-            DataSize memoryUsage,
-            Duration cpuUsage,
-            int numQueuedQueries,
-            int numRunningQueries,
-            int numEligibleSubGroups,
-
-            Optional<List<ResourceGroupInfo>> subGroups,
-            Optional<List<QueryStateInfo>> runningQueries)
+    public ResourceGroupInfo
     {
-        this.id = requireNonNull(id, "id is null");
-        this.state = requireNonNull(state, "state is null");
+        requireNonNull(id, "id is null");
+        requireNonNull(state, "state is null");
+        requireNonNull(schedulingPolicy, "schedulingPolicy is null");
+        requireNonNull(softMemoryLimit, "softMemoryLimit is null");
+        requireNonNull(memoryUsage, "memoryUsage is null");
+        requireNonNull(cpuUsage, "cpuUsage is null");
 
-        this.schedulingPolicy = requireNonNull(schedulingPolicy, "schedulingPolicy is null");
-        this.schedulingWeight = schedulingWeight;
-
-        this.softMemoryLimit = requireNonNull(softMemoryLimit, "softMemoryLimit is null");
-
-        this.softConcurrencyLimit = softConcurrencyLimit;
-        this.hardConcurrencyLimit = hardConcurrencyLimit;
-        this.maxQueuedQueries = maxQueuedQueries;
-
-        this.memoryUsage = requireNonNull(memoryUsage, "memoryUsage is null");
-        this.cpuUsage = requireNonNull(cpuUsage, "cpuUsage is null");
-        this.numQueuedQueries = numQueuedQueries;
-        this.numRunningQueries = numRunningQueries;
-        this.numEligibleSubGroups = numEligibleSubGroups;
-
-        this.subGroups = subGroups.map(ImmutableList::copyOf);
-        this.runningQueries = runningQueries.map(ImmutableList::copyOf);
-    }
-
-    @JsonProperty
-    public ResourceGroupId getId()
-    {
-        return id;
-    }
-
-    @JsonProperty
-    public ResourceGroupState getState()
-    {
-        return state;
-    }
-
-    @JsonProperty
-    public SchedulingPolicy getSchedulingPolicy()
-    {
-        return schedulingPolicy;
-    }
-
-    @JsonProperty
-    public int getSchedulingWeight()
-    {
-        return schedulingWeight;
-    }
-
-    @JsonProperty
-    public DataSize getSoftMemoryLimit()
-    {
-        return softMemoryLimit;
-    }
-
-    @JsonProperty
-    public int getSoftConcurrencyLimit()
-    {
-        return softConcurrencyLimit;
-    }
-
-    @JsonProperty
-    public int getHardConcurrencyLimit()
-    {
-        return hardConcurrencyLimit;
-    }
-
-    @JsonProperty
-    public int getMaxQueuedQueries()
-    {
-        return maxQueuedQueries;
-    }
-
-    @JsonProperty
-    public DataSize getMemoryUsage()
-    {
-        return memoryUsage;
-    }
-
-    @JsonProperty
-    public Duration getCpuUsage()
-    {
-        return cpuUsage;
-    }
-
-    @JsonProperty
-    public int getNumQueuedQueries()
-    {
-        return numQueuedQueries;
-    }
-
-    @JsonProperty
-    public int getNumRunningQueries()
-    {
-        return numRunningQueries;
-    }
-
-    @JsonProperty
-    public int getNumEligibleSubGroups()
-    {
-        return numEligibleSubGroups;
-    }
-
-    @JsonProperty
-    public Optional<List<ResourceGroupInfo>> getSubGroups()
-    {
-        return subGroups;
-    }
-
-    @JsonProperty
-    public Optional<List<QueryStateInfo>> getRunningQueries()
-    {
-        return runningQueries;
+        subGroups = subGroups.map(ImmutableList::copyOf);
+        runningQueries = runningQueries.map(ImmutableList::copyOf);
     }
 }

@@ -13,7 +13,6 @@
  */
 package io.trino.security;
 
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.validation.FileExists;
@@ -26,7 +25,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class AccessControlConfig
 {
-    private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
     private List<File> accessControlFiles = ImmutableList.of();
 
     @NotNull
@@ -36,17 +34,11 @@ public class AccessControlConfig
     }
 
     @Config("access-control.config-files")
-    public AccessControlConfig setAccessControlFiles(String accessControlFiles)
+    public AccessControlConfig setAccessControlFiles(List<String> accessControlFiles)
     {
-        this.accessControlFiles = SPLITTER.splitToList(accessControlFiles).stream()
+        this.accessControlFiles = accessControlFiles.stream()
                 .map(File::new)
                 .collect(toImmutableList());
-        return this;
-    }
-
-    public AccessControlConfig setAccessControlFiles(List<File> accessControlFiles)
-    {
-        this.accessControlFiles = ImmutableList.copyOf(accessControlFiles);
         return this;
     }
 }

@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.memory;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -24,33 +22,14 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static java.util.Objects.requireNonNull;
 
-public class MemoryDataFragment
+public record MemoryDataFragment(HostAddress hostAddress, long rows)
 {
     private static final JsonCodec<MemoryDataFragment> MEMORY_DATA_FRAGMENT_CODEC = jsonCodec(MemoryDataFragment.class);
 
-    private final HostAddress hostAddress;
-    private final long rows;
-
-    @JsonCreator
-    public MemoryDataFragment(
-            @JsonProperty("hostAddress") HostAddress hostAddress,
-            @JsonProperty("rows") long rows)
+    public MemoryDataFragment
     {
-        this.hostAddress = requireNonNull(hostAddress, "hostAddress is null");
+        requireNonNull(hostAddress, "hostAddress is null");
         checkArgument(rows >= 0, "Rows number cannot be negative");
-        this.rows = rows;
-    }
-
-    @JsonProperty
-    public HostAddress getHostAddress()
-    {
-        return hostAddress;
-    }
-
-    @JsonProperty
-    public long getRows()
-    {
-        return rows;
     }
 
     public Slice toSlice()
@@ -60,12 +39,12 @@ public class MemoryDataFragment
 
     public static MemoryDataFragment fromSlice(Slice fragment)
     {
-        return MEMORY_DATA_FRAGMENT_CODEC.fromJson(fragment.getBytes());
+        return MEMORY_DATA_FRAGMENT_CODEC.fromJson(fragment.getInput());
     }
 
     public static MemoryDataFragment merge(MemoryDataFragment a, MemoryDataFragment b)
     {
-        checkArgument(a.getHostAddress().equals(b.getHostAddress()), "Cannot merge fragments from different hosts");
-        return new MemoryDataFragment(a.getHostAddress(), a.getRows() + b.getRows());
+        checkArgument(a.hostAddress().equals(b.hostAddress()), "Cannot merge fragments from different hosts");
+        return new MemoryDataFragment(a.hostAddress(), a.rows() + b.rows());
     }
 }

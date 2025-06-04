@@ -23,15 +23,16 @@ import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
+import com.google.inject.TypeLiteral;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.discovery.client.Announcer;
 import io.airlift.discovery.client.DiscoveryModule;
 import io.airlift.discovery.client.ServiceSelectorManager;
 import io.airlift.discovery.client.testing.TestingDiscoveryModule;
-import io.airlift.event.client.EventModule;
 import io.airlift.http.server.testing.TestingHttpServer;
 import io.airlift.http.server.testing.TestingHttpServerModule;
+import io.airlift.http.server.tracing.TracingServletFilter;
 import io.airlift.jaxrs.JaxrsModule;
 import io.airlift.jmx.testing.TestingJmxModule;
 import io.airlift.json.JsonModule;
@@ -39,13 +40,14 @@ import io.airlift.log.Level;
 import io.airlift.log.Logging;
 import io.airlift.node.testing.TestingNodeModule;
 import io.airlift.openmetrics.JmxOpenMetricsModule;
-import io.airlift.tracetoken.TraceTokenModule;
 import io.airlift.tracing.TracingModule;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.sdk.trace.SpanProcessor;
 import io.trino.Session;
 import io.trino.SystemSessionPropertiesProvider;
+import io.trino.connector.CatalogManagerConfig.CatalogMangerKind;
 import io.trino.connector.CatalogManagerModule;
+import io.trino.connector.CatalogStoreManager;
 import io.trino.connector.ConnectorServicesProvider;
 import io.trino.cost.StatsCalculator;
 import io.trino.dispatcher.DispatchManager;
@@ -73,16 +75,17 @@ import io.trino.security.AccessControl;
 import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
 import io.trino.security.GroupProviderManager;
-import io.trino.server.GracefulShutdownHandler;
+import io.trino.server.NodeStateManager;
 import io.trino.server.PluginInstaller;
 import io.trino.server.PrefixObjectNameGeneratorModule;
 import io.trino.server.QuerySessionSupplier;
-import io.trino.server.Server;
 import io.trino.server.ServerMainModule;
 import io.trino.server.SessionContext;
 import io.trino.server.SessionPropertyDefaults;
 import io.trino.server.SessionSupplier;
 import io.trino.server.ShutdownAction;
+import io.trino.server.StartupStatus;
+import io.trino.server.protocol.spooling.SpoolingManagerRegistry;
 import io.trino.server.security.CertificateAuthenticatorManager;
 import io.trino.server.security.ServerSecurityModule;
 import io.trino.spi.ErrorType;
@@ -114,6 +117,7 @@ import io.trino.tracing.ForTracing;
 import io.trino.tracing.TracingAccessControl;
 import io.trino.transaction.TransactionManager;
 import io.trino.transaction.TransactionManagerModule;
+import jakarta.servlet.Filter;
 import org.weakref.jmx.guice.MBeanModule;
 
 import javax.management.MBeanServer;
@@ -130,7 +134,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
+import java.util.function.Consumer;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -153,6 +159,7 @@ public class TestingTrinoServer
         Logging logging = Logging.initialize();
         logging.setLevel("io.trino.event.QueryMonitor", Level.ERROR);
         logging.setLevel("org.eclipse.jetty", Level.ERROR);
+        logging.setLevel("io.airlift.concurrent.BoundedExecutor", Level.OFF);
 
         // Trino server behavior does not depend on locale settings.
         // Use en_US as this is what Trino is tested with.
@@ -201,12 +208,13 @@ public class TestingTrinoServer
     private final DispatchManager dispatchManager;
     private final SqlQueryManager queryManager;
     private final SqlTaskManager taskManager;
-    private final GracefulShutdownHandler gracefulShutdownHandler;
+    private final NodeStateManager nodeStateManager;
     private final ShutdownAction shutdownAction;
     private final MBeanServer mBeanServer;
     private final boolean coordinator;
     private final FailureInjector failureInjector;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
+    private final SpoolingManagerRegistry spoolingManagerRegistry;
 
     public static class TestShutdownAction
             implements ShutdownAction
@@ -244,8 +252,11 @@ public class TestingTrinoServer
             Optional<Path> baseDataDir,
             Optional<SpanProcessor> spanProcessor,
             Optional<FactoryConfiguration> systemAccessControlConfiguration,
+            Optional<FactoryConfiguration> spoolingConfiguration,
             Optional<List<SystemAccessControl>> systemAccessControls,
-            List<EventListener> eventListeners)
+            List<EventListener> eventListeners,
+            Consumer<TestingTrinoServer> additionalConfiguration,
+            CatalogMangerKind catalogMangerKind)
     {
         this.coordinator = coordinator;
 
@@ -253,15 +264,12 @@ public class TestingTrinoServer
         this.preserveData = baseDataDir.isPresent();
 
         properties = new HashMap<>(properties);
-        String coordinatorPort = properties.remove("http-server.http.port");
-        if (coordinatorPort == null) {
-            coordinatorPort = "0";
-        }
+        int httpPort = parseInt(firstNonNull(properties.remove("http-server.http.port"), "0"));
 
         ImmutableMap.Builder<String, String> serverProperties = ImmutableMap.<String, String>builder()
                 .putAll(properties)
                 .put("coordinator", String.valueOf(coordinator))
-                .put("catalog.management", "dynamic")
+                .put("catalog.management", catalogMangerKind.name())
                 .put("task.concurrency", "4")
                 .put("task.max-worker-threads", "4")
                 // Use task.min-writer-count > 1, as this allows to expose writer-concurrency related bugs.
@@ -272,7 +280,12 @@ public class TestingTrinoServer
                 .put("internal-communication.shared-secret", "internal-shared-secret");
 
         if (coordinator) {
-            serverProperties.put("catalog.store", "memory");
+            if (catalogMangerKind == CatalogMangerKind.DYNAMIC) {
+                Optional<String> catalogStore = Optional.ofNullable(properties.get("catalog.store"));
+                if (catalogStore.isEmpty()) {
+                    serverProperties.put("catalog.store", "memory");
+                }
+            }
             serverProperties.put("failure-detector.enabled", "false");
 
             // Reduce memory footprint in tests
@@ -283,15 +296,13 @@ public class TestingTrinoServer
 
         ImmutableList.Builder<Module> modules = ImmutableList.<Module>builder()
                 .add(new TestingNodeModule(environment))
-                .add(new TestingHttpServerModule(parseInt(coordinator ? coordinatorPort : "0")))
+                .add(new TestingHttpServerModule(httpPort))
                 .add(new JsonModule())
                 .add(new JaxrsModule())
                 .add(new MBeanModule())
                 .add(new PrefixObjectNameGeneratorModule("io.trino"))
                 .add(new TestingJmxModule())
                 .add(new JmxOpenMetricsModule())
-                .add(new EventModule())
-                .add(new TraceTokenModule())
                 .add(new TracingModule("trino", VERSION))
                 .add(new ServerSecurityModule())
                 .add(new CatalogManagerModule())
@@ -299,6 +310,9 @@ public class TestingTrinoServer
                 .add(new ServerMainModule(VERSION))
                 .add(new TestingWarningCollectorModule())
                 .add(binder -> {
+                    newSetBinder(binder, Filter.class)
+                            .addBinding()
+                            .to(TracingServletFilter.class);
                     binder.bind(EventListenerConfig.class).in(Scopes.SINGLETON);
                     binder.bind(AccessControlConfig.class).in(Scopes.SINGLETON);
                     binder.bind(TestingAccessControlManager.class).in(Scopes.SINGLETON);
@@ -312,7 +326,7 @@ public class TestingTrinoServer
                     binder.bind(AccessControl.class).annotatedWith(ForTracing.class).to(AccessControlManager.class).in(Scopes.SINGLETON);
                     binder.bind(AccessControl.class).to(TracingAccessControl.class).in(Scopes.SINGLETON);
                     binder.bind(ShutdownAction.class).to(TestShutdownAction.class).in(Scopes.SINGLETON);
-                    binder.bind(GracefulShutdownHandler.class).in(Scopes.SINGLETON);
+                    binder.bind(NodeStateManager.class).in(Scopes.SINGLETON);
                     binder.bind(ProcedureTester.class).in(Scopes.SINGLETON);
                     binder.bind(ExchangeManagerRegistry.class).in(Scopes.SINGLETON);
                     spanProcessor.ifPresent(processor -> newSetBinder(binder, SpanProcessor.class).addBinding().toInstance(processor));
@@ -366,6 +380,9 @@ public class TestingTrinoServer
 
         pluginInstaller = injector.getInstance(PluginInstaller.class);
 
+        var catalogStoreManager = injector.getInstance(Key.get(new TypeLiteral<Optional<CatalogStoreManager>>() {}));
+        catalogStoreManager.ifPresent(CatalogStoreManager::loadConfiguredCatalogStore);
+
         Optional<CatalogManager> catalogManager = Optional.empty();
         if (injector.getExistingBinding(Key.get(CatalogManager.class)) != null) {
             catalogManager = Optional.of(injector.getInstance(CatalogManager.class));
@@ -408,12 +425,13 @@ public class TestingTrinoServer
         localMemoryManager = injector.getInstance(LocalMemoryManager.class);
         nodeManager = injector.getInstance(InternalNodeManager.class);
         serviceSelectorManager = injector.getInstance(ServiceSelectorManager.class);
-        gracefulShutdownHandler = injector.getInstance(GracefulShutdownHandler.class);
+        nodeStateManager = injector.getInstance(NodeStateManager.class);
         taskManager = injector.getInstance(SqlTaskManager.class);
         shutdownAction = injector.getInstance(ShutdownAction.class);
         mBeanServer = injector.getInstance(MBeanServer.class);
         failureInjector = injector.getInstance(FailureInjector.class);
         exchangeManagerRegistry = injector.getInstance(ExchangeManagerRegistry.class);
+        spoolingManagerRegistry = injector.getInstance(SpoolingManagerRegistry.class);
 
         systemAccessControlConfiguration.ifPresentOrElse(
                 configuration -> {
@@ -422,10 +440,17 @@ public class TestingTrinoServer
                 },
                 () -> accessControl.setSystemAccessControls(systemAccessControls.orElseThrow()));
 
+        spoolingConfiguration.ifPresent(config ->
+                spoolingManagerRegistry.loadSpoolingManager(config.factoryName(), config.configuration()));
+
         EventListenerManager eventListenerManager = injector.getInstance(EventListenerManager.class);
         eventListeners.forEach(eventListenerManager::addEventListener);
 
         getFutureValue(injector.getInstance(Announcer.class).forceAnnounce());
+        // Must be run before startup is considered complete and node will therefore accept tasks.
+        // Technically `this` reference might escape here. However, the object is fully constructed.
+        additionalConfiguration.accept(this);
+        injector.getInstance(StartupStatus.class).startupComplete();
 
         refreshNodes();
     }
@@ -498,18 +523,9 @@ public class TestingTrinoServer
         exchangeManagerRegistry.loadExchangeManager(name, properties);
     }
 
-    /**
-     * Add the event listeners from connectors.  Connector event listeners are
-     * only supported for statically loaded catalogs, and this doesn't match up
-     * with the model of the testing Trino server.  This method should only be
-     * called once after all catalogs are added.
-     */
-    public void addConnectorEventListeners()
+    public void loadSpoolingManager(String name, Map<String, String> properties)
     {
-        Server.addConnectorEventListeners(
-                injector.getInstance(CatalogManager.class),
-                injector.getInstance(ConnectorServicesProvider.class),
-                injector.getInstance(EventListenerManager.class));
+        spoolingManagerRegistry.loadSpoolingManager(name, properties);
     }
 
     public Path getBaseDataDir()
@@ -635,9 +651,9 @@ public class TestingTrinoServer
         return mBeanServer;
     }
 
-    public GracefulShutdownHandler getGracefulShutdownHandler()
+    public NodeStateManager getNodeStateManager()
     {
-        return gracefulShutdownHandler;
+        return nodeStateManager;
     }
 
     public SqlTaskManager getTaskManager()
@@ -715,8 +731,11 @@ public class TestingTrinoServer
         private Optional<Path> baseDataDir = Optional.empty();
         private Optional<SpanProcessor> spanProcessor = Optional.empty();
         private Optional<FactoryConfiguration> systemAccessControlConfiguration = Optional.empty();
+        private Optional<FactoryConfiguration> spoolingConfiguration = Optional.empty();
         private Optional<List<SystemAccessControl>> systemAccessControls = Optional.of(ImmutableList.of());
         private List<EventListener> eventListeners = ImmutableList.of();
+        private Consumer<TestingTrinoServer> additionalConfiguration = _ -> {};
+        private CatalogMangerKind catalogMangerKind = CatalogMangerKind.DYNAMIC;
 
         public Builder setCoordinator(boolean coordinator)
         {
@@ -792,6 +811,18 @@ public class TestingTrinoServer
             return this;
         }
 
+        public Builder setAdditionalConfiguration(Consumer<TestingTrinoServer> additionalConfiguration)
+        {
+            this.additionalConfiguration = additionalConfiguration;
+            return this;
+        }
+
+        public Builder setCatalogMangerKind(CatalogMangerKind catalogMangerKind)
+        {
+            this.catalogMangerKind = requireNonNull(catalogMangerKind, "catalogMangerKind is null");
+            return this;
+        }
+
         public TestingTrinoServer build()
         {
             return new TestingTrinoServer(
@@ -803,8 +834,11 @@ public class TestingTrinoServer
                     baseDataDir,
                     spanProcessor,
                     systemAccessControlConfiguration,
+                    spoolingConfiguration,
                     systemAccessControls,
-                    eventListeners);
+                    eventListeners,
+                    additionalConfiguration,
+                    catalogMangerKind);
         }
     }
 

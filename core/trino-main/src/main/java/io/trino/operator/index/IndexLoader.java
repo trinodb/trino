@@ -428,8 +428,6 @@ public class IndexLoader
         }
 
         @Override
-        public void close()
-        {
-        }
+        public void close() {}
     }
 }

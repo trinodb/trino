@@ -14,11 +14,13 @@
 package io.trino.parquet.reader.decoders;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.parquet.ParquetEncoding;
 import io.trino.parquet.PrimitiveField;
 import io.trino.spi.type.BooleanType;
 import org.apache.parquet.column.values.ValuesWriter;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.OptionalInt;
 import java.util.Random;
 
@@ -27,26 +29,39 @@ import static io.trino.parquet.ParquetEncoding.RLE;
 import static io.trino.parquet.reader.TestData.generateMixedData;
 import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoders.BooleanApacheParquetValueDecoder;
 import static io.trino.parquet.reader.flat.ByteColumnAdapter.BYTE_ADAPTER;
+import static io.trino.testing.DataProviders.concat;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BOOLEAN;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public final class TestBooleanValueDecoders
         extends AbstractValueDecodersTest
 {
+    private static final List<ParquetEncoding> ENCODINGS = ImmutableList.of(PLAIN, RLE);
+
     @Override
     protected Object[][] tests()
     {
+        return concat(
+                testArgs(
+                        createBooleanTestType(false),
+                        ENCODINGS,
+                        BooleanInputProvider.values()),
+                testArgs(
+                        createBooleanTestType(true),
+                        ENCODINGS,
+                        BooleanInputProvider.values()));
+    }
+
+    private static TestType<byte[]> createBooleanTestType(boolean vectorizedDecodingEnabled)
+    {
         PrimitiveField field = createField(BOOLEAN, OptionalInt.empty(), BooleanType.BOOLEAN);
-        ValueDecoders valueDecoders = new ValueDecoders(field);
-        return testArgs(
-                new TestType<>(
-                        field,
-                        valueDecoders::getBooleanDecoder,
-                        BooleanApacheParquetValueDecoder::new,
-                        BYTE_ADAPTER,
-                        (actual, expected) -> assertThat(actual).isEqualTo(expected)),
-                ImmutableList.of(PLAIN, RLE),
-                BooleanInputProvider.values());
+        ValueDecoders valueDecoders = new ValueDecoders(field, vectorizedDecodingEnabled);
+        return new TestType<>(
+                field,
+                valueDecoders::getBooleanDecoder,
+                BooleanApacheParquetValueDecoder::new,
+                BYTE_ADAPTER,
+                (actual, expected) -> assertThat(actual).isEqualTo(expected));
     }
 
     private enum BooleanInputProvider

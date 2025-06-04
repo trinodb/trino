@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hudi;
 
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
@@ -26,7 +25,6 @@ import jakarta.validation.constraints.NotNull;
 
 import java.util.List;
 
-import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Locale.ENGLISH;
@@ -38,8 +36,6 @@ import static java.util.Locale.ENGLISH;
 })
 public class HudiConfig
 {
-    private static final Splitter COMMA_SPLITTER = Splitter.on(",").omitEmptyStrings().trimResults();
-
     private List<String> columnsToHide = ImmutableList.of();
     private boolean shouldUseParquetColumnNames = true;
     private boolean sizeBasedSplitWeightsEnabled = true;
@@ -51,6 +47,7 @@ public class HudiConfig
     private int splitGeneratorParallelism = 4;
     private long perTransactionMetastoreCacheMaximumSize = 2000;
     private boolean queryPartitionFilterRequired;
+    private boolean ignoreAbsentPartitions;
 
     public List<String> getColumnsToHide()
     {
@@ -60,9 +57,9 @@ public class HudiConfig
     @Config("hudi.columns-to-hide")
     @ConfigDescription("List of column names that will be hidden from the query output. " +
             "It can be used to hide Hudi meta fields. By default, no fields are hidden.")
-    public HudiConfig setColumnsToHide(String columnsToHide)
+    public HudiConfig setColumnsToHide(List<String> columnsToHide)
     {
-        this.columnsToHide = COMMA_SPLITTER.splitToStream(nullToEmpty(columnsToHide))
+        this.columnsToHide = columnsToHide.stream()
                 .map(s -> s.toLowerCase(ENGLISH))
                 .collect(toImmutableList());
         return this;
@@ -206,5 +203,17 @@ public class HudiConfig
     public boolean isQueryPartitionFilterRequired()
     {
         return queryPartitionFilterRequired;
+    }
+
+    @Config("hudi.ignore-absent-partitions")
+    public HudiConfig setIgnoreAbsentPartitions(boolean ignoreAbsentPartitions)
+    {
+        this.ignoreAbsentPartitions = ignoreAbsentPartitions;
+        return this;
+    }
+
+    public boolean isIgnoreAbsentPartitions()
+    {
+        return ignoreAbsentPartitions;
     }
 }

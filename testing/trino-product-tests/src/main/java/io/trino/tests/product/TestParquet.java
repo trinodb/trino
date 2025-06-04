@@ -30,7 +30,6 @@ import static io.trino.tests.product.TpcTestUtils.createTpcdsAndTpchDatasets;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-@SuppressWarnings("UnstableApiUsage")
 public class TestParquet
         extends ProductTest
 {

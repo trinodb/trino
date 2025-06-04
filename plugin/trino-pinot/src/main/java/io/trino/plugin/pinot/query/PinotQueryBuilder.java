@@ -49,14 +49,15 @@ import static java.util.stream.Collectors.joining;
 
 public final class PinotQueryBuilder
 {
-    private PinotQueryBuilder()
-    {
-    }
+    private PinotQueryBuilder() {}
 
     public static String generatePql(PinotTableHandle tableHandle, List<PinotColumnHandle> columnHandles, Optional<String> tableNameSuffix, Optional<String> timePredicate, int limitForSegmentQueries)
     {
         requireNonNull(tableHandle, "tableHandle is null");
         StringBuilder pqlBuilder = new StringBuilder();
+        if (tableHandle.enableNullHandling()) {
+            pqlBuilder.append("SET enableNullHandling = true;\n");
+        }
         List<String> quotedColumnNames;
         if (columnHandles.isEmpty()) {
             // This occurs when the query is SELECT COUNT(*) FROM pinotTable ...
@@ -74,7 +75,7 @@ public final class PinotQueryBuilder
                 .append(getTableName(tableHandle, tableNameSuffix))
                 .append(" ");
         generateFilterPql(pqlBuilder, tableHandle, timePredicate);
-        OptionalLong appliedLimit = tableHandle.getLimit();
+        OptionalLong appliedLimit = tableHandle.limit();
         long limit = limitForSegmentQueries + 1;
         if (appliedLimit.isPresent()) {
             limit = Math.min(limit, appliedLimit.getAsLong());
@@ -87,13 +88,13 @@ public final class PinotQueryBuilder
     private static String getTableName(PinotTableHandle tableHandle, Optional<String> tableNameSuffix)
     {
         return tableNameSuffix
-                .map(suffix -> tableHandle.getTableName() + suffix)
-                .orElseGet(tableHandle::getTableName);
+                .map(suffix -> tableHandle.tableName() + suffix)
+                .orElseGet(tableHandle::tableName);
     }
 
     private static void generateFilterPql(StringBuilder pqlBuilder, PinotTableHandle tableHandle, Optional<String> timePredicate)
     {
-        getFilterClause(tableHandle.getConstraint(), timePredicate, false)
+        getFilterClause(tableHandle.constraint(), timePredicate, false)
                 .ifPresent(filterClause -> pqlBuilder.append(" WHERE ").append(filterClause));
     }
 

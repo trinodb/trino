@@ -38,17 +38,16 @@ public class SortItem
     private final Ordering ordering;
     private final NullOrdering nullOrdering;
 
+    @Deprecated
     public SortItem(Expression sortKey, Ordering ordering, NullOrdering nullOrdering)
     {
-        this(Optional.empty(), sortKey, ordering, nullOrdering);
+        super(Optional.empty());
+        this.ordering = ordering;
+        this.sortKey = sortKey;
+        this.nullOrdering = nullOrdering;
     }
 
     public SortItem(NodeLocation location, Expression sortKey, Ordering ordering, NullOrdering nullOrdering)
-    {
-        this(Optional.of(location), sortKey, ordering, nullOrdering);
-    }
-
-    private SortItem(Optional<NodeLocation> location, Expression sortKey, Ordering ordering, NullOrdering nullOrdering)
     {
         super(location);
         this.ordering = ordering;

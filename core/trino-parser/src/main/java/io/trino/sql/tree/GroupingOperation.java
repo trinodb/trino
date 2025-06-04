@@ -15,7 +15,6 @@ package io.trino.sql.tree;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -26,7 +25,7 @@ public class GroupingOperation
 {
     private final List<Expression> groupingColumns;
 
-    public GroupingOperation(Optional<NodeLocation> location, List<QualifiedName> groupingColumns)
+    public GroupingOperation(NodeLocation location, List<QualifiedName> groupingColumns)
     {
         super(location);
         requireNonNull(groupingColumns);

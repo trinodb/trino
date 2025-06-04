@@ -15,6 +15,7 @@ package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.TestingFunctionResolution;
+import io.trino.operator.AggregationMetrics;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import org.junit.jupiter.api.Test;
@@ -114,7 +115,7 @@ public class BenchmarkGroupedTypedHistogram
 
             TestingAggregationFunction aggregationFunction = getInternalAggregationFunctionVarChar();
             groupedAggregator = aggregationFunction.createAggregatorFactory(SINGLE, ImmutableList.of(0), OptionalInt.empty())
-                    .createGroupedAggregator();
+                    .createGroupedAggregator(new AggregationMetrics());
         }
     }
 

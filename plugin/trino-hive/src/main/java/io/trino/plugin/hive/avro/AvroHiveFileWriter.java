@@ -17,9 +17,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.io.CountingOutputStream;
 import io.trino.hive.formats.avro.AvroCompressionKind;
 import io.trino.hive.formats.avro.AvroFileWriter;
+import io.trino.hive.formats.avro.AvroTypeBlockHandler;
 import io.trino.hive.formats.avro.AvroTypeException;
 import io.trino.hive.formats.avro.AvroTypeManager;
-import io.trino.hive.formats.avro.AvroTypeUtils;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.plugin.hive.FileWriter;
 import io.trino.spi.Page;
@@ -63,6 +63,7 @@ public final class AvroHiveFileWriter
             AggregatedMemoryContext outputStreamMemoryContext,
             Schema fileSchema,
             AvroTypeManager typeManager,
+            AvroTypeBlockHandler avroTypeBlockHandler,
             Closeable rollbackAction,
             List<String> inputColumnNames,
             List<Type> inputColumnTypes,
@@ -89,9 +90,9 @@ public final class AvroHiveFileWriter
         ImmutableList.Builder<Block> blocks = ImmutableList.builder();
         for (Map.Entry<String, Field> entry : fields.entrySet()) {
             outputColumnNames.add(entry.getKey().toLowerCase(Locale.ENGLISH));
-            Type type = AvroTypeUtils.typeFromAvro(entry.getValue().schema(), typeManager);
+            Type type = avroTypeBlockHandler.typeFor(entry.getValue().schema());
             outputColumnTypes.add(type);
-            blocks.add(type.createBlockBuilder(null, 1).appendNull().build());
+            blocks.add(type.createNullBlock());
         }
         typeCorrectNullBlocks = blocks.build();
         fileWriter = new AvroFileWriter(countingOutputStream, fileSchema, typeManager, compressionKind, metadata, outputColumnNames.build(), outputColumnTypes.build(), true);

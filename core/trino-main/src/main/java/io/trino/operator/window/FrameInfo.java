@@ -122,12 +122,12 @@ public class FrameInfo
 
         return this.type == other.type &&
                 this.startType == other.startType &&
-                Objects.equals(this.startChannel, other.startChannel) &&
-                Objects.equals(this.sortKeyChannelForStartComparison, other.sortKeyChannelForStartComparison) &&
+                this.startChannel == other.startChannel &&
+                this.sortKeyChannelForStartComparison == other.sortKeyChannelForStartComparison &&
                 this.endType == other.endType &&
-                Objects.equals(this.endChannel, other.endChannel) &&
-                Objects.equals(this.sortKeyChannelForEndComparison, other.sortKeyChannelForEndComparison) &&
-                Objects.equals(this.sortKeyChannel, other.sortKeyChannel) &&
+                this.endChannel == other.endChannel &&
+                this.sortKeyChannelForEndComparison == other.sortKeyChannelForEndComparison &&
+                this.sortKeyChannel == other.sortKeyChannel &&
                 Objects.equals(this.ordering, other.ordering);
     }
 

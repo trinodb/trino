@@ -13,8 +13,7 @@
  */
 package io.trino.plugin.clickhouse;
 
-import io.trino.testing.ResourcePresence;
-import org.testcontainers.containers.ClickHouseContainer;
+import org.testcontainers.clickhouse.ClickHouseContainer;
 import org.testcontainers.utility.DockerImageName;
 
 import java.io.Closeable;
@@ -22,22 +21,35 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.Statement;
 
-import static java.lang.String.format;
-import static org.testcontainers.containers.ClickHouseContainer.HTTP_PORT;
 import static org.testcontainers.utility.MountableFile.forClasspathResource;
 
 public class TestingClickHouseServer
         implements Closeable
 {
+    /**
+     * <a href="https://clickhouse.com/docs/en/faq/operations/production#how-to-choose-between-clickhouse-releases">How to Choose Between ClickHouse Releases?</a>
+     * <p>
+     * stable is the kind of package we recommend by default.
+     * They are released roughly monthly (and thus provide new features with reasonable delay)
+     * and three latest stable releases are supported in terms of diagnostics and backporting of bugfixes.
+     * lts are released twice a year and are supported for a year after their initial release.
+     * <p>
+     * <a href="https://kb.altinity.com/altinity-kb-setup-and-maintenance/clickhouse-versions/">Versioning schema</a>
+     */
     private static final DockerImageName CLICKHOUSE_IMAGE = DockerImageName.parse("clickhouse/clickhouse-server");
-    public static final DockerImageName CLICKHOUSE_LATEST_IMAGE = CLICKHOUSE_IMAGE.withTag("24.1.8.22");   // EOL by Apr 2025
-    public static final DockerImageName CLICKHOUSE_DEFAULT_IMAGE = CLICKHOUSE_IMAGE.withTag("23.8.12.13"); // EOL by Jun 2024
+    // https://clickhouse.com/docs/en/whats-new/changelog#-clickhouse-release-2412-2024-12-19
+    public static final DockerImageName CLICKHOUSE_LATEST_IMAGE = CLICKHOUSE_IMAGE.withTag("24.12.1.1614");   // EOL in 3 releases after 2024-12-19
+    // https://clickhouse.com/docs/en/whats-new/changelog#-clickhouse-release-243-lts-2024-03-27
+    public static final DockerImageName CLICKHOUSE_DEFAULT_IMAGE = CLICKHOUSE_IMAGE.withTag("24.3.14.35"); // EOL in 1 year after 2024-03-27
 
-    // Altinity Stable Builds Life-Cycle Table https://docs.altinity.com/altinitystablebuilds/#altinity-stable-builds-life-cycle-table
-    // On Mac/arm try `21.8.12.29.altinitydev.arm` instead of the specified stable build
+    /**
+     * <a href="https://docs.altinity.com/altinitystablebuilds/#altinity-stable-builds-life-cycle-table">Altinity Stable Builds Life-Cycle Table</a>
+     * <p>
+     * On Mac/arm 23.3.13.7.altinitystable, 23.8.8.21.altinitystable and 22.8.15.25.altinitystable and later versions available on ARM.
+     */
     private static final DockerImageName ALTINITY_IMAGE = DockerImageName.parse("altinity/clickhouse-server").asCompatibleSubstituteFor("clickhouse/clickhouse-server");
-    public static final DockerImageName ALTINITY_LATEST_IMAGE = ALTINITY_IMAGE.withTag("23.8.8.21.altinitystable");  // EOL is 27 Dec 2026
-    public static final DockerImageName ALTINITY_DEFAULT_IMAGE = ALTINITY_IMAGE.withTag("21.8.15.15.altinitystable"); // EOL is 30 Aug 2024
+    public static final DockerImageName ALTINITY_LATEST_IMAGE = ALTINITY_IMAGE.withTag("24.3.12.76.altinitystable");  // EOL is 23 Jul 2027
+    public static final DockerImageName ALTINITY_DEFAULT_IMAGE = ALTINITY_IMAGE.withTag("22.3.15.34.altinitystable"); // EOL is 15 Jul 2025
 
     private final ClickHouseContainer dockerContainer;
 
@@ -57,7 +69,7 @@ public class TestingClickHouseServer
 
     public void execute(String sql)
     {
-        try (Connection connection = DriverManager.getConnection(getJdbcUrl());
+        try (Connection connection = DriverManager.getConnection(dockerContainer.getJdbcUrl(), dockerContainer.getUsername(), dockerContainer.getPassword());
                 Statement statement = connection.createStatement()) {
             statement.execute(sql);
         }
@@ -68,19 +80,22 @@ public class TestingClickHouseServer
 
     public String getJdbcUrl()
     {
-        return format("jdbc:clickhouse://%s:%s/", dockerContainer.getHost(),
-                dockerContainer.getMappedPort(HTTP_PORT));
+        return dockerContainer.getJdbcUrl();
+    }
+
+    public String getUsername()
+    {
+        return dockerContainer.getUsername();
+    }
+
+    public String getPassword()
+    {
+        return dockerContainer.getPassword();
     }
 
     @Override
     public void close()
     {
         dockerContainer.stop();
-    }
-
-    @ResourcePresence
-    public boolean isRunning()
-    {
-        return dockerContainer.getContainerId() != null;
     }
 }

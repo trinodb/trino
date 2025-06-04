@@ -18,9 +18,7 @@ import java.util.function.Consumer;
 
 public class TestingRedirectHandlerInjector
 {
-    private TestingRedirectHandlerInjector()
-    {
-    }
+    private TestingRedirectHandlerInjector() {}
 
     public static void setRedirectHandler(Consumer<URI> redirectHandler)
     {

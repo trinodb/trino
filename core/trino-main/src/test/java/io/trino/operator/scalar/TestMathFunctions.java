@@ -3548,6 +3548,33 @@ public class TestMathFunctions
     }
 
     @Test
+    public void testTDistribution()
+    {
+        assertThat(assertions.function("t_cdf", "60", "1"))
+                .isEqualTo(0.9946953263673767);
+        assertThat(assertions.function("t_cdf", "10", "1"))
+                .isEqualTo(0.9682744825694464);
+        assertThat(assertions.function("t_cdf", "1", "10"))
+                .isEqualTo(0.8295534338489701);
+        assertThat(assertions.function("t_cdf", "-1.98", "2"))
+                .isEqualTo(0.09312625192178954);
+        assertThat(assertions.function("t_cdf", "0", "1"))
+                .isEqualTo(0.5);
+        assertThat(assertions.function("t_cdf", "100", "10"))
+                .isEqualTo(0.9999999999999999);
+
+        assertThat(assertions.function("t_pdf", "8", "3"))
+                .isEqualTo(7.369065209469264E-4);
+        assertThat(assertions.function("t_pdf", "1", "10"))
+                .isEqualTo(0.2303619892291386);
+
+        assertTrinoExceptionThrownBy(assertions.function("t_cdf", "60", "0")::evaluate)
+                .hasMessage("degrees of freedom must be greater than or equal to 1");
+        assertTrinoExceptionThrownBy(assertions.function("t_pdf", "60", "0")::evaluate)
+                .hasMessage("degrees of freedom must be greater than or equal to 1");
+    }
+
+    @Test
     public void testBetaCdf()
     {
         assertThat(assertions.function("beta_cdf", "3", "3.6", "0.0"))

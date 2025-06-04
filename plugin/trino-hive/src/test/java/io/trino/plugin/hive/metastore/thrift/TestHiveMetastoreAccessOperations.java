@@ -15,6 +15,7 @@ package io.trino.plugin.hive.metastore.thrift;
 
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
+import io.trino.Session;
 import io.trino.plugin.hive.HiveQueryRunner;
 import io.trino.plugin.hive.metastore.MetastoreMethod;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -23,6 +24,7 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 
+import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.plugin.hive.metastore.MetastoreInvocations.assertMetastoreInvocationsForQuery;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.CREATE_TABLE;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_DATABASE;
@@ -43,7 +45,9 @@ public class TestHiveMetastoreAccessOperations
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return HiveQueryRunner.create();
+        return HiveQueryRunner.builder()
+                .addHiveProperty("hive.dynamic-filtering.wait-timeout", "1h")
+                .build();
     }
 
     @Test
@@ -180,6 +184,46 @@ public class TestHiveMetastoreAccessOperations
     }
 
     @Test
+    public void testDynamicPartitionPruning()
+    {
+        assertUpdate(
+                "CREATE TABLE test_dynamic_partition_pruning_table WITH (partitioned_by=ARRAY['suppkey']) AS " +
+                        "SELECT orderkey, partkey, suppkey FROM tpch.tiny.lineitem",
+                60175);
+
+        Session session = Session.builder(getSession())
+                // Avoid caching all partitions metadata during planning through getTableStatistics
+                // and force partitions to be fetched during splits generation
+                .setCatalogSessionProperty("hive", "partition_statistics_sample_size", "10")
+                .build();
+        @Language("SQL") String sql = "SELECT * FROM test_dynamic_partition_pruning_table l JOIN tpch.tiny.supplier s ON l.suppkey = s.suppkey " +
+                "AND s.name = 'Supplier#000000001'";
+
+        assertMetastoreInvocations(
+                Session.builder(session)
+                        .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "false")
+                        .build(),
+                sql,
+                ImmutableMultiset.<MetastoreMethod>builder()
+                        .add(GET_TABLE)
+                        .addCopies(GET_PARTITIONS_BY_NAMES, 5)
+                        .add(GET_PARTITION_COLUMN_STATISTICS)
+                        .addCopies(GET_PARTITION_NAMES_BY_FILTER, 2)
+                        .build());
+
+        assertQuerySucceeds("CALL system.flush_metadata_cache()");
+        assertMetastoreInvocations(
+                session,
+                sql,
+                ImmutableMultiset.<MetastoreMethod>builder()
+                        .add(GET_TABLE)
+                        .add(GET_PARTITIONS_BY_NAMES)
+                        .add(GET_PARTITION_COLUMN_STATISTICS)
+                        .addCopies(GET_PARTITION_NAMES_BY_FILTER, 2)
+                        .build());
+    }
+
+    @Test
     public void testExplainSelect()
     {
         assertUpdate("CREATE TABLE test_explain AS SELECT 2 AS age", 1);
@@ -301,6 +345,11 @@ public class TestHiveMetastoreAccessOperations
 
     private void assertMetastoreInvocations(@Language("SQL") String query, Multiset<MetastoreMethod> expectedInvocations)
     {
-        assertMetastoreInvocationsForQuery(getDistributedQueryRunner(), getSession(), query, expectedInvocations);
+        assertMetastoreInvocations(getSession(), query, expectedInvocations);
+    }
+
+    private void assertMetastoreInvocations(Session session, @Language("SQL") String query, Multiset<MetastoreMethod> expectedInvocations)
+    {
+        assertMetastoreInvocationsForQuery(getDistributedQueryRunner(), session, query, expectedInvocations);
     }
 }

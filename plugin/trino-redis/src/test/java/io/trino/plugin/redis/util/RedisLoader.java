@@ -16,17 +16,13 @@ package io.trino.plugin.redis.util;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.client.Column;
-import io.trino.client.QueryData;
 import io.trino.client.QueryStatusInfo;
+import io.trino.client.ResultRows;
 import io.trino.server.testing.TestingTrinoServer;
-import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.testing.AbstractTestingTrinoClient;
 import io.trino.testing.ResultsSession;
-import io.trino.util.DateTimeUtils;
-import org.joda.time.format.DateTimeFormatter;
-import org.joda.time.format.ISODateTimeFormat;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 
@@ -37,25 +33,16 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.operator.scalar.timestamp.VarcharToTimestampCast.castToShortTimestamp;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.TimeType.TIME_MILLIS;
-import static io.trino.spi.type.TimeWithTimeZoneType.TIME_TZ_MILLIS;
-import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
-import static io.trino.util.DateTimeUtils.parseLegacyTime;
 import static java.util.Objects.requireNonNull;
 
 public class RedisLoader
         extends AbstractTestingTrinoClient<Void>
 {
-    private static final DateTimeFormatter ISO8601_FORMATTER = ISODateTimeFormat.dateTime();
-
     private final JedisPool jedisPool;
     private final String tableName;
     private final String dataFormat;
@@ -80,7 +67,7 @@ public class RedisLoader
     public ResultsSession<Void> getResultSession(Session session)
     {
         requireNonNull(session, "session is null");
-        return new RedisLoadingSession(session);
+        return new RedisLoadingSession();
     }
 
     private class RedisLoadingSession
@@ -88,51 +75,46 @@ public class RedisLoader
     {
         private final AtomicReference<List<Type>> types = new AtomicReference<>();
 
-        private final TimeZoneKey timeZoneKey;
-
-        private RedisLoadingSession(Session session)
-        {
-            this.timeZoneKey = session.getTimeZoneKey();
-        }
-
         @Override
-        public void addResults(QueryStatusInfo statusInfo, QueryData data)
+        public void addResults(QueryStatusInfo statusInfo, ResultRows rows)
         {
             if (types.get() == null && statusInfo.getColumns() != null) {
                 types.set(getTypes(statusInfo.getColumns()));
             }
 
-            if (data.getData() != null) {
-                checkState(types.get() != null, "Data without types received!");
-                List<Column> columns = statusInfo.getColumns();
-                for (List<Object> fields : data.getData()) {
-                    String redisKey = tableName + ":" + count.getAndIncrement();
+            if (rows.isNull()) {
+                return;
+            }
 
-                    try (Jedis jedis = jedisPool.getResource()) {
-                        switch (dataFormat) {
-                            case "string":
-                                ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
-                                for (int i = 0; i < fields.size(); i++) {
-                                    Type type = types.get().get(i);
-                                    Object value = convertValue(fields.get(i), type);
-                                    if (value != null) {
-                                        builder.put(columns.get(i).getName(), value);
-                                    }
+            checkState(types.get() != null, "Data without types received!");
+            List<Column> columns = statusInfo.getColumns();
+            for (List<Object> fields : rows) {
+                String redisKey = tableName + ":" + count.getAndIncrement();
+
+                try (Jedis jedis = jedisPool.getResource()) {
+                    switch (dataFormat) {
+                        case "string":
+                            ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
+                            for (int i = 0; i < fields.size(); i++) {
+                                Type type = types.get().get(i);
+                                Object value = convertValue(fields.get(i), type);
+                                if (value != null) {
+                                    builder.put(columns.get(i).getName(), value);
                                 }
-                                jedis.set(redisKey, jsonEncoder.toString(builder.buildOrThrow()));
-                                break;
-                            case "hash":
-                                // add keys to zset
-                                String redisZset = "keyset:" + tableName;
-                                jedis.zadd(redisZset, count.get(), redisKey);
-                                // add values to Hash
-                                for (int i = 0; i < fields.size(); i++) {
-                                    jedis.hset(redisKey, columns.get(i).getName(), fields.get(i).toString());
-                                }
-                                break;
-                            default:
-                                throw new AssertionError("unhandled value type: " + dataFormat);
-                        }
+                            }
+                            jedis.set(redisKey, jsonEncoder.toString(builder.buildOrThrow()));
+                            break;
+                        case "hash":
+                            // add keys to zset
+                            String redisZset = "keyset:" + tableName;
+                            jedis.zadd(redisZset, count.get(), redisKey);
+                            // add values to Hash
+                            for (int i = 0; i < fields.size(); i++) {
+                                jedis.hset(redisKey, columns.get(i).getName(), fields.get(i).toString());
+                            }
+                            break;
+                        default:
+                            throw new AssertionError("unhandled value type: " + dataFormat);
                     }
                 }
             }
@@ -164,15 +146,6 @@ public class RedisLoader
             }
             if (DATE.equals(type)) {
                 return value;
-            }
-            if (TIME_MILLIS.equals(type)) {
-                return ISO8601_FORMATTER.print(parseLegacyTime(timeZoneKey, (String) value));
-            }
-            if (TIMESTAMP_MILLIS.equals(type)) {
-                return ISO8601_FORMATTER.print(castToShortTimestamp(TIMESTAMP_MILLIS.getPrecision(), (String) value));
-            }
-            if (TIME_TZ_MILLIS.equals(type) || TIMESTAMP_TZ_MILLIS.equals(type)) {
-                return ISO8601_FORMATTER.print(unpackMillisUtc(DateTimeUtils.convertToTimestampWithTimeZone(timeZoneKey, (String) value)));
             }
             throw new AssertionError("unhandled type: " + type);
         }

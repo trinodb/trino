@@ -1,0 +1,8 @@
+databases:
+  trino:
+    cli_ldap_truststore_path: /etc/openldap/certs/cacerts.jks
+    cli_ldap_truststore_password: testldap
+    cli_ldap_user_name: DefaultGroupUser
+    cli_ldap_user_password: LDAPPass123
+    port: 8443
+    cli_ldap_server_address: https://${databases.trino.host}:${databases.trino.port}

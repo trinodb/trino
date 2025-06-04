@@ -63,15 +63,10 @@ import java.util.function.Consumer;
 import java.util.stream.LongStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.SystemSessionProperties.ENABLE_COORDINATOR_DYNAMIC_FILTERS_DISTRIBUTION;
 import static io.trino.SystemSessionProperties.FILTERING_SEMI_JOIN_TO_INNER;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.SystemSessionProperties.TASK_CONCURRENCY;
-import static io.trino.SystemSessionProperties.getJoinDistributionType;
-import static io.trino.SystemSessionProperties.isEnableCoordinatorDynamicFiltersDistribution;
-import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_PARTITIONING_ENABLED;
-import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_SPLITS_PER_NODE;
 import static io.trino.spi.predicate.Domain.multipleValues;
 import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.predicate.Range.range;
@@ -115,7 +110,7 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
         getQueryRunner().createCatalog(
                 "tpch",
                 "tpch",
-                ImmutableMap.of(TPCH_PARTITIONING_ENABLED, "false", TPCH_SPLITS_PER_NODE, "16"));
+                ImmutableMap.of("tpch.partitioning-enabled", "false", "tpch.splits-per-node", "16"));
         getQueryRunner().createCatalog("tpcds", "tpcds", ImmutableMap.of());
         getQueryRunner().createCatalog("memory", "memory", ImmutableMap.of("memory.splits-per-node", "16"));
         computeActual("CREATE TABLE lineitem AS SELECT * FROM tpch.tiny.lineitem");
@@ -129,15 +124,14 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
     @Timeout(30)
     public void testJoinWithEmptyBuildSide()
     {
-        testJoinWithEmptyBuildSide(BROADCAST, true);
-        testJoinWithEmptyBuildSide(PARTITIONED, true);
-        testJoinWithEmptyBuildSide(PARTITIONED, false);
+        testJoinWithEmptyBuildSide(BROADCAST);
+        testJoinWithEmptyBuildSide(PARTITIONED);
     }
 
-    private void testJoinWithEmptyBuildSide(JoinDistributionType joinDistributionType, boolean coordinatorDynamicFiltersDistribution)
+    private void testJoinWithEmptyBuildSide(JoinDistributionType joinDistributionType)
     {
         assertQueryDynamicFilters(
-                noJoinReordering(joinDistributionType, coordinatorDynamicFiltersDistribution),
+                noJoinReordering(joinDistributionType),
                 "SELECT * FROM lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey AND supplier.name = 'abc'",
                 Set.of(SUPP_KEY_HANDLE),
                 TupleDomain.none());
@@ -147,15 +141,14 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
     @Timeout(30)
     public void testJoinWithLargeBuildSide()
     {
-        testJoinWithLargeBuildSide(BROADCAST, true);
-        testJoinWithLargeBuildSide(PARTITIONED, true);
-        testJoinWithLargeBuildSide(PARTITIONED, false);
+        testJoinWithLargeBuildSide(BROADCAST);
+        testJoinWithLargeBuildSide(PARTITIONED);
     }
 
-    private void testJoinWithLargeBuildSide(JoinDistributionType joinDistributionType, boolean coordinatorDynamicFiltersDistribution)
+    private void testJoinWithLargeBuildSide(JoinDistributionType joinDistributionType)
     {
         assertQueryDynamicFilters(
-                noJoinReordering(joinDistributionType, coordinatorDynamicFiltersDistribution),
+                noJoinReordering(joinDistributionType),
                 "SELECT * FROM lineitem JOIN tpch.tiny.orders ON lineitem.orderkey = orders.orderkey",
                 Set.of(ORDERKEY_HANDLE),
                 TupleDomain.all());
@@ -165,16 +158,15 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
     @Timeout(30)
     public void testMultiColumnJoinWithDifferentCardinalitiesInBuildSide()
     {
-        testMultiColumnJoinWithDifferentCardinalitiesInBuildSide(BROADCAST, true);
-        testMultiColumnJoinWithDifferentCardinalitiesInBuildSide(PARTITIONED, true);
-        testMultiColumnJoinWithDifferentCardinalitiesInBuildSide(PARTITIONED, false);
+        testMultiColumnJoinWithDifferentCardinalitiesInBuildSide(BROADCAST);
+        testMultiColumnJoinWithDifferentCardinalitiesInBuildSide(PARTITIONED);
     }
 
-    private void testMultiColumnJoinWithDifferentCardinalitiesInBuildSide(JoinDistributionType joinDistributionType, boolean coordinatorDynamicFiltersDistribution)
+    private void testMultiColumnJoinWithDifferentCardinalitiesInBuildSide(JoinDistributionType joinDistributionType)
     {
         // orderkey has high cardinality, suppkey has low cardinality due to filter
         assertQueryDynamicFilters(
-                noJoinReordering(joinDistributionType, coordinatorDynamicFiltersDistribution),
+                noJoinReordering(joinDistributionType),
                 "SELECT * FROM lineitem l1 " +
                         "JOIN tpch.tiny.lineitem l2 ON l1.orderkey = l2.orderkey AND l1.suppkey = l2.suppkey " +
                         "WHERE l2.suppkey BETWEEN 1 AND 10",
@@ -188,15 +180,14 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
     @Timeout(30)
     public void testJoinWithSelectiveBuildSide()
     {
-        testJoinWithSelectiveBuildSide(BROADCAST, true);
-        testJoinWithSelectiveBuildSide(PARTITIONED, true);
-        testJoinWithSelectiveBuildSide(PARTITIONED, false);
+        testJoinWithSelectiveBuildSide(BROADCAST);
+        testJoinWithSelectiveBuildSide(PARTITIONED);
     }
 
-    private void testJoinWithSelectiveBuildSide(JoinDistributionType joinDistributionType, boolean coordinatorDynamicFiltersDistribution)
+    private void testJoinWithSelectiveBuildSide(JoinDistributionType joinDistributionType)
     {
         assertQueryDynamicFilters(
-                noJoinReordering(joinDistributionType, coordinatorDynamicFiltersDistribution),
+                noJoinReordering(joinDistributionType),
                 "SELECT * FROM lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey AND supplier.name = 'Supplier#000000001'",
                 Set.of(SUPP_KEY_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
@@ -291,15 +282,14 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
     @Timeout(30)
     public void testJoinWithNonSelectiveBuildSide()
     {
-        testJoinWithNonSelectiveBuildSide(BROADCAST, true);
-        testJoinWithNonSelectiveBuildSide(PARTITIONED, true);
-        testJoinWithNonSelectiveBuildSide(PARTITIONED, false);
+        testJoinWithNonSelectiveBuildSide(BROADCAST);
+        testJoinWithNonSelectiveBuildSide(PARTITIONED);
     }
 
-    protected void testJoinWithNonSelectiveBuildSide(JoinDistributionType joinDistributionType, boolean coordinatorDynamicFiltersDistribution)
+    protected void testJoinWithNonSelectiveBuildSide(JoinDistributionType joinDistributionType)
     {
         assertQueryDynamicFilters(
-                noJoinReordering(joinDistributionType, coordinatorDynamicFiltersDistribution),
+                noJoinReordering(joinDistributionType),
                 "SELECT * FROM lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey",
                 Set.of(SUPP_KEY_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
@@ -311,16 +301,15 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
     @Timeout(30)
     public void testJoinWithMultipleDynamicFiltersOnProbe()
     {
-        testJoinWithMultipleDynamicFiltersOnProbe(BROADCAST, true);
-        testJoinWithMultipleDynamicFiltersOnProbe(PARTITIONED, true);
-        testJoinWithMultipleDynamicFiltersOnProbe(PARTITIONED, false);
+        testJoinWithMultipleDynamicFiltersOnProbe(BROADCAST);
+        testJoinWithMultipleDynamicFiltersOnProbe(PARTITIONED);
     }
 
-    private void testJoinWithMultipleDynamicFiltersOnProbe(JoinDistributionType joinDistributionType, boolean coordinatorDynamicFiltersDistribution)
+    private void testJoinWithMultipleDynamicFiltersOnProbe(JoinDistributionType joinDistributionType)
     {
         // supplier names Supplier#000000001 and Supplier#000000002 match suppkey 1 and 2
         assertQueryDynamicFilters(
-                noJoinReordering(joinDistributionType, coordinatorDynamicFiltersDistribution),
+                noJoinReordering(joinDistributionType),
                 "SELECT * FROM (" +
                         "SELECT supplier.suppkey FROM " +
                         "lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey AND supplier.name IN ('Supplier#000000001', 'Supplier#000000002')" +
@@ -369,15 +358,14 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
     @Timeout(30)
     public void testSemiJoinWithEmptyBuildSide()
     {
-        testSemiJoinWithEmptyBuildSide(BROADCAST, true);
-        testSemiJoinWithEmptyBuildSide(PARTITIONED, true);
-        testSemiJoinWithEmptyBuildSide(PARTITIONED, false);
+        testSemiJoinWithEmptyBuildSide(BROADCAST);
+        testSemiJoinWithEmptyBuildSide(PARTITIONED);
     }
 
-    private void testSemiJoinWithEmptyBuildSide(JoinDistributionType joinDistributionType, boolean coordinatorDynamicFiltersDistribution)
+    private void testSemiJoinWithEmptyBuildSide(JoinDistributionType joinDistributionType)
     {
         assertQueryDynamicFilters(
-                noJoinReordering(joinDistributionType, coordinatorDynamicFiltersDistribution),
+                noJoinReordering(joinDistributionType),
                 "SELECT * FROM lineitem WHERE lineitem.suppkey IN (SELECT supplier.suppkey FROM tpch.tiny.supplier WHERE supplier.name = 'abc')",
                 Set.of(SUPP_KEY_HANDLE),
                 TupleDomain.none());
@@ -387,15 +375,14 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
     @Timeout(30)
     public void testSemiJoinWithLargeBuildSide()
     {
-        testSemiJoinWithLargeBuildSide(BROADCAST, true);
-        testSemiJoinWithLargeBuildSide(PARTITIONED, true);
-        testSemiJoinWithLargeBuildSide(PARTITIONED, false);
+        testSemiJoinWithLargeBuildSide(BROADCAST);
+        testSemiJoinWithLargeBuildSide(PARTITIONED);
     }
 
-    private void testSemiJoinWithLargeBuildSide(JoinDistributionType joinDistributionType, boolean coordinatorDynamicFiltersDistribution)
+    private void testSemiJoinWithLargeBuildSide(JoinDistributionType joinDistributionType)
     {
         assertQueryDynamicFilters(
-                noJoinReordering(joinDistributionType, coordinatorDynamicFiltersDistribution),
+                noJoinReordering(joinDistributionType),
                 "SELECT * FROM lineitem WHERE lineitem.orderkey IN (SELECT orders.orderkey FROM tpch.tiny.orders)",
                 Set.of(ORDERKEY_HANDLE),
                 TupleDomain.all());
@@ -405,15 +392,14 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
     @Timeout(30)
     public void testSemiJoinWithSelectiveBuildSide()
     {
-        testSemiJoinWithSelectiveBuildSide(BROADCAST, true);
-        testSemiJoinWithSelectiveBuildSide(PARTITIONED, true);
-        testSemiJoinWithSelectiveBuildSide(PARTITIONED, false);
+        testSemiJoinWithSelectiveBuildSide(BROADCAST);
+        testSemiJoinWithSelectiveBuildSide(PARTITIONED);
     }
 
-    private void testSemiJoinWithSelectiveBuildSide(JoinDistributionType joinDistributionType, boolean coordinatorDynamicFiltersDistribution)
+    private void testSemiJoinWithSelectiveBuildSide(JoinDistributionType joinDistributionType)
     {
         assertQueryDynamicFilters(
-                noJoinReordering(joinDistributionType, coordinatorDynamicFiltersDistribution),
+                noJoinReordering(joinDistributionType),
                 "SELECT * FROM lineitem WHERE lineitem.suppkey IN (SELECT supplier.suppkey FROM tpch.tiny.supplier WHERE supplier.name = 'Supplier#000000001')",
                 Set.of(SUPP_KEY_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
@@ -425,15 +411,14 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
     @Timeout(30)
     public void testSemiJoinWithNonSelectiveBuildSide()
     {
-        testSemiJoinWithNonSelectiveBuildSide(BROADCAST, true);
-        testSemiJoinWithNonSelectiveBuildSide(PARTITIONED, true);
-        testSemiJoinWithNonSelectiveBuildSide(PARTITIONED, false);
+        testSemiJoinWithNonSelectiveBuildSide(BROADCAST);
+        testSemiJoinWithNonSelectiveBuildSide(PARTITIONED);
     }
 
-    protected void testSemiJoinWithNonSelectiveBuildSide(JoinDistributionType joinDistributionType, boolean coordinatorDynamicFiltersDistribution)
+    protected void testSemiJoinWithNonSelectiveBuildSide(JoinDistributionType joinDistributionType)
     {
         assertQueryDynamicFilters(
-                noJoinReordering(joinDistributionType, coordinatorDynamicFiltersDistribution),
+                noJoinReordering(joinDistributionType),
                 "SELECT * FROM lineitem WHERE lineitem.suppkey IN (SELECT supplier.suppkey FROM tpch.tiny.supplier)",
                 Set.of(SUPP_KEY_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
@@ -445,16 +430,15 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
     @Timeout(30)
     public void testSemiJoinWithMultipleDynamicFiltersOnProbe()
     {
-        testSemiJoinWithMultipleDynamicFiltersOnProbe(BROADCAST, true);
-        testSemiJoinWithMultipleDynamicFiltersOnProbe(PARTITIONED, true);
-        testSemiJoinWithMultipleDynamicFiltersOnProbe(PARTITIONED, false);
+        testSemiJoinWithMultipleDynamicFiltersOnProbe(BROADCAST);
+        testSemiJoinWithMultipleDynamicFiltersOnProbe(PARTITIONED);
     }
 
-    private void testSemiJoinWithMultipleDynamicFiltersOnProbe(JoinDistributionType joinDistributionType, boolean coordinatorDynamicFiltersDistribution)
+    private void testSemiJoinWithMultipleDynamicFiltersOnProbe(JoinDistributionType joinDistributionType)
     {
         // supplier names Supplier#000000001 and Supplier#000000002 match suppkey 1 and 2
         assertQueryDynamicFilters(
-                noJoinReordering(joinDistributionType, coordinatorDynamicFiltersDistribution),
+                noJoinReordering(joinDistributionType),
                 "SELECT * FROM (" +
                         "SELECT lineitem.suppkey FROM lineitem WHERE lineitem.suppkey IN " +
                         "(SELECT supplier.suppkey FROM tpch.tiny.supplier WHERE supplier.name IN ('Supplier#000000001', 'Supplier#000000002'))) t " +
@@ -478,13 +462,6 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                 .build();
     }
 
-    protected Session noJoinReordering(JoinDistributionType distributionType, boolean coordinatorDynamicFiltersDistribution)
-    {
-        return Session.builder(noJoinReordering(distributionType))
-                .setSystemProperty(ENABLE_COORDINATOR_DYNAMIC_FILTERS_DISTRIBUTION, coordinatorDynamicFiltersDistribution ? "true" : "false")
-                .build();
-    }
-
     private void assertQueryDynamicFilters(@Language("SQL") String query, Set<ColumnHandle> expectedColumnsCovered, TupleDomain<ColumnHandle> expectedTupleDomain)
     {
         assertQueryDynamicFilters(getSession(), query, expectedColumnsCovered, expectedTupleDomain);
@@ -503,12 +480,7 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
     {
         expectedDynamicFilterColumnsCovered = expectedColumnsCovered;
         expectedCoordinatorDynamicFilterAssertion = expectedTupleDomainAssertion;
-        if (!isEnableCoordinatorDynamicFiltersDistribution(session) && getJoinDistributionType(session).equals(PARTITIONED)) {
-            expectedTableScanDynamicFilterAssertion = TupleDomain::isAll;
-        }
-        else {
-            expectedTableScanDynamicFilterAssertion = expectedTupleDomainAssertion;
-        }
+        expectedTableScanDynamicFilterAssertion = expectedTupleDomainAssertion;
 
         computeActual(session, query);
     }
@@ -606,16 +578,14 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                                 return completedFuture(new ConnectorSplitBatch(ImmutableList.of(createRemoteSplit()), isFinished()));
                             }
 
-                            return blocked.thenApply(ignored -> {
+                            return blocked.thenApply(_ -> {
                                 // yield until dynamic filter is fully loaded
                                 return new ConnectorSplitBatch(ImmutableList.of(), false);
                             });
                         }
 
                         @Override
-                        public void close()
-                        {
-                        }
+                        public void close() {}
 
                         @Override
                         public boolean isFinished()

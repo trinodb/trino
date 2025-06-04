@@ -17,8 +17,8 @@ import com.google.common.collect.Iterables;
 import io.trino.Session;
 import io.trino.cost.StatsCalculator.Context;
 import io.trino.matching.Pattern;
+import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.Not;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.FilterNode;
@@ -33,6 +33,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.cost.FilterStatsCalculator.UNKNOWN_FILTER_COEFFICIENT;
 import static io.trino.cost.SemiJoinStatsCalculator.computeAntiJoin;
 import static io.trino.cost.SemiJoinStatsCalculator.computeSemiJoin;
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.extractConjuncts;
 import static io.trino.sql.planner.plan.Patterns.filter;
@@ -134,14 +135,17 @@ public class SimpleFilterProjectSemiJoinStatsRule
         Expression remainingPredicate = combineConjuncts(conjuncts.stream()
                 .filter(conjunct -> conjunct != semiJoinOutputReference)
                 .collect(toImmutableList()));
-        boolean negated = semiJoinOutputReference instanceof Not;
+        boolean negated = semiJoinOutputReference instanceof Call call && call.function().name().equals(builtinFunctionName("$not"));
         return Optional.of(new SemiJoinOutputFilter(negated, remainingPredicate));
     }
 
     private static boolean isSemiJoinOutputReference(Expression conjunct, Symbol semiJoinOutput)
     {
         Reference semiJoinOutputSymbolReference = semiJoinOutput.toSymbolReference();
-        return conjunct.equals(semiJoinOutputSymbolReference) || (conjunct instanceof Not not && not.value().equals(semiJoinOutputSymbolReference));
+        return conjunct.equals(semiJoinOutputSymbolReference) || (
+                conjunct instanceof Call call &&
+                        call.function().name().equals(builtinFunctionName("$not")) &&
+                        call.arguments().getFirst().equals(semiJoinOutputSymbolReference));
     }
 
     private static class SemiJoinOutputFilter

@@ -14,6 +14,8 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.spi.type.Type;
+import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -26,12 +28,14 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RowType.anonymousRow;
 import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.RowType.rowType;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 
@@ -73,21 +77,30 @@ public class TestUnwrapRowSubscript
     public void testWithTryCast()
     {
         test(
-                new FieldReference(new Cast(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))), rowType(field("a", BIGINT), field("b", BIGINT)), true), 0),
-                new Cast(new Constant(INTEGER, 1L), BIGINT, true));
+                new FieldReference(tryCast(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))), rowType(field("a", BIGINT), field("b", BIGINT))), 0),
+                tryCast(new Constant(INTEGER, 1L), BIGINT));
 
         test(
-                new FieldReference(new Cast(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))), anonymousRow(BIGINT, BIGINT), true), 0),
-                new Cast(new Constant(INTEGER, 1L), BIGINT, true));
+                new FieldReference(tryCast(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))), anonymousRow(BIGINT, BIGINT)), 0),
+                tryCast(new Constant(INTEGER, 1L), BIGINT));
 
         test(
-                new FieldReference(new Cast(new FieldReference(new Cast(new Row(ImmutableList.of(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))), new Constant(INTEGER, 3L))), anonymousRow(anonymousRow(SMALLINT, SMALLINT), BIGINT), true), 0), rowType(field("x", BIGINT), field("y", BIGINT)), true), 1),
-                new Cast(new Cast(new Constant(INTEGER, 2L), SMALLINT, true), BIGINT, true));
+                new FieldReference(tryCast(new FieldReference(new Cast(new Row(ImmutableList.of(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))), new Constant(INTEGER, 3L))), anonymousRow(anonymousRow(SMALLINT, SMALLINT), BIGINT)), 0), rowType(field("x", BIGINT), field("y", BIGINT))), 1),
+                tryCast(new Cast(new Constant(INTEGER, 2L), SMALLINT), BIGINT));
+    }
+
+    private Call tryCast(Expression expression, Type type)
+    {
+        return new Call(
+                PLANNER_CONTEXT.getMetadata().getCoercion(builtinFunctionName("$try_cast"),
+                        expression.type(),
+                        type),
+                ImmutableList.of(expression));
     }
 
     private void test(Expression original, Expression unwrapped)
     {
-        tester().assertThat(new UnwrapRowSubscript().projectExpressionRewrite())
+        tester().assertThat(new UnwrapRowSubscript(PLANNER_CONTEXT).projectExpressionRewrite())
                 .on(p -> p.project(
                         Assignments.builder()
                                 .put(p.symbol("output", original.type()), original)

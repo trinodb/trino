@@ -30,7 +30,7 @@ public class JdbcApiStats
     public <V, E extends Exception> V wrap(ThrowingCallable<V, E> callable)
             throws E
     {
-        try (TimeStat.BlockTimer ignored = time.time()) {
+        try (TimeStat.BlockTimer _ = time.time()) {
             return callable.call();
         }
         catch (Exception e) {
@@ -42,7 +42,7 @@ public class JdbcApiStats
     public <E extends Exception> void wrap(ThrowingRunnable<E> callable)
             throws E
     {
-        try (TimeStat.BlockTimer ignored = time.time()) {
+        try (TimeStat.BlockTimer _ = time.time()) {
             callable.run();
         }
         catch (Exception e) {

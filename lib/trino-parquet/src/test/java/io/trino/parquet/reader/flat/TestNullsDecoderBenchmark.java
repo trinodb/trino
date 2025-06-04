@@ -13,6 +13,7 @@
  */
 package io.trino.parquet.reader.flat;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.parquet.reader.flat.BenchmarkFlatDefinitionLevelDecoder.DataGenerator;
 import org.junit.jupiter.api.Test;
 
@@ -25,9 +26,14 @@ public class TestNullsDecoderBenchmark
             throws IOException
     {
         for (DataGenerator generator : DataGenerator.values()) {
-            BenchmarkFlatDefinitionLevelDecoder benchmark = new BenchmarkFlatDefinitionLevelDecoder(10000, generator);
-            benchmark.setup();
-            benchmark.read();
+            for (boolean vectorizedDecodingEnabled : ImmutableList.of(false, true)) {
+                BenchmarkFlatDefinitionLevelDecoder benchmark = new BenchmarkFlatDefinitionLevelDecoder();
+                benchmark.size = 10000;
+                benchmark.dataGenerator = generator;
+                benchmark.vectorizedDecodingEnabled = vectorizedDecodingEnabled;
+                benchmark.setup();
+                benchmark.read();
+            }
         }
     }
 }

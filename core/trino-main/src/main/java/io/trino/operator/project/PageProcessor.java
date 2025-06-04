@@ -26,8 +26,11 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.DictionaryId;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SourcePage;
 import io.trino.sql.gen.ExpressionProfiler;
+import io.trino.sql.gen.columnar.FilterEvaluator;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -35,11 +38,14 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.Function;
+import java.util.function.ObjLongConsumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.operator.WorkProcessor.ProcessState.finished;
 import static io.trino.operator.WorkProcessor.ProcessState.ofResult;
 import static io.trino.operator.WorkProcessor.ProcessState.yielded;
@@ -56,29 +62,26 @@ public class PageProcessor
 
     private final ExpressionProfiler expressionProfiler;
     private final DictionarySourceIdFunction dictionarySourceIdFunction = new DictionarySourceIdFunction();
-    private final Optional<PageFilter> filter;
+    private final Optional<FilterEvaluator> filterEvaluator;
+    private final Optional<FilterEvaluator> dynamicFilterEvaluator;
     private final List<PageProjection> projections;
 
     private int projectBatchSize;
 
-    public PageProcessor(Optional<PageFilter> filter, List<? extends PageProjection> projections, OptionalInt initialBatchSize)
+    public PageProcessor(Optional<FilterEvaluator> filterEvaluator, Optional<FilterEvaluator> dynamicFilterEvaluator, List<? extends PageProjection> projections, OptionalInt initialBatchSize)
     {
-        this(filter, projections, initialBatchSize, new ExpressionProfiler());
+        this(filterEvaluator, dynamicFilterEvaluator, projections, initialBatchSize, new ExpressionProfiler());
     }
 
     @VisibleForTesting
-    public PageProcessor(Optional<PageFilter> filter, List<? extends PageProjection> projections, OptionalInt initialBatchSize, ExpressionProfiler expressionProfiler)
+    public PageProcessor(Optional<FilterEvaluator> filterEvaluator, Optional<FilterEvaluator> dynamicFilterEvaluator, List<? extends PageProjection> projections, OptionalInt initialBatchSize, ExpressionProfiler expressionProfiler)
     {
-        this.filter = filter.map(pageFilter -> {
-            if (pageFilter.getInputChannels().size() == 1 && pageFilter.isDeterministic()) {
-                return new DictionaryAwarePageFilter(pageFilter);
-            }
-            return pageFilter;
-        });
+        this.filterEvaluator = requireNonNull(filterEvaluator, "filterEvaluator is null");
+        this.dynamicFilterEvaluator = requireNonNull(dynamicFilterEvaluator, "dynamicFilterEvaluator is null");
         this.projections = projections.stream()
                 .map(projection -> {
                     if (projection.getInputChannels().size() == 1 && projection.isDeterministic()) {
-                        return new DictionaryAwarePageProjection(projection, dictionarySourceIdFunction, projection instanceof InputPageProjection);
+                        return new DictionaryAwarePageProjection(projection, dictionarySourceIdFunction);
                     }
                     return projection;
                 })
@@ -87,13 +90,14 @@ public class PageProcessor
         this.expressionProfiler = requireNonNull(expressionProfiler, "expressionProfiler is null");
     }
 
-    public PageProcessor(Optional<PageFilter> filter, List<? extends PageProjection> projections)
+    @VisibleForTesting
+    public PageProcessor(Optional<FilterEvaluator> filterEvaluator, List<? extends PageProjection> projections)
     {
-        this(filter, projections, OptionalInt.of(1));
+        this(filterEvaluator, Optional.empty(), projections, OptionalInt.of(1));
     }
 
     @VisibleForTesting
-    public Iterator<Optional<Page>> process(ConnectorSession session, DriverYieldSignal yieldSignal, LocalMemoryContext memoryContext, Page page)
+    public Iterator<Optional<Page>> process(ConnectorSession session, DriverYieldSignal yieldSignal, LocalMemoryContext memoryContext, SourcePage page)
     {
         WorkProcessor<Page> processor = createWorkProcessor(session, yieldSignal, memoryContext, new PageProcessorMetrics(), page);
         return processor.yieldingIterator();
@@ -104,7 +108,7 @@ public class PageProcessor
             DriverYieldSignal yieldSignal,
             LocalMemoryContext memoryContext,
             PageProcessorMetrics metrics,
-            Page page)
+            SourcePage page)
     {
         // limit the scope of the dictionary ids to just one page
         dictionarySourceIdFunction.reset();
@@ -113,44 +117,44 @@ public class PageProcessor
             return WorkProcessor.of();
         }
 
-        if (filter.isPresent()) {
-            Page inputPage = filter.get().getInputChannels().getInputChannels(page);
-            long start = System.nanoTime();
-            SelectedPositions selectedPositions = filter.get().filter(session, inputPage);
-            metrics.recordFilterTimeSince(start);
-            if (selectedPositions.isEmpty()) {
-                return WorkProcessor.of();
-            }
-
-            if (projections.isEmpty()) {
-                // retained memory for empty page is negligible
-                return WorkProcessor.of(new Page(selectedPositions.size()));
-            }
-
-            if (selectedPositions.size() != page.getPositionCount()) {
-                return WorkProcessor.create(new ProjectSelectedPositions(session, yieldSignal, memoryContext, metrics, page, selectedPositions));
-            }
+        SelectedPositions selectedPositions = positionsRange(0, page.getPositionCount());
+        if (dynamicFilterEvaluator.isPresent()) {
+            FilterEvaluator.SelectionResult dynamicFilterResult = dynamicFilterEvaluator.get().evaluate(session, selectedPositions, page);
+            selectedPositions = dynamicFilterResult.selectedPositions();
+            metrics.recordDynamicFilterMetrics(dynamicFilterResult.filterTimeNanos(), selectedPositions.size());
         }
-        else if (projections.isEmpty()) {
+
+        if (filterEvaluator.isPresent()) {
+            FilterEvaluator.SelectionResult filterResult = filterEvaluator.get().evaluate(session, selectedPositions, page);
+            selectedPositions = filterResult.selectedPositions();
+            metrics.recordFilterTime(filterResult.filterTimeNanos());
+        }
+
+        if (selectedPositions.isEmpty()) {
+            return WorkProcessor.of();
+        }
+
+        if (projections.isEmpty()) {
             // retained memory for empty page is negligible
-            return WorkProcessor.of(new Page(page.getPositionCount()));
+            return WorkProcessor.of(new Page(selectedPositions.size()));
         }
 
-        return WorkProcessor.create(new ProjectSelectedPositions(session, yieldSignal, memoryContext, metrics, page, positionsRange(0, page.getPositionCount())));
+        return WorkProcessor.create(new ProjectSelectedPositions(session, yieldSignal, memoryContext, metrics, page, selectedPositions));
     }
 
     private class ProjectSelectedPositions
             implements WorkProcessor.Process<Page>
     {
+        private static final long INSTANCE_SIZE = instanceSize(ProjectSelectedPositions.class);
+
         private final ConnectorSession session;
         private final DriverYieldSignal yieldSignal;
         private final LocalMemoryContext memoryContext;
         private final PageProcessorMetrics metrics;
 
-        private Page page;
+        private SourcePage page;
         private final Block[] previouslyComputedResults;
         private SelectedPositions selectedPositions;
-        private long retainedSizeInBytes;
 
         // remember if we need to re-use the same batch size if we yield last time
         private boolean lastComputeYielded;
@@ -162,7 +166,7 @@ public class PageProcessor
                 DriverYieldSignal yieldSignal,
                 LocalMemoryContext memoryContext,
                 PageProcessorMetrics metrics,
-                Page page,
+                SourcePage page,
                 SelectedPositions selectedPositions)
         {
             checkArgument(!selectedPositions.isEmpty(), "selectedPositions is empty");
@@ -235,9 +239,7 @@ public class PageProcessor
                 }
                 else {
                     page = null;
-                    for (int i = 0; i < previouslyComputedResults.length; i++) {
-                        previouslyComputedResults[i] = null;
-                    }
+                    Arrays.fill(previouslyComputedResults, null);
                     memoryContext.setBytes(0);
                 }
 
@@ -260,31 +262,43 @@ public class PageProcessor
 
         private void updateRetainedSize()
         {
-            // increment the size only when it is the first reference
-            retainedSizeInBytes = Page.getInstanceSizeInBytes(page.getChannelCount());
-            ReferenceCountMap referenceCountMap = new ReferenceCountMap();
-            for (int channel = 0; channel < page.getChannelCount(); channel++) {
-                Block block = page.getBlock(channel);
-                // TODO: block might be partially loaded
-                if (block.isLoaded()) {
-                    block.retainedBytesForEachPart((object, size) -> {
-                        if (referenceCountMap.incrementAndGet(object) == 1) {
-                            retainedSizeInBytes += size;
-                        }
-                    });
-                }
-            }
+            RetainedBytesByPartVisitor visitor = new RetainedBytesByPartVisitor();
+
+            page.retainedBytesForEachPart(visitor);
+
             for (Block previouslyComputedResult : previouslyComputedResults) {
                 if (previouslyComputedResult != null) {
-                    previouslyComputedResult.retainedBytesForEachPart((object, size) -> {
-                        if (referenceCountMap.incrementAndGet(object) == 1) {
-                            retainedSizeInBytes += size;
-                        }
-                    });
+                    previouslyComputedResult.retainedBytesForEachPart(visitor);
                 }
             }
 
+            long retainedSizeInBytes = INSTANCE_SIZE +
+                    selectedPositions.getRetainedSizeInBytes() +
+                    sizeOf(previouslyComputedResults) +
+                    visitor.getRetainedSizeInBytes();
+
             memoryContext.setBytes(retainedSizeInBytes);
+        }
+
+        private static final class RetainedBytesByPartVisitor
+                implements ObjLongConsumer<Object>
+        {
+            private final ReferenceCountMap referenceCountMap = new ReferenceCountMap();
+            private long retainedSizeInBytes;
+
+            public long getRetainedSizeInBytes()
+            {
+                return retainedSizeInBytes;
+            }
+
+            @Override
+            public void accept(Object object, long size)
+            {
+                // increment the size only when it is the first reference
+                if (referenceCountMap.incrementAndGetWithExtraIdentity(object, size) == 1) {
+                    retainedSizeInBytes += size;
+                }
+            }
         }
 
         private ProcessBatchResult processBatch(int batchSize)
@@ -325,7 +339,6 @@ public class PageProcessor
                     blocks[i] = previouslyComputedResults[i];
                 }
 
-                blocks[i] = blocks[i].getLoadedBlock();
                 pageSize += blocks[i].getSizeInBytes();
             }
             return ProcessBatchResult.processBatchSuccess(new Page(positionsBatch.size(), blocks));
@@ -347,7 +360,7 @@ public class PageProcessor
         @Override
         public DictionaryId apply(DictionaryBlock block)
         {
-            return dictionarySourceIds.computeIfAbsent(block.getDictionarySourceId(), ignored -> randomDictionaryId());
+            return dictionarySourceIds.computeIfAbsent(block.getDictionarySourceId(), _ -> randomDictionaryId());
         }
 
         public void reset()
@@ -356,32 +369,8 @@ public class PageProcessor
         }
     }
 
-    private static class ProcessBatchResult
+    private record ProcessBatchResult(ProcessBatchState state, Page page)
     {
-        private final ProcessBatchState state;
-        private final Page page;
-
-        private ProcessBatchResult(ProcessBatchState state, Page page)
-        {
-            this.state = state;
-            this.page = page;
-        }
-
-        public static ProcessBatchResult processBatchYield()
-        {
-            return new ProcessBatchResult(ProcessBatchState.YIELD, null);
-        }
-
-        public static ProcessBatchResult processBatchTooLarge()
-        {
-            return new ProcessBatchResult(ProcessBatchState.PAGE_TOO_LARGE, null);
-        }
-
-        public static ProcessBatchResult processBatchSuccess(Page page)
-        {
-            return new ProcessBatchResult(ProcessBatchState.SUCCESS, requireNonNull(page));
-        }
-
         public boolean isYieldFinish()
         {
             return state == ProcessBatchState.YIELD;
@@ -401,6 +390,21 @@ public class PageProcessor
         {
             verify(state == ProcessBatchState.SUCCESS);
             return verifyNotNull(page);
+        }
+
+        public static ProcessBatchResult processBatchYield()
+        {
+            return new ProcessBatchResult(ProcessBatchState.YIELD, null);
+        }
+
+        public static ProcessBatchResult processBatchTooLarge()
+        {
+            return new ProcessBatchResult(ProcessBatchState.PAGE_TOO_LARGE, null);
+        }
+
+        public static ProcessBatchResult processBatchSuccess(Page page)
+        {
+            return new ProcessBatchResult(ProcessBatchState.SUCCESS, requireNonNull(page));
         }
 
         private enum ProcessBatchState

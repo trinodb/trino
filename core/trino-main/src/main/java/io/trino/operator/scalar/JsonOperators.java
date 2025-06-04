@@ -20,7 +20,6 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlNullable;
@@ -62,9 +61,7 @@ public final class JsonOperators
 {
     private static final JsonFactory JSON_FACTORY = createJsonFactory();
 
-    private JsonOperators()
-    {
-    }
+    private JsonOperators() {}
 
     @ScalarOperator(CAST)
     @SqlNullable
@@ -322,7 +319,7 @@ public final class JsonOperators
 
     @ScalarOperator(CAST)
     @SqlType(JSON)
-    public static Slice castFromDate(ConnectorSession session, @SqlType(DATE) long value)
+    public static Slice castFromDate(@SqlType(DATE) long value)
     {
         try {
             SliceOutput output = new DynamicSliceOutput(12);

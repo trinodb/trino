@@ -68,15 +68,17 @@ public class EnvSinglenodeCompatibility
 
     private void configureCompatibilityTestContainer(Environment.Builder builder, Config config)
     {
+        boolean initialJdk22 = config.getCompatibilityTestVersion() >= 447 && config.getCompatibilityTestVersion() <= 452;
+        String jvmConfig = initialJdk22 ? "conf/trino/etc/jvm.config-initial-jdk-22" : "conf/trino/etc/jvm.config";
         String dockerImage = config.getCompatibilityTestDockerImage();
         String containerConfigDir = getConfigurationDirectory(dockerImage);
         DockerContainer container = new DockerContainer(dockerImage, COMPATIBILTY_TEST_CONTAINER_NAME)
                 .withExposedLogPaths("/var/trino/var/log", "/var/log/container-health.log")
-                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/presto/etc/jvm.config")), containerConfigDir + "jvm.config")
+                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath(jvmConfig)), containerConfigDir + "jvm.config")
                 .withCopyFileToContainer(forHostPath(configDir.getPath(getConfigFileFor(dockerImage))), containerConfigDir + "config.properties")
                 .withCopyFileToContainer(forHostPath(configDir.getPath(getHiveConfigFor(dockerImage))), containerConfigDir + "catalog/hive.properties")
-                .withCopyFileToContainer(forHostPath(configDir.getPath("iceberg.properties")), containerConfigDir + "catalog/iceberg.properties")
-                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath()), "/docker/presto-product-tests")
+                .withCopyFileToContainer(forHostPath(configDir.getPath(getIcebergConfigFor(dockerImage))), containerConfigDir + "catalog/iceberg.properties")
+                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath()), "/docker/trino-product-tests")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
                 .waitingForAll(forLogMessage(".*======== SERVER STARTED ========.*", 1), forHealthcheck())
                 .withStartupTimeout(Duration.ofMinutes(5));
@@ -105,7 +107,7 @@ public class EnvSinglenodeCompatibility
     private String getConfigFileFor(String dockerImage)
     {
         if (getVersionFromDockerImageName(dockerImage) < 369) {
-            return "config-with-system-memory.properties";
+            return "config-pre369.properties";
         }
         return "config.properties";
     }
@@ -113,19 +115,27 @@ public class EnvSinglenodeCompatibility
     private String getHiveConfigFor(String dockerImage)
     {
         if (getVersionFromDockerImageName(dockerImage) < 359) {
-            return "hive-hadoop2.properties";
+            return "hive-pre359.properties";
         }
         return "hive.properties";
+    }
+
+    private String getIcebergConfigFor(String dockerImage)
+    {
+        if (getVersionFromDockerImageName(dockerImage) < 359) {
+            return "iceberg-pre359.properties";
+        }
+        return "iceberg.properties";
     }
 
     private void configureTestsContainer(Environment.Builder builder, Config config)
     {
         int version = getVersionFromDockerImageName(config.getCompatibilityTestDockerImage());
-        String temptoConfig = version <= 350 ? "presto-tempto-configuration.yaml" : "trino-tempto-configuration.yaml";
+        String temptoConfig = version <= 350 ? "legacy-tempto-configuration.yaml" : "tempto-configuration.yaml";
         builder.configureContainer(TESTS, container -> container
                 .withCopyFileToContainer(
                         forHostPath(configDir.getPath(temptoConfig)),
-                        "/docker/presto-product-tests/conf/tempto/tempto-configuration-profile-config-file.yaml"));
+                        "/docker/trino-product-tests/conf/tempto/tempto-configuration-profile-config-file.yaml"));
     }
 
     protected int getVersionFromDockerImageName(String dockerImageName)
@@ -141,12 +151,20 @@ public class EnvSinglenodeCompatibility
 
     private static class Config
     {
+        private static final String TEST_DOCKER_VERSION = "testVersion";
         private static final String TEST_DOCKER_IMAGE = "testDockerImage";
+        private final int compatibilityTestVersion;
         private final String compatibilityTestDockerImage;
 
         public Config(Map<String, String> extraOptions)
         {
+            this.compatibilityTestVersion = parseInt(requireNonNull(extraOptions.get(TEST_DOCKER_VERSION), () -> format("Required extra option %s is null", TEST_DOCKER_VERSION)));
             this.compatibilityTestDockerImage = requireNonNull(extraOptions.get(TEST_DOCKER_IMAGE), () -> format("Required extra option %s is null", TEST_DOCKER_IMAGE));
+        }
+
+        public int getCompatibilityTestVersion()
+        {
+            return compatibilityTestVersion;
         }
 
         public String getCompatibilityTestDockerImage()

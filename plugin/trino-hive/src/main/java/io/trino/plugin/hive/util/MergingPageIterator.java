@@ -117,7 +117,6 @@ public class MergingPageIterator
         }
     }
 
-    @SuppressWarnings("ComparableImplementedButEqualsNotOverridden")
     private class PagePosition
             implements Comparable<PagePosition>
     {
@@ -133,6 +132,18 @@ public class MergingPageIterator
         public void appendTo(PageBuilder pageBuilder)
         {
             appendPositionTo(page, position, pageBuilder);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            throw new UnsupportedOperationException("equality checks are not supported, use compareTo");
+        }
+
+        @Override
+        public boolean equals(Object obj)
+        {
+            throw new UnsupportedOperationException("equality checks are not supported, use compareTo");
         }
 
         @Override

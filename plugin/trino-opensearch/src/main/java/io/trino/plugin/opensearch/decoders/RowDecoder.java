@@ -24,6 +24,7 @@ import org.opensearch.search.SearchHit;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Supplier;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -103,6 +104,28 @@ public class RowDecoder
                             .map(field -> field.getDescriptor().createDecoder())
                             .collect(toImmutableList()));
         }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null) {
+                return false;
+            }
+            if (!(o instanceof Descriptor descriptor)) {
+                return false;
+            }
+            return descriptor.path.equals(this.path)
+                    && descriptor.fields.equals(this.fields);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(path, fields);
+        }
     }
 
     public static class NameAndDescriptor
@@ -127,6 +150,26 @@ public class RowDecoder
         public DecoderDescriptor getDescriptor()
         {
             return descriptor;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            NameAndDescriptor that = (NameAndDescriptor) o;
+            return Objects.equals(this.name, that.name)
+                    && Objects.equals(this.descriptor, that.descriptor);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(name, descriptor);
         }
     }
 }

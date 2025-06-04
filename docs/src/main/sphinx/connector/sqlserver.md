@@ -1,7 +1,7 @@
 ---
 myst:
   substitutions:
-    default_domain_compaction_threshold: '`32`'
+    default_domain_compaction_threshold: '`256`'
 ---
 
 # SQL Server connector
@@ -19,7 +19,7 @@ between two different SQL Server instances.
 
 To connect to SQL Server, you need:
 
-- SQL Server 2012 or higher, or Azure SQL Database.
+- SQL Server 2019 or higher, or Azure SQL Database.
 - Network access from the Trino coordinator and workers to SQL Server.
   Port 1433 is the default port.
 
@@ -50,7 +50,6 @@ use {doc}`secrets </security/secrets>` to avoid actual values in the catalog
 properties files.
 
 (sqlserver-tls)=
-
 ### Connection security
 
 The JDBC driver, and therefore the connector, automatically use Transport Layer
@@ -109,14 +108,15 @@ behavior of the connector and the issues queries to the database.
       isolation is enabled.
 :::
 
-```{include} jdbc-procedures.fragment
-```
-
 ```{include} jdbc-case-insensitive-matching.fragment
 ```
 
-```{include} non-transactional-insert.fragment
-```
+(sqlserver-fte-support)=
+### Fault-tolerant execution support
+
+The connector supports {doc}`/admin/fault-tolerant-execution` of query
+processing. Read and write operations are both supported with any retry policy.
+
 
 ## Querying SQL Server
 
@@ -155,7 +155,6 @@ If you used a different name for your catalog properties file, use
 that catalog name instead of `example` in the above examples.
 
 (sqlserver-type-mapping)=
-
 ## Type mapping
 
 Because Trino and SQL Server each support types that the other does not, this
@@ -295,7 +294,6 @@ The connector maps Trino types to the corresponding SQL Server types following t
 Complete list of [SQL Server data types](https://msdn.microsoft.com/library/ms187752.aspx).
 
 (sqlserver-numeric-mapping)=
-
 ### Numeric type mapping
 
 For SQL Server `FLOAT[(n)]`:
@@ -305,7 +303,6 @@ For SQL Server `FLOAT[(n)]`:
 - If `24 < n <= 53` maps to Trino `DOUBLE`
 
 (sqlserver-character-mapping)=
-
 ### Character type mapping
 
 For Trino `CHAR(n)`:
@@ -322,44 +319,55 @@ For Trino `VARCHAR(n)`:
 ```
 
 (sqlserver-sql-support)=
-
 ## SQL support
 
 The connector provides read access and write access to data and metadata in SQL
-Server. In addition to the {ref}`globally available <sql-globally-available>`
-and {ref}`read operation <sql-read-operations>` statements, the connector
-supports the following features:
+Server. In addition to the [globally available](sql-globally-available) and
+[read operation](sql-read-operations) statements, the connector supports the
+following features:
 
-- {doc}`/sql/insert`
-- {doc}`/sql/update`
-- {doc}`/sql/delete`
-- {doc}`/sql/truncate`
-- {ref}`sql-schema-table-management`
+- [](/sql/insert), see also [](sqlserver-insert)
+- [](/sql/update), see also [](sqlserver-update)
+- [](/sql/delete), see also [](sqlserver-delete)
+- [](/sql/truncate)
+- [](sql-schema-table-management), see also:
+  - [](sqlserver-alter-table)
+- [](sqlserver-procedures)
+- [](sqlserver-table-functions)
 
+
+(sqlserver-insert)=
+```{include} non-transactional-insert.fragment
+```
+
+(sqlserver-update)=
 ```{include} sql-update-limitation.fragment
 ```
 
+(sqlserver-delete)=
 ```{include} sql-delete-limitation.fragment
 ```
 
+(sqlserver-alter-table)=
 ```{include} alter-table-limitation.fragment
 ```
 
-(sqlserver-fte-support)=
+(sqlserver-procedures)=
+### Procedures
 
-## Fault-tolerant execution support
+```{include} jdbc-procedures-flush.fragment
+```
+```{include} procedures-execute.fragment
+```
 
-The connector supports {doc}`/admin/fault-tolerant-execution` of query
-processing. Read and write operations are both supported with any retry policy.
-
-## Table functions
+(sqlserver-table-functions)=
+### Table functions
 
 The connector provides specific {doc}`table functions </functions/table>` to
 access SQL Server.
 
 (sqlserver-query-function)=
-
-### `query(varchar) -> table`
+#### `query(varchar) -> table`
 
 The `query` function allows you to query the underlying database directly. It
 requires syntax native to SQL Server, because the full query is pushed down and
@@ -390,13 +398,12 @@ FROM
 ```
 
 (sqlserver-procedure-function)=
-
 ### `procedure(varchar) -> table`
 
 The `procedure` function allows you to run stored procedures on the underlying
 database directly. It requires syntax native to SQL Server, because the full query
 is pushed down and processed in SQL Server. In order to use this table function set
-`sqlserver.experimental.stored-procedure-table-function-enabled` to `true`.
+`sqlserver.stored-procedure-table-function-enabled` to `true`.
 
 :::{note}
 The `procedure` function does not support running StoredProcedures that return multiple statements,
@@ -445,7 +452,6 @@ The connector includes a number of performance improvements, detailed in the
 following sections.
 
 (sqlserver-table-statistics)=
-
 ### Table statistics
 
 The SQL Server connector can use {doc}`table and column statistics
@@ -477,7 +483,6 @@ Refer to SQL Server documentation for information about options, limitations and
 additional considerations.
 
 (sqlserver-pushdown)=
-
 ### Pushdown
 
 The connector supports pushdown for a number of operations:
@@ -522,7 +527,6 @@ To ensure correct results, operators are not pushed down for columns using a
 case-insensitive collation.
 
 (sqlserver-bulk-insert)=
-
 ### Bulk insert
 
 You can optionally use the [bulk copy API](https://docs.microsoft.com/sql/connect/jdbc/use-bulk-copy-api-batch-insert-operation)

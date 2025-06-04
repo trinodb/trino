@@ -13,9 +13,9 @@
  */
 package io.trino.parquet.reader;
 
-import io.trino.parquet.metadata.BlockMetadata;
+import io.trino.parquet.metadata.PrunedBlockMetadata;
 import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
 
 import java.util.Optional;
 
-public record RowGroupInfo(BlockMetadata blockMetaData, long fileRowOffset, Optional<ColumnIndexStore> columnIndexStore) {}
+public record RowGroupInfo(PrunedBlockMetadata prunedBlockMetadata, long fileRowOffset, Optional<ColumnIndexStore> columnIndexStore) {}

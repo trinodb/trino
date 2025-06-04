@@ -72,7 +72,7 @@ public class TestQueryTracker
             public Iterable<ConnectorFactory> getConnectorFactories()
             {
                 return ImmutableList.of(MockConnectorFactory.builder()
-                        .withGetColumns(ignored -> ImmutableList.of(new ColumnMetadata("col", VARCHAR)))
+                        .withGetColumns(_ -> ImmutableList.of(new ColumnMetadata("col", VARCHAR)))
                         // Apply filter happens inside optimizer so this should model most blocking tasks in planning phase
                         .withApplyFilter((ignored1, ignored2, ignored3) -> freeze())
                         .build());

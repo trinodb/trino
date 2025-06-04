@@ -16,6 +16,7 @@ package io.trino.plugin.deltalake.transactionlog;
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.annotations.VisibleForTesting;
 import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
 import io.airlift.json.ObjectMapperProvider;
@@ -44,6 +45,7 @@ import java.time.ZonedDateTime;
 import java.time.chrono.IsoChronology;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
+import java.time.format.DateTimeParseException;
 import java.time.format.ResolverStyle;
 import java.time.format.SignStyle;
 import java.time.temporal.ChronoField;
@@ -81,6 +83,7 @@ import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.time.ZoneOffset.UTC;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_TIME;
+import static java.time.format.DateTimeFormatter.ISO_ZONED_DATE_TIME;
 import static java.time.temporal.ChronoField.DAY_OF_MONTH;
 import static java.time.temporal.ChronoField.MONTH_OF_YEAR;
 import static java.time.temporal.ChronoField.YEAR;
@@ -119,6 +122,11 @@ public final class TransactionLogParser
             .withResolverStyle(ResolverStyle.STRICT);
     public static final DateTimeFormatter JSON_STATISTICS_TIMESTAMP_FORMATTER = new DateTimeFormatterBuilder()
             .parseCaseInsensitive()
+            // Using optional format because the format differ among Delta Lake versions.
+            // For instance, newer versions use '+' sign when year is more than 4 digits, but older versions don't write the sign.
+            .optionalStart()
+            .appendLiteral('+')
+            .optionalEnd()
             .appendValue(YEAR, 4, 10, SignStyle.NORMAL)
             .appendLiteral('-')
             .appendValue(MONTH_OF_YEAR, 2)
@@ -162,20 +170,36 @@ public final class TransactionLogParser
 
     private static Long readPartitionTimestamp(String timestamp)
     {
-        LocalDateTime localDateTime = LocalDateTime.parse(timestamp, PARTITION_TIMESTAMP_FORMATTER);
+        LocalDateTime localDateTime;
+        try {
+            localDateTime = LocalDateTime.parse(timestamp, PARTITION_TIMESTAMP_FORMATTER);
+        }
+        catch (DateTimeParseException ignored) {
+            // TODO: avoid this exception-driven logic
+            // type widening date->timestamp has occurred and this value is of date format
+            localDateTime = LocalDate.parse(timestamp).atTime(LocalTime.MIN);
+        }
         return localDateTime.toEpochSecond(UTC) * MICROSECONDS_PER_SECOND + divide(localDateTime.getNano(), NANOSECONDS_PER_MICROSECOND, UNNECESSARY);
     }
 
-    private static Long readPartitionTimestampWithZone(String timestamp)
+    @VisibleForTesting
+    static Long readPartitionTimestampWithZone(String timestamp)
     {
-        ZonedDateTime zonedDateTime = LocalDateTime.parse(timestamp, PARTITION_TIMESTAMP_FORMATTER).atZone(UTC);
+        ZonedDateTime zonedDateTime;
+        try {
+            zonedDateTime = LocalDateTime.parse(timestamp, PARTITION_TIMESTAMP_FORMATTER).atZone(UTC);
+        }
+        catch (DateTimeParseException _) {
+            // TODO: avoid this exception-driven logic
+            zonedDateTime = ZonedDateTime.parse(timestamp, ISO_ZONED_DATE_TIME);
+        }
         return packDateTimeWithZone(zonedDateTime.toInstant().toEpochMilli(), UTC_KEY);
     }
 
     public static Object deserializeColumnValue(DeltaLakeColumnHandle column, String valueString, Function<String, Long> timestampReader, Function<String, Long> timestampWithZoneReader)
     {
         verify(column.isBaseColumn(), "Unexpected dereference: %s", column);
-        Type type = column.getBaseType();
+        Type type = column.baseType();
         try {
             if (type.equals(BOOLEAN)) {
                 if (valueString.equalsIgnoreCase("true")) {
@@ -223,13 +247,13 @@ public final class TransactionLogParser
         catch (RuntimeException e) {
             throw new TrinoException(
                     GENERIC_INTERNAL_ERROR,
-                    format("Unable to parse value [%s] from column %s with type %s", valueString, column.getBaseColumnName(), column.getBaseType()),
+                    format("Unable to parse value [%s] from column %s with type %s", valueString, column.baseColumnName(), column.baseType()),
                     e);
         }
         // Anything else is not a supported DeltaLake column
         throw new TrinoException(
                 GENERIC_INTERNAL_ERROR,
-                format("Unable to parse value [%s] from column %s with type %s", valueString, column.getBaseColumnName(), column.getBaseType()));
+                format("Unable to parse value [%s] from column %s with type %s", valueString, column.baseColumnName(), column.baseType()));
     }
 
     static Optional<LastCheckpoint> readLastCheckpoint(TrinoFileSystem fileSystem, String tableLocation)

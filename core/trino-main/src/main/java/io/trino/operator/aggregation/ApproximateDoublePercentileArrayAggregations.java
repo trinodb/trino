@@ -30,6 +30,7 @@ import io.trino.spi.type.StandardTypes;
 
 import java.util.List;
 
+import static io.trino.operator.scalar.TDigestFunctions.verifyValue;
 import static io.trino.operator.scalar.TDigestFunctions.verifyWeight;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -43,6 +44,8 @@ public final class ApproximateDoublePercentileArrayAggregations
     @InputFunction
     public static void input(@AggregationState TDigestAndPercentileArrayState state, @SqlType(StandardTypes.DOUBLE) double value, @SqlType("array(double)") Block percentilesArrayBlock)
     {
+        verifyValue(value);
+
         initializePercentilesArray(state, percentilesArrayBlock);
         initializeDigest(state);
 
@@ -55,6 +58,7 @@ public final class ApproximateDoublePercentileArrayAggregations
     @InputFunction
     public static void weightedInput(@AggregationState TDigestAndPercentileArrayState state, @SqlType(StandardTypes.DOUBLE) double value, @SqlType(StandardTypes.DOUBLE) double weight, @SqlType("array(double)") Block percentilesArrayBlock)
     {
+        verifyValue(value);
         verifyWeight(weight);
 
         initializePercentilesArray(state, percentilesArrayBlock);

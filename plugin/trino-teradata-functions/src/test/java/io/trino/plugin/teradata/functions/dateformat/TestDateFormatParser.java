@@ -22,33 +22,31 @@ import org.junit.jupiter.api.Test;
 import java.util.stream.Collectors;
 
 import static java.util.Arrays.asList;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TestDateFormatParser
 {
     @Test
     public void testTokenize()
     {
-        assertEquals(
-                asList(DateFormat.YYYY, DateFormat.TEXT, DateFormat.MM),
-                DateFormatParser.tokenize("yyyy mm").stream().map(Token::getType).collect(Collectors.toList()));
+        assertThat(DateFormatParser.tokenize("yyyy mm").stream().map(Token::getType).collect(Collectors.toList()))
+                .isEqualTo(asList(DateFormat.YYYY, DateFormat.TEXT, DateFormat.MM));
     }
 
     @Test
     public void testGreedinessLongFirst()
     {
-        assertEquals(DateFormatParser.tokenize("yy").size(), 1);
-        assertEquals(DateFormatParser.tokenize("yyyy").size(), 1);
-        assertEquals(DateFormatParser.tokenize("yyyyyy").size(), 2);
+        assertThat(DateFormatParser.tokenize("yy")).hasSize(1);
+        assertThat(DateFormatParser.tokenize("yyyy")).hasSize(1);
+        assertThat(DateFormatParser.tokenize("yyyyyy")).hasSize(2);
     }
 
     @Test
     public void testInvalidTokenTokenize()
     {
-        assertEquals(
-                asList(DateFormat.UNRECOGNIZED, DateFormat.UNRECOGNIZED, DateFormat.UNRECOGNIZED),
-                DateFormatParser.tokenize("ala").stream().map(Token::getType).collect(Collectors.toList()));
+        assertThat(DateFormatParser.tokenize("ala").stream().map(Token::getType).collect(Collectors.toList()))
+                .isEqualTo(asList(DateFormat.UNRECOGNIZED, DateFormat.UNRECOGNIZED, DateFormat.UNRECOGNIZED));
     }
 
     @Test
@@ -69,6 +67,6 @@ public class TestDateFormatParser
     public void testCreateDateTimeFormatter()
     {
         DateTimeFormatter formatter = DateFormatParser.createDateTimeFormatter("yyyy/mm/dd");
-        assertEquals(new DateTime(1988, 4, 8, 0, 0), formatter.parseDateTime("1988/04/08"));
+        assertThat(formatter.parseDateTime("1988/04/08")).isEqualTo(new DateTime(1988, 4, 8, 0, 0));
     }
 }

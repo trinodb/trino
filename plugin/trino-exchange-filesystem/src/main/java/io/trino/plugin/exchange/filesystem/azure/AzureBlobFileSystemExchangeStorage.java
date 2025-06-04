@@ -49,6 +49,8 @@ import io.trino.plugin.exchange.filesystem.ExchangeStorageReader;
 import io.trino.plugin.exchange.filesystem.ExchangeStorageWriter;
 import io.trino.plugin.exchange.filesystem.FileStatus;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangeStorage;
+import io.trino.plugin.exchange.filesystem.MetricsBuilder;
+import io.trino.plugin.exchange.filesystem.MetricsBuilder.CounterMetricBuilder;
 import jakarta.annotation.PreDestroy;
 import reactor.core.publisher.Flux;
 
@@ -79,6 +81,7 @@ import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.exchange.filesystem.FileSystemExchangeFutures.translateFailures;
 import static io.trino.plugin.exchange.filesystem.FileSystemExchangeManager.PATH_SEPARATOR;
+import static io.trino.plugin.exchange.filesystem.MetricsBuilder.SOURCE_FILES_PROCESSED;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.lang.System.arraycopy;
@@ -99,12 +102,20 @@ public class AzureBlobFileSystemExchangeStorage
         BlobServiceClientBuilder blobServiceClientBuilder = new BlobServiceClientBuilder()
                 .retryOptions(new RequestRetryOptions(RetryPolicyType.EXPONENTIAL, config.getMaxErrorRetries(), (Integer) null, null, null, null));
         Optional<String> connectionString = config.getAzureStorageConnectionString();
+        Optional<String> endpoint = config.getAzureStorageEndpoint();
+
+        if ((connectionString.isEmpty() && endpoint.isEmpty()) || (connectionString.isPresent() && endpoint.isPresent())) {
+            throw new IllegalArgumentException("Exactly one of exchange.azure.endpoint or exchange.azure.connection-string must be provided");
+        }
+
         if (connectionString.isPresent()) {
             blobServiceClientBuilder.connectionString(connectionString.get());
         }
         else {
+            blobServiceClientBuilder.endpoint(endpoint.get());
             blobServiceClientBuilder.credential(new DefaultAzureCredentialBuilder().build());
         }
+
         this.blobServiceAsyncClient = blobServiceClientBuilder.buildAsyncClient();
     }
 
@@ -116,9 +127,9 @@ public class AzureBlobFileSystemExchangeStorage
     }
 
     @Override
-    public ExchangeStorageReader createExchangeStorageReader(List<ExchangeSourceFile> sourceFiles, int maxPageStorageSize)
+    public ExchangeStorageReader createExchangeStorageReader(List<ExchangeSourceFile> sourceFiles, int maxPageStorageSize, MetricsBuilder metricsBuilder)
     {
-        return new AzureExchangeStorageReader(blobServiceAsyncClient, sourceFiles, blockSize, maxPageStorageSize);
+        return new AzureExchangeStorageReader(blobServiceAsyncClient, sourceFiles, metricsBuilder, blockSize, maxPageStorageSize);
     }
 
     @Override
@@ -183,7 +194,7 @@ public class AzureBlobFileSystemExchangeStorage
             ImmutableList.Builder<FileStatus> fileStatuses = ImmutableList.builder();
             for (PagedResponse<BlobItem> pagedResponse : pagedResponseList) {
                 for (BlobItem blobItem : pagedResponse.getValue()) {
-                    if (blobItem.isPrefix() != Boolean.TRUE) {
+                    if (!blobItem.isPrefix().equals(Boolean.TRUE)) {
                         URI uri;
                         try {
                             uri = new URI(dir.getScheme(), dir.getUserInfo(), dir.getHost(), -1, PATH_SEPARATOR + blobItem.getName(), null, dir.getFragment());
@@ -271,6 +282,7 @@ public class AzureBlobFileSystemExchangeStorage
         private final Queue<ExchangeSourceFile> sourceFiles;
         private final int blockSize;
         private final int bufferSize;
+        CounterMetricBuilder sourceFilesProcessedMetric;
 
         @GuardedBy("this")
         private ExchangeSourceFile currentFile;
@@ -287,11 +299,14 @@ public class AzureBlobFileSystemExchangeStorage
         public AzureExchangeStorageReader(
                 BlobServiceAsyncClient blobServiceAsyncClient,
                 List<ExchangeSourceFile> sourceFiles,
+                MetricsBuilder metricsBuilder,
                 int blockSize,
                 int maxPageStorageSize)
         {
             this.blobServiceAsyncClient = requireNonNull(blobServiceAsyncClient, "blobServiceAsyncClient is null");
             this.sourceFiles = new ArrayDeque<>(requireNonNull(sourceFiles, "sourceFiles is null"));
+            requireNonNull(metricsBuilder, "metricsBuilder is null");
+            sourceFilesProcessedMetric = metricsBuilder.getCounterMetric(SOURCE_FILES_PROCESSED);
             this.blockSize = blockSize;
             // Make sure buffer can accommodate at least one complete Slice, and keep reads aligned to block boundaries
             this.bufferSize = maxPageStorageSize + blockSize;
@@ -410,7 +425,7 @@ public class AzureBlobFileSystemExchangeStorage
                     int length = (int) min(blockSize, fileSize - fileOffset);
 
                     int finalBufferFill = bufferFill;
-                    FluentFuture<Void> downloadFuture = FluentFuture.from(toListenableFuture(blockBlobAsyncClient.downloadWithResponse(new BlobRange(fileOffset, (long) length), null, null, false).toFuture()))
+                    FluentFuture<Void> downloadFuture = FluentFuture.from(toListenableFuture(blockBlobAsyncClient.downloadStreamWithResponse(new BlobRange(fileOffset, (long) length), null, null, false).toFuture()))
                             .transformAsync(response -> toListenableFuture(response.getValue().collectList().toFuture()), directExecutor())
                             .transform(byteBuffers -> {
                                 int offset = finalBufferFill;
@@ -432,6 +447,7 @@ public class AzureBlobFileSystemExchangeStorage
                 }
 
                 if (fileOffset == fileSize) {
+                    sourceFilesProcessedMetric.increment();
                     currentFile = sourceFiles.poll();
                     if (currentFile == null) {
                         break;
@@ -503,7 +519,7 @@ public class AzureBlobFileSystemExchangeStorage
 
             ListenableFuture<Void> finishFuture = translateFailures(Futures.transformAsync(
                     Futures.allAsList(multiPartUploadFutures),
-                    ignored -> toListenableFuture(blockBlobAsyncClient.commitBlockList(blockIds).toFuture()),
+                    _ -> toListenableFuture(blockBlobAsyncClient.commitBlockList(blockIds).toFuture()),
                     directExecutor()));
             Futures.addCallback(finishFuture, new FutureCallback<>() {
                 @Override

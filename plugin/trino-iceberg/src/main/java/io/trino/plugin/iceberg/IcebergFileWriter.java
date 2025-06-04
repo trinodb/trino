@@ -16,8 +16,13 @@ package io.trino.plugin.iceberg;
 import io.trino.plugin.hive.FileWriter;
 import org.apache.iceberg.Metrics;
 
+import java.util.List;
+import java.util.Optional;
+
 public interface IcebergFileWriter
         extends FileWriter
 {
-    Metrics getMetrics();
+    FileMetrics getFileMetrics();
+
+    record FileMetrics(Metrics metrics, Optional<List<Long>> splitOffsets) {}
 }

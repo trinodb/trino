@@ -14,6 +14,7 @@
 package io.trino.exchange;
 
 import com.google.inject.Inject;
+import io.airlift.configuration.secrets.SecretsResolver;
 import io.airlift.log.Logger;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
@@ -50,14 +51,17 @@ public class ExchangeManagerRegistry
     private final Map<String, ExchangeManagerFactory> exchangeManagerFactories = new ConcurrentHashMap<>();
 
     private volatile ExchangeManager exchangeManager;
+    private final SecretsResolver secretsResolver;
 
     @Inject
     public ExchangeManagerRegistry(
             OpenTelemetry openTelemetry,
-            Tracer tracer)
+            Tracer tracer,
+            SecretsResolver secretsResolver)
     {
         this.openTelemetry = requireNonNull(openTelemetry, "openTelemetry is null");
         this.tracer = requireNonNull(tracer, "tracer is null");
+        this.secretsResolver = requireNonNull(secretsResolver, "secretsResolver is null");
     }
 
     public void addExchangeManagerFactory(ExchangeManagerFactory factory)
@@ -91,8 +95,8 @@ public class ExchangeManagerRegistry
         checkArgument(factory != null, "Exchange manager factory '%s' is not registered. Available factories: %s", name, exchangeManagerFactories.keySet());
 
         ExchangeManager exchangeManager;
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
-            exchangeManager = factory.create(properties, new ExchangeManagerContextInstance(openTelemetry, tracer));
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
+            exchangeManager = factory.create(secretsResolver.getResolvedConfiguration(properties), new ExchangeManagerContextInstance(openTelemetry, tracer));
         }
 
         log.info("-- Loaded exchange manager %s --", name);

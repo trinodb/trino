@@ -30,7 +30,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Math.max;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -454,7 +454,9 @@ public class TestUnwrapCastInComparison
                 .get(0)
                 .getField(0);
 
-        assertTrue(result, "Query evaluated to false: " + query);
+        assertThat(result)
+                .as("Query evaluated to false: " + query)
+                .isTrue();
     }
 
     @Test
@@ -504,7 +506,9 @@ public class TestUnwrapCastInComparison
                 .get(0)
                 .getField(0);
 
-        assertTrue(result, "Query evaluated to false: " + query);
+        assertThat(result)
+                .as("Query evaluated to false: " + query)
+                .isTrue();
     }
 
     private static List<String> toLiteral(String type, List<Number> values)

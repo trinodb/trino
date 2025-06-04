@@ -131,7 +131,7 @@ public final class PartitionedConsumption<T>
             this.requested = SettableFuture.create();
             this.loaded = Futures.transformAsync(
                     allAsList(requested, previousReleased),
-                    ignored -> loader.apply(partitionNumber),
+                    _ -> loader.apply(partitionNumber),
                     directExecutor());
             this.disposer = disposer;
             this.pendingReleases = consumersCount;

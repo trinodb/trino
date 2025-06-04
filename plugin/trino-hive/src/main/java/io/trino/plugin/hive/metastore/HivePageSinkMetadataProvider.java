@@ -13,7 +13,9 @@
  */
 package io.trino.plugin.hive.metastore;
 
-import io.trino.plugin.hive.HiveMetastoreClosure;
+import io.trino.metastore.HiveMetastore;
+import io.trino.metastore.Partition;
+import io.trino.metastore.Table;
 import io.trino.spi.connector.SchemaTableName;
 
 import java.util.List;
@@ -25,12 +27,12 @@ import static java.util.Objects.requireNonNull;
 
 public class HivePageSinkMetadataProvider
 {
-    private final HiveMetastoreClosure delegate;
+    private final HiveMetastore delegate;
     private final SchemaTableName schemaTableName;
     private final Optional<Table> table;
     private final Map<List<String>, Optional<Partition>> modifiedPartitions;
 
-    public HivePageSinkMetadataProvider(HivePageSinkMetadata pageSinkMetadata, HiveMetastoreClosure delegate)
+    public HivePageSinkMetadataProvider(HivePageSinkMetadata pageSinkMetadata, HiveMetastore delegate)
     {
         requireNonNull(pageSinkMetadata, "pageSinkMetadata is null");
         this.delegate = delegate;
@@ -52,7 +54,7 @@ public class HivePageSinkMetadataProvider
         }
         Optional<Partition> modifiedPartition = modifiedPartitions.get(partitionValues);
         if (modifiedPartition == null) {
-            return delegate.getPartition(schemaTableName.getSchemaName(), schemaTableName.getTableName(), partitionValues);
+            return delegate.getPartition(table.get(), partitionValues);
         }
         return modifiedPartition;
     }

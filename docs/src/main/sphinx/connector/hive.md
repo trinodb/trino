@@ -27,39 +27,52 @@ The Hive connector requires a
 implementation of the Hive metastore, such as
 {ref}`AWS Glue <hive-glue-metastore>`.
 
-Many [distributed storage systems](hive-file-system-configuration) can be
-queried with the Hive connector.
+You must select and configure a [supported
+file system](hive-file-system-configuration) in your catalog configuration file.
 
 The coordinator and all workers must have network access to the Hive metastore
 and the storage system. Hive metastore access with the Thrift protocol defaults
 to using port 9083.
 
-Data files must be in a supported file format. Some file formats can be
-configured using file format configuration properties per catalog:
+Data files must be in a supported file format. File formats can be
+configured using the [`format` table property](hive-table-properties)
+and other specific properties:
 
-- {ref}`ORC <hive-orc-configuration>`
-- {ref}`Parquet <hive-parquet-configuration>`
+- {ref}`ORC <orc-format-configuration>`
+- {ref}`Parquet <parquet-format-configuration>`
 - Avro
-- RCText (RCFile using ColumnarSerDe)
-- RCBinary (RCFile using LazyBinaryColumnarSerDe)
+
+In the case of serializable formats, only specific
+[SerDes](https://www.wikipedia.org/wiki/SerDes) are allowed:
+
+- RCText - RCFile using `ColumnarSerDe`
+- RCBinary - RCFile using `LazyBinaryColumnarSerDe`
 - SequenceFile
-- JSON (using org.apache.hive.hcatalog.data.JsonSerDe)
-- CSV (using org.apache.hadoop.hive.serde2.OpenCSVSerde)
+- CSV - using `org.apache.hadoop.hive.serde2.OpenCSVSerde`
+- JSON - using `org.apache.hive.hcatalog.data.JsonSerDe`
+- OPENX_JSON - OpenX JSON SerDe from `org.openx.data.jsonserde.JsonSerDe`. Find
+  more [details about the Trino implementation in the source repository](https://github.com/trinodb/trino/tree/master/lib/trino-hive-formats/src/main/java/io/trino/hive/formats/line/openxjson/README.md).
 - TextFile
 
 (hive-configuration)=
 ## General configuration
 
 To configure the Hive connector, create a catalog properties file
-`etc/catalog/example.properties` that references the `hive`
-connector and defines a metastore. You must configure a metastore for table
-metadata. If you are using a {ref}`Hive metastore <hive-thrift-metastore>`,
-`hive.metastore.uri` must be configured:
+`etc/catalog/example.properties` that references the `hive` connector.
+
+You must configure a [metastore for metadata](/object-storage/metastores).
+
+You must select and configure one of the [supported file
+systems](hive-file-system-configuration).
+
 
 ```properties
 connector.name=hive
 hive.metastore.uri=thrift://example.net:9083
+fs.x.enabled=true
 ```
+
+Replace the `fs.x.enabled` configuration property with the desired file system.
 
 If you are using {ref}`AWS Glue <hive-glue-metastore>` as your metastore, you
 must instead set `hive.metastore` to `glue`:
@@ -70,7 +83,7 @@ hive.metastore=glue
 ```
 
 Each metastore type has specific configuration properties along with
-{ref}`general metastore configuration properties <general-metastore-properties>`.
+[](general-metastore-properties).
 
 ### Multiple Hive clusters
 
@@ -108,6 +121,21 @@ Hive connector documentation.
 * - `hive.storage-format`
   - The default file format used when creating new tables.
   - `ORC`
+* - `hive.orc.use-column-names`
+  - Access ORC columns by name. By default, columns in ORC files are accessed by
+    their ordinal position in the Hive table definition. The equivalent catalog
+    session property is `orc_use_column_names`. See also,
+    [](orc-format-configuration)
+  - `false`
+* - `hive.parquet.use-column-names`
+  - Access Parquet columns by name by default. Set this property to `false` to
+    access columns by their ordinal position in the Hive table definition. The
+    equivalent catalog session property is `parquet_use_column_names`. See also,
+    [](parquet-format-configuration)
+  - `true`
+* - `hive.parquet.time-zone`
+  - Time zone for Parquet read and write.
+  - JVM default
 * - `hive.compression-codec`
   - The compression codec to use when writing files. Possible values are `NONE`,
     `SNAPPY`, `LZ4`, `ZSTD`, or `GZIP`.
@@ -134,6 +162,8 @@ Hive connector documentation.
     * `APPEND` - appends data to existing partitions
     * `OVERWRITE` - overwrites existing partitions
     * `ERROR` - modifying existing partitions is not allowed
+
+    The equivalent catalog session property is `insert_existing_partitions_behavior`.
   - `APPEND`
 * - `hive.target-max-file-size`
   - Best effort maximum size of new files.
@@ -179,6 +209,13 @@ Hive connector documentation.
       in schemas `fruit` and `vegetable`
     * `*` to cache listings for all tables in all schemas
   -
+* - `hive.file-status-cache.excluded-tables`
+  - Whereas `hive.file-status-cache-tables` is an inclusion list, this is an exclusion list for the cache. 
+      * `fruit.apple,fruit.orange` to *NOT* cache listings only for tables
+        `apple` and `orange` in schema `fruit`
+      * `fruit.*,vegetable.*` to *NOT* cache listings for all tables
+        in schemas `fruit` and `vegetable`
+  -  
 * - `hive.file-status-cache.max-retained-size`
   - Maximum retained size of cached file status entries.
   - `1GB`
@@ -195,7 +232,7 @@ Hive connector documentation.
   - JVM default
 * - `hive.timestamp-precision`
   - Specifies the precision to use for Hive columns of type `TIMESTAMP`.
-    Possible values are `MILLISECONDS`, `MICROSECONDS` and `NANOSECONDS`. 
+    Possible values are `MILLISECONDS`, `MICROSECONDS` and `NANOSECONDS`.
     Values with higher precision than configured are rounded. The equivalent
     [catalog session property](/sql/set-session) is `timestamp_precision` for
     session specific use.
@@ -231,6 +268,15 @@ Hive connector documentation.
     `query_partition_filter_required` catalog session property for temporary,
     catalog specific use.
   - `false`
+* - `hive.query-partition-filter-required-schemas`
+  - Allow specifying the list of schemas for which Trino will enforce that
+    queries use a filter on partition keys for source tables. The list can be
+    specified using the `hive.query-partition-filter-required-schemas`,
+    or the `query_partition_filter_required_schemas` session property. The list
+    is taken into consideration only if the `hive.query-partition-filter-required`
+    configuration property or the `query_partition_filter_required` session
+    property is set to `true`.
+  - `[]`
 * - `hive.table-statistics-enabled`
   - Enables [](/optimizer/statistics). The equivalent [catalog session
     property](/sql/set-session) is `statistics_enabled` for session specific
@@ -244,30 +290,54 @@ Hive connector documentation.
   - `false`
 * - `hive.partition-projection-enabled`
   - Enables Athena partition projection support
-  - `false`
+  - `true`
+* - `hive.s3-glacier-filter`
+  - Filter S3 objects based on their storage class and restored status if applicable. Possible
+    values are
+      * `READ_ALL` - read files from all S3 storage classes
+      * `READ_NON_GLACIER` - read files from non S3 Glacier storage classes
+      * `READ_NON_GLACIER_AND_RESTORED` - read files from non S3 Glacier storage classes and 
+        restored objects from Glacier storage class
+  - `READ_ALL`
 * - `hive.max-partition-drops-per-query`
   - Maximum number of partitions to drop in a single query.
   - 100,000
+* - `hive.metastore.partition-batch-size.max`
+  - Maximum number of partitions processed in a single batch.
+  - 100
 * - `hive.single-statement-writes`
   - Enables auto-commit for all writes. This can be used to disallow
     multi-statement write transactions.
   - `false`
+* - `hive.metadata.parallelism`
+  - Number of threads used for retrieving metadata. Currently, only table loading
+    is parallelized.
+  - `8`
 :::
 
 (hive-file-system-configuration)=
 ### File system access configuration
 
-The connector supports native, high-performance file system access to object
-storage systems:
+The connector supports accessing the following file systems:
 
-* [](/object-storage)
 * [](/object-storage/file-system-azure)
 * [](/object-storage/file-system-gcs)
 * [](/object-storage/file-system-s3)
+* [](/object-storage/file-system-hdfs)
 
-You must enable and configure the specific native file system access. If none is
-activated, the [legacy support](file-system-legacy) is used and must be
-configured.
+You must enable and configure the specific file system access. [Legacy
+support](file-system-legacy) is not recommended and will be removed.
+
+(hive-fte-support)=
+### Fault-tolerant execution support
+
+The connector supports {doc}`/admin/fault-tolerant-execution` of query
+processing. Read and write operations are both supported with any retry policy
+on non-transactional tables.
+
+Read operations are supported with any retry policy on transactional tables.
+Write operations and `CREATE TABLE ... AS` operations are not supported with
+any retry policy on transactional tables.
 
 (hive-security)=
 ## Security
@@ -313,7 +383,7 @@ the catalog properties file. This property must be one of the following values:
 (hive-sql-standard-based-authorization)=
 ### SQL standard based authorization
 
-When `sql-standard` security is enabled, Trino enforces the same SQLuyrity
+When `sql-standard` security is enabled, Trino enforces the same SQL
 standard-based authorization as Hive does.
 
 Since Trino's `ROLE` syntax support matches the SQL standard, and
@@ -332,7 +402,6 @@ limitations and differences:
   changed with `ALTER SCHEMA schema SET AUTHORIZATION user`
 
 (hive-sql-support)=
-
 ## SQL support
 
 The connector provides read access and write access to data and metadata in the
@@ -352,7 +421,7 @@ configured object storage system and metadata stores:
   - {ref}`sql-view-management`; see also
     {ref}`Hive-specific view management <hive-sql-view-management>`
 
-- [](sql-routine-management)
+- [](udf-management)
 - {ref}`sql-security-operations`: see also
   {ref}`SQL standard-based authorization for object storage <hive-sql-standard-based-authorization>`
 
@@ -364,7 +433,6 @@ on migrating from Hive to Trino.
 The following sections provide Hive-specific information regarding SQL support.
 
 (hive-examples)=
-
 ### Basic usage examples
 
 The examples shown here work on Google Cloud Storage by replacing `s3://` with
@@ -485,7 +553,6 @@ CALL system.drop_stats(
 ```
 
 (hive-procedures)=
-
 ### Procedures
 
 Use the {doc}`/sql/call` statement to perform data manipulation or
@@ -523,7 +590,6 @@ The following procedures are available:
   entire table.
 
 (register-partition)=
-
 - `system.register_partition(schema_name, table_name, partition_columns, partition_values, location)`
 
   Registers existing location as a new partition in the metastore for the specified table.
@@ -535,14 +601,12 @@ The following procedures are available:
   is set to `true`.
 
 (unregister-partition)=
-
 - `system.unregister_partition(schema_name, table_name, partition_columns, partition_values)`
 
   Unregisters given, existing partition in the metastore for the specified table.
   The partition data is not deleted.
 
 (hive-flush-metadata-cache)=
-
 - `system.flush_metadata_cache()`
 
   Flush all Hive metadata caches.
@@ -558,7 +622,6 @@ The following procedures are available:
   Procedure requires named parameters to be passed.
 
 (hive-data-management)=
-
 ### Data management
 
 The {ref}`sql-data-management` functionality includes support for `INSERT`,
@@ -583,7 +646,6 @@ ACID tables created with [Hive Streaming Ingest](https://cwiki.apache.org/conflu
 are not supported.
 
 (hive-schema-and-table-management)=
-
 ### Schema and table management
 
 The Hive connector supports querying and manipulating Hive tables and schemas
@@ -610,7 +672,7 @@ type conversions.
   - `BOOLEAN`, `TINYINT`, `SMALLINT`, `INTEGER`, `BIGINT`, `REAL`, `DOUBLE`, `TIMESTAMP`, `DATE`, `CHAR` as well as
     narrowing conversions for `VARCHAR`
 * - `CHAR`
-  - narrowing conversions for `CHAR`
+  - `VARCHAR`, narrowing conversions for `CHAR`
 * - `TINYINT`
   - `VARCHAR`, `SMALLINT`, `INTEGER`, `BIGINT`, `DOUBLE`, `DECIMAL`
 * - `SMALLINT`
@@ -630,6 +692,8 @@ type conversions.
   - `VARCHAR`
 * - `TIMESTAMP`
   - `VARCHAR`, `DATE`
+* - `VARBINARY`
+  - `VARCHAR`
 :::
 
 Any conversion failure results in null, which is the same behavior
@@ -638,12 +702,11 @@ or converting the string `'1234'` to a `TINYINT` (which has a
 maximum value of `127`).
 
 (hive-avro-schema)=
-
 #### Avro schema evolution
 
 Trino supports querying and manipulating Hive tables with the Avro storage
 format, which has the schema set based on an Avro schema file/literal. Trino is
-also capable of creating the tables in Trino by infering the schema from a
+also capable of creating the tables in Trino by inferring the schema from a
 valid Avro schema file located locally, or remotely in HDFS/Web server.
 
 To specify that the Avro schema should be used for interpreting table data, use
@@ -707,7 +770,6 @@ The following operations are not supported when `avro_schema_url` is set:
 - `ALTER TABLE` commands modifying columns are not supported.
 
 (hive-alter-table-execute)=
-
 #### ALTER TABLE EXECUTE
 
 The connector supports the following commands for use with {ref}`ALTER TABLE
@@ -737,7 +799,6 @@ outcomes:
 :::
 
 (hive-table-properties)=
-
 #### Table properties
 
 Table properties supply or set metadata for the underlying tables. This
@@ -792,9 +853,9 @@ WITH (format='CSV',
   -
 * - `format`
   - The table file format. Valid values include `ORC`, `PARQUET`, `AVRO`,
-    `RCBINARY`, `RCTEXT`, `SEQUENCEFILE`, `JSON`, `TEXTFILE`, `CSV`, and
-    `REGEX`. The catalog property `hive.storage-format` sets the default value
-    and can change it to a different default.
+    `RCBINARY`, `RCTEXT`, `SEQUENCEFILE`, `JSON`, `OPENX_JSON`, `TEXTFILE`,
+    `CSV`, and `REGEX`. The catalog property `hive.storage-format` sets the
+    default value and can change it to a different default.
   -
 * - `null_format`
   - The serialization format for `NULL` value. Requires TextFile, RCText, or
@@ -865,7 +926,6 @@ WITH (format='CSV',
 :::
 
 (hive-special-tables)=
-
 #### Metadata tables
 
 The raw Hive table properties are available as a hidden table, containing a
@@ -912,7 +972,6 @@ SELECT * FROM example.web."page_views$partitions";
 ```
 
 (hive-column-properties)=
-
 #### Column properties
 
 :::{list-table} Hive connector column properties
@@ -975,7 +1034,6 @@ SELECT * FROM example.web."page_views$partitions";
 :::
 
 (hive-special-columns)=
-
 #### Metadata columns
 
 In addition to the defined columns, the Hive connector automatically exposes
@@ -1006,7 +1064,6 @@ WHERE "$partition" = 'ds=2016-08-09/country=US'
 ```
 
 (hive-sql-view-management)=
-
 ### View management
 
 Trino allows reading from Hive materialized views, and can be configured to
@@ -1018,7 +1075,6 @@ The Hive connector supports reading from Hive materialized views.
 In Trino, these views are presented as regular, read-only tables.
 
 (hive-views)=
-
 #### Hive views
 
 Hive views are defined in HiveQL and stored in the Hive Metastore Service. They
@@ -1099,17 +1155,6 @@ functionality:
 - Support all Hive data types and correct mapping to Trino types
 - Ability to process custom UDFs
 
-(hive-fte-support)=
-
-## Fault-tolerant execution support
-
-The connector supports {doc}`/admin/fault-tolerant-execution` of query
-processing. Read and write operations are both supported with any retry policy
-on non-transactional tables.
-
-Read operations are supported with any retry policy on transactional tables.
-Write operations and `CREATE TABLE ... AS` operations are not supported with
-any retry policy on transactional tables.
 
 ## Performance
 
@@ -1162,7 +1207,6 @@ and by default will also collect column level statistics:
 :::
 
 (hive-analyze)=
-
 #### Updating table and partition statistics
 
 If your queries are complex and include joining large data sets,
@@ -1214,7 +1258,6 @@ CALL system.drop_stats(
 ```
 
 (hive-dynamic-filtering)=
-
 ### Dynamic filtering
 
 The Hive connector supports the {doc}`dynamic filtering </admin/dynamic-filtering>` optimization.
@@ -1244,17 +1287,20 @@ time until the collection of dynamic filters by using the configuration property
 session property `<hive-catalog>.dynamic_filtering_wait_timeout`.
 
 (hive-table-redirection)=
-
 ### Table redirection
 
 ```{include} table-redirection.fragment
 ```
 
-The connector supports redirection from Hive tables to Iceberg
-and Delta Lake tables with the following catalog configuration properties:
+The connector supports redirection from Hive tables to Iceberg, Delta Lake, and
+Hudi tables with the following catalog configuration properties:
 
-- `hive.iceberg-catalog-name` for redirecting the query to {doc}`/connector/iceberg`
-- `hive.delta-lake-catalog-name` for redirecting the query to {doc}`/connector/delta-lake`
+- `hive.iceberg-catalog-name`: Name of the catalog, configured with the
+  [](/connector/iceberg), to use for reading Iceberg tables.
+- `hive.delta-lake-catalog-name`: Name of the catalog, configured with the
+  [](/connector/delta-lake), to use for reading Delta Lake tables.
+- `hive.hudi-catalog-name`: Name of the catalog, configured with the
+  [](/connector/hudi), to use for reading Hudi tables.
 
 ### File system cache
 
@@ -1262,7 +1308,6 @@ The connector supports configuring and using [file system
 caching](/object-storage/file-system-cache).
 
 (hive-performance-tuning-configuration)=
-
 ### Performance tuning configuration properties
 
 The following table describes performance tuning properties for the Hive

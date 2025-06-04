@@ -48,6 +48,7 @@ public final class SessionRepresentation
     private final boolean clientTransactionSupport;
     private final String user;
     private final String originalUser;
+    private final Set<String> originalRoles;
     private final Set<String> groups;
     private final Set<String> originalUserGroups;
     private final Optional<String> principal;
@@ -71,6 +72,7 @@ public final class SessionRepresentation
     private final Map<String, SelectedRole> catalogRoles;
     private final Map<String, String> preparedStatements;
     private final String protocolName;
+    private final Optional<String> queryDataEncoding;
 
     @JsonCreator
     public SessionRepresentation(
@@ -80,6 +82,7 @@ public final class SessionRepresentation
             @JsonProperty("clientTransactionSupport") boolean clientTransactionSupport,
             @JsonProperty("user") String user,
             @JsonProperty("originalUser") String originalUser,
+            @JsonProperty("setOriginalRoles") Set<String> originalRoles,
             @JsonProperty("groups") Set<String> groups,
             @JsonProperty("originalUserGroups") Set<String> originalUserGroups,
             @JsonProperty("principal") Optional<String> principal,
@@ -102,7 +105,8 @@ public final class SessionRepresentation
             @JsonProperty("catalogProperties") Map<String, Map<String, String>> catalogProperties,
             @JsonProperty("catalogRoles") Map<String, SelectedRole> catalogRoles,
             @JsonProperty("preparedStatements") Map<String, String> preparedStatements,
-            @JsonProperty("protocolName") String protocolName)
+            @JsonProperty("protocolName") String protocolName,
+            @JsonProperty("queryDataEncoding") Optional<String> queryDataEncoding)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.querySpan = requireNonNull(querySpan, "querySpan is null");
@@ -110,6 +114,7 @@ public final class SessionRepresentation
         this.clientTransactionSupport = clientTransactionSupport;
         this.user = requireNonNull(user, "user is null");
         this.originalUser = requireNonNull(originalUser, "originalUser is null");
+        this.originalRoles = requireNonNull(originalRoles, "setOriginalRoles is null");
         this.groups = requireNonNull(groups, "groups is null");
         this.originalUserGroups = requireNonNull(originalUserGroups, "originalUserGroups is null");
         this.principal = requireNonNull(principal, "principal is null");
@@ -132,6 +137,7 @@ public final class SessionRepresentation
         this.catalogRoles = ImmutableMap.copyOf(catalogRoles);
         this.preparedStatements = ImmutableMap.copyOf(preparedStatements);
         this.protocolName = requireNonNull(protocolName, "protocolName is null");
+        this.queryDataEncoding = requireNonNull(queryDataEncoding, "queryDataEncoding is null");
 
         ImmutableMap.Builder<String, Map<String, String>> catalogPropertiesBuilder = ImmutableMap.builder();
         for (Entry<String, Map<String, String>> entry : catalogProperties.entrySet()) {
@@ -174,6 +180,12 @@ public final class SessionRepresentation
     public String getOriginalUser()
     {
         return originalUser;
+    }
+
+    @JsonProperty
+    public Set<String> getOriginalRoles()
+    {
+        return originalRoles;
     }
 
     @JsonProperty
@@ -320,6 +332,12 @@ public final class SessionRepresentation
         return timeZoneKey.getId();
     }
 
+    @JsonProperty
+    public Optional<String> getQueryDataEncoding()
+    {
+        return queryDataEncoding;
+    }
+
     public Identity toIdentity()
     {
         return toIdentity(emptyMap());
@@ -341,6 +359,7 @@ public final class SessionRepresentation
         return Identity.forUser(originalUser)
                 .withGroups(originalUserGroups)
                 .withPrincipal(principal.map(BasicPrincipal::new))
+                .withEnabledRoles(originalRoles)
                 .withExtraCredentials(extraCredentials)
                 .build();
     }
@@ -378,6 +397,7 @@ public final class SessionRepresentation
                 sessionPropertyManager,
                 preparedStatements,
                 createProtocolHeaders(protocolName),
-                exchangeEncryptionKey);
+                exchangeEncryptionKey,
+                queryDataEncoding);
     }
 }

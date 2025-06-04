@@ -100,7 +100,7 @@ public final class OrcWriter
     private final List<Type> types;
     private final CompressionKind compression;
     private final int stripeMaxBytes;
-    private final int chunkMaxLogicalBytes;
+    private final int chunkMaxBytes;
     private final int stripeMaxRowCount;
     private final int rowGroupMaxRowCount;
     private final int maxCompressionBufferSize;
@@ -122,6 +122,7 @@ public final class OrcWriter
 
     private long fileRowCount;
     private Optional<ColumnMetadata<ColumnStatistics>> fileStats;
+    private List<Long> stripeOffsets;
     private long fileStatsRetainedBytes;
 
     @Nullable
@@ -152,7 +153,7 @@ public final class OrcWriter
         checkArgument(options.getStripeMaxSize().compareTo(options.getStripeMinSize()) >= 0, "stripeMaxSize must be greater than or equal to stripeMinSize");
         int stripeMinBytes = toIntExact(requireNonNull(options.getStripeMinSize(), "stripeMinSize is null").toBytes());
         this.stripeMaxBytes = toIntExact(requireNonNull(options.getStripeMaxSize(), "stripeMaxSize is null").toBytes());
-        this.chunkMaxLogicalBytes = Math.max(1, stripeMaxBytes / 2);
+        this.chunkMaxBytes = Math.max(1, stripeMaxBytes / 2);
         this.stripeMaxRowCount = options.getStripeMaxRowCount();
         this.rowGroupMaxRowCount = options.getRowGroupMaxRowCount();
         recordValidation(validation -> validation.setRowGroupMaxRowCount(rowGroupMaxRowCount));
@@ -186,13 +187,13 @@ public final class OrcWriter
                     options.isShouldCompactMinMax());
             columnWriters.add(columnWriter);
 
-            if (columnWriter instanceof SliceDictionaryColumnWriter) {
-                sliceColumnWriters.add((SliceDictionaryColumnWriter) columnWriter);
+            if (columnWriter instanceof SliceDictionaryColumnWriter sliceDictionaryColumnWriter) {
+                sliceColumnWriters.add(sliceDictionaryColumnWriter);
             }
             else {
                 for (ColumnWriter nestedColumnWriter : columnWriter.getNestedColumnWriters()) {
-                    if (nestedColumnWriter instanceof SliceDictionaryColumnWriter) {
-                        sliceColumnWriters.add((SliceDictionaryColumnWriter) nestedColumnWriter);
+                    if (nestedColumnWriter instanceof SliceDictionaryColumnWriter sliceDictionaryColumnWriter) {
+                        sliceColumnWriters.add(sliceDictionaryColumnWriter);
                     }
                 }
             }
@@ -263,8 +264,8 @@ public final class OrcWriter
             // align page to row group boundaries
             Page chunk = page.getRegion(writeOffset, min(page.getPositionCount() - writeOffset, min(rowGroupMaxRowCount - rowGroupRowCount, stripeMaxRowCount - stripeRowCount)));
 
-            // avoid chunk with huge logical size
-            while (chunk.getPositionCount() > 1 && chunk.getLogicalSizeInBytes() > chunkMaxLogicalBytes) {
+            // avoid chunk with huge size
+            while (chunk.getPositionCount() > 1 && chunk.getSizeInBytes() > chunkMaxBytes) {
                 chunk = page.getRegion(writeOffset, chunk.getPositionCount() / 2);
             }
 
@@ -511,6 +512,9 @@ public final class OrcWriter
         fileStatsRetainedBytes = fileStats.map(stats -> stats.stream()
                 .mapToLong(ColumnStatistics::getRetainedSizeInBytes)
                 .sum()).orElse(0L);
+        stripeOffsets = closedStripes.stream()
+                .map(closedStripe -> closedStripe.getStripeInformation().getOffset())
+                .collect(toImmutableList());
         recordValidation(validation -> validation.setFileStatistics(fileStats));
 
         Map<String, Slice> userMetadata = this.userMetadata.entrySet().stream()
@@ -564,6 +568,12 @@ public final class OrcWriter
     {
         checkState(closed, "File statistics are not available until the writing has finished");
         return fileStats;
+    }
+
+    public List<Long> getStripeOffsets()
+    {
+        checkState(closed, "File stripe offsets are not available until the writing has finished");
+        return stripeOffsets;
     }
 
     private static Supplier<BloomFilterBuilder> getBloomFilterBuilder(OrcWriterOptions options, String columnName)

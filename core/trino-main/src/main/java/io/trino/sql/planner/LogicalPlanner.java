@@ -44,11 +44,13 @@ import io.trino.metadata.TableLayout;
 import io.trino.metadata.TableMetadata;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.ErrorCodeSupplier;
+import io.trino.spi.RefreshType;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
@@ -87,6 +89,7 @@ import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
+import io.trino.sql.planner.plan.TableWriterNode.RefreshMaterializedViewReference;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.planprinter.PlanPrinter;
 import io.trino.sql.planner.sanity.PlanSanityChecker;
@@ -107,7 +110,6 @@ import io.trino.sql.tree.Update;
 import io.trino.tracing.ScopedSpan;
 import io.trino.tracing.TrinoAttributes;
 import io.trino.type.UnknownType;
-import jakarta.annotation.Nonnull;
 
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.ArrayList;
@@ -239,7 +241,7 @@ public class LogicalPlanner
     public Plan plan(Analysis analysis, Stage stage, boolean collectPlanStatistics)
     {
         PlanNode root;
-        try (var ignored = scopedSpan(plannerContext.getTracer(), "plan")) {
+        try (var _ = scopedSpan(plannerContext.getTracer(), "plan")) {
             root = planStatement(analysis, analysis.getStatement());
         }
 
@@ -254,12 +256,12 @@ public class LogicalPlanner
                     false));
         }
 
-        try (var ignored = scopedSpan(plannerContext.getTracer(), "validate-intermediate")) {
+        try (var _ = scopedSpan(plannerContext.getTracer(), "validate-intermediate")) {
             planSanityChecker.validateIntermediatePlan(root, session, plannerContext, warningCollector);
         }
 
         if (stage.ordinal() >= OPTIMIZED.ordinal()) {
-            try (var ignored = scopedSpan(plannerContext.getTracer(), "optimizer")) {
+            try (var _ = scopedSpan(plannerContext.getTracer(), "optimizer")) {
                 for (PlanOptimizer optimizer : planOptimizers) {
                     root = runOptimizer(root, tableStatsProvider, optimizer);
                 }
@@ -268,7 +270,7 @@ public class LogicalPlanner
 
         if (stage.ordinal() >= OPTIMIZED_AND_VALIDATED.ordinal()) {
             // make sure we produce a valid plan after optimizations run. This is mainly to catch programming errors
-            try (var ignored = scopedSpan(plannerContext.getTracer(), "validate-final")) {
+            try (var _ = scopedSpan(plannerContext.getTracer(), "validate-final")) {
                 planSanityChecker.validateFinalPlan(root, session, plannerContext, warningCollector);
             }
         }
@@ -287,17 +289,16 @@ public class LogicalPlanner
         StatsAndCosts statsAndCosts;
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, collectTableStatsProvider);
         CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.empty(), session);
-        try (var ignored = scopedSpan(plannerContext.getTracer(), "plan-stats")) {
+        try (var _ = scopedSpan(plannerContext.getTracer(), "plan-stats")) {
             statsAndCosts = StatsAndCosts.create(root, statsProvider, costProvider);
         }
         return new Plan(root, statsAndCosts);
     }
 
-    @Nonnull
     private PlanNode runOptimizer(PlanNode root, TableStatsProvider tableStatsProvider, PlanOptimizer optimizer)
     {
         PlanNode result;
-        try (var ignored = optimizerSpan(optimizer)) {
+        try (var _ = optimizerSpan(optimizer)) {
             result = optimizer.optimize(root, new PlanOptimizer.Context(session, symbolAllocator, idAllocator, warningCollector, planOptimizersStatsCollector, tableStatsProvider, RuntimeInfoProvider.noImplementation()));
         }
         if (result == null) {
@@ -347,39 +348,39 @@ public class LogicalPlanner
 
     private RelationPlan planStatementWithoutOutput(Analysis analysis, Statement statement)
     {
-        if (statement instanceof CreateTableAsSelect) {
+        if (statement instanceof CreateTableAsSelect createTableAsSelect) {
             if (analysis.getCreate().orElseThrow().isCreateTableAsSelectNoOp()) {
                 throw new TrinoException(NOT_SUPPORTED, "CREATE TABLE IF NOT EXISTS is not supported in this context " + statement.getClass().getSimpleName());
             }
-            return createTableCreationPlan(analysis, ((CreateTableAsSelect) statement).getQuery());
+            return createTableCreationPlan(analysis, createTableAsSelect.getQuery());
         }
-        if (statement instanceof Analyze) {
-            return createAnalyzePlan(analysis, (Analyze) statement);
+        if (statement instanceof Analyze analyze) {
+            return createAnalyzePlan(analysis, analyze);
         }
-        if (statement instanceof Insert) {
+        if (statement instanceof Insert insert) {
             checkState(analysis.getInsert().isPresent(), "Insert handle is missing");
-            return createInsertPlan(analysis, (Insert) statement);
+            return createInsertPlan(analysis, insert);
         }
         if (statement instanceof RefreshMaterializedView) {
             return createRefreshMaterializedViewPlan(analysis);
         }
-        if (statement instanceof Delete) {
-            return createDeletePlan(analysis, (Delete) statement);
+        if (statement instanceof Delete delete) {
+            return createDeletePlan(analysis, delete);
         }
-        if (statement instanceof Update) {
-            return createUpdatePlan(analysis, (Update) statement);
+        if (statement instanceof Update update) {
+            return createUpdatePlan(analysis, update);
         }
-        if (statement instanceof Merge) {
-            return createMergePlan(analysis, (Merge) statement);
+        if (statement instanceof Merge merge) {
+            return createMergePlan(analysis, merge);
         }
-        if (statement instanceof Query) {
-            return createRelationPlan(analysis, (Query) statement);
+        if (statement instanceof Query query) {
+            return createRelationPlan(analysis, query);
         }
-        if (statement instanceof ExplainAnalyze) {
-            return createExplainAnalyzePlan(analysis, (ExplainAnalyze) statement);
+        if (statement instanceof ExplainAnalyze explainAnalyze) {
+            return createExplainAnalyzePlan(analysis, explainAnalyze);
         }
-        if (statement instanceof TableExecute) {
-            return createTableExecutePlan(analysis, (TableExecute) statement);
+        if (statement instanceof TableExecute tableExecute) {
+            return createTableExecutePlan(analysis, tableExecute);
         }
         throw new TrinoException(NOT_SUPPORTED, "Unsupported statement type " + statement.getClass().getSimpleName());
     }
@@ -429,7 +430,7 @@ public class LogicalPlanner
                 idAllocator.getNextId(),
                 singleAggregation(
                         idAllocator.getNextId(),
-                        TableScanNode.newInstance(idAllocator.getNextId(), targetTable, tableScanOutputs.build(), symbolToColumnHandle.buildOrThrow(), false, Optional.empty()),
+                        new TableScanNode(idAllocator.getNextId(), targetTable, tableScanOutputs.build(), symbolToColumnHandle.buildOrThrow(), TupleDomain.all(), Optional.empty(), false, Optional.empty()),
                         statisticAggregations.getAggregations(),
                         singleGroupingSet(groupingSymbols)),
                 new StatisticsWriterNode.WriteStatisticsReference(targetTable),
@@ -507,7 +508,7 @@ public class LogicalPlanner
             TableHandle tableHandle,
             List<ColumnHandle> insertColumns,
             Optional<TableLayout> newTableLayout,
-            Optional<WriterTarget> materializedViewRefreshWriterTarget)
+            Optional<RefreshMaterializedViewReference> materializedViewRefreshWriterTarget)
     {
         TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
 
@@ -591,11 +592,13 @@ public class LogicalPlanner
         TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, tableHandle.catalogHandle(), tableMetadata.metadata());
 
         if (materializedViewRefreshWriterTarget.isPresent()) {
+            RefreshType refreshType = IncrementalRefreshVisitor.canIncrementallyRefresh(plan.getRoot());
+            WriterTarget writerTarget = materializedViewRefreshWriterTarget.get().withRefreshType(refreshType);
             return createTableWriterPlan(
                     analysis,
                     plan.getRoot(),
                     plan.getFieldMappings(),
-                    materializedViewRefreshWriterTarget.get(),
+                    writerTarget,
                     insertedTableColumnNames,
                     newTableLayout,
                     statisticsMetadata);
@@ -672,11 +675,13 @@ public class LogicalPlanner
         List<String> tableFunctions = analysis.getPolymorphicTableFunctions().stream()
                 .map(polymorphicTableFunction -> polymorphicTableFunction.getNode().getName().toString())
                 .collect(toImmutableList());
-        TableWriterNode.RefreshMaterializedViewReference writerTarget = new TableWriterNode.RefreshMaterializedViewReference(
+        RefreshMaterializedViewReference writerTarget = new RefreshMaterializedViewReference(
                 viewAnalysis.getTable().toString(),
                 tableHandle,
                 ImmutableList.copyOf(analysis.getTables()),
-                tableFunctions);
+                tableFunctions,
+                // this is a placeholder value - refresh type will be determined by getInsertPlan based on the plan tree
+                RefreshType.FULL);
         return getInsertPlan(analysis, viewAnalysis.getTable(), query, tableHandle, viewAnalysis.getColumns(), newTableLayout, Optional.of(writerTarget));
     }
 
@@ -797,11 +802,11 @@ public class LogicalPlanner
             return new Cast(expression, toType);
         }
         int targetLength;
-        if (toType instanceof VarcharType) {
-            if (((VarcharType) toType).isUnbounded()) {
+        if (toType instanceof VarcharType varcharType) {
+            if (varcharType.isUnbounded()) {
                 return new Cast(expression, toType);
             }
-            targetLength = ((VarcharType) toType).getBoundedLength();
+            targetLength = varcharType.getBoundedLength();
         }
         else {
             targetLength = ((CharType) toType).getLength();
@@ -896,7 +901,6 @@ public class LogicalPlanner
 
             columnNumber++;
         }
-
         return new OutputNode(idAllocator.getNextId(), plan.getRoot(), names.build(), outputs.build());
     }
 

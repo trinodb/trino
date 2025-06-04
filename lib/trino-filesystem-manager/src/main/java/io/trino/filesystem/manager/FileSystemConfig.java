@@ -17,10 +17,12 @@ import io.airlift.configuration.Config;
 
 public class FileSystemConfig
 {
-    private boolean hadoopEnabled = true;
+    private boolean hadoopEnabled;
+    private boolean alluxioEnabled;
     private boolean nativeAzureEnabled;
     private boolean nativeS3Enabled;
     private boolean nativeGcsEnabled;
+    private boolean nativeLocalEnabled;
     private boolean cacheEnabled;
 
     public boolean isHadoopEnabled()
@@ -32,6 +34,18 @@ public class FileSystemConfig
     public FileSystemConfig setHadoopEnabled(boolean hadoopEnabled)
     {
         this.hadoopEnabled = hadoopEnabled;
+        return this;
+    }
+
+    public boolean isAlluxioEnabled()
+    {
+        return alluxioEnabled;
+    }
+
+    @Config("fs.alluxio.enabled")
+    public FileSystemConfig setAlluxioEnabled(boolean nativeAlluxioEnabled)
+    {
+        this.alluxioEnabled = nativeAlluxioEnabled;
         return this;
     }
 
@@ -62,6 +76,18 @@ public class FileSystemConfig
     public boolean isNativeGcsEnabled()
     {
         return nativeGcsEnabled;
+    }
+
+    @Config("fs.native-local.enabled")
+    public FileSystemConfig setNativeLocalEnabled(boolean nativeLocalEnabled)
+    {
+        this.nativeLocalEnabled = nativeLocalEnabled;
+        return this;
+    }
+
+    public boolean isNativeLocalEnabled()
+    {
+        return nativeLocalEnabled;
     }
 
     @Config("fs.native-gcs.enabled")

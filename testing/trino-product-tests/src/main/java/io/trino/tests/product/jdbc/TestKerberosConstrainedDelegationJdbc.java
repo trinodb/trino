@@ -19,7 +19,6 @@ import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.kerberos.KerberosAuthentication;
 import io.trino.tests.product.TpchTableResults;
-import org.assertj.core.api.Assertions;
 import org.ietf.jgss.GSSCredential;
 import org.ietf.jgss.GSSManager;
 import org.ietf.jgss.Oid;
@@ -36,10 +35,10 @@ import java.sql.SQLException;
 import java.util.Properties;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.query.QueryResult.forResultSet;
 import static io.trino.tests.product.TestGroups.JDBC_KERBEROS_CONSTRAINED_DELEGATION;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.ietf.jgss.GSSCredential.DEFAULT_LIFETIME;
 import static org.ietf.jgss.GSSCredential.INITIATE_ONLY;
@@ -50,15 +49,15 @@ public class TestKerberosConstrainedDelegationJdbc
 {
     private static final String KERBEROS_OID = "1.2.840.113554.1.2.2";
     @Inject
-    @Named("databases.presto.jdbc_url")
+    @Named("databases.trino.jdbc_url")
     String jdbcUrl;
 
     @Inject
-    @Named("databases.presto.kerberos_principal")
+    @Named("databases.trino.kerberos_principal")
     private String kerberosPrincipal;
 
     @Inject
-    @Named("databases.presto.kerberos_keytab")
+    @Named("databases.trino.kerberos_keytab")
     private String kerberosKeytab;
 
     private GSSManager gssManager;
@@ -81,7 +80,7 @@ public class TestKerberosConstrainedDelegationJdbc
         try (Connection connection = DriverManager.getConnection(jdbcUrl, driverProperties);
                 PreparedStatement statement = connection.prepareStatement("SELECT * FROM tpch.tiny.nation");
                 ResultSet results = statement.executeQuery()) {
-            assertThat(forResultSet(results)).matches(TpchTableResults.PRESTO_NATION_RESULT);
+            assertThat(forResultSet(results)).matches(TpchTableResults.TRINO_NATION_RESULT);
         }
         finally {
             credential.dispose();
@@ -98,7 +97,7 @@ public class TestKerberosConstrainedDelegationJdbc
         try (Connection connection = DriverManager.getConnection(jdbcUrl, driverProperties);
                 PreparedStatement statement = connection.prepareStatement(format("CREATE TABLE %s AS SELECT * FROM tpch.tiny.nation", "test_kerberos_ctas"))) {
             int results = statement.executeUpdate();
-            Assertions.assertThat(results).isEqualTo(25);
+            assertThat(results).isEqualTo(25);
         }
         finally {
             credential.dispose();
@@ -130,7 +129,7 @@ public class TestKerberosConstrainedDelegationJdbc
         // ticket default lifetime is 80s by kerb.conf, sleep to expire ticket
         Thread.sleep(30000);
         // check before execution that current lifetime is less than 60s (MIN_LIFETIME on client), to be sure that we already expired
-        Assertions.assertThat(credential.getRemainingLifetime()).isLessThanOrEqualTo(60);
+        assertThat(credential.getRemainingLifetime()).isLessThanOrEqualTo(60);
         driverProperties.put("KerberosConstrainedDelegation", credential);
         try (Connection connection = DriverManager.getConnection(jdbcUrl, driverProperties)) {
             assertThatThrownBy(() -> connection.prepareStatement("SELECT * FROM tpch.tiny.nation"))

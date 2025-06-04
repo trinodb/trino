@@ -13,15 +13,18 @@
  */
 package io.trino.plugin.hive.coercions;
 
+import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.plugin.hive.coercions.CoercionUtils.CoercionContext;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.hive.HiveStorageFormat.ORC;
+import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
-import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.coercions.CoercionUtils.createCoercer;
+import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
 import static io.trino.spi.block.TestingSession.SESSION;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -180,17 +183,17 @@ public class TestVarcharToIntegralNumericCoercer
 
     private static void assertVarcharToIntegralCoercion(String actualValue, Type expectedType, Object expectedValue)
     {
-        assertVarcharToIntegralCoercion(actualValue, false, expectedType, expectedValue);
+        assertVarcharToIntegralCoercion(actualValue, PARQUET, expectedType, expectedValue);
     }
 
     private static void assertVarcharToIntegralCoercionForOrc(String actualValue, Type expectedType, Object expectedValue)
     {
-        assertVarcharToIntegralCoercion(actualValue, true, expectedType, expectedValue);
+        assertVarcharToIntegralCoercion(actualValue, ORC, expectedType, expectedValue);
     }
 
-    private static void assertVarcharToIntegralCoercion(String actualValue, boolean isOrcFile, Type expectedType, Object expectedValue)
+    private static void assertVarcharToIntegralCoercion(String actualValue, HiveStorageFormat storageFormat, Type expectedType, Object expectedValue)
     {
-        Block coercedBlock = createCoercer(TESTING_TYPE_MANAGER, toHiveType(createUnboundedVarcharType()), toHiveType(expectedType), new CoercionContext(DEFAULT_PRECISION, isOrcFile)).orElseThrow()
+        Block coercedBlock = createCoercer(TESTING_TYPE_MANAGER, toHiveType(createUnboundedVarcharType()), toHiveType(expectedType), new CoercionContext(DEFAULT_PRECISION, storageFormat)).orElseThrow()
                 .apply(nativeValueToBlock(createUnboundedVarcharType(), utf8Slice(actualValue)));
         Object coercedValue = coercedBlock.isNull(0) ? null : expectedType.getObjectValue(SESSION, coercedBlock, 0);
         assertThat(coercedValue).isEqualTo(expectedValue);

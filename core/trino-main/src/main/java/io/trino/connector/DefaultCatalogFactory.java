@@ -15,6 +15,7 @@ package io.trino.connector;
 
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.inject.Inject;
+import io.airlift.configuration.secrets.SecretsResolver;
 import io.airlift.node.NodeInfo;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
@@ -71,6 +72,7 @@ public class DefaultCatalogFactory
     private final int maxPrefetchedInformationSchemaPrefixes;
 
     private final ConcurrentMap<ConnectorName, ConnectorFactory> connectorFactories = new ConcurrentHashMap<>();
+    private final SecretsResolver secretsResolver;
 
     @Inject
     public DefaultCatalogFactory(
@@ -85,7 +87,8 @@ public class DefaultCatalogFactory
             TransactionManager transactionManager,
             TypeManager typeManager,
             NodeSchedulerConfig nodeSchedulerConfig,
-            OptimizerConfig optimizerConfig)
+            OptimizerConfig optimizerConfig,
+            SecretsResolver secretsResolver)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
@@ -99,6 +102,7 @@ public class DefaultCatalogFactory
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.schedulerIncludeCoordinator = nodeSchedulerConfig.isIncludeCoordinator();
         this.maxPrefetchedInformationSchemaPrefixes = optimizerConfig.getMaxPrefetchedInformationSchemaPrefixes();
+        this.secretsResolver = requireNonNull(secretsResolver, "secretsResolver is null");
     }
 
     @Override
@@ -121,7 +125,7 @@ public class DefaultCatalogFactory
                 catalogProperties.catalogHandle().getCatalogName().toString(),
                 catalogProperties.catalogHandle(),
                 connectorFactory,
-                catalogProperties.properties());
+                secretsResolver.getResolvedConfiguration(catalogProperties.properties()));
 
         return createCatalog(
                 catalogProperties.catalogHandle(),
@@ -170,7 +174,9 @@ public class DefaultCatalogFactory
                 new SystemConnector(
                         nodeManager,
                         systemTablesProvider,
-                        transactionId -> transactionManager.getConnectorTransaction(transactionId, catalogHandle)));
+                        transactionId -> transactionManager.getConnectorTransaction(transactionId, catalogHandle),
+                        accessControl,
+                        catalogHandle.getCatalogName().toString()));
 
         return new CatalogConnector(
                 catalogHandle,
@@ -198,7 +204,7 @@ public class DefaultCatalogFactory
                 pageSorter,
                 pageIndexerFactory);
 
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(connectorFactory.getClass().getClassLoader())) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(connectorFactory.getClass().getClassLoader())) {
             return connectorFactory.create(catalogName, properties, context);
         }
     }

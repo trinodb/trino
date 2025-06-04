@@ -24,6 +24,7 @@ import org.junit.jupiter.api.parallel.Execution;
 import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -147,7 +148,7 @@ public class TestExtract
     {
         assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(MILLISECOND FROM TIME '12:34:56+08:35')")::evaluate)
                 .hasErrorCode(SYNTAX_ERROR)
-                .hasMessage("line 1:12: Invalid EXTRACT field: MILLISECOND");
+                .hasMessageStartingWith("line 1:12: Invalid EXTRACT field MILLISECOND, valid fields are: ");
 
         assertThat(assertions.expression("millisecond(TIME '12:34:56+08:35')")).matches("BIGINT '0'");
         assertThat(assertions.expression("millisecond(TIME '12:34:56.1+08:35')")).matches("BIGINT '100'");
@@ -388,5 +389,39 @@ public class TestExtract
         assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(DAY FROM TIME '12:34:56.1234567890-00:35')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
         assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(DAY FROM TIME '12:34:56.12345678901-00:35')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
         assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(DAY FROM TIME '12:34:56.123456789012-00:35')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+    }
+
+    @Test
+    public void testTimeZone()
+    {
+        assertThat(assertions.expression("timezone(TIME '12:00:00+09:00')")).isEqualTo("+09:00");
+        assertThat(assertions.expression("timezone(TIME '12:00:00-05:00')")).isEqualTo("-05:00");
+        assertThat(assertions.expression("timezone(TIME '12:00:00+00:00')")).isEqualTo("+00:00");
+        assertThat(assertions.expression("timezone(TIME '00:00:00+00:00')")).isEqualTo("+00:00");
+        assertThat(assertions.expression("timezone(TIME '23:59:59+00:00')")).isEqualTo("+00:00");
+        assertThat(assertions.expression("timezone(TIME '12:00:00+14:00')")).isEqualTo("+14:00");
+        assertThat(assertions.expression("timezone(TIME '12:00:00-12:00')")).isEqualTo("-12:00");
+
+        assertThat(assertions.expression("timezone(TIME '12:00:00.123+00:00')")).isEqualTo("+00:00");
+        assertThat(assertions.expression("timezone(TIME '12:00:00.123456789+00:00')")).isEqualTo("+00:00");
+        assertThat(assertions.expression("timezone(TIME '12:00:00.123456789+01:00')")).isEqualTo("+01:00");
+        assertThat(assertions.expression("timezone(TIME '12:00:00.123456789-07:00')")).isEqualTo("-07:00");
+        assertThatThrownBy(() -> assertions.expression("timezone(TIME '23:59:60+00:00')").evaluate()).hasMessageContaining("is not a valid TIME literal");
+        assertThatThrownBy(() -> assertions.expression("timezone(TIME '12:00:00+25:00')").evaluate()).hasMessageContaining("is not a valid TIME literal");
+        assertThatThrownBy(() -> assertions.expression("timezone(TIME '12:00:00-13:60')").evaluate()).hasMessageContaining("is not a valid TIME literal");
+
+        assertThat(assertions.expression("timezone(TIME '12:34:56-00:35')")).isEqualTo("-00:35");
+        assertThat(assertions.expression("timezone(TIME '12:34:56.1-00:35')")).isEqualTo("-00:35");
+        assertThat(assertions.expression("timezone(TIME '12:34:56.12-00:35')")).isEqualTo("-00:35");
+        assertThat(assertions.expression("timezone(TIME '12:34:56.123-00:35')")).isEqualTo("-00:35");
+        assertThat(assertions.expression("timezone(TIME '12:34:56.1234-00:35')")).isEqualTo("-00:35");
+        assertThat(assertions.expression("timezone(TIME '12:34:56.12345-00:35')")).isEqualTo("-00:35");
+        assertThat(assertions.expression("timezone(TIME '12:34:56.123456-00:35')")).isEqualTo("-00:35");
+        assertThat(assertions.expression("timezone(TIME '12:34:56.1234567-00:35')")).isEqualTo("-00:35");
+        assertThat(assertions.expression("timezone(TIME '12:34:56.12345678-00:35')")).isEqualTo("-00:35");
+        assertThat(assertions.expression("timezone(TIME '12:34:56.123456789-00:35')")).isEqualTo("-00:35");
+        assertThat(assertions.expression("timezone(TIME '12:34:56.1234567890-00:35')")).isEqualTo("-00:35");
+        assertThat(assertions.expression("timezone(TIME '12:34:56.12345678901-00:35')")).isEqualTo("-00:35");
+        assertThat(assertions.expression("timezone(TIME '12:34:56.123456789012-00:35')")).isEqualTo("-00:35");
     }
 }

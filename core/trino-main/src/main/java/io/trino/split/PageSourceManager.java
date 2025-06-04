@@ -22,6 +22,7 @@ import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
+import io.trino.spi.connector.ConnectorPageSourceProviderFactory;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.predicate.TupleDomain;
@@ -33,37 +34,55 @@ import static io.trino.SystemSessionProperties.isAllowPushdownIntoConnectors;
 import static java.util.Objects.requireNonNull;
 
 public class PageSourceManager
-        implements PageSourceProvider
+        implements PageSourceProviderFactory
 {
-    private final CatalogServiceProvider<ConnectorPageSourceProvider> pageSourceProvider;
+    private final CatalogServiceProvider<ConnectorPageSourceProviderFactory> pageSourceProviderFactory;
 
     @Inject
-    public PageSourceManager(CatalogServiceProvider<ConnectorPageSourceProvider> pageSourceProvider)
+    public PageSourceManager(CatalogServiceProvider<ConnectorPageSourceProviderFactory> pageSourceProviderFactory)
     {
-        this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
+        this.pageSourceProviderFactory = requireNonNull(pageSourceProviderFactory, "pageSourceProviderFactory is null");
     }
 
     @Override
-    public ConnectorPageSource createPageSource(Session session, Split split, TableHandle table, List<ColumnHandle> columns, DynamicFilter dynamicFilter)
+    public PageSourceProvider createPageSourceProvider(CatalogHandle catalogHandle)
     {
-        requireNonNull(columns, "columns is null");
-        checkArgument(split.getCatalogHandle().equals(table.catalogHandle()), "mismatched split and table");
-        CatalogHandle catalogHandle = split.getCatalogHandle();
+        ConnectorPageSourceProviderFactory provider = pageSourceProviderFactory.getService(catalogHandle);
+        return new PageSourceProviderInstance(provider.createPageSourceProvider());
+    }
 
-        ConnectorPageSourceProvider provider = pageSourceProvider.getService(catalogHandle);
-        TupleDomain<ColumnHandle> constraint = dynamicFilter.getCurrentPredicate();
-        if (constraint.isNone()) {
-            return new EmptyPageSource();
+    private record PageSourceProviderInstance(ConnectorPageSourceProvider pageSourceProvider)
+            implements PageSourceProvider
+    {
+        private PageSourceProviderInstance
+        {
+            requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         }
-        if (!isAllowPushdownIntoConnectors(session)) {
-            dynamicFilter = DynamicFilter.EMPTY;
+
+        @Override
+        public ConnectorPageSource createPageSource(Session session,
+                Split split,
+                TableHandle table,
+                List<ColumnHandle> columns,
+                DynamicFilter dynamicFilter)
+        {
+            requireNonNull(columns, "columns is null");
+            checkArgument(split.getCatalogHandle().equals(table.catalogHandle()), "mismatched split and table");
+
+            TupleDomain<ColumnHandle> constraint = dynamicFilter.getCurrentPredicate();
+            if (constraint.isNone()) {
+                return new EmptyPageSource();
+            }
+            if (!isAllowPushdownIntoConnectors(session)) {
+                dynamicFilter = DynamicFilter.EMPTY;
+            }
+            return pageSourceProvider.createPageSource(
+                    table.transaction(),
+                    session.toConnectorSession(table.catalogHandle()),
+                    split.getConnectorSplit(),
+                    table.connectorHandle(),
+                    columns,
+                    dynamicFilter);
         }
-        return provider.createPageSource(
-                table.transaction(),
-                session.toConnectorSession(catalogHandle),
-                split.getConnectorSplit(),
-                table.connectorHandle(),
-                columns,
-                dynamicFilter);
     }
 }

@@ -42,7 +42,8 @@ public class TestNodeSchedulerConfig
                 .setIncludeCoordinator(true)
                 .setSplitsBalancingPolicy(NodeSchedulerConfig.SplitsBalancingPolicy.STAGE)
                 .setOptimizedLocalScheduling(true)
-                .setAllowedNoMatchingNodePeriod(new Duration(2, MINUTES)));
+                .setAllowedNoMatchingNodePeriod(new Duration(2, MINUTES))
+                .setExhaustedNodeWaitPeriod(new Duration(2, MINUTES)));
     }
 
     @Test
@@ -59,6 +60,7 @@ public class TestNodeSchedulerConfig
                 .put("node-scheduler.splits-balancing-policy", "node")
                 .put("node-scheduler.optimized-local-scheduling", "false")
                 .put("node-scheduler.allowed-no-matching-node-period", "1m")
+                .put("node-scheduler.exhausted-node-wait-period", "3m")
                 .buildOrThrow();
 
         NodeSchedulerConfig expected = new NodeSchedulerConfig()
@@ -71,7 +73,8 @@ public class TestNodeSchedulerConfig
                 .setMinCandidates(11)
                 .setSplitsBalancingPolicy(NODE)
                 .setOptimizedLocalScheduling(false)
-                .setAllowedNoMatchingNodePeriod(new Duration(1, MINUTES));
+                .setAllowedNoMatchingNodePeriod(new Duration(1, MINUTES))
+                .setExhaustedNodeWaitPeriod(new Duration(3, MINUTES));
 
         assertFullMapping(properties, expected);
     }

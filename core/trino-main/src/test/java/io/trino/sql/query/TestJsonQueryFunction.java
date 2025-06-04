@@ -425,9 +425,10 @@ public class TestJsonQueryFunction
     }
 
     @Test
-    public void testDescendantMemberAccessor()
+    public void testDescendantMemberAccessorWithArrayWrapper()
     {
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 SELECT json_query(
                                 '{"a" : {"b" : 1}, "c" :  [true, {"c" : {"c" : null}}]}',
                                 'lax $..c'
@@ -436,5 +437,55 @@ public class TestJsonQueryFunction
                 .matches("""
                         VALUES cast('[[true,{"c":{"c":null}}],{"c":null},null]'AS varchar)
                         """);
+
+        // `json_query` must return a single JSON item.
+        // `WITH ARRAY WRAPPER` wraps `Diana` and `John` into a single JSON array, which can then be successfully returned.
+        assertThat(assertions.query(
+                """
+                SELECT json_query(
+                                '{"author":"Diana","id":{"value":1, "author":"John"},"notes":[{"type":1,"comment":"foo"},{"type":2,"comment":null}],"comment":["bar","baz"]}',
+                                'lax $..author'
+                                WITH ARRAY WRAPPER)
+                """))
+                .matches(
+                        """
+                        VALUES cast('["Diana","John"]'AS varchar)
+                        """);
+    }
+
+    @Test
+    public void testDescendantMemberAccessorWithoutArrayWrapper()
+    {
+        // Test `json_query` to find a non-existent member in the JSON.
+        assertThat(assertions.query(
+                """
+                select json_query(
+                                '{"id":{"value":1},"notes":[{"type":1,"comment":"foo"},{"type":2,"comment":null}],"comment":["bar","baz"]}',
+                                'lax $..author'
+                                omit quotes)
+                """))
+                .matches("VALUES cast(NULL as varchar)");
+
+        // Test `json_query` to find a single descendant member in the JSON.
+        assertThat(assertions.query(
+                """
+                select json_query(
+                                '{"author":"Diana","id":{"value":1},"notes":[{"type":1,"comment":"foo"},{"type":2,"comment":null}],"comment":["bar","baz"]}',
+                                'lax $..author'
+                                omit quotes)
+                """))
+                .matches("VALUES cast('Diana' as varchar)");
+
+        // Test `json_query` to find multiple descendant members in the JSON.
+        // `json_query` must return a single JSON item.
+        // `WITHOUT ARRAY WRAPPER` returns `NULL`, which is the default result in case of an error.
+        assertThat(assertions.query(
+                """
+                select json_query(
+                                '{"author":"Diana","id":{"value":1, "author":"John"},"notes":[{"type":1,"comment":"foo"},{"type":2,"comment":null}],"comment":["bar","baz"]}',
+                                'lax $..author'
+                                omit quotes)
+                """))
+                .matches("VALUES cast(NULL as varchar)");
     }
 }

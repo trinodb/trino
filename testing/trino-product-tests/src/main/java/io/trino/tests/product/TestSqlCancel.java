@@ -61,7 +61,7 @@ public class TestSqlCancel
     private Closer closer;
 
     @Inject
-    @Named("databases.presto.server_address")
+    @Named("databases.trino.server_address")
     private String serverAddress;
 
     @BeforeMethodWithContext

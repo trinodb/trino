@@ -213,7 +213,7 @@ public class TestSimpleFormat
 
         // verify adding one more nesting level fails
         type = new ArrayType(type);
-        ImmutableList<Column> columns = ImmutableList.of(
+        List<Column> columns = ImmutableList.of(
                 new Column("a", BIGINT, 0),
                 new Column("b", type, 1),
                 new Column("c", BIGINT, 2));
@@ -1275,7 +1275,7 @@ public class TestSimpleFormat
         try {
             assertLineHive(columns, hiveLine, expectedValues, withoutTimestampFormats);
         }
-        catch (AssertionError ignored) {
+        catch (AssertionError _) {
             // This serde has many bugs in the render that result in data that can not be read
             // In this case we do not attempt to verify, byte-for-byte
             return;

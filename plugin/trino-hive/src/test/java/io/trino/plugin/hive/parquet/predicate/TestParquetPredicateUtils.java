@@ -16,9 +16,10 @@ package io.trino.plugin.hive.parquet.predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import io.trino.metastore.HiveType;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveColumnProjectionInfo;
-import io.trino.plugin.hive.HiveType;
+import io.trino.plugin.hive.util.HiveTypeTranslator;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.ArrayType;
@@ -107,7 +108,7 @@ public class TestParquetPredicateUtils
         Map<List<String>, ColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, fileSchema);
         TupleDomain<ColumnDescriptor> tupleDomain = getParquetTupleDomain(descriptorsByPath, domain, fileSchema, useColumnNames);
 
-        assertThat(tupleDomain.getDomains().get().size()).isEqualTo(1);
+        assertThat(tupleDomain.getDomains().get()).hasSize(1);
         ColumnDescriptor descriptor = tupleDomain.getDomains().get().keySet().iterator().next();
         assertThat(descriptor.getPath().length).isEqualTo(1);
         assertThat(descriptor.getPath()[0]).isEqualTo("my_primitive");
@@ -160,7 +161,7 @@ public class TestParquetPredicateUtils
         HiveColumnHandle projectedColumn = new HiveColumnHandle(
                 "row_field",
                 0,
-                HiveType.toHiveType(baseType),
+                HiveTypeTranslator.toHiveType(baseType),
                 baseType,
                 Optional.of(columnProjectionInfo),
                 REGULAR,
@@ -176,7 +177,7 @@ public class TestParquetPredicateUtils
                         new PrimitiveType(OPTIONAL, INT32, "c")));
         Map<List<String>, ColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, fileSchema);
         TupleDomain<ColumnDescriptor> calculatedTupleDomain = getParquetTupleDomain(descriptorsByPath, tupleDomain, fileSchema, useColumNames);
-        assertThat(calculatedTupleDomain.getDomains().get().size()).isEqualTo(1);
+        assertThat(calculatedTupleDomain.getDomains().get()).hasSize(1);
         ColumnDescriptor selectedColumnDescriptor = descriptorsByPath.get(ImmutableList.of("row_field", "b"));
         assertThat(calculatedTupleDomain.getDomains().get()).containsEntry(selectedColumnDescriptor, predicateDomain);
     }
@@ -195,13 +196,13 @@ public class TestParquetPredicateUtils
         HiveColumnProjectionInfo columnProjectionInfo = new HiveColumnProjectionInfo(
                 ImmutableList.of(2),
                 ImmutableList.of("C"),
-                HiveType.toHiveType(c1Type),
+                HiveTypeTranslator.toHiveType(c1Type),
                 c1Type);
 
         HiveColumnHandle projectedColumn = new HiveColumnHandle(
                 "row_field",
                 0,
-                HiveType.toHiveType(baseType),
+                HiveTypeTranslator.toHiveType(baseType),
                 baseType,
                 Optional.of(columnProjectionInfo),
                 REGULAR,
@@ -241,7 +242,7 @@ public class TestParquetPredicateUtils
         HiveColumnHandle projectedColumn = new HiveColumnHandle(
                 "row_field",
                 0,
-                HiveType.toHiveType(baseType),
+                HiveTypeTranslator.toHiveType(baseType),
                 baseType,
                 Optional.of(columnProjectionInfo),
                 REGULAR,

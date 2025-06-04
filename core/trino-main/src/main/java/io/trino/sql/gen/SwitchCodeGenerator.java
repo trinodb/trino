@@ -48,12 +48,12 @@ public class SwitchCodeGenerator
     public SwitchCodeGenerator(SpecialForm specialForm)
     {
         requireNonNull(specialForm, "specialForm is null");
-        returnType = specialForm.getType();
-        List<RowExpression> arguments = specialForm.getArguments();
+        returnType = specialForm.type();
+        List<RowExpression> arguments = specialForm.arguments();
         value = arguments.getFirst();
 
         RowExpression last = arguments.getLast();
-        if (last instanceof SpecialForm && ((SpecialForm) last).getForm() == WHEN) {
+        if (last instanceof SpecialForm form && form.form() == WHEN) {
             whenClauses = arguments.subList(1, arguments.size()).stream()
                     .map(SpecialForm.class::cast)
                     .collect(toImmutableList());
@@ -66,10 +66,10 @@ public class SwitchCodeGenerator
             elseValue = Optional.of(last);
         }
         checkArgument(whenClauses.stream()
-                .map(SpecialForm::getForm)
+                .map(SpecialForm::form)
                 .allMatch(WHEN::equals));
 
-        equalsFunctions = ImmutableList.copyOf(specialForm.getFunctionDependencies());
+        equalsFunctions = ImmutableList.copyOf(specialForm.functionDependencies());
         checkArgument(equalsFunctions.size() == whenClauses.size());
     }
 
@@ -122,11 +122,11 @@ public class SwitchCodeGenerator
         }
 
         // determine the type of the value and result
-        Class<?> valueType = value.getType().getJavaType();
+        Class<?> valueType = value.type().getJavaType();
 
         // evaluate the value and store it in a variable
         LabelNode nullValue = new LabelNode("nullCondition");
-        Variable tempVariable = scope.createTempVariable(valueType);
+        Variable tempVariable = scope.getOrCreateTempVariable(valueType);
         BytecodeBlock block = new BytecodeBlock()
                 .append(valueBytecode)
                 .append(BytecodeUtils.ifWasNullClearPopAndGoto(scope, nullValue, void.class, valueType))
@@ -139,8 +139,8 @@ public class SwitchCodeGenerator
         // reverse list because current if statement builder doesn't support if/else so we need to build the if statements bottom up
         for (int i = whenClauses.size() - 1; i >= 0; i--) {
             SpecialForm clause = whenClauses.get(i);
-            RowExpression operand = clause.getArguments().get(0);
-            RowExpression result = clause.getArguments().get(1);
+            RowExpression operand = clause.arguments().get(0);
+            RowExpression result = clause.arguments().get(1);
 
             // call equals(value, operand)
 
@@ -163,6 +163,8 @@ public class SwitchCodeGenerator
                     .ifFalse(elseValue);
         }
 
-        return block.append(elseValue);
+        block.append(elseValue);
+        scope.releaseTempVariableForReuse(tempVariable);
+        return block;
     }
 }

@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.bigquery;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.ConfigurationException;
 import com.google.inject.spi.Message;
@@ -21,7 +20,7 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.validation.FileExists;
-import jakarta.annotation.PostConstruct;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotNull;
 
 import java.io.File;
@@ -135,21 +134,22 @@ public class BigQueryProxyConfig
         return this;
     }
 
-    @PostConstruct
-    @VisibleForTesting
-    void validate()
+    @AssertTrue(message = "BigQuery RPC proxy URI cannot specify path")
+    public boolean isUriValid()
     {
-        if (!isNullOrEmpty(uri.getPath())) {
-            throw exception("BigQuery RPC proxy URI cannot specify path");
-        }
+        return isNullOrEmpty(uri.getPath());
+    }
 
-        if (username.isPresent() && password.isEmpty()) {
-            throw exception("bigquery.rpc-proxy.username was set but bigquery.rpc-proxy.password is empty");
-        }
+    @AssertTrue(message = "bigquery.rpc-proxy.username was set but bigquery.rpc-proxy.password is empty")
+    public boolean isPasswordNonEmptyIfUserProvided()
+    {
+        return password.isPresent() || username.isEmpty();
+    }
 
-        if (username.isEmpty() && password.isPresent()) {
-            throw exception("bigquery.rpc-proxy.password was set but bigquery.rpc-proxy.username is empty");
-        }
+    @AssertTrue(message = "bigquery.rpc-proxy.password was set but bigquery.rpc-proxy.username is empty")
+    public boolean isUserNotEmptyIfPasswordProvided()
+    {
+        return username.isPresent() || password.isEmpty();
     }
 
     private static ConfigurationException exception(String message)

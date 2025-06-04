@@ -22,6 +22,7 @@ import io.trino.spi.function.BlockIndex;
 import io.trino.spi.function.BlockPosition;
 import io.trino.spi.function.FlatFixed;
 import io.trino.spi.function.FlatFixedOffset;
+import io.trino.spi.function.FlatVariableOffset;
 import io.trino.spi.function.FlatVariableWidth;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
@@ -67,7 +68,7 @@ public final class TypeOperatorDeclaration
     private final Collection<OperatorMethodHandle> equalOperators;
     private final Collection<OperatorMethodHandle> hashCodeOperators;
     private final Collection<OperatorMethodHandle> xxHash64Operators;
-    private final Collection<OperatorMethodHandle> distinctFromOperators;
+    private final Collection<OperatorMethodHandle> identicalOperators;
     private final Collection<OperatorMethodHandle> indeterminateOperators;
     private final Collection<OperatorMethodHandle> comparisonUnorderedLastOperators;
     private final Collection<OperatorMethodHandle> comparisonUnorderedFirstOperators;
@@ -79,7 +80,7 @@ public final class TypeOperatorDeclaration
             Collection<OperatorMethodHandle> equalOperators,
             Collection<OperatorMethodHandle> hashCodeOperators,
             Collection<OperatorMethodHandle> xxHash64Operators,
-            Collection<OperatorMethodHandle> distinctFromOperators,
+            Collection<OperatorMethodHandle> identicalOperators,
             Collection<OperatorMethodHandle> indeterminateOperators,
             Collection<OperatorMethodHandle> comparisonUnorderedLastOperators,
             Collection<OperatorMethodHandle> comparisonUnorderedFirstOperators,
@@ -90,7 +91,7 @@ public final class TypeOperatorDeclaration
         this.equalOperators = List.copyOf(requireNonNull(equalOperators, "equalOperators is null"));
         this.hashCodeOperators = List.copyOf(requireNonNull(hashCodeOperators, "hashCodeOperators is null"));
         this.xxHash64Operators = List.copyOf(requireNonNull(xxHash64Operators, "xxHash64Operators is null"));
-        this.distinctFromOperators = List.copyOf(requireNonNull(distinctFromOperators, "distinctFromOperators is null"));
+        this.identicalOperators = List.copyOf(requireNonNull(identicalOperators, "identicalOperators is null"));
         this.indeterminateOperators = List.copyOf(requireNonNull(indeterminateOperators, "indeterminateOperators is null"));
         this.comparisonUnorderedLastOperators = List.copyOf(requireNonNull(comparisonUnorderedLastOperators, "comparisonUnorderedLastOperators is null"));
         this.comparisonUnorderedFirstOperators = List.copyOf(requireNonNull(comparisonUnorderedFirstOperators, "comparisonUnorderedFirstOperators is null"));
@@ -128,9 +129,9 @@ public final class TypeOperatorDeclaration
         return xxHash64Operators;
     }
 
-    public Collection<OperatorMethodHandle> getDistinctFromOperators()
+    public Collection<OperatorMethodHandle> getIdenticalOperators()
     {
-        return distinctFromOperators;
+        return identicalOperators;
     }
 
     public Collection<OperatorMethodHandle> getIndeterminateOperators()
@@ -178,7 +179,7 @@ public final class TypeOperatorDeclaration
         private final Collection<OperatorMethodHandle> equalOperators = new ArrayList<>();
         private final Collection<OperatorMethodHandle> hashCodeOperators = new ArrayList<>();
         private final Collection<OperatorMethodHandle> xxHash64Operators = new ArrayList<>();
-        private final Collection<OperatorMethodHandle> distinctFromOperators = new ArrayList<>();
+        private final Collection<OperatorMethodHandle> identicalOperators = new ArrayList<>();
         private final Collection<OperatorMethodHandle> indeterminateOperators = new ArrayList<>();
         private final Collection<OperatorMethodHandle> comparisonUnorderedLastOperators = new ArrayList<>();
         private final Collection<OperatorMethodHandle> comparisonUnorderedFirstOperators = new ArrayList<>();
@@ -197,7 +198,7 @@ public final class TypeOperatorDeclaration
             operatorDeclaration.getEqualOperators().forEach(this::addEqualOperator);
             operatorDeclaration.getHashCodeOperators().forEach(this::addHashCodeOperator);
             operatorDeclaration.getXxHash64Operators().forEach(this::addXxHash64Operator);
-            operatorDeclaration.getDistinctFromOperators().forEach(this::addDistinctFromOperator);
+            operatorDeclaration.getIdenticalOperators().forEach(this::addIdenticalOperator);
             operatorDeclaration.getIndeterminateOperators().forEach(this::addIndeterminateOperator);
             operatorDeclaration.getComparisonUnorderedLastOperators().forEach(this::addComparisonUnorderedLastOperator);
             operatorDeclaration.getComparisonUnorderedFirstOperators().forEach(this::addComparisonUnorderedFirstOperator);
@@ -270,19 +271,19 @@ public final class TypeOperatorDeclaration
             return this;
         }
 
-        public Builder addDistinctFromOperator(OperatorMethodHandle distinctFromOperator)
+        public Builder addIdenticalOperator(OperatorMethodHandle operator)
         {
-            verifyMethodHandleSignature(2, boolean.class, distinctFromOperator);
-            this.distinctFromOperators.add(distinctFromOperator);
+            verifyMethodHandleSignature(2, boolean.class, operator);
+            this.identicalOperators.add(operator);
             return this;
         }
 
-        public Builder addDistinctFromOperators(Collection<OperatorMethodHandle> distinctFromOperators)
+        public Builder addIdenticalOperators(Collection<OperatorMethodHandle> operators)
         {
-            for (OperatorMethodHandle distinctFromOperator : distinctFromOperators) {
-                verifyMethodHandleSignature(2, boolean.class, distinctFromOperator);
+            for (OperatorMethodHandle operator : operators) {
+                verifyMethodHandleSignature(2, boolean.class, operator);
             }
-            this.distinctFromOperators.addAll(distinctFromOperators);
+            this.identicalOperators.addAll(operators);
             return this;
         }
 
@@ -397,8 +398,8 @@ public final class TypeOperatorDeclaration
                     case XX_HASH_64:
                         addXxHash64Operator(new OperatorMethodHandle(parseInvocationConvention(operatorType, typeJavaType, method, long.class), methodHandle));
                         break;
-                    case IS_DISTINCT_FROM:
-                        addDistinctFromOperator(new OperatorMethodHandle(parseInvocationConvention(operatorType, typeJavaType, method, boolean.class), methodHandle));
+                    case IDENTICAL:
+                        addIdenticalOperator(new OperatorMethodHandle(parseInvocationConvention(operatorType, typeJavaType, method, boolean.class), methodHandle));
                         break;
                     case INDETERMINATE:
                         addIndeterminateOperator(new OperatorMethodHandle(parseInvocationConvention(operatorType, typeJavaType, method, boolean.class), methodHandle));
@@ -476,8 +477,9 @@ public final class TypeOperatorDeclaration
                     case FLAT:
                         checkArgument(parameterType.equals(byte[].class) &&
                                         methodType.parameterType(parameterIndex + 1).equals(int.class) &&
-                                        methodType.parameterType(parameterIndex + 2).equals(byte[].class),
-                                "Expected FLAT argument to have parameters byte[], int, and byte[]");
+                                        methodType.parameterType(parameterIndex + 2).equals(byte[].class) &&
+                                        methodType.parameterType(parameterIndex + 3).equals(int.class),
+                                "Expected FLAT argument to have parameters byte[], int, byte[], and int");
                         break;
                     case FUNCTION:
                         throw new IllegalArgumentException("Function argument convention is not supported in type operators");
@@ -605,12 +607,14 @@ public final class TypeOperatorDeclaration
                 }
             }
             else if (isAnnotationPresent(parameterAnnotations.get(0), FlatFixed.class)) {
-                if (parameterTypes.size() > 2 &&
+                if (parameterTypes.size() > 3 &&
                         isAnnotationPresent(parameterAnnotations.get(1), FlatFixedOffset.class) &&
                         isAnnotationPresent(parameterAnnotations.get(2), FlatVariableWidth.class) &&
+                        isAnnotationPresent(parameterAnnotations.get(3), FlatVariableOffset.class) &&
                         parameterTypes.get(0).equals(byte[].class) &&
                         parameterTypes.get(1).equals(int.class) &&
-                        parameterTypes.get(2).equals(byte[].class)) {
+                        parameterTypes.get(2).equals(byte[].class) &&
+                        parameterTypes.get(3).equals(int.class)) {
                     return FLAT;
                 }
             }
@@ -671,7 +675,7 @@ public final class TypeOperatorDeclaration
                     equalOperators,
                     hashCodeOperators,
                     xxHash64Operators,
-                    distinctFromOperators,
+                    identicalOperators,
                     indeterminateOperators,
                     comparisonUnorderedLastOperators,
                     comparisonUnorderedFirstOperators,

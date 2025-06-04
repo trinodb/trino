@@ -20,6 +20,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.FlatFixed;
 import io.trino.spi.function.FlatFixedOffset;
+import io.trino.spi.function.FlatVariableOffset;
 import io.trino.spi.function.FlatVariableWidth;
 import io.trino.spi.function.IsNull;
 import io.trino.spi.function.ScalarOperator;
@@ -34,7 +35,7 @@ import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_FIRST;
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
-import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
+import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.function.OperatorType.READ_VALUE;
@@ -121,7 +122,8 @@ public final class RealType
     private static long readFlat(
             @FlatFixed byte[] fixedSizeSlice,
             @FlatFixedOffset int fixedSizeOffset,
-            @FlatVariableWidth byte[] unusedVariableSizeSlice)
+            @FlatVariableWidth byte[] unusedVariableSizeSlice,
+            @FlatVariableOffset int unusedVariableSizeOffset)
     {
         return (int) INT_HANDLE.get(fixedSizeSlice, fixedSizeOffset);
     }
@@ -165,19 +167,19 @@ public final class RealType
     }
 
     @SuppressWarnings("FloatingPointEquality")
-    @ScalarOperator(IS_DISTINCT_FROM)
-    private static boolean distinctFromOperator(long left, @IsNull boolean leftNull, long right, @IsNull boolean rightNull)
+    @ScalarOperator(IDENTICAL)
+    private static boolean identical(long left, @IsNull boolean leftNull, long right, @IsNull boolean rightNull)
     {
         if (leftNull || rightNull) {
-            return leftNull != rightNull;
+            return leftNull == rightNull;
         }
 
         float leftFloat = intBitsToFloat((int) left);
         float rightFloat = intBitsToFloat((int) right);
         if (Float.isNaN(leftFloat) && Float.isNaN(rightFloat)) {
-            return false;
+            return true;
         }
-        return leftFloat != rightFloat;
+        return leftFloat == rightFloat;
     }
 
     @ScalarOperator(COMPARISON_UNORDERED_LAST)

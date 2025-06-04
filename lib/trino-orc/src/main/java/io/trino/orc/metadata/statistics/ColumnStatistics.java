@@ -213,8 +213,8 @@ public class ColumnStatistics
             return false;
         }
         ColumnStatistics that = (ColumnStatistics) o;
-        return Objects.equals(hasNumberOfValues, that.hasNumberOfValues) &&
-                Objects.equals(getNumberOfValues(), that.getNumberOfValues()) &&
+        return hasNumberOfValues == that.hasNumberOfValues &&
+                getNumberOfValues() == that.getNumberOfValues() &&
                 Objects.equals(booleanStatistics, that.booleanStatistics) &&
                 Objects.equals(integerStatistics, that.integerStatistics) &&
                 Objects.equals(doubleStatistics, that.doubleStatistics) &&

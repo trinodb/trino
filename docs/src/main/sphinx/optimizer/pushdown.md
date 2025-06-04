@@ -17,7 +17,6 @@ Support for pushdown is specific to each connector and the relevant underlying
 database or storage system.
 
 (predicate-pushdown)=
-
 ## Predicate pushdown
 
 Predicate pushdown optimizes row-based filtering. It uses the inferred filter,
@@ -25,25 +24,23 @@ typically resulting from a condition in a `WHERE` clause to omit unnecessary
 rows. The processing is pushed down to the data source by the connector and then
 processed by the data source.
 
-If predicate pushdown for a specific clause is succesful, the `EXPLAIN` plan
+If predicate pushdown for a specific clause is successful, the `EXPLAIN` plan
 for the query does not include a `ScanFilterProject` operation for that
 clause.
 
 (projection-pushdown)=
-
 ## Projection pushdown
 
 Projection pushdown optimizes column-based filtering. It uses the columns
 specified in the `SELECT` clause and other parts of the query to limit access
 to these columns. The processing is pushed down to the data source by the
-connector and then the data source only reads and returns the neccessary
+connector and then the data source only reads and returns the necessary
 columns.
 
-If projection pushdown is succesful, the `EXPLAIN` plan for the query only
+If projection pushdown is successful, the `EXPLAIN` plan for the query only
 accesses the relevant columns in the `Layout` of the `TableScan` operation.
 
 (dereference-pushdown)=
-
 ## Dereference pushdown
 
 Projection pushdown and dereference pushdown limit access to relevant columns,
@@ -58,7 +55,6 @@ result in significant savings in the amount of data read from the storage
 system.
 
 (aggregation-pushdown)=
-
 ## Aggregation pushdown
 
 Aggregation pushdown can take place provided the following conditions are satisfied:
@@ -72,7 +68,7 @@ You can check if pushdown for a specific query is performed by looking at the
 pushed down to the connector, the explain plan does **not** show that `Aggregate` operator.
 The explain plan only shows the operations that are performed by Trino.
 
-As an example, we loaded the TPCH data set into a PostgreSQL database and then
+As an example, we loaded the TPC-H data set into a PostgreSQL database and then
 queried it using the PostgreSQL connector:
 
 ```
@@ -117,7 +113,7 @@ Fragment 1 [SOURCE]
         regionkey_0 := regionkey:bigint:int8
 ```
 
-A number of factors can prevent a push down:
+A number of factors can prevent a push-down:
 
 - adding a condition to the query
 - using a different aggregate function that cannot be pushed down into the connector
@@ -178,7 +174,6 @@ Aggregation pushdown does not support a number of more complex statements:
 - {ref}`aggregations with filter <aggregate-function-filtering-during-aggregation>`
 
 (join-pushdown)=
-
 ## Join pushdown
 
 Join pushdown allows the connector to delegate the table join operation to the
@@ -204,7 +199,7 @@ EXPLAIN SELECT c.custkey, o.orderkey
 FROM orders o JOIN customer c ON c.custkey = o.custkey;
 ```
 
-The following plan results from the PostgreSQL connector querying TPCH
+The following plan results from the PostgreSQL connector querying TPC-H
 data in a PostgreSQL database. It does not show any `Join` operator as a
 result of the successful join push down.
 
@@ -233,7 +228,6 @@ increase the row count compared to the size of the input to the join. This
 may impact performance.
 
 (limit-pushdown)=
-
 ## Limit pushdown
 
 A {ref}`limit-clause` reduces the number of returned records for a statement.
@@ -249,7 +243,6 @@ Queries include sections such as `LIMIT N` or `FETCH FIRST N ROWS`.
 Implementation and support is connector-specific since different data sources have varying capabilities.
 
 (topn-pushdown)=
-
 ## Top-N pushdown
 
 The combination of a {ref}`limit-clause` with an {ref}`order-by-clause` creates

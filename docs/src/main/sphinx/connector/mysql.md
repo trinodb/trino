@@ -1,7 +1,7 @@
 ---
 myst:
   substitutions:
-    default_domain_compaction_threshold: '`32`'
+    default_domain_compaction_threshold: '`256`'
 ---
 
 # MySQL connector
@@ -38,7 +38,7 @@ connection-password=secret
 
 The `connection-url` defines the connection information and parameters to pass
 to the MySQL JDBC driver. The supported parameters for the URL are
-available in the [MySQL Developer Guide](https://dev.mysql.com/doc/connector-j/8.0/en/connector-j-reference-configuration-properties.html).
+available in the [MySQL Developer Guide](https://dev.mysql.com/doc/connector-j/en/connector-j-reference-configuration-properties.html).
 
 For example, the following `connection-url` allows you to require encrypted
 connections to the MySQL server:
@@ -53,7 +53,6 @@ use {doc}`secrets </security/secrets>` to avoid actual values in the catalog
 properties files.
 
 (mysql-tls)=
-
 ### Connection security
 
 If you have TLS configured with a globally-trusted certificate installed on your
@@ -97,17 +96,47 @@ creates a catalog named `sales` using the configured connector.
 ```{include} jdbc-domain-compaction-threshold.fragment
 ```
 
-```{include} jdbc-procedures.fragment
-```
-
 ```{include} jdbc-case-insensitive-matching.fragment
 ```
 
-```{include} non-transactional-insert.fragment
+(mysql-fte-support)=
+### Fault-tolerant execution support
+
+The connector supports {doc}`/admin/fault-tolerant-execution` of query
+processing. Read and write operations are both supported with any retry policy.
+
+## Table properties
+
+Table property usage example:
+
+```
+CREATE TABLE person (
+  id INT NOT NULL,
+  name VARCHAR,
+  age INT,
+  birthday DATE 
+)
+WITH (
+  primary_key = ARRAY['id']
+);
 ```
 
-(mysql-type-mapping)=
+The following are supported MySQL table properties: 
 
+:::{list-table}
+:widths: 30, 10, 60
+:header-rows: 1
+
+* - Property name
+  - Required
+  - Description
+* - `primary_key`
+  - No
+  - The primary key of the table, can choose multi columns as the table primary key.
+    All key columns must be defined as `NOT NULL`.
+:::
+
+(mysql-type-mapping)=
 ## Type mapping
 
 Because Trino and MySQL each support types that the other does not, this
@@ -290,7 +319,6 @@ To avoid the errors, you must use a time zone that is known on both systems,
 or [install the missing time zone on the MySQL server](https://dev.mysql.com/doc/refman/8.0/en/time-zone-support.html#time-zone-installation).
 
 (mysql-decimal-handling)=
-
 ```{include} decimal-type-handling.fragment
 ```
 
@@ -331,45 +359,58 @@ If you used a different name for your catalog properties file, use
 that catalog name instead of `example` in the above examples.
 
 (mysql-sql-support)=
-
 ## SQL support
 
 The connector provides read access and write access to data and metadata in the
-MySQL database. In addition to the {ref}`globally available <sql-globally-available>` and
-{ref}`read operation <sql-read-operations>` statements, the connector supports
-the following statements:
+MySQL database. In addition to the [globally available](sql-globally-available)
+and [read operation](sql-read-operations) statements, the connector supports the
+following features:
 
-- {doc}`/sql/insert`
-- {doc}`/sql/update`
-- {doc}`/sql/delete`
-- {doc}`/sql/truncate`
-- {doc}`/sql/create-table`
-- {doc}`/sql/create-table-as`
-- {doc}`/sql/drop-table`
-- {doc}`/sql/create-schema`
-- {doc}`/sql/drop-schema`
+- [](/sql/insert), see also [](mysql-insert)
+- [](/sql/update), see also [](mysql-update)
+- [](/sql/delete), see also [](mysql-delete)
+- [](/sql/merge), see also [](mysql-merge)
+- [](/sql/truncate)
+- [](/sql/create-table)
+- [](/sql/create-table-as)
+- [](/sql/drop-table)
+- [](/sql/create-schema)
+- [](/sql/drop-schema)
+- [](mysql-procedures)
+- [](mysql-table-functions)
 
+(mysql-insert)=
+```{include} non-transactional-insert.fragment
+```
+
+(mysql-update)=
 ```{include} sql-update-limitation.fragment
 ```
 
+(mysql-delete)=
 ```{include} sql-delete-limitation.fragment
 ```
 
-(mysql-fte-support)=
+(mysql-merge)=
+```{include} non-transactional-merge.fragment
+```
 
-## Fault-tolerant execution support
+(mysql-procedures)=
+### Procedures
 
-The connector supports {doc}`/admin/fault-tolerant-execution` of query
-processing. Read and write operations are both supported with any retry policy.
+```{include} jdbc-procedures-flush.fragment
+```
+```{include} procedures-execute.fragment
+```
 
-## Table functions
+(mysql-table-functions)=
+### Table functions
 
 The connector provides specific {doc}`table functions </functions/table>` to
 access MySQL.
 
 (mysql-query-function)=
-
-### `query(varchar) -> table`
+#### `query(varchar) -> table`
 
 The `query` function allows you to query the underlying database directly. It
 requires syntax native to MySQL, because the full query is pushed down and
@@ -408,7 +449,6 @@ The connector includes a number of performance improvements, detailed in the
 following sections.
 
 (mysql-table-statistics)=
-
 ### Table statistics
 
 The MySQL connector can use {doc}`table and column statistics
@@ -435,7 +475,7 @@ ANALYZE TABLE table_name;
 :::{note}
 MySQL and Trino may use statistics information in different ways. For this
 reason, the accuracy of table and column statistics returned by the MySQL
-connector might be lower than than that of others connectors.
+connector might be lower than that of others connectors.
 :::
 
 **Improving statistics accuracy**
@@ -452,7 +492,6 @@ Refer to MySQL documentation for information about options, limitations
 and additional considerations.
 
 (mysql-pushdown)=
-
 ### Pushdown
 
 The connector supports pushdown for a number of operations:

@@ -38,16 +38,6 @@ public final class Merge
             Expression predicate,
             List<MergeCase> mergeCases)
     {
-        this(Optional.of(location), target, source, predicate, mergeCases);
-    }
-
-    public Merge(
-            Optional<NodeLocation> location,
-            Relation target,
-            Relation source,
-            Expression predicate,
-            List<MergeCase> mergeCases)
-    {
         super(location);
         // Check that the target is either a Table or an AliasedRelation
         this.target = requireNonNull(target, "target is null");
@@ -79,8 +69,8 @@ public final class Merge
 
     public Table getTargetTable()
     {
-        if (target instanceof Table) {
-            return (Table) target;
+        if (target instanceof Table targetTable) {
+            return targetTable;
         }
         checkArgument(target instanceof AliasedRelation, "MERGE relation is neither a Table nor an AliasedRelation");
         return (Table) ((AliasedRelation) target).getRelation();
@@ -88,8 +78,8 @@ public final class Merge
 
     public Optional<Identifier> getTargetAlias()
     {
-        if (target instanceof AliasedRelation) {
-            return Optional.of(((AliasedRelation) target).getAlias());
+        if (target instanceof AliasedRelation aliasedRelation) {
+            return Optional.of(aliasedRelation.getAlias());
         }
         return Optional.empty();
     }

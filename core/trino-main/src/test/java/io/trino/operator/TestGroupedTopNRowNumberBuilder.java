@@ -83,7 +83,7 @@ public class TestGroupedTopNRowNumberBuilder
         GroupByHash groupByHash = createGroupByHash(ImmutableList.of(types.get(0)), NOOP);
         GroupedTopNBuilder groupedTopNBuilder = new GroupedTopNRowNumberBuilder(
                 types,
-                new SimplePageWithPositionComparator(types, ImmutableList.of(1), ImmutableList.of(ASC_NULLS_LAST), TYPE_OPERATORS_CACHE),
+                new SimplePageWithPositionComparator(ImmutableList.of(types.get(1)), ImmutableList.of(1), ImmutableList.of(ASC_NULLS_LAST), TYPE_OPERATORS_CACHE),
                 2,
                 produceRowNumbers,
                 new int[] {0},
@@ -102,7 +102,7 @@ public class TestGroupedTopNRowNumberBuilder
         assertThat(groupedTopNBuilder.processPage(input.get(3)).process()).isTrue();
 
         List<Page> output = ImmutableList.copyOf(groupedTopNBuilder.buildResult());
-        assertThat(output.size()).isEqualTo(1);
+        assertThat(output).hasSize(1);
 
         Page expected = rowPagesBuilder(BIGINT, DOUBLE, BIGINT)
                 .row(1L, 0.3, 1)
@@ -155,7 +155,7 @@ public class TestGroupedTopNRowNumberBuilder
 
         GroupedTopNBuilder groupedTopNBuilder = new GroupedTopNRowNumberBuilder(
                 types,
-                new SimplePageWithPositionComparator(types, ImmutableList.of(1), ImmutableList.of(ASC_NULLS_LAST), TYPE_OPERATORS_CACHE),
+                new SimplePageWithPositionComparator(ImmutableList.of(types.get(1)), ImmutableList.of(1), ImmutableList.of(ASC_NULLS_LAST), TYPE_OPERATORS_CACHE),
                 5,
                 produceRowNumbers,
                 new int[0],
@@ -174,7 +174,7 @@ public class TestGroupedTopNRowNumberBuilder
         assertThat(groupedTopNBuilder.processPage(input.get(3)).process()).isTrue();
 
         List<Page> output = ImmutableList.copyOf(groupedTopNBuilder.buildResult());
-        assertThat(output.size()).isEqualTo(1);
+        assertThat(output).hasSize(1);
 
         Page expected = rowPagesBuilder(BIGINT, DOUBLE, BIGINT)
                 .row(3L, 0.1, 1)
@@ -209,7 +209,7 @@ public class TestGroupedTopNRowNumberBuilder
         GroupByHash groupByHash = createGroupByHash(ImmutableList.of(types.get(0)), unblock::get);
         GroupedTopNBuilder groupedTopNBuilder = new GroupedTopNRowNumberBuilder(
                 types,
-                new SimplePageWithPositionComparator(types, ImmutableList.of(1), ImmutableList.of(ASC_NULLS_LAST), TYPE_OPERATORS_CACHE),
+                new SimplePageWithPositionComparator(ImmutableList.of(types.get(1)), ImmutableList.of(1), ImmutableList.of(ASC_NULLS_LAST), TYPE_OPERATORS_CACHE),
                 5,
                 false,
                 new int[] {0},
@@ -221,7 +221,7 @@ public class TestGroupedTopNRowNumberBuilder
         unblock.set(true);
         assertThat(work.process()).isTrue();
         List<Page> output = ImmutableList.copyOf(groupedTopNBuilder.buildResult());
-        assertThat(output.size()).isEqualTo(1);
+        assertThat(output).hasSize(1);
 
         Page expected = rowPagesBuilder(types)
                 .row(1L, 0.1)
@@ -237,7 +237,7 @@ public class TestGroupedTopNRowNumberBuilder
     {
         return GroupByHash.createGroupByHash(
                 partitionTypes,
-                false,
+                GroupByHash.selectGroupByHashMode(false, false, partitionTypes),
                 1,
                 false,
                 new FlatHashStrategyCompiler(new TypeOperators()),

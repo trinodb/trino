@@ -21,11 +21,10 @@ import com.google.common.collect.Maps;
 import com.google.common.io.BaseEncoding;
 import io.trino.client.ClientTypeSignature;
 import io.trino.client.ClientTypeSignatureParameter;
+import io.trino.client.CloseableIterator;
 import io.trino.client.Column;
 import io.trino.client.IntervalDayTime;
 import io.trino.client.IntervalYearMonth;
-import io.trino.client.QueryError;
-import io.trino.client.QueryStatusInfo;
 import io.trino.jdbc.ColumnInfo.Nullable;
 import io.trino.jdbc.TypeConversions.NoConversionRegisteredException;
 import org.joda.time.DateTimeZone;
@@ -35,6 +34,7 @@ import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
@@ -57,12 +57,12 @@ import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.Calendar;
 import java.util.GregorianCalendar;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -90,6 +90,8 @@ import static org.joda.time.DateTimeConstants.SECONDS_PER_DAY;
 abstract class AbstractTrinoResultSet
         implements ResultSet
 {
+    private static final ZoneId SYSTEM_DEFAULT_ZONE_ID = ZoneId.systemDefault();
+
     private static final Pattern DATETIME_PATTERN = Pattern.compile("" +
             "(?<year>[-+]?\\d{4,})-(?<month>\\d{1,2})-(?<day>\\d{1,2})" +
             "( (?:(?<hour>\\d{1,2}):(?<minute>\\d{1,2})(?::(?<second>\\d{1,2})(?:\\.(?<fraction>\\d+))?)?)?" +
@@ -117,6 +119,9 @@ abstract class AbstractTrinoResultSet
     };
 
     private static final int MAX_DATETIME_PRECISION = 12;
+
+    private static final DateTimeZone CURRENT_TIME_ZONE = DateTimeZone.forID(SYSTEM_DEFAULT_ZONE_ID.getId());
+    private static final TimeZone CURRENT_JAVA_TIME_ZONE = TimeZone.getTimeZone(SYSTEM_DEFAULT_ZONE_ID);
 
     private static final int MILLISECONDS_PER_SECOND = 1000;
     private static final int MILLISECONDS_PER_MINUTE = 60 * MILLISECONDS_PER_SECOND;
@@ -150,13 +155,15 @@ abstract class AbstractTrinoResultSet
             TypeConversions.builder()
                     .add("decimal", String.class, BigDecimal.class, AbstractTrinoResultSet::parseBigDecimal)
                     .add("varbinary", byte[].class, String.class, value -> "0x" + BaseEncoding.base16().encode(value))
-                    .add("date", String.class, Date.class, string -> parseDate(string, DateTimeZone.forID(ZoneId.systemDefault().getId())))
-                    .add("date", String.class, java.time.LocalDate.class, string -> parseDate(string, DateTimeZone.forID(ZoneId.systemDefault().getId())).toLocalDate())
-                    .add("time", String.class, Time.class, string -> parseTime(string, ZoneId.systemDefault()))
+                    .add("date", String.class, Date.class, string -> parseDate(string, CURRENT_TIME_ZONE, CURRENT_JAVA_TIME_ZONE))
+                    .add("date", String.class, java.time.LocalDate.class, string -> parseDate(string, CURRENT_TIME_ZONE, CURRENT_JAVA_TIME_ZONE).toLocalDate())
+                    .add("time", String.class, Time.class, string -> parseTime(string, SYSTEM_DEFAULT_ZONE_ID))
                     .add("time with time zone", String.class, Time.class, AbstractTrinoResultSet::parseTimeWithTimeZone)
-                    .add("timestamp", String.class, Timestamp.class, string -> parseTimestampAsSqlTimestamp(string, ZoneId.systemDefault()))
+                    .add("timestamp", String.class, LocalDateTime.class, AbstractTrinoResultSet::parseTimestampAsLocalDateTime)
+                    .add("timestamp", String.class, Timestamp.class, string -> parseTimestampAsSqlTimestamp(string, SYSTEM_DEFAULT_ZONE_ID))
+                    .add("timestamp with time zone", String.class, Instant.class, AbstractTrinoResultSet::parseTimestampWithTimeZoneAsInstant)
                     .add("timestamp with time zone", String.class, Timestamp.class, AbstractTrinoResultSet::parseTimestampWithTimeZoneAsSqlTimestamp)
-                    .add("timestamp with time zone", String.class, ZonedDateTime.class, AbstractTrinoResultSet::parseTimestampWithTimeZone)
+                    .add("timestamp with time zone", String.class, ZonedDateTime.class, AbstractTrinoResultSet::parseTimestampWithTimeZoneAsZonedDateTime)
                     .add("interval year to month", String.class, TrinoIntervalYearMonth.class, AbstractTrinoResultSet::parseIntervalYearMonth)
                     .add("interval day to second", String.class, TrinoIntervalDayTime.class, AbstractTrinoResultSet::parseIntervalDayTime)
                     .add("array", List.class, List.class, (type, list) -> (List<?>) convertFromClientRepresentation(type, list))
@@ -179,9 +186,7 @@ abstract class AbstractTrinoResultSet
                         return result;
                     })
                     .build();
-
-    private final DateTimeZone resultTimeZone;
-    protected final Iterator<List<Object>> results;
+    protected final CloseableIterator<List<Object>> results;
     private final Map<String, Integer> fieldMap;
     private final List<ColumnInfo> columnInfoList;
     private final ResultSetMetaData resultSetMetaData;
@@ -190,11 +195,11 @@ abstract class AbstractTrinoResultSet
     private final AtomicBoolean wasNull = new AtomicBoolean();
     private final Optional<Statement> statement;
 
-    AbstractTrinoResultSet(Optional<Statement> statement, List<Column> columns, Iterator<List<Object>> results)
+    private final AtomicBoolean closed = new AtomicBoolean();
+
+    AbstractTrinoResultSet(Optional<Statement> statement, List<Column> columns, CloseableIterator<List<Object>> results)
     {
         this.statement = requireNonNull(statement, "statement is null");
-        this.resultTimeZone = DateTimeZone.forID(ZoneId.systemDefault().getId());
-
         requireNonNull(columns, "columns is null");
         this.fieldMap = getFieldMap(columns);
         this.columnInfoList = getColumnInfo(columns);
@@ -333,10 +338,10 @@ abstract class AbstractTrinoResultSet
     public Date getDate(int columnIndex)
             throws SQLException
     {
-        return getDate(columnIndex, resultTimeZone);
+        return getDate(columnIndex, CURRENT_TIME_ZONE, CURRENT_JAVA_TIME_ZONE);
     }
 
-    private Date getDate(int columnIndex, DateTimeZone localTimeZone)
+    private Date getDate(int columnIndex, DateTimeZone localTimeZone, TimeZone localJavaTimeZone)
             throws SQLException
     {
         Object value = column(columnIndex);
@@ -345,16 +350,16 @@ abstract class AbstractTrinoResultSet
         }
 
         try {
-            return parseDate(String.valueOf(value), localTimeZone);
+            return parseDate(String.valueOf(value), localTimeZone, localJavaTimeZone);
         }
         catch (IllegalArgumentException e) {
             throw new SQLException("Expected value to be a date but is: " + value, e);
         }
     }
 
-    private static Date parseDate(String value, DateTimeZone localTimeZone)
+    private static Date parseDate(String value, DateTimeZone localTimeZone, TimeZone localJavaTimeZone)
     {
-        LocalDate localDate = DATE_FORMATTER.parseLocalDate(String.valueOf(value));
+        LocalDate localDate = DATE_FORMATTER.parseLocalDate(value);
         long millis = localDate.toDateTimeAtStartOfDay(localTimeZone).getMillis();
         if (millis >= START_OF_MODERN_ERA_SECONDS * MILLISECONDS_PER_SECOND) {
             return new Date(millis);
@@ -367,9 +372,8 @@ abstract class AbstractTrinoResultSet
         // expensive GregorianCalendar; note that Joda also has a chronology that works for
         // older dates, but it uses a slightly different algorithm and yields results that
         // are not compatible with java.sql.Date.
-        LocalDate preGregorianDate = DATE_FORMATTER.parseLocalDate(String.valueOf(value));
-        Calendar calendar = new GregorianCalendar(preGregorianDate.getYear(), preGregorianDate.getMonthOfYear() - 1, preGregorianDate.getDayOfMonth());
-        calendar.setTimeZone(TimeZone.getTimeZone(ZoneId.of(localTimeZone.getID())));
+        Calendar calendar = new GregorianCalendar(localDate.getYear(), localDate.getMonthOfYear() - 1, localDate.getDayOfMonth());
+        calendar.setTimeZone(localJavaTimeZone);
 
         return new Date(calendar.getTimeInMillis());
     }
@@ -378,7 +382,7 @@ abstract class AbstractTrinoResultSet
     public Time getTime(int columnIndex)
             throws SQLException
     {
-        return getTime(columnIndex, resultTimeZone);
+        return getTime(columnIndex, CURRENT_TIME_ZONE);
     }
 
     private Time getTime(int columnIndex, DateTimeZone localTimeZone)
@@ -415,7 +419,7 @@ abstract class AbstractTrinoResultSet
     public Timestamp getTimestamp(int columnIndex)
             throws SQLException
     {
-        return getTimestamp(columnIndex, resultTimeZone);
+        return getTimestamp(columnIndex, CURRENT_TIME_ZONE);
     }
 
     private Timestamp getTimestamp(int columnIndex, DateTimeZone localTimeZone)
@@ -448,10 +452,16 @@ abstract class AbstractTrinoResultSet
         throw new IllegalArgumentException("Expected column to be a timestamp type but is " + columnInfo.getColumnTypeName());
     }
 
-    private static ZonedDateTime parseTimestampWithTimeZone(String value)
+    private static Instant parseTimestampWithTimeZoneAsInstant(String value)
     {
         ParsedTimestamp parsed = parseTimestamp(value);
-        return toZonedDateTime(parsed, timezone -> ZoneId.of(timezone.orElseThrow(() -> new IllegalArgumentException("Time zone missing: " + value))));
+        return toInstant(parsed, timezone -> timezone.map(ZoneId::of).orElseThrow(() -> new IllegalArgumentException("Time zone missing: " + value)));
+    }
+
+    private static ZonedDateTime parseTimestampWithTimeZoneAsZonedDateTime(String value)
+    {
+        ParsedTimestamp parsed = parseTimestamp(value);
+        return toZonedDateTime(parsed, timezone -> timezone.map(ZoneId::of).orElseThrow(() -> new IllegalArgumentException("Time zone missing: " + value)));
     }
 
     @Override
@@ -765,7 +775,7 @@ abstract class AbstractTrinoResultSet
     private static BigDecimal parseBigDecimal(String value)
             throws SQLException
     {
-        return toBigDecimal(String.valueOf(value))
+        return toBigDecimal(value)
                 .orElseThrow(() -> new SQLException("Value is not a number: " + value));
     }
 
@@ -1351,7 +1361,7 @@ abstract class AbstractTrinoResultSet
     public Date getDate(int columnIndex, Calendar cal)
             throws SQLException
     {
-        return getDate(columnIndex, DateTimeZone.forTimeZone(cal.getTimeZone()));
+        return getDate(columnIndex, DateTimeZone.forTimeZone(cal.getTimeZone()), cal.getTimeZone());
     }
 
     @Override
@@ -1827,6 +1837,20 @@ abstract class AbstractTrinoResultSet
         return getObject(columnIndex(columnLabel), type);
     }
 
+    @Override
+    public void close()
+            throws SQLException
+    {
+        if (closed.compareAndSet(false, true)) {
+            try {
+                results.close();
+            }
+            catch (IOException e) {
+                throw new SQLException(e);
+            }
+        }
+    }
+
     @SuppressWarnings("unchecked")
     @Override
     public <T> T unwrap(Class<T> iface)
@@ -1929,14 +1953,6 @@ abstract class AbstractTrinoResultSet
         }
     }
 
-    static SQLException resultsException(QueryStatusInfo results)
-    {
-        QueryError error = requireNonNull(results.getError());
-        String message = format("Query failed (#%s): %s", results.getId(), error.getMessage());
-        Throwable cause = (error.getFailureInfo() == null) ? null : error.getFailureInfo().toException();
-        return new SQLException(message, error.getSqlState(), error.getErrorCode(), cause);
-    }
-
     private static Map<String, Integer> getFieldMap(List<Column> columns)
     {
         Map<String, Integer> map = Maps.newHashMapWithExpectedSize(columns.size());
@@ -1973,6 +1989,11 @@ abstract class AbstractTrinoResultSet
         ParsedTimestamp parsed = parseTimestamp(value);
         return toTimestamp(value, parsed, timezone ->
                 ZoneId.of(timezone.orElseThrow(() -> new IllegalArgumentException("Time zone missing: " + value))));
+    }
+
+    private static LocalDateTime parseTimestampAsLocalDateTime(String value)
+    {
+        return toLocalDateTime(parseTimestamp(value));
     }
 
     private static Timestamp parseTimestampAsSqlTimestamp(String value, ZoneId localTimeZone)
@@ -2049,7 +2070,13 @@ abstract class AbstractTrinoResultSet
         return timestamp;
     }
 
-    private static ZonedDateTime toZonedDateTime(ParsedTimestamp parsed, Function<Optional<String>, ZoneId> timeZoneParser)
+    private static Instant toInstant(ParsedTimestamp parsed, Function<Optional<String>, ZoneId> timeZoneParser)
+    {
+        return toZonedDateTime(parsed, timeZoneParser)
+                .toInstant();
+    }
+
+    private static LocalDateTime toLocalDateTime(ParsedTimestamp parsed)
     {
         int year = parsed.year;
         int month = parsed.month;
@@ -2058,14 +2085,19 @@ abstract class AbstractTrinoResultSet
         int minute = parsed.minute;
         int second = parsed.second;
         long picosOfSecond = parsed.picosOfSecond;
-        ZoneId zoneId = timeZoneParser.apply(parsed.timezone);
 
-        ZonedDateTime zonedDateTime = LocalDateTime.of(year, month, day, hour, minute, second, 0)
-                .atZone(zoneId);
+        LocalDateTime localDateTime = LocalDateTime.of(year, month, day, hour, minute, second, 0);
 
         int nanoOfSecond = (int) rescale(picosOfSecond, 12, 9);
-        zonedDateTime = zonedDateTime.plusNanos(nanoOfSecond);
-        return zonedDateTime;
+        return localDateTime.plusNanos(nanoOfSecond);
+    }
+
+    private static ZonedDateTime toZonedDateTime(ParsedTimestamp parsed, Function<Optional<String>, ZoneId> timeZoneParser)
+    {
+        ZoneId zoneId = timeZoneParser.apply(parsed.timezone);
+
+        return toLocalDateTime(parsed)
+                .atZone(zoneId);
     }
 
     private static Time parseTime(String value, ZoneId localTimeZone)

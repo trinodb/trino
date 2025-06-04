@@ -18,6 +18,7 @@ import java.util.Optional;
 public class NullLiteral
         extends Literal
 {
+    @Deprecated
     public NullLiteral()
     {
         super(Optional.empty());
@@ -25,7 +26,7 @@ public class NullLiteral
 
     public NullLiteral(NodeLocation location)
     {
-        super(Optional.of(location));
+        super(location);
     }
 
     @Override

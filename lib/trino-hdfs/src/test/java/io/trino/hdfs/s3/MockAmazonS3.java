@@ -213,7 +213,5 @@ public class MockAmazonS3
     }
 
     @Override
-    public void shutdown()
-    {
-    }
+    public void shutdown() {}
 }

@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.cassandra.util;
 
-import com.datastax.oss.driver.api.core.Version;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.cassandra.CassandraClusteringPredicatesExtractor;
@@ -37,7 +36,6 @@ public class TestCassandraClusteringPredicatesExtractor
     private static final CassandraColumnHandle col3;
     private static final CassandraColumnHandle col4;
     private static final CassandraTable cassandraTable;
-    private static final Version cassandraVersion;
 
     static {
         col1 = new CassandraColumnHandle("partitionKey1", 1, CassandraTypes.BIGINT, true, false, false, false);
@@ -47,8 +45,6 @@ public class TestCassandraClusteringPredicatesExtractor
 
         cassandraTable = new CassandraTable(
                 new CassandraNamedRelationHandle("test", "records"), ImmutableList.of(col1, col2, col3, col4));
-
-        cassandraVersion = Version.parse("2.1.5");
     }
 
     @Test
@@ -59,7 +55,7 @@ public class TestCassandraClusteringPredicatesExtractor
                         col1, Domain.singleValue(BIGINT, 23L),
                         col2, Domain.singleValue(BIGINT, 34L),
                         col4, Domain.singleValue(BIGINT, 26L)));
-        CassandraClusteringPredicatesExtractor predicatesExtractor = new CassandraClusteringPredicatesExtractor(CASSANDRA_TYPE_MANAGER, cassandraTable.clusteringKeyColumns(), tupleDomain, cassandraVersion);
+        CassandraClusteringPredicatesExtractor predicatesExtractor = new CassandraClusteringPredicatesExtractor(CASSANDRA_TYPE_MANAGER, cassandraTable.clusteringKeyColumns(), tupleDomain);
         String predicate = predicatesExtractor.getClusteringKeyPredicates();
         assertThat(predicate).isEqualTo("\"clusteringKey1\" = 34");
     }
@@ -71,7 +67,7 @@ public class TestCassandraClusteringPredicatesExtractor
                 ImmutableMap.of(
                         col2, Domain.singleValue(BIGINT, 34L),
                         col4, Domain.singleValue(BIGINT, 26L)));
-        CassandraClusteringPredicatesExtractor predicatesExtractor = new CassandraClusteringPredicatesExtractor(CASSANDRA_TYPE_MANAGER, cassandraTable.clusteringKeyColumns(), tupleDomain, cassandraVersion);
+        CassandraClusteringPredicatesExtractor predicatesExtractor = new CassandraClusteringPredicatesExtractor(CASSANDRA_TYPE_MANAGER, cassandraTable.clusteringKeyColumns(), tupleDomain);
         TupleDomain<ColumnHandle> unenforcedPredicates = TupleDomain.withColumnDomains(ImmutableMap.of(col4, Domain.singleValue(BIGINT, 26L)));
         assertThat(predicatesExtractor.getUnenforcedConstraints()).isEqualTo(unenforcedPredicates);
     }

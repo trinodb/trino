@@ -14,7 +14,6 @@
 package io.trino.spi.connector;
 
 import io.trino.spi.Experimental;
-import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.function.FunctionProvider;
 import io.trino.spi.function.table.ConnectorTableFunction;
 import io.trino.spi.procedure.Procedure;
@@ -73,6 +72,16 @@ public interface Connector
     default ConnectorPageSourceProvider getPageSourceProvider()
     {
         throw new UnsupportedOperationException();
+    }
+
+    /**
+     * Provide a pageSourceProviderFactory to create stateful instances of PageSourceProvider per query.
+     * If not implemented a singleton instance returned by getPageSourceProvider will be used for all queries.
+     */
+    default ConnectorPageSourceProviderFactory getPageSourceProviderFactory()
+    {
+        ConnectorPageSourceProvider pageSourceProvider = getPageSourceProvider();
+        return () -> pageSourceProvider;
     }
 
     /**
@@ -207,14 +216,6 @@ public interface Connector
     default ConnectorAccessControl getAccessControl()
     {
         throw new UnsupportedOperationException();
-    }
-
-    /**
-     * @return the event listeners provided by this connector
-     */
-    default Iterable<EventListener> getEventListeners()
-    {
-        return emptySet();
     }
 
     /**

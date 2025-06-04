@@ -19,7 +19,6 @@ import io.trino.tempto.ProductTest;
 import io.trino.tempto.Requirement;
 import io.trino.tempto.RequirementsProvider;
 import io.trino.tempto.configuration.Configuration;
-import io.trino.tempto.fulfillment.ldap.LdapObjectRequirement;
 import io.trino.tempto.query.QueryResult;
 
 import java.sql.Connection;
@@ -27,21 +26,9 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.Arrays;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.tests.product.ImmutableLdapObjectDefinitions.AMERICA_ORG;
-import static io.trino.tests.product.ImmutableLdapObjectDefinitions.ASIA_ORG;
-import static io.trino.tests.product.ImmutableLdapObjectDefinitions.CHILD_GROUP;
-import static io.trino.tests.product.ImmutableLdapObjectDefinitions.CHILD_GROUP_USER;
-import static io.trino.tests.product.ImmutableLdapObjectDefinitions.DEFAULT_GROUP;
-import static io.trino.tests.product.ImmutableLdapObjectDefinitions.DEFAULT_GROUP_USER;
-import static io.trino.tests.product.ImmutableLdapObjectDefinitions.EUROPE_ORG;
-import static io.trino.tests.product.ImmutableLdapObjectDefinitions.ORPHAN_USER;
-import static io.trino.tests.product.ImmutableLdapObjectDefinitions.PARENT_GROUP;
-import static io.trino.tests.product.ImmutableLdapObjectDefinitions.PARENT_GROUP_USER;
-import static io.trino.tests.product.ImmutableLdapObjectDefinitions.USER_IN_AMERICA;
-import static io.trino.tests.product.ImmutableLdapObjectDefinitions.USER_IN_EUROPE;
+import static io.trino.tests.product.ImmutableLdapObjectDefinitions.getLdapRequirement;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -54,33 +41,29 @@ public abstract class BaseLdapJdbcTest
     protected static final String NATION_SELECT_ALL_QUERY = "SELECT * FROM tpch.tiny.nation";
 
     @Inject
-    @Named("databases.presto.cli_ldap_truststore_path")
+    @Named("databases.trino.cli_ldap_truststore_path")
     protected String ldapTruststorePath;
 
     @Inject
-    @Named("databases.presto.cli_ldap_truststore_password")
+    @Named("databases.trino.cli_ldap_truststore_password")
     protected String ldapTruststorePassword;
 
     @Inject
-    @Named("databases.presto.cli_ldap_user_name")
+    @Named("databases.trino.cli_ldap_user_name")
     protected String ldapUserName;
 
     @Inject
-    @Named("databases.presto.cli_ldap_user_password")
+    @Named("databases.trino.cli_ldap_user_password")
     protected String ldapUserPassword;
 
     @Inject
-    @Named("databases.presto.cli_ldap_server_address")
-    private String prestoServer;
+    @Named("databases.trino.cli_ldap_server_address")
+    private String trinoServer;
 
     @Override
     public Requirement getRequirements(Configuration configuration)
     {
-        return new LdapObjectRequirement(
-                Arrays.asList(
-                        AMERICA_ORG, ASIA_ORG, EUROPE_ORG,
-                        DEFAULT_GROUP, PARENT_GROUP, CHILD_GROUP,
-                        DEFAULT_GROUP_USER, PARENT_GROUP_USER, CHILD_GROUP_USER, ORPHAN_USER, USER_IN_AMERICA, USER_IN_EUROPE));
+        return getLdapRequirement();
     }
 
     protected void expectQueryToFail(String user, String password, String message)
@@ -106,16 +89,16 @@ public abstract class BaseLdapJdbcTest
         return DriverManager.getConnection(getLdapUrl(), name, password);
     }
 
-    protected String prestoServer()
+    protected String trinoServer()
     {
         String prefix = "https://";
-        checkState(prestoServer.startsWith(prefix), "invalid server address: %s", prestoServer);
-        return prestoServer.substring(prefix.length());
+        checkState(trinoServer.startsWith(prefix), "invalid server address: %s", trinoServer);
+        return trinoServer.substring(prefix.length());
     }
 
     protected String getLdapUrl()
     {
-        return format(getLdapUrlFormat(), prestoServer(), ldapTruststorePath, ldapTruststorePassword);
+        return format(getLdapUrlFormat(), trinoServer(), ldapTruststorePath, ldapTruststorePassword);
     }
 
     protected abstract String getLdapUrlFormat();

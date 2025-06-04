@@ -59,7 +59,7 @@ public class InsecureFormAuthenticator
             try {
                 return Optional.of(userMapping.mapUser(username));
             }
-            catch (UserMappingException ignored) {
+            catch (UserMappingException _) {
             }
         }
         return Optional.empty();

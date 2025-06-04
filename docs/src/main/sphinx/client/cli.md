@@ -5,20 +5,24 @@ queries. The CLI is a
 [self-executing](http://skife.org/java/unix/2011/06/20/really_executable_jars.html)
 JAR file, which means it acts like a normal UNIX executable.
 
+The CLI uses the [](/client/client-protocol) over HTTP/HTTPS to communicate with
+the coordinator on the cluster.
+
 ## Requirements
 
-The CLI requires a Java virtual machine available on the path.
-It can be used with Java version 8 and higher.
+The Trino CLI has the following requirements:
 
-The CLI uses the {doc}`Trino client REST API </develop/client-protocol>` over
-HTTP/HTTPS to communicate with the coordinator on the cluster.
+* Java version 11 or higher available on the path. Java 22 or higher is
+  recommended for improved decompression performance.
+* Network access over HTTP/HTTPS to the coordinator of the Trino cluster.
+* Network access to the configured object storage, if the
+  [](cli-spooling-protocol) is enabled.
 
 The CLI version should be identical to the version of the Trino cluster, or
 newer. Older versions typically work, but only a subset is regularly tested.
 Versions before 350 are not supported.
 
 (cli-installation)=
-
 ## Installation
 
 Download {maven_download}`cli`, rename it to `trino`, make it executable with
@@ -30,7 +34,7 @@ Download {maven_download}`cli`, rename it to `trino`, make it executable with
 
 Run the CLI with `--help` or `-h` to see all available options.
 
-Windows users, and users unable to execute the preceeding steps, can use the
+Windows users, and users unable to execute the preceding steps, can use the
 equivalent `java` command with the `-jar` option to run the CLI, and show
 the version:
 
@@ -132,8 +136,8 @@ mode:
 * - Option
   - Description
 * - `--catalog`
-  - Sets the default catalog. You can change the default catalog and schema with
-    [](/sql/use).
+  - Sets the default catalog. Optionally also use `--schema` to set the default
+    schema. You can change the default catalog and default schema with[](/sql/use).
 * - `--client-info`
   - Adds arbitrary text as extra information about the client.
 * - `--client-request-timeout`
@@ -147,6 +151,9 @@ mode:
   - Enables display of debug information during CLI usage for
     [](cli-troubleshooting). Displays more information about query
     processing statistics.
+* - `--decimal-data-size`
+  - Show data size and rate in base 10 (KB, MB, etc.) rather than the default 
+    base 2 (KiB, MiB, etc.).
 * - `--disable-auto-suggestion`
   - Disables autocomplete suggestions.
 * - `--disable-compression`
@@ -154,6 +161,8 @@ mode:
 * - `--editing-mode`
   - Sets key bindings in the CLI to be compatible with VI or
     EMACS editors. Defaults to `EMACS`.
+* - `--extra-credential`
+  - Extra credentials (property can be used multiple times; format is key=value)
 * - `--http-proxy`
   - Configures the URL of the HTTP proxy to connect to Trino.
 * - `--history-file`
@@ -170,19 +179,23 @@ mode:
     selected set of options.
 * - `--no-progress`
   - Do not show query processing progress.
+* - `--path`
+  - Set the default [SQL path](/sql/set-path) for the session. Useful for
+    setting a catalog and schema location for [](udf-catalog).
 * - `--password`
   - Prompts for a password. Use if your Trino server requires password
     authentication. You can set the `TRINO_PASSWORD` environment variable with
     the password value to avoid the prompt. For more information, see
     [](cli-username-password-auth).
 * - `--schema`
-  - Sets the default schema. You can change the default catalog and schema
-    with [](/sql/use).
+  - Sets the default schema. Must be combined with `--catalog`. You can change
+    the default catalog and default schema with [](/sql/use).
 * - `--server`
   - The HTTP/HTTPS address and port of the Trino coordinator. The port must be
-    set to the port the Trino coordinator is listening for connections on. Trino
-    server location defaults to `http://localhost:8080`. Can only be set if URL
-    is not specified.
+    set to the port the Trino coordinator is listening for connections on. Port
+    80 for HTTP and Port 443 for HTTPS can be omitted. Trino server location
+    defaults to `http://localhost:8080`. Can only be set if URL is not
+    specified.
 * - `--session`
   - Sets one or more [session properties](session-properties-definition).
     Property can be used multiple times with the format
@@ -214,7 +227,6 @@ to find out URL parameter names. For example:
 ```
 
 (cli-tls)=
-
 ## TLS/HTTPS
 
 Trino is typically available with an HTTPS URL. This means that all network
@@ -254,6 +266,11 @@ certificate usage:
   - Determined by the keystore file format. The default keystore type is JKS.
     This advanced option is only necessary if you use a custom Java Cryptography
     Architecture (JCA) provider implementation.
+* - `--use-system-keystore`
+  - Use a client certificate obtained from the system keystore of the operating
+    system. Windows and macOS are supported. For other operating systems, the
+    default Java keystore is used. The keystore type can be overridden using
+    `--keystore-type`.
 * - `--truststore-password`
   - The password for the truststore. This must match the password you specified
     when creating the truststore.
@@ -271,21 +288,19 @@ certificate usage:
 :::
 
 (cli-authentication)=
-
 ## Authentication
 
 The Trino CLI supports many {doc}`/security/authentication-types` detailed in
 the following sections:
 
 (cli-username-password-auth)=
-
 ### Username and password authentication
 
 Username and password authentication is typically configured in a cluster using
 the `PASSWORD` {doc}`authentication type </security/authentication-types>`,
 for example with {doc}`/security/ldap` or {doc}`/security/password-file`.
 
-The following code example connects to the server, establishes your user name,
+The following code example connects to the server, establishes your username,
 and prompts the CLI for your password:
 
 ```text
@@ -308,7 +323,6 @@ to provide a password to connect with the CLI.
 ```
 
 (cli-external-sso-auth)=
-
 ### External authentication - SSO
 
 Use the `--external-authentication` option for browser-based SSO
@@ -332,7 +346,6 @@ The detailed behavior is as follows:
 - Expired tokens force you to log in again.
 
 (cli-certificate-auth)=
-
 ### Certificate authentication
 
 Use the following CLI arguments to connect to a cluster that uses
@@ -357,14 +370,12 @@ authentication with the CLI; instead, they control the client's trust of the
 server's certificate.
 
 (cli-jwt-auth)=
-
 ### JWT authentication
 
 To access a Trino cluster configured to use {doc}`/security/jwt`, use the
 `--access-token=<token>` option to pass a JWT to the server.
 
 (cli-kerberos-auth)=
-
 ### Kerberos authentication
 
 The Trino CLI can connect to a Trino cluster that has {doc}`/security/kerberos`
@@ -415,7 +426,6 @@ The following table lists the available options for Kerberos authentication:
 :::
 
 (cli-kerberos-debug)=
-
 #### Additional Kerberos debugging information
 
 You can enable additional Kerberos debugging information for the Trino CLI
@@ -450,7 +460,6 @@ such as `more` or [pspg](https://github.com/okbob/pspg),
 or it can be set to an empty value to completely disable pagination.
 
 (cli-history)=
-
 ## History
 
 The CLI keeps a history of your previously used commands. You can access your
@@ -599,8 +608,21 @@ Query 20200707_170726_00030_2iup9 failed: line 1:25: Column 'region' cannot be r
 SELECT nationkey, name, region FROM tpch.sf1.nation LIMIT 3
 ```
 
-(cli-output-format)=
+(cli-spooling-protocol)=
+## Spooling protocol
 
+The Trino CLI automatically uses the spooling protocol to improve throughput
+for client interactions with higher data transfer demands, if the
+[](protocol-spooling) is configured on the cluster.
+
+Optionally use the `--encoding` option to configure a different desired
+encoding, compared to the default on the cluster. The available values are
+`json+zstd` (recommended) for JSON with Zstandard compression, and `json+lz4`
+for JSON with LZ4 compression, and `json` for uncompressed JSON. 
+
+The CLI process must have network access to the spooling object storage.
+
+(cli-output-format)=
 ## Output formats
 
 The Trino CLI provides the options `--output-format`
@@ -645,7 +667,6 @@ and `CSV` in non-interactive mode.
 :::
 
 (cli-troubleshooting)=
-
 ## Troubleshooting
 
 If something goes wrong, you see an error message:

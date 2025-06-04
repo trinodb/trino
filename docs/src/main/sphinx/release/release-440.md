@@ -7,10 +7,12 @@
 * Improve performance of {func}`arrays_overlap`. ({issue}`20900`)
 * Export JMX statistics for resource groups by default. This can be disabled
   with the `jmxExport` resource group property. ({issue}`20810`)
+* {{breaking}} Remove the defunct `*.http-client.max-connections` properties.
+  ({issue}`20966`)
 * Fix query failure when a check constraint is null. ({issue}`20906`)
 * Fix query failure for aggregations over `CASE` expressions when the input
   evaluation could throw an error. ({issue}`20652`)
-* Fix incorrect behavior of the else clause in a SQL routines with a single
+* Fix incorrect behavior of the else clause in a SQL UDFs with a single
   if/end condition. ({issue}`20926`)
 * Fix the `ALTER TABLE EXECUTE optimize` queries failing due to exceeding the
   open writer limit. ({issue}`20871`)

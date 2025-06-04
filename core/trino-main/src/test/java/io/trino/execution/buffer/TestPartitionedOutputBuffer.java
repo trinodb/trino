@@ -69,7 +69,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 public class TestPartitionedOutputBuffer
 {
     private static final String TASK_INSTANCE_ID = "task-instance-id";
-    private static final ImmutableList<BigintType> TYPES = ImmutableList.of(BIGINT);
+    private static final List<BigintType> TYPES = ImmutableList.of(BIGINT);
     private static final OutputBufferId FIRST = new OutputBufferId(0);
     private static final OutputBufferId SECOND = new OutputBufferId(1);
     private static final OutputBufferId THIRD = new OutputBufferId(2);

@@ -28,7 +28,7 @@ public class TestUnknownMaxAggregation
     @Override
     protected Block[] getSequenceBlocks(int start, int length)
     {
-        BlockBuilder blockBuilder = UNKNOWN.createBlockBuilder(null, length);
+        BlockBuilder blockBuilder = UNKNOWN.createFixedSizeBlockBuilder(length);
         for (int i = 0; i < length; i++) {
             blockBuilder.appendNull();
         }

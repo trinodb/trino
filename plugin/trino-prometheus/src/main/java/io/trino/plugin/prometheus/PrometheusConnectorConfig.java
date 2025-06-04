@@ -13,22 +13,24 @@
  */
 package io.trino.plugin.prometheus;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HttpHeaders;
-import com.google.inject.ConfigurationException;
-import com.google.inject.spi.Message;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
-import jakarta.annotation.PostConstruct;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotNull;
 
 import java.io.File;
 import java.net.URI;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+
+import static java.lang.String.format;
 
 public class PrometheusConnectorConfig
 {
@@ -42,6 +44,7 @@ public class PrometheusConnectorConfig
     private String user;
     private String password;
     private boolean caseInsensitiveNameMatching;
+    private Map<String, String> additionalHeaders = ImmutableMap.of();
 
     @NotNull
     public URI getPrometheusURI()
@@ -179,19 +182,60 @@ public class PrometheusConnectorConfig
         return this;
     }
 
-    @PostConstruct
-    public void checkConfig()
+    public Map<String, String> getAdditionalHeaders()
+    {
+        return additionalHeaders;
+    }
+
+    @Config("prometheus.http.additional-headers")
+    @ConfigDescription("Comma separated key:value pairs to be sent with the HTTP request to Prometheus as additional headers")
+    public PrometheusConnectorConfig setAdditionalHeaders(String httpHeaders)
+    {
+        try {
+            // we allow escaping the delimiters like , and : using back-slash.
+            // To support that we create a negative lookbehind of , and : which
+            // are not preceded by a back-slash.
+            String headersDelim = "(?<!\\\\),";
+            String kvDelim = "(?<!\\\\):";
+            Map<String, String> temp = new HashMap<>();
+            if (httpHeaders != null) {
+                for (String kv : httpHeaders.split(headersDelim)) {
+                    String key = kv.split(kvDelim, 2)[0].trim();
+                    String val = kv.split(kvDelim, 2)[1].trim();
+                    temp.put(key, val);
+                }
+                this.additionalHeaders = ImmutableMap.copyOf(temp);
+            }
+        }
+        catch (IndexOutOfBoundsException e) {
+            throw new IllegalArgumentException(format("Invalid format for 'prometheus.http.additional-headers' because %s. Value provided is %s", e.getMessage(), httpHeaders), e);
+        }
+        return this;
+    }
+
+    @AssertTrue(message = "prometheus.max.query.range.duration must be greater than prometheus.query.chunk.size.duration")
+    public boolean isMaxQueryRangeDurationValid()
     {
         long maxQueryRangeDuration = (long) getMaxQueryRangeDuration().getValue(TimeUnit.SECONDS);
         long queryChunkSizeDuration = (long) getQueryChunkSizeDuration().getValue(TimeUnit.SECONDS);
-        if (maxQueryRangeDuration < queryChunkSizeDuration) {
-            throw new ConfigurationException(ImmutableList.of(new Message("prometheus.max.query.range.duration must be greater than prometheus.query.chunk.size.duration")));
-        }
-        if (getBearerTokenFile().isPresent() && (getUser().isPresent() || getPassword().isPresent())) {
-            throw new IllegalStateException("Either on of bearer token file or basic authentication should be used");
-        }
-        if (getUser().isPresent() ^ getPassword().isPresent()) {
-            throw new IllegalStateException("Both username and password must be set when using basic authentication");
-        }
+        return maxQueryRangeDuration >= queryChunkSizeDuration;
+    }
+
+    @AssertTrue(message = "Either one of bearer token file or basic authentication should be used")
+    public boolean isAuthConfigValid()
+    {
+        return !(getBearerTokenFile().isPresent() && (getUser().isPresent() || getPassword().isPresent()));
+    }
+
+    @AssertTrue(message = "Both username and password must be set when using basic authentication")
+    public boolean isBasicAuthConfigValid()
+    {
+        return getUser().isPresent() == getPassword().isPresent();
+    }
+
+    @AssertTrue(message = "Additional headers can not include authorization header")
+    public boolean isAdditionalHeadersValid()
+    {
+        return !getAdditionalHeaders().containsKey(httpAuthHeaderName);
     }
 }

@@ -60,9 +60,6 @@ import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Fail.fail;
 
-// import static org.hamcrest.CoreMatchers.instanceOf;
-// import static org.junit.Assert.assertThat;
-
 public class TestColumnIndexBuilder
 {
     public static class BinaryDecimalIsNullOrZeroUdp

@@ -301,7 +301,7 @@ public class TimeSharingTaskExecutorSimulation
                         (int) splitQueue.getSelectedCountLevel3().getOneMinute().getRate(),
                         (int) splitQueue.getSelectedCountLevel4().getOneMinute().getRate());
             }
-            catch (Exception ignored) {
+            catch (Exception _) {
             }
         }, 1, 1, SECONDS);
     }
@@ -439,7 +439,7 @@ public class TimeSharingTaskExecutorSimulation
 
     private static String formatNanos(List<Long> list)
     {
-        LongSummaryStatistics stats = list.stream().mapToLong(Long::new).summaryStatistics();
+        LongSummaryStatistics stats = list.stream().mapToLong(value -> value).summaryStatistics();
         return format(
                 "Min: %8s  Max: %8s  Avg: %8s  Sum: %8s",
                 succinctNanos(stats.getMin() == Long.MAX_VALUE ? 0 : stats.getMin()),

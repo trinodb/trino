@@ -34,17 +34,7 @@ public final class Comment
     private final QualifiedName name;
     private final Optional<String> comment;
 
-    public Comment(Type type, QualifiedName name, Optional<String> comment)
-    {
-        this(Optional.empty(), type, name, comment);
-    }
-
     public Comment(NodeLocation location, Type type, QualifiedName name, Optional<String> comment)
-    {
-        this(Optional.of(location), type, name, comment);
-    }
-
-    private Comment(Optional<NodeLocation> location, Type type, QualifiedName name, Optional<String> comment)
     {
         super(location);
         this.type = requireNonNull(type, "type is null");

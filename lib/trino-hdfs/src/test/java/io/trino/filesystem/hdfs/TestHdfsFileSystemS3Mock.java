@@ -115,6 +115,12 @@ public class TestHdfsFileSystemS3Mock
     }
 
     @Override
+    protected boolean supportsCreateExclusive()
+    {
+        return false;
+    }
+
+    @Override
     protected boolean normalizesListFilesResult()
     {
         return true;

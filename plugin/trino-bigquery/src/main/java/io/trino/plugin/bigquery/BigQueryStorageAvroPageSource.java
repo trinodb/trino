@@ -25,6 +25,7 @@ import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -37,6 +38,7 @@ import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import org.apache.avro.Conversions.DecimalConversion;
 import org.apache.avro.Schema;
+import org.apache.avro.SchemaParseException;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.io.BinaryDecoder;
@@ -49,11 +51,16 @@ import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.bigquery.BigQueryTypeManager.toTrinoTimestamp;
 import static io.trino.plugin.bigquery.BigQueryUtil.toBigQueryColumnName;
@@ -83,36 +90,51 @@ public class BigQueryStorageAvroPageSource
     private static final AvroDecimalConverter DECIMAL_CONVERTER = new AvroDecimalConverter();
 
     private final BigQueryReadClient bigQueryReadClient;
+    private final ExecutorService executor;
     private final BigQueryTypeManager typeManager;
-    private final BigQuerySplit split;
-    private final List<String> columnNames;
-    private final List<Type> columnTypes;
-    private final AtomicLong readBytes;
+    private final String streamName;
+    private final Schema avroSchema;
+    private final List<BigQueryColumnHandle> columns;
+    private final AtomicLong readBytes = new AtomicLong();
+    private final AtomicLong readTimeNanos = new AtomicLong();
     private final PageBuilder pageBuilder;
     private final Iterator<ReadRowsResponse> responses;
 
+    private CompletableFuture<ReadRowsResponse> nextResponse;
+    private boolean finished;
+
     public BigQueryStorageAvroPageSource(
             BigQueryReadClient bigQueryReadClient,
+            ExecutorService executor,
             BigQueryTypeManager typeManager,
             int maxReadRowsRetries,
             BigQuerySplit split,
             List<BigQueryColumnHandle> columns)
     {
         this.bigQueryReadClient = requireNonNull(bigQueryReadClient, "bigQueryReadClient is null");
+        this.executor = requireNonNull(executor, "executor is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.split = requireNonNull(split, "split is null");
-        this.readBytes = new AtomicLong();
-        requireNonNull(columns, "columns is null");
-        this.columnNames = columns.stream()
-                .map(BigQueryColumnHandle::name)
-                .collect(toImmutableList());
-        this.columnTypes = columns.stream()
+        requireNonNull(split, "split is null");
+        this.streamName = split.streamName();
+        this.avroSchema = parseSchema(split.schemaString());
+        this.columns = requireNonNull(columns, "columns is null");
+        this.pageBuilder = new PageBuilder(columns.stream()
                 .map(BigQueryColumnHandle::trinoType)
-                .collect(toImmutableList());
-        this.pageBuilder = new PageBuilder(columnTypes);
+                .collect(toImmutableList()));
 
-        log.debug("Starting to read from %s", split.getStreamName());
-        responses = new ReadRowsHelper(bigQueryReadClient, split.getStreamName(), maxReadRowsRetries).readRows();
+        log.debug("Starting to read from %s", streamName);
+        responses = new ReadRowsHelper(bigQueryReadClient, streamName, maxReadRowsRetries).readRows();
+        nextResponse = CompletableFuture.supplyAsync(this::getResponse, executor);
+    }
+
+    private Schema parseSchema(String schemaString)
+    {
+        try {
+            return new Schema.Parser().parse(schemaString);
+        }
+        catch (SchemaParseException e) {
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Invalid Avro schema: " + firstNonNull(e.getMessage(), e), e);
+        }
     }
 
     @Override
@@ -124,35 +146,63 @@ public class BigQueryStorageAvroPageSource
     @Override
     public long getReadTimeNanos()
     {
-        return 0;
+        return readTimeNanos.get();
     }
 
     @Override
     public boolean isFinished()
     {
-        return !responses.hasNext();
+        return finished;
     }
 
     @Override
-    public Page getNextPage()
+    public SourcePage getNextSourcePage()
     {
         checkState(pageBuilder.isEmpty(), "PageBuilder is not empty at the beginning of a new page");
-        if (!responses.hasNext()) {
+        if (!nextResponse.isDone()) {
             return null;
         }
-        ReadRowsResponse response = responses.next();
+        ReadRowsResponse response;
+        try {
+            response = getFutureValue(nextResponse);
+        }
+        catch (NoSuchElementException ignored) {
+            finished = true;
+            return null;
+        }
+        nextResponse = CompletableFuture.supplyAsync(this::getResponse, executor);
+        long start = System.nanoTime();
         Iterable<GenericRecord> records = parse(response);
         for (GenericRecord record : records) {
             pageBuilder.declarePosition();
-            for (int column = 0; column < columnTypes.size(); column++) {
+            for (int column = 0; column < columns.size(); column++) {
                 BlockBuilder output = pageBuilder.getBlockBuilder(column);
-                appendTo(columnTypes.get(column), record.get(toBigQueryColumnName(columnNames.get(column))), output);
+                BigQueryColumnHandle columnHandle = columns.get(column);
+                appendTo(columnHandle.trinoType(), getValueRecord(record, columnHandle), output);
             }
         }
 
         Page page = pageBuilder.build();
         pageBuilder.reset();
-        return page;
+        readTimeNanos.addAndGet(System.nanoTime() - start);
+        return SourcePage.create(page);
+    }
+
+    private static Object getValueRecord(GenericRecord record, BigQueryColumnHandle columnHandle)
+    {
+        Object valueRecord = record.get(toBigQueryColumnName(columnHandle.name()));
+        for (String dereferenceName : columnHandle.dereferenceNames()) {
+            if (valueRecord == null) {
+                break;
+            }
+            if (valueRecord instanceof GenericRecord genericRecord) {
+                valueRecord = genericRecord.get(dereferenceName);
+            }
+            else {
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to extract dereference value from record");
+            }
+        }
+        return valueRecord;
     }
 
     private void appendTo(Type type, Object value, BlockBuilder output)
@@ -229,8 +279,8 @@ public class BigQueryStorageAvroPageSource
             type.writeSlice(output, utf8Slice(((Utf8) value).toString()));
         }
         else if (type instanceof VarbinaryType) {
-            if (value instanceof ByteBuffer) {
-                type.writeSlice(output, Slices.wrappedHeapBuffer((ByteBuffer) value));
+            if (value instanceof ByteBuffer bytes) {
+                type.writeSlice(output, Slices.wrappedHeapBuffer(bytes));
             }
             else {
                 output.appendNull();
@@ -280,25 +330,35 @@ public class BigQueryStorageAvroPageSource
     @Override
     public long getMemoryUsage()
     {
-        if (split.getDataSize().isPresent()) {
-            return split.getDataSize().getAsInt() + pageBuilder.getSizeInBytes();
-        }
-
-        return 0;
+        return pageBuilder.getRetainedSizeInBytes();
     }
 
     @Override
     public void close()
     {
+        nextResponse.cancel(true);
         bigQueryReadClient.close();
+    }
+
+    @Override
+    public CompletableFuture<?> isBlocked()
+    {
+        return nextResponse;
+    }
+
+    private ReadRowsResponse getResponse()
+    {
+        long start = System.nanoTime();
+        ReadRowsResponse response = responses.next();
+        readTimeNanos.addAndGet(System.nanoTime() - start);
+        return response;
     }
 
     Iterable<GenericRecord> parse(ReadRowsResponse response)
     {
         byte[] buffer = response.getAvroRows().getSerializedBinaryRows().toByteArray();
         readBytes.addAndGet(buffer.length);
-        log.debug("Read %d bytes (total %d) from %s", buffer.length, readBytes.get(), split.getStreamName());
-        Schema avroSchema = new Schema.Parser().parse(split.getSchemaString());
+        log.debug("Read %d bytes (total %d) from %s", buffer.length, readBytes.get(), streamName);
         return () -> new AvroBinaryIterator(avroSchema, buffer);
     }
 

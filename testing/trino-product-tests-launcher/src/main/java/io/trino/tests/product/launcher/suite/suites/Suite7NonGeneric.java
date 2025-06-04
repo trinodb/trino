@@ -16,8 +16,11 @@ package io.trino.tests.product.launcher.suite.suites;
 import com.google.common.collect.ImmutableList;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.EnvironmentDefaults;
-import io.trino.tests.product.launcher.env.environment.EnvMultinodeKerberosKudu;
+import io.trino.tests.product.launcher.env.environment.EnvMultinodeMinioDataLakeTaskRetriesFilesystem;
 import io.trino.tests.product.launcher.env.environment.EnvMultinodePostgresql;
+import io.trino.tests.product.launcher.env.environment.EnvMultinodePostgresqlSpooling;
+import io.trino.tests.product.launcher.env.environment.EnvMultinodeSecretsProvider;
+import io.trino.tests.product.launcher.env.environment.EnvMultinodeSpooling;
 import io.trino.tests.product.launcher.env.environment.EnvMultinodeSqlserver;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeKerberosHdfsImpersonationCrossRealm;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeSparkHive;
@@ -32,14 +35,19 @@ import java.util.List;
 import static com.google.common.base.Verify.verify;
 import static io.trino.tests.product.TestGroups.CLI;
 import static io.trino.tests.product.TestGroups.CONFIGURED_FEATURES;
+import static io.trino.tests.product.TestGroups.FAULT_TOLERANT;
+import static io.trino.tests.product.TestGroups.GROUP_BY;
 import static io.trino.tests.product.TestGroups.HDFS_IMPERSONATION;
 import static io.trino.tests.product.TestGroups.HIVE_KERBEROS;
 import static io.trino.tests.product.TestGroups.HIVE_SPARK;
 import static io.trino.tests.product.TestGroups.HIVE_SPARK_NO_STATS_FALLBACK;
-import static io.trino.tests.product.TestGroups.KUDU;
+import static io.trino.tests.product.TestGroups.JOIN;
 import static io.trino.tests.product.TestGroups.POSTGRESQL;
+import static io.trino.tests.product.TestGroups.SMOKE;
 import static io.trino.tests.product.TestGroups.SQLSERVER;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
+import static io.trino.tests.product.TestGroups.TPCDS;
+import static io.trino.tests.product.TestGroups.TPCH;
 import static io.trino.tests.product.TestGroups.TWO_HIVES;
 import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
 
@@ -55,6 +63,12 @@ public class Suite7NonGeneric
                 testOnEnvironment(EnvMultinodePostgresql.class)
                         .withGroups(CONFIGURED_FEATURES, POSTGRESQL)
                         .build(),
+                testOnEnvironment(EnvMultinodePostgresqlSpooling.class)
+                        .withGroups(CONFIGURED_FEATURES, POSTGRESQL)
+                        .build(),
+                testOnEnvironment(EnvMultinodeSecretsProvider.class)
+                        .withGroups(CONFIGURED_FEATURES, POSTGRESQL)
+                        .build(),
                 testOnEnvironment(EnvMultinodeSqlserver.class)
                         .withGroups(CONFIGURED_FEATURES, SQLSERVER)
                         .build(),
@@ -67,14 +81,17 @@ public class Suite7NonGeneric
                 testOnEnvironment(EnvSinglenodeKerberosHdfsImpersonationCrossRealm.class)
                         .withGroups(CONFIGURED_FEATURES, STORAGE_FORMATS, CLI, HDFS_IMPERSONATION, HIVE_KERBEROS)
                         .build(),
-                testOnEnvironment(EnvMultinodeKerberosKudu.class)
-                        .withGroups(CONFIGURED_FEATURES, KUDU)
-                        .build(),
                 testOnEnvironment(EnvTwoMixedHives.class)
                         .withGroups(CONFIGURED_FEATURES, TWO_HIVES)
                         .build(),
                 testOnEnvironment(EnvTwoKerberosHives.class)
                         .withGroups(CONFIGURED_FEATURES, TWO_HIVES)
+                        .build(),
+                testOnEnvironment(EnvMultinodeMinioDataLakeTaskRetriesFilesystem.class)
+                        .withGroups(FAULT_TOLERANT)
+                        .build(),
+                testOnEnvironment(EnvMultinodeSpooling.class)
+                        .withGroups(CONFIGURED_FEATURES, TPCH, TPCDS, SMOKE, JOIN, GROUP_BY)
                         .build());
     }
 }

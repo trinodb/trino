@@ -15,7 +15,7 @@ package io.trino.sql.query;
 
 import org.junit.jupiter.api.BeforeAll;
 
-import static io.trino.SystemSessionProperties.MARK_DISTINCT_STRATEGY;
+import static io.trino.SystemSessionProperties.DISTINCT_AGGREGATIONS_STRATEGY;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public class TestDistinctAggregationsNoMarkDistinct
@@ -26,7 +26,7 @@ public class TestDistinctAggregationsNoMarkDistinct
     public void init()
     {
         assertions = new QueryAssertions(testSessionBuilder()
-                .setSystemProperty(MARK_DISTINCT_STRATEGY, "none")
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "single_step")
                 .build());
     }
 }

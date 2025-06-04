@@ -13,11 +13,8 @@
  */
 package io.trino.plugin.hudi;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer;
 import io.trino.testing.QueryRunner;
-
-import static io.trino.plugin.hudi.HudiQueryRunner.createHudiQueryRunner;
 
 public class TestHudiConnectorParquetColumnNamesTest
         extends TestHudiSmokeTest
@@ -26,6 +23,9 @@ public class TestHudiConnectorParquetColumnNamesTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createHudiQueryRunner(ImmutableMap.of(), ImmutableMap.of("hudi.parquet.use-column-names", "false"), new ResourceHudiTablesInitializer());
+        return HudiQueryRunner.builder()
+                .addConnectorProperty("hudi.parquet.use-column-names", "false")
+                .setDataLoader(new ResourceHudiTablesInitializer())
+                .build();
     }
 }

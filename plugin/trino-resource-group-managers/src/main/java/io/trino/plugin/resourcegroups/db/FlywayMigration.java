@@ -23,9 +23,7 @@ public class FlywayMigration
 {
     private static final Logger log = Logger.get(FlywayMigration.class);
 
-    private FlywayMigration()
-    {
-    }
+    private FlywayMigration() {}
 
     private static String getLocation(String configDbUrl)
     {
@@ -45,6 +43,10 @@ public class FlywayMigration
 
     public static void migrate(DbResourceGroupConfig config)
     {
+        if (!config.isRunMigrationsEnabled()) {
+            log.info("Skipping migrations");
+            return;
+        }
         log.info("Performing migrations...");
         Flyway flyway = Flyway.configure()
                 .dataSource(config.getConfigDbUrl(), config.getConfigDbUser(), config.getConfigDbPassword())

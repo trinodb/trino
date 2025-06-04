@@ -41,15 +41,6 @@ public class OutputStreamOrcDataSink
         return new OutputStreamOrcDataSink(outputFile.create(memoryContext), memoryContext);
     }
 
-    // Do not use this method, it is here only for io.trino.plugin.raptor.legacy.storage.OrcFileWriter.createOrcDataSink
-    // and it should be removed in the future
-    @Deprecated
-    public static OutputStreamOrcDataSink create(OutputStream outputStream)
-            throws IOException
-    {
-        return new OutputStreamOrcDataSink(outputStream, newSimpleAggregatedMemoryContext());
-    }
-
     private OutputStreamOrcDataSink(OutputStream outputStream, AggregatedMemoryContext memoryContext)
     {
         this.output = new OutputStreamSliceOutput(requireNonNull(outputStream, "outputStream is null"));

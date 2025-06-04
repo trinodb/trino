@@ -273,7 +273,6 @@ used, which does not expose any columns.
 ```
 
 (redis-sql-support)=
-
 ## SQL support
 
 The connector provides {ref}`globally available <sql-globally-available>` and
@@ -286,14 +285,12 @@ The connector includes a number of performance improvements, detailed in the
 following sections.
 
 (redis-pushdown)=
-
 ### Pushdown
 
 ```{include} pushdown-correctness-behavior.fragment
 ```
 
 (redis-predicate-pushdown)=
-
 #### Predicate pushdown support
 
 The connector supports pushdown of keys of `string` type only, the `zset`

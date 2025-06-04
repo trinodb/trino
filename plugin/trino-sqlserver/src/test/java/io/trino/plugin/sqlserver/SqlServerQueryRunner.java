@@ -116,7 +116,7 @@ public final class SqlServerQueryRunner
         Runtime.getRuntime().addShutdownHook(new Thread(testingSqlServer::close));
 
         QueryRunner queryRunner = builder(testingSqlServer)
-                .addExtraProperty("http-server.http.port", "8080")
+                .addCoordinatorProperty("http-server.http.port", "8080")
                 .setInitialTables(TpchTable.getTables())
                 .build();
 

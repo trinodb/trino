@@ -105,7 +105,7 @@ public class BasicStageInfo
 
     public boolean isFinalStageInfo()
     {
-        return state.isDone() && tasks.stream().allMatch(taskInfo -> taskInfo.getTaskStatus().getState().isDone());
+        return state.isDone() && tasks.stream().allMatch(taskInfo -> taskInfo.taskStatus().getState().isDone());
     }
 
     @Override

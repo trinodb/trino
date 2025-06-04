@@ -98,7 +98,7 @@ public class TestStructColumnReader
         RowBlock readBlock = read(tempFile, readerType);
         List<?> actual = (List<?>) readerType.getObjectValue(TestingConnectorSession.SESSION, readBlock, 0);
 
-        assertThat(actual.size()).isEqualTo(readerFields.size());
+        assertThat(actual).hasSize(readerFields.size());
         assertThat(actual.get(0)).isEqualTo("field_a_value");
         assertThat(actual.get(1)).isEqualTo("field_b_value");
         assertThat(actual.get(2)).isEqualTo("field_c_value");
@@ -121,7 +121,7 @@ public class TestStructColumnReader
         RowBlock readBlock = read(tempFile, readerType);
         List<?> actual = (List<?>) readerType.getObjectValue(TestingConnectorSession.SESSION, readBlock, 0);
 
-        assertThat(actual.size()).isEqualTo(readerFields.size());
+        assertThat(actual).hasSize(readerFields.size());
         assertThat(actual.get(0)).isEqualTo("fieldAValue");
         assertThat(actual.get(1)).isEqualTo("fieldBValue");
         assertThat(actual.get(2)).isEqualTo("fieldCValue");
@@ -144,7 +144,7 @@ public class TestStructColumnReader
         RowBlock readBlock = read(tempFile, readerType);
         List<?> actual = (List<?>) readerType.getObjectValue(TestingConnectorSession.SESSION, readBlock, 0);
 
-        assertThat(actual.size()).isEqualTo(readerFields.size());
+        assertThat(actual).hasSize(readerFields.size());
         assertThat(actual.get(0)).isEqualTo("fieldAValue");
         assertThat(actual.get(1)).isEqualTo("fieldBValue");
         assertThat(actual.get(2)).isEqualTo("fieldCValue");
@@ -186,7 +186,7 @@ public class TestStructColumnReader
         RowBlock readBlock = read(tempFile, readerType);
         List<?> actual = (List<?>) readerType.getObjectValue(TestingConnectorSession.SESSION, readBlock, 0);
 
-        assertThat(actual.size()).isEqualTo(readerFields.size());
+        assertThat(actual).hasSize(readerFields.size());
         assertThat(actual.get(0)).isEqualTo("field_a_value");
         assertThat(actual.get(1)).isNull();
         assertThat(actual.get(2)).isEqualTo("field_c_value");
@@ -210,7 +210,7 @@ public class TestStructColumnReader
         RowBlock readBlock = read(tempFile, readerType);
         List<?> actual = (List<?>) readerType.getObjectValue(TestingConnectorSession.SESSION, readBlock, 0);
 
-        assertThat(actual.size()).isEqualTo(readerFields.size());
+        assertThat(actual).hasSize(readerFields.size());
         assertThat(actual.get(0)).isEqualTo("field_a_value");
         assertThat(actual.get(1)).isEqualTo("field_c_value");
     }
@@ -266,13 +266,14 @@ public class TestStructColumnReader
         OrcRecordReader recordReader = orcReader.createRecordReader(
                 orcReader.getRootColumn().getNestedColumns(),
                 ImmutableList.of(readerType),
+                false,
                 OrcPredicate.TRUE,
                 UTC,
                 newSimpleAggregatedMemoryContext(),
                 OrcReader.INITIAL_BATCH_SIZE,
                 RuntimeException::new);
 
-        RowBlock block = (RowBlock) recordReader.nextPage().getLoadedPage().getBlock(0);
+        RowBlock block = (RowBlock) recordReader.nextPage().getBlock(0);
         recordReader.close();
         return block;
     }

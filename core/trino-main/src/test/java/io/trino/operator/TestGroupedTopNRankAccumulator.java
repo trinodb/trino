@@ -69,7 +69,7 @@ public class TestGroupedTopNRankAccumulator
                 accumulator.verifyIntegrity();
 
                 // No evictions because rank does not change for the same input
-                assertThat(evicted.isEmpty()).isTrue();
+                assertThat(evicted).isEmpty();
             }
         }
 
@@ -120,7 +120,7 @@ public class TestGroupedTopNRankAccumulator
                 accumulator.verifyIntegrity();
 
                 // No evictions because all results should be rejected at add()
-                assertThat(evicted.isEmpty()).isTrue();
+                assertThat(evicted).isEmpty();
             }
         }
 
@@ -217,22 +217,22 @@ public class TestGroupedTopNRankAccumulator
         // Add rowId 0
         assertThat(accumulator.add(0, toRowReference(0))).isTrue();
         accumulator.verifyIntegrity();
-        assertThat(evicted.isEmpty()).isTrue();
+        assertThat(evicted).isEmpty();
 
         // Add rowId 1
         assertThat(accumulator.add(0, toRowReference(1))).isTrue();
         accumulator.verifyIntegrity();
-        assertThat(evicted.isEmpty()).isTrue();
+        assertThat(evicted).isEmpty();
 
         // Add rowId 0 again, putting rowId 1 at effective rank of 3
         assertThat(accumulator.add(0, toRowReference(0))).isTrue();
         accumulator.verifyIntegrity();
-        assertThat(evicted.isEmpty()).isTrue();
+        assertThat(evicted).isEmpty();
 
         // Add rowId 1 again, but rowId 1 should still have an effective rank of 3
         assertThat(accumulator.add(0, toRowReference(1))).isTrue();
         accumulator.verifyIntegrity();
-        assertThat(evicted.isEmpty()).isTrue();
+        assertThat(evicted).isEmpty();
 
         // Add rowId 0 again, which should force both values of rowId1 to be evicted
         assertThat(accumulator.add(0, toRowReference(0))).isTrue();

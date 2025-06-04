@@ -26,7 +26,6 @@ import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.trino.tests.product.deltalake.util.DatabricksVersion.DATABRICKS_104_RUNTIME_VERSION;
 import static io.trino.tests.product.deltalake.util.DatabricksVersion.DATABRICKS_113_RUNTIME_VERSION;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
@@ -41,7 +40,6 @@ import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestDeltaLakeDatabricksCreateTableCompatibility
         extends BaseTestDeltaLakeS3Storage
@@ -70,7 +68,7 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
             assertThat(onDelta().executeQuery("SHOW TABLES FROM default LIKE '" + tableName + "'")).contains(row("default", tableName, false));
             assertThat(onDelta().executeQuery("SELECT count(*) FROM default." + tableName)).contains(row(0));
             String showCreateTable;
-            if (databricksRuntimeVersion.isAtLeast(DATABRICKS_104_RUNTIME_VERSION)) {
+            if (databricksRuntimeVersion.isAtLeast(DATABRICKS_113_RUNTIME_VERSION)) {
                 showCreateTable = format(
                         "CREATE TABLE spark_catalog.default.%s (\n  integer INT,\n  string STRING,\n  timetz TIMESTAMP)\nUSING delta\nLOCATION 's3://%s/%s'\n%s",
                         tableName,
@@ -80,7 +78,8 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
             }
             else {
                 showCreateTable = format(
-                        "CREATE TABLE `default`.`%s` (\n  `integer` INT,\n  `string` STRING,\n  `timetz` TIMESTAMP)\nUSING DELTA\nLOCATION 's3://%s/%s'\n",
+                        "CREATE TABLE `default`.`%s` (\n  `integer` INT,\n  `string` STRING,\n  `timetz` TIMESTAMP)\nUSING DELTA\nLOCATION 's3://%s/%s'\n" +
+                                "TBLPROPERTIES (\n  'delta.enableDeletionVectors' = 'false')\n",
                         tableName,
                         bucketName,
                         tableDirectory);
@@ -112,7 +111,7 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
             assertThat(onDelta().executeQuery("SHOW TABLES LIKE '" + tableName + "'")).contains(row("default", tableName, false));
             assertThat(onDelta().executeQuery("SELECT count(*) FROM " + tableName)).contains(row(0));
             String showCreateTable;
-            if (databricksRuntimeVersion.isAtLeast(DATABRICKS_104_RUNTIME_VERSION)) {
+            if (databricksRuntimeVersion.isAtLeast(DATABRICKS_113_RUNTIME_VERSION)) {
                 showCreateTable = format(
                         "CREATE TABLE spark_catalog.default.%s (\n  integer INT,\n  string STRING,\n  timetz TIMESTAMP)\nUSING delta\n" +
                                 "PARTITIONED BY (string)\nLOCATION 's3://%s/%s'\n%s",
@@ -124,7 +123,8 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
             else {
                 showCreateTable = format(
                         "CREATE TABLE `default`.`%s` (\n  `integer` INT,\n  `string` STRING,\n  `timetz` TIMESTAMP)\nUSING DELTA\n" +
-                                "PARTITIONED BY (string)\nLOCATION 's3://%s/%s'\n",
+                                "PARTITIONED BY (string)\nLOCATION 's3://%s/%s'\n" +
+                                "TBLPROPERTIES (\n  'delta.enableDeletionVectors' = 'false')\n",
                         tableName,
                         bucketName,
                         tableDirectory);
@@ -154,7 +154,7 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
             assertThat(onDelta().executeQuery("SHOW TABLES FROM default LIKE '" + tableName + "'")).contains(row("default", tableName, false));
             assertThat(onDelta().executeQuery("SELECT count(*) FROM default." + tableName)).contains(row(3));
             String showCreateTable;
-            if (databricksRuntimeVersion.isAtLeast(DATABRICKS_104_RUNTIME_VERSION)) {
+            if (databricksRuntimeVersion.isAtLeast(DATABRICKS_113_RUNTIME_VERSION)) {
                 showCreateTable = format(
                         "CREATE TABLE spark_catalog.default.%s (\n  integer INT,\n  string STRING,\n  timetz TIMESTAMP)\nUSING delta\nLOCATION 's3://%s/%s'\n%s",
                         tableName,
@@ -164,7 +164,8 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
             }
             else {
                 showCreateTable = format(
-                        "CREATE TABLE `default`.`%s` (\n  `integer` INT,\n  `string` STRING,\n  `timetz` TIMESTAMP)\nUSING DELTA\nLOCATION 's3://%s/%s'\n",
+                        "CREATE TABLE `default`.`%s` (\n  `integer` INT,\n  `string` STRING,\n  `timetz` TIMESTAMP)\nUSING DELTA\nLOCATION 's3://%s/%s'\n" +
+                                "TBLPROPERTIES (\n  'delta.enableDeletionVectors' = 'false')\n",
                         tableName,
                         bucketName,
                         tableDirectory);
@@ -199,7 +200,7 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
             assertThat(onDelta().executeQuery("SHOW TABLES LIKE '" + tableName + "'")).contains(row("default", tableName, false));
             assertThat(onDelta().executeQuery("SELECT count(*) FROM " + tableName)).contains(row(3));
             String showCreateTable;
-            if (databricksRuntimeVersion.isAtLeast(DATABRICKS_104_RUNTIME_VERSION)) {
+            if (databricksRuntimeVersion.isAtLeast(DATABRICKS_113_RUNTIME_VERSION)) {
                 showCreateTable = format(
                         "CREATE TABLE spark_catalog.default.%s (\n  integer INT,\n  string STRING,\n  timetz TIMESTAMP)\nUSING delta\n" +
                                 "PARTITIONED BY (string)\nLOCATION 's3://%s/%s'\n%s",
@@ -211,7 +212,8 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
             else {
                 showCreateTable = format(
                         "CREATE TABLE `default`.`%s` (\n  `integer` INT,\n  `string` STRING,\n  `timetz` TIMESTAMP)\nUSING DELTA\n" +
-                                "PARTITIONED BY (string)\nLOCATION 's3://%s/%s'\n",
+                                "PARTITIONED BY (string)\nLOCATION 's3://%s/%s'\n" +
+                                "TBLPROPERTIES (\n  'delta.enableDeletionVectors' = 'false')\n",
                         tableName,
                         bucketName,
                         tableDirectory);
@@ -258,8 +260,8 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
                 tableDirectory));
 
         try {
-            assertEquals(getTableCommentOnTrino("default", tableName), "test comment");
-            assertEquals(getTableCommentOnDelta("default", tableName), "test comment");
+            assertThat(getTableCommentOnTrino("default", tableName)).isEqualTo("test comment");
+            assertThat(getTableCommentOnDelta("default", tableName)).isEqualTo("test comment");
         }
         finally {
             onTrino().executeQuery("DROP TABLE delta.default." + tableName);
@@ -279,13 +281,13 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
                 tableDirectory));
 
         try {
-            assertEquals(getColumnCommentOnTrino("default", tableName, "col"), "test comment");
-            assertEquals(getColumnCommentOnDelta("default", tableName, "col"), "test comment");
+            assertThat(getColumnCommentOnTrino("default", tableName, "col")).isEqualTo("test comment");
+            assertThat(getColumnCommentOnDelta("default", tableName, "col")).isEqualTo("test comment");
 
             // Verify that adding a new column doesn't remove existing column comments
             onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " ADD COLUMN new_col INT");
-            assertEquals(getColumnCommentOnTrino("default", tableName, "col"), "test comment");
-            assertEquals(getColumnCommentOnDelta("default", tableName, "col"), "test comment");
+            assertThat(getColumnCommentOnTrino("default", tableName, "col")).isEqualTo("test comment");
+            assertThat(getColumnCommentOnDelta("default", tableName, "col")).isEqualTo("test comment");
         }
         finally {
             onTrino().executeQuery("DROP TABLE delta.default." + tableName);
@@ -305,7 +307,7 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
                 tableDirectory));
 
         try {
-            assertEquals(getColumnCommentOnTrino("default", tableName, "col"), "test comment");
+            assertThat(getColumnCommentOnTrino("default", tableName, "col")).isEqualTo("test comment");
         }
         finally {
             dropDeltaTableWithRetry("default." + tableName);
@@ -400,6 +402,7 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
     {
         if (databricksRuntimeVersion.isAtLeast(DATABRICKS_113_RUNTIME_VERSION)) {
             return "TBLPROPERTIES (\n" +
+                    "  'delta.enableDeletionVectors' = 'false',\n" +
                     "  'delta.minReaderVersion' = '1',\n" +
                     "  'delta.minWriterVersion' = '2')\n";
         }

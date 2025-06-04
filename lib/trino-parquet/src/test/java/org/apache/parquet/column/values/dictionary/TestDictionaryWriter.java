@@ -599,7 +599,7 @@ public class TestDictionaryWriter
             throws IOException
     {
         DictionaryPage dictionaryPage = toTrinoDictionaryPage(valuesWriter.toDictPageAndClose().copy());
-        return DictionaryDecoder.getDictionaryDecoder(dictionaryPage, columnAdapter, plainValuesDecoder, true);
+        return DictionaryDecoder.getDictionaryDecoder(dictionaryPage, columnAdapter, plainValuesDecoder, true, true);
     }
 
     private static void checkDistinct(int count, BytesInput bytes, ValueDecoder<BinaryBuffer> decoder, String prefix)

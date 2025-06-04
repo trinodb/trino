@@ -28,7 +28,7 @@ public class TestTopologyAwareNodeSelectorConfig
     {
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(TopologyAwareNodeSelectorConfig.class)
                 .setType(TopologyType.FLAT)
-                .setLocationSegmentNames("machine"));
+                .setLocationSegmentNames(ImmutableList.of("machine")));
     }
 
     @Test

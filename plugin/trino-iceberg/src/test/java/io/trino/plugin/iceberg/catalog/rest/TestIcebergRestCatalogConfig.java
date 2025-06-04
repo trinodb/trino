@@ -14,6 +14,8 @@
 package io.trino.plugin.iceberg.catalog.rest;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.Duration;
+import org.apache.iceberg.CatalogProperties;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -21,6 +23,8 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class TestIcebergRestCatalogConfig
 {
@@ -29,10 +33,17 @@ public class TestIcebergRestCatalogConfig
     {
         assertRecordedDefaults(recordDefaults(IcebergRestCatalogConfig.class)
                 .setBaseUri(null)
+                .setPrefix(null)
                 .setWarehouse(null)
+                .setNestedNamespaceEnabled(false)
                 .setSessionType(IcebergRestCatalogConfig.SessionType.NONE)
+                .setSessionTimeout(new Duration(CatalogProperties.AUTH_SESSION_TIMEOUT_MS_DEFAULT, MILLISECONDS))
                 .setSecurity(IcebergRestCatalogConfig.Security.NONE)
-                .setVendedCredentialsEnabled(false));
+                .setVendedCredentialsEnabled(false)
+                .setViewEndpointsEnabled(true)
+                .setSigV4Enabled(false)
+                .setCaseInsensitiveNameMatching(false)
+                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, MINUTES)));
     }
 
     @Test
@@ -40,18 +51,32 @@ public class TestIcebergRestCatalogConfig
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("iceberg.rest-catalog.uri", "http://localhost:1234")
+                .put("iceberg.rest-catalog.prefix", "dev")
                 .put("iceberg.rest-catalog.warehouse", "test_warehouse_identifier")
+                .put("iceberg.rest-catalog.nested-namespace-enabled", "true")
                 .put("iceberg.rest-catalog.security", "OAUTH2")
                 .put("iceberg.rest-catalog.session", "USER")
+                .put("iceberg.rest-catalog.session-timeout", "100ms")
                 .put("iceberg.rest-catalog.vended-credentials-enabled", "true")
+                .put("iceberg.rest-catalog.view-endpoints-enabled", "false")
+                .put("iceberg.rest-catalog.sigv4-enabled", "true")
+                .put("iceberg.rest-catalog.case-insensitive-name-matching", "true")
+                .put("iceberg.rest-catalog.case-insensitive-name-matching.cache-ttl", "3m")
                 .buildOrThrow();
 
         IcebergRestCatalogConfig expected = new IcebergRestCatalogConfig()
                 .setBaseUri("http://localhost:1234")
+                .setPrefix("dev")
                 .setWarehouse("test_warehouse_identifier")
+                .setNestedNamespaceEnabled(true)
                 .setSessionType(IcebergRestCatalogConfig.SessionType.USER)
+                .setSessionTimeout(new Duration(100, MILLISECONDS))
                 .setSecurity(IcebergRestCatalogConfig.Security.OAUTH2)
-                .setVendedCredentialsEnabled(true);
+                .setVendedCredentialsEnabled(true)
+                .setViewEndpointsEnabled(false)
+                .setSigV4Enabled(true)
+                .setCaseInsensitiveNameMatching(true)
+                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(3, MINUTES));
 
         assertFullMapping(properties, expected);
     }

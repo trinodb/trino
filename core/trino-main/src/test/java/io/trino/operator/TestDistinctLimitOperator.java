@@ -32,7 +32,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.operator.GroupByHashYieldAssertion.createPagesWithDistinctHashKeys;
@@ -190,8 +189,8 @@ public class TestDistinctLimitOperator
                 hashStrategyCompiler);
 
         GroupByHashYieldAssertion.GroupByHashYieldResult result = finishOperatorWithYieldingGroupByHash(input, type, operatorFactory, operator -> ((DistinctLimitOperator) operator).getCapacity(), 450_000);
-        assertGreaterThanOrEqual(result.getYieldCount(), 5);
-        assertGreaterThanOrEqual(result.getMaxReservedBytes(), 20L << 20);
+        assertThat(result.getYieldCount()).isGreaterThanOrEqualTo(5);
+        assertThat(result.getMaxReservedBytes()).isGreaterThanOrEqualTo(20L << 20);
         assertThat(result.getOutput().stream().mapToInt(Page::getPositionCount).sum()).isEqualTo(6_000 * 600);
     }
 

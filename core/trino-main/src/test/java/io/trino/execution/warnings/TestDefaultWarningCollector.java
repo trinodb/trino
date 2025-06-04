@@ -26,7 +26,7 @@ public class TestDefaultWarningCollector
     {
         WarningCollector warningCollector = new DefaultWarningCollector(new WarningCollectorConfig().setMaxWarnings(0));
         warningCollector.add(new TrinoWarning(new WarningCode(1, "1"), "warning 1"));
-        assertThat(warningCollector.getWarnings().size()).isEqualTo(0);
+        assertThat(warningCollector.getWarnings()).isEmpty();
     }
 
     @Test
@@ -36,6 +36,6 @@ public class TestDefaultWarningCollector
         warningCollector.add(new TrinoWarning(new WarningCode(1, "1"), "warning 1"));
         warningCollector.add(new TrinoWarning(new WarningCode(2, "2"), "warning 2"));
         warningCollector.add(new TrinoWarning(new WarningCode(3, "3"), "warning 3"));
-        assertThat(warningCollector.getWarnings().size()).isEqualTo(2);
+        assertThat(warningCollector.getWarnings()).hasSize(2);
     }
 }

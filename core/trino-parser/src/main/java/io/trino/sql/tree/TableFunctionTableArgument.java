@@ -38,7 +38,7 @@ public class TableFunctionTableArgument
             Optional<OrderBy> orderBy,
             Optional<EmptyTableTreatment> emptyTableTreatment)
     {
-        super(Optional.of(location));
+        super(location);
         this.table = requireNonNull(table, "table is null");
         this.partitionBy = requireNonNull(partitionBy, "partitionBy is null");
         this.orderBy = requireNonNull(orderBy, "orderBy is null");

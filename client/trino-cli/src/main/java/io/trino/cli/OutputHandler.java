@@ -26,7 +26,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.google.common.base.Throwables.propagateIfPossible;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static io.airlift.units.Duration.nanosSince;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
@@ -64,11 +65,8 @@ public final class OutputHandler
         BlockingQueue<List<?>> rowQueue = new ArrayBlockingQueue<>(MAX_QUEUED_ROWS);
         CompletableFuture<Void> readerFuture = CompletableFuture.runAsync(() -> {
             while (client.isRunning()) {
-                Iterable<List<Object>> data = client.currentData().getData();
-                if (data != null) {
-                    for (List<Object> row : data) {
-                        putOrThrow(rowQueue, row);
-                    }
+                for (List<Object> row : client.currentRows()) {
+                    putOrThrow(rowQueue, row);
                 }
                 client.advance();
             }
@@ -109,7 +107,11 @@ public final class OutputHandler
             throw new RuntimeException(e);
         }
         catch (ExecutionException e) {
-            propagateIfPossible(e.getCause(), IOException.class);
+            Throwable cause = e.getCause();
+            if (cause != null) {
+                throwIfInstanceOf(cause, IOException.class);
+                throwIfUnchecked(cause);
+            }
             throw new RuntimeException(e.getCause());
         }
     }

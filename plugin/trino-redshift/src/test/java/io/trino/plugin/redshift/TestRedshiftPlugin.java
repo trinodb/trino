@@ -35,4 +35,22 @@ public class TestRedshiftPlugin
                         "bootstrap.quiet", "true"),
                 new TestingConnectorContext()).shutdown();
     }
+
+    @Test
+    public void testCreateUnloadConnector()
+    {
+        Plugin plugin = new RedshiftPlugin();
+        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
+        factory.create(
+                "test",
+                ImmutableMap.of(
+                        "connection-url", "jdbc:redshift:test",
+                        "redshift.unload-location", "s3://bucket/path",
+                        "redshift.unload-iam-role", "role",
+                        "s3.aws-access-key", "access-key",
+                        "s3.aws-secret-key", "secret-key",
+                        "s3.region", "region",
+                        "bootstrap.quiet", "true"),
+                new TestingConnectorContext()).shutdown();
+    }
 }

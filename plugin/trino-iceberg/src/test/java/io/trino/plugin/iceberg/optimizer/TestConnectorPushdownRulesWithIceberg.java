@@ -22,10 +22,10 @@ import io.trino.metadata.InternalFunctionBundle;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TestingFunctionResolution;
+import io.trino.metastore.Database;
+import io.trino.metastore.HiveMetastore;
+import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.HiveTransactionHandle;
-import io.trino.plugin.hive.metastore.Database;
-import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.iceberg.ColumnIdentity;
 import io.trino.plugin.iceberg.IcebergColumnHandle;
 import io.trino.plugin.iceberg.IcebergConnector;
@@ -175,6 +175,7 @@ public class TestConnectorPushdownRulesWithIceberg
                 Optional.empty(),
                 "",
                 ImmutableMap.of(),
+                Optional.empty(),
                 false,
                 Optional.empty(),
                 ImmutableSet.of(),
@@ -259,6 +260,7 @@ public class TestConnectorPushdownRulesWithIceberg
                 Optional.empty(),
                 "",
                 ImmutableMap.of(),
+                Optional.empty(),
                 false,
                 Optional.empty(),
                 ImmutableSet.of(),
@@ -310,6 +312,7 @@ public class TestConnectorPushdownRulesWithIceberg
                 Optional.empty(),
                 "",
                 ImmutableMap.of(),
+                Optional.empty(),
                 false,
                 Optional.empty(),
                 ImmutableSet.of(),
@@ -371,6 +374,7 @@ public class TestConnectorPushdownRulesWithIceberg
                 Optional.empty(),
                 "",
                 ImmutableMap.of(),
+                Optional.empty(),
                 false,
                 Optional.empty(),
                 ImmutableSet.of(),

@@ -19,12 +19,15 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
+import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
+import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
@@ -37,6 +40,8 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -45,6 +50,7 @@ import java.util.OptionalLong;
 import java.util.Set;
 
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 
 public interface JdbcClient
 {
@@ -63,7 +69,9 @@ public interface JdbcClient
 
     JdbcProcedureHandle getProcedureHandle(ConnectorSession session, ProcedureQuery procedureQuery);
 
-    List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle tableHandle);
+    List<JdbcColumnHandle> getColumns(ConnectorSession session, SchemaTableName schemaTableName, RemoteTableName remoteTableName);
+
+    Iterator<RelationColumnsMetadata> getAllTableColumns(ConnectorSession session, Optional<String> schema);
 
     List<RelationCommentMetadata> getAllTableComments(ConnectorSession session, Optional<String> schema);
 
@@ -92,6 +100,11 @@ public interface JdbcClient
     }
 
     default Optional<ParameterizedExpression> convertPredicate(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
+    {
+        return Optional.empty();
+    }
+
+    default Optional<JdbcExpression> convertProjection(ConnectorSession session, JdbcTableHandle handle, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
     {
         return Optional.empty();
     }
@@ -157,6 +170,8 @@ public interface JdbcClient
 
     boolean isLimitGuaranteed(ConnectorSession session);
 
+    boolean supportsMerge();
+
     default Optional<String> getTableComment(ResultSet resultSet)
             throws SQLException
     {
@@ -173,7 +188,7 @@ public interface JdbcClient
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting column comments");
     }
 
-    void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column);
+    void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column, ColumnPosition position);
 
     void dropColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column);
 
@@ -200,6 +215,21 @@ public interface JdbcClient
 
     void finishInsertTable(ConnectorSession session, JdbcOutputTableHandle handle, Set<Long> pageSinkIds);
 
+    default JdbcMergeTableHandle beginMerge(
+            ConnectorSession session,
+            JdbcTableHandle handle,
+            Map<Integer, Collection<ColumnHandle>> updateColumnHandles,
+            List<Runnable> rollbackActions,
+            RetryMode retryMode)
+    {
+        throw new TrinoException(NOT_SUPPORTED, MODIFYING_ROWS_MESSAGE);
+    }
+
+    default void finishMerge(ConnectorSession session, JdbcMergeTableHandle handle, Set<Long> pageSinkIds)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support MERGE with fault-tolerant execution");
+    }
+
     void dropTable(ConnectorSession session, JdbcTableHandle jdbcTableHandle);
 
     void rollbackCreateTable(ConnectorSession session, JdbcOutputTableHandle handle);
@@ -207,6 +237,9 @@ public interface JdbcClient
     boolean supportsRetries();
 
     String buildInsertSql(JdbcOutputTableHandle handle, List<WriteFunction> columnWriters);
+
+    Connection getConnection(ConnectorSession session)
+            throws SQLException;
 
     Connection getConnection(ConnectorSession session, JdbcOutputTableHandle handle)
             throws SQLException;
@@ -249,5 +282,14 @@ public interface JdbcClient
     default OptionalInt getMaxColumnNameLength(ConnectorSession session)
     {
         return OptionalInt.empty();
+    }
+
+    /**
+     * Retrieves primary keys for remote table used in the merge process.
+     * These primary keys are unique identifiers of each row in table, commonly mapping to primary or unique keys in the database.
+     */
+    default List<JdbcColumnHandle> getPrimaryKeys(ConnectorSession session, RemoteTableName remoteTableName)
+    {
+        return List.of();
     }
 }

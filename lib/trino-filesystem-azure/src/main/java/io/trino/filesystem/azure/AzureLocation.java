@@ -23,25 +23,45 @@ import static java.util.Objects.requireNonNull;
 
 class AzureLocation
 {
-    private static final String INVALID_LOCATION_MESSAGE = "Invalid Azure location. Expected form is 'abfs://[<containerName>@]<accountName>.dfs.core.windows.net/<filePath>': %s";
+    private static final String INVALID_ABFS_LOCATION_MESSAGE = "Invalid Azure ABFS location. Expected form is 'abfs[s]://[<containerName>@]<accountName>.dfs.<endpoint>/<filePath>': %s";
+    private static final String INVALID_WASB_LOCATION_MESSAGE = "Invalid Azure WASB location. Expected form is 'wasb[s]://[<containerName>@]<accountName>.blob.<endpoint>/<filePath>': %s";
 
     // https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules
     private static final CharMatcher CONTAINER_VALID_CHARACTERS = CharMatcher.inRange('a', 'z').or(CharMatcher.inRange('0', '9')).or(CharMatcher.is('-'));
     private static final CharMatcher STORAGE_ACCOUNT_VALID_CHARACTERS = CharMatcher.inRange('a', 'z').or(CharMatcher.inRange('0', '9'));
 
     private final Location location;
+    private final String scheme;
     private final String account;
+    private final String endpoint;
 
+    /**
+     * Creates a new location based on the endpoint, storage account, container and blob path parsed from the location.
+     * <p>
+     * Locations use the
+     * <a href="https://docs.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-introduction-abfs-uri">ABFS URI</a> syntax:
+     * <pre>{@code abfs[s]://<container-name>@<storage-account-name>.dfs.<endpoint>/<blob_path>}</pre>
+     */
     public AzureLocation(Location location)
     {
         this.location = requireNonNull(location, "location is null");
-        // abfss is also supported but not documented
-        String scheme = location.scheme().orElseThrow(() -> new IllegalArgumentException(String.format(INVALID_LOCATION_MESSAGE, location)));
-        checkArgument("abfs".equals(scheme) || "abfss".equals(scheme), INVALID_LOCATION_MESSAGE, location);
+        // wasb and wasbs are also supported but not documented
+        scheme = location.scheme().orElseThrow(() -> new IllegalArgumentException(String.format(INVALID_ABFS_LOCATION_MESSAGE, location)));
+        String invalidLocationMessage;
+        if ("abfs".equals(scheme) || "abfss".equals(scheme)) {
+            invalidLocationMessage = INVALID_ABFS_LOCATION_MESSAGE;
+        }
+        else if ("wasb".equals(scheme) || "wasbs".equals(scheme)) {
+            invalidLocationMessage = INVALID_WASB_LOCATION_MESSAGE;
+        }
+        else {
+            // only mention abfs in error message as the other forms are deprecated
+            throw new IllegalArgumentException(String.format(INVALID_ABFS_LOCATION_MESSAGE, location));
+        }
 
         // container is interpolated into the URL path, so perform extra checks
         location.userInfo().ifPresent(container -> {
-            checkArgument(!container.isEmpty(), INVALID_LOCATION_MESSAGE, location);
+            checkArgument(!container.isEmpty(), invalidLocationMessage, location);
             checkArgument(
                     CONTAINER_VALID_CHARACTERS.matchesAllOf(container),
                     "Invalid Azure storage container name. Valid characters are 'a-z', '0-9', and '-': %s",
@@ -57,35 +77,32 @@ class AzureLocation
         });
 
         // storage account is the first label of the host
-        checkArgument(location.host().isPresent(), INVALID_LOCATION_MESSAGE, location);
+        checkArgument(location.host().isPresent(), invalidLocationMessage, location);
         String host = location.host().get();
         int accountSplit = host.indexOf('.');
         checkArgument(
                 accountSplit > 0,
-                INVALID_LOCATION_MESSAGE,
+                invalidLocationMessage,
                 this.location);
         this.account = host.substring(0, accountSplit);
 
-        // host must end with ".dfs.core.windows.net"
-        checkArgument(host.substring(accountSplit).equals(".dfs.core.windows.net"), INVALID_LOCATION_MESSAGE, location);
+        // abfs[s] host must contain ".dfs.", and wasb[s] host must contain ".blob." before endpoint
+        if (scheme.equals("abfs") || scheme.equals("abfss")) {
+            checkArgument(host.substring(accountSplit).startsWith(".dfs."), invalidLocationMessage, location);
+            // endpoint does not include dfs
+            this.endpoint = host.substring(accountSplit + ".dfs.".length());
+        }
+        else {
+            checkArgument(host.substring(accountSplit).startsWith(".blob."), invalidLocationMessage, location);
+            // endpoint does not include blob
+            this.endpoint = host.substring(accountSplit + ".blob.".length());
+        }
+        checkArgument(!endpoint.isEmpty(), invalidLocationMessage, location);
 
         // storage account is interpolated into URL host name, so perform extra checks
         checkArgument(STORAGE_ACCOUNT_VALID_CHARACTERS.matchesAllOf(account),
                 "Invalid Azure storage account name. Valid characters are 'a-z' and '0-9': %s",
                 location);
-    }
-
-    /**
-     * Creates a new {@link AzureLocation} based on the storage account, container and blob path parsed from the location.
-     * <p>
-     * Locations follow the conventions used by
-     * <a href="https://docs.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-introduction-abfs-uri">ABFS URI</a>
-     * that follows the following convention
-     * <pre>{@code abfs://<container-name>@<storage-account-name>.dfs.core.windows.net/<blob_path>}</pre>
-     */
-    public static AzureLocation from(String location)
-    {
-        return new AzureLocation(Location.of(location));
     }
 
     public Location location()
@@ -101,6 +118,11 @@ class AzureLocation
     public String account()
     {
         return account;
+    }
+
+    public String endpoint()
+    {
+        return endpoint;
     }
 
     public String path()
@@ -125,8 +147,10 @@ class AzureLocation
 
     public Location baseLocation()
     {
-        return Location.of("abfs://%s%s.dfs.core.windows.net/".formatted(
+        return Location.of("%s://%s%s.dfs.%s/".formatted(
+                scheme,
                 container().map(container -> container + "@").orElse(""),
-                account()));
+                account(),
+                endpoint));
     }
 }

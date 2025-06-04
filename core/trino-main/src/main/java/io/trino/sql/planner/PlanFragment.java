@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.Immutable;
 import io.trino.cost.StatsAndCosts;
+import io.trino.metadata.LanguageFunctionProvider.LanguageFunctionData;
 import io.trino.spi.catalog.CatalogProperties;
 import io.trino.spi.function.FunctionId;
 import io.trino.spi.type.Type;
@@ -28,7 +29,6 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.TableScanNode;
-import io.trino.sql.routine.ir.IrRoutine;
 
 import java.util.List;
 import java.util.Map;
@@ -56,7 +56,7 @@ public class PlanFragment
     private final PartitioningScheme outputPartitioningScheme;
     private final StatsAndCosts statsAndCosts;
     private final List<CatalogProperties> activeCatalogs;
-    private final Map<FunctionId, IrRoutine> languageFunctions;
+    private final Map<FunctionId, LanguageFunctionData> languageFunctions;
     private final Optional<String> jsonRepresentation;
     private final boolean containsTableScanNode;
 
@@ -75,7 +75,7 @@ public class PlanFragment
             PartitioningScheme outputPartitioningScheme,
             StatsAndCosts statsAndCosts,
             List<CatalogProperties> activeCatalogs,
-            Map<FunctionId, IrRoutine> languageFunctions)
+            Map<FunctionId, LanguageFunctionData> languageFunctions)
     {
         this.id = requireNonNull(id, "id is null");
         this.root = requireNonNull(root, "root is null");
@@ -106,7 +106,7 @@ public class PlanFragment
             @JsonProperty("outputPartitioningScheme") PartitioningScheme outputPartitioningScheme,
             @JsonProperty("statsAndCosts") StatsAndCosts statsAndCosts,
             @JsonProperty("activeCatalogs") List<CatalogProperties> activeCatalogs,
-            @JsonProperty("languageFunctions") Map<FunctionId, IrRoutine> languageFunctions,
+            @JsonProperty("languageFunctions") Map<FunctionId, LanguageFunctionData> languageFunctions,
             @JsonProperty("jsonRepresentation") Optional<String> jsonRepresentation)
     {
         this.id = requireNonNull(id, "id is null");
@@ -203,7 +203,7 @@ public class PlanFragment
     }
 
     @JsonProperty
-    public Map<FunctionId, IrRoutine> getLanguageFunctions()
+    public Map<FunctionId, LanguageFunctionData> getLanguageFunctions()
     {
         return languageFunctions;
     }
@@ -282,8 +282,8 @@ public class PlanFragment
             findRemoteSourceNodes(source, builder);
         }
 
-        if (node instanceof RemoteSourceNode) {
-            builder.add((RemoteSourceNode) node);
+        if (node instanceof RemoteSourceNode remoteSourceNode) {
+            builder.add(remoteSourceNode);
         }
     }
 

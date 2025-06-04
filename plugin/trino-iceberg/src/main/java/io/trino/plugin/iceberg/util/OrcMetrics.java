@@ -33,7 +33,7 @@ import io.trino.orc.metadata.statistics.DoubleStatistics;
 import io.trino.orc.metadata.statistics.IntegerStatistics;
 import io.trino.orc.metadata.statistics.StringStatistics;
 import io.trino.orc.metadata.statistics.TimestampStatistics;
-import io.trino.plugin.hive.FileFormatDataSourceStats;
+import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.iceberg.TrinoOrcDataSource;
 import org.apache.iceberg.Metrics;
 import org.apache.iceberg.MetricsConfig;
@@ -69,6 +69,7 @@ import static io.trino.plugin.iceberg.util.OrcIcebergIds.fileColumnsByIcebergId;
 import static io.trino.plugin.iceberg.util.OrcTypeConverter.ORC_ICEBERG_ID_KEY;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static java.lang.Math.toIntExact;
+import static java.math.RoundingMode.UNNECESSARY;
 import static java.util.function.Function.identity;
 
 public final class OrcMetrics
@@ -111,7 +112,7 @@ public final class OrcMetrics
     private static OrcType toBasicOrcType(OrcColumn column)
     {
         return new OrcType(
-                column.getColumnType(),
+                column.getColumnType().getOrcTypeKind(),
                 column.getNestedColumns().stream()
                         .map(OrcColumn::getColumnId)
                         .collect(toImmutableList()),
@@ -286,8 +287,8 @@ public final class OrcMetrics
             if (min == null || max == null) {
                 return Optional.empty();
             }
-            min = min.setScale(((Types.DecimalType) icebergType).scale());
-            max = max.setScale(((Types.DecimalType) icebergType).scale());
+            min = min.setScale(((Types.DecimalType) icebergType).scale(), UNNECESSARY);
+            max = max.setScale(((Types.DecimalType) icebergType).scale(), UNNECESSARY);
             return Optional.of(new IcebergMinMax(icebergType, min, max, metricsModes));
         }
         TimestampStatistics timestampStatistics = orcColumnStats.getTimestampStatistics();

@@ -14,9 +14,8 @@
 package io.trino.plugin.thrift.integration;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.io.Closer;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.drift.codec.ThriftCodecManager;
 import io.airlift.drift.server.DriftServer;
 import io.airlift.drift.server.DriftService;
@@ -26,43 +25,20 @@ import io.airlift.drift.transport.netty.server.DriftNettyServerTransport;
 import io.airlift.drift.transport.netty.server.DriftNettyServerTransportFactory;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
-import io.opentelemetry.sdk.trace.data.SpanData;
-import io.trino.Session;
-import io.trino.cost.StatsCalculator;
-import io.trino.execution.FailureInjector.InjectedFailureType;
-import io.trino.metadata.FunctionBundle;
-import io.trino.metadata.QualifiedObjectName;
-import io.trino.metadata.SessionPropertyManager;
 import io.trino.plugin.thrift.ThriftPlugin;
 import io.trino.plugin.thrift.server.ThriftIndexedTpchService;
 import io.trino.plugin.thrift.server.ThriftTpchService;
 import io.trino.plugin.tpch.TpchPlugin;
-import io.trino.server.testing.TestingTrinoServer;
-import io.trino.spi.ErrorType;
-import io.trino.spi.Plugin;
-import io.trino.split.PageSourceManager;
-import io.trino.split.SplitManager;
-import io.trino.sql.PlannerContext;
-import io.trino.sql.analyzer.QueryExplainer;
-import io.trino.sql.planner.NodePartitioningManager;
-import io.trino.sql.planner.Plan;
 import io.trino.testing.DistributedQueryRunner;
-import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.TestingAccessControlManager;
-import io.trino.testing.TestingGroupProviderManager;
-import io.trino.transaction.TransactionManager;
 
-import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.locks.Lock;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
 public final class ThriftQueryRunner
@@ -71,42 +47,22 @@ public final class ThriftQueryRunner
 
     private ThriftQueryRunner() {}
 
-    public static QueryRunner createThriftQueryRunner(int thriftServers, boolean enableIndexJoin, Map<String, String> properties)
-            throws Exception
-    {
-        List<DriftServer> servers = null;
-        QueryRunner runner = null;
-        try {
-            servers = startThriftServers(thriftServers, enableIndexJoin);
-            runner = createThriftQueryRunnerInternal(servers, properties);
-            return new ThriftQueryRunnerWithServers(runner, servers);
-        }
-        catch (Throwable t) {
-            closeAllSuppress(t, runner);
-            // runner might be null, so closing servers explicitly
-            if (servers != null) {
-                for (DriftServer server : servers) {
-                    server.shutdown();
-                }
-            }
-            throw t;
-        }
-    }
-
     public static void main(String[] args)
             throws Exception
     {
         Logging.initialize();
-        Map<String, String> properties = ImmutableMap.of("http-server.http.port", "8080");
-        QueryRunner queryRunner = createThriftQueryRunner(3, true, properties);
+        QueryRunner queryRunner = builder(startThriftServers(3, true))
+                .addCoordinatorProperty("http-server.http.port", "8080")
+                .build();
         Logger log = Logger.get(ThriftQueryRunner.class);
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
     }
 
-    static List<DriftServer> startThriftServers(int thriftServers, boolean enableIndexJoin)
+    static StartedServers startThriftServers(int thriftServers, boolean enableIndexJoin)
     {
         List<DriftServer> servers = new ArrayList<>(thriftServers);
+        List<AutoCloseable> resources = new ArrayList<>(thriftServers);
         for (int i = 0; i < thriftServers; i++) {
             ThriftTpchService service = enableIndexJoin ? new ThriftIndexedTpchService() : new ThriftTpchService();
             DriftServer server = new DriftServer(
@@ -117,38 +73,60 @@ public final class ThriftQueryRunner
                     ImmutableSet.of());
             server.start();
             servers.add(server);
+            resources.add(service);
         }
-        return servers;
+        return new StartedServers(servers, resources);
     }
 
-    private static QueryRunner createThriftQueryRunnerInternal(List<DriftServer> servers, Map<String, String> properties)
-            throws Exception
+    public static Builder builder(StartedServers startedServers)
     {
-        String addresses = servers.stream()
-                .map(server -> "localhost:" + driftServerPort(server))
-                .collect(joining(","));
+        return new Builder()
+                .addConnectorProperty("trino.thrift.client.addresses", startedServers.servers.stream()
+                        .map(server -> "localhost:" + driftServerPort(server))
+                        .collect(joining(",")))
+                .addConnectorProperty("trino.thrift.client.connect-timeout", "30s")
+                .addConnectorProperty("trino-thrift.lookup-requests-concurrency", "2");
+    }
 
-        Session defaultSession = testSessionBuilder()
-                .setCatalog("thrift")
-                .setSchema("tiny")
-                .build();
+    public static final class Builder
+            extends DistributedQueryRunner.Builder<Builder>
+    {
+        private final Map<String, String> connectorProperties = new HashMap<>();
 
-        QueryRunner queryRunner = DistributedQueryRunner.builder(defaultSession)
-                .setExtraProperties(properties)
-                .build();
+        private Builder()
+        {
+            super(testSessionBuilder()
+                    .setCatalog("thrift")
+                    .setSchema("tiny")
+                    .build());
+        }
 
-        queryRunner.installPlugin(new ThriftPlugin());
-        Map<String, String> connectorProperties = ImmutableMap.<String, String>builder()
-                .put("trino.thrift.client.addresses", addresses)
-                .put("trino.thrift.client.connect-timeout", "30s")
-                .put("trino-thrift.lookup-requests-concurrency", "2")
-                .buildOrThrow();
-        queryRunner.createCatalog("thrift", "trino_thrift", connectorProperties);
+        @CanIgnoreReturnValue
+        public Builder addConnectorProperty(String key, String value)
+        {
+            this.connectorProperties.put(key, value);
+            return this;
+        }
 
-        queryRunner.installPlugin(new TpchPlugin());
-        queryRunner.createCatalog("tpch", "tpch");
+        @Override
+        public DistributedQueryRunner build()
+                throws Exception
+        {
+            DistributedQueryRunner queryRunner = super.build();
+            try {
+                queryRunner.installPlugin(new ThriftPlugin());
+                queryRunner.createCatalog("thrift", "trino_thrift", connectorProperties);
 
-        return queryRunner;
+                queryRunner.installPlugin(new TpchPlugin());
+                queryRunner.createCatalog("tpch", "tpch");
+
+                return queryRunner;
+            }
+            catch (Throwable e) {
+                closeAllSuppress(e, queryRunner);
+                throw e;
+            }
+        }
     }
 
     static int driftServerPort(DriftServer server)
@@ -156,195 +134,12 @@ public final class ThriftQueryRunner
         return ((DriftNettyServerTransport) server.getServerTransport()).getPort();
     }
 
-    /**
-     * Wraps QueryRunner and a list of ThriftServers to clean them up together.
-     */
-    private static class ThriftQueryRunnerWithServers
-            implements QueryRunner
+    public record StartedServers(List<DriftServer> servers, List<AutoCloseable> resources)
     {
-        private QueryRunner source;
-        private List<DriftServer> thriftServers;
-
-        private ThriftQueryRunnerWithServers(QueryRunner source, List<DriftServer> thriftServers)
+        public StartedServers
         {
-            this.source = requireNonNull(source, "source is null");
-            this.thriftServers = ImmutableList.copyOf(requireNonNull(thriftServers, "thriftServers is null"));
-        }
-
-        @Override
-        public TestingTrinoServer getCoordinator()
-        {
-            return source.getCoordinator();
-        }
-
-        @Override
-        public void close()
-        {
-            try (Closer closer = Closer.create()) {
-                if (thriftServers != null) {
-                    for (DriftServer server : thriftServers) {
-                        closer.register(server::shutdown);
-                    }
-                    thriftServers = null;
-                }
-                if (source != null) {
-                    closer.register(source);
-                    source = null;
-                }
-            }
-            catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        }
-
-        @Override
-        public int getNodeCount()
-        {
-            return source.getNodeCount();
-        }
-
-        @Override
-        public Session getDefaultSession()
-        {
-            return source.getDefaultSession();
-        }
-
-        @Override
-        public TransactionManager getTransactionManager()
-        {
-            return source.getTransactionManager();
-        }
-
-        @Override
-        public PlannerContext getPlannerContext()
-        {
-            return source.getPlannerContext();
-        }
-
-        @Override
-        public QueryExplainer getQueryExplainer()
-        {
-            return source.getQueryExplainer();
-        }
-
-        @Override
-        public SessionPropertyManager getSessionPropertyManager()
-        {
-            return source.getSessionPropertyManager();
-        }
-
-        @Override
-        public SplitManager getSplitManager()
-        {
-            return source.getSplitManager();
-        }
-
-        @Override
-        public PageSourceManager getPageSourceManager()
-        {
-            return source.getPageSourceManager();
-        }
-
-        @Override
-        public NodePartitioningManager getNodePartitioningManager()
-        {
-            return source.getNodePartitioningManager();
-        }
-
-        @Override
-        public StatsCalculator getStatsCalculator()
-        {
-            return source.getStatsCalculator();
-        }
-
-        @Override
-        public TestingGroupProviderManager getGroupProvider()
-        {
-            return source.getGroupProvider();
-        }
-
-        @Override
-        public TestingAccessControlManager getAccessControl()
-        {
-            return source.getAccessControl();
-        }
-
-        @Override
-        public List<SpanData> getSpans()
-        {
-            return source.getSpans();
-        }
-
-        @Override
-        public MaterializedResult execute(Session session, String sql)
-        {
-            return source.execute(session, sql);
-        }
-
-        @Override
-        public MaterializedResultWithPlan executeWithPlan(Session session, String sql)
-        {
-            return source.executeWithPlan(session, sql);
-        }
-
-        @Override
-        public Plan createPlan(Session session, String sql)
-        {
-            return source.createPlan(session, sql);
-        }
-
-        @Override
-        public List<QualifiedObjectName> listTables(Session session, String catalog, String schema)
-        {
-            return source.listTables(session, catalog, schema);
-        }
-
-        @Override
-        public boolean tableExists(Session session, String table)
-        {
-            return source.tableExists(session, table);
-        }
-
-        @Override
-        public void installPlugin(Plugin plugin)
-        {
-            source.installPlugin(plugin);
-        }
-
-        @Override
-        public void addFunctions(FunctionBundle functionBundle)
-        {
-            source.addFunctions(functionBundle);
-        }
-
-        @Override
-        public void createCatalog(String catalogName, String connectorName, Map<String, String> properties)
-        {
-            source.createCatalog(catalogName, connectorName, properties);
-        }
-
-        @Override
-        public Lock getExclusiveLock()
-        {
-            return source.getExclusiveLock();
-        }
-
-        @Override
-        public void injectTaskFailure(
-                String traceToken,
-                int stageId,
-                int partitionId,
-                int attemptId,
-                InjectedFailureType injectionType,
-                Optional<ErrorType> errorType)
-        {
-            source.injectTaskFailure(traceToken, stageId, partitionId, attemptId, injectionType, errorType);
-        }
-
-        @Override
-        public void loadExchangeManager(String name, Map<String, String> properties)
-        {
-            source.loadExchangeManager(name, properties);
+            servers = ImmutableList.copyOf(servers);
+            resources = ImmutableList.copyOf(resources);
         }
     }
 }

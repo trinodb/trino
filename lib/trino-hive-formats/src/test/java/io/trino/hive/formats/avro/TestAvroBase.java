@@ -303,7 +303,7 @@ public abstract class TestAvroBase
         try (AvroFileReader fileReader = new AvroFileReader(
                 createWrittenFileWithData(schema, testRecordsExpected.build(), temp1),
                 schema,
-                NoOpAvroTypeManager.INSTANCE)) {
+                new BaseAvroTypeBlockHandler())) {
             while (fileReader.hasNext()) {
                 pages.add(fileReader.next());
             }
@@ -316,7 +316,7 @@ public abstract class TestAvroBase
                 compressionKind,
                 ImmutableMap.of(),
                 schema.getFields().stream().map(Schema.Field::name).collect(toImmutableList()),
-                AvroTypeUtils.typeFromAvro(schema, NoOpAvroTypeManager.INSTANCE).getTypeParameters(), false)) {
+                new BaseAvroTypeBlockHandler().typeFor(schema).getTypeParameters(), false)) {
             for (Page p : pages.build()) {
                 fileWriter.write(p);
             }
@@ -330,7 +330,7 @@ public abstract class TestAvroBase
                 testRecordsActual.add(genericRecordDataFileReader.next());
             }
         }
-        assertThat(testRecordsExpected.build().size()).isEqualTo(testRecordsActual.build().size());
+        assertThat(testRecordsExpected.build()).hasSize(testRecordsActual.build().size());
         List<GenericRecord> expected = testRecordsExpected.build();
         List<GenericRecord> actual = testRecordsActual.build();
         for (int i = 0; i < expected.size(); i++) {

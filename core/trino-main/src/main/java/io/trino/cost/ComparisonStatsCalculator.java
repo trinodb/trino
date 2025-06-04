@@ -52,7 +52,7 @@ public final class ComparisonStatsCalculator
             case NOT_EQUAL -> estimateExpressionNotEqualToLiteral(inputStatistics, expressionStatistics, expressionSymbol, literalValue);
             case LESS_THAN, LESS_THAN_OR_EQUAL -> estimateExpressionLessThanLiteral(inputStatistics, expressionStatistics, expressionSymbol, literalValue);
             case GREATER_THAN, GREATER_THAN_OR_EQUAL -> estimateExpressionGreaterThanLiteral(inputStatistics, expressionStatistics, expressionSymbol, literalValue);
-            case IS_DISTINCT_FROM -> PlanNodeStatsEstimate.unknown();
+            case IDENTICAL -> PlanNodeStatsEstimate.unknown();
         };
     }
 
@@ -97,7 +97,7 @@ public final class ComparisonStatsCalculator
                     .setNullsFraction(0.0)
                     .setDistinctValuesCount(max(expressionStatistics.getDistinctValuesCount() - 1, 0))
                     .build();
-            estimate = estimate.addSymbolStatistics(expressionSymbol.get(), symbolNewEstimate);
+            estimate.addSymbolStatistics(expressionSymbol.get(), symbolNewEstimate);
         }
         return estimate.build();
     }
@@ -164,7 +164,7 @@ public final class ComparisonStatsCalculator
                     leftExpressionSymbol,
                     rightExpressionStatistics,
                     rightExpressionSymbol);
-            case IS_DISTINCT_FROM -> PlanNodeStatsEstimate.unknown();
+            case IDENTICAL -> PlanNodeStatsEstimate.unknown();
         };
     }
 

@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.exchange.hdfs;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import org.junit.jupiter.api.Test;
@@ -33,8 +34,9 @@ public class TestExchangeHdfsConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(ExchangeHdfsConfig.class)
-                .setResourceConfigFiles("")
-                .setHdfsStorageBlockSize(DataSize.of(4, MEGABYTE)));
+                .setResourceConfigFiles(ImmutableList.of())
+                .setHdfsStorageBlockSize(DataSize.of(4, MEGABYTE))
+                .setSkipDirectorySchemeValidation(false));
     }
 
     @Test
@@ -47,11 +49,13 @@ public class TestExchangeHdfsConfig
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("hdfs.config.resources", resource1 + "," + resource2)
                 .put("exchange.hdfs.block-size", "8MB")
+                .put("exchange.hdfs.skip-directory-scheme-validation", "true")
                 .buildOrThrow();
 
         ExchangeHdfsConfig expected = new ExchangeHdfsConfig()
-                .setResourceConfigFiles(resource1 + "," + resource2)
-                .setHdfsStorageBlockSize(DataSize.of(8, MEGABYTE));
+                .setResourceConfigFiles(ImmutableList.of(resource1.toString(), resource2.toString()))
+                .setHdfsStorageBlockSize(DataSize.of(8, MEGABYTE))
+                .setSkipDirectorySchemeValidation(true);
 
         assertFullMapping(properties, expected);
     }

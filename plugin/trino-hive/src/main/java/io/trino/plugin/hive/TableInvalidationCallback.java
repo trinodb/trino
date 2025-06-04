@@ -14,19 +14,22 @@
 package io.trino.plugin.hive;
 
 import io.trino.filesystem.Location;
-import io.trino.plugin.hive.metastore.Partition;
-import io.trino.plugin.hive.metastore.Table;
+import io.trino.metastore.Partition;
+import io.trino.metastore.Table;
+import io.trino.spi.connector.SchemaTableName;
 
 public interface TableInvalidationCallback
 {
-    default boolean isCached(Location location)
+    default boolean isCached(Location location, SchemaTableName schemaTableName)
     {
         return false;
     }
 
-    default void invalidate(Location location) {}
+    default void invalidate(Location location, SchemaTableName schemaTableName) {}
 
     default void invalidate(Partition partition) {}
 
     default void invalidate(Table table) {}
+
+    default void invalidateAll() {}
 }

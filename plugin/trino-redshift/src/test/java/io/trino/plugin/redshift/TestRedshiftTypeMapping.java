@@ -32,7 +32,6 @@ import org.junit.jupiter.api.Test;
 import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.List;
@@ -45,11 +44,11 @@ import java.util.function.Function;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.io.BaseEncoding.base16;
 import static io.trino.plugin.redshift.RedshiftClient.REDSHIFT_MAX_VARCHAR;
-import static io.trino.plugin.redshift.RedshiftQueryRunner.JDBC_PASSWORD;
-import static io.trino.plugin.redshift.RedshiftQueryRunner.JDBC_URL;
-import static io.trino.plugin.redshift.RedshiftQueryRunner.JDBC_USER;
-import static io.trino.plugin.redshift.RedshiftQueryRunner.TEST_SCHEMA;
-import static io.trino.plugin.redshift.RedshiftQueryRunner.executeInRedshift;
+import static io.trino.plugin.redshift.TestingRedshiftServer.JDBC_PASSWORD;
+import static io.trino.plugin.redshift.TestingRedshiftServer.JDBC_URL;
+import static io.trino.plugin.redshift.TestingRedshiftServer.JDBC_USER;
+import static io.trino.plugin.redshift.TestingRedshiftServer.TEST_SCHEMA;
+import static io.trino.plugin.redshift.TestingRedshiftServer.executeInRedshift;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.CharType.createCharType;
@@ -82,7 +81,6 @@ public class TestRedshiftTypeMapping
     private static final ZoneId testZone = TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId();
 
     private final ZoneId jvmZone = ZoneId.systemDefault();
-    private final LocalDateTime timeGapInJvmZone = LocalDate.EPOCH.atStartOfDay();
     private final LocalDateTime timeDoubledInJvmZone = LocalDateTime.of(2018, 10, 28, 1, 33, 17, 456_789_000);
 
     // using two non-JVM zones so that we don't need to worry what the backend's system zone is
@@ -96,24 +94,18 @@ public class TestRedshiftTypeMapping
     private final ZoneId kathmandu = ZoneId.of("Asia/Kathmandu");
     private final LocalDateTime timeGapInKathmandu = LocalDateTime.of(1986, 1, 1, 0, 13, 7);
 
-    private final LocalDate dayOfMidnightGapInJvmZone = LocalDate.EPOCH;
     private final LocalDate dayOfMidnightGapInVilnius = LocalDate.of(1983, 4, 1);
     private final LocalDate dayAfterMidnightSetBackInVilnius = LocalDate.of(1983, 10, 1);
 
     public TestRedshiftTypeMapping()
     {
         // Timestamps
-        checkIsGap(jvmZone, timeGapInJvmZone);
         checkIsDoubled(jvmZone, timeDoubledInJvmZone);
         checkIsGap(vilnius, timeGapInVilnius);
         checkIsDoubled(vilnius, timeDoubledInVilnius);
         checkIsGap(kathmandu, timeGapInKathmandu);
 
-        // Times
-        checkIsGap(jvmZone, LocalTime.of(0, 0, 0).atDate(LocalDate.EPOCH));
-
         // Dates
-        checkIsGap(jvmZone, dayOfMidnightGapInJvmZone.atStartOfDay());
         checkIsGap(vilnius, dayOfMidnightGapInVilnius.atStartOfDay());
         checkIsDoubled(vilnius, dayAfterMidnightSetBackInVilnius.atStartOfDay().minusNanos(1));
     }
@@ -659,7 +651,7 @@ public class TestRedshiftTypeMapping
         // The max timestamp with time zone value in Redshift is larger than Trino
         try (TestTable table = new TestTable(getRedshiftExecutor(), TEST_SCHEMA + ".timestamp_tz_max", "(ts timestamptz)", ImmutableList.of("TIMESTAMP '294276-12-31 23:59:59' AT TIME ZONE 'UTC'"))) {
             assertThat(query("SELECT * FROM " + table.getName()))
-                    .failure().hasMessage("Millis overflow: 9224318015999000");
+                    .nonTrinoExceptionFailure().hasMessage("Millis overflow: 9224318015999000");
         }
     }
 

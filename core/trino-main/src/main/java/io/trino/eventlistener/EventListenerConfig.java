@@ -13,7 +13,6 @@
  */
 package io.trino.eventlistener;
 
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.validation.FileExists;
@@ -26,7 +25,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class EventListenerConfig
 {
-    private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
     private List<File> eventListenerFiles = ImmutableList.of();
 
     @NotNull
@@ -36,17 +34,11 @@ public class EventListenerConfig
     }
 
     @Config("event-listener.config-files")
-    public EventListenerConfig setEventListenerFiles(String eventListenerFiles)
+    public EventListenerConfig setEventListenerFiles(List<String> eventListenerFiles)
     {
-        this.eventListenerFiles = SPLITTER.splitToList(eventListenerFiles).stream()
+        this.eventListenerFiles = eventListenerFiles.stream()
                 .map(File::new)
                 .collect(toImmutableList());
-        return this;
-    }
-
-    public EventListenerConfig setEventListenerFiles(List<File> eventListenerFiles)
-    {
-        this.eventListenerFiles = ImmutableList.copyOf(eventListenerFiles);
         return this;
     }
 }

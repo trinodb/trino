@@ -23,6 +23,8 @@ import com.google.common.math.Quantiles;
 import com.google.common.math.Stats;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
+import io.airlift.compress.v3.zstd.ZstdCompressor;
+import io.airlift.compress.v3.zstd.ZstdDecompressor;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
@@ -33,6 +35,8 @@ import io.trino.metadata.Split;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.sql.planner.plan.PlanNodeId;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -44,8 +48,10 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
@@ -56,37 +62,138 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.ImmutableSetMultimap.toImmutableSetMultimap;
 import static com.google.common.math.Quantiles.percentiles;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_TASK_DESCRIPTOR_STORAGE_CAPACITY;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.lang.System.arraycopy;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 
 public class TaskDescriptorStorage
 {
     private static final Logger log = Logger.get(TaskDescriptorStorage.class);
+    public static final int SINGLE_STEP_COMPRESSION_LIMIT = 1000;
 
     private final long maxMemoryInBytes;
+    private final long compressingHighWaterMark;
+    private final long compressingLowWaterMark;
+
+    private final JsonCodec<TaskDescriptor> taskDescriptorJsonCodec;
     private final JsonCodec<Split> splitJsonCodec;
     private final StorageStats storageStats;
 
     @GuardedBy("this")
     private final Map<QueryId, TaskDescriptors> storages = new HashMap<>();
+
+    /*
+     * The following fields are used to track memory usage of the storage.
+     * The memory usage is tracked in three categories:
+     * 1. reservedUncompressedBytes: memory used by uncompressed task descriptors
+     * 2. reservedCompressedBytes: memory used by compressed task descriptors
+     * 3. originalCompressedBytes: how much memory was used by compressed task descriptors before compression (informational only)
+     */
     @GuardedBy("this")
-    private long reservedBytes;
+    private long reservedUncompressedBytes;
+    @GuardedBy("this")
+    private long reservedCompressedBytes;
+    @GuardedBy("this")
+    private long originalCompressedBytes;
+
+    @GuardedBy("this")
+    private boolean compressing;
+    private final ScheduledExecutorService executor = newSingleThreadScheduledExecutor(daemonThreadsNamed("task-descriptor-storage"));
+    private volatile boolean running;
 
     @Inject
     public TaskDescriptorStorage(
             QueryManagerConfig config,
+            JsonCodec<TaskDescriptor> taskDescriptorJsonCodec,
             JsonCodec<Split> splitJsonCodec)
     {
-        this(config.getFaultTolerantExecutionTaskDescriptorStorageMaxMemory(), splitJsonCodec);
+        this(
+                config.getFaultTolerantExecutionTaskDescriptorStorageMaxMemory(),
+                config.getFaultTolerantExecutionTaskDescriptorStorageHighWaterMark(),
+                config.getFaultTolerantExecutionTaskDescriptorStorageLowWaterMark(),
+                taskDescriptorJsonCodec,
+                splitJsonCodec);
     }
 
-    public TaskDescriptorStorage(DataSize maxMemory, JsonCodec<Split> splitJsonCodec)
+    public TaskDescriptorStorage(
+            DataSize maxMemory,
+            DataSize compressingHighWaterMark,
+            DataSize compressingLowWaterMark,
+            JsonCodec<TaskDescriptor> taskDescriptorJsonCodec,
+            JsonCodec<Split> splitJsonCodec)
     {
         this.maxMemoryInBytes = maxMemory.toBytes();
+        this.compressingHighWaterMark = compressingHighWaterMark.toBytes();
+        this.compressingLowWaterMark = compressingLowWaterMark.toBytes();
+        this.taskDescriptorJsonCodec = requireNonNull(taskDescriptorJsonCodec, "taskDescriptorJsonCodec is null");
         this.splitJsonCodec = requireNonNull(splitJsonCodec, "splitJsonCodec is null");
         this.storageStats = new StorageStats(Suppliers.memoizeWithExpiration(this::computeStats, 1, TimeUnit.SECONDS));
+    }
+
+    @PostConstruct
+    public void start()
+    {
+        running = true;
+        executor.schedule(this::compressTaskDescriptorsJob, 10, TimeUnit.SECONDS);
+    }
+
+    private void compressTaskDescriptorsJob()
+    {
+        if (!running) {
+            return;
+        }
+        int delaySeconds = 10;
+        try {
+            if (!compressTaskDescriptorsStep()) {
+                delaySeconds = 0;
+            }
+        }
+        catch (Throwable e) {
+            log.error(e, "Error in compressTaskDescriptorsJob");
+        }
+        finally {
+            executor.schedule(this::compressTaskDescriptorsJob, delaySeconds, TimeUnit.SECONDS);
+        }
+    }
+
+    @PreDestroy
+    public void stop()
+    {
+        running = false;
+        executor.shutdownNow();
+    }
+
+    private boolean compressTaskDescriptorsStep()
+    {
+        int limit = SINGLE_STEP_COMPRESSION_LIMIT;
+        synchronized (this) {
+            if (!compressing) {
+                return true;
+            }
+
+            for (Map.Entry<QueryId, TaskDescriptors> entry : storages.entrySet()) {
+                if (limit <= 0) {
+                    return false;
+                }
+                TaskDescriptors storage = entry.getValue();
+                if (!storage.isFullyCompressed()) {
+                    var holder = new Object()
+                    {
+                        int limitDelta;
+                    };
+                    int limitFinal = limit;
+                    runAndUpdateMemory(storage, () -> holder.limitDelta = storage.compress(limitFinal), false);
+                    limit -= holder.limitDelta;
+                }
+            }
+        }
+        return limit > 0;
     }
 
     /**
@@ -97,7 +204,8 @@ public class TaskDescriptorStorage
     {
         TaskDescriptors storage = new TaskDescriptors();
         verify(storages.putIfAbsent(queryId, storage) == null, "storage is already initialized for query: %s", queryId);
-        updateMemoryReservation(storage.getReservedBytes());
+        updateMemoryReservation(storage.getReservedUncompressedBytes(), storage.getReservedCompressedBytes(), storage.getOriginalCompressedBytes(), true);
+        updateCompressingFlag();
     }
 
     /**
@@ -114,11 +222,29 @@ public class TaskDescriptorStorage
             // query has been terminated
             return;
         }
-        long previousReservedBytes = storage.getReservedBytes();
-        storage.put(stageId, descriptor.getPartitionId(), descriptor);
-        long currentReservedBytes = storage.getReservedBytes();
-        long delta = currentReservedBytes - previousReservedBytes;
-        updateMemoryReservation(delta);
+
+        runAndUpdateMemory(storage, () -> storage.put(stageId, descriptor.getPartitionId(), descriptor), true);
+    }
+
+    @GuardedBy("this")
+    private void runAndUpdateMemory(TaskDescriptors storage, Runnable operation, boolean considerKilling)
+    {
+        long previousReservedUncompressedBytes = storage.getReservedUncompressedBytes();
+        long previousReservedCompressedBytes = storage.getReservedCompressedBytes();
+        long previousOriginalCompressedBytes = storage.getOriginalCompressedBytes();
+
+        operation.run();
+
+        long currentReservedUncompressedBytes = storage.getReservedUncompressedBytes();
+        long currentReservedCompressedBytes = storage.getReservedCompressedBytes();
+        long currentOriginalCompressedBytes = storage.getOriginalCompressedBytes();
+
+        long reservedUncompressedDelta = currentReservedUncompressedBytes - previousReservedUncompressedBytes;
+        long reservedCompressedDelta = currentReservedCompressedBytes - previousReservedCompressedBytes;
+        long originalCompressedDelta = currentOriginalCompressedBytes - previousOriginalCompressedBytes;
+
+        updateMemoryReservation(reservedUncompressedDelta, reservedCompressedDelta, originalCompressedDelta, considerKilling);
+        updateCompressingFlag();
     }
 
     /**
@@ -151,11 +277,8 @@ public class TaskDescriptorStorage
             // query has been terminated
             return;
         }
-        long previousReservedBytes = storage.getReservedBytes();
-        storage.remove(stageId, partitionId);
-        long currentReservedBytes = storage.getReservedBytes();
-        long delta = currentReservedBytes - previousReservedBytes;
-        updateMemoryReservation(delta);
+
+        runAndUpdateMemory(storage, () -> storage.remove(stageId, partitionId), false);
     }
 
     /**
@@ -169,41 +292,84 @@ public class TaskDescriptorStorage
     {
         TaskDescriptors storage = storages.remove(queryId);
         if (storage != null) {
-            updateMemoryReservation(-storage.getReservedBytes());
+            updateMemoryReservation(-storage.getReservedUncompressedBytes(), -storage.getReservedCompressedBytes(), -storage.getOriginalCompressedBytes(), false);
+            updateCompressingFlag();
         }
     }
 
-    private synchronized void updateMemoryReservation(long delta)
+    @GuardedBy("this")
+    private void updateCompressingFlag()
     {
-        reservedBytes += delta;
-        if (delta <= 0) {
+        if (!compressing && originalCompressedBytes + reservedUncompressedBytes > compressingHighWaterMark) {
+            compressing = true;
+        }
+        else if (compressing && originalCompressedBytes + reservedUncompressedBytes < compressingLowWaterMark) {
+            compressing = false;
+        }
+    }
+
+    @GuardedBy("this")
+    private void updateMemoryReservation(long reservedUncompressedDelta, long reservedCompressedDelta, long originalCompressedDelta, boolean considerKilling)
+    {
+        reservedUncompressedBytes += reservedUncompressedDelta;
+        reservedCompressedBytes += reservedCompressedDelta;
+        originalCompressedBytes += originalCompressedDelta;
+        checkStatsNotNegative();
+
+        if (reservedUncompressedDelta + reservedCompressedDelta <= 0 || !considerKilling) {
             return;
         }
-        while (reservedBytes > maxMemoryInBytes) {
+
+        while (reservedUncompressedBytes + reservedCompressedBytes > maxMemoryInBytes) {
             // drop a query that uses the most storage
             QueryId killCandidate = storages.entrySet().stream()
                     .max(Comparator.comparingLong(entry -> entry.getValue().getReservedBytes()))
                     .map(Map.Entry::getKey)
-                    .orElseThrow(() -> new VerifyException(format("storage is empty but reservedBytes (%s) is still greater than maxMemoryInBytes (%s)", reservedBytes, maxMemoryInBytes)));
+                    .orElseThrow(() -> new VerifyException(format("storage is empty but reservedBytes (%s + %s) is still greater than maxMemoryInBytes (%s)", reservedUncompressedDelta, reservedCompressedDelta, maxMemoryInBytes)));
             TaskDescriptors storage = storages.get(killCandidate);
-            long previousReservedBytes = storage.getReservedBytes();
 
             if (log.isInfoEnabled()) {
-                log.info("Failing query %s; reclaiming %s of %s task descriptor memory from %s queries; extraStorageInfo=%s", killCandidate, storage.getReservedBytes(), succinctBytes(reservedBytes), storages.size(), storage.getDebugInfo());
+                log.info("Failing query %s; reclaiming %s of %s/%s task descriptor memory from %s queries; extraStorageInfo=%s", killCandidate, storage.getReservedBytes(), succinctBytes(reservedUncompressedBytes), succinctBytes(reservedCompressedBytes), storages.size(), storage.getDebugInfo());
             }
 
-            storage.fail(new TrinoException(
-                    EXCEEDED_TASK_DESCRIPTOR_STORAGE_CAPACITY,
-                    format("Task descriptor storage capacity has been exceeded: %s > %s", succinctBytes(maxMemoryInBytes), succinctBytes(reservedBytes))));
-            long currentReservedBytes = storage.getReservedBytes();
-            reservedBytes += (currentReservedBytes - previousReservedBytes);
+            runAndUpdateMemory(
+                    storage,
+                    () -> storage.fail(new TrinoException(
+                            EXCEEDED_TASK_DESCRIPTOR_STORAGE_CAPACITY,
+                            format("Task descriptor storage capacity has been exceeded: %s > %s", succinctBytes(reservedUncompressedBytes + reservedCompressedBytes), succinctBytes(maxMemoryInBytes)))),
+                    false);
         }
     }
 
-    @VisibleForTesting
-    synchronized long getReservedBytes()
+    @GuardedBy("this")
+    private void checkStatsNotNegative()
     {
-        return reservedBytes;
+        checkState(reservedUncompressedBytes >= 0, "reservedUncompressedBytes is negative");
+        checkState(reservedUncompressedBytes >= 0, "reservedCompressedBytes is negative");
+        checkState(originalCompressedBytes >= 0, "originalCompressedBytes is negative");
+    }
+
+    @VisibleForTesting
+    synchronized long getReservedUncompressedBytes()
+    {
+        return reservedUncompressedBytes;
+    }
+
+    @VisibleForTesting
+    synchronized long getReservedCompressedBytes()
+    {
+        return reservedCompressedBytes;
+    }
+
+    @VisibleForTesting
+    synchronized long getOriginalCompressedBytes()
+    {
+        return originalCompressedBytes;
+    }
+
+    private TaskDescriptorHolder createTaskDescriptorHolder(TaskDescriptor taskDescriptor)
+    {
+        return new TaskDescriptorHolder(taskDescriptor);
     }
 
     @Managed
@@ -215,111 +381,191 @@ public class TaskDescriptorStorage
         return storageStats;
     }
 
-    private synchronized StorageStatsValue computeStats()
+    private synchronized StorageStatsValues computeStats()
     {
         int queriesCount = storages.size();
         long stagesCount = storages.values().stream().mapToLong(TaskDescriptors::getStagesCount).sum();
 
+        StorageStatsValue uncompressedReservedStats = getStorageStatsValue(
+                queriesCount,
+                stagesCount,
+                reservedUncompressedBytes,
+                TaskDescriptors::getReservedUncompressedBytes,
+                TaskDescriptors::getStagesReservedUncompressedBytes);
+        StorageStatsValue compressedReservedStats = getStorageStatsValue(
+                queriesCount,
+                stagesCount,
+                reservedCompressedBytes,
+                TaskDescriptors::getReservedCompressedBytes,
+                TaskDescriptors::getStagesReservedCompressedBytes);
+        StorageStatsValue originalCompressedStats = getStorageStatsValue(
+                queriesCount,
+                stagesCount,
+                originalCompressedBytes,
+                TaskDescriptors::getOriginalCompressedBytes,
+                TaskDescriptors::getStagesOriginalCompressedBytes);
+        return new StorageStatsValues(
+                queriesCount,
+                stagesCount,
+                compressing,
+                uncompressedReservedStats,
+                compressedReservedStats,
+                originalCompressedStats);
+    }
+
+    @GuardedBy("this")
+    private StorageStatsValue getStorageStatsValue(
+            int queriesCount,
+            long stagesCount,
+            long totalBytes,
+            Function<TaskDescriptors, Long> queryBytes,
+            Function<TaskDescriptors, Stream<? extends Long>> stageBytes)
+    {
         Quantiles.ScaleAndIndexes percentiles = percentiles().indexes(50, 90, 95);
 
-        long queryReservedBytesP50 = 0;
-        long queryReservedBytesP90 = 0;
-        long queryReservedBytesP95 = 0;
-        long queryReservedBytesAvg = 0;
-        long stageReservedBytesP50 = 0;
-        long stageReservedBytesP90 = 0;
-        long stageReservedBytesP95 = 0;
-        long stageReservedBytesAvg = 0;
+        long queryBytesP50 = 0;
+        long queryBytesP90 = 0;
+        long queryBytesP95 = 0;
+        long queryBytesAvg = 0;
+        long stageBytesP50 = 0;
+        long stageBytesP90 = 0;
+        long stageBytesP95 = 0;
+        long stageBytesAvg = 0;
 
         if (queriesCount > 0) { // we cannot compute percentiles for empty set
 
-            Map<Integer, Double> queryReservedBytesPercentiles = percentiles.compute(
+            Map<Integer, Double> queryBytesPercentiles = percentiles.compute(
                     storages.values().stream()
-                            .map(TaskDescriptors::getReservedBytes)
+                            .map(queryBytes)
                             .collect(toImmutableList()));
 
-            queryReservedBytesP50 = queryReservedBytesPercentiles.get(50).longValue();
-            queryReservedBytesP90 = queryReservedBytesPercentiles.get(90).longValue();
-            queryReservedBytesP95 = queryReservedBytesPercentiles.get(95).longValue();
-            queryReservedBytesAvg = reservedBytes / queriesCount;
+            queryBytesP50 = queryBytesPercentiles.get(50).longValue();
+            queryBytesP90 = queryBytesPercentiles.get(90).longValue();
+            queryBytesP95 = queryBytesPercentiles.get(95).longValue();
+            queryBytesAvg = totalBytes / queriesCount;
 
             List<Long> storagesReservedBytes = storages.values().stream()
-                    .flatMap(TaskDescriptors::getStagesReservedBytes)
+                    .flatMap(stageBytes)
                     .collect(toImmutableList());
 
             if (!storagesReservedBytes.isEmpty()) {
                 Map<Integer, Double> stagesReservedBytesPercentiles = percentiles.compute(
                         storagesReservedBytes);
-                stageReservedBytesP50 = stagesReservedBytesPercentiles.get(50).longValue();
-                stageReservedBytesP90 = stagesReservedBytesPercentiles.get(90).longValue();
-                stageReservedBytesP95 = stagesReservedBytesPercentiles.get(95).longValue();
-                stageReservedBytesAvg = reservedBytes / stagesCount;
+                stageBytesP50 = stagesReservedBytesPercentiles.get(50).longValue();
+                stageBytesP90 = stagesReservedBytesPercentiles.get(90).longValue();
+                stageBytesP95 = stagesReservedBytesPercentiles.get(95).longValue();
+                stageBytesAvg = totalBytes / stagesCount;
             }
         }
 
         return new StorageStatsValue(
-                queriesCount,
-                stagesCount,
-                reservedBytes,
-                queryReservedBytesAvg,
-                queryReservedBytesP50,
-                queryReservedBytesP90,
-                queryReservedBytesP95,
-                stageReservedBytesAvg,
-                stageReservedBytesP50,
-                stageReservedBytesP90,
-                stageReservedBytesP95);
+                totalBytes,
+                queryBytesAvg,
+                queryBytesP50,
+                queryBytesP90,
+                queryBytesP95,
+                stageBytesAvg,
+                stageBytesP50,
+                stageBytesP90,
+                stageBytesP95);
     }
 
     @NotThreadSafe
     private class TaskDescriptors
     {
-        private final Table<StageId, Integer /* partitionId */, TaskDescriptor> descriptors = HashBasedTable.create();
+        private final Table<StageId, Integer /* partitionId */, TaskDescriptorHolder> descriptors = HashBasedTable.create();
+        public boolean fullyCompressed;
 
-        private long reservedBytes;
-        private final Map<StageId, AtomicLong> stagesReservedBytes = new HashMap<>();
-        private RuntimeException failure;
+        /* tracking of memory usage; see top level comment in TaskDescriptorStorage for meaning */
+        private long reservedUncompressedBytes;
+        private long reservedCompressedBytes;
+        private long originalCompressedBytes;
 
+        private final Map<StageId, AtomicLong> stagesReservedUncompressedBytes = new HashMap<>();
+        private final Map<StageId, AtomicLong> stagesReservedCompressedBytes = new HashMap<>();
+        private final Map<StageId, AtomicLong> stagesOriginalCompressedBytes = new HashMap<>();
+        private TrinoException failure;
+
+        @GuardedBy("TaskDescriptorStorage.this")
         public void put(StageId stageId, int partitionId, TaskDescriptor descriptor)
         {
             throwIfFailed();
             checkState(!descriptors.contains(stageId, partitionId), "task descriptor is already present for key %s/%s ", stageId, partitionId);
-            descriptors.put(stageId, partitionId, descriptor);
-            long descriptorRetainedBytes = descriptor.getRetainedSizeInBytes();
-            reservedBytes += descriptorRetainedBytes;
-            stagesReservedBytes.computeIfAbsent(stageId, ignored -> new AtomicLong()).addAndGet(descriptorRetainedBytes);
+            TaskDescriptorHolder descriptorHolder = createTaskDescriptorHolder(descriptor);
+
+            if (compressing) {
+                descriptorHolder.compress();
+            }
+            else {
+                fullyCompressed = false;
+            }
+            descriptors.put(stageId, partitionId, descriptorHolder);
+
+            if (descriptorHolder.isCompressed()) {
+                originalCompressedBytes += descriptorHolder.getUncompressedSize();
+                reservedCompressedBytes += descriptorHolder.getCompressedSize();
+                stagesOriginalCompressedBytes.computeIfAbsent(stageId, _ -> new AtomicLong()).addAndGet(descriptorHolder.getUncompressedSize());
+                stagesReservedCompressedBytes.computeIfAbsent(stageId, _ -> new AtomicLong()).addAndGet(descriptorHolder.getCompressedSize());
+            }
+            else {
+                reservedUncompressedBytes += descriptorHolder.getUncompressedSize();
+                stagesReservedUncompressedBytes.computeIfAbsent(stageId, _ -> new AtomicLong()).addAndGet(descriptorHolder.getUncompressedSize());
+            }
         }
 
         public TaskDescriptor get(StageId stageId, int partitionId)
         {
             throwIfFailed();
-            TaskDescriptor descriptor = descriptors.get(stageId, partitionId);
+            TaskDescriptorHolder descriptor = descriptors.get(stageId, partitionId);
             if (descriptor == null) {
                 throw new NoSuchElementException(format("descriptor not found for key %s/%s", stageId, partitionId));
             }
-            return descriptor;
+            return descriptor.getTaskDescriptor();
         }
 
         public void remove(StageId stageId, int partitionId)
         {
             throwIfFailed();
-            TaskDescriptor descriptor = descriptors.remove(stageId, partitionId);
-            if (descriptor == null) {
+            TaskDescriptorHolder descriptorHolder = descriptors.remove(stageId, partitionId);
+            if (descriptorHolder == null) {
                 throw new NoSuchElementException(format("descriptor not found for key %s/%s", stageId, partitionId));
             }
-            long descriptorRetainedBytes = descriptor.getRetainedSizeInBytes();
-            reservedBytes -= descriptorRetainedBytes;
-            requireNonNull(stagesReservedBytes.get(stageId), () -> format("no entry for stage %s", stageId)).addAndGet(-descriptorRetainedBytes);
+
+            if (descriptorHolder.isCompressed()) {
+                originalCompressedBytes -= descriptorHolder.getUncompressedSize();
+                reservedCompressedBytes -= descriptorHolder.getCompressedSize();
+                stagesOriginalCompressedBytes.computeIfAbsent(stageId, _ -> new AtomicLong()).addAndGet(-descriptorHolder.getUncompressedSize());
+                stagesReservedCompressedBytes.computeIfAbsent(stageId, _ -> new AtomicLong()).addAndGet(-descriptorHolder.getCompressedSize());
+            }
+            else {
+                reservedUncompressedBytes -= descriptorHolder.getUncompressedSize();
+                stagesReservedUncompressedBytes.computeIfAbsent(stageId, _ -> new AtomicLong()).addAndGet(-descriptorHolder.getUncompressedSize());
+            }
+        }
+
+        public long getReservedUncompressedBytes()
+        {
+            return reservedUncompressedBytes;
+        }
+
+        public long getReservedCompressedBytes()
+        {
+            return reservedCompressedBytes;
+        }
+
+        public long getOriginalCompressedBytes()
+        {
+            return originalCompressedBytes;
         }
 
         public long getReservedBytes()
         {
-            return reservedBytes;
+            return reservedUncompressedBytes + reservedCompressedBytes;
         }
 
         private String getDebugInfo()
         {
-            Multimap<StageId, TaskDescriptor> descriptorsByStageId = descriptors.cellSet().stream()
+            Multimap<StageId, TaskDescriptorHolder> descriptorsByStageId = descriptors.cellSet().stream()
                     .collect(toImmutableSetMultimap(
                             Table.Cell::getRowKey,
                             Table.Cell::getValue));
@@ -330,7 +576,7 @@ public class TaskDescriptorStorage
                             entry -> getDebugInfo(entry.getValue())));
 
             List<String> biggestSplits = descriptorsByStageId.entries().stream()
-                    .flatMap(entry -> entry.getValue().getSplits().getSplitsFlat().entries().stream().map(splitEntry -> Map.entry("%s/%s".formatted(entry.getKey(), splitEntry.getKey()), splitEntry.getValue())))
+                    .flatMap(entry -> entry.getValue().getTaskDescriptor().getSplits().getSplitsFlat().entries().stream().map(splitEntry -> Map.entry("%s/%s".formatted(entry.getKey(), splitEntry.getKey()), splitEntry.getValue())))
                     .sorted(Comparator.<Map.Entry<String, Split>>comparingLong(entry -> entry.getValue().getRetainedSizeInBytes()).reversed())
                     .limit(3)
                     .map(entry -> "{nodeId=%s, size=%s, split=%s}".formatted(entry.getKey(), entry.getValue().getRetainedSizeInBytes(), splitJsonCodec.toJson(entry.getValue())))
@@ -339,16 +585,16 @@ public class TaskDescriptorStorage
             return "stagesInfo=%s; biggestSplits=%s".formatted(debugInfoByStageId, biggestSplits);
         }
 
-        private String getDebugInfo(Collection<TaskDescriptor> taskDescriptors)
+        private String getDebugInfo(Collection<TaskDescriptorHolder> taskDescriptors)
         {
             int taskDescriptorsCount = taskDescriptors.size();
-            Stats taskDescriptorsRetainedSizeStats = Stats.of(taskDescriptors.stream().mapToLong(TaskDescriptor::getRetainedSizeInBytes));
+            Stats taskDescriptorsRetainedSizeStats = Stats.of(taskDescriptors.stream().mapToLong(TaskDescriptorHolder::getRetainedSizeInBytes));
 
-            Set<PlanNodeId> planNodeIds = taskDescriptors.stream().flatMap(taskDescriptor -> taskDescriptor.getSplits().getSplitsFlat().keySet().stream()).collect(toImmutableSet());
+            Set<PlanNodeId> planNodeIds = taskDescriptors.stream().flatMap(taskDescriptor -> taskDescriptor.getTaskDescriptor().getSplits().getSplitsFlat().keySet().stream()).collect(toImmutableSet());
             Map<PlanNodeId, String> splitsDebugInfo = new HashMap<>();
             for (PlanNodeId planNodeId : planNodeIds) {
-                Stats splitCountStats = Stats.of(taskDescriptors.stream().mapToLong(taskDescriptor -> taskDescriptor.getSplits().getSplitsFlat().asMap().get(planNodeId).size()));
-                Stats splitSizeStats = Stats.of(taskDescriptors.stream().flatMap(taskDescriptor -> taskDescriptor.getSplits().getSplitsFlat().get(planNodeId).stream()).mapToLong(Split::getRetainedSizeInBytes));
+                Stats splitCountStats = Stats.of(taskDescriptors.stream().mapToLong(taskDescriptor -> taskDescriptor.getTaskDescriptor().getSplits().getSplitsFlat().asMap().get(planNodeId).size()));
+                Stats splitSizeStats = Stats.of(taskDescriptors.stream().flatMap(taskDescriptor -> taskDescriptor.getTaskDescriptor().getSplits().getSplitsFlat().get(planNodeId).stream()).mapToLong(Split::getRetainedSizeInBytes));
                 splitsDebugInfo.put(
                         planNodeId,
                         "{splitCountMean=%s, splitCountStdDev=%s, splitSizeMean=%s, splitSizeStdDev=%s}".formatted(
@@ -365,11 +611,13 @@ public class TaskDescriptorStorage
                     splitsDebugInfo);
         }
 
-        private void fail(RuntimeException failure)
+        private void fail(TrinoException failure)
         {
             if (this.failure == null) {
                 descriptors.clear();
-                reservedBytes = 0;
+                reservedUncompressedBytes = 0;
+                reservedCompressedBytes = 0;
+                originalCompressedBytes = 0;
                 this.failure = failure;
             }
         }
@@ -377,7 +625,8 @@ public class TaskDescriptorStorage
         private void throwIfFailed()
         {
             if (failure != null) {
-                throw failure;
+                // add caller stack trace to the exception
+                throw new TrinoException(failure::getErrorCode, failure.getMessage(), failure);
             }
         }
 
@@ -386,31 +635,87 @@ public class TaskDescriptorStorage
             return descriptors.rowMap().size();
         }
 
-        public Stream<Long> getStagesReservedBytes()
+        public Stream<Long> getStagesReservedUncompressedBytes()
         {
-            return stagesReservedBytes.values().stream()
+            return stagesReservedUncompressedBytes.values().stream()
                     .map(AtomicLong::get);
+        }
+
+        public Stream<Long> getStagesReservedCompressedBytes()
+        {
+            return stagesReservedCompressedBytes.values().stream()
+                    .map(AtomicLong::get);
+        }
+
+        public Stream<Long> getStagesOriginalCompressedBytes()
+        {
+            return stagesOriginalCompressedBytes.values().stream()
+                    .map(AtomicLong::get);
+        }
+
+        public boolean isFullyCompressed()
+        {
+            return fullyCompressed;
+        }
+
+        @GuardedBy("TaskDescriptorStorage.this")
+        public int compress(int limit)
+        {
+            if (fullyCompressed) {
+                return 0;
+            }
+            List<TaskDescriptorHolder> selectedForCompresssion = descriptors.values().stream()
+                    .filter(descriptor -> !descriptor.isCompressed())
+                    .limit(limit)
+                    .collect(toImmutableList());
+
+            for (TaskDescriptorHolder holder : selectedForCompresssion) {
+                long uncompressedSize = holder.getUncompressedSize();
+                holder.compress();
+                reservedUncompressedBytes -= uncompressedSize;
+                originalCompressedBytes += uncompressedSize;
+                reservedCompressedBytes += holder.getCompressedSize();
+                checkStatsNotNegative();
+            }
+            if (selectedForCompresssion.size() < limit) {
+                fullyCompressed = true;
+            }
+            return selectedForCompresssion.size();
+        }
+    }
+
+    private record StorageStatsValues(
+            long queriesCount,
+            long stagesCount,
+            boolean compressionActive,
+            StorageStatsValue uncompressedReservedStats,
+            StorageStatsValue compressedReservedStats,
+            StorageStatsValue originalCompressedStats)
+    {
+        private StorageStatsValues
+        {
+            requireNonNull(uncompressedReservedStats, "uncompressedReservedStats is null");
+            requireNonNull(compressedReservedStats, "compressedReservedStats is null");
+            requireNonNull(originalCompressedStats, "originalCompressedStats is null");
         }
     }
 
     private record StorageStatsValue(
-            long queriesCount,
-            long stagesCount,
-            long reservedBytes,
-            long queryReservedBytesAvg,
-            long queryReservedBytesP50,
-            long queryReservedBytesP90,
-            long queryReservedBytesP95,
-            long stageReservedBytesAvg,
-            long stageReservedBytesP50,
-            long stageReservedBytesP90,
-            long stageReservedBytesP95) {}
+            long bytes,
+            long queryBytesAvg,
+            long queryBytesP50,
+            long queryBytesP90,
+            long queryBytesP95,
+            long stageBytesAvg,
+            long stageBytesP50,
+            long stageBytesP90,
+            long stageBytesP95) {}
 
     public static class StorageStats
     {
-        private final Supplier<StorageStatsValue> statsSupplier;
+        private final Supplier<StorageStatsValues> statsSupplier;
 
-        StorageStats(Supplier<StorageStatsValue> statsSupplier)
+        StorageStats(Supplier<StorageStatsValues> statsSupplier)
         {
             this.statsSupplier = requireNonNull(statsSupplier, "statsSupplier is null");
         }
@@ -428,57 +733,242 @@ public class TaskDescriptorStorage
         }
 
         @Managed
-        public long getReservedBytes()
+        public long getCompressionActive()
         {
-            return statsSupplier.get().reservedBytes();
+            return statsSupplier.get().compressionActive() ? 1 : 0;
         }
 
         @Managed
-        public long getQueryReservedBytesAvg()
+        public long getUncompressedReservedBytes()
         {
-            return statsSupplier.get().queryReservedBytesAvg();
+            return statsSupplier.get().uncompressedReservedStats().bytes();
         }
 
         @Managed
-        public long getQueryReservedBytesP50()
+        public long getQueryUncompressedReservedBytesAvg()
         {
-            return statsSupplier.get().queryReservedBytesP50();
+            return statsSupplier.get().uncompressedReservedStats().queryBytesAvg();
         }
 
         @Managed
-        public long getQueryReservedBytesP90()
+        public long getQueryUncompressedReservedBytesP50()
         {
-            return statsSupplier.get().queryReservedBytesP90();
+            return statsSupplier.get().uncompressedReservedStats().queryBytesP50();
         }
 
         @Managed
-        public long getQueryReservedBytesP95()
+        public long getQueryUncompressedReservedBytesP90()
         {
-            return statsSupplier.get().queryReservedBytesP95();
+            return statsSupplier.get().uncompressedReservedStats().queryBytesP90();
         }
 
         @Managed
-        public long getStageReservedBytesAvg()
+        public long getQueryUncompressedReservedBytesP95()
         {
-            return statsSupplier.get().stageReservedBytesP50();
+            return statsSupplier.get().uncompressedReservedStats().queryBytesP95();
         }
 
         @Managed
-        public long getStageReservedBytesP50()
+        public long getStageUncompressedReservedBytesAvg()
         {
-            return statsSupplier.get().stageReservedBytesP50();
+            return statsSupplier.get().uncompressedReservedStats().stageBytesP50();
         }
 
         @Managed
-        public long getStageReservedBytesP90()
+        public long getStageUncompressedReservedBytesP50()
         {
-            return statsSupplier.get().stageReservedBytesP90();
+            return statsSupplier.get().uncompressedReservedStats().stageBytesP50();
         }
 
         @Managed
-        public long getStageReservedBytesP95()
+        public long getStageUncompressedReservedBytesP90()
         {
-            return statsSupplier.get().stageReservedBytesP95();
+            return statsSupplier.get().uncompressedReservedStats().stageBytesP90();
+        }
+
+        @Managed
+        public long getStageUncompressedReservedBytesP95()
+        {
+            return statsSupplier.get().uncompressedReservedStats().stageBytesP95();
+        }
+
+        @Managed
+        public long getCompressedReservedBytes()
+        {
+            return statsSupplier.get().compressedReservedStats().bytes();
+        }
+
+        @Managed
+        public long getQueryCompressedReservedBytesAvg()
+        {
+            return statsSupplier.get().compressedReservedStats().queryBytesAvg();
+        }
+
+        @Managed
+        public long getQueryCompressedReservedBytesP50()
+        {
+            return statsSupplier.get().compressedReservedStats().queryBytesP50();
+        }
+
+        @Managed
+        public long getQueryCompressedReservedBytesP90()
+        {
+            return statsSupplier.get().compressedReservedStats().queryBytesP90();
+        }
+
+        @Managed
+        public long getQueryCompressedReservedBytesP95()
+        {
+            return statsSupplier.get().compressedReservedStats().queryBytesP95();
+        }
+
+        @Managed
+        public long getStageCompressedReservedBytesAvg()
+        {
+            return statsSupplier.get().compressedReservedStats().stageBytesP50();
+        }
+
+        @Managed
+        public long getStageCompressedReservedBytesP50()
+        {
+            return statsSupplier.get().compressedReservedStats().stageBytesP50();
+        }
+
+        @Managed
+        public long getStageCompressedReservedBytesP90()
+        {
+            return statsSupplier.get().compressedReservedStats().stageBytesP90();
+        }
+
+        @Managed
+        public long getStageCompressedReservedBytesP95()
+        {
+            return statsSupplier.get().compressedReservedStats().stageBytesP95();
+        }
+
+        @Managed
+        public long getOriginalCompressedBytes()
+        {
+            return statsSupplier.get().originalCompressedStats().bytes();
+        }
+
+        @Managed
+        public long getQueryOriginalCompressedBytesAvg()
+        {
+            return statsSupplier.get().originalCompressedStats().queryBytesAvg();
+        }
+
+        @Managed
+        public long getQueryOriginalCompressedBytesP50()
+        {
+            return statsSupplier.get().originalCompressedStats().queryBytesP50();
+        }
+
+        @Managed
+        public long getQueryOriginalCompressedBytesP90()
+        {
+            return statsSupplier.get().originalCompressedStats().queryBytesP90();
+        }
+
+        @Managed
+        public long getQueryOriginalCompressedBytesP95()
+        {
+            return statsSupplier.get().originalCompressedStats().queryBytesP95();
+        }
+
+        @Managed
+        public long getStageOriginalCompressedBytesAvg()
+        {
+            return statsSupplier.get().originalCompressedStats().stageBytesP50();
+        }
+
+        @Managed
+        public long getStageOriginalCompressedBytesP50()
+        {
+            return statsSupplier.get().originalCompressedStats().stageBytesP50();
+        }
+
+        @Managed
+        public long getStageOriginalCompressedBytesP90()
+        {
+            return statsSupplier.get().originalCompressedStats().stageBytesP90();
+        }
+
+        @Managed
+        public long getStageOriginalCompressedBytesP95()
+        {
+            return statsSupplier.get().originalCompressedStats().stageBytesP95();
+        }
+    }
+
+    private class TaskDescriptorHolder
+    {
+        private static final int INSTANCE_SIZE = instanceSize(TaskDescriptorHolder.class);
+
+        private TaskDescriptor taskDescriptor;
+        private final long uncompressedSize;
+        private byte[] compressedTaskDescriptor;
+
+        private TaskDescriptorHolder(TaskDescriptor taskDescriptor)
+        {
+            this.taskDescriptor = requireNonNull(taskDescriptor, "taskDescriptor is null");
+            this.uncompressedSize = taskDescriptor.getRetainedSizeInBytes();
+        }
+
+        public TaskDescriptor getTaskDescriptor()
+        {
+            if (taskDescriptor != null) {
+                return taskDescriptor;
+            }
+            // decompress if needed
+            verify(compressedTaskDescriptor != null, "compressedTaskDescriptor is null");
+            ZstdDecompressor decompressor = ZstdDecompressor.create();
+            long decompressedSize = decompressor.getDecompressedSize(compressedTaskDescriptor, 0, compressedTaskDescriptor.length);
+            byte[] output = new byte[toIntExact(decompressedSize)];
+            decompressor.decompress(compressedTaskDescriptor, 0, compressedTaskDescriptor.length, output, 0, output.length);
+            return taskDescriptorJsonCodec.fromJson(output);
+        }
+
+        public void compress()
+        {
+            checkState(!isCompressed(), "TaskDescriptor is compressed");
+
+            byte[] taskDescriptorJson = taskDescriptorJsonCodec.toJsonBytes(taskDescriptor);
+            ZstdCompressor compressor = ZstdCompressor.create();
+            int maxCompressedSize = compressor.maxCompressedLength(taskDescriptorJson.length);
+            byte[] tmpCompressedTaskDescriptor = new byte[maxCompressedSize];
+            int compressedSize = compressor.compress(taskDescriptorJson, 0, taskDescriptorJson.length, tmpCompressedTaskDescriptor, 0, maxCompressedSize);
+            this.compressedTaskDescriptor = new byte[compressedSize];
+            arraycopy(tmpCompressedTaskDescriptor, 0, compressedTaskDescriptor, 0, compressedSize);
+            taskDescriptor = null;
+        }
+
+        public void decompress()
+        {
+            checkState(isCompressed(), "TaskDescriptor is not compressed");
+            this.taskDescriptor = getTaskDescriptor();
+            this.compressedTaskDescriptor = null;
+        }
+
+        public boolean isCompressed()
+        {
+            return compressedTaskDescriptor != null;
+        }
+
+        public long getUncompressedSize()
+        {
+            return uncompressedSize;
+        }
+
+        public long getCompressedSize()
+        {
+            checkState(isCompressed(), "TaskDescriptor is not compressed");
+            return compressedTaskDescriptor.length;
+        }
+
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE + (isCompressed() ? compressedTaskDescriptor.length : uncompressedSize);
         }
     }
 }

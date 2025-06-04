@@ -13,7 +13,6 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.planner.iterative.Rule;
@@ -49,7 +48,7 @@ public class RemoveRedundantTableFunction
     {
         if (node.isPruneWhenEmpty() && node.getSource().isPresent()) {
             if (isEmpty(node.getSource().orElseThrow(), context.getLookup())) {
-                return Result.ofPlanNode(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));
+                return Result.ofPlanNode(new ValuesNode(node.getId(), node.getOutputSymbols()));
             }
         }
 

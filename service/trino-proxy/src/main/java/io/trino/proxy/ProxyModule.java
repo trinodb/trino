@@ -15,11 +15,11 @@ package io.trino.proxy;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;
+import com.google.inject.Provides;
 import com.google.inject.Scopes;
-import io.airlift.http.server.HttpServerConfig;
+import okhttp3.OkHttpClient;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 
 public class ProxyModule
@@ -28,17 +28,19 @@ public class ProxyModule
     @Override
     public void configure(Binder binder)
     {
-        configBinder(binder).bindConfigDefaults(HttpServerConfig.class, httpServerConfig -> {
-            httpServerConfig.setAdminEnabled(false);
-        });
-
-        httpClientBinder(binder).bindHttpClient("proxy", ForProxy.class);
-
         configBinder(binder).bindConfig(ProxyConfig.class);
         configBinder(binder).bindConfig(JwtHandlerConfig.class, "proxy");
-
         jaxrsBinder(binder).bind(ProxyResource.class);
 
         binder.bind(JsonWebTokenHandler.class).in(Scopes.SINGLETON);
+    }
+
+    @ForProxy
+    @Provides
+    private OkHttpClient createHttpClient()
+    {
+        return new OkHttpClient.Builder()
+                .addInterceptor(new AuthPreservingInterceptor())
+                .build();
     }
 }

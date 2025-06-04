@@ -24,17 +24,14 @@ public class SubqueryExpression
 {
     private final Query query;
 
+    @Deprecated
     public SubqueryExpression(Query query)
     {
-        this(Optional.empty(), query);
+        super(Optional.empty());
+        this.query = query;
     }
 
     public SubqueryExpression(NodeLocation location, Query query)
-    {
-        this(Optional.of(location), query);
-    }
-
-    private SubqueryExpression(Optional<NodeLocation> location, Query query)
     {
         super(location);
         this.query = query;

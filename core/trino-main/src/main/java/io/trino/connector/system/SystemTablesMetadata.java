@@ -23,6 +23,7 @@ import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
@@ -39,6 +40,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.connector.system.SystemColumnHandle.toSystemColumnHandles;
 import static io.trino.metadata.MetadataUtil.findColumnMetadata;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Collections.singletonMap;
 import static java.util.Objects.requireNonNull;
@@ -63,12 +65,17 @@ public class SystemTablesMetadata
     }
 
     @Override
-    public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
+    public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
     {
         Optional<SystemTable> table = tables.getSystemTable(session, tableName);
         if (table.isEmpty()) {
             return null;
         }
+
+        if (startVersion.isPresent() || endVersion.isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
+        }
+
         return SystemTableHandle.fromSchemaTableName(tableName);
     }
 
@@ -93,7 +100,7 @@ public class SystemTablesMetadata
     {
         ConnectorTableMetadata tableMetadata = checkAndGetTable(session, tableHandle).getTableMetadata();
 
-        String columnName = ((SystemColumnHandle) columnHandle).getColumnName();
+        String columnName = ((SystemColumnHandle) columnHandle).columnName();
 
         ColumnMetadata columnMetadata = findColumnMetadata(tableMetadata, columnName);
         checkArgument(columnMetadata != null, "Column '%s' on table '%s' does not exist", columnName, tableMetadata.getTable());
@@ -110,9 +117,9 @@ public class SystemTablesMetadata
     private SystemTable checkAndGetTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         SystemTableHandle systemTableHandle = (SystemTableHandle) tableHandle;
-        return tables.getSystemTable(session, systemTableHandle.getSchemaTableName())
+        return tables.getSystemTable(session, systemTableHandle.schemaTableName())
                 // table might disappear in the meantime
-                .orElseThrow(() -> new TrinoException(NOT_FOUND, format("Table '%s' not found", systemTableHandle.getSchemaTableName())));
+                .orElseThrow(() -> new TrinoException(NOT_FOUND, format("Table '%s' not found", systemTableHandle.schemaTableName())));
     }
 
     @Override
@@ -143,7 +150,7 @@ public class SystemTablesMetadata
     {
         SystemTableHandle table = (SystemTableHandle) handle;
 
-        TupleDomain<ColumnHandle> oldDomain = table.getConstraint();
+        TupleDomain<ColumnHandle> oldDomain = table.constraint();
         TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary());
         if (oldDomain.equals(newDomain) && constraint.predicate().isEmpty()) {
             return Optional.empty();
@@ -162,7 +169,7 @@ public class SystemTablesMetadata
         if (newDomain.isNone()) {
             // TODO (https://github.com/trinodb/trino/issues/3647) indicate the table scan is empty
         }
-        table = new SystemTableHandle(table.getSchemaName(), table.getTableName(), newDomain);
+        table = new SystemTableHandle(table.schemaName(), table.tableName(), newDomain);
         return Optional.of(new ConstraintApplicationResult<>(table, constraint.getSummary(), constraint.getExpression(), false));
     }
 

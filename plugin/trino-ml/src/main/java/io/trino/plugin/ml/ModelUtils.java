@@ -67,9 +67,7 @@ public final class ModelUtils
         MODEL_SERIALIZATION_IDS = builder.build();
     }
 
-    private ModelUtils()
-    {
-    }
+    private ModelUtils() {}
 
     /**
      * Serializes the model using the following format

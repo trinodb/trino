@@ -36,7 +36,7 @@ public class TestRealType
 
     public static ValueBlock createTestBlock()
     {
-        BlockBuilder blockBuilder = REAL.createBlockBuilder(null, 30);
+        BlockBuilder blockBuilder = REAL.createFixedSizeBlockBuilder(30);
         REAL.writeLong(blockBuilder, floatToRawIntBits(11.11F));
         REAL.writeLong(blockBuilder, floatToRawIntBits(11.11F));
         REAL.writeLong(blockBuilder, floatToRawIntBits(11.11F));

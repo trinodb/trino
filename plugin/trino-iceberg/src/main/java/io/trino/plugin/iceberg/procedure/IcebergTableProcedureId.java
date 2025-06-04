@@ -16,7 +16,11 @@ package io.trino.plugin.iceberg.procedure;
 public enum IcebergTableProcedureId
 {
     OPTIMIZE,
+    OPTIMIZE_MANIFESTS,
     DROP_EXTENDED_STATS,
+    ROLLBACK_TO_SNAPSHOT,
     EXPIRE_SNAPSHOTS,
     REMOVE_ORPHAN_FILES,
+    ADD_FILES,
+    ADD_FILES_FROM_TABLE,
 }

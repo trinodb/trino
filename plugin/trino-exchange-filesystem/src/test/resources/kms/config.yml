@@ -1,0 +1,29 @@
+address: 0.0.0.0:7373 # Listen on all network interfaces on port 7373
+
+admin:
+  identity: 2f90ad9d3d3d7a90e9f8eeb9175913625148b5a34e34467dd9cd24d1b30516e0
+
+tls:
+  key: /kms.key    # The KMS server TLS private key
+  cert: /kms.crt    # The KMS server TLS certificate
+  auth: off
+
+policy:
+  minio:
+    allow:
+      - /v1/key/create/*
+      - /v1/key/generate/*
+      - /v1/key/decrypt/*
+      - /v1/key/list/*
+      - /v1/metrics
+      - /v1/log/audit
+      - /v1/log/error
+    identities:
+      - f8611172f05decf753a653622d215024aacd40d518aee79b1cc6e15e621235d3
+
+log:
+  error: on
+
+keystore:
+  fs:
+    path: ./keys # Choose a directory for the secret keys

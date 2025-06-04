@@ -17,7 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.Immutable;
-import io.trino.plugin.hive.HiveType;
+import io.trino.metastore.HiveType;
 
 import java.util.List;
 import java.util.Map;
@@ -118,14 +118,14 @@ public class Column
         return Objects.hash(name, type, comment, properties);
     }
 
-    public static List<Column> fromMetastoreModel(List<io.trino.plugin.hive.metastore.Column> metastoreColumns)
+    public static List<Column> fromMetastoreModel(List<io.trino.metastore.Column> metastoreColumns)
     {
         return metastoreColumns.stream()
                 .map(Column::fromMetastoreModel)
                 .collect(toImmutableList());
     }
 
-    private static Column fromMetastoreModel(io.trino.plugin.hive.metastore.Column metastoreColumn)
+    private static Column fromMetastoreModel(io.trino.metastore.Column metastoreColumn)
     {
         return new Column(
                 metastoreColumn.getName(),
@@ -134,16 +134,16 @@ public class Column
                 metastoreColumn.getProperties());
     }
 
-    public static List<io.trino.plugin.hive.metastore.Column> toMetastoreModel(List<Column> fileMetastoreColumns)
+    public static List<io.trino.metastore.Column> toMetastoreModel(List<Column> fileMetastoreColumns)
     {
         return fileMetastoreColumns.stream()
                 .map(Column::toMetastoreModel)
                 .collect(toImmutableList());
     }
 
-    private static io.trino.plugin.hive.metastore.Column toMetastoreModel(Column fileMetastoreColumn)
+    private static io.trino.metastore.Column toMetastoreModel(Column fileMetastoreColumn)
     {
-        return new io.trino.plugin.hive.metastore.Column(
+        return new io.trino.metastore.Column(
                 fileMetastoreColumn.getName(),
                 fileMetastoreColumn.getType(),
                 fileMetastoreColumn.getComment(),

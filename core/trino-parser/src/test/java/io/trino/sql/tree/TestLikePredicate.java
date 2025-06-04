@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestLikePredicate
 {
@@ -29,7 +29,7 @@ public class TestLikePredicate
         StringLiteral pattern = new StringLiteral("b");
         StringLiteral escape = new StringLiteral("c");
 
-        assertEquals(ImmutableList.of(value, pattern, escape), new LikePredicate(value, pattern, escape).getChildren());
-        assertEquals(ImmutableList.of(value, pattern), new LikePredicate(value, pattern, Optional.empty()).getChildren());
+        assertThat(new LikePredicate(value, pattern, escape).getChildren()).isEqualTo(ImmutableList.of(value, pattern, escape));
+        assertThat(new LikePredicate(value, pattern, Optional.empty()).getChildren()).isEqualTo(ImmutableList.of(value, pattern));
     }
 }

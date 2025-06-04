@@ -39,11 +39,9 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 
-public class ExecutionPlanner
+public final class ExecutionPlanner
 {
-    private ExecutionPlanner()
-    {
-    }
+    private ExecutionPlanner() {}
 
     public static JsonTableProcessingFragment getExecutionPlan(
             JsonTablePlanNode plan,

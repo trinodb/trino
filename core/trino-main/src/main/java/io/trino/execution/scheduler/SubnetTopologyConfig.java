@@ -13,13 +13,11 @@
  */
 package io.trino.execution.scheduler;
 
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 
 import java.util.List;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.execution.scheduler.SubnetBasedTopology.AddressProtocol.IPv4;
 
 public class SubnetTopologyConfig
@@ -33,11 +31,9 @@ public class SubnetTopologyConfig
     }
 
     @Config("node-scheduler.network-topology.subnet.cidr-prefix-lengths")
-    public SubnetTopologyConfig setCidrPrefixLengths(String commaSeparatedLengths)
+    public SubnetTopologyConfig setCidrPrefixLengths(List<Integer> cidrPrefixLengths)
     {
-        this.cidrPrefixLengths = Splitter.on(',').omitEmptyStrings().splitToList(commaSeparatedLengths).stream()
-                .map(Integer::parseInt)
-                .collect(toImmutableList());
+        this.cidrPrefixLengths = ImmutableList.copyOf(cidrPrefixLengths);
         return this;
     }
 

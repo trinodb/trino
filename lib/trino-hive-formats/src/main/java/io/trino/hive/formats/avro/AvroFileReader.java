@@ -44,23 +44,23 @@ public class AvroFileReader
     public AvroFileReader(
             TrinoInputFile inputFile,
             Schema schema,
-            AvroTypeManager avroTypeManager)
+            AvroTypeBlockHandler avroTypeBlockHandler)
             throws IOException, AvroTypeException
     {
-        this(inputFile, schema, avroTypeManager, 0, OptionalLong.empty());
+        this(inputFile, schema, avroTypeBlockHandler, 0, OptionalLong.empty());
     }
 
     public AvroFileReader(
             TrinoInputFile inputFile,
             Schema schema,
-            AvroTypeManager avroTypeManager,
+            AvroTypeBlockHandler avroTypeBlockHandler,
             long offset,
             OptionalLong length)
             throws IOException, AvroTypeException
     {
         requireNonNull(inputFile, "inputFile is null");
         requireNonNull(schema, "schema is null");
-        requireNonNull(avroTypeManager, "avroTypeManager is null");
+        requireNonNull(avroTypeBlockHandler, "avroTypeBlockHandler is null");
         long fileSize = inputFile.length();
 
         verify(offset >= 0, "offset is negative");
@@ -69,7 +69,7 @@ public class AvroFileReader
         end = length.stream().map(l -> l + offset).findFirst();
         end.ifPresent(endLong -> verify(endLong <= fileSize, "offset plus length is greater than data size"));
         input = new TrinoDataInputStream(inputFile.newStream());
-        dataReader = new AvroPageDataReader(schema, avroTypeManager);
+        dataReader = new AvroPageDataReader(schema, avroTypeBlockHandler);
         try {
             fileReader = new DataFileReader<>(new TrinoDataInputStreamAsAvroSeekableInput(input, fileSize), dataReader);
             fileReader.sync(offset);
@@ -79,7 +79,7 @@ public class AvroFileReader
             // so the exception is wrapped in a runtime exception that must be unwrapped
             throw runtimeWrapper.getAvroTypeException();
         }
-        avroTypeManager.configure(fileReader.getMetaKeys().stream().collect(toImmutableMap(Function.identity(), fileReader::getMeta)));
+        avroTypeBlockHandler.configure(fileReader.getMetaKeys().stream().collect(toImmutableMap(Function.identity(), fileReader::getMeta)));
     }
 
     public long getCompletedBytes()

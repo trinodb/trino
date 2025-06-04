@@ -20,6 +20,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class Union
@@ -27,20 +28,21 @@ public class Union
 {
     private final List<Relation> relations;
 
-    public Union(List<Relation> relations, boolean distinct)
+    public Union(List<Relation> relations, boolean distinct, Optional<Corresponding> corresponding)
     {
-        this(Optional.empty(), relations, distinct);
+        this(Optional.empty(), relations, distinct, corresponding);
     }
 
-    public Union(NodeLocation location, List<Relation> relations, boolean distinct)
+    public Union(NodeLocation location, List<Relation> relations, boolean distinct, Optional<Corresponding> corresponding)
     {
-        this(Optional.of(location), relations, distinct);
+        this(Optional.of(location), relations, distinct, corresponding);
     }
 
-    private Union(Optional<NodeLocation> location, List<Relation> relations, boolean distinct)
+    private Union(Optional<NodeLocation> location, List<Relation> relations, boolean distinct, Optional<Corresponding> corresponding)
     {
-        super(location, distinct);
+        super(location, distinct, corresponding);
         requireNonNull(relations, "relations is null");
+        checkArgument(relations.size() == 2, "relations must have 2 elements");
 
         this.relations = ImmutableList.copyOf(relations);
     }
@@ -60,7 +62,10 @@ public class Union
     @Override
     public List<? extends Node> getChildren()
     {
-        return relations;
+        ImmutableList.Builder<Node> builder = ImmutableList.builder();
+        builder.addAll(relations);
+        getCorresponding().ifPresent(builder::add);
+        return builder.build();
     }
 
     @Override
@@ -69,6 +74,7 @@ public class Union
         return toStringHelper(this)
                 .add("relations", relations)
                 .add("distinct", isDistinct())
+                .add("corresponding", getCorresponding())
                 .toString();
     }
 
@@ -83,13 +89,14 @@ public class Union
         }
         Union o = (Union) obj;
         return Objects.equals(relations, o.relations) &&
-                Objects.equals(isDistinct(), o.isDistinct());
+               isDistinct() == o.isDistinct() &&
+               Objects.equals(getCorresponding(), o.getCorresponding());
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(relations, isDistinct());
+        return Objects.hash(relations, isDistinct(), getCorresponding());
     }
 
     @Override
@@ -99,6 +106,8 @@ public class Union
             return false;
         }
 
-        return this.isDistinct() == ((Union) other).isDistinct();
+        Union otherUnion = (Union) other;
+        return this.isDistinct() == otherUnion.isDistinct() &&
+                Objects.equals(getCorresponding(), otherUnion.getCorresponding());
     }
 }

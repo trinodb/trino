@@ -84,16 +84,16 @@ public class LdapAuthenticatorConfig
         return this;
     }
 
-    public String getBindDistingushedName()
+    public String getBindDistinguishedName()
     {
         return bindDistinguishedName;
     }
 
     @Config("ldap.bind-dn")
     @ConfigDescription("Bind distinguished name. Example: CN=User Name,OU=CITY_OU,OU=STATE_OU,DC=domain,DC=domain_root")
-    public LdapAuthenticatorConfig setBindDistingushedName(String bindDistingushedName)
+    public LdapAuthenticatorConfig setBindDistinguishedName(String bindDistinguishedName)
     {
-        this.bindDistinguishedName = bindDistingushedName;
+        this.bindDistinguishedName = bindDistinguishedName;
         return this;
     }
 

@@ -13,12 +13,11 @@
  */
 package io.trino.hive.formats.avro.model;
 
-import io.trino.hive.formats.avro.AvroPageDataReader;
 import org.apache.avro.Schema;
 import org.apache.avro.io.Decoder;
 
 import static com.google.common.base.Verify.verify;
-import static io.trino.hive.formats.avro.AvroPageDataReader.getDoubleDecoderFunction;
+import static io.trino.hive.formats.avro.model.AvroReadAction.getDoubleDecoderFunction;
 import static java.util.Objects.requireNonNull;
 
 public final class DoubleRead
@@ -26,7 +25,7 @@ public final class DoubleRead
 {
     private final Schema readSchema;
     private final Schema writeSchema;
-    private final AvroPageDataReader.DoubleIoFunction<Decoder> doubleDecoder;
+    private final DoubleIoFunction<Decoder> doubleDecoder;
 
     DoubleRead(Schema readSchema, Schema writeSchema)
     {
@@ -48,7 +47,7 @@ public final class DoubleRead
         return writeSchema;
     }
 
-    public AvroPageDataReader.DoubleIoFunction<Decoder> getDoubleDecoder()
+    public DoubleIoFunction<Decoder> getDoubleDecoder()
     {
         return doubleDecoder;
     }

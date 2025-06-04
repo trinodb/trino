@@ -1,3 +1,13 @@
+:root {
+    --trino-black: #212121;
+    --trino-dark-blue: #000033;
+    --trino-cobalt-blue: #001c93;
+    --trino-pink: #dd00a1;
+    --trino-orange: #f88600;
+    --trino-yellow: #f8b600;
+    --trino-grey: #9e9e9e;
+}
+
 html {
     scroll-behavior: smooth;
 }
@@ -10,12 +20,8 @@ div.highlight {
     background-color: #0B1367;
 }
 
-.md-typeset a {
-    color: #DD00A1;
-}
-
 .md-typeset a:active, .md-typeset a:hover {
-    color: #F57C00;
+    color: var(--trino-orange);
 }
 
 /* Fix vertical alignment for links to header from other documents */
@@ -77,11 +83,11 @@ pre.literal-block {
 
 @media only screen and (min-width: 88.25em) {
     .md-grid {
-        max-width: 61rem;
+        max-width: 75rem;
     }
 
     .md-sidebar--secondary {
-        margin-left: 61rem;
+        margin-left: 75rem;
     }
 }
 

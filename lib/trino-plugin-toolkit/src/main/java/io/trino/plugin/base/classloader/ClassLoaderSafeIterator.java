@@ -35,7 +35,7 @@ public final class ClassLoaderSafeIterator<T>
     @Override
     protected T computeNext()
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             if (!delegate.hasNext()) {
                 return endOfData();
             }

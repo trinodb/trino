@@ -119,7 +119,7 @@ public class TestDriverStats
 
         assertThat(actual.getPhysicalWrittenDataSize()).isEqualTo(DataSize.ofBytes(20));
 
-        assertThat(actual.getOperatorStats().size()).isEqualTo(1);
+        assertThat(actual.getOperatorStats()).hasSize(1);
         assertExpectedOperatorStats(actual.getOperatorStats().get(0));
     }
 }

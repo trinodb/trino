@@ -28,6 +28,7 @@ import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
 import io.trino.client.NodeVersion;
 import io.trino.operator.RetryPolicy;
+import io.trino.plugin.base.metrics.LongCount;
 import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.server.BasicQueryStats;
 import io.trino.server.ResultQueryInfo;
@@ -36,6 +37,7 @@ import io.trino.spi.TrinoWarning;
 import io.trino.spi.WarningCode;
 import io.trino.spi.connector.CatalogHandle.CatalogVersion;
 import io.trino.spi.eventlistener.StageGcStatistics;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.security.SelectedRole;
@@ -224,6 +226,7 @@ public class TestQueryInfo
                 Optional.of("set_path"),
                 Optional.of("set_authorization_user"),
                 false,
+                ImmutableSet.of(new SelectedRole(SelectedRole.Type.ROLE, Optional.of("original_role"))),
                 ImmutableMap.of("set_property", "set_value"),
                 ImmutableSet.of("reset_property"),
                 ImmutableMap.of("set_roles", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("role"))),
@@ -236,7 +239,7 @@ public class TestQueryInfo
                 null,
                 null,
                 ImmutableList.of(new TrinoWarning(new WarningCode(1, "name"), "message")),
-                ImmutableSet.of(new Input("catalog", new CatalogVersion("default"), "schema", "talble", Optional.empty(), ImmutableList.of(new Column("name", "type")), new PlanFragmentId("id"), new PlanNodeId("1"))),
+                ImmutableSet.of(new Input(Optional.of("connectorName"), "catalog", new CatalogVersion("default"), "schema", "talble", Optional.empty(), ImmutableList.of(new Column("name", "type")), new PlanFragmentId("id"), new PlanNodeId("1"))),
                 Optional.empty(),
                 ImmutableList.of(),
                 ImmutableList.of(),
@@ -267,7 +270,8 @@ public class TestQueryInfo
     {
         return new StageStats(
                 new DateTime(value),
-                new Distribution.DistributionSnapshot(value, value, value, value, value, value, value, value, value, value, value, value, value, value),
+                ImmutableMap.of(new PlanNodeId(Integer.toString(value)), new Distribution.DistributionSnapshot(value, value, value, value, value, value, value, value, value, value, value, value, value, value)),
+                ImmutableMap.of(new PlanNodeId(Integer.toString(value)), new Metrics(ImmutableMap.of("abc", new LongCount(value)))),
                 value,
                 value,
                 value,
@@ -290,7 +294,7 @@ public class TestQueryInfo
                 Duration.succinctDuration(value, SECONDS),
                 Duration.succinctDuration(value, SECONDS),
                 false,
-                org.weakref.jmx.$internal.guava.collect.ImmutableSet.of(),
+                ImmutableSet.of(),
                 succinctBytes(value),
                 succinctBytes(value),
                 value,
@@ -312,11 +316,12 @@ public class TestQueryInfo
                 Duration.succinctDuration(value, SECONDS),
                 Duration.succinctDuration(value, SECONDS),
                 succinctBytes(value),
-                Optional.of(new TDigestHistogram(new TDigest())),
+                Optional.of(new DistributionSnapshot(new TDigestHistogram(new TDigest()))),
                 succinctBytes(value),
                 succinctBytes(value),
                 value,
                 value,
+                Metrics.EMPTY,
                 Duration.succinctDuration(value, NANOSECONDS),
                 Duration.succinctDuration(value, NANOSECONDS),
                 succinctBytes(value),

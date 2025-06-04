@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.metastore;
 
+import io.trino.metastore.HiveMetastore;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;

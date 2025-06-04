@@ -14,7 +14,6 @@
 package io.trino.dispatcher;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.FluentFuture;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -25,12 +24,15 @@ import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;
+import io.trino.client.QueryData;
 import io.trino.client.QueryError;
 import io.trino.client.QueryResults;
 import io.trino.client.StatementStats;
 import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.QueryState;
+import io.trino.server.ExternalUriInfo;
+import io.trino.server.GoneException;
 import io.trino.server.HttpRequestSessionContextFactory;
 import io.trino.server.ServerConfig;
 import io.trino.server.SessionContext;
@@ -46,27 +48,28 @@ import jakarta.annotation.Nullable;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.ws.rs.BadRequestException;
+import jakarta.ws.rs.BeanParam;
 import jakarta.ws.rs.DELETE;
+import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.HEAD;
+import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.QueryParam;
-import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.container.AsyncResponse;
 import jakarta.ws.rs.container.Suspended;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MultivaluedMap;
 import jakarta.ws.rs.core.Response;
-import jakarta.ws.rs.core.Response.Status;
-import jakarta.ws.rs.core.UriBuilder;
-import jakarta.ws.rs.core.UriInfo;
 
 import java.net.URI;
 import java.util.Optional;
 import java.util.OptionalDouble;
+import java.util.OptionalLong;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
@@ -82,6 +85,7 @@ import static com.google.common.util.concurrent.Futures.nonCancellationPropagati
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.jaxrs.AsyncResponseHandler.bindAsyncResponse;
+import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.QUEUED;
 import static io.trino.server.ServletSecurityUtils.authenticatedIdentity;
@@ -93,10 +97,6 @@ import static io.trino.server.security.ResourceSecurity.AccessType.AUTHENTICATED
 import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
-import static jakarta.ws.rs.core.MediaType.TEXT_PLAIN_TYPE;
-import static jakarta.ws.rs.core.Response.Status.BAD_REQUEST;
-import static jakarta.ws.rs.core.Response.Status.FORBIDDEN;
-import static jakarta.ws.rs.core.Response.Status.NOT_FOUND;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -107,7 +107,6 @@ public class QueuedStatementResource
 {
     private static final Logger log = Logger.get(QueuedStatementResource.class);
     private static final Duration MAX_WAIT_TIME = new Duration(1, SECONDS);
-    private static final Ordering<Comparable<Duration>> WAIT_ORDERING = Ordering.natural().nullsLast();
     private static final Duration NO_DURATION = new Duration(0, MILLISECONDS);
 
     private final HttpRequestSessionContextFactory sessionContextFactory;
@@ -155,21 +154,28 @@ public class QueuedStatementResource
     }
 
     @ResourceSecurity(AUTHENTICATED_USER)
+    @HEAD
+    @Produces(APPLICATION_JSON)
+    public Response validateConnection()
+    {
+        return Response.ok().build();
+    }
+
+    @ResourceSecurity(AUTHENTICATED_USER)
     @POST
     @Produces(APPLICATION_JSON)
     public Response postStatement(
             String statement,
             @Context HttpServletRequest servletRequest,
             @Context HttpHeaders httpHeaders,
-            @Context UriInfo uriInfo)
+            @BeanParam ExternalUriInfo externalUriInfo)
     {
         if (isNullOrEmpty(statement)) {
-            throw badRequest(BAD_REQUEST, "SQL statement is empty");
+            throw new BadRequestException("SQL statement is empty");
         }
 
         Query query = registerQuery(statement, servletRequest, httpHeaders);
-
-        return createQueryResultsResponse(query.getQueryResults(query.getLastToken(), uriInfo));
+        return createQueryResultsResponse(query.getQueryResults(query.getLastToken(), externalUriInfo), query.sessionContext.getQueryDataEncoding());
     }
 
     private Query registerQuery(String statement, HttpServletRequest servletRequest, HttpHeaders httpHeaders)
@@ -177,7 +183,7 @@ public class QueuedStatementResource
         Optional<String> remoteAddress = Optional.ofNullable(servletRequest.getRemoteAddr());
         Optional<Identity> identity = authenticatedIdentity(servletRequest);
         if (identity.flatMap(Identity::getPrincipal).map(InternalPrincipal.class::isInstance).orElse(false)) {
-            throw badRequest(FORBIDDEN, "Internal communication can not be used to start a query");
+            throw new ForbiddenException("Internal communication can not be used to start a query");
         }
 
         MultivaluedMap<String, String> headers = httpHeaders.getRequestHeaders();
@@ -200,27 +206,24 @@ public class QueuedStatementResource
             @PathParam("queryId") QueryId queryId,
             @PathParam("slug") String slug,
             @PathParam("token") long token,
-            @QueryParam("maxWait") Duration maxWait,
-            @Context UriInfo uriInfo,
+            @BeanParam ExternalUriInfo externalUriInfo,
             @Suspended AsyncResponse asyncResponse)
     {
         Query query = getQuery(queryId, slug, token);
 
-        ListenableFuture<Response> future = getStatus(query, token, maxWait, uriInfo);
+        ListenableFuture<Response> future = getStatus(query, token, externalUriInfo);
         bindAsyncResponse(asyncResponse, future, responseExecutor);
     }
 
-    private ListenableFuture<Response> getStatus(Query query, long token, Duration maxWait, UriInfo uriInfo)
+    private ListenableFuture<Response> getStatus(Query query, long token, ExternalUriInfo externalUriInfo)
     {
-        long waitMillis = WAIT_ORDERING.min(MAX_WAIT_TIME, maxWait).toMillis();
-
         return FluentFuture.from(query.waitForDispatched())
                 // wait for query to be dispatched, up to the wait timeout
-                .withTimeout(waitMillis, MILLISECONDS, timeoutExecutor)
-                .catching(TimeoutException.class, ignored -> null, directExecutor())
+                .withTimeout(MAX_WAIT_TIME.toMillis(), MILLISECONDS, timeoutExecutor)
+                .catching(TimeoutException.class, _ -> null, directExecutor())
                 // when state changes, fetch the next result
-                .transform(ignored -> query.getQueryResults(token, uriInfo), responseExecutor)
-                .transform(this::createQueryResultsResponse, directExecutor());
+                .transform(_ -> query.getQueryResults(token, externalUriInfo), responseExecutor)
+                .transform(results -> createQueryResultsResponse(results, query.sessionContext.getQueryDataEncoding()), directExecutor());
     }
 
     @ResourceSecurity(PUBLIC)
@@ -241,28 +244,28 @@ public class QueuedStatementResource
     {
         Query query = queryManager.getQuery(queryId);
         if (query == null || !query.getSlug().isValid(QUEUED_QUERY, slug, token)) {
-            throw badRequest(NOT_FOUND, "Query not found");
+            throw new NotFoundException("Query not found");
         }
         return query;
     }
 
-    private Response createQueryResultsResponse(QueryResults results)
+    private Response createQueryResultsResponse(QueryResults results, Optional<String> queryDataEncoding)
     {
         Response.ResponseBuilder builder = Response.ok(results);
         if (!compressionEnabled) {
             builder.encoding("identity");
         }
+        queryDataEncoding.ifPresent(encoding -> builder.header(TRINO_HEADERS.responseQueryDataEncoding(), encoding));
         return builder.build();
     }
 
-    private static URI getQueuedUri(QueryId queryId, Slug slug, long token, UriInfo uriInfo)
+    private static URI getQueuedUri(QueryId queryId, Slug slug, long token, ExternalUriInfo externalUriInfo)
     {
-        return uriInfo.getBaseUriBuilder()
-                .replacePath("/v1/statement/queued/")
+        return externalUriInfo.baseUriBuilder()
+                .path("/v1/statement/queued/")
                 .path(queryId.toString())
                 .path(slug.makeSlug(QUEUED_QUERY, token))
                 .path(String.valueOf(token))
-                .replaceQuery("")
                 .build();
     }
 
@@ -270,7 +273,7 @@ public class QueuedStatementResource
             QueryId queryId,
             URI nextUri,
             Optional<QueryError> queryError,
-            UriInfo uriInfo,
+            ExternalUriInfo externalUriInfo,
             Optional<URI> queryInfoUrl,
             Duration elapsedTime,
             Duration queuedTime)
@@ -278,11 +281,11 @@ public class QueuedStatementResource
         QueryState state = queryError.map(error -> FAILED).orElse(QUEUED);
         return new QueryResults(
                 queryId.toString(),
-                getQueryInfoUri(queryInfoUrl, queryId, uriInfo),
+                getQueryInfoUri(queryInfoUrl, queryId, externalUriInfo),
                 null,
                 nextUri,
                 null,
-                null,
+                QueryData.NULL,
                 StatementStats.builder()
                         .setState(state.toString())
                         .setQueued(state == QUEUED)
@@ -294,16 +297,7 @@ public class QueuedStatementResource
                 queryError.orElse(null),
                 ImmutableList.of(),
                 null,
-                null);
-    }
-
-    private static WebApplicationException badRequest(Status status, String message)
-    {
-        throw new WebApplicationException(
-                Response.status(status)
-                        .type(TEXT_PLAIN_TYPE)
-                        .entity(message)
-                        .build());
+                OptionalLong.empty());
     }
 
     private static final class Query
@@ -383,12 +377,12 @@ public class QueuedStatementResource
             }
         }
 
-        public QueryResults getQueryResults(long token, UriInfo uriInfo)
+        public QueryResults getQueryResults(long token, ExternalUriInfo externalUriInfo)
         {
             long lastToken = this.lastToken.get();
             // token should be the last token or the next token
             if (token != lastToken && token != lastToken + 1) {
-                throw new WebApplicationException(Response.Status.GONE);
+                throw new GoneException("Invalid token");
             }
             // advance (or stay at) the token
             this.lastToken.compareAndSet(lastToken, token);
@@ -397,17 +391,15 @@ public class QueuedStatementResource
             if (!creationFuture.isDone()) {
                 return createQueryResults(
                         token + 1,
-                        uriInfo,
+                        externalUriInfo,
                         DispatchInfo.queued(NO_DURATION, NO_DURATION));
             }
 
             DispatchInfo dispatchInfo = dispatchManager.getDispatchInfo(queryId)
                     // query should always be found, but it may have just been determined to be abandoned
-                    .orElseThrow(() -> new WebApplicationException(Response
-                            .status(NOT_FOUND)
-                            .build()));
+                    .orElseThrow(NotFoundException::new);
 
-            return createQueryResults(token + 1, uriInfo, dispatchInfo);
+            return createQueryResults(token + 1, externalUriInfo, dispatchInfo);
         }
 
         public void cancel()
@@ -421,9 +413,9 @@ public class QueuedStatementResource
             sessionContext.getIdentity().destroy();
         }
 
-        private QueryResults createQueryResults(long token, UriInfo uriInfo, DispatchInfo dispatchInfo)
+        private QueryResults createQueryResults(long token, ExternalUriInfo externalUriInfo, DispatchInfo dispatchInfo)
         {
-            URI nextUri = getNextUri(token, uriInfo, dispatchInfo);
+            URI nextUri = getNextUri(token, externalUriInfo, dispatchInfo);
 
             Optional<QueryError> queryError = dispatchInfo.getFailureInfo()
                     .map(this::toQueryError);
@@ -432,13 +424,13 @@ public class QueuedStatementResource
                     queryId,
                     nextUri,
                     queryError,
-                    uriInfo,
+                    externalUriInfo,
                     queryInfoUrl,
                     dispatchInfo.getElapsedTime(),
                     dispatchInfo.getQueuedTime());
         }
 
-        private URI getNextUri(long token, UriInfo uriInfo, DispatchInfo dispatchInfo)
+        private URI getNextUri(long token, ExternalUriInfo externalUriInfo, DispatchInfo dispatchInfo)
         {
             // if failed, query is complete
             if (dispatchInfo.getFailureInfo().isPresent()) {
@@ -446,15 +438,14 @@ public class QueuedStatementResource
             }
             // if dispatched, redirect to new uri
             return dispatchInfo.getCoordinatorLocation()
-                    .map(coordinatorLocation -> getRedirectUri(coordinatorLocation, uriInfo))
-                    .orElseGet(() -> getQueuedUri(queryId, slug, token, uriInfo));
+                    .map(coordinatorLocation -> getRedirectUri(coordinatorLocation, externalUriInfo))
+                    .orElseGet(() -> getQueuedUri(queryId, slug, token, externalUriInfo));
         }
 
-        private URI getRedirectUri(CoordinatorLocation coordinatorLocation, UriInfo uriInfo)
+        private URI getRedirectUri(CoordinatorLocation coordinatorLocation, ExternalUriInfo externalUriInfo)
         {
-            URI coordinatorUri = coordinatorLocation.getUri(uriInfo);
-            return UriBuilder.fromUri(coordinatorUri)
-                    .replacePath("/v1/statement/executing")
+            return coordinatorLocation.getUri(externalUriInfo)
+                    .path("/v1/statement/executing")
                     .path(queryId.toString())
                     .path(slug.makeSlug(EXECUTING_QUERY, 0))
                     .path("0")
@@ -533,11 +524,8 @@ public class QueuedStatementResource
                 // Query took too long to be submitted by the client
                 return true;
             }
-            if (query.isCreated() && !dispatchManager.isQueryRegistered(query.getQueryId())) {
-                // Query was created in the DispatchManager, and DispatchManager has already purged the query
-                return true;
-            }
-            return false;
+            // Query was created in the DispatchManager, and DispatchManager has already purged the query
+            return query.isCreated() && !dispatchManager.isQueryRegistered(query.getQueryId());
         }
 
         private void removeQuery(QueryId queryId)

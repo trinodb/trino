@@ -33,37 +33,27 @@ across nodes in the cluster. It can be disabled, when it is known that the
 output data set is not skewed, in order to avoid the overhead of hashing and
 redistributing all the data across the network.
 
-## `protocol.v1.alternate-header-name`
+(file-compression)=
+## File compression and decompression
 
-**Type:** `string`
+Trino uses the [aircompressor](https://github.com/airlift/aircompressor) library
+to compress and decompress ORC, Parquet, and other files using the LZ4, zstd,
+Snappy, and other algorithms. The library takes advantage of using embedded,
+higher performing, native implementations for these algorithms by default. 
 
-The 351 release of Trino changes the HTTP client protocol headers to start with
-`X-Trino-`. Clients for versions 350 and lower expect the HTTP headers to
-start with `X-Presto-`, while newer clients expect `X-Trino-`. You can support these
-older clients by setting this property to `Presto`.
+If necessary, this behavior can be deactivated to fall back on JVM-based
+implementations with the following configuration in the [](jvm-config):
 
-The preferred approach to migrating from versions earlier than 351 is to update
-all clients together with the release, or immediately afterwards, and then
-remove usage of this property.
+```properties
+-Dio.airlift.compress.v3.disable-native=true
+```
 
-Ensure to use this only as a temporary measure to assist in your migration
-efforts.
+The library relies on the [temporary directory used by the JVM](tmp-directory),
+including the execution of code in the directory, to load the embedded shared
+libraries. If this directory is mounted with `noexec`, and therefore not
+suitable, you can configure usage of a separate directory with an absolute path
+set with the following configuration in the [](jvm-config):
 
-## `protocol.v1.prepared-statement-compression.length-threshold`
-
-- **Type:** {ref}`prop-type-integer`
-- **Default value:** `2048`
-
-Prepared statements that are submitted to Trino for processing, and are longer
-than the value of this property, are compressed for transport via the HTTP
-header to improve handling, and to avoid failures due to hitting HTTP header
-size limits.
-
-## `protocol.v1.prepared-statement-compression.min-gain`
-
-- **Type:** {ref}`prop-type-integer`
-- **Default value:** `512`
-
-Prepared statement compression is not applied if the size gain is less than the
-configured value. Smaller statements do not benefit from compression, and are
-left uncompressed.
+```properties
+-Daircompressor.tmpdir=/mnt/example
+```

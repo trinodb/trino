@@ -16,7 +16,7 @@ package io.trino.plugin.deltalake;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.trino.plugin.hive.HiveCompressionCodec;
+import io.trino.plugin.hive.HiveCompressionOption;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -42,12 +42,13 @@ public class TestDeltaLakeConfig
         assertRecordedDefaults(recordDefaults(DeltaLakeConfig.class)
                 .setDataFileCacheSize(DeltaLakeConfig.DEFAULT_DATA_FILE_CACHE_SIZE)
                 .setDataFileCacheTtl(new Duration(30, MINUTES))
-                .setMetadataCacheTtl(new Duration(5, TimeUnit.MINUTES))
-                .setMetadataCacheMaxSize(1000)
+                .setMetadataCacheTtl(new Duration(30, TimeUnit.MINUTES))
+                .setMetadataCacheMaxRetainedSize(DeltaLakeConfig.DEFAULT_METADATA_CACHE_MAX_RETAINED_SIZE)
+                .setTransactionLogMaxCachedFileSize(DeltaLakeConfig.DEFAULT_TRANSACTION_LOG_MAX_CACHED_SIZE)
                 .setDomainCompactionThreshold(1000)
                 .setMaxSplitsPerSecond(Integer.MAX_VALUE)
                 .setMaxOutstandingSplits(1_000)
-                .setMaxSplitSize(DataSize.of(64, DataSize.Unit.MEGABYTE))
+                .setMaxSplitSize(DataSize.of(128, DataSize.Unit.MEGABYTE))
                 .setMinimumAssignedSplitWeight(0.05)
                 .setMaxPartitionsPerWriter(100)
                 .setUnsafeWritesEnabled(false)
@@ -60,16 +61,23 @@ public class TestDeltaLakeConfig
                 .setTableStatisticsEnabled(true)
                 .setExtendedStatisticsEnabled(true)
                 .setCollectExtendedStatisticsOnWrite(true)
-                .setCompressionCodec(HiveCompressionCodec.SNAPPY)
+                .setCompressionCodec(HiveCompressionOption.ZSTD)
                 .setDeleteSchemaLocationsFallback(false)
                 .setParquetTimeZone(TimeZone.getDefault().getID())
                 .setPerTransactionMetastoreCacheMaximumSize(1000)
+                .setStoreTableMetadataEnabled(false)
+                .setStoreTableMetadataThreads("5")
+                .setStoreTableMetadataInterval(new Duration(1, SECONDS))
                 .setTargetMaxFileSize(DataSize.of(1, GIGABYTE))
                 .setIdleWriterMinFileSize(DataSize.of(16, MEGABYTE))
                 .setUniqueTableLocation(true)
                 .setRegisterTableProcedureEnabled(false)
                 .setProjectionPushdownEnabled(true)
-                .setQueryPartitionFilterRequired(false));
+                .setQueryPartitionFilterRequired(false)
+                .setDeletionVectorsEnabled(false)
+                .setDeltaLogFileSystemCacheDisabled(false)
+                .setMetadataParallelism(8)
+                .setCheckpointProcessingParallelism(4));
     }
 
     @Test
@@ -77,7 +85,8 @@ public class TestDeltaLakeConfig
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("delta.metadata.cache-ttl", "10m")
-                .put("delta.metadata.cache-size", "10")
+                .put("delta.metadata.cache-max-retained-size", "1GB")
+                .put("delta.transaction-log.max-cached-file-size", "1MB")
                 .put("delta.metadata.live-files.cache-size", "0 MB")
                 .put("delta.metadata.live-files.cache-ttl", "60m")
                 .put("delta.domain-compaction-threshold", "500")
@@ -99,6 +108,9 @@ public class TestDeltaLakeConfig
                 .put("delta.compression-codec", "GZIP")
                 .put("delta.per-transaction-metastore-cache-maximum-size", "500")
                 .put("delta.delete-schema-locations-fallback", "true")
+                .put("delta.metastore.store-table-metadata", "true")
+                .put("delta.metastore.store-table-metadata-threads", "1")
+                .put("delta.metastore.store-table-metadata-interval", "30m")
                 .put("delta.parquet.time-zone", nonDefaultTimeZone().getID())
                 .put("delta.target-max-file-size", "2 GB")
                 .put("delta.idle-writer-min-file-size", "1MB")
@@ -106,13 +118,18 @@ public class TestDeltaLakeConfig
                 .put("delta.register-table-procedure.enabled", "true")
                 .put("delta.projection-pushdown-enabled", "false")
                 .put("delta.query-partition-filter-required", "true")
+                .put("delta.deletion-vectors-enabled", "true")
+                .put("delta.fs.cache.disable-transaction-log-caching", "true")
+                .put("delta.metadata.parallelism", "10")
+                .put("delta.checkpoint-processing.parallelism", "8")
                 .buildOrThrow();
 
         DeltaLakeConfig expected = new DeltaLakeConfig()
                 .setDataFileCacheSize(DataSize.succinctBytes(0))
                 .setDataFileCacheTtl(new Duration(60, MINUTES))
                 .setMetadataCacheTtl(new Duration(10, TimeUnit.MINUTES))
-                .setMetadataCacheMaxSize(10)
+                .setMetadataCacheMaxRetainedSize(DataSize.of(1, GIGABYTE))
+                .setTransactionLogMaxCachedFileSize(DataSize.of(1, MEGABYTE))
                 .setDomainCompactionThreshold(500)
                 .setMaxOutstandingSplits(200)
                 .setMaxSplitsPerSecond(10)
@@ -129,16 +146,23 @@ public class TestDeltaLakeConfig
                 .setTableStatisticsEnabled(false)
                 .setExtendedStatisticsEnabled(false)
                 .setCollectExtendedStatisticsOnWrite(false)
-                .setCompressionCodec(HiveCompressionCodec.GZIP)
+                .setCompressionCodec(HiveCompressionOption.GZIP)
                 .setDeleteSchemaLocationsFallback(true)
                 .setParquetTimeZone(nonDefaultTimeZone().getID())
                 .setPerTransactionMetastoreCacheMaximumSize(500)
+                .setStoreTableMetadataEnabled(true)
+                .setStoreTableMetadataThreads("1")
+                .setStoreTableMetadataInterval(new Duration(30, MINUTES))
                 .setTargetMaxFileSize(DataSize.of(2, GIGABYTE))
                 .setIdleWriterMinFileSize(DataSize.of(1, MEGABYTE))
                 .setUniqueTableLocation(false)
                 .setRegisterTableProcedureEnabled(true)
                 .setProjectionPushdownEnabled(false)
-                .setQueryPartitionFilterRequired(true);
+                .setQueryPartitionFilterRequired(true)
+                .setDeletionVectorsEnabled(true)
+                .setDeltaLogFileSystemCacheDisabled(true)
+                .setMetadataParallelism(10)
+                .setCheckpointProcessingParallelism(8);
 
         assertFullMapping(properties, expected);
     }

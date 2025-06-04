@@ -19,6 +19,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.security.AllowAllAccessControl;
+import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.RenameTable;
 import org.junit.jupiter.api.Test;
@@ -53,7 +54,7 @@ public class TestRenameTableTask
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeRenameTable(tableName, qualifiedName("not_existing_table_new"), false)))
                 .hasErrorCode(TABLE_NOT_FOUND)
-                .hasMessage("Table '%s' does not exist", tableName);
+                .hasMessageContaining("Table '%s' does not exist", tableName);
     }
 
     @Test
@@ -73,7 +74,7 @@ public class TestRenameTableTask
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeRenameTable(asQualifiedName(viewName), qualifiedName("existing_view_new"), false)))
                 .hasErrorCode(GENERIC_USER_ERROR)
-                .hasMessage("Table '%s' does not exist, but a view with that name exists. Did you mean ALTER VIEW %s RENAME TO ...?", viewName, viewName);
+                .hasMessageContaining("Table '%s' does not exist, but a view with that name exists. Did you mean ALTER VIEW %s RENAME TO ...?", viewName, viewName);
     }
 
     @Test
@@ -84,7 +85,7 @@ public class TestRenameTableTask
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeRenameTable(asQualifiedName(viewName), qualifiedName("existing_view_new"), true)))
                 .hasErrorCode(GENERIC_USER_ERROR)
-                .hasMessage("Table '%s' does not exist, but a view with that name exists. Did you mean ALTER VIEW %s RENAME TO ...?", viewName, viewName);
+                .hasMessageContaining("Table '%s' does not exist, but a view with that name exists. Did you mean ALTER VIEW %s RENAME TO ...?", viewName, viewName);
     }
 
     @Test
@@ -95,7 +96,7 @@ public class TestRenameTableTask
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeRenameTable(viewName, qualifiedName("existing_materialized_view_new"), false)))
                 .hasErrorCode(GENERIC_USER_ERROR)
-                .hasMessage("Table '%s' does not exist, but a materialized view with that name exists. Did you mean ALTER MATERIALIZED VIEW test_catalog.schema.existing_materialized_view RENAME TO ...?", viewName);
+                .hasMessageContaining("Table '%s' does not exist, but a materialized view with that name exists. Did you mean ALTER MATERIALIZED VIEW test_catalog.schema.existing_materialized_view RENAME TO ...?", viewName);
     }
 
     @Test
@@ -106,7 +107,7 @@ public class TestRenameTableTask
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeRenameTable(viewName, qualifiedName("existing_materialized_view_new"), true)))
                 .hasErrorCode(GENERIC_USER_ERROR)
-                .hasMessage("Table '%s' does not exist, but a materialized view with that name exists. Did you mean ALTER MATERIALIZED VIEW test_catalog.schema.existing_materialized_view RENAME TO ...?", viewName);
+                .hasMessageContaining("Table '%s' does not exist, but a materialized view with that name exists. Did you mean ALTER MATERIALIZED VIEW test_catalog.schema.existing_materialized_view RENAME TO ...?", viewName);
     }
 
     @Test
@@ -119,7 +120,7 @@ public class TestRenameTableTask
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeRenameTable(asQualifiedName(tableName), viewName, false)))
                 .hasErrorCode(GENERIC_USER_ERROR)
-                .hasMessage("Target table '%s' does not exist, but a view with that name exists.", viewName);
+                .hasMessageContaining("Target table '%s' does not exist, but a view with that name exists.", viewName);
     }
 
     @Test
@@ -132,12 +133,12 @@ public class TestRenameTableTask
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeRenameTable(asQualifiedName(tableName), asQualifiedName(materializedViewName), false)))
                 .hasErrorCode(GENERIC_USER_ERROR)
-                .hasMessage("Target table '%s' does not exist, but a materialized view with that name exists.", materializedViewName);
+                .hasMessageContaining("Target table '%s' does not exist, but a materialized view with that name exists.", materializedViewName);
     }
 
     private ListenableFuture<Void> executeRenameTable(QualifiedName source, QualifiedName target, boolean exists)
     {
         return new RenameTableTask(metadata, new AllowAllAccessControl())
-                .execute(new RenameTable(source, target, exists), queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
+                .execute(new RenameTable(new NodeLocation(1, 1), source, target, exists), queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
     }
 }

@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.airlift.slice.Slice;
+import io.trino.plugin.memory.MemoryInsertTableHandle.InsertMode;
 import io.trino.spi.HostAddress;
 import io.trino.spi.NodeManager;
 import io.trino.spi.Page;
@@ -72,10 +73,14 @@ public class MemoryPageSinkProvider
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle, ConnectorPageSinkId pageSinkId)
     {
         MemoryInsertTableHandle memoryInsertTableHandle = (MemoryInsertTableHandle) insertTableHandle;
-        long tableId = memoryInsertTableHandle.getTable();
-        checkState(memoryInsertTableHandle.getActiveTableIds().contains(tableId));
+        long tableId = memoryInsertTableHandle.table();
+        checkState(memoryInsertTableHandle.activeTableIds().contains(tableId));
 
-        pagesStore.cleanUp(memoryInsertTableHandle.getActiveTableIds());
+        if (memoryInsertTableHandle.mode() == InsertMode.OVERWRITE) {
+            pagesStore.purge(tableId);
+        }
+
+        pagesStore.cleanUp(memoryInsertTableHandle.activeTableIds());
         pagesStore.initialize(tableId);
         return new MemoryPageSink(pagesStore, currentHostAddress, tableId);
     }
@@ -116,8 +121,6 @@ public class MemoryPageSinkProvider
         }
 
         @Override
-        public void abort()
-        {
-        }
+        public void abort() {}
     }
 }

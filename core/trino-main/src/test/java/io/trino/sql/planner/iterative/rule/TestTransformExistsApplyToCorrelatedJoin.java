@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.Comparison;
-import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -31,7 +30,6 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.correlatedJoin;
@@ -70,11 +68,11 @@ public class TestTransformExistsApplyToCorrelatedJoin
                                 p.values()))
                 .matches(correlatedJoin(
                         ImmutableList.of(),
-                        values(ImmutableMap.of()),
+                        values(),
                         project(
-                                ImmutableMap.of("b", PlanMatchPattern.expression(new Comparison(GREATER_THAN, new Reference(BIGINT, "count_expr"), new Constant(BIGINT, 0L)))),
-                                aggregation(ImmutableMap.of("count_expr", aggregationFunction("count", ImmutableList.of())),
-                                        values()))));
+                                ImmutableMap.of("b", PlanMatchPattern.expression(new Coalesce(new Reference(BOOLEAN, "aggrbool"), FALSE))),
+                                aggregation(ImmutableMap.of("aggrbool", aggregationFunction("bool_or", ImmutableList.of("subquery"))),
+                                        project(ImmutableMap.of("subquery", PlanMatchPattern.expression(TRUE)), values())))));
     }
 
     @Test
@@ -91,12 +89,12 @@ public class TestTransformExistsApplyToCorrelatedJoin
                                                 new Comparison(EQUAL, new Reference(BIGINT, "corr"), new Reference(BIGINT, "column")),
                                                 p.values(p.symbol("column"))))))
                 .matches(
-                        project(ImmutableMap.of("b", PlanMatchPattern.expression(new Coalesce(new Reference(BOOLEAN, "subquerytrue"), FALSE))),
+                        project(ImmutableMap.of("b", PlanMatchPattern.expression(new Coalesce(new Reference(BOOLEAN, "subquery"), FALSE))),
                                 correlatedJoin(
                                         ImmutableList.of("corr"),
                                         values("corr"),
                                         project(
-                                                ImmutableMap.of("subquerytrue", PlanMatchPattern.expression(TRUE)),
+                                                ImmutableMap.of("subquery", PlanMatchPattern.expression(TRUE)),
                                                 limit(1,
                                                         project(ImmutableMap.of(),
                                                                 node(FilterNode.class,

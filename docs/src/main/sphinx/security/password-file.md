@@ -79,7 +79,6 @@ htpasswd -B -C 10 password.db test
 ```
 
 (verify-authentication)=
-
 ### Verify configuration
 
 To verify password file authentication, log in to the {doc}`Web UI
@@ -101,7 +100,7 @@ the cluster:
 ```
 
 The above command quotes you for a password. Supply the password set for the
-user entered for the `--user` property to use the `trino>` prompt. Sucessful
+user entered for the `--user` property to use the `trino>` prompt. Successful
 authentication allows you to run queries from the CLI.
 
 To test the connection, send a query:

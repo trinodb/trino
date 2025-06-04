@@ -15,8 +15,6 @@ package io.trino.operator;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.MoreExecutors;
-import io.trino.operator.WorkProcessorOperatorAdapter.AdapterWorkProcessorOperator;
-import io.trino.operator.WorkProcessorOperatorAdapter.AdapterWorkProcessorOperatorFactory;
 import io.trino.plugin.base.metrics.LongCount;
 import io.trino.spi.Page;
 import io.trino.spi.metrics.Metrics;
@@ -30,7 +28,6 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.concurrent.ScheduledExecutorService;
 
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.operator.WorkProcessorOperatorAdapter.createAdapterOperatorFactory;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
@@ -70,34 +67,28 @@ public class TestWorkProcessorOperatorAdapter
 
         operator.getOutput();
         assertThat(operator.isFinished()).isFalse();
-        assertThat(getOnlyElement(context.getNestedOperatorStats()).getMetrics().getMetrics())
+        assertThat(context.getOperatorStats().getMetrics().getMetrics())
                 .hasSize(5)
                 .containsEntry("testOperatorMetric", new LongCount(1));
 
         operator.getOutput();
         assertThat(operator.isFinished()).isTrue();
-        assertThat(getOnlyElement(context.getNestedOperatorStats()).getMetrics().getMetrics())
+        assertThat(context.getOperatorStats().getMetrics().getMetrics())
                 .hasSize(5)
                 .containsEntry("testOperatorMetric", new LongCount(2));
     }
 
     private static class TestWorkProcessorOperatorFactory
-            implements AdapterWorkProcessorOperatorFactory
+            implements WorkProcessorOperatorFactory
     {
         @Override
         public WorkProcessorOperator create(ProcessorContext processorContext, WorkProcessor<Page> sourcePages)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public AdapterWorkProcessorOperator createAdapterOperator(ProcessorContext processorContext)
         {
             return new TestWorkProcessorOperator();
         }
 
         @Override
-        public AdapterWorkProcessorOperatorFactory duplicate()
+        public WorkProcessorOperatorFactory duplicate()
         {
             return new TestWorkProcessorOperatorFactory();
         }
@@ -122,7 +113,7 @@ public class TestWorkProcessorOperatorAdapter
     }
 
     private static class TestWorkProcessorOperator
-            implements AdapterWorkProcessorOperator
+            implements WorkProcessorOperator
     {
         private long count;
 
@@ -137,23 +128,6 @@ public class TestWorkProcessorOperatorAdapter
         {
             return WorkProcessor.of(new Page(0))
                     .withProcessEntryMonitor(() -> count++);
-        }
-
-        @Override
-        public boolean needsInput()
-        {
-            return false;
-        }
-
-        @Override
-        public void addInput(Page page)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void finish()
-        {
         }
     }
 }

@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -140,7 +141,7 @@ public class StageInfo
 
     public boolean isFinalStageInfo()
     {
-        return state.isDone() && tasks.stream().allMatch(taskInfo -> taskInfo.getTaskStatus().getState().isDone());
+        return state.isDone() && tasks.stream().allMatch(taskInfo -> taskInfo.taskStatus().getState().isDone());
     }
 
     @Override
@@ -163,6 +164,21 @@ public class StageInfo
                 stageStats,
                 tasks,
                 subStages,
+                tables,
+                failureCause);
+    }
+
+    public StageInfo pruneDigests()
+    {
+        return new StageInfo(
+                stageId,
+                state,
+                plan,
+                coordinatorOnly,
+                types,
+                stageStats.pruneDigests(),
+                tasks.stream().map(TaskInfo::pruneDigests).collect(toImmutableList()),
+                subStages.stream().map(StageInfo::pruneDigests).collect(toImmutableList()),
                 tables,
                 failureCause);
     }

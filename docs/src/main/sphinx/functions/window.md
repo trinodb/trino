@@ -45,12 +45,14 @@ Returns the cumulative distribution of a value in a group of values.
 The result is the number of rows preceding or peer with the row in the
 window ordering of the window partition divided by the total number of
 rows in the window partition. Thus, any tie values in the ordering will
-evaluate to the same distribution value.
+evaluate to the same distribution value. The window frame must not be 
+specified.
 :::
 
 :::{function} dense_rank() -> bigint
 Returns the rank of a value in a group of values. This is similar to
 {func}`rank`, except that tie values do not produce gaps in the sequence.
+The window frame must not be specified.
 :::
 
 :::{function} ntile(n) -> bigint
@@ -62,24 +64,29 @@ bucket, starting with the first bucket.
 
 For example, with `6` rows and `4` buckets, the bucket values would
 be as follows: `1` `1` `2` `2` `3` `4`
+
+For the {func}`ntile` function, the window frame must not be specified.
 :::
 
 :::{function} percent_rank() -> double
 Returns the percentage ranking of a value in group of values. The result
 is `(r - 1) / (n - 1)` where `r` is the {func}`rank` of the row and
-`n` is the total number of rows in the window partition.
+`n` is the total number of rows in the window partition. The window frame 
+must not be specified.
 :::
 
 :::{function} rank() -> bigint
 Returns the rank of a value in a group of values. The rank is one plus
 the number of rows preceding the row that are not peer with the row.
 Thus, tie values in the ordering will produce gaps in the sequence.
-The ranking is performed for each window partition.
+The ranking is performed for each window partition. The window frame must 
+not be specified.
 :::
 
 :::{function} row_number() -> bigint
 Returns a unique, sequential number for each row, starting with one,
-according to the ordering of rows within the window partition.
+according to the ordering of rows within the window partition. 
+The window frame must not be specified.
 :::
 
 ## Value functions

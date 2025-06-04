@@ -43,6 +43,19 @@ public record BlackHoleTableHandle(
         requireNonNull(pageProcessingDelay, "pageProcessingDelay is null");
     }
 
+    public BlackHoleTableHandle withColumnHandles(List<BlackHoleColumnHandle> columnHandles)
+    {
+        return new BlackHoleTableHandle(
+                schemaName,
+                tableName,
+                ImmutableList.copyOf(columnHandles),
+                splitCount,
+                pagesPerSplit,
+                rowsPerPage,
+                fieldsLength,
+                pageProcessingDelay);
+    }
+
     public ConnectorTableMetadata toTableMetadata()
     {
         return new ConnectorTableMetadata(

@@ -20,6 +20,6 @@ public class MySqlPlugin
 {
     public MySqlPlugin()
     {
-        super("mysql", new MySqlClientModule());
+        super("mysql", MySqlClientModule::new);
     }
 }

@@ -13,25 +13,24 @@
  */
 package io.trino.plugin.pinot;
 
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.net.HostAndPort;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
-import jakarta.annotation.PostConstruct;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
@@ -41,17 +40,18 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
         "pinot.max-backlog-per-server",
         "pinot.max-connections-per-server",
         "pinot.min-connections-per-server",
-        "pinot.request-timeout"
+        "pinot.request-timeout",
+        "pinot.estimated-size-in-bytes-for-non-numeric-column",
+        "pinot.grpc.enabled",
 })
 public class PinotConfig
 {
-    private static final Splitter LIST_SPLITTER = Splitter.on(",").trimResults().omitEmptyStrings();
-
     private List<URI> controllerUrls = ImmutableList.of();
+
+    private Optional<HostAndPort> brokerUrl = Optional.empty();
 
     private Duration connectionTimeout = new Duration(1, TimeUnit.MINUTES);
 
-    private int estimatedSizeInBytesForNonNumericColumn = 20;
     private Duration metadataCacheExpiry = new Duration(2, TimeUnit.MINUTES);
 
     private boolean preferBrokerQueries;
@@ -62,7 +62,6 @@ public class PinotConfig
     private int maxRowsForBrokerQueries = 50_000;
     private boolean aggregationPushdownEnabled = true;
     private boolean countDistinctPushdownEnabled = true;
-    private boolean grpcEnabled = true;
     private boolean proxyEnabled;
     private DataSize targetSegmentPageSize = DataSize.of(1, MEGABYTE);
 
@@ -73,11 +72,24 @@ public class PinotConfig
     }
 
     @Config("pinot.controller-urls")
-    public PinotConfig setControllerUrls(String controllerUrl)
+    public PinotConfig setControllerUrls(List<String> controllerUrl)
     {
-        this.controllerUrls = LIST_SPLITTER.splitToList(controllerUrl).stream()
+        this.controllerUrls = controllerUrl.stream()
                 .map(PinotConfig::stringToUri)
                 .collect(toImmutableList());
+        return this;
+    }
+
+    public Optional<HostAndPort> getBrokerUrl()
+    {
+        return brokerUrl;
+    }
+
+    @Config("pinot.broker-url")
+    @ConfigDescription("Provide global broker host and port. Setting this property will disable broker discovery mechanism.")
+    public PinotConfig setBrokerUrl(HostAndPort brokerUrl)
+    {
+        this.brokerUrl = Optional.ofNullable(brokerUrl);
         return this;
     }
 
@@ -106,18 +118,6 @@ public class PinotConfig
     public PinotConfig setMetadataCacheExpiry(Duration metadataCacheExpiry)
     {
         this.metadataCacheExpiry = metadataCacheExpiry;
-        return this;
-    }
-
-    public int getEstimatedSizeInBytesForNonNumericColumn()
-    {
-        return estimatedSizeInBytesForNonNumericColumn;
-    }
-
-    @Config("pinot.estimated-size-in-bytes-for-non-numeric-column")
-    public PinotConfig setEstimatedSizeInBytesForNonNumericColumn(int estimatedSizeInBytesForNonNumericColumn)
-    {
-        this.estimatedSizeInBytesForNonNumericColumn = estimatedSizeInBytesForNonNumericColumn;
         return this;
     }
 
@@ -227,18 +227,6 @@ public class PinotConfig
         return this;
     }
 
-    public boolean isGrpcEnabled()
-    {
-        return grpcEnabled;
-    }
-
-    @Config("pinot.grpc.enabled")
-    public PinotConfig setGrpcEnabled(boolean grpcEnabled)
-    {
-        this.grpcEnabled = grpcEnabled;
-        return this;
-    }
-
     public boolean isTlsEnabled()
     {
         return "https".equalsIgnoreCase(getControllerUrls().get(0).getScheme());
@@ -268,12 +256,10 @@ public class PinotConfig
         return this;
     }
 
-    @PostConstruct
-    public void validate()
+    @AssertTrue(message = "Invalid configuration: pinot.aggregation-pushdown.enabled must be enabled if pinot.count-distinct-pushdown.enabled")
+    public boolean isValidConfiguration()
     {
-        checkState(
-                !countDistinctPushdownEnabled || aggregationPushdownEnabled,
-                "Invalid configuration: pinot.aggregation-pushdown.enabled must be enabled if pinot.count-distinct-pushdown.enabled");
+        return !countDistinctPushdownEnabled || aggregationPushdownEnabled;
     }
 
     @AssertTrue(message = "All controller URLs must have the same scheme")
@@ -283,14 +269,5 @@ public class PinotConfig
                 .map(URI::getScheme)
                 .distinct()
                 .count() == 1;
-    }
-
-    @AssertTrue(message = "Using the rest proxy requires GRPC to be enabled by setting pinot.grpc.enabled=true")
-    public boolean proxyRestAndGrpcAreRequired()
-    {
-        if (proxyEnabled) {
-            return grpcEnabled;
-        }
-        return true;
     }
 }

@@ -41,8 +41,8 @@ public class JoinProbe
 
         public JoinProbe createJoinProbe(Page page)
         {
-            Page probePage = page.getLoadedPage(probeJoinChannels);
-            return new JoinProbe(probeOutputChannels, page, probePage, probeHashChannel >= 0 ? page.getBlock(probeHashChannel).getLoadedBlock() : null);
+            Page probePage = page.getColumns(probeJoinChannels);
+            return new JoinProbe(probeOutputChannels, page, probePage, probeHashChannel >= 0 ? page.getBlock(probeHashChannel) : null);
         }
     }
 

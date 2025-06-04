@@ -29,6 +29,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.util.Map;
 import java.util.Set;
 
 import static io.trino.operator.RetryPolicy.TASK;
@@ -48,13 +49,14 @@ public class TestFaultTolerantExecutionDynamicFiltering
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        ImmutableMap<String, String> exchangeManagerProperties = ImmutableMap.<String, String>builder()
+        Map<String, String> exchangeManagerProperties = ImmutableMap.<String, String>builder()
                 .put("exchange.base-directories", System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager")
                 .buildOrThrow();
 
         return DistributedQueryRunner.builder(getDefaultSession())
                 .setExtraProperties(FaultTolerantExecutionConnectorTestHelper.getExtraProperties())
                 // keep limits lower to test edge cases
+                .addExtraProperty("enable-large-dynamic-filters", "false")
                 .addExtraProperty("dynamic-filtering.small.max-distinct-values-per-driver", "10")
                 .addExtraProperty("dynamic-filtering.small.range-row-limit-per-driver", "100")
                 .setAdditionalSetup(runner -> {
@@ -74,10 +76,10 @@ public class TestFaultTolerantExecutionDynamicFiltering
     // results in each instance of DynamicFilterSourceOperator receiving fewer input rows. Therefore, testing max-distinct-values-per-driver
     // requires larger build side and the assertions on the collected domain are adjusted for multiple ranges instead of single range.
     @Override
-    protected void testSemiJoinWithNonSelectiveBuildSide(JoinDistributionType joinDistributionType, boolean coordinatorDynamicFiltersDistribution)
+    protected void testSemiJoinWithNonSelectiveBuildSide(JoinDistributionType joinDistributionType)
     {
         assertQueryDynamicFilters(
-                noJoinReordering(joinDistributionType, coordinatorDynamicFiltersDistribution),
+                noJoinReordering(joinDistributionType),
                 "SELECT * FROM lineitem WHERE lineitem.partkey IN (SELECT part.partkey FROM tpch.tiny.part)",
                 Set.of(PART_KEY_HANDLE),
                 collectedDomain -> {
@@ -92,10 +94,10 @@ public class TestFaultTolerantExecutionDynamicFiltering
     }
 
     @Override
-    protected void testJoinWithNonSelectiveBuildSide(JoinDistributionType joinDistributionType, boolean coordinatorDynamicFiltersDistribution)
+    protected void testJoinWithNonSelectiveBuildSide(JoinDistributionType joinDistributionType)
     {
         assertQueryDynamicFilters(
-                noJoinReordering(joinDistributionType, coordinatorDynamicFiltersDistribution),
+                noJoinReordering(joinDistributionType),
                 "SELECT * FROM lineitem l JOIN tpch.tiny.part p ON l.partkey = p.partkey",
                 Set.of(PART_KEY_HANDLE),
                 collectedDomain -> {

@@ -18,11 +18,14 @@ import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.parquet.ParquetReaderOptions;
+import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.deltalake.procedure.DeltaLakeTableExecuteHandle;
 import io.trino.plugin.deltalake.procedure.DeltaTableOptimizeHandle;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.hive.NodeVersion;
+import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMergeSink;
@@ -51,6 +54,8 @@ import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaLakeParquetSchemas.createParquetSchemaMapping;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.changeDataFeedEnabled;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getRandomPrefixLength;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.isDeletionVectorEnabled;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
@@ -62,6 +67,8 @@ public class DeltaLakePageSinkProvider
     private final JsonCodec<DataFileInfo> dataFileInfoCodec;
     private final JsonCodec<DeltaLakeMergeResult> mergeResultJsonCodec;
     private final DeltaLakeWriterStats stats;
+    private final ParquetReaderOptions parquetReaderOptions;
+    private final FileFormatDataSourceStats fileFormatDataSourceStats;
     private final int maxPartitionsPerWriter;
     private final DateTimeZone parquetDateTimeZone;
     private final TypeManager typeManager;
@@ -75,7 +82,9 @@ public class DeltaLakePageSinkProvider
             JsonCodec<DataFileInfo> dataFileInfoCodec,
             JsonCodec<DeltaLakeMergeResult> mergeResultJsonCodec,
             DeltaLakeWriterStats stats,
+            FileFormatDataSourceStats fileFormatDataSourceStats,
             DeltaLakeConfig deltaLakeConfig,
+            ParquetReaderConfig parquetReaderConfig,
             TypeManager typeManager,
             NodeVersion nodeVersion)
     {
@@ -84,6 +93,8 @@ public class DeltaLakePageSinkProvider
         this.dataFileInfoCodec = dataFileInfoCodec;
         this.mergeResultJsonCodec = requireNonNull(mergeResultJsonCodec, "mergeResultJsonCodec is null");
         this.stats = stats;
+        this.parquetReaderOptions = parquetReaderConfig.toParquetReaderOptions();
+        this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
         this.maxPartitionsPerWriter = deltaLakeConfig.getMaxPartitionsPerWriter();
         this.parquetDateTimeZone = deltaLakeConfig.getParquetDateTimeZone();
         this.domainCompactionThreshold = deltaLakeConfig.getDomainCompactionThreshold();
@@ -140,9 +151,9 @@ public class DeltaLakePageSinkProvider
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, ConnectorPageSinkId pageSinkId)
     {
         DeltaLakeTableExecuteHandle executeHandle = (DeltaLakeTableExecuteHandle) tableExecuteHandle;
-        switch (executeHandle.getProcedureId()) {
+        switch (executeHandle.procedureId()) {
             case OPTIMIZE:
-                DeltaTableOptimizeHandle optimizeHandle = (DeltaTableOptimizeHandle) executeHandle.getProcedureHandle();
+                DeltaTableOptimizeHandle optimizeHandle = (DeltaTableOptimizeHandle) executeHandle.procedureHandle();
                 DeltaLakeParquetSchemaMapping parquetSchemaMapping = createParquetSchemaMapping(optimizeHandle.getMetadataEntry(), optimizeHandle.getProtocolEntry(), typeManager);
                 return new DeltaLakePageSink(
                         typeManager.getTypeOperators(),
@@ -152,14 +163,14 @@ public class DeltaLakePageSinkProvider
                         fileSystemFactory,
                         maxPartitionsPerWriter,
                         dataFileInfoCodec,
-                        Location.of(executeHandle.getTableLocation()),
+                        Location.of(executeHandle.tableLocation()),
                         session,
                         stats,
                         trinoVersion,
                         parquetSchemaMapping);
         }
 
-        throw new IllegalArgumentException("Unknown procedure: " + executeHandle.getProcedureId());
+        throw new IllegalArgumentException("Unknown procedure: " + executeHandle.procedureId());
     }
 
     @Override
@@ -185,7 +196,13 @@ public class DeltaLakePageSinkProvider
                 domainCompactionThreshold,
                 () -> createCdfPageSink(merge, session),
                 changeDataFeedEnabled(tableHandle.metadataEntry(), tableHandle.protocolEntry()).orElse(false),
-                parquetSchemaMapping);
+                parquetSchemaMapping,
+                parquetReaderOptions,
+                fileFormatDataSourceStats,
+                isDeletionVectorEnabled(tableHandle.metadataEntry(), tableHandle.protocolEntry()),
+                merge.deletionVectors(),
+                getRandomPrefixLength(tableHandle.metadataEntry()),
+                merge.shallowCloneSourceTableLocation());
     }
 
     private DeltaLakeCdfPageSink createCdfPageSink(

@@ -1,0 +1,102 @@
+local exchange (GATHER, SINGLE, [])
+    remote exchange (GATHER, SINGLE, [])
+        local exchange (GATHER, SINGLE, [])
+            local exchange (REPARTITION, ROUND_ROBIN, [])
+                join (INNER, PARTITIONED):
+                    final aggregation over (i_item_id)
+                        local exchange (GATHER, SINGLE, [])
+                            remote exchange (REPARTITION, HASH, [i_item_id])
+                                intermediate aggregation over (i_item_id)
+                                    join (INNER, REPLICATED):
+                                        partial aggregation over (ss_item_sk)
+                                            join (INNER, REPLICATED):
+                                                dynamic filter (ss_item_sk::EQUAL, ss_sold_date_sk::EQUAL)
+                                                    scan store_sales
+                                                local exchange (GATHER, SINGLE, [])
+                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                        join (INNER, REPLICATED):
+                                                            dynamic filter (d_date::EQUAL)
+                                                                scan date_dim
+                                                            local exchange (GATHER, SINGLE, [])
+                                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                                    final aggregation over (d_date_8)
+                                                                        local exchange (GATHER, SINGLE, [])
+                                                                            remote exchange (REPARTITION, HASH, [d_date_8])
+                                                                                partial aggregation over (d_date_8)
+                                                                                    join (INNER, REPLICATED, can skip output duplicates):
+                                                                                        dynamic filter (d_week_seq_10::EQUAL)
+                                                                                            scan date_dim
+                                                                                        local exchange (GATHER, SINGLE, [])
+                                                                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                                                                local exchange (GATHER, SINGLE, [])
+                                                                                                    remote exchange (GATHER, SINGLE, [])
+                                                                                                        scan date_dim
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                dynamic filter (i_item_id::EQUAL)
+                                                    scan item
+                    join (INNER, PARTITIONED):
+                        final aggregation over (i_item_id_74)
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPARTITION, HASH, [i_item_id_74])
+                                    intermediate aggregation over (i_item_id_74)
+                                        join (INNER, REPLICATED):
+                                            partial aggregation over (cs_item_sk)
+                                                join (INNER, REPLICATED):
+                                                    dynamic filter (cs_item_sk::EQUAL, cs_sold_date_sk::EQUAL)
+                                                        scan catalog_sales
+                                                    local exchange (GATHER, SINGLE, [])
+                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                            join (INNER, REPLICATED):
+                                                                dynamic filter (d_date_100::EQUAL)
+                                                                    scan date_dim
+                                                                local exchange (GATHER, SINGLE, [])
+                                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                                        final aggregation over (d_date_133)
+                                                                            local exchange (GATHER, SINGLE, [])
+                                                                                remote exchange (REPARTITION, HASH, [d_date_133])
+                                                                                    partial aggregation over (d_date_133)
+                                                                                        join (INNER, REPLICATED, can skip output duplicates):
+                                                                                            dynamic filter (d_week_seq_135::EQUAL)
+                                                                                                scan date_dim
+                                                                                            local exchange (GATHER, SINGLE, [])
+                                                                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                                                                    local exchange (GATHER, SINGLE, [])
+                                                                                                        remote exchange (GATHER, SINGLE, [])
+                                                                                                            scan date_dim
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                    dynamic filter (i_item_id_74::EQUAL)
+                                                        scan item
+                        final aggregation over (i_item_id_200)
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPARTITION, HASH, [i_item_id_200])
+                                    intermediate aggregation over (i_item_id_200)
+                                        join (INNER, PARTITIONED):
+                                            remote exchange (REPARTITION, HASH, [ws_item_sk])
+                                                partial aggregation over (ws_item_sk)
+                                                    join (INNER, REPLICATED):
+                                                        dynamic filter (ws_item_sk::EQUAL, ws_sold_date_sk::EQUAL)
+                                                            scan web_sales
+                                                        local exchange (GATHER, SINGLE, [])
+                                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                                join (INNER, REPLICATED):
+                                                                    dynamic filter (d_date_226::EQUAL)
+                                                                        scan date_dim
+                                                                    local exchange (GATHER, SINGLE, [])
+                                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                                            final aggregation over (d_date_259)
+                                                                                local exchange (GATHER, SINGLE, [])
+                                                                                    remote exchange (REPARTITION, HASH, [d_date_259])
+                                                                                        partial aggregation over (d_date_259)
+                                                                                            join (INNER, REPLICATED, can skip output duplicates):
+                                                                                                dynamic filter (d_week_seq_261::EQUAL)
+                                                                                                    scan date_dim
+                                                                                                local exchange (GATHER, SINGLE, [])
+                                                                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                                                                        local exchange (GATHER, SINGLE, [])
+                                                                                                            remote exchange (GATHER, SINGLE, [])
+                                                                                                                scan date_dim
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPARTITION, HASH, [i_item_sk_199])
+                                                    scan item

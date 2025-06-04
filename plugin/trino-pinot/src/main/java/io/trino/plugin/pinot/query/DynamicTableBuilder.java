@@ -65,9 +65,7 @@ public final class DynamicTableBuilder
     public static final String REALTIME_SUFFIX = "_REALTIME";
     private static final Set<AggregationFunctionType> NON_NULL_ON_EMPTY_AGGREGATIONS = EnumSet.of(COUNT, DISTINCTCOUNT, DISTINCTCOUNTHLL);
 
-    private DynamicTableBuilder()
-    {
-    }
+    private DynamicTableBuilder() {}
 
     public static DynamicTable buildFromPql(PinotMetadata pinotMetadata, SchemaTableName schemaTableName, PinotClient pinotClient, PinotTypeConverter typeConverter)
     {

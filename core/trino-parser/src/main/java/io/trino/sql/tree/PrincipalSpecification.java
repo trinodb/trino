@@ -13,63 +13,18 @@
  */
 package io.trino.sql.tree;
 
-import java.util.Objects;
-
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class PrincipalSpecification
+public record PrincipalSpecification(Type type, Identifier name)
 {
     public enum Type
     {
         UNSPECIFIED, USER, ROLE
     }
 
-    private final Type type;
-    private final Identifier name;
-
-    public PrincipalSpecification(Type type, Identifier name)
+    public PrincipalSpecification
     {
-        this.type = requireNonNull(type, "type is null");
-        this.name = requireNonNull(name, "name is null");
-    }
-
-    public Type getType()
-    {
-        return type;
-    }
-
-    public Identifier getName()
-    {
-        return name;
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        PrincipalSpecification that = (PrincipalSpecification) o;
-        return type == that.type &&
-                Objects.equals(name, that.name);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(type, name);
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("type", type)
-                .add("name", name)
-                .toString();
+        requireNonNull(type, "type is null");
+        requireNonNull(name, "name is null");
     }
 }

@@ -37,7 +37,6 @@ import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.io.BaseEncoding.base16;
-import static io.airlift.testing.Assertions.assertLessThan;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static java.util.Collections.shuffle;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -111,8 +110,8 @@ public abstract class AbstractTestApproximateSetGeneric
             stats.addValue(error);
         }
 
-        assertLessThan(stats.getMean(), 1.0e-2);
-        assertLessThan(stats.getStandardDeviation(), 1.0e-2 + STD_ERROR);
+        assertThat(stats.getMean()).isLessThan(1.0e-2);
+        assertThat(stats.getStandardDeviation()).isLessThan(1.0e-2 + STD_ERROR);
     }
 
     @Test

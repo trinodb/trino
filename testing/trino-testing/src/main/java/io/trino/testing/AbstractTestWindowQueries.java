@@ -173,13 +173,15 @@ public abstract class AbstractTestWindowQueries
     @Test
     public void testWindowsSameOrdering()
     {
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT
                 sum(quantity) OVER(PARTITION BY suppkey ORDER BY orderkey),
                 min(tax) OVER(PARTITION BY suppkey ORDER BY shipdate)
                 FROM lineitem
                 ORDER BY 1
-                LIMIT 10"""))
+                LIMIT 10
+                """))
                 .result().matches(resultBuilder(getSession(), DOUBLE, DOUBLE)
                         .row(1.0, 0.0)
                         .row(2.0, 0.0)
@@ -197,13 +199,15 @@ public abstract class AbstractTestWindowQueries
     @Test
     public void testWindowsPrefixPartitioning()
     {
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT
                 max(tax) OVER (PARTITION BY suppkey, tax ORDER BY receiptdate),
                 sum(quantity) OVER(PARTITION BY suppkey ORDER BY orderkey)
                 FROM lineitem
                 ORDER BY 2, 1
-                LIMIT 10"""))
+                LIMIT 10
+                """))
                 .result().matches(resultBuilder(getSession(), DOUBLE, DOUBLE)
                         .row(0.06, 1.0)
                         .row(0.02, 2.0)
@@ -221,7 +225,8 @@ public abstract class AbstractTestWindowQueries
     @Test
     public void testWindowsDifferentPartitions()
     {
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT
                 sum(quantity) OVER (PARTITION BY suppkey ORDER BY orderkey),
                 count(discount) OVER (PARTITION BY partkey ORDER BY receiptdate),
@@ -317,7 +322,8 @@ public abstract class AbstractTestWindowQueries
     @Test
     public void testWindowFunctionsFromAggregate()
     {
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT * FROM (
                   SELECT orderstatus, clerk, sales
                   , rank() OVER (PARTITION BY x.orderstatus ORDER BY sales DESC) rnk
@@ -358,7 +364,8 @@ public abstract class AbstractTestWindowQueries
     @Test
     public void testSameWindowFunctionsTwoCoerces()
     {
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT
                   12.0E0 * row_number() OVER ()/row_number() OVER(),
                   row_number() OVER()
@@ -374,7 +381,8 @@ public abstract class AbstractTestWindowQueries
                         .row(12.0, 6L)
                         .build());
 
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT (MAX(x.a) OVER () - x.a) * 100.0E0 / MAX(x.a) OVER ()
                 FROM (VALUES 1, 2, 3, 4) x(a)
                 """))
@@ -428,7 +436,8 @@ public abstract class AbstractTestWindowQueries
     @Test
     public void testWindowFunctionWithGroupBy()
     {
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT *, rank() OVER (PARTITION BY x)
                 FROM (SELECT 'foo' x)
                 GROUP BY 1
@@ -572,7 +581,8 @@ public abstract class AbstractTestWindowQueries
     @Test
     public void testWindowFrames()
     {
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT * FROM (
                   SELECT orderkey, orderstatus
                     , sum(orderkey + 1000) OVER (PARTITION BY orderstatus ORDER BY orderkey
@@ -594,7 +604,8 @@ public abstract class AbstractTestWindowQueries
     @Test
     public void testWindowNoChannels()
     {
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT rank() OVER ()
                 FROM (SELECT * FROM orders LIMIT 10)
                 LIMIT 3

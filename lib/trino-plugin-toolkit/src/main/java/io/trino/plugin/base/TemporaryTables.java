@@ -43,7 +43,5 @@ public class TemporaryTables
         return generateTemporaryTableName(session.getQueryId());
     }
 
-    private TemporaryTables()
-    {
-    }
+    private TemporaryTables() {}
 }

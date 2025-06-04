@@ -33,7 +33,7 @@ import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.functio
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.hasFilter;
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.hasSortOrder;
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.singleArgument;
-import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.variable;
+import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.variable;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

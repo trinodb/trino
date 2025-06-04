@@ -155,13 +155,127 @@ public class TestIcebergPartitionEvolution
     }
 
     @Test
-    public void testUnsupportedNestedFieldPartition()
+    public void testAddNestedPartitioning()
     {
-        String tableName = "test_unsupported_nested_field_partition_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + "(parent ROW(child VARCHAR))");
-        assertQueryFails(
-                "ALTER TABLE " + tableName + " SET PROPERTIES partitioning = ARRAY['\"parent.child\"']",
-                "Partitioning by nested field is unsupported: parent.child");
+        String tableName = "test_add_nested_partition_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id INT, district ROW(name VARCHAR), state ROW(name VARCHAR)) WITH (partitioning = ARRAY['\"state.name\"'])");
+        assertUpdate(
+                "INSERT INTO " + tableName + " VALUES " +
+                        "(1, ROW('Patna'), ROW('BH')), " +
+                        "(2, ROW('Gaya'), ROW('BH')), " +
+                        "(3, ROW('Bengaluru'), ROW('KA')), " +
+                        "(4, ROW('Mengaluru'), ROW('KA'))",
+                4);
+
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES partitioning = ARRAY['\"state.name\"', '\"district.name\"']");
+
+        assertThat((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue()).contains("partitioning = ARRAY['\"state.name\"','\"district.name\"']");
+
+        assertUpdate(
+                "INSERT INTO " + tableName + " VALUES " +
+                        "(1, ROW('Patna'), ROW('BH')), " +
+                        "(2, ROW('Patna'), ROW('BH')), " +
+                        "(3, ROW('Bengaluru'), ROW('KA')), " +
+                        "(4, ROW('Mengaluru'), ROW('KA'))",
+                4);
+
+        List<MaterializedRow> files = computeActual("SELECT file_path, record_count FROM \"" + tableName + "$files\"").getMaterializedRows();
+        List<MaterializedRow> initialPartitionedFiles = files.stream()
+                .filter(file -> !((String) file.getField(0)).contains("district.name="))
+                .collect(toImmutableList());
+
+        List<MaterializedRow> laterPartitionedFiles = files.stream()
+                .filter(file -> ((String) file.getField(0)).contains("district.name="))
+                .collect(toImmutableList());
+
+        assertThat(initialPartitionedFiles).hasSize(2);
+        assertThat(initialPartitionedFiles.stream().mapToLong(row -> (long) row.getField(1)).sum()).isEqualTo(4L);
+
+        assertThat(laterPartitionedFiles).hasSize(3);
+        assertThat(laterPartitionedFiles.stream().mapToLong(row -> (long) row.getField(1)).sum()).isEqualTo(4L);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testRemoveNestedPartitioning()
+    {
+        String tableName = "test_remove_nested_partition_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id INT, district ROW(name VARCHAR), state ROW(name VARCHAR)) WITH (partitioning = ARRAY['\"state.name\"'])");
+        assertUpdate(
+                "INSERT INTO " + tableName + " VALUES " +
+                        "(1, ROW('Patna'), ROW('BH')), " +
+                        "(2, ROW('Gaya'), ROW('BH')), " +
+                        "(3, ROW('Bengaluru'), ROW('KA')), " +
+                        "(4, ROW('Mengaluru'), ROW('KA'))",
+                4);
+
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES partitioning = ARRAY[]");
+
+        assertUpdate(
+                "INSERT INTO " + tableName + " VALUES " +
+                        "(1, ROW('Patna'), ROW('BH')), " +
+                        "(2, ROW('Gaya'), ROW('BH')), " +
+                        "(3, ROW('Bengaluru'), ROW('KA')), " +
+                        "(4, ROW('Mengaluru'), ROW('KA'))",
+                4);
+
+        List<MaterializedRow> files = computeActual("SELECT file_path, record_count FROM \"" + tableName + "$files\"").getMaterializedRows();
+        List<MaterializedRow> unpartitionedFiles = files.stream()
+                .filter(file -> !((String) file.getField(0)).contains("state.name="))
+                .collect(toImmutableList());
+
+        List<MaterializedRow> partitionedFiles = files.stream()
+                .filter(file -> ((String) file.getField(0)).contains("state.name="))
+                .collect(toImmutableList());
+
+        assertThat(partitionedFiles).hasSize(2);
+        assertThat(partitionedFiles.stream().mapToLong(row -> (long) row.getField(1)).sum()).isEqualTo(4L);
+
+        assertThat(unpartitionedFiles).hasSize(1);
+        assertThat((long) unpartitionedFiles.get(0).getField(1)).isEqualTo(4);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testNestedFieldChangePartitionTransform()
+    {
+        String tableName = "test_nested_field_change_partition_transform_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (grandparent ROW(parent ROW(ts TIMESTAMP(6), a INT), b INT), c INT) " +
+                "WITH (partitioning = ARRAY['year(\"grandparent.parent.ts\")'])");
+        assertUpdate(
+                "INSERT INTO " + tableName + " VALUES " +
+                        "(ROW(ROW(TIMESTAMP '2021-01-01 01:01:01.111111', 1), 1), 1), " +
+                        "(ROW(ROW(TIMESTAMP '2022-02-02 02:02:02.222222', 2), 2), 2), " +
+                        "(ROW(ROW(TIMESTAMP '2023-03-03 03:03:03.333333', 3), 3), 3)",
+                3);
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES partitioning = ARRAY['month(\"grandparent.parent.ts\")']");
+        assertUpdate(
+                "INSERT INTO " + tableName + " VALUES " +
+                        "(ROW(ROW(TIMESTAMP '2024-04-04 04:04:04.444444', 4), 4), 4), " +
+                        "(ROW(ROW(TIMESTAMP '2025-05-05 05:05:05.555555', 5), 5), 5)",
+                2);
+
+        assertThat((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue()).contains("partitioning = ARRAY['month(\"grandparent.parent.ts\")']");
+
+        List<MaterializedRow> files = computeActual("SELECT file_path, record_count FROM \"" + tableName + "$files\"").getMaterializedRows();
+        List<MaterializedRow> yearPartitionedFiles = files.stream()
+                .filter(file -> {
+                    String filePath = ((String) file.getField(0));
+                    return filePath.contains("grandparent.parent.ts_year=") && !filePath.contains("grandparent.parent.ts_month=");
+                })
+                .collect(toImmutableList());
+
+        List<MaterializedRow> monthPartitionedFiles = files.stream()
+                .filter(file -> {
+                    String filePath = ((String) file.getField(0));
+                    return !filePath.contains("grandparent.parent.ts_year=") && filePath.contains("grandparent.parent.ts_month=");
+                })
+                .collect(toImmutableList());
+
+        assertThat(yearPartitionedFiles).hasSize(3);
+        assertThat(monthPartitionedFiles).hasSize(2);
         assertUpdate("DROP TABLE " + tableName);
     }
 }

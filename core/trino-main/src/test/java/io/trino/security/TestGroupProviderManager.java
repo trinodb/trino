@@ -13,7 +13,9 @@
  */
 package io.trino.security;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.configuration.secrets.SecretsResolver;
 import io.airlift.testing.TempFile;
 import io.trino.spi.security.GroupProvider;
 import io.trino.spi.security.GroupProviderFactory;
@@ -50,7 +52,7 @@ public class TestGroupProviderManager
     {
         try (TempFile tempFile = new TempFile()) {
             Files.write(tempFile.path(), "group-provider.name=testGroupProvider".getBytes(UTF_8));
-            GroupProviderManager groupProviderManager = new GroupProviderManager();
+            GroupProviderManager groupProviderManager = new GroupProviderManager(new SecretsResolver(ImmutableMap.of()));
             groupProviderManager.addGroupProviderFactory(TEST_GROUP_PROVIDER_FACTORY);
             groupProviderManager.loadConfiguredGroupProvider(tempFile.file());
             assertThat(groupProviderManager.getGroups("alice")).isEqualTo(ImmutableSet.of("test", "alice"));

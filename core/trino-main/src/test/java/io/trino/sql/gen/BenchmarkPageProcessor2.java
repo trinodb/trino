@@ -27,9 +27,11 @@ import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.connector.RecordSet;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Comparison;
@@ -40,6 +42,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SqlToRowExpressionTranslator;
 import io.trino.transaction.TestingTransactionManager;
+import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -63,21 +66,19 @@ import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
-import static io.trino.type.UnknownType.UNKNOWN;
 import static java.util.Locale.ENGLISH;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toList;
 
-@SuppressWarnings({"PackageVisibleField", "FieldCanBeLocal"})
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
-@Fork(10)
-@Warmup(iterations = 10)
-@Measurement(iterations = 10)
+@Fork(5)
+@Warmup(iterations = 10, time = 500, timeUnit = MILLISECONDS)
+@Measurement(iterations = 10, time = 500, timeUnit = MILLISECONDS)
 @BenchmarkMode(Mode.AverageTime)
 public class BenchmarkPageProcessor2
 {
@@ -103,7 +104,7 @@ public class BenchmarkPageProcessor2
     private RecordSet recordSet;
     private List<Type> types;
 
-    @Param({"2", "4", "8", "16", "32"})
+    @Param({"2", "4", "8", "16", "32", "1024", "4000"})
     int columnCount;
 
     @Param({"varchar", "bigint"})
@@ -118,21 +119,23 @@ public class BenchmarkPageProcessor2
         Type type = TYPE_MAP.get(this.type);
 
         for (int i = 0; i < columnCount; i++) {
-            Symbol symbol = new Symbol(UNKNOWN, type.getDisplayName().toLowerCase(ENGLISH) + i);
+            Symbol symbol = new Symbol(type, type.getDisplayName().toLowerCase(ENGLISH) + i);
             sourceLayout.put(symbol, i);
         }
 
         List<RowExpression> projections = getProjections(type);
-        types = projections.stream().map(RowExpression::getType).collect(toList());
+        types = projections.stream().map(RowExpression::type).collect(toList());
 
         FunctionManager functionManager = createTestingFunctionManager();
+        CursorProcessorCompiler cursorProcessorCompiler = new CursorProcessorCompiler(functionManager);
         PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(functionManager, 0);
+        ColumnarFilterCompiler columnarFilterCompiler = new ColumnarFilterCompiler(functionManager, 0);
 
         inputPage = createPage(types, dictionaryBlocks);
-        pageProcessor = new ExpressionCompiler(functionManager, pageFunctionCompiler).compilePageProcessor(Optional.of(getFilter(type)), projections).get();
+        pageProcessor = new ExpressionCompiler(cursorProcessorCompiler, pageFunctionCompiler, columnarFilterCompiler).compilePageProcessor(Optional.of(getFilter(type)), projections).get();
 
         recordSet = new PageRecordSet(types, inputPage);
-        cursorProcessor = new ExpressionCompiler(functionManager, pageFunctionCompiler).compileCursorProcessor(Optional.of(getFilter(type)), projections, "key").get();
+        cursorProcessor = new ExpressionCompiler(cursorProcessorCompiler, pageFunctionCompiler, columnarFilterCompiler).compileCursorProcessor(Optional.of(getFilter(type)), projections, "key").get();
     }
 
     @Benchmark
@@ -151,16 +154,16 @@ public class BenchmarkPageProcessor2
                         null,
                         new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
-                        inputPage));
+                        SourcePage.create(inputPage)));
     }
 
     private RowExpression getFilter(Type type)
     {
         if (type == VARCHAR) {
-            return rowExpression(new Comparison(EQUAL, new Call(MODULUS_BIGINT, ImmutableList.of(new Cast(new Reference(VARCHAR, "varchar0"), BIGINT), new Constant(INTEGER, 2L))), new Constant(INTEGER, 0L)));
+            return rowExpression(new Comparison(EQUAL, new Call(MODULUS_BIGINT, ImmutableList.of(new Cast(new Reference(VARCHAR, "varchar0"), BIGINT), new Constant(BIGINT, 2L))), new Constant(BIGINT, 0L)));
         }
         if (type == BIGINT) {
-            return rowExpression(new Comparison(EQUAL, new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(INTEGER, "bigint0"), new Constant(INTEGER, 2L))), new Constant(INTEGER, 0L)));
+            return rowExpression(new Comparison(EQUAL, new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "bigint0"), new Constant(BIGINT, 2L))), new Constant(BIGINT, 0L)));
         }
         throw new IllegalArgumentException("filter not supported for type : " + type);
     }
@@ -198,6 +201,27 @@ public class BenchmarkPageProcessor2
             return SequencePageBuilder.createSequencePageWithDictionaryBlocks(types, POSITIONS);
         }
         return SequencePageBuilder.createSequencePage(types, POSITIONS);
+    }
+
+    @Test
+    void testBenchmark()
+    {
+        BenchmarkPageProcessor2 benchmark = new BenchmarkPageProcessor2();
+        for (int columnCount : ImmutableList.of(2, 4, 8, 16, 32, 1024, 4000)) {
+            benchmark.columnCount = columnCount;
+
+            for (boolean dictionaryBlocks : ImmutableList.of(true, false)) {
+                benchmark.dictionaryBlocks = dictionaryBlocks;
+
+                for (String type : ImmutableList.of("varchar", "bigint")) {
+                    benchmark.type = type;
+
+                    benchmark.setup();
+                    benchmark.rowOriented();
+                    benchmark.columnOriented();
+                }
+            }
+        }
     }
 
     public static void main(String[] args)

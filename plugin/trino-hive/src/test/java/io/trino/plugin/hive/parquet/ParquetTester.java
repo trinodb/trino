@@ -26,7 +26,7 @@ import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.writer.ParquetSchemaConverter;
 import io.trino.parquet.writer.ParquetWriter;
 import io.trino.parquet.writer.ParquetWriterOptions;
-import io.trino.plugin.hive.FileFormatDataSourceStats;
+import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HiveSessionProperties;
 import io.trino.plugin.hive.HiveStorageFormat;
@@ -36,7 +36,6 @@ import io.trino.plugin.hive.parquet.write.MapKeyValuesSchemaConverter;
 import io.trino.plugin.hive.parquet.write.SingleLevelArrayMapKeyValuesSchemaConverter;
 import io.trino.plugin.hive.parquet.write.SingleLevelArraySchemaConverter;
 import io.trino.plugin.hive.parquet.write.TestingMapredParquetOutputFormat;
-import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.ArrayBlockBuilder;
@@ -49,6 +48,7 @@ import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordPageSource;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DateType;
@@ -142,7 +142,6 @@ import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils.getTypeInfosF
 import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_1_0;
 import static org.apache.parquet.format.CompressionCodec.GZIP;
 import static org.apache.parquet.format.CompressionCodec.LZ4;
-import static org.apache.parquet.format.CompressionCodec.LZO;
 import static org.apache.parquet.format.CompressionCodec.SNAPPY;
 import static org.apache.parquet.format.CompressionCodec.UNCOMPRESSED;
 import static org.apache.parquet.format.CompressionCodec.ZSTD;
@@ -181,7 +180,7 @@ class ParquetTester
     public static ParquetTester fullParquetTester()
     {
         return new ParquetTester(
-                ImmutableSet.of(GZIP, UNCOMPRESSED, SNAPPY, LZO, LZ4, ZSTD),
+                ImmutableSet.of(GZIP, UNCOMPRESSED, SNAPPY, LZ4, ZSTD),
                 ImmutableSet.of(GZIP, UNCOMPRESSED, SNAPPY, ZSTD),
                 ImmutableSet.copyOf(WriterVersion.values()),
                 ImmutableSet.of(SESSION, SESSION_USE_NAME));
@@ -483,8 +482,8 @@ class ParquetTester
                 dataFile,
                 columnNames,
                 columnTypes)) {
-            if (pageSource instanceof RecordPageSource) {
-                assertRecordCursor(columnTypes, expectedValues, ((RecordPageSource) pageSource).getCursor());
+            if (pageSource instanceof RecordPageSource recordPageSource) {
+                assertRecordCursor(columnTypes, expectedValues, recordPageSource.getCursor());
             }
             else {
                 assertPageSource(columnTypes, expectedValues, pageSource);
@@ -501,7 +500,7 @@ class ParquetTester
     private static void assertPageSource(List<Type> types, Iterator<?>[] valuesByField, ConnectorPageSource pageSource, Optional<Long> maxReadBlockSize)
     {
         while (!pageSource.isFinished()) {
-            Page page = pageSource.getNextPage();
+            SourcePage page = pageSource.getNextSourcePage();
             if (page == null) {
                 continue;
             }
@@ -835,7 +834,7 @@ class ParquetTester
         writer.write(pageBuilder.build());
         writer.close();
         try {
-            writer.validate(new TrinoParquetDataSource(new LocalInputFile(outputFile), new ParquetReaderOptions(), new FileFormatDataSourceStats()));
+            writer.validate(new TrinoParquetDataSource(new LocalInputFile(outputFile), ParquetReaderOptions.defaultOptions(), new FileFormatDataSourceStats()));
         }
         catch (IOException e) {
             throw new TrinoException(HIVE_WRITE_VALIDATION_FAILED, e);

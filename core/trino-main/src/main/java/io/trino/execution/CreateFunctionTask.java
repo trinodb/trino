@@ -33,19 +33,27 @@ import io.trino.sql.tree.CreateFunction;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionSpecification;
 import io.trino.sql.tree.Node;
+import io.trino.sql.tree.NodeRef;
+import io.trino.sql.tree.Parameter;
+import io.trino.sql.tree.PropertiesCharacteristic;
+import io.trino.sql.tree.Property;
 import io.trino.sql.tree.QualifiedName;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiFunction;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static io.trino.execution.ParameterExtractor.bindParameters;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.trino.sql.SqlFormatter.formatSql;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
+import static io.trino.sql.routine.SqlRoutineAnalyzer.getProperties;
 import static io.trino.sql.routine.SqlRoutineAnalyzer.isRunAsInvoker;
 import static java.util.Objects.requireNonNull;
 
@@ -92,12 +100,13 @@ public class CreateFunctionTask
 
         accessControl.checkCanCreateFunction(session.toSecurityContext(), name);
 
-        String formatted = formatSql(function);
-        verifyFormattedFunction(formatted, function);
+        languageFunctionManager.verifyForCreate(session, function, functionManager, accessControl);
 
-        languageFunctionManager.verifyForCreate(session, formatted, functionManager, accessControl);
+        function = materializeFunctionProperties(session, function, bindParameters(statement, parameters));
 
         String signatureToken = languageFunctionManager.getSignatureToken(function.getParameters());
+
+        String sql = functionToSql(function);
 
         // system path elements currently are not stored
         List<CatalogSchemaName> path = session.getPath().getPath().stream()
@@ -106,7 +115,7 @@ public class CreateFunctionTask
 
         Optional<String> owner = isRunAsInvoker(function) ? Optional.empty() : Optional.of(session.getUser());
 
-        LanguageFunction languageFunction = new LanguageFunction(signatureToken, formatted, path, owner);
+        LanguageFunction languageFunction = new LanguageFunction(signatureToken, sql, path, owner);
 
         boolean replace = false;
         if (metadata.languageFunctionExists(session, name, signatureToken)) {
@@ -122,8 +131,35 @@ public class CreateFunctionTask
         return immediateVoidFuture();
     }
 
-    private void verifyFormattedFunction(String sql, FunctionSpecification function)
+    private FunctionSpecification materializeFunctionProperties(Session session, FunctionSpecification function, Map<NodeRef<Parameter>, Expression> parameters)
     {
+        List<Property> originalProperties = getProperties(function);
+        if (originalProperties.isEmpty()) {
+            return function;
+        }
+
+        List<Property> sqlProperties = languageFunctionManager.materializeFunctionProperties(session, function, parameters, accessControl);
+
+        return new FunctionSpecification(
+                function.getLocation().orElseThrow(),
+                function.getName(),
+                function.getParameters(),
+                function.getReturnsClause(),
+                function.getRoutineCharacteristics().stream()
+                        .map(characteristic -> {
+                            if (characteristic instanceof PropertiesCharacteristic) {
+                                return new PropertiesCharacteristic(characteristic.getLocation().orElseThrow(), sqlProperties);
+                            }
+                            return characteristic;
+                        })
+                        .collect(toImmutableList()),
+                function.getStatement(),
+                function.getDefinition());
+    }
+
+    private String functionToSql(FunctionSpecification function)
+    {
+        String sql = formatSql(function);
         try {
             FunctionSpecification parsed = sqlParser.createFunctionSpecification(sql);
             if (!function.equals(parsed)) {
@@ -133,14 +169,15 @@ public class CreateFunctionTask
         catch (ParsingException e) {
             throw formattingFailure(e, "Formatted function does not parse", function, sql);
         }
+        return sql;
     }
 
-    static Optional<CatalogSchemaName> defaultFunctionSchema(SqlEnvironmentConfig config)
+    public static Optional<CatalogSchemaName> defaultFunctionSchema(SqlEnvironmentConfig config)
     {
         return combine(config.getDefaultFunctionCatalog(), config.getDefaultFunctionSchema(), CatalogSchemaName::new);
     }
 
-    static QualifiedObjectName qualifiedFunctionName(Optional<CatalogSchemaName> functionSchema, Node node, QualifiedName name)
+    public static QualifiedObjectName qualifiedFunctionName(Optional<CatalogSchemaName> functionSchema, Node node, QualifiedName name)
     {
         List<String> parts = name.getParts();
         return switch (parts.size()) {

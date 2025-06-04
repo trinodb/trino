@@ -33,30 +33,7 @@ public class CreateCatalog
     private final Optional<String> comment;
 
     public CreateCatalog(
-            Identifier catalogName,
-            boolean notExists,
-            Identifier connectorName,
-            List<Property> properties,
-            Optional<PrincipalSpecification> principal,
-            Optional<String> comment)
-    {
-        this(Optional.empty(), catalogName, notExists, connectorName, properties, principal, comment);
-    }
-
-    public CreateCatalog(
             NodeLocation location,
-            Identifier catalogName,
-            boolean notExists,
-            Identifier connectorName,
-            List<Property> properties,
-            Optional<PrincipalSpecification> principal,
-            Optional<String> comment)
-    {
-        this(Optional.of(location), catalogName, notExists, connectorName, properties, principal, comment);
-    }
-
-    private CreateCatalog(
-            Optional<NodeLocation> location,
             Identifier catalogName,
             boolean notExists,
             Identifier connectorName,
@@ -132,7 +109,7 @@ public class CreateCatalog
         }
         CreateCatalog o = (CreateCatalog) obj;
         return Objects.equals(catalogName, o.catalogName) &&
-                Objects.equals(notExists, o.notExists) &&
+                notExists == o.notExists &&
                 Objects.equals(properties, o.properties) &&
                 Objects.equals(comment, o.comment);
     }

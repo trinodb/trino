@@ -15,6 +15,7 @@ package io.trino.testing;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
+import io.airlift.configuration.secrets.SecretsResolver;
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.client.NodeVersion;
 import io.trino.eventlistener.EventListenerManager;
@@ -26,10 +27,10 @@ import io.trino.security.SecurityContext;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
+import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.ViewExpression;
-import io.trino.spi.type.Type;
 import io.trino.transaction.TransactionManager;
 
 import java.security.Principal;
@@ -133,6 +134,7 @@ public class TestingAccessControlManager
         extends AccessControlManager
 {
     private static final BiPredicate<Identity, String> IDENTITY_TABLE_TRUE = (identity, table) -> true;
+    private static final BiPredicate<Identity, String> IDENTITY_FUNCTION_TRUE = (identity, function) -> true;
 
     private final Set<TestingPrivilege> denyPrivileges = new HashSet<>();
     private final Map<RowFilterKey, List<ViewExpression>> rowFilters = new HashMap<>();
@@ -141,20 +143,23 @@ public class TestingAccessControlManager
     private Predicate<String> deniedSchemas = s -> true;
     private Predicate<SchemaTableName> deniedTables = s -> true;
     private BiPredicate<Identity, String> denyIdentityTable = IDENTITY_TABLE_TRUE;
+    private BiPredicate<Identity, String> denyIdentityFunction = IDENTITY_FUNCTION_TRUE;
+    private BiPredicate<Identity, String> denyImpersonationFunction = IDENTITY_FUNCTION_TRUE;
 
     @Inject
     public TestingAccessControlManager(
             TransactionManager transactionManager,
             EventListenerManager eventListenerManager,
             AccessControlConfig accessControlConfig,
+            SecretsResolver secretsResolver,
             OpenTelemetry openTelemetry)
     {
-        super(NodeVersion.UNKNOWN, transactionManager, eventListenerManager, accessControlConfig, openTelemetry, DefaultSystemAccessControl.NAME);
+        super(NodeVersion.UNKNOWN, transactionManager, eventListenerManager, accessControlConfig, openTelemetry, secretsResolver, DefaultSystemAccessControl.NAME);
     }
 
-    public TestingAccessControlManager(TransactionManager transactionManager, EventListenerManager eventListenerManager)
+    public TestingAccessControlManager(TransactionManager transactionManager, EventListenerManager eventListenerManager, SecretsResolver secretsResolver)
     {
-        this(transactionManager, eventListenerManager, new AccessControlConfig(), OpenTelemetry.noop());
+        this(transactionManager, eventListenerManager, new AccessControlConfig(), secretsResolver, OpenTelemetry.noop());
     }
 
     public static TestingPrivilege privilege(String entityName, TestingPrivilegeType type)
@@ -192,6 +197,7 @@ public class TestingAccessControlManager
         denyIdentityTable = IDENTITY_TABLE_TRUE;
         rowFilters.clear();
         columnMasks.clear();
+        denyImpersonationFunction = IDENTITY_FUNCTION_TRUE;
     }
 
     public void denyCatalogs(Predicate<String> deniedCatalogs)
@@ -212,6 +218,16 @@ public class TestingAccessControlManager
     public void denyIdentityTable(BiPredicate<Identity, String> denyIdentityTable)
     {
         this.denyIdentityTable = requireNonNull(denyIdentityTable, "denyIdentityTable is null");
+    }
+
+    public void denyIdentityFunction(BiPredicate<Identity, String> denyIdentityFunction)
+    {
+        this.denyIdentityFunction = requireNonNull(denyIdentityFunction, "denyIdentityFunction is null");
+    }
+
+    public void denyImpersonation(BiPredicate<Identity, String> denyImpersonationFunction)
+    {
+        this.denyImpersonationFunction = requireNonNull(denyImpersonationFunction, "denyImpersonationFunction is null");
     }
 
     @Override
@@ -249,6 +265,9 @@ public class TestingAccessControlManager
     @Override
     public void checkCanImpersonateUser(Identity identity, String userName)
     {
+        if (!denyImpersonationFunction.test(identity, userName)) {
+            denyImpersonateUser(identity.getUser(), userName);
+        }
         if (shouldDenyPrivilege(userName, userName, IMPERSONATE_USER)) {
             denyImpersonateUser(identity.getUser(), userName);
         }
@@ -696,6 +715,9 @@ public class TestingAccessControlManager
     @Override
     public boolean canExecuteFunction(SecurityContext context, QualifiedObjectName functionName)
     {
+        if (!denyIdentityFunction.test(context.getIdentity(), functionName.asSchemaFunctionName().toString())) {
+            return false;
+        }
         if (shouldDenyPrivilege(context.getIdentity().getUser(), functionName.toString(), EXECUTE_FUNCTION)) {
             return false;
         }
@@ -708,6 +730,9 @@ public class TestingAccessControlManager
     @Override
     public boolean canCreateViewWithExecuteFunction(SecurityContext context, QualifiedObjectName functionName)
     {
+        if (!denyIdentityFunction.test(context.getIdentity(), functionName.asSchemaFunctionName().toString())) {
+            return false;
+        }
         if (shouldDenyPrivilege(context.getIdentity().getUser(), functionName.toString(), GRANT_EXECUTE_FUNCTION)) {
             return false;
         }
@@ -739,13 +764,16 @@ public class TestingAccessControlManager
     }
 
     @Override
-    public Optional<ViewExpression> getColumnMask(SecurityContext context, QualifiedObjectName tableName, String column, Type type)
+    public Map<ColumnSchema, ViewExpression> getColumnMasks(SecurityContext context, QualifiedObjectName tableName, List<ColumnSchema> columns)
     {
-        ViewExpression mask = columnMasks.get(new ColumnMaskKey(context.getIdentity().getUser(), tableName, column));
-        if (mask != null) {
-            return Optional.of(mask);
-        }
-        return super.getColumnMask(context, tableName, column, type);
+        Map<ColumnSchema, ViewExpression> superResult = super.getColumnMasks(context, tableName, columns);
+        return columns.stream()
+                .flatMap(column ->
+                    Optional.ofNullable(columnMasks.get(new ColumnMaskKey(context.getIdentity().getUser(), tableName, column.getName())))
+                            .or(() -> Optional.ofNullable(superResult.get(column)))
+                            .map(viewExpression -> Map.entry(column, viewExpression))
+                            .stream())
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
     private boolean shouldDenyPrivilege(String actorName, String entityName, TestingPrivilegeType verb)

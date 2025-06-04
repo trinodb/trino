@@ -16,17 +16,11 @@ package io.trino.sql.tree;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Optional;
 
 public class CurrentSchema
         extends Expression
 {
     public CurrentSchema(NodeLocation location)
-    {
-        this(Optional.of(location));
-    }
-
-    private CurrentSchema(Optional<NodeLocation> location)
     {
         super(location);
     }

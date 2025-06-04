@@ -14,8 +14,9 @@
 package io.trino.plugin.memory;
 
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.type.Type;
 
-public record MemoryColumnHandle(int columnIndex)
+public record MemoryColumnHandle(int columnIndex, Type type)
         implements ColumnHandle
 {
     @Override

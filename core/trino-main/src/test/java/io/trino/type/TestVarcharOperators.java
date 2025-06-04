@@ -21,10 +21,16 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.spi.function.OperatorType.EQUAL;
+import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
-import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -80,6 +86,58 @@ public class TestVarcharOperators
         assertThat(assertions.expression("VARCHAR ''"))
                 .hasType(VARCHAR)
                 .isEqualTo("");
+    }
+
+    @Test
+    public void testVarcharCast()
+    {
+        assertThat(assertions.expression("CAST(VARCHAR '1.0' AS DOUBLE)"))
+                .hasType(DOUBLE)
+                .isEqualTo(1.0d);
+
+        assertThat(assertions.expression("CAST(VARCHAR ' 1.0 ' AS DOUBLE)"))
+                .hasType(DOUBLE)
+                .isEqualTo(1.0d);
+
+        assertThat(assertions.expression("CAST(VARCHAR '13.37' AS REAL)"))
+                .hasType(REAL)
+                .isEqualTo(13.37f);
+
+        assertThat(assertions.expression("CAST(VARCHAR ' 13.37 ' AS REAL)"))
+                .hasType(REAL)
+                .isEqualTo(13.37f);
+
+        assertThat(assertions.expression("CAST(VARCHAR '1337' AS BIGINT)"))
+                .hasType(BIGINT)
+                .isEqualTo(1337L);
+
+        assertThat(assertions.expression("CAST(VARCHAR ' 1337 ' AS BIGINT)"))
+                .hasType(BIGINT)
+                .isEqualTo(1337L);
+
+        assertThat(assertions.expression("CAST(VARCHAR '1337' AS INTEGER)"))
+                .hasType(INTEGER)
+                .isEqualTo(1337);
+
+        assertThat(assertions.expression("CAST(VARCHAR ' 1337 ' AS INTEGER)"))
+                .hasType(INTEGER)
+                .isEqualTo(1337);
+
+        assertThat(assertions.expression("CAST(VARCHAR '1337' AS SMALLINT)"))
+                .hasType(SMALLINT)
+                .isEqualTo((short) 1337);
+
+        assertThat(assertions.expression("CAST(VARCHAR ' 1337 ' AS SMALLINT)"))
+                .hasType(SMALLINT)
+                .isEqualTo((short) 1337);
+
+        assertThat(assertions.expression("CAST(VARCHAR '21' AS TINYINT)"))
+                .hasType(TINYINT)
+                .isEqualTo((byte) 21);
+
+        assertThat(assertions.expression("CAST(VARCHAR ' 21 ' AS TINYINT)"))
+                .hasType(TINYINT)
+                .isEqualTo((byte) 21);
     }
 
     @Test
@@ -290,22 +348,22 @@ public class TestVarcharOperators
     }
 
     @Test
-    public void testIsDistinctFrom()
+    public void testIdentical()
     {
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "CAST(NULL AS VARCHAR)", "CAST(NULL AS VARCHAR)"))
+        assertThat(assertions.operator(IDENTICAL, "CAST(NULL AS VARCHAR)", "CAST(NULL AS VARCHAR)"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(IDENTICAL, "'foo'", "'foo'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(IDENTICAL, "'foo'", "'fo0'"))
                 .isEqualTo(false);
 
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "'foo'", "'foo'"))
+        assertThat(assertions.operator(IDENTICAL, "NULL", "'foo'"))
                 .isEqualTo(false);
 
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "'foo'", "'fo0'"))
-                .isEqualTo(true);
-
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "NULL", "'foo'"))
-                .isEqualTo(true);
-
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "'foo'", "NULL"))
-                .isEqualTo(true);
+        assertThat(assertions.operator(IDENTICAL, "'foo'", "NULL"))
+                .isEqualTo(false);
     }
 
     @Test

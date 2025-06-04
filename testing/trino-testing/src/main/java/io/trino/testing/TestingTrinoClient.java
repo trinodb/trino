@@ -17,8 +17,8 @@ import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.client.IntervalDayTime;
 import io.trino.client.IntervalYearMonth;
-import io.trino.client.QueryData;
 import io.trino.client.QueryStatusInfo;
+import io.trino.client.ResultRows;
 import io.trino.client.Row;
 import io.trino.client.RowField;
 import io.trino.client.StatementStats;
@@ -76,6 +76,7 @@ import static io.trino.type.IpAddressType.IPADDRESS;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.util.MoreLists.mappedCopy;
 import static java.time.temporal.ChronoField.NANO_OF_SECOND;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 public class TestingTrinoClient
@@ -119,21 +120,26 @@ public class TestingTrinoClient
     @Override
     protected ResultsSession<MaterializedResult> getResultSession(Session session)
     {
-        return new MaterializedResultSession();
+        return new MaterializedResultSession(session);
     }
 
     private class MaterializedResultSession
             implements ResultsSession<MaterializedResult>
     {
+        private final Session session;
         private final ImmutableList.Builder<MaterializedRow> rows = ImmutableList.builder();
-
         private final AtomicReference<List<Type>> types = new AtomicReference<>();
         private final AtomicReference<List<String>> columnNames = new AtomicReference<>();
-
+        private final AtomicReference<String> queryDataEncoding = new AtomicReference<>();
         private final AtomicReference<Optional<String>> updateType = new AtomicReference<>(Optional.empty());
         private final AtomicReference<OptionalLong> updateCount = new AtomicReference<>(OptionalLong.empty());
         private final AtomicReference<List<Warning>> warnings = new AtomicReference<>(ImmutableList.of());
         private final AtomicReference<Optional<StatementStats>> statementStats = new AtomicReference<>(Optional.empty());
+
+        public MaterializedResultSession(Session session)
+        {
+            this.session = requireNonNull(session, "session is null");
+        }
 
         @Override
         public void setUpdateType(String type)
@@ -160,17 +166,25 @@ public class TestingTrinoClient
         }
 
         @Override
-        public void addResults(QueryStatusInfo statusInfo, QueryData data)
+        public void addResults(QueryStatusInfo statusInfo, ResultRows data)
         {
             if (types.get() == null && statusInfo.getColumns() != null) {
                 types.set(getTypes(statusInfo.getColumns()));
                 columnNames.set(getNames(statusInfo.getColumns()));
             }
 
-            if (data.getData() != null) {
-                checkState(types.get() != null, "data received without types");
-                rows.addAll(mappedCopy(data.getData(), dataToRow(types.get())));
+            if (data.isNull()) {
+                return;
             }
+
+            checkState(types.get() != null, "data received without types");
+            rows.addAll(mappedCopy(data, dataToRow(types.get())));
+        }
+
+        @Override
+        public void setQueryDataEncoding(String encoding)
+        {
+            queryDataEncoding.set(encoding);
         }
 
         @Override
@@ -178,9 +192,11 @@ public class TestingTrinoClient
         {
             checkState(types.get() != null, "never received types for the query");
             return new MaterializedResult(
+                    Optional.of(session),
                     rows.build(),
                     types.get(),
                     columnNames.get(),
+                    Optional.ofNullable(queryDataEncoding.get()),
                     setSessionProperties,
                     resetSessionProperties,
                     updateType.get(),

@@ -29,7 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPinotMetadata
 {
-    private final PinotConfig pinotConfig = new PinotConfig().setControllerUrls("localhost:9000");
+    private final PinotConfig pinotConfig = new PinotConfig().setControllerUrls(ImmutableList.of("localhost:9000"));
     private final PinotMetadata metadata = new PinotMetadata(new MockPinotClient(pinotConfig), pinotConfig, Executors.newSingleThreadExecutor(), new PinotTypeConverter(new TestingTypeManager()));
 
     @Test
@@ -38,17 +38,29 @@ public class TestPinotMetadata
         ConnectorSession session = TestPinotSplitManager.createSessionWithNumSplits(1, false, pinotConfig);
         List<SchemaTableName> schemaTableNames = metadata.listTables(session, Optional.empty());
         assertThat(ImmutableSet.copyOf(schemaTableNames)).isEqualTo(ImmutableSet.builder()
-                .add(new SchemaTableName("default", TestPinotSplitManager.realtimeOnlyTable.getTableName()))
-                .add(new SchemaTableName("default", TestPinotSplitManager.hybridTable.getTableName()))
+                .add(new SchemaTableName("default", TestPinotSplitManager.realtimeOnlyTable.tableName()))
+                .add(new SchemaTableName("default", TestPinotSplitManager.hybridTable.tableName()))
                 .add(new SchemaTableName("default", TEST_TABLE))
                 .build());
         List<String> schemas = metadata.listSchemaNames(session);
         assertThat(ImmutableList.copyOf(schemas)).isEqualTo(ImmutableList.of("default"));
-        PinotTableHandle withWeirdSchema = metadata.getTableHandle(session, new SchemaTableName("foo", TestPinotSplitManager.realtimeOnlyTable.getTableName()));
-        assertThat(withWeirdSchema.getTableName()).isEqualTo(TestPinotSplitManager.realtimeOnlyTable.getTableName());
-        PinotTableHandle withAnotherSchema = metadata.getTableHandle(session, new SchemaTableName(TestPinotSplitManager.realtimeOnlyTable.getTableName(), TestPinotSplitManager.realtimeOnlyTable.getTableName()));
-        assertThat(withAnotherSchema.getTableName()).isEqualTo(TestPinotSplitManager.realtimeOnlyTable.getTableName());
-        PinotTableHandle withUppercaseTable = metadata.getTableHandle(session, new SchemaTableName("default", TEST_TABLE));
-        assertThat(withUppercaseTable.getTableName()).isEqualTo("airlineStats");
+        PinotTableHandle withWeirdSchema = metadata.getTableHandle(
+                session,
+                new SchemaTableName("foo", TestPinotSplitManager.realtimeOnlyTable.tableName()),
+                Optional.empty(),
+                Optional.empty());
+        assertThat(withWeirdSchema.tableName()).isEqualTo(TestPinotSplitManager.realtimeOnlyTable.tableName());
+        PinotTableHandle withAnotherSchema = metadata.getTableHandle(
+                session,
+                new SchemaTableName(TestPinotSplitManager.realtimeOnlyTable.tableName(), TestPinotSplitManager.realtimeOnlyTable.tableName()),
+                Optional.empty(),
+                Optional.empty());
+        assertThat(withAnotherSchema.tableName()).isEqualTo(TestPinotSplitManager.realtimeOnlyTable.tableName());
+        PinotTableHandle withUppercaseTable = metadata.getTableHandle(
+                session,
+                new SchemaTableName("default", TEST_TABLE),
+                Optional.empty(),
+                Optional.empty());
+        assertThat(withUppercaseTable.tableName()).isEqualTo("airlineStats");
     }
 }

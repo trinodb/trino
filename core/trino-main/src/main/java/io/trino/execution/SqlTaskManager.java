@@ -136,6 +136,7 @@ public class SqlTaskManager
 
     private final long queryMaxMemoryPerNode;
 
+    private final CounterStat createdTasks = new CounterStat();
     private final CounterStat failedTasks = new CounterStat();
     private final Optional<StuckSplitTasksInterrupter> stuckSplitTasksInterrupter;
     private final LanguageFunctionProvider languageFunctionProvider;
@@ -230,22 +231,25 @@ public class SqlTaskManager
                 queryId -> createQueryContext(queryId, localMemoryManager, localSpillManager, gcMonitor, maxQueryMemoryPerNode, maxQuerySpillPerNode)));
 
         tasks = buildNonEvictableCache(CacheBuilder.newBuilder(), CacheLoader.from(
-                taskId -> createSqlTask(
-                        taskId,
-                        locationFactory.createLocalTaskLocation(taskId),
-                        nodeInfo.getNodeId(),
-                        queryContexts.getUnchecked(taskId.getQueryId()),
-                        tracer,
-                        sqlTaskExecutionFactory,
-                        taskNotificationExecutor,
-                        sqlTask -> {
-                            languageFunctionProvider.unregisterTask(taskId);
-                            finishedTaskStats.merge(sqlTask.getIoStats());
-                        },
-                        maxBufferSize,
-                        maxBroadcastBufferSize,
-                        requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null"),
-                        failedTasks)));
+                taskId -> {
+                    createdTasks.update(1);
+                    return createSqlTask(
+                            taskId,
+                            locationFactory.createLocalTaskLocation(taskId),
+                            nodeInfo.getNodeId(),
+                            queryContexts.getUnchecked(taskId.getQueryId()),
+                            tracer,
+                            sqlTaskExecutionFactory,
+                            taskNotificationExecutor,
+                            sqlTask -> {
+                                languageFunctionProvider.unregisterTask(taskId);
+                                finishedTaskStats.merge(sqlTask.getIoStats());
+                            },
+                            maxBufferSize,
+                            maxBroadcastBufferSize,
+                            requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null"),
+                            failedTasks);
+                }));
 
         stuckSplitTasksInterrupter = createStuckSplitTasksInterrupter(
                 config.isInterruptStuckSplitTasksEnabled(),
@@ -353,6 +357,19 @@ public class SqlTaskManager
     public ThreadPoolExecutorMBean getTaskNotificationExecutor()
     {
         return taskNotificationExecutorMBean;
+    }
+
+    @Managed(description = "Tracked tasks count")
+    public long getTrackedTasksCount()
+    {
+        return tasks.size();
+    }
+
+    @Managed(description = "Created tasks counter")
+    @Nested
+    public CounterStat getCreatedTasks()
+    {
+        return createdTasks;
     }
 
     @Managed(description = "Failed tasks counter")
@@ -647,9 +664,9 @@ public class SqlTaskManager
                 .map(SqlTask::getTaskInfo)
                 .filter(Objects::nonNull)
                 .forEach(taskInfo -> {
-                    TaskId taskId = taskInfo.getTaskStatus().getTaskId();
+                    TaskId taskId = taskInfo.taskStatus().getTaskId();
                     try {
-                        DateTime endTime = taskInfo.getStats().getEndTime();
+                        DateTime endTime = taskInfo.stats().getEndTime();
                         if (endTime != null && endTime.isBefore(oldestAllowedTask)) {
                             // The removal here is concurrency safe with respect to any concurrent loads: the cache has no expiration,
                             // the taskId is in the cache, so there mustn't be an ongoing load.
@@ -669,11 +686,11 @@ public class SqlTaskManager
         for (SqlTask sqlTask : tasks.asMap().values()) {
             try {
                 TaskInfo taskInfo = sqlTask.getTaskInfo();
-                TaskStatus taskStatus = taskInfo.getTaskStatus();
+                TaskStatus taskStatus = taskInfo.taskStatus();
                 if (taskStatus.getState().isDone()) {
                     continue;
                 }
-                DateTime lastHeartbeat = taskInfo.getLastHeartbeat();
+                DateTime lastHeartbeat = taskInfo.lastHeartbeat();
                 if (lastHeartbeat != null && lastHeartbeat.isBefore(oldestAllowedHeartbeat)) {
                     log.info("Failing abandoned task %s", taskStatus.getTaskId());
                     sqlTask.failed(new TrinoException(ABANDONED_TASK, format("Task %s has not been accessed since %s: currentTime %s", taskStatus.getTaskId(), lastHeartbeat, now)));

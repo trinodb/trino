@@ -24,11 +24,11 @@ import io.trino.spi.security.AccessDeniedException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
-import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
@@ -46,10 +46,10 @@ import static io.trino.security.AccessControlUtil.filterQueries;
 import static io.trino.server.QueryStateInfo.createQueryStateInfo;
 import static io.trino.server.QueryStateInfo.createQueuedQueryStateInfo;
 import static io.trino.server.security.ResourceSecurity.AccessType.AUTHENTICATED_USER;
-import static jakarta.ws.rs.core.Response.Status.NOT_FOUND;
 import static java.util.Objects.requireNonNull;
 
 @Path("/v1/queryState")
+@ResourceSecurity(AUTHENTICATED_USER)
 public class QueryStateInfoResource
 {
     private final DispatchManager dispatchManager;
@@ -70,7 +70,6 @@ public class QueryStateInfoResource
         this.sessionContextFactory = requireNonNull(sessionContextFactory, "sessionContextFactory is null");
     }
 
-    @ResourceSecurity(AUTHENTICATED_USER)
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     public List<QueryStateInfo> getQueryStateInfos(@QueryParam("user") String user, @Context HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)
@@ -103,12 +102,10 @@ public class QueryStateInfoResource
         return createQueryStateInfo(queryInfo, groupId);
     }
 
-    @ResourceSecurity(AUTHENTICATED_USER)
     @GET
     @Path("{queryId}")
     @Produces(MediaType.APPLICATION_JSON)
     public QueryStateInfo getQueryStateInfo(@PathParam("queryId") String queryId, @Context HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)
-            throws WebApplicationException
     {
         try {
             BasicQueryInfo queryInfo = dispatchManager.getQueryInfo(new QueryId(queryId));
@@ -119,7 +116,7 @@ public class QueryStateInfoResource
             throw new ForbiddenException();
         }
         catch (NoSuchElementException e) {
-            throw new WebApplicationException(NOT_FOUND);
+            throw new NotFoundException();
         }
     }
 }

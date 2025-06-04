@@ -112,7 +112,7 @@ public class BenchmarkExtendedStatistics
         {
             Map<String, Object> map = new HashMap<>();
             for (DeltaLakeColumnHandle column : columns) {
-                map.put(column.getBaseColumnName(), random.nextLong());
+                map.put(column.baseColumnName(), random.nextLong());
             }
             return Optional.of(map);
         }
@@ -127,7 +127,7 @@ public class BenchmarkExtendedStatistics
                 DeltaLakeColumnHandle column = benchmarkData.columns.get(benchmarkData.random.nextInt(benchmarkData.columnsCount));
                 result += (long) statistics.getMaxColumnValue(column).get();
                 result += (long) statistics.getMinColumnValue(column).get();
-                result += statistics.getNullCount(column.getBaseColumnName()).get();
+                result += statistics.getNullCount(column.baseColumnName()).get();
             }
         }
         return result;

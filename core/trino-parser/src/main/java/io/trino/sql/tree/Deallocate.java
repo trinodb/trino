@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -28,16 +27,6 @@ public class Deallocate
     private final Identifier name;
 
     public Deallocate(NodeLocation location, Identifier name)
-    {
-        this(Optional.of(location), name);
-    }
-
-    public Deallocate(Identifier name)
-    {
-        this(Optional.empty(), name);
-    }
-
-    private Deallocate(Optional<NodeLocation> location, Identifier name)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");

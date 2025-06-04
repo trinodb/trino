@@ -166,27 +166,9 @@ public class DisabledSystemSecurityMetadata
     }
 
     @Override
-    public void setSchemaOwner(Session session, CatalogSchemaName schema, TrinoPrincipal principal)
-    {
-        throw notSupportedException(schema.getCatalogName());
-    }
-
-    @Override
-    public void setTableOwner(Session session, CatalogSchemaTableName table, TrinoPrincipal principal)
-    {
-        throw notSupportedException(table.getCatalogName());
-    }
-
-    @Override
     public Optional<Identity> getViewRunAsIdentity(Session session, CatalogSchemaTableName view)
     {
         return Optional.empty();
-    }
-
-    @Override
-    public void setViewOwner(Session session, CatalogSchemaTableName view, TrinoPrincipal principal)
-    {
-        throw notSupportedException(view.getCatalogName());
     }
 
     @Override
@@ -194,6 +176,12 @@ public class DisabledSystemSecurityMetadata
     {
         return Optional.empty();
     }
+
+    @Override
+    public void functionCreated(Session session, CatalogSchemaFunctionName function) {}
+
+    @Override
+    public void functionDropped(Session session, CatalogSchemaFunctionName function) {}
 
     @Override
     public void schemaCreated(Session session, CatalogSchemaName schema) {}
@@ -227,6 +215,12 @@ public class DisabledSystemSecurityMetadata
 
     @Override
     public void columnNotNullConstraintDropped(Session session, CatalogSchemaTableName table, String column) {}
+
+    @Override
+    public void setEntityOwner(Session session, EntityKindAndName entityKindAndName, TrinoPrincipal principal)
+    {
+        throw notSupportedException(entityKindAndName.name().get(0));
+    }
 
     private static TrinoException notSupportedException(String catalogName)
     {

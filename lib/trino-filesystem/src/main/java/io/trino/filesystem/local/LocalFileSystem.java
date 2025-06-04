@@ -27,6 +27,7 @@ import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -60,7 +61,13 @@ public class LocalFileSystem
     @Override
     public TrinoInputFile newInputFile(Location location, long length)
     {
-        return new LocalInputFile(location, toFilePath(location), length);
+        return new LocalInputFile(location, toFilePath(location), length, null);
+    }
+
+    @Override
+    public TrinoInputFile newInputFile(Location location, long length, Instant lastModified)
+    {
+        return new LocalInputFile(location, toFilePath(location), length, lastModified);
     }
 
     @Override
@@ -77,7 +84,7 @@ public class LocalFileSystem
         try {
             Files.delete(filePath);
         }
-        catch (NoSuchFileException ignored) {
+        catch (NoSuchFileException _) {
         }
         catch (IOException e) {
             throw handleException(location, e);
@@ -266,7 +273,7 @@ public class LocalFileSystem
 
     private static void validateLocalLocation(Location location)
     {
-        checkArgument(location.scheme().equals(Optional.of("local")), "Only 'local' scheme is supported: %s", location);
+        checkArgument(location.scheme().equals(Optional.of("local")) || location.scheme().equals(Optional.of("file")), "Only 'local' and 'file' scheme is supported: %s", location);
         checkArgument(location.userInfo().isEmpty(), "Local location cannot contain user info: %s", location);
         checkArgument(location.host().isEmpty(), "Local location cannot contain a host: %s", location);
     }

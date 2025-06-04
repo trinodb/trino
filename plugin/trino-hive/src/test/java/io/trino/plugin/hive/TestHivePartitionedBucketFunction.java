@@ -16,6 +16,7 @@ package io.trino.plugin.hive;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
+import io.trino.metastore.HiveType;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -36,7 +37,7 @@ import java.util.stream.IntStream;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.block.BlockAssertions.createLongRepeatBlock;
 import static io.trino.block.BlockAssertions.createLongsBlock;
-import static io.trino.plugin.hive.HiveType.HIVE_LONG;
+import static io.trino.metastore.HiveType.HIVE_LONG;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V2;
@@ -107,7 +108,7 @@ public class TestHivePartitionedBucketFunction
             int hiveBucket = hiveBucketFunction.getBucket(bucketedColumnPage, i);
             Long hivePartition = partitionValues.get(i);
             // record list of positions for each combination of hive partition and bucket
-            partitionedBucketPositions.computeIfAbsent(hivePartition, ignored -> HashMultimap.create())
+            partitionedBucketPositions.computeIfAbsent(hivePartition, _ -> HashMultimap.create())
                     .put(hiveBucket, i);
         }
 

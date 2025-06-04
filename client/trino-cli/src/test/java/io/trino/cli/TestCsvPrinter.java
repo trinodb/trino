@@ -109,13 +109,15 @@ public class TestCsvPrinter
         printRows(
                 printer,
                 row("hello", "world", 123),
-                row("a", null, 4.5));
+                row("a", null, 4.5),
+                row("\"quote\"", null, 2137));
         printer.finish();
 
         String expected = "" +
                 "first,last,quantity\n" +
                 "hello,world,123\n" +
-                "a,,4.5\n";
+                "a,,4.5\n" + "" +
+                "\"quote\",,2137\n";
 
         assertThat(writer.getBuffer().toString()).isEqualTo(expected);
     }

@@ -27,13 +27,13 @@ import io.airlift.http.server.testing.TestingHttpServer;
 import io.airlift.node.NodeInfo;
 import io.airlift.security.pem.PemReader;
 import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.JwsHeader;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.impl.DefaultClaims;
 import io.trino.security.AccessControl;
 import io.trino.server.HttpRequestSessionContextFactory;
 import io.trino.server.ProtocolConfig;
 import io.trino.server.protocol.PreparedStatementEncoder;
+import io.trino.server.protocol.spooling.QueryDataEncoder;
 import io.trino.server.security.PasswordAuthenticatorManager;
 import io.trino.server.security.ResourceSecurity;
 import io.trino.server.security.oauth2.ChallengeFailedException;
@@ -99,7 +99,7 @@ import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.jsonwebtoken.Claims.SUBJECT;
 import static io.jsonwebtoken.security.Keys.hmacShaKeyFor;
 import static io.trino.client.OkHttpUtil.setupSsl;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.metadata.TestMetadataManager.createTestMetadataManager;
 import static io.trino.server.ServletSecurityUtils.authenticatedIdentity;
 import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;
 import static io.trino.server.security.jwt.JwtUtil.newJwtBuilder;
@@ -133,7 +133,7 @@ public class TestWebUi
 {
     private static final String LOCALHOST_KEYSTORE = Resources.getResource("cert/localhost.pem").getPath();
     private static final String ALLOWED_USER_MAPPING_PATTERN = "(.*)@allowed";
-    private static final ImmutableMap<String, String> SECURE_PROPERTIES = ImmutableMap.<String, String>builder()
+    private static final Map<String, String> SECURE_PROPERTIES = ImmutableMap.<String, String>builder()
             .put("http-server.https.enabled", "true")
             .put("http-server.https.keystore.path", LOCALHOST_KEYSTORE)
             .put("http-server.https.keystore.key", "")
@@ -143,7 +143,7 @@ public class TestWebUi
     private static final String STATE_KEY = "test-state-key";
     public static final String TOKEN_ISSUER = "http://example.com/";
     public static final String OAUTH_CLIENT_ID = "client";
-    private static final ImmutableMap<String, String> OAUTH2_PROPERTIES = ImmutableMap.<String, String>builder()
+    private static final Map<String, String> OAUTH2_PROPERTIES = ImmutableMap.<String, String>builder()
             .putAll(SECURE_PROPERTIES)
             .put("web-ui.authentication.type", "oauth2")
             .put("http-server.authentication.oauth2.state-key", STATE_KEY)
@@ -187,6 +187,7 @@ public class TestWebUi
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
+                false,
                 Optional.of(LOCALHOST_KEYSTORE),
                 Optional.empty(),
                 Optional.empty(),
@@ -306,7 +307,7 @@ public class TestWebUi
 
         String body = assertOk(client, getLoginHtmlLocation(baseUri))
                 .orElseThrow(() -> new AssertionError("No response body"));
-        assertThat(body).contains("action=\"/ui/login\"");
+        assertThat(body).contains("action=\"login\"");
         assertThat(body).contains("method=\"post\"");
 
         assertThat(body).doesNotContain("<!-- This value will be replaced -->");
@@ -372,7 +373,7 @@ public class TestWebUi
         try (Response response = client.newCall(request).execute()) {
             assertThat(response.code()).isEqualTo(SC_SEE_OTHER);
             assertThat(response.header(LOCATION)).isEqualTo(getLoginHtmlLocation(httpsUrl));
-            assertThat(cookieManager.getCookieStore().getCookies().isEmpty()).isTrue();
+            assertThat(cookieManager.getCookieStore().getCookies()).isEmpty();
         }
     }
 
@@ -424,7 +425,8 @@ public class TestWebUi
                     createTestMetadataManager(),
                     ImmutableSet::of,
                     accessControl,
-                    new ProtocolConfig());
+                    new ProtocolConfig(),
+                    QueryDataEncoder.EncoderSelector.noEncoder());
         }
 
         @ResourceSecurity(WEB_UI)
@@ -571,6 +573,7 @@ public class TestWebUi
                     Optional.of(LOCALHOST_KEYSTORE),
                     Optional.empty(),
                     Optional.empty(),
+                    false,
                     Optional.of(LOCALHOST_KEYSTORE),
                     Optional.empty(),
                     Optional.empty(),
@@ -601,8 +604,8 @@ public class TestWebUi
             SecretKey hmac = hmacShaKeyFor(Base64.getDecoder().decode(Files.readString(Paths.get(HMAC_KEY)).trim()));
             String token = newJwtBuilder()
                     .signWith(hmac)
-                    .setSubject("test-user")
-                    .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
+                    .subject("test-user")
+                    .expiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
                     .compact();
 
             OkHttpClient clientWithJwt = client.newBuilder()
@@ -636,9 +639,9 @@ public class TestWebUi
 
             String token = newJwtBuilder()
                     .signWith(JWK_PRIVATE_KEY)
-                    .setHeaderParam(JwsHeader.KEY_ID, "test-rsa")
-                    .setSubject("test-user")
-                    .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
+                    .header().keyId("test-rsa").and()
+                    .subject("test-user")
+                    .expiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
                     .compact();
 
             OkHttpClient clientWithJwt = client.newBuilder()
@@ -955,8 +958,8 @@ public class TestWebUi
     {
         String state = newJwtBuilder()
                 .signWith(hmacShaKeyFor(Hashing.sha256().hashString(STATE_KEY, UTF_8).asBytes()))
-                .setAudience("trino_oauth_ui")
-                .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(10).toInstant()))
+                .audience().add("trino_oauth_ui").and()
+                .expiration(Date.from(ZonedDateTime.now().plusMinutes(10).toInstant()))
                 .compact();
         assertRedirect(
                 client,
@@ -1245,7 +1248,7 @@ public class TestWebUi
         HttpServerConfig config = new HttpServerConfig().setHttpPort(0);
         HttpServerInfo httpServerInfo = new HttpServerInfo(config, nodeInfo);
 
-        return new TestingHttpServer(httpServerInfo, nodeInfo, config, new JwkServlet(), ImmutableMap.of());
+        return new TestingHttpServer(httpServerInfo, nodeInfo, config, new JwkServlet());
     }
 
     private static class JwkServlet
@@ -1305,9 +1308,7 @@ public class TestWebUi
         }
 
         @Override
-        public void load()
-        {
-        }
+        public void load() {}
 
         @Override
         public Request createAuthorizationRequest(String state, URI callbackUri)
@@ -1366,8 +1367,8 @@ public class TestWebUi
         {
             return newJwtBuilder()
                     .signWith(JWK_PRIVATE_KEY)
-                    .setHeaderParam(JwsHeader.KEY_ID, "test-rsa")
-                    .setClaims(claims)
+                    .header().keyId("test-rsa").and()
+                    .claims(claims)
                     .compact();
         }
 

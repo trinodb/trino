@@ -123,7 +123,7 @@ public class TestAcidTables
         assertThat(state.deltas()).isEmpty();
 
         List<FileEntry> files = state.originalFiles();
-        assertThat(files.size()).isEqualTo(7);
+        assertThat(files).hasSize(7);
         assertThat(files.get(0).location()).isEqualTo(Location.of("memory:///tbl/part1/000000_0"));
         assertThat(files.get(1).location()).isEqualTo(Location.of("memory:///tbl/part1/000000_0_copy_1"));
         assertThat(files.get(2).location()).isEqualTo(Location.of("memory:///tbl/part1/000000_0_copy_2"));
@@ -160,7 +160,7 @@ public class TestAcidTables
         assertThat(state.baseDirectory()).isEmpty();
 
         List<FileEntry> files = state.originalFiles();
-        assertThat(files.size()).isEqualTo(5);
+        assertThat(files).hasSize(5);
         assertThat(files.get(0).location()).isEqualTo(Location.of("memory:///tbl/part1/000000_0"));
         assertThat(files.get(1).location()).isEqualTo(Location.of("memory:///tbl/part1/000001_1"));
         assertThat(files.get(2).location()).isEqualTo(Location.of("memory:///tbl/part1/000002_0"));
@@ -168,7 +168,7 @@ public class TestAcidTables
         assertThat(files.get(4).location()).isEqualTo(Location.of("memory:///tbl/part1/subdir/000000_0"));
 
         List<ParsedDelta> deltas = state.deltas();
-        assertThat(deltas.size()).isEqualTo(2);
+        assertThat(deltas).hasSize(2);
         ParsedDelta delta = deltas.get(0);
         assertThat(delta.path()).isEqualTo("memory:///tbl/part1/delta_025_030");
         assertThat(delta.min()).isEqualTo(25);
@@ -201,10 +201,10 @@ public class TestAcidTables
                 new ValidWriteIdList("tbl:100:%d:".formatted(Long.MAX_VALUE)));
 
         assertThat(dir.baseDirectory()).contains(Location.of("memory:///tbl/part1/base_49"));
-        assertThat(dir.originalFiles().size()).isEqualTo(0);
+        assertThat(dir.originalFiles()).isEmpty();
 
         List<ParsedDelta> deltas = dir.deltas();
-        assertThat(deltas.size()).isEqualTo(1);
+        assertThat(deltas).hasSize(1);
         ParsedDelta delta = deltas.get(0);
         assertThat(delta.path()).isEqualTo("memory:///tbl/part1/delta_050_105");
         assertThat(delta.min()).isEqualTo(50);
@@ -250,7 +250,7 @@ public class TestAcidTables
         assertThat(state.baseDirectory()).contains(Location.of("memory:///tbl/part1/base_50"));
 
         List<ParsedDelta> deltas = state.deltas();
-        assertThat(deltas.size()).isEqualTo(4);
+        assertThat(deltas).hasSize(4);
         assertThat(deltas.get(0).path()).isEqualTo("memory:///tbl/part1/delta_40_60");
         assertThat(deltas.get(1).path()).isEqualTo("memory:///tbl/part1/delta_00061_61");
         assertThat(deltas.get(2).path()).isEqualTo("memory:///tbl/part1/delta_000062_62");
@@ -282,7 +282,7 @@ public class TestAcidTables
         assertThat(state.baseDirectory()).contains(Location.of("memory:///tbl/part1/base_50"));
 
         List<ParsedDelta> deltas = state.deltas();
-        assertThat(deltas.size()).isEqualTo(5);
+        assertThat(deltas).hasSize(5);
         assertThat(deltas.get(0).path()).isEqualTo("memory:///tbl/part1/delta_40_60");
         assertThat(deltas.get(1).path()).isEqualTo("memory:///tbl/part1/delta_00061_61_0");
         assertThat(deltas.get(2).path()).isEqualTo("memory:///tbl/part1/delta_000062_62_0");
@@ -304,7 +304,7 @@ public class TestAcidTables
                 new ValidWriteIdList("tbl:100:4:4"));
 
         List<ParsedDelta> deltas = state.deltas();
-        assertThat(deltas.size()).isEqualTo(2);
+        assertThat(deltas).hasSize(2);
         assertThat(deltas.get(0).path()).isEqualTo("memory:///tbl/part1/delta_1_1");
         assertThat(deltas.get(1).path()).isEqualTo("memory:///tbl/part1/delta_2_5");
     }
@@ -326,7 +326,7 @@ public class TestAcidTables
                 new ValidWriteIdList("tbl:100:4:4"));
 
         List<ParsedDelta> deltas = state.deltas();
-        assertThat(deltas.size()).isEqualTo(2);
+        assertThat(deltas).hasSize(2);
         assertThat(deltas.get(0).path()).isEqualTo("memory:///tbl/part1/delta_1_1");
         assertThat(deltas.get(1).path()).isEqualTo("memory:///tbl/part1/delta_2_5");
     }
@@ -357,7 +357,7 @@ public class TestAcidTables
         assertThat(state.originalFiles()).isEmpty();
 
         List<ParsedDelta> deltas = state.deltas();
-        assertThat(deltas.size()).isEqualTo(2);
+        assertThat(deltas).hasSize(2);
         assertThat(deltas.get(0).path()).isEqualTo("memory:///tbl/part1/delete_delta_050_105");
         assertThat(deltas.get(1).path()).isEqualTo("memory:///tbl/part1/delta_050_105");
         // The delete_delta_110_110 should not be read because it is greater than the high watermark.
@@ -387,7 +387,7 @@ public class TestAcidTables
         assertThat(state.baseDirectory()).contains(Location.of("memory:///tbl/part1/base_50"));
 
         List<ParsedDelta> deltas = state.deltas();
-        assertThat(deltas.size()).isEqualTo(6);
+        assertThat(deltas).hasSize(6);
         assertThat(deltas.get(0).path()).isEqualTo("memory:///tbl/part1/delete_delta_40_60");
         assertThat(deltas.get(1).path()).isEqualTo("memory:///tbl/part1/delta_40_60");
         assertThat(deltas.get(2).path()).isEqualTo("memory:///tbl/part1/delta_00061_61");
@@ -412,7 +412,7 @@ public class TestAcidTables
                 new ValidWriteIdList("tbl:100:%d:".formatted(Long.MAX_VALUE)));
 
         List<ParsedDelta> deltas = state.deltas();
-        assertThat(deltas.size()).isEqualTo(1);
+        assertThat(deltas).hasSize(1);
         assertThat(deltas.get(0).path()).isEqualTo("memory:///tbl/part1/delta_40_60");
     }
 
@@ -435,7 +435,7 @@ public class TestAcidTables
                 new ValidWriteIdList("tbl:100:4:4"));
 
         List<ParsedDelta> deltas = state.deltas();
-        assertThat(deltas.size()).isEqualTo(3);
+        assertThat(deltas).hasSize(3);
         assertThat(deltas.get(0).path()).isEqualTo("memory:///tbl/part1/delta_1_1");
         assertThat(deltas.get(1).path()).isEqualTo("memory:///tbl/part1/delete_delta_2_5");
         assertThat(deltas.get(2).path()).isEqualTo("memory:///tbl/part1/delta_2_5");
@@ -473,7 +473,7 @@ public class TestAcidTables
 
         // Subdirectories in delta directories should be skipped similar to Hive implementation
         List<ParsedDelta> deltas = state.deltas();
-        assertThat(deltas.size()).isEqualTo(2);
+        assertThat(deltas).hasSize(2);
         assertThat(deltas.get(0).path()).isEqualTo("memory:///tbl/part1/delta_025_025");
         assertThat(deltas.get(1).path()).isEqualTo("memory:///tbl/part1/delete_delta_029_029");
     }

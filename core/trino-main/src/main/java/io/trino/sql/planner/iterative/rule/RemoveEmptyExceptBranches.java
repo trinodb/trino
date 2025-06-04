@@ -60,7 +60,7 @@ public class RemoveEmptyExceptBranches
     public Result apply(ExceptNode node, Captures captures, Context context)
     {
         if (isEmpty(node.getSources().get(0), context.getLookup())) {
-            return Result.ofPlanNode(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));
+            return Result.ofPlanNode(new ValuesNode(node.getId(), node.getOutputSymbols()));
         }
 
         boolean hasEmptyBranches = false;

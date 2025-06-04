@@ -42,10 +42,10 @@ public class DereferenceCodeGenerator
     public DereferenceCodeGenerator(SpecialForm specialForm)
     {
         requireNonNull(specialForm, "specialForm is null");
-        returnType = specialForm.getType();
-        checkArgument(specialForm.getArguments().size() == 2);
-        base = specialForm.getArguments().get(0);
-        index = toIntExact((long) ((ConstantExpression) specialForm.getArguments().get(1)).getValue());
+        returnType = specialForm.type();
+        checkArgument(specialForm.arguments().size() == 2);
+        base = specialForm.arguments().get(0);
+        index = toIntExact((long) ((ConstantExpression) specialForm.arguments().get(1)).value());
     }
 
     @Override
@@ -55,7 +55,7 @@ public class DereferenceCodeGenerator
 
         BytecodeBlock block = new BytecodeBlock().comment("DEREFERENCE").setDescription("DEREFERENCE");
         Variable wasNull = generator.wasNull();
-        Variable row = generator.getScope().createTempVariable(SqlRow.class);
+        Variable row = generator.getScope().getOrCreateTempVariable(SqlRow.class);
 
         // clear the wasNull flag before evaluating the row value
         block.putVariable(wasNull, false);
@@ -88,6 +88,8 @@ public class DereferenceCodeGenerator
                 .comment("otherwise call type.getTYPE(row, index)")
                 .append(value)
                 .putVariable(wasNull, false);
+
+        generator.getScope().releaseTempVariableForReuse(row);
 
         block.append(ifFieldIsNull)
                 .visitLabel(end);

@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>446-SNAPSHOT</version>
+        <version>476-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -13,7 +13,6 @@
     <description>Trino - Product tests launcher</description>
 
     <properties>
-        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <main-class>io.trino.tests.product.launcher.cli.Launcher</main-class>
     </properties>
 
@@ -280,8 +279,7 @@
                 <groupId>org.skife.maven</groupId>
                 <artifactId>really-executable-jar-maven-plugin</artifactId>
                 <configuration>
-                    <!-- Force Parallel GC to ensure MaxHeapFreeRatio is respected -->
-                    <flags>-Xmx256m -XX:+UseParallelGC -XX:MinHeapFreeRatio=10 -XX:MaxHeapFreeRatio=50</flags>
+                    <flags>-Xmx256m</flags>
                     <classifier>executable</classifier>
                 </configuration>
                 <executions>

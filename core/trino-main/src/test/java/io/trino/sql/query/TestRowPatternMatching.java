@@ -1529,7 +1529,8 @@ public class TestRowPatternMatching
     @Test
     public void testProperties()
     {
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 WITH
                     t(a, b) AS (VALUES (1, 1)),
                     u AS (SELECT * FROM t WHERE b = 1)
@@ -1546,7 +1547,8 @@ public class TestRowPatternMatching
     @Test
     public void testKillThread()
     {
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 SELECT *
                 FROM (VALUES 1, 2, 3, 4, 5)
                   MATCH_RECOGNIZE (

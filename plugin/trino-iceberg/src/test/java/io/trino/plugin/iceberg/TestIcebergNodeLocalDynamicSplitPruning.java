@@ -28,7 +28,7 @@ import io.trino.orc.OrcWriter;
 import io.trino.orc.OrcWriterOptions;
 import io.trino.orc.OrcWriterStats;
 import io.trino.orc.OutputStreamOrcDataSink;
-import io.trino.plugin.hive.FileFormatDataSourceStats;
+import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveTransactionHandle;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
@@ -42,6 +42,7 @@ import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
@@ -129,7 +130,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     true,
                     OrcWriteValidation.OrcWriteValidationMode.BOTH,
                     new OrcWriterStats())) {
-                BlockBuilder keyBuilder = INTEGER.createBlockBuilder(null, 1);
+                BlockBuilder keyBuilder = INTEGER.createFixedSizeBlockBuilder(1);
                 INTEGER.writeLong(keyBuilder, keyColumnValue);
                 BlockBuilder dataBuilder = VARCHAR.createBlockBuilder(null, 1);
                 VARCHAR.writeString(dataBuilder, dataColumnValue);
@@ -149,7 +150,8 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     ImmutableList.of(),
                     SplitWeight.standard(),
                     TupleDomain.all(),
-                    ImmutableMap.of());
+                    ImmutableMap.of(),
+                    0);
 
             String tablePath = inputFile.location().fileName();
             TableHandle tableHandle = new TableHandle(
@@ -170,6 +172,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                             Optional.empty(),
                             tablePath,
                             ImmutableMap.of(),
+                            Optional.empty(),
                             false,
                             Optional.empty(),
                             ImmutableSet.of(),
@@ -181,7 +184,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                             keyColumnHandle,
                             Domain.singleValue(INTEGER, 1L)));
             try (ConnectorPageSource emptyPageSource = createTestingPageSource(transaction, icebergConfig, split, tableHandle, ImmutableList.of(keyColumnHandle, dataColumnHandle), getDynamicFilter(splitPruningPredicate))) {
-                assertThat(emptyPageSource.getNextPage()).isNull();
+                assertThat(emptyPageSource.getNextSourcePage()).isNull();
             }
 
             TupleDomain<ColumnHandle> nonSelectivePredicate = TupleDomain.withColumnDomains(
@@ -189,7 +192,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                             keyColumnHandle,
                             Domain.singleValue(INTEGER, (long) keyColumnValue)));
             try (ConnectorPageSource nonEmptyPageSource = createTestingPageSource(transaction, icebergConfig, split, tableHandle, ImmutableList.of(keyColumnHandle, dataColumnHandle), getDynamicFilter(nonSelectivePredicate))) {
-                Page page = nonEmptyPageSource.getNextPage();
+                SourcePage page = nonEmptyPageSource.getNextSourcePage();
                 assertThat(page).isNotNull();
                 assertThat(page.getPositionCount()).isEqualTo(1);
                 assertThat(INTEGER.getInt(page.getBlock(0), 0)).isEqualTo(keyColumnValue);
@@ -209,7 +212,8 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     ImmutableList.of(),
                     SplitWeight.standard(),
                     TupleDomain.withColumnDomains(ImmutableMap.of(keyColumnHandle, Domain.singleValue(INTEGER, (long) keyColumnValue))),
-                    ImmutableMap.of());
+                    ImmutableMap.of(),
+                    0);
 
             tableHandle = new TableHandle(
                     TEST_CATALOG_HANDLE,
@@ -229,6 +233,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                             Optional.empty(),
                             tablePath,
                             ImmutableMap.of(),
+                            Optional.empty(),
                             false,
                             Optional.empty(),
                             ImmutableSet.of(),
@@ -236,11 +241,11 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     transaction);
 
             try (ConnectorPageSource emptyPageSource = createTestingPageSource(transaction, icebergConfig, split, tableHandle, ImmutableList.of(keyColumnHandle, dataColumnHandle), getDynamicFilter(splitPruningPredicate))) {
-                assertThat(emptyPageSource.getNextPage()).isNull();
+                assertThat(emptyPageSource.getNextSourcePage()).isNull();
             }
 
             try (ConnectorPageSource nonEmptyPageSource = createTestingPageSource(transaction, icebergConfig, split, tableHandle, ImmutableList.of(keyColumnHandle, dataColumnHandle), getDynamicFilter(nonSelectivePredicate))) {
-                Page page = nonEmptyPageSource.getNextPage();
+                SourcePage page = nonEmptyPageSource.getNextSourcePage();
                 assertThat(page).isNotNull();
                 assertThat(page.getPositionCount()).isEqualTo(1);
                 assertThat(INTEGER.getInt(page.getBlock(0), 0)).isEqualTo(keyColumnValue);
@@ -296,11 +301,11 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     true,
                     OrcWriteValidation.OrcWriteValidationMode.BOTH,
                     new OrcWriterStats())) {
-                BlockBuilder dateBuilder = DATE.createBlockBuilder(null, 1);
+                BlockBuilder dateBuilder = DATE.createFixedSizeBlockBuilder(1);
                 DATE.writeLong(dateBuilder, dateColumnValue);
                 BlockBuilder receiptBuilder = VARCHAR.createBlockBuilder(null, 1);
                 VARCHAR.writeString(receiptBuilder, receiptColumnValue);
-                BlockBuilder amountBuilder = amountColumnType.createBlockBuilder(null, 1);
+                BlockBuilder amountBuilder = amountColumnType.createFixedSizeBlockBuilder(1);
                 writeShortDecimal(amountBuilder, amountColumnValue.unscaledValue().longValueExact());
                 writer.write(new Page(dateBuilder.build(), receiptBuilder.build(), amountBuilder.build()));
             }
@@ -317,7 +322,8 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     ImmutableList.of(),
                     SplitWeight.standard(),
                     TupleDomain.all(),
-                    ImmutableMap.of());
+                    ImmutableMap.of(),
+                    0);
 
             String tablePath = inputFile.location().fileName();
             TableHandle tableHandle = new TableHandle(
@@ -338,6 +344,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                             Optional.empty(),
                             tablePath,
                             ImmutableMap.of(),
+                            Optional.empty(),
                             false,
                             Optional.empty(),
                             ImmutableSet.of(),
@@ -363,7 +370,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                         tableHandle,
                         ImmutableList.of(dateColumnHandle, receiptColumnHandle, amountColumnHandle),
                         getDynamicFilter(partitionPredicate))) {
-                    assertThat(emptyPageSource.getNextPage()).isNull();
+                    assertThat(emptyPageSource.getNextSourcePage()).isNull();
                 }
             }
 
@@ -383,7 +390,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                         tableHandle,
                         ImmutableList.of(dateColumnHandle, receiptColumnHandle, amountColumnHandle),
                         getDynamicFilter(partitionPredicate))) {
-                    Page page = nonEmptyPageSource.getNextPage();
+                    SourcePage page = nonEmptyPageSource.getNextSourcePage();
                     assertThat(page).isNotNull();
                     assertThat(page.getPositionCount()).isEqualTo(1);
                     assertThat(INTEGER.getInt(page.getBlock(0), 0)).isEqualTo(dateColumnValue);
@@ -445,13 +452,13 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     true,
                     OrcWriteValidation.OrcWriteValidationMode.BOTH,
                     new OrcWriterStats())) {
-                BlockBuilder yearBuilder = INTEGER.createBlockBuilder(null, 1);
+                BlockBuilder yearBuilder = INTEGER.createFixedSizeBlockBuilder(1);
                 INTEGER.writeLong(yearBuilder, yearColumnValue);
-                BlockBuilder monthBuilder = INTEGER.createBlockBuilder(null, 1);
+                BlockBuilder monthBuilder = INTEGER.createFixedSizeBlockBuilder(1);
                 INTEGER.writeLong(monthBuilder, monthColumnValue);
                 BlockBuilder receiptBuilder = VARCHAR.createBlockBuilder(null, 1);
                 VARCHAR.writeString(receiptBuilder, receiptColumnValue);
-                BlockBuilder amountBuilder = amountColumnType.createBlockBuilder(null, 1);
+                BlockBuilder amountBuilder = amountColumnType.createFixedSizeBlockBuilder(1);
                 writeShortDecimal(amountBuilder, amountColumnValue.unscaledValue().longValueExact());
                 writer.write(new Page(yearBuilder.build(), monthBuilder.build(), receiptBuilder.build(), amountBuilder.build()));
             }
@@ -468,7 +475,8 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     ImmutableList.of(),
                     SplitWeight.standard(),
                     TupleDomain.all(),
-                    ImmutableMap.of());
+                    ImmutableMap.of(),
+                    0);
 
             String tablePath = inputFile.location().fileName();
             // Simulate the situation where `month` column is added at a later phase as partitioning column
@@ -498,6 +506,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                             Optional.empty(),
                             tablePath,
                             ImmutableMap.of(),
+                            Optional.empty(),
                             false,
                             Optional.empty(),
                             ImmutableSet.of(),
@@ -524,7 +533,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                         tableHandle,
                         ImmutableList.of(yearColumnHandle, monthColumnHandle, receiptColumnHandle, amountColumnHandle),
                         getDynamicFilter(partitionPredicate))) {
-                    assertThat(emptyPageSource.getNextPage()).isNull();
+                    assertThat(emptyPageSource.getNextSourcePage()).isNull();
                 }
             }
 
@@ -546,7 +555,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                         tableHandle,
                         ImmutableList.of(yearColumnHandle, monthColumnHandle, receiptColumnHandle, amountColumnHandle),
                         getDynamicFilter(partitionPredicate))) {
-                    Page page = nonEmptyPageSource.getNextPage();
+                    SourcePage page = nonEmptyPageSource.getNextSourcePage();
                     assertThat(page).isNotNull();
                     assertThat(page.getPositionCount()).isEqualTo(1);
                     assertThat(INTEGER.getInt(page.getBlock(0), 0)).isEqualTo(2023L);
@@ -567,14 +576,13 @@ public class TestIcebergNodeLocalDynamicSplitPruning
             DynamicFilter dynamicFilter)
     {
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
-        IcebergPageSourceProvider provider = new IcebergPageSourceProvider(
+        IcebergPageSourceProviderFactory factory = new IcebergPageSourceProviderFactory(
                 new DefaultIcebergFileSystemFactory(new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS)),
                 stats,
                 ORC_READER_CONFIG,
                 PARQUET_READER_CONFIG,
                 TESTING_TYPE_MANAGER);
-
-        return provider.createPageSource(
+        return factory.createPageSourceProvider().createPageSource(
                 transaction,
                 getSession(icebergConfig),
                 split,

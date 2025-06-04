@@ -26,7 +26,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.airlift.testing.Assertions.assertInstanceOf;
 import static org.apache.kafka.common.security.auth.SecurityProtocol.SSL;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -40,7 +39,7 @@ public class TestKafkaPlugin
         KafkaPlugin plugin = new KafkaPlugin();
 
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        assertInstanceOf(factory, KafkaConnectorFactory.class);
+        assertThat(factory).isInstanceOf(KafkaConnectorFactory.class);
         Path resource = Files.createTempFile("kafka", ".properties");
 
         Connector connector = factory.create(
@@ -63,7 +62,7 @@ public class TestKafkaPlugin
         KafkaPlugin plugin = new KafkaPlugin();
 
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        assertInstanceOf(factory, KafkaConnectorFactory.class);
+        assertThat(factory).isInstanceOf(KafkaConnectorFactory.class);
 
         String secret = "confluent";
         Path keystorePath = Files.createTempFile("keystore", ".jks");
@@ -100,7 +99,7 @@ public class TestKafkaPlugin
         KafkaPlugin plugin = new KafkaPlugin();
 
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        assertInstanceOf(factory, KafkaConnectorFactory.class);
+        assertThat(factory).isInstanceOf(KafkaConnectorFactory.class);
 
         Path truststorePath = Files.createTempFile("test", ".jks");
 
@@ -131,7 +130,7 @@ public class TestKafkaPlugin
         KafkaPlugin plugin = new KafkaPlugin();
 
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        assertInstanceOf(factory, KafkaConnectorFactory.class);
+        assertThat(factory).isInstanceOf(KafkaConnectorFactory.class);
 
         Path keystorePath = Files.createTempFile("test", ".jks");
 
@@ -161,7 +160,7 @@ public class TestKafkaPlugin
         KafkaPlugin plugin = new KafkaPlugin();
 
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        assertInstanceOf(factory, KafkaConnectorFactory.class);
+        assertThat(factory).isInstanceOf(KafkaConnectorFactory.class);
 
         assertThatThrownBy(() -> factory.create(
                 "test-connector",
@@ -183,7 +182,7 @@ public class TestKafkaPlugin
         KafkaPlugin plugin = new KafkaPlugin();
 
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        assertInstanceOf(factory, KafkaConnectorFactory.class);
+        assertThat(factory).isInstanceOf(KafkaConnectorFactory.class);
 
         String nativeContent = "security.protocol=" + SSL;
         Path nativeKafkaResourcePath = Files.createTempFile("native_kafka", ".properties");

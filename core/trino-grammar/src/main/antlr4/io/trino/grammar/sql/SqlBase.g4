@@ -45,7 +45,7 @@ standaloneFunctionSpecification
     ;
 
 statement
-    : rootQuery                                                        #statementDefault
+    : rootQueryWithSession                                             #statementDefault
     | USE schema=identifier                                            #use
     | USE catalog=identifier '.' schema=identifier                     #use
     | CREATE CATALOG (IF NOT EXISTS)? catalog=identifier
@@ -60,7 +60,6 @@ statement
         (WITH properties)?                                             #createSchema
     | DROP SCHEMA (IF EXISTS)? qualifiedName (CASCADE | RESTRICT)?     #dropSchema
     | ALTER SCHEMA qualifiedName RENAME TO identifier                  #renameSchema
-    | ALTER SCHEMA qualifiedName SET AUTHORIZATION principal           #setSchemaAuthorization
     | CREATE (OR REPLACE)? TABLE (IF NOT EXISTS)? qualifiedName
         columnAliases?
         (COMMENT string)?
@@ -80,7 +79,8 @@ statement
     | ALTER TABLE (IF EXISTS)? from=qualifiedName
         RENAME TO to=qualifiedName                                     #renameTable
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
-        ADD COLUMN (IF NOT EXISTS)? column=columnDefinition            #addColumn
+        ADD COLUMN (IF NOT EXISTS)? column=columnDefinition
+        (FIRST | LAST | AFTER after=identifier)?                       #addColumn
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         RENAME COLUMN (IF EXISTS)? from=qualifiedName TO to=identifier #renameColumn
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
@@ -89,13 +89,13 @@ statement
         ALTER COLUMN columnName=qualifiedName SET DATA TYPE type       #setColumnType
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         ALTER COLUMN columnName=identifier DROP NOT NULL               #dropNotNullConstraint
-    | ALTER TABLE tableName=qualifiedName SET AUTHORIZATION principal  #setTableAuthorization
     | ALTER TABLE tableName=qualifiedName
         SET PROPERTIES propertyAssignments                             #setTableProperties
     | ALTER TABLE tableName=qualifiedName
         EXECUTE procedureName=identifier
         ('(' (callArgument (',' callArgument)*)? ')')?
         (WHERE where=booleanExpression)?                               #tableExecute
+    | ALTER ownedEntityKind qualifiedName SET AUTHORIZATION principal  #setAuthorization
     | ANALYZE qualifiedName (WITH properties)?                         #analyze
     | CREATE (OR REPLACE)? MATERIALIZED VIEW
         (IF NOT EXISTS)? qualifiedName
@@ -114,14 +114,13 @@ statement
         SET PROPERTIES propertyAssignments                             #setMaterializedViewProperties
     | DROP VIEW (IF EXISTS)? qualifiedName                             #dropView
     | ALTER VIEW from=qualifiedName RENAME TO to=qualifiedName         #renameView
-    | ALTER VIEW from=qualifiedName SET AUTHORIZATION principal        #setViewAuthorization
     | CALL qualifiedName '(' (callArgument (',' callArgument)*)? ')'   #call
     | CREATE (OR REPLACE)? functionSpecification                       #createFunction
     | DROP FUNCTION (IF EXISTS)? functionDeclaration                   #dropFunction
     | CREATE ROLE name=identifier
         (WITH ADMIN grantor)?
         (IN catalog=identifier)?                                       #createRole
-    | DROP ROLE name=identifier (IN catalog=identifier)?               #dropRole
+    | DROP ROLE (IF EXISTS)? name=identifier (IN catalog=identifier)?  #dropRole
     | GRANT
         privilegeOrRole (',' privilegeOrRole)*
         TO principal (',' principal)*
@@ -157,6 +156,7 @@ statement
     | SHOW CREATE SCHEMA qualifiedName                                 #showCreateSchema
     | SHOW CREATE VIEW qualifiedName                                   #showCreateView
     | SHOW CREATE MATERIALIZED VIEW qualifiedName                      #showCreateMaterializedView
+    | SHOW CREATE FUNCTION qualifiedName                               #showCreateFunction
     | SHOW TABLES ((FROM | IN) qualifiedName)?
         (LIKE pattern=string (ESCAPE escape=string)?)?                 #showTables
     | SHOW SCHEMAS ((FROM | IN) identifier)?
@@ -198,11 +198,17 @@ statement
     ;
 
 rootQuery
-    : withFunction? query
+    : (WITH functionSpecification (',' functionSpecification)*)?
+      query
     ;
 
-withFunction
-    : WITH functionSpecification (',' functionSpecification)*
+rootQueryWithSession
+    : (WITH SESSION sessionProperty (',' sessionProperty)*)?
+      rootQuery
+    ;
+
+sessionProperty
+    : qualifiedName EQ expression
     ;
 
 query
@@ -245,11 +251,15 @@ propertyValue
 
 queryNoWith
     : queryTerm
-      (ORDER BY sortItem (',' sortItem)*)?
+      orderBy?
       (OFFSET offset=rowCount (ROW | ROWS)?)?
       ( (LIMIT limit=limitRowCount)
       | (FETCH (FIRST | NEXT) (fetchFirst=rowCount)? (ROW | ROWS) (ONLY | WITH TIES))
       )?
+    ;
+
+orderBy
+    : ORDER BY sortItem (',' sortItem)*
     ;
 
 limitRowCount
@@ -263,9 +273,9 @@ rowCount
     ;
 
 queryTerm
-    : queryPrimary                                                             #queryTermDefault
-    | left=queryTerm operator=INTERSECT setQuantifier? right=queryTerm         #setOperation
-    | left=queryTerm operator=(UNION | EXCEPT) setQuantifier? right=queryTerm  #setOperation
+    : queryPrimary                                                                                #queryTermDefault
+    | left=queryTerm operator=INTERSECT setQuantifier? corresponding? right=queryTerm             #setOperation
+    | left=queryTerm operator=(UNION | EXCEPT) setQuantifier? corresponding? right=queryTerm      #setOperation
     ;
 
 queryPrimary
@@ -273,6 +283,10 @@ queryPrimary
     | TABLE qualifiedName                  #table
     | VALUES expression (',' expression)*  #inlineTable
     | '(' queryNoWith ')'                  #subquery
+    ;
+
+corresponding
+    : CORRESPONDING (BY columnAliases)?
     ;
 
 sortItem
@@ -294,6 +308,7 @@ groupBy
 
 groupingElement
     : groupingSet                                            #singleGroupingSet
+    | AUTO                                                   #auto
     | ROLLUP '(' (groupingSet (',' groupingSet)*)? ')'       #rollup
     | CUBE '(' (groupingSet (',' groupingSet)*)? ')'         #cube
     | GROUPING SETS '(' groupingSet (',' groupingSet)* ')'   #multipleGroupingSets
@@ -311,7 +326,7 @@ windowDefinition
 windowSpecification
     : (existingWindowName=identifier)?
       (PARTITION BY partition+=expression (',' partition+=expression)*)?
-      (ORDER BY sortItem (',' sortItem)*)?
+      orderBy?
       windowFrame?
     ;
 
@@ -382,7 +397,7 @@ patternRecognition
     : aliasedRelation (
         MATCH_RECOGNIZE '('
           (PARTITION BY partition+=expression (',' partition+=expression)*)?
-          (ORDER BY sortItem (',' sortItem)*)?
+          orderBy?
           (MEASURES measureDefinition (',' measureDefinition)*)?
           rowsPerMatch?
           (AFTER MATCH skipTo)?
@@ -569,12 +584,12 @@ primaryExpression
     | ROW '(' expression (',' expression)* ')'                                            #rowConstructor
     | name=LISTAGG '(' setQuantifier? expression (',' string)?
         (ON OVERFLOW listAggOverflowBehavior)? ')'
-        (WITHIN GROUP '(' ORDER BY sortItem (',' sortItem)* ')')
-        filter?                                                                           #listagg
+        (WITHIN GROUP '(' orderBy ')')
+        filter? over?                                                                     #listagg
     | processingMode? qualifiedName '(' (label=identifier '.')? ASTERISK ')'
         filter? over?                                                                     #functionCall
     | processingMode? qualifiedName '(' (setQuantifier? expression (',' expression)*)?
-        (ORDER BY sortItem (',' sortItem)*)? ')' filter? (nullTreatment? over)?           #functionCall
+        orderBy? ')' filter? (nullTreatment? over)?                                       #functionCall
     | identifier over                                                                     #measure
     | identifier '->' expression                                                          #lambda
     | '(' (identifier (',' identifier)*)? ')' '->' expression                             #lambda
@@ -586,6 +601,7 @@ primaryExpression
     | CAST '(' expression AS type ')'                                                     #cast
     | TRY_CAST '(' expression AS type ')'                                                 #cast
     | ARRAY '[' (expression (',' expression)*)? ']'                                       #arrayConstructor
+    | '[' (expression (',' expression)*)? ']'                                             #arrayConstructor
     | value=primaryExpression '[' index=valueExpression ']'                               #subscript
     | identifier                                                                          #columnReference
     | base=primaryExpression '.' fieldName=identifier                                     #dereference
@@ -860,7 +876,12 @@ pathSpecification
     ;
 
 functionSpecification
-    : FUNCTION functionDeclaration returnsClause routineCharacteristic* controlStatement
+    : FUNCTION functionDeclaration returnsClause routineCharacteristic*
+        (controlStatement | AS functionDefinition)
+    ;
+
+functionDefinition
+    : DOLLAR_STRING
     ;
 
 functionDeclaration
@@ -882,6 +903,7 @@ routineCharacteristic
     | CALLED ON NULL INPUT              #calledOnNullInputCharacteristic
     | SECURITY (DEFINER | INVOKER)      #securityCharacteristic
     | COMMENT string                    #commentCharacteristic
+    | (WITH properties)                 #propertiesCharacteristic
     ;
 
 controlStatement
@@ -930,6 +952,10 @@ grantObject
     : entityKind? qualifiedName
     ;
 
+ownedEntityKind
+    : TABLE | SCHEMA | VIEW | identifier
+    ;
+
 qualifiedName
     : identifier ('.' identifier)*
     ;
@@ -953,10 +979,6 @@ principal
     : identifier            #unspecifiedPrincipal
     | USER identifier       #userPrincipal
     | ROLE identifier       #rolePrincipal
-    ;
-
-roles
-    : identifier (',' identifier)*
     ;
 
 privilegeOrRole
@@ -986,9 +1008,9 @@ nonReserved
     // IMPORTANT: this rule must only contain tokens. Nested rules are not supported. See SqlParser.exitNonReserved
     : ABSENT | ADD | ADMIN | AFTER | ALL | ANALYZE | ANY | ARRAY | ASC | AT | AUTHORIZATION
     | BEGIN | BERNOULLI | BOTH
-    | CALL | CALLED | CASCADE | CATALOG | CATALOGS | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | CONDITIONAL | COPARTITION | COUNT | CURRENT
+    | CALL | CALLED | CASCADE | CATALOG | CATALOGS | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | CONDITIONAL | COPARTITION | CORRESPONDING | COUNT | CURRENT
     | DATA | DATE | DAY | DECLARE | DEFAULT | DEFINE | DEFINER | DENY | DESC | DESCRIPTOR | DETERMINISTIC | DISTRIBUTED | DO | DOUBLE
-    | ELSEIF | EMPTY | ENCODING | ERROR | EXCLUDING | EXPLAIN
+    | ELSEIF | EMPTY | ENCODING | ERROR | EXCLUDING | EXECUTE | EXPLAIN
     | FETCH | FILTER | FINAL | FIRST | FOLLOWING | FORMAT | FUNCTION | FUNCTIONS
     | GRACE | GRANT | GRANTED | GRANTS | GRAPHVIZ | GROUPS
     | HOUR
@@ -1026,6 +1048,7 @@ AS: 'AS';
 ASC: 'ASC';
 AT: 'AT';
 AUTHORIZATION: 'AUTHORIZATION';
+AUTO: 'AUTO';
 BEGIN: 'BEGIN';
 BERNOULLI: 'BERNOULLI';
 BETWEEN: 'BETWEEN';
@@ -1047,6 +1070,7 @@ CONDITIONAL: 'CONDITIONAL';
 CONSTRAINT: 'CONSTRAINT';
 COUNT: 'COUNT';
 COPARTITION: 'COPARTITION';
+CORRESPONDING: 'CORRESPONDING';
 CREATE: 'CREATE';
 CROSS: 'CROSS';
 CUBE: 'CUBE';
@@ -1329,6 +1353,10 @@ STRING
 
 UNICODE_STRING
     : 'U&\'' ( ~'\'' | '\'\'' )* '\''
+    ;
+
+DOLLAR_STRING
+    : '$$' .*? '$$'
     ;
 
 // Note: we allow any character inside the binary literal and validate

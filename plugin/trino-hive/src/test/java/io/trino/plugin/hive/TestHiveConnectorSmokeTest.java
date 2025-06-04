@@ -42,8 +42,8 @@ public class TestHiveConnectorSmokeTest
         return switch (connectorBehavior) {
             case SUPPORTS_MULTI_STATEMENT_WRITES -> true;
             case SUPPORTS_CREATE_MATERIALIZED_VIEW,
-                    SUPPORTS_TOPN_PUSHDOWN,
-                    SUPPORTS_TRUNCATE -> false;
+                 SUPPORTS_TOPN_PUSHDOWN,
+                 SUPPORTS_TRUNCATE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }

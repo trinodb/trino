@@ -34,9 +34,7 @@ public final class LambdaCapture
         }
     }
 
-    private LambdaCapture()
-    {
-    }
+    private LambdaCapture() {}
 
     public static CallSite lambdaCapture(
             MethodHandles.Lookup callerLookup,

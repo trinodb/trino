@@ -15,8 +15,16 @@ package io.trino.hdfs.authentication;
 
 import io.trino.spi.security.ConnectorIdentity;
 
+import java.io.IOException;
+
 public interface HdfsAuthentication
 {
-    <R, E extends Exception> R doAs(ConnectorIdentity identity, GenericExceptionAction<R, E> action)
-            throws E;
+    <T> T doAs(ConnectorIdentity identity, ExceptionAction<T> action)
+            throws IOException;
+
+    interface ExceptionAction<T>
+    {
+        T run()
+                throws IOException;
+    }
 }

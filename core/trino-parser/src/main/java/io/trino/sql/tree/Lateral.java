@@ -27,19 +27,9 @@ public final class Lateral
 {
     private final Query query;
 
-    public Lateral(Query query)
-    {
-        this(Optional.empty(), query);
-    }
-
     public Lateral(NodeLocation location, Query query)
     {
-        this(Optional.of(location), query);
-    }
-
-    private Lateral(Optional<NodeLocation> location, Query query)
-    {
-        super(location);
+        super(Optional.of(location));
         this.query = requireNonNull(query, "query is null");
     }
 

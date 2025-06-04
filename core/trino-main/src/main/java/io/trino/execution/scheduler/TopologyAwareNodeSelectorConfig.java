@@ -13,14 +13,11 @@
  */
 package io.trino.execution.scheduler;
 
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 import jakarta.validation.constraints.NotNull;
 
 import java.util.List;
-
-import static java.util.Objects.requireNonNull;
 
 public class TopologyAwareNodeSelectorConfig
 {
@@ -51,19 +48,10 @@ public class TopologyAwareNodeSelectorConfig
         return locationSegmentNames;
     }
 
+    @Config("node-scheduler.network-topology.segments")
     public TopologyAwareNodeSelectorConfig setLocationSegmentNames(List<String> locationSegmentNames)
     {
-        this.locationSegmentNames = requireNonNull(locationSegmentNames, "locationSegmentNames is null");
-        return this;
-    }
-
-    @Config("node-scheduler.network-topology.segments")
-    public TopologyAwareNodeSelectorConfig setLocationSegmentNames(String locationSegmentNames)
-    {
-        this.locationSegmentNames = Splitter.on(",")
-                .trimResults()
-                .omitEmptyStrings()
-                .splitToList(locationSegmentNames);
+        this.locationSegmentNames = ImmutableList.copyOf(locationSegmentNames);
         return this;
     }
 }

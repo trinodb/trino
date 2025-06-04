@@ -19,5 +19,5 @@ import java.util.List;
 
 public interface DeleteFilter
 {
-    RowPredicate createPredicate(List<IcebergColumnHandle> columns);
+    RowPredicate createPredicate(List<IcebergColumnHandle> columns, long dataSequenceNumber);
 }

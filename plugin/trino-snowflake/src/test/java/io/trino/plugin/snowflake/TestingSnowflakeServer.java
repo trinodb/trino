@@ -19,8 +19,10 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Optional;
 import java.util.Properties;
 
+import static io.trino.plugin.snowflake.SnowflakeClientModule.setOutputProperties;
 import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 
 public final class TestingSnowflakeServer
@@ -32,7 +34,7 @@ public final class TestingSnowflakeServer
     public static final String TEST_PASSWORD = requiredNonEmptySystemProperty("snowflake.test.server.password");
     public static final String TEST_DATABASE = requiredNonEmptySystemProperty("snowflake.test.server.database");
     public static final String TEST_WAREHOUSE = requiredNonEmptySystemProperty("snowflake.test.server.warehouse");
-    public static final String TEST_ROLE = requiredNonEmptySystemProperty("snowflake.test.server.role");
+    public static final Optional<String> TEST_ROLE = Optional.ofNullable(System.getProperty("snowflake.test.server.role"));
     public static final String TEST_SCHEMA = "tpch";
 
     public static void execute(@Language("SQL") String sql)
@@ -59,7 +61,8 @@ public final class TestingSnowflakeServer
         properties.setProperty("db", TEST_DATABASE);
         properties.setProperty("schema", TEST_SCHEMA);
         properties.setProperty("warehouse", TEST_WAREHOUSE);
-        properties.setProperty("role", TEST_ROLE);
+        TEST_ROLE.ifPresent(role -> properties.setProperty("role", role));
+        setOutputProperties(properties);
         return properties;
     }
 }

@@ -13,24 +13,18 @@
  */
 package io.trino.plugin.hive.metastore.thrift;
 
-import com.google.common.base.Splitter;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
-import jakarta.validation.constraints.AssertFalse;
 import jakarta.validation.constraints.NotNull;
 
 import java.net.URI;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Streams.stream;
 
 public class StaticMetastoreConfig
 {
     public static final String HIVE_METASTORE_USERNAME = "hive.metastore.username";
-
-    private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
-
     private List<URI> metastoreUris;
     private String metastoreUsername;
 
@@ -42,14 +36,14 @@ public class StaticMetastoreConfig
 
     @Config("hive.metastore.uri")
     @ConfigDescription("Hive metastore URIs (comma separated)")
-    public StaticMetastoreConfig setMetastoreUris(String uris)
+    public StaticMetastoreConfig setMetastoreUris(List<String> uris)
     {
         if (uris == null) {
             this.metastoreUris = null;
             return this;
         }
 
-        this.metastoreUris = stream(SPLITTER.split(uris))
+        this.metastoreUris = uris.stream()
                 .map(URI::create)
                 .collect(toImmutableList());
 
@@ -67,32 +61,5 @@ public class StaticMetastoreConfig
     {
         this.metastoreUsername = metastoreUsername;
         return this;
-    }
-
-    @AssertFalse(message = "'hive.metastore.uri' cannot contain both http and https URI schemes")
-    public boolean isMetastoreHttpUrisValid()
-    {
-        if (metastoreUris == null) {
-            // metastoreUris is required, but that's validated on the getter
-            return false;
-        }
-        boolean hasHttpMetastore = metastoreUris.stream().anyMatch(uri -> "http".equalsIgnoreCase(uri.getScheme()));
-        boolean hasHttpsMetastore = metastoreUris.stream().anyMatch(uri -> "https".equalsIgnoreCase(uri.getScheme()));
-        if (hasHttpsMetastore || hasHttpMetastore) {
-            return hasHttpMetastore && hasHttpsMetastore;
-        }
-        return false;
-    }
-
-    @AssertFalse(message = "'hive.metastore.uri' cannot contain both http(s) and thrift URI schemes")
-    public boolean isEitherThriftOrHttpMetastore()
-    {
-        if (metastoreUris == null) {
-            // metastoreUris is required, but that's validated on the getter
-            return false;
-        }
-        boolean hasHttpMetastore = metastoreUris.stream().anyMatch(uri -> "http".equalsIgnoreCase(uri.getScheme()) || "https".equalsIgnoreCase(uri.getScheme()));
-        boolean hasThriftMetastore = metastoreUris.stream().anyMatch(uri -> "thrift".equalsIgnoreCase(uri.getScheme()));
-        return hasHttpMetastore && hasThriftMetastore;
     }
 }

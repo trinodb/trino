@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.pinot;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.airlift.units.Duration;
@@ -30,63 +29,16 @@ import static io.trino.spi.session.PropertyMetadata.integerProperty;
 
 public class PinotSessionProperties
 {
-    private static final String CONNECTION_TIMEOUT = "connection_timeout";
     private static final String PREFER_BROKER_QUERIES = "prefer_broker_queries";
+    private static final String FORBID_SEGMENT_QUERIES = "forbid_segment_queries";
     private static final String RETRY_COUNT = "retry_count";
     private static final String NON_AGGREGATE_LIMIT_FOR_BROKER_QUERIES = "non_aggregate_limit_for_broker_queries";
+    private static final String CONNECTION_TIMEOUT = "connection_timeout";
+    private static final String SEGMENTS_PER_SPLIT = "segments_per_split";
     private static final String AGGREGATION_PUSHDOWN_ENABLED = "aggregation_pushdown_enabled";
     private static final String COUNT_DISTINCT_PUSHDOWN_ENABLED = "count_distinct_pushdown_enabled";
 
-    @VisibleForTesting
-    public static final String FORBID_SEGMENT_QUERIES = "forbid_segment_queries";
-
-    @VisibleForTesting
-    public static final String SEGMENTS_PER_SPLIT = "segments_per_split";
-
     private final List<PropertyMetadata<?>> sessionProperties;
-
-    public static int getSegmentsPerSplit(ConnectorSession session)
-    {
-        int segmentsPerSplit = session.getProperty(SEGMENTS_PER_SPLIT, Integer.class);
-        return segmentsPerSplit <= 0 ? Integer.MAX_VALUE : segmentsPerSplit;
-    }
-
-    public static boolean isPreferBrokerQueries(ConnectorSession session)
-    {
-        return session.getProperty(PREFER_BROKER_QUERIES, Boolean.class);
-    }
-
-    public static boolean isForbidSegmentQueries(ConnectorSession session)
-    {
-        return session.getProperty(FORBID_SEGMENT_QUERIES, Boolean.class);
-    }
-
-    public static Duration getConnectionTimeout(ConnectorSession session)
-    {
-        return session.getProperty(CONNECTION_TIMEOUT, Duration.class);
-    }
-
-    public static int getPinotRetryCount(ConnectorSession session)
-    {
-        return session.getProperty(RETRY_COUNT, Integer.class);
-    }
-
-    public static int getNonAggregateLimitForBrokerQueries(ConnectorSession session)
-    {
-        return session.getProperty(NON_AGGREGATE_LIMIT_FOR_BROKER_QUERIES, Integer.class);
-    }
-
-    public static boolean isAggregationPushdownEnabled(ConnectorSession session)
-    {
-        return session.getProperty(AGGREGATION_PUSHDOWN_ENABLED, Boolean.class);
-    }
-
-    public static boolean isCountDistinctPushdownEnabled(ConnectorSession session)
-    {
-        // This should never fail as this method would never be called unless aggregation pushdown is enabled
-        verify(isAggregationPushdownEnabled(session), "%s must be enabled when %s is enabled", AGGREGATION_PUSHDOWN_ENABLED, COUNT_DISTINCT_PUSHDOWN_ENABLED);
-        return session.getProperty(COUNT_DISTINCT_PUSHDOWN_ENABLED, Boolean.class);
-    }
 
     @Inject
     public PinotSessionProperties(PinotConfig pinotConfig)
@@ -133,6 +85,49 @@ public class PinotSessionProperties
                         "Enable count distinct pushdown",
                         pinotConfig.isCountDistinctPushdownEnabled(),
                         false));
+    }
+
+    public static boolean isPreferBrokerQueries(ConnectorSession session)
+    {
+        return session.getProperty(PREFER_BROKER_QUERIES, Boolean.class);
+    }
+
+    public static boolean isForbidSegmentQueries(ConnectorSession session)
+    {
+        return session.getProperty(FORBID_SEGMENT_QUERIES, Boolean.class);
+    }
+
+    public static int getPinotRetryCount(ConnectorSession session)
+    {
+        return session.getProperty(RETRY_COUNT, Integer.class);
+    }
+
+    public static int getNonAggregateLimitForBrokerQueries(ConnectorSession session)
+    {
+        return session.getProperty(NON_AGGREGATE_LIMIT_FOR_BROKER_QUERIES, Integer.class);
+    }
+
+    public static Duration getConnectionTimeout(ConnectorSession session)
+    {
+        return session.getProperty(CONNECTION_TIMEOUT, Duration.class);
+    }
+
+    public static int getSegmentsPerSplit(ConnectorSession session)
+    {
+        int segmentsPerSplit = session.getProperty(SEGMENTS_PER_SPLIT, Integer.class);
+        return segmentsPerSplit <= 0 ? Integer.MAX_VALUE : segmentsPerSplit;
+    }
+
+    public static boolean isAggregationPushdownEnabled(ConnectorSession session)
+    {
+        return session.getProperty(AGGREGATION_PUSHDOWN_ENABLED, Boolean.class);
+    }
+
+    public static boolean isCountDistinctPushdownEnabled(ConnectorSession session)
+    {
+        // This should never fail as this method would never be called unless aggregation pushdown is enabled
+        verify(isAggregationPushdownEnabled(session), "%s must be enabled when %s is enabled", AGGREGATION_PUSHDOWN_ENABLED, COUNT_DISTINCT_PUSHDOWN_ENABLED);
+        return session.getProperty(COUNT_DISTINCT_PUSHDOWN_ENABLED, Boolean.class);
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()

@@ -17,7 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.plugin.hive.metastore.Table;
+import io.trino.metastore.Table;
 import io.trino.spi.TrinoException;
 
 import java.io.FileNotFoundException;

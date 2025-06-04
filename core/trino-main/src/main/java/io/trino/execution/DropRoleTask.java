@@ -61,6 +61,9 @@ public class DropRoleTask
         Session session = stateMachine.getSession();
         Optional<String> catalog = processRoleCommandCatalog(metadata, session, statement, statement.getCatalog().map(Identifier::getValue));
         String role = statement.getName().getValue().toLowerCase(ENGLISH);
+        if (statement.isExists() && !metadata.roleExists(session, role, catalog)) {
+            return immediateVoidFuture();
+        }
         accessControl.checkCanDropRole(session.toSecurityContext(), role, catalog);
         checkRoleExists(session, statement, metadata, role, catalog);
         metadata.dropRole(session, role, catalog);

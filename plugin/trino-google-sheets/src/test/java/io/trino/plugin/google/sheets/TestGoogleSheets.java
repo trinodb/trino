@@ -24,7 +24,6 @@ import com.google.api.services.sheets.v4.model.SpreadsheetProperties;
 import com.google.api.services.sheets.v4.model.UpdateValuesResponse;
 import com.google.api.services.sheets.v4.model.ValueRange;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
@@ -36,7 +35,6 @@ import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.api.client.googleapis.javanet.GoogleNetHttpTransport.newTrustedTransport;
-import static io.trino.plugin.google.sheets.SheetsQueryRunner.createSheetsQueryRunner;
 import static io.trino.plugin.google.sheets.TestSheetsPlugin.DATA_SHEET_ID;
 import static io.trino.plugin.google.sheets.TestSheetsPlugin.getTestCredentialsPath;
 import static io.trino.testing.assertions.Assert.assertEventually;
@@ -58,11 +56,11 @@ public class TestGoogleSheets
     {
         sheetsService = getSheetsService();
         spreadsheetId = createSpreadsheetWithTestdata();
-        return createSheetsQueryRunner(ImmutableMap.of(), ImmutableMap.of(
-                "gsheets.metadata-sheet-id", spreadsheetId + "#Metadata",
-                "gsheets.connection-timeout", "1m",
-                "gsheets.read-timeout", "1m",
-                "gsheets.write-timeout", "1m"));
+        return SheetsQueryRunner.builder()
+                .addConnectorProperty("gsheets.metadata-sheet-id", spreadsheetId + "#Metadata")
+                .addConnectorProperty("gsheets.connection-timeout", "1m")
+                .addConnectorProperty("gsheets.read-timeout", "1m")
+                .build();
     }
 
     // This test currently only creates spreadsheets and does not delete them afterward.

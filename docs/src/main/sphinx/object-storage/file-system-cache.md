@@ -112,16 +112,17 @@ enable and configure caching for the specific catalogs.
     and set the values for `fs.cache.max-sizes` or
     `fs.cache.max-disk-usage-percentages` accordingly.
 * - `fs.cache.max-sizes`
-  - Optional, comma-separated list of maximum [data sizes](prop-type-data-size)
-    for each caching directory. Order of values must be identical to the
-    directories list. Can not be used together with
-    `fs.cache.max-disk-usage-percentages`.
+  - Comma-separated list of maximum [data sizes](prop-type-data-size) for each
+    caching directory. Order of values must be identical to the directories
+    list. Configuring either `fs.cache.max-sizes` or
+    `fs.cache.max-disk-usage-percentages` is required.
 * - `fs.cache.max-disk-usage-percentages`
-  - Optional, comma-separated list of maximum percentage values of the used disk
-    for each directory. Each value is an integer between 1 and 100. Order of
-    values must be identical to the directories list. If multiple directories
-    use the same disk, ensure that total percentages per drive remains below 100
-    percent. Can not be used together with `fs.cache.max-sizes`.
+  - Comma-separated list of maximum percentage values of the used disk for each
+    directory. Each value is an integer between 1 and 100. Order of values must
+    be identical to the directories list. If multiple directories use the same
+    disk, ensure that total percentages per drive remains below 100 percent.
+    Configuring either `fs.cache.max-sizes` or
+    `fs.cache.max-disk-usage-percentages` is required.
 * - `fs.cache.ttl`
   -  The maximum [duration](prop-type-duration) for objects to remain in the cache
      before eviction. Defaults to `7d`. The minimum value of `0s` means that caching
@@ -151,7 +152,7 @@ The cache code uses [OpenTelemetry tracing](/admin/opentelemetry).
 ## Recommendations
 
 The speed of the local cache storage is crucial to the performance of the cache.
-The most common and cost efficient approach is to attach high performance SSD
+The most common and cost-efficient approach is to attach high performance SSD
 disk or equivalents. Fast cache performance can be also be achieved with a RAM
 disk used as in-memory cache.
 

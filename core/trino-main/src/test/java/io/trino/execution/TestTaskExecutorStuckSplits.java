@@ -14,9 +14,11 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
+import io.airlift.configuration.secrets.SecretsResolver;
 import io.airlift.node.NodeInfo;
 import io.airlift.stats.TestingGcMonitor;
 import io.airlift.testing.TestingTicker;
@@ -33,6 +35,7 @@ import io.trino.execution.executor.TaskHandle;
 import io.trino.execution.executor.timesharing.TimeSharingTaskExecutor;
 import io.trino.memory.LocalMemoryManager;
 import io.trino.memory.NodeMemoryConfig;
+import io.trino.metadata.LanguageFunctionEngineManager;
 import io.trino.metadata.WorkerLanguageFunctionProvider;
 import io.trino.spi.catalog.CatalogProperties;
 import io.trino.spi.connector.CatalogHandle;
@@ -101,10 +104,10 @@ public class TestTaskExecutorStuckSplits
 
                 mockSplitRunner.waitForFinish();
                 List<TaskInfo> taskInfos = sqlTaskManager.getAllTaskInfo();
-                assertThat(taskInfos.size()).isEqualTo(1);
+                assertThat(taskInfos).hasSize(1);
 
                 TaskInfo taskInfo = pollTerminatingTaskInfoUntilDone(sqlTaskManager, taskInfos.get(0));
-                assertThat(taskInfo.getTaskStatus().getState()).isEqualTo(TaskState.FAILED);
+                assertThat(taskInfo.taskStatus().getState()).isEqualTo(TaskState.FAILED);
             }
         }
         finally {
@@ -124,7 +127,7 @@ public class TestTaskExecutorStuckSplits
                 new EmbedVersion("testversion"),
                 new NoConnectorServicesProvider(),
                 createTestingPlanner(),
-                new WorkerLanguageFunctionProvider(),
+                new WorkerLanguageFunctionProvider(new LanguageFunctionEngineManager()),
                 new BaseTestSqlTaskManager.MockLocationFactory(),
                 taskExecutor,
                 createTestSplitMonitor(),
@@ -137,17 +140,17 @@ public class TestTaskExecutorStuckSplits
                 new NodeSpillConfig(),
                 new TestingGcMonitor(),
                 noopTracer(),
-                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer()),
+                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of())),
                 stuckSplitStackTracePredicate);
     }
 
     private static TaskInfo pollTerminatingTaskInfoUntilDone(SqlTaskManager taskManager, TaskInfo taskInfo)
             throws InterruptedException, ExecutionException, TimeoutException
     {
-        assertThat(taskInfo.getTaskStatus().getState().isTerminatingOrDone()).isTrue();
+        assertThat(taskInfo.taskStatus().getState().isTerminatingOrDone()).isTrue();
         int attempts = 3;
-        while (attempts > 0 && taskInfo.getTaskStatus().getState().isTerminating()) {
-            taskInfo = taskManager.getTaskInfo(taskInfo.getTaskStatus().getTaskId(), taskInfo.getTaskStatus().getVersion()).get(5, SECONDS);
+        while (attempts > 0 && taskInfo.taskStatus().getState().isTerminating()) {
+            taskInfo = taskManager.getTaskInfo(taskInfo.taskStatus().getTaskId(), taskInfo.taskStatus().getVersion()).get(5, SECONDS);
             attempts--;
         }
         return taskInfo;

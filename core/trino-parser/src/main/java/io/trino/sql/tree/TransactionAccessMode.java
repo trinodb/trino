@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
@@ -26,17 +25,7 @@ public final class TransactionAccessMode
 {
     private final boolean readOnly;
 
-    public TransactionAccessMode(boolean readOnly)
-    {
-        this(Optional.empty(), readOnly);
-    }
-
     public TransactionAccessMode(NodeLocation location, boolean readOnly)
-    {
-        this(Optional.of(location), readOnly);
-    }
-
-    private TransactionAccessMode(Optional<NodeLocation> location, boolean readOnly)
     {
         super(location);
         this.readOnly = readOnly;

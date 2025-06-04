@@ -16,6 +16,7 @@ package io.trino.plugin.hive;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.io.Closer;
 import io.trino.filesystem.Location;
+import io.trino.metastore.HiveType;
 import io.trino.plugin.hive.HiveWriterFactory.RowIdSortingFileWriterMaker;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.orc.OrcFileWriterFactory;
@@ -41,16 +42,16 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.orc.OrcWriter.OrcOperation.DELETE;
 import static io.trino.orc.OrcWriter.OrcOperation.INSERT;
-import static io.trino.plugin.hive.HivePageSource.BUCKET_CHANNEL;
-import static io.trino.plugin.hive.HivePageSource.ORIGINAL_TRANSACTION_CHANNEL;
-import static io.trino.plugin.hive.HivePageSource.ROW_ID_CHANNEL;
+import static io.trino.plugin.hive.HivePageSourceProvider.BUCKET_CHANNEL;
+import static io.trino.plugin.hive.HivePageSourceProvider.ORIGINAL_TRANSACTION_CHANNEL;
+import static io.trino.plugin.hive.HivePageSourceProvider.ROW_ID_CHANNEL;
 import static io.trino.plugin.hive.HiveStorageFormat.ORC;
 import static io.trino.plugin.hive.acid.AcidSchema.ACID_COLUMN_NAMES;
 import static io.trino.plugin.hive.acid.AcidSchema.createAcidSchema;
-import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.trino.plugin.hive.orc.OrcFileWriter.computeBucketValue;
 import static io.trino.plugin.hive.util.AcidTables.deleteDeltaSubdir;
 import static io.trino.plugin.hive.util.AcidTables.deltaSubdir;
+import static io.trino.plugin.hive.util.HiveTypeUtil.getTypeSignature;
 import static io.trino.spi.block.RowBlock.getRowFieldsFromBlock;
 import static io.trino.spi.connector.MergePage.createDeleteAndInsertPages;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
@@ -111,7 +112,7 @@ public final class MergeFileWriter
         this.session = requireNonNull(session, "session is null");
         checkArgument(transaction.isTransactional(), "Not in a transaction: %s", transaction);
         this.hiveAcidSchema = createAcidSchema(hiveRowType);
-        this.hiveRowTypeNullsBlock = nativeValueToBlock(typeManager.getType(hiveRowType.getTypeSignature()), null);
+        this.hiveRowTypeNullsBlock = nativeValueToBlock(typeManager.getType(getTypeSignature(hiveRowType)), null);
         Matcher matcher = BASE_PATH_MATCHER.matcher(bucketPath);
         if (!matcher.matches()) {
             matcher = BUCKET_PATH_MATCHER.matcher(bucketPath);
@@ -250,7 +251,7 @@ public final class MergeFileWriter
             insertFileWriter = orcFileWriterFactory.createFileWriter(
                     deltaDirectory.appendPath(bucketFilename),
                     ACID_COLUMN_NAMES,
-                    fromHiveStorageFormat(ORC),
+                    ORC.toStorageFormat(),
                     compressionCodec,
                     hiveAcidSchema,
                     session,
@@ -269,7 +270,7 @@ public final class MergeFileWriter
             FileWriter writer = getWriter(orcFileWriterFactory.createFileWriter(
                     deletePath,
                     ACID_COLUMN_NAMES,
-                    fromHiveStorageFormat(ORC),
+                    ORC.toStorageFormat(),
                     compressionCodec,
                     hiveAcidSchema,
                     session,

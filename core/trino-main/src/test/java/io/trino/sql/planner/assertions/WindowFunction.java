@@ -15,21 +15,26 @@ package io.trino.sql.planner.assertions;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.plan.WindowNode;
 
 import java.util.List;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
 public record WindowFunction(
         String name,
         WindowNode.Frame frame,
-        List<Expression> arguments)
+        List<Expression> arguments,
+        Optional<OrderingScheme> orderingScheme,
+        boolean distinct)
 {
-    public WindowFunction(String name, WindowNode.Frame frame, List<Expression> arguments)
+    public WindowFunction
     {
-        this.name = requireNonNull(name, "name is null");
-        this.frame = requireNonNull(frame, "frame is null");
-        this.arguments = ImmutableList.copyOf(arguments);
+        requireNonNull(name, "name is null");
+        requireNonNull(frame, "frame is null");
+        arguments = ImmutableList.copyOf(arguments);
+        requireNonNull(orderingScheme, "orderingScheme is null");
     }
 }

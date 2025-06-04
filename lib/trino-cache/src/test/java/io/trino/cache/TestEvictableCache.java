@@ -21,9 +21,11 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.testing.TestingTicker;
 import io.trino.cache.EvictableCacheBuilder.DisabledCacheImplementation;
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -34,6 +36,7 @@ import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Exchanger;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -448,21 +451,15 @@ public class TestEvictableCache
                     assertThat(loadOngoing.await(10, SECONDS)).isTrue(); // 1
 
                     switch (invalidation) {
-                        case INVALIDATE_KEY:
-                            cache.invalidate(key);
-                            break;
-                        case INVALIDATE_PREDEFINED_KEYS:
-                            cache.invalidateAll(ImmutableList.of(key));
-                            break;
-                        case INVALIDATE_SELECTED_KEYS:
+                        case INVALIDATE_KEY -> cache.invalidate(key);
+                        case INVALIDATE_PREDEFINED_KEYS -> cache.invalidateAll(ImmutableList.of(key));
+                        case INVALIDATE_SELECTED_KEYS -> {
                             Set<Integer> keys = cache.asMap().keySet().stream()
                                     .filter(foundKey -> (int) foundKey == key)
                                     .collect(toImmutableSet());
                             cache.invalidateAll(keys);
-                            break;
-                        case INVALIDATE_ALL:
-                            cache.invalidateAll();
-                            break;
+                        }
+                        case INVALIDATE_ALL -> cache.invalidateAll();
                     }
 
                     invalidated.countDown(); // 2
@@ -474,6 +471,9 @@ public class TestEvictableCache
 
                 assertThat(threadA.get()).isEqualTo("stale value");
                 assertThat(threadB.get()).isEqualTo("fresh value");
+            }
+            catch (AssertionError e) {
+                throw new AssertionError("Error for invalidation=%s: %s".formatted(invalidation, e.getMessage()), e);
             }
             finally {
                 executor.shutdownNow();
@@ -516,21 +516,15 @@ public class TestEvictableCache
 
                             // invalidate
                             switch (invalidation) {
-                                case INVALIDATE_KEY:
-                                    cache.invalidate(key);
-                                    break;
-                                case INVALIDATE_PREDEFINED_KEYS:
-                                    cache.invalidateAll(ImmutableList.of(key));
-                                    break;
-                                case INVALIDATE_SELECTED_KEYS:
+                                case INVALIDATE_KEY -> cache.invalidate(key);
+                                case INVALIDATE_PREDEFINED_KEYS -> cache.invalidateAll(ImmutableList.of(key));
+                                case INVALIDATE_SELECTED_KEYS -> {
                                     Set<Integer> keys = cache.asMap().keySet().stream()
                                             .filter(foundKey -> (int) foundKey == key)
                                             .collect(toImmutableSet());
                                     cache.invalidateAll(keys);
-                                    break;
-                                case INVALIDATE_ALL:
-                                    cache.invalidateAll();
-                                    break;
+                                }
+                                case INVALIDATE_ALL -> cache.invalidateAll();
                             }
 
                             // read through cache
@@ -547,6 +541,9 @@ public class TestEvictableCache
 
                 assertThat(remoteState.get()).isEqualTo(2 * 3 * 5 * 7);
                 assertThat((long) cache.get(key, remoteState::get)).isEqualTo(remoteState.get());
+            }
+            catch (AssertionError e) {
+                throw new AssertionError("Error for invalidation=%s: %s".formatted(invalidation, e.getMessage()), e);
             }
             finally {
                 executor.shutdownNow();
@@ -590,5 +587,28 @@ public class TestEvictableCache
         assertThatThrownBy(() -> cacheMap.putIfAbsent(key, value))
                 .isInstanceOf(UnsupportedOperationException.class)
                 .hasMessage("The operation is not supported, as in inherently races with cache invalidation");
+    }
+
+    @RepeatedTest(1_000)
+    public void testParallelLoadingCacheEntries()
+    {
+        Cache<String, String> cache = EvictableCacheBuilder.newBuilder()
+                .expireAfterWrite(Duration.ofSeconds(60))
+                .maximumSize(10)
+                .build();
+        try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
+            Runnable cacheLoader = () -> {
+                try {
+                    String value = cache.get("key", () -> "value");
+                    assertThat(value).isEqualTo("value");
+                }
+                catch (ExecutionException e) {
+                    throw new RuntimeException(e);
+                }
+            };
+            executor.submit(cacheLoader);
+            executor.submit(cacheLoader);
+        }
+        assertThat(cache.getIfPresent("key")).isNotNull();
     }
 }

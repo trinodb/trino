@@ -15,7 +15,6 @@ package io.trino.hive.formats;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.ByteSource;
-import com.google.common.io.ByteStreams;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.filesystem.Location;
@@ -42,7 +41,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@SuppressWarnings("resource")
 public class TestTrinoDataInputStream
 {
     private static final int BUFFER_SIZE = 129;
@@ -453,7 +451,7 @@ public class TestTrinoDataInputStream
                         throws IOException
                 {
                     byte[] bytes = new byte[valueSize() + 10];
-                    ByteStreams.readFully(input, bytes, 5, valueSize());
+                    input.readFully(bytes, 5, valueSize());
                     return new String(bytes, 5, valueSize(), UTF_8);
                 }
             });
@@ -650,7 +648,7 @@ public class TestTrinoDataInputStream
             throws IOException
     {
         TrinoDataInputStream input = createTrinoDataInputStream(bytes);
-        ByteStreams.skipFully(input, bytes.length - tester.valueSize() + 1);
+        input.skipNBytes(bytes.length - tester.valueSize() + 1);
         tester.verifyReadOffEnd(input);
     }
 

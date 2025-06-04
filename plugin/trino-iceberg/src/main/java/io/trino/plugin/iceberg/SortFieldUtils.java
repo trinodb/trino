@@ -81,7 +81,7 @@ public final class SortFieldUtils
     {
         Matcher matcher = PATTERN.matcher(field);
         if (!matcher.matches()) {
-            throw new IllegalArgumentException("Unable to parse sort field: [%s]".formatted(field));
+            throw new TrinoException(INVALID_TABLE_PROPERTY, "Unable to parse sort field: [%s]".formatted(field));
         }
 
         String columnName = fromIdentifierToColumn(matcher.group("identifier"));

@@ -13,7 +13,6 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.planner.iterative.Rule;
@@ -43,7 +42,7 @@ public class EvaluateEmptyIntersect
         boolean hasEmptyBranches = node.getSources().stream().anyMatch(source -> isEmpty(source, context.getLookup()));
 
         if (hasEmptyBranches) {
-            return Result.ofPlanNode(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));
+            return Result.ofPlanNode(new ValuesNode(node.getId(), node.getOutputSymbols()));
         }
 
         return Result.empty();

@@ -60,10 +60,12 @@ public class ApplyTableScanRedirection
             .matching(node -> !node.isUpdateTarget());
 
     private final PlannerContext plannerContext;
+    private final DomainTranslator domainTranslator;
 
     public ApplyTableScanRedirection(PlannerContext plannerContext)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+        this.domainTranslator = new DomainTranslator(plannerContext.getMetadata());
     }
 
     @Override
@@ -136,7 +138,7 @@ public class ApplyTableScanRedirection
 
         TupleDomain<String> requiredFilter = tableScanRedirectApplicationResult.get().getFilter();
         if (requiredFilter.isAll()) {
-            ImmutableMap<Symbol, ColumnHandle> newAssignments = newAssignmentsBuilder.buildOrThrow();
+            Map<Symbol, ColumnHandle> newAssignments = newAssignmentsBuilder.buildOrThrow();
             return Result.ofPlanNode(applyProjection(
                     context.getIdAllocator(),
                     ImmutableSet.copyOf(scanNode.getOutputSymbols()),
@@ -214,7 +216,7 @@ public class ApplyTableScanRedirection
                         newAssignments.keySet(),
                         casts.buildOrThrow(),
                         newScanNode),
-                DomainTranslator.toPredicate(transformedConstraint));
+                domainTranslator.toPredicate(transformedConstraint));
 
         return Result.ofPlanNode(applyProjection(
                 context.getIdAllocator(),
@@ -266,9 +268,6 @@ public class ApplyTableScanRedirection
                     sourceType));
         }
 
-        return new Cast(
-                destinationSymbol.toSymbolReference(),
-                sourceType,
-                false);
+        return new Cast(destinationSymbol.toSymbolReference(), sourceType);
     }
 }

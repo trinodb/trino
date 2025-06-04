@@ -148,7 +148,7 @@ public class DeduplicatingDirectExchangeBuffer
         }
 
         if (!outputReady.isDone()) {
-            return nonCancellationPropagating(Futures.transformAsync(outputReady, ignored -> {
+            return nonCancellationPropagating(Futures.transformAsync(outputReady, _ -> {
                 synchronized (this) {
                     if (outputSource != null) {
                         return outputSource.isBlocked();
@@ -299,7 +299,7 @@ public class DeduplicatingDirectExchangeBuffer
             TaskId taskId = entry.getKey();
             Throwable taskFailure = entry.getValue();
 
-            if (taskFailure instanceof TrinoException && REMOTE_TASK_FAILED.toErrorCode().equals(((TrinoException) taskFailure).getErrorCode())) {
+            if (taskFailure instanceof TrinoException exception && REMOTE_TASK_FAILED.toErrorCode().equals(exception.getErrorCode())) {
                 // This error indicates that a downstream task was trying to fetch results from an upstream task that is marked as failed
                 // Instead of failing a downstream task let the coordinator handle and report the failure of an upstream task to ensure correct error reporting
                 log.debug("Task failure discovered while fetching task results: %s", taskId);
@@ -656,7 +656,7 @@ public class DeduplicatingDirectExchangeBuffer
 
             // Finish ExchangeSink and create ExchangeSource asynchronously to avoid blocking an ExchangeClient thread for potentially substantial amount of time
             ListenableFuture<ExchangeSource> exchangeSourceFuture = FluentFuture.from(toListenableFuture(exchangeSink.finish()))
-                    .transformAsync(ignored -> {
+                    .transformAsync(_ -> {
                         exchange.sinkFinished(sinkHandle, 0);
                         exchange.allRequiredSinksFinished();
                         synchronized (this) {
@@ -803,9 +803,7 @@ public class DeduplicatingDirectExchangeBuffer
         }
 
         @Override
-        public void close()
-        {
-        }
+        public void close() {}
     }
 
     @NotThreadSafe

@@ -17,11 +17,11 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.hive.HiveBucketProperty;
+import io.trino.metastore.HiveBucketProperty;
+import io.trino.metastore.Storage;
+import io.trino.metastore.StorageFormat;
+import io.trino.metastore.Table;
 import io.trino.plugin.hive.HiveStorageFormat;
-import io.trino.plugin.hive.metastore.Storage;
-import io.trino.plugin.hive.metastore.StorageFormat;
-import io.trino.plugin.hive.metastore.Table;
 
 import java.util.Arrays;
 import java.util.List;
@@ -30,9 +30,9 @@ import java.util.Optional;
 import java.util.OptionalLong;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static io.trino.plugin.hive.HiveSchemaProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
-import static io.trino.plugin.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static java.util.Objects.requireNonNull;
 
 public class TableMetadata
@@ -109,7 +109,7 @@ public class TableMetadata
 
         StorageFormat tableFormat = table.getStorage().getStorageFormat();
         storageFormat = Arrays.stream(HiveStorageFormat.values())
-                .filter(format -> tableFormat.equals(StorageFormat.fromHiveStorageFormat(format)))
+                .filter(format -> tableFormat.equals(format.toStorageFormat()))
                 .findFirst();
         if (storageFormat.isPresent()) {
             originalStorageFormat = Optional.empty();
@@ -316,7 +316,7 @@ public class TableMetadata
                 tableType,
                 Storage.builder()
                         .setLocation(externalLocation.or(() -> Optional.ofNullable(parameters.get(LOCATION_PROPERTY))).orElse(location))
-                        .setStorageFormat(storageFormat.map(StorageFormat::fromHiveStorageFormat)
+                        .setStorageFormat(storageFormat.map(HiveStorageFormat::toStorageFormat)
                                 .or(() -> originalStorageFormat)
                                 .orElse(VIEW_STORAGE_FORMAT))
                         .setBucketProperty(bucketProperty)

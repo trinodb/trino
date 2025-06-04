@@ -23,9 +23,13 @@ import io.trino.metadata.Split;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
+import java.util.Map;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toMap;
 
 /**
  * An implementation is not required to be thread safe
@@ -61,6 +65,20 @@ interface SplitAssigner
             checkArgument(!(readyForScheduling && splits.isEmpty()), "partition update with empty splits marked as ready for scheduling");
             splits = ImmutableListMultimap.copyOf(requireNonNull(splits, "splits is null"));
         }
+
+        public String debugInfo()
+        {
+            // toString is too verbose
+            return toStringHelper(this)
+                    .add("partitionId", partitionId)
+                    .add("planNodeId", planNodeId)
+                    .add("readyForScheduling", readyForScheduling)
+                    .add("splits", splits.asMap().entrySet().stream().collect(toMap(
+                            Map.Entry::getKey,
+                            entry -> entry.getValue().size())))
+                    .add("noMoreSplits", noMoreSplits)
+                    .toString();
+        }
     }
 
     record AssignmentResult(
@@ -78,6 +96,17 @@ interface SplitAssigner
         boolean isEmpty()
         {
             return partitionsAdded.isEmpty() && !noMorePartitions && partitionUpdates.isEmpty() && sealedPartitions.isEmpty();
+        }
+
+        public String debugInfo()
+        {
+            // toString is too verbose
+            return toStringHelper(this)
+                    .add("partitionsAdded", partitionsAdded)
+                    .add("noMorePartitions", noMorePartitions)
+                    .add("partitionUpdates", partitionUpdates.stream().map(PartitionUpdate::debugInfo).collect(toList()))
+                    .add("sealedPartitions", sealedPartitions)
+                    .toString();
         }
 
         public static AssignmentResult.Builder builder()

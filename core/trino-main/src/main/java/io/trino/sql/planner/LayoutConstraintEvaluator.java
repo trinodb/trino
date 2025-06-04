@@ -22,24 +22,31 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Booleans;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.optimizer.IrExpressionOptimizer;
 
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.intersection;
+import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newPartialEvaluator;
 import static java.util.Objects.requireNonNull;
 
 public class LayoutConstraintEvaluator
 {
+    private final Session session;
     private final Map<Symbol, ColumnHandle> assignments;
-    private final IrExpressionInterpreter evaluator;
+    private final IrExpressionOptimizer evaluator;
+    private final Expression expression;
     private final Set<ColumnHandle> arguments;
 
     public LayoutConstraintEvaluator(PlannerContext plannerContext, Session session, Map<Symbol, ColumnHandle> assignments, Expression expression)
     {
+        this.session = requireNonNull(session, "session is null");
         this.assignments = ImmutableMap.copyOf(requireNonNull(assignments, "assignments is null"));
-        evaluator = new IrExpressionInterpreter(expression, plannerContext, session);
+        evaluator = newPartialEvaluator(plannerContext);
+        this.expression = requireNonNull(expression, "expression is null");
         arguments = SymbolsExtractor.extractUnique(expression).stream()
                 .map(assignments::get)
                 .collect(toImmutableSet());
@@ -55,11 +62,19 @@ public class LayoutConstraintEvaluator
         if (intersection(bindings.keySet(), arguments).isEmpty()) {
             return true;
         }
-        LookupSymbolResolver inputs = new LookupSymbolResolver(assignments, bindings);
+
+        Map<Symbol, Expression> inputs = assignments.entrySet().stream()
+                .filter(entry -> bindings.containsKey(entry.getValue()))
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        entry -> {
+                            NullableValue value = bindings.get(entry.getValue());
+                            return new Constant(entry.getKey().type(), value.getValue());
+                        }));
 
         // Skip pruning if evaluation fails in a recoverable way. Failing here can cause
         // spurious query failures for partitions that would otherwise be filtered out.
-        Expression optimized = TryFunction.evaluate(() -> evaluator.optimize(inputs), Booleans.TRUE);
+        Expression optimized = TryFunction.evaluate(() -> evaluator.process(expression, session, inputs).orElse(expression), Booleans.TRUE);
 
         // If any conjuncts evaluate to FALSE or null, then the whole predicate will never be true and so the partition should be pruned
         return !(optimized instanceof Constant constant) || Boolean.TRUE.equals(constant.value());

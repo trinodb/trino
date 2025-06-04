@@ -333,7 +333,8 @@ public class TestLikeFunctions
     @Test
     public void testLikeWithDynamicPattern()
     {
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 SELECT value FROM (
                     VALUES
                         ('a', 'a'),
@@ -343,7 +344,8 @@ public class TestLikeFunctions
                 """))
                 .matches("VALUES 'a', 'c'");
 
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 SELECT value FROM (
                     VALUES
                         ('a%b', 'aX%b', 'X'),

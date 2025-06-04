@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
 import io.trino.metadata.TestingFunctionResolution;
+import io.trino.operator.AggregationMetrics;
 import io.trino.operator.aggregation.groupby.AggregationTestInput;
 import io.trino.operator.aggregation.groupby.AggregationTestInputBuilder;
 import io.trino.operator.aggregation.groupby.AggregationTestOutput;
@@ -236,7 +237,7 @@ public class TestHistogram
     {
         TestingAggregationFunction function = getInternalDefaultVarCharAggregation();
         GroupedAggregator groupedAggregator = function.createAggregatorFactory(SINGLE, Ints.asList(new int[] {}), OptionalInt.empty())
-                .createGroupedAggregator();
+                .createGroupedAggregator(new AggregationMetrics());
         BlockBuilder blockBuilder = function.getFinalType().createBlockBuilder(null, 1000);
 
         groupedAggregator.evaluate(0, blockBuilder);
@@ -292,7 +293,7 @@ public class TestHistogram
         int itemCount = 30;
         Random random = new Random();
         GroupedAggregator groupedAggregator = aggregationFunction.createAggregatorFactory(SINGLE, ImmutableList.of(0), OptionalInt.empty())
-                .createGroupedAggregator();
+                .createGroupedAggregator(new AggregationMetrics());
 
         for (int j = 0; j < numGroups; j++) {
             Map<String, Long> expectedValues = new HashMap<>();

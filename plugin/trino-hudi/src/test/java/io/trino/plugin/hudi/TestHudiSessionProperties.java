@@ -28,7 +28,7 @@ public class TestHudiSessionProperties
     public void testSessionPropertyColumnsToHide()
     {
         HudiConfig config = new HudiConfig()
-                .setColumnsToHide("col1, col2");
+                .setColumnsToHide(ImmutableList.of("col1", "col2"));
         HudiSessionProperties sessionProperties = new HudiSessionProperties(config, new ParquetReaderConfig());
         ConnectorSession session = TestingConnectorSession.builder()
                 .setPropertyMetadata(sessionProperties.getSessionProperties())

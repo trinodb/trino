@@ -81,14 +81,15 @@ public class TestEliminateSorts
     @Test
     public void testNotEliminateSortsIfFilterExists()
     {
-        @Language("SQL") String sql = """
-            SELECT * FROM (
-                SELECT quantity, row_number() OVER (ORDER BY quantity) 
-                FROM lineitem
-            )
-            WHERE quantity > 10 
-            ORDER BY quantity
-            """;
+        @Language("SQL") String sql =
+                """
+                SELECT * FROM (
+                    SELECT quantity, row_number() OVER (ORDER BY quantity)
+                    FROM lineitem
+                )
+                WHERE quantity > 10
+                ORDER BY quantity
+                """;
 
         PlanMatchPattern pattern =
                 anyTree(
@@ -115,7 +116,11 @@ public class TestEliminateSorts
                         ImmutableSet.of(
                                 new RemoveRedundantIdentityProjections(),
                                 new DetermineTableScanNodePartitioning(getPlanTester().getPlannerContext().getMetadata(), getPlanTester().getNodePartitioningManager(), new TaskCountEstimator(() -> 10)))),
-                new AddExchanges(getPlanTester().getPlannerContext(), getPlanTester().getStatsCalculator(), getPlanTester().getTaskCountEstimator()));
+                new AddExchanges(
+                        getPlanTester().getPlannerContext(),
+                        getPlanTester().getStatsCalculator(),
+                        getPlanTester().getTaskCountEstimator(),
+                        getPlanTester().getNodePartitioningManager()));
 
         assertPlan(sql, pattern, optimizers);
     }

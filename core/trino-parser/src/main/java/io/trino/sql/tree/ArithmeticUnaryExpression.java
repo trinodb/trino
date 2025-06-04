@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -33,17 +32,7 @@ public class ArithmeticUnaryExpression
     private final Expression value;
     private final Sign sign;
 
-    public ArithmeticUnaryExpression(Sign sign, Expression value)
-    {
-        this(Optional.empty(), sign, value);
-    }
-
     public ArithmeticUnaryExpression(NodeLocation location, Sign sign, Expression value)
-    {
-        this(Optional.of(location), sign, value);
-    }
-
-    private ArithmeticUnaryExpression(Optional<NodeLocation> location, Sign sign, Expression value)
     {
         super(location);
         requireNonNull(value, "value is null");
@@ -55,12 +44,12 @@ public class ArithmeticUnaryExpression
 
     public static ArithmeticUnaryExpression positive(NodeLocation location, Expression value)
     {
-        return new ArithmeticUnaryExpression(Optional.of(location), Sign.PLUS, value);
+        return new ArithmeticUnaryExpression(location, Sign.PLUS, value);
     }
 
     public static ArithmeticUnaryExpression negative(NodeLocation location, Expression value)
     {
-        return new ArithmeticUnaryExpression(Optional.of(location), Sign.MINUS, value);
+        return new ArithmeticUnaryExpression(location, Sign.MINUS, value);
     }
 
     public Expression getValue()

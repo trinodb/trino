@@ -15,13 +15,13 @@ package io.trino.plugin.hive.metastore.file;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
-import io.trino.plugin.hive.HiveBasicStatistics;
-import io.trino.plugin.hive.metastore.BooleanStatistics;
-import io.trino.plugin.hive.metastore.DateStatistics;
-import io.trino.plugin.hive.metastore.DecimalStatistics;
-import io.trino.plugin.hive.metastore.DoubleStatistics;
-import io.trino.plugin.hive.metastore.HiveColumnStatistics;
-import io.trino.plugin.hive.metastore.IntegerStatistics;
+import io.trino.metastore.BooleanStatistics;
+import io.trino.metastore.DateStatistics;
+import io.trino.metastore.DecimalStatistics;
+import io.trino.metastore.DoubleStatistics;
+import io.trino.metastore.HiveBasicStatistics;
+import io.trino.metastore.HiveColumnStatistics;
+import io.trino.metastore.IntegerStatistics;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;

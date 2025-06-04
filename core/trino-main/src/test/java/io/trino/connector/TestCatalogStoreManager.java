@@ -14,6 +14,8 @@
 package io.trino.connector;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import io.airlift.configuration.secrets.SecretsResolver;
 import io.airlift.testing.TempFile;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.catalog.CatalogProperties;
@@ -36,12 +38,23 @@ class TestCatalogStoreManager
             throws IOException
     {
         try (TempFile tempFile = new TempFile()) {
-            Files.writeString(tempFile.path(), "catalog-store.name=test");
-            CatalogStoreManager catalogStoreManager = new CatalogStoreManager();
+            Files.writeString(tempFile.path(), "some-property=some-value");
+            CatalogStoreConfig catalogStoreConfig = new CatalogStoreConfig().setCatalogStoreKind("test");
+            CatalogStoreManager catalogStoreManager = new CatalogStoreManager(new SecretsResolver(ImmutableMap.of()), catalogStoreConfig);
             catalogStoreManager.addCatalogStoreFactory(new TestingCatalogStoreFactory());
-            catalogStoreManager.loadConfiguredCatalogStore(tempFile.file());
+            catalogStoreManager.loadConfiguredCatalogStore(catalogStoreConfig.getCatalogStoreKind(), tempFile.file());
             assertThat(catalogStoreManager.getCatalogs()).containsExactly(TestingCatalogStore.STORED_CATALOG);
         }
+    }
+
+    @Test
+    void testCatalogStoreIsLoadedWithoutConfiguration()
+            throws IOException
+    {
+        CatalogStoreManager catalogStoreManager = new CatalogStoreManager(new SecretsResolver(ImmutableMap.of()), new CatalogStoreConfig().setCatalogStoreKind("test"));
+        catalogStoreManager.addCatalogStoreFactory(new TestingCatalogStoreFactory());
+        catalogStoreManager.loadConfiguredCatalogStore();
+        assertThat(catalogStoreManager.getCatalogs()).containsExactly(TestingCatalogStore.STORED_CATALOG);
     }
 
     private static class TestingCatalogStoreFactory

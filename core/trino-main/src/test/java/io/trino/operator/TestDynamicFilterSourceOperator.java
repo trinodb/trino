@@ -293,7 +293,7 @@ public class TestDynamicFilterSourceOperator
     @Test
     public void testCollectWithDoubleNaN()
     {
-        BlockBuilder input = DOUBLE.createBlockBuilder(null, 10);
+        BlockBuilder input = DOUBLE.createFixedSizeBlockBuilder(10);
         DOUBLE.writeDouble(input, 42.0);
         DOUBLE.writeDouble(input, Double.NaN);
 
@@ -311,7 +311,7 @@ public class TestDynamicFilterSourceOperator
     @Test
     public void testCollectWithRealNaN()
     {
-        BlockBuilder input = REAL.createBlockBuilder(null, 10);
+        BlockBuilder input = REAL.createFixedSizeBlockBuilder(10);
         REAL.writeLong(input, floatToRawIntBits(42.0f));
         REAL.writeLong(input, floatToRawIntBits(Float.NaN));
 

@@ -28,7 +28,6 @@ public class FailureDetectorModule
     protected void setup(Binder binder)
     {
         install(internalHttpClientModule("failure-detector", ForFailureDetector.class)
-                .withTracing()
                 .build());
 
         configBinder(binder).bindConfig(FailureDetectorConfig.class);

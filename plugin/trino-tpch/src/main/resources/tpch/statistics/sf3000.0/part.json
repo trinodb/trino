@@ -1,44 +1,44 @@
  {
-    "rowCount" : 6.0E8,
+    "rowCount" : 600000000,
      "columns" : {
         "p_name" : {
-             "dataSize" : 1.9649937305E10,
-             "distinctValuesCount" : 5.83641873E8
+             "dataSize" : 19649937305,
+             "distinctValuesCount" : 583641873
         },
         "p_partkey" : {
-             "distinctValuesCount" : 5.35201957E8,
+             "distinctValuesCount" : 535201957,
              "min" : 1,
              "max" : 600000000
         },
         "p_size" : {
-             "distinctValuesCount" : 36.0,
+             "distinctValuesCount" : 36,
              "min" : 1,
              "max" : 50
         },
         "p_container" : {
-             "dataSize" : 4.544987506E9,
-             "distinctValuesCount" : 29.0
+             "dataSize" : 4544987506,
+             "distinctValuesCount" : 29
         },
         "p_brand" : {
-             "dataSize" : 4.8E9,
-             "distinctValuesCount" : 13.0
+             "dataSize" : 4800000000,
+             "distinctValuesCount" : 13
         },
         "p_type" : {
-             "dataSize" : 1.2359998293E10,
-             "distinctValuesCount" : 165.0
+             "dataSize" : 12359998293,
+             "distinctValuesCount" : 165
         },
         "p_retailprice" : {
-             "distinctValuesCount" : 125124.0,
+             "distinctValuesCount" : 125124,
              "min" : 900.0,
              "max" : 2099.0
         },
         "p_comment" : {
-             "dataSize" : 8.099867343E9,
-             "distinctValuesCount" : 1.6725061E7
+             "dataSize" : 8099867343,
+             "distinctValuesCount" : 16725061
         },
         "p_mfgr" : {
-             "dataSize" : 8.4E9,
-             "distinctValuesCount" : 5.0
+             "dataSize" : 8400000000,
+             "distinctValuesCount" : 5
         }
     }
 }

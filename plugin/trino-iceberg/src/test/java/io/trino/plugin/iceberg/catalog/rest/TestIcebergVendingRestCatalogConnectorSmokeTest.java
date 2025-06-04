@@ -18,9 +18,11 @@ import io.opentelemetry.api.OpenTelemetry;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.s3.S3FileSystemConfig;
 import io.trino.filesystem.s3.S3FileSystemFactory;
+import io.trino.filesystem.s3.S3FileSystemStats;
 import io.trino.plugin.iceberg.BaseIcebergConnectorSmokeTest;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
+import io.trino.testing.QueryFailedException;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.containers.IcebergRestCatalogBackendContainer;
@@ -77,10 +79,7 @@ public class TestIcebergVendingRestCatalogConnectorSmokeTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
-            case SUPPORTS_COMMENT_ON_VIEW,
-                    SUPPORTS_COMMENT_ON_VIEW_COLUMN,
-                    SUPPORTS_CREATE_MATERIALIZED_VIEW,
-                    SUPPORTS_CREATE_VIEW,
+            case SUPPORTS_CREATE_MATERIALIZED_VIEW,
                     SUPPORTS_RENAME_MATERIALIZED_VIEW,
                     SUPPORTS_RENAME_SCHEMA -> false;
             default -> super.hasBehavior(connectorBehavior);
@@ -122,7 +121,7 @@ public class TestIcebergVendingRestCatalogConnectorSmokeTest
                                 .put("iceberg.rest-catalog.uri", "http://" + restCatalogBackendContainer.getRestCatalogEndpoint())
                                 .put("iceberg.rest-catalog.vended-credentials-enabled", "true")
                                 .put("iceberg.writer-sort-buffer-size", "1MB")
-                                .put("fs.hadoop.enabled", "false")
+                                .put("iceberg.allowed-extra-properties", "write.metadata.delete-after-commit.enabled,write.metadata.previous-versions-max")
                                 .put("fs.native-s3.enabled", "true")
                                 .put("s3.region", MINIO_REGION)
                                 .put("s3.endpoint", minio.getMinioAddress())
@@ -141,16 +140,8 @@ public class TestIcebergVendingRestCatalogConnectorSmokeTest
                 .setEndpoint(minio.getMinioAddress())
                 .setPathStyleAccess(true)
                 .setAwsAccessKey(MINIO_ACCESS_KEY)
-                .setAwsSecretKey(MINIO_SECRET_KEY)
+                .setAwsSecretKey(MINIO_SECRET_KEY), new S3FileSystemStats()
         ).create(SESSION);
-    }
-
-    @Test
-    @Override
-    public void testView()
-    {
-        assertThatThrownBy(super::testView)
-                .hasMessageContaining("createView is not supported for Iceberg REST catalog");
     }
 
     @Test
@@ -298,6 +289,10 @@ public class TestIcebergVendingRestCatalogConnectorSmokeTest
     public void testDropTableWithMissingSnapshotFile()
     {
         assertThatThrownBy(super::testDropTableWithMissingSnapshotFile)
+                .isInstanceOf(QueryFailedException.class)
+                .cause()
+                .hasMessageContaining("Failed to drop table")
+                .cause()
                 .hasMessageMatching("Server error: NoSuchKeyException:.*");
     }
 
@@ -306,14 +301,6 @@ public class TestIcebergVendingRestCatalogConnectorSmokeTest
     public void testDropTableWithMissingManifestListFile()
     {
         assertThatThrownBy(super::testDropTableWithMissingManifestListFile)
-                .hasMessageContaining("Table location should not exist");
-    }
-
-    @Test
-    @Override
-    public void testDropTableWithMissingDataFile()
-    {
-        assertThatThrownBy(super::testDropTableWithMissingDataFile)
                 .hasMessageContaining("Table location should not exist");
     }
 

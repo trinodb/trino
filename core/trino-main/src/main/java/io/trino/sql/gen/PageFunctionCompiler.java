@@ -32,7 +32,7 @@ import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.ForLoop;
 import io.airlift.bytecode.control.IfStatement;
-import io.airlift.jmx.CacheStatsMBean;
+import io.trino.cache.CacheStatsMBean;
 import io.trino.cache.NonEvictableLoadingCache;
 import io.trino.metadata.FunctionManager;
 import io.trino.operator.Work;
@@ -44,11 +44,11 @@ import io.trino.operator.project.PageFieldsToInputParametersRewriter;
 import io.trino.operator.project.PageFilter;
 import io.trino.operator.project.PageProjection;
 import io.trino.operator.project.SelectedPositions;
-import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SourcePage;
 import io.trino.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
 import io.trino.sql.planner.CompilerConfig;
 import io.trino.sql.relational.ConstantExpression;
@@ -92,6 +92,7 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.not;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.operator.project.PageFieldsToInputParametersRewriter.rewritePageFieldsToInputParameters;
 import static io.trino.spi.StandardErrorCode.COMPILER_ERROR;
+import static io.trino.spi.StandardErrorCode.QUERY_EXCEEDED_COMPILER_LIMIT;
 import static io.trino.sql.gen.BytecodeUtils.generateWrite;
 import static io.trino.sql.gen.BytecodeUtils.invoke;
 import static io.trino.sql.gen.LambdaExpressionExtractor.extractLambdaExpressions;
@@ -183,12 +184,12 @@ public class PageFunctionCompiler
         requireNonNull(projection, "projection is null");
 
         if (projection instanceof InputReferenceExpression input) {
-            InputPageProjection projectionFunction = new InputPageProjection(input.getField(), input.getType());
+            InputPageProjection projectionFunction = new InputPageProjection(input.field(), input.type());
             return () -> projectionFunction;
         }
 
         if (projection instanceof ConstantExpression constant) {
-            ConstantPageProjection projectionFunction = new ConstantPageProjection(constant.getValue(), constant.getType());
+            ConstantPageProjection projectionFunction = new ConstantPageProjection(constant.value(), constant.type());
             return () -> projectionFunction;
         }
 
@@ -206,13 +207,13 @@ public class PageFunctionCompiler
         }
         catch (Exception e) {
             if (Throwables.getRootCause(e) instanceof MethodTooLargeException) {
-                throw new TrinoException(COMPILER_ERROR,
-                        "Query exceeded maximum columns. Please reduce the number of columns referenced and re-run the query.", e);
+                throw new TrinoException(QUERY_EXCEEDED_COMPILER_LIMIT,
+                        "Failed to execute query; there may be too many columns used or expressions are too complex", e);
             }
             throw new TrinoException(COMPILER_ERROR, e);
         }
 
-        MethodHandle pageProjectionConstructor = constructorMethodHandle(pageProjectionWorkClass, BlockBuilder.class, ConnectorSession.class, Page.class, SelectedPositions.class);
+        MethodHandle pageProjectionConstructor = constructorMethodHandle(pageProjectionWorkClass, BlockBuilder.class, ConnectorSession.class, SourcePage.class, SelectedPositions.class);
         return () -> new GeneratedPageProjection(
                 result.getRewrittenExpression(),
                 isExpressionDeterministic,
@@ -255,7 +256,7 @@ public class PageFunctionCompiler
         // constructor
         Parameter blockBuilder = arg("blockBuilder", BlockBuilder.class);
         Parameter session = arg("session", ConnectorSession.class);
-        Parameter page = arg("page", Page.class);
+        Parameter page = arg("page", SourcePage.class);
         Parameter selectedPositions = arg("selectedPositions", SelectedPositions.class);
 
         MethodDefinition constructorDefinition = classDefinition.declareConstructor(a(PUBLIC), blockBuilder, session, page, selectedPositions);
@@ -358,15 +359,17 @@ public class PageFunctionCompiler
 
         Variable wasNullVariable = scope.declareVariable("wasNull", body, constantFalse());
         RowExpressionCompiler compiler = new RowExpressionCompiler(
+                classDefinition,
                 callSiteBinder,
                 cachedInstanceBinder,
                 fieldReferenceCompilerProjection(callSiteBinder),
                 functionManager,
-                compiledLambdaMap);
+                compiledLambdaMap,
+                ImmutableList.of(session, position));
 
         body.append(thisVariable.getField(blockBuilder))
                 .append(compiler.compile(projection, scope))
-                .append(generateWrite(callSiteBinder, scope, wasNullVariable, projection.getType()))
+                .append(generateWrite(callSiteBinder, scope, wasNullVariable, projection.type()))
                 .ret();
         return method;
     }
@@ -400,7 +403,7 @@ public class PageFunctionCompiler
         }
         catch (Exception e) {
             if (Throwables.getRootCause(e) instanceof MethodTooLargeException) {
-                throw new TrinoException(COMPILER_ERROR,
+                throw new TrinoException(QUERY_EXCEEDED_COMPILER_LIMIT,
                         "Query exceeded maximum filters. Please reduce the number of filters referenced and re-run the query.", e);
             }
             throw new TrinoException(COMPILER_ERROR, filter.toString(), e.getCause());
@@ -472,7 +475,7 @@ public class PageFunctionCompiler
     private static MethodDefinition generatePageFilterMethod(ClassDefinition classDefinition, FieldDefinition selectedPositionsField)
     {
         Parameter session = arg("session", ConnectorSession.class);
-        Parameter page = arg("page", Page.class);
+        Parameter page = arg("page", SourcePage.class);
 
         MethodDefinition method = classDefinition.declareMethod(
                 a(PUBLIC),
@@ -520,7 +523,7 @@ public class PageFunctionCompiler
             RowExpression filter)
     {
         Parameter session = arg("session", ConnectorSession.class);
-        Parameter page = arg("page", Page.class);
+        Parameter page = arg("page", SourcePage.class);
         Parameter position = arg("position", int.class);
 
         MethodDefinition method = classDefinition.declareMethod(
@@ -542,11 +545,13 @@ public class PageFunctionCompiler
 
         Variable wasNullVariable = scope.declareVariable("wasNull", body, constantFalse());
         RowExpressionCompiler compiler = new RowExpressionCompiler(
+                classDefinition,
                 callSiteBinder,
                 cachedInstanceBinder,
                 fieldReferenceCompiler(callSiteBinder),
                 functionManager,
-                compiledLambdaMap);
+                compiledLambdaMap,
+                ImmutableList.of(page, position));
 
         Variable result = scope.declareVariable(boolean.class, "result");
         body.append(compiler.compile(filter, scope))
@@ -613,8 +618,8 @@ public class PageFunctionCompiler
     {
         TreeSet<Integer> channels = new TreeSet<>();
         for (RowExpression expression : Expressions.subExpressions(expressions)) {
-            if (expression instanceof InputReferenceExpression) {
-                channels.add(((InputReferenceExpression) expression).getField());
+            if (expression instanceof InputReferenceExpression inputReferenceExpression) {
+                channels.add(inputReferenceExpression.field());
             }
         }
         return ImmutableList.copyOf(channels);

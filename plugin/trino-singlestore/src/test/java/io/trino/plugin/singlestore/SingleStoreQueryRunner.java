@@ -13,78 +13,97 @@
  */
 package io.trino.plugin.singlestore;
 
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.log.Logger;
-import io.trino.Session;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static java.util.Objects.requireNonNull;
 
-public class SingleStoreQueryRunner
+public final class SingleStoreQueryRunner
 {
     private SingleStoreQueryRunner() {}
 
     private static final String TPCH_SCHEMA = "tpch";
 
-    public static QueryRunner createSingleStoreQueryRunner(
-            TestingSingleStoreServer server,
-            Map<String, String> extraProperties,
-            Map<String, String> connectorProperties,
-            Iterable<TpchTable<?>> tables)
-            throws Exception
+    public static Builder builder(TestingSingleStoreServer server)
     {
-        QueryRunner queryRunner = DistributedQueryRunner.builder(createSession()).setExtraProperties(extraProperties).build();
-        try {
-            queryRunner.installPlugin(new TpchPlugin());
-            queryRunner.createCatalog("tpch", "tpch");
-
-            // note: additional copy via ImmutableList so that if fails on nulls
-            connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
-            connectorProperties.putIfAbsent("connection-url", server.getJdbcUrl());
-            connectorProperties.putIfAbsent("connection-user", server.getUsername());
-            connectorProperties.putIfAbsent("connection-password", server.getPassword());
-
-            server.execute("CREATE SCHEMA tpch");
-
-            queryRunner.installPlugin(new SingleStorePlugin());
-            queryRunner.createCatalog("singlestore", "singlestore", connectorProperties);
-
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, tables);
-
-            return queryRunner;
-        }
-        catch (Throwable e) {
-            closeAllSuppress(e, queryRunner);
-            throw e;
-        }
+        return new Builder()
+                .addConnectorProperty("connection-url", server.getJdbcUrl())
+                .addConnectorProperty("connection-user", server.getUsername())
+                .addConnectorProperty("connection-password", server.getPassword());
     }
 
-    private static Session createSession()
+    public static final class Builder
+            extends DistributedQueryRunner.Builder<Builder>
     {
-        return testSessionBuilder()
-                .setCatalog("singlestore")
-                .setSchema(TPCH_SCHEMA)
-                .build();
+        private final Map<String, String> connectorProperties = new HashMap<>();
+        private List<TpchTable<?>> initialTables = ImmutableList.of();
+
+        private Builder()
+        {
+            super(testSessionBuilder()
+                    .setCatalog("singlestore")
+                    .setSchema(TPCH_SCHEMA)
+                    .build());
+        }
+
+        @CanIgnoreReturnValue
+        public Builder addConnectorProperty(String key, String value)
+        {
+            this.connectorProperties.put(key, value);
+            return this;
+        }
+
+        @CanIgnoreReturnValue
+        public Builder setInitialTables(Iterable<TpchTable<?>> initialTables)
+        {
+            this.initialTables = ImmutableList.copyOf(requireNonNull(initialTables, "initialTables is null"));
+            return this;
+        }
+
+        @Override
+        public DistributedQueryRunner build()
+                throws Exception
+        {
+            DistributedQueryRunner queryRunner = super.build();
+            try {
+                queryRunner.installPlugin(new TpchPlugin());
+                queryRunner.createCatalog("tpch", "tpch");
+
+                queryRunner.installPlugin(new SingleStorePlugin());
+                queryRunner.createCatalog("singlestore", "singlestore", connectorProperties);
+
+                queryRunner.execute("CREATE SCHEMA tpch");
+                copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, initialTables);
+
+                return queryRunner;
+            }
+            catch (Throwable e) {
+                closeAllSuppress(e, queryRunner);
+                throw e;
+            }
+        }
     }
 
     public static void main(String[] args)
             throws Exception
     {
-        // You need to set 'memsql.license' to VM options
-        QueryRunner queryRunner = createSingleStoreQueryRunner(
-                new TestingSingleStoreServer(),
-                ImmutableMap.of("http-server.http.port", "8080"),
-                ImmutableMap.of(),
-                TpchTable.getTables());
+        QueryRunner queryRunner = builder(new TestingSingleStoreServer())
+                .addCoordinatorProperty("http-server.http.port", "8080")
+                .setInitialTables(TpchTable.getTables())
+                .build();
 
         Logger log = Logger.get(SingleStoreQueryRunner.class);
         log.info("======== SERVER STARTED ========");

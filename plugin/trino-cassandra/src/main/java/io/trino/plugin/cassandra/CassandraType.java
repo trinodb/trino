@@ -13,18 +13,15 @@
  */
 package io.trino.plugin.cassandra;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.Type;
 
 import java.util.List;
-import java.util.Objects;
 
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class CassandraType
+public record CassandraType(Kind kind, Type trinoType, List<CassandraType> argumentTypes)
 {
     public enum Kind
     {
@@ -69,68 +66,16 @@ public class CassandraType
         }
     }
 
-    private final Kind kind;
-    private final Type trinoType;
-    private final List<CassandraType> argumentTypes;
-
-    public CassandraType(
-            Kind kind,
-            Type trinoType)
+    public CassandraType
     {
-        this(kind, trinoType, ImmutableList.of());
+        requireNonNull(kind, "kind is null");
+        requireNonNull(trinoType, "trinoType is null");
+        argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
     }
 
-    @JsonCreator
-    public CassandraType(
-            @JsonProperty("kind") Kind kind,
-            @JsonProperty("trinoType") Type trinoType,
-            @JsonProperty("argumentTypes") List<CassandraType> argumentTypes)
+    public static CassandraType primitiveType(Kind kind, Type trinoType)
     {
-        this.kind = requireNonNull(kind, "kind is null");
-        this.trinoType = requireNonNull(trinoType, "trinoType is null");
-        this.argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
-    }
-
-    @JsonProperty
-    public Kind getKind()
-    {
-        return kind;
-    }
-
-    @JsonProperty
-    public Type getTrinoType()
-    {
-        return trinoType;
-    }
-
-    @JsonProperty
-    public List<CassandraType> getArgumentTypes()
-    {
-        return argumentTypes;
-    }
-
-    public String getName()
-    {
-        return kind.name();
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        CassandraType that = (CassandraType) o;
-        return kind == that.kind && Objects.equals(trinoType, that.trinoType) && Objects.equals(argumentTypes, that.argumentTypes);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(kind, trinoType, argumentTypes);
+        return new CassandraType(kind, trinoType, ImmutableList.of());
     }
 
     @Override

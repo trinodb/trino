@@ -14,7 +14,7 @@
 
 package io.trino.plugin.hive.statistics;
 
-import io.trino.plugin.hive.HivePartition;
+import io.trino.metastore.HivePartition;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;

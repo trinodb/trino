@@ -23,6 +23,7 @@ public class DecimalLiteral
 {
     private final String value;
 
+    @Deprecated
     public DecimalLiteral(String value)
     {
         this(Optional.empty(), value);
@@ -30,10 +31,12 @@ public class DecimalLiteral
 
     public DecimalLiteral(NodeLocation location, String value)
     {
-        this(Optional.of(location), value);
+        super(location);
+        this.value = requireNonNull(value, "value is null");
     }
 
-    public DecimalLiteral(Optional<NodeLocation> location, String value)
+    @Deprecated
+    private DecimalLiteral(Optional<NodeLocation> location, String value)
     {
         super(location);
         this.value = requireNonNull(value, "value is null");

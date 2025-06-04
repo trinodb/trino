@@ -39,24 +39,29 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordPageSource;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.type.Type;
 import io.trino.split.EmptySplit;
 import io.trino.split.PageSourceProvider;
+import io.trino.split.PageSourceProviderFactory;
 import io.trino.sql.planner.plan.PlanNodeId;
 import jakarta.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.LongConsumer;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.operator.PageUtils.recordMaterializedBytes;
 import static io.trino.operator.WorkProcessor.TransformationState.finished;
 import static io.trino.operator.WorkProcessor.TransformationState.ofResult;
 import static io.trino.operator.project.MergePages.mergePages;
@@ -86,7 +91,7 @@ public class ScanFilterAndProjectOperator
             Session session,
             MemoryTrackingContext memoryTrackingContext,
             DriverYieldSignal yieldSignal,
-            WorkProcessor<Split> splits,
+            WorkProcessor<Split> split,
             PageSourceProvider pageSourceProvider,
             CursorProcessor cursorProcessor,
             PageProcessor pageProcessor,
@@ -97,7 +102,7 @@ public class ScanFilterAndProjectOperator
             DataSize minOutputPageSize,
             int minOutputPageRowCount)
     {
-        pages = splits.flatTransform(
+        pages = split.flatTransform(
                 new SplitToPages(
                         session,
                         yieldSignal,
@@ -259,8 +264,8 @@ public class ScanFilterAndProjectOperator
                 source = pageSourceProvider.createPageSource(session, split, table, columns, dynamicFilter);
             }
 
-            if (source instanceof RecordPageSource) {
-                cursor = ((RecordPageSource) source).getCursor();
+            if (source instanceof RecordPageSource recordPageSource) {
+                cursor = recordPageSource.getCursor();
                 return ofResult(processColumnSource());
             }
             pageSource = source;
@@ -281,12 +286,16 @@ public class ScanFilterAndProjectOperator
             return WorkProcessor
                     .create(new ConnectorPageSourceToPages(pageSourceMemoryContext))
                     .yielding(yieldSignal::isSet)
-                    .flatMap(page -> pageProcessor.createWorkProcessor(
-                            connectorSession,
-                            yieldSignal,
-                            outputMemoryContext,
-                            pageProcessorMetrics,
-                            page))
+                    .flatMap(page -> {
+                        WorkProcessor<Page> workProcessor = pageProcessor.createWorkProcessor(
+                                connectorSession,
+                                yieldSignal,
+                                outputMemoryContext,
+                                pageProcessorMetrics,
+                                page);
+                        // Note this is monitoring the original source page not the result page
+                        return workProcessor.withProcessStateMonitor(new ProcessedBytesMonitor(page, bytes -> processedBytes += bytes));
+                    })
                     .transformProcessor(processor -> mergePages(types, minOutputPageSize.toBytes(), minOutputPageRowCount, processor, localAggregatedMemoryContext))
                     .blocking(() -> memoryContext.setBytes(localAggregatedMemoryContext.getBytes()));
         }
@@ -354,8 +363,37 @@ public class ScanFilterAndProjectOperator
         }
     }
 
+    static class ProcessedBytesMonitor
+            implements Consumer<ProcessState<Page>>
+    {
+        private final SourcePage page;
+        private final LongConsumer processedBytesConsumer;
+        private long localProcessedBytes;
+
+        public ProcessedBytesMonitor(SourcePage page, LongConsumer processedBytesConsumer)
+        {
+            this.page = requireNonNull(page, "page is null");
+            this.processedBytesConsumer = requireNonNull(processedBytesConsumer, "processedBytesConsumer is null");
+            localProcessedBytes = page.getSizeInBytes();
+            processedBytesConsumer.accept(localProcessedBytes);
+        }
+
+        @Override
+        public void accept(ProcessState<Page> state)
+        {
+            update();
+        }
+
+        void update()
+        {
+            long newProcessedBytes = page.getSizeInBytes();
+            processedBytesConsumer.accept(newProcessedBytes - localProcessedBytes);
+            localProcessedBytes = newProcessedBytes;
+        }
+    }
+
     private class ConnectorPageSourceToPages
-            implements WorkProcessor.Process<Page>
+            implements WorkProcessor.Process<SourcePage>
     {
         final LocalMemoryContext pageSourceMemoryContext;
 
@@ -365,7 +403,7 @@ public class ScanFilterAndProjectOperator
         }
 
         @Override
-        public ProcessState<Page> process()
+        public ProcessState<SourcePage> process()
         {
             if (pageSource.isFinished()) {
                 return ProcessState.finished();
@@ -376,7 +414,7 @@ public class ScanFilterAndProjectOperator
                 return ProcessState.blocked(asVoid(toListenableFuture(isBlocked)));
             }
 
-            Page page = pageSource.getNextPage();
+            SourcePage page = pageSource.getNextSourcePage();
             pageSourceMemoryContext.setBytes(pageSource.getMemoryUsage());
 
             if (page == null) {
@@ -385,8 +423,6 @@ public class ScanFilterAndProjectOperator
                 }
                 return ProcessState.yielded();
             }
-
-            recordMaterializedBytes(page, sizeInBytes -> processedBytes += sizeInBytes);
 
             // update operator stats
             processedPositions += page.getPositionCount();
@@ -410,7 +446,7 @@ public class ScanFilterAndProjectOperator
         private final int operatorId;
         private final PlanNodeId planNodeId;
         private final Supplier<CursorProcessor> cursorProcessor;
-        private final Supplier<PageProcessor> pageProcessor;
+        private final Function<DynamicFilter, PageProcessor> pageProcessor;
         private final PlanNodeId sourceId;
         private final PageSourceProvider pageSourceProvider;
         private final TableHandle table;
@@ -425,9 +461,9 @@ public class ScanFilterAndProjectOperator
                 int operatorId,
                 PlanNodeId planNodeId,
                 PlanNodeId sourceId,
-                PageSourceProvider pageSourceProvider,
+                PageSourceProviderFactory pageSourceProvider,
                 Supplier<CursorProcessor> cursorProcessor,
-                Supplier<PageProcessor> pageProcessor,
+                Function<DynamicFilter, PageProcessor> pageProcessor,
                 TableHandle table,
                 Iterable<ColumnHandle> columns,
                 DynamicFilter dynamicFilter,
@@ -440,13 +476,13 @@ public class ScanFilterAndProjectOperator
             this.cursorProcessor = requireNonNull(cursorProcessor, "cursorProcessor is null");
             this.pageProcessor = requireNonNull(pageProcessor, "pageProcessor is null");
             this.sourceId = requireNonNull(sourceId, "sourceId is null");
-            this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
             this.table = requireNonNull(table, "table is null");
             this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
             this.dynamicFilter = dynamicFilter;
             this.types = requireNonNull(types, "types is null");
             this.minOutputPageSize = requireNonNull(minOutputPageSize, "minOutputPageSize is null");
             this.minOutputPageRowCount = minOutputPageRowCount;
+            this.pageSourceProvider = pageSourceProvider.createPageSourceProvider(table.catalogHandle());
         }
 
         @Override
@@ -477,7 +513,7 @@ public class ScanFilterAndProjectOperator
         public SourceOperator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, getOperatorType());
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, Optional.of(sourceId), getOperatorType());
             return new WorkProcessorSourceOperatorAdapter(operatorContext, this);
         }
 
@@ -486,16 +522,16 @@ public class ScanFilterAndProjectOperator
                 OperatorContext operatorContext,
                 MemoryTrackingContext memoryTrackingContext,
                 DriverYieldSignal yieldSignal,
-                WorkProcessor<Split> splits)
+                WorkProcessor<Split> split)
         {
             return new ScanFilterAndProjectOperator(
                     operatorContext.getSession(),
                     memoryTrackingContext,
                     yieldSignal,
-                    splits,
+                    split,
                     pageSourceProvider,
                     cursorProcessor.get(),
-                    pageProcessor.get(),
+                    pageProcessor.apply(dynamicFilter),
                     table,
                     columns,
                     dynamicFilter,

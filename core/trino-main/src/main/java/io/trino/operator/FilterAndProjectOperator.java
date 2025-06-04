@@ -19,11 +19,11 @@ import io.trino.Session;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.memory.context.MemoryTrackingContext;
-import io.trino.operator.BasicWorkProcessorOperatorAdapter.BasicAdapterWorkProcessorOperatorFactory;
 import io.trino.operator.project.PageProcessor;
 import io.trino.operator.project.PageProcessorMetrics;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -33,7 +33,7 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.operator.BasicWorkProcessorOperatorAdapter.createAdapterOperatorFactory;
+import static io.trino.operator.WorkProcessorOperatorAdapter.createAdapterOperatorFactory;
 import static io.trino.operator.project.MergePages.mergePages;
 import static java.util.Objects.requireNonNull;
 
@@ -63,7 +63,7 @@ public class FilterAndProjectOperator
                         yieldSignal,
                         outputMemoryContext,
                         metrics,
-                        page))
+                        SourcePage.create(page)))
                 .transformProcessor(processor -> mergePages(types, minOutputPageSize.toBytes(), minOutputPageRowCount, processor, localAggregatedMemoryContext))
                 .blocking(() -> memoryTrackingContext.localUserMemoryContext().setBytes(localAggregatedMemoryContext.getBytes()));
     }
@@ -98,7 +98,7 @@ public class FilterAndProjectOperator
     }
 
     private static class Factory
-            implements BasicAdapterWorkProcessorOperatorFactory
+            implements WorkProcessorOperatorFactory
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
@@ -140,21 +140,6 @@ public class FilterAndProjectOperator
         }
 
         @Override
-        public WorkProcessorOperator createAdapterOperator(ProcessorContext processorContext, WorkProcessor<Page> sourcePages)
-        {
-            checkState(!closed, "Factory is already closed");
-            return new FilterAndProjectOperator(
-                    processorContext.getSession(),
-                    processorContext.getMemoryTrackingContext(),
-                    processorContext.getDriverYieldSignal(),
-                    sourcePages,
-                    processor.get(),
-                    types,
-                    minOutputPageSize,
-                    minOutputPageRowCount);
-        }
-
-        @Override
         public int getOperatorId()
         {
             return operatorId;
@@ -179,7 +164,7 @@ public class FilterAndProjectOperator
         }
 
         @Override
-        public BasicAdapterWorkProcessorOperatorFactory duplicate()
+        public WorkProcessorOperatorFactory duplicate()
         {
             return new Factory(operatorId, planNodeId, processor, types, minOutputPageSize, minOutputPageRowCount);
         }

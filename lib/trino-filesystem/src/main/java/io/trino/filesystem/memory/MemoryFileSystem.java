@@ -26,6 +26,7 @@ import io.trino.filesystem.memory.MemoryOutputFile.OutputBlob;
 
 import java.io.IOException;
 import java.nio.file.FileAlreadyExistsException;
+import java.time.Instant;
 import java.util.Iterator;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -34,6 +35,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Map.Entry.comparingByKey;
 
 /**
  * A blob file system for testing.
@@ -53,14 +55,21 @@ public class MemoryFileSystem
     public TrinoInputFile newInputFile(Location location)
     {
         String key = toBlobKey(location);
-        return new MemoryInputFile(location, () -> blobs.get(key), OptionalLong.empty());
+        return new MemoryInputFile(location, () -> blobs.get(key), OptionalLong.empty(), Optional.empty());
     }
 
     @Override
     public TrinoInputFile newInputFile(Location location, long length)
     {
         String key = toBlobKey(location);
-        return new MemoryInputFile(location, () -> blobs.get(key), OptionalLong.of(length));
+        return new MemoryInputFile(location, () -> blobs.get(key), OptionalLong.of(length), Optional.empty());
+    }
+
+    @Override
+    public TrinoInputFile newInputFile(Location location, long length, Instant lastModified)
+    {
+        String key = toBlobKey(location);
+        return new MemoryInputFile(location, () -> blobs.get(key), OptionalLong.of(length), Optional.of(lastModified));
     }
 
     @Override
@@ -132,6 +141,7 @@ public class MemoryFileSystem
     {
         String prefix = toBlobPrefix(location);
         Iterator<FileEntry> iterator = blobs.entrySet().stream()
+                .sorted(comparingByKey())
                 .filter(entry -> entry.getKey().startsWith(prefix))
                 .map(entry -> new FileEntry(
                         Location.of("memory:///" + entry.getKey()),

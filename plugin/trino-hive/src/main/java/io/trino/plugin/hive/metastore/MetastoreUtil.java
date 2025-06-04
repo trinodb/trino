@@ -20,12 +20,20 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Longs;
-import io.airlift.compress.Compressor;
-import io.airlift.compress.zstd.ZstdCompressor;
+import io.airlift.compress.v3.Compressor;
+import io.airlift.compress.v3.zstd.ZstdCompressor;
 import io.airlift.slice.Slice;
 import io.trino.hive.thrift.metastore.ResourceType;
 import io.trino.hive.thrift.metastore.ResourceUri;
-import io.trino.plugin.hive.HiveBasicStatistics;
+import io.trino.metastore.Column;
+import io.trino.metastore.HiveBasicStatistics;
+import io.trino.metastore.HiveMetastore;
+import io.trino.metastore.HivePrincipal;
+import io.trino.metastore.HivePrivilegeInfo;
+import io.trino.metastore.Partition;
+import io.trino.metastore.PrincipalPrivileges;
+import io.trino.metastore.Storage;
+import io.trino.metastore.Table;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.PartitionOfflineException;
 import io.trino.plugin.hive.TableOfflineException;
@@ -80,12 +88,9 @@ import static io.trino.hive.thrift.metastore.hive_metastoreConstants.META_TABLE_
 import static io.trino.hive.thrift.metastore.hive_metastoreConstants.META_TABLE_NAME;
 import static io.trino.hive.thrift.metastore.hive_metastoreConstants.META_TABLE_PARTITION_COLUMNS;
 import static io.trino.hive.thrift.metastore.hive_metastoreConstants.META_TABLE_PARTITION_COLUMN_TYPES;
-import static io.trino.plugin.hive.HiveMetadata.AVRO_SCHEMA_LITERAL_KEY;
-import static io.trino.plugin.hive.HiveMetadata.AVRO_SCHEMA_URL_KEY;
+import static io.trino.metastore.Partitions.makePartName;
 import static io.trino.plugin.hive.HiveSplitManager.PRESTO_OFFLINE;
-import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
 import static io.trino.plugin.hive.metastore.SparkMetastoreUtil.getSparkBasicStatistics;
-import static io.trino.plugin.hive.util.HiveUtil.makePartName;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_COMMENTS;
 import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_LIB;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -154,8 +159,8 @@ public final class MetastoreUtil
         schema.put(META_TABLE_LOCATION, sd.getLocation());
 
         if (sd.getBucketProperty().isPresent()) {
-            schema.put(BUCKET_FIELD_NAME, Joiner.on(",").join(sd.getBucketProperty().get().getBucketedBy()));
-            schema.put(BUCKET_COUNT, Integer.toString(sd.getBucketProperty().get().getBucketCount()));
+            schema.put(BUCKET_FIELD_NAME, Joiner.on(",").join(sd.getBucketProperty().get().bucketedBy()));
+            schema.put(BUCKET_COUNT, Integer.toString(sd.getBucketProperty().get().bucketCount()));
         }
         else {
             schema.put(BUCKET_COUNT, "0");
@@ -233,15 +238,6 @@ public final class MetastoreUtil
     public static ProtectMode getProtectMode(Table table)
     {
         return getProtectMode(table.getParameters());
-    }
-
-    public static boolean isAvroTableWithSchemaSet(Table table)
-    {
-        return AVRO.getSerde().equals(table.getStorage().getStorageFormat().getSerDeNullable()) &&
-                ((table.getParameters().get(AVRO_SCHEMA_URL_KEY) != null ||
-                        (table.getStorage().getSerdeParameters().get(AVRO_SCHEMA_URL_KEY) != null)) ||
-                 (table.getParameters().get(AVRO_SCHEMA_LITERAL_KEY) != null ||
-                         (table.getStorage().getSerdeParameters().get(AVRO_SCHEMA_LITERAL_KEY) != null)));
     }
 
     public static String makePartitionName(Table table, Partition partition)
@@ -377,9 +373,9 @@ public final class MetastoreUtil
         if (value == null) {
             return nullString;
         }
-        if (type instanceof CharType) {
+        if (type instanceof CharType charType) {
             Slice slice = (Slice) value;
-            return padSpaces(slice, (CharType) type).toStringUtf8();
+            return padSpaces(slice, charType).toStringUtf8();
         }
         if (type instanceof VarcharType) {
             Slice slice = (Slice) value;
@@ -439,7 +435,7 @@ public final class MetastoreUtil
 
     public static List<ResourceUri> toResourceUris(byte[] input)
     {
-        Compressor compressor = new ZstdCompressor();
+        Compressor compressor = ZstdCompressor.create();
         byte[] compressed = new byte[compressor.maxCompressedLength(input.length)];
         int outputSize = compressor.compress(input, 0, input.length, compressed, 0, compressed.length);
 
@@ -504,12 +500,6 @@ public final class MetastoreUtil
         statistics.getRowCount().ifPresent(count -> result.put(NUM_ROWS, Long.toString(count)));
         statistics.getInMemoryDataSizeInBytes().ifPresent(size -> result.put(RAW_DATA_SIZE, Long.toString(size)));
         statistics.getOnDiskDataSizeInBytes().ifPresent(size -> result.put(TOTAL_SIZE, Long.toString(size)));
-
-        // CDH 5.16 metastore ignores stats unless STATS_GENERATED_VIA_STATS_TASK is set
-        // https://github.com/cloudera/hive/blob/cdh5.16.2-release/metastore/src/java/org/apache/hadoop/hive/metastore/MetaStoreUtils.java#L227-L231
-        if (!parameters.containsKey("STATS_GENERATED_VIA_STATS_TASK")) {
-            result.put("STATS_GENERATED_VIA_STATS_TASK", "workaround for potential lack of HIVE-12730");
-        }
 
         return result.buildOrThrow();
     }

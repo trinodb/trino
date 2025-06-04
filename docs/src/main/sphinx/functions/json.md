@@ -19,7 +19,6 @@ Trino also supports two functions for generating JSON data --
 {ref}`json_array<json-array>`, and {ref}`json_object<json-object>`.
 
 (json-path-language)=
-
 ## JSON path language
 
 The JSON path language is a special language, used exclusively by certain SQL
@@ -30,7 +29,6 @@ generally follow the semantics of SQL. The JSON path language is case-sensitive
 for keywords and identifiers.
 
 (json-path-syntax-and-semantics)=
-
 ### JSON path syntax and semantics
 
 JSON path expressions are recursive structures. Although the name "path"
@@ -216,7 +214,6 @@ sub-sequences from all JSON objects are concatenated in the same order in which
 the JSON objects appear in the input sequence.
 
 (json-descendant-member-accessor)=
-
 #### descendant member accessor
 
 Returns the values associated with the specified key in all JSON objects on all
@@ -428,7 +425,6 @@ mode is `unknown`. The result in the lax mode depends on whether the `true`
 comparison or the error was found first.
 
 (json-comparison-rules)=
-
 ##### Comparison rules
 
 Null values in the context of comparison behave different than SQL null:
@@ -580,7 +576,6 @@ The SQL standard describes the `datetime()` JSON path item method and the
 `like_regex()` JSON path predicate. Trino does not support them.
 
 (json-path-modes)=
-
 ### JSON path modes
 
 The JSON path expression can be evaluated in two modes: strict and lax. In the
@@ -605,7 +600,7 @@ The following table shows the differences between the two modes.
   - ERROR
   - The array is automatically unnested, and the operation is performed on
     each array element.
-* - Performing an operation which requires an array on an non-array, e.g.:
+* - Performing an operation which requires an array on a non-array, e.g.:
 
     `$[0]`, `$[*]`, `$.size()`
   - ERROR
@@ -655,7 +650,6 @@ method, the item `"a"` causes type mismatch.
 ```
 
 (json-exists)=
-
 ## json_exists
 
 The `json_exists` function determines whether a JSON value satisfies a JSON
@@ -721,8 +715,8 @@ identifiers are upper-cased. Therefore, it is recommended to use quoted
 identifiers in the `PASSING` clause:
 
 ```text
-'lax $.$KeyName' PASSING nation.name AS KeyName --> ERROR; no passed value found
-'lax $.$KeyName' PASSING nation.name AS "KeyName" --> correct
+'lax $.keyvalue()?(@.name == $KeyName).value' PASSING nation.name AS KeyName --> ERROR; no passed value found
+'lax $.keyvalue()?(@.name == $KeyName).value' PASSING nation.name AS "KeyName" --> correct
 ```
 
 ### Examples
@@ -777,7 +771,6 @@ FROM customers
 | 103 | NULL              |
 
 (json-query)=
-
 ## json_query
 
 The `json_query` function extracts a JSON value from a JSON value.
@@ -844,8 +837,8 @@ identifiers are upper-cased. Therefore, it is recommended to use quoted
 identifiers in the `PASSING` clause:
 
 ```text
-'lax $.$KeyName' PASSING nation.name AS KeyName --> ERROR; no passed value found
-'lax $.$KeyName' PASSING nation.name AS "KeyName" --> correct
+'lax $.keyvalue()?(@.name == $KeyName).value' PASSING nation.name AS KeyName --> ERROR; no passed value found
+'lax $.keyvalue()?(@.name == $KeyName).value' PASSING nation.name AS "KeyName" --> correct
 ```
 
 The `ARRAY WRAPPER` clause lets you modify the output by wrapping the results
@@ -979,7 +972,6 @@ to the `ON ERROR` clause are:
 - Output conversion errors
 
 (json-value)=
-
 ## json_value
 
 The `json_value` function extracts a scalar SQL value from a JSON value.
@@ -1041,8 +1033,8 @@ identifiers are upper-cased. Therefore, it is recommended to use quoted
 identifiers in the `PASSING` clause:
 
 ```text
-'lax $.$KeyName' PASSING nation.name AS KeyName --> ERROR; no passed value found
-'lax $.$KeyName' PASSING nation.name AS "KeyName" --> correct
+'lax $.keyvalue()?(@.name == $KeyName).value' PASSING nation.name AS KeyName --> ERROR; no passed value found
+'lax $.keyvalue()?(@.name == $KeyName).value' PASSING nation.name AS "KeyName" --> correct
 ```
 
 If the path returns an empty sequence, the `ON EMPTY` clause is applied. The
@@ -1146,8 +1138,241 @@ FROM customers
 | 102 | 'missing' |
 | 103 | 'missing' |
 
-(json-array)=
 
+(json-table)=
+## json_table
+
+The `json_table` clause extracts a table from a JSON value. Use this clause to
+transform JSON data into a relational format, making it easier to query and
+analyze. Use `json_table` in the `FROM` clause of a
+[`SELECT`](select-json-table) statement to create a table from JSON data.
+
+```text
+JSON_TABLE(
+    json_input,
+    json_path [ AS path_name ]
+    [ PASSING value AS parameter_name [, ...] ]
+    COLUMNS (
+        column_definition [, ...] )
+    [ PLAN ( json_table_specific_plan )
+      | PLAN DEFAULT ( json_table_default_plan ) ]
+    [ { ERROR | EMPTY } ON ERROR ]
+)
+```
+
+The `COLUMNS` clause supports the following `column_definition` arguments:
+
+```text
+column_name FOR ORDINALITY
+| column_name type
+    [ FORMAT JSON [ ENCODING { UTF8 | UTF16 | UTF32 } ] ]
+    [ PATH json_path ]
+    [ { WITHOUT | WITH { CONDITIONAL | UNCONDITIONAL } } [ ARRAY ] WRAPPER ]
+    [ { KEEP | OMIT } QUOTES [ ON SCALAR STRING ] ]
+    [ { ERROR | NULL | EMPTY { [ARRAY] | OBJECT } | DEFAULT expression } ON EMPTY ]
+    [ { ERROR | NULL | DEFAULT expression } ON ERROR ]
+| NESTED [ PATH ] json_path [ AS path_name ] COLUMNS ( column_definition [, ...] )
+```
+
+`json_input` is a character string or a binary string. It must contain a single
+JSON item.
+
+`json_path` is a string literal containing the path mode specification and the
+path expression. It follows the syntax rules described in
+[](json-path-syntax-and-semantics).
+
+```text
+'strict ($.price + $.tax)?(@ > 99.9)'
+'lax $[0 to 1].floor()?(@ > 10)'
+```
+
+In the `PASSING` clause, pass values as named parameters that the `json_path`
+expression can reference.
+
+```text
+PASSING orders.totalprice AS o_price,
+        orders.tax % 10 AS o_tax
+```
+
+Use named parameters to reference the values in the path expression. Prefix
+named parameters with `$`.
+
+```text
+'lax $?(@.price > $o_price || @.tax > $o_tax)'
+```
+
+You can also pass JSON values in the `PASSING` clause. Use `FORMAT JSON` to
+specify the format and `ENCODING` to specify the encoding:
+
+```text
+PASSING orders.json_desc FORMAT JSON AS o_desc,
+        orders.binary_record FORMAT JSON ENCODING UTF16 AS o_rec
+```
+
+The `json_path` value is case-sensitive. The SQL identifiers are uppercase. Use
+quoted identifiers in the `PASSING` clause:
+
+```text
+'lax $.keyvalue()?(@.name == $KeyName).value' PASSING nation.name AS KeyName --> ERROR; no passed value found
+'lax $.keyvalue()?(@.name == $KeyName).value' PASSING nation.name AS "KeyName" --> correct
+```
+
+The `PLAN` clause specifies how to join columns from different paths. Use
+`OUTER` or `INNER` to define how to join parent paths with their child paths.
+Use `CROSS` or `UNION` to join siblings.
+
+`COLUMNS` defines the schema of your table. Each `column_definition` specifies
+how to extract and format your `json_input` value into a relational column.
+
+`PLAN` is an optional clause to control how to process and join nested JSON
+data.
+
+`ON ERROR` specifies how to handle processing errors. `ERROR ON ERROR` throws an
+error. `EMPTY ON ERROR` returns an empty result set.
+
+`column_name` specifies a column name.
+
+`FOR ORDINALITY` adds a row number column to the output table, starting at `1`.
+Specify the column name in the column definition:
+
+```text
+row_num FOR ORDINALITY
+```
+
+`NESTED PATH` extracts data from nested levels of a `json_input` value. Each
+`NESTED PATH` clause can contain `column_definition` values.
+
+The `json_table` function returns a result set that you can use like any other
+table in your queries. You can join the result set with other tables or
+combine multiple arrays from your JSON data.
+
+You can also process nested JSON objects without parsing the data multiple
+times.
+
+Use `json_table` as a lateral join to process JSON data from another table.
+
+### Examples
+
+The following query uses `json_table` to extract values from a JSON array and
+return them as rows in a table with three columns:
+
+```sql
+SELECT
+      *
+FROM
+      json_table(
+                '[
+                  {"id":1,"name":"Africa","wikiDataId":"Q15"},
+                  {"id":2,"name":"Americas","wikiDataId":"Q828"},
+                  {"id":3,"name":"Asia","wikiDataId":"Q48"},
+                  {"id":4,"name":"Europe","wikiDataId":"Q51"}
+                ]',
+                'strict $' COLUMNS (
+                  NESTED PATH 'strict $[*]' COLUMNS (
+                    id integer PATH 'strict $.id',
+                    name varchar PATH 'strict $.name',
+                    wiki_data_id varchar PATH 'strict $."wikiDataId"'
+                  )
+                )
+              );
+```
+
+| id | child     | wiki_data_id  |
+| -- | --------- | ------------- |
+|  1 | Africa    | Q1            |
+|  2 | Americas  | Q828          |
+|  3 | Asia      | Q48           |
+|  4 | Europe    | Q51           |
+
+The following query uses `json_table` to extract values from an array of nested
+JSON objects. It flattens the nested JSON data into a single table. The example
+query processes an array of continent names, where each continent contains an
+array of countries and their populations.
+
+The `NESTED PATH 'lax $[*]'` clause iterates through the continent objects,
+while the `NESTED PATH 'lax $.countries[*]'` iterates through each country
+within each continent. This creates a flat table structure with four rows
+combining each continent with each of its countries. Continent values repeat for
+each of their countries.
+
+```sql
+SELECT
+      *
+FROM
+      json_table(
+                '[
+                    {"continent": "Asia", "countries": [
+                        {"name": "Japan", "population": 125.7},
+                        {"name": "Thailand", "population": 71.6}
+                    ]},
+                    {"continent": "Europe", "countries": [
+                        {"name": "France", "population": 67.4},
+                        {"name": "Germany", "population": 83.2}
+                    ]}
+                ]',
+                'lax $' COLUMNS (
+                    NESTED PATH 'lax $[*]' COLUMNS (
+                        continent varchar PATH 'lax $.continent',
+                        NESTED PATH 'lax $.countries[*]' COLUMNS (
+                            country varchar PATH 'lax $.name',
+                            population double PATH 'lax $.population'
+                        )
+                    )
+                ));
+```
+
+| continent  | country   | population    |
+| ---------- | --------- | ------------- |
+| Asia       | Japan     | 125.7         |
+| Asia       | Thailand  | 71.6          |
+| Europe     | France    | 67.4          |
+| Europe     | Germany   | 83.2          |
+
+The following query uses `PLAN` to specify an `OUTER` join between a parent path
+and a child path:
+
+```sql
+SELECT
+      *
+FROM
+      JSON_TABLE(
+                '[]',
+                'lax $' AS "root_path"
+                COLUMNS(
+                    a varchar(1) PATH 'lax "A"',
+                    NESTED PATH 'lax $[*]' AS "nested_path"
+                            COLUMNS (b varchar(1) PATH 'lax "B"'))
+                PLAN ("root_path" OUTER "nested_path")
+                );
+```
+
+| a    | b    |
+| ---- | ---- |
+| A    | null |
+
+The following query uses `PLAN` to specify an `INNER` join between a parent path
+and a child path:
+
+```sql
+SELECT
+      *
+FROM
+      JSON_TABLE(
+                '[]',
+                'lax $' AS "root_path"
+                COLUMNS(
+                    a varchar(1) PATH 'lax "A"',
+                    NESTED PATH 'lax $[*]' AS "nested_path"
+                            COLUMNS (b varchar(1) PATH 'lax "B"'))
+                PLAN ("root_path" INNER "nested_path")
+                );
+```
+
+| a    | b    |
+| ---- | ---- |
+| null | null |
+
+(json-array)=
 ## json_array
 
 The `json_array` function creates a JSON array containing given elements.
@@ -1261,7 +1486,6 @@ SELECT json_array(true, 1 RETURNING VARBINARY FORMAT JSON ENCODING UTF32)
 ```
 
 (json-object)=
-
 ## json_object
 
 The `json_object` function creates a JSON object containing given key-value pairs.
@@ -1454,7 +1678,7 @@ the following requirements are met:
 Cast operations with supported {ref}`character string types
 <string-data-types>` treat the input as a string, not validated as JSON.
 This means that a cast operation with a string-type input of invalid JSON
-results in a succesful cast to invalid JSON.
+results in a successful cast to invalid JSON.
 
 Instead, consider using the {func}`json_parse` function to
 create validated JSON from a string.

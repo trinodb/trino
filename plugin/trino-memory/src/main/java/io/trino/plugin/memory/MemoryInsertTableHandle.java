@@ -13,48 +13,24 @@
  */
 package io.trino.plugin.memory;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableSet;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 
 import java.util.Set;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class MemoryInsertTableHandle
+public record MemoryInsertTableHandle(long table, InsertMode mode, Set<Long> activeTableIds)
         implements ConnectorInsertTableHandle
 {
-    private final long table;
-    private final Set<Long> activeTableIds;
-
-    @JsonCreator
-    public MemoryInsertTableHandle(
-            @JsonProperty("table") long table,
-            @JsonProperty("activeTableIds") Set<Long> activeTableIds)
+    public enum InsertMode
     {
-        this.table = table;
-        this.activeTableIds = requireNonNull(activeTableIds, "activeTableIds is null");
+        APPEND, OVERWRITE
     }
 
-    @JsonProperty
-    public long getTable()
+    public MemoryInsertTableHandle
     {
-        return table;
-    }
-
-    @JsonProperty
-    public Set<Long> getActiveTableIds()
-    {
-        return activeTableIds;
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("table", table)
-                .add("activeTableIds", activeTableIds)
-                .toString();
+        requireNonNull(mode, "mode is null");
+        activeTableIds = ImmutableSet.copyOf(requireNonNull(activeTableIds, "activeTableIds is null"));
     }
 }

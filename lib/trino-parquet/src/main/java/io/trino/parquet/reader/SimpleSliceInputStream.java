@@ -16,7 +16,6 @@ package io.trino.parquet.reader;
 import com.google.common.primitives.Shorts;
 import io.airlift.slice.Slice;
 
-import static com.google.common.base.Preconditions.checkPositionIndexes;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -140,57 +139,27 @@ public final class SimpleSliceInputStream
         return offset + slice.byteArrayOffset();
     }
 
-    public void ensureBytesAvailable(int bytes)
-    {
-        checkPositionIndexes(offset, offset + bytes, slice.length());
-    }
-
-    /**
-     * Always check if needed data is available with ensureBytesAvailable method.
-     * Failing to do so may result in instant JVM crash.
-     */
-    public int readIntUnsafe()
+    public int readIntUnchecked()
     {
         int value = slice.getIntUnchecked(offset);
         offset += Integer.BYTES;
         return value;
     }
 
-    /**
-     * Always check if needed data is available with ensureBytesAvailable method.
-     * Failing to do so may result in instant JVM crash.
-     */
-    public long readLongUnsafe()
+    public long readLongUnchecked()
     {
         long value = slice.getLongUnchecked(offset);
         offset += Long.BYTES;
         return value;
     }
 
-    /**
-     * Always check if needed data is available with ensureBytesAvailable method.
-     * Failing to do so may result in instant JVM crash.
-     */
-    public byte getByteUnsafe(int index)
+    public byte getByteUnchecked(int index)
     {
         return slice.getByteUnchecked(offset + index);
     }
 
-    /**
-     * Always check if needed data is available with ensureBytesAvailable method.
-     * Failing to do so may result in instant JVM crash.
-     */
-    public int getIntUnsafe(int index)
+    public int getIntUnchecked(int index)
     {
         return slice.getIntUnchecked(offset + index);
-    }
-
-    /**
-     * Always check if needed data is available with ensureBytesAvailable method.
-     * Failing to do so may result in instant JVM crash.
-     */
-    public long getLongUnsafe(int index)
-    {
-        return slice.getLongUnchecked(offset + index);
     }
 }

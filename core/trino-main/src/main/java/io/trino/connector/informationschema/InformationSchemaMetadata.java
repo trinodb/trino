@@ -22,6 +22,7 @@ import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.QualifiedTablePrefix;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMetadata;
@@ -29,6 +30,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableProperties;
+import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.LimitApplicationResult;
@@ -62,6 +64,7 @@ import static io.trino.connector.informationschema.InformationSchemaTable.TABLES
 import static io.trino.connector.informationschema.InformationSchemaTable.TABLE_PRIVILEGES;
 import static io.trino.connector.informationschema.InformationSchemaTable.VIEWS;
 import static io.trino.metadata.MetadataUtil.findColumnMetadata;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Collections.emptyList;
 import static java.util.Locale.ENGLISH;
@@ -74,8 +77,6 @@ public class InformationSchemaMetadata
     private static final InformationSchemaColumnHandle CATALOG_COLUMN_HANDLE = new InformationSchemaColumnHandle("table_catalog");
     private static final InformationSchemaColumnHandle SCHEMA_COLUMN_HANDLE = new InformationSchemaColumnHandle("table_schema");
     private static final InformationSchemaColumnHandle TABLE_NAME_COLUMN_HANDLE = new InformationSchemaColumnHandle("table_name");
-    private static final InformationSchemaColumnHandle ROLE_NAME_COLUMN_HANDLE = new InformationSchemaColumnHandle("role_name");
-    private static final InformationSchemaColumnHandle GRANTEE_COLUMN_HANDLE = new InformationSchemaColumnHandle("grantee");
 
     private final String catalogName;
     private final Metadata metadata;
@@ -95,8 +96,12 @@ public class InformationSchemaMetadata
     }
 
     @Override
-    public ConnectorTableHandle getTableHandle(ConnectorSession connectorSession, SchemaTableName tableName)
+    public ConnectorTableHandle getTableHandle(ConnectorSession connectorSession, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
     {
+        if (startVersion.isPresent() || endVersion.isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
+        }
+
         return InformationSchemaTable.of(tableName)
                 .map(table -> new InformationSchemaTableHandle(catalogName, table, defaultPrefixes(catalogName), OptionalLong.empty()))
                 .orElse(null);
@@ -106,7 +111,7 @@ public class InformationSchemaMetadata
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         InformationSchemaTableHandle informationSchemaTableHandle = (InformationSchemaTableHandle) tableHandle;
-        return informationSchemaTableHandle.getTable().getTableMetadata();
+        return informationSchemaTableHandle.table().getTableMetadata();
     }
 
     @Override
@@ -124,9 +129,9 @@ public class InformationSchemaMetadata
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         InformationSchemaTableHandle informationSchemaTableHandle = (InformationSchemaTableHandle) tableHandle;
-        ConnectorTableMetadata tableMetadata = informationSchemaTableHandle.getTable().getTableMetadata();
+        ConnectorTableMetadata tableMetadata = informationSchemaTableHandle.table().getTableMetadata();
 
-        String columnName = ((InformationSchemaColumnHandle) columnHandle).getColumnName();
+        String columnName = ((InformationSchemaColumnHandle) columnHandle).columnName();
 
         ColumnMetadata columnMetadata = findColumnMetadata(tableMetadata, columnName);
         checkArgument(columnMetadata != null, "Column '%s' on table '%s' does not exist", columnName, tableMetadata.getTable());
@@ -138,7 +143,7 @@ public class InformationSchemaMetadata
     {
         InformationSchemaTableHandle informationSchemaTableHandle = (InformationSchemaTableHandle) tableHandle;
 
-        ConnectorTableMetadata tableMetadata = informationSchemaTableHandle.getTable().getTableMetadata();
+        ConnectorTableMetadata tableMetadata = informationSchemaTableHandle.table().getTableMetadata();
 
         return tableMetadata.getColumns().stream()
                 .map(ColumnMetadata::getName)
@@ -159,7 +164,7 @@ public class InformationSchemaMetadata
     {
         InformationSchemaTableHandle tableHandle = (InformationSchemaTableHandle) table;
         return new ConnectorTableProperties(
-                tableHandle.getPrefixes().isEmpty() ? TupleDomain.none() : TupleDomain.all(),
+                tableHandle.prefixes().isEmpty() ? TupleDomain.none() : TupleDomain.all(),
                 Optional.empty(),
                 Optional.empty(),
                 emptyList());
@@ -170,12 +175,12 @@ public class InformationSchemaMetadata
     {
         InformationSchemaTableHandle table = (InformationSchemaTableHandle) handle;
 
-        if (table.getLimit().isPresent() && table.getLimit().getAsLong() <= limit) {
+        if (table.limit().isPresent() && table.limit().getAsLong() <= limit) {
             return Optional.empty();
         }
 
         return Optional.of(new LimitApplicationResult<>(
-                new InformationSchemaTableHandle(table.getCatalogName(), table.getTable(), table.getPrefixes(), OptionalLong.of(limit)),
+                new InformationSchemaTableHandle(table.catalogName(), table.table(), table.prefixes(), OptionalLong.of(limit)),
                 true,
                 false));
     }
@@ -185,16 +190,16 @@ public class InformationSchemaMetadata
     {
         InformationSchemaTableHandle table = (InformationSchemaTableHandle) handle;
 
-        Set<QualifiedTablePrefix> prefixes = table.getPrefixes();
-        if (isTablesEnumeratingTable(table.getTable()) && table.getPrefixes().equals(defaultPrefixes(catalogName))) {
+        Set<QualifiedTablePrefix> prefixes = table.prefixes();
+        if (isTablesEnumeratingTable(table.table()) && table.prefixes().equals(defaultPrefixes(catalogName))) {
             prefixes = getPrefixes(session, table, constraint);
         }
 
-        if (prefixes.equals(table.getPrefixes())) {
+        if (prefixes.equals(table.prefixes())) {
             return Optional.empty();
         }
 
-        table = new InformationSchemaTableHandle(table.getCatalogName(), table.getTable(), prefixes, table.getLimit());
+        table = new InformationSchemaTableHandle(table.catalogName(), table.table(), prefixes, table.limit());
         return Optional.of(new ConstraintApplicationResult<>(table, constraint.getSummary(), constraint.getExpression(), false));
     }
 
@@ -210,11 +215,11 @@ public class InformationSchemaMetadata
         }
 
         Optional<Set<String>> catalogs = filterString(constraint.getSummary(), CATALOG_COLUMN_HANDLE);
-        if (catalogs.isPresent() && !catalogs.get().contains(table.getCatalogName())) {
+        if (catalogs.isPresent() && !catalogs.get().contains(table.catalogName())) {
             return ImmutableSet.of();
         }
 
-        InformationSchemaTable informationSchemaTable = table.getTable();
+        InformationSchemaTable informationSchemaTable = table.table();
         Set<QualifiedTablePrefix> schemaPrefixes = calculatePrefixesWithSchemaName(session, constraint.getSummary(), constraint.predicate());
         Set<QualifiedTablePrefix> tablePrefixes = calculatePrefixesWithTableName(informationSchemaTable, session, schemaPrefixes, constraint.getSummary(), constraint.predicate());
         verify(tablePrefixes.size() <= maxPrefetchedInformationSchemaPrefixes, "calculatePrefixesWithTableName returned too many prefixes: %s", tablePrefixes.size());
@@ -361,16 +366,6 @@ public class InformationSchemaMetadata
     private Map<ColumnHandle, NullableValue> schemaAsFixedValues(String schema)
     {
         return ImmutableMap.of(SCHEMA_COLUMN_HANDLE, new NullableValue(createUnboundedVarcharType(), utf8Slice(schema)));
-    }
-
-    private Map<ColumnHandle, NullableValue> roleAsFixedValues(String schema)
-    {
-        return ImmutableMap.of(ROLE_NAME_COLUMN_HANDLE, new NullableValue(createUnboundedVarcharType(), utf8Slice(schema)));
-    }
-
-    private Map<ColumnHandle, NullableValue> granteeAsFixedValues(String schema)
-    {
-        return ImmutableMap.of(GRANTEE_COLUMN_HANDLE, new NullableValue(createUnboundedVarcharType(), utf8Slice(schema)));
     }
 
     private Map<ColumnHandle, NullableValue> asFixedValues(QualifiedObjectName objectName)

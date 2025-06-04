@@ -225,7 +225,7 @@ public class OpenXJsonSerializer
                     Object value = writeValue(valueType, rawValueBlock, rawOffset + mapIndex);
                     jsonMap.put(fieldName, value);
                 }
-                catch (InvalidJsonException ignored) {
+                catch (InvalidJsonException _) {
                 }
             }
             return jsonMap;

@@ -69,7 +69,7 @@ public class TestCsvDecoder
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(csv.getBytes(StandardCharsets.UTF_8))
                 .orElseThrow(AssertionError::new);
 
-        assertThat(decodedRow.size()).isEqualTo(columns.size());
+        assertThat(decodedRow).hasSize(columns.size());
 
         checkValue(decodedRow, row1, "ro");
         checkValue(decodedRow, row2, "row2");
@@ -100,7 +100,7 @@ public class TestCsvDecoder
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(csv.getBytes(StandardCharsets.UTF_8))
                 .orElseThrow(AssertionError::new);
 
-        assertThat(decodedRow.size()).isEqualTo(columns.size());
+        assertThat(decodedRow).hasSize(columns.size());
 
         checkValue(decodedRow, row1, true);
         checkValue(decodedRow, row2, false);
@@ -128,7 +128,7 @@ public class TestCsvDecoder
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(csv.getBytes(StandardCharsets.UTF_8))
                 .orElseThrow(AssertionError::new);
 
-        assertThat(decodedRow.size()).isEqualTo(columns.size());
+        assertThat(decodedRow).hasSize(columns.size());
 
         checkIsNull(decodedRow, row1);
         checkIsNull(decodedRow, row2);
@@ -154,7 +154,7 @@ public class TestCsvDecoder
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(csv.getBytes(StandardCharsets.UTF_8))
                 .orElseThrow(AssertionError::new);
 
-        assertThat(decodedRow.size()).isEqualTo(columns.size());
+        assertThat(decodedRow).hasSize(columns.size());
 
         checkValue(decodedRow, column1, "ala");
         checkValue(decodedRow, column2, 10);

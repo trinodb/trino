@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg.catalog.jdbc;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.plugin.iceberg.catalog.jdbc.IcebergJdbcCatalogConfig.SchemaVersion;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -33,7 +34,9 @@ public class TestIcebergJdbcCatalogConfig
                 .setConnectionUser(null)
                 .setConnectionPassword(null)
                 .setCatalogName(null)
-                .setDefaultWarehouseDir(null));
+                .setDefaultWarehouseDir(null)
+                .setRetryableStatusCodes(null)
+                .setSchemaVersion(SchemaVersion.V1));
     }
 
     @Test
@@ -46,6 +49,8 @@ public class TestIcebergJdbcCatalogConfig
                 .put("iceberg.jdbc-catalog.connection-password", "bar")
                 .put("iceberg.jdbc-catalog.catalog-name", "test")
                 .put("iceberg.jdbc-catalog.default-warehouse-dir", "s3://bucket")
+                .put("iceberg.jdbc-catalog.retryable-status-codes", "57P01,57P05")
+                .put("iceberg.jdbc-catalog.schema-version", "V0")
                 .buildOrThrow();
 
         IcebergJdbcCatalogConfig expected = new IcebergJdbcCatalogConfig()
@@ -54,7 +59,9 @@ public class TestIcebergJdbcCatalogConfig
                 .setConnectionUser("foo")
                 .setConnectionPassword("bar")
                 .setCatalogName("test")
-                .setDefaultWarehouseDir("s3://bucket");
+                .setDefaultWarehouseDir("s3://bucket")
+                .setRetryableStatusCodes("57P01,57P05")
+                .setSchemaVersion(SchemaVersion.V0);
 
         assertFullMapping(properties, expected);
     }

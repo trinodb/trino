@@ -24,8 +24,8 @@ import java.nio.file.Path;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.hive.metastore.glue.TestingGlueHiveMetastore.createTestingGlueHiveMetastore;
+import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static java.util.Objects.requireNonNull;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @TestInstance(PER_CLASS)
@@ -41,11 +41,11 @@ public class TestDeltaLakeTableWithCustomLocationUsingGlueMetastore
     {
         Path warehouseDir = Files.createTempDirectory("warehouse-dir");
         closeAfterClass(() -> deleteRecursively(warehouseDir, ALLOW_INSECURE));
-        metastore = createTestingGlueHiveMetastore(warehouseDir);
+        metastore = createTestingGlueHiveMetastore(warehouseDir, this::closeAfterClass);
         schema = "test_tables_with_custom_location" + randomNameSuffix();
         return DeltaLakeQueryRunner.builder(schema)
                 .addDeltaProperty("hive.metastore", "glue")
-                .addDeltaProperty("hive.metastore.glue.region", requireNonNull(System.getenv("AWS_REGION"), "AWS_REGION is null"))
+                .addDeltaProperty("hive.metastore.glue.region", requireEnv("AWS_REGION"))
                 .addDeltaProperty("hive.metastore.glue.default-warehouse-dir", warehouseDir.toUri().toString())
                 .build();
     }
@@ -55,5 +55,6 @@ public class TestDeltaLakeTableWithCustomLocationUsingGlueMetastore
     {
         // Data is on the local disk and will be deleted by query runner cleanup
         metastore.dropDatabase(schema, false);
+        metastore.shutdown();
     }
 }

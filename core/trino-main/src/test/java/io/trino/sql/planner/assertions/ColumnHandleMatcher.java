@@ -39,11 +39,11 @@ public class ColumnHandleMatcher
     @Override
     public Optional<Symbol> getAssignedSymbol(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
-        if (!(node instanceof TableScanNode)) {
+        if (!(node instanceof TableScanNode tableScanNode)) {
             return Optional.empty();
         }
 
-        Map<Symbol, ColumnHandle> assignments = ((TableScanNode) node).getAssignments();
+        Map<Symbol, ColumnHandle> assignments = tableScanNode.getAssignments();
 
         for (Map.Entry<Symbol, ColumnHandle> entry : assignments.entrySet()) {
             if (matcher.test(entry.getValue())) {

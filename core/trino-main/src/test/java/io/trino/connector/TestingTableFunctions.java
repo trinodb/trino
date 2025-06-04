@@ -16,7 +16,6 @@ package io.trino.connector;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.trino.spi.Page;
@@ -55,6 +54,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.IntStream;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -679,7 +679,7 @@ public class TestingTableFunctions
                 }
 
                 Page page = getOnlyElement(input).orElseThrow();
-                BlockBuilder builder = BIGINT.createBlockBuilder(null, page.getPositionCount());
+                BlockBuilder builder = BIGINT.createFixedSizeBlockBuilder(page.getPositionCount());
                 for (long index = processedPositions; index < processedPositions + page.getPositionCount(); index++) {
                     // TODO check for long overflow
                     BIGINT.writeLong(builder, index);
@@ -786,7 +786,7 @@ public class TestingTableFunctions
 
                 Page page = getOnlyElement(input).orElseThrow();
                 if (processedRounds == 0) {
-                    BlockBuilder builder = BIGINT.createBlockBuilder(null, page.getPositionCount());
+                    BlockBuilder builder = BIGINT.createFixedSizeBlockBuilder(page.getPositionCount());
                     for (long index = processedPositions; index < processedPositions + page.getPositionCount(); index++) {
                         // TODO check for long overflow
                         BIGINT.writeLong(builder, index);
@@ -859,7 +859,7 @@ public class TestingTableFunctions
         private static class EmptyOutputProcessor
                 implements TableFunctionDataProcessor
         {
-            private static final Page EMPTY_PAGE = new Page(BOOLEAN.createBlockBuilder(null, 0).build());
+            private static final Page EMPTY_PAGE = new Page(BOOLEAN.createFixedSizeBlockBuilder(0).build());
 
             @Override
             public TableFunctionProcessorState process(List<Optional<Page>> input)
@@ -919,8 +919,8 @@ public class TestingTableFunctions
         {
             // one proper channel, and one pass-through index channel
             private static final Page EMPTY_PAGE = new Page(
-                    BOOLEAN.createBlockBuilder(null, 0).build(),
-                    BIGINT.createBlockBuilder(null, 0).build());
+                    BOOLEAN.createFixedSizeBlockBuilder(0).build(),
+                    BIGINT.createFixedSizeBlockBuilder(0).build());
 
             @Override
             public TableFunctionProcessorState process(List<Optional<Page>> input)
@@ -985,7 +985,7 @@ public class TestingTableFunctions
             @Override
             public TableFunctionDataProcessor getDataProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle)
             {
-                BlockBuilder resultBuilder = BOOLEAN.createBlockBuilder(null, 1);
+                BlockBuilder resultBuilder = BOOLEAN.createFixedSizeBlockBuilder(1);
                 BOOLEAN.writeBoolean(resultBuilder, true);
 
                 Page result = new Page(resultBuilder.build());
@@ -1069,15 +1069,15 @@ public class TestingTableFunctions
                     finished = true;
 
                     // proper column input_1_present
-                    BlockBuilder input1Builder = BOOLEAN.createBlockBuilder(null, 1);
+                    BlockBuilder input1Builder = BOOLEAN.createFixedSizeBlockBuilder(1);
                     BOOLEAN.writeBoolean(input1Builder, input1Present);
 
                     // proper column input_2_present
-                    BlockBuilder input2Builder = BOOLEAN.createBlockBuilder(null, 1);
+                    BlockBuilder input2Builder = BOOLEAN.createFixedSizeBlockBuilder(1);
                     BOOLEAN.writeBoolean(input2Builder, input2Present);
 
                     // pass-through index for input_1
-                    BlockBuilder input1PassThroughBuilder = BIGINT.createBlockBuilder(null, 1);
+                    BlockBuilder input1PassThroughBuilder = BIGINT.createFixedSizeBlockBuilder(1);
                     if (input1Present) {
                         BIGINT.writeLong(input1PassThroughBuilder, input1EndIndex - 1);
                     }
@@ -1086,7 +1086,7 @@ public class TestingTableFunctions
                     }
 
                     // pass-through index for input_2
-                    BlockBuilder input2PassThroughBuilder = BIGINT.createBlockBuilder(null, 1);
+                    BlockBuilder input2PassThroughBuilder = BIGINT.createFixedSizeBlockBuilder(1);
                     if (input2Present) {
                         BIGINT.writeLong(input2PassThroughBuilder, input2EndIndex - 1);
                     }
@@ -1163,7 +1163,7 @@ public class TestingTableFunctions
                 }
                 if (input == null) {
                     finished = true;
-                    BlockBuilder builder = BOOLEAN.createBlockBuilder(null, 1);
+                    BlockBuilder builder = BOOLEAN.createFixedSizeBlockBuilder(1);
                     BOOLEAN.writeBoolean(builder, processorGotInput);
                     return produced(new Page(builder.build()));
                 }
@@ -1209,7 +1209,7 @@ public class TestingTableFunctions
             @Override
             public TableFunctionDataProcessor getDataProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle)
             {
-                BlockBuilder builder = BOOLEAN.createBlockBuilder(null, 1);
+                BlockBuilder builder = BOOLEAN.createFixedSizeBlockBuilder(1);
                 BOOLEAN.writeBoolean(builder, true);
                 Page result = new Page(builder.build());
 
@@ -1370,9 +1370,11 @@ public class TestingTableFunctions
             }
 
             @Override
-            public Map<String, String> getSplitInfo()
+            public String toString()
             {
-                return ImmutableMap.of("count", String.valueOf(count));
+                return toStringHelper(this)
+                        .add("count", count)
+                        .toString();
             }
 
             @Override
@@ -1422,7 +1424,7 @@ public class TestingTableFunctions
         public static class EmptySourceFunctionProcessor
                 implements TableFunctionSplitProcessor
         {
-            private static final Page EMPTY_PAGE = new Page(BOOLEAN.createBlockBuilder(null, 0).build());
+            private static final Page EMPTY_PAGE = new Page(BOOLEAN.createFixedSizeBlockBuilder(0).build());
 
             private boolean produced;
 

@@ -28,7 +28,6 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.Type;
-import org.apache.iceberg.Metrics;
 import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.Schema;
 
@@ -89,7 +88,7 @@ public final class IcebergOrcFileWriter
         this.fileInputColumnIndexes = requireNonNull(fileInputColumnIndexes, "fileInputColumnIndexes is null");
 
         this.nullBlocks = fileColumnTypes.stream()
-                .map(type -> type.createBlockBuilder(null, 1, 0).appendNull().build())
+                .map(Type::createNullBlock)
                 .collect(toImmutableList());
 
         this.validationInputFactory = validationInputFactory;
@@ -110,9 +109,11 @@ public final class IcebergOrcFileWriter
     }
 
     @Override
-    public Metrics getMetrics()
+    public FileMetrics getFileMetrics()
     {
-        return computeMetrics(metricsConfig, icebergSchema, orcColumns, orcWriter.getFileRowCount(), orcWriter.getFileStats());
+        return new FileMetrics(
+                computeMetrics(metricsConfig, icebergSchema, orcColumns, orcWriter.getFileRowCount(), orcWriter.getFileStats()),
+                Optional.of(orcWriter.getStripeOffsets()));
     }
 
     @Override

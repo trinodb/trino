@@ -29,7 +29,7 @@ public class DescriptorField
 
     public DescriptorField(NodeLocation location, Identifier name, Optional<DataType> type)
     {
-        super(Optional.of(location));
+        super(location);
         this.name = requireNonNull(name, "name is null");
         this.type = requireNonNull(type, "type is null");
     }

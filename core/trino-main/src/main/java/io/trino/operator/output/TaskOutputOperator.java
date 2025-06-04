@@ -13,9 +13,7 @@
  */
 package io.trino.operator.output;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.slice.Slice;
 import io.trino.execution.buffer.OutputBuffer;
 import io.trino.execution.buffer.PageSerializer;
 import io.trino.execution.buffer.PagesSerdeFactory;
@@ -33,8 +31,7 @@ import io.trino.util.Ciphers;
 import java.util.List;
 import java.util.function.Function;
 
-import static io.trino.execution.buffer.PageSplitterUtil.splitPage;
-import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
+import static io.trino.execution.buffer.PageSplitterUtil.splitAndSerializePage;
 import static java.util.Objects.requireNonNull;
 
 public class TaskOutputOperator
@@ -83,9 +80,7 @@ public class TaskOutputOperator
         }
 
         @Override
-        public void noMoreOperators()
-        {
-        }
+        public void noMoreOperators() {}
 
         @Override
         public OperatorFactory duplicate()
@@ -122,6 +117,7 @@ public class TaskOutputOperator
     @Override
     public void finish()
     {
+        updateMetrics();
         finished = true;
     }
 
@@ -160,23 +156,19 @@ public class TaskOutputOperator
 
         page = pagePreprocessor.apply(page);
 
-        outputBuffer.enqueue(splitAndSerializePage(page));
+        outputBuffer.enqueue(splitAndSerializePage(page, serializer));
         operatorContext.recordOutput(page.getSizeInBytes(), page.getPositionCount());
-    }
-
-    private List<Slice> splitAndSerializePage(Page page)
-    {
-        List<Page> split = splitPage(page, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
-        ImmutableList.Builder<Slice> builder = ImmutableList.builderWithExpectedSize(split.size());
-        for (Page p : split) {
-            builder.add(serializer.serialize(p));
-        }
-        return builder.build();
+        updateMetrics();
     }
 
     @Override
     public Page getOutput()
     {
         return null;
+    }
+
+    private void updateMetrics()
+    {
+        operatorContext.setLatestMetrics(serializer.getMetrics());
     }
 }

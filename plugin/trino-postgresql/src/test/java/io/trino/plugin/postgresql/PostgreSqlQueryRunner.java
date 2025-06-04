@@ -16,6 +16,7 @@ package io.trino.plugin.postgresql;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.log.Logger;
+import io.trino.plugin.geospatial.GeoPlugin;
 import io.trino.plugin.jmx.JmxPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
@@ -25,8 +26,9 @@ import io.trino.tpch.TpchTable;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
-import static io.airlift.testing.Closeables.closeAllSuppress;
+import static io.trino.plugin.postgresql.TestingPostgreSqlServer.DEFAULT_IMAGE_NAME;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -53,6 +55,7 @@ public final class PostgreSqlQueryRunner
     {
         private final Map<String, String> connectorProperties = new HashMap<>();
         private List<TpchTable<?>> initialTables = ImmutableList.of();
+        private Consumer<QueryRunner> additionalSetup = _ -> {};
 
         private Builder()
         {
@@ -60,6 +63,14 @@ public final class PostgreSqlQueryRunner
                     .setCatalog("postgresql")
                     .setSchema(TPCH_SCHEMA)
                     .build());
+        }
+
+        @Override
+        @CanIgnoreReturnValue
+        public Builder setAdditionalSetup(Consumer<QueryRunner> additionalSetup)
+        {
+            this.additionalSetup = requireNonNull(additionalSetup, "additionalSetup is null");
+            return this;
         }
 
         @CanIgnoreReturnValue
@@ -80,30 +91,28 @@ public final class PostgreSqlQueryRunner
         public DistributedQueryRunner build()
                 throws Exception
         {
-            DistributedQueryRunner queryRunner = super.build();
-            try {
-                queryRunner.installPlugin(new TpchPlugin());
-                queryRunner.createCatalog("tpch", "tpch");
+            super.setAdditionalSetup(runner -> {
+                runner.installPlugin(new GeoPlugin()); // GeoPlugin needs to be installed early.
 
-                queryRunner.installPlugin(new PostgreSqlPlugin());
-                queryRunner.createCatalog("postgresql", "postgresql", connectorProperties);
+                additionalSetup.accept(runner);
 
-                copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, initialTables);
+                runner.installPlugin(new TpchPlugin());
+                runner.createCatalog("tpch", "tpch");
 
-                return queryRunner;
-            }
-            catch (Throwable e) {
-                closeAllSuppress(e, queryRunner);
-                throw e;
-            }
+                runner.installPlugin(new PostgreSqlPlugin());
+                runner.createCatalog("postgresql", "postgresql", connectorProperties);
+
+                copyTpchTables(runner, "tpch", TINY_SCHEMA_NAME, initialTables);
+            });
+            return super.build();
         }
     }
 
     public static void main(String[] args)
             throws Exception
     {
-        QueryRunner queryRunner = builder(new TestingPostgreSqlServer(true))
-                .setExtraProperties(Map.of("http-server.http.port", "8080"))
+        QueryRunner queryRunner = builder(new TestingPostgreSqlServer(System.getProperty("testing.postgresql-image-name", DEFAULT_IMAGE_NAME), true))
+                .addCoordinatorProperty("http-server.http.port", "8080")
                 .setInitialTables(TpchTable.getTables())
                 .build();
 

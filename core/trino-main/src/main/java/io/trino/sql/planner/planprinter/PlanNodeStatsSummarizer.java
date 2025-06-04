@@ -54,7 +54,7 @@ public final class PlanNodeStatsSummarizer
     {
         ListMultimap<PlanNodeId, PlanNodeStats> groupedStats = ArrayListMultimap.create();
         List<PlanNodeStats> planNodeStats = taskInfos.stream()
-                .map(TaskInfo::getStats)
+                .map(TaskInfo::stats)
                 .flatMap(taskStats -> getPlanNodeStats(taskStats).stream())
                 .collect(toList());
         for (PlanNodeStats stats : planNodeStats) {

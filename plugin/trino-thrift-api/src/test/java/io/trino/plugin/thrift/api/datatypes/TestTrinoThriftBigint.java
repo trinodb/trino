@@ -164,7 +164,7 @@ public class TestTrinoThriftBigint
 
     private static Block longBlock(Integer... values)
     {
-        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, values.length);
+        BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(values.length);
         for (Integer value : values) {
             if (value == null) {
                 blockBuilder.appendNull();

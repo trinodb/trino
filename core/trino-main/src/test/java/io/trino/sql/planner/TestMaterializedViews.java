@@ -23,6 +23,7 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.metadata.ViewColumn;
+import io.trino.spi.RefreshType;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.Connector;
@@ -57,6 +58,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
+import static io.trino.execution.warnings.WarningCollector.NOOP;
+import static io.trino.spi.RefreshType.FULL;
+import static io.trino.spi.RefreshType.INCREMENTAL;
 import static io.trino.spi.connector.SaveMode.FAIL;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TimestampWithTimeZoneParametricType.TIMESTAMP_WITH_TIME_ZONE;
@@ -65,6 +70,7 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTim
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
+import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -78,6 +84,7 @@ import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingMetadata.STALE_MV_STALENESS;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestMaterializedViews
         extends BasePlanTest
@@ -87,6 +94,8 @@ public class TestMaterializedViews
 
     private static final String SCHEMA = "tiny";
 
+    private final TestingMetadata testingConnectorMetadata = new TestingMetadata();
+
     @Override
     protected PlanTester createPlanTester()
     {
@@ -94,8 +103,6 @@ public class TestMaterializedViews
                 .setCatalog(TEST_CATALOG_NAME)
                 .setSchema(SCHEMA)
                 .setSystemProperty("task_concurrency", "1"); // these tests don't handle exchanges from local parallel
-
-        TestingMetadata testingConnectorMetadata = new TestingMetadata();
 
         PlanTester planTester = PlanTester.create(sessionBuilder.build());
         planTester.createCatalog(TEST_CATALOG_NAME, new StaticConnectorFactory("test", new TestMaterializedViewConnector(testingConnectorMetadata)), ImmutableMap.of());
@@ -264,9 +271,36 @@ public class TestMaterializedViews
                     false);
             return null;
         });
+
         testingConnectorMetadata.markMaterializedViewIsFresh(materializedViewWithTimestamp.asSchemaTableName());
 
         return planTester;
+    }
+
+    private void createMaterializedView(String materializedViewName, String query)
+    {
+        Metadata metadata = getPlanTester().getPlannerContext().getMetadata();
+        QualifiedObjectName matViewName = new QualifiedObjectName(TEST_CATALOG_NAME, SCHEMA, materializedViewName);
+        MaterializedViewDefinition matViewDefinition = new MaterializedViewDefinition(
+                query,
+                Optional.of(TEST_CATALOG_NAME),
+                Optional.of(SCHEMA),
+                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty()), new ViewColumn("b", BIGINT.getTypeId(), Optional.empty())),
+                Optional.of(STALE_MV_STALENESS.plusHours(1)),
+                Optional.empty(),
+                Identity.ofUser("some user"),
+                ImmutableList.of(),
+                Optional.of(new CatalogSchemaTableName(TEST_CATALOG_NAME, SCHEMA, "storage_table")));
+        getPlanTester().inTransaction(session -> {
+            metadata.createMaterializedView(
+                    session,
+                    matViewName,
+                    matViewDefinition,
+                    ImmutableMap.of(),
+                    false,
+                    false);
+            return null;
+        });
     }
 
     @Test
@@ -296,6 +330,45 @@ public class TestMaterializedViews
                 futureSession,
                 anyTree(
                         tableScan("test_table")));
+    }
+
+    @Test
+    public void testRefreshTypes()
+    {
+        createMaterializedView("simple_materialized_view", "SELECT a as new_name, b FROM test_table WHERE a is not null and b > 1");
+        Optional<RefreshType> refreshType = getRefreshType("simple_materialized_view");
+        assertThat(refreshType).isPresent();
+        assertThat(refreshType.get()).isEqualTo(INCREMENTAL);
+
+        createMaterializedView("aggregation_materialized_view", "SELECT a, count(*) FROM test_table GROUP BY a");
+        refreshType = getRefreshType("aggregation_materialized_view");
+        assertThat(refreshType).isPresent();
+        assertThat(refreshType.get()).isEqualTo(FULL);
+
+        createMaterializedView("join_materialized_view", "SELECT a.a, b.b FROM test_table a JOIN test_table b on a.a = b.a");
+        refreshType = getRefreshType("join_materialized_view");
+        assertThat(refreshType).isPresent();
+        assertThat(refreshType.get()).isEqualTo(FULL);
+
+        createMaterializedView("distinct_materialized_view", "SELECT distinct a, b FROM test_table");
+        refreshType = getRefreshType("distinct_materialized_view");
+        assertThat(refreshType).isPresent();
+        assertThat(refreshType.get()).isEqualTo(FULL);
+
+        createMaterializedView("table_subquery_materialized_view", "SELECT a, b FROM (SELECT a, b FROM (VALUES (1, 2), (3, 4)) t(a, b))");
+        refreshType = getRefreshType("table_subquery_materialized_view");
+        assertThat(refreshType).isPresent();
+        assertThat(refreshType.get()).isEqualTo(FULL);
+
+        createMaterializedView("where_subquery_materialized_view", "SELECT a, b FROM test_table WHERE b in (SELECT b FROM test_table WHERE a < 0)");
+        refreshType = getRefreshType("where_subquery_materialized_view");
+        assertThat(refreshType).isPresent();
+        assertThat(refreshType.get()).isEqualTo(FULL);
+
+        createMaterializedView("union_view", "SELECT a, b FROM test_table a WHERE a.b in (6, 9) UNION ALL SELECT a, b FROM test_table b WHERE b.b in (1, 5)");
+        refreshType = getRefreshType("union_view");
+        assertThat(refreshType).isPresent();
+        assertThat(refreshType.get()).isEqualTo(FULL);
     }
 
     @Test
@@ -343,6 +416,25 @@ public class TestMaterializedViews
                                 filter(
                                         new Comparison(LESS_THAN, new Cast(new Reference(TIMESTAMP_TZ_MILLIS, "ts"), TIMESTAMP_TZ_MILLIS), new Constant(createTimestampWithTimeZoneType(3), DateTimes.parseTimestampWithTimeZone(3, "2024-01-01 00:00:00.000 America/New_York"))),
                                         tableScan("timestamp_test_storage", ImmutableMap.of("ts", "ts", "id", "id"))))));
+    }
+
+    private Optional<RefreshType> getRefreshType(String matViewTable)
+    {
+        PlanTester planTester = getPlanTester();
+        Session session = planTester.getDefaultSession();
+
+        String queryId = planTester.inTransaction(session, transactionSession -> {
+            planTester.createPlan(
+                    transactionSession,
+                    "REFRESH MATERIALIZED VIEW " + matViewTable,
+                    planTester.getPlanOptimizers(true),
+                    OPTIMIZED_AND_VALIDATED,
+                    NOOP,
+                    createPlanOptimizersStatsCollector());
+            return transactionSession.getQueryId().toString();
+        });
+
+        return testingConnectorMetadata.getRefreshType(queryId);
     }
 
     private static class TestMaterializedViewConnector

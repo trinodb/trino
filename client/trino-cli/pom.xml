@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>446-SNAPSHOT</version>
+        <version>476-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -13,10 +13,9 @@
     <description>Trino - CLI</description>
 
     <properties>
-        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <project.build.targetJdk>8</project.build.targetJdk>
+        <project.build.targetJdk>11</project.build.targetJdk>
         <main-class>io.trino.cli.Trino</main-class>
-        <dep.jline.version>3.26.0</dep.jline.version>
+        <dep.jline.version>3.30.4</dep.jline.version>
     </properties>
 
     <dependencies>
@@ -50,11 +49,6 @@
 
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
-            <artifactId>logging-interceptor</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.squareup.okhttp3</groupId>
             <artifactId>okhttp</artifactId>
         </dependency>
 
@@ -66,8 +60,8 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>units</artifactId>
-            <!-- JDK8 support dropped by version 1.8+ -->
-            <version>1.7</version>
+            <!-- JDK11 support dropped by version 1.9+ -->
+            <version>1.8</version>
         </dependency>
 
         <dependency>
@@ -114,8 +108,27 @@
         </dependency>
 
         <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jdk8</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
             <groupId>org.jline</groupId>
-            <artifactId>jline-terminal-jna</artifactId>
+            <artifactId>jline-terminal-ffm</artifactId>
+            <version>${dep.jline.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.jline</groupId>
+            <artifactId>jline-terminal-jni</artifactId>
             <version>${dep.jline.version}</version>
             <scope>runtime</scope>
         </dependency>
@@ -187,7 +200,7 @@
                 <groupId>org.skife.maven</groupId>
                 <artifactId>really-executable-jar-maven-plugin</artifactId>
                 <configuration>
-                    <flags>-Xmx1G</flags>
+                    <flags>-Xmx1G --enable-native-access=ALL-UNNAMED -XX:+IgnoreUnrecognizedVMOptions</flags>
                     <classifier>executable</classifier>
                 </configuration>
                 <executions>
@@ -198,6 +211,23 @@
                         <phase>package</phase>
                     </execution>
                 </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <configuration>
+                    <rules combine.children="merge">
+                        <enforceBytecodeVersion>
+                            <excludes>
+                                <!-- jline-terminal-ffm works only on JDK 22+, but will fall back to JNI on lower JDKs -->
+                                <exclude>org.jline:jline-terminal-ffm</exclude>
+                                <!-- Used reflectively on JDK22+ for native decompression -->
+                                <exclude>io.airlift:aircompressor-v3</exclude>
+                            </excludes>
+                        </enforceBytecodeVersion>
+                    </rules>
+                </configuration>
             </plugin>
         </plugins>
     </build>

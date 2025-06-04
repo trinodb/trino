@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -27,7 +26,7 @@ public final class RefreshMaterializedView
 {
     private final Table table;
 
-    public RefreshMaterializedView(Optional<NodeLocation> location, Table table)
+    public RefreshMaterializedView(NodeLocation location, Table table)
     {
         super(location);
         this.table = requireNonNull(table, "name is null");

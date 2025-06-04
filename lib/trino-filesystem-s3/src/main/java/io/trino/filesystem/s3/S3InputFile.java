@@ -14,9 +14,11 @@
 package io.trino.filesystem.s3;
 
 import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystemException;
 import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoInputStream;
+import io.trino.filesystem.encryption.EncryptionKey;
 import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
@@ -28,7 +30,13 @@ import software.amazon.awssdk.services.s3.model.RequestPayer;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.time.Instant;
+import java.util.Optional;
 
+import static com.google.common.base.Verify.verify;
+import static io.trino.filesystem.s3.S3FileSystemConfig.S3SseType.NONE;
+import static io.trino.filesystem.s3.S3SseCUtils.encoded;
+import static io.trino.filesystem.s3.S3SseCUtils.md5Checksum;
+import static io.trino.filesystem.s3.S3SseRequestConfigurator.setEncryptionSettings;
 import static java.util.Objects.requireNonNull;
 
 final class S3InputFile
@@ -38,17 +46,22 @@ final class S3InputFile
     private final S3Location location;
     private final S3Context context;
     private final RequestPayer requestPayer;
+    private final Optional<EncryptionKey> key;
     private Long length;
     private Instant lastModified;
 
-    public S3InputFile(S3Client client, S3Context context, S3Location location, Long length)
+    public S3InputFile(S3Client client, S3Context context, S3Location location, Long length, Instant lastModified, Optional<EncryptionKey> key)
     {
         this.client = requireNonNull(client, "client is null");
         this.location = requireNonNull(location, "location is null");
         this.context = requireNonNull(context, "context is null");
         this.requestPayer = context.requestPayer();
         this.length = length;
+        this.lastModified = lastModified;
+        this.key = requireNonNull(key, "key is null");
         location.location().verifyValidFileLocation();
+
+        verify(key.isEmpty() || context.s3SseContext().sseType() == NONE, "Encryption key cannot be used with SSE configuration");
     }
 
     @Override
@@ -103,6 +116,13 @@ final class S3InputFile
                 .requestPayer(requestPayer)
                 .bucket(location.bucket())
                 .key(location.key())
+                .applyMutation(builder ->
+                    key.ifPresentOrElse(
+                            encryption ->
+                                builder.sseCustomerKey(encoded(encryption))
+                                        .sseCustomerAlgorithm(encryption.algorithm())
+                                        .sseCustomerKeyMD5(md5Checksum(encryption)),
+                            () -> setEncryptionSettings(builder, context.s3SseContext())))
                 .build();
     }
 
@@ -114,6 +134,13 @@ final class S3InputFile
                 .requestPayer(requestPayer)
                 .bucket(location.bucket())
                 .key(location.key())
+                .applyMutation(builder ->
+                    key.ifPresentOrElse(
+                            encryption ->
+                                builder.sseCustomerKey(encoded(encryption))
+                                        .sseCustomerAlgorithm(encryption.algorithm())
+                                        .sseCustomerKeyMD5(md5Checksum(encryption)),
+                            () -> setEncryptionSettings(builder, context.s3SseContext())))
                 .build();
 
         try {
@@ -130,7 +157,7 @@ final class S3InputFile
             return false;
         }
         catch (SdkException e) {
-            throw new IOException("S3 HEAD request failed for file: " + location, e);
+            throw new TrinoFileSystemException("S3 HEAD request failed for file: " + location, e);
         }
     }
 }

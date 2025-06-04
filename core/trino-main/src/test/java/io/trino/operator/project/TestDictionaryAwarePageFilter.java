@@ -14,13 +14,12 @@
 package io.trino.operator.project;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
-import io.trino.spi.block.LazyBlock;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SourcePage;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntArraySet;
 import it.unimi.dsi.fastutil.ints.IntSet;
@@ -29,7 +28,6 @@ import org.junit.jupiter.api.Test;
 import java.util.Arrays;
 import java.util.stream.IntStream;
 
-import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -172,8 +170,6 @@ public class TestDictionaryAwarePageFilter
     {
         testFilter(block, true, expectedType);
         testFilter(block, false, expectedType);
-        testFilter(lazyWrapper(block), true, expectedType);
-        testFilter(lazyWrapper(block), false, expectedType);
     }
 
     private static void testFilter(Block block, boolean filterRange, Class<? extends Block> expectedType)
@@ -191,9 +187,7 @@ public class TestDictionaryAwarePageFilter
 
     private static void testFilter(DictionaryAwarePageFilter filter, Block block, boolean filterRange)
     {
-        IntSet actualSelectedPositions = toSet(filter.filter(null, new Page(block)));
-
-        block = block.getLoadedBlock();
+        IntSet actualSelectedPositions = toSet(filter.filter(null, SourcePage.create(block)));
 
         IntSet expectedSelectedPositions = new IntArraySet(block.getPositionCount());
         for (int position = 0; position < block.getPositionCount(); position++) {
@@ -212,11 +206,6 @@ public class TestDictionaryAwarePageFilter
             return new IntArraySet(Arrays.copyOfRange(selectedPositions.getPositions(), start, end));
         }
         return new IntArraySet(IntStream.range(start, end).toArray());
-    }
-
-    private static LazyBlock lazyWrapper(Block block)
-    {
-        return new LazyBlock(block.getPositionCount(), () -> block);
     }
 
     private static boolean isSelected(boolean filterRange, long value)
@@ -273,7 +262,7 @@ public class TestDictionaryAwarePageFilter
         }
 
         @Override
-        public SelectedPositions filter(ConnectorSession session, Page page)
+        public SelectedPositions filter(ConnectorSession session, SourcePage page)
         {
             assertThat(page.getChannelCount()).isEqualTo(1);
             Block block = page.getBlock(0);
@@ -297,7 +286,7 @@ public class TestDictionaryAwarePageFilter
             // dictionary processing enabled and disabled as expected)
             // this check is performed last so that dictionary processing that fails
             // is not checked (only the fall back processing is checked)
-            assertInstanceOf(block, expectedType);
+            assertThat(block).isInstanceOf(expectedType);
 
             if (selectedPositions.isEmpty()) {
                 return SelectedPositions.positionsRange(0, 0);

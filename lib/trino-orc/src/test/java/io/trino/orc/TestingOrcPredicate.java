@@ -72,9 +72,7 @@ public final class TestingOrcPredicate
     public static final int ORC_STRIPE_SIZE = 30_000;
     public static final int ORC_ROW_GROUP_SIZE = 10_000;
 
-    private TestingOrcPredicate()
-    {
-    }
+    private TestingOrcPredicate() {}
 
     public static OrcPredicate createOrcPredicate(Type type, Iterable<?> values)
     {

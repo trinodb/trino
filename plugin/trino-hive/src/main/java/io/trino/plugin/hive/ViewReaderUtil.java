@@ -20,10 +20,11 @@ import com.linkedin.coral.trino.rel2trino.RelToTrinoConverter;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
-import io.trino.plugin.hive.metastore.Column;
+import io.trino.metastore.Column;
+import io.trino.metastore.Table;
+import io.trino.metastore.TableInfo;
 import io.trino.plugin.hive.metastore.CoralSemiTransactionalHiveMSCAdapter;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
-import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.CatalogSchemaTableName;
@@ -44,21 +45,22 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiFunction;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.linkedin.coral.trino.rel2trino.functions.TrinoKeywordsConverter.quoteWordIfNotQuoted;
+import static io.trino.metastore.Table.TABLE_COMMENT;
+import static io.trino.metastore.TableInfo.PRESTO_VIEW_COMMENT;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_VIEW_DATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_VIEW_TRANSLATION_ERROR;
-import static io.trino.plugin.hive.HiveMetadata.PRESTO_VIEW_COMMENT;
-import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.HiveSessionProperties.isHiveViewsLegacyTranslation;
 import static io.trino.plugin.hive.HiveStorageFormat.TEXTFILE;
-import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.TableType.VIRTUAL_VIEW;
-import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiTable;
+import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
 import static io.trino.plugin.hive.util.HiveUtil.checkCondition;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -71,7 +73,7 @@ public final class ViewReaderUtil
 
     public interface ViewReader
     {
-        ConnectorViewDefinition decodeViewData(String viewData, Table table, CatalogName catalogName);
+        ConnectorViewDefinition decodeViewData(Optional<String> viewData, Table table, CatalogName catalogName);
     }
 
     public static ViewReader createViewReader(
@@ -118,14 +120,13 @@ public final class ViewReaderUtil
                     .setTableType(EXTERNAL_TABLE.name())
                     .setDataColumns(columns)
                     // Required by 'Table', but not used by view translation.
-                    .withStorage(storage -> storage.setStorageFormat(fromHiveStorageFormat(TEXTFILE)))
+                    .withStorage(storage -> storage.setStorageFormat(TEXTFILE.toStorageFormat()))
                     .setOwner(Optional.empty())
                     .build();
             return toMetastoreApiTable(table);
         });
     }
 
-    public static final String ICEBERG_MATERIALIZED_VIEW_COMMENT = "Presto Materialized View";
     public static final String PRESTO_VIEW_FLAG = "presto_view";
     static final String VIEW_PREFIX = "/* Presto View: ";
     static final String VIEW_SUFFIX = " */";
@@ -184,7 +185,7 @@ public final class ViewReaderUtil
         // https://github.com/trinodb/trino/blame/ff4a1e31fb9cb49f1b960abfc16ad469e7126a64/plugin/trino-iceberg/src/main/java/io/trino/plugin/iceberg/IcebergMetadata.java#L898
         return tableType.equals(VIRTUAL_VIEW.name()) &&
                 "true".equals(tableParameters.get(PRESTO_VIEW_FLAG)) &&
-                ICEBERG_MATERIALIZED_VIEW_COMMENT.equalsIgnoreCase(tableParameters.get(TABLE_COMMENT));
+                TableInfo.ICEBERG_MATERIALIZED_VIEW_COMMENT.equalsIgnoreCase(tableParameters.get(TABLE_COMMENT));
     }
 
     public static String encodeViewData(ConnectorViewDefinition definition)
@@ -201,9 +202,9 @@ public final class ViewReaderUtil
             implements ViewReader
     {
         @Override
-        public ConnectorViewDefinition decodeViewData(String viewData, Table table, CatalogName catalogName)
+        public ConnectorViewDefinition decodeViewData(Optional<String> viewData, Table table, CatalogName catalogName)
         {
-            return decodeViewData(viewData);
+            return decodeViewData(viewData.orElseThrow(() -> new TrinoException(HIVE_VIEW_TRANSLATION_ERROR, "Cannot decode view data, view original sql is empty")));
         }
 
         public static ConnectorViewDefinition decodeViewData(String viewData)
@@ -237,7 +238,7 @@ public final class ViewReaderUtil
         }
 
         @Override
-        public ConnectorViewDefinition decodeViewData(String viewSql, Table table, CatalogName catalogName)
+        public ConnectorViewDefinition decodeViewData(Optional<String> viewSql, Table table, CatalogName catalogName)
         {
             try {
                 HiveToRelConverter hiveToRelConverter = new HiveToRelConverter(metastoreClient);
@@ -245,11 +246,16 @@ public final class ViewReaderUtil
                 RelToTrinoConverter relToTrino = new RelToTrinoConverter(metastoreClient);
                 String trinoSql = relToTrino.convert(rel);
                 RelDataType rowType = rel.getRowType();
+
+                Map<String, String> columnComments = Stream.concat(table.getDataColumns().stream(), table.getPartitionColumns().stream())
+                        .filter(column -> column.getComment().isPresent())
+                        .collect(toImmutableMap(Column::getName, column -> column.getComment().get()));
+
                 List<ViewColumn> columns = rowType.getFieldList().stream()
                         .map(field -> new ViewColumn(
                                 field.getName(),
                                 typeManager.fromSqlType(getTypeString(field.getType(), hiveViewsTimestampPrecision)).getTypeId(),
-                                Optional.empty()))
+                                Optional.ofNullable(columnComments.get(field.getName()))))
                         .collect(toImmutableList());
                 return new ConnectorViewDefinition(
                         trinoSql,

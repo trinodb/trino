@@ -15,8 +15,12 @@ package io.trino.parquet.reader.decoders;
 
 import io.trino.parquet.reader.SimpleSliceInputStream;
 
+import java.lang.invoke.VarHandle;
+
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.parquet.ParquetReaderUtils.propagateSignBit;
+import static java.lang.invoke.MethodHandles.byteArrayViewVarHandle;
+import static java.nio.ByteOrder.BIG_ENDIAN;
 
 public class ShortDecimalFixedWidthByteArrayBatchDecoder
 {
@@ -30,6 +34,8 @@ public class ShortDecimalFixedWidthByteArrayBatchDecoder
             new BigEndianReader7(),
             new BigEndianReader8()
     };
+    private static final VarHandle LONG_HANDLE_BIG_ENDIAN = byteArrayViewVarHandle(long[].class, BIG_ENDIAN);
+    private static final VarHandle INT_HANDLE_BIG_ENDIAN = byteArrayViewVarHandle(int[].class, BIG_ENDIAN);
 
     public interface ShortDecimalDecoder
     {
@@ -49,26 +55,24 @@ public class ShortDecimalFixedWidthByteArrayBatchDecoder
         // (the most significant byte is the zeroth element)
     }
 
-    /**
-     * This method uses Unsafe operations on Slice.
-     * Always check if needed data is available with ensureBytesAvailable method.
-     * Failing to do so may result in instant JVM crash.
-     */
     public void getShortDecimalValues(SimpleSliceInputStream input, long[] values, int offset, int length)
     {
         decoder.decode(input, values, offset, length);
     }
 
-    private static final class BigEndianReader8
+    public static final class BigEndianReader8
             implements ShortDecimalDecoder
     {
         @Override
         public void decode(SimpleSliceInputStream input, long[] values, int offset, int length)
         {
-            int endOffset = offset + length;
-            for (int i = offset; i < endOffset; i++) {
-                values[i] = Long.reverseBytes(input.readLongUnsafe());
+            byte[] inputArray = input.getByteArray();
+            int inputOffset = input.getByteArrayOffset();
+            for (int i = offset; i < offset + length; i++) {
+                values[i] = (long) LONG_HANDLE_BIG_ENDIAN.get(inputArray, inputOffset);
+                inputOffset += Long.BYTES;
             }
+            input.skip(length * Long.BYTES);
         }
     }
 
@@ -81,24 +85,26 @@ public class ShortDecimalFixedWidthByteArrayBatchDecoder
             if (length == 0) {
                 return;
             }
-            int bytesOffSet = 0;
+            byte[] inputArray = input.getByteArray();
+            int inputOffset = input.getByteArrayOffset();
+            int inputBytesRead = 0;
             int endOffset = offset + length;
             for (int i = offset; i < endOffset - 1; i++) {
                 // We read redundant bytes and then ignore them. Sign bit is propagated by `>>` operator
-                values[i] = Long.reverseBytes(input.getLongUnsafe(bytesOffSet)) >> 8;
-                bytesOffSet += 7;
+                values[i] = (long) LONG_HANDLE_BIG_ENDIAN.get(inputArray, inputOffset + inputBytesRead) >> 8;
+                inputBytesRead += 7;
             }
             // Decode the last one "normally" as it would read data out of bounds
-            values[endOffset - 1] = decode(input, bytesOffSet);
-            input.skip(bytesOffSet + 7);
+            values[endOffset - 1] = decode(input, inputBytesRead);
+            input.skip(inputBytesRead + 7);
         }
 
         private long decode(SimpleSliceInputStream input, int index)
         {
-            long value = (input.getByteUnsafe(index + 6) & 0xFFL)
-                    | (input.getByteUnsafe(index + 5) & 0xFFL) << 8
-                    | (input.getByteUnsafe(index + 4) & 0xFFL) << 16
-                    | (Integer.reverseBytes(input.getIntUnsafe(index)) & 0xFFFFFFFFL) << 24;
+            long value = (input.getByteUnchecked(index + 6) & 0xFFL)
+                    | (input.getByteUnchecked(index + 5) & 0xFFL) << 8
+                    | (input.getByteUnchecked(index + 4) & 0xFFL) << 16
+                    | (Integer.reverseBytes(input.getIntUnchecked(index)) & 0xFFFFFFFFL) << 24;
             return propagateSignBit(value, 8);
         }
     }
@@ -112,23 +118,25 @@ public class ShortDecimalFixedWidthByteArrayBatchDecoder
             if (length == 0) {
                 return;
             }
-            int bytesOffSet = 0;
+            byte[] inputArray = input.getByteArray();
+            int inputOffset = input.getByteArrayOffset();
+            int inputBytesRead = 0;
             int endOffset = offset + length;
             for (int i = offset; i < endOffset - 1; i++) {
                 // We read redundant bytes and then ignore them. Sign bit is propagated by `>>` operator
-                values[i] = Long.reverseBytes(input.getLongUnsafe(bytesOffSet)) >> 16;
-                bytesOffSet += 6;
+                values[i] = (long) LONG_HANDLE_BIG_ENDIAN.get(inputArray, inputOffset + inputBytesRead) >> 16;
+                inputBytesRead += 6;
             }
             // Decode the last one "normally" as it would read data out of bounds
-            values[endOffset - 1] = decode(input, bytesOffSet);
-            input.skip(bytesOffSet + 6);
+            values[endOffset - 1] = decode(input, inputBytesRead);
+            input.skip(inputBytesRead + 6);
         }
 
         private long decode(SimpleSliceInputStream input, int index)
         {
-            long value = (input.getByteUnsafe(index + 5) & 0xFFL)
-                    | (input.getByteUnsafe(index + 4) & 0xFFL) << 8
-                    | (Integer.reverseBytes(input.getIntUnsafe(index)) & 0xFFFFFFFFL) << 16;
+            long value = (input.getByteUnchecked(index + 5) & 0xFFL)
+                    | (input.getByteUnchecked(index + 4) & 0xFFL) << 8
+                    | (Integer.reverseBytes(input.getIntUnchecked(index)) & 0xFFFFFFFFL) << 16;
             return propagateSignBit(value, 16);
         }
     }
@@ -142,22 +150,24 @@ public class ShortDecimalFixedWidthByteArrayBatchDecoder
             if (length == 0) {
                 return;
             }
-            int bytesOffSet = 0;
+            byte[] inputArray = input.getByteArray();
+            int inputOffset = input.getByteArrayOffset();
+            int inputBytesRead = 0;
             int endOffset = offset + length;
             for (int i = offset; i < endOffset - 1; i++) {
                 // We read redundant bytes and then ignore them. Sign bit is propagated by `>>` operator
-                values[i] = Long.reverseBytes(input.getLongUnsafe(bytesOffSet)) >> 24;
-                bytesOffSet += 5;
+                values[i] = (long) LONG_HANDLE_BIG_ENDIAN.get(inputArray, inputOffset + inputBytesRead) >> 24;
+                inputBytesRead += 5;
             }
             // Decode the last one "normally" as it would read data out of bounds
-            values[endOffset - 1] = decode(input, bytesOffSet);
-            input.skip(bytesOffSet + 5);
+            values[endOffset - 1] = decode(input, inputBytesRead);
+            input.skip(inputBytesRead + 5);
         }
 
         private long decode(SimpleSliceInputStream input, int index)
         {
-            long value = (input.getByteUnsafe(index + 4) & 0xFFL)
-                    | (Integer.reverseBytes(input.getIntUnsafe(index)) & 0xFFFFFFFFL) << 8;
+            long value = (input.getByteUnchecked(index + 4) & 0xFFL)
+                    | (Integer.reverseBytes(input.getIntUnchecked(index)) & 0xFFFFFFFFL) << 8;
             return propagateSignBit(value, 24);
         }
     }
@@ -168,21 +178,13 @@ public class ShortDecimalFixedWidthByteArrayBatchDecoder
         @Override
         public void decode(SimpleSliceInputStream input, long[] values, int offset, int length)
         {
-            while (length > 1) {
-                long value = Long.reverseBytes(input.readLongUnsafe());
-
-                // Implicit cast will propagate the sign bit correctly, as it is performed after the byte reversal.
-                values[offset] = (int) (value >> 32);
-                values[offset + 1] = (int) value;
-
-                offset += 2;
-                length -= 2;
+            byte[] inputArray = input.getByteArray();
+            int inputOffset = input.getByteArrayOffset();
+            for (int i = offset; i < offset + length; i++) {
+                values[i] = (int) INT_HANDLE_BIG_ENDIAN.get(inputArray, inputOffset);
+                inputOffset += Integer.BYTES;
             }
-
-            if (length > 0) {
-                int value = input.readIntUnsafe();
-                values[offset] = Integer.reverseBytes(value);
-            }
+            input.skip(length * Integer.BYTES);
         }
     }
 
@@ -192,29 +194,34 @@ public class ShortDecimalFixedWidthByteArrayBatchDecoder
         @Override
         public void decode(SimpleSliceInputStream input, long[] values, int offset, int length)
         {
-            int bytesOffSet = 0;
-            int endOffset = offset + length;
-            int i = offset;
-            for (; i < endOffset - 2; i += 2) {
+            byte[] inputArray = input.getByteArray();
+            int inputOffset = input.getByteArrayOffset();
+            int inputBytesRead = 0;
+            while (length > 2) {
                 // We read redundant bytes and then ignore them. Sign bit is propagated by `>>` operator
-                long value = Long.reverseBytes(input.getLongUnsafe(bytesOffSet));
-                values[i] = value >> 40;
-                values[i + 1] = value << 24 >> 40;
-                bytesOffSet += 6;
+                long value = (long) LONG_HANDLE_BIG_ENDIAN.get(inputArray, inputOffset + inputBytesRead);
+                inputBytesRead += 6;
+
+                values[offset] = value >> 40;
+                values[offset + 1] = value << 24 >> 40;
+
+                offset += 2;
+                length -= 2;
             }
             // Decode the last values "normally" as it would read data out of bounds
-            while (i < endOffset) {
-                values[i++] = decode(input, bytesOffSet);
-                bytesOffSet += 3;
+            while (length > 0) {
+                values[offset++] = decode(input, inputBytesRead);
+                length--;
+                inputBytesRead += 3;
             }
-            input.skip(bytesOffSet);
+            input.skip(inputBytesRead);
         }
 
         private long decode(SimpleSliceInputStream input, int index)
         {
-            long value = (input.getByteUnsafe(index + 2) & 0xFFL)
-                    | (input.getByteUnsafe(index + 1) & 0xFFL) << 8
-                    | (input.getByteUnsafe(index) & 0xFFL) << 16;
+            long value = (input.getByteUnchecked(index + 2) & 0xFFL)
+                    | (input.getByteUnchecked(index + 1) & 0xFFL) << 8
+                    | (input.getByteUnchecked(index) & 0xFFL) << 16;
             return propagateSignBit(value, 40);
         }
     }
@@ -225,10 +232,13 @@ public class ShortDecimalFixedWidthByteArrayBatchDecoder
         @Override
         public void decode(SimpleSliceInputStream input, long[] values, int offset, int length)
         {
+            byte[] inputArray = input.getByteArray();
+            int inputOffset = input.getByteArrayOffset();
+            int inputBytesRead = 0;
             while (length > 3) {
-                long value = input.readLongUnsafe();
                 // Reverse all bytes at once
-                value = Long.reverseBytes(value);
+                long value = (long) LONG_HANDLE_BIG_ENDIAN.get(inputArray, inputOffset + inputBytesRead);
+                inputBytesRead += Long.BYTES;
 
                 // We first shift the byte as left as possible. Then, when shifting back right,
                 // the sign bit will get propagated
@@ -240,6 +250,7 @@ public class ShortDecimalFixedWidthByteArrayBatchDecoder
                 offset += 4;
                 length -= 4;
             }
+            input.skip(inputBytesRead);
 
             while (length > 0) {
                 // Implicit cast will propagate the sign bit correctly, as it is performed after the byte reversal.

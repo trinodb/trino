@@ -76,8 +76,8 @@ class EventsAwaitingQueries
             else {
                 throw exception;
             }
-            if (exception instanceof QueryFailedException) {
-                queryId = ((QueryFailedException) exception).getQueryId();
+            if (exception instanceof QueryFailedException queryFailedException) {
+                queryId = queryFailedException.getQueryId();
             }
         }
         if (queryId == null) {

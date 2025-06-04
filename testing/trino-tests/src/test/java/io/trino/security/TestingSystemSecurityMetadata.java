@@ -20,6 +20,7 @@ import io.trino.metadata.QualifiedTablePrefix;
 import io.trino.metadata.SystemSecurityMetadata;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
+import io.trino.spi.connector.EntityKindAndName;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.security.GrantInfo;
 import io.trino.spi.security.Identity;
@@ -30,6 +31,7 @@ import io.trino.spi.security.TrinoPrincipal;
 import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
@@ -48,12 +50,19 @@ class TestingSystemSecurityMetadata
     private final Set<String> roles = synchronizedSet(new HashSet<>());
     private final Set<RoleGrant> roleGrants = synchronizedSet(new HashSet<>());
     private final Map<CatalogSchemaTableName, Identity> viewOwners = synchronizedMap(new HashMap<>());
+    private final Map<CatalogSchemaFunctionName, Identity> functionOwners = synchronizedMap(new HashMap<>());
 
     public void reset()
     {
         roles.clear();
         roleGrants.clear();
         viewOwners.clear();
+        functionOwners.clear();
+    }
+
+    public String getFunctionOwner(CatalogSchemaFunctionName functionName)
+    {
+        return functionOwners.get(functionName).getUser();
     }
 
     @Override
@@ -213,18 +222,6 @@ class TestingSystemSecurityMetadata
     }
 
     @Override
-    public void setSchemaOwner(Session session, CatalogSchemaName schema, TrinoPrincipal principal)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void setTableOwner(Session session, CatalogSchemaTableName table, TrinoPrincipal principal)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public Optional<Identity> getViewRunAsIdentity(Session session, CatalogSchemaTableName viewName)
     {
         return Optional.ofNullable(viewOwners.get(viewName))
@@ -237,16 +234,27 @@ class TestingSystemSecurityMetadata
     }
 
     @Override
-    public void setViewOwner(Session session, CatalogSchemaTableName view, TrinoPrincipal principal)
+    public Optional<Identity> getFunctionRunAsIdentity(Session session, CatalogSchemaFunctionName functionName)
     {
-        checkArgument(principal.getType() == USER, "Only a user can be a view owner");
-        viewOwners.put(view, Identity.ofUser(principal.getName()));
+        return Optional.ofNullable(functionOwners.get(functionName))
+                .map(identity -> Identity.from(identity)
+                        .withEnabledRoles(getRoleGrantsRecursively(new TrinoPrincipal(USER, identity.getUser()))
+                                .stream()
+                                .map(RoleGrant::getRoleName)
+                                .collect(toImmutableSet()))
+                        .build());
     }
 
     @Override
-    public Optional<Identity> getFunctionRunAsIdentity(Session session, CatalogSchemaFunctionName functionName)
+    public void functionCreated(Session session, CatalogSchemaFunctionName function)
     {
-        return Optional.empty();
+        functionOwners.put(function, session.getIdentity());
+    }
+
+    @Override
+    public void functionDropped(Session session, CatalogSchemaFunctionName function)
+    {
+        functionOwners.remove(function);
     }
 
     @Override
@@ -268,26 +276,30 @@ class TestingSystemSecurityMetadata
     public void tableDropped(Session session, CatalogSchemaTableName table) {}
 
     @Override
-    public void columnCreated(Session session, CatalogSchemaTableName table, String column)
-    {
-        throw new UnsupportedOperationException();
-    }
+    public void columnCreated(Session session, CatalogSchemaTableName table, String column) {}
 
     @Override
-    public void columnRenamed(Session session, CatalogSchemaTableName table, String oldName, String newName)
-    {
-        throw new UnsupportedOperationException();
-    }
+    public void columnRenamed(Session session, CatalogSchemaTableName table, String oldName, String newName) {}
 
     @Override
-    public void columnDropped(Session session, CatalogSchemaTableName table, String column)
-    {
-        throw new UnsupportedOperationException();
-    }
+    public void columnDropped(Session session, CatalogSchemaTableName table, String column) {}
 
     @Override
     public void columnTypeChanged(Session session, CatalogSchemaTableName table, String column, String oldType, String newType) {}
 
     @Override
     public void columnNotNullConstraintDropped(Session session, CatalogSchemaTableName table, String column) {}
+
+    @Override
+    public void setEntityOwner(Session session, EntityKindAndName entityKindAndName, TrinoPrincipal principal)
+    {
+        List<String> name = entityKindAndName.name();
+        if (entityKindAndName.entityKind().equals("VIEW")) {
+            checkArgument(principal.getType() == USER, "Only a user can be a view owner");
+            viewOwners.put(new CatalogSchemaTableName(name.get(0), name.get(1), name.get(2)), Identity.ofUser(principal.getName()));
+        }
+        else {
+            throw new UnsupportedOperationException();
+        }
+    }
 }

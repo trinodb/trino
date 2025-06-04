@@ -15,7 +15,6 @@ package io.trino.parquet;
 
 import io.trino.parquet.metadata.IndexReference;
 import org.apache.parquet.column.EncodingStats;
-import org.apache.parquet.column.ParquetProperties;
 import org.apache.parquet.column.statistics.BinaryStatistics;
 import org.apache.parquet.format.BoundaryOrder;
 import org.apache.parquet.format.BsonType;
@@ -79,6 +78,7 @@ import static org.apache.parquet.schema.LogicalTypeAnnotation.bsonType;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.dateType;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.decimalType;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.enumType;
+import static org.apache.parquet.schema.LogicalTypeAnnotation.float16Type;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.intType;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.jsonType;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.listType;
@@ -155,6 +155,7 @@ public final class ParquetMetadataConverter
                 yield timestampType(timestamp.isAdjustedToUTC, convertTimeUnit(timestamp.unit));
             }
             case UUID -> uuidType();
+            case FLOAT16 -> float16Type();
         };
     }
 
@@ -240,11 +241,6 @@ public final class ParquetMetadataConverter
         return type.columnOrder().getColumnOrderName() == ColumnOrderName.TYPE_DEFINED_ORDER;
     }
 
-    public static Statistics toParquetStatistics(org.apache.parquet.column.statistics.Statistics<?> stats)
-    {
-        return toParquetStatistics(stats, ParquetProperties.DEFAULT_STATISTICS_TRUNCATE_LENGTH);
-    }
-
     public static Statistics toParquetStatistics(org.apache.parquet.column.statistics.Statistics<?> stats, int truncateLength)
     {
         Statistics formatStats = new Statistics();
@@ -253,11 +249,17 @@ public final class ParquetMetadataConverter
             if (stats.hasNonNullValue()) {
                 byte[] min;
                 byte[] max;
+                boolean isMinValueExact = true;
+                boolean isMaxValueExact = true;
 
                 if (stats instanceof BinaryStatistics && truncateLength != Integer.MAX_VALUE) {
                     BinaryTruncator truncator = BinaryTruncator.getTruncator(stats.type());
-                    min = tuncateMin(truncator, truncateLength, stats.getMinBytes());
-                    max = tuncateMax(truncator, truncateLength, stats.getMaxBytes());
+                    byte[] originalMin = stats.getMinBytes();
+                    byte[] originalMax = stats.getMaxBytes();
+                    min = truncateMin(truncator, truncateLength, originalMin);
+                    max = truncateMax(truncator, truncateLength, originalMax);
+                    isMinValueExact = originalMin.length == min.length;
+                    isMaxValueExact = originalMax.length == max.length;
                 }
                 else {
                     min = stats.getMinBytes();
@@ -274,6 +276,8 @@ public final class ParquetMetadataConverter
                 if (isMinMaxStatsSupported(stats.type()) || Arrays.equals(min, max)) {
                     formatStats.setMin_value(min);
                     formatStats.setMax_value(max);
+                    formatStats.setIs_min_value_exact(isMinValueExact);
+                    formatStats.setIs_max_value_exact(isMaxValueExact);
                 }
             }
         }
@@ -380,12 +384,12 @@ public final class ParquetMetadataConverter
                 binaryStats.isSmallerThanWithTruncation(MAX_STATS_SIZE, truncateLength);
     }
 
-    private static byte[] tuncateMin(BinaryTruncator truncator, int truncateLength, byte[] input)
+    private static byte[] truncateMin(BinaryTruncator truncator, int truncateLength, byte[] input)
     {
         return truncator.truncateMin(Binary.fromConstantByteArray(input), truncateLength).getBytes();
     }
 
-    private static byte[] tuncateMax(BinaryTruncator truncator, int truncateLength, byte[] input)
+    private static byte[] truncateMax(BinaryTruncator truncator, int truncateLength, byte[] input)
     {
         return truncator.truncateMax(Binary.fromConstantByteArray(input), truncateLength).getBytes();
     }

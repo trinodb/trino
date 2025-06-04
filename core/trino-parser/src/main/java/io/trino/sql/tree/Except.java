@@ -25,22 +25,12 @@ import static java.util.Objects.requireNonNull;
 public class Except
         extends SetOperation
 {
-    private final Relation left;
-    private final Relation right;
+    private final QueryBody left;
+    private final QueryBody right;
 
-    public Except(Relation left, Relation right, boolean distinct)
+    public Except(NodeLocation location, QueryBody left, QueryBody right, boolean distinct, Optional<Corresponding> corresponding)
     {
-        this(Optional.empty(), left, right, distinct);
-    }
-
-    public Except(NodeLocation location, Relation left, Relation right, boolean distinct)
-    {
-        this(Optional.of(location), left, right, distinct);
-    }
-
-    private Except(Optional<NodeLocation> location, Relation left, Relation right, boolean distinct)
-    {
-        super(location, distinct);
+        super(Optional.of(location), distinct, corresponding);
         requireNonNull(left, "left is null");
         requireNonNull(right, "right is null");
 
@@ -83,6 +73,7 @@ public class Except
                 .add("left", left)
                 .add("right", right)
                 .add("distinct", isDistinct())
+                .add("corresponding", getCorresponding())
                 .toString();
     }
 
@@ -98,13 +89,14 @@ public class Except
         Except o = (Except) obj;
         return Objects.equals(left, o.left) &&
                 Objects.equals(right, o.right) &&
-                Objects.equals(isDistinct(), o.isDistinct());
+                isDistinct() == o.isDistinct() &&
+                Objects.equals(getCorresponding(), o.getCorresponding());
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(left, right, isDistinct());
+        return Objects.hash(left, right, isDistinct(), getCorresponding());
     }
 
     @Override
@@ -114,6 +106,8 @@ public class Except
             return false;
         }
 
-        return this.isDistinct() == ((Except) other).isDistinct();
+        Except otherExcept = (Except) other;
+        return this.isDistinct() == otherExcept.isDistinct() &&
+                Objects.equals(getCorresponding(), otherExcept.getCorresponding());
     }
 }

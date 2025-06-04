@@ -19,27 +19,21 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-import static java.util.Objects.requireNonNull;
-
 public class Array
         extends Expression
 {
     private final List<Expression> values;
 
+    @Deprecated
     public Array(List<Expression> values)
     {
-        this(Optional.empty(), values);
+        super(Optional.empty());
+        this.values = ImmutableList.copyOf(values);
     }
 
     public Array(NodeLocation location, List<Expression> values)
     {
-        this(Optional.of(location), values);
-    }
-
-    private Array(Optional<NodeLocation> location, List<Expression> values)
-    {
         super(location);
-        requireNonNull(values, "values is null");
         this.values = ImmutableList.copyOf(values);
     }
 

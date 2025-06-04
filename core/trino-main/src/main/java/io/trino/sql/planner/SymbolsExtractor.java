@@ -88,7 +88,7 @@ public final class SymbolsExtractor
     public static List<Symbol> extractAll(Expression expression)
     {
         ImmutableList.Builder<Symbol> builder = ImmutableList.builder();
-        new SymbolBuilderVisitor().process(expression, builder);
+        new SymbolBuilderVisitor().process(expression, new Context(ImmutableSet.of(), builder));
         return builder.build();
     }
 
@@ -110,6 +110,7 @@ public final class SymbolsExtractor
         for (Expression argument : function.getArguments()) {
             builder.addAll(extractAll(argument));
         }
+        function.getOrderingScheme().ifPresent(orderBy -> builder.addAll(orderBy.orderBy()));
         function.getFrame().getEndValue().ifPresent(builder::add);
         function.getFrame().getSortKeyCoercedForFrameEndComparison().ifPresent(builder::add);
         function.getFrame().getStartValue().ifPresent(builder::add);
@@ -132,20 +133,31 @@ public final class SymbolsExtractor
     }
 
     private static class SymbolBuilderVisitor
-            extends DefaultTraversalVisitor<ImmutableList.Builder<Symbol>>
+            extends DefaultTraversalVisitor<Context>
     {
         @Override
-        protected Void visitReference(Reference node, ImmutableList.Builder<Symbol> builder)
+        protected Void visitReference(Reference node, Context context)
         {
-            builder.add(Symbol.from(node));
+            Symbol symbol = Symbol.from(node);
+            if (!context.lambdaArguments().contains(symbol)) {
+                context.builder().add(symbol);
+            }
             return null;
         }
 
         @Override
-        protected Void visitLambda(Lambda node, ImmutableList.Builder<Symbol> context)
+        protected Void visitLambda(Lambda node, Context context)
         {
-            // Symbols in lambda expression are bound to lambda arguments, so no need to extract them
+            Context lambdaContext = new Context(
+                    ImmutableSet.<Symbol>builder()
+                            .addAll(context.lambdaArguments())
+                            .addAll(node.arguments())
+                            .build(),
+                    context.builder());
+            process(node.body(), lambdaContext);
             return null;
         }
     }
+
+    private record Context(Set<Symbol> lambdaArguments, ImmutableList.Builder<Symbol> builder) {}
 }

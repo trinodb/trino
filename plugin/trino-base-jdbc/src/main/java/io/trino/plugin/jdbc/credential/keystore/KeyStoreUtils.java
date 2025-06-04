@@ -18,6 +18,7 @@ import javax.crypto.spec.PBEKeySpec;
 
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.security.GeneralSecurityException;
 import java.security.KeyStore;
 import java.security.KeyStore.PasswordProtection;
@@ -31,7 +32,9 @@ public final class KeyStoreUtils
             throws IOException, GeneralSecurityException
     {
         KeyStore keyStore = KeyStore.getInstance(keyStoreType);
-        keyStore.load(new FileInputStream(keyStorePath), keyStorePassword.toCharArray());
+        try (InputStream stream = new FileInputStream(keyStorePath)) {
+            keyStore.load(stream, keyStorePassword.toCharArray());
+        }
         return keyStore;
     }
 

@@ -170,6 +170,16 @@ class TaskEntry
         concurrency.update(utilization.getAsDouble(), runningLeafSplits);
     }
 
+    public synchronized int pendingLeafSplitCount()
+    {
+        return pending.size();
+    }
+
+    public synchronized int totalRunningSplits()
+    {
+        return running.size();
+    }
+
     public synchronized boolean hasPendingLeafSplits()
     {
         return !pending.isEmpty();

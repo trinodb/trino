@@ -85,9 +85,10 @@ public final class ExpressionTreeUtils
 
     private static boolean isAggregation(FunctionCall functionCall, Session session, FunctionResolver functionResolver, AccessControl accessControl)
     {
-        return ((functionResolver.isAggregationFunction(session, functionCall.getName(), accessControl) || functionCall.getFilter().isPresent())
-                && functionCall.getWindow().isEmpty())
-                || functionCall.getOrderBy().isPresent();
+        return (functionResolver.isAggregationFunction(session, functionCall.getName(), accessControl)
+                || functionCall.getFilter().isPresent()
+                || functionCall.getOrderBy().isPresent())
+                && functionCall.getWindow().isEmpty();
     }
 
     private static boolean isWindow(FunctionCall functionCall, Session session, FunctionResolver functionResolver, AccessControl accessControl)
@@ -143,11 +144,11 @@ public final class ExpressionTreeUtils
     public static QualifiedName asQualifiedName(Expression expression)
     {
         QualifiedName name = null;
-        if (expression instanceof Identifier) {
-            name = QualifiedName.of(((Identifier) expression).getValue());
+        if (expression instanceof Identifier identifier) {
+            name = QualifiedName.of(identifier.getValue());
         }
-        else if (expression instanceof DereferenceExpression) {
-            name = DereferenceExpression.getQualifiedName((DereferenceExpression) expression);
+        else if (expression instanceof DereferenceExpression dereferenceExpression) {
+            name = DereferenceExpression.getQualifiedName(dereferenceExpression);
         }
         return name;
     }

@@ -1,5 +1,5 @@
--- database: presto; groups: insert; mutable_tables: datatype|created; tables: datatype
--- delimiter: |; ignoreOrder: true; 
+-- database: trino; groups: insert; mutable_tables: datatype|created; tables: datatype
+-- delimiter: |; ignoreOrder: true;
 --!
 insert into ${mutableTables.hive.datatype} select 5 * c_bigint, c_double + 15, c_string, c_date, c_timestamp, c_boolean, cast((c_short_decimal / DECIMAL '2.00') as decimal(5,2)), cast((c_long_decimal % DECIMAL '10') as decimal(30,10)) from datatype;
 select * from ${mutableTables.hive.datatype}

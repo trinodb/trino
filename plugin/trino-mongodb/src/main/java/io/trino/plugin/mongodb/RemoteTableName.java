@@ -22,4 +22,10 @@ public record RemoteTableName(String databaseName, String collectionName)
         requireNonNull(databaseName, "databaseName is null");
         requireNonNull(collectionName, "collectionName is null");
     }
+
+    @Override
+    public String toString()
+    {
+        return "%s.%s".formatted(databaseName, collectionName);
+    }
 }

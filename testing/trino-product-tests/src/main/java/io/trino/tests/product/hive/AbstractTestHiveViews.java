@@ -50,7 +50,6 @@ import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 @Requires({
         ImmutableNationTable.class,
@@ -82,7 +81,7 @@ public abstract class AbstractTestHiveViews
     {
         onHive().executeQuery("DROP TABLE IF EXISTS test_hive_view_array_index_table");
         onHive().executeQuery("CREATE TABLE test_hive_view_array_index_table(an_index int, an_array array<string>)");
-        onHive().executeQuery("INSERT INTO TABLE test_hive_view_array_index_table SELECT 1, array('presto','hive') FROM nation WHERE n_nationkey = 1");
+        onHive().executeQuery("INSERT INTO TABLE test_hive_view_array_index_table SELECT 1, array('trino','hive') FROM nation WHERE n_nationkey = 1");
 
         // literal array index
         onHive().executeQuery("DROP VIEW IF EXISTS test_hive_view_array_index_view");
@@ -309,12 +308,12 @@ public abstract class AbstractTestHiveViews
 
         QueryResult actualResult = onTrino().executeQuery(format(showCreateViewSql, "hive"));
         assertThat(actualResult).hasRowsCount(1);
-        assertEquals((String) actualResult.getOnlyValue(), format(expectedResult, "hive"));
+        assertThat((String) actualResult.getOnlyValue()).isEqualTo(format(expectedResult, "hive"));
 
         // Verify the translated view sql for a catalog other than "hive", which is configured to the same metastore
         actualResult = onTrino().executeQuery(format(showCreateViewSql, "hive_with_external_writes"));
         assertThat(actualResult).hasRowsCount(1);
-        assertEquals((String) actualResult.getOnlyValue(), format(expectedResult, "hive_with_external_writes"));
+        assertThat((String) actualResult.getOnlyValue()).isEqualTo(format(expectedResult, "hive_with_external_writes"));
     }
 
     /**
@@ -471,7 +470,7 @@ public abstract class AbstractTestHiveViews
         onHive().executeQuery("DROP VIEW IF EXISTS no_catalog_schema_view");
         onHive().executeQuery("CREATE VIEW no_catalog_schema_view AS SELECT * FROM nation WHERE n_nationkey = 1");
 
-        QueryExecutor executor = connectToTrino("presto_no_default_catalog");
+        QueryExecutor executor = connectToTrino("trino_no_default_catalog");
         assertQueryFailure(() -> executor.executeQuery("SELECT count(*) FROM no_catalog_schema_view"))
                 .hasMessageMatching(".*Schema must be specified when session schema is not set.*");
         assertThat(executor.executeQuery("SELECT count(*) FROM hive.default.no_catalog_schema_view"))
@@ -520,7 +519,7 @@ public abstract class AbstractTestHiveViews
 
         String testQuery = "SELECT cu FROM current_user_hive_view";
         assertThat(onTrino().executeQuery(testQuery)).containsOnly(row("hive"));
-        assertThat(connectToTrino("alice@presto").executeQuery(testQuery)).containsOnly(row("alice"));
+        assertThat(connectToTrino("alice@trino").executeQuery(testQuery)).containsOnly(row("alice"));
     }
 
     @Test
@@ -752,8 +751,8 @@ public abstract class AbstractTestHiveViews
 
         String definerQuery = "SELECT * FROM hive.default.run_as_invoker_view";
         String invokerQuery = "SELECT * FROM hive_with_run_view_as_invoker.default.run_as_invoker_view";
-        assertThat(connectToTrino("alice@presto").executeQuery(definerQuery)).hasNoRows(); // Allowed
-        assertThatThrownBy(() -> connectToTrino("alice@presto").executeQuery(invokerQuery))
+        assertThat(connectToTrino("alice@trino").executeQuery(definerQuery)).hasNoRows(); // Allowed
+        assertThatThrownBy(() -> connectToTrino("alice@trino").executeQuery(invokerQuery))
                 .hasMessageContaining("Access Denied");
 
         onHive().executeQuery("DROP VIEW run_as_invoker_view");
@@ -762,7 +761,7 @@ public abstract class AbstractTestHiveViews
 
     protected static void assertViewQuery(String query, Consumer<QueryAssert> assertion)
     {
-        // Ensure Hive and Presto view compatibility by comparing the results
+        // Ensure Hive and Trino view compatibility by comparing the results
         assertion.accept(assertThat(onHive().executeQuery(query)));
         assertion.accept(assertThat(onTrino().executeQuery(query)));
     }

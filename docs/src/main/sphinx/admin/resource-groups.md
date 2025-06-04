@@ -28,6 +28,7 @@ resource-groups.config-file=etc/resource-groups.json
 The path to the JSON file can be an absolute path, or a path relative to the Trino
 data directory. The JSON file only needs to be present on the coordinator.
 
+(db-resource-group-manager)=
 ## Database resource group manager
 
 The database resource group manager loads the configuration from a relational database. The
@@ -132,12 +133,11 @@ are reflected automatically for incoming queries.
   {ref}`scheduleweight-example`.
 
 - `jmxExport` (optional): If true, group statistics are exported to JMX for monitoring.
-  Defaults to `true`.
+  Defaults to `false`.
 
 - `subGroups` (optional): list of sub-groups.
 
 (scheduleweight-example)=
-
 ### Scheduling weight example
 
 Schedule weighting is a method of assigning a priority to a resource. Sub-groups
@@ -162,9 +162,17 @@ evenly and each receive 50% of the queries in a given timeframe.
 The selector rules for pattern matching use Java's regular expression
 capabilities. Java implements regular expressions through the `java.util.regex`
 package. For more information, see the [Java
-documentation](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/regex/Pattern.html).
+documentation](https://docs.oracle.com/en/java/javase/24/docs/api/java.base/java/util/regex/Pattern.html).
 
-- `user` (optional): Java regex to match against user name.
+- `user` (optional): Java regex to match against username.
+
+- `originalUser` (optional): Java regex to match against the _original_ username,
+  i.e. before any changes to the session user. For example, if user "foo" runs
+  `SET SESSION AUTHORIZATION 'bar'`, `originalUser` is "foo", while `user` is "bar".
+
+- `authenticatedUser` (optional): Java regex to match against the _authenticated_ username,
+  which will always refer to the user that authenticated with the system, regardless of any
+  changes made to the session user.
 
 - `userGroup` (optional): Java regex to match against every user group the user belongs to.
 
@@ -172,15 +180,25 @@ documentation](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java
 
 - `queryType` (optional): string to match against the type of the query submitted:
 
-  - `SELECT`: `SELECT` queries.
-  - `EXPLAIN`: `EXPLAIN` queries (but not `EXPLAIN ANALYZE`).
-  - `DESCRIBE`: `DESCRIBE`, `DESCRIBE INPUT`, `DESCRIBE OUTPUT`, and `SHOW` queries.
-  - `INSERT`: `INSERT`, `CREATE TABLE AS`, and `REFRESH MATERIALIZED VIEW` queries.
-  - `UPDATE`: `UPDATE` queries.
-  - `DELETE`: `DELETE` queries.
-  - `ANALYZE`: `ANALYZE` queries.
-  - `DATA_DEFINITION`: Queries that alter/create/drop the metadata of schemas/tables/views,
-    and that manage prepared statements, privileges, sessions, and transactions.
+  - `SELECT`: [SELECT](/sql/select) queries.
+  - `EXPLAIN`: [EXPLAIN](/sql/explain) queries, but not [EXPLAIN
+    ANALYZE](/sql/explain-analyze) queries.
+  - `DESCRIBE`: [DESCRIBE](/sql/describe), [DESCRIBE
+    INPUT](/sql/describe-input), [DESCRIBE OUTPUT](/sql/describe-output), and
+    `SHOW` queries such as [SHOW CATALOGS](/sql/show-catalogs), [SHOW
+    SCHEMAS](/sql/show-schemas), and [SHOW TABLES](/sql/show-tables).
+  - `INSERT`: [INSERT](/sql/insert), [CREATE TABLE AS](/sql/create-table-as),
+    and [REFRESH MATERIALIZED VIEW](/sql/refresh-materialized-view) queries.
+  - `UPDATE`: [UPDATE](/sql/update) queries.
+  - `MERGE`: [MERGE](/sql/merge) queries.
+  - `DELETE`: [DELETE](/sql/delete) queries.
+  - `ANALYZE`: [ANALYZE](/sql/analyze) queries.
+  - `DATA_DEFINITION`: Queries that affect the data definition. These include
+    `CREATE`, `ALTER`, and `DROP` statements for schemas, tables, views, and
+    materialized views, as well as statements that manage prepared statements,
+    privileges, sessions, and transactions.
+  - `ALTER_TABLE_EXECUTE`: Queries that execute table procedures with [ALTER
+    TABLE EXECUTE](alter-table-execute).
 
 - `clientTags` (optional): list of tags. To match, every tag in this list must be in the list of
   client-provided tags associated with the query.
@@ -224,18 +242,23 @@ In the example configuration below, there are several resource groups, some of w
 Templates allow administrators to construct resource group trees dynamically. For example, in
 the `pipeline_${USER}` group, `${USER}` is expanded to the name of the user that submitted
 the query. `${SOURCE}` is also supported, which is expanded to the source that submitted the
-query. You may also use custom named variables in the `source` and `user` regular expressions.
+query. You may also use custom named variables in the regular expressions for `user`, `source`,
+`originalUser`, and `authenticatedUser`.
 
-There are four selectors, that define which queries run in which resource group:
+There are six selectors, that define which queries run in which resource group:
 
 - The first selector matches queries from `bob` and places them in the admin group.
-- The second selector matches queries from `admin` user group and places them in the admin group.
-- The third selector matches all data definition (DDL) queries from a source name that includes `pipeline`
+- The next selector matches queries with an _original_ user of `bob`
+  and places them in the admin group.
+- The next selector matches queries with an _authenticated_ user of `bob`
+  and places them in the admin group.
+- The next selector matches queries from `admin` user group and places them in the admin group.
+- The next selector matches all data definition (DDL) queries from a source name that includes `pipeline`
   and places them in the `global.data_definition` group. This could help reduce queue times for this
   class of queries, since they are expected to be fast.
-- The fourth selector matches queries from a source name that includes `pipeline`, and places them in a
+- The next selector matches queries from a source name that includes `pipeline`, and places them in a
   dynamically-created per-user pipeline group under the `global.pipeline` group.
-- The fifth selector matches queries that come from BI tools which have a source matching the regular
+- The next selector matches queries that come from BI tools which have a source matching the regular
   expression `jdbc#(?<toolname>.*)` and have client provided tags that are a superset of `hipri`.
   These are placed in a dynamically-created sub-group under the `global.adhoc` group.
   The dynamic sub-groups are created based on the values of named variables `toolname` and `user`.
@@ -247,9 +270,10 @@ There are four selectors, that define which queries run in which resource group:
 
 Together, these selectors implement the following policy:
 
-- The user `bob` and any user belonging to user group `admin`
-  is an admin and can run up to 50 concurrent queries.
-  Queries will be run based on user-provided priority.
+- The user `bob` and any user belonging to user group `admin` is an admin and can run up to
+  50 concurrent queries. `bob` will be treated as an admin even if they have changed their session
+  user to a different user (i.e. via a `SET SESSION AUTHORIZATION` statement or the
+  `X-Trino-User` request header). Queries will be run based on user-provided priority.
 
 For the remaining users:
 

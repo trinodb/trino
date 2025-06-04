@@ -38,8 +38,8 @@ public final class ArrayTrimFunction
             @SqlType("array(E)") Block array,
             @SqlType(StandardTypes.BIGINT) long size)
     {
-        checkCondition(size >= 0, INVALID_FUNCTION_ARGUMENT, "size must not be negative: %s", size);
-        checkCondition(size <= array.getPositionCount(), INVALID_FUNCTION_ARGUMENT, "size must not exceed array cardinality %s: %s", array.getPositionCount(), size);
+        checkCondition(size >= 0, INVALID_FUNCTION_ARGUMENT, () -> String.format("size must not be negative: %s", size));
+        checkCondition(size <= array.getPositionCount(), INVALID_FUNCTION_ARGUMENT, () -> String.format("size must not exceed array cardinality %s: %s", array.getPositionCount(), size));
 
         return array.getRegion(0, toIntExact(array.getPositionCount() - size));
     }

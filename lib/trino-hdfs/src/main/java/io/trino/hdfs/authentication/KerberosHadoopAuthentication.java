@@ -23,7 +23,7 @@ import javax.security.auth.Subject;
 
 import static io.trino.hdfs.ConfigurationUtils.getInitialConfiguration;
 import static java.util.Objects.requireNonNull;
-import static org.apache.hadoop.security.UserGroupInformationShim.createUserGroupInformationForSubject;
+import static org.apache.hadoop.security.UserGroupInformation.createUserGroupInformationForSubject;
 
 public class KerberosHadoopAuthentication
         implements HadoopAuthentication

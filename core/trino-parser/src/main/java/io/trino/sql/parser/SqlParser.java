@@ -188,7 +188,7 @@ public class SqlParser
             return new AstBuilder(location).visit(tree);
         }
         catch (StackOverflowError e) {
-            throw new ParsingException(name + " is too large (stack overflow while parsing)");
+            throw new ParsingException(name + " is too large (stack overflow while parsing)", location.orElse(new NodeLocation(1, 1)));
         }
     }
 

@@ -15,8 +15,8 @@ package io.trino.plugin.hive.avro;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.local.LocalFileSystem;
-import io.trino.plugin.hive.HiveType;
-import io.trino.plugin.hive.type.TypeInfo;
+import io.trino.metastore.HiveType;
+import io.trino.metastore.type.TypeInfo;
 import io.trino.spi.type.RowType;
 import org.apache.avro.Schema;
 import org.apache.hadoop.conf.Configuration;
@@ -29,9 +29,9 @@ import java.util.Properties;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static io.trino.plugin.hive.HiveType.HIVE_STRING;
-import static io.trino.plugin.hive.HiveType.toHiveType;
-import static io.trino.plugin.hive.avro.AvroHiveConstants.TABLE_NAME;
+import static io.trino.hive.formats.avro.AvroHiveConstants.TABLE_NAME;
+import static io.trino.metastore.HiveType.HIVE_STRING;
+import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMNS;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_TYPES;
 import static io.trino.spi.type.VarcharType.VARCHAR;

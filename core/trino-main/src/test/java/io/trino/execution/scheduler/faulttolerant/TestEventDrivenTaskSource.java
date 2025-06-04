@@ -40,6 +40,7 @@ import io.trino.spi.exchange.ExchangeSinkHandle;
 import io.trino.spi.exchange.ExchangeSinkInstanceHandle;
 import io.trino.spi.exchange.ExchangeSourceHandle;
 import io.trino.spi.exchange.ExchangeSourceHandleSource;
+import io.trino.spi.metrics.Metrics;
 import io.trino.split.RemoteSplit;
 import io.trino.split.SplitSource;
 import io.trino.sql.planner.plan.PlanFragmentId;
@@ -322,7 +323,7 @@ public class TestEventDrivenTaskSource
                 1,
                 1,
                 partitioningScheme,
-                getSplitDuration -> getSplitInvocations.incrementAndGet())) {
+                (_, _, _) -> getSplitInvocations.incrementAndGet())) {
             while (tester.getTaskDescriptors().isEmpty()) {
                 AssignmentResult result = taskSource.process().orElseThrow().get(10, SECONDS);
                 tester.update(result);
@@ -503,6 +504,12 @@ public class TestEventDrivenTaskSource
             return Optional.empty();
         }
 
+        @Override
+        public Metrics getMetrics()
+        {
+            return Metrics.EMPTY;
+        }
+
         public synchronized boolean isClosed()
         {
             return closed;
@@ -671,7 +678,7 @@ public class TestEventDrivenTaskSource
             AssignmentResult.Builder result = AssignmentResult.builder();
             Multimaps.asMap(splitsMap).forEach((partition, splits) -> {
                 if (partitions.add(partition)) {
-                    result.addPartition(new Partition(partition, new NodeRequirements(Optional.empty(), ImmutableSet.of())));
+                    result.addPartition(new Partition(partition, new NodeRequirements(Optional.empty(), Optional.empty(), true)));
                     for (PlanNodeId finishedSource : finishedSources) {
                         result.updatePartition(new PartitionUpdate(partition, finishedSource, false, ImmutableListMultimap.of(), true));
                     }
@@ -706,16 +713,11 @@ public class TestEventDrivenTaskSource
             if (partitions.isEmpty()) {
                 partitions.add(0);
                 result
-                        .addPartition(new Partition(0, new NodeRequirements(Optional.empty(), ImmutableSet.of())))
+                        .addPartition(new Partition(0, new NodeRequirements(Optional.empty(), Optional.empty(), true)))
                         .sealPartition(0);
             }
             return result.setNoMorePartitions()
                     .build();
-        }
-
-        public boolean isFinished()
-        {
-            return finished;
         }
     }
 }

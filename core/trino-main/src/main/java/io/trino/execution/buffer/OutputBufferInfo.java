@@ -16,10 +16,11 @@ package io.trino.execution.buffer;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.trino.execution.DistributionSnapshot;
 import io.trino.plugin.base.metrics.TDigestHistogram;
+import io.trino.spi.metrics.Metrics;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -38,6 +39,7 @@ public final class OutputBufferInfo
     private final Optional<List<PipelinedBufferInfo>> pipelinedBufferStates;
     private final Optional<TDigestHistogram> utilization;
     private final Optional<SpoolingOutputStats.Snapshot> spoolingOutputStats;
+    private final Optional<Metrics> metrics;
 
     @JsonCreator
     public OutputBufferInfo(
@@ -51,7 +53,8 @@ public final class OutputBufferInfo
             @JsonProperty("totalPagesSent") long totalPagesSent,
             @JsonProperty("pipelinedBufferStates") Optional<List<PipelinedBufferInfo>> pipelinedBufferStates,
             @JsonProperty("utilization") Optional<TDigestHistogram> utilization,
-            @JsonProperty("spoolingOutputStats") Optional<SpoolingOutputStats.Snapshot> spoolingOutputStats)
+            @JsonProperty("spoolingOutputStats") Optional<SpoolingOutputStats.Snapshot> spoolingOutputStats,
+            @JsonProperty("metrics") Optional<Metrics> metrics)
     {
         this.type = type;
         this.state = state;
@@ -64,6 +67,7 @@ public final class OutputBufferInfo
         this.pipelinedBufferStates = requireNonNull(pipelinedBufferStates, "pipelinedBufferStates is null").map(ImmutableList::copyOf);
         this.utilization = utilization;
         this.spoolingOutputStats = requireNonNull(spoolingOutputStats, "spoolingOutputStats is null");
+        this.metrics = requireNonNull(metrics, "metrics is null");
     }
 
     @JsonProperty
@@ -132,6 +136,12 @@ public final class OutputBufferInfo
         return spoolingOutputStats;
     }
 
+    @JsonProperty
+    public Optional<Metrics> getMetrics()
+    {
+        return metrics;
+    }
+
     public OutputBufferInfo summarize()
     {
         return new OutputBufferInfo(
@@ -143,6 +153,7 @@ public final class OutputBufferInfo
                 totalBufferedPages,
                 totalRowsSent,
                 totalPagesSent,
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
@@ -161,7 +172,8 @@ public final class OutputBufferInfo
                 totalPagesSent,
                 Optional.empty(),
                 utilization,
-                spoolingOutputStats);
+                spoolingOutputStats,
+                metrics);
     }
 
     public OutputBufferInfo pruneSpoolingOutputStats()
@@ -177,35 +189,25 @@ public final class OutputBufferInfo
                 totalPagesSent,
                 pipelinedBufferStates,
                 utilization,
-                Optional.empty());
+                Optional.empty(),
+                metrics);
     }
 
-    @Override
-    public boolean equals(Object o)
+    public OutputBufferInfo pruneDigests()
     {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        OutputBufferInfo that = (OutputBufferInfo) o;
-        return Objects.equals(type, that.type) &&
-                Objects.equals(canAddBuffers, that.canAddBuffers) &&
-                Objects.equals(canAddPages, that.canAddPages) &&
-                Objects.equals(totalBufferedBytes, that.totalBufferedBytes) &&
-                Objects.equals(totalBufferedPages, that.totalBufferedPages) &&
-                Objects.equals(totalRowsSent, that.totalRowsSent) &&
-                Objects.equals(totalPagesSent, that.totalPagesSent) &&
-                state == that.state &&
-                Objects.equals(pipelinedBufferStates, that.pipelinedBufferStates) &&
-                Objects.equals(utilization, that.utilization);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(state, canAddBuffers, canAddPages, totalBufferedBytes, totalBufferedPages, totalRowsSent, totalPagesSent, pipelinedBufferStates, utilization);
+        return new OutputBufferInfo(
+                type,
+                state,
+                canAddBuffers,
+                canAddPages,
+                totalBufferedBytes,
+                totalBufferedPages,
+                totalRowsSent,
+                totalPagesSent,
+                pipelinedBufferStates,
+                Optional.empty(),
+                spoolingOutputStats,
+                metrics.map(DistributionSnapshot::pruneMetrics));
     }
 
     @Override
@@ -222,6 +224,7 @@ public final class OutputBufferInfo
                 .add("totalPagesSent", totalPagesSent)
                 .add("pipelinedBufferStates", pipelinedBufferStates)
                 .add("bufferUtilization", utilization)
+                .add("metrics", metrics)
                 .toString();
     }
 }

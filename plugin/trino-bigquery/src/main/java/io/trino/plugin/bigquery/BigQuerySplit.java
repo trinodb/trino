@@ -13,58 +13,42 @@
  */
 package io.trino.plugin.bigquery;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.ConnectorSplit;
 
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.bigquery.BigQuerySplit.Mode.QUERY;
 import static io.trino.plugin.bigquery.BigQuerySplit.Mode.STORAGE;
 import static java.util.Objects.requireNonNull;
 
-public class BigQuerySplit
+public record BigQuerySplit(
+        Mode mode,
+        String streamName,
+        String schemaString,
+        List<BigQueryColumnHandle> columns,
+        long emptyRowsToGenerate,
+        Optional<String> filter,
+        OptionalInt dataSize)
         implements ConnectorSplit
 {
     private static final int INSTANCE_SIZE = instanceSize(BigQuerySplit.class);
 
     private static final int NO_ROWS_TO_GENERATE = -1;
 
-    private final Mode mode;
-    private final String streamName;
-    private final String schemaString;
-    private final List<BigQueryColumnHandle> columns;
-    private final long emptyRowsToGenerate;
-    private final Optional<String> filter;
-    private final OptionalInt dataSize;
-
     // do not use directly, it is public only for Jackson
-    @JsonCreator
-    public BigQuerySplit(
-            @JsonProperty("mode") Mode mode,
-            @JsonProperty("streamName") String streamName,
-            @JsonProperty("schemaString") String schemaString,
-            @JsonProperty("columns") List<BigQueryColumnHandle> columns,
-            @JsonProperty("emptyRowsToGenerate") long emptyRowsToGenerate,
-            @JsonProperty("filter") Optional<String> filter,
-            @JsonProperty("dataSize") OptionalInt dataSize)
+    public BigQuerySplit
     {
-        this.mode = requireNonNull(mode, "mode is null");
-        this.streamName = requireNonNull(streamName, "streamName cannot be null");
-        this.schemaString = requireNonNull(schemaString, "schemaString cannot be null");
-        this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns cannot be null"));
-        this.emptyRowsToGenerate = emptyRowsToGenerate;
-        this.filter = requireNonNull(filter, "filter is null");
-        this.dataSize = requireNonNull(dataSize, "dataSize is null");
+        requireNonNull(mode, "mode is null");
+        requireNonNull(streamName, "streamName cannot be null");
+        requireNonNull(schemaString, "schemaString cannot be null");
+        columns = ImmutableList.copyOf(requireNonNull(columns, "columns cannot be null"));
+        requireNonNull(filter, "filter is null");
+        requireNonNull(dataSize, "dataSize is null");
     }
 
     static BigQuerySplit forStream(String streamName, String schemaString, List<BigQueryColumnHandle> columns, OptionalInt dataSize)
@@ -82,58 +66,6 @@ public class BigQuerySplit
         return new BigQuerySplit(STORAGE, "", "", ImmutableList.of(), numberOfRows, Optional.empty(), OptionalInt.of(0));
     }
 
-    @JsonProperty
-    public Mode getMode()
-    {
-        return mode;
-    }
-
-    @JsonProperty
-    public String getStreamName()
-    {
-        return streamName;
-    }
-
-    @JsonProperty
-    public String getSchemaString()
-    {
-        return schemaString;
-    }
-
-    @JsonProperty
-    public List<BigQueryColumnHandle> getColumns()
-    {
-        return columns;
-    }
-
-    @JsonProperty
-    public long getEmptyRowsToGenerate()
-    {
-        return emptyRowsToGenerate;
-    }
-
-    @JsonProperty
-    public Optional<String> getFilter()
-    {
-        return filter;
-    }
-
-    @JsonProperty
-    public OptionalInt getDataSize()
-    {
-        return dataSize;
-    }
-
-    @Override
-    public Map<String, String> getSplitInfo()
-    {
-        return ImmutableMap.of(
-                "mode", mode.name(),
-                "filter", filter.orElse(""),
-                "streamName", streamName,
-                "emptyRowsToGenerate", String.valueOf(emptyRowsToGenerate));
-    }
-
     @Override
     public long getRetainedSizeInBytes()
     {
@@ -141,41 +73,6 @@ public class BigQuerySplit
                 + estimatedSizeOf(streamName)
                 + estimatedSizeOf(schemaString)
                 + estimatedSizeOf(columns, BigQueryColumnHandle::getRetainedSizeInBytes);
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        BigQuerySplit that = (BigQuerySplit) o;
-        return Objects.equals(mode, that.mode) &&
-                Objects.equals(streamName, that.streamName) &&
-                Objects.equals(schemaString, that.schemaString) &&
-                Objects.equals(columns, that.columns) &&
-                Objects.equals(emptyRowsToGenerate, that.emptyRowsToGenerate);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(mode, streamName, schemaString, columns, emptyRowsToGenerate);
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("mode", mode)
-                .add("streamName", streamName)
-                .add("schemaString", schemaString)
-                .add("columns", columns)
-                .add("emptyRowsToGenerate", emptyRowsToGenerate)
-                .toString();
     }
 
     boolean representsEmptyProjection()

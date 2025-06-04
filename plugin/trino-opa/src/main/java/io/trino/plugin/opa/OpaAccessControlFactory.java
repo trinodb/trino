@@ -22,6 +22,9 @@ import io.airlift.bootstrap.Bootstrap;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.http.client.HttpClient;
 import io.airlift.json.JsonModule;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.trace.Tracer;
+import io.trino.plugin.opa.schema.OpaBatchColumnMaskQueryResult;
 import io.trino.plugin.opa.schema.OpaColumnMaskQueryResult;
 import io.trino.plugin.opa.schema.OpaPluginContext;
 import io.trino.plugin.opa.schema.OpaQuery;
@@ -50,12 +53,6 @@ public class OpaAccessControlFactory
     }
 
     @Override
-    public SystemAccessControl create(Map<String, String> config)
-    {
-        return create(config, Optional.empty(), Optional.empty());
-    }
-
-    @Override
     public SystemAccessControl create(Map<String, String> config, SystemAccessControlContext context)
     {
         return create(config, Optional.empty(), Optional.ofNullable(context));
@@ -75,11 +72,16 @@ public class OpaAccessControlFactory
                     jsonCodecBinder(binder).bindJsonCodec(OpaQueryResult.class);
                     jsonCodecBinder(binder).bindJsonCodec(OpaRowFiltersQueryResult.class);
                     jsonCodecBinder(binder).bindJsonCodec(OpaColumnMaskQueryResult.class);
+                    jsonCodecBinder(binder).bindJsonCodec(OpaBatchColumnMaskQueryResult.class);
                     httpClient.ifPresentOrElse(
                             client -> binder.bind(Key.get(HttpClient.class, ForOpa.class)).toInstance(client),
                             () -> httpClientBinder(binder).bindHttpClient("opa", ForOpa.class));
                     context.ifPresentOrElse(
-                            actualContext -> binder.bind(OpaPluginContext.class).toInstance(new OpaPluginContext(actualContext.getVersion())),
+                            actualContext -> {
+                                binder.bind(OpaPluginContext.class).toInstance(new OpaPluginContext(actualContext.getVersion()));
+                                binder.bind(OpenTelemetry.class).toInstance(actualContext.getOpenTelemetry());
+                                binder.bind(Tracer.class).toInstance(actualContext.getTracer());
+                            },
                             () -> binder.bind(OpaPluginContext.class).toInstance(new OpaPluginContext("UNKNOWN")));
                     binder.bind(OpaHighLevelClient.class);
                     binder.bind(Key.get(Executor.class, ForOpa.class))

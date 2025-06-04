@@ -28,17 +28,7 @@ public final class Use
     private final Optional<Identifier> catalog;
     private final Identifier schema;
 
-    public Use(Optional<Identifier> catalog, Identifier schema)
-    {
-        this(Optional.empty(), catalog, schema);
-    }
-
     public Use(NodeLocation location, Optional<Identifier> catalog, Identifier schema)
-    {
-        this(Optional.of(location), catalog, schema);
-    }
-
-    private Use(Optional<NodeLocation> location, Optional<Identifier> catalog, Identifier schema)
     {
         super(location);
         requireNonNull(catalog, "catalog is null");

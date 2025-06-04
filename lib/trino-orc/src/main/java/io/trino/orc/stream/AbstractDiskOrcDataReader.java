@@ -53,7 +53,7 @@ public abstract class AbstractDiskOrcDataReader
     @Override
     public long getRetainedSize()
     {
-        return buffer == null ? 0 : SizeOf.sizeOf(buffer);
+        return SizeOf.sizeOf(buffer);
     }
 
     @Override

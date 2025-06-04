@@ -23,6 +23,7 @@ import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.VariableWidthBlock;
+import io.trino.spi.connector.SourcePage;
 import io.trino.sql.relational.CallExpression;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SpecialForm;
@@ -106,7 +107,7 @@ public class BenchmarkPageProcessor
                         null,
                         new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
-                        inputPage));
+                        SourcePage.create(inputPage)));
     }
 
     public static void main(String[] args)
@@ -203,30 +204,35 @@ public class BenchmarkPageProcessor
         return new SpecialForm(
                 Form.AND,
                 BOOLEAN,
-                new CallExpression(
-                        functionResolution.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(VARCHAR, VARCHAR)),
-                        ImmutableList.of(constant(MIN_SHIP_DATE, VARCHAR), field(SHIP_DATE, VARCHAR))),
-                new SpecialForm(
-                        Form.AND,
-                        BOOLEAN,
-                        new CallExpression(
-                                functionResolution.resolveOperator(LESS_THAN, ImmutableList.of(VARCHAR, VARCHAR)),
-                                ImmutableList.of(field(SHIP_DATE, VARCHAR), constant(MAX_SHIP_DATE, VARCHAR))),
-                        new SpecialForm(
-                                Form.AND,
-                                BOOLEAN,
+                ImmutableList.of(
+                    new CallExpression(
+                            functionResolution.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(VARCHAR, VARCHAR)),
+                            ImmutableList.of(constant(MIN_SHIP_DATE, VARCHAR), field(SHIP_DATE, VARCHAR))),
+                    new SpecialForm(
+                            Form.AND,
+                            BOOLEAN,
+                            ImmutableList.of(
                                 new CallExpression(
-                                        functionResolution.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(DOUBLE, DOUBLE)),
-                                        ImmutableList.of(constant(0.05, DOUBLE), field(DISCOUNT, DOUBLE))),
+                                        functionResolution.resolveOperator(LESS_THAN, ImmutableList.of(VARCHAR, VARCHAR)),
+                                        ImmutableList.of(field(SHIP_DATE, VARCHAR), constant(MAX_SHIP_DATE, VARCHAR))),
                                 new SpecialForm(
                                         Form.AND,
                                         BOOLEAN,
-                                        new CallExpression(
-                                                functionResolution.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(DOUBLE, DOUBLE)),
-                                                ImmutableList.of(field(DISCOUNT, DOUBLE), constant(0.07, DOUBLE))),
-                                        new CallExpression(
-                                                functionResolution.resolveOperator(LESS_THAN, ImmutableList.of(DOUBLE, DOUBLE)),
-                                                ImmutableList.of(field(QUANTITY, DOUBLE), constant(24.0, DOUBLE)))))));
+                                        ImmutableList.of(
+                                            new CallExpression(
+                                                    functionResolution.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(DOUBLE, DOUBLE)),
+                                                    ImmutableList.of(constant(0.05, DOUBLE), field(DISCOUNT, DOUBLE))),
+                                            new SpecialForm(
+                                                    Form.AND,
+                                                    BOOLEAN,
+                                                    ImmutableList.of(
+                                                        new CallExpression(
+                                                                functionResolution.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(DOUBLE, DOUBLE)),
+                                                                ImmutableList.of(field(DISCOUNT, DOUBLE), constant(0.07, DOUBLE))),
+                                                        new CallExpression(
+                                                                functionResolution.resolveOperator(LESS_THAN, ImmutableList.of(DOUBLE, DOUBLE)),
+                                                                ImmutableList.of(field(QUANTITY, DOUBLE), constant(24.0, DOUBLE)))), ImmutableList.of())), ImmutableList.of())), ImmutableList.of())),
+                ImmutableList.of());
     }
 
     private static RowExpression createProjectExpression(TestingFunctionResolution functionResolution)

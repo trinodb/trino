@@ -60,9 +60,7 @@ public class PinotAuthenticationModule
             implements Module
     {
         @Override
-        public void configure(Binder binder)
-        {
-        }
+        public void configure(Binder binder) {}
 
         @Provides
         @Singleton
@@ -76,9 +74,7 @@ public class PinotAuthenticationModule
             implements Module
     {
         @Override
-        public void configure(Binder binder)
-        {
-        }
+        public void configure(Binder binder) {}
 
         @Provides
         @Singleton

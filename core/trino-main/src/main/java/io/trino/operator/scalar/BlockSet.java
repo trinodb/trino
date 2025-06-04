@@ -19,7 +19,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
-import io.trino.type.BlockTypeOperators.BlockPositionIsDistinctFrom;
+import io.trino.type.BlockTypeOperators.BlockPositionIsIdentical;
 
 import java.util.Arrays;
 
@@ -48,7 +48,7 @@ public class BlockSet
     private static final int EMPTY_SLOT = -1;
 
     private final Type elementType;
-    private final BlockPositionIsDistinctFrom elementDistinctFromOperator;
+    private final BlockPositionIsIdentical elementIdenticalOperator;
     private final BlockPositionHashCode elementHashCodeOperator;
 
     private final int[] blockPositionByHash;
@@ -65,13 +65,13 @@ public class BlockSet
 
     public BlockSet(
             Type elementType,
-            BlockPositionIsDistinctFrom elementDistinctFromOperator,
+            BlockPositionIsIdentical elementIdenticalOperator,
             BlockPositionHashCode elementHashCodeOperator,
             int maximumSize)
     {
         checkArgument(maximumSize >= 0, "maximumSize must not be negative");
         this.elementType = requireNonNull(elementType, "elementType is null");
-        this.elementDistinctFromOperator = requireNonNull(elementDistinctFromOperator, "elementDistinctFromOperator is null");
+        this.elementIdenticalOperator = requireNonNull(elementIdenticalOperator, "elementIdenticalOperator is null");
         this.elementHashCodeOperator = requireNonNull(elementHashCodeOperator, "elementHashCodeOperator is null");
         this.maximumSize = maximumSize;
 
@@ -185,7 +185,7 @@ public class BlockSet
                 // Doesn't have this element
                 return hashPosition;
             }
-            if (isNotDistinct(blockPosition, block, position)) {
+            if (isIdentical(blockPosition, block, position)) {
                 // Already has this element
                 return hashPosition;
             }
@@ -205,9 +205,9 @@ public class BlockSet
         size++;
     }
 
-    private boolean isNotDistinct(int leftPosition, Block rightBlock, int rightPosition)
+    private boolean isIdentical(int leftPosition, Block rightBlock, int rightPosition)
     {
-        return !elementDistinctFromOperator.isDistinctFrom(
+        return elementIdenticalOperator.isIdentical(
                 elementBlocks[leftPosition],
                 elementPositions[leftPosition],
                 rightBlock,

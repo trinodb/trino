@@ -40,7 +40,7 @@ public class TestDoubleSumAggregation
     @Override
     protected Block[] getSequenceBlocks(int start, int length)
     {
-        BlockBuilder blockBuilder = DOUBLE.createBlockBuilder(null, length);
+        BlockBuilder blockBuilder = DOUBLE.createFixedSizeBlockBuilder(length);
         for (int i = start; i < start + length; i++) {
             DOUBLE.writeDouble(blockBuilder, i);
         }
@@ -75,7 +75,7 @@ public class TestDoubleSumAggregation
 
     protected static Block[] getSequenceBlocksForDoubleNaNTest(int start, int length)
     {
-        BlockBuilder blockBuilder = DOUBLE.createBlockBuilder(null, length);
+        BlockBuilder blockBuilder = DOUBLE.createFixedSizeBlockBuilder(length);
         for (int i = start; i < start + length - 5; i++) {
             DOUBLE.writeDouble(blockBuilder, i);
         }
@@ -88,7 +88,7 @@ public class TestDoubleSumAggregation
 
     protected static Block[] getSequenceBlocksForDoubleInfinityTest(int start, int length)
     {
-        BlockBuilder blockBuilder = DOUBLE.createBlockBuilder(null, length);
+        BlockBuilder blockBuilder = DOUBLE.createFixedSizeBlockBuilder(length);
         for (int i = start; i < start + length - 5; i++) {
             DOUBLE.writeDouble(blockBuilder, i);
         }
@@ -128,8 +128,8 @@ public class TestDoubleSumAggregation
         ResolvedFunction resolvedFunction = functionResolution.resolveFunction(getFunctionName(), fromTypes(getFunctionParameterTypes()));
         AggregationImplementation aggregationImplementation = functionResolution.getPlannerContext().getFunctionManager().getAggregationImplementation(resolvedFunction);
         WindowAccumulator aggregation = createWindowAccumulator(resolvedFunction, aggregationImplementation);
-        assertThat(resolvedFunction.signature().getReturnType().toString().contains("double")).isTrue();
-        assertThat(resolvedFunction.signature().getName().toString().contains("sum")).isTrue();
+        assertThat(resolvedFunction.signature().getReturnType().toString()).contains("double");
+        assertThat(resolvedFunction.signature().getName().toString()).contains("sum");
         int oldStart = 0;
         int oldWidth = 0;
         for (int start = 0; start < totalPositions; ++start) {

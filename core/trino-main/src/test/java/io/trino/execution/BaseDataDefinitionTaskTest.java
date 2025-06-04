@@ -43,6 +43,7 @@ import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
@@ -82,7 +83,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.metadata.TestMetadataManager.createTestMetadataManager;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static io.trino.spi.connector.SaveMode.IGNORE;
@@ -213,7 +214,7 @@ public abstract class BaseDataDefinitionTaskTest
         return viewDefinition("SELECT 1", ImmutableList.of(new ViewColumn("test", BIGINT.getTypeId(), Optional.empty())));
     }
 
-    protected static ViewDefinition viewDefinition(String sql, ImmutableList<ViewColumn> columns)
+    protected static ViewDefinition viewDefinition(String sql, List<ViewColumn> columns)
     {
         return new ViewDefinition(
                 sql,
@@ -243,6 +244,7 @@ public abstract class BaseDataDefinitionTaskTest
                 createPlanOptimizersStatsCollector(),
                 Optional.empty(),
                 true,
+                Optional.empty(),
                 new NodeVersion("test"));
     }
 
@@ -368,14 +370,36 @@ public abstract class BaseDataDefinitionTaskTest
         }
 
         @Override
-        public void addColumn(Session session, TableHandle tableHandle, CatalogSchemaTableName table, ColumnMetadata column)
+        public Optional<Type> getSupportedType(Session session, CatalogHandle catalogHandle, Map<String, Object> tableProperties, Type type)
+        {
+            return Optional.empty();
+        }
+
+        @Override
+        public void addColumn(Session session, TableHandle tableHandle, CatalogSchemaTableName table, ColumnMetadata column, ColumnPosition position)
         {
             SchemaTableName tableName = table.getSchemaTableName();
             ConnectorTableMetadata metadata = tables.get(tableName);
 
             ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builderWithExpectedSize(metadata.getColumns().size() + 1);
-            columns.addAll(metadata.getColumns());
-            columns.add(column);
+            switch (position) {
+                case ColumnPosition.First _ -> {
+                    columns.add(column);
+                    columns.addAll(metadata.getColumns());
+                }
+                case ColumnPosition.After after -> {
+                    for (ColumnMetadata existingColumn : metadata.getColumns()) {
+                        columns.add(existingColumn);
+                        if (existingColumn.getName().equals(after.columnName())) {
+                            columns.add(column);
+                        }
+                    }
+                }
+                case ColumnPosition.Last _ -> {
+                    columns.addAll(metadata.getColumns());
+                    columns.add(column);
+                }
+            }
             tables.put(tableName, new ConnectorTableMetadata(tableName, columns.build()));
         }
 
@@ -539,6 +563,12 @@ public abstract class BaseDataDefinitionTaskTest
         public Optional<ViewDefinition> getView(Session session, QualifiedObjectName viewName)
         {
             return Optional.ofNullable(views.get(viewName.asSchemaTableName()));
+        }
+
+        @Override
+        public boolean isView(Session session, QualifiedObjectName viewName)
+        {
+            return getView(session, viewName).isPresent();
         }
 
         @Override

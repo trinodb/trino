@@ -41,7 +41,7 @@ The following table details all general configuration properties:
     to. This property is required.
   -
 * - `elasticsearch.port`
-  - Port to use to connecto to Elasticsearch.
+  - Port to use to connect to Elasticsearch.
   - `9200`
 * - `elasticsearch.default-schema-name`
   - The schema that contains all tables defined without a qualifying schema
@@ -126,7 +126,7 @@ to `PASSWORD`. Additionally the following options must be configured:
 * - Property name
   - Description
 * - `elasticsearch.auth.user`
-  - User name to use to connect to Elasticsearch.
+  - Username to use to connect to Elasticsearch.
 * - `elasticsearch.auth.password`
   - Password to use to connect to Elasticsearch.
 :::
@@ -138,7 +138,7 @@ clusters with TLS enabled.
 
 If your cluster has globally-trusted certificates, you should only need to
 enable TLS. If you require custom configuration for certificates, the connector
-supports key stores and trust stores in PEM or Java Key Store (JKS) format.
+supports key stores and trust stores in P12 (PKCS) or Java Key Store (JKS) format.
 
 The available configuration values are listed in the following table:
 
@@ -151,10 +151,10 @@ The available configuration values are listed in the following table:
 * - `elasticsearch.tls.enabled`
   - Enables TLS security.
 * - `elasticsearch.tls.keystore-path`
-  - The path to the [PEM](/security/inspect-pem) or [JKS](/security/inspect-jks)
+  - The path to the P12 (PKCS) or [JKS](/security/inspect-jks)
     key store.
 * - `elasticsearch.tls.truststore-path`
-  - The path to [PEM](/security/inspect-pem) or [JKS](/security/inspect-jks)
+  - The path to P12 (PKCS) or [JKS](/security/inspect-jks)
     trust store.
 * - `elasticsearch.tls.keystore-password`
   - The key password for the key store specified by
@@ -167,7 +167,7 @@ The available configuration values are listed in the following table:
     to `true`.
 :::
 
-(elasticesearch-type-mapping)=
+(elasticsearch-type-mapping)=
 ## Type mapping
 
 Because Trino and Elasticsearch each support types that the other does not, this
@@ -223,7 +223,6 @@ according to the following table:
 No other types are supported.
 
 (elasticsearch-array-types)=
-
 ### Array types
 
 Fields in Elasticsearch can contain [zero or more
@@ -404,13 +403,24 @@ The connector provides [globally available](sql-globally-available) and [read
 operation](sql-read-operations) statements to access data and metadata in the
 Elasticsearch catalog.
 
-## Table functions
+### Wildcard table
+
+The connector provides support to query multiple tables using a concise
+[wildcard table](https://www.elastic.co/guide/en/elasticsearch/reference/current/search-multiple-indices.html)
+notation.
+
+```sql
+SELECT *
+FROM example.web."page_views_*";
+```
+
+### Table functions
 
 The connector provides specific {doc}`table functions </functions/table>` to
 access Elasticsearch.
 
 (elasticsearch-raw-query-function)=
-### `raw_query(varchar) -> table`
+#### `raw_query(varchar) -> table`
 
 The `raw_query` function allows you to query the underlying database directly.
 This function requires [Elastic Query

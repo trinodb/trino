@@ -40,7 +40,7 @@ public class TestShortTimestampType
 
     public static ValueBlock createTestBlock()
     {
-        BlockBuilder blockBuilder = TIMESTAMP_MILLIS.createBlockBuilder(null, 15);
+        BlockBuilder blockBuilder = TIMESTAMP_MILLIS.createFixedSizeBlockBuilder(15);
         TIMESTAMP_MILLIS.writeLong(blockBuilder, 1111_000);
         TIMESTAMP_MILLIS.writeLong(blockBuilder, 1111_000);
         TIMESTAMP_MILLIS.writeLong(blockBuilder, 1111_000);

@@ -13,14 +13,17 @@
  */
 package io.trino.sql.planner;
 
+import io.trino.metadata.ResolvedFunction;
 import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.CanonicalizationAware;
 import io.trino.sql.analyzer.ResolvedField;
 import io.trino.sql.analyzer.Scope;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.Node;
 
+import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -141,6 +144,14 @@ public class ScopeAware<T extends Node>
                 }
                 // References come from different scopes
                 return false;
+            }
+            if (left instanceof FunctionCall && right instanceof FunctionCall) {
+                Optional<ResolvedFunction> resolvedLeft = analysis.getResolvedFunction(left);
+                Optional<ResolvedFunction> resolvedRight = analysis.getResolvedFunction(right);
+
+                if ((resolvedLeft.isPresent() && !resolvedLeft.get().deterministic()) || (resolvedRight.isPresent() && !resolvedRight.get().deterministic())) {
+                    return left == right;
+                }
             }
             if (leftExpression instanceof Identifier && rightExpression instanceof Identifier) {
                 return treeEqual(leftExpression, rightExpression, CanonicalizationAware::canonicalizationAwareComparison);

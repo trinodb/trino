@@ -21,6 +21,7 @@ import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDataSize;
 import io.airlift.units.MinDuration;
+import io.trino.execution.ThreadCountParser;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
@@ -31,7 +32,7 @@ public class DirectExchangeClientConfig
 {
     private DataSize maxBufferSize = DataSize.of(32, Unit.MEGABYTE);
     private int concurrentRequestMultiplier = 3;
-    private Duration maxErrorDuration = new Duration(5, TimeUnit.MINUTES);
+    private Duration maxErrorDuration = new Duration(1, TimeUnit.MINUTES);
     private DataSize maxResponseSize = new HttpClientConfig().getMaxContentLength();
     private int clientThreads = 25;
     private int pageBufferClientMaxCallbackThreads = 25;
@@ -99,9 +100,9 @@ public class DirectExchangeClientConfig
     }
 
     @Config("exchange.client-threads")
-    public DirectExchangeClientConfig setClientThreads(int clientThreads)
+    public DirectExchangeClientConfig setClientThreads(String clientThreads)
     {
-        this.clientThreads = clientThreads;
+        this.clientThreads = ThreadCountParser.DEFAULT.parse(clientThreads);
         return this;
     }
 
@@ -112,9 +113,9 @@ public class DirectExchangeClientConfig
     }
 
     @Config("exchange.page-buffer-client.max-callback-threads")
-    public DirectExchangeClientConfig setPageBufferClientMaxCallbackThreads(int pageBufferClientMaxCallbackThreads)
+    public DirectExchangeClientConfig setPageBufferClientMaxCallbackThreads(String pageBufferClientMaxCallbackThreads)
     {
-        this.pageBufferClientMaxCallbackThreads = pageBufferClientMaxCallbackThreads;
+        this.pageBufferClientMaxCallbackThreads = ThreadCountParser.DEFAULT.parse(pageBufferClientMaxCallbackThreads);
         return this;
     }
 

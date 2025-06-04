@@ -191,7 +191,8 @@ public class TestDeterminePartitionCount
     @Test
     public void testPlanWhenTableStatisticsArePresent()
     {
-        @Language("SQL") String query = """
+        @Language("SQL") String query =
+                """
                 SELECT count(column_a) FROM table_with_stats_a group by column_b
                 """;
 
@@ -216,7 +217,8 @@ public class TestDeterminePartitionCount
     @Test
     public void testDoesNotSetPartitionCountWhenNodeCountIsSmall()
     {
-        @Language("SQL") String query = """
+        @Language("SQL") String query =
+                """
                 SELECT count(column_a) FROM table_with_stats_a group by column_b
                 """;
 
@@ -242,7 +244,8 @@ public class TestDeterminePartitionCount
     @Test
     public void testPlanWhenTableStatisticsAreAbsent()
     {
-        @Language("SQL") String query = """
+        @Language("SQL") String query =
+                """
                 SELECT * FROM table_without_stats_a as a JOIN table_without_stats_b as b ON a.column_a = b.column_a
                 """;
 
@@ -269,7 +272,8 @@ public class TestDeterminePartitionCount
     @Test
     public void testPlanWhenCrossJoinIsPresent()
     {
-        @Language("SQL") String query = """
+        @Language("SQL") String query =
+                """
                 SELECT * FROM table_with_stats_a CROSS JOIN table_with_stats_b
                 """;
 
@@ -293,7 +297,8 @@ public class TestDeterminePartitionCount
     @Test
     public void testPlanWhenCrossJoinIsScalar()
     {
-        @Language("SQL") String query = """
+        @Language("SQL") String query =
+                """
                 SELECT * FROM table_with_stats_a CROSS JOIN (select max(column_a) from table_with_stats_b) t(a)
                 """;
 
@@ -322,7 +327,8 @@ public class TestDeterminePartitionCount
     @Test
     public void testPlanWhenJoinNodeStatsAreAbsent()
     {
-        @Language("SQL") String query = """
+        @Language("SQL") String query =
+                """
                 SELECT * FROM table_with_stats_a as a JOIN table_with_stats_b as b ON a.column_b = b.column_b
                 """;
 
@@ -349,7 +355,8 @@ public class TestDeterminePartitionCount
     @Test
     public void testPlanWhenJoinNodeOutputIsBiggerThanRowsScanned()
     {
-        @Language("SQL") String query = """
+        @Language("SQL") String query =
+                """
                 SELECT a.column_a FROM table_with_stats_a as a JOIN table_with_stats_b as b ON a.column_a = b.column_a
                 """;
 
@@ -377,7 +384,8 @@ public class TestDeterminePartitionCount
     @Test
     public void testEstimatedPartitionCountShouldNotBeGreaterThanMaxLimit()
     {
-        @Language("SQL") String query = """
+        @Language("SQL") String query =
+                """
                 SELECT * FROM table_with_stats_a as a JOIN table_with_stats_b as b ON a.column_a = b.column_a
                 """;
 
@@ -404,7 +412,8 @@ public class TestDeterminePartitionCount
     @Test
     public void testEstimatedPartitionCountShouldNotBeLessThanMinLimit()
     {
-        @Language("SQL") String query = """
+        @Language("SQL") String query =
+                """
                 SELECT a.column_a FROM table_with_stats_a as a JOIN table_with_stats_b as b ON a.column_a = b.column_a
                 """;
 
@@ -431,7 +440,8 @@ public class TestDeterminePartitionCount
     @Test
     public void testPlanWhenUnionNodeOutputIsBiggerThanJoinOutput()
     {
-        @Language("SQL") String query = """
+        @Language("SQL") String query =
+                """
                 SELECT a.column_b
                 FROM table_with_stats_a as a
                 JOIN table_with_stats_b as b
@@ -468,7 +478,8 @@ public class TestDeterminePartitionCount
     @Test
     public void testPlanWhenEstimatedPartitionCountBasedOnRowsIsMoreThanOutputSize()
     {
-        @Language("SQL") String query = """
+        @Language("SQL") String query =
+                """
                 SELECT count(column_a) FROM table_with_stats_a group by column_b
                 """;
 
@@ -494,7 +505,8 @@ public class TestDeterminePartitionCount
     @Test
     public void testFireWithTaskRetries()
     {
-        @Language("SQL") String query = """
+        @Language("SQL") String query =
+                """
                 SELECT count(column_a) FROM table_with_stats_a group by column_b
                 """;
         assertDistributedPlan(
@@ -518,7 +530,8 @@ public class TestDeterminePartitionCount
     @Test
     public void testFireWithTaskRetriesMinEnforced()
     {
-        @Language("SQL") String query = """
+        @Language("SQL") String query =
+                """
                 SELECT count(column_a) FROM table_with_stats_a group by column_b
                 """;
         assertDistributedPlan(
@@ -542,7 +555,8 @@ public class TestDeterminePartitionCount
     @Test
     public void testFireWithTaskRetriesMaxEnforced()
     {
-        @Language("SQL") String query = """
+        @Language("SQL") String query =
+                """
                 SELECT count(column_a) FROM table_with_stats_a group by column_b
                 """;
         assertDistributedPlan(
@@ -566,7 +580,8 @@ public class TestDeterminePartitionCount
     @Test
     public void testFireWithTaskRetriesJoinHashDistribution()
     {
-        @Language("SQL") String query = """
+        @Language("SQL") String query =
+                """
                 SELECT a.column_a FROM table_with_stats_a as a JOIN table_with_stats_b as b ON a.column_a = b.column_a
                 """;
 
@@ -594,7 +609,8 @@ public class TestDeterminePartitionCount
     @Test
     public void testFireWithTaskRetriesJoinBroadcastJoin()
     {
-        @Language("SQL") String query = """
+        @Language("SQL") String query =
+                """
                 SELECT a.column_a FROM table_with_stats_a as a JOIN table_with_stats_b as b ON a.column_a = b.column_a
                 """;
 
@@ -611,18 +627,19 @@ public class TestDeterminePartitionCount
                 output(
                         join(INNER, builder -> builder
                                 .equiCriteria("column_a", "column_a_0")
-                                        .left(node(FilterNode.class,
-                                                tableScan("table_with_stats_a", ImmutableMap.of("column_a", "column_a"))))
-                                        .right(exchange(LOCAL,
-                                                exchange(REMOTE, REPLICATE, FIXED_BROADCAST_DISTRIBUTION, Optional.empty(),
-                                                        node(DynamicFilterSourceNode.class,
-                                                                tableScan("table_with_stats_b", ImmutableMap.of("column_a_0", "column_a")))))))));
+                                .left(node(FilterNode.class,
+                                        tableScan("table_with_stats_a", ImmutableMap.of("column_a", "column_a"))))
+                                .right(exchange(LOCAL,
+                                        exchange(REMOTE, REPLICATE, FIXED_BROADCAST_DISTRIBUTION, Optional.empty(),
+                                                node(DynamicFilterSourceNode.class,
+                                                        tableScan("table_with_stats_b", ImmutableMap.of("column_a_0", "column_a")))))))));
     }
 
     @Test
     public void testFireWithTaskRetriesTwoPartitionedJoins()
     {
-        @Language("SQL") String query = """
+        @Language("SQL") String query =
+                """
                 SELECT a.column_a FROM
                    (table_with_stats_a as a JOIN table_with_stats_b as b ON a.column_a = b.column_a)
                    JOIN
@@ -644,15 +661,15 @@ public class TestDeterminePartitionCount
                         join(INNER, builder -> builder
                                 .equiCriteria("column_b", "column_b_3")
                                 .left(exchange(REMOTE, REPARTITION, FIXED_HASH_DISTRIBUTION, Optional.of(15),
-                                                        join(INNER, builder2 -> builder2
-                                                                .equiCriteria("column_a", "column_a_0")
-                                                                .left(exchange(REMOTE, REPARTITION, FIXED_HASH_DISTRIBUTION, Optional.of(15),
-                                                                        node(FilterNode.class,
-                                                                                tableScan("table_with_stats_a", ImmutableMap.of("column_a", "column_a", "column_b", "column_b")))))
-                                                                .right(exchange(LOCAL,
-                                                                        exchange(REMOTE, REPARTITION, FIXED_HASH_DISTRIBUTION, Optional.of(15),
-                                                                                node(DynamicFilterSourceNode.class,
-                                                                                        tableScan("table_with_stats_b", ImmutableMap.of("column_a_0", "column_a")))))))))
+                                        join(INNER, builder2 -> builder2
+                                                .equiCriteria("column_a", "column_a_0")
+                                                .left(exchange(REMOTE, REPARTITION, FIXED_HASH_DISTRIBUTION, Optional.of(15),
+                                                        node(FilterNode.class,
+                                                                tableScan("table_with_stats_a", ImmutableMap.of("column_a", "column_a", "column_b", "column_b")))))
+                                                .right(exchange(LOCAL,
+                                                        exchange(REMOTE, REPARTITION, FIXED_HASH_DISTRIBUTION, Optional.of(15),
+                                                                node(DynamicFilterSourceNode.class,
+                                                                        tableScan("table_with_stats_b", ImmutableMap.of("column_a_0", "column_a")))))))))
                                 .right(exchange(LOCAL,
                                         exchange(REMOTE, REPARTITION, FIXED_HASH_DISTRIBUTION, Optional.of(15),
                                                 node(DynamicFilterSourceNode.class,
@@ -662,7 +679,8 @@ public class TestDeterminePartitionCount
     @Test
     public void testFireWithTaskRetriesTwoBroadcastJoins()
     {
-        @Language("SQL") String query = """
+        @Language("SQL") String query =
+                """
                 SELECT a.column_a FROM
                    (table_with_stats_a as a JOIN table_with_stats_b as b ON a.column_a = b.column_a)
                    JOIN
@@ -683,7 +701,7 @@ public class TestDeterminePartitionCount
                         join(INNER, builder -> builder
                                 .equiCriteria("column_b", "column_b_3")
                                 .left(join(INNER, builder2 -> builder2
-                                                .equiCriteria("column_a", "column_a_0")
+                                        .equiCriteria("column_a", "column_a_0")
                                         .left(node(FilterNode.class,
                                                 tableScan("table_with_stats_a", ImmutableMap.of("column_a", "column_a", "column_b", "column_b"))))
                                         .right(exchange(LOCAL,
@@ -697,7 +715,8 @@ public class TestDeterminePartitionCount
     @Test
     public void testFireWithTaskRetriesBroadcastJoinOverPartitionedJoin()
     {
-        @Language("SQL") String query = """
+        @Language("SQL") String query =
+                """
                 SELECT a.column_a FROM
                    (table_with_stats_a as a JOIN table_with_stats_b as b ON a.column_a = b.column_a)
                    JOIN
@@ -735,7 +754,8 @@ public class TestDeterminePartitionCount
     @Test
     public void testFireWithTaskRetriesArbitraryExchangeOverHashDistributedStage()
     {
-        @Language("SQL") String query = """
+        @Language("SQL") String query =
+                """
                 SELECT j.column_a FROM
                    ((SELECT a.column_a, a.column_b FROM table_with_stats_a as a JOIN table_with_stats_b as b ON a.column_a = b.column_a) UNION ALL SELECT * FROM small_table_with_stats s) j
                    JOIN

@@ -35,7 +35,7 @@ import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorIndexProvider;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
-import io.trino.spi.connector.ConnectorPageSourceProvider;
+import io.trino.spi.connector.ConnectorPageSourceProviderFactory;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.function.FunctionProvider;
 
@@ -60,9 +60,9 @@ public class CatalogServiceProviderModule
 
     @Provides
     @Singleton
-    public static CatalogServiceProvider<ConnectorPageSourceProvider> createPageSourceProvider(ConnectorServicesProvider connectorServicesProvider)
+    public static CatalogServiceProvider<ConnectorPageSourceProviderFactory> createPageSourceProviderFactory(ConnectorServicesProvider connectorServicesProvider)
     {
-        return new ConnectorCatalogServiceProvider<>("page source provider", connectorServicesProvider, connector -> connector.getPageSourceProvider().orElse(null));
+        return new ConnectorCatalogServiceProvider<>("page source provider factory", connectorServicesProvider, connector -> connector.getPageSourceProviderFactory().orElse(null));
     }
 
     @Provides

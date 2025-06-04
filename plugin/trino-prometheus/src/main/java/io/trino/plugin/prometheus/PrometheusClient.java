@@ -20,6 +20,7 @@ import com.google.inject.Inject;
 import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.json.JsonCodec;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
@@ -30,9 +31,11 @@ import okhttp3.OkHttpClient;
 import okhttp3.OkHttpClient.Builder;
 import okhttp3.Request;
 import okhttp3.Response;
+import okhttp3.ResponseBody;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.time.Duration;
 import java.util.List;
@@ -74,6 +77,7 @@ public class PrometheusClient
         Builder clientBuilder = new Builder().readTimeout(Duration.ofMillis(config.getReadTimeout().toMillis()));
         setupBasicAuth(clientBuilder, config.getUser(), config.getPassword());
         setupTokenAuth(clientBuilder, getBearerAuthInfoFromFile(config.getBearerTokenFile()), config.getHttpAuthHeaderName());
+        clientBuilder.addInterceptor(addAdditionalHeaders(config.getAdditionalHeaders()));
         this.httpClient = clientBuilder.build();
 
         URI prometheusMetricsUri = getPrometheusMetricsURI(config.getPrometheusURI());
@@ -125,9 +129,9 @@ public class PrometheusClient
         return new PrometheusTable(
                 remoteTableName,
                 ImmutableList.of(
-                        new PrometheusColumn("labels", varcharMapType),
-                        new PrometheusColumn("timestamp", TIMESTAMP_COLUMN_TYPE),
-                        new PrometheusColumn("value", DoubleType.DOUBLE)));
+                        new ColumnMetadata("labels", varcharMapType),
+                        new ColumnMetadata("timestamp", TIMESTAMP_COLUMN_TYPE),
+                        new ColumnMetadata("value", DoubleType.DOUBLE)));
     }
 
     @Nullable
@@ -157,15 +161,21 @@ public class PrometheusClient
 
     private Map<String, Object> fetchMetrics(JsonCodec<Map<String, Object>> metricsCodec, URI metadataUri)
     {
-        return metricsCodec.fromJson(fetchUri(metadataUri));
+        try (ResponseBody body = fetchUri(metadataUri); InputStream inputStream = body.byteStream()) {
+            return metricsCodec.fromJson(inputStream);
+        }
+        catch (IOException e) {
+            throw new TrinoException(PROMETHEUS_UNKNOWN_ERROR, "Error reading metadata", e);
+        }
     }
 
-    public byte[] fetchUri(URI uri)
+    public ResponseBody fetchUri(URI uri)
     {
         Request.Builder requestBuilder = new Request.Builder().url(uri.toString());
-        try (Response response = httpClient.newCall(requestBuilder.build()).execute()) {
+        try {
+            Response response = httpClient.newCall(requestBuilder.build()).execute();
             if (response.isSuccessful() && response.body() != null) {
-                return response.body().bytes();
+                return response.body();
             }
             throw new TrinoException(PROMETHEUS_UNKNOWN_ERROR, "Bad response " + response.code() + " " + response.message());
         }
@@ -220,5 +230,14 @@ public class PrometheusClient
         return chain -> chain.proceed(chain.request().newBuilder()
                 .addHeader(httpAuthHeaderName, token)
                 .build());
+    }
+
+    private static Interceptor addAdditionalHeaders(Map<String, String> additionalHeaders)
+    {
+        return chain -> {
+            Request.Builder requestBuilder = chain.request().newBuilder();
+            additionalHeaders.forEach(requestBuilder::addHeader);
+            return chain.proceed(requestBuilder.build());
+        };
     }
 }

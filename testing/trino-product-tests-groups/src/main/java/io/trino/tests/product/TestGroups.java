@@ -49,6 +49,7 @@ public final class TestGroups
     public static final String PROFILE_SPECIFIC_TESTS = "profile_specific_tests";
     public static final String HDFS_IMPERSONATION = "hdfs_impersonation";
     public static final String HDFS_NO_IMPERSONATION = "hdfs_no_impersonation";
+    public static final String HIVE_GCS = "hive_gcs";
     public static final String HIVE_SPARK = "hive_spark";
     public static final String HIVE_SPARK_NO_STATS_FALLBACK = "hive_spark_no_stats_fallback";
     public static final String HIVE_COMPRESSION = "hive_compression";
@@ -61,6 +62,7 @@ public final class TestGroups
     public static final String HIVE_FILE_HEADER = "hive_file_header";
     public static final String AUTHORIZATION = "authorization";
     public static final String AZURE = "azure";
+    public static final String EXASOL = "exasol";
     public static final String CASSANDRA = "cassandra";
     public static final String POSTGRESQL = "postgresql";
     public static final String SQLSERVER = "sqlserver";
@@ -75,30 +77,32 @@ public final class TestGroups
     public static final String KAFKA_CONFLUENT_LICENSE = "kafka_confluent_license";
     public static final String TWO_HIVES = "two_hives";
     public static final String ICEBERG = "iceberg";
+    public static final String ICEBERG_GCS = "iceberg_gcs";
+    public static final String ICEBERG_AZURE = "iceberg_azure";
     public static final String ICEBERG_ALLUXIO_CACHING = "iceberg_alluxio_caching";
     public static final String ICEBERG_FORMAT_VERSION_COMPATIBILITY = "iceberg_format_version_compatibility";
     public static final String ICEBERG_REST = "iceberg_rest";
     public static final String ICEBERG_JDBC = "iceberg_jdbc";
     public static final String ICEBERG_NESSIE = "iceberg_nessie";
-    public static final String PHOENIX = "phoenix";
     public static final String CLICKHOUSE = "clickhouse";
-    public static final String KUDU = "kudu";
     public static final String MARIADB = "mariadb";
+    public static final String RANGER = "ranger";
     public static final String SNOWFLAKE = "snowflake";
     public static final String DELTA_LAKE_OSS = "delta-lake-oss";
     public static final String DELTA_LAKE_HDFS = "delta-lake-hdfs";
     public static final String DELTA_LAKE_MINIO = "delta-lake-minio";
+    public static final String DELTA_LAKE_AZURE = "delta-lake-azure";
     public static final String DELTA_LAKE_GCS = "delta-lake-gcs";
     public static final String DELTA_LAKE_DATABRICKS = "delta-lake-databricks";
-    public static final String DELTA_LAKE_DATABRICKS_104 = "delta-lake-databricks-104";
-    public static final String DELTA_LAKE_DATABRICKS_113 = "delta-lake-databricks-113";
     public static final String DELTA_LAKE_DATABRICKS_122 = "delta-lake-databricks-122";
-    public static final String DATABRICKS_UNITY_HTTP_HMS = "databricks-unity-http-hms";
-    public static final String DELTA_LAKE_EXCLUDE_91 = "delta-lake-exclude-91";
+    public static final String DELTA_LAKE_DATABRICKS_133 = "delta-lake-databricks-133";
+    public static final String DELTA_LAKE_DATABRICKS_143 = "delta-lake-databricks-143";
+    public static final String DELTA_LAKE_EXCLUDE_113 = "delta-lake-exclude-113";
     public static final String DELTA_LAKE_ALLUXIO_CACHING = "delta-lake-alluxio-caching";
     public static final String HUDI = "hudi";
     public static final String PARQUET = "parquet";
     public static final String IGNITE = "ignite";
+    public static final String FAULT_TOLERANT = "fault-tolerant";
 
     private TestGroups() {}
 

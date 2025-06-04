@@ -13,9 +13,10 @@
  */
 package io.trino.plugin.deltalake.metastore;
 
-import io.trino.plugin.hive.metastore.Database;
-import io.trino.plugin.hive.metastore.PrincipalPrivileges;
-import io.trino.plugin.hive.metastore.Table;
+import io.trino.metastore.Database;
+import io.trino.metastore.PrincipalPrivileges;
+import io.trino.metastore.Table;
+import io.trino.metastore.TableInfo;
 import io.trino.spi.connector.SchemaTableName;
 
 import java.util.List;
@@ -27,7 +28,7 @@ public interface DeltaLakeMetastore
 
     Optional<Database> getDatabase(String databaseName);
 
-    List<String> getAllTables(String databaseName);
+    List<TableInfo> getAllTables(String databaseName);
 
     Optional<Table> getRawMetastoreTable(String databaseName, String tableName);
 

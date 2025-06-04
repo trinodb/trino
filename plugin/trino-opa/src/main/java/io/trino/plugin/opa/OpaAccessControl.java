@@ -31,9 +31,11 @@ import io.trino.plugin.opa.schema.TrinoIdentity;
 import io.trino.plugin.opa.schema.TrinoSchema;
 import io.trino.plugin.opa.schema.TrinoTable;
 import io.trino.plugin.opa.schema.TrinoUser;
+import io.trino.spi.QueryId;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaRoutineName;
 import io.trino.spi.connector.CatalogSchemaTableName;
+import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.AccessDeniedException;
@@ -43,7 +45,6 @@ import io.trino.spi.security.SystemAccessControl;
 import io.trino.spi.security.SystemSecurityContext;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
-import io.trino.spi.type.Type;
 
 import java.security.Principal;
 import java.util.Collection;
@@ -115,7 +116,7 @@ public sealed class OpaAccessControl
     {}
 
     @Override
-    public void checkCanExecuteQuery(Identity identity)
+    public void checkCanExecuteQuery(Identity identity, QueryId queryId)
     {
         opaHighLevelClient.queryAndEnforce(buildQueryContext(identity), "ExecuteQuery", AccessDeniedException::denyExecuteQuery);
     }
@@ -156,7 +157,7 @@ public sealed class OpaAccessControl
     }
 
     @Override
-    public void checkCanSetSystemSessionProperty(Identity identity, String propertyName)
+    public void checkCanSetSystemSessionProperty(Identity identity, QueryId queryId, String propertyName)
     {
         opaHighLevelClient.queryAndEnforce(
                 buildQueryContext(identity),
@@ -718,6 +719,16 @@ public sealed class OpaAccessControl
     }
 
     @Override
+    public void checkCanShowCreateFunction(SystemSecurityContext systemSecurityContext, CatalogSchemaRoutineName functionName)
+    {
+        opaHighLevelClient.queryAndEnforce(
+                buildQueryContext(systemSecurityContext),
+                "ShowCreateFunction",
+                () -> denyShowFunctions(functionName.toString()),
+                OpaQueryInputResource.builder().function(TrinoFunction.fromTrinoFunction(functionName)).build());
+    }
+
+    @Override
     public List<ViewExpression> getRowFilters(SystemSecurityContext context, CatalogSchemaTableName tableName)
     {
         List<OpaViewExpression> rowFilterExpressions = opaHighLevelClient.getRowFilterExpressionsFromOpa(buildQueryContext(context), tableName);
@@ -727,11 +738,12 @@ public sealed class OpaAccessControl
     }
 
     @Override
-    public Optional<ViewExpression> getColumnMask(SystemSecurityContext context, CatalogSchemaTableName tableName, String columnName, Type type)
+    public Map<ColumnSchema, ViewExpression> getColumnMasks(SystemSecurityContext context, CatalogSchemaTableName tableName, List<ColumnSchema> columns)
     {
-        return opaHighLevelClient
-                .getColumnMaskFromOpa(buildQueryContext(context), tableName, columnName, type)
-                .map(expression -> expression.toTrinoViewExpression(tableName.getCatalogName(), tableName.getSchemaTableName().getSchemaName()));
+        return opaHighLevelClient.getColumnMasksFromOpa(buildQueryContext(context), tableName, columns)
+                .entrySet().stream()
+                .map(entry -> Map.entry(entry.getKey(), entry.getValue().toTrinoViewExpression(tableName.getCatalogName(), tableName.getSchemaTableName().getSchemaName())))
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
     @Override

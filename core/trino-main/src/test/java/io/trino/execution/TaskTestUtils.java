@@ -16,9 +16,8 @@ package io.trino.execution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.configuration.secrets.SecretsResolver;
 import io.airlift.json.ObjectMapperProvider;
-import io.airlift.tracing.Tracing;
-import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
 import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogServiceProvider;
@@ -38,15 +37,20 @@ import io.trino.operator.FlatHashStrategyCompiler;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.index.IndexJoinLookupStats;
 import io.trino.operator.index.IndexManager;
+import io.trino.server.protocol.spooling.QueryDataEncoders;
+import io.trino.server.protocol.spooling.SpoolingEnabledConfig;
 import io.trino.spi.connector.CatalogHandle;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.spiller.GenericSpillerFactory;
 import io.trino.split.PageSinkManager;
 import io.trino.split.PageSourceManager;
+import io.trino.sql.gen.CursorProcessorCompiler;
 import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.gen.JoinFilterFunctionCompiler;
 import io.trino.sql.gen.OrderingCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
+import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
 import io.trino.sql.planner.CompilerConfig;
 import io.trino.sql.planner.LocalExecutionPlanner;
 import io.trino.sql.planner.NodePartitioningManager;
@@ -66,7 +70,10 @@ import io.trino.util.FinalizerService;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
+import static io.airlift.tracing.Tracing.noopTracer;
+import static io.opentelemetry.api.OpenTelemetry.noop;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
@@ -84,17 +91,19 @@ public final class TaskTestUtils
 
     public static final ScheduledSplit SPLIT = new ScheduledSplit(0, TABLE_SCAN_NODE_ID, new Split(CATALOG_HANDLE, TestingSplit.createLocalSplit()));
 
-    public static final ImmutableList<SplitAssignment> EMPTY_SPLIT_ASSIGNMENTS = ImmutableList.of();
+    public static final List<SplitAssignment> EMPTY_SPLIT_ASSIGNMENTS = ImmutableList.of();
 
     public static final Symbol SYMBOL = new Symbol(BIGINT, "column");
 
     public static final PlanFragment PLAN_FRAGMENT = new PlanFragment(
             new PlanFragmentId("fragment"),
-            TableScanNode.newInstance(
+            new TableScanNode(
                     TABLE_SCAN_NODE_ID,
                     TEST_TABLE_HANDLE,
                     ImmutableList.of(SYMBOL),
                     ImmutableMap.of(SYMBOL, new TestingColumnHandle("column", 0, BIGINT)),
+                    TupleDomain.all(),
+                    Optional.empty(),
                     false,
                     Optional.empty()),
             ImmutableSet.of(SYMBOL),
@@ -114,11 +123,13 @@ public final class TaskTestUtils
             new PlanFragmentId("fragment"),
             new DynamicFilterSourceNode(
                     new PlanNodeId("dynamicFilterSource"),
-                    TableScanNode.newInstance(
+                    new TableScanNode(
                             TABLE_SCAN_NODE_ID,
                             TEST_TABLE_HANDLE,
                             ImmutableList.of(SYMBOL),
                             ImmutableMap.of(SYMBOL, new TestingColumnHandle("column", 0, BIGINT)),
+                            TupleDomain.all(),
+                            Optional.empty(),
                             false,
                             Optional.empty()),
                     ImmutableMap.of(DYNAMIC_FILTER_SOURCE_ID, SYMBOL)),
@@ -150,7 +161,9 @@ public final class TaskTestUtils
                 PLANNER_CONTEXT.getTypeOperators(),
                 CatalogServiceProvider.fail());
 
+        CursorProcessorCompiler cursorProcessorCompiler = new CursorProcessorCompiler(PLANNER_CONTEXT.getFunctionManager());
         PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(PLANNER_CONTEXT.getFunctionManager(), 0);
+        ColumnarFilterCompiler columnarFilterCompiler = new ColumnarFilterCompiler(PLANNER_CONTEXT.getFunctionManager(), 0);
         return new LocalExecutionPlanner(
                 PLANNER_CONTEXT,
                 Optional.empty(),
@@ -159,7 +172,7 @@ public final class TaskTestUtils
                 nodePartitioningManager,
                 new PageSinkManager(CatalogServiceProvider.fail()),
                 new MockDirectExchangeClientSupplier(),
-                new ExpressionCompiler(PLANNER_CONTEXT.getFunctionManager(), pageFunctionCompiler),
+                new ExpressionCompiler(cursorProcessorCompiler, pageFunctionCompiler, columnarFilterCompiler),
                 pageFunctionCompiler,
                 new JoinFilterFunctionCompiler(PLANNER_CONTEXT.getFunctionManager()),
                 new IndexJoinLookupStats(),
@@ -167,6 +180,8 @@ public final class TaskTestUtils
                 new GenericSpillerFactory((types, spillContext, memoryContext) -> {
                     throw new UnsupportedOperationException();
                 }),
+                new QueryDataEncoders(new SpoolingEnabledConfig(), Set.of()),
+                Optional.empty(),
                 (types, spillContext, memoryContext) -> {
                     throw new UnsupportedOperationException();
                 },
@@ -181,7 +196,7 @@ public final class TaskTestUtils
                 blockTypeOperators,
                 PLANNER_CONTEXT.getTypeOperators(),
                 new TableExecuteContextManager(),
-                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer()),
+                new ExchangeManagerRegistry(noop(), noopTracer(), new SecretsResolver(ImmutableMap.of())),
                 new NodeVersion("test"),
                 new CompilerConfig());
     }
@@ -194,7 +209,7 @@ public final class TaskTestUtils
     public static SplitMonitor createTestSplitMonitor()
     {
         return new SplitMonitor(
-                new EventListenerManager(new EventListenerConfig()),
+                new EventListenerManager(new EventListenerConfig(), new SecretsResolver(ImmutableMap.of()), noop(), noopTracer(), new NodeVersion("test")),
                 new ObjectMapperProvider().get());
     }
 }

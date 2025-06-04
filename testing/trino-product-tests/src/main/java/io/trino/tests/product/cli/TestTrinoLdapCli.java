@@ -20,32 +20,24 @@ import io.trino.tempto.AfterMethodWithContext;
 import io.trino.tempto.Requirement;
 import io.trino.tempto.RequirementsProvider;
 import io.trino.tempto.configuration.Configuration;
-import io.trino.tempto.fulfillment.ldap.LdapObjectRequirement;
 import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.util.Arrays;
 
 import static io.trino.tempto.Requirements.compose;
 import static io.trino.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static io.trino.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
 import static io.trino.tempto.process.CliProcess.trimLines;
-import static io.trino.tests.product.ImmutableLdapObjectDefinitions.AMERICA_ORG;
-import static io.trino.tests.product.ImmutableLdapObjectDefinitions.ASIA_ORG;
-import static io.trino.tests.product.ImmutableLdapObjectDefinitions.CHILD_GROUP;
 import static io.trino.tests.product.ImmutableLdapObjectDefinitions.CHILD_GROUP_USER;
-import static io.trino.tests.product.ImmutableLdapObjectDefinitions.DEFAULT_GROUP;
-import static io.trino.tests.product.ImmutableLdapObjectDefinitions.DEFAULT_GROUP_USER;
-import static io.trino.tests.product.ImmutableLdapObjectDefinitions.EUROPE_ORG;
 import static io.trino.tests.product.ImmutableLdapObjectDefinitions.ORPHAN_USER;
-import static io.trino.tests.product.ImmutableLdapObjectDefinitions.PARENT_GROUP;
 import static io.trino.tests.product.ImmutableLdapObjectDefinitions.PARENT_GROUP_USER;
 import static io.trino.tests.product.ImmutableLdapObjectDefinitions.SPECIAL_USER;
 import static io.trino.tests.product.ImmutableLdapObjectDefinitions.USER_IN_AMERICA;
 import static io.trino.tests.product.ImmutableLdapObjectDefinitions.USER_IN_EUROPE;
 import static io.trino.tests.product.ImmutableLdapObjectDefinitions.USER_IN_MULTIPLE_GROUPS;
+import static io.trino.tests.product.ImmutableLdapObjectDefinitions.getLdapRequirement;
 import static io.trino.tests.product.TestGroups.LDAP;
 import static io.trino.tests.product.TestGroups.LDAP_AND_FILE_CLI;
 import static io.trino.tests.product.TestGroups.LDAP_CLI;
@@ -62,27 +54,27 @@ public class TestTrinoLdapCli
     private static final String SELECT_FROM_NATION = "SELECT * FROM hive.default.nation;";
 
     @Inject(optional = true)
-    @Named("databases.presto.cli_ldap_truststore_path")
+    @Named("databases.trino.cli_ldap_truststore_path")
     private String ldapTruststorePath;
 
     @Inject(optional = true)
-    @Named("databases.presto.cli_ldap_truststore_password")
+    @Named("databases.trino.cli_ldap_truststore_password")
     private String ldapTruststorePassword;
 
     @Inject(optional = true)
-    @Named("databases.presto.cli_ldap_user_name")
+    @Named("databases.trino.cli_ldap_user_name")
     private String ldapUserName;
 
     @Inject(optional = true)
-    @Named("databases.presto.cli_ldap_server_address")
+    @Named("databases.trino.cli_ldap_server_address")
     private String ldapServerAddress;
 
     @Inject(optional = true)
-    @Named("databases.presto.cli_ldap_user_password")
+    @Named("databases.trino.cli_ldap_user_password")
     private String ldapUserPassword;
 
     @Inject(optional = true)
-    @Named("databases.presto.file_user_password")
+    @Named("databases.trino.file_user_password")
     private String fileUserPassword;
 
     @Inject(optional = true)
@@ -104,12 +96,7 @@ public class TestTrinoLdapCli
     @Override
     public Requirement getRequirements(Configuration configuration)
     {
-        return compose(new LdapObjectRequirement(
-                        Arrays.asList(
-                                AMERICA_ORG, ASIA_ORG, EUROPE_ORG,
-                                DEFAULT_GROUP, PARENT_GROUP, CHILD_GROUP,
-                                DEFAULT_GROUP_USER, PARENT_GROUP_USER, CHILD_GROUP_USER, ORPHAN_USER, SPECIAL_USER, USER_IN_MULTIPLE_GROUPS, USER_IN_AMERICA, USER_IN_EUROPE)),
-                immutableTable(NATION));
+        return compose(getLdapRequirement(), immutableTable(NATION));
     }
 
     @Test(groups = {LDAP, LDAP_CLI, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
@@ -252,7 +239,7 @@ public class TestTrinoLdapCli
         ldapServerAddress = format("http://%s:8443", serverHost);
         launchTrinoCliWithServerArgument("--execute", SELECT_FROM_NATION);
         assertThat(trimLines(trino.readRemainingErrorLines())).anySatisfy(line ->
-                assertThat(line).contains("TLS/SSL required for authentication with username and password"));
+                assertThat(line).contains("TLS/SSL is required for authentication with username and password"));
         skipAfterMethodWithContext();
     }
 
@@ -326,16 +313,16 @@ public class TestTrinoLdapCli
         requireNonNull(ldapServerAddress, "ldapServerAddress is null");
         requireNonNull(ldapUserPassword, "ldapUserPassword is null");
 
-        ImmutableList.Builder<String> prestoClientOptions = ImmutableList.builder();
-        prestoClientOptions.add(
+        ImmutableList.Builder<String> trinoClientOptions = ImmutableList.builder();
+        trinoClientOptions.add(
                 "--server", ldapServerAddress,
                 "--truststore-path", ldapTruststorePath,
                 "--truststore-password", ldapTruststorePassword,
                 "--user", ldapUserName,
                 "--password");
 
-        prestoClientOptions.add(arguments);
-        ProcessBuilder processBuilder = getProcessBuilder(prestoClientOptions.build());
+        trinoClientOptions.add(arguments);
+        ProcessBuilder processBuilder = getProcessBuilder(trinoClientOptions.build());
         processBuilder.environment().put("TRINO_PASSWORD", ldapUserPassword);
         trino = new TrinoCliProcess(processBuilder.start());
     }

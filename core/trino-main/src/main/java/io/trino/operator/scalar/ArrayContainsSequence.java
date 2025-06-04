@@ -27,7 +27,7 @@ import java.lang.invoke.MethodHandle;
 
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
+import static io.trino.spi.function.OperatorType.IDENTICAL;
 
 @Description("Determines whether an array contains a sequence, with the values in the exact order")
 @ScalarFunction("contains_sequence")
@@ -40,28 +40,28 @@ public final class ArrayContainsSequence
     @SqlNullable
     public static Boolean containsSequence(
             @OperatorDependency(
-                    operator = IS_DISTINCT_FROM,
+                    operator = IDENTICAL,
                     argumentTypes = {"T", "T"},
                     convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL))
-                    MethodHandle distinctFrom,
+                    MethodHandle identical,
             @SqlType("array(T)") Block arrayBlock,
             @SqlType("array(T)") Block value)
             throws Throwable
     {
         int arrayLimit = arrayBlock.getPositionCount() - value.getPositionCount();
         for (int arrayPosition = 0; arrayPosition <= arrayLimit; arrayPosition++) {
-            if (containsSequenceAt(distinctFrom, arrayBlock, arrayPosition, value)) {
+            if (containsSequenceAt(identical, arrayBlock, arrayPosition, value)) {
                 return true;
             }
         }
         return false;
     }
 
-    private static boolean containsSequenceAt(MethodHandle distinctFrom, Block arrayBlock, int arrayPosition, Block value)
+    private static boolean containsSequenceAt(MethodHandle identical, Block arrayBlock, int arrayPosition, Block value)
             throws Throwable
     {
         for (int valuePosition = 0; valuePosition < value.getPositionCount(); valuePosition++) {
-            if ((boolean) distinctFrom.invokeExact(arrayBlock, arrayPosition + valuePosition, value, valuePosition)) {
+            if (!(boolean) identical.invokeExact(arrayBlock, arrayPosition + valuePosition, value, valuePosition)) {
                 return false;
             }
         }

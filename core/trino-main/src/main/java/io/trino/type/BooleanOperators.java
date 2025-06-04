@@ -30,9 +30,7 @@ public final class BooleanOperators
     private static final Slice TRUE = Slices.copiedBuffer("true", US_ASCII);
     private static final Slice FALSE = Slices.copiedBuffer("false", US_ASCII);
 
-    private BooleanOperators()
-    {
-    }
+    private BooleanOperators() {}
 
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.DOUBLE)
@@ -85,7 +83,7 @@ public final class BooleanOperators
     }
 
     @SqlType(StandardTypes.BOOLEAN)
-    @ScalarFunction(hidden = true) // TODO: this should not be callable from SQL
+    @ScalarFunction(value = "$not", hidden = true) // TODO: this should not be callable from SQL
     public static boolean not(@SqlType(StandardTypes.BOOLEAN) boolean value)
     {
         return !value;

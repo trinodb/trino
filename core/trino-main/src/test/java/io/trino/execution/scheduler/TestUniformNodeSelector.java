@@ -13,8 +13,10 @@
  */
 package io.trino.execution.scheduler;
 
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
@@ -59,6 +61,7 @@ import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 
 @TestInstance(PER_METHOD)
@@ -155,7 +158,7 @@ public class TestUniformNodeSelector
             taskMap.put(node, remoteTask);
         }
         Set<Split> unassignedSplits = Sets.difference(splits, new HashSet<>(assignments1.values()));
-        assertThat(unassignedSplits.size()).isEqualTo(18);
+        assertThat(unassignedSplits).hasSize(18);
         // It's possible to add new assignments because split queue was upscaled
         Multimap<InternalNode, Split> assignments2 = nodeSelector.computeAssignments(unassignedSplits, ImmutableList.copyOf(taskMap.values())).getAssignments();
         assertThat(assignments2.size()).isEqualTo(2);
@@ -203,7 +206,7 @@ public class TestUniformNodeSelector
             taskMap.put(node, remoteTask);
         }
         Set<Split> unassignedSplits = Sets.difference(splits, new HashSet<>(assignments1.values()));
-        assertThat(unassignedSplits.size()).isEqualTo(140);
+        assertThat(unassignedSplits).hasSize(140);
 
         // assign splits, mark all splits running to trigger adjustment
         Multimap<InternalNode, Split> assignments2 = nodeSelector.computeAssignments(unassignedSplits, ImmutableList.copyOf(taskMap.values())).getAssignments();
@@ -215,7 +218,7 @@ public class TestUniformNodeSelector
             remoteTask.startSplits(remoteTask.getPartitionedSplitsInfo().getCount()); // mark all task running
         }
         unassignedSplits = Sets.difference(unassignedSplits, new HashSet<>(assignments2.values()));
-        assertThat(unassignedSplits.size()).isEqualTo(100); // 140 (unassigned splits) - (2 (queue size adjustment) * 10 (minPendingSplitsPerTask)) * 2 (nodes)
+        assertThat(unassignedSplits).hasSize(100); // 140 (unassigned splits) - (2 (queue size adjustment) * 10 (minPendingSplitsPerTask)) * 2 (nodes)
 
         // assign splits without setting all splits running
         Multimap<InternalNode, Split> assignments3 = nodeSelector.computeAssignments(unassignedSplits, ImmutableList.copyOf(taskMap.values())).getAssignments();
@@ -226,12 +229,12 @@ public class TestUniformNodeSelector
                     .build());
         }
         unassignedSplits = Sets.difference(unassignedSplits, new HashSet<>(assignments3.values()));
-        assertThat(unassignedSplits.size()).isEqualTo(20); // 100 (unassigned splits) - (4 (queue size adjustment) * 10 (minPendingSplitsPerTask)) * 2 (nodes)
+        assertThat(unassignedSplits).hasSize(20); // 100 (unassigned splits) - (4 (queue size adjustment) * 10 (minPendingSplitsPerTask)) * 2 (nodes)
 
         // compute assignments with exhausted nodes
         Multimap<InternalNode, Split> assignments4 = nodeSelector.computeAssignments(unassignedSplits, ImmutableList.copyOf(taskMap.values())).getAssignments();
         unassignedSplits = Sets.difference(unassignedSplits, new HashSet<>(assignments4.values()));
-        assertThat(unassignedSplits.size()).isEqualTo(20); // no new split assignments, queued are more than 0
+        assertThat(unassignedSplits).hasSize(20); // no new split assignments, queued are more than 0
     }
 
     @Test
@@ -257,7 +260,7 @@ public class TestUniformNodeSelector
             taskMap.put(node, remoteTask);
         }
         Set<Split> unassignedSplits = Sets.difference(splits, new HashSet<>(assignments1.values()));
-        assertThat(unassignedSplits.size()).isEqualTo(140);
+        assertThat(unassignedSplits).hasSize(140);
 
         // assign splits, mark all splits for node1 running to trigger adjustment
         Multimap<InternalNode, Split> assignments2 = nodeSelector.computeAssignments(unassignedSplits, ImmutableList.copyOf(taskMap.values())).getAssignments();
@@ -271,8 +274,8 @@ public class TestUniformNodeSelector
             }
         }
         unassignedSplits = Sets.difference(unassignedSplits, new HashSet<>(assignments2.values()));
-        assertThat(unassignedSplits.size()).isEqualTo(120);
-        assertThat(assignments2.get(node1).size()).isEqualTo(20); // 2x max pending
+        assertThat(unassignedSplits).hasSize(120);
+        assertThat(assignments2.get(node1)).hasSize(20); // 2x max pending
         assertThat(assignments2.containsKey(node2)).isFalse();
 
         // assign splits, mark all splits for node1 running to trigger adjustment
@@ -287,9 +290,47 @@ public class TestUniformNodeSelector
             }
         }
         unassignedSplits = Sets.difference(unassignedSplits, new HashSet<>(assignments3.values()));
-        assertThat(unassignedSplits.size()).isEqualTo(80);
-        assertThat(assignments3.get(node1).size()).isEqualTo(40); // 4x max pending
+        assertThat(unassignedSplits).hasSize(80);
+        assertThat(assignments3.get(node1)).hasSize(40); // 4x max pending
         assertThat(assignments2.containsKey(node2)).isFalse();
+    }
+
+    @Test
+    public void testFailover()
+    {
+        // Node selector without nodeMap memoization, so removing nodes takes effect immediately:
+        nodeSelector = new UniformNodeSelector(
+                nodeManager,
+                nodeTaskMap,
+                false,
+                () -> createNodeMap(TEST_CATALOG_HANDLE),
+                10,
+                2000,
+                1000,
+                2000,
+                NodeSchedulerConfig.SplitsBalancingPolicy.STAGE,
+                true,
+                new UniformNodeSelector.QueueSizeAdjuster(1000, 10000, new TestingTicker()));
+
+        Split rigidSplit = new Split(TEST_CATALOG_HANDLE, new TestingSplit(false, ImmutableList.of(node1.getHostAndPort())));
+        splits.add(rigidSplit);
+        Split flexibleSplit = new Split(TEST_CATALOG_HANDLE, new TestingSplit(true, ImmutableList.of(node1.getHostAndPort())));
+        splits.add(flexibleSplit);
+
+        // Both nodes alive, but both splits prefer node 1.
+        Multimap<InternalNode, Split> assignmentsNode1Alive = nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values())).getAssignments();
+        ArrayListMultimap<InternalNode, Split> expected = ArrayListMultimap.create();
+        expected.putAll(node1, splits);
+        org.assertj.guava.api.Assertions.assertThat(assignmentsNode1Alive).hasSameEntriesAs(expected);
+
+        nodeManager.removeNode(node1);
+        // Now the flexible split can fail over to node2, while the rigid split cannot.
+        assertThatThrownBy(() -> nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values()))).hasMessage("No nodes available to run query");
+        Multimap<InternalNode, Split> assignmentsNode1Dead =
+                nodeSelector.computeAssignments(ImmutableSet.of(flexibleSplit), ImmutableList.copyOf(taskMap.values())).getAssignments();
+        expected = ArrayListMultimap.create();
+        expected.put(node2, flexibleSplit);
+        org.assertj.guava.api.Assertions.assertThat(assignmentsNode1Dead).hasSameEntriesAs(expected);
     }
 
     private NodeMap createNodeMap(CatalogHandle catalogHandle)

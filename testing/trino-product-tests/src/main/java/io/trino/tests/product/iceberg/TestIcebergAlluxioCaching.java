@@ -14,12 +14,12 @@
 package io.trino.tests.product.iceberg;
 
 import io.airlift.units.Duration;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.ProductTest;
 import io.trino.tests.product.utils.CachingTestUtils.CacheStats;
 import org.testng.annotations.Test;
 
-import static io.airlift.testing.Assertions.assertGreaterThan;
-import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
+import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static io.trino.tests.product.TestGroups.ICEBERG_ALLUXIO_CACHING;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.utils.CachingTestUtils.getCacheStats;
@@ -27,11 +27,18 @@ import static io.trino.tests.product.utils.QueryAssertions.assertEventually;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 public class TestIcebergAlluxioCaching
         extends ProductTest
 {
+    private String bucketName;
+
+    @BeforeMethodWithContext
+    public void setUp()
+    {
+        bucketName = requireEnv("S3_BUCKET");
+    }
+
     @Test(groups = {ICEBERG_ALLUXIO_CACHING, PROFILE_SPECIFIC_TESTS})
     public void testReadFromCache()
     {
@@ -41,8 +48,8 @@ public class TestIcebergAlluxioCaching
 
     private void testReadFromTable(String tableNameSuffix)
     {
-        String cachedTableName = "iceberg.default.test_cache_read" + tableNameSuffix;
-        String nonCachedTableName = "iceberg.default.test_cache_read" + tableNameSuffix;
+        String cachedTableName = "iceberg.test_caching.test_cache_read" + tableNameSuffix;
+        String nonCachedTableName = "iceberg.test_caching.test_cache_read" + tableNameSuffix;
 
         createTestTable(cachedTableName);
 
@@ -55,9 +62,9 @@ public class TestIcebergAlluxioCaching
                 () -> {
                     // first query via caching catalog should fetch external data
                     CacheStats afterQueryCacheStats = getCacheStats("iceberg");
-                    assertGreaterThanOrEqual(afterQueryCacheStats.cacheSpaceUsed(), beforeCacheStats.cacheSpaceUsed());
-                    assertGreaterThan(afterQueryCacheStats.externalReads(), beforeCacheStats.externalReads());
-                    assertGreaterThanOrEqual(afterQueryCacheStats.cacheReads(), beforeCacheStats.cacheReads());
+                    assertThat(afterQueryCacheStats.cacheSpaceUsed()).isGreaterThanOrEqualTo(beforeCacheStats.cacheSpaceUsed());
+                    assertThat(afterQueryCacheStats.externalReads()).isGreaterThan(beforeCacheStats.externalReads());
+                    assertThat(afterQueryCacheStats.cacheReads()).isGreaterThanOrEqualTo(beforeCacheStats.cacheReads());
                 });
 
         assertEventually(
@@ -69,9 +76,9 @@ public class TestIcebergAlluxioCaching
 
                     // query via caching catalog should read exclusively from cache
                     CacheStats afterQueryCacheStats = getCacheStats("iceberg");
-                    assertGreaterThan(afterQueryCacheStats.cacheReads(), beforeQueryCacheStats.cacheReads());
-                    assertEquals(afterQueryCacheStats.externalReads(), beforeQueryCacheStats.externalReads());
-                    assertEquals(afterQueryCacheStats.cacheSpaceUsed(), beforeQueryCacheStats.cacheSpaceUsed());
+                    assertThat(afterQueryCacheStats.cacheReads()).isGreaterThan(beforeQueryCacheStats.cacheReads());
+                    assertThat(afterQueryCacheStats.externalReads()).isEqualTo(beforeQueryCacheStats.externalReads());
+                    assertThat(afterQueryCacheStats.cacheSpaceUsed()).isEqualTo(beforeQueryCacheStats.cacheSpaceUsed());
                 });
 
         onTrino().executeQuery("DROP TABLE " + nonCachedTableName);
@@ -83,7 +90,9 @@ public class TestIcebergAlluxioCaching
     private void createTestTable(String tableName)
     {
         onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
+        onTrino().executeQuery("DROP SCHEMA IF EXISTS iceberg.test_caching");
         onTrino().executeQuery("SET SESSION iceberg.target_max_file_size = '2MB'");
+        onTrino().executeQuery("CREATE SCHEMA iceberg.test_caching with (location = 's3://" + bucketName + "/test_iceberg_caching')");
         onTrino().executeQuery("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.customer");
     }
 }

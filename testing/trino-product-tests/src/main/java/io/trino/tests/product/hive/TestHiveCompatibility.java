@@ -54,7 +54,7 @@ public class TestHiveCompatibility
         extends HiveProductTest
 {
     @Inject(optional = true)
-    @Named("databases.presto.admin_role_enabled")
+    @Named("databases.trino.admin_role_enabled")
     private boolean adminRoleEnabled;
 
     @Test(dataProvider = "storageFormatsWithConfiguration", groups = STORAGE_FORMATS_DETAILED)
@@ -268,7 +268,7 @@ public class TestHiveCompatibility
         try {
             JdbcDriverUtils.setRole(connection, "admin");
         }
-        catch (SQLException ignored) {
+        catch (SQLException _) {
             // The test environments do not properly setup or manage
             // roles, so try to set the role, but ignore any errors
         }

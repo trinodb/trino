@@ -37,6 +37,7 @@ import io.trino.spi.session.PropertyMetadata;
 import io.trino.sql.tree.AllColumns;
 import io.trino.sql.tree.CreateMaterializedView;
 import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.Property;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Statement;
@@ -97,7 +98,7 @@ class TestCreateMaterializedViewTask
                 .build());
         metadata = new MockMetadata();
         queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
-                .withMetadataWrapper(ignored -> metadata)
+                .withMetadataWrapper(_ -> metadata)
                 .withGetMaterializedViewProperties(() -> ImmutableList.<PropertyMetadata<?>>builder()
                         .add(stringProperty("foo", "test materialized view property", DEFAULT_MATERIALIZED_VIEW_FOO_PROPERTY_VALUE, false))
                         .add(integerProperty("bar", "test materialized view property", DEFAULT_MATERIALIZED_VIEW_BAR_PROPERTY_VALUE, false))
@@ -121,7 +122,7 @@ class TestCreateMaterializedViewTask
     void testCreateMaterializedViewIfNotExists()
     {
         CreateMaterializedView statement = new CreateMaterializedView(
-                Optional.empty(),
+                new NodeLocation(1, 1),
                 QualifiedName.of("test_mv_if_not_exists"),
                 simpleQuery(selectList(new AllColumns()), table(QualifiedName.of(TEST_CATALOG_NAME, "schema", "mock_table"))),
                 false,
@@ -141,7 +142,7 @@ class TestCreateMaterializedViewTask
     void testCreateMaterializedViewWithExistingView()
     {
         CreateMaterializedView statement = new CreateMaterializedView(
-                Optional.empty(),
+                new NodeLocation(1, 1),
                 QualifiedName.of("test_mv_with_existing_view"),
                 simpleQuery(selectList(new AllColumns()), table(QualifiedName.of(TEST_CATALOG_NAME, "schema", "mock_table"))),
                 false,
@@ -163,19 +164,19 @@ class TestCreateMaterializedViewTask
     void testCreateMaterializedViewWithInvalidProperty()
     {
         CreateMaterializedView statement = new CreateMaterializedView(
-                Optional.empty(),
+                new NodeLocation(1, 1),
                 QualifiedName.of("test_mv_with_invalid_property"),
                 simpleQuery(selectList(new AllColumns()), table(QualifiedName.of(TEST_CATALOG_NAME, "schema", "mock_table"))),
                 false,
                 true,
                 Optional.empty(),
-                ImmutableList.of(new Property(new Identifier("baz"), new StringLiteral("abc"))),
+                ImmutableList.of(new Property(new NodeLocation(1, 88), new Identifier("baz"), new StringLiteral("abc"))),
                 Optional.empty());
 
         queryRunner.inTransaction(transactionSession -> {
             assertTrinoExceptionThrownBy(() -> createMaterializedView(transactionSession, statement))
                     .hasErrorCode(INVALID_MATERIALIZED_VIEW_PROPERTY)
-                    .hasMessage("Catalog 'test_catalog' materialized view property 'baz' does not exist");
+                    .hasMessage("line 1:88: Catalog 'test_catalog' materialized view property 'baz' does not exist");
             assertThat(metadata.getCreateMaterializedViewCallCount()).isEqualTo(0);
             return null;
         });
@@ -185,7 +186,7 @@ class TestCreateMaterializedViewTask
     void testCreateMaterializedViewWithDefaultProperties()
     {
         CreateMaterializedView statement = new CreateMaterializedView(
-                Optional.empty(),
+                new NodeLocation(1, 1),
                 QualifiedName.of(TEST_CATALOG_NAME, "schema", "mv_default_properties"),
                 simpleQuery(selectList(new AllColumns()), table(QualifiedName.of(TEST_CATALOG_NAME, "schema", "mock_table"))),
                 false,
@@ -211,7 +212,7 @@ class TestCreateMaterializedViewTask
     public void testCreateDenyPermission()
     {
         CreateMaterializedView statement = new CreateMaterializedView(
-                Optional.empty(),
+                new NodeLocation(1, 1),
                 QualifiedName.of("test_mv_deny"),
                 simpleQuery(selectList(new AllColumns()), table(QualifiedName.of(TEST_CATALOG_NAME, "schema", "mock_table"))),
                 false,

@@ -14,7 +14,6 @@
 package io.trino.plugin.ignite;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -33,11 +32,10 @@ import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static io.trino.plugin.ignite.IgniteQueryRunner.createIgniteQueryRunner;
-import static io.trino.plugin.ignite.IgniteQueryRunner.createSession;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -69,18 +67,14 @@ public class TestIgniteTypeMapping
             throws Exception
     {
         this.igniteServer = closeAfterClass(TestingIgniteServer.getInstance()).get();
-        return createIgniteQueryRunner(
-                igniteServer,
-                ImmutableMap.of(),
-                ImmutableMap.of(),
-                ImmutableList.of());
+        return IgniteQueryRunner.builder(igniteServer).build();
     }
 
     @BeforeAll
     public void setUp()
     {
         checkState(jvmZone.getId().equals("America/Bahia_Banderas"), "This test assumes certain JVM time zone");
-        checkIsGap(jvmZone, LocalDate.of(1970, 1, 1));
+        checkIsGap(jvmZone, LocalDate.of(1932, 4, 1));
         checkIsGap(vilnius, LocalDate.of(1983, 4, 1));
         verify(vilnius.getRules().getValidOffsets(LocalDate.of(1983, 10, 1).atStartOfDay().minusMinutes(1)).size() == 2);
     }
@@ -235,7 +229,7 @@ public class TestIgniteTypeMapping
                 .addRoundTrip("double", "+infinity()", DOUBLE, "+infinity()")
                 .addRoundTrip("double", "-infinity()", DOUBLE, "-infinity()")
                 .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_double"))
-                .execute(getQueryRunner(), trinoCreateAndInsert(createSession(), "trino_test_double"));
+                .execute(getQueryRunner(), trinoCreateAndInsert("trino_test_double"));
     }
 
     @Test
@@ -343,7 +337,7 @@ public class TestIgniteTypeMapping
         assertQueryFails("CREATE TABLE test_unsupported_date_range_ctas (data) AS SELECT DATE '1582-10-05'", "Date must be between 1970-01-01 and 9999-12-31 in Ignite.*");
         assertUpdate("DROP TABLE IF EXISTS test_unsupported_date_range_ctas");
 
-        ImmutableList<String> unsupportedDateValues = ImmutableList.of("-0001-01-01", "0001-01-01", "1000-01-01", "1969-12-31", "10000-01-01");
+        List<String> unsupportedDateValues = ImmutableList.of("-0001-01-01", "0001-01-01", "1000-01-01", "1969-12-31", "10000-01-01");
         try (TestTable table = new TestTable(igniteServer::execute, "test_unsupported_date_range", "(id int primary key, data date)")) {
             for (int i = 0; i < unsupportedDateValues.size(); i++) {
                 doTestUnsupportedDateRange(session, table.getName(), i, unsupportedDateValues.get(i));
@@ -425,7 +419,7 @@ public class TestIgniteTypeMapping
 
     private DataSetup trinoCreateAndInsert(String tableNamePrefix)
     {
-        return trinoCreateAndInsert(createSession(), tableNamePrefix);
+        return trinoCreateAndInsert(getSession(), tableNamePrefix);
     }
 
     private DataSetup trinoCreateAndInsert(Session session, String tableNamePrefix)

@@ -21,6 +21,8 @@ import io.trino.execution.buffer.SpoolingOutputStats;
 import io.trino.metadata.Split;
 import io.trino.sql.planner.plan.PlanNodeId;
 
+import java.util.Optional;
+
 public interface RemoteTask
 {
     TaskId getTaskId();
@@ -88,5 +90,5 @@ public interface RemoteTask
      *
      * @return spooling output statistics
      */
-    SpoolingOutputStats.Snapshot retrieveAndDropSpoolingOutputStats();
+    Optional<SpoolingOutputStats.Snapshot> retrieveAndDropSpoolingOutputStats();
 }

@@ -14,30 +14,59 @@
 package io.trino.plugin.redshift;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Sets;
+import io.airlift.log.Logger;
+import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
+import io.trino.plugin.jdbc.JdbcColumnHandle;
+import io.trino.plugin.jdbc.JdbcTableHandle;
+import io.trino.plugin.jdbc.JdbcTypeHandle;
+import io.trino.plugin.jdbc.RemoteDatabaseEvent;
+import io.trino.plugin.jdbc.RemoteDatabaseEvent.Status;
+import io.trino.plugin.jdbc.RemoteLogTracingEvent;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
+import org.jdbi.v3.core.Handle;
+import org.jdbi.v3.core.Jdbi;
 import org.junit.jupiter.api.Test;
 
+import java.sql.Types;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.Set;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.trino.SystemSessionProperties.DISTINCT_AGGREGATIONS_STRATEGY;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
-import static io.trino.plugin.redshift.RedshiftQueryRunner.TEST_SCHEMA;
-import static io.trino.plugin.redshift.RedshiftQueryRunner.executeInRedshift;
-import static io.trino.plugin.redshift.RedshiftQueryRunner.executeWithRedshift;
+import static io.trino.plugin.redshift.TestingRedshiftServer.JDBC_PASSWORD;
+import static io.trino.plugin.redshift.TestingRedshiftServer.JDBC_URL;
+import static io.trino.plugin.redshift.TestingRedshiftServer.JDBC_USER;
+import static io.trino.plugin.redshift.TestingRedshiftServer.TEST_DATABASE;
+import static io.trino.plugin.redshift.TestingRedshiftServer.TEST_SCHEMA;
+import static io.trino.plugin.redshift.TestingRedshiftServer.executeInRedshift;
+import static io.trino.plugin.redshift.TestingRedshiftServer.executeWithRedshift;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static java.lang.Math.round;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.abort;
@@ -45,6 +74,10 @@ import static org.junit.jupiter.api.Assumptions.abort;
 public class TestRedshiftConnectorTest
         extends BaseJdbcConnectorTest
 {
+    private static final String LOG_CANCELLATION_EVENT = "cancelled on user's request";
+
+    private final RemoteDatabaseEventMonitor remoteDatabaseEventMonitor = new RemoteDatabaseEventMonitor();
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
@@ -61,22 +94,24 @@ public class TestRedshiftConnectorTest
     {
         return switch (connectorBehavior) {
             case SUPPORTS_COMMENT_ON_COLUMN,
-                    SUPPORTS_JOIN_PUSHDOWN,
-                    SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY -> true;
+                 SUPPORTS_JOIN_PUSHDOWN,
+                 SUPPORTS_CANCELLATION,
+                 SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY -> true;
             case SUPPORTS_ADD_COLUMN_NOT_NULL_CONSTRAINT,
-                    SUPPORTS_ADD_COLUMN_WITH_COMMENT,
-                    SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION,
-                    SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE,
-                    SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION,
-                    SUPPORTS_ARRAY,
-                    SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
-                    SUPPORTS_DROP_NOT_NULL_CONSTRAINT,
-                    SUPPORTS_DROP_SCHEMA_CASCADE,
-                    SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM,
-                    SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN,
-                    SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS,
-                    SUPPORTS_ROW_TYPE,
-                    SUPPORTS_SET_COLUMN_TYPE -> false;
+                 SUPPORTS_ADD_COLUMN_WITH_COMMENT,
+                 SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION,
+                 SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE,
+                 SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION,
+                 SUPPORTS_ARRAY,
+                 SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
+                 SUPPORTS_DROP_NOT_NULL_CONSTRAINT,
+                 SUPPORTS_DROP_SCHEMA_CASCADE,
+                 SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM,
+                 SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN,
+                 SUPPORTS_MAP_TYPE,
+                 SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS,
+                 SUPPORTS_ROW_TYPE,
+                 SUPPORTS_SET_COLUMN_TYPE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
@@ -94,18 +129,19 @@ public class TestRedshiftConnectorTest
                 ImmutableList.of(
                         "1, null",
                         "2, 'super value string'",
-                        "3, " + """
-                                JSON_PARSE('{"r_nations":[
-                                      {"n_comment":"s. ironic, unusual asymptotes wake blithely r",
-                                         "n_nationkey":16,
-                                         "n_name":"MOZAMBIQUE"
-                                      }
-                                   ]
-                                }')
-                                """,
+                        """
+                        3, JSON_PARSE('{"r_nations":[
+                                       {"n_comment":"s. ironic, unusual asymptotes wake blithely r",
+                                          "n_nationkey":16,
+                                          "n_name":"MOZAMBIQUE"
+                                       }
+                                    ]
+                                 }')
+                        """,
                         "4, 4"))) {
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (1), (2), (3), (4)");
-            assertQuery(convertToVarchar, "SELECT * FROM " + table.getName(), """
+            assertQuery(convertToVarchar, "SELECT * FROM " + table.getName(),
+                    """
                     VALUES
                     (1, null),
                     (2, '\"super value string\"'),
@@ -237,10 +273,42 @@ public class TestRedshiftConnectorTest
     @Test
     public void testRedshiftAddNotNullColumn()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, TEST_SCHEMA + ".test_add_column_", "(col int)")) {
+        try (TestTable table = newTrinoTable(TEST_SCHEMA + ".test_add_column_", "(col int)")) {
             assertThatThrownBy(() -> onRemoteDatabase().execute("ALTER TABLE " + table.getName() + " ADD COLUMN new_col int NOT NULL"))
                     .hasMessageContaining("ERROR: ALTER TABLE ADD COLUMN defined as NOT NULL must have a non-null default expression");
         }
+    }
+
+    @Test
+    public void testRangeQueryConvertedToInClauseQuery()
+    {
+        assertThat(query("SELECT regionkey FROM region WHERE regionkey >= 1 AND regionkey <= 4"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT regionkey FROM region WHERE regionkey >= 1 AND regionkey <= 4"))
+                .isNotFullyPushedDown(node(TableScanNode.class)
+                        .with(TableScanNode.class, tableScanNode -> {
+                            TupleDomain<?> effectivePredicate = ((JdbcTableHandle) tableScanNode.getTable().connectorHandle()).getConstraint();
+                            TupleDomain<?> expectedPredicate =
+                                    TupleDomain.withColumnDomains(
+                                            Map.of(
+                                                    new JdbcColumnHandle.Builder()
+                                                            .setColumnName("regionkey")
+                                                            .setJdbcTypeHandle(
+                                                                    new JdbcTypeHandle(
+                                                                            Types.BIGINT,
+                                                                            Optional.of("int8"),
+                                                                            Optional.of(19),
+                                                                            Optional.of(0),
+                                                                            Optional.empty(),
+                                                                            Optional.empty()))
+                                                            .setComment(Optional.of("Dynamic Column."))
+                                                            .setColumnType(BIGINT)
+                                                            .setNullable(true)
+                                                            .build(),
+                                                    Domain.multipleValues(BIGINT, List.of(1L, 2L, 3L, 4L), false)));
+                            assertThat(effectivePredicate).isEqualTo(expectedPredicate);
+                            return true;
+                        }));
     }
 
     @Test
@@ -248,7 +316,7 @@ public class TestRedshiftConnectorTest
     public void testDelete()
     {
         // The base tests is very slow because Redshift CTAS is really slow, so use a smaller test
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_", "AS SELECT * FROM nation")) {
+        try (TestTable table = newTrinoTable("test_delete_", "AS SELECT * FROM nation")) {
             // delete without matching any rows
             assertUpdate("DELETE FROM " + table.getName() + " WHERE nationkey < 0", 0);
 
@@ -350,7 +418,8 @@ public class TestRedshiftConnectorTest
                 long actualCount = handle.createQuery("SELECT count(*) FROM " + TEST_SCHEMA + "." + tableName)
                         .mapTo(Long.class)
                         .one();
-                long estimatedCount = handle.createQuery("""
+                long estimatedCount = handle.createQuery(
+                                """
                                 SELECT reltuples FROM pg_class
                                 WHERE relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = :schema)
                                 AND relname = :table_name
@@ -380,7 +449,7 @@ public class TestRedshiftConnectorTest
                 .collect(toImmutableList());
         String tableName = "distinct_strings" + randomNameSuffix();
 
-        try (TestTable testTable = new TestTable(getQueryRunner()::execute, tableName, "(t_char CHAR(5), t_varchar VARCHAR(5))", rows)) {
+        try (TestTable testTable = newTrinoTable(tableName, "(t_char CHAR(5), t_varchar VARCHAR(5))", rows)) {
             // Single count(DISTINCT ...) can be pushed even down even if SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT == false as GROUP BY
             assertThat(query("SELECT count(DISTINCT t_varchar) FROM " + testTable.getName()))
                     .matches("VALUES BIGINT '6'")
@@ -391,7 +460,27 @@ public class TestRedshiftConnectorTest
                     .matches("VALUES BIGINT '6'")
                     .isFullyPushedDown();
 
-            assertThat(query("SELECT count(DISTINCT t_char), count(DISTINCT t_varchar) FROM " + testTable.getName()))
+            Session withMarkDistinct = Session.builder(getSession())
+                    .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "mark_distinct")
+                    .build();
+
+            Session withSingleStepDistinct = Session.builder(getSession())
+                    .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "single_step")
+                    .build();
+
+            Session withPreAggregate = Session.builder(getSession())
+                    .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
+                    .build();
+
+            assertThat(query(withMarkDistinct, "SELECT count(DISTINCT t_char), count(DISTINCT t_varchar) FROM " + testTable.getName()))
+                    .matches("VALUES (BIGINT '6', BIGINT '6')")
+                    .isFullyPushedDown();
+
+            assertThat(query(withSingleStepDistinct, "SELECT count(DISTINCT t_char), count(DISTINCT t_varchar) FROM " + testTable.getName()))
+                    .matches("VALUES (BIGINT '6', BIGINT '6')")
+                    .isFullyPushedDown();
+
+            assertThat(query(withPreAggregate, "SELECT count(DISTINCT t_char), count(DISTINCT t_varchar) FROM " + testTable.getName()))
                     .matches("VALUES (BIGINT '6', BIGINT '6')")
                     .isFullyPushedDown();
         }
@@ -572,12 +661,13 @@ public class TestRedshiftConnectorTest
                 "12345789.9876543210",
                 format("%s.%s", "1".repeat(28), "9".repeat(10)));
 
-        try (TestTable testTable = new TestTable(getQueryRunner()::execute, TEST_SCHEMA + ".test_agg_pushdown_avg_max_decimal",
+        try (TestTable testTable = newTrinoTable(TEST_SCHEMA + ".test_agg_pushdown_avg_max_decimal",
                 "(t_decimal DECIMAL(38, 10))", rows)) {
             // Redshift avg rounds down decimal result which doesn't match Presto semantics
             assertThatThrownBy(() -> assertThat(query("SELECT avg(t_decimal) FROM " + testTable.getName())).isFullyPushedDown())
                     .isInstanceOf(AssertionError.class)
-                    .hasMessageContaining("""
+                    .hasMessageContaining(
+                            """
                             elements not found:
                               (555555555555555555561728450.9938271605)
                             and elements not expected:
@@ -593,7 +683,7 @@ public class TestRedshiftConnectorTest
                 "0.987654321234567890",
                 format("0.%s", "1".repeat(18)));
 
-        try (TestTable testTable = new TestTable(getQueryRunner()::execute, TEST_SCHEMA + ".test_agg_pushdown_avg_max_decimal",
+        try (TestTable testTable = newTrinoTable(TEST_SCHEMA + ".test_agg_pushdown_avg_max_decimal",
                 "(t_decimal DECIMAL(18, 18))", rows)) {
             assertThat(query("SELECT avg(t_decimal) FROM " + testTable.getName())).isFullyPushedDown();
         }
@@ -604,6 +694,112 @@ public class TestRedshiftConnectorTest
     public void testInsertRowConcurrently()
     {
         abort("Test fails with a timeout sometimes and is flaky");
+    }
+
+    @Test
+    public void testJoinPushdownWithImplicitCast()
+    {
+        try (TestTable leftTable = newTrinoTable(
+                "left_table_",
+                "(id int, c_boolean boolean, c_tinyint tinyint, c_smallint smallint, c_integer integer, c_bigint bigint, c_real real, c_double_precision double precision, c_decimal_10_2 decimal(10, 2), c_varchar_50 varchar(50))",
+                ImmutableList.of(
+                        "(11, true, 12, 12, 12, 12, 12.34, 12.34, 12.34, 'India')",
+                        "(12, false, 123, 123, 123, 123, 123.67, 123.67, 123.67, 'Poland')"));
+                TestTable rightTable = newTrinoTable(
+                        "right_table_",
+                        "(id int, c_boolean boolean, c_tinyint tinyint, c_smallint smallint, c_integer integer, c_bigint bigint, c_real real, c_double_precision double precision, c_decimal_10_2 decimal(10, 2), c_varchar_100 varchar(100), c_varchar varchar)",
+                        ImmutableList.of(
+                                "(21, true, 12, 12, 12, 12, 12.34, 12.34, 12.34, 'India', 'Japan')",
+                                "(22, true, 234, 234, 234, 234, 234.67, 234.67, 234.67, 'France', 'Poland')"))) {
+            Session session = joinPushdownEnabled(getSession());
+            String joinQuery = "SELECT l.id FROM " + leftTable.getName() + " l %s " + rightTable.getName() + " r ON %s";
+
+            assertThat(query(session, joinQuery.formatted("LEFT JOIN", "l.c_tinyint = r.c_bigint")))
+                    .isFullyPushedDown();
+            assertThat(query(session, joinQuery.formatted("RIGHT JOIN", "l.c_tinyint = r.c_bigint")))
+                    .isFullyPushedDown();
+            assertThat(query(session, joinQuery.formatted("INNER JOIN", "l.c_tinyint = r.c_bigint")))
+                    .isFullyPushedDown();
+            // Full Join pushdown is not supported
+            assertThat(query(session, joinQuery.formatted("FULL JOIN", "l.c_tinyint = r.c_bigint")))
+                    .joinIsNotFullyPushedDown();
+
+            assertThat(query(session, joinQuery.formatted("LEFT JOIN", "l.c_smallint = r.c_bigint")))
+                    .isFullyPushedDown();
+            assertThat(query(session, joinQuery.formatted("RIGHT JOIN", "l.c_smallint = r.c_bigint")))
+                    .isFullyPushedDown();
+            assertThat(query(session, joinQuery.formatted("INNER JOIN", "l.c_smallint = r.c_bigint")))
+                    .isFullyPushedDown();
+            // Full Join pushdown is not supported
+            assertThat(query(session, joinQuery.formatted("FULL JOIN", "l.c_smallint = r.c_bigint")))
+                    .joinIsNotFullyPushedDown();
+
+            assertThat(query(session, joinQuery.formatted("LEFT JOIN", "l.c_integer = r.c_bigint")))
+                    .isFullyPushedDown();
+            assertThat(query(session, joinQuery.formatted("RIGHT JOIN", "l.c_integer = r.c_bigint")))
+                    .isFullyPushedDown();
+            assertThat(query(session, joinQuery.formatted("INNER JOIN", "l.c_integer = r.c_bigint")))
+                    .isFullyPushedDown();
+            // Full Join pushdown is not supported
+            assertThat(query(session, joinQuery.formatted("FULL JOIN", "l.c_integer = r.c_bigint")))
+                    .joinIsNotFullyPushedDown();
+
+            // Below cases try to implicit cast from bigint type to real/double/decimal type.
+            // CAST pushdown with real/double/decimal type is not supported yet.
+            assertThat(query(session, joinQuery.formatted("LEFT JOIN", "l.c_real = r.c_bigint")))
+                    .joinIsNotFullyPushedDown();
+            assertThat(query(session, joinQuery.formatted("RIGHT JOIN", "l.c_real = r.c_bigint")))
+                    .joinIsNotFullyPushedDown();
+            assertThat(query(session, joinQuery.formatted("INNER JOIN", "l.c_real = r.c_bigint")))
+                    .joinIsNotFullyPushedDown();
+            // Full Join pushdown is not supported
+            assertThat(query(session, joinQuery.formatted("FULL JOIN", "l.c_real = r.c_bigint")))
+                    .joinIsNotFullyPushedDown();
+
+            assertThat(query(session, joinQuery.formatted("LEFT JOIN", "l.c_double_precision = r.c_bigint")))
+                    .joinIsNotFullyPushedDown();
+            assertThat(query(session, joinQuery.formatted("RIGHT JOIN", "l.c_double_precision = r.c_bigint")))
+                    .joinIsNotFullyPushedDown();
+            assertThat(query(session, joinQuery.formatted("INNER JOIN", "l.c_double_precision = r.c_bigint")))
+                    .joinIsNotFullyPushedDown();
+            // Full Join pushdown is not supported
+            assertThat(query(session, joinQuery.formatted("FULL JOIN", "l.c_double_precision = r.c_bigint")))
+                    .joinIsNotFullyPushedDown();
+
+            assertThat(query(session, joinQuery.formatted("LEFT JOIN", "l.c_decimal_10_2 = r.c_bigint")))
+                    .joinIsNotFullyPushedDown();
+            assertThat(query(session, joinQuery.formatted("RIGHT JOIN", "l.c_decimal_10_2 = r.c_bigint")))
+                    .joinIsNotFullyPushedDown();
+            assertThat(query(session, joinQuery.formatted("INNER JOIN", "l.c_decimal_10_2 = r.c_bigint")))
+                    .joinIsNotFullyPushedDown();
+            // Full Join pushdown is not supported
+            assertThat(query(session, joinQuery.formatted("FULL JOIN", "l.c_decimal_10_2 = r.c_bigint")))
+                    .joinIsNotFullyPushedDown();
+
+            // Implicit cast between bounded varchar
+            String joinWithBoundedVarchar = "SELECT l.id FROM %s l %s %s r ON l.c_varchar_50 = r.c_varchar_100".formatted(leftTable.getName(), "%s", rightTable.getName());
+            assertThat(query(session, joinWithBoundedVarchar.formatted("LEFT JOIN")))
+                    .isFullyPushedDown();
+            assertThat(query(session, joinWithBoundedVarchar.formatted("RIGHT JOIN")))
+                    .isFullyPushedDown();
+            assertThat(query(session, joinWithBoundedVarchar.formatted("INNER JOIN")))
+                    .isFullyPushedDown();
+            // Full Join pushdown is not supported
+            assertThat(query(session, joinWithBoundedVarchar.formatted("FULL JOIN")))
+                    .joinIsNotFullyPushedDown();
+
+            // Implicit cast between bounded and max allowed precision varchar
+            String joinWithMaxPrecisionVarchar = "SELECT l.id FROM %s l %s %s r ON l.c_varchar_50 = r.c_varchar".formatted(leftTable.getName(), "%s", rightTable.getName());
+            assertThat(query(session, joinWithMaxPrecisionVarchar.formatted("LEFT JOIN")))
+                    .isFullyPushedDown();
+            assertThat(query(session, joinWithMaxPrecisionVarchar.formatted("RIGHT JOIN")))
+                    .isFullyPushedDown();
+            assertThat(query(session, joinWithMaxPrecisionVarchar.formatted("INNER JOIN")))
+                    .isFullyPushedDown();
+            // Full Join pushdown is not supported
+            assertThat(query(session, joinWithMaxPrecisionVarchar.formatted("FULL JOIN")))
+                    .joinIsNotFullyPushedDown();
+        }
     }
 
     @Override
@@ -660,7 +856,44 @@ public class TestRedshiftConnectorTest
     @Override
     protected SqlExecutor onRemoteDatabase()
     {
-        return RedshiftQueryRunner::executeInRedshift;
+        return TestingRedshiftServer::executeInRedshift;
+    }
+
+    private SqlExecutor onRemoteDatabaseWithSchema(String schema)
+    {
+        return sql -> executeInRedshift("SET search_path TO %s; %s".formatted(schema, sql));
+    }
+
+    @Override
+    protected void startTracingDatabaseEvent(RemoteLogTracingEvent event)
+    {
+        remoteDatabaseEventMonitor.startTracingDatabaseEvent(event);
+    }
+
+    @Override
+    protected void stopTracingDatabaseEvent(RemoteLogTracingEvent event)
+    {
+        remoteDatabaseEventMonitor.stopTracingDatabaseEvent(event);
+    }
+
+    @Override
+    protected io.trino.testing.sql.TestView createSleepingView(Duration minimalQueryDuration)
+    {
+        long secondsToSleep = round(minimalQueryDuration.convertTo(SECONDS).getValue() + 1);
+        // pg_sleep unsupported: https://docs.aws.amazon.com/redshift/latest/dg/c_unsupported-postgresql-functions.html,
+        // adding a python UDF replacement
+        onRemoteDatabaseWithSchema(TEST_SCHEMA).execute(
+                """
+                CREATE OR REPLACE FUNCTION janky_sleep (x float) RETURNS bool IMMUTABLE as $$
+                    from time import sleep
+                    sleep(x)
+                    return True
+                $$ LANGUAGE plpythonu;
+                """);
+        return new io.trino.testing.sql.TestView(
+                onRemoteDatabaseWithSchema(TEST_SCHEMA),
+                "test_sleeping_view",
+                format("SELECT 1 FROM janky_sleep(%d)", secondsToSleep));
     }
 
     @Test
@@ -693,6 +926,83 @@ public class TestRedshiftConnectorTest
         public String getName()
         {
             return name;
+        }
+    }
+
+    private static class RemoteDatabaseEventMonitor
+            implements Runnable
+    {
+        private static final Logger log = Logger.get(RemoteDatabaseEventMonitor.class);
+
+        private final Jdbi jdbi;
+        private final Set<RemoteLogTracingEvent> tracingEvents;
+        private ScheduledThreadPoolExecutor executor;
+
+        private RemoteDatabaseEventMonitor()
+        {
+            jdbi = Jdbi.create(JDBC_URL, JDBC_USER, JDBC_PASSWORD);
+            tracingEvents = Sets.newConcurrentHashSet();
+        }
+
+        public void startTracingDatabaseEvent(RemoteLogTracingEvent event)
+        {
+            if (tracingEvents.isEmpty()) {
+                executor = new ScheduledThreadPoolExecutor(1, daemonThreadsNamed("redshift-database-event-monitor"));
+                executor.scheduleWithFixedDelay(this, 0, 5, SECONDS);
+            }
+            tracingEvents.add(event);
+        }
+
+        public void stopTracingDatabaseEvent(RemoteLogTracingEvent event)
+        {
+            tracingEvents.remove(event);
+            if (tracingEvents.isEmpty()) {
+                executor.shutdown();
+            }
+        }
+
+        @Override
+        public void run()
+        {
+            if (tracingEvents.isEmpty()) {
+                return;
+            }
+
+            try {
+                getRecentQueries()
+                        .forEach(remoteDatabaseEvent -> tracingEvents.forEach(tracingEvent -> tracingEvent.accept(remoteDatabaseEvent)));
+            }
+            catch (Exception e) {
+                // ignore exceptions to keep scheduled executions going
+                log.warn(e, "Encountered error while gathering Redshift remote database events");
+            }
+        }
+
+        private List<RemoteDatabaseEvent> getRecentQueries()
+        {
+            try (Handle handle = jdbi.open()) {
+                return handle.createQuery(
+                                """
+                                SELECT query_text, status, error_message
+                                FROM SYS_QUERY_HISTORY
+                                WHERE database_name = :db_name
+                                AND query_type = 'SELECT'
+                                AND user_id = current_user_id
+                                AND start_time > GETDATE() - INTERVAL '15 minutes'
+                                """)
+                        .bind("db_name", TEST_DATABASE)
+                        .map((rs, _) -> new RemoteDatabaseEvent(
+                                rs.getString("query_text"),
+                                switch (requireNonNull(rs.getString("status"), "status is null").trim()) {
+                                    case "failed" -> Optional.ofNullable(rs.getString("error_message"))
+                                            .flatMap(message -> message.contains(LOG_CANCELLATION_EVENT) ? Optional.of(Status.CANCELLED) : Optional.empty())
+                                            .orElse(Status.DONE);
+                                    case "success" -> Status.DONE;
+                                    case "canceled" -> Status.CANCELLED;
+                                    default -> Status.RUNNING;
+                                }))
+                        .list();
+            }
         }
     }
 }

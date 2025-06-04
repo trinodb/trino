@@ -83,6 +83,9 @@ The following table details all general configuration properties:
     queries. Some deployments map OpenSearch ports to a random public port and
     enabling this property can help in these cases.
   - `false`
+* - `opensearch.projection-pushdown-enabled`
+  - Read only projected fields from row columns while performing `SELECT` queries
+  - `true`
 :::
 
 ### Authentication
@@ -126,7 +129,7 @@ to `PASSWORD`. Additionally the following options must be configured:
 * - Property name
   - Description
 * - `opensearch.auth.user`
-  - User name to use to connect to OpenSearch.
+  - Username to use to connect to OpenSearch.
 * - `opensearch.auth.password`
   - Password to use to connect to OpenSearch.
 :::
@@ -138,7 +141,7 @@ clusters with TLS enabled.
 
 If your cluster uses globally-trusted certificates, you only need to
 enable TLS. If you require custom configuration for certificates, the connector
-supports key stores and trust stores in PEM or Java Key Store (JKS) format.
+supports key stores and trust stores in P12 (PKCS) or Java Key Store (JKS) format.
 
 The available configuration values are listed in the following table:
 
@@ -151,10 +154,10 @@ The available configuration values are listed in the following table:
 * - `opensearch.tls.enabled`
   - Enable TLS security. Defaults to `false`.
 * - `opensearch.tls.keystore-path`
-  - The path to the [PEM](/security/inspect-pem) or [JKS](/security/inspect-jks)
+  - The path to the P12 (PKCS) or [JKS](/security/inspect-jks)
     key store.
 * - `opensearch.tls.truststore-path`
-  - The path to [PEM](/security/inspect-pem) or [JKS](/security/inspect-jks)
+  - The path to P12 (PKCS) or [JKS](/security/inspect-jks)
     trust store.
 * - `opensearch.tls.keystore-password`
   - The password for the key store specified by
@@ -394,13 +397,24 @@ The connector provides [globally available](sql-globally-available) and
 [read operation](sql-read-operations) statements to access data and
 metadata in the OpenSearch catalog.
 
-## Table functions
+### Wildcard table
+
+The connector provides support to query multiple tables using a concise
+[wildcard table](https://opensearch.org/docs/latest/api-reference/multi-search/#metadata-only-options)
+notation.
+
+```sql
+SELECT *
+FROM example.web."page_views_*";
+```
+
+### Table functions
 
 The connector provides specific [table functions](/functions/table) to
 access OpenSearch.
 
 (opensearch-raw-query-function)=
-### `raw_query(varchar) -> table`
+#### `raw_query(varchar) -> table`
 
 The `raw_query` function allows you to query the underlying database directly
 using the [OpenSearch Query

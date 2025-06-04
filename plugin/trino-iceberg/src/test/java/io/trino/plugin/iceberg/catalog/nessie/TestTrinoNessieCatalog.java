@@ -37,19 +37,21 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 import org.projectnessie.client.NessieClientBuilder;
-import org.projectnessie.client.api.NessieApiV1;
+import org.projectnessie.client.api.NessieApiV2;
 
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.Optional;
 
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
-import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.nio.file.Files.createTempDirectory;
 import static java.util.Locale.ENGLISH;
@@ -94,9 +96,9 @@ public class TestTrinoNessieCatalog
         TrinoFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS);
         IcebergNessieCatalogConfig icebergNessieCatalogConfig = new IcebergNessieCatalogConfig()
                 .setServerUri(URI.create(nessieContainer.getRestApiUri()));
-        NessieApiV1 nessieApi = NessieClientBuilder.createClientBuilderFromSystemSettings()
+        NessieApiV2 nessieApi = NessieClientBuilder.createClientBuilderFromSystemSettings()
                 .withUri(nessieContainer.getRestApiUri())
-                .build(NessieApiV1.class);
+                .build(NessieApiV2.class);
         NessieIcebergClient nessieClient = new NessieIcebergClient(nessieApi, icebergNessieCatalogConfig.getDefaultReferenceName(), null, ImmutableMap.of());
         return new TrinoNessieCatalog(
                 new CatalogName("catalog_name"),
@@ -118,9 +120,9 @@ public class TestTrinoNessieCatalog
         IcebergNessieCatalogConfig icebergNessieCatalogConfig = new IcebergNessieCatalogConfig()
                 .setDefaultWarehouseDir(tmpDirectory.toAbsolutePath().toString())
                 .setServerUri(URI.create(nessieContainer.getRestApiUri()));
-        NessieApiV1 nessieApi = NessieClientBuilder.createClientBuilderFromSystemSettings()
+        NessieApiV2 nessieApi = NessieClientBuilder.createClientBuilderFromSystemSettings()
                 .withUri(nessieContainer.getRestApiUri())
-                .build(NessieApiV1.class);
+                .build(NessieApiV2.class);
         NessieIcebergClient nessieClient = new NessieIcebergClient(nessieApi, icebergNessieCatalogConfig.getDefaultReferenceName(), null, ImmutableMap.of());
         TrinoCatalog catalogWithDefaultLocation = new TrinoNessieCatalog(
                 new CatalogName("catalog_name"),
@@ -185,7 +187,13 @@ public class TestTrinoNessieCatalog
                     (connectorIdentity, fileIoProperties) -> {
                         throw new UnsupportedOperationException();
                     },
-                    new TableStatisticsWriter(new NodeVersion("test-version")));
+                    new TableStatisticsWriter(new NodeVersion("test-version")),
+                    Optional.empty(),
+                    false,
+                    _ -> false,
+                    newDirectExecutorService(),
+                    directExecutor(),
+                    newDirectExecutorService());
             assertThat(icebergMetadata.schemaExists(SESSION, namespace)).as("icebergMetadata.schemaExists(namespace)")
                     .isTrue();
             assertThat(icebergMetadata.schemaExists(SESSION, schema)).as("icebergMetadata.schemaExists(schema)")

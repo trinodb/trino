@@ -25,7 +25,7 @@ public class TestExampleQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return ExampleQueryRunner.createQueryRunner();
+        return ExampleQueryRunner.builder().build();
     }
 
     @Test

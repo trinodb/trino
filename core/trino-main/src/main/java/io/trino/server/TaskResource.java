@@ -14,7 +14,6 @@
 package io.trino.server;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.reflect.TypeToken;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Inject;
@@ -42,19 +41,20 @@ import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.HeaderParam;
+import jakarta.ws.rs.InternalServerErrorException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.ServiceUnavailableException;
 import jakarta.ws.rs.container.AsyncResponse;
-import jakarta.ws.rs.container.CompletionCallback;
 import jakarta.ws.rs.container.Suspended;
 import jakarta.ws.rs.core.Context;
-import jakarta.ws.rs.core.GenericEntity;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Response.Status;
+import jakarta.ws.rs.core.StreamingOutput;
 import jakarta.ws.rs.core.UriInfo;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -72,6 +72,7 @@ import static io.airlift.concurrent.MoreFutures.addTimeout;
 import static io.airlift.jaxrs.AsyncResponseHandler.bindAsyncResponse;
 import static io.trino.TrinoMediaTypes.TRINO_PAGES;
 import static io.trino.execution.buffer.BufferResult.emptyResults;
+import static io.trino.server.AsyncResponseUtils.withFallbackAfterTimeout;
 import static io.trino.server.InternalHeaders.TRINO_BUFFER_COMPLETE;
 import static io.trino.server.InternalHeaders.TRINO_CURRENT_VERSION;
 import static io.trino.server.InternalHeaders.TRINO_MAX_SIZE;
@@ -81,6 +82,7 @@ import static io.trino.server.InternalHeaders.TRINO_PAGE_TOKEN;
 import static io.trino.server.InternalHeaders.TRINO_TASK_FAILED;
 import static io.trino.server.InternalHeaders.TRINO_TASK_INSTANCE_ID;
 import static io.trino.server.security.ResourceSecurity.AccessType.INTERNAL_ONLY;
+import static jakarta.ws.rs.core.Response.status;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -89,6 +91,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
  * Manages tasks on this worker node
  */
 @Path("/v1/task")
+@ResourceSecurity(INTERNAL_ONLY)
 public class TaskResource
 {
     private static final Logger log = Logger.get(TaskResource.class);
@@ -96,8 +99,10 @@ public class TaskResource
     private static final Duration ADDITIONAL_WAIT_TIME = new Duration(5, SECONDS);
     private static final Duration DEFAULT_MAX_WAIT_TIME = new Duration(2, SECONDS);
 
+    private final StartupStatus startupStatus;
     private final SqlTaskManager taskManager;
     private final SessionPropertyManager sessionPropertyManager;
+    private final PagesInputStreamFactory pagesInputStreamFactory;
     private final Executor responseExecutor;
     private final ScheduledExecutorService timeoutExecutor;
     private final FailureInjector failureInjector;
@@ -106,20 +111,23 @@ public class TaskResource
 
     @Inject
     public TaskResource(
+            StartupStatus startupStatus,
             SqlTaskManager taskManager,
             SessionPropertyManager sessionPropertyManager,
+            PagesInputStreamFactory pagesInputStreamFactory,
             @ForAsyncHttp BoundedExecutor responseExecutor,
             @ForAsyncHttp ScheduledExecutorService timeoutExecutor,
             FailureInjector failureInjector)
     {
+        this.startupStatus = requireNonNull(startupStatus, "startupStatus is null");
         this.taskManager = requireNonNull(taskManager, "taskManager is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
+        this.pagesInputStreamFactory = requireNonNull(pagesInputStreamFactory, "pagesInputStreamFactory is null");
         this.responseExecutor = requireNonNull(responseExecutor, "responseExecutor is null");
         this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
         this.failureInjector = requireNonNull(failureInjector, "failureInjector is null");
     }
 
-    @ResourceSecurity(INTERNAL_ONLY)
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     public List<TaskInfo> getAllTaskInfo(@Context UriInfo uriInfo)
@@ -131,7 +139,6 @@ public class TaskResource
         return allTaskInfo;
     }
 
-    @ResourceSecurity(INTERNAL_ONLY)
     @POST
     @Path("{taskId}")
     @Consumes(MediaType.APPLICATION_JSON)
@@ -143,8 +150,11 @@ public class TaskResource
             @Suspended AsyncResponse asyncResponse)
     {
         requireNonNull(taskUpdateRequest, "taskUpdateRequest is null");
+        if (failRequestIfInvalid(asyncResponse)) {
+            return;
+        }
 
-        Session session = taskUpdateRequest.getSession().toSession(sessionPropertyManager, taskUpdateRequest.getExtraCredentials(), taskUpdateRequest.getExchangeEncryptionKey());
+        Session session = taskUpdateRequest.session().toSession(sessionPropertyManager, taskUpdateRequest.extraCredentials(), taskUpdateRequest.exchangeEncryptionKey());
 
         if (injectFailure(session.getTraceToken(), taskId, RequestType.CREATE_OR_UPDATE_TASK, asyncResponse)) {
             return;
@@ -153,12 +163,12 @@ public class TaskResource
         TaskInfo taskInfo = taskManager.updateTask(
                 session,
                 taskId,
-                taskUpdateRequest.getStageSpan(),
-                taskUpdateRequest.getFragment(),
-                taskUpdateRequest.getSplitAssignments(),
-                taskUpdateRequest.getOutputIds(),
-                taskUpdateRequest.getDynamicFilterDomains(),
-                taskUpdateRequest.isSpeculative());
+                taskUpdateRequest.stageSpan(),
+                taskUpdateRequest.fragment(),
+                taskUpdateRequest.splitAssignments(),
+                taskUpdateRequest.outputIds(),
+                taskUpdateRequest.dynamicFilterDomains(),
+                taskUpdateRequest.speculative());
 
         if (shouldSummarize(uriInfo)) {
             taskInfo = taskInfo.summarize();
@@ -167,7 +177,6 @@ public class TaskResource
         asyncResponse.resume(Response.ok().entity(taskInfo).build());
     }
 
-    @ResourceSecurity(INTERNAL_ONLY)
     @GET
     @Path("{taskId}")
     @Produces(MediaType.APPLICATION_JSON)
@@ -179,6 +188,9 @@ public class TaskResource
             @Suspended AsyncResponse asyncResponse)
     {
         requireNonNull(taskId, "taskId is null");
+        if (failRequestIfInvalid(asyncResponse)) {
+            return;
+        }
 
         if (injectFailure(taskManager.getTraceToken(taskId), taskId, RequestType.GET_TASK_INFO, asyncResponse)) {
             return;
@@ -207,13 +219,13 @@ public class TaskResource
             futureTaskInfo = Futures.transform(futureTaskInfo, TaskInfo::summarize, directExecutor());
         }
 
+        ListenableFuture<Response> response = Futures.transform(futureTaskInfo, taskInfo ->
+                Response.ok(taskInfo).build(), directExecutor());
         // For hard timeout, add an additional time to max wait for thread scheduling contention and GC
         Duration timeout = new Duration(waitTime.toMillis() + ADDITIONAL_WAIT_TIME.toMillis(), MILLISECONDS);
-        bindAsyncResponse(asyncResponse, futureTaskInfo, responseExecutor)
-                .withTimeout(timeout);
+        bindAsyncResponse(asyncResponse, withFallbackAfterTimeout(response, timeout, () -> serviceUnavailable(timeout), timeoutExecutor), responseExecutor);
     }
 
-    @ResourceSecurity(INTERNAL_ONLY)
     @GET
     @Path("{taskId}/status")
     @Produces(MediaType.APPLICATION_JSON)
@@ -221,10 +233,12 @@ public class TaskResource
             @PathParam("taskId") TaskId taskId,
             @HeaderParam(TRINO_CURRENT_VERSION) Long currentVersion,
             @HeaderParam(TRINO_MAX_WAIT) Duration maxWait,
-            @Context UriInfo uriInfo,
             @Suspended AsyncResponse asyncResponse)
     {
         requireNonNull(taskId, "taskId is null");
+        if (failRequestIfInvalid(asyncResponse)) {
+            return;
+        }
 
         if (injectFailure(taskManager.getTraceToken(taskId), taskId, RequestType.GET_TASK_STATUS, asyncResponse)) {
             return;
@@ -251,22 +265,24 @@ public class TaskResource
 
         // For hard timeout, add an additional time to max wait for thread scheduling contention and GC
         Duration timeout = new Duration(waitTime.toMillis() + ADDITIONAL_WAIT_TIME.toMillis(), MILLISECONDS);
-        bindAsyncResponse(asyncResponse, futureTaskStatus, responseExecutor)
-                .withTimeout(timeout);
+
+        ListenableFuture<Response> response = Futures.transform(futureTaskStatus, taskStatus -> Response.ok(taskStatus).build(), directExecutor());
+        bindAsyncResponse(asyncResponse, withFallbackAfterTimeout(response, timeout, () -> serviceUnavailable(timeout), timeoutExecutor), responseExecutor);
     }
 
-    @ResourceSecurity(INTERNAL_ONLY)
     @GET
     @Path("{taskId}/dynamicfilters")
     @Produces(MediaType.APPLICATION_JSON)
     public void acknowledgeAndGetNewDynamicFilterDomains(
             @PathParam("taskId") TaskId taskId,
             @HeaderParam(TRINO_CURRENT_VERSION) Long currentDynamicFiltersVersion,
-            @Context UriInfo uriInfo,
             @Suspended AsyncResponse asyncResponse)
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(currentDynamicFiltersVersion, "currentDynamicFiltersVersion is null");
+        if (failRequestIfInvalid(asyncResponse)) {
+            return;
+        }
 
         if (injectFailure(taskManager.getTraceToken(taskId), taskId, RequestType.ACKNOWLEDGE_AND_GET_NEW_DYNAMIC_FILTER_DOMAINS, asyncResponse)) {
             return;
@@ -275,7 +291,6 @@ public class TaskResource
         asyncResponse.resume(taskManager.acknowledgeAndGetNewDynamicFilterDomains(taskId, currentDynamicFiltersVersion));
     }
 
-    @ResourceSecurity(INTERNAL_ONLY)
     @DELETE
     @Path("{taskId}")
     @Produces(MediaType.APPLICATION_JSON)
@@ -300,22 +315,19 @@ public class TaskResource
         return taskInfo;
     }
 
-    @ResourceSecurity(INTERNAL_ONLY)
     @POST
     @Path("{taskId}/fail")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     public TaskInfo failTask(
             @PathParam("taskId") TaskId taskId,
-            FailTaskRequest failTaskRequest,
-            @Context UriInfo uriInfo)
+            FailTaskRequest failTaskRequest)
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(failTaskRequest, "failTaskRequest is null");
         return taskManager.failTask(taskId, failTaskRequest.getFailureInfo().toException());
     }
 
-    @ResourceSecurity(INTERNAL_ONLY)
     @GET
     @Path("{taskId}/results/{bufferId}/{token}")
     @Produces(TRINO_PAGES)
@@ -347,21 +359,18 @@ public class TaskResource
                     timeoutExecutor);
         }
 
-        ListenableFuture<Response> responseFuture = Futures.transform(bufferResultFuture, results -> createBufferResultResponse(taskWithResults, results), directExecutor());
+        ListenableFuture<Response> responseFuture = Futures.transform(bufferResultFuture, results -> createBufferResultResponse(pagesInputStreamFactory, taskWithResults, results), directExecutor());
 
         // For hard timeout, add an additional time to max wait for thread scheduling contention and GC
         Duration timeout = new Duration(waitTime.toMillis() + ADDITIONAL_WAIT_TIME.toMillis(), MILLISECONDS);
-        bindAsyncResponse(asyncResponse, responseFuture, responseExecutor)
-                .withTimeout(timeout, () -> createBufferResultResponse(taskWithResults, emptyBufferResults));
-
+        bindAsyncResponse(asyncResponse,
+                withFallbackAfterTimeout(responseFuture, timeout, () -> createBufferResultResponse(pagesInputStreamFactory, taskWithResults, emptyBufferResults), timeoutExecutor), responseExecutor);
         responseFuture.addListener(() -> readFromOutputBufferTime.add(Duration.nanosSince(start)), directExecutor());
-        asyncResponse.register((CompletionCallback) throwable -> resultsRequestTime.add(Duration.nanosSince(start)));
     }
 
-    @ResourceSecurity(INTERNAL_ONLY)
     @GET
     @Path("{taskId}/results/{bufferId}/{token}/acknowledge")
-    public void acknowledgeResults(
+    public Response acknowledgeResults(
             @PathParam("taskId") TaskId taskId,
             @PathParam("bufferId") PipelinedOutputBuffers.OutputBufferId bufferId,
             @PathParam("token") long token)
@@ -370,15 +379,14 @@ public class TaskResource
         requireNonNull(bufferId, "bufferId is null");
 
         taskManager.acknowledgeTaskResults(taskId, bufferId, token);
+        return Response.ok().build();
     }
 
-    @ResourceSecurity(INTERNAL_ONLY)
     @DELETE
     @Path("{taskId}/results/{bufferId}")
     public void destroyTaskResults(
             @PathParam("taskId") TaskId taskId,
             @PathParam("bufferId") PipelinedOutputBuffers.OutputBufferId bufferId,
-            @Context UriInfo uriInfo,
             @Suspended AsyncResponse asyncResponse)
     {
         requireNonNull(taskId, "taskId is null");
@@ -392,13 +400,25 @@ public class TaskResource
         asyncResponse.resume(Response.noContent().build());
     }
 
-    @ResourceSecurity(INTERNAL_ONLY)
     @POST
     @Path("pruneCatalogs")
     @Consumes(MediaType.APPLICATION_JSON)
     public void pruneCatalogs(Set<CatalogHandle> catalogHandles)
     {
         taskManager.pruneCatalogs(catalogHandles);
+    }
+
+    private boolean failRequestIfInvalid(AsyncResponse asyncResponse)
+    {
+        if (!startupStatus.isStartupComplete()) {
+            // When worker node is restarted after a crash, coordinator may be still unaware of the situation and may attempt to schedule tasks on it.
+            // Ideally the coordinator should not schedule tasks on worker that is not ready, but in pipelined execution there is currently no way to move a task.
+            // Accepting a request too early will likely lead to some failure and HTTP 500 (INTERNAL_SERVER_ERROR) response. The coordinator won't retry on this.
+            // Send 503 (SERVICE_UNAVAILABLE) so that request is retried.
+            asyncResponse.resume(new ServiceUnavailableException("The server is not fully started yet"));
+            return true;
+        }
+        return false;
     }
 
     private boolean injectFailure(
@@ -427,7 +447,7 @@ public class TaskResource
             case TASK_MANAGEMENT_REQUEST_FAILURE:
                 if (requestType.isTaskManagement()) {
                     log.info("Failing %s request for task %s", requestType, taskId);
-                    asyncResponse.resume(Response.serverError().build());
+                    asyncResponse.resume(new InternalServerErrorException("Task %s failed".formatted(taskId)));
                     return true;
                 }
                 break;
@@ -441,7 +461,7 @@ public class TaskResource
             case TASK_GET_RESULTS_REQUEST_FAILURE:
                 if (!requestType.isTaskManagement()) {
                     log.info("Failing %s request for task %s", requestType, taskId);
-                    asyncResponse.resume(Response.serverError().build());
+                    asyncResponse.resume(new InternalServerErrorException("Task %s failed".formatted(taskId)));
                     return true;
                 }
                 break;
@@ -511,31 +531,36 @@ public class TaskResource
         return new Duration(halfWaitMillis + ThreadLocalRandom.current().nextLong(halfWaitMillis), MILLISECONDS);
     }
 
-    private static Response createBufferResultResponse(SqlTaskWithResults taskWithResults, BufferResult result)
+    private static Response createBufferResultResponse(PagesInputStreamFactory pagesInputStreamFactory, SqlTaskWithResults taskWithResults, BufferResult result)
     {
         // This response may have been created as the result of a timeout, so refresh the task heartbeat
         taskWithResults.recordHeartbeat();
 
         List<Slice> serializedPages = result.getSerializedPages();
 
-        GenericEntity<?> entity = null;
-        Status status;
-        if (serializedPages.isEmpty()) {
-            status = Status.NO_CONTENT;
-        }
-        else {
-            entity = new GenericEntity<>(serializedPages, new TypeToken<List<Slice>>() {}.getType());
-            status = Status.OK;
-        }
-
-        return Response.status(status)
-                .entity(entity)
+        Response.ResponseBuilder response = Response.status(serializedPages.isEmpty() ? Status.NO_CONTENT : Status.OK)
                 .header(TRINO_TASK_INSTANCE_ID, result.getTaskInstanceId())
                 .header(TRINO_PAGE_TOKEN, result.getToken())
                 .header(TRINO_PAGE_NEXT_TOKEN, result.getNextToken())
                 .header(TRINO_BUFFER_COMPLETE, result.isBufferComplete())
                 // check for task failure after getting the result to ensure it's consistent with isBufferComplete()
-                .header(TRINO_TASK_FAILED, taskWithResults.isTaskFailedOrFailing())
+                .header(TRINO_TASK_FAILED, taskWithResults.isTaskFailedOrFailing());
+
+        if (serializedPages.isEmpty()) {
+            return response.build();
+        }
+
+        return response
+                .type(TRINO_PAGES)
+                .entity((StreamingOutput) output ->
+                        pagesInputStreamFactory.write(output, serializedPages))
+                .build();
+    }
+
+    private static Response serviceUnavailable(Duration timeout)
+    {
+        return status(Response.Status.SERVICE_UNAVAILABLE)
+                .entity("Timed out after waiting for " + timeout.convertToMostSuccinctTimeUnit())
                 .build();
     }
 }

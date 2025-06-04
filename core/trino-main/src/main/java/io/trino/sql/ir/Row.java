@@ -24,9 +24,14 @@ import java.util.stream.Collectors;
 import static java.util.Objects.requireNonNull;
 
 @JsonSerialize
-public record Row(List<Expression> items)
+public record Row(List<Expression> items, Type type)
         implements Expression
 {
+    public Row(List<Expression> items)
+    {
+        this(items, RowType.anonymous(items.stream().map(io.trino.sql.ir.Expression::type).collect(Collectors.toList())));
+    }
+
     public Row
     {
         requireNonNull(items, "items is null");
@@ -36,7 +41,7 @@ public record Row(List<Expression> items)
     @Override
     public Type type()
     {
-        return RowType.anonymous(items.stream().map(Expression::type).collect(Collectors.toList()));
+        return type;
     }
 
     @Override
@@ -49,5 +54,15 @@ public record Row(List<Expression> items)
     public List<? extends Expression> children()
     {
         return items;
+    }
+
+    @Override
+    public String toString()
+    {
+        return "(" +
+                items.stream()
+                        .map(Expression::toString)
+                        .collect(Collectors.joining(", ")) +
+                ")";
     }
 }

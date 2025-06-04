@@ -220,20 +220,21 @@ create per-method, and a allow parallel execution of tests with `CONCURRENT`:
 ```java
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
-public class TestJoin
+final class TestJoin
 {
     private final QueryAssertions assertions = new QueryAssertions();
 
     @AfterAll
-    public void teardown()
+    void teardown()
     {
         assertions.close();
     }
 
     @Test
-    public void testXXX()
+    void testXXX()
     {
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+            """
             ...
             """))
             .matches("...");
@@ -248,25 +249,25 @@ Avoid managing the lifecycle of a Closeable like a connection with
 
 ```java
 @TestInstance(PER_METHOD)
-class Test
+final class Test
 {
     private Connection connection;
 
     @BeforeEach
-    public void setup()
+    void setup()
     {
         // WRONG: create this in the test method using try-with-resources
         connection = newConnection();
     }
 
     @AfterEach
-    public void teardown()
+    void teardown()
     {
         connection.close();
     }
 
     @Test
-    public void test()
+    void test()
     {
         ...
     }
@@ -277,11 +278,11 @@ Using a try with resources approach allows clean parallelization of tests and
 includes automatic memory management:
 
 ```java
-class Test
+final class Test
 {
 
     @Test
-    public void testSomething()
+    void testSomething()
     {
         try (Connection connection = newConnection();) {
             ...
@@ -289,7 +290,7 @@ class Test
     }
 
     @Test
-    public void testSomethingElse()
+    void testSomethingElse()
     {
         try (Connection connection = newConnection();) {
             ...
@@ -304,7 +305,7 @@ Avoid using fake abstraction for tests.
 
 ```java
 @DataProvider(name = "data")
-public void test(boolean flag)
+void test(boolean flag)
 {
     // WRONG: use separate test methods
     assertEqual(
@@ -316,7 +317,7 @@ public void test(boolean flag)
 Replace with simplified separate assertions:
 
 ```java
-public void test()
+void test()
 {
     assertThat(...).isEqualTo(...); // case corresponding to flag == true
     assertThat(...).isEqualTo(...); // case corresponding to flag == false
@@ -329,7 +330,7 @@ Do not develop a custom parallel test execution framework:
 
 ```java
 @Test(dataProvider = "parallelTests")
-public void testParallel(Runnable runnable)
+void testParallel(Runnable runnable)
 {
    try {
        parallelTestsSemaphore.acquire();
@@ -347,7 +348,7 @@ public void testParallel(Runnable runnable)
 }
 
 @DataProvider(name = "parallelTests", parallel = true)
-public Object[][] parallelTests()
+Object[][] parallelTests()
 {
    return new Object[][] {
         parallelTest("testCreateTable", this::testCreateTable),
@@ -373,7 +374,7 @@ Do not create a custom parameterized test framework:
 
 ```java
 @Test
-public void testTinyint()
+void testTinyint()
 {
     SqlDataTypeTest.create()
         .addRoundTrip(...)

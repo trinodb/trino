@@ -21,6 +21,7 @@ import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.MapType;
 import io.trino.sql.relational.CallExpression;
 import io.trino.sql.relational.RowExpression;
@@ -70,7 +71,7 @@ public class BenchmarkMapToMapCast
                         SESSION,
                         new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
-                        data.getPage()));
+                        SourcePage.create(data.getPage())));
     }
 
     @SuppressWarnings("FieldMayBeFinal")
@@ -111,7 +112,7 @@ public class BenchmarkMapToMapCast
 
         private static Block createKeyBlock(int positionCount, int mapSize)
         {
-            BlockBuilder valueBlockBuilder = DOUBLE.createBlockBuilder(null, positionCount * mapSize);
+            BlockBuilder valueBlockBuilder = DOUBLE.createFixedSizeBlockBuilder(positionCount * mapSize);
             for (int i = 0; i < positionCount * mapSize; i++) {
                 DOUBLE.writeDouble(valueBlockBuilder, ThreadLocalRandom.current().nextLong());
             }
@@ -120,7 +121,7 @@ public class BenchmarkMapToMapCast
 
         private static Block createValueBlock(int positionCount, int mapSize)
         {
-            BlockBuilder valueBlockBuilder = BIGINT.createBlockBuilder(null, positionCount * mapSize);
+            BlockBuilder valueBlockBuilder = BIGINT.createFixedSizeBlockBuilder(positionCount * mapSize);
             for (int i = 0; i < positionCount * mapSize; i++) {
                 BIGINT.writeLong(valueBlockBuilder, ThreadLocalRandom.current().nextLong());
             }

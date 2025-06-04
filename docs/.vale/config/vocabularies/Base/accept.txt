@@ -12,11 +12,15 @@ ConnectorPageSourceProvider
 ConnectorRecordSetProvider
 ConnectorSplitManager
 CPU
+Datafaker
 DNS
 ETL
+GCS
 Guice
 gzip
+hdfs
 HDFS
+ipsum
 JDBC
 JDK
 JKS
@@ -24,6 +28,7 @@ JVM
 Kerberos
 keystore
 KeyStore
+Lorem
 Metastore
 open-source
 ORC
@@ -35,5 +40,6 @@ rowId
 SPI
 subnet
 TLS
+trino
 Trino
 truststore

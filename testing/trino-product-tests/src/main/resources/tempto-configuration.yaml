@@ -25,91 +25,91 @@ databases:
       host: ${databases.hive.host}
       port: 9083
 
-  presto:
+  trino:
     host: localhost
     port: 8080
-    server_address: http://${databases.presto.host}:${databases.presto.port}
+    server_address: http://${databases.trino.host}:${databases.trino.port}
     jdbc_driver_class: io.trino.jdbc.TrinoDriver
-    jdbc_url: jdbc:trino://${databases.presto.host}:${databases.presto.port}/hive/${databases.hive.schema}
+    jdbc_url: jdbc:trino://${databases.trino.host}:${databases.trino.port}/hive/${databases.hive.schema}
     jdbc_user: hive
     jdbc_password: ""
     jdbc_pooling: false
 
-  presto_no_default_catalog:
-    host: ${databases.presto.host}
-    jdbc_driver_class: ${databases.presto.jdbc_driver_class}
-    jdbc_url: jdbc:trino://${databases.presto.host}:${databases.presto.port}
-    jdbc_user: ${databases.presto.jdbc_user}
-    jdbc_password: ${databases.presto.jdbc_password}
-    jdbc_pooling: ${databases.presto.${databases.presto.jdbc_user}}
+  trino_no_default_catalog:
+    host: ${databases.trino.host}
+    jdbc_driver_class: ${databases.trino.jdbc_driver_class}
+    jdbc_url: jdbc:trino://${databases.trino.host}:${databases.trino.port}
+    jdbc_user: ${databases.trino.jdbc_user}
+    jdbc_password: ${databases.trino.jdbc_password}
+    jdbc_pooling: ${databases.trino.${databases.trino.jdbc_user}}
 
-  presto_tpcds:
+  trino_tpcds:
     host: localhost
-    jdbc_driver_class: ${databases.presto.jdbc_driver_class}
-    jdbc_url: jdbc:trino://${databases.presto.host}:${databases.presto.port}/hive/tpcds
+    jdbc_driver_class: ${databases.trino.jdbc_driver_class}
+    jdbc_url: jdbc:trino://${databases.trino.host}:${databases.trino.port}/hive/tpcds
     jdbc_user: hive
     jdbc_password: ""
     jdbc_pooling: false
 
-  alice@presto:
-    host: ${databases.presto.host}
-    port: ${databases.presto.port}
-    server_address: ${databases.presto.server_address}
-    jdbc_driver_class: ${databases.presto.jdbc_driver_class}
-    jdbc_url: ${databases.presto.jdbc_url}
+  alice@trino:
+    host: ${databases.trino.host}
+    port: ${databases.trino.port}
+    server_address: ${databases.trino.server_address}
+    jdbc_driver_class: ${databases.trino.jdbc_driver_class}
+    jdbc_url: ${databases.trino.jdbc_url}
     jdbc_user: alice
     jdbc_password: ""
     jdbc_pooling: false
-    https_keystore_path: ${databases.presto.https_keystore_path}
-    https_keystore_password: ${databases.presto.https_keystore_password}
+    https_keystore_path: ${databases.trino.https_keystore_path}
+    https_keystore_password: ${databases.trino.https_keystore_password}
 
-  bob@presto:
-    host: ${databases.presto.host}
-    port: ${databases.presto.port}
-    server_address: ${databases.presto.server_address}
-    jdbc_driver_class: ${databases.presto.jdbc_driver_class}
-    jdbc_url: ${databases.presto.jdbc_url}
+  bob@trino:
+    host: ${databases.trino.host}
+    port: ${databases.trino.port}
+    server_address: ${databases.trino.server_address}
+    jdbc_driver_class: ${databases.trino.jdbc_driver_class}
+    jdbc_url: ${databases.trino.jdbc_url}
     jdbc_user: bob
     jdbc_password: ""
     jdbc_pooling: false
-    https_keystore_path: ${databases.presto.https_keystore_path}
-    https_keystore_password: ${databases.presto.https_keystore_password}
+    https_keystore_path: ${databases.trino.https_keystore_path}
+    https_keystore_password: ${databases.trino.https_keystore_password}
 
-  charlie@presto:
-    host: ${databases.presto.host}
-    port: ${databases.presto.port}
-    server_address: ${databases.presto.server_address}
-    jdbc_driver_class: ${databases.presto.jdbc_driver_class}
-    jdbc_url: ${databases.presto.jdbc_url}
+  charlie@trino:
+    host: ${databases.trino.host}
+    port: ${databases.trino.port}
+    server_address: ${databases.trino.server_address}
+    jdbc_driver_class: ${databases.trino.jdbc_driver_class}
+    jdbc_url: ${databases.trino.jdbc_url}
     jdbc_user: charlie
     jdbc_password: ""
     jdbc_pooling: false
-    https_keystore_path: ${databases.presto.https_keystore_path}
-    https_keystore_password: ${databases.presto.https_keystore_password}
+    https_keystore_path: ${databases.trino.https_keystore_path}
+    https_keystore_password: ${databases.trino.https_keystore_password}
 
-  hdfs@presto:
-    host: ${databases.presto.host}
-    port: ${databases.presto.port}
-    server_address: ${databases.presto.server_address}
-    jdbc_driver_class: ${databases.presto.jdbc_driver_class}
-    jdbc_url: ${databases.presto.jdbc_url}
+  hdfs@trino:
+    host: ${databases.trino.host}
+    port: ${databases.trino.port}
+    server_address: ${databases.trino.server_address}
+    jdbc_driver_class: ${databases.trino.jdbc_driver_class}
+    jdbc_url: ${databases.trino.jdbc_url}
     jdbc_user: hdfs
     jdbc_password: ""
     jdbc_pooling: false
-    https_keystore_path: ${databases.presto.https_keystore_path}
-    https_keystore_password: ${databases.presto.https_keystore_password}
+    https_keystore_path: ${databases.trino.https_keystore_path}
+    https_keystore_password: ${databases.trino.https_keystore_password}
 
-  CaseSensitiveUserName@presto:
-    host: ${databases.presto.host}
-    port: ${databases.presto.port}
-    server_address: ${databases.presto.server_address}
-    jdbc_driver_class: ${databases.presto.jdbc_driver_class}
-    jdbc_url: ${databases.presto.jdbc_url}
+  CaseSensitiveUserName@trino:
+    host: ${databases.trino.host}
+    port: ${databases.trino.port}
+    server_address: ${databases.trino.server_address}
+    jdbc_driver_class: ${databases.trino.jdbc_driver_class}
+    jdbc_url: ${databases.trino.jdbc_url}
     jdbc_user: CaseSensitiveUserName
     jdbc_password: ""
     jdbc_pooling: false
-    https_keystore_path: ${databases.presto.https_keystore_path}
-    https_keystore_password: ${databases.presto.https_keystore_password}
+    https_keystore_path: ${databases.trino.https_keystore_path}
+    https_keystore_password: ${databases.trino.https_keystore_password}
 
   mysql:
     jdbc_driver_class: com.mysql.cj.jdbc.Driver
@@ -190,6 +190,14 @@ databases:
       jdbc_url: jdbc:hive2://spark:10213
       jdbc_user: hive
       jdbc_password: na
+
+  exasol:
+    jdbc_driver_class: com.exasol.jdbc.EXADriver
+    jdbc_url: jdbc:exa:exasol:8563;validateservercertificate=0
+    jdbc_user: sys
+    jdbc_password: exasol
+    jdbc_pooling: true
+    table_manager_type: jdbc
 
 tests:
   hdfs:

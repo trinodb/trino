@@ -109,7 +109,7 @@ public final class MemoryQueryRunner
             throws Exception
     {
         QueryRunner queryRunner = builder()
-                .addExtraProperty("http-server.http.port", "8080")
+                .addCoordinatorProperty("http-server.http.port", "8080")
                 .addExtraProperty("sql.path", CATALOG + ".functions")
                 .addExtraProperty("sql.default-function-catalog", CATALOG)
                 .addExtraProperty("sql.default-function-schema", "functions")
@@ -128,13 +128,13 @@ public final class MemoryQueryRunner
                 throws Exception
         {
             Path exchangeManagerDirectory = createTempDirectory(null);
-            ImmutableMap<String, String> exchangeManagerProperties = ImmutableMap.<String, String>builder()
+            Map<String, String> exchangeManagerProperties = ImmutableMap.<String, String>builder()
                     .put("exchange.base-directories", exchangeManagerDirectory.toAbsolutePath().toString())
                     .buildOrThrow();
 
             QueryRunner queryRunner = MemoryQueryRunner.builder()
+                    .addCoordinatorProperty("http-server.http.port", "8080")
                     .setExtraProperties(ImmutableMap.<String, String>builder()
-                            .put("http-server.http.port", "8080")
                             .put("retry-policy", "TASK")
                             .put("fault-tolerant-execution-task-memory", "1GB")
                             .buildOrThrow())

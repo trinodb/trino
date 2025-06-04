@@ -21,8 +21,10 @@ import io.trino.filesystem.TrinoOutputFile;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
@@ -44,13 +46,19 @@ public final class CacheFileSystem
     @Override
     public TrinoInputFile newInputFile(Location location)
     {
-        return new CacheInputFile(delegate.newInputFile(location), cache, keyProvider);
+        return new CacheInputFile(delegate.newInputFile(location), cache, keyProvider, OptionalLong.empty(), Optional.empty());
     }
 
     @Override
     public TrinoInputFile newInputFile(Location location, long length)
     {
-        return new CacheInputFile(delegate.newInputFile(location, length), cache, keyProvider);
+        return new CacheInputFile(delegate.newInputFile(location, length), cache, keyProvider, OptionalLong.of(length), Optional.empty());
+    }
+
+    @Override
+    public TrinoInputFile newInputFile(Location location, long length, Instant lastModified)
+    {
+        return new CacheInputFile(delegate.newInputFile(location, length, lastModified), cache, keyProvider, OptionalLong.of(length), Optional.of(lastModified));
     }
 
     @Override
@@ -79,6 +87,7 @@ public final class CacheFileSystem
             throws IOException
     {
         delegate.deleteDirectory(location);
+        cache.expire(location);
     }
 
     @Override
@@ -137,8 +146,6 @@ public final class CacheFileSystem
             throws IOException
     {
         delegate.deleteFiles(locations);
-        for (var location : locations) {
-            cache.expire(location);
-        }
+        cache.expire(locations);
     }
 }

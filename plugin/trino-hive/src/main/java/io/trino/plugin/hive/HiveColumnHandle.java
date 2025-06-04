@@ -17,7 +17,8 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.SizeOf;
-import io.trino.plugin.hive.metastore.Column;
+import io.trino.metastore.Column;
+import io.trino.metastore.HiveType;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.Type;
@@ -29,13 +30,13 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.trino.metastore.HiveType.HIVE_INT;
+import static io.trino.metastore.HiveType.HIVE_LONG;
+import static io.trino.metastore.HiveType.HIVE_STRING;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
-import static io.trino.plugin.hive.HiveType.HIVE_INT;
-import static io.trino.plugin.hive.HiveType.HIVE_LONG;
-import static io.trino.plugin.hive.HiveType.HIVE_STRING;
-import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.acid.AcidSchema.ACID_ROW_ID_ROW_TYPE;
+import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
@@ -238,7 +239,7 @@ public class HiveColumnHandle
         }
         HiveColumnHandle other = (HiveColumnHandle) obj;
         return Objects.equals(this.baseColumnName, other.baseColumnName) &&
-                Objects.equals(this.baseHiveColumnIndex, other.baseHiveColumnIndex) &&
+                this.baseHiveColumnIndex == other.baseHiveColumnIndex &&
                 Objects.equals(this.baseHiveType, other.baseHiveType) &&
                 Objects.equals(this.baseType, other.baseType) &&
                 Objects.equals(this.hiveColumnProjectionInfo, other.hiveColumnProjectionInfo) &&

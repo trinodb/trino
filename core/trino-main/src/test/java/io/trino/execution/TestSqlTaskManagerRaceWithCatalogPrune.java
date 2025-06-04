@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.configuration.secrets.SecretsResolver;
 import io.airlift.node.NodeInfo;
 import io.airlift.stats.TestingGcMonitor;
 import io.airlift.tracing.Tracing;
@@ -41,6 +42,7 @@ import io.trino.execution.executor.TaskExecutor;
 import io.trino.execution.executor.TaskHandle;
 import io.trino.memory.LocalMemoryManager;
 import io.trino.memory.NodeMemoryConfig;
+import io.trino.metadata.LanguageFunctionEngineManager;
 import io.trino.metadata.WorkerLanguageFunctionProvider;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.catalog.CatalogProperties;
@@ -84,7 +86,7 @@ import static io.trino.execution.TaskTestUtils.createTestingPlanner;
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.PARTITIONED;
 import static io.trino.metadata.CatalogManager.NO_CATALOGS;
 import static io.trino.spi.connector.CatalogHandle.createRootCatalogHandle;
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
@@ -216,7 +218,8 @@ public class TestSqlTaskManagerRaceWithCatalogPrune
                 catch (InterruptedException e) {
                     throw new RuntimeException(e);
                 }
-                assertDoesNotThrow(() -> workerConnectorServiceProvider.getConnectorServices(catalogHandle));
+                assertThatCode(() -> workerConnectorServiceProvider.getConnectorServices(catalogHandle))
+                        .doesNotThrowAnyException();
                 workerTaskManager.cancelTask(taskId);
                 if ((i & 63) == 0) {
                     workerTaskManager.removeOldTasks();
@@ -237,8 +240,10 @@ public class TestSqlTaskManagerRaceWithCatalogPrune
             }
         }, threadPoolExecutor);
 
-        assertDoesNotThrow(() -> catalogTaskFuture.get(2, TimeUnit.MINUTES));
-        assertDoesNotThrow(() -> pruneCatalogsFuture.get(2, TimeUnit.MINUTES));
+        assertThatCode(() -> catalogTaskFuture.get(2, TimeUnit.MINUTES))
+                .doesNotThrowAnyException();
+        assertThatCode(() -> pruneCatalogsFuture.get(2, TimeUnit.MINUTES))
+                .doesNotThrowAnyException();
     }
 
     private TaskId newTaskId()
@@ -252,7 +257,7 @@ public class TestSqlTaskManagerRaceWithCatalogPrune
                 new EmbedVersion("testversion"),
                 workerConnectorServiceProvider,
                 createTestingPlanner(),
-                new WorkerLanguageFunctionProvider(),
+                new WorkerLanguageFunctionProvider(new LanguageFunctionEngineManager()),
                 new BaseTestSqlTaskManager.MockLocationFactory(),
                 NOOP_TASK_EXECUTOR,
                 createTestSplitMonitor(),
@@ -265,7 +270,7 @@ public class TestSqlTaskManagerRaceWithCatalogPrune
                 new NodeSpillConfig(),
                 new TestingGcMonitor(),
                 noopTracer(),
-                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer()),
+                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of())),
                 ignore -> true);
     }
 

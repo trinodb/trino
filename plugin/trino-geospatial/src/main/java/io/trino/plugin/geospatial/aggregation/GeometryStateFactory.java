@@ -54,10 +54,9 @@ public class GeometryStateFactory
         @Override
         public void setGeometry(OGCGeometry geometry)
         {
-            OGCGeometry previousValue = this.geometries.get(groupId);
+            OGCGeometry previousValue = this.geometries.getAndSet(groupId, geometry);
             size -= getGeometryMemorySize(previousValue);
             size += getGeometryMemorySize(geometry);
-            this.geometries.set(groupId, geometry);
         }
 
         @Override

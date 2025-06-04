@@ -21,8 +21,8 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.spi.function.OperatorType.EQUAL;
+import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
-import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -535,37 +535,37 @@ public class TestCharOperators
     }
 
     @Test
-    public void testIsDistinctFrom()
+    public void testIdentical()
     {
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "cast(NULL as char(3))", "cast(NULL as char(3))"))
-                .isEqualTo(false);
-
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "cast(NULL as char(3))", "cast(NULL as char(5))"))
-                .isEqualTo(false);
-
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "cast('foo' as char(3))", "cast('foo' as char(5))"))
-                .isEqualTo(false);
-
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "cast('foo' as char(3))", "cast('foo' as char(3))"))
-                .isEqualTo(false);
-
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "cast('foo' as char(3))", "cast('bar' as char(3))"))
+        assertThat(assertions.operator(IDENTICAL, "cast(NULL as char(3))", "cast(NULL as char(3))"))
                 .isEqualTo(true);
 
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "cast('bar' as char(3))", "cast('foo' as char(3))"))
+        assertThat(assertions.operator(IDENTICAL, "cast(NULL as char(3))", "cast(NULL as char(5))"))
                 .isEqualTo(true);
 
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "cast('foo' as char(3))", "NULL"))
+        assertThat(assertions.operator(IDENTICAL, "cast('foo' as char(3))", "cast('foo' as char(5))"))
                 .isEqualTo(true);
 
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "cast('bar' as char(5))", "'bar'"))
+        assertThat(assertions.operator(IDENTICAL, "cast('foo' as char(3))", "cast('foo' as char(3))"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(IDENTICAL, "cast('foo' as char(3))", "cast('bar' as char(3))"))
                 .isEqualTo(false);
 
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "cast('bar' as char(5))", "'bar   '"))
+        assertThat(assertions.operator(IDENTICAL, "cast('bar' as char(3))", "cast('foo' as char(3))"))
                 .isEqualTo(false);
 
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "NULL", "cast('foo' as char(3))"))
+        assertThat(assertions.operator(IDENTICAL, "cast('foo' as char(3))", "NULL"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(IDENTICAL, "cast('bar' as char(5))", "'bar'"))
                 .isEqualTo(true);
+
+        assertThat(assertions.operator(IDENTICAL, "cast('bar' as char(5))", "'bar   '"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(IDENTICAL, "NULL", "cast('foo' as char(3))"))
+                .isEqualTo(false);
     }
 
     @Test

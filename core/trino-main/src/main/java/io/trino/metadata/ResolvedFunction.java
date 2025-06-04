@@ -13,7 +13,6 @@
  */
 package io.trino.metadata;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.connector.CatalogHandle;
@@ -53,7 +52,6 @@ public record ResolvedFunction(
         checkArgument(functionNullability.getArgumentNullable().size() == signature.getArgumentTypes().size(), "signature and functionNullability must have same argument count");
     }
 
-    @JsonIgnore // TODO: airlift/airlift#1141
     public CatalogSchemaFunctionName name()
     {
         return signature().getName();

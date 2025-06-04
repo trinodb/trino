@@ -19,6 +19,7 @@ import org.apache.thrift.TException;
 import org.apache.thrift.transport.TTransport;
 import org.junit.jupiter.api.Test;
 
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -44,6 +45,7 @@ public class TestThriftHiveMetastoreClient
                     return new TTransportMock();
                 },
                 "dummy",
+                Optional.empty(),
                 new MetastoreSupportsDateStatistics(),
                 new AtomicInteger(),
                 new AtomicInteger(),

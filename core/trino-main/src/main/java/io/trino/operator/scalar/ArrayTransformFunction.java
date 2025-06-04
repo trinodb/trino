@@ -84,10 +84,11 @@ public final class ArrayTransformFunction
     }
 
     public static final ArrayTransformFunction ARRAY_TRANSFORM_FUNCTION = new ArrayTransformFunction();
+    public static final String ARRAY_TRANSFORM_NAME = "transform";
 
     private ArrayTransformFunction()
     {
-        super(FunctionMetadata.scalarBuilder("transform")
+        super(FunctionMetadata.scalarBuilder(ARRAY_TRANSFORM_NAME)
                 .signature(Signature.builder()
                         .typeVariable("T")
                         .typeVariable("U")
@@ -95,7 +96,6 @@ public final class ArrayTransformFunction
                         .argumentType(arrayType(new TypeSignature("T")))
                         .argumentType(functionType(new TypeSignature("T"), new TypeSignature("U")))
                         .build())
-                .nondeterministic()
                 .description("Apply lambda to each element of the array")
                 .build());
     }

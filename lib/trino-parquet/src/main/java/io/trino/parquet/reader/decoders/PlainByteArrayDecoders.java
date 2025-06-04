@@ -159,7 +159,7 @@ public class PlainByteArrayDecoders
                 currentInputOffset += positionLength + Integer.BYTES;
             }
 
-            createOutputBuffer(values, offset, length, inputSlice, outputBufferSize);
+            values.addChunk(createOutputBuffer(values.getOffsets(), offset, length, inputSlice, outputBufferSize));
             input.skip(currentInputOffset);
         }
 
@@ -167,6 +167,36 @@ public class PlainByteArrayDecoders
         public void skip(int n)
         {
             skipPlainValues(input, n);
+        }
+
+        /**
+         * Create one big slice of data and add it to the output buffer since buffer size is known.
+         * Specialized for the case of strings with no truncation
+         */
+        private static Slice createOutputBuffer(int[] offsets, int offset, int length, Slice inputSlice, int outputBufferSize)
+        {
+            byte[] outputBuffer = new byte[outputBufferSize];
+            int currentInputOffset = 0;
+            int currentOutputOffset = 0;
+
+            byte[] inputArray;
+            int inputArrayOffset;
+            if (length != 0) {
+                inputArray = inputSlice.byteArray();
+                inputArrayOffset = inputSlice.byteArrayOffset();
+            }
+            else {
+                inputArray = new byte[0];
+                inputArrayOffset = 0;
+            }
+            for (int i = 0; i < length; i++) {
+                int positionLength = offsets[offset + i + 1];
+                arraycopy(inputArray, inputArrayOffset + currentInputOffset + Integer.BYTES, outputBuffer, currentOutputOffset, positionLength);
+                offsets[offset + i + 1] = offsets[offset + i] + positionLength;
+                currentInputOffset += positionLength + Integer.BYTES;
+                currentOutputOffset += positionLength;
+            }
+            return Slices.wrappedBuffer(outputBuffer);
         }
     }
 

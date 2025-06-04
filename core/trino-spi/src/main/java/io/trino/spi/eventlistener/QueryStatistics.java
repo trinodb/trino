@@ -39,6 +39,7 @@ public class QueryStatistics
     private final Optional<Duration> analysisTime;
     private final Optional<Duration> planningTime;
     private final Optional<Duration> planningCpuTime;
+    private final Optional<Duration> startingTime;
     private final Optional<Duration> executionTime;
     private final Optional<Duration> inputBlockedTime;
     private final Optional<Duration> failedInputBlockedTime;
@@ -74,6 +75,8 @@ public class QueryStatistics
     private final List<StageCpuDistribution> cpuTimeDistribution;
     private final List<StageOutputBufferUtilization> outputBufferUtilization;
     private final List<StageTaskStatistics> taskStatistics;
+    private final List<StageOutputBufferMetrics> outputBufferMetrics;
+    private final List<DynamicFilterDomainStatistics> dynamicFilterDomainStatistics;
 
     /**
      * Operator summaries serialized to JSON. Serialization format and structure
@@ -100,6 +103,7 @@ public class QueryStatistics
             Optional<Duration> analysisTime,
             Optional<Duration> planningTime,
             Optional<Duration> planningCpuTime,
+            Optional<Duration> startingTime,
             Optional<Duration> executionTime,
             Optional<Duration> inputBlockedTime,
             Optional<Duration> failedInputBlockedTime,
@@ -129,7 +133,9 @@ public class QueryStatistics
             boolean complete,
             List<StageCpuDistribution> cpuTimeDistribution,
             List<StageOutputBufferUtilization> outputBufferUtilization,
+            List<StageOutputBufferMetrics> outputBufferMetrics,
             List<StageTaskStatistics> taskStatistics,
+            List<DynamicFilterDomainStatistics> dynamicFilterDomainStatistics,
             List<String> operatorSummaries,
             List<QueryPlanOptimizerStatistics> optimizerRulesSummaries,
             Optional<String> planNodeStatsAndCosts)
@@ -145,6 +151,7 @@ public class QueryStatistics
                 analysisTime,
                 planningTime,
                 planningCpuTime,
+                startingTime,
                 executionTime,
                 inputBlockedTime,
                 failedInputBlockedTime,
@@ -174,7 +181,9 @@ public class QueryStatistics
                 complete,
                 cpuTimeDistribution,
                 outputBufferUtilization,
+                outputBufferMetrics,
                 taskStatistics,
+                dynamicFilterDomainStatistics,
                 () -> operatorSummaries,
                 optimizerRulesSummaries,
                 planNodeStatsAndCosts);
@@ -191,6 +200,7 @@ public class QueryStatistics
             Optional<Duration> analysisTime,
             Optional<Duration> planningTime,
             Optional<Duration> planningCpuTime,
+            Optional<Duration> startingTime,
             Optional<Duration> executionTime,
             Optional<Duration> inputBlockedTime,
             Optional<Duration> failedInputBlockedTime,
@@ -220,7 +230,9 @@ public class QueryStatistics
             boolean complete,
             List<StageCpuDistribution> cpuTimeDistribution,
             List<StageOutputBufferUtilization> outputBufferUtilization,
+            List<StageOutputBufferMetrics> outputBufferMetrics,
             List<StageTaskStatistics> taskStatistics,
+            List<DynamicFilterDomainStatistics> dynamicFilterDomainStatistics,
             Supplier<List<String>> operatorSummariesProvider,
             List<QueryPlanOptimizerStatistics> optimizerRulesSummaries,
             Optional<String> planNodeStatsAndCosts)
@@ -235,6 +247,7 @@ public class QueryStatistics
         this.analysisTime = requireNonNull(analysisTime, "analysisTime is null");
         this.planningTime = requireNonNull(planningTime, "planningTime is null");
         this.planningCpuTime = requireNonNull(planningCpuTime, "planningCpuTime is null");
+        this.startingTime = requireNonNull(startingTime, "startingTime is null");
         this.executionTime = requireNonNull(executionTime, "executionTime is null");
         this.inputBlockedTime = requireNonNull(inputBlockedTime, "inputBlockedTime is null");
         this.failedInputBlockedTime = requireNonNull(failedInputBlockedTime, "failedInputBlockedTime is null");
@@ -264,7 +277,9 @@ public class QueryStatistics
         this.complete = complete;
         this.cpuTimeDistribution = requireNonNull(cpuTimeDistribution, "cpuTimeDistribution is null");
         this.outputBufferUtilization = requireNonNull(outputBufferUtilization, "outputBufferUtilization is null");
+        this.outputBufferMetrics = requireNonNull(outputBufferMetrics, "outputBufferMetrics is null");
         this.taskStatistics = requireNonNull(taskStatistics, "taskStatistics is null");
+        this.dynamicFilterDomainStatistics = requireNonNull(dynamicFilterDomainStatistics, "dynamicFilterDomainStatistics is null");
         this.operatorSummariesProvider = requireNonNull(operatorSummariesProvider, "operatorSummariesProvider is null");
         this.optimizerRulesSummaries = requireNonNull(optimizerRulesSummaries, "optimizerRulesSummaries is null");
         this.planNodeStatsAndCosts = requireNonNull(planNodeStatsAndCosts, "planNodeStatsAndCosts is null");
@@ -328,6 +343,12 @@ public class QueryStatistics
     public Optional<Duration> getPlanningCpuTime()
     {
         return planningCpuTime;
+    }
+
+    @JsonProperty
+    public Optional<Duration> getStartingTime()
+    {
+        return startingTime;
     }
 
     @JsonProperty
@@ -505,9 +526,21 @@ public class QueryStatistics
     }
 
     @JsonProperty
+    public List<StageOutputBufferMetrics> getOutputBufferMetrics()
+    {
+        return outputBufferMetrics;
+    }
+
+    @JsonProperty
     public List<StageTaskStatistics> getTaskStatistics()
     {
         return taskStatistics;
+    }
+
+    @JsonProperty
+    public List<DynamicFilterDomainStatistics> getDynamicFilterDomainStatistics()
+    {
+        return dynamicFilterDomainStatistics;
     }
 
     @JsonProperty

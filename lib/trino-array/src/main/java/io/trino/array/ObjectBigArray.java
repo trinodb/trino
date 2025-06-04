@@ -91,6 +91,24 @@ public final class ObjectBigArray<T>
     }
 
     /**
+     * Sets the element of this big array at the specified index, returning the previous element at that index
+     *
+     * @param index a position in this big array
+     * @param value the new value to store at the specified position
+     * @return the previous element at the specified position
+     */
+    @SuppressWarnings("unchecked")
+    public T getAndSet(long index, T value)
+    {
+        Object[] segment = array[segment(index)];
+
+        int offset = offset(index);
+        T oldValue = (T) segment[offset];
+        segment[offset] = value;
+        return oldValue;
+    }
+
+    /**
      * Replaces the element of this big array at specified index.
      *
      * @param index a position in this big array.
@@ -98,12 +116,7 @@ public final class ObjectBigArray<T>
      */
     public boolean replace(long index, T value)
     {
-        Object[] segment = array[segment(index)];
-
-        boolean existed = segment[offset(index)] != null;
-        segment[offset(index)] = value;
-
-        return existed;
+        return getAndSet(index, value) != null;
     }
 
     /**

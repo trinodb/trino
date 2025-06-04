@@ -29,9 +29,7 @@ public final class FunctionParametricType
 {
     public static final FunctionParametricType FUNCTION = new FunctionParametricType();
 
-    private FunctionParametricType()
-    {
-    }
+    private FunctionParametricType() {}
 
     @Override
     public String getName()

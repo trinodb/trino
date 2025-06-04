@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -31,7 +30,7 @@ public class DropNotNullConstraint
 
     public DropNotNullConstraint(NodeLocation location, QualifiedName table, Identifier column, boolean tableExists)
     {
-        super(Optional.of(location));
+        super(location);
         this.table = requireNonNull(table, "table is null");
         this.column = requireNonNull(column, "field is null");
         this.tableExists = tableExists;

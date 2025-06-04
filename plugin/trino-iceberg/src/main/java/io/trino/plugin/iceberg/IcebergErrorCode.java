@@ -36,18 +36,24 @@ public enum IcebergErrorCode
     ICEBERG_CURSOR_ERROR(9, EXTERNAL),
     ICEBERG_WRITE_VALIDATION_FAILED(10, INTERNAL_ERROR),
     ICEBERG_INVALID_SNAPSHOT_ID(11, USER_ERROR),
-    ICEBERG_COMMIT_ERROR(12, EXTERNAL),
+    ICEBERG_COMMIT_ERROR(12, EXTERNAL, true),
     ICEBERG_CATALOG_ERROR(13, EXTERNAL),
     ICEBERG_WRITER_CLOSE_ERROR(14, EXTERNAL),
     ICEBERG_MISSING_METADATA(15, EXTERNAL),
     ICEBERG_WRITER_DATA_ERROR(16, EXTERNAL),
+    ICEBERG_UNSUPPORTED_VIEW_DIALECT(17, EXTERNAL)
     /**/;
 
     private final ErrorCode errorCode;
 
     IcebergErrorCode(int code, ErrorType type)
     {
-        errorCode = new ErrorCode(code + 0x0504_0000, name(), type);
+        errorCode = new ErrorCode(code + 0x0504_0000, name(), type, type == USER_ERROR);
+    }
+
+    IcebergErrorCode(int code, ErrorType type, boolean fatal)
+    {
+        errorCode = new ErrorCode(code + 0x0504_0000, name(), type, fatal);
     }
 
     @Override

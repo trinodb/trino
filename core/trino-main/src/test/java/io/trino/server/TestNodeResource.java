@@ -68,7 +68,7 @@ public class TestNodeResource
                 createJsonResponseHandler(listJsonCodec(Stats.class)));
 
         // we only have one node and the list never contains the current node
-        assertThat(nodes.isEmpty()).isTrue();
+        assertThat(nodes).isEmpty();
     }
 
     @Test
@@ -81,6 +81,6 @@ public class TestNodeResource
                         .build(),
                 createJsonResponseHandler(listJsonCodec(Stats.class)));
 
-        assertThat(nodes.isEmpty()).isTrue();
+        assertThat(nodes).isEmpty();
     }
 }

@@ -13,7 +13,6 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.planner.iterative.Rule;
@@ -43,7 +42,7 @@ public class RemoveRedundantOffset
     public Result apply(OffsetNode offset, Captures captures, Context context)
     {
         if (isAtMost(offset.getSource(), context.getLookup(), offset.getCount())) {
-            return Result.ofPlanNode(new ValuesNode(offset.getId(), offset.getOutputSymbols(), ImmutableList.of()));
+            return Result.ofPlanNode(new ValuesNode(offset.getId(), offset.getOutputSymbols()));
         }
         if (offset.getCount() == 0) {
             return Result.ofPlanNode(offset.getSource());

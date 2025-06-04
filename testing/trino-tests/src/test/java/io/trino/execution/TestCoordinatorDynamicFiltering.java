@@ -34,6 +34,7 @@ public class TestCoordinatorDynamicFiltering
                 .setExtraProperties(ImmutableMap.of(
                         "retry-policy", getRetryPolicy().name(),
                         // keep limits lower to test edge cases
+                        "enable-large-dynamic-filters", "false",
                         "dynamic-filtering.small-partitioned.max-distinct-values-per-driver", "10",
                         "dynamic-filtering.small.max-distinct-values-per-driver", "10"))
                 .build();

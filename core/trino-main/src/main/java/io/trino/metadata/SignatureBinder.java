@@ -811,12 +811,9 @@ public class SignatureBinder
             if (orderableRequired && !type.isOrderable()) {
                 return false;
             }
-            if (requiredBaseName.isPresent() && !UNKNOWN.equals(type) && !requiredBaseName.get().equalsIgnoreCase(type.getBaseName())) {
-                // TODO: the case below should be properly handled:
-                // * `type` does not have the `requiredBaseName` but can be coerced to some type that has the `requiredBaseName`.
-                return false;
-            }
-            return true;
+            // TODO: the case below should be properly handled:
+            // * `type` does not have the `requiredBaseName` but can be coerced to some type that has the `requiredBaseName`.
+            return requiredBaseName.isEmpty() || UNKNOWN.equals(type) || requiredBaseName.get().equalsIgnoreCase(type.getBaseName());
         }
     }
 

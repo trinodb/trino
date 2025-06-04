@@ -19,14 +19,12 @@ import com.google.inject.Provider;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.airlift.event.client.EventClient;
 import org.jdbi.v3.core.Jdbi;
 
 import java.util.Set;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.airlift.event.client.EventBinder.eventBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 
 public class TrinoVerifierModule
@@ -36,29 +34,26 @@ public class TrinoVerifierModule
     protected void setup(Binder binder)
     {
         configBinder(binder).bindConfig(VerifierConfig.class);
-        eventBinder(binder).bindEventClient(VerifierQueryEvent.class);
-
         Multibinder<String> supportedClients = newSetBinder(binder, String.class, SupportedEventClients.class);
         supportedClients.addBinding().toInstance("human-readable");
         supportedClients.addBinding().toInstance("file");
         supportedClients.addBinding().toInstance("database");
         Set<String> eventClientTypes = buildConfigObject(VerifierConfig.class).getEventClients();
-        bindEventClientClasses(eventClientTypes, binder, newSetBinder(binder, EventClient.class));
+        bindEventClientClasses(eventClientTypes, binder, newSetBinder(binder, EventConsumer.class));
     }
 
-    private static void bindEventClientClasses(Set<String> eventClientTypes, Binder binder, Multibinder<EventClient> multibinder)
+    private static void bindEventClientClasses(Set<String> eventClientTypes, Binder binder, Multibinder<EventConsumer> consumers)
     {
         for (String eventClientType : eventClientTypes) {
-            if (eventClientType.equals("human-readable")) {
-                multibinder.addBinding().to(HumanReadableEventClient.class).in(Scopes.SINGLETON);
-            }
-            else if (eventClientType.equals("file")) {
-                multibinder.addBinding().to(JsonEventClient.class).in(Scopes.SINGLETON);
-            }
-            else if (eventClientType.equals("database")) {
-                jsonCodecBinder(binder).bindListJsonCodec(String.class);
-                binder.bind(VerifierQueryEventDao.class).toProvider(VerifierQueryEventDaoProvider.class);
-                multibinder.addBinding().to(DatabaseEventClient.class).in(Scopes.SINGLETON);
+            switch (eventClientType) {
+                case "human-readable" ->
+                        consumers.addBinding().to(HumanReadableEventClient.class).in(Scopes.SINGLETON);
+                case "file" -> consumers.addBinding().to(JsonEventClient.class).in(Scopes.SINGLETON);
+                case "database" -> {
+                    jsonCodecBinder(binder).bindListJsonCodec(String.class);
+                    binder.bind(VerifierQueryEventDao.class).toProvider(VerifierQueryEventDaoProvider.class);
+                    consumers.addBinding().to(DatabaseEventClient.class).in(Scopes.SINGLETON);
+                }
             }
         }
     }

@@ -56,9 +56,9 @@ public class TestingH2JdbcModule
     @Provides
     @Singleton
     @ForBaseJdbc
-    public JdbcClient provideJdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, IdentifierMapping identifierMapping)
+    public JdbcClient provideJdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, QueryBuilder queryBuilder, IdentifierMapping identifierMapping)
     {
-        return testingH2JdbcClientFactory.create(config, connectionFactory, identifierMapping);
+        return testingH2JdbcClientFactory.create(config, connectionFactory, queryBuilder, identifierMapping);
     }
 
     @Provides
@@ -78,11 +78,11 @@ public class TestingH2JdbcModule
 
     public static String createH2ConnectionUrl()
     {
-        return format("jdbc:h2:mem:test%s;DB_CLOSE_DELAY=-1", System.nanoTime() + ThreadLocalRandom.current().nextLong());
+        return format("jdbc:h2:mem:test%s;DB_CLOSE_DELAY=-1;DEFAULT_LOCK_TIMEOUT=5000", System.nanoTime() + ThreadLocalRandom.current().nextLong());
     }
 
     public interface TestingH2JdbcClientFactory
     {
-        TestingH2JdbcClient create(BaseJdbcConfig config, ConnectionFactory connectionFactory, IdentifierMapping identifierMapping);
+        TestingH2JdbcClient create(BaseJdbcConfig config, ConnectionFactory connectionFactory, QueryBuilder queryBuilder, IdentifierMapping identifierMapping);
     }
 }

@@ -35,34 +35,22 @@ public class AllowAllAccessControl
         implements AccessControl
 {
     @Override
-    public void checkCanImpersonateUser(Identity identity, String userName)
-    {
-    }
+    public void checkCanImpersonateUser(Identity identity, String userName) {}
 
     @Override
-    public void checkCanSetUser(Optional<Principal> principal, String userName)
-    {
-    }
+    public void checkCanSetUser(Optional<Principal> principal, String userName) {}
 
     @Override
-    public void checkCanReadSystemInformation(Identity identity)
-    {
-    }
+    public void checkCanReadSystemInformation(Identity identity) {}
 
     @Override
-    public void checkCanWriteSystemInformation(Identity identity)
-    {
-    }
+    public void checkCanWriteSystemInformation(Identity identity) {}
 
     @Override
-    public void checkCanExecuteQuery(Identity identity, QueryId queryId)
-    {
-    }
+    public void checkCanExecuteQuery(Identity identity, QueryId queryId) {}
 
     @Override
-    public void checkCanViewQueryOwnedBy(Identity identity, Identity queryOwner)
-    {
-    }
+    public void checkCanViewQueryOwnedBy(Identity identity, Identity queryOwner) {}
 
     @Override
     public Collection<Identity> filterQueriesOwnedBy(Identity identity, Collection<Identity> queryOwners)
@@ -71,19 +59,13 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public void checkCanKillQueryOwnedBy(Identity identity, Identity queryOwner)
-    {
-    }
+    public void checkCanKillQueryOwnedBy(Identity identity, Identity queryOwner) {}
 
     @Override
-    public void checkCanCreateCatalog(SecurityContext context, String catalog)
-    {
-    }
+    public void checkCanCreateCatalog(SecurityContext context, String catalog) {}
 
     @Override
-    public void checkCanDropCatalog(SecurityContext context, String catalog)
-    {
-    }
+    public void checkCanDropCatalog(SecurityContext context, String catalog) {}
 
     @Override
     public Set<String> filterCatalogs(SecurityContext context, Set<String> catalogs)
@@ -92,29 +74,16 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public void checkCanCreateSchema(SecurityContext context, CatalogSchemaName schemaName, Map<String, Object> properties)
-    {
-    }
+    public void checkCanCreateSchema(SecurityContext context, CatalogSchemaName schemaName, Map<String, Object> properties) {}
 
     @Override
-    public void checkCanDropSchema(SecurityContext context, CatalogSchemaName schemaName)
-    {
-    }
+    public void checkCanDropSchema(SecurityContext context, CatalogSchemaName schemaName) {}
 
     @Override
-    public void checkCanRenameSchema(SecurityContext context, CatalogSchemaName schemaName, String newSchemaName)
-    {
-    }
+    public void checkCanRenameSchema(SecurityContext context, CatalogSchemaName schemaName, String newSchemaName) {}
 
     @Override
-    public void checkCanSetSchemaAuthorization(SecurityContext context, CatalogSchemaName schemaName, TrinoPrincipal principal)
-    {
-    }
-
-    @Override
-    public void checkCanShowSchemas(SecurityContext context, String catalogName)
-    {
-    }
+    public void checkCanShowSchemas(SecurityContext context, String catalogName) {}
 
     @Override
     public Set<String> filterSchemas(SecurityContext context, String catalogName, Set<String> schemaNames)
@@ -123,54 +92,34 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public void checkCanShowCreateSchema(SecurityContext context, CatalogSchemaName schemaName)
-    {
-    }
+    public void checkCanShowCreateSchema(SecurityContext context, CatalogSchemaName schemaName) {}
 
     @Override
-    public void checkCanShowCreateTable(SecurityContext context, QualifiedObjectName tableName)
-    {
-    }
+    public void checkCanShowCreateTable(SecurityContext context, QualifiedObjectName tableName) {}
 
     @Override
-    public void checkCanCreateTable(SecurityContext context, QualifiedObjectName tableName, Map<String, Object> properties)
-    {
-    }
+    public void checkCanCreateTable(SecurityContext context, QualifiedObjectName tableName, Map<String, Object> properties) {}
 
     @Override
-    public void checkCanDropTable(SecurityContext context, QualifiedObjectName tableName)
-    {
-    }
+    public void checkCanDropTable(SecurityContext context, QualifiedObjectName tableName) {}
 
     @Override
-    public void checkCanRenameTable(SecurityContext context, QualifiedObjectName tableName, QualifiedObjectName newTableName)
-    {
-    }
+    public void checkCanRenameTable(SecurityContext context, QualifiedObjectName tableName, QualifiedObjectName newTableName) {}
 
     @Override
-    public void checkCanSetTableProperties(SecurityContext context, QualifiedObjectName tableName, Map<String, Optional<Object>> properties)
-    {
-    }
+    public void checkCanSetTableProperties(SecurityContext context, QualifiedObjectName tableName, Map<String, Optional<Object>> properties) {}
 
     @Override
-    public void checkCanSetTableComment(SecurityContext context, QualifiedObjectName tableName)
-    {
-    }
+    public void checkCanSetTableComment(SecurityContext context, QualifiedObjectName tableName) {}
 
     @Override
-    public void checkCanSetViewComment(SecurityContext context, QualifiedObjectName viewName)
-    {
-    }
+    public void checkCanSetViewComment(SecurityContext context, QualifiedObjectName viewName) {}
 
     @Override
-    public void checkCanSetColumnComment(SecurityContext context, QualifiedObjectName tableName)
-    {
-    }
+    public void checkCanSetColumnComment(SecurityContext context, QualifiedObjectName tableName) {}
 
     @Override
-    public void checkCanShowTables(SecurityContext context, CatalogSchemaName schema)
-    {
-    }
+    public void checkCanShowTables(SecurityContext context, CatalogSchemaName schema) {}
 
     @Override
     public Set<SchemaTableName> filterTables(SecurityContext context, String catalogName, Set<SchemaTableName> tableNames)
@@ -179,9 +128,7 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public void checkCanShowColumns(SecurityContext context, CatalogSchemaTableName tableName)
-    {
-    }
+    public void checkCanShowColumns(SecurityContext context, CatalogSchemaTableName tableName) {}
 
     @Override
     public Map<SchemaTableName, Set<String>> filterColumns(SecurityContext context, String catalogName, Map<SchemaTableName, Set<String>> tableColumns)
@@ -190,99 +137,55 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public void checkCanAddColumns(SecurityContext context, QualifiedObjectName tableName)
-    {
-    }
+    public void checkCanAddColumns(SecurityContext context, QualifiedObjectName tableName) {}
 
     @Override
-    public void checkCanAlterColumn(SecurityContext context, QualifiedObjectName tableName)
-    {
-    }
+    public void checkCanAlterColumn(SecurityContext context, QualifiedObjectName tableName) {}
 
     @Override
-    public void checkCanDropColumn(SecurityContext context, QualifiedObjectName tableName)
-    {
-    }
+    public void checkCanDropColumn(SecurityContext context, QualifiedObjectName tableName) {}
 
     @Override
-    public void checkCanSetTableAuthorization(SecurityContext context, QualifiedObjectName tableName, TrinoPrincipal principal)
-    {
-    }
+    public void checkCanRenameColumn(SecurityContext context, QualifiedObjectName tableName) {}
 
     @Override
-    public void checkCanRenameColumn(SecurityContext context, QualifiedObjectName tableName)
-    {
-    }
+    public void checkCanInsertIntoTable(SecurityContext context, QualifiedObjectName tableName) {}
 
     @Override
-    public void checkCanInsertIntoTable(SecurityContext context, QualifiedObjectName tableName)
-    {
-    }
+    public void checkCanDeleteFromTable(SecurityContext context, QualifiedObjectName tableName) {}
 
     @Override
-    public void checkCanDeleteFromTable(SecurityContext context, QualifiedObjectName tableName)
-    {
-    }
+    public void checkCanTruncateTable(SecurityContext context, QualifiedObjectName tableName) {}
 
     @Override
-    public void checkCanTruncateTable(SecurityContext context, QualifiedObjectName tableName)
-    {
-    }
+    public void checkCanUpdateTableColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> updatedColumnNames) {}
 
     @Override
-    public void checkCanUpdateTableColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> updatedColumnNames)
-    {
-    }
+    public void checkCanCreateView(SecurityContext context, QualifiedObjectName viewName) {}
 
     @Override
-    public void checkCanCreateView(SecurityContext context, QualifiedObjectName viewName)
-    {
-    }
+    public void checkCanRenameView(SecurityContext context, QualifiedObjectName viewName, QualifiedObjectName newViewName) {}
 
     @Override
-    public void checkCanRenameView(SecurityContext context, QualifiedObjectName viewName, QualifiedObjectName newViewName)
-    {
-    }
+    public void checkCanDropView(SecurityContext context, QualifiedObjectName viewName) {}
 
     @Override
-    public void checkCanSetViewAuthorization(SecurityContext context, QualifiedObjectName view, TrinoPrincipal principal)
-    {
-    }
+    public void checkCanCreateViewWithSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columnNames) {}
 
     @Override
-    public void checkCanDropView(SecurityContext context, QualifiedObjectName viewName)
-    {
-    }
+    public void checkCanCreateMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName, Map<String, Object> properties) {}
 
     @Override
-    public void checkCanCreateViewWithSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columnNames)
-    {
-    }
+    public void checkCanRefreshMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName) {}
 
     @Override
-    public void checkCanCreateMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName, Map<String, Object> properties)
-    {
-    }
+    public void checkCanDropMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName) {}
 
     @Override
-    public void checkCanRefreshMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName)
-    {
-    }
+    public void checkCanRenameMaterializedView(SecurityContext context, QualifiedObjectName viewName, QualifiedObjectName newViewName) {}
 
     @Override
-    public void checkCanDropMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName)
-    {
-    }
-
-    @Override
-    public void checkCanRenameMaterializedView(SecurityContext context, QualifiedObjectName viewName, QualifiedObjectName newViewName)
-    {
-    }
-
-    @Override
-    public void checkCanSetMaterializedViewProperties(SecurityContext context, QualifiedObjectName materializedViewName, Map<String, Optional<Object>> properties)
-    {
-    }
+    public void checkCanSetMaterializedViewProperties(SecurityContext context, QualifiedObjectName materializedViewName, Map<String, Optional<Object>> properties) {}
 
     @Override
     public boolean canExecuteFunction(SecurityContext context, QualifiedObjectName functionName)
@@ -297,119 +200,73 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public void checkCanGrantSchemaPrivilege(SecurityContext context, Privilege privilege, CatalogSchemaName schemaName, TrinoPrincipal grantee, boolean grantOption)
-    {
-    }
+    public void checkCanGrantSchemaPrivilege(SecurityContext context, Privilege privilege, CatalogSchemaName schemaName, TrinoPrincipal grantee, boolean grantOption) {}
 
     @Override
-    public void checkCanDenySchemaPrivilege(SecurityContext context, Privilege privilege, CatalogSchemaName schemaName, TrinoPrincipal grantee)
-    {
-    }
+    public void checkCanDenySchemaPrivilege(SecurityContext context, Privilege privilege, CatalogSchemaName schemaName, TrinoPrincipal grantee) {}
 
     @Override
-    public void checkCanRevokeSchemaPrivilege(SecurityContext context, Privilege privilege, CatalogSchemaName schemaName, TrinoPrincipal revokee, boolean grantOption)
-    {
-    }
+    public void checkCanRevokeSchemaPrivilege(SecurityContext context, Privilege privilege, CatalogSchemaName schemaName, TrinoPrincipal revokee, boolean grantOption) {}
 
     @Override
-    public void checkCanGrantTablePrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, TrinoPrincipal grantee, boolean grantOption)
-    {
-    }
+    public void checkCanGrantTablePrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, TrinoPrincipal grantee, boolean grantOption) {}
 
     @Override
-    public void checkCanDenyTablePrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, TrinoPrincipal grantee)
-    {
-    }
+    public void checkCanDenyTablePrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, TrinoPrincipal grantee) {}
 
     @Override
-    public void checkCanRevokeTablePrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, TrinoPrincipal revokee, boolean grantOption)
-    {
-    }
+    public void checkCanRevokeTablePrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, TrinoPrincipal revokee, boolean grantOption) {}
 
     @Override
-    public void checkCanGrantEntityPrivilege(SecurityContext context, EntityPrivilege privilege, EntityKindAndName entity, TrinoPrincipal grantee, boolean grantOption)
-    {
-    }
+    public void checkCanGrantEntityPrivilege(SecurityContext context, EntityPrivilege privilege, EntityKindAndName entity, TrinoPrincipal grantee, boolean grantOption) {}
 
     @Override
-    public void checkCanDenyEntityPrivilege(SecurityContext context, EntityPrivilege privilege, EntityKindAndName entity, TrinoPrincipal grantee)
-    {
-    }
+    public void checkCanDenyEntityPrivilege(SecurityContext context, EntityPrivilege privilege, EntityKindAndName entity, TrinoPrincipal grantee) {}
 
     @Override
-    public void checkCanRevokeEntityPrivilege(SecurityContext context, EntityPrivilege privilege, EntityKindAndName entity, TrinoPrincipal revokee, boolean grantOption)
-    {
-    }
+    public void checkCanRevokeEntityPrivilege(SecurityContext context, EntityPrivilege privilege, EntityKindAndName entity, TrinoPrincipal revokee, boolean grantOption) {}
 
     @Override
-    public void checkCanSetSystemSessionProperty(Identity identity, QueryId queryId, String propertyName)
-    {
-    }
+    public void checkCanSetSystemSessionProperty(Identity identity, QueryId queryId, String propertyName) {}
 
     @Override
-    public void checkCanSetCatalogSessionProperty(SecurityContext context, String catalogName, String propertyName)
-    {
-    }
+    public void checkCanSetCatalogSessionProperty(SecurityContext context, String catalogName, String propertyName) {}
 
     @Override
-    public void checkCanSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columnNames)
-    {
-    }
+    public void checkCanSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columnNames) {}
 
     @Override
-    public void checkCanCreateRole(SecurityContext context, String role, Optional<TrinoPrincipal> grantor, Optional<String> catalogName)
-    {
-    }
+    public void checkCanCreateRole(SecurityContext context, String role, Optional<TrinoPrincipal> grantor, Optional<String> catalogName) {}
 
     @Override
-    public void checkCanDropRole(SecurityContext context, String role, Optional<String> catalogName)
-    {
-    }
+    public void checkCanDropRole(SecurityContext context, String role, Optional<String> catalogName) {}
 
     @Override
-    public void checkCanGrantRoles(SecurityContext context, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor, Optional<String> catalogName)
-    {
-    }
+    public void checkCanGrantRoles(SecurityContext context, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor, Optional<String> catalogName) {}
 
     @Override
-    public void checkCanRevokeRoles(SecurityContext context, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor, Optional<String> catalogName)
-    {
-    }
+    public void checkCanRevokeRoles(SecurityContext context, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor, Optional<String> catalogName) {}
 
     @Override
-    public void checkCanSetCatalogRole(SecurityContext context, String role, String catalogName)
-    {
-    }
+    public void checkCanSetCatalogRole(SecurityContext context, String role, String catalogName) {}
 
     @Override
-    public void checkCanShowRoles(SecurityContext context, Optional<String> catalogName)
-    {
-    }
+    public void checkCanShowRoles(SecurityContext context, Optional<String> catalogName) {}
 
     @Override
-    public void checkCanShowCurrentRoles(SecurityContext context, Optional<String> catalogName)
-    {
-    }
+    public void checkCanShowCurrentRoles(SecurityContext context, Optional<String> catalogName) {}
 
     @Override
-    public void checkCanShowRoleGrants(SecurityContext context, Optional<String> catalogName)
-    {
-    }
+    public void checkCanShowRoleGrants(SecurityContext context, Optional<String> catalogName) {}
 
     @Override
-    public void checkCanExecuteProcedure(SecurityContext context, QualifiedObjectName procedureName)
-    {
-    }
+    public void checkCanExecuteProcedure(SecurityContext context, QualifiedObjectName procedureName) {}
 
     @Override
-    public void checkCanExecuteTableProcedure(SecurityContext context, QualifiedObjectName tableName, String procedureName)
-    {
-    }
+    public void checkCanExecuteTableProcedure(SecurityContext context, QualifiedObjectName tableName, String procedureName) {}
 
     @Override
-    public void checkCanShowFunctions(SecurityContext context, CatalogSchemaName schema)
-    {
-    }
+    public void checkCanShowFunctions(SecurityContext context, CatalogSchemaName schema) {}
 
     @Override
     public Set<SchemaFunctionName> filterFunctions(SecurityContext context, String catalogName, Set<SchemaFunctionName> functionNames)
@@ -418,12 +275,14 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public void checkCanCreateFunction(SecurityContext context, QualifiedObjectName functionName)
-    {
-    }
+    public void checkCanCreateFunction(SecurityContext context, QualifiedObjectName functionName) {}
 
     @Override
-    public void checkCanDropFunction(SecurityContext context, QualifiedObjectName functionName)
-    {
-    }
+    public void checkCanDropFunction(SecurityContext context, QualifiedObjectName functionName) {}
+
+    @Override
+    public void checkCanShowCreateFunction(SecurityContext context, QualifiedObjectName functionName) {}
+
+    @Override
+    public void checkCanSetEntityAuthorization(SecurityContext context, EntityKindAndName entityKindAndName, TrinoPrincipal principal) {}
 }

@@ -42,26 +42,26 @@ public final class DeterminismEvaluator
         @Override
         public Boolean visitCall(CallExpression call, Void context)
         {
-            ResolvedFunction resolvedFunction = call.getResolvedFunction();
+            ResolvedFunction resolvedFunction = call.resolvedFunction();
             if (!resolvedFunction.deterministic()) {
                 return false;
             }
 
-            return call.getArguments().stream()
+            return call.arguments().stream()
                     .allMatch(expression -> expression.accept(this, context));
         }
 
         @Override
         public Boolean visitSpecialForm(SpecialForm specialForm, Void context)
         {
-            return specialForm.getArguments().stream()
+            return specialForm.arguments().stream()
                     .allMatch(expression -> expression.accept(this, context));
         }
 
         @Override
         public Boolean visitLambda(LambdaDefinitionExpression lambda, Void context)
         {
-            return lambda.getBody().accept(this, context);
+            return lambda.body().accept(this, context);
         }
 
         @Override

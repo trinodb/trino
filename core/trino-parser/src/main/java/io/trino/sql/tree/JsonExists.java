@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -28,7 +27,7 @@ public class JsonExists
     private final ErrorBehavior errorBehavior;
 
     public JsonExists(
-            Optional<NodeLocation> location,
+            NodeLocation location,
             JsonPathInvocation jsonPathInvocation,
             ErrorBehavior errorBehavior)
     {

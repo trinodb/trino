@@ -34,7 +34,7 @@ public class JsonQuery
     private final EmptyOrErrorBehavior errorBehavior;
 
     public JsonQuery(
-            Optional<NodeLocation> location,
+            NodeLocation location,
             JsonPathInvocation jsonPathInvocation,
             Optional<DataType> returnedType,
             Optional<JsonFormat> outputFormat,

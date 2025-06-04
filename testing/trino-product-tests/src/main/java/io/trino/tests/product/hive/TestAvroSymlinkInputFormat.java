@@ -148,7 +148,7 @@ public class TestAvroSymlinkInputFormat
             throws IOException
     {
         hdfsClient.delete(location);
-        try (InputStream inputStream = newInputStream(Paths.get("/docker/presto-product-tests", resource))) {
+        try (InputStream inputStream = newInputStream(Paths.get("/docker/trino-product-tests", resource))) {
             hdfsClient.saveFile(location, inputStream);
         }
     }

@@ -23,7 +23,9 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
+import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.writer.ParquetWriterOptions;
+import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
@@ -32,8 +34,6 @@ import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.RemoveFileEntry;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeParquetFileStatistics;
-import io.trino.plugin.hive.FileFormatDataSourceStats;
-import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
@@ -74,7 +74,6 @@ import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.ADD;
-import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.COMMIT;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.METADATA;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.PROTOCOL;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.REMOVE;
@@ -532,7 +531,7 @@ public class TestCheckpointEntryIterator
                         .collect(toImmutableMap("intcol%s"::formatted, columnIndex -> random.nextLong(0, 1000))))
                 .putAll(IntStream.rangeClosed(1, countStringColumns)
                         .boxed()
-                        .collect(toImmutableMap("stringcol%s"::formatted, columnIndex -> "A".repeat(random.nextInt(0, 10)) + UUID.randomUUID())))
+                        .collect(toImmutableMap("stringcol%s"::formatted, columnIndex -> "A".repeat(random.nextInt(1, 10)) + UUID.randomUUID())))
                 .buildOrThrow();
         Map<String, Object> maxValues = ImmutableMap.<String, Object>builder()
                 .putAll(IntStream.rangeClosed(1, countIntegerColumns)
@@ -540,7 +539,7 @@ public class TestCheckpointEntryIterator
                         .collect(toImmutableMap("intcol%s"::formatted, columnIndex -> 1000L + random.nextLong(0, 1000))))
                 .putAll(IntStream.rangeClosed(1, countStringColumns)
                         .boxed()
-                        .collect(toImmutableMap("stringcol%s"::formatted, columnIndex -> "Z".repeat(random.nextInt(0, 10)) + UUID.randomUUID())))
+                        .collect(toImmutableMap("stringcol%s"::formatted, columnIndex -> "Z".repeat(random.nextInt(1, 10)) + UUID.randomUUID())))
                 .buildOrThrow();
         Map<String, Object> nullCount = ImmutableMap.<String, Object>builder()
                 .putAll(IntStream.rangeClosed(1, countIntegerColumns)
@@ -565,7 +564,7 @@ public class TestCheckpointEntryIterator
         MetadataEntry metadataEntry = readMetadataEntry(checkpointUri);
         CheckpointEntryIterator checkpointEntryIterator = createCheckpointEntryIterator(
                 checkpointUri,
-                ImmutableSet.of(METADATA, PROTOCOL, TRANSACTION, ADD, REMOVE, COMMIT),
+                ImmutableSet.of(METADATA, PROTOCOL, TRANSACTION, ADD, REMOVE),
                 Optional.of(readMetadataEntry(checkpointUri)),
                 Optional.of(readProtocolEntry(checkpointUri)),
                 TupleDomain.all(),
@@ -612,14 +611,8 @@ public class TestCheckpointEntryIterator
                         // partitionValues information is missing in the checkpoint
                         null,
                         1579190155406L,
-                        false));
-
-        // CommitInfoEntry
-        // not found in the checkpoint, TODO add a test
-        assertThat(entries)
-                .map(DeltaLakeTransactionLogEntry::getCommitInfo)
-                .filteredOn(Objects::nonNull)
-                .isEmpty();
+                        false,
+                        Optional.empty()));
     }
 
     @Test
@@ -925,7 +918,8 @@ public class TestCheckpointEntryIterator
                                 UUID.randomUUID().toString(),
                                 ImmutableMap.of("part_key", "2023-01-01 00:00:00"),
                                 1000,
-                                true))
+                                true,
+                                Optional.empty()))
                 .collect(toImmutableSet());
 
         CheckpointEntries entries = new CheckpointEntries(
@@ -1024,10 +1018,10 @@ public class TestCheckpointEntryIterator
                 metadataEntry,
                 protocolEntry,
                 new FileFormatDataSourceStats(),
-                new ParquetReaderConfig()
-                        .setMaxBufferSize(DataSize.ofBytes(500))
-                        .setSmallFileThreshold(DataSize.of(1, KILOBYTE))
-                        .toParquetReaderOptions(),
+                ParquetReaderOptions.builder()
+                        .withMaxBufferSize(DataSize.ofBytes(500))
+                        .withSmallFileThreshold(DataSize.of(1, KILOBYTE))
+                        .build(),
                 true,
                 new DeltaLakeConfig().getDomainCompactionThreshold(),
                 partitionConstraint,

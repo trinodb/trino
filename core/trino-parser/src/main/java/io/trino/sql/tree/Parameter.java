@@ -16,7 +16,6 @@ package io.trino.sql.tree;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 
 public class Parameter
@@ -24,17 +23,14 @@ public class Parameter
 {
     private final int id;
 
+    @Deprecated
     public Parameter(int id)
     {
-        this(Optional.empty(), id);
+        super(Optional.empty());
+        this.id = id;
     }
 
     public Parameter(NodeLocation location, int id)
-    {
-        this(Optional.of(location), id);
-    }
-
-    private Parameter(Optional<NodeLocation> location, int id)
     {
         super(location);
         this.id = id;
@@ -68,7 +64,7 @@ public class Parameter
         }
 
         Parameter that = (Parameter) o;
-        return Objects.equals(id, that.id);
+        return id == that.id;
     }
 
     @Override

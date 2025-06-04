@@ -28,17 +28,15 @@ public final class ParameterDeclaration
     private final Optional<Identifier> name;
     private final DataType type;
 
+    @Deprecated
     public ParameterDeclaration(Optional<Identifier> name, DataType type)
     {
-        this(Optional.empty(), name, type);
+        super(Optional.empty());
+        this.name = requireNonNull(name, "name is null");
+        this.type = requireNonNull(type, "type is null");
     }
 
     public ParameterDeclaration(NodeLocation location, Optional<Identifier> name, DataType type)
-    {
-        this(Optional.of(location), name, type);
-    }
-
-    private ParameterDeclaration(Optional<NodeLocation> location, Optional<Identifier> name, DataType type)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");

@@ -19,7 +19,7 @@ import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.type.BlockTypeOperators;
-import io.trino.type.BlockTypeOperators.BlockPositionIsDistinctFrom;
+import io.trino.type.BlockTypeOperators.BlockPositionIsIdentical;
 
 import java.util.Optional;
 
@@ -39,9 +39,9 @@ public class PositionsAppenderFactory
 
     public UnnestingPositionsAppender create(Type type, int expectedPositions, long maxPageSizeInBytes)
     {
-        Optional<BlockPositionIsDistinctFrom> distinctFromOperator = Optional.empty();
+        Optional<BlockPositionIsIdentical> distinctFromOperator = Optional.empty();
         if (type.isComparable()) {
-            distinctFromOperator = Optional.of(blockTypeOperators.getDistinctFromOperator(type));
+            distinctFromOperator = Optional.of(blockTypeOperators.getIdenticalOperator(type));
         }
         return new UnnestingPositionsAppender(createPrimitiveAppender(type, expectedPositions, maxPageSizeInBytes), distinctFromOperator);
     }

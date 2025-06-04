@@ -23,9 +23,7 @@ import java.util.Optional;
 
 final class EncoderUtil
 {
-    private EncoderUtil()
-    {
-    }
+    private EncoderUtil() {}
 
     /**
      * Append null values for the block as a stream of bits.

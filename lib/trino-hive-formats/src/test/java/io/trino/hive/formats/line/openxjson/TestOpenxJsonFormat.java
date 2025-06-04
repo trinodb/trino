@@ -1236,9 +1236,9 @@ public class TestOpenxJsonFormat
 
     private static void internalAssertValueTrino(Type type, String jsonValue, Object expectedValue, OpenXJsonOptions options)
     {
-        List<Column> columns = ImmutableList.of(new Column("test", type, 33));
+        List<Column> columns = ImmutableList.of(new Column("test", type, 2));
         internalAssertLineTrino(columns, "{\"test\" : " + jsonValue + "}", singletonList(expectedValue), options);
-        internalAssertLineTrino(columns, "[" + jsonValue + "]", singletonList(expectedValue), options);
+        internalAssertLineTrino(columns, "[ , 42, " + jsonValue + ", 99]", singletonList(expectedValue), options);
     }
 
     private static void internalAssertLineTrino(List<Column> columns, String line, List<Object> expectedValues, OpenXJsonOptions options)
@@ -1282,7 +1282,7 @@ public class TestOpenxJsonFormat
             hiveValues = readHiveLine(columns, hiveLine, DEFAULT_OPEN_X_JSON_OPTIONS);
             assertColumnValuesEquals(columns, hiveValues, expectedValues);
         }
-        catch (RuntimeException | AssertionError ignored) {
+        catch (RuntimeException | AssertionError _) {
             // If Hive does not round trip values correctly, then stop testing
             // this happens for types like Char, Date, and Decimal which are not rendered
             return;

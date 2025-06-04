@@ -33,7 +33,7 @@ public class TestBigintType
 
     public static ValueBlock createTestBlock()
     {
-        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, 15);
+        BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(15);
         BIGINT.writeLong(blockBuilder, 1111);
         BIGINT.writeLong(blockBuilder, 1111);
         BIGINT.writeLong(blockBuilder, 1111);

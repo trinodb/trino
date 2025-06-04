@@ -161,13 +161,13 @@ final class JsonWriter
         try {
             return String.valueOf(parseDecimalHexOctalLong(value));
         }
-        catch (NumberFormatException ignored) {
+        catch (NumberFormatException _) {
         }
         // Use BigDecimal for all other values
         try {
             return new BigDecimal(value).toString();
         }
-        catch (NumberFormatException ignored) {
+        catch (NumberFormatException _) {
         }
         return null;
     }

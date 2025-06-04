@@ -228,8 +228,5 @@ public class TestTypedKeyValueHeap
         return blockBuilder.buildValueBlock();
     }
 
-    // TODO remove this suppression when the error prone checker actually supports records correctly
-    // NOTE: this record supports null values, which is not supported by other Map.Entry implementations
-    @SuppressWarnings("unused")
     private record Entry<K, V>(K key, V value) {}
 }

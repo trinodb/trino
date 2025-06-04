@@ -25,6 +25,7 @@ public class LongLiteral
     private final String value;
     private final long parsedValue;
 
+    @Deprecated
     public LongLiteral(String value)
     {
         this(Optional.empty(), value);
@@ -44,7 +45,7 @@ public class LongLiteral
             this.parsedValue = parse(value);
         }
         catch (NumberFormatException e) {
-            throw new ParsingException("Invalid numeric literal: " + value);
+            throw new ParsingException("Invalid numeric literal: " + value, location.orElse(new NodeLocation(1, 1)));
         }
     }
 
@@ -106,11 +107,20 @@ public class LongLiteral
         if (value.startsWith("0x") || value.startsWith("0X")) {
             return Long.parseLong(value.substring(2), 16);
         }
+        else if (value.startsWith("-0x") || value.startsWith("-0X")) {
+            return Long.parseLong("-" + value.substring(3), 16);
+        }
         else if (value.startsWith("0b") || value.startsWith("0B")) {
             return Long.parseLong(value.substring(2), 2);
         }
+        else if (value.startsWith("-0b") || value.startsWith("-0B")) {
+            return Long.parseLong("-" + value.substring(3), 2);
+        }
         else if (value.startsWith("0o") || value.startsWith("0O")) {
             return Long.parseLong(value.substring(2), 8);
+        }
+        else if (value.startsWith("-0o") || value.startsWith("-0O")) {
+            return Long.parseLong("-" + value.substring(3), 8);
         }
         else {
             return Long.parseLong(value);

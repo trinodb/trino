@@ -20,6 +20,6 @@ public class ClickHousePlugin
 {
     public ClickHousePlugin()
     {
-        super("clickhouse", new ClickHouseClientModule());
+        super("clickhouse", ClickHouseClientModule::new);
     }
 }

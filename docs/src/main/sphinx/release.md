@@ -1,11 +1,49 @@
 # Release notes
 
+(releases-2025)=
+## 2025
+
+```{toctree}
+:maxdepth: 1
+
+release/release-475
+release/release-474
+release/release-473
+release/release-472
+release/release-471
+release/release-470
+release/release-469
+```
+
 (releases-2024)=
 ## 2024
 
 ```{toctree}
 :maxdepth: 1
 
+release/release-468
+release/release-467
+release/release-466
+release/release-465
+release/release-464
+release/release-463
+release/release-462
+release/release-461
+release/release-460
+release/release-459
+release/release-458
+release/release-457
+release/release-456
+release/release-455
+release/release-454
+release/release-453
+release/release-452
+release/release-451
+release/release-450
+release/release-449
+release/release-448
+release/release-447
+release/release-446
 release/release-445
 release/release-444
 release/release-443

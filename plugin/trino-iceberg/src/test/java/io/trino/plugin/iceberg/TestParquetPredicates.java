@@ -80,7 +80,7 @@ public class TestParquetPredicates
         Map<List<String>, ColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, fileSchema);
         TupleDomain<ColumnDescriptor> calculatedTupleDomain = getParquetTupleDomain(descriptorsByPath, tupleDomain);
 
-        assertThat(calculatedTupleDomain.getDomains().orElseThrow().size()).isEqualTo(1);
+        assertThat(calculatedTupleDomain.getDomains().orElseThrow()).hasSize(1);
         ColumnDescriptor selectedColumnDescriptor = descriptorsByPath.get(ImmutableList.of("row_field", "b"));
         assertThat(calculatedTupleDomain.getDomains().orElseThrow().get(selectedColumnDescriptor)).isEqualTo(predicateDomain);
     }

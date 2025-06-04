@@ -29,9 +29,9 @@ import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
+import io.trino.sql.ir.IrExpressions;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Lambda;
-import io.trino.sql.ir.Not;
 import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Switch;
@@ -169,26 +169,26 @@ public class TestEqualityInference
 
         EqualityInference.EqualityPartition emptyScopePartition = inference.generateEqualitiesPartitionedBy(ImmutableSet.of());
         // Cannot generate any scope equalities with no matching symbols
-        assertThat(emptyScopePartition.getScopeEqualities().isEmpty()).isTrue();
+        assertThat(emptyScopePartition.getScopeEqualities()).isEmpty();
         // All equalities should be represented in the inverse scope
-        assertThat(emptyScopePartition.getScopeComplementEqualities().isEmpty()).isFalse();
+        assertThat(emptyScopePartition.getScopeComplementEqualities()).isNotEmpty();
         // There should be no equalities straddling the scope
-        assertThat(emptyScopePartition.getScopeStraddlingEqualities().isEmpty()).isTrue();
+        assertThat(emptyScopePartition.getScopeStraddlingEqualities()).isEmpty();
 
         EqualityInference.EqualityPartition equalityPartition = inference.generateEqualitiesPartitionedBy(symbols("c1"));
 
         // There should be equalities in the scope, that only use c1 and are all inferrable equalities
-        assertThat(equalityPartition.getScopeEqualities().isEmpty()).isFalse();
+        assertThat(equalityPartition.getScopeEqualities()).isNotEmpty();
         assertThat(Iterables.all(equalityPartition.getScopeEqualities(), matchesSymbolScope(matchesSymbols("c1")))).isTrue();
         assertThat(Iterables.all(equalityPartition.getScopeEqualities(), EqualityInference::isInferenceCandidate)).isTrue();
 
         // There should be equalities in the inverse scope, that never use c1 and are all inferrable equalities
-        assertThat(equalityPartition.getScopeComplementEqualities().isEmpty()).isFalse();
+        assertThat(equalityPartition.getScopeComplementEqualities()).isNotEmpty();
         assertThat(Iterables.all(equalityPartition.getScopeComplementEqualities(), matchesSymbolScope(not(matchesSymbols("c1"))))).isTrue();
         assertThat(Iterables.all(equalityPartition.getScopeComplementEqualities(), EqualityInference::isInferenceCandidate)).isTrue();
 
         // There should be equalities in the straddling scope, that should use both c1 and not c1 symbols
-        assertThat(equalityPartition.getScopeStraddlingEqualities().isEmpty()).isFalse();
+        assertThat(equalityPartition.getScopeStraddlingEqualities()).isNotEmpty();
         assertThat(Iterables.any(equalityPartition.getScopeStraddlingEqualities(), matchesStraddlingScope(matchesSymbols("c1")))).isTrue();
         assertThat(Iterables.all(equalityPartition.getScopeStraddlingEqualities(), EqualityInference::isInferenceCandidate)).isTrue();
 
@@ -223,17 +223,17 @@ public class TestEqualityInference
         EqualityInference.EqualityPartition equalityPartition = inference.generateEqualitiesPartitionedBy(symbols("a1", "a2", "b1", "b2"));
 
         // There should be equalities in the scope, that only use a* and b* symbols and are all inferrable equalities
-        assertThat(equalityPartition.getScopeEqualities().isEmpty()).isFalse();
+        assertThat(equalityPartition.getScopeEqualities()).isNotEmpty();
         assertThat(Iterables.all(equalityPartition.getScopeEqualities(), matchesSymbolScope(symbolBeginsWith("a", "b")))).isTrue();
         assertThat(Iterables.all(equalityPartition.getScopeEqualities(), EqualityInference::isInferenceCandidate)).isTrue();
 
         // There should be equalities in the inverse scope, that never use a* and b* symbols and are all inferrable equalities
-        assertThat(equalityPartition.getScopeComplementEqualities().isEmpty()).isFalse();
+        assertThat(equalityPartition.getScopeComplementEqualities()).isNotEmpty();
         assertThat(Iterables.all(equalityPartition.getScopeComplementEqualities(), matchesSymbolScope(not(symbolBeginsWith("a", "b"))))).isTrue();
         assertThat(Iterables.all(equalityPartition.getScopeComplementEqualities(), EqualityInference::isInferenceCandidate)).isTrue();
 
         // There should be equalities in the straddling scope, that should use both c1 and not c1 symbols
-        assertThat(equalityPartition.getScopeStraddlingEqualities().isEmpty()).isFalse();
+        assertThat(equalityPartition.getScopeStraddlingEqualities()).isNotEmpty();
         assertThat(Iterables.any(equalityPartition.getScopeStraddlingEqualities(), matchesStraddlingScope(symbolBeginsWith("a", "b")))).isTrue();
         assertThat(Iterables.all(equalityPartition.getScopeStraddlingEqualities(), EqualityInference::isInferenceCandidate)).isTrue();
 
@@ -288,7 +288,7 @@ public class TestEqualityInference
         assertThat(equalitiesAsSets(equalityPartition.getScopeComplementEqualities())).isEqualTo(set(set(new Reference(BIGINT, "c1"), new Constant(BIGINT, 1L))));
 
         // There should be no scope straddling equalities as the full set of equalities should be already represented by the scope and inverse scope
-        assertThat(equalityPartition.getScopeStraddlingEqualities().isEmpty()).isTrue();
+        assertThat(equalityPartition.getScopeStraddlingEqualities()).isEmpty();
     }
 
     @Test
@@ -307,14 +307,14 @@ public class TestEqualityInference
     public void testExpressionsThatMayReturnNullOnNonNullInput()
     {
         List<Expression> candidates = ImmutableList.of(
-                new Cast(new Reference(BIGINT, "b"), BIGINT, true), // try_cast
+                new Cast(new Reference(BIGINT, "b"), BIGINT),
                 functionResolution
                         .functionCallBuilder(TryFunction.NAME)
                         .addArgument(new FunctionType(ImmutableList.of(), BIGINT), new Lambda(ImmutableList.of(), new Reference(BIGINT, "b")))
                         .build(),
                 new NullIf(new Reference(BIGINT, "b"), number(1)),
                 new In(new Reference(BIGINT, "b"), ImmutableList.of(new Constant(BIGINT, null))),
-                new Case(ImmutableList.of(new WhenClause(new Not(new IsNull(new Reference(BIGINT, "b"))), new Constant(UnknownType.UNKNOWN, null))), new Constant(UnknownType.UNKNOWN, null)),
+                new Case(ImmutableList.of(new WhenClause(IrExpressions.not(functionResolution.getMetadata(), new IsNull(new Reference(BIGINT, "b"))), new Constant(UnknownType.UNKNOWN, null))), new Constant(UnknownType.UNKNOWN, null)),
                 new Switch(new Reference(INTEGER, "b"), ImmutableList.of(new WhenClause(number(1), new Constant(INTEGER, null))), new Constant(INTEGER, null)));
 
         for (Expression candidate : candidates) {
@@ -323,7 +323,7 @@ public class TestEqualityInference
                     equals(new Reference(candidate.type(), "a"), candidate));
 
             List<Expression> equalities = inference.generateEqualitiesPartitionedBy(symbols("b")).getScopeStraddlingEqualities();
-            assertThat(equalities.size()).isEqualTo(1);
+            assertThat(equalities).hasSize(1);
             assertThat(equalities.get(0).equals(equals(new Reference(BIGINT, "x"), new Reference(BIGINT, "b"))) || equalities.get(0).equals(equals(new Reference(BIGINT, "b"), new Reference(BIGINT, "x")))).isTrue();
         }
     }

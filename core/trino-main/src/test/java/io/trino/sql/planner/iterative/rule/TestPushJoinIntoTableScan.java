@@ -196,7 +196,7 @@ public class TestPushJoinIntoTableScan
                 Arguments.of(INNER, Optional.of(Comparison.Operator.GREATER_THAN)),
                 Arguments.of(INNER, Optional.of(Comparison.Operator.GREATER_THAN_OR_EQUAL)),
                 Arguments.of(INNER, Optional.of(Comparison.Operator.NOT_EQUAL)),
-                Arguments.of(INNER, Optional.of(Comparison.Operator.IS_DISTINCT_FROM)),
+                Arguments.of(INNER, Optional.of(Comparison.Operator.IDENTICAL)),
 
                 Arguments.of(io.trino.sql.planner.plan.JoinType.LEFT, Optional.empty()),
                 Arguments.of(io.trino.sql.planner.plan.JoinType.LEFT, Optional.of(Comparison.Operator.EQUAL)),
@@ -205,7 +205,7 @@ public class TestPushJoinIntoTableScan
                 Arguments.of(io.trino.sql.planner.plan.JoinType.LEFT, Optional.of(Comparison.Operator.GREATER_THAN)),
                 Arguments.of(io.trino.sql.planner.plan.JoinType.LEFT, Optional.of(Comparison.Operator.GREATER_THAN_OR_EQUAL)),
                 Arguments.of(io.trino.sql.planner.plan.JoinType.LEFT, Optional.of(Comparison.Operator.NOT_EQUAL)),
-                Arguments.of(io.trino.sql.planner.plan.JoinType.LEFT, Optional.of(Comparison.Operator.IS_DISTINCT_FROM)),
+                Arguments.of(io.trino.sql.planner.plan.JoinType.LEFT, Optional.of(Comparison.Operator.IDENTICAL)),
 
                 Arguments.of(io.trino.sql.planner.plan.JoinType.RIGHT, Optional.empty()),
                 Arguments.of(io.trino.sql.planner.plan.JoinType.RIGHT, Optional.of(Comparison.Operator.EQUAL)),
@@ -214,7 +214,7 @@ public class TestPushJoinIntoTableScan
                 Arguments.of(io.trino.sql.planner.plan.JoinType.RIGHT, Optional.of(Comparison.Operator.GREATER_THAN)),
                 Arguments.of(io.trino.sql.planner.plan.JoinType.RIGHT, Optional.of(Comparison.Operator.GREATER_THAN_OR_EQUAL)),
                 Arguments.of(io.trino.sql.planner.plan.JoinType.RIGHT, Optional.of(Comparison.Operator.NOT_EQUAL)),
-                Arguments.of(io.trino.sql.planner.plan.JoinType.RIGHT, Optional.of(Comparison.Operator.IS_DISTINCT_FROM)),
+                Arguments.of(io.trino.sql.planner.plan.JoinType.RIGHT, Optional.of(Comparison.Operator.IDENTICAL)),
 
                 Arguments.of(io.trino.sql.planner.plan.JoinType.FULL, Optional.empty()),
                 Arguments.of(io.trino.sql.planner.plan.JoinType.FULL, Optional.of(Comparison.Operator.EQUAL)),
@@ -223,7 +223,7 @@ public class TestPushJoinIntoTableScan
                 Arguments.of(io.trino.sql.planner.plan.JoinType.FULL, Optional.of(Comparison.Operator.GREATER_THAN)),
                 Arguments.of(io.trino.sql.planner.plan.JoinType.FULL, Optional.of(Comparison.Operator.GREATER_THAN_OR_EQUAL)),
                 Arguments.of(io.trino.sql.planner.plan.JoinType.FULL, Optional.of(Comparison.Operator.NOT_EQUAL)),
-                Arguments.of(io.trino.sql.planner.plan.JoinType.FULL, Optional.of(Comparison.Operator.IS_DISTINCT_FROM)));
+                Arguments.of(io.trino.sql.planner.plan.JoinType.FULL, Optional.of(Comparison.Operator.IDENTICAL)));
     }
 
     /**
@@ -641,8 +641,8 @@ public class TestPushJoinIntoTableScan
                 return JoinCondition.Operator.GREATER_THAN;
             case GREATER_THAN_OR_EQUAL:
                 return JoinCondition.Operator.GREATER_THAN_OR_EQUAL;
-            case IS_DISTINCT_FROM:
-                return JoinCondition.Operator.IS_DISTINCT_FROM;
+            case IDENTICAL:
+                return JoinCondition.Operator.IDENTICAL;
         }
         throw new IllegalArgumentException("Unknown operator: " + operator);
     }

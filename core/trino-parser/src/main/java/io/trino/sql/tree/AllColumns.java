@@ -28,30 +28,35 @@ public class AllColumns
     private final List<Identifier> aliases;
     private final Optional<Expression> target;
 
+    @Deprecated
     public AllColumns()
     {
         this(Optional.empty(), Optional.empty(), ImmutableList.of());
     }
 
-    public AllColumns(Expression target)
-    {
-        this(Optional.empty(), Optional.of(target), ImmutableList.of());
-    }
-
+    @Deprecated
     public AllColumns(Expression target, List<Identifier> aliases)
     {
         this(Optional.empty(), Optional.of(target), aliases);
     }
 
-    public AllColumns(NodeLocation location, Optional<Expression> target, List<Identifier> aliases)
-    {
-        this(Optional.of(location), target, aliases);
-    }
-
+    @Deprecated
     public AllColumns(Optional<NodeLocation> location, Optional<Expression> target, List<Identifier> aliases)
     {
         super(location);
         this.aliases = ImmutableList.copyOf(requireNonNull(aliases, "aliases is null"));
+        this.target = requireNonNull(target, "target is null");
+    }
+
+    public AllColumns(NodeLocation location)
+    {
+        this(location, Optional.empty(), ImmutableList.of());
+    }
+
+    public AllColumns(NodeLocation location, Optional<Expression> target, List<Identifier> aliases)
+    {
+        super(location);
+        this.aliases = ImmutableList.copyOf(aliases);
         this.target = requireNonNull(target, "target is null");
     }
 

@@ -27,13 +27,13 @@ import io.trino.filesystem.Location;
 import java.nio.ByteBuffer;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.filesystem.alluxio.AlluxioTracing.withTracing;
 import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_LOCATION;
 import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_READ_POSITION;
 import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_READ_SIZE;
 import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_WRITE_POSITION;
 import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_WRITE_SIZE;
 import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_KEY;
+import static io.trino.filesystem.tracing.Tracing.withTracing;
 import static java.lang.Integer.max;
 import static java.lang.Math.addExact;
 import static java.lang.Math.min;
@@ -136,7 +136,7 @@ public class AlluxioInputHelper
         CacheContext cacheContext = status.getCacheContext();
         PageId pageId = new PageId(cacheContext.getCacheIdentifier(), currentPage);
         if (bytesLeftInPage > length && bufferSize > length) { // Read page into buffer
-            int putBytes = putBuffer(position, currentPageOffset, pageId, cacheContext);
+            int putBytes = putBuffer(currentPageOffset, pageId, cacheContext);
             if (putBytes <= 0) {
                 return putBytes;
             }
@@ -147,10 +147,11 @@ public class AlluxioInputHelper
         }
     }
 
-    private int putBuffer(long position, int pageOffset, PageId pageId, CacheContext cacheContext)
+    private int putBuffer(int pageOffset, PageId pageId, CacheContext cacheContext)
     {
         pageOffset = min(pageOffset, max(pageSize - bufferSize, 0));
-        int bytesToReadInPage = Ints.saturatedCast(min(pageSize - pageOffset, fileLength - position));
+        long bufferStart = pageOffset + (pageId.getPageIndex() * pageSize);
+        int bytesToReadInPage = Ints.saturatedCast(min(pageSize - pageOffset, fileLength - bufferStart));
         int bytesRead = cacheManager.get(pageId, pageOffset, min(bytesToReadInPage, bufferSize), readBuffer, 0, cacheContext);
         if (bytesRead < 0) {
             // Buffer could be corrupted

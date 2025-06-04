@@ -57,7 +57,7 @@ public abstract class AbstractTestValueStream<T, C extends StreamCheckpoint, W e
             assertThat(stream.getLength()).isEqualTo(sliceOutput.size());
 
             List<C> checkpoints = outputStream.getCheckpoints();
-            assertThat(checkpoints.size()).isEqualTo(groups.size());
+            assertThat(checkpoints).hasSize(groups.size());
 
             R valueStream = createValueStream(sliceOutput.slice());
             for (List<T> group : groups) {

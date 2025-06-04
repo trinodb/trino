@@ -16,7 +16,6 @@ package io.trino.sql.tree;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
@@ -24,11 +23,6 @@ public class EmptyPattern
         extends RowPattern
 {
     public EmptyPattern(NodeLocation location)
-    {
-        this(Optional.of(location));
-    }
-
-    private EmptyPattern(Optional<NodeLocation> location)
     {
         super(location);
     }

@@ -54,15 +54,15 @@ public class TestExternalAuthorizerOAuth2RefreshToken
         extends ProductTest
 {
     @Inject
-    @Named("databases.presto.jdbc_url")
+    @Named("databases.trino.jdbc_url")
     String jdbcUrl;
 
     @Inject
-    @Named("databases.presto.https_keystore_path")
+    @Named("databases.trino.https_keystore_path")
     String truststorePath;
 
     @Inject
-    @Named("databases.presto.https_keystore_password")
+    @Named("databases.trino.https_keystore_password")
     String truststorePassword;
 
     private OkHttpClient httpClient;
@@ -77,8 +77,8 @@ public class TestExternalAuthorizerOAuth2RefreshToken
         keyStore.aliases().asIterator().forEachRemaining(alias -> {
             try {
                 Certificate certificate = keyStore.getCertificate(alias);
-                if (certificate instanceof X509Certificate) {
-                    certificatesBuilder.addTrustedCertificate((X509Certificate) certificate);
+                if (certificate instanceof X509Certificate x509Certificate) {
+                    certificatesBuilder.addTrustedCertificate(x509Certificate);
                 }
             }
             catch (KeyStoreException e) {
@@ -102,7 +102,7 @@ public class TestExternalAuthorizerOAuth2RefreshToken
         try (Connection connection = DriverManager.getConnection(jdbcUrl);
                 PreparedStatement statement = connection.prepareStatement("SELECT * FROM tpch.tiny.nation");
                 ResultSet results = statement.executeQuery()) {
-            assertThat(forResultSet(results)).matches(TpchTableResults.PRESTO_NATION_RESULT);
+            assertThat(forResultSet(results)).matches(TpchTableResults.TRINO_NATION_RESULT);
 
             assertThat(redirectHandler.getRedirectCount()).isEqualTo(1);
 
@@ -111,7 +111,7 @@ public class TestExternalAuthorizerOAuth2RefreshToken
 
             try (PreparedStatement repeatedStatement = connection.prepareStatement("SELECT * FROM tpch.tiny.nation");
                     ResultSet repeatedResults = repeatedStatement.executeQuery()) {
-                assertThat(forResultSet(repeatedResults)).matches(TpchTableResults.PRESTO_NATION_RESULT);
+                assertThat(forResultSet(repeatedResults)).matches(TpchTableResults.TRINO_NATION_RESULT);
             }
 
             assertThat(redirectHandler.getRedirectCount()).isEqualTo(1);
@@ -128,7 +128,7 @@ public class TestExternalAuthorizerOAuth2RefreshToken
         try (Connection connection = DriverManager.getConnection(jdbcUrl);
                 PreparedStatement statement = connection.prepareStatement("SELECT * FROM tpch.tiny.nation");
                 ResultSet results = statement.executeQuery()) {
-            assertThat(forResultSet(results)).matches(TpchTableResults.PRESTO_NATION_RESULT);
+            assertThat(forResultSet(results)).matches(TpchTableResults.TRINO_NATION_RESULT);
 
             assertThat(redirectHandler.getRedirectCount()).isEqualTo(1);
 
@@ -136,7 +136,7 @@ public class TestExternalAuthorizerOAuth2RefreshToken
             SECONDS.sleep(20);
             try (PreparedStatement repeatedStatement = connection.prepareStatement("SELECT * FROM tpch.tiny.nation");
                     ResultSet repeatedResults = repeatedStatement.executeQuery()) {
-                assertThat(forResultSet(repeatedResults)).matches(TpchTableResults.PRESTO_NATION_RESULT);
+                assertThat(forResultSet(repeatedResults)).matches(TpchTableResults.TRINO_NATION_RESULT);
             }
 
             assertThat(redirectHandler.getRedirectCount()).isEqualTo(2);
@@ -153,7 +153,7 @@ public class TestExternalAuthorizerOAuth2RefreshToken
         try (Connection connection = DriverManager.getConnection(jdbcUrl);
                 PreparedStatement statement = connection.prepareStatement("SELECT * FROM tpch.tiny.nation");
                 ResultSet results = statement.executeQuery()) {
-            assertThat(forResultSet(results)).matches(TpchTableResults.PRESTO_NATION_RESULT);
+            assertThat(forResultSet(results)).matches(TpchTableResults.TRINO_NATION_RESULT);
 
             assertThat(redirectHandler.getRedirectCount()).isEqualTo(1);
 
@@ -162,7 +162,7 @@ public class TestExternalAuthorizerOAuth2RefreshToken
 
             try (PreparedStatement repeatedStatement = connection.prepareStatement("SELECT * FROM tpch.tiny.nation");
                     ResultSet repeatedResults = repeatedStatement.executeQuery()) {
-                assertThat(forResultSet(repeatedResults)).matches(TpchTableResults.PRESTO_NATION_RESULT);
+                assertThat(forResultSet(repeatedResults)).matches(TpchTableResults.TRINO_NATION_RESULT);
             }
 
             assertThat(redirectHandler.getRedirectCount()).isEqualTo(2);

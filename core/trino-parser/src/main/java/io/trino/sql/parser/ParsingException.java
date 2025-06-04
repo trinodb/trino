@@ -34,16 +34,6 @@ public class ParsingException
         this.column = column;
     }
 
-    public ParsingException(String message)
-    {
-        this(message, null, 1, 1);
-    }
-
-    public ParsingException(String message, RecognitionException cause)
-    {
-        this(message, cause, 1, 1);
-    }
-
     public ParsingException(String message, NodeLocation nodeLocation)
     {
         this(message, null, nodeLocation.getLineNumber(), nodeLocation.getColumnNumber());

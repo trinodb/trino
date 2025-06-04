@@ -30,17 +30,7 @@ public class Grant
     private final PrincipalSpecification grantee;
     private final boolean grantOption;
 
-    public Grant(Optional<List<String>> privileges, GrantObject grantObject, PrincipalSpecification grantee, boolean grantOption)
-    {
-        this(Optional.empty(), privileges, grantObject, grantee, grantOption);
-    }
-
     public Grant(NodeLocation location, Optional<List<String>> privileges, GrantObject grantObject, PrincipalSpecification grantee, boolean grantOption)
-    {
-        this(Optional.of(location), privileges, grantObject, grantee, grantOption);
-    }
-
-    private Grant(Optional<NodeLocation> location, Optional<List<String>> privileges, GrantObject grantObject, PrincipalSpecification grantee, boolean grantOption)
     {
         super(location);
         requireNonNull(privileges, "privileges is null");
@@ -101,7 +91,7 @@ public class Grant
         return Objects.equals(privileges, o.privileges) &&
                 Objects.equals(grantObject, o.grantObject) &&
                 Objects.equals(grantee, o.grantee) &&
-                Objects.equals(grantOption, o.grantOption);
+                grantOption == o.grantOption;
     }
 
     @Override

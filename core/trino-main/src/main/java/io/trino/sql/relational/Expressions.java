@@ -60,7 +60,7 @@ public final class Expressions
                 public Void visitCall(CallExpression call, Void context)
                 {
                     builder.add(call);
-                    for (RowExpression argument : call.getArguments()) {
+                    for (RowExpression argument : call.arguments()) {
                         argument.accept(this, context);
                     }
                     return null;
@@ -70,7 +70,7 @@ public final class Expressions
                 public Void visitSpecialForm(SpecialForm specialForm, Void context)
                 {
                     builder.add(specialForm);
-                    for (RowExpression argument : specialForm.getArguments()) {
+                    for (RowExpression argument : specialForm.arguments()) {
                         argument.accept(this, context);
                     }
                     return null;
@@ -94,7 +94,7 @@ public final class Expressions
                 public Void visitLambda(LambdaDefinitionExpression lambda, Void context)
                 {
                     builder.add(lambda);
-                    lambda.getBody().accept(this, context);
+                    lambda.body().accept(this, context);
                     return null;
                 }
 

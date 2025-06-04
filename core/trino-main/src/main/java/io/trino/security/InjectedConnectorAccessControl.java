@@ -14,12 +14,15 @@
 package io.trino.security;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
+import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSecurityContext;
+import io.trino.spi.connector.EntityKindAndName;
 import io.trino.spi.connector.SchemaRoutineName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.SchemaFunctionName;
@@ -76,7 +79,8 @@ public class InjectedConnectorAccessControl
     public void checkCanSetSchemaAuthorization(ConnectorSecurityContext context, String schemaName, TrinoPrincipal principal)
     {
         checkArgument(context == null, "context must be null");
-        accessControl.checkCanSetSchemaAuthorization(securityContext, getCatalogSchemaName(schemaName), principal);
+        CatalogSchemaName name = getCatalogSchemaName(schemaName);
+        accessControl.checkCanSetEntityAuthorization(securityContext, new EntityKindAndName("SCHEMA", List.of(name.getCatalogName(), name.getSchemaName())), principal);
     }
 
     @Override
@@ -209,7 +213,7 @@ public class InjectedConnectorAccessControl
     public void checkCanSetTableAuthorization(ConnectorSecurityContext context, SchemaTableName tableName, TrinoPrincipal principal)
     {
         checkArgument(context == null, "context must be null");
-        accessControl.checkCanSetTableAuthorization(securityContext, getQualifiedObjectName(tableName), principal);
+        accessControl.checkCanSetEntityAuthorization(securityContext, new EntityKindAndName("TABLE", getQualifiedObjectNameParts(tableName)), principal);
     }
 
     @Override
@@ -265,7 +269,7 @@ public class InjectedConnectorAccessControl
     public void checkCanSetViewAuthorization(ConnectorSecurityContext context, SchemaTableName viewName, TrinoPrincipal principal)
     {
         checkArgument(context == null, "context must be null");
-        accessControl.checkCanSetViewAuthorization(securityContext, getQualifiedObjectName(viewName), principal);
+        accessControl.checkCanSetEntityAuthorization(securityContext, new EntityKindAndName("VIEW", getQualifiedObjectNameParts(viewName)), principal);
     }
 
     @Override
@@ -496,6 +500,12 @@ public class InjectedConnectorAccessControl
     }
 
     @Override
+    public void checkCanShowCreateFunction(ConnectorSecurityContext context, SchemaRoutineName function)
+    {
+        accessControl.checkCanShowCreateFunction(securityContext, new QualifiedObjectName(catalogName, function.getSchemaName(), function.getRoutineName()));
+    }
+
+    @Override
     public List<ViewExpression> getRowFilters(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         checkArgument(context == null, "context must be null");
@@ -509,8 +519,19 @@ public class InjectedConnectorAccessControl
     public Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
     {
         checkArgument(context == null, "context must be null");
-        if (accessControl.getColumnMask(securityContext, new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName()), columnName, type).isEmpty()) {
+        ColumnSchema column = ColumnSchema.builder().setName(columnName).setType(type).build();
+        if (accessControl.getColumnMasks(securityContext, new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName()), ImmutableList.of(column)).containsKey(column)) {
             return Optional.empty();
+        }
+        throw new TrinoException(NOT_SUPPORTED, "Column masking not supported");
+    }
+
+    @Override
+    public Map<ColumnSchema, ViewExpression> getColumnMasks(ConnectorSecurityContext context, SchemaTableName tableName, List<ColumnSchema> columns)
+    {
+        checkArgument(context == null, "context must be null");
+        if (accessControl.getColumnMasks(securityContext, new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName()), columns).isEmpty()) {
+            return ImmutableMap.of();
         }
         throw new TrinoException(NOT_SUPPORTED, "Column masking not supported");
     }
@@ -523,6 +544,11 @@ public class InjectedConnectorAccessControl
     private QualifiedObjectName getQualifiedObjectName(SchemaRoutineName schemaRoutineName)
     {
         return new QualifiedObjectName(catalogName, schemaRoutineName.getSchemaName(), schemaRoutineName.getRoutineName());
+    }
+
+    private List<String> getQualifiedObjectNameParts(SchemaTableName schemaTableName)
+    {
+        return List.of(catalogName, schemaTableName.getSchemaName(), schemaTableName.getTableName());
     }
 
     private CatalogSchemaName getCatalogSchemaName(String schemaName)

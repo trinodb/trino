@@ -131,6 +131,7 @@ import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.round;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.type.VarcharType.UNBOUNDED_LENGTH;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -310,7 +311,15 @@ public class SingleStoreClient
                 return Optional.of(defaultCharColumnMapping(typeHandle.requiredColumnSize(), false));
             case Types.VARCHAR:
             case Types.LONGVARCHAR:
-                return Optional.of(checkNullUsingBytes(defaultVarcharColumnMapping(typeHandle.requiredColumnSize(), false)));
+                int columnSize = switch (jdbcTypeName) {
+                    case "TINYTEXT" -> 255;
+                    case "TEXT" -> 65535;
+                    case "MEDIUMTEXT" -> 16777215;
+                    case "LONGTEXT" -> UNBOUNDED_LENGTH;
+                    case "VARCHAR" -> typeHandle.requiredColumnSize();
+                    default -> throw new IllegalStateException("Unexpected type: " + jdbcTypeName);
+                };
+                return Optional.of(checkNullUsingBytes(defaultVarcharColumnMapping(columnSize, false)));
             case Types.DECIMAL:
                 int precision = typeHandle.requiredColumnSize();
                 int decimalDigits = typeHandle.requiredDecimalDigits();
@@ -406,6 +415,19 @@ public class SingleStoreClient
                 null,
                 escapeObjectNameForMetadataQuery(tableName, metadata.getSearchStringEscape()).orElse(null),
                 getTableTypes().map(types -> types.toArray(String[]::new)).orElse(null));
+    }
+
+    @Override
+    protected ResultSet getAllTableColumns(Connection connection, Optional<String> remoteSchemaName)
+            throws SQLException
+    {
+        // SingleStore maps their "database" to SQL catalogs and does not have schemas
+        DatabaseMetaData metadata = connection.getMetaData();
+        return metadata.getColumns(
+                remoteSchemaName.orElse(null),
+                null,
+                null,
+                null);
     }
 
     @Override
@@ -639,7 +661,7 @@ public class SingleStoreClient
     @Override
     protected boolean isSupportedJoinCondition(ConnectorSession session, JdbcJoinCondition joinCondition)
     {
-        if (joinCondition.getOperator() == JoinCondition.Operator.IS_DISTINCT_FROM) {
+        if (joinCondition.getOperator() == JoinCondition.Operator.IDENTICAL) {
             // Not supported in SingleStore
             return false;
         }

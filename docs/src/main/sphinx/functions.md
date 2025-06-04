@@ -12,12 +12,12 @@ Refer to the following sections for further details:
 In addition, Trino supports implementation of [custom
 functions](/develop/functions) or [custom table
 functions](/develop/table-functions) provided by a plugin, and creation of
-user-defined functions as [SQL routines](/routines).
+[](/udf).
 
 ## Functions by name
 
 If you are looking for a specific function or operator by name use
-[](/sql/show-functions), or refer the to the following resources:
+[](/sql/show-functions), or refer to the following resources:
 
 :::{toctree}
 :maxdepth: 1
@@ -32,6 +32,7 @@ functions/list-by-topic
 :maxdepth: 1
 
 Aggregate           <functions/aggregate>
+AI                  <functions/ai>
 Array               <functions/array>
 Binary              <functions/binary>
 Bitwise             <functions/bitwise>

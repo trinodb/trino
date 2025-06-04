@@ -22,12 +22,12 @@ import io.trino.metadata.FunctionManager;
 import io.trino.metadata.GlobalFunctionCatalog;
 import io.trino.metadata.InternalBlockEncodingSerde;
 import io.trino.metadata.InternalFunctionBundle;
+import io.trino.metadata.LanguageFunctionEngineManager;
 import io.trino.metadata.LanguageFunctionManager;
 import io.trino.metadata.LanguageFunctionProvider;
 import io.trino.metadata.Metadata;
-import io.trino.metadata.MetadataManager;
-import io.trino.metadata.MetadataManager.TestMetadataManagerBuilder;
 import io.trino.metadata.SystemFunctionBundle;
+import io.trino.metadata.TestMetadataManager;
 import io.trino.metadata.TypeRegistry;
 import io.trino.operator.scalar.json.JsonExistsFunction;
 import io.trino.operator.scalar.json.JsonQueryFunction;
@@ -127,11 +127,16 @@ public final class TestingPlannerContext
 
             BlockEncodingSerde blockEncodingSerde = new InternalBlockEncodingSerde(new BlockEncodingManager(), typeManager);
 
-            LanguageFunctionManager languageFunctionManager = new LanguageFunctionManager(new SqlParser(), typeManager, user -> ImmutableSet.of(), blockEncodingSerde);
+            LanguageFunctionManager languageFunctionManager = new LanguageFunctionManager(
+                    new SqlParser(),
+                    typeManager,
+                    _ -> ImmutableSet.of(),
+                    blockEncodingSerde,
+                    new LanguageFunctionEngineManager());
 
             Metadata metadata = this.metadata;
             if (metadata == null) {
-                TestMetadataManagerBuilder builder = MetadataManager.testMetadataManagerBuilder()
+                TestMetadataManager.Builder builder = TestMetadataManager.builder()
                         .withTypeManager(typeManager)
                         .withLanguageFunctionManager(languageFunctionManager)
                         .withGlobalFunctionCatalog(globalFunctionCatalog);

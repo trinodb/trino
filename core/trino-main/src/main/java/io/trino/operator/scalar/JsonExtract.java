@@ -127,15 +127,23 @@ public final class JsonExtract
     public static <T> T extract(Slice jsonInput, JsonExtractor<T> jsonExtractor)
     {
         requireNonNull(jsonInput, "jsonInput is null");
-        try {
-            try (JsonParser jsonParser = createJsonParser(JSON_FACTORY, jsonInput)) {
-                // Initialize by advancing to first token and make sure it exists
-                if (jsonParser.nextToken() == null) {
-                    return null;
-                }
+        try (JsonParser jsonParser = createJsonParser(JSON_FACTORY, jsonInput)) {
+            return extract(jsonParser, jsonExtractor);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
 
-                return jsonExtractor.extract(jsonParser);
+    public static <T> T extract(JsonParser jsonParser, JsonExtractor<T> jsonExtractor)
+    {
+        requireNonNull(jsonParser, "jsonParser is null");
+        try {
+            // Initialize by advancing to first token and make sure it exists
+            if (jsonParser.nextToken() == null) {
+                return null;
             }
+            return jsonExtractor.extract(jsonParser);
         }
         catch (JsonParseException e) {
             // Return null if we failed to parse something
@@ -355,7 +363,7 @@ public final class JsonExtract
         try {
             index = Integer.parseInt(fieldName);
         }
-        catch (NumberFormatException ignored) {
+        catch (NumberFormatException _) {
         }
         return index;
     }

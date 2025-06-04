@@ -16,6 +16,7 @@ package io.trino.sql.routine;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.Analysis;
+import io.trino.sql.tree.ControlStatement;
 
 import java.util.Map;
 import java.util.Optional;
@@ -29,6 +30,7 @@ public record SqlRoutineAnalysis(
         boolean calledOnNull,
         boolean deterministic,
         Optional<String> comment,
+        ControlStatement statement,
         Analysis analysis)
 {
     public SqlRoutineAnalysis
@@ -37,6 +39,7 @@ public record SqlRoutineAnalysis(
         arguments = ImmutableMap.copyOf(requireNonNull(arguments, "arguments is null"));
         requireNonNull(returnType, "returnType is null");
         requireNonNull(comment, "comment is null");
+        requireNonNull(statement, "statement is null");
         requireNonNull(analysis, "analysis is null");
     }
 }

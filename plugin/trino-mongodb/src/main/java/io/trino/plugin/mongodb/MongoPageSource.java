@@ -30,6 +30,7 @@ import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.block.SqlMap;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
@@ -60,6 +61,7 @@ import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
+import static io.trino.plugin.mongodb.MongoErrorCode.MONGODB_INVALID_TYPE;
 import static io.trino.plugin.mongodb.MongoSession.COLLECTION_NAME;
 import static io.trino.plugin.mongodb.MongoSession.DATABASE_NAME;
 import static io.trino.plugin.mongodb.MongoSession.ID;
@@ -140,7 +142,7 @@ public class MongoPageSource
     }
 
     @Override
-    public Page getNextPage()
+    public SourcePage getNextSourcePage()
     {
         verify(pageBuilder.isEmpty());
         for (int i = 0; i < ROWS_PER_REQUEST; i++) {
@@ -160,7 +162,7 @@ public class MongoPageSource
 
         Page page = pageBuilder.build();
         pageBuilder.reset();
-        return page;
+        return SourcePage.create(page);
     }
 
     private void appendTo(Type type, Object value, BlockBuilder output)
@@ -192,13 +194,13 @@ public class MongoPageSource
                     //noinspection NumericCastThatLosesPrecision
                     type.writeLong(output, floatToIntBits(((float) ((Number) value).doubleValue())));
                 }
-                else if (type instanceof DecimalType) {
+                else if (type instanceof DecimalType decimalType) {
                     Decimal128 decimal = (Decimal128) value;
                     if (decimal.compareTo(Decimal128.NEGATIVE_ZERO) == 0) {
-                        type.writeLong(output, encodeShortScaledValue(BigDecimal.ZERO, ((DecimalType) type).getScale()));
+                        type.writeLong(output, encodeShortScaledValue(BigDecimal.ZERO, decimalType.getScale()));
                     }
                     else {
-                        type.writeLong(output, encodeShortScaledValue(decimal.bigDecimalValue(), ((DecimalType) type).getScale()));
+                        type.writeLong(output, encodeShortScaledValue(decimal.bigDecimalValue(), decimalType.getScale()));
                     }
                 }
                 else if (type.equals(DATE)) {
@@ -257,8 +259,8 @@ public class MongoPageSource
         if (value instanceof Collection<?>) {
             return "[" + join(", ", ((Collection<?>) value).stream().map(this::toVarcharValue).collect(toList())) + "]";
         }
-        if (value instanceof Document) {
-            return ((Document) value).toJson();
+        if (value instanceof Document document) {
+            return document.toJson();
         }
         return String.valueOf(value);
     }
@@ -268,22 +270,22 @@ public class MongoPageSource
         if (type instanceof VarcharType) {
             type.writeSlice(output, utf8Slice(toVarcharValue(value)));
         }
-        else if (type instanceof CharType) {
-            type.writeSlice(output, truncateToLengthAndTrimSpaces(utf8Slice((String) value), ((CharType) type)));
+        else if (type instanceof CharType charType) {
+            type.writeSlice(output, truncateToLengthAndTrimSpaces(utf8Slice((String) value), charType));
         }
         else if (type.equals(OBJECT_ID)) {
             type.writeSlice(output, wrappedBuffer(((ObjectId) value).toByteArray()));
         }
         else if (type instanceof VarbinaryType) {
-            if (value instanceof Binary) {
-                type.writeSlice(output, wrappedBuffer(((Binary) value).getData()));
+            if (value instanceof Binary binary) {
+                type.writeSlice(output, wrappedBuffer(binary.getData()));
             }
             else {
                 output.appendNull();
             }
         }
-        else if (type instanceof DecimalType) {
-            type.writeObject(output, encodeScaledValue(((Decimal128) value).bigDecimalValue(), ((DecimalType) type).getScale()));
+        else if (type instanceof DecimalType decimalType) {
+            type.writeObject(output, encodeScaledValue(((Decimal128) value).bigDecimalValue(), decimalType.getScale()));
         }
         else if (isJsonType(type)) {
             type.writeSlice(output, jsonParse(utf8Slice(toVarcharValue(value))));
@@ -340,7 +342,9 @@ public class MongoPageSource
                 return;
             }
             if (value instanceof DBRef dbRefValue) {
-                checkState(fields.size() == 3, "DBRef should have 3 fields : %s", type);
+                if (fields.size() != 3) {
+                    throw new TrinoException(MONGODB_INVALID_TYPE, "DBRef should have 3 fields : " + type);
+                }
                 ((RowBlockBuilder) output).buildEntry(fieldBuilders -> {
                     for (int i = 0; i < fields.size(); i++) {
                         Field field = fields.get(i);

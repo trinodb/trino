@@ -55,7 +55,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.metadata.TestMetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -208,7 +208,9 @@ public class TestPatternRecognitionNodeSerialization
                         new Function(
                                 rankFunction,
                                 ImmutableList.of(),
+                                Optional.empty(),
                                 new Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty()),
+                                false,
                                 false)),
                 ImmutableMap.of(
                         new Symbol(BOOLEAN, "measure"),

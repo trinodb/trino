@@ -15,8 +15,15 @@ package io.trino.plugin.hive.metastore;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.hive.HiveBasicStatistics;
-import io.trino.plugin.hive.PartitionStatistics;
+import io.trino.metastore.BooleanStatistics;
+import io.trino.metastore.DateStatistics;
+import io.trino.metastore.DecimalStatistics;
+import io.trino.metastore.DoubleStatistics;
+import io.trino.metastore.HiveBasicStatistics;
+import io.trino.metastore.HiveColumnStatistics;
+import io.trino.metastore.IntegerStatistics;
+import io.trino.metastore.PartitionStatistics;
+import io.trino.metastore.StatisticsUpdateMode;
 import io.trino.plugin.hive.util.Statistics;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatisticType;
@@ -30,20 +37,20 @@ import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalLong;
 
-import static io.trino.plugin.hive.HiveBasicStatistics.createEmptyStatistics;
-import static io.trino.plugin.hive.HiveBasicStatistics.createZeroStatistics;
+import static io.trino.metastore.HiveBasicStatistics.createEmptyStatistics;
+import static io.trino.metastore.HiveBasicStatistics.createZeroStatistics;
+import static io.trino.metastore.HiveColumnStatistics.createBinaryColumnStatistics;
+import static io.trino.metastore.HiveColumnStatistics.createBooleanColumnStatistics;
+import static io.trino.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
+import static io.trino.metastore.StatisticsUpdateMode.CLEAR_ALL;
+import static io.trino.metastore.StatisticsUpdateMode.MERGE_INCREMENTAL;
+import static io.trino.metastore.StatisticsUpdateMode.OVERWRITE_ALL;
+import static io.trino.metastore.StatisticsUpdateMode.OVERWRITE_SOME_COLUMNS;
+import static io.trino.metastore.StatisticsUpdateMode.UNDO_MERGE_INCREMENTAL;
 import static io.trino.plugin.hive.HiveColumnStatisticType.MAX_VALUE;
 import static io.trino.plugin.hive.HiveColumnStatisticType.MIN_VALUE;
 import static io.trino.plugin.hive.HiveColumnStatisticType.NUMBER_OF_DISTINCT_VALUES;
 import static io.trino.plugin.hive.HiveColumnStatisticType.NUMBER_OF_NON_NULL_VALUES;
-import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createBinaryColumnStatistics;
-import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createBooleanColumnStatistics;
-import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
-import static io.trino.plugin.hive.metastore.StatisticsUpdateMode.CLEAR_ALL;
-import static io.trino.plugin.hive.metastore.StatisticsUpdateMode.MERGE_INCREMENTAL;
-import static io.trino.plugin.hive.metastore.StatisticsUpdateMode.OVERWRITE_ALL;
-import static io.trino.plugin.hive.metastore.StatisticsUpdateMode.OVERWRITE_SOME_COLUMNS;
-import static io.trino.plugin.hive.metastore.StatisticsUpdateMode.UNDO_MERGE_INCREMENTAL;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
@@ -272,7 +279,7 @@ class TestStatisticsUpdateMode
         PartitionStatistics secondStats = new PartitionStatistics(
                 new HiveBasicStatistics(1, 1, 0, 0),
                 Map.of("column_name", HiveColumnStatistics.builder().setAverageColumnLength(OptionalDouble.of(13)).build()));
-        assertThat(MERGE_INCREMENTAL.updatePartitionStatistics(firstStats, secondStats).getColumnStatistics().get("column_name").getAverageColumnLength()).hasValue(3.0);
+        assertThat(MERGE_INCREMENTAL.updatePartitionStatistics(firstStats, secondStats).columnStatistics().get("column_name").getAverageColumnLength()).hasValue(3.0);
     }
 
     @Test
@@ -362,7 +369,7 @@ class TestStatisticsUpdateMode
     private static HiveBasicStatistics merge(StatisticsUpdateMode mode, HiveBasicStatistics first, HiveBasicStatistics second)
     {
         return mode.updatePartitionStatistics(new PartitionStatistics(first, ImmutableMap.of()), new PartitionStatistics(second, ImmutableMap.of()))
-                .getBasicStatistics();
+                .basicStatistics();
     }
 
     private static HiveColumnStatistics merge(StatisticsUpdateMode mode, HiveColumnStatistics first, HiveColumnStatistics second)
@@ -374,6 +381,6 @@ class TestStatisticsUpdateMode
     private static Map<String, HiveColumnStatistics> merge(StatisticsUpdateMode mode, Map<String, HiveColumnStatistics> first, Map<String, HiveColumnStatistics> second)
     {
         return mode.updatePartitionStatistics(new PartitionStatistics(ONE_ROW, first), new PartitionStatistics(ONE_ROW, second))
-                .getColumnStatistics();
+                .columnStatistics();
     }
 }

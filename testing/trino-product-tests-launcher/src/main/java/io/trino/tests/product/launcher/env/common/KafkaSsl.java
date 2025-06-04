@@ -53,7 +53,7 @@ public class KafkaSsl
                 .withEnv("KAFKA_SSL_CLIENT_AUTH", "required")
                 .withEnv("KAFKA_SECURITY_INTER_BROKER_PROTOCOL", "SSL")
                 .withEnv("KAFKA_SECURITY_PROTOCOL", "SSL")
-                .withClasspathResourceMapping("docker/presto-product-tests/conf/environment/multinode-kafka-ssl/secrets", "/etc/kafka/secrets", BindMode.READ_ONLY));
+                .withClasspathResourceMapping("docker/trino-product-tests/conf/environment/multinode-kafka-ssl/secrets", "/etc/kafka/secrets", BindMode.READ_ONLY));
         builder.configureContainer(Kafka.SCHEMA_REGISTRY, container -> container
                 .withStartupAttempts(3)
                 .withStartupTimeout(Duration.ofMinutes(5))
@@ -73,7 +73,7 @@ public class KafkaSsl
                 .withEnv("SCHEMA_REGISTRY_SSL_KEYSTORE_TYPE", "JKS")
                 .withEnv("SCHEMA_REGISTRY_SSL_KEY_PASSWORD", "confluent")
                 .withEnv("SCHEMA_REGISTRY_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM", "https")
-                .withClasspathResourceMapping("docker/presto-product-tests/conf/environment/multinode-kafka-ssl/secrets", "/var/private/ssl", BindMode.READ_ONLY));
+                .withClasspathResourceMapping("docker/trino-product-tests/conf/environment/multinode-kafka-ssl/secrets", "/var/private/ssl", BindMode.READ_ONLY));
     }
 
     @Override

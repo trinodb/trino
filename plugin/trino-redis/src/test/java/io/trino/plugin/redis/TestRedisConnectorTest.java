@@ -13,11 +13,8 @@
  */
 package io.trino.plugin.redis;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.redis.util.RedisServer;
 import io.trino.testing.QueryRunner;
-
-import static io.trino.plugin.redis.RedisQueryRunner.createRedisQueryRunner;
 
 public class TestRedisConnectorTest
         extends BaseRedisConnectorTest
@@ -27,6 +24,9 @@ public class TestRedisConnectorTest
             throws Exception
     {
         RedisServer redisServer = closeAfterClass(new RedisServer());
-        return createRedisQueryRunner(redisServer, ImmutableMap.of(), ImmutableMap.of(), "string", REQUIRED_TPCH_TABLES);
+        return RedisQueryRunner.builder(redisServer)
+                .setDataFormat("string")
+                .setInitialTables(REQUIRED_TPCH_TABLES)
+                .build();
     }
 }

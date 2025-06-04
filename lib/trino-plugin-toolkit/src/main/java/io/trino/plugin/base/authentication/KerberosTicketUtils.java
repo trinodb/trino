@@ -23,9 +23,7 @@ public final class KerberosTicketUtils
 {
     private static final float TICKET_RENEW_WINDOW = 0.80f;
 
-    private KerberosTicketUtils()
-    {
-    }
+    private KerberosTicketUtils() {}
 
     public static KerberosTicket getTicketGrantingTicket(Subject subject)
     {

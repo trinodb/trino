@@ -187,14 +187,14 @@ public class BeginTableWrite
 
         public WriterTarget getWriterTarget(PlanNode node)
         {
-            if (node instanceof TableWriterNode) {
-                return ((TableWriterNode) node).getTarget();
+            if (node instanceof TableWriterNode tableWriterNode) {
+                return tableWriterNode.getTarget();
             }
-            if (node instanceof TableExecuteNode) {
-                TableExecuteTarget target = ((TableExecuteNode) node).getTarget();
+            if (node instanceof TableExecuteNode tableExecuteNode) {
+                TableExecuteTarget target = tableExecuteNode.getTarget();
                 return new TableExecuteTarget(
                         target.getExecuteHandle(),
-                        findTableScanHandleForTableExecute(((TableExecuteNode) node).getSource()),
+                        findTableScanHandleForTableExecute(tableExecuteNode.getSource()),
                         target.getSchemaTableName(),
                         target.getWriterScalingOptions());
             }
@@ -211,7 +211,9 @@ public class BeginTableWrite
                         tableHandle.get(),
                         mergeTarget.getMergeHandle(),
                         mergeTarget.getSchemaTableName(),
-                        mergeTarget.getMergeParadigmAndTypes());
+                        mergeTarget.getMergeParadigmAndTypes(),
+                        findSourceTableHandles(node),
+                        mergeTarget.getUpdateCaseColumnHandles());
             }
 
             if (node instanceof ExchangeNode || node instanceof UnionNode) {
@@ -246,17 +248,19 @@ public class BeginTableWrite
                         findSourceTableHandles(planNode));
             }
             if (target instanceof MergeTarget merge) {
-                MergeHandle mergeHandle = metadata.beginMerge(session, merge.getHandle());
+                MergeHandle mergeHandle = metadata.beginMerge(session, merge.getHandle(), merge.getUpdateCaseColumnHandles());
                 return new MergeTarget(
                         mergeHandle.tableHandle(),
                         Optional.of(mergeHandle),
                         merge.getSchemaTableName(),
-                        merge.getMergeParadigmAndTypes());
+                        merge.getMergeParadigmAndTypes(),
+                        findSourceTableHandles(planNode),
+                        merge.getUpdateCaseColumnHandles());
             }
             if (target instanceof TableWriterNode.RefreshMaterializedViewReference refreshMV) {
                 return new TableWriterNode.RefreshMaterializedViewTarget(
                         refreshMV.getStorageTableHandle(),
-                        metadata.beginRefreshMaterializedView(session, refreshMV.getStorageTableHandle(), refreshMV.getSourceTableHandles()),
+                        metadata.beginRefreshMaterializedView(session, refreshMV.getStorageTableHandle(), refreshMV.getSourceTableHandles(), refreshMV.getRefreshType()),
                         metadata.getTableName(session, refreshMV.getStorageTableHandle()).getSchemaTableName(),
                         refreshMV.getSourceTableHandles(),
                         refreshMV.getSourceTableFunctions(),
@@ -272,7 +276,7 @@ public class BeginTableWrite
         private static List<TableHandle> findSourceTableHandles(PlanNode startNode)
         {
             return PlanNodeSearcher.searchFrom(startNode)
-                    .where(node -> node instanceof TableScanNode tableScanNode && !tableScanNode.isUpdateTarget())
+                    .where(TableScanNode.class::isInstance)
                     .findAll()
                     .stream()
                     .map(TableScanNode.class::cast)
@@ -283,7 +287,7 @@ public class BeginTableWrite
         private Optional<TableHandle> findTableScanHandleForTableExecute(PlanNode startNode)
         {
             List<PlanNode> tableScanNodes = PlanNodeSearcher.searchFrom(startNode)
-                    .where(node -> node instanceof TableScanNode && ((TableScanNode) node).isUpdateTarget())
+                    .where(node -> node instanceof TableScanNode tableScanNode && tableScanNode.isUpdateTarget())
                     .findAll();
 
             if (tableScanNodes.size() == 1) {

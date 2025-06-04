@@ -1,7 +1,7 @@
 ---
 myst:
   substitutions:
-    default_domain_compaction_threshold: '`32`'
+    default_domain_compaction_threshold: '`256`'
 ---
 
 # PostgreSQL connector
@@ -19,7 +19,7 @@ PostgreSQL instances.
 
 To connect to PostgreSQL, you need:
 
-- PostgreSQL 11.x or higher.
+- PostgreSQL 12.x or higher.
 - Network access from the Trino coordinator and workers to PostgreSQL.
   Port 5432 is the default port.
 
@@ -53,7 +53,7 @@ properties files.
 
 ### Access to system tables
 
-The PostgreSQL connector supports reading [PostgreSQ catalog
+The PostgreSQL connector supports reading [PostgreSQL catalog
 tables](https://www.postgresql.org/docs/current/catalogs.html), such as
 `pg_namespace`. The functionality is turned off by default, and can be enabled
 using the `postgresql.include-system-tables` configuration property.
@@ -67,7 +67,6 @@ SELECT * FROM example.pg_catalog.pg_namespace;
 ```
 
 (postgresql-tls)=
-
 ### Connection security
 
 If you have TLS configured with a globally-trusted certificate installed on your
@@ -110,17 +109,16 @@ catalog named `sales` using the configured connector.
 ```{include} jdbc-domain-compaction-threshold.fragment
 ```
 
-```{include} jdbc-procedures.fragment
-```
-
 ```{include} jdbc-case-insensitive-matching.fragment
 ```
 
-```{include} non-transactional-insert.fragment
-```
+(postgresql-fte-support)=
+### Fault-tolerant execution support
+
+The connector supports {doc}`/admin/fault-tolerant-execution` of query
+processing. Read and write operations are both supported with any retry policy.
 
 (postgresql-type-mapping)=
-
 ## Type mapping
 
 Because Trino and PostgreSQL each support types that the other does not, this
@@ -203,12 +201,18 @@ this table:
 * - `JSONB`
   - `JSON`
   -
+* - `VECTOR`
+  - `ARRAY(REAL)`
+  -
 * - `HSTORE`
   - `MAP(VARCHAR, VARCHAR)`
   -
 * - `ARRAY`
   - Disabled, `ARRAY`, or `JSON`
   - See [](postgresql-array-type-handling) for more information.
+* - `GEOMETRY`, `GEOMETRY(GEOMETRY TYPE, SRID)`
+  - `GEOMETRY`
+  -
 :::
 
 No other types are supported.
@@ -277,17 +281,18 @@ this table:
 * - `ARRAY`
   - `ARRAY`
   - See [](postgresql-array-type-handling) for more information.
+* - `GEOMETRY`
+  - `GEOMETRY`
+  -
 ::::
 
 No other types are supported.
 
 (postgresql-decimal-type-handling)=
-
 ```{include} decimal-type-handling.fragment
 ```
 
 (postgresql-array-type-handling)=
-
 ### Array type handling
 
 The PostgreSQL array implementation does not support fixed dimensions whereas Trino
@@ -337,47 +342,64 @@ If you used a different name for your catalog properties file, use
 that catalog name instead of `example` in the above examples.
 
 (postgresql-sql-support)=
-
 ## SQL support
 
 The connector provides read access and write access to data and metadata in
-PostgreSQL.  In addition to the {ref}`globally available
-<sql-globally-available>` and {ref}`read operation <sql-read-operations>`
-statements, the connector supports the following features:
+PostgreSQL. In addition to the [globally available](sql-globally-available) and
+[read operation](sql-read-operations) statements, the connector supports the
+following features:
 
-- {doc}`/sql/insert`
-- {doc}`/sql/update`
-- {doc}`/sql/delete`
-- {doc}`/sql/truncate`
-- {ref}`sql-schema-table-management`
+- [](/sql/insert), see also [](postgresql-insert)
+- [](/sql/update), see also [](postgresql-update)
+- [](/sql/delete), see also [](postgresql-delete)
+- [](/sql/merge), see also [](postgresql-merge)
+- [](/sql/truncate)
+- [](sql-schema-table-management), see also:
+  - [](postgresql-alter-table)
+  - [](postgresql-alter-schema)
+- [](postgresql-procedures)
+- [](postgresql-table-functions)
 
+(postgresql-insert)=
+```{include} non-transactional-insert.fragment
+```
+
+(postgresql-update)=
 ```{include} sql-update-limitation.fragment
 ```
 
+(postgresql-delete)=
 ```{include} sql-delete-limitation.fragment
 ```
 
+(postgresql-merge)=
+```{include} non-transactional-merge.fragment
+```
+
+(postgresql-alter-table)=
 ```{include} alter-table-limitation.fragment
 ```
 
+(postgresql-alter-schema)=
 ```{include} alter-schema-limitation.fragment
 ```
 
-(postgresql-fte-support)=
+(postgresql-procedures)=
+### Procedures
 
-## Fault-tolerant execution support
+```{include} jdbc-procedures-flush.fragment
+```
+```{include} procedures-execute.fragment
+```
 
-The connector supports {doc}`/admin/fault-tolerant-execution` of query
-processing. Read and write operations are both supported with any retry policy.
-
-## Table functions
+(postgresql-table-functions)=
+### Table functions
 
 The connector provides specific {doc}`table functions </functions/table>` to
 access PostgreSQL.
 
 (postgresql-query-function)=
-
-### `query(varchar) -> table`
+#### `query(varchar) -> table`
 
 The `query` function allows you to query the underlying database directly. It
 requires syntax native to PostgreSQL, because the full query is pushed down and
@@ -447,7 +469,6 @@ The connector includes a number of performance improvements, detailed in the
 following sections.
 
 (postgresql-table-statistics)=
-
 ### Table statistics
 
 The PostgreSQL connector can use {doc}`table and column statistics
@@ -467,7 +488,6 @@ ANALYZE table_schema.table_name;
 Refer to PostgreSQL documentation for additional `ANALYZE` options.
 
 (postgresql-pushdown)=
-
 ### Pushdown
 
 The connector supports pushdown for a number of operations:

@@ -13,7 +13,6 @@
  */
 package io.trino.cli;
 
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.CharStreams;
 import com.google.common.util.concurrent.Futures;
@@ -37,7 +36,8 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.nullToEmpty;
-import static com.google.common.base.Throwables.propagateIfPossible;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static io.trino.cli.TerminalUtils.isRealTerminal;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -85,7 +85,7 @@ public final class QueryPreprocessor
         }
         finally {
             if (isRealTerminal()) {
-                System.out.print("\r" + Strings.repeat(" ", PREPROCESSING_QUERY_MESSAGE.length()) + "\r");
+                System.out.print("\r" + " ".repeat(PREPROCESSING_QUERY_MESSAGE.length()) + "\r");
                 System.out.flush();
             }
             terminal.handle(Signal.INT, oldHandler);
@@ -189,7 +189,10 @@ public final class QueryPreprocessor
         }
         catch (ExecutionException e) {
             Throwable cause = e.getCause();
-            propagateIfPossible(cause, QueryPreprocessorException.class);
+            if (cause != null) {
+                throwIfInstanceOf(cause, QueryPreprocessorException.class);
+                throwIfUnchecked(cause);
+            }
             throw new QueryPreprocessorException("Error preprocessing query: " + cause.getMessage(), cause);
         }
         catch (TimeoutException e) {

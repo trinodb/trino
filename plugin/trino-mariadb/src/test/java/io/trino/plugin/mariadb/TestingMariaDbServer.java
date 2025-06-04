@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.mariadb;
 
-import io.trino.testing.ResourcePresence;
 import org.testcontainers.containers.MariaDBContainer;
 import org.testcontainers.utility.DockerImageName;
 
@@ -86,11 +85,5 @@ public class TestingMariaDbServer
     public void close()
     {
         container.close();
-    }
-
-    @ResourcePresence
-    public boolean isRunning()
-    {
-        return container.getContainerId() != null;
     }
 }

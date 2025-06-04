@@ -21,20 +21,20 @@ import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static io.trino.tests.product.TestGroups.AZURE;
 import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_ISSUES;
 import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_MATCH;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.Strings.isNullOrEmpty;
 
 public class TestAbfsSyncPartitionMetadata
         extends BaseTestSyncPartitionMetadata
 {
     @Inject
-    @Named("databases.presto.abfs_schema")
+    @Named("databases.trino.abfs_schema")
     private String schema;
 
     @BeforeMethodWithContext
@@ -53,8 +53,8 @@ public class TestAbfsSyncPartitionMetadata
     @Override
     protected String schemaLocation()
     {
-        String container = requireNonNull(System.getenv("ABFS_CONTAINER"), "Environment variable not set: ABFS_CONTAINER");
-        String account = requireNonNull(System.getenv("ABFS_ACCOUNT"), "Environment variable not set: ABFS_ACCOUNT");
+        String container = requireEnv("ABFS_CONTAINER");
+        String account = requireEnv("ABFS_ACCOUNT");
         return format("abfs://%s@%s.dfs.core.windows.net/%s", container, account, schema);
     }
 

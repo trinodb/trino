@@ -20,9 +20,9 @@ import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.metadata.QualifiedObjectName;
-import io.trino.plugin.hive.metastore.Database;
-import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
+import io.trino.metastore.Database;
+import io.trino.metastore.HiveMetastore;
+import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.plugin.tpcds.TpcdsPlugin;
 import io.trino.plugin.tpch.ColumnNaming;
 import io.trino.plugin.tpch.DecimalTypeMapping;
@@ -99,7 +99,7 @@ public final class HiveQueryRunner
         private ImmutableMap.Builder<String, String> hiveProperties = ImmutableMap.builder();
         private List<TpchTable<?>> initialTables = ImmutableList.of();
         private Optional<String> initialSchemasLocationBase = Optional.empty();
-        private Optional<Function<QueryRunner, HiveMetastore>> metastore = Optional.empty();
+        private Optional<Function<DistributedQueryRunner, HiveMetastore>> metastore = Optional.empty();
         private boolean tpcdsCatalogEnabled;
         private boolean tpchBucketedCatalogEnabled;
         private boolean createTpchSchemas = true;
@@ -153,7 +153,7 @@ public final class HiveQueryRunner
         }
 
         @CanIgnoreReturnValue
-        public SELF setMetastore(Function<QueryRunner, HiveMetastore> metastore)
+        public SELF setMetastore(Function<DistributedQueryRunner, HiveMetastore> metastore)
         {
             this.metastore = Optional.of(metastore);
             return self();
@@ -221,6 +221,10 @@ public final class HiveQueryRunner
                 if (metastore.isEmpty() && !hiveProperties.buildOrThrow().containsKey("hive.metastore")) {
                     hiveProperties.put("hive.metastore", "file");
                     hiveProperties.put("hive.metastore.catalog.dir", queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toString());
+                }
+                if (hiveProperties.buildOrThrow().keySet().stream().noneMatch(key ->
+                        key.equals("fs.hadoop.enabled") || key.startsWith("fs.native-"))) {
+                    hiveProperties.put("fs.hadoop.enabled", "true");
                 }
 
                 queryRunner.installPlugin(new TestingHivePlugin(dataDir, metastore));
@@ -364,34 +368,64 @@ public final class HiveQueryRunner
         log.info("Imported %s rows from %s in %s", rows, tableName, nanosSince(start));
     }
 
-    public static void main(String[] args)
-            throws Exception
+    public static final class DefaultHiveQueryRunnerMain
     {
-        Optional<Path> baseDataDir = Optional.empty();
-        if (args.length > 0) {
-            if (args.length != 1) {
-                System.err.println("usage: HiveQueryRunner [baseDataDir]");
-                System.exit(1);
+        public static void main(String[] args)
+                throws Exception
+        {
+            Optional<Path> baseDataDir = Optional.empty();
+            if (args.length > 0) {
+                if (args.length != 1) {
+                    System.err.println("usage: HiveQueryRunner [baseDataDir]");
+                    System.exit(1);
+                }
+
+                Path path = Paths.get(args[0]);
+                createDirectories(path);
+                baseDataDir = Optional.of(path);
             }
 
-            Path path = Paths.get(args[0]);
-            createDirectories(path);
-            baseDataDir = Optional.of(path);
+            QueryRunner queryRunner = builder()
+                    .addCoordinatorProperty("http-server.http.port", "8080")
+                    .setHiveProperties(ImmutableMap.of("hive.security", "allow-all"))
+                    .setSkipTimezoneSetup(true)
+                    .setInitialTables(TpchTable.getTables())
+                    .setBaseDataDir(baseDataDir)
+                    .setTpcdsCatalogEnabled(true)
+                    // Uncomment to enable standard column naming (column names to be prefixed with the first letter of the table name, e.g.: o_orderkey vs orderkey)
+                    // and standard column types (decimals vs double for some columns). This will allow running unmodified tpch queries on the cluster.
+                    //.setTpchColumnNaming(ColumnNaming.STANDARD)
+                    //.setTpchDecimalTypeMapping(DecimalTypeMapping.DECIMAL)
+                    .build();
+            log.info("======== SERVER STARTED ========");
+            log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
         }
+    }
 
-        QueryRunner queryRunner = builder()
-                .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
-                .setHiveProperties(ImmutableMap.of("hive.security", "allow-all"))
-                .setSkipTimezoneSetup(true)
-                .setInitialTables(TpchTable.getTables())
-                .setBaseDataDir(baseDataDir)
-                .setTpcdsCatalogEnabled(true)
-                // Uncomment to enable standard column naming (column names to be prefixed with the first letter of the table name, e.g.: o_orderkey vs orderkey)
-                // and standard column types (decimals vs double for some columns). This will allow running unmodified tpch queries on the cluster.
-                //.setTpchColumnNaming(ColumnNaming.STANDARD)
-                //.setTpchDecimalTypeMapping(DecimalTypeMapping.DECIMAL)
-                .build();
-        log.info("======== SERVER STARTED ========");
-        log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
+    public static final class HiveGlueQueryRunnerMain
+    {
+        private HiveGlueQueryRunnerMain() {}
+
+        public static void main(String[] args)
+                throws Exception
+        {
+            // Requires AWS credentials, which can be provided any way supported by the DefaultProviderChain
+            // See https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/credentials.html#credentials-default
+            //noinspection resource
+            DistributedQueryRunner queryRunner = HiveQueryRunner.builder(testSessionBuilder()
+                            .setCatalog("hive")
+                            .setSchema("tpch")
+                            .build())
+                    .addCoordinatorProperty("http-server.http.port", "8080")
+                    .addHiveProperty("hive.metastore", "glue")
+                    .addHiveProperty("hive.metastore.glue.default-warehouse-dir", "local:///glue")
+                    .addHiveProperty("hive.security", "allow-all")
+                    .setCreateTpchSchemas(false)
+                    .build();
+
+            Logger log = Logger.get(HiveGlueQueryRunnerMain.class);
+            log.info("======== SERVER STARTED ========");
+            log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
+        }
     }
 }

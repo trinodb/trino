@@ -1,4 +1,4 @@
--- database: presto; groups: postgresql,profile_specific_tests; tables: postgres.public.datatype_psql,postgres.public.workers_psql,postgres.public.real_table_psql
+-- database: trino; groups: postgresql,profile_specific_tests; tables: postgres.public.datatype_psql,postgres.public.workers_psql,postgres.public.real_table_psql
 -- queryType: SELECT;
 --!
 show tables from postgresql.public

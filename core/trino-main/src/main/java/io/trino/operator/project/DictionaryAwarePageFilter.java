@@ -13,11 +13,11 @@
  */
 package io.trino.operator.project;
 
-import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SourcePage;
 
 import java.util.Optional;
 
@@ -54,9 +54,9 @@ public class DictionaryAwarePageFilter
     }
 
     @Override
-    public SelectedPositions filter(ConnectorSession session, Page page)
+    public SelectedPositions filter(ConnectorSession session, SourcePage page)
     {
-        Block block = page.getBlock(0).getLoadedBlock();
+        Block block = page.getBlock(0);
 
         if (block instanceof RunLengthEncodedBlock runLengthEncodedBlock) {
             Block value = runLengthEncodedBlock.getValue();
@@ -79,7 +79,7 @@ public class DictionaryAwarePageFilter
             }
         }
 
-        return filter.filter(session, new Page(block));
+        return filter.filter(session, SourcePage.create(block));
     }
 
     private Optional<boolean[]> processDictionary(ConnectorSession session, Block dictionary, int blockPositionsCount)
@@ -99,10 +99,10 @@ public class DictionaryAwarePageFilter
 
         if (shouldProcessDictionary) {
             try {
-                SelectedPositions selectedDictionaryPositions = filter.filter(session, new Page(dictionary));
+                SelectedPositions selectedDictionaryPositions = filter.filter(session, SourcePage.create(dictionary));
                 lastOutputDictionary = Optional.of(toPositionsMask(selectedDictionaryPositions, dictionary.getPositionCount()));
             }
-            catch (Exception ignored) {
+            catch (Exception _) {
                 // Processing of dictionary failed, but we ignore the exception here
                 // and force reprocessing of the whole block using the normal code.
                 // The second pass may not fail due to filtering.

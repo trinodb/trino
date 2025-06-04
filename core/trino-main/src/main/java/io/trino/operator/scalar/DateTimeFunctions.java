@@ -15,7 +15,6 @@ package io.trino.operator.scalar;
 
 import io.airlift.concurrent.ThreadLocalCache;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import io.airlift.units.Duration;
 import io.trino.operator.scalar.timestamptz.CurrentTimestamp;
 import io.trino.spi.TrinoException;
@@ -48,6 +47,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.TemporalAccessor;
 import java.util.Locale;
+import java.util.function.Function;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.operator.scalar.QuarterOfYearDateTimeField.QUARTER_OF_YEAR;
@@ -66,7 +66,7 @@ import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
+import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -89,7 +89,25 @@ public final class DateTimeFunctions
     private static final int MILLISECONDS_IN_HOUR = 60 * MILLISECONDS_IN_MINUTE;
     private static final int MILLISECONDS_IN_DAY = 24 * MILLISECONDS_IN_HOUR;
     private static final int PIVOT_YEAR = 2020; // yy = 70 will correspond to 1970 but 69 to 2069
-    private static final Slice ISO_8601_DATE_FORMAT = Slices.utf8Slice("%Y-%m-%d");
+    private static final Slice ISO_8601_DATE_FORMAT = utf8Slice("%Y-%m-%d");
+    private static final DateTimeFieldProvider[] DATE_FIELDS = new DateTimeFieldProvider[] {
+            new DateTimeFieldProvider("day", ISOChronology::dayOfMonth),
+            new DateTimeFieldProvider("week", ISOChronology::weekOfWeekyear),
+            new DateTimeFieldProvider("month", ISOChronology::monthOfYear),
+            new DateTimeFieldProvider("quarter", QUARTER_OF_YEAR::getField),
+            new DateTimeFieldProvider("year", ISOChronology::year)
+    };
+    private static final DateTimeFieldProvider[] TIMESTAMP_FIELDS = new DateTimeFieldProvider[] {
+            new DateTimeFieldProvider("millisecond", ISOChronology::millisOfSecond),
+            new DateTimeFieldProvider("second", ISOChronology::secondOfMinute),
+            new DateTimeFieldProvider("minute", ISOChronology::minuteOfHour),
+            new DateTimeFieldProvider("hour", ISOChronology::hourOfDay),
+            new DateTimeFieldProvider("day", ISOChronology::dayOfMonth),
+            new DateTimeFieldProvider("week", ISOChronology::weekOfWeekyear),
+            new DateTimeFieldProvider("month", ISOChronology::monthOfYear),
+            new DateTimeFieldProvider("quarter", QUARTER_OF_YEAR::getField),
+            new DateTimeFieldProvider("year", ISOChronology::year)
+    };
 
     private DateTimeFunctions() {}
 
@@ -255,13 +273,11 @@ public final class DateTimeFunctions
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
         }
 
-        ZonedDateTime zonedDatetime;
-        if (parsedDatetime instanceof ZonedDateTime) {
-            zonedDatetime = (ZonedDateTime) parsedDatetime;
-        }
-        else {
-            zonedDatetime = ((LocalDateTime) parsedDatetime).atZone(session.getTimeZoneKey().getZoneId());
-        }
+        ZonedDateTime zonedDatetime = switch (parsedDatetime) {
+            case ZonedDateTime value -> value;
+            case LocalDateTime value -> value.atZone(session.getTimeZoneKey().getZoneId());
+            default -> throw new IllegalStateException("Unexpected value: " + parsedDatetime);
+        };
 
         long picosOfSecond = zonedDatetime.getNano() * ((long) PICOSECONDS_PER_NANOSECOND);
         TimeZoneKey zone = TimeZoneKey.getTimeZoneKey(zonedDatetime.getZone().getId());
@@ -308,34 +324,59 @@ public final class DateTimeFunctions
         return getDateField(UTC_CHRONOLOGY, unit).getDifferenceAsLong(DAYS.toMillis(date2), DAYS.toMillis(date1));
     }
 
+    /**
+     * Data tuple to store mapping between date time unit and date fraction extraction logic.
+     * This record is intended to be used for a specific use case only, raw bytes are used for performance reasons.
+     *
+     * @param unitBytes date time unit represented as ASCII bytes
+     * @param dateTimeFieldProvider callback to extract fraction of date
+     */
+    private record DateTimeFieldProvider(byte[] unitBytes, Function<ISOChronology, DateTimeField> dateTimeFieldProvider)
+    {
+        public DateTimeFieldProvider(String unit, Function<ISOChronology, DateTimeField> dateTimeFieldProvider)
+        {
+            this(unit.getBytes(US_ASCII), dateTimeFieldProvider);
+        }
+
+        public boolean match(Slice unit)
+        {
+            int length = unit.length();
+            if (length != unitBytes.length) {
+                return false;
+            }
+            for (int i = 0; i < length; i++) {
+                // Each lowercase letter has an ASCII code 0x20 more than the corresponding uppercase letter
+                if ((unit.getByteUnchecked(i) | 0x20) != unitBytes[i]) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        public DateTimeField apply(ISOChronology chronology)
+        {
+            return dateTimeFieldProvider.apply(chronology);
+        }
+    }
+
     private static DateTimeField getDateField(ISOChronology chronology, Slice unit)
     {
-        String unitString = unit.toStringUtf8().toLowerCase(ENGLISH);
-        return switch (unitString) {
-            case "day" -> chronology.dayOfMonth();
-            case "week" -> chronology.weekOfWeekyear();
-            case "month" -> chronology.monthOfYear();
-            case "quarter" -> QUARTER_OF_YEAR.getField(chronology);
-            case "year" -> chronology.year();
-            default -> throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid DATE field");
-        };
+        for (DateTimeFieldProvider dateField : DATE_FIELDS) {
+            if (dateField.match(unit)) {
+                return dateField.apply(chronology);
+            }
+        }
+        throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unit.toStringUtf8() + "' is not a valid DATE field");
     }
 
     public static DateTimeField getTimestampField(ISOChronology chronology, Slice unit)
     {
-        String unitString = unit.toStringUtf8().toLowerCase(ENGLISH);
-        return switch (unitString) {
-            case "millisecond" -> chronology.millisOfSecond();
-            case "second" -> chronology.secondOfMinute();
-            case "minute" -> chronology.minuteOfHour();
-            case "hour" -> chronology.hourOfDay();
-            case "day" -> chronology.dayOfMonth();
-            case "week" -> chronology.weekOfWeekyear();
-            case "month" -> chronology.monthOfYear();
-            case "quarter" -> QUARTER_OF_YEAR.getField(chronology);
-            case "year" -> chronology.year();
-            default -> throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid TIMESTAMP field");
-        };
+        for (DateTimeFieldProvider timestampField : TIMESTAMP_FIELDS) {
+            if (timestampField.match(unit)) {
+                return timestampField.apply(chronology);
+            }
+        }
+        throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unit.toStringUtf8() + "' is not a valid TIMESTAMP field");
     }
 
     @Description("Parses the specified date/time by the given format")

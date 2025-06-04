@@ -412,10 +412,10 @@ public class ReorderJoins
 
         private static boolean isJoinEqualityCondition(Expression expression)
         {
-            return expression instanceof Comparison
-                    && ((Comparison) expression).operator() == EQUAL
-                    && ((Comparison) expression).left() instanceof Reference
-                    && ((Comparison) expression).right() instanceof Reference;
+            return expression instanceof Comparison comparison
+                    && comparison.operator() == EQUAL
+                    && comparison.left() instanceof Reference
+                    && comparison.right() instanceof Reference;
         }
 
         private static EquiJoinClause toEquiJoinClause(Comparison equality, Set<Symbol> leftSymbols)
@@ -555,11 +555,10 @@ public class ReorderJoins
         @Override
         public boolean equals(Object obj)
         {
-            if (!(obj instanceof MultiJoinNode)) {
+            if (!(obj instanceof MultiJoinNode other)) {
                 return false;
             }
 
-            MultiJoinNode other = (MultiJoinNode) obj;
             return this.sources.equals(other.sources)
                     && ImmutableSet.copyOf(extractConjuncts(this.filter)).equals(ImmutableSet.copyOf(extractConjuncts(other.filter)))
                     && this.outputSymbols.equals(other.outputSymbols)
@@ -624,13 +623,13 @@ public class ReorderJoins
             {
                 PlanNode resolved = lookup.resolve(node);
 
-                if (resolved instanceof ProjectNode) {
+                if (resolved instanceof ProjectNode projectNode) {
                     if (!pushProjectionsThroughJoin) {
                         sources.add(node);
                         return;
                     }
 
-                    Optional<PlanNode> rewrittenNode = pushProjectionThroughJoin((ProjectNode) resolved, lookup, planNodeIdAllocator);
+                    Optional<PlanNode> rewrittenNode = pushProjectionThroughJoin(projectNode, lookup, planNodeIdAllocator);
                     if (rewrittenNode.isEmpty()) {
                         sources.add(node);
                         return;

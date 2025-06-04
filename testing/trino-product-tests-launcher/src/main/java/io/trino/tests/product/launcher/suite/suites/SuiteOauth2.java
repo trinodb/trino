@@ -16,6 +16,8 @@ package io.trino.tests.product.launcher.suite.suites;
 import com.google.common.collect.ImmutableList;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeOauth2;
+import io.trino.tests.product.launcher.env.environment.EnvSinglenodeOauth2AuthenticatedHttpProxy;
+import io.trino.tests.product.launcher.env.environment.EnvSinglenodeOauth2AuthenticatedHttpsProxy;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeOauth2HttpProxy;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeOauth2HttpsProxy;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeOauth2Refresh;
@@ -44,6 +46,12 @@ public class SuiteOauth2
                         .withGroups(OAUTH2)
                         .build(),
                 testOnEnvironment(EnvSinglenodeOauth2HttpsProxy.class)
+                        .withGroups(OAUTH2)
+                        .build(),
+                testOnEnvironment(EnvSinglenodeOauth2AuthenticatedHttpProxy.class)
+                        .withGroups(OAUTH2)
+                        .build(),
+                testOnEnvironment(EnvSinglenodeOauth2AuthenticatedHttpsProxy.class)
                         .withGroups(OAUTH2)
                         .build(),
                 testOnEnvironment(EnvSinglenodeOidc.class)

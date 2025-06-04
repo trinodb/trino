@@ -14,11 +14,17 @@
 package io.trino.jdbc;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodecFactory;
+import io.airlift.json.ObjectMapperProvider;
 import io.trino.client.ClientTypeSignature;
 import io.trino.client.Column;
+import io.trino.client.QueryData;
 import io.trino.client.QueryResults;
 import io.trino.client.StatementStats;
+import io.trino.client.TypedQueryData;
+import io.trino.server.protocol.spooling.ServerQueryDataJacksonModule;
 import io.trino.spi.type.StandardTypes;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
@@ -37,12 +43,11 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
 import java.util.OptionalDouble;
+import java.util.OptionalLong;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
-import static io.airlift.json.JsonCodec.jsonCodec;
-import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
@@ -52,7 +57,9 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 @Execution(SAME_THREAD)
 public class TestProgressMonitor
 {
-    private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
+    private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = new JsonCodecFactory(new ObjectMapperProvider()
+            .withModules(ImmutableSet.of(new ServerQueryDataJacksonModule())))
+            .jsonCodec(QueryResults.class);
 
     private MockWebServer server;
 
@@ -87,19 +94,18 @@ public class TestProgressMonitor
     private String newQueryResults(Integer partialCancelId, Integer nextUriId, List<Column> responseColumns, List<List<Object>> data, String state)
     {
         String queryId = "20160128_214710_00012_rk68b";
-
         QueryResults queryResults = new QueryResults(
                 queryId,
                 server.url("/query.html?" + queryId).uri(),
                 partialCancelId == null ? null : server.url(format("/v1/statement/partialCancel/%s.%s", queryId, partialCancelId)).uri(),
                 nextUriId == null ? null : server.url(format("/v1/statement/%s/%s", queryId, nextUriId)).uri(),
                 responseColumns,
-                data,
-                new StatementStats(state, state.equals("QUEUED"), true, OptionalDouble.of(0), OptionalDouble.of(0), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null),
+                data == null ? QueryData.NULL : TypedQueryData.of(data),
+                new StatementStats(state, state.equals("QUEUED"), true, OptionalDouble.of(0), OptionalDouble.of(0), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null),
                 null,
                 ImmutableList.of(),
                 null,
-                null);
+                OptionalLong.empty());
 
         return QUERY_RESULTS_CODEC.toJson(queryResults);
     }
@@ -133,7 +139,7 @@ public class TestProgressMonitor
                 trinoStatement.clearProgressMonitor();
 
                 List<QueryStats> queryStatsList = progressMonitor.finish();
-                assertGreaterThanOrEqual(queryStatsList.size(), 5); // duplicate stats is possible
+                assertThat(queryStatsList).hasSizeGreaterThanOrEqualTo(5); // duplicate stats is possible
                 assertThat(queryStatsList.get(0).getState()).isEqualTo("QUEUED");
                 assertThat(queryStatsList.get(queryStatsList.size() - 1).getState()).isEqualTo("FINISHED");
             }

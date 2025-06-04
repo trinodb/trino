@@ -43,9 +43,7 @@ class MemoryCachedKnownToken
     private final Lock writeLock = lock.writeLock();
     private Optional<Token> knownToken = Optional.empty();
 
-    private MemoryCachedKnownToken()
-    {
-    }
+    private MemoryCachedKnownToken() {}
 
     @Override
     public Optional<Token> getToken()

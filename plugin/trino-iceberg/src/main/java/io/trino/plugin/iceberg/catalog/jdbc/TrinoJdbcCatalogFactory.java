@@ -71,8 +71,10 @@ public class TrinoJdbcCatalogFactory
         ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
         properties.put(URI, jdbcConfig.getConnectionUrl());
         properties.put(WAREHOUSE_LOCATION, defaultWarehouseDir);
+        properties.put(PROPERTY_PREFIX + "schema-version", jdbcConfig.getSchemaVersion().toString());
         jdbcConfig.getConnectionUser().ifPresent(user -> properties.put(PROPERTY_PREFIX + "user", user));
         jdbcConfig.getConnectionPassword().ifPresent(password -> properties.put(PROPERTY_PREFIX + "password", password));
+        jdbcConfig.getRetryableStatusCodes().ifPresent(codes -> properties.put("retryable_status_codes", codes));
         this.catalogProperties = properties.buildOrThrow();
 
         this.clientPool = new JdbcClientPool(jdbcConfig.getConnectionUrl(), catalogProperties);

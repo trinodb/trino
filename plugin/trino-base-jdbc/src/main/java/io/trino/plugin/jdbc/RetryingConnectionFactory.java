@@ -13,49 +13,28 @@
  */
 package io.trino.plugin.jdbc;
 
-import com.google.common.base.Throwables;
 import com.google.inject.Inject;
 import dev.failsafe.Failsafe;
 import dev.failsafe.FailsafeException;
 import dev.failsafe.RetryPolicy;
-import io.trino.plugin.jdbc.jmx.StatisticsAwareConnectionFactory;
-import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.sql.SQLTransientException;
-import java.util.Set;
 
-import static java.time.temporal.ChronoUnit.MILLIS;
-import static java.time.temporal.ChronoUnit.SECONDS;
 import static java.util.Objects.requireNonNull;
 
 public class RetryingConnectionFactory
         implements ConnectionFactory
 {
+    private final ConnectionFactory delegate;
     private final RetryPolicy<Object> retryPolicy;
 
-    private final ConnectionFactory delegate;
-
     @Inject
-    public RetryingConnectionFactory(StatisticsAwareConnectionFactory delegate, Set<RetryStrategy> retryStrategies)
+    public RetryingConnectionFactory(@ForRetrying ConnectionFactory delegate, RetryPolicy<Object> retryPolicy)
     {
-        requireNonNull(retryStrategies);
         this.delegate = requireNonNull(delegate, "delegate is null");
-        this.retryPolicy = RetryPolicy.builder()
-                .withMaxDuration(java.time.Duration.of(30, SECONDS))
-                .withMaxAttempts(5)
-                .withBackoff(50, 5_000, MILLIS, 4)
-                .handleIf(throwable -> isExceptionRecoverable(retryStrategies, throwable))
-                .abortOn(TrinoException.class)
-                .build();
-    }
-
-    private static boolean isExceptionRecoverable(Set<RetryStrategy> retryStrategies, Throwable throwable)
-    {
-        return retryStrategies.stream()
-                .anyMatch(retryStrategy -> retryStrategy.isExceptionRecoverable(throwable));
+        this.retryPolicy = requireNonNull(retryPolicy, "retryPolicy is null");
     }
 
     @Override
@@ -79,21 +58,5 @@ public class RetryingConnectionFactory
             throws SQLException
     {
         delegate.close();
-    }
-
-    public interface RetryStrategy
-    {
-        boolean isExceptionRecoverable(Throwable exception);
-    }
-
-    public static class DefaultRetryStrategy
-            implements RetryStrategy
-    {
-        @Override
-        public boolean isExceptionRecoverable(Throwable exception)
-        {
-            return Throwables.getCausalChain(exception).stream()
-                    .anyMatch(SQLTransientException.class::isInstance);
-        }
     }
 }

@@ -42,7 +42,7 @@ import static io.trino.spi.expression.StandardFunctions.CAST_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
-import static io.trino.spi.expression.StandardFunctions.IS_DISTINCT_FROM_OPERATOR_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.IDENTICAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.NOT_EQUAL_OPERATOR_FUNCTION_NAME;
@@ -142,13 +142,11 @@ public class TestUtcConstraintExtractor
 
         assertThat(extract(
                 constraint(
-                        new Call(BOOLEAN, IS_DISTINCT_FROM_OPERATOR_FUNCTION_NAME, ImmutableList.of(castOfColumn, someDateExpression)),
+                        new Call(BOOLEAN, IDENTICAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(castOfColumn, someDateExpression)),
                         Map.of(timestampTzColumnSymbol, columnHandle))))
-                .isEqualTo(TupleDomain.withColumnDomains(Map.of(columnHandle, Domain.create(
-                        ValueSet.ofRanges(
-                                Range.lessThan(columnType, startOfDateUtc),
-                                Range.greaterThanOrEqual(columnType, startOfNextDateUtc)),
-                        true))));
+                .isEqualTo(TupleDomain.withColumnDomains(Map.of(
+                        columnHandle,
+                        Domain.create(ValueSet.ofRanges(Range.range(columnType, startOfDateUtc, true, startOfNextDateUtc, false)), true))));
     }
 
     /**
@@ -214,13 +212,11 @@ public class TestUtcConstraintExtractor
 
         assertThat(extract(
                 constraint(
-                        new Call(BOOLEAN, IS_DISTINCT_FROM_OPERATOR_FUNCTION_NAME, ImmutableList.of(castOfColumn, someDateExpression)),
+                        new Call(BOOLEAN, IDENTICAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(castOfColumn, someDateExpression)),
                         Map.of(timestampTzColumnSymbol, columnHandle))))
-                .isEqualTo(TupleDomain.withColumnDomains(Map.of(columnHandle, Domain.create(
-                        ValueSet.ofRanges(
-                                Range.lessThan(columnType, startOfDateUtc),
-                                Range.greaterThanOrEqual(columnType, startOfNextDateUtc)),
-                        true))));
+                .isEqualTo(TupleDomain.withColumnDomains(Map.of(
+                        columnHandle,
+                        Domain.create(ValueSet.ofRanges(Range.range(columnType, startOfDateUtc, true, startOfNextDateUtc, false)), true))));
     }
 
     /**
@@ -302,13 +298,11 @@ public class TestUtcConstraintExtractor
 
         assertThat(extract(
                 constraint(
-                        new Call(BOOLEAN, IS_DISTINCT_FROM_OPERATOR_FUNCTION_NAME, ImmutableList.of(truncateToDay, someMidnightExpression)),
+                        new Call(BOOLEAN, IDENTICAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(truncateToDay, someMidnightExpression)),
                         Map.of(timestampTzColumnSymbol, columnHandle))))
-                .isEqualTo(TupleDomain.withColumnDomains(Map.of(columnHandle, Domain.create(
-                        ValueSet.ofRanges(
-                                Range.lessThan(columnType, startOfDateUtc),
-                                Range.greaterThanOrEqual(columnType, startOfNextDateUtc)),
-                        true))));
+                .isEqualTo(TupleDomain.withColumnDomains(Map.of(
+                        columnHandle,
+                        Domain.create(ValueSet.ofRanges(Range.range(columnType, startOfDateUtc, true, startOfNextDateUtc, false)), true))));
     }
 
     /**
@@ -390,13 +384,11 @@ public class TestUtcConstraintExtractor
 
         assertThat(extract(
                 constraint(
-                        new Call(BOOLEAN, IS_DISTINCT_FROM_OPERATOR_FUNCTION_NAME, ImmutableList.of(truncateToDay, someMidnightExpression)),
+                        new Call(BOOLEAN, IDENTICAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(truncateToDay, someMidnightExpression)),
                         Map.of(timestampTzColumnSymbol, columnHandle))))
-                .isEqualTo(TupleDomain.withColumnDomains(Map.of(columnHandle, Domain.create(
-                        ValueSet.ofRanges(
-                                Range.lessThan(columnType, startOfDateUtc),
-                                Range.greaterThanOrEqual(columnType, startOfNextDateUtc)),
-                        true))));
+                .isEqualTo(TupleDomain.withColumnDomains(Map.of(
+                        columnHandle,
+                        Domain.create(ValueSet.ofRanges(Range.range(columnType, startOfDateUtc, true, startOfNextDateUtc, false)), true))));
     }
 
     /**
@@ -465,13 +457,11 @@ public class TestUtcConstraintExtractor
 
         assertThat(extract(
                 constraint(
-                        new Call(BOOLEAN, IS_DISTINCT_FROM_OPERATOR_FUNCTION_NAME, ImmutableList.of(extractYear, yearExpression)),
+                        new Call(BOOLEAN, IDENTICAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(extractYear, yearExpression)),
                         Map.of(timestampTzColumnSymbol, columnHandle))))
-                .isEqualTo(TupleDomain.withColumnDomains(Map.of((ColumnHandle) columnHandle, Domain.create(
-                        ValueSet.ofRanges(
-                                Range.lessThan(columnType, startOfYearUtc),
-                                Range.greaterThanOrEqual(columnType, startOfNextDateUtc)),
-                        true))));
+                .isEqualTo(TupleDomain.withColumnDomains(Map.of(
+                        columnHandle,
+                        Domain.create(ValueSet.ofRanges(Range.range(columnType, startOfYearUtc, true, startOfNextDateUtc, false)), true))));
     }
 
     /**
@@ -540,13 +530,11 @@ public class TestUtcConstraintExtractor
 
         assertThat(extract(
                 constraint(
-                        new Call(BOOLEAN, IS_DISTINCT_FROM_OPERATOR_FUNCTION_NAME, ImmutableList.of(extractYear, yearExpression)),
+                        new Call(BOOLEAN, IDENTICAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(extractYear, yearExpression)),
                         Map.of(timestampTzColumnSymbol, columnHandle))))
-                .isEqualTo(TupleDomain.withColumnDomains(Map.of((ColumnHandle) columnHandle, Domain.create(
-                        ValueSet.ofRanges(
-                                Range.lessThan(columnType, startOfYearUtc),
-                                Range.greaterThanOrEqual(columnType, startOfNextDateUtc)),
-                        true))));
+                .isEqualTo(TupleDomain.withColumnDomains(Map.of(
+                        columnHandle,
+                        Domain.create(ValueSet.ofRanges(Range.range(columnType, startOfYearUtc, true, startOfNextDateUtc, false)), true))));
     }
 
     @Test

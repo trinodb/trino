@@ -28,17 +28,15 @@ public final class ElseIfClause
     private final Expression expression;
     private final List<ControlStatement> statements;
 
+    @Deprecated
     public ElseIfClause(Expression expression, List<ControlStatement> statements)
     {
-        this(Optional.empty(), expression, statements);
+        super(Optional.empty());
+        this.expression = requireNonNull(expression, "expression is null");
+        this.statements = requireNonNull(statements, "statements is null");
     }
 
     public ElseIfClause(NodeLocation location, Expression expression, List<ControlStatement> statements)
-    {
-        this(Optional.of(location), expression, statements);
-    }
-
-    private ElseIfClause(Optional<NodeLocation> location, Expression expression, List<ControlStatement> statements)
     {
         super(location);
         this.expression = requireNonNull(expression, "expression is null");

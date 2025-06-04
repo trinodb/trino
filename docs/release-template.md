@@ -1,4 +1,4 @@
-# Release xyz (dd MMM 2024)
+# Release xyz (dd MMM 2025)
 
 ## General
 
@@ -8,15 +8,9 @@
 
 ## JDBC driver
 
-## Server RPM
-
 ## Docker image
 
 ## CLI
-
-## Accumulo connector
-
-## Atop connector
 
 ## BigQuery connector
 
@@ -30,7 +24,13 @@
 
 ## Druid connector
 
+## DuckDB connector
+
 ## Elasticsearch connector
+
+## Exasol connector
+
+## Faker connector
 
 ## Google Sheets connector
 
@@ -46,11 +46,7 @@
 
 ## Kafka connector
 
-## Kinesis connector
-
-## Kudu connector
-
-## Local file connector
+## Loki connector
 
 ## MariaDB connector
 
@@ -64,15 +60,11 @@
 
 ## Oracle connector
 
-## Phoenix connector
-
 ## Pinot connector
 
 ## PostgreSQL connector
 
 ## Prometheus connector
-
-## Raptor connector
 
 ## Redis connector
 
@@ -85,5 +77,9 @@
 ## SQL Server connector
 
 ## TPC-H connector
+
+## TPC-DS connector
+
+## Vertica connector
 
 ## SPI

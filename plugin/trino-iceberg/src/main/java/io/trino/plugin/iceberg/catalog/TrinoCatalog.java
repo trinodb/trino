@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.iceberg.catalog;
 
-import io.trino.plugin.hive.metastore.TableInfo;
+import io.trino.metastore.TableInfo;
 import io.trino.plugin.iceberg.ColumnIdentity;
 import io.trino.plugin.iceberg.UnknownTableTypeException;
 import io.trino.spi.connector.CatalogSchemaTableName;
@@ -25,6 +25,7 @@ import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.TrinoPrincipal;
+import jakarta.annotation.Nullable;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
@@ -40,6 +41,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
+
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 /**
  * An interface to allow different Iceberg catalog implementations in IcebergMetadata.
@@ -64,6 +67,11 @@ public interface TrinoCatalog
 
     void dropNamespace(ConnectorSession session, String namespace);
 
+    default Optional<String> getNamespaceSeparator()
+    {
+        return Optional.empty();
+    }
+
     Map<String, Object> loadNamespaceMetadata(ConnectorSession session, String namespace);
 
     Optional<TrinoPrincipal> getNamespacePrincipal(ConnectorSession session, String namespace);
@@ -75,6 +83,16 @@ public interface TrinoCatalog
     void renameNamespace(ConnectorSession session, String source, String target);
 
     List<TableInfo> listTables(ConnectorSession session, Optional<String> namespace);
+
+    List<SchemaTableName> listIcebergTables(ConnectorSession session, Optional<String> namespace);
+
+    default List<SchemaTableName> listViews(ConnectorSession session, Optional<String> namespace)
+    {
+        return listTables(session, namespace).stream()
+                .filter(info -> info.extendedRelationType() == TableInfo.ExtendedRelationType.TRINO_VIEW)
+                .map(TableInfo::tableName)
+                .collect(toImmutableList());
+    }
 
     Optional<Iterator<RelationColumnsMetadata>> streamRelationColumns(
             ConnectorSession session,
@@ -99,7 +117,7 @@ public interface TrinoCatalog
             Schema schema,
             PartitionSpec partitionSpec,
             SortOrder sortOrder,
-            String location,
+            Optional<String> location,
             Map<String, String> properties);
 
     Transaction newCreateOrReplaceTableTransaction(
@@ -129,7 +147,7 @@ public interface TrinoCatalog
      * @return Iceberg table loaded
      * @throws UnknownTableTypeException if table is not of Iceberg type in the metastore
      */
-    Table loadTable(ConnectorSession session, SchemaTableName schemaTableName);
+    BaseTable loadTable(ConnectorSession session, SchemaTableName schemaTableName);
 
     /**
      * Bulk load column metadata. The returned map may contain fewer entries then asked for.
@@ -142,6 +160,7 @@ public interface TrinoCatalog
 
     void updateViewColumnComment(ConnectorSession session, SchemaTableName schemaViewName, String columnName, Optional<String> comment);
 
+    @Nullable
     String defaultTableLocation(ConnectorSession session, SchemaTableName schemaTableName);
 
     void setTablePrincipal(ConnectorSession session, SchemaTableName schemaTableName, TrinoPrincipal principal);

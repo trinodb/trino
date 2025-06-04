@@ -154,6 +154,7 @@ public class TestingRemoteTaskFactory
                             0,
                             Optional.empty(),
                             Optional.of(new TDigestHistogram(new TDigest())),
+                            Optional.empty(),
                             Optional.empty()),
                     ImmutableSet.copyOf(noMoreSplits),
                     new TaskStats(DateTime.now(), null),
@@ -322,7 +323,7 @@ public class TestingRemoteTaskFactory
         }
 
         @Override
-        public SpoolingOutputStats.Snapshot retrieveAndDropSpoolingOutputStats()
+        public Optional<SpoolingOutputStats.Snapshot> retrieveAndDropSpoolingOutputStats()
         {
             throw new UnsupportedOperationException();
         }

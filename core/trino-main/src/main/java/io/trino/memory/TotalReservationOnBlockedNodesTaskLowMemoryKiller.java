@@ -83,7 +83,7 @@ public class TotalReservationOnBlockedNodesTaskLowMemoryKiller
                 if (taskInfo == null) {
                     return false;
                 }
-                return taskInfo.getTaskStatus().isSpeculative();
+                return taskInfo.taskStatus().isSpeculative();
             });
         }
 

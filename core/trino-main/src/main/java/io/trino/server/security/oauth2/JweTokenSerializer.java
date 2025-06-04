@@ -96,7 +96,7 @@ public class JweTokenSerializer
         requireNonNull(token, "token is null");
 
         try {
-            Claims claims = parser.parseUnsecuredClaims(jweSerializer.deserialize(token)).getBody();
+            Claims claims = parser.parseUnsecuredClaims(jweSerializer.deserialize(token)).getPayload();
             return TokenPair.withAccessAndRefreshTokens(
                     claims.get(ACCESS_TOKEN_KEY, String.class),
                     claims.get(EXPIRATION_TIME_KEY, Date.class),

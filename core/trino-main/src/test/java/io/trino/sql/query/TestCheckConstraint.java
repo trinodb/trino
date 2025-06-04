@@ -30,7 +30,6 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_DATA;
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_SCHEMA;
-import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_SPLITS_PER_NODE;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -58,7 +57,7 @@ public class TestCheckConstraint
         QueryRunner runner = new StandaloneQueryRunner(SESSION);
 
         runner.installPlugin(new TpchPlugin());
-        runner.createCatalog(LOCAL_CATALOG, "tpch", ImmutableMap.of(TPCH_SPLITS_PER_NODE, "1"));
+        runner.createCatalog(LOCAL_CATALOG, "tpch", ImmutableMap.of("tpch.splits-per-node", "1"));
 
         runner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
                 .withGetColumns(schemaTableName -> {
@@ -174,13 +173,15 @@ public class TestCheckConstraint
 
         assertThat(assertions.query("INSERT INTO mock.tiny.nation VALUES (26, 'POLAND', 11, 'No comment')"))
                 .failure().hasMessage("Check constraint violation: (regionkey < 10)");
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 INSERT INTO mock.tiny.nation VALUES
                 (26, 'POLAND', 11, 'No comment'),
                 (27, 'HOLLAND', 11, 'A comment')
                 """))
                 .failure().hasMessage("Check constraint violation: (regionkey < 10)");
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 INSERT INTO mock.tiny.nation VALUES
                 (26, 'POLAND', 11, 'No comment'),
                 (27, 'HOLLAND', 11, 'A comment')
@@ -195,30 +196,35 @@ public class TestCheckConstraint
     public void testMergeInsert()
     {
         // Within allowed check constraint
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation USING (VALUES 42) t(dummy) ON false
                 WHEN NOT MATCHED THEN INSERT VALUES (101, 'POLAND', 0, 'No comment')
                 """))
                 .matches("SELECT BIGINT '1'");
 
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation USING (VALUES 42) t(dummy) ON false
                 WHEN NOT MATCHED THEN INSERT (nationkey) VALUES (NULL)
                 """))
                 .matches("SELECT BIGINT '1'");
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation USING (VALUES 42) t(dummy) ON false
                 WHEN NOT MATCHED THEN INSERT (nationkey) VALUES (0)
                 """))
                 .matches("SELECT BIGINT '1'");
 
         // Outside allowed check constraint
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation USING (VALUES 42) t(dummy) ON false
                 WHEN NOT MATCHED THEN INSERT VALUES (101, 'POLAND', 10, 'No comment')
                 """))
                 .failure().hasMessage("Check constraint violation: (regionkey < 10)");
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation USING (VALUES (26, 'POLAND', 10, 'No comment'), (27, 'HOLLAND', 10, 'A comment')) t(a,b,c,d) ON nationkey = a
                 WHEN NOT MATCHED THEN INSERT VALUES (a,b,c,d)
                 """))
@@ -238,19 +244,22 @@ public class TestCheckConstraint
     @Test
     void testNullConstraint()
     {
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation_with_null_check USING (VALUES 1,2) t(x) ON nationkey = x
                 WHEN MATCHED THEN DELETE
                 """))
                 .matches("SELECT BIGINT '2'");
 
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation_with_null_check USING (VALUES 5) t(x) ON nationkey = x
                 WHEN MATCHED THEN UPDATE SET regionkey = regionkey * 2
                 """))
                 .matches("SELECT BIGINT '1'");
 
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation_with_null_check USING (VALUES 42) t(dummy) ON false
                 WHEN NOT MATCHED THEN INSERT VALUES (101, 'POLAND', 0, 'No comment')
                 """))
@@ -355,21 +364,24 @@ public class TestCheckConstraint
     public void testMergeDelete()
     {
         // Within allowed check constraint
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation USING (VALUES 1,2) t(x) ON nationkey = x
                 WHEN MATCHED THEN DELETE
                 """))
                 .matches("SELECT BIGINT '2'");
 
         // Source values outside allowed check constraint should not cause failure
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation USING (VALUES 1,2,3,4,11) t(x) ON regionkey = x
                 WHEN MATCHED THEN DELETE
                 """))
                 .matches("SELECT BIGINT '20'");
 
         // No check constraining column in query
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation USING (VALUES 1,11) t(x) ON nationkey = x
                 WHEN MATCHED THEN DELETE
                 """))
@@ -509,61 +521,71 @@ public class TestCheckConstraint
     public void testMergeUpdate()
     {
         // Within allowed check constraint
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation USING (VALUES 5) t(x) ON nationkey = x
                 WHEN MATCHED THEN UPDATE SET regionkey = regionkey * 2
                 """))
                 .matches("SELECT BIGINT '1'");
 
         // Merge column within allowed check constraint, but updated rows are outside the check constraint
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation USING (VALUES 1,2,3,4,5,6) t(x) ON regionkey = x
                 WHEN MATCHED THEN UPDATE SET regionkey = regionkey * 5
                 """))
                 .failure().hasMessage("Check constraint violation: (regionkey < 10)");
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation USING (VALUES 1, 11) t(x) ON nationkey = x
                 WHEN MATCHED THEN UPDATE SET regionkey = regionkey * 5
                 """))
                 .failure().hasMessage("Check constraint violation: (regionkey < 10)");
 
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation t USING mock.tiny.nation s ON t.nationkey = s.nationkey
                 WHEN MATCHED THEN UPDATE SET regionkey = 10
                 """))
                 .failure().hasMessage("Check constraint violation: (regionkey < 10)");
 
         // Merge column outside allowed check constraint and updated rows within allowed check constraint
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation USING (VALUES 1, 11) t(x) ON regionkey = x
                 WHEN MATCHED THEN UPDATE SET regionkey = regionkey * 2
                 """))
                 .matches("SELECT BIGINT '5'");
 
         // Merge column outside allowed check constraint and updated rows are outside the check constraint
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation USING (VALUES 11) t(x) ON nationkey = x
                 WHEN MATCHED THEN UPDATE SET regionkey = regionkey * 5
                 """))
                 .failure().hasMessage("Check constraint violation: (regionkey < 10)");
 
         // No check constraining column in query
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation USING (VALUES 1,2,3) t(x) ON nationkey = x
                 WHEN MATCHED THEN UPDATE SET nationkey = NULL
                 """))
                 .matches("SELECT BIGINT '3'");
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation USING (VALUES 10) t(x) ON nationkey = x
                 WHEN MATCHED THEN UPDATE SET nationkey = 13
                 """))
                 .matches("SELECT BIGINT '1'");
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation USING (VALUES 10) t(x) ON nationkey = x
                 WHEN MATCHED THEN UPDATE SET nationkey = NULL
                 """))
                 .matches("SELECT BIGINT '1'");
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation USING (VALUES 10) t(x) ON nationkey IS NULL
                 WHEN MATCHED THEN UPDATE SET nationkey = 13
                 """))
@@ -574,7 +596,8 @@ public class TestCheckConstraint
     public void testComplexMerge()
     {
         // Within allowed check constraint
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation USING (VALUES 1,2,3,4,5,6) t(x) ON regionkey = x
                 WHEN MATCHED AND t.x = 1 THEN DELETE
                 WHEN MATCHED THEN UPDATE SET regionkey = 9
@@ -583,7 +606,8 @@ public class TestCheckConstraint
                 .matches("SELECT BIGINT '22'");
 
         // Outside allowed check constraint
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation USING (VALUES 1,2,3,4,5,6) t(x) ON regionkey = x
                 WHEN MATCHED AND t.x = 1 THEN DELETE
                 WHEN MATCHED THEN UPDATE SET regionkey = 10
@@ -591,7 +615,8 @@ public class TestCheckConstraint
                 """))
                 .failure().hasMessage("Check constraint violation: (regionkey < 10)");
 
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation USING (VALUES 1,2,3,4,5,6) t(x) ON regionkey = x
                 WHEN MATCHED AND t.x = 1 THEN DELETE
                 WHEN MATCHED THEN UPDATE SET regionkey = 9
@@ -604,7 +629,8 @@ public class TestCheckConstraint
     public void testMergeCheckMultipleColumns()
     {
         // Within allowed check constraint
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation_multiple_column_constraint USING (VALUES 1,2,3,4,5,6) t(x) ON regionkey = x
                 WHEN MATCHED AND t.x = 1 THEN DELETE
                 WHEN MATCHED THEN UPDATE SET regionkey = 49
@@ -613,7 +639,8 @@ public class TestCheckConstraint
                 .matches("SELECT BIGINT '22'");
 
         // Outside allowed check constraint (regionkey in UPDATE)
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation_multiple_column_constraint USING (VALUES 1,2,3,4,5,6) t(x) ON regionkey = x
                 WHEN MATCHED AND t.x = 1 THEN DELETE
                 WHEN MATCHED THEN UPDATE SET regionkey = 50
@@ -622,7 +649,8 @@ public class TestCheckConstraint
                 .failure().hasMessage("Check constraint violation: ((nationkey < 100) AND (regionkey < 50))");
 
         // Outside allowed check constraint (regionkey in INSERT)
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation_multiple_column_constraint USING (VALUES 1,2,3,4,5,6) t(x) ON regionkey = x
                 WHEN MATCHED AND t.x = 1 THEN DELETE
                 WHEN MATCHED THEN UPDATE SET regionkey = 49
@@ -631,7 +659,8 @@ public class TestCheckConstraint
                 .failure().hasMessage("Check constraint violation: ((nationkey < 100) AND (regionkey < 50))");
 
         // Outside allowed check constraint (nationkey in UPDATE)
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation_multiple_column_constraint USING (VALUES 1,2,3,4,5,6) t(x) ON regionkey = x
                 WHEN MATCHED AND t.x = 1 THEN DELETE
                 WHEN MATCHED THEN UPDATE SET nationkey = 100
@@ -640,7 +669,8 @@ public class TestCheckConstraint
                 .failure().hasMessage("Check constraint violation: ((nationkey < 100) AND (regionkey < 50))");
 
         // Outside allowed check constraint (nationkey in INSERT)
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation_multiple_column_constraint USING (VALUES 1,2,3,4,5,6) t(x) ON regionkey = x
                 WHEN MATCHED AND t.x = 1 THEN DELETE
                 WHEN MATCHED THEN UPDATE SET nationkey = 99
@@ -653,7 +683,8 @@ public class TestCheckConstraint
     public void testMergeSubquery()
     {
         // TODO https://github.com/trinodb/trino/issues/18230 Support subqueries for MERGE statement in check constraint
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation_subquery USING (VALUES 1,2,3,4,5,6) t(x) ON regionkey = x
                 WHEN MATCHED AND t.x = 1 THEN DELETE
                 WHEN MATCHED THEN UPDATE SET regionkey = 9
@@ -666,7 +697,8 @@ public class TestCheckConstraint
     @Test
     public void testMergeUnsupportedCurrentDate()
     {
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation_current_date USING (VALUES 1,2,3,4,5,6) t(x) ON regionkey = x
                 WHEN MATCHED AND t.x = 1 THEN DELETE
                 WHEN MATCHED THEN UPDATE SET regionkey = 9
@@ -678,7 +710,8 @@ public class TestCheckConstraint
     @Test
     public void testMergeUnsupportedCurrentTime()
     {
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation_current_time USING (VALUES 1,2,3,4,5,6) t(x) ON regionkey = x
                 WHEN MATCHED AND t.x = 1 THEN DELETE
                 WHEN MATCHED THEN UPDATE SET regionkey = 9
@@ -690,7 +723,8 @@ public class TestCheckConstraint
     @Test
     public void testMergeUnsupportedCurrentTimestamp()
     {
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation_current_timestamp USING (VALUES 1,2,3,4,5,6) t(x) ON regionkey = x
                 WHEN MATCHED AND t.x = 1 THEN DELETE
                 WHEN MATCHED THEN UPDATE SET regionkey = 9
@@ -702,7 +736,8 @@ public class TestCheckConstraint
     @Test
     public void testMergeUnsupportedLocaltime()
     {
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation_localtime USING (VALUES 1,2,3,4,5,6) t(x) ON regionkey = x
                 WHEN MATCHED AND t.x = 1 THEN DELETE
                 WHEN MATCHED THEN UPDATE SET regionkey = 9
@@ -714,7 +749,8 @@ public class TestCheckConstraint
     @Test
     public void testMergeUnsupportedLocaltimestamp()
     {
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation_localtimestamp USING (VALUES 1,2,3,4,5,6) t(x) ON regionkey = x
                 WHEN MATCHED AND t.x = 1 THEN DELETE
                 WHEN MATCHED THEN UPDATE SET regionkey = 9
@@ -726,14 +762,16 @@ public class TestCheckConstraint
     @Test
     public void testMergeUnsupportedConstraint()
     {
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation_invalid_function USING (VALUES 1,2,3,4,5,6) t(x) ON regionkey = x
                 WHEN MATCHED AND t.x = 1 THEN DELETE
                 WHEN MATCHED THEN UPDATE SET regionkey = 9
                 WHEN NOT MATCHED THEN INSERT VALUES (101, 'POLAND', 0, 'No comment')
                 """))
                 .failure().hasMessageContaining("Function 'invalid_function' not registered");
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation_not_boolean_expression USING (VALUES 1,2,3,4,5,6) t(x) ON regionkey = x
                 WHEN MATCHED AND t.x = 1 THEN DELETE
                 WHEN MATCHED THEN UPDATE SET regionkey = 9
@@ -745,7 +783,8 @@ public class TestCheckConstraint
     @Test
     public void testMergeNotDeterministic()
     {
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 MERGE INTO mock.tiny.nation_not_deterministic USING (VALUES 1,2,3,4,5,6) t(x) ON regionkey = x
                 WHEN MATCHED AND t.x = 1 THEN DELETE
                 WHEN MATCHED THEN UPDATE SET regionkey = 9

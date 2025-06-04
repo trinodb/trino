@@ -55,7 +55,6 @@ This functionality is enabled by default but can be turned off with:
 `http-server.authentication.oauth2.oidc.discovery=false`.
 
 (trino-server-configuration-oauth2)=
-
 ## Trino server configuration
 
 Using the OAuth2 authentication requires the Trino coordinator to be secured
@@ -76,7 +75,7 @@ http-server.authentication.oauth2.client-secret=CLIENT_SECRET
 ```
 
 To enable OAuth 2.0 authentication for the Web UI, the following
-property must be be added:
+property must be added:
 
 ```properties
 web-ui.authentication.type=oauth2
@@ -142,9 +141,9 @@ The following configuration properties are available:
     authorization request was not forged. Default is a random string generated
     during the coordinator start.
 * - `http-server.authentication.oauth2.user-mapping.pattern`
-  - Regex to match against user. If matched, the user name is replaced with
+  - Regex to match against user. If matched, the username is replaced with
     first regex group. If not matched, authentication is denied.  Default is
-    `(.*)` which allows any user name.
+    `(.*)` which allows any username.
 * - `http-server.authentication.oauth2.user-mapping.file`
   - File containing rules for mapping user. See [](/security/user-mapping) for
     more information.
@@ -171,7 +170,6 @@ The following configuration properties are available:
 :::
 
 (trino-oauth2-refresh-tokens)=
-
 ### Refresh tokens
 
 *Refresh tokens* allow you to securely control the length of user sessions
@@ -243,10 +241,9 @@ The following configuration properties are available:
 :::
 
 (trino-oauth2-troubleshooting)=
-
 ## Troubleshooting
 
-To debug issues, change the {ref}`log level <log-levels>` for the OAuth 2.0
+To debug issues, change the [log level <log-levels>` for the OAuth 2.0
 authenticator:
 
 ```none

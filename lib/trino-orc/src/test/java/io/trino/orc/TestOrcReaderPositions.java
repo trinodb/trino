@@ -23,6 +23,7 @@ import io.trino.orc.metadata.OrcColumnId;
 import io.trino.orc.metadata.statistics.IntegerStatistics;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.connector.SourcePage;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator;
@@ -54,6 +55,7 @@ import static io.trino.orc.OrcTester.createSettableStructObjectInspector;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.hadoop.hive.ql.io.orc.CompressionKind.SNAPPY;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -75,7 +77,7 @@ public class TestOrcReaderPositions
                 assertThat(reader.getFilePosition()).isEqualTo(reader.getReaderPosition());
 
                 for (int i = 0; i < 5; i++) {
-                    Page page = reader.nextPage().getLoadedPage();
+                    Page page = reader.nextPage().getPage();
                     assertThat(page.getPositionCount()).isEqualTo(20);
                     assertThat(reader.getReaderPosition()).isEqualTo(i * 20L);
                     assertThat(reader.getFilePosition()).isEqualTo(reader.getReaderPosition());
@@ -113,21 +115,20 @@ public class TestOrcReaderPositions
                 assertThat(reader.getReaderPosition()).isEqualTo(0);
 
                 // second stripe
-                Page page = reader.nextPage().getLoadedPage();
+                Page page = reader.nextPage().getPage();
                 assertThat(page.getPositionCount()).isEqualTo(20);
                 assertThat(reader.getReaderPosition()).isEqualTo(0);
                 assertThat(reader.getFilePosition()).isEqualTo(20);
                 assertCurrentBatch(page, 1);
 
                 // fourth stripe
-                page = reader.nextPage().getLoadedPage();
+                page = reader.nextPage().getPage();
                 assertThat(page.getPositionCount()).isEqualTo(20);
                 assertThat(reader.getReaderPosition()).isEqualTo(20);
                 assertThat(reader.getFilePosition()).isEqualTo(60);
                 assertCurrentBatch(page, 3);
 
-                page = reader.nextPage();
-                assertThat(page).isNull();
+                assertThat(reader.nextPage()).isNull();
                 assertThat(reader.getReaderPosition()).isEqualTo(40);
                 assertThat(reader.getFilePosition()).isEqualTo(100);
             }
@@ -160,11 +161,11 @@ public class TestOrcReaderPositions
 
                 long position = 50_000;
                 while (true) {
-                    Page page = reader.nextPage();
-                    if (page == null) {
+                    SourcePage sourcePage = reader.nextPage();
+                    if (sourcePage == null) {
                         break;
                     }
-                    page = page.getLoadedPage();
+                    Page page = sourcePage.getPage();
 
                     Block block = page.getBlock(0);
                     for (int i = 0; i < block.getPositionCount(); i++) {
@@ -212,11 +213,11 @@ public class TestOrcReaderPositions
                 int currentStringBytes = baseStringBytes + Integer.BYTES + Byte.BYTES;
                 int rowCountsInCurrentRowGroup = 0;
                 while (true) {
-                    Page page = reader.nextPage();
-                    if (page == null) {
+                    SourcePage sourcePage = reader.nextPage();
+                    if (sourcePage == null) {
                         break;
                     }
-                    page = page.getLoadedPage();
+                    Page page = sourcePage.getPage();
 
                     rowCountsInCurrentRowGroup += page.getPositionCount();
 
@@ -231,7 +232,10 @@ public class TestOrcReaderPositions
                         // Either we are bounded by 1MB per batch, or it is the last batch in the row group
                         // From the 4th row group, the strings are have length > 1200
                         // So the loaded data is bounded by MAX_BLOCK_SIZE
-                        assertThat(block.getPositionCount() == READER_OPTIONS.getMaxBlockSize().toBytes() / currentStringBytes || rowCountsInCurrentRowGroup == rowsInRowGroup).isTrue();
+                        if (rowCountsInCurrentRowGroup != rowsInRowGroup) {
+                            int maxRows = toIntExact(READER_OPTIONS.getMaxBlockSize().toBytes() / currentStringBytes);
+                            assertThat(block.getPositionCount()).isLessThanOrEqualTo(maxRows);
+                        }
                     }
 
                     if (rowCountsInCurrentRowGroup == rowsInRowGroup) {
@@ -268,11 +272,11 @@ public class TestOrcReaderPositions
 
                 int rowCountsInCurrentRowGroup = 0;
                 while (true) {
-                    Page page = reader.nextPage();
-                    if (page == null) {
+                    SourcePage sourcePage = reader.nextPage();
+                    if (sourcePage == null) {
                         break;
                     }
-                    page = page.getLoadedPage();
+                    Page page = sourcePage.getPage();
                     rowCountsInCurrentRowGroup += page.getPositionCount();
 
                     Block block = page.getBlock(0);
@@ -332,11 +336,11 @@ public class TestOrcReaderPositions
                 int expectedBatchSize = INITIAL_BATCH_SIZE;
                 int rowCountsInCurrentRowGroup = 0;
                 while (true) {
-                    Page page = reader.nextPage();
-                    if (page == null) {
+                    SourcePage sourcePage = reader.nextPage();
+                    if (sourcePage == null) {
                         break;
                     }
-                    page = page.getLoadedPage();
+                    Page page = sourcePage.getPage();
 
                     assertThat(page.getPositionCount()).isEqualTo(expectedBatchSize);
                     assertThat(reader.getReaderPosition()).isEqualTo(totalReadRows);

@@ -14,6 +14,7 @@
 package io.trino.filesystem.s3;
 
 import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystemException;
 import io.trino.filesystem.TrinoInputStream;
 import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.exception.AbortedException;
@@ -28,12 +29,15 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 
+import static java.lang.Math.clamp;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
+import static software.amazon.awssdk.utils.IoUtils.drainInputStream;
 
 final class S3InputStream
         extends TrinoInputStream
 {
+    private static final long DEFAULT_TCP_BUFFER_SIZE = 1024 * 8;
     private static final int MAX_SKIP_BYTES = 1024 * 1024;
 
     private final Location location;
@@ -91,14 +95,16 @@ final class S3InputStream
             throws IOException
     {
         ensureOpen();
-        seekStream();
+        seekStream(false);
 
-        int value = doRead();
-        if (value >= 0) {
-            streamPosition++;
-            nextReadPosition++;
-        }
-        return value;
+        return reconnectStreamIfNecessary(() -> {
+            int value = doRead();
+            if (value >= 0) {
+                streamPosition++;
+                nextReadPosition++;
+            }
+            return value;
+        });
     }
 
     @Override
@@ -106,14 +112,16 @@ final class S3InputStream
             throws IOException
     {
         ensureOpen();
-        seekStream();
+        seekStream(false);
 
-        int n = doRead(bytes, offset, length);
-        if (n > 0) {
-            streamPosition += n;
-            nextReadPosition += n;
-        }
-        return n;
+        return reconnectStreamIfNecessary(() -> {
+            int n = doRead(bytes, offset, length);
+            if (n > 0) {
+                streamPosition += n;
+                nextReadPosition += n;
+            }
+            return n;
+        });
     }
 
     @Override
@@ -121,12 +129,10 @@ final class S3InputStream
             throws IOException
     {
         ensureOpen();
-        seekStream();
 
-        long skip = doSkip(n);
-        streamPosition += skip;
-        nextReadPosition += skip;
-        return skip;
+        long skipSize = clamp(n, 0, length != null ? length - nextReadPosition : Integer.MAX_VALUE);
+        nextReadPosition += skipSize;
+        return skipSize;
     }
 
     @Override
@@ -157,6 +163,25 @@ final class S3InputStream
         closeStream();
     }
 
+    private <T> T reconnectStreamIfNecessary(IOExceptionThrowingSupplier<T> supplier)
+            throws IOException
+    {
+        try {
+            return supplier.get();
+        }
+        catch (IOException e) {
+            seekStream(true);
+        }
+
+        return supplier.get();
+    }
+
+    private interface IOExceptionThrowingSupplier<T>
+    {
+        T get()
+                throws IOException;
+    }
+
     private void ensureOpen()
             throws IOException
     {
@@ -165,15 +190,15 @@ final class S3InputStream
         }
     }
 
-    private void seekStream()
+    private void seekStream(boolean forceStreamReset)
             throws IOException
     {
-        if ((in != null) && (nextReadPosition == streamPosition)) {
+        if (!forceStreamReset && (in != null) && (nextReadPosition == streamPosition)) {
             // already at specified position
             return;
         }
 
-        if ((in != null) && (nextReadPosition > streamPosition)) {
+        if (!forceStreamReset && (in != null) && (nextReadPosition > streamPosition)) {
             // seeking forwards
             long skip = nextReadPosition - streamPosition;
             if (skip <= max(getAvailable(), MAX_SKIP_BYTES)) {
@@ -190,9 +215,16 @@ final class S3InputStream
         closeStream();
 
         try {
-            String range = "bytes=%s-".formatted(nextReadPosition);
-            GetObjectRequest rangeRequest = request.toBuilder().range(range).build();
+            GetObjectRequest rangeRequest = request;
+            if (nextReadPosition != 0) {
+                String range = "bytes=%s-".formatted(nextReadPosition);
+                rangeRequest = request.toBuilder().range(range).build();
+            }
             in = client.getObject(rangeRequest);
+            // a workaround for https://github.com/aws/aws-sdk-java-v2/issues/3538
+            if (in.response().contentLength() != null && in.response().contentLength() == 0) {
+                in = new ResponseInputStream<>(in.response(), nullInputStream());
+            }
             streamPosition = nextReadPosition;
         }
         catch (NoSuchKeyException e) {
@@ -201,7 +233,7 @@ final class S3InputStream
             throw ex;
         }
         catch (SdkException e) {
-            throw new IOException("Failed to open S3 file: " + location, e);
+            throw new TrinoFileSystemException("Failed to open S3 file: " + location, e);
         }
     }
 
@@ -211,10 +243,19 @@ final class S3InputStream
             return;
         }
 
-        try (var ignored = in) {
-            in.abort();
+        try (var _ = in) {
+            // According to the documentation: Abort will close the underlying connection, dropping all remaining data
+            // in the stream, and not leaving the connection open to be used for future requests. This can be more expensive
+            // than just reading remaining data.
+            if (length != null && length - streamPosition <= DEFAULT_TCP_BUFFER_SIZE) {
+                drainInputStream(in);
+            }
+            else {
+                in.abort();
+                in.release();
+            }
         }
-        catch (AbortedException | IOException ignored) {
+        catch (AbortedException | IOException _) {
         }
         finally {
             in = null;

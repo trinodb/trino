@@ -45,7 +45,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.assertj.core.api.Assertions.within;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -112,7 +112,7 @@ public class TestGeoFunctions
                 rectangles.add(new Rectangle(x, y, x + 1, y + 2));
             }
         }
-        return KdbTreeUtils.toJson(buildKdbTree(10, new Rectangle(0, 0, 9, 4), rectangles.build()));
+        return KdbTreeUtils.toJson(buildKdbTree(10, new Rectangle(0, 0, 9, 4), rectangles.build())).toStringUtf8();
     }
 
     private void assertSpatialPartitions(String kdbTreeJson, String wkt, List<Integer> expectedPartitions)
@@ -341,8 +341,8 @@ public class TestGeoFunctions
     {
         OGCPoint actualCentroid = (OGCPoint) GeometrySerde.deserialize(
                 stCentroid(GeometrySerde.serialize(OGCGeometry.fromText(wkt))));
-        assertEquals(actualCentroid.X(), expectedCentroid.getX(), epsilon);
-        assertEquals(actualCentroid.Y(), expectedCentroid.getY(), epsilon);
+        assertThat(expectedCentroid.getX()).isCloseTo(actualCentroid.X(), within(epsilon));
+        assertThat(expectedCentroid.getY()).isCloseTo(actualCentroid.Y(), within(epsilon));
     }
 
     @Test
@@ -2159,6 +2159,12 @@ public class TestGeoFunctions
         assertGeomFromBinary("MULTIPOLYGON (((1 1, 3 1, 3 3, 1 3, 1 1)), ((2 4, 6 4, 6 6, 2 6, 2 4)))");
         assertGeomFromBinary("GEOMETRYCOLLECTION (POINT (1 2), LINESTRING (0 0, 1 2, 3 4), POLYGON ((0 0, 1 0, 1 1, 0 1, 0 0)))");
 
+        // The EWKB representation of "SRID=4326;POINT (1 1)".
+        assertThat(assertions.expression("ST_AsText(ST_GeomFromBinary(wkb))")
+                .binding("wkb", "x'0101000020E6100000000000000000F03F000000000000F03F'"))
+                .hasType(VARCHAR)
+                .isEqualTo("POINT (1 1)");
+
         // array of geometries
         assertThat(assertions.expression("transform(a, wkb -> ST_AsText(ST_GeomFromBinary(wkb)))")
                 .binding("a", "ARRAY[ST_AsBinary(ST_Point(1, 2)), ST_AsBinary(ST_Point(3, 4))]"))
@@ -2318,5 +2324,17 @@ public class TestGeoFunctions
     {
         assertTrinoExceptionThrownBy(assertions.function("from_geojson_geometry", "'%s'".formatted(json))::evaluate)
                 .hasMessage(message);
+    }
+
+    @Test
+    public void testSTGeomFromKML()
+    {
+        assertThat(assertions.expression("ST_AsText(ST_GeomFromKML(geometry))")
+                .binding("geometry", "'<Point><coordinates>-2,2</coordinates></Point>'"))
+                .hasType(VARCHAR)
+                .isEqualTo("POINT (-2 2)");
+
+        assertTrinoExceptionThrownBy(assertions.function("ST_GeomFromKML", "'<Point>'")::evaluate)
+                .hasMessage("Invalid KML: <Point>");
     }
 }

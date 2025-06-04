@@ -59,7 +59,7 @@ public class MongoClientModule
         install(conditionalModule(
                 MongoClientConfig.class,
                 MongoClientConfig::getTlsEnabled,
-                new MongoSslModule()));
+                new MongoTlsModule()));
 
         install(conditionalModule(
                 MongoClientConfig.class,

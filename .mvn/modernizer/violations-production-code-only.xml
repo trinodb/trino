@@ -1,0 +1,68 @@
+<?xml version="1.0"?>
+<modernizer>
+    <violation>
+        <name>java/util/concurrent/ThreadPoolExecutor."&lt;init&gt;":(IIJLjava/util/concurrent/TimeUnit;Ljava/util/concurrent/BlockingQueue;)V</name>
+        <version>1.1</version>
+        <comment>Use constructor that takes ThreadFactory and name the threads</comment>
+    </violation>
+
+    <violation>
+        <name>java/util/concurrent/ThreadPoolExecutor."&lt;init&gt;":(IIJLjava/util/concurrent/TimeUnit;Ljava/util/concurrent/BlockingQueue;Ljava/util/concurrent/RejectedExecutionHandler;)V</name>
+        <version>1.1</version>
+        <comment>Use constructor that takes ThreadFactory and name the threads</comment>
+    </violation>
+
+    <violation>
+        <name>java/util/concurrent/ScheduledThreadPoolExecutor."&lt;init&gt;":(I)V</name>
+        <version>1.1</version>
+        <comment>Use constructor that takes ThreadFactory and name the threads</comment>
+    </violation>
+
+    <violation>
+        <name>java/util/concurrent/ScheduledThreadPoolExecutor."&lt;init&gt;":(ILjava/util/concurrent/RejectedExecutionHandler;)V</name>
+        <version>1.1</version>
+        <comment>Use constructor that takes ThreadFactory and name the threads</comment>
+    </violation>
+
+    <violation>
+        <name>java/util/concurrent/Executors.newFixedThreadPool:(I)Ljava/util/concurrent/ExecutorService;</name>
+        <version>1.1</version>
+        <comment>Use factory method that takes ThreadFactory and name the threads</comment>
+    </violation>
+
+    <violation>
+        <name>java/util/concurrent/Executors.newWorkStealingPool:()Ljava/util/concurrent/ExecutorService;</name>
+        <version>1.1</version>
+        <comment>Use factory method that takes ThreadFactory and name the threads</comment>
+    </violation>
+
+    <violation>
+        <name>java/util/concurrent/Executors.newWorkStealingPool:(I)Ljava/util/concurrent/ExecutorService;</name>
+        <version>1.1</version>
+        <comment>Use factory method that takes ThreadFactory and name the threads</comment>
+    </violation>
+
+    <violation>
+        <name>java/util/concurrent/Executors.newSingleThreadExecutor:()Ljava/util/concurrent/ExecutorService;</name>
+        <version>1.1</version>
+        <comment>Use factory method that takes ThreadFactory and name the threads</comment>
+    </violation>
+
+    <violation>
+        <name>java/util/concurrent/Executors.newCachedThreadPool:()Ljava/util/concurrent/ExecutorService;</name>
+        <version>1.1</version>
+        <comment>Use factory method that takes ThreadFactory and name the threads</comment>
+    </violation>
+
+    <violation>
+        <name>java/util/concurrent/Executors.newSingleThreadScheduledExecutor:()Ljava/util/concurrent/ScheduledExecutorService;</name>
+        <version>1.1</version>
+        <comment>Use factory method that takes ThreadFactory and name the threads</comment>
+    </violation>
+
+    <violation>
+        <name>java/util/concurrent/Executors.newScheduledThreadPool:(I)Ljava/util/concurrent/ScheduledExecutorService;</name>
+        <version>1.1</version>
+        <comment>Use factory method that takes ThreadFactory and name the threads</comment>
+    </violation>
+</modernizer>

@@ -31,7 +31,7 @@ import io.trino.split.SplitSource.SplitBatch;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -92,7 +92,7 @@ public class SourcePartitionedScheduler
     private final BooleanSupplier anySourceTaskBlocked;
     private final PartitionIdAllocator partitionIdAllocator;
     private final Map<InternalNode, RemoteTask> scheduledTasks;
-    private final Set<Split> pendingSplits = new HashSet<>();
+    private final Set<Split> pendingSplits = new LinkedHashSet<>();
 
     private ListenableFuture<SplitBatch> nextSplitBatchFuture;
     private ListenableFuture<Void> placementFuture = immediateVoidFuture();
@@ -247,7 +247,7 @@ public class SourcePartitionedScheduler
                 nextSplitBatchFuture = splitSource.getNextBatch(splitBatchSize);
 
                 long start = System.nanoTime();
-                addSuccessCallback(nextSplitBatchFuture, () -> stageExecution.recordGetSplitTime(start));
+                addSuccessCallback(nextSplitBatchFuture, () -> stageExecution.recordSplitSourceMetrics(partitionedNode, splitSource.getMetrics(), start));
             }
 
             if (nextSplitBatchFuture.isDone()) {
@@ -379,7 +379,7 @@ public class SourcePartitionedScheduler
     {
         ImmutableSet.Builder<RemoteTask> newTasks = ImmutableSet.builder();
 
-        ImmutableSet<InternalNode> nodes = ImmutableSet.copyOf(splitAssignment.keySet());
+        Set<InternalNode> nodes = ImmutableSet.copyOf(splitAssignment.keySet());
         for (InternalNode node : nodes) {
             // source partitioned tasks can only receive broadcast data; otherwise it would have a different distribution
             ImmutableMultimap<PlanNodeId, Split> splits = ImmutableMultimap.<PlanNodeId, Split>builder()

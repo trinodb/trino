@@ -31,6 +31,7 @@ public class QueryMetadata
 {
     private final String queryId;
     private final Optional<String> transactionId;
+    private final Optional<String> encoding;
 
     private final String query;
     private final Optional<String> updateType;
@@ -52,6 +53,7 @@ public class QueryMetadata
     public QueryMetadata(
             String queryId,
             Optional<String> transactionId,
+            Optional<String> encoding,
             String query,
             Optional<String> updateType,
             Optional<String> preparedQuery,
@@ -66,6 +68,7 @@ public class QueryMetadata
         this(
                 queryId,
                 transactionId,
+                encoding,
                 query,
                 updateType,
                 preparedQuery,
@@ -81,6 +84,7 @@ public class QueryMetadata
     public QueryMetadata(
             String queryId,
             Optional<String> transactionId,
+            Optional<String> encoding,
             String query,
             Optional<String> updateType,
             Optional<String> preparedQuery,
@@ -94,6 +98,7 @@ public class QueryMetadata
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
+        this.encoding = requireNonNull(encoding, "encoding is null");
         this.query = requireNonNull(query, "query is null");
         this.updateType = requireNonNull(updateType, "updateType is null");
         this.preparedQuery = requireNonNull(preparedQuery, "preparedQuery is null");
@@ -116,6 +121,12 @@ public class QueryMetadata
     public Optional<String> getTransactionId()
     {
         return transactionId;
+    }
+
+    @JsonProperty
+    public Optional<String> getEncoding()
+    {
+        return encoding;
     }
 
     @JsonProperty

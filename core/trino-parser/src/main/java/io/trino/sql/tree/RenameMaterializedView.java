@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -29,17 +28,7 @@ public final class RenameMaterializedView
     private final QualifiedName target;
     private final boolean exists;
 
-    public RenameMaterializedView(QualifiedName source, QualifiedName target, boolean exists)
-    {
-        this(Optional.empty(), source, target, exists);
-    }
-
     public RenameMaterializedView(NodeLocation location, QualifiedName source, QualifiedName target, boolean exists)
-    {
-        this(Optional.of(location), source, target, exists);
-    }
-
-    private RenameMaterializedView(Optional<NodeLocation> location, QualifiedName source, QualifiedName target, boolean exists)
     {
         super(location);
         this.source = requireNonNull(source, "source name is null");
@@ -92,7 +81,7 @@ public final class RenameMaterializedView
         RenameMaterializedView o = (RenameMaterializedView) obj;
         return Objects.equals(source, o.source) &&
                 Objects.equals(target, o.target) &&
-                Objects.equals(exists, o.exists);
+                exists == o.exists;
     }
 
     @Override

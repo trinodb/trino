@@ -13,66 +13,30 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 
-import java.util.Objects;
+import java.util.List;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class IcebergInputInfo
+public record IcebergInputInfo(
+        Optional<Long> snapshotId,
+        List<String> partitionFields,
+        String tableDefaultFileFormat,
+        Optional<String> totalRecords,
+        Optional<String> deletedRecords,
+        Optional<String> totalDataFiles,
+        Optional<String> totalDeleteFiles)
 {
-    private final Optional<Long> snapshotId;
-    private final Optional<Boolean> partitioned;
-    private final String tableDefaultFileFormat;
-
-    @JsonCreator
-    public IcebergInputInfo(
-            @JsonProperty("snapshotId") Optional<Long> snapshotId,
-            @JsonProperty("partitioned") Optional<Boolean> partitioned,
-            @JsonProperty("fileFormat") String tableDefaultFileFormat)
+    public IcebergInputInfo
     {
-        this.snapshotId = requireNonNull(snapshotId, "snapshotId is null");
-        this.partitioned = requireNonNull(partitioned, "partitioned is null");
-        this.tableDefaultFileFormat = requireNonNull(tableDefaultFileFormat, "tableDefaultFileFormat is null");
-    }
-
-    @JsonProperty
-    public Optional<Long> getSnapshotId()
-    {
-        return snapshotId;
-    }
-
-    @JsonProperty
-    public Optional<Boolean> getPartitioned()
-    {
-        return partitioned;
-    }
-
-    @JsonProperty
-    public String getTableDefaultFileFormat()
-    {
-        return tableDefaultFileFormat;
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (!(o instanceof IcebergInputInfo that)) {
-            return false;
-        }
-        return partitioned.equals(that.partitioned)
-                && snapshotId.equals(that.snapshotId)
-                && tableDefaultFileFormat.equals(that.tableDefaultFileFormat);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(snapshotId, partitioned, tableDefaultFileFormat);
+        requireNonNull(snapshotId, "snapshotId is null");
+        partitionFields = ImmutableList.copyOf(partitionFields);
+        requireNonNull(tableDefaultFileFormat, "tableDefaultFileFormat is null");
+        requireNonNull(totalRecords, "totalRecords is null");
+        requireNonNull(deletedRecords, "deletedRecords is null");
+        requireNonNull(totalDataFiles, "totalDataFiles is null");
+        requireNonNull(totalDeleteFiles, "totalDeleteFiles is null");
     }
 }

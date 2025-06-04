@@ -56,8 +56,8 @@ public final class ArrayCombinationsFunction
     {
         int arrayLength = array.getPositionCount();
         int combinationLength = toIntExact(n);
-        checkCondition(combinationLength >= 0, INVALID_FUNCTION_ARGUMENT, "combination size must not be negative: %s", combinationLength);
-        checkCondition(combinationLength <= MAX_COMBINATION_LENGTH, INVALID_FUNCTION_ARGUMENT, "combination size must not exceed %s: %s", MAX_COMBINATION_LENGTH, combinationLength);
+        checkCondition(combinationLength >= 0, INVALID_FUNCTION_ARGUMENT, () -> String.format("combination size must not be negative: %s", combinationLength));
+        checkCondition(combinationLength <= MAX_COMBINATION_LENGTH, INVALID_FUNCTION_ARGUMENT, () -> String.format("combination size must not exceed %s: %s", MAX_COMBINATION_LENGTH, combinationLength));
 
         ArrayType arrayType = new ArrayType(elementType);
         if (combinationLength > arrayLength) {

@@ -41,6 +41,7 @@ import org.apache.iceberg.io.LocationProvider;
 import java.util.Map;
 
 import static com.google.common.collect.Maps.transformValues;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.maxPartitionsPerWriter;
 import static io.trino.plugin.iceberg.IcebergUtil.getLocationProvider;
 import static java.util.Objects.requireNonNull;
 
@@ -51,7 +52,6 @@ public class IcebergPageSinkProvider
     private final JsonCodec<CommitTaskData> jsonCodec;
     private final IcebergFileWriterFactory fileWriterFactory;
     private final PageIndexerFactory pageIndexerFactory;
-    private final int maxOpenPartitions;
     private final DataSize sortingFileWriterBufferSize;
     private final int sortingFileWriterMaxOpenFiles;
     private final TypeManager typeManager;
@@ -63,7 +63,6 @@ public class IcebergPageSinkProvider
             JsonCodec<CommitTaskData> jsonCodec,
             IcebergFileWriterFactory fileWriterFactory,
             PageIndexerFactory pageIndexerFactory,
-            IcebergConfig config,
             SortingFileWriterConfig sortingFileWriterConfig,
             TypeManager typeManager,
             PageSorter pageSorter)
@@ -72,7 +71,6 @@ public class IcebergPageSinkProvider
         this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
         this.fileWriterFactory = requireNonNull(fileWriterFactory, "fileWriterFactory is null");
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
-        this.maxOpenPartitions = config.getMaxPartitionsPerWriter();
         this.sortingFileWriterBufferSize = sortingFileWriterConfig.getWriterSortBufferSize();
         this.sortingFileWriterMaxOpenFiles = sortingFileWriterConfig.getMaxOpenSortFiles();
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -93,24 +91,24 @@ public class IcebergPageSinkProvider
 
     private ConnectorPageSink createPageSink(ConnectorSession session, IcebergWritableTableHandle tableHandle)
     {
-        Schema schema = SchemaParser.fromJson(tableHandle.getSchemaAsJson());
-        String partitionSpecJson = tableHandle.getPartitionsSpecsAsJson().get(tableHandle.getPartitionSpecId());
+        Schema schema = SchemaParser.fromJson(tableHandle.schemaAsJson());
+        String partitionSpecJson = tableHandle.partitionsSpecsAsJson().get(tableHandle.partitionSpecId());
         PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, partitionSpecJson);
-        LocationProvider locationProvider = getLocationProvider(tableHandle.getName(), tableHandle.getOutputPath(), tableHandle.getStorageProperties());
+        LocationProvider locationProvider = getLocationProvider(tableHandle.name(), tableHandle.outputPath(), tableHandle.storageProperties());
         return new IcebergPageSink(
                 schema,
                 partitionSpec,
                 locationProvider,
                 fileWriterFactory,
                 pageIndexerFactory,
-                fileSystemFactory.create(session.getIdentity(), tableHandle.getFileIoProperties()),
-                tableHandle.getInputColumns(),
+                fileSystemFactory.create(session.getIdentity(), tableHandle.fileIoProperties()),
+                tableHandle.inputColumns(),
                 jsonCodec,
                 session,
-                tableHandle.getFileFormat(),
-                tableHandle.getStorageProperties(),
-                maxOpenPartitions,
-                tableHandle.getSortOrder(),
+                tableHandle.fileFormat(),
+                tableHandle.storageProperties(),
+                maxPartitionsPerWriter(session),
+                tableHandle.sortOrder(),
                 sortingFileWriterBufferSize,
                 sortingFileWriterMaxOpenFiles,
                 typeManager,
@@ -140,15 +138,19 @@ public class IcebergPageSinkProvider
                         session,
                         optimizeHandle.fileFormat(),
                         optimizeHandle.tableStorageProperties(),
-                        maxOpenPartitions,
+                        maxPartitionsPerWriter(session),
                         optimizeHandle.sortOrder(),
                         sortingFileWriterBufferSize,
                         sortingFileWriterMaxOpenFiles,
                         typeManager,
                         pageSorter);
+            case OPTIMIZE_MANIFESTS:
             case DROP_EXTENDED_STATS:
+            case ROLLBACK_TO_SNAPSHOT:
             case EXPIRE_SNAPSHOTS:
             case REMOVE_ORPHAN_FILES:
+            case ADD_FILES:
+            case ADD_FILES_FROM_TABLE:
                 // handled via ConnectorMetadata.executeTableExecute
         }
         throw new IllegalArgumentException("Unknown procedure: " + executeHandle.procedureId());
@@ -159,22 +161,22 @@ public class IcebergPageSinkProvider
     {
         IcebergMergeTableHandle merge = (IcebergMergeTableHandle) mergeHandle;
         IcebergWritableTableHandle tableHandle = merge.getInsertTableHandle();
-        LocationProvider locationProvider = getLocationProvider(tableHandle.getName(), tableHandle.getOutputPath(), tableHandle.getStorageProperties());
-        Schema schema = SchemaParser.fromJson(tableHandle.getSchemaAsJson());
-        Map<Integer, PartitionSpec> partitionsSpecs = transformValues(tableHandle.getPartitionsSpecsAsJson(), json -> PartitionSpecParser.fromJson(schema, json));
+        LocationProvider locationProvider = getLocationProvider(tableHandle.name(), tableHandle.outputPath(), tableHandle.storageProperties());
+        Schema schema = SchemaParser.fromJson(tableHandle.schemaAsJson());
+        Map<Integer, PartitionSpec> partitionsSpecs = transformValues(tableHandle.partitionsSpecsAsJson(), json -> PartitionSpecParser.fromJson(schema, json));
         ConnectorPageSink pageSink = createPageSink(session, tableHandle);
 
         return new IcebergMergeSink(
                 locationProvider,
                 fileWriterFactory,
-                fileSystemFactory.create(session.getIdentity(), tableHandle.getFileIoProperties()),
+                fileSystemFactory.create(session.getIdentity(), tableHandle.fileIoProperties()),
                 jsonCodec,
                 session,
-                tableHandle.getFileFormat(),
-                tableHandle.getStorageProperties(),
+                tableHandle.fileFormat(),
+                tableHandle.storageProperties(),
                 schema,
                 partitionsSpecs,
                 pageSink,
-                tableHandle.getInputColumns().size());
+                schema.columns().size());
     }
 }

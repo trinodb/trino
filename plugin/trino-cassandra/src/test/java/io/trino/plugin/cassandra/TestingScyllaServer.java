@@ -34,7 +34,6 @@ import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.PROTOC
 import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.REQUEST_TIMEOUT;
 import static io.trino.plugin.cassandra.CassandraTestingUtils.CASSANDRA_TYPE_MANAGER;
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -53,13 +52,12 @@ public class TestingScyllaServer
 
     public TestingScyllaServer()
     {
-        this("2.2.0");
+        this("6.2");
     }
 
     public TestingScyllaServer(String version)
     {
         container = new GenericContainer<>("scylladb/scylla:" + version)
-                .withCommand("--smp", "1") // Limit SMP to run in a machine having many cores https://github.com/scylladb/scylla/issues/5638
                 .withExposedPorts(PORT);
         container.start();
 
@@ -85,7 +83,7 @@ public class TestingScyllaServer
 
     public CassandraSession getSession()
     {
-        return requireNonNull(session, "session is null");
+        return session;
     }
 
     public String getHost()
@@ -131,9 +129,7 @@ public class TestingScyllaServer
     @Override
     public void close()
     {
-        if (session != null) {
-            session.close();
-        }
+        session.close();
         container.close();
     }
 }

@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -29,11 +28,6 @@ public class QuantifiedPattern
     private final PatternQuantifier patternQuantifier;
 
     public QuantifiedPattern(NodeLocation location, RowPattern pattern, PatternQuantifier patternQuantifier)
-    {
-        this(Optional.of(location), pattern, patternQuantifier);
-    }
-
-    private QuantifiedPattern(Optional<NodeLocation> location, RowPattern pattern, PatternQuantifier patternQuantifier)
     {
         super(location);
         this.pattern = requireNonNull(pattern, "pattern is null");

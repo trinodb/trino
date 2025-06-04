@@ -15,18 +15,28 @@ package io.trino.plugin.iceberg.catalog.nessie;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.plugin.iceberg.BaseIcebergConnectorSmokeTest;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.plugin.iceberg.SchemaInitializer;
 import io.trino.plugin.iceberg.containers.NessieContainer;
+import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.tpch.TpchTable;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.iceberg.BaseTable;
+import org.apache.iceberg.TableMetadata;
+import org.apache.iceberg.TableMetadataParser;
+import org.apache.iceberg.catalog.TableIdentifier;
+import org.apache.iceberg.io.FileIO;
+import org.apache.iceberg.nessie.NessieCatalog;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -37,17 +47,25 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkOrcFileSorting;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
+import static org.apache.iceberg.CatalogProperties.CATALOG_IMPL;
+import static org.apache.iceberg.CatalogProperties.URI;
+import static org.apache.iceberg.CatalogProperties.WAREHOUSE_LOCATION;
+import static org.apache.iceberg.CatalogUtil.buildIcebergCatalog;
 import static org.apache.iceberg.FileFormat.PARQUET;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.Assumptions.abort;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 @TestInstance(PER_CLASS)
+@Execution(SAME_THREAD)
 public class TestIcebergNessieCatalogConnectorSmokeTest
         extends BaseIcebergConnectorSmokeTest
 {
     private Path tempDir;
+    private NessieCatalog catalog;
 
     public TestIcebergNessieCatalogConnectorSmokeTest()
     {
@@ -70,6 +88,13 @@ public class TestIcebergNessieCatalogConnectorSmokeTest
 
         tempDir = Files.createTempDirectory("test_trino_nessie_catalog");
 
+        catalog = (NessieCatalog) buildIcebergCatalog("tpch", ImmutableMap.<String, String>builder()
+                        .put(CATALOG_IMPL, NessieCatalog.class.getName())
+                        .put(URI, nessieContainer.getRestApiUri())
+                        .put(WAREHOUSE_LOCATION, tempDir.toString())
+                        .buildOrThrow(),
+                new Configuration(false));
+
         return IcebergQueryRunner.builder()
                 .setBaseDataDir(Optional.of(tempDir))
                 .setIcebergProperties(
@@ -78,7 +103,8 @@ public class TestIcebergNessieCatalogConnectorSmokeTest
                                 "iceberg.catalog.type", "nessie",
                                 "iceberg.nessie-catalog.uri", nessieContainer.getRestApiUri(),
                                 "iceberg.nessie-catalog.default-warehouse-dir", tempDir.toString(),
-                                "iceberg.writer-sort-buffer-size", "1MB"))
+                                "iceberg.writer-sort-buffer-size", "1MB",
+                                "iceberg.allowed-extra-properties", "write.metadata.delete-after-commit.enabled,write.metadata.previous-versions-max"))
                 .setSchemaInitializer(
                         SchemaInitializer.builder()
                                 .withClonedTpchTables(ImmutableList.<TpchTable<?>>builder()
@@ -121,13 +147,6 @@ public class TestIcebergNessieCatalogConnectorSmokeTest
                 .hasStackTraceContaining("renameNamespace is not supported for Iceberg Nessie catalogs");
     }
 
-    @Test
-    @Override
-    public void testDeleteRowsConcurrently()
-    {
-        abort("skipped for now due to flakiness");
-    }
-
     @Override
     protected void dropTableFromMetastore(String tableName)
     {
@@ -137,8 +156,8 @@ public class TestIcebergNessieCatalogConnectorSmokeTest
     @Override
     protected String getMetadataLocation(String tableName)
     {
-        // used when registering a table, which is not supported by the Nessie catalog
-        throw new UnsupportedOperationException("metadata location for register_table is not supported");
+        BaseTable table = (BaseTable) catalog.loadTable(TableIdentifier.of("tpch", tableName));
+        return table.operations().current().metadataFileLocation();
     }
 
     @Test
@@ -194,7 +213,7 @@ public class TestIcebergNessieCatalogConnectorSmokeTest
     public void testRegisterTableWithMetadataFile()
     {
         assertThatThrownBy(super::testRegisterTableWithMetadataFile)
-                .hasMessageContaining("metadata location for register_table is not supported");
+                .hasMessageContaining("register_table procedure is disabled");
     }
 
     @Test
@@ -240,25 +259,110 @@ public class TestIcebergNessieCatalogConnectorSmokeTest
     @Test
     @Override
     public void testDropTableWithMissingMetadataFile()
+            throws Exception
     {
-        assertThatThrownBy(super::testDropTableWithMissingMetadataFile)
-                .hasMessageMatching("metadata location for register_table is not supported");
+        String tableName = "test_drop_table_with_missing_metadata_file_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 x, 'INDIA' y", 1);
+
+        Location metadataLocation = Location.of(getMetadataLocation(tableName));
+        Location tableLocation = Location.of(getTableLocation(tableName));
+
+        // Delete current metadata file
+        fileSystem.deleteFile(metadataLocation);
+        assertThat(fileSystem.newInputFile(metadataLocation).exists())
+                .describedAs("Current metadata file should not exist")
+                .isFalse();
+
+        // try to drop table
+        assertUpdate("DROP TABLE " + tableName);
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+        assertThat(fileSystem.listFiles(tableLocation).hasNext())
+                .describedAs("Table location should exist")
+                .isTrue();
     }
 
     @Test
     @Override
     public void testDropTableWithMissingSnapshotFile()
+            throws Exception
     {
-        assertThatThrownBy(super::testDropTableWithMissingSnapshotFile)
-                .hasMessageMatching("metadata location for register_table is not supported");
+        String tableName = "test_drop_table_with_missing_snapshot_file_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 x, 'INDIA' y", 1);
+
+        String metadataLocation = getMetadataLocation(tableName);
+        TableMetadata tableMetadata = TableMetadataParser.read(new ForwardingFileIo(fileSystem), metadataLocation);
+        Location tableLocation = Location.of(tableMetadata.location());
+        Location currentSnapshotFile = Location.of(tableMetadata.currentSnapshot().manifestListLocation());
+
+        // Delete current snapshot file
+        fileSystem.deleteFile(currentSnapshotFile);
+        assertThat(fileSystem.newInputFile(currentSnapshotFile).exists())
+                .describedAs("Current snapshot file should not exist")
+                .isFalse();
+
+        // try to drop table
+        assertUpdate("DROP TABLE " + tableName);
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+        assertThat(fileSystem.listFiles(tableLocation).hasNext())
+                .describedAs("Table location should exist")
+                .isTrue();
     }
 
     @Test
     @Override
     public void testDropTableWithMissingManifestListFile()
+            throws Exception
     {
-        assertThatThrownBy(super::testDropTableWithMissingManifestListFile)
-                .hasMessageContaining("metadata location for register_table is not supported");
+        String tableName = "test_drop_table_with_missing_manifest_list_file_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 x, 'INDIA' y", 1);
+
+        String metadataLocation = getMetadataLocation(tableName);
+        FileIO fileIo = new ForwardingFileIo(fileSystem);
+        TableMetadata tableMetadata = TableMetadataParser.read(fileIo, metadataLocation);
+        Location tableLocation = Location.of(tableMetadata.location());
+        Location manifestListFile = Location.of(tableMetadata.currentSnapshot().allManifests(fileIo).get(0).path());
+
+        // Delete Manifest List file
+        fileSystem.deleteFile(manifestListFile);
+        assertThat(fileSystem.newInputFile(manifestListFile).exists())
+                .describedAs("Manifest list file should not exist")
+                .isFalse();
+
+        // try to drop table
+        assertUpdate("DROP TABLE " + tableName);
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+        assertThat(fileSystem.listFiles(tableLocation).hasNext())
+                .describedAs("Table location should exist")
+                .isTrue();
+    }
+
+    @Test
+    @Override
+    public void testDropTableWithMissingDataFile()
+            throws Exception
+    {
+        String tableName = "test_drop_table_with_missing_data_file_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 x, 'INDIA' y", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (2, 'POLAND')", 1);
+
+        Location tableLocation = Location.of(getTableLocation(tableName));
+        Location tableDataPath = tableLocation.appendPath("data");
+        FileIterator fileIterator = fileSystem.listFiles(tableDataPath);
+        assertThat(fileIterator.hasNext()).isTrue();
+        Location dataFile = fileIterator.next().location();
+
+        // Delete data file
+        fileSystem.deleteFile(dataFile);
+        assertThat(fileSystem.newInputFile(dataFile).exists())
+                .describedAs("Data file should not exist")
+                .isFalse();
+
+        // try to drop table
+        assertUpdate("DROP TABLE " + tableName);
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+        assertThat(fileSystem.listFiles(tableLocation).hasNext())
+                .describedAs("Table location should exist")
+                .isTrue();
     }
 
     @Override

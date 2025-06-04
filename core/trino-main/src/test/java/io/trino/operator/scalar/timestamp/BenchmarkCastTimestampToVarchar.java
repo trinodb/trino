@@ -23,6 +23,7 @@ import io.trino.operator.scalar.timestamptz.TimestampWithTimeZoneToTimestampWith
 import io.trino.operator.scalar.timetz.TimeWithTimeZoneToTimeWithTimeZoneCast;
 import io.trino.spi.Page;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.LongTimeWithTimeZone;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
@@ -73,7 +74,7 @@ public class BenchmarkCastTimestampToVarchar
     @Benchmark
     public List<Optional<Page>> benchmarkCastToVarchar(BenchmarkData data)
     {
-        return ImmutableList.copyOf(data.pageProcessor.process(SESSION, data.yieldSignal, data.localMemoryContext, data.page));
+        return ImmutableList.copyOf(data.pageProcessor.process(SESSION, data.yieldSignal, data.localMemoryContext, SourcePage.create(data.page)));
     }
 
     @State(Scope.Thread)
@@ -134,7 +135,7 @@ public class BenchmarkCastTimestampToVarchar
 
         private static Page createTimePage(Random random, TimeType timeType)
         {
-            BlockBuilder builder = timeType.createBlockBuilder(null, POSITIONS_PER_PAGE);
+            BlockBuilder builder = timeType.createFixedSizeBlockBuilder(POSITIONS_PER_PAGE);
             for (int i = 0; i < POSITIONS_PER_PAGE; i++) {
                 timeType.writeLong(builder, SqlTime.newInstance(12, random.nextLong(PICOSECONDS_PER_DAY)).roundTo(timeType.getPrecision()).getPicos());
             }
@@ -143,7 +144,7 @@ public class BenchmarkCastTimestampToVarchar
 
         private static Page createTimeTzPage(Random random, TimeWithTimeZoneType timeTzType)
         {
-            BlockBuilder builder = timeTzType.createBlockBuilder(null, POSITIONS_PER_PAGE);
+            BlockBuilder builder = timeTzType.createFixedSizeBlockBuilder(POSITIONS_PER_PAGE);
             for (int i = 0; i < POSITIONS_PER_PAGE; i++) {
                 LongTimeWithTimeZone value = new LongTimeWithTimeZone(random.nextLong(PICOSECONDS_PER_DAY), 0);
                 if (timeTzType.isShort()) {
@@ -158,7 +159,7 @@ public class BenchmarkCastTimestampToVarchar
 
         private static Page createTimestampPage(Random random, TimestampType timestampType)
         {
-            BlockBuilder builder = timestampType.createBlockBuilder(null, POSITIONS_PER_PAGE);
+            BlockBuilder builder = timestampType.createFixedSizeBlockBuilder(POSITIONS_PER_PAGE);
             for (int i = 0; i < POSITIONS_PER_PAGE; i++) {
                 LongTimestamp value = BenchmarkDataGenerator.randomTimestamp(random);
                 if (timestampType.isShort()) {
@@ -173,7 +174,7 @@ public class BenchmarkCastTimestampToVarchar
 
         private static Page createTimestampTzPage(Random random, TimestampWithTimeZoneType timestampTzType)
         {
-            BlockBuilder builder = timestampTzType.createBlockBuilder(null, POSITIONS_PER_PAGE);
+            BlockBuilder builder = timestampTzType.createFixedSizeBlockBuilder(POSITIONS_PER_PAGE);
             for (int i = 0; i < POSITIONS_PER_PAGE; i++) {
                 long epochMillis = random.nextLong(1L << 11); // must stay within bounds of what short timestamps with time zones can support
                 int picosFraction = random.nextInt(PICOSECONDS_PER_MILLISECOND);

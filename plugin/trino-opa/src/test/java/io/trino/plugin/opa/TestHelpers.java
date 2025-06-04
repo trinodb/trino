@@ -17,6 +17,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.opa.HttpClientUtils.InstrumentedHttpClient;
 import io.trino.plugin.opa.HttpClientUtils.MockResponse;
+import io.trino.spi.connector.ColumnSchema;
+import io.trino.spi.type.VarcharType;
 
 import java.net.URI;
 import java.util.Map;
@@ -24,6 +26,7 @@ import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.net.MediaType.JSON_UTF_8;
 import static io.trino.plugin.opa.TestConstants.BAD_REQUEST_RESPONSE;
 import static io.trino.plugin.opa.TestConstants.MALFORMED_RESPONSE;
@@ -60,7 +63,18 @@ public final class TestHelpers
             Class<? extends OpaQueryException> expectedException,
             String expectedErrorMessage)
     {
-        InstrumentedHttpClient httpClient = createMockHttpClient(expectedUri, request -> response);
+        assertAccessControlMethodThrowsForResponseHandler(request -> response, expectedUri, opaConfig, methodToTest, expectedException, expectedErrorMessage);
+    }
+
+    public static void assertAccessControlMethodThrowsForResponseHandler(
+            Function<JsonNode, MockResponse> handler,
+            URI expectedUri,
+            OpaConfig opaConfig,
+            Consumer<OpaAccessControl> methodToTest,
+            Class<? extends OpaQueryException> expectedException,
+            String expectedErrorMessage)
+    {
+        InstrumentedHttpClient httpClient = createMockHttpClient(expectedUri, handler);
         assertThatThrownBy(() -> methodToTest.accept(createOpaAuthorizer(opaConfig, httpClient)))
                 .isInstanceOf(expectedException)
                 .hasMessageContaining(expectedErrorMessage);
@@ -77,7 +91,22 @@ public final class TestHelpers
         config.getOpaBatchUri().ifPresent(batchUri -> configBuilder.put("opa.policy.batched-uri", batchUri.toString()));
         config.getOpaRowFiltersUri().ifPresent(rowFiltersUri -> configBuilder.put("opa.policy.row-filters-uri", rowFiltersUri.toString()));
         config.getOpaColumnMaskingUri().ifPresent(columnMaskingUri -> configBuilder.put("opa.policy.column-masking-uri", columnMaskingUri.toString()));
+        config.getOpaBatchColumnMaskingUri().ifPresent(batchColumnMaskingUri -> configBuilder.put("opa.policy.batch-column-masking-uri", batchColumnMaskingUri.toString()));
         return configBuilder.buildOrThrow();
+    }
+
+    public static ColumnSchema createColumnSchema(String columnName)
+    {
+        return ColumnSchema.builder().setName(columnName).setType(VarcharType.VARCHAR).build();
+    }
+
+    public static Function<JsonNode, MockResponse> createResponseHandlerForParallelColumnMasking(Map<ColumnSchema, MockResponse> columnNameResponseMapping)
+    {
+        Map<String, MockResponse> responseMap = columnNameResponseMapping.entrySet().stream().collect(toImmutableMap(entry -> entry.getKey().getName(), Map.Entry::getValue));
+        return parsedRequest -> {
+            String columnName = parsedRequest.at("/input/action/resource/column/columnName").asText();
+            return responseMap.getOrDefault(columnName, new MockResponse("{}", 200));
+        };
     }
 
     private static void runIllegalResponseTestCases(Consumer<OpaAccessControl> methodToTest, OpaConfig opaConfig, URI expectedUri)

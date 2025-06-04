@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.Optional;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
@@ -44,6 +45,7 @@ public class TestGcsFileSystemConfig
                 .setPageSize(100)
                 .setBatchSize(100)
                 .setProjectId(null)
+                .setEndpoint(Optional.empty())
                 .setUseGcsAccessToken(false)
                 .setJsonKey(null)
                 .setJsonKeyFilePath(null)
@@ -51,7 +53,8 @@ public class TestGcsFileSystemConfig
                 .setBackoffScaleFactor(3.0)
                 .setMaxRetryTime(new Duration(25, SECONDS))
                 .setMinBackoffDelay(new Duration(10, MILLISECONDS))
-                .setMaxBackoffDelay(new Duration(2000, MILLISECONDS)));
+                .setMaxBackoffDelay(new Duration(2000, MILLISECONDS))
+                .setApplicationId("Trino"));
     }
 
     @Test
@@ -66,6 +69,7 @@ public class TestGcsFileSystemConfig
                 .put("gcs.page-size", "10")
                 .put("gcs.batch-size", "11")
                 .put("gcs.project-id", "project")
+                .put("gcs.endpoint", "http://custom.dns.org:8000")
                 .put("gcs.use-access-token", "true")
                 .put("gcs.json-key", "{}")
                 .put("gcs.json-key-file-path", jsonKeyFile.toString())
@@ -74,6 +78,7 @@ public class TestGcsFileSystemConfig
                 .put("gcs.client.max-retry-time", "10s")
                 .put("gcs.client.min-backoff-delay", "20ms")
                 .put("gcs.client.max-backoff-delay", "20ms")
+                .put("gcs.application-id", "application id")
                 .buildOrThrow();
 
         GcsFileSystemConfig expected = new GcsFileSystemConfig()
@@ -82,6 +87,7 @@ public class TestGcsFileSystemConfig
                 .setPageSize(10)
                 .setBatchSize(11)
                 .setProjectId("project")
+                .setEndpoint(Optional.of("http://custom.dns.org:8000"))
                 .setUseGcsAccessToken(true)
                 .setJsonKey("{}")
                 .setJsonKeyFilePath(jsonKeyFile.toString())
@@ -89,7 +95,8 @@ public class TestGcsFileSystemConfig
                 .setBackoffScaleFactor(4.0)
                 .setMaxRetryTime(new Duration(10, SECONDS))
                 .setMinBackoffDelay(new Duration(20, MILLISECONDS))
-                .setMaxBackoffDelay(new Duration(20, MILLISECONDS));
+                .setMaxBackoffDelay(new Duration(20, MILLISECONDS))
+                .setApplicationId("application id");
         assertFullMapping(properties, expected);
     }
 

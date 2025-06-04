@@ -37,7 +37,7 @@ public class TestDisjointSet
         for (int i = 0; i < 100; i++) {
             assertThat(disjoint.find(i).intValue()).isEqualTo(i);
         }
-        assertThat(disjoint.getEquivalentClasses().size()).isEqualTo(100);
+        assertThat(disjoint.getEquivalentClasses()).hasSize(100);
     }
 
     @Test
@@ -64,8 +64,8 @@ public class TestDisjointSet
             }
         }
         Collection<Set<Integer>> equivalentClasses = disjoint.getEquivalentClasses();
-        assertThat(equivalentClasses.size()).isEqualTo(1);
-        assertThat(Iterables.getOnlyElement(equivalentClasses).size()).isEqualTo(101);
+        assertThat(equivalentClasses).hasSize(1);
+        assertThat(Iterables.getOnlyElement(equivalentClasses)).hasSize(101);
     }
 
     @Test
@@ -92,8 +92,8 @@ public class TestDisjointSet
             }
         }
         Collection<Set<Integer>> equivalentClasses = disjoint.getEquivalentClasses();
-        assertThat(equivalentClasses.size()).isEqualTo(1);
-        assertThat(Iterables.getOnlyElement(equivalentClasses).size()).isEqualTo(101);
+        assertThat(equivalentClasses).hasSize(1);
+        assertThat(Iterables.getOnlyElement(equivalentClasses)).hasSize(101);
     }
 
     @Test
@@ -121,8 +121,8 @@ public class TestDisjointSet
             }
         }
         Collection<Set<Integer>> equivalentClasses = disjoint.getEquivalentClasses();
-        assertThat(equivalentClasses.size()).isEqualTo(4);
-        equivalentClasses.forEach(equivalentClass -> assertThat(equivalentClass.size()).isEqualTo(25));
+        assertThat(equivalentClasses).hasSize(4);
+        equivalentClasses.forEach(equivalentClass -> assertThat(equivalentClass).hasSize(25));
     }
 
     @Test
@@ -145,7 +145,7 @@ public class TestDisjointSet
             if (newEquivalence) {
                 groupCount--;
             }
-            assertThat(disjoint.getEquivalentClasses().size()).isEqualTo(groupCount);
+            assertThat(disjoint.getEquivalentClasses()).hasSize(groupCount);
         }
     }
 }

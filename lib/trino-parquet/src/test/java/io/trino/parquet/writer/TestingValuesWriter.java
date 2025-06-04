@@ -13,16 +13,16 @@
  */
 package io.trino.parquet.writer;
 
+import io.trino.parquet.writer.valuewriter.ColumnDescriptorValuesWriter;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import org.apache.parquet.bytes.BytesInput;
 import org.apache.parquet.column.Encoding;
-import org.apache.parquet.column.values.ValuesWriter;
 
 import java.util.List;
 
 class TestingValuesWriter
-        extends ValuesWriter
+        implements ColumnDescriptorValuesWriter
 {
     private final IntList values = new IntArrayList();
 
@@ -57,15 +57,17 @@ class TestingValuesWriter
     }
 
     @Override
-    public String memUsageString(String prefix)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public void writeInteger(int v)
     {
         values.add(v);
+    }
+
+    @Override
+    public void writeRepeatInteger(int value, int valueRepetitions)
+    {
+        for (int i = 0; i < valueRepetitions; i++) {
+            values.add(value);
+        }
     }
 
     List<Integer> getWrittenValues()

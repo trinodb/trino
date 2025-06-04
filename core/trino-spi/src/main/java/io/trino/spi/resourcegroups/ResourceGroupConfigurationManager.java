@@ -33,7 +33,10 @@ public interface ResourceGroupConfigurationManager<C>
 {
     /**
      * Implementations may retain a reference to the group, and re-configure it asynchronously.
-     * This method is called, once, when the group is created.
+     * This method is called in two cases: when the group is created, and when it was previously
+     * disabled and is now reactivated. In the latter case, the reference passed to this method
+     * is the same as during creation, so implementations don’t need to invalidate retained
+     * references.
      */
     void configure(ResourceGroup group, SelectionContext<C> criteria);
 

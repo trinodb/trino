@@ -15,9 +15,9 @@ package io.trino.plugin.hive.projection;
 
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.hive.metastore.Column;
-import io.trino.plugin.hive.metastore.Partition;
-import io.trino.plugin.hive.metastore.Table;
+import io.trino.metastore.Column;
+import io.trino.metastore.Partition;
+import io.trino.metastore.Table;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 
@@ -33,9 +33,9 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.cartesianProduct;
+import static io.trino.metastore.Partitions.escapePathName;
+import static io.trino.metastore.Partitions.toPartitionValues;
 import static io.trino.plugin.hive.projection.InvalidProjectionException.invalidProjectionMessage;
-import static io.trino.plugin.hive.util.HiveUtil.escapePathName;
-import static io.trino.plugin.hive.util.HiveUtil.toPartitionValues;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -102,10 +102,18 @@ public final class PartitionProjection
                                         table.getPartitionColumns().stream()
                                                 .map(Column::getName).collect(Collectors.toList()),
                                         partitionValues))
-                                .orElseGet(() -> format("%s/%s/", table.getStorage().getLocation(), partitionName)))
+                                .orElseGet(() -> getPartitionLocation(table.getStorage().getLocation(), partitionName)))
                         .setBucketProperty(table.getStorage().getBucketProperty())
                         .setSerdeParameters(table.getStorage().getSerdeParameters()))
                 .build();
+    }
+
+    private static String getPartitionLocation(String tableLocation, String partitionName)
+    {
+        if (tableLocation.endsWith("/")) {
+            return format("%s%s/", tableLocation, partitionName);
+        }
+        return format("%s/%s/", tableLocation, partitionName);
     }
 
     private static String expandStorageLocationTemplate(String template, List<String> partitionColumns, List<String> partitionValues)

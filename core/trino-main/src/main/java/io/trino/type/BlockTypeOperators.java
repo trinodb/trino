@@ -49,7 +49,7 @@ public final class BlockTypeOperators
     private static final InvocationConvention BLOCK_EQUAL_CONVENTION = simpleConvention(DEFAULT_ON_NULL, BLOCK_POSITION, BLOCK_POSITION);
     private static final InvocationConvention HASH_CODE_CONVENTION = simpleConvention(FAIL_ON_NULL, BLOCK_POSITION);
     private static final InvocationConvention XX_HASH_64_CONVENTION = simpleConvention(FAIL_ON_NULL, BLOCK_POSITION);
-    private static final InvocationConvention IS_DISTINCT_FROM_CONVENTION = simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION);
+    private static final InvocationConvention IDENTICAL_CONVENTION = simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION);
     private static final InvocationConvention COMPARISON_CONVENTION = simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION);
     private static final InvocationConvention ORDERING_CONVENTION = simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION);
     private static final InvocationConvention LESS_THAN_CONVENTION = simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION);
@@ -120,14 +120,14 @@ public final class BlockTypeOperators
         long xxHash64(Block block, int position);
     }
 
-    public BlockPositionIsDistinctFrom getDistinctFromOperator(Type type)
+    public BlockPositionIsIdentical getIdenticalOperator(Type type)
     {
-        return getBlockOperator(type, BlockPositionIsDistinctFrom.class, () -> typeOperators.getDistinctFromOperator(type, IS_DISTINCT_FROM_CONVENTION));
+        return getBlockOperator(type, BlockPositionIsIdentical.class, () -> typeOperators.getIdenticalOperator(type, IDENTICAL_CONVENTION));
     }
 
-    public interface BlockPositionIsDistinctFrom
+    public interface BlockPositionIsIdentical
     {
-        boolean isDistinctFrom(Block left, int leftPosition, Block right, int rightPosition);
+        boolean isIdentical(Block left, int leftPosition, Block right, int rightPosition);
     }
 
     public BlockPositionComparison getComparisonUnorderedLastOperator(Type type)

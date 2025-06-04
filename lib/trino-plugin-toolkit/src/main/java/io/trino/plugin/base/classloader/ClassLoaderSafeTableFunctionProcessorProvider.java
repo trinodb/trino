@@ -38,7 +38,7 @@ public final class ClassLoaderSafeTableFunctionProcessorProvider
     @Override
     public TableFunctionDataProcessor getDataProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle)
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             return delegate.getDataProcessor(session, handle);
         }
     }
@@ -46,7 +46,7 @@ public final class ClassLoaderSafeTableFunctionProcessorProvider
     @Override
     public TableFunctionSplitProcessor getSplitProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle, ConnectorSplit split)
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             return delegate.getSplitProcessor(session, handle, split);
         }
     }

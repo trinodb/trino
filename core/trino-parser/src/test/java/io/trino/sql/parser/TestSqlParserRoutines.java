@@ -69,17 +69,20 @@ class TestSqlParserRoutines
         assertThat(functionSpecification("FUNCTION foo() RETURNS bigint RETURN 42"))
                 .ignoringLocation()
                 .isEqualTo(new FunctionSpecification(
+                        location(),
                         QualifiedName.of("foo"),
                         ImmutableList.of(),
                         returns(type("bigint")),
                         ImmutableList.of(),
-                        new ReturnStatement(location(), literal(42))));
+                        Optional.of(new ReturnStatement(location(), literal(42))),
+                        Optional.empty()));
     }
 
     @Test
     void testInlineFunction()
     {
-        assertThat(statement("""
+        assertThat(statement(
+                """
                 WITH
                   FUNCTION answer()
                   RETURNS BIGINT
@@ -89,18 +92,21 @@ class TestSqlParserRoutines
                 .ignoringLocation()
                 .isEqualTo(query(
                         new FunctionSpecification(
+                                location(),
                                 QualifiedName.of("answer"),
                                 ImmutableList.of(),
                                 returns(type("BIGINT")),
                                 ImmutableList.of(),
-                                new ReturnStatement(location(), literal(42))),
+                                Optional.of(new ReturnStatement(location(), literal(42))),
+                                Optional.empty()),
                         selectList(new FunctionCall(QualifiedName.of("answer"), ImmutableList.of()))));
     }
 
     @Test
     void testSimpleFunction()
     {
-        assertThat(statement("""
+        assertThat(statement(
+                """
                 CREATE FUNCTION hello(s VARCHAR)
                 RETURNS varchar
                 LANGUAGE SQL
@@ -112,47 +118,55 @@ class TestSqlParserRoutines
                 """))
                 .ignoringLocation()
                 .isEqualTo(new CreateFunction(
+                        location(),
                         new FunctionSpecification(
+                                location(),
                                 QualifiedName.of("hello"),
                                 ImmutableList.of(parameter("s", type("VARCHAR"))),
                                 returns(type("varchar")),
                                 ImmutableList.of(
-                                        new LanguageCharacteristic(identifier("SQL")),
-                                        new DeterministicCharacteristic(true),
+                                        new LanguageCharacteristic(location(), identifier("SQL")),
+                                        new DeterministicCharacteristic(location(), true),
                                         calledOnNullInput(),
-                                        new SecurityCharacteristic(INVOKER),
-                                        new CommentCharacteristic("hello world function")),
-                                new ReturnStatement(location(), functionCall(
+                                        new SecurityCharacteristic(location(), INVOKER),
+                                        new CommentCharacteristic(new NodeLocation(1, 1), "hello world function")),
+                                Optional.of(new ReturnStatement(location(), functionCall(
                                         "CONCAT",
                                         literal("Hello, "),
                                         identifier("s"),
                                         literal("!")))),
+                                Optional.empty()),
                         false));
     }
 
     @Test
     void testEmptyFunction()
     {
-        assertThat(statement("""
+        assertThat(statement(
+                """
                 CREATE OR REPLACE FUNCTION answer()
                 RETURNS bigint
                 RETURN 42
                 """))
                 .ignoringLocation()
                 .isEqualTo(new CreateFunction(
+                        location(),
                         new FunctionSpecification(
+                                location(),
                                 QualifiedName.of("answer"),
                                 ImmutableList.of(),
                                 returns(type("bigint")),
                                 ImmutableList.of(),
-                                new ReturnStatement(location(), literal(42))),
+                                Optional.of(new ReturnStatement(location(), literal(42))),
+                                Optional.empty()),
                         true));
     }
 
     @Test
     void testFibFunction()
     {
-        assertThat(statement("""
+        assertThat(statement(
+                """
                 CREATE FUNCTION fib(n bigint)
                 RETURNS bigint
                 BEGIN
@@ -173,12 +187,14 @@ class TestSqlParserRoutines
                 """))
                 .ignoringLocation()
                 .isEqualTo(new CreateFunction(
+                        location(),
                         new FunctionSpecification(
+                                location(),
                                 QualifiedName.of("fib"),
                                 ImmutableList.of(parameter("n", type("bigint"))),
                                 returns(type("bigint")),
                                 ImmutableList.of(),
-                                beginEnd(
+                                Optional.of(beginEnd(
                                         ImmutableList.of(
                                                 declare("a", type("bigint"), literal(1)),
                                                 declare("b", type("bigint"), literal(1)),
@@ -199,13 +215,15 @@ class TestSqlParserRoutines
                                                         assign("a", identifier("b")),
                                                         assign("b", identifier("c")))),
                                         new ReturnStatement(location(), identifier("c")))),
+                                Optional.empty()),
                         false));
     }
 
     @Test
     void testFunctionWithIfElseIf()
     {
-        assertThat(statement("""
+        assertThat(statement(
+                """
                 CREATE FUNCTION CustomerLevel(p_creditLimit DOUBLE)
                 RETURNS varchar
                 RETURNS NULL ON NULL INPUT
@@ -224,14 +242,16 @@ class TestSqlParserRoutines
                 """))
                 .ignoringLocation()
                 .isEqualTo(new CreateFunction(
+                        location(),
                         new FunctionSpecification(
+                                location(),
                                 QualifiedName.of("CustomerLevel"),
                                 ImmutableList.of(parameter("p_creditLimit", type("DOUBLE"))),
                                 returns(type("varchar")),
                                 ImmutableList.of(
                                         returnsNullOnNullInput(),
-                                        new SecurityCharacteristic(DEFINER)),
-                                beginEnd(
+                                        new SecurityCharacteristic(location(), DEFINER)),
+                                Optional.of(beginEnd(
                                         ImmutableList.of(declare("lvl", type("VarChar"))),
                                         new IfStatement(
                                                 location(),
@@ -246,6 +266,7 @@ class TestSqlParserRoutines
                                                                 assign("lvl", literal("SILVER")))),
                                                 Optional.empty()),
                                         new ReturnStatement(location(), identifier("lvl")))),
+                                Optional.empty()),
                         false));
     }
 
@@ -332,6 +353,7 @@ class TestSqlParserRoutines
     private static Query query(FunctionSpecification function, Select select)
     {
         return new Query(
+                ImmutableList.of(),
                 ImmutableList.of(function),
                 Optional.empty(),
                 new QuerySpecification(

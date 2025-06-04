@@ -38,7 +38,8 @@ public class TestAggregationsInRowPatternMatching
     public void testSimpleQuery()
     {
         // aggregation argument coerced to BIGINT
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 SELECT m.id, m.running_sum
                 FROM (VALUES
                          (1),
@@ -59,7 +60,8 @@ public class TestAggregationsInRowPatternMatching
                          DEFINE A AS true
                       ) AS m
                 """))
-                .matches("""
+                .matches(
+                        """
                         VALUES
                              (1, BIGINT '1'),
                              (2, 3),
@@ -71,7 +73,8 @@ public class TestAggregationsInRowPatternMatching
                              (8, 36)
                         """);
 
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 SELECT m.id, m.running_labels
                 FROM (VALUES
                          (1),
@@ -92,7 +95,8 @@ public class TestAggregationsInRowPatternMatching
                          DEFINE A AS true
                       ) AS m
                 """))
-                .matches("""
+                .matches(
+                        """
                         VALUES
                              (1, CAST(ARRAY['A'] AS array(varchar))),
                              (2, ARRAY['A', 'A']),
@@ -104,7 +108,8 @@ public class TestAggregationsInRowPatternMatching
                              (8, ARRAY['A', 'A', 'A', 'A', 'A', 'A', 'A', 'A'])
                         """);
 
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 SELECT m.id, m.running_labels
                 FROM (VALUES
                          (1),
@@ -126,7 +131,8 @@ public class TestAggregationsInRowPatternMatching
                          DEFINE M AS true
                       ) AS m
                 """))
-                .matches("""
+                .matches(
+                        """
                         VALUES
                              (1, CAST('m' AS varchar)),
                              (2, 'ma'),
@@ -143,7 +149,8 @@ public class TestAggregationsInRowPatternMatching
     public void testPartitioning()
     {
         // multiple partitions, unordered input. computing rolling sum for each partition
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 SELECT m.part as partition, m.id AS row_id, m.running_sum
                 FROM (VALUES
                          (1, 'p1', 1),
@@ -169,7 +176,8 @@ public class TestAggregationsInRowPatternMatching
                          DEFINE B AS true
                       ) AS m
                 """))
-                .matches("""
+                .matches(
+                        """
                         VALUES
                              ('p1', 1, BIGINT '1'),
                              ('p1', 2, 2),
@@ -186,7 +194,8 @@ public class TestAggregationsInRowPatternMatching
                         """);
 
         // multiple partitions, unordered input. multiple matches in each partition. computing rolling sum for each match
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 SELECT m.part as partition, m.match_no, m.id AS row_id, m.running_sum
                 FROM (VALUES
                    (1, 'p1', 1),
@@ -214,7 +223,8 @@ public class TestAggregationsInRowPatternMatching
                    DEFINE B AS true
                 ) AS m
                 """))
-                .matches("""
+                .matches(
+                        """
                         VALUES
                              ('p1', BIGINT '1', 1, BIGINT '1'),
                              ('p1', 1, 2, 2),
@@ -255,7 +265,8 @@ public class TestAggregationsInRowPatternMatching
     @Test
     public void testTentativeLabelMatch()
     {
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 SELECT m.id, m.classy, m.running_avg_B
                 FROM (VALUES
                          (1, 4),
@@ -273,14 +284,16 @@ public class TestAggregationsInRowPatternMatching
                          DEFINE A AS avg(B.value) = 5
                       ) AS m
                 """))
-                .matches("""
+                .matches(
+                        """
                         VALUES
                              (1, VARCHAR 'B', 4e0),
                              (2, 'B', 5e0),
                              (3, 'A', 5e0)
                         """);
 
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 SELECT m.id, m.classy, m.running_avg_A
                 FROM (VALUES
                          (1, 4),
@@ -299,7 +312,8 @@ public class TestAggregationsInRowPatternMatching
                     DEFINE A AS avg(A.value) = 5
                  ) AS m
                 """))
-                .matches("""
+                .matches(
+                        """
                         VALUES
                              (1, VARCHAR 'B', null),
                              (2, 'B', null),
@@ -308,7 +322,8 @@ public class TestAggregationsInRowPatternMatching
                         """);
 
         // need to drop the tentative match of label `A`.
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 SELECT m.part as partition, m.id AS row_id, m.running_sum
                 FROM (VALUES
                          (1, 'p1', 1),
@@ -334,7 +349,8 @@ public class TestAggregationsInRowPatternMatching
                     DEFINE A AS sum(value) > 1000
                  ) AS m
                 """))
-                .matches("""
+                .matches(
+                        """
                         VALUES
                              ('p1', 1, BIGINT '1'),
                              ('p1', 2, 2),
@@ -351,7 +367,8 @@ public class TestAggregationsInRowPatternMatching
                         """);
 
         // need to drop the tentative match of label `A`.
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 SELECT m.part as partition, m.id AS row_id, m.classy, m.running_sum
                 FROM (VALUES
                          (1, 'p1', 1),
@@ -377,7 +394,8 @@ public class TestAggregationsInRowPatternMatching
                     DEFINE A AS sum(value) > 4
                  ) AS m
                 """))
-                .matches("""
+                .matches(
+                        """
                         VALUES
                              ('p1', 1, VARCHAR 'B', BIGINT '1'),
                              ('p1', 2, 'B', 2),
@@ -392,7 +410,8 @@ public class TestAggregationsInRowPatternMatching
                         """);
 
         // need to drop the tentative match of label `A`.
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 SELECT m.part as partition, m.id AS row_id, m.running_sum
                 FROM (VALUES
                          (1, 'p1', 1),
@@ -418,7 +437,8 @@ public class TestAggregationsInRowPatternMatching
                     DEFINE A AS arbitrary(value) > 1000
                  ) AS m
                 """))
-                .matches("""
+                .matches(
+                        """
                         VALUES
                              ('p1', 1, BIGINT '1'),
                              ('p1', 2, 2),
@@ -435,7 +455,8 @@ public class TestAggregationsInRowPatternMatching
                         """);
 
         // need to drop the tentative match of label `A`.
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 SELECT m.part as partition, m.id AS row_id, m.classy, m.running_max
                 FROM (VALUES
                          (1, 'p1', 1),
@@ -461,7 +482,8 @@ public class TestAggregationsInRowPatternMatching
                     DEFINE A AS max(value) > 4
                  ) AS m
                 """))
-                .matches("""
+                .matches(
+                        """
                         VALUES
                              ('p1', 1, VARCHAR 'B', 1),
                              ('p1', 2, 'B', 2),
@@ -480,7 +502,8 @@ public class TestAggregationsInRowPatternMatching
     public void testTentativeLabelMatchWithRuntimeEvaluatedAggregationArgument()
     {
         // need to drop the tentative match of label `A`.
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 SELECT m.part as partition, m.id AS row_id, m.classy, m.running_max
                 FROM (VALUES
                          (1, 'p1', 1),
@@ -506,7 +529,8 @@ public class TestAggregationsInRowPatternMatching
                     DEFINE A AS max(value + MATCH_NUMBER()) > 5
                  ) AS m
                 """))
-                .matches("""
+                .matches(
+                        """
                         VALUES
                              ('p1', 1, VARCHAR 'B', 1),
                              ('p1', 2, 'B', 2),
@@ -525,7 +549,8 @@ public class TestAggregationsInRowPatternMatching
     public void testAggregationArguments()
     {
         // aggregation argument combining source data(`value`) and runtime-evaluated data (`CLASSIFIER()`)
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 SELECT m.part, m.id, m.measure
                 FROM (VALUES
                          ('p1', 1, 'a'),
@@ -551,7 +576,8 @@ public class TestAggregationsInRowPatternMatching
                     DEFINE X AS true
                  ) AS m
                 """))
-                .matches("""
+                .matches(
+                        """
                         VALUES
                              ('p1', 1, ARRAY[VARCHAR 'aX']),
                              ('p1', 2, ARRAY['aX', 'bY']),
@@ -568,7 +594,8 @@ public class TestAggregationsInRowPatternMatching
                         """);
 
         // duplicate input symbol (`value`) in runtime-evaluated aggregation argument
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 SELECT m.id, m.measure
                 FROM (VALUES
                          (1, 'a'),
@@ -584,7 +611,8 @@ public class TestAggregationsInRowPatternMatching
                     DEFINE X AS true
                  ) AS m
                 """))
-                .matches("""
+                .matches(
+                        """
                         VALUES
                              (1, ARRAY[VARCHAR 'aaX']),
                              (2, ARRAY['aaX', 'bbY']),
@@ -592,7 +620,8 @@ public class TestAggregationsInRowPatternMatching
                         """);
 
         // subquery in aggregation argument
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 SELECT m.id, m.measure_1, m.measure_2, m.measure_3
                 FROM (VALUES
                          (1, 'a'),
@@ -611,7 +640,8 @@ public class TestAggregationsInRowPatternMatching
                     DEFINE X AS true
                  ) AS m
                 """))
-                .matches("""
+                .matches(
+                        """
                         VALUES
                              (1, ARRAY[VARCHAR 'XY'], ARRAY[false], ARRAY[true]),
                              (2, ARRAY['XY', 'XY'], ARRAY[false, false], ARRAY[true, true]),
@@ -619,7 +649,8 @@ public class TestAggregationsInRowPatternMatching
                         """);
 
         // subquery in runtime-evaluated aggregation argument
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 SELECT m.id, m.measure_1, m.measure_2, m.measure_3
                 FROM (VALUES
                          (1, 'a'),
@@ -638,7 +669,8 @@ public class TestAggregationsInRowPatternMatching
                     DEFINE X AS true
                  ) AS m
                 """))
-                .matches("""
+                .matches(
+                        """
                         VALUES
                              (1, ARRAY[VARCHAR 'XA'], ARRAY[false], ARRAY[true]),
                              (2, ARRAY['XA', 'YA'], ARRAY[false, false], ARRAY[true, true]),
@@ -646,7 +678,8 @@ public class TestAggregationsInRowPatternMatching
                         """);
 
         // second argument of the aggregation is runtime-evaluated
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 SELECT m.id, m.measure
                 FROM (VALUES
                          (1, 'p'),
@@ -663,7 +696,8 @@ public class TestAggregationsInRowPatternMatching
                     DEFINE A AS true
                  ) AS m
                 """))
-                .matches("""
+                .matches(
+                        """
                         VALUES
                              (1, 'p'),
                              (2, 'q'),
@@ -676,7 +710,8 @@ public class TestAggregationsInRowPatternMatching
     public void testSelectiveAggregation()
     {
         // each of the aggregations is applied only to rows with labels (X, Z)
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 SELECT m.id, m.measure_1, m.measure_2, m.measure_3
                 FROM (VALUES
                          (1, 'a'),
@@ -697,7 +732,8 @@ public class TestAggregationsInRowPatternMatching
                     DEFINE X AS true
                  ) AS m
                 """))
-                .matches("""
+                .matches(
+                        """
                         VALUES
                              (1, ARRAY[1], ARRAY[VARCHAR 'X'], ARRAY[VARCHAR 'aX']),
                              (2, ARRAY[1], ARRAY['X'], ARRAY['aX']),
@@ -709,7 +745,8 @@ public class TestAggregationsInRowPatternMatching
     @Test
     public void testCountAggregation()
     {
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 SELECT m.id, m.measure_1, m.measure_2
                 FROM (VALUES
                          (1, 'a'),
@@ -728,7 +765,8 @@ public class TestAggregationsInRowPatternMatching
                     DEFINE X AS id > 1
                  ) AS m
                 """))
-                .matches("""
+                .matches(
+                        """
                         VALUES
                              (2, BIGINT '1', BIGINT '1'),
                              (3, 2, 2),
@@ -736,7 +774,8 @@ public class TestAggregationsInRowPatternMatching
                         """);
 
         // explicit RUNNING or FINAL semantics
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 SELECT m.id, m.measure_1, m.measure_2, m.measure_3, m.measure_4
                 FROM (VALUES
                          (1, 'a'),
@@ -757,7 +796,8 @@ public class TestAggregationsInRowPatternMatching
                     DEFINE A AS true
                  ) AS m
                 """))
-                .matches("""
+                .matches(
+                        """
                         VALUES
                              (1, BIGINT '1', BIGINT '4', BIGINT '1', BIGINT '4'),
                              (2, 2, 4, 2, 4),
@@ -765,7 +805,8 @@ public class TestAggregationsInRowPatternMatching
                              (4, 4, 4, 4, 4)
                         """);
 
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 SELECT m.id, m.measure_1, m.measure_2
                 FROM (VALUES
                          (1, 'a'),
@@ -785,7 +826,8 @@ public class TestAggregationsInRowPatternMatching
                     DEFINE A AS true
                  ) AS m
                 """))
-                .matches("""
+                .matches(
+                        """
                         VALUES
                              (1, BIGINT '0', BIGINT '0'),
                              (2, 0, 1),
@@ -801,7 +843,8 @@ public class TestAggregationsInRowPatternMatching
         // count non-null values in column `A`, in rows matched to label `A`
         // count non-null values in column `A`, regardless of matched label
         // count rows matched to label `A`
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 SELECT m.id, m.classy, m.measure_1, m.measure_2, m.measure_3
                 FROM (VALUES
                          (1, 'p'),
@@ -821,7 +864,8 @@ public class TestAggregationsInRowPatternMatching
                     DEFINE A AS true
                  ) AS m
                 """))
-                .matches("""
+                .matches(
+                        """
                         VALUES
                              (1, VARCHAR 'A', BIGINT '1', BIGINT '1', BIGINT '1'),
                              (2, 'B', 1, 2, 1),
@@ -833,7 +877,8 @@ public class TestAggregationsInRowPatternMatching
     @Test
     public void testOneRowPerMatch()
     {
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 SELECT m.part, m.measure
                 FROM (VALUES
                          ('p1', 1, 'a'),
@@ -859,7 +904,8 @@ public class TestAggregationsInRowPatternMatching
                     DEFINE X AS true
                  ) AS m
                 """))
-                .matches("""
+                .matches(
+                        """
                         VALUES
                              ('p1', ARRAY[VARCHAR 'aX', 'bY', 'cZ']),
                              ('p1', ARRAY['dX', 'eY', 'fZ']),
@@ -872,7 +918,8 @@ public class TestAggregationsInRowPatternMatching
     public void testSeek()
     {
         // in `measure_2`, the aggregation argument `value || CLASSIFIER()` is runtime-evaluated
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 SELECT part, id, measure_1 OVER w, measure_2 OVER w
                 FROM (VALUES
                          (1, 'p1', 'A'),
@@ -898,7 +945,8 @@ public class TestAggregationsInRowPatternMatching
                     PATTERN (X+)
                     DEFINE X AS X.value > 'B')
                 """))
-                .matches("""
+                .matches(
+                        """
                         VALUES
                              ('p1', 1, ARRAY['C', 'D', 'E'], ARRAY[VARCHAR 'CX', 'DX', 'EX']),
                              ('p1', 2, ARRAY['C', 'D', 'E'], ARRAY['CX', 'DX', 'EX']),
@@ -916,7 +964,8 @@ public class TestAggregationsInRowPatternMatching
     @Test
     public void testExclusions()
     {
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 SELECT m.part, m.measure_1, m.measure_2
                 FROM (VALUES
                          ('p1', 1, '1a'),
@@ -942,7 +991,8 @@ public class TestAggregationsInRowPatternMatching
                     DEFINE P AS id > 1
                  ) AS m
                 """))
-                .matches("""
+                .matches(
+                        """
                         VALUES
                              ('p1', ARRAY['1b'], ARRAY[VARCHAR '1bP']),
                              ('p1', ARRAY['1b', '1c', '1d', '1e'], ARRAY['1bP', '1cQ', '1dR', '1eS']),
@@ -954,7 +1004,8 @@ public class TestAggregationsInRowPatternMatching
     @Test
     public void testBalancingSums()
     {
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 SELECT m.id, m.classy, m.running_sum_A, m.running_sum_B
                 FROM (VALUES
                          (1, 4),
@@ -979,7 +1030,8 @@ public class TestAggregationsInRowPatternMatching
                     DEFINE A AS sum(A.value) - A.value <= sum(B.value)
                  ) AS m
                 """))
-                .matches("""
+                .matches(
+                        """
                         VALUES
                              (1, VARCHAR 'B', null, BIGINT '4'),
                              (2, 'A', BIGINT '6', BIGINT '4'),
@@ -997,7 +1049,8 @@ public class TestAggregationsInRowPatternMatching
     public void testPeriodLength() //https://stackoverflow.com/questions/68448694/how-can-i-calculate-user-session-time-from-heart-beat-data-in-presto-sql
     {
         // D is for 1-element sequences; A B* C is for longer sequences
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 SELECT user_id, CAST(periods_total AS integer)
                 FROM (VALUES
                          (1, 3),
@@ -1019,7 +1072,8 @@ public class TestAggregationsInRowPatternMatching
                            B AS minute_of_the_day = PREV(minute_of_the_day) + 1,
                            C AS minute_of_the_day = PREV(minute_of_the_day) + 1)
                 """))
-                .matches("""
+                .matches(
+                        """
                         VALUES
                              (1, 3),
                              (2, 2)
@@ -1030,7 +1084,8 @@ public class TestAggregationsInRowPatternMatching
     public void testSetPartitioning()
     {
         // partition into 2 subsets of equal sums
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 SELECT m.id, m.running_labels
                 FROM (VALUES (1), (2), (3), (4), (5), (6), (7), (8)) t(id)
                   MATCH_RECOGNIZE (
@@ -1044,7 +1099,8 @@ public class TestAggregationsInRowPatternMatching
                             LAST_B AS sum(B.id) + id = sum(A.id)
                  ) AS m
                 """))
-                .matches("""
+                .matches(
+                        """
                         VALUES
                              (1, CAST(ARRAY['A'] AS array(varchar))),
                              (2, ARRAY['A', 'A']),
@@ -1057,7 +1113,8 @@ public class TestAggregationsInRowPatternMatching
                         """);
 
         // partition into 3 subsets of equal sums
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 SELECT m.id, m.running_labels
                 FROM (VALUES (1), (2), (3), (4), (5), (6)) t(id)
                   MATCH_RECOGNIZE (
@@ -1072,7 +1129,8 @@ public class TestAggregationsInRowPatternMatching
                             LAST_C AS sum(C.id) + id = sum(A.id)  AND sum(A.id) = sum(B.id)
                  ) AS m
                 """))
-                .matches("""
+                .matches(
+                        """
                         VALUES
                              (1, CAST(ARRAY['A'] AS array(varchar))),
                              (2, ARRAY['A', 'B']),
@@ -1087,7 +1145,8 @@ public class TestAggregationsInRowPatternMatching
     public void testForkingThreads()
     {
         // at each step of matching, the threads are forked because of the alternation. every thread is validated at the final step by the defining condition for label `X`
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 SELECT m.id, m.running_labels
                 FROM (VALUES (1), (2), (3), (4)) t(id)
                   MATCH_RECOGNIZE (
@@ -1099,7 +1158,8 @@ public class TestAggregationsInRowPatternMatching
                     DEFINE X AS array_agg(CLASSIFIER()) = ARRAY['C', 'A', 'B', 'X']
                  ) AS m
                 """))
-                .matches("""
+                .matches(
+                        """
                         VALUES
                              (1, CAST(ARRAY['C'] AS array(varchar))),
                              (2, ARRAY['C', 'A']),
@@ -1112,7 +1172,8 @@ public class TestAggregationsInRowPatternMatching
     public void testMultipleAggregationsInDefine()
     {
         // the defining conditions for `A` and `B` involve two aggregations each, and all of the aggregations have runtime-evaluated arguments (dependent on `CLASSIFIER` or `MATCH_NUMBER`)
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 SELECT m.match_no, m.labels
                 FROM (VALUES (1), (2), (3), (4), (5), (6), (7), (8)) t(id)
                   MATCH_RECOGNIZE (
@@ -1128,7 +1189,8 @@ public class TestAggregationsInRowPatternMatching
                             B AS min(lower(CLASSIFIER())) = 'b' OR min(MATCH_NUMBER() + 100) < 0
                  ) AS m
                 """))
-                .matches("""
+                .matches(
+                        """
                         VALUES
                              (BIGINT '1', CAST(ARRAY['B', 'B', 'B', 'A'] AS array(varchar))),
                              (2, ARRAY['B', 'A', 'A', 'A'])
@@ -1139,7 +1201,8 @@ public class TestAggregationsInRowPatternMatching
     public void testRunningAndFinalAggregations()
     {
         // all aggregations in `MEASURES` have runtime-evaluated arguments (dependent on `CLASSIFIER` or `MATCH_NUMBER`)
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 SELECT m.id, m.match, m.running_labels, m.final_labels, m.running_match, m.final_match
                 FROM (VALUES (1), (2), (3), (4), (5), (6), (7), (8)) t(id)
                   MATCH_RECOGNIZE (
@@ -1156,7 +1219,8 @@ public class TestAggregationsInRowPatternMatching
                     DEFINE A AS true
                  ) AS m
                 """))
-                .matches("""
+                .matches(
+                        """
                         VALUES
                              (1, BIGINT '1', CAST(ARRAY['A'] AS array(varchar)), CAST(ARRAY['a', 'b', 'c', 'd'] AS array(varchar)), BIGINT '100', BIGINT '-4'),
                              (2,         1,       ARRAY['A', 'B'],                    ARRAY['a', 'b', 'c', 'd'],                            200,          -4),
@@ -1173,7 +1237,8 @@ public class TestAggregationsInRowPatternMatching
     public void testMultipleAggregationArguments()
     {
         // all aggregations in `MEASURES` and `DEFINE` have 2 arguments, both runtime-evaluated (dependent on `CLASSIFIER` or `MATCH_NUMBER`)
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 SELECT m.id, m.classy, m.match, m.running_measure, m.final_measure
                 FROM (VALUES (1), (2), (3), (4), (5), (6), (7), (8)) t(id)
                   MATCH_RECOGNIZE (
@@ -1189,7 +1254,8 @@ public class TestAggregationsInRowPatternMatching
                     DEFINE A AS max_by(MATCH_NUMBER(), CLASSIFIER()) > 0
                  ) AS m
                 """))
-                .matches("""
+                .matches(
+                        """
                         VALUES
                              (1, VARCHAR 'A', BIGINT '1', BIGINT '101', BIGINT '-5'),
                              (2,         'B',         1,          102,          -5),

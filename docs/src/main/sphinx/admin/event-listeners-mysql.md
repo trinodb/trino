@@ -24,7 +24,6 @@ You need to perform the following steps:
   Port 3306 is the default port.
 
 (mysql-event-listener-configuration)=
-
 ## Configuration
 
 To configure the MySQL event listener plugin, create an event listener properties
@@ -40,7 +39,7 @@ The `mysql-event-listener.db.url` defines the connection to a MySQL database
 available at the domain `example.net` on port 3306. You can pass further
 parameters to the MySQL JDBC driver. The supported parameters for the URL are
 documented in the [MySQL Developer
-Guide](https://dev.mysql.com/doc/connector-j/8.0/en/connector-j-reference-configuration-properties.html).
+Guide](https://dev.mysql.com/doc/connector-j/en/connector-j-reference-configuration-properties.html).
 
 And set `event-listener.config-files` to `etc/mysql-event-listener.properties`
 in {ref}`config-properties`:

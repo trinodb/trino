@@ -13,6 +13,7 @@
  */
 package io.trino.filesystem.alluxio;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.AbstractTestTrinoFileSystem;
 import io.trino.filesystem.Location;
@@ -49,10 +50,10 @@ public class TestAlluxioCacheFileSystem
         Path cacheDirectory = tempDirectory.resolve("cache");
         Files.createDirectory(cacheDirectory);
         AlluxioFileSystemCacheConfig configuration = new AlluxioFileSystemCacheConfig()
-                .setCacheDirectories(cacheDirectory.toAbsolutePath().toString())
+                .setCacheDirectories(ImmutableList.of(cacheDirectory.toAbsolutePath().toString()))
                 .setCachePageSize(DataSize.valueOf("32003B"))
                 .disableTTL()
-                .setMaxCacheSizes("100MB");
+                .setMaxCacheSizes(ImmutableList.of(DataSize.valueOf("100MB")));
         memoryFileSystem = new IncompleteStreamMemoryFileSystem();
         cache = new AlluxioFileSystemCache(noopTracer(), configuration, new AlluxioCacheStats());
         fileSystem = new CacheFileSystem(memoryFileSystem, cache, new DefaultCacheKeyProvider());
@@ -85,12 +86,6 @@ public class TestAlluxioCacheFileSystem
     protected boolean isHierarchical()
     {
         return false;
-    }
-
-    @Override
-    protected boolean supportsCreateExclusive()
-    {
-        return true;
     }
 
     @Override

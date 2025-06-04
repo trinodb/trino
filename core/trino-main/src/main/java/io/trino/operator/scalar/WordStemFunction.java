@@ -29,7 +29,7 @@ import org.tartarus.snowball.ext.DutchStemmer;
 import org.tartarus.snowball.ext.EnglishStemmer;
 import org.tartarus.snowball.ext.FinnishStemmer;
 import org.tartarus.snowball.ext.FrenchStemmer;
-import org.tartarus.snowball.ext.German2Stemmer;
+import org.tartarus.snowball.ext.GermanStemmer;
 import org.tartarus.snowball.ext.HungarianStemmer;
 import org.tartarus.snowball.ext.IrishStemmer;
 import org.tartarus.snowball.ext.ItalianStemmer;
@@ -55,7 +55,7 @@ public final class WordStemFunction
     private static final Map<Slice, Supplier<SnowballStemmer>> STEMMERS = ImmutableMap.<Slice, Supplier<SnowballStemmer>>builder()
             .put(utf8Slice("ca"), CatalanStemmer::new)
             .put(utf8Slice("da"), DanishStemmer::new)
-            .put(utf8Slice("de"), German2Stemmer::new)
+            .put(utf8Slice("de"), GermanStemmer::new)
             .put(utf8Slice("en"), EnglishStemmer::new)
             .put(utf8Slice("es"), SpanishStemmer::new)
             .put(utf8Slice("eu"), BasqueStemmer::new)

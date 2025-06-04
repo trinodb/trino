@@ -13,13 +13,9 @@
  */
 package io.trino.plugin.hive;
 
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3ClientBuilder;
-import com.amazonaws.services.s3.model.ListObjectsV2Request;
-import com.amazonaws.services.s3.model.S3ObjectSummary;
 import io.trino.Session;
 import io.trino.plugin.base.util.UncheckedCloseable;
-import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.testing.AbstractTestQueryFramework;
 import org.intellij.lang.annotations.Language;
@@ -28,6 +24,8 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.S3Object;
 
 import java.util.List;
 import java.util.Set;
@@ -56,8 +54,8 @@ public abstract class BaseS3AndGlueMetastoreTest
     protected final String bucketName;
     protected final String schemaName = "test_glue_s3_" + randomNameSuffix();
 
-    protected HiveMetastore metastore;
-    protected AmazonS3 s3;
+    protected GlueHiveMetastore metastore;
+    protected S3Client s3;
 
     protected BaseS3AndGlueMetastoreTest(String partitionByKeyword, String locationKeyword, String bucketName)
     {
@@ -69,7 +67,7 @@ public abstract class BaseS3AndGlueMetastoreTest
     @BeforeAll
     public void setUp()
     {
-        s3 = AmazonS3ClientBuilder.standard().build();
+        s3 = S3Client.builder().build();
     }
 
     @AfterAll
@@ -77,12 +75,33 @@ public abstract class BaseS3AndGlueMetastoreTest
     {
         if (metastore != null) {
             metastore.dropDatabase(schemaName, true);
+            metastore.shutdown();
             metastore = null;
         }
         if (s3 != null) {
-            s3.shutdown();
+            s3.close();
             s3 = null;
         }
+    }
+
+    @Test
+    public void testTableNotFound()
+    {
+        assertThat(query("TABLE non_existent_table_" + randomNameSuffix()))
+                .failure().hasMessageMatching("line 1:1: Table '\\w+.test_glue_s3_\\w+.non_existent_table_\\w+' does not exist");
+
+        assertThat(query("SELECT * FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA AND table_name = 'non_existent_table_" + randomNameSuffix() + "'"))
+                .result().isEmpty();
+    }
+
+    @Test
+    public void testSchemaNotFound()
+    {
+        assertThat(query("SHOW TABLES FROM non_existent_schema_" + randomNameSuffix()))
+                .failure().hasMessageMatching("line 1:1: Schema 'non_existent_schema_\\w+' does not exist");
+
+        assertThat(query("SELECT * FROM information_schema.tables WHERE table_schema = 'non_existent_schema_" + randomNameSuffix() + "'"))
+                .result().isEmpty();
     }
 
     @Test
@@ -102,8 +121,8 @@ public abstract class BaseS3AndGlueMetastoreTest
 
         String actualTableLocation;
         assertUpdate("CREATE TABLE " + tableName + "(col_str, col_int)" +
-                "WITH (location = '" + location + "'" + partitionQueryPart + ") " +
-                "AS VALUES ('str1', 1), ('str2', 2), ('str3', 3)", 3);
+                     "WITH (location = '" + location + "'" + partitionQueryPart + ") " +
+                     "AS VALUES ('str1', 1), ('str2', 2), ('str3', 3)", 3);
         try (UncheckedCloseable ignored = onClose("DROP TABLE " + tableName)) {
             assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('str2', 2), ('str3', 3)");
             actualTableLocation = validateTableLocation(tableName, location);
@@ -188,22 +207,22 @@ public abstract class BaseS3AndGlueMetastoreTest
 
         String actualTableLocation;
         assertUpdate("CREATE TABLE " + tableName + "(col_str, col_int)" +
-                "WITH (location = '" + location + "'" + partitionQueryPart + ") " +
-                "AS VALUES ('str1', 1), ('str2', 2), ('str3', 3)", 3);
+                     "WITH (location = '" + location + "'" + partitionQueryPart + ") " +
+                     "AS VALUES ('str1', 1), ('str2', 2), ('str3', 3)", 3);
         try (UncheckedCloseable ignored = onClose("DROP TABLE " + tableName)) {
             actualTableLocation = validateTableLocation(tableName, location);
             assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('str2', 2), ('str3', 3)");
 
             assertUpdate("MERGE INTO " + tableName + " USING (VALUES 1) t(x) ON false" +
-                    " WHEN NOT MATCHED THEN INSERT VALUES ('str4', 4)", 1);
+                         " WHEN NOT MATCHED THEN INSERT VALUES ('str4', 4)", 1);
             assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('str2', 2), ('str3', 3), ('str4', 4)");
 
             assertUpdate("MERGE INTO " + tableName + " USING (VALUES 2) t(x) ON col_int = x" +
-                    " WHEN MATCHED THEN UPDATE SET col_str = 'other'", 1);
+                         " WHEN MATCHED THEN UPDATE SET col_str = 'other'", 1);
             assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('other', 2), ('str3', 3), ('str4', 4)");
 
             assertUpdate("MERGE INTO " + tableName + " USING (VALUES 3) t(x) ON col_int = x" +
-                    " WHEN MATCHED THEN DELETE", 1);
+                         " WHEN MATCHED THEN DELETE", 1);
             assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('other', 2), ('str4', 4)");
 
             assertThat(getTableFiles(actualTableLocation)).isNotEmpty();
@@ -230,7 +249,7 @@ public abstract class BaseS3AndGlueMetastoreTest
         String locationQueryPart = locationKeyword + "= '" + location + "'";
 
         assertUpdate("CREATE TABLE " + tableName + " (key integer, value varchar) " +
-                "WITH (" + locationQueryPart + partitionQueryPart + ")");
+                     "WITH (" + locationQueryPart + partitionQueryPart + ")");
         try (UncheckedCloseable ignored = onClose("DROP TABLE " + tableName)) {
             // create multiple data files, INSERT with multiple values would create only one file (if not partitioned)
             assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'one')", 1);
@@ -320,9 +339,8 @@ public abstract class BaseS3AndGlueMetastoreTest
         Matcher matcher = Pattern.compile("s3://[^/]+/(.+)").matcher(location);
         verify(matcher.matches(), "Does not match [%s]: [%s]", matcher.pattern(), location);
         String fileKey = matcher.group(1);
-        ListObjectsV2Request req = new ListObjectsV2Request().withBucketName(bucketName).withPrefix(fileKey);
-        return s3.listObjectsV2(req).getObjectSummaries().stream()
-                .map(S3ObjectSummary::getKey)
+        return s3.listObjectsV2(request -> request.bucket(bucketName).prefix(fileKey)).contents().stream()
+                .map(S3Object::key)
                 .map(key -> format("s3://%s/%s", bucketName, key))
                 .toList();
     }

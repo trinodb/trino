@@ -183,18 +183,18 @@ public final class AddDynamicFilterSource
 
     private static boolean canAddDynamicFilterSource(PlanNode node, Collection<Symbol> dynamicFilterSymbols)
     {
-        boolean isIdentityProjection = (node instanceof ProjectNode) &&
-                dynamicFilterSymbols.stream().allMatch(symbol -> ((ProjectNode) node).getAssignments().isIdentity(symbol));
+        boolean isIdentityProjection = node instanceof ProjectNode projectNode &&
+                dynamicFilterSymbols.stream().allMatch(symbol -> projectNode.getAssignments().isIdentity(symbol));
         // TODO: Add support for cases where the build side has multiple sources, e.g., a UNION ALL for a join
         return isIdentityProjection || (node instanceof ExchangeNode && node.getSources().size() == 1);
     }
 
     private static boolean isRemoteExchange(PlanNode node)
     {
-        if (!(node instanceof ExchangeNode)) {
+        if (!(node instanceof ExchangeNode exchangeNode)) {
             return false;
         }
 
-        return ((ExchangeNode) node).getScope() == REMOTE;
+        return exchangeNode.getScope() == REMOTE;
     }
 }

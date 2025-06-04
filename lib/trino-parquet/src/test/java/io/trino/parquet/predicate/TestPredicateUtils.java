@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.parquet.metadata.ColumnChunkMetadata;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.column.EncodingStats;
-import org.apache.parquet.column.statistics.BinaryStatistics;
 import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Types;
@@ -133,9 +132,9 @@ public class TestPredicateUtils
         return ColumnChunkMetadata.get(fromDotString("column"), type, UNCOMPRESSED, encodingStats, encodingStats.getDataEncodings(), stats, 0, 0, 1, 1, 1);
     }
 
-    @SuppressWarnings("deprecation")
     private ColumnChunkMetadata createColumnMetaDataV1(Set<Encoding> encodings)
     {
-        return ColumnChunkMetadata.get(fromDotString("column"), BINARY, UNCOMPRESSED, encodings, new BinaryStatistics(), 0, 0, 1, 1, 1);
+        PrimitiveType primitiveType = Types.optional(BINARY).named("fake_type");
+        return ColumnChunkMetadata.get(fromDotString("column"), primitiveType, UNCOMPRESSED, null, encodings, Statistics.createStats(primitiveType), 0, 0, 1, 1, 1);
     }
 }

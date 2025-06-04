@@ -51,14 +51,16 @@ public class TestSortFieldUtils
         // uppercase
         assertParse("ORDER_KEY ASC NULLS LAST", sortOrder(builder -> builder.asc("order_key", NullOrder.NULLS_LAST)));
         assertParse("ORDER_KEY DESC NULLS FIRST", sortOrder(builder -> builder.desc("order_key", NullOrder.NULLS_FIRST)));
-        assertDoesNotParse("\"ORDER_KEY\" ASC NULLS LAST", "Uppercase characters in identifier '\"ORDER_KEY\"' are not supported.");
-        assertDoesNotParse("\"ORDER_KEY\" DESC NULLS FIRST", "Uppercase characters in identifier '\"ORDER_KEY\"' are not supported.");
+        assertDoesNotParse("\"ORDER_KEY\" ASC NULLS LAST", "Cannot find field 'ORDER_KEY' .*");
+        assertDoesNotParse("\"ORDER_KEY\" DESC NULLS FIRST", "Cannot find field 'ORDER_KEY' .*");
 
         // mixed case
+        assertParse("\"MixedCase\" ASC NULLS LAST", sortOrder(builder -> builder.asc("MixedCase", NullOrder.NULLS_LAST)));
+        assertParse("\"MixedCase\" DESC NULLS FIRST", sortOrder(builder -> builder.desc("MixedCase", NullOrder.NULLS_FIRST)));
         assertParse("OrDER_keY Asc NullS LAst", sortOrder(builder -> builder.asc("order_key", NullOrder.NULLS_LAST)));
         assertParse("OrDER_keY Desc NullS FIrsT", sortOrder(builder -> builder.desc("order_key", NullOrder.NULLS_FIRST)));
-        assertDoesNotParse("\"OrDER_keY\" Asc NullS LAst", "Uppercase characters in identifier '\"OrDER_keY\"' are not supported.");
-        assertDoesNotParse("\"OrDER_keY\" Desc NullS FIrsT", "Uppercase characters in identifier '\"OrDER_keY\"' are not supported.");
+        assertDoesNotParse("\"OrDER_keY\" Asc NullS LAst", "Cannot find field 'OrDER_keY' .*");
+        assertDoesNotParse("\"OrDER_keY\" Desc NullS FIrsT", "Cannot find field 'OrDER_keY' .*");
 
         assertParse("comment", sortOrder(builder -> builder.asc("comment")));
         assertParse("\"comment\"", sortOrder(builder -> builder.asc("comment")));
@@ -100,19 +102,19 @@ public class TestSortFieldUtils
 
     private static void assertParse(@Language("SQL") String value, SortOrder expected)
     {
-        assertThat(expected.fields().size()).isEqualTo(1);
+        assertThat(expected.fields()).hasSize(1);
         assertThat(parseField(value)).isEqualTo(expected);
     }
 
     private static void assertDoesNotParse(@Language("SQL") String value)
     {
-        assertDoesNotParse(value, "Unable to parse sort field: [%s]".formatted(value));
+        assertDoesNotParse(value, "\\QUnable to parse sort field: [%s]".formatted(value));
     }
 
-    private static void assertDoesNotParse(@Language("SQL") String value, String expectedMessage)
+    private static void assertDoesNotParse(@Language("SQL") String value, @Language("RegExp") String expectedMessage)
     {
         assertThatThrownBy(() -> parseField(value))
-                .hasMessage(expectedMessage);
+                .hasMessageMatching(expectedMessage);
     }
 
     private static SortOrder parseField(String value)
@@ -130,7 +132,8 @@ public class TestSortFieldUtils
                 Types.NestedField.optional(5, "notes", Types.ListType.ofRequired(6, Types.StringType.get())),
                 Types.NestedField.optional(7, "quoted field", Types.StringType.get()),
                 Types.NestedField.optional(8, "quoted ts", Types.TimestampType.withoutZone()),
-                Types.NestedField.optional(9, "\"another\" \"quoted\" \"field\"", Types.StringType.get()));
+                Types.NestedField.optional(9, "\"another\" \"quoted\" \"field\"", Types.StringType.get()),
+                Types.NestedField.optional(10, "MixedCase", Types.StringType.get()));
 
         SortOrder.Builder builder = SortOrder.builderFor(schema);
         consumer.accept(builder);

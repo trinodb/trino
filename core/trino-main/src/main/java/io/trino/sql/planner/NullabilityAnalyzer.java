@@ -62,9 +62,7 @@ public final class NullabilityAnalyzer
             // ISO/IEC 9075-2:2016, section 7.16.21 seems to imply that CAST cannot return NULL
             // except for the CAST(NULL AS x) case -- we should fix this at some point)
             //
-            // Also, try_cast (i.e., safe cast) can return null
             process(node.expression(), result);
-            result.compareAndSet(false, node.safe());
             return null;
         }
 

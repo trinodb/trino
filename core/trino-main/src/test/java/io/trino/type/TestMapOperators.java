@@ -40,8 +40,8 @@ import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
+import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
-import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -1321,55 +1321,55 @@ public class TestMapOperators
     }
 
     @Test
-    public void testDistinctFrom()
+    public void testIdentical()
     {
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "MAP(ARRAY[1], ARRAY[0])", "MAP(ARRAY[1], ARRAY[NULL])"))
-                .isEqualTo(true);
-
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "CAST(NULL AS MAP(INTEGER, VARCHAR))", "CAST(NULL AS MAP(INTEGER, VARCHAR))"))
+        assertThat(assertions.operator(IDENTICAL, "MAP(ARRAY[1], ARRAY[0])", "MAP(ARRAY[1], ARRAY[NULL])"))
                 .isEqualTo(false);
 
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "MAP(ARRAY[1], ARRAY[2])", "NULL"))
+        assertThat(assertions.operator(IDENTICAL, "CAST(NULL AS MAP(INTEGER, VARCHAR))", "CAST(NULL AS MAP(INTEGER, VARCHAR))"))
                 .isEqualTo(true);
 
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "NULL", "MAP(ARRAY[1], ARRAY[2])"))
-                .isEqualTo(true);
-
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "MAP(ARRAY[1], ARRAY[2])", "MAP(ARRAY[1], ARRAY[2])"))
+        assertThat(assertions.operator(IDENTICAL, "MAP(ARRAY[1], ARRAY[2])", "NULL"))
                 .isEqualTo(false);
 
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "MAP(ARRAY[1], ARRAY[NULL])", "MAP(ARRAY[1], ARRAY[NULL])"))
+        assertThat(assertions.operator(IDENTICAL, "NULL", "MAP(ARRAY[1], ARRAY[2])"))
                 .isEqualTo(false);
 
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "MAP(ARRAY[1], ARRAY[0])", "MAP(ARRAY[1], ARRAY[NULL])"))
+        assertThat(assertions.operator(IDENTICAL, "MAP(ARRAY[1], ARRAY[2])", "MAP(ARRAY[1], ARRAY[2])"))
                 .isEqualTo(true);
 
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "MAP(ARRAY[1], ARRAY[NULL])", "MAP(ARRAY[1], ARRAY[0])"))
+        assertThat(assertions.operator(IDENTICAL, "MAP(ARRAY[1], ARRAY[NULL])", "MAP(ARRAY[1], ARRAY[NULL])"))
                 .isEqualTo(true);
 
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "MAP(ARRAY[1, 2], ARRAY['kittens','puppies'])", "MAP(ARRAY[1, 2], ARRAY['puppies', 'kittens'])"))
-                .isEqualTo(true);
-
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "MAP(ARRAY[1, 2], ARRAY['kittens','puppies'])", "MAP(ARRAY[1, 2], ARRAY['kittens', 'puppies'])"))
+        assertThat(assertions.operator(IDENTICAL, "MAP(ARRAY[1], ARRAY[0])", "MAP(ARRAY[1], ARRAY[NULL])"))
                 .isEqualTo(false);
 
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "MAP(ARRAY[1, 3], ARRAY['kittens','puppies'])", "MAP(ARRAY[1, 2], ARRAY['kittens', 'puppies'])"))
-                .isEqualTo(true);
-
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "MAP(ARRAY[1, 3], ARRAY['kittens','puppies'])", "MAP(ARRAY[1, 2], ARRAY['kittens', 'pupp111'])"))
-                .isEqualTo(true);
-
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "MAP(ARRAY[1, 3], ARRAY['kittens','puppies'])", "MAP(ARRAY[1, 2], ARRAY['kittens', NULL])"))
-                .isEqualTo(true);
-
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "MAP(ARRAY[1, 3], ARRAY['kittens','puppies'])", "MAP(ARRAY[1, 2], ARRAY[NULL, NULL])"))
-                .isEqualTo(true);
-
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "MAP(ARRAY[1, 3], ARRAY[MAP(ARRAY['kittens'], ARRAY[1e0]), MAP(ARRAY['puppies'], ARRAY[3e0])])", "MAP(ARRAY[1, 3], ARRAY[MAP(ARRAY['kittens'], ARRAY[1e0]), MAP(ARRAY['puppies'], ARRAY[3e0])])"))
+        assertThat(assertions.operator(IDENTICAL, "MAP(ARRAY[1], ARRAY[NULL])", "MAP(ARRAY[1], ARRAY[0])"))
                 .isEqualTo(false);
 
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "MAP(ARRAY[1, 3], ARRAY[MAP(ARRAY['kittens'], ARRAY[1e0]), MAP(ARRAY['puppies'], ARRAY[3e0])])", "MAP(ARRAY[1, 3], ARRAY[MAP(ARRAY['kittens'], ARRAY[1e0]), MAP(ARRAY['puppies'], ARRAY[4e0])])"))
+        assertThat(assertions.operator(IDENTICAL, "MAP(ARRAY[1, 2], ARRAY['kittens','puppies'])", "MAP(ARRAY[1, 2], ARRAY['puppies', 'kittens'])"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(IDENTICAL, "MAP(ARRAY[1, 2], ARRAY['kittens','puppies'])", "MAP(ARRAY[1, 2], ARRAY['kittens', 'puppies'])"))
                 .isEqualTo(true);
+
+        assertThat(assertions.operator(IDENTICAL, "MAP(ARRAY[1, 3], ARRAY['kittens','puppies'])", "MAP(ARRAY[1, 2], ARRAY['kittens', 'puppies'])"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(IDENTICAL, "MAP(ARRAY[1, 3], ARRAY['kittens','puppies'])", "MAP(ARRAY[1, 2], ARRAY['kittens', 'pupp111'])"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(IDENTICAL, "MAP(ARRAY[1, 3], ARRAY['kittens','puppies'])", "MAP(ARRAY[1, 2], ARRAY['kittens', NULL])"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(IDENTICAL, "MAP(ARRAY[1, 3], ARRAY['kittens','puppies'])", "MAP(ARRAY[1, 2], ARRAY[NULL, NULL])"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(IDENTICAL, "MAP(ARRAY[1, 3], ARRAY[MAP(ARRAY['kittens'], ARRAY[1e0]), MAP(ARRAY['puppies'], ARRAY[3e0])])", "MAP(ARRAY[1, 3], ARRAY[MAP(ARRAY['kittens'], ARRAY[1e0]), MAP(ARRAY['puppies'], ARRAY[3e0])])"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(IDENTICAL, "MAP(ARRAY[1, 3], ARRAY[MAP(ARRAY['kittens'], ARRAY[1e0]), MAP(ARRAY['puppies'], ARRAY[3e0])])", "MAP(ARRAY[1, 3], ARRAY[MAP(ARRAY['kittens'], ARRAY[1e0]), MAP(ARRAY['puppies'], ARRAY[4e0])])"))
+                .isEqualTo(false);
     }
 
     @Test

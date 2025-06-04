@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.mariadb;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.plugin.jdbc.UnsupportedTypeHandling;
 import io.trino.spi.type.TimeZoneKey;
@@ -46,7 +44,6 @@ import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.DECIMAL_MAPPI
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.DECIMAL_ROUNDING_MODE;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
-import static io.trino.plugin.mariadb.MariaDbQueryRunner.createMariaDbQueryRunner;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DateType.DATE;
@@ -90,7 +87,7 @@ public class TestMariaDbTypeMapping
     public void setUp()
     {
         checkState(jvmZone.getId().equals("America/Bahia_Banderas"), "This test assumes certain JVM time zone");
-        checkIsGap(jvmZone, LocalDate.of(1970, 1, 1));
+        checkIsGap(jvmZone, LocalDate.of(1932, 4, 1));
         checkIsGap(vilnius, LocalDate.of(1983, 4, 1));
         verify(vilnius.getRules().getValidOffsets(LocalDate.of(1983, 10, 1).atStartOfDay().minusMinutes(1)).size() == 2);
     }
@@ -100,7 +97,7 @@ public class TestMariaDbTypeMapping
             throws Exception
     {
         server = closeAfterClass(new TestingMariaDbServer());
-        return createMariaDbQueryRunner(server, ImmutableMap.of(), ImmutableMap.of(), ImmutableList.of());
+        return MariaDbQueryRunner.builder(server).build();
     }
 
     @Test
@@ -630,7 +627,7 @@ public class TestMariaDbTypeMapping
     @Test
     public void testUnsupportedDate()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_negative_date", "(dt DATE)")) {
+        try (TestTable table = newTrinoTable("test_negative_date", "(dt DATE)")) {
             assertQueryFails(format("INSERT INTO %s VALUES (DATE '-0001-01-01')", table.getName()), ".*Failed to insert data.*");
             assertQueryFails(format("INSERT INTO %s VALUES (DATE '10000-01-01')", table.getName()), ".*Failed to insert data.*");
         }
@@ -780,7 +777,7 @@ public class TestMariaDbTypeMapping
     @Test
     public void testIncorrectTimestamp()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_incorrect_timestamp", "(dt TIMESTAMP)")) {
+        try (TestTable table = newTrinoTable("test_incorrect_timestamp", "(dt TIMESTAMP)")) {
             assertQueryFails(format("INSERT INTO %s VALUES (TIMESTAMP '1970-01-01 00:00:00.000')", table.getName()), ".*Failed to insert data.*");
             assertQueryFails(format("INSERT INTO %s VALUES (TIMESTAMP '2038-01-19 03:14:08.000')", table.getName()), ".*Failed to insert data.*");
         }

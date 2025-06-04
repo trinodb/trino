@@ -159,6 +159,66 @@ public class TestMemoryContexts
     }
 
     @Test
+    public void testCoarseGrainLocalMemoryContext()
+    {
+        final long guaranteedMemory = (long) Math.pow(2, 30);
+        TestMemoryReservationHandler reservationHandler = new TestMemoryReservationHandler(2 * guaranteedMemory);
+        AggregatedMemoryContext aggregateContext = newRootAggregatedMemoryContext(reservationHandler, guaranteedMemory);
+        LocalMemoryContext delegate = aggregateContext.newLocalMemoryContext("test");
+
+        final long granularity = (long) Math.pow(2, 10);
+        CoarseGrainLocalMemoryContext coarseGrainContext = new CoarseGrainLocalMemoryContext(delegate, granularity);
+
+        assertCoarseGrainContextValues(coarseGrainContext, delegate, 1, granularity);
+
+        // boundaries
+        assertCoarseGrainContextValues(coarseGrainContext, delegate, 0, 0);
+        assertCoarseGrainContextValues(coarseGrainContext, delegate, granularity, granularity);
+
+        assertCoarseGrainContextValues(coarseGrainContext, delegate, granularity + 1, 2 * granularity);
+        assertCoarseGrainContextValues(coarseGrainContext, delegate, 2 * granularity + 1, 3 * granularity);
+        assertCoarseGrainContextValues(coarseGrainContext, delegate, 2 * granularity, 2 * granularity);
+
+        // gets set to the next coarse unit
+        // k*granularity + x in [1, granularity] leads to setting the context to (k+1) * granularity
+        assertCoarseGrainContextValues(coarseGrainContext, delegate, 0, 0);
+        for (int i = 1; i <= granularity; i++) {
+            assertCoarseGrainContextValues(coarseGrainContext, delegate, i, granularity);
+        }
+
+        // threshold not a power of 2
+        assertThatThrownBy(() -> new CoarseGrainLocalMemoryContext(delegate, 100))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("granularity must be a power of 2");
+
+        // test trySetBytes()
+        coarseGrainContext.setBytes(0);
+        assertThat(coarseGrainContext.trySetBytes(1)).isEqualTo(true);
+        assertThat(coarseGrainContext.getBytes()).isEqualTo(granularity);
+        assertThat(delegate.getBytes()).isEqualTo(granularity);
+
+        // new bytes = previously set bytes(rounded-up)
+        assertThat(coarseGrainContext.trySetBytes(2)).isEqualTo(true);
+        assertThat(coarseGrainContext.getBytes()).isEqualTo(granularity);
+        assertThat(delegate.getBytes()).isEqualTo(granularity);
+
+        // something underlying delegate cannot set
+        assertThat(coarseGrainContext.trySetBytes(guaranteedMemory * 3)).isEqualTo(false);
+        assertThat(coarseGrainContext.getBytes()).isEqualTo(granularity);
+        assertThat(delegate.getBytes()).isEqualTo(granularity);
+    }
+
+    private static void assertCoarseGrainContextValues(CoarseGrainLocalMemoryContext coarseGrainContext,
+                                                       LocalMemoryContext delegate, long valueToSet, long expectedValue)
+    {
+        assertThat(coarseGrainContext.setBytes(valueToSet)).isEqualTo(NOT_BLOCKED);
+
+        assertThat(coarseGrainContext.roundUpToNearest(valueToSet)).isEqualTo(expectedValue);
+        assertThat(coarseGrainContext.getBytes()).isEqualTo(expectedValue);
+        assertThat(delegate.getBytes()).isEqualTo(expectedValue);
+    }
+
+    @Test
     public void testClosedAggregateMemoryContext()
     {
         assertThatThrownBy(() -> {

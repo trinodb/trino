@@ -101,7 +101,7 @@ public final class MySqlQueryRunner
             throws Exception
     {
         QueryRunner queryRunner = builder(new TestingMySqlServer())
-                .setExtraProperties(Map.of("http-server.http.port", "8080"))
+                .addCoordinatorProperty("http-server.http.port", "8080")
                 .setInitialTables(TpchTable.getTables())
                 .build();
 

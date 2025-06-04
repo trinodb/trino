@@ -788,9 +788,7 @@ public class Long2LongOpenBigHashMap
             this.index = index;
         }
 
-        MapEntry()
-        {
-        }
+        MapEntry() {}
 
         @Override
         public long getLongKey()
@@ -1468,7 +1466,5 @@ public class Long2LongOpenBigHashMap
         this.value = newValue;
     }
 
-    private void checkTable()
-    {
-    }
+    private void checkTable() {}
 }

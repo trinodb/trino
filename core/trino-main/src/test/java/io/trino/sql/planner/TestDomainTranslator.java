@@ -33,8 +33,8 @@ import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
+import io.trino.sql.ir.IrExpressions;
 import io.trino.sql.ir.IsNull;
-import io.trino.sql.ir.Not;
 import io.trino.sql.planner.DomainTranslator.ExtractionResult;
 import io.trino.type.LikePattern;
 import io.trino.type.LikePatternType;
@@ -76,12 +76,13 @@ import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.IS_DISTINCT_FROM;
+import static io.trino.sql.ir.Comparison.Operator.IDENTICAL;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.ir.IrUtils.or;
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.type.ColorType.COLOR;
 import static io.trino.type.LikeFunctions.LIKE_FUNCTION_NAME;
@@ -131,11 +132,13 @@ public class TestDomainTranslator
     private static final long COLOR_VALUE_2 = 2;
 
     private TestingFunctionResolution functionResolution;
+    private DomainTranslator domainTranslator;
 
     @BeforeAll
     public void setup()
     {
         functionResolution = new TestingFunctionResolution();
+        domainTranslator = new DomainTranslator(functionResolution.getMetadata());
     }
 
     @AfterAll
@@ -594,7 +597,7 @@ public class TestDomainTranslator
                 tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, 2L), Range.greaterThan(BIGINT, 2L)), false)));
 
         assertPredicateTranslates(
-                isDistinctFrom(C_BIGINT, bigintLiteral(2L)),
+                not(comparison(IDENTICAL, C_BIGINT.toSymbolReference(), bigintLiteral(2L))),
                 tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, 2L), Range.greaterThan(BIGINT, 2L)), true)));
 
         assertPredicateTranslates(
@@ -635,7 +638,7 @@ public class TestDomainTranslator
                 tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 2L)), false)));
 
         assertPredicateTranslates(
-                not(isDistinctFrom(C_BIGINT, bigintLiteral(2L))),
+                comparison(IDENTICAL, C_BIGINT.toSymbolReference(), bigintLiteral(2L)),
                 tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 2L)), false)));
 
         assertPredicateTranslates(
@@ -684,15 +687,15 @@ public class TestDomainTranslator
                 comparison(NOT_EQUAL, colorLiteral(COLOR_VALUE_1), C_COLOR.toSymbolReference()),
                 tupleDomain(C_COLOR, Domain.create(ValueSet.of(COLOR, COLOR_VALUE_1).complement(), false)));
 
-        assertPredicateTranslates(comparison(IS_DISTINCT_FROM, bigintLiteral(2L), C_BIGINT.toSymbolReference()),
+        assertPredicateTranslates(not(comparison(IDENTICAL, bigintLiteral(2L), C_BIGINT.toSymbolReference())),
                 tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, 2L), Range.greaterThan(BIGINT, 2L)), true)));
 
         assertPredicateTranslates(
-                comparison(IS_DISTINCT_FROM, colorLiteral(COLOR_VALUE_1), C_COLOR.toSymbolReference()),
+                not(comparison(IDENTICAL, colorLiteral(COLOR_VALUE_1), C_COLOR.toSymbolReference())),
                 tupleDomain(C_COLOR, Domain.create(ValueSet.of(COLOR, COLOR_VALUE_1).complement(), true)));
 
         assertPredicateTranslates(
-                comparison(IS_DISTINCT_FROM, nullLiteral(BIGINT), C_BIGINT.toSymbolReference()),
+                not(comparison(IDENTICAL, nullLiteral(BIGINT), C_BIGINT.toSymbolReference())),
                 tupleDomain(C_BIGINT, Domain.notNull(BIGINT)));
     }
 
@@ -760,7 +763,7 @@ public class TestDomainTranslator
         assertPredicateTranslates(not(lessThan(C_DOUBLE, nanDouble)), tupleDomain(C_DOUBLE, Domain.notNull(DOUBLE)));
         assertPredicateTranslates(not(lessThanOrEqual(C_DOUBLE, nanDouble)), tupleDomain(C_DOUBLE, Domain.notNull(DOUBLE)));
         assertPredicateIsAlwaysFalse(not(notEqual(C_DOUBLE, nanDouble)));
-        assertUnsupportedPredicate(not(isDistinctFrom(C_DOUBLE, nanDouble)));
+        assertUnsupportedPredicate(comparison(IDENTICAL, C_DOUBLE.toSymbolReference(), nanDouble));
 
         Expression nanReal = new Constant(REAL, toReal(Float.NaN));
 
@@ -778,7 +781,7 @@ public class TestDomainTranslator
         assertPredicateTranslates(not(lessThan(C_REAL, nanReal)), tupleDomain(C_REAL, Domain.notNull(REAL)));
         assertPredicateTranslates(not(lessThanOrEqual(C_REAL, nanReal)), tupleDomain(C_REAL, Domain.notNull(REAL)));
         assertPredicateIsAlwaysFalse(not(notEqual(C_REAL, nanReal)));
-        assertUnsupportedPredicate(not(isDistinctFrom(C_REAL, nanReal)));
+        assertUnsupportedPredicate(comparison(IDENTICAL, C_REAL.toSymbolReference(), nanReal));
     }
 
     @Test
@@ -1538,7 +1541,7 @@ public class TestDomainTranslator
 
     private Expression toPredicate(TupleDomain<Symbol> tupleDomain)
     {
-        return DomainTranslator.toPredicate(tupleDomain);
+        return domainTranslator.toPredicate(tupleDomain);
     }
 
     private static Expression unprocessableExpression1(Symbol symbol)
@@ -1589,9 +1592,9 @@ public class TestDomainTranslator
         return lessThanOrEqual(symbol.toSymbolReference(), expression);
     }
 
-    private static Comparison isDistinctFrom(Symbol symbol, Expression expression)
+    private static Expression isDistinctFrom(Symbol symbol, Expression expression)
     {
-        return isDistinctFrom(symbol.toSymbolReference(), expression);
+        return not(comparison(IDENTICAL, symbol.toSymbolReference(), expression));
     }
 
     private Call like(Symbol symbol, String pattern)
@@ -1647,7 +1650,7 @@ public class TestDomainTranslator
 
     private static Expression isNotNull(Expression expression)
     {
-        return new Not(new IsNull(expression));
+        return not(new IsNull(expression));
     }
 
     private In in(Expression expression, Type type, List<?> values)
@@ -1696,14 +1699,9 @@ public class TestDomainTranslator
         return comparison(LESS_THAN_OR_EQUAL, left, right);
     }
 
-    private static Comparison isDistinctFrom(Expression left, Expression right)
+    private static Expression not(Expression expression)
     {
-        return comparison(IS_DISTINCT_FROM, left, right);
-    }
-
-    private static Not not(Expression expression)
-    {
-        return new Not(expression);
+        return IrExpressions.not(PLANNER_CONTEXT.getMetadata(), expression);
     }
 
     private static Comparison comparison(Comparison.Operator operator, Expression expression1, Expression expression2)
@@ -1852,7 +1850,7 @@ public class TestDomainTranslator
 
         public boolean isFractional()
         {
-            return type == DOUBLE || type == REAL || (type instanceof DecimalType && ((DecimalType) type).getScale() > 0);
+            return type == DOUBLE || type == REAL || (type instanceof DecimalType decimalType && decimalType.getScale() > 0);
         }
 
         public boolean isTypeWithNaN()

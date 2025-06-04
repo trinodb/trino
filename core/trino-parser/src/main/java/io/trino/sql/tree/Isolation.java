@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -48,17 +47,7 @@ public final class Isolation
 
     private final Level level;
 
-    public Isolation(Level level)
-    {
-        this(Optional.empty(), level);
-    }
-
     public Isolation(NodeLocation location, Level level)
-    {
-        this(Optional.of(location), level);
-    }
-
-    private Isolation(Optional<NodeLocation> location, Level level)
     {
         super(location);
         this.level = requireNonNull(level, "level is null");

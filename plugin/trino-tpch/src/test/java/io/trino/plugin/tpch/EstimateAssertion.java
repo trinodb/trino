@@ -63,7 +63,7 @@ class EstimateAssertion
             assertThat(actual.getClass())
                     .describedAs(comparedValue)
                     .isEqualTo(expected.getClass());
-            assertThat(((Slice) actual).toStringUtf8())
+            assertThat(actualSlice.toStringUtf8())
                     .isEqualTo(((Slice) expected).toStringUtf8());
         }
         else if (actual instanceof DoubleRange actualRange) {
@@ -81,8 +81,8 @@ class EstimateAssertion
 
     private double toDouble(Object object)
     {
-        if (object instanceof Number) {
-            return ((Number) object).doubleValue();
+        if (object instanceof Number number) {
+            return number.doubleValue();
         }
         throw new UnsupportedOperationException(format("Can't compare with tolerance objects of class %s. Use assertEquals.", object.getClass()));
     }

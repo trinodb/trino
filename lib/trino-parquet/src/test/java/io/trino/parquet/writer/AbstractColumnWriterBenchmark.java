@@ -18,7 +18,6 @@ import io.trino.parquet.writer.valuewriter.TrinoValuesWriterFactory;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
 import org.apache.parquet.column.ColumnDescriptor;
-import org.apache.parquet.column.ParquetProperties;
 import org.apache.parquet.column.values.bloomfilter.BlockSplitBloomFilter;
 import org.apache.parquet.column.values.bloomfilter.BloomFilter;
 import org.apache.parquet.schema.PrimitiveType;
@@ -44,7 +43,6 @@ import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.parquet.writer.ParquetWriters.getValueWriter;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_1_0;
 
 @State(Scope.Thread)
 @OutputTimeUnit(SECONDS)
@@ -59,7 +57,7 @@ public abstract class AbstractColumnWriterBenchmark
     @Param({
             "1", "1048576" // 1MB is default page size
     })
-    public int dictionaryPageSize;
+    public int maxDictionaryPageSize;
 
     public enum BloomFilterType
     {
@@ -96,10 +94,7 @@ public abstract class AbstractColumnWriterBenchmark
 
     private PrimitiveValueWriter createValuesWriter()
     {
-        TrinoValuesWriterFactory valuesWriterFactory = new TrinoValuesWriterFactory(ParquetProperties.builder()
-                .withWriterVersion(PARQUET_1_0)
-                .withDictionaryPageSize(dictionaryPageSize)
-                .build());
+        TrinoValuesWriterFactory valuesWriterFactory = new TrinoValuesWriterFactory(1024 * 1024, maxDictionaryPageSize);
         ColumnDescriptor columnDescriptor = new ColumnDescriptor(new String[] {"test"}, getParquetType(), 0, 0);
         return getValueWriter(valuesWriterFactory.newValuesWriter(columnDescriptor, bloomFilterType.getBloomFilter()), getTrinoType(), columnDescriptor.getPrimitiveType(), Optional.empty());
     }

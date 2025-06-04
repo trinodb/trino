@@ -28,17 +28,7 @@ public final class ShowCatalogs
     private final Optional<String> likePattern;
     private final Optional<String> escape;
 
-    public ShowCatalogs(Optional<String> likePattern, Optional<String> escape)
-    {
-        this(Optional.empty(), likePattern, escape);
-    }
-
     public ShowCatalogs(NodeLocation location, Optional<String> likePattern, Optional<String> escape)
-    {
-        this(Optional.of(location), likePattern, escape);
-    }
-
-    public ShowCatalogs(Optional<NodeLocation> location, Optional<String> likePattern, Optional<String> escape)
     {
         super(location);
         this.likePattern = requireNonNull(likePattern, "likePattern is null");

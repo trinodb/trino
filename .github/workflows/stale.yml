@@ -12,16 +12,16 @@ jobs:
     runs-on: ubuntu-latest
     if: github.repository == 'trinodb/trino'
     steps:
-      - uses: actions/stale@v9.0.0
+      - uses: actions/stale@v9.1.0
         with:
-          stale-pr-message: 'This pull request has gone a while without any activity. Tagging the Trino developer relations team: @bitsondatadev @colebow @mosabua'
+          stale-pr-message: 'This pull request has gone a while without any activity. Ask for help on #core-dev on Trino slack.'
           days-before-pr-stale: 21
           days-before-pr-close: 21
           close-pr-message: 'Closing this pull request, as it has been stale for six weeks. Feel free to re-open at any time.'
           stale-pr-label: 'stale'
           exempt-pr-labels: 'stale-ignore'
-          start-date: '2023-01-01T00:00:00Z'
-          exempt-draft-pr: true
+          start-date: '2020-01-01T00:00:00Z'
+          exempt-draft-pr: false
           operations-per-run: 200
           # Avoid processing issues completely, see https://github.com/actions/stale/issues/1112
           days-before-issue-stale: -1

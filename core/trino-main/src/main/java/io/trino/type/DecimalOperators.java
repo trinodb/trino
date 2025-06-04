@@ -61,9 +61,7 @@ public final class DecimalOperators
     public static final SqlScalarFunction DECIMAL_DIVIDE_OPERATOR = decimalDivideOperator();
     public static final SqlScalarFunction DECIMAL_MODULUS_OPERATOR = decimalModulusOperator();
 
-    private DecimalOperators()
-    {
-    }
+    private DecimalOperators() {}
 
     private static SqlScalarFunction decimalAddOperator()
     {
@@ -639,6 +637,8 @@ public final class DecimalOperators
     @ScalarOperator(NEGATION)
     public static final class Negation
     {
+        private Negation() {}
+
         @LiteralParameters({"p", "s"})
         @SqlType("decimal(p, s)")
         public static long negate(@SqlType("decimal(p, s)") long arg)

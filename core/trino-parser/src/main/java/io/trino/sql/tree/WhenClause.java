@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 public class WhenClause
         extends Expression
@@ -25,17 +24,7 @@ public class WhenClause
     private final Expression operand;
     private final Expression result;
 
-    public WhenClause(Expression operand, Expression result)
-    {
-        this(Optional.empty(), operand, result);
-    }
-
     public WhenClause(NodeLocation location, Expression operand, Expression result)
-    {
-        this(Optional.of(location), operand, result);
-    }
-
-    private WhenClause(Optional<NodeLocation> location, Expression operand, Expression result)
     {
         super(location);
         this.operand = operand;

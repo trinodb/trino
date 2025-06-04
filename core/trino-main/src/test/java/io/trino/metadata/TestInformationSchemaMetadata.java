@@ -128,12 +128,12 @@ public class TestInformationSchemaMetadata
         ConnectorSession session = createNewSession(transactionId);
         ConnectorMetadata metadata = new InformationSchemaMetadata("test_catalog", this.metadata, MAX_PREFIXES_COUNT);
         InformationSchemaTableHandle tableHandle = (InformationSchemaTableHandle)
-                metadata.getTableHandle(session, new SchemaTableName("information_schema", "views"));
+                metadata.getTableHandle(session, new SchemaTableName("information_schema", "views"), Optional.empty(), Optional.empty());
         tableHandle = metadata.applyFilter(session, tableHandle, constraint)
                 .map(ConstraintApplicationResult::getHandle)
                 .map(InformationSchemaTableHandle.class::cast)
                 .orElseThrow(AssertionError::new);
-        assertThat(tableHandle.getPrefixes()).isEqualTo(ImmutableSet.of(new QualifiedTablePrefix("test_catalog", "test_schema", "test_view")));
+        assertThat(tableHandle.prefixes()).isEqualTo(ImmutableSet.of(new QualifiedTablePrefix("test_catalog", "test_schema", "test_view")));
     }
 
     @Test
@@ -145,13 +145,13 @@ public class TestInformationSchemaMetadata
         ConnectorSession session = createNewSession(transactionId);
         ConnectorMetadata metadata = new InformationSchemaMetadata("test_catalog", this.metadata, MAX_PREFIXES_COUNT);
         InformationSchemaTableHandle tableHandle = (InformationSchemaTableHandle)
-                metadata.getTableHandle(session, new SchemaTableName("information_schema", "columns"));
+                metadata.getTableHandle(session, new SchemaTableName("information_schema", "columns"), Optional.empty(), Optional.empty());
         tableHandle = metadata.applyFilter(session, tableHandle, constraint)
                 .map(ConstraintApplicationResult::getHandle)
                 .map(InformationSchemaTableHandle.class::cast)
                 .orElseThrow(AssertionError::new);
 
-        assertThat(tableHandle.getPrefixes()).isEqualTo(ImmutableSet.of(new QualifiedTablePrefix("test_catalog", "test_schema", "test_view")));
+        assertThat(tableHandle.prefixes()).isEqualTo(ImmutableSet.of(new QualifiedTablePrefix("test_catalog", "test_schema", "test_view")));
     }
 
     @Test
@@ -167,13 +167,13 @@ public class TestInformationSchemaMetadata
         ConnectorSession session = createNewSession(transactionId);
         ConnectorMetadata metadata = new InformationSchemaMetadata("test_catalog", this.metadata, MAX_PREFIXES_COUNT);
         InformationSchemaTableHandle tableHandle = (InformationSchemaTableHandle)
-                metadata.getTableHandle(session, new SchemaTableName("information_schema", "views"));
+                metadata.getTableHandle(session, new SchemaTableName("information_schema", "views"), Optional.empty(), Optional.empty());
         tableHandle = metadata.applyFilter(session, tableHandle, constraint)
                 .map(ConstraintApplicationResult::getHandle)
                 .map(InformationSchemaTableHandle.class::cast)
                 .orElseThrow(AssertionError::new);
         // filter blindly applies filter to all visible schemas, so information_schema must be included
-        assertThat(tableHandle.getPrefixes()).isEqualTo(ImmutableSet.of(
+        assertThat(tableHandle.prefixes()).isEqualTo(ImmutableSet.of(
                 new QualifiedTablePrefix("test_catalog", "test_schema", "test_view"),
                 new QualifiedTablePrefix("test_catalog", "information_schema", "test_view")));
     }
@@ -191,12 +191,12 @@ public class TestInformationSchemaMetadata
         ConnectorSession session = createNewSession(transactionId);
         ConnectorMetadata metadata = new InformationSchemaMetadata("test_catalog", this.metadata, MAX_PREFIXES_COUNT);
         InformationSchemaTableHandle tableHandle = (InformationSchemaTableHandle)
-                metadata.getTableHandle(session, new SchemaTableName("information_schema", "views"));
+                metadata.getTableHandle(session, new SchemaTableName("information_schema", "views"), Optional.empty(), Optional.empty());
         tableHandle = metadata.applyFilter(session, tableHandle, constraint)
                 .map(ConstraintApplicationResult::getHandle)
                 .map(InformationSchemaTableHandle.class::cast)
                 .orElseThrow(AssertionError::new);
-        assertThat(tableHandle.getPrefixes()).isEqualTo(ImmutableSet.of(new QualifiedTablePrefix("test_catalog", "test_schema")));
+        assertThat(tableHandle.prefixes()).isEqualTo(ImmutableSet.of(new QualifiedTablePrefix("test_catalog", "test_schema")));
     }
 
     @Test
@@ -209,13 +209,13 @@ public class TestInformationSchemaMetadata
         ConnectorSession session = createNewSession(transactionId);
         ConnectorMetadata metadata = new InformationSchemaMetadata("test_catalog", this.metadata, MAX_PREFIXES_COUNT);
         InformationSchemaTableHandle tableHandle = (InformationSchemaTableHandle)
-                metadata.getTableHandle(session, new SchemaTableName("information_schema", "views"));
+                metadata.getTableHandle(session, new SchemaTableName("information_schema", "views"), Optional.empty(), Optional.empty());
         tableHandle = metadata.applyFilter(session, tableHandle, constraint)
                 .map(ConstraintApplicationResult::getHandle)
                 .map(InformationSchemaTableHandle.class::cast)
                 .orElseThrow(AssertionError::new);
 
-        assertThat(tableHandle.getPrefixes()).isEqualTo(ImmutableSet.of(new QualifiedTablePrefix("test_catalog", "test_schema")));
+        assertThat(tableHandle.prefixes()).isEqualTo(ImmutableSet.of(new QualifiedTablePrefix("test_catalog", "test_schema")));
     }
 
     @Test
@@ -229,9 +229,9 @@ public class TestInformationSchemaMetadata
         ConnectorSession session = createNewSession(transactionId);
         ConnectorMetadata metadata = new InformationSchemaMetadata("test_catalog", this.metadata, MAX_PREFIXES_COUNT);
         InformationSchemaTableHandle tableHandle = (InformationSchemaTableHandle)
-                metadata.getTableHandle(session, new SchemaTableName("information_schema", "schemata"));
+                metadata.getTableHandle(session, new SchemaTableName("information_schema", "schemata"), Optional.empty(), Optional.empty());
         Optional<ConstraintApplicationResult<ConnectorTableHandle>> result = metadata.applyFilter(session, tableHandle, constraint);
-        assertThat(result.isPresent()).isFalse();
+        assertThat(result).isEmpty();
     }
 
     @Test
@@ -242,7 +242,7 @@ public class TestInformationSchemaMetadata
         ConnectorMetadata metadata = new InformationSchemaMetadata("test_catalog", this.metadata, MAX_PREFIXES_COUNT);
         InformationSchemaColumnHandle tableSchemaColumn = new InformationSchemaColumnHandle("table_schema");
         InformationSchemaColumnHandle tableNameColumn = new InformationSchemaColumnHandle("table_name");
-        ConnectorTableHandle tableHandle = metadata.getTableHandle(session, new SchemaTableName("information_schema", "tables"));
+        ConnectorTableHandle tableHandle = metadata.getTableHandle(session, new SchemaTableName("information_schema", "tables"), Optional.empty(), Optional.empty());
 
         // Empty schema name
         InformationSchemaTableHandle filtered = metadata.applyFilter(session, tableHandle, new Constraint(TupleDomain.withColumnDomains(
@@ -252,7 +252,7 @@ public class TestInformationSchemaMetadata
                 .orElseThrow(AssertionError::new);
 
         // "" schema name is valid schema name, but is (currently) valid for QualifiedTablePrefix
-        assertThat(filtered.getPrefixes()).isEqualTo(ImmutableSet.of(new QualifiedTablePrefix("test_catalog", "")));
+        assertThat(filtered.prefixes()).isEqualTo(ImmutableSet.of(new QualifiedTablePrefix("test_catalog", "")));
 
         // Empty table name
         filtered = metadata.applyFilter(session, tableHandle, new Constraint(TupleDomain.withColumnDomains(
@@ -263,7 +263,7 @@ public class TestInformationSchemaMetadata
 
         // "" table name is valid schema name, but is (currently) valid for QualifiedTablePrefix
         // filter blindly applies filter to all visible schemas, so information_schema must be included
-        assertThat(filtered.getPrefixes()).isEqualTo(ImmutableSet.of(
+        assertThat(filtered.prefixes()).isEqualTo(ImmutableSet.of(
                 new QualifiedTablePrefix("test_catalog", "test_schema", ""),
                 new QualifiedTablePrefix("test_catalog", "information_schema", "")));
     }

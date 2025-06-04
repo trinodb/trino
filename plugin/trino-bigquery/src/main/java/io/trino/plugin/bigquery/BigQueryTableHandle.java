@@ -24,14 +24,17 @@ import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public record BigQueryTableHandle(
         BigQueryRelationHandle relationHandle,
         TupleDomain<ColumnHandle> constraint,
-        Optional<List<BigQueryColumnHandle>> projectedColumns)
+        Optional<List<BigQueryColumnHandle>> projectedColumns,
+        OptionalLong limit)
         implements ConnectorTableHandle
 {
     public BigQueryTableHandle
@@ -39,6 +42,7 @@ public record BigQueryTableHandle(
         requireNonNull(relationHandle, "relationHandle is null");
         requireNonNull(constraint, "constraint is null");
         requireNonNull(projectedColumns, "projectedColumns is null");
+        requireNonNull(limit, "limit is null");
     }
 
     @JsonIgnore
@@ -46,6 +50,13 @@ public record BigQueryTableHandle(
     {
         checkState(isNamedRelation(), "The table handle does not represent a named relation: %s", this);
         return (BigQueryNamedRelationHandle) relationHandle;
+    }
+
+    @JsonIgnore
+    public BigQueryQueryRelationHandle getRequiredQueryRelation()
+    {
+        checkState(isQueryRelation(), "The table handle does not represent a query relation: %s", this);
+        return (BigQueryQueryRelationHandle) relationHandle;
     }
 
     @JsonIgnore
@@ -60,6 +71,31 @@ public record BigQueryTableHandle(
         return relationHandle instanceof BigQueryNamedRelationHandle;
     }
 
+    @JsonIgnore
+    public boolean isQueryRelation()
+    {
+        return relationHandle instanceof BigQueryQueryRelationHandle;
+    }
+
+    @Override
+    public String toString()
+    {
+        StringBuilder builder = new StringBuilder();
+        builder.append(relationHandle);
+        if (constraint.isNone()) {
+            builder.append(" constraint=FALSE");
+        }
+        else if (!constraint.isAll()) {
+            builder.append(" constraint on ");
+            builder.append(constraint.getDomains().orElseThrow().keySet().stream()
+                    .map(columnHandle -> ((BigQueryColumnHandle) columnHandle).name())
+                    .collect(joining(", ", "[", "]")));
+        }
+        projectedColumns.ifPresent(columns -> builder.append(" columns=").append(columns));
+        limit.ifPresent(value -> builder.append(" limit=").append(value));
+        return builder.toString();
+    }
+
     public BigQueryNamedRelationHandle asPlainTable()
     {
         checkState(!isSynthetic(), "The table handle does not represent a plain table: %s", this);
@@ -68,12 +104,17 @@ public record BigQueryTableHandle(
 
     BigQueryTableHandle withConstraint(TupleDomain<ColumnHandle> newConstraint)
     {
-        return new BigQueryTableHandle(relationHandle, newConstraint, projectedColumns);
+        return new BigQueryTableHandle(relationHandle, newConstraint, projectedColumns, limit);
     }
 
     public BigQueryTableHandle withProjectedColumns(List<BigQueryColumnHandle> newProjectedColumns)
     {
-        return new BigQueryTableHandle(relationHandle, constraint, Optional.of(newProjectedColumns));
+        return new BigQueryTableHandle(relationHandle, constraint, Optional.of(newProjectedColumns), limit);
+    }
+
+    public BigQueryTableHandle withLimit(long limit)
+    {
+        return new BigQueryTableHandle(relationHandle, constraint, projectedColumns, OptionalLong.of(limit));
     }
 
     public enum BigQueryPartitionType

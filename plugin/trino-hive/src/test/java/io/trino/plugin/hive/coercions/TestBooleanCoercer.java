@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.coercions;
 
 import io.airlift.slice.Slice;
+import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.plugin.hive.coercions.CoercionUtils.CoercionContext;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -21,9 +22,11 @@ import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.hive.HiveStorageFormat.ORC;
+import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
-import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.coercions.CoercionUtils.createCoercer;
+import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
 import static io.trino.spi.predicate.Utils.blockToNativeValue;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -91,27 +94,27 @@ public class TestBooleanCoercer
     public void testVarcharToBooleanForOrc()
     {
         // Valid false values
-        assertVarcharToBooleanCoercion("0", true, false);
-        assertVarcharToBooleanCoercion("-0", true, false);
-        assertVarcharToBooleanCoercion("00", true, false);
+        assertVarcharToBooleanCoercion("0", ORC, false);
+        assertVarcharToBooleanCoercion("-0", ORC, false);
+        assertVarcharToBooleanCoercion("00", ORC, false);
 
         // True values
-        assertVarcharToBooleanCoercion("1", true, true);
-        assertVarcharToBooleanCoercion("-1", true, true);
-        assertVarcharToBooleanCoercion("-123", true, true);
-        assertVarcharToBooleanCoercion("123", true, true);
+        assertVarcharToBooleanCoercion("1", ORC, true);
+        assertVarcharToBooleanCoercion("-1", ORC, true);
+        assertVarcharToBooleanCoercion("-123", ORC, true);
+        assertVarcharToBooleanCoercion("123", ORC, true);
 
         // Non numeric values
-        assertVarcharToBooleanCoercion("FALSE", true, null);
-        assertVarcharToBooleanCoercion("OFF", true, null);
-        assertVarcharToBooleanCoercion("NO", true, null);
-        assertVarcharToBooleanCoercion("T", true, null);
-        assertVarcharToBooleanCoercion("Y", true, null);
+        assertVarcharToBooleanCoercion("FALSE", ORC, null);
+        assertVarcharToBooleanCoercion("OFF", ORC, null);
+        assertVarcharToBooleanCoercion("NO", ORC, null);
+        assertVarcharToBooleanCoercion("T", ORC, null);
+        assertVarcharToBooleanCoercion("Y", ORC, null);
     }
 
     private void assertBooleanToVarcharCoercion(Type toType, boolean valueToBeCoerced, Slice expectedValue)
     {
-        Block coercedValue = createCoercer(TESTING_TYPE_MANAGER, toHiveType(BOOLEAN), toHiveType(toType), new CoercionContext(DEFAULT_PRECISION, false)).orElseThrow()
+        Block coercedValue = createCoercer(TESTING_TYPE_MANAGER, toHiveType(BOOLEAN), toHiveType(toType), new CoercionContext(DEFAULT_PRECISION, PARQUET)).orElseThrow()
                 .apply(nativeValueToBlock(BOOLEAN, valueToBeCoerced));
         assertThat(blockToNativeValue(toType, coercedValue))
                 .isEqualTo(expectedValue);
@@ -119,12 +122,12 @@ public class TestBooleanCoercer
 
     private void assertVarcharToBooleanCoercion(String valueToBeCoerced, Boolean expectedValue)
     {
-        assertVarcharToBooleanCoercion(valueToBeCoerced, false, expectedValue);
+        assertVarcharToBooleanCoercion(valueToBeCoerced, PARQUET, expectedValue);
     }
 
-    private void assertVarcharToBooleanCoercion(String valueToBeCoerced, boolean isOrcFile, Boolean expectedValue)
+    private void assertVarcharToBooleanCoercion(String valueToBeCoerced, HiveStorageFormat storageFormat, Boolean expectedValue)
     {
-        Block coercedValue = createCoercer(TESTING_TYPE_MANAGER, toHiveType(createUnboundedVarcharType()), toHiveType(BOOLEAN), new CoercionContext(DEFAULT_PRECISION, isOrcFile)).orElseThrow()
+        Block coercedValue = createCoercer(TESTING_TYPE_MANAGER, toHiveType(createUnboundedVarcharType()), toHiveType(BOOLEAN), new CoercionContext(DEFAULT_PRECISION, storageFormat)).orElseThrow()
                 .apply(nativeValueToBlock(createUnboundedVarcharType(), utf8Slice(valueToBeCoerced)));
         assertThat(blockToNativeValue(BOOLEAN, coercedValue))
                 .isEqualTo(expectedValue);

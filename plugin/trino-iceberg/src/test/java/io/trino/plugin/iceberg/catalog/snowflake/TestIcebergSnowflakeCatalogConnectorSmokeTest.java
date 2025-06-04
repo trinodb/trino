@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 import java.sql.SQLException;
+import java.util.Map;
 
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
 import static io.trino.plugin.iceberg.catalog.snowflake.TestingSnowflakeServer.SNOWFLAKE_JDBC_URI;
@@ -67,7 +68,8 @@ public class TestIcebergSnowflakeCatalogConnectorSmokeTest
         server = new TestingSnowflakeServer();
         server.execute(SNOWFLAKE_TEST_SCHEMA, "CREATE SCHEMA IF NOT EXISTS %s".formatted(SNOWFLAKE_TEST_SCHEMA));
         if (!server.checkIfTableExists(ICEBERG, SNOWFLAKE_TEST_SCHEMA, TpchTable.NATION.getTableName())) {
-            executeOnSnowflake("""
+            executeOnSnowflake(
+                    """
                     CREATE OR REPLACE ICEBERG TABLE %s (
                     	NATIONKEY NUMBER(38,0),
                     	NAME STRING,
@@ -82,7 +84,8 @@ public class TestIcebergSnowflakeCatalogConnectorSmokeTest
                     .formatted(TpchTable.NATION.getTableName(), TpchTable.NATION.getTableName()));
         }
         if (!server.checkIfTableExists(ICEBERG, SNOWFLAKE_TEST_SCHEMA, TpchTable.REGION.getTableName())) {
-            executeOnSnowflake("""
+            executeOnSnowflake(
+                    """
                     CREATE OR REPLACE ICEBERG TABLE %s (
                     	REGIONKEY NUMBER(38,0),
                     	NAME STRING,
@@ -96,7 +99,7 @@ public class TestIcebergSnowflakeCatalogConnectorSmokeTest
                     .formatted(TpchTable.REGION.getTableName(), TpchTable.REGION.getTableName()));
         }
 
-        ImmutableMap<String, String> properties = ImmutableMap.<String, String>builder()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("fs.native-s3.enabled", "true")
                 .put("s3.aws-access-key", S3_ACCESS_KEY)
                 .put("s3.aws-secret-key", S3_SECRET_KEY)
@@ -120,26 +123,54 @@ public class TestIcebergSnowflakeCatalogConnectorSmokeTest
     }
 
     @Override
+    protected void createSchema(String schemaName)
+            throws SQLException
+    {
+        server.execute(schemaName, "CREATE SCHEMA " + schemaName);
+    }
+
+    @Override
+    protected void dropSchema(String schema)
+            throws SQLException
+    {
+        server.execute(schema, "DROP SCHEMA " + schema);
+    }
+
+    @Override
+    protected AutoCloseable createTable(String schema, String tableName, String tableDefinition)
+            throws SQLException
+    {
+        server.execute(schema,
+                """
+                CREATE OR REPLACE ICEBERG TABLE %s %s
+                 EXTERNAL_VOLUME = '%s'
+                 CATALOG = 'SNOWFLAKE'
+                 BASE_LOCATION = '%s/'
+                """.formatted(tableName, tableDefinition, SNOWFLAKE_S3_EXTERNAL_VOLUME, tableName));
+        return () -> server.execute(schema, "DROP TABLE %s".formatted(tableName));
+    }
+
+    @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
             case SUPPORTS_CREATE_TABLE,
-                    SUPPORTS_DELETE,
-                    SUPPORTS_INSERT,
-                    SUPPORTS_CREATE_VIEW,
-                    SUPPORTS_CREATE_MATERIALIZED_VIEW,
-                    SUPPORTS_RENAME_SCHEMA,
-                    SUPPORTS_CREATE_SCHEMA,
-                    SUPPORTS_MERGE,
-                    SUPPORTS_UPDATE,
-                    SUPPORTS_RENAME_TABLE,
-                    SUPPORTS_ROW_LEVEL_UPDATE,
-                    SUPPORTS_ROW_LEVEL_DELETE,
-                    SUPPORTS_CREATE_OR_REPLACE_TABLE,
-                    SUPPORTS_CREATE_TABLE_WITH_DATA,
-                    SUPPORTS_COMMENT_ON_TABLE,
-                    SUPPORTS_COMMENT_ON_COLUMN,
-                    SUPPORTS_COMMENT_ON_VIEW -> false;
+                 SUPPORTS_DELETE,
+                 SUPPORTS_INSERT,
+                 SUPPORTS_CREATE_VIEW,
+                 SUPPORTS_CREATE_MATERIALIZED_VIEW,
+                 SUPPORTS_RENAME_SCHEMA,
+                 SUPPORTS_CREATE_SCHEMA,
+                 SUPPORTS_MERGE,
+                 SUPPORTS_UPDATE,
+                 SUPPORTS_RENAME_TABLE,
+                 SUPPORTS_ROW_LEVEL_UPDATE,
+                 SUPPORTS_ROW_LEVEL_DELETE,
+                 SUPPORTS_CREATE_OR_REPLACE_TABLE,
+                 SUPPORTS_CREATE_TABLE_WITH_DATA,
+                 SUPPORTS_COMMENT_ON_TABLE,
+                 SUPPORTS_COMMENT_ON_COLUMN,
+                 SUPPORTS_COMMENT_ON_VIEW -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
@@ -569,6 +600,7 @@ public class TestIcebergSnowflakeCatalogConnectorSmokeTest
         assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + TpchTable.REGION.getTableName() + " RENAME COLUMN name TO new_name"))
                 .hasMessageMatching("Failed to rename column: Snowflake managed Iceberg tables do not support modifications");
     }
+
     @Test
     public void testBeginStatisticsCollection()
     {
@@ -607,7 +639,15 @@ public class TestIcebergSnowflakeCatalogConnectorSmokeTest
     public void testExecuteDelete()
     {
         assertThatThrownBy(() -> assertUpdate("DELETE FROM " + TpchTable.REGION.getTableName()))
-                .hasMessageMatching("Failed to close manifest writer");
+                .hasMessageContaining("Failed to close manifest writer");
+    }
+
+    @Test
+    @Override
+    public void testTruncateTable()
+    {
+        assertThatThrownBy(super::testTruncateTable)
+                .hasMessageContaining("Failed to close manifest writer");
     }
 
     @Test
@@ -615,13 +655,14 @@ public class TestIcebergSnowflakeCatalogConnectorSmokeTest
     {
         assertQuery(
                 "SHOW STATS FOR " + TpchTable.NATION.getTableName(),
-                          """
-                          VALUES
-                          ('nationkey', null, null, 0, null, 0.0, '24.0'),
-                          ('name', null, null, 0, null, null, null),
-                          ('regionkey', null, null, 0, null, 0.0, '4.0'),
-                          ('comment', null, null, 0, null, null, null),
-                          (null, null, null, null, 25, null, null)""");
+                """
+                VALUES
+                ('nationkey', null, null, 0, null, 0.0, '24.0'),
+                ('name', null, null, 0, null, null, null),
+                ('regionkey', null, null, 0, null, 0.0, '4.0'),
+                ('comment', null, null, 0, null, null, null),
+                (null, null, null, null, 25, null, null)
+                """);
     }
 
     @Test

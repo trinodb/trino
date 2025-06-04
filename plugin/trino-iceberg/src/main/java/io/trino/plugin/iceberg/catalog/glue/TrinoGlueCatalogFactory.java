@@ -13,14 +13,15 @@
  */
 package io.trino.plugin.iceberg.catalog.glue;
 
-import com.amazonaws.services.glue.AWSGlueAsync;
 import com.google.inject.Inject;
+import io.airlift.concurrent.BoundedExecutor;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
+import io.trino.plugin.hive.security.UsingSystemSecurity;
+import io.trino.plugin.iceberg.ForIcebergMetadata;
 import io.trino.plugin.iceberg.IcebergConfig;
-import io.trino.plugin.iceberg.IcebergSecurityConfig;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
@@ -29,10 +30,13 @@ import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
+import software.amazon.awssdk.services.glue.GlueClient;
 
 import java.util.Optional;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 
-import static io.trino.plugin.iceberg.IcebergSecurityConfig.IcebergSecurity.SYSTEM;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
 
 public class TrinoGlueCatalogFactory
@@ -45,11 +49,12 @@ public class TrinoGlueCatalogFactory
     private final IcebergTableOperationsProvider tableOperationsProvider;
     private final String trinoVersion;
     private final Optional<String> defaultSchemaLocation;
-    private final AWSGlueAsync glueClient;
+    private final GlueClient glueClient;
     private final boolean isUniqueTableLocation;
     private final boolean hideMaterializedViewStorageTable;
     private final GlueMetastoreStats stats;
     private final boolean isUsingSystemSecurity;
+    private final Executor metadataFetchingExecutor;
 
     @Inject
     public TrinoGlueCatalogFactory(
@@ -61,9 +66,10 @@ public class TrinoGlueCatalogFactory
             GlueHiveMetastoreConfig glueConfig,
             IcebergConfig icebergConfig,
             IcebergGlueCatalogConfig catalogConfig,
-            IcebergSecurityConfig securityConfig,
+            @UsingSystemSecurity boolean usingSystemSecurity,
             GlueMetastoreStats stats,
-            AWSGlueAsync glueClient)
+            GlueClient glueClient,
+            @ForIcebergMetadata ExecutorService metadataExecutorService)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
@@ -76,7 +82,13 @@ public class TrinoGlueCatalogFactory
         this.isUniqueTableLocation = icebergConfig.isUniqueTableLocation();
         this.hideMaterializedViewStorageTable = icebergConfig.isHideMaterializedViewStorageTable();
         this.stats = requireNonNull(stats, "stats is null");
-        this.isUsingSystemSecurity = securityConfig.getSecuritySystem() == SYSTEM;
+        this.isUsingSystemSecurity = usingSystemSecurity;
+        if (icebergConfig.getMetadataParallelism() == 1) {
+            this.metadataFetchingExecutor = directExecutor();
+        }
+        else {
+            this.metadataFetchingExecutor = new BoundedExecutor(metadataExecutorService, icebergConfig.getMetadataParallelism());
+        }
     }
 
     @Managed
@@ -101,6 +113,7 @@ public class TrinoGlueCatalogFactory
                 isUsingSystemSecurity,
                 defaultSchemaLocation,
                 isUniqueTableLocation,
-                hideMaterializedViewStorageTable);
+                hideMaterializedViewStorageTable,
+                metadataFetchingExecutor);
     }
 }

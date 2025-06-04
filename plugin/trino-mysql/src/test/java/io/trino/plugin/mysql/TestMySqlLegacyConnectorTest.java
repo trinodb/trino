@@ -16,7 +16,9 @@ package io.trino.plugin.mysql;
 import io.trino.Session;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ExchangeNode;
+import io.trino.sql.planner.plan.GroupIdNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
+import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import org.junit.jupiter.api.Test;
@@ -26,7 +28,11 @@ import java.util.Optional;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.SystemSessionProperties.DISTINCT_AGGREGATIONS_STRATEGY;
 import static io.trino.plugin.mysql.TestingMySqlServer.LEGACY_IMAGE;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -104,24 +110,37 @@ public class TestMySqlLegacyConnectorTest
                 .collect(toImmutableList());
 
         try (TestTable testTable = new TestTable(onRemoteDatabase(), "tpch.distinct_strings", "(t_char CHAR(5) CHARACTER SET utf8mb4, t_varchar VARCHAR(5) CHARACTER SET utf8mb4)", rows)) {
-            // disabling hash generation to prevent extra projections in the plan which make it hard to write matchers for isNotFullyPushedDown
-            Session optimizeHashGenerationDisabled = Session.builder(getSession())
-                    .setSystemProperty("optimize_hash_generation", "false")
-                    .build();
-
             // It is not captured in the `isNotFullyPushedDown` calls (can't do that) but depending on the connector in use some aggregations
             // still can be pushed down to connector.
             // the DISTINCT part of aggregation will still be pushed down to connector as `GROUP BY`. Only the `count` part will remain on the Trino side.
-            assertThat(query(optimizeHashGenerationDisabled, "SELECT count(DISTINCT t_varchar) FROM " + testTable.getName()))
+            assertThat(query("SELECT count(DISTINCT t_varchar) FROM " + testTable.getName()))
                     .matches("VALUES BIGINT '7'")
                     .isNotFullyPushedDown(AggregationNode.class);
-            assertThat(query(optimizeHashGenerationDisabled, "SELECT count(DISTINCT t_char) FROM " + testTable.getName()))
+            assertThat(query("SELECT count(DISTINCT t_char) FROM " + testTable.getName()))
                     .matches("VALUES BIGINT '7'")
                     .isNotFullyPushedDown(AggregationNode.class);
 
-            assertThat(query("SELECT count(DISTINCT t_char), count(DISTINCT t_varchar) FROM " + testTable.getName()))
+            Session withMarkDistinct = Session.builder(getSession())
+                    .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "mark_distinct")
+                    .build();
+            Session withSingleStep = Session.builder(getSession())
+                    .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "single_step")
+                    .build();
+            Session withPreAggregate = Session.builder(getSession())
+                    .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
+                    .build();
+
+            assertThat(query(withMarkDistinct, "SELECT count(DISTINCT t_char), count(DISTINCT t_varchar) FROM " + testTable.getName()))
                     .matches("VALUES (BIGINT '7', BIGINT '7')")
                     .isNotFullyPushedDown(MarkDistinctNode.class, ExchangeNode.class, ExchangeNode.class);
+
+            assertThat(query(withSingleStep, "SELECT count(DISTINCT t_char), count(DISTINCT t_varchar) FROM " + testTable.getName()))
+                    .matches("VALUES (BIGINT '7', BIGINT '7')")
+                    .isNotFullyPushedDown(node(AggregationNode.class, anyTree(node(TableScanNode.class))));
+
+            assertThat(query(withPreAggregate, "SELECT count(DISTINCT t_char), count(DISTINCT t_varchar) FROM " + testTable.getName()))
+                    .matches("VALUES (BIGINT '7', BIGINT '7')")
+                    .isNotFullyPushedDown(node(AggregationNode.class, project(node(AggregationNode.class, anyTree(node(GroupIdNode.class, node(TableScanNode.class)))))));
         }
     }
 

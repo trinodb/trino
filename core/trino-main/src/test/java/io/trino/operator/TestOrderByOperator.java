@@ -34,7 +34,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
@@ -112,7 +111,7 @@ public class TestOrderByOperator
         MaterializedResult expected = expectedBuilder.build();
 
         List<Page> pages = toPages(operatorFactory, driverContext, input, revokeMemoryWhenAddingPages);
-        assertGreaterThan(pages.size(), 1, "Expected more than one output page");
+        assertThat(pages).as("Expected more than one output page").hasSizeGreaterThan(1);
 
         MaterializedResult actual = toMaterializedResult(driverContext.getSession(), expected.getTypes(), pages);
         assertThat(actual.getMaterializedRows()).isEqualTo(expected.getMaterializedRows());

@@ -28,7 +28,6 @@ import java.util.Optional;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static jakarta.ws.rs.core.NewCookie.DEFAULT_MAX_AGE;
 import static java.util.Objects.requireNonNull;
 
 public class MultipartUiCookie
@@ -56,9 +55,6 @@ public class MultipartUiCookie
             cookiesToSet.add(new NewCookie.Builder(cookieName(index++))
                     .value(part)
                     .path(location)
-                    .domain(null)
-                    .comment(null)
-                    .maxAge(DEFAULT_MAX_AGE)
                     .expiry(expiration)
                     .secure(isSecure)
                     .httpOnly(true)
@@ -67,7 +63,7 @@ public class MultipartUiCookie
         return cookiesToSet.build().toArray(new NewCookie[0]);
     }
 
-    public Optional<String> read(Map<String, Cookie> existingCookies)
+    public Optional<String> read(Map<String, ? extends Cookie> existingCookies)
     {
         long cookiesCount = existingCookies.values().stream()
                 .filter(this::matchesName)
@@ -89,7 +85,7 @@ public class MultipartUiCookie
         return Optional.of(token.toString());
     }
 
-    public NewCookie[] delete(Map<String, Cookie> existingCookies, boolean isSecured)
+    public NewCookie[] delete(Map<String, ? extends Cookie> existingCookies, boolean isSecured)
     {
         ImmutableSet.Builder<NewCookie> cookiesToDelete = ImmutableSet.builder();
         cookiesToDelete.add(deleteCookie(cookieName, isSecured)); // Always invalidate first cookie even if it doesn't exist
@@ -132,9 +128,7 @@ public class MultipartUiCookie
         return new NewCookie.Builder(name)
                 .value("delete")
                 .path(location)
-                .domain(null)
                 .maxAge(0)
-                .expiry(null)
                 .secure(isSecured)
                 .httpOnly(true)
                 .build();

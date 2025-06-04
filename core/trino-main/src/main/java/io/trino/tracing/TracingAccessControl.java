@@ -23,6 +23,7 @@ import io.trino.security.SecurityContext;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
+import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.EntityKindAndName;
 import io.trino.spi.connector.EntityPrivilege;
 import io.trino.spi.connector.SchemaTableName;
@@ -31,7 +32,6 @@ import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
-import io.trino.spi.type.Type;
 
 import java.security.Principal;
 import java.util.Collection;
@@ -66,7 +66,7 @@ public class TracingAccessControl
     public void checkCanSetUser(Optional<Principal> principal, String userName)
     {
         Span span = startSpan("checkCanSetUser");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanSetUser(principal, userName);
         }
     }
@@ -75,7 +75,7 @@ public class TracingAccessControl
     public void checkCanImpersonateUser(Identity identity, String userName)
     {
         Span span = startSpan("checkCanImpersonateUser");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanImpersonateUser(identity, userName);
         }
     }
@@ -84,7 +84,7 @@ public class TracingAccessControl
     public void checkCanReadSystemInformation(Identity identity)
     {
         Span span = startSpan("checkCanReadSystemInformation");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanReadSystemInformation(identity);
         }
     }
@@ -93,7 +93,7 @@ public class TracingAccessControl
     public void checkCanWriteSystemInformation(Identity identity)
     {
         Span span = startSpan("checkCanWriteSystemInformation");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanWriteSystemInformation(identity);
         }
     }
@@ -102,7 +102,7 @@ public class TracingAccessControl
     public void checkCanExecuteQuery(Identity identity, QueryId queryId)
     {
         Span span = startSpan("checkCanExecuteQuery");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanExecuteQuery(identity, queryId);
         }
     }
@@ -111,7 +111,7 @@ public class TracingAccessControl
     public void checkCanViewQueryOwnedBy(Identity identity, Identity queryOwner)
     {
         Span span = startSpan("checkCanViewQueryOwnedBy");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanViewQueryOwnedBy(identity, queryOwner);
         }
     }
@@ -120,7 +120,7 @@ public class TracingAccessControl
     public Collection<Identity> filterQueriesOwnedBy(Identity identity, Collection<Identity> queryOwners)
     {
         Span span = startSpan("filterQueriesOwnedBy");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             return delegate.filterQueriesOwnedBy(identity, queryOwners);
         }
     }
@@ -129,7 +129,7 @@ public class TracingAccessControl
     public void checkCanKillQueryOwnedBy(Identity identity, Identity queryOwner)
     {
         Span span = startSpan("checkCanKillQueryOwnedBy");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanKillQueryOwnedBy(identity, queryOwner);
         }
     }
@@ -138,7 +138,7 @@ public class TracingAccessControl
     public void checkCanCreateCatalog(SecurityContext context, String catalog)
     {
         Span span = startSpan("checkCanCreateCatalog");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanCreateCatalog(context, catalog);
         }
     }
@@ -147,7 +147,7 @@ public class TracingAccessControl
     public void checkCanDropCatalog(SecurityContext context, String catalog)
     {
         Span span = startSpan("checkCanDropCatalog");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanDropCatalog(context, catalog);
         }
     }
@@ -156,7 +156,7 @@ public class TracingAccessControl
     public Set<String> filterCatalogs(SecurityContext context, Set<String> catalogs)
     {
         Span span = startSpan("filterCatalogs");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             return delegate.filterCatalogs(context, catalogs);
         }
     }
@@ -165,7 +165,7 @@ public class TracingAccessControl
     public void checkCanCreateSchema(SecurityContext context, CatalogSchemaName schemaName, Map<String, Object> properties)
     {
         Span span = startSpan("checkCanCreateSchema");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanCreateSchema(context, schemaName, properties);
         }
     }
@@ -174,7 +174,7 @@ public class TracingAccessControl
     public void checkCanDropSchema(SecurityContext context, CatalogSchemaName schemaName)
     {
         Span span = startSpan("checkCanDropSchema");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanDropSchema(context, schemaName);
         }
     }
@@ -183,17 +183,8 @@ public class TracingAccessControl
     public void checkCanRenameSchema(SecurityContext context, CatalogSchemaName schemaName, String newSchemaName)
     {
         Span span = startSpan("checkCanRenameSchema");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanRenameSchema(context, schemaName, newSchemaName);
-        }
-    }
-
-    @Override
-    public void checkCanSetSchemaAuthorization(SecurityContext context, CatalogSchemaName schemaName, TrinoPrincipal principal)
-    {
-        Span span = startSpan("checkCanSetSchemaAuthorization");
-        try (var ignored = scopedSpan(span)) {
-            delegate.checkCanSetSchemaAuthorization(context, schemaName, principal);
         }
     }
 
@@ -201,7 +192,7 @@ public class TracingAccessControl
     public void checkCanShowSchemas(SecurityContext context, String catalogName)
     {
         Span span = startSpan("checkCanShowSchemas");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanShowSchemas(context, catalogName);
         }
     }
@@ -210,7 +201,7 @@ public class TracingAccessControl
     public Set<String> filterSchemas(SecurityContext context, String catalogName, Set<String> schemaNames)
     {
         Span span = startSpan("filterSchemas");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             return delegate.filterSchemas(context, catalogName, schemaNames);
         }
     }
@@ -219,7 +210,7 @@ public class TracingAccessControl
     public void checkCanShowCreateSchema(SecurityContext context, CatalogSchemaName schemaName)
     {
         Span span = startSpan("checkCanShowCreateSchema");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanShowCreateSchema(context, schemaName);
         }
     }
@@ -228,7 +219,7 @@ public class TracingAccessControl
     public void checkCanShowCreateTable(SecurityContext context, QualifiedObjectName tableName)
     {
         Span span = startSpan("checkCanShowCreateTable");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanShowCreateTable(context, tableName);
         }
     }
@@ -237,7 +228,7 @@ public class TracingAccessControl
     public void checkCanCreateTable(SecurityContext context, QualifiedObjectName tableName, Map<String, Object> properties)
     {
         Span span = startSpan("checkCanCreateTable");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanCreateTable(context, tableName, properties);
         }
     }
@@ -246,7 +237,7 @@ public class TracingAccessControl
     public void checkCanDropTable(SecurityContext context, QualifiedObjectName tableName)
     {
         Span span = startSpan("checkCanDropTable");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanDropTable(context, tableName);
         }
     }
@@ -255,7 +246,7 @@ public class TracingAccessControl
     public void checkCanRenameTable(SecurityContext context, QualifiedObjectName tableName, QualifiedObjectName newTableName)
     {
         Span span = startSpan("checkCanRenameTable");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanRenameTable(context, tableName, newTableName);
         }
     }
@@ -264,7 +255,7 @@ public class TracingAccessControl
     public void checkCanSetTableProperties(SecurityContext context, QualifiedObjectName tableName, Map<String, Optional<Object>> properties)
     {
         Span span = startSpan("checkCanSetTableProperties");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanSetTableProperties(context, tableName, properties);
         }
     }
@@ -273,7 +264,7 @@ public class TracingAccessControl
     public void checkCanSetTableComment(SecurityContext context, QualifiedObjectName tableName)
     {
         Span span = startSpan("checkCanSetTableComment");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanSetTableComment(context, tableName);
         }
     }
@@ -282,7 +273,7 @@ public class TracingAccessControl
     public void checkCanSetViewComment(SecurityContext context, QualifiedObjectName viewName)
     {
         Span span = startSpan("checkCanSetViewComment");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanSetViewComment(context, viewName);
         }
     }
@@ -291,7 +282,7 @@ public class TracingAccessControl
     public void checkCanSetColumnComment(SecurityContext context, QualifiedObjectName tableName)
     {
         Span span = startSpan("checkCanSetColumnComment");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanSetColumnComment(context, tableName);
         }
     }
@@ -300,7 +291,7 @@ public class TracingAccessControl
     public void checkCanShowTables(SecurityContext context, CatalogSchemaName schema)
     {
         Span span = startSpan("checkCanShowTables");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanShowTables(context, schema);
         }
     }
@@ -309,7 +300,7 @@ public class TracingAccessControl
     public Set<SchemaTableName> filterTables(SecurityContext context, String catalogName, Set<SchemaTableName> tableNames)
     {
         Span span = startSpan("filterTables");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             return delegate.filterTables(context, catalogName, tableNames);
         }
     }
@@ -318,7 +309,7 @@ public class TracingAccessControl
     public void checkCanShowColumns(SecurityContext context, CatalogSchemaTableName table)
     {
         Span span = startSpan("checkCanShowColumns");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanShowColumns(context, table);
         }
     }
@@ -327,7 +318,7 @@ public class TracingAccessControl
     public Map<SchemaTableName, Set<String>> filterColumns(SecurityContext context, String catalogName, Map<SchemaTableName, Set<String>> tableColumns)
     {
         Span span = startSpan("filterColumns");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             return delegate.filterColumns(context, catalogName, tableColumns);
         }
     }
@@ -336,7 +327,7 @@ public class TracingAccessControl
     public void checkCanAddColumns(SecurityContext context, QualifiedObjectName tableName)
     {
         Span span = startSpan("checkCanAddColumns");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanAddColumns(context, tableName);
         }
     }
@@ -345,7 +336,7 @@ public class TracingAccessControl
     public void checkCanDropColumn(SecurityContext context, QualifiedObjectName tableName)
     {
         Span span = startSpan("checkCanDropColumn");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanDropColumn(context, tableName);
         }
     }
@@ -354,17 +345,8 @@ public class TracingAccessControl
     public void checkCanAlterColumn(SecurityContext context, QualifiedObjectName tableName)
     {
         Span span = startSpan("checkCanAlterColumn");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanAlterColumn(context, tableName);
-        }
-    }
-
-    @Override
-    public void checkCanSetTableAuthorization(SecurityContext context, QualifiedObjectName tableName, TrinoPrincipal principal)
-    {
-        Span span = startSpan("checkCanSetTableAuthorization");
-        try (var ignored = scopedSpan(span)) {
-            delegate.checkCanSetTableAuthorization(context, tableName, principal);
         }
     }
 
@@ -372,7 +354,7 @@ public class TracingAccessControl
     public void checkCanRenameColumn(SecurityContext context, QualifiedObjectName tableName)
     {
         Span span = startSpan("checkCanRenameColumn");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanRenameColumn(context, tableName);
         }
     }
@@ -381,7 +363,7 @@ public class TracingAccessControl
     public void checkCanInsertIntoTable(SecurityContext context, QualifiedObjectName tableName)
     {
         Span span = startSpan("checkCanInsertIntoTable");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanInsertIntoTable(context, tableName);
         }
     }
@@ -390,7 +372,7 @@ public class TracingAccessControl
     public void checkCanDeleteFromTable(SecurityContext context, QualifiedObjectName tableName)
     {
         Span span = startSpan("checkCanDeleteFromTable");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanDeleteFromTable(context, tableName);
         }
     }
@@ -399,7 +381,7 @@ public class TracingAccessControl
     public void checkCanTruncateTable(SecurityContext context, QualifiedObjectName tableName)
     {
         Span span = startSpan("checkCanTruncateTable");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanTruncateTable(context, tableName);
         }
     }
@@ -408,7 +390,7 @@ public class TracingAccessControl
     public void checkCanUpdateTableColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> updatedColumnNames)
     {
         Span span = startSpan("checkCanUpdateTableColumns");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanUpdateTableColumns(context, tableName, updatedColumnNames);
         }
     }
@@ -417,7 +399,7 @@ public class TracingAccessControl
     public void checkCanCreateView(SecurityContext context, QualifiedObjectName viewName)
     {
         Span span = startSpan("checkCanCreateView");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanCreateView(context, viewName);
         }
     }
@@ -426,17 +408,8 @@ public class TracingAccessControl
     public void checkCanRenameView(SecurityContext context, QualifiedObjectName viewName, QualifiedObjectName newViewName)
     {
         Span span = startSpan("checkCanRenameView");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanRenameView(context, viewName, newViewName);
-        }
-    }
-
-    @Override
-    public void checkCanSetViewAuthorization(SecurityContext context, QualifiedObjectName view, TrinoPrincipal principal)
-    {
-        Span span = startSpan("checkCanSetViewAuthorization");
-        try (var ignored = scopedSpan(span)) {
-            delegate.checkCanSetViewAuthorization(context, view, principal);
         }
     }
 
@@ -444,7 +417,7 @@ public class TracingAccessControl
     public void checkCanDropView(SecurityContext context, QualifiedObjectName viewName)
     {
         Span span = startSpan("checkCanDropView");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanDropView(context, viewName);
         }
     }
@@ -453,7 +426,7 @@ public class TracingAccessControl
     public void checkCanCreateViewWithSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columnNames)
     {
         Span span = startSpan("checkCanCreateViewWithSelectFromColumns");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanCreateViewWithSelectFromColumns(context, tableName, columnNames);
         }
     }
@@ -462,7 +435,7 @@ public class TracingAccessControl
     public void checkCanCreateMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName, Map<String, Object> properties)
     {
         Span span = startSpan("checkCanCreateMaterializedView");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanCreateMaterializedView(context, materializedViewName, properties);
         }
     }
@@ -471,7 +444,7 @@ public class TracingAccessControl
     public void checkCanRefreshMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName)
     {
         Span span = startSpan("checkCanRefreshMaterializedView");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanRefreshMaterializedView(context, materializedViewName);
         }
     }
@@ -480,7 +453,7 @@ public class TracingAccessControl
     public void checkCanDropMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName)
     {
         Span span = startSpan("checkCanDropMaterializedView");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanDropMaterializedView(context, materializedViewName);
         }
     }
@@ -489,7 +462,7 @@ public class TracingAccessControl
     public void checkCanRenameMaterializedView(SecurityContext context, QualifiedObjectName viewName, QualifiedObjectName newViewName)
     {
         Span span = startSpan("checkCanRenameMaterializedView");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanRenameMaterializedView(context, viewName, newViewName);
         }
     }
@@ -498,7 +471,7 @@ public class TracingAccessControl
     public void checkCanSetMaterializedViewProperties(SecurityContext context, QualifiedObjectName materializedViewName, Map<String, Optional<Object>> properties)
     {
         Span span = startSpan("checkCanSetMaterializedViewProperties");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanSetMaterializedViewProperties(context, materializedViewName, properties);
         }
     }
@@ -507,7 +480,7 @@ public class TracingAccessControl
     public void checkCanGrantSchemaPrivilege(SecurityContext context, Privilege privilege, CatalogSchemaName schemaName, TrinoPrincipal grantee, boolean grantOption)
     {
         Span span = startSpan("checkCanGrantSchemaPrivilege");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanGrantSchemaPrivilege(context, privilege, schemaName, grantee, grantOption);
         }
     }
@@ -516,7 +489,7 @@ public class TracingAccessControl
     public void checkCanDenySchemaPrivilege(SecurityContext context, Privilege privilege, CatalogSchemaName schemaName, TrinoPrincipal grantee)
     {
         Span span = startSpan("checkCanDenySchemaPrivilege");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanDenySchemaPrivilege(context, privilege, schemaName, grantee);
         }
     }
@@ -525,7 +498,7 @@ public class TracingAccessControl
     public void checkCanRevokeSchemaPrivilege(SecurityContext context, Privilege privilege, CatalogSchemaName schemaName, TrinoPrincipal revokee, boolean grantOption)
     {
         Span span = startSpan("checkCanRevokeSchemaPrivilege");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanRevokeSchemaPrivilege(context, privilege, schemaName, revokee, grantOption);
         }
     }
@@ -534,7 +507,7 @@ public class TracingAccessControl
     public void checkCanGrantTablePrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, TrinoPrincipal grantee, boolean grantOption)
     {
         Span span = startSpan("checkCanGrantTablePrivilege");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanGrantTablePrivilege(context, privilege, tableName, grantee, grantOption);
         }
     }
@@ -543,7 +516,7 @@ public class TracingAccessControl
     public void checkCanDenyTablePrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, TrinoPrincipal grantee)
     {
         Span span = startSpan("checkCanDenyTablePrivilege");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanDenyTablePrivilege(context, privilege, tableName, grantee);
         }
     }
@@ -552,7 +525,7 @@ public class TracingAccessControl
     public void checkCanRevokeTablePrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, TrinoPrincipal revokee, boolean grantOption)
     {
         Span span = startSpan("checkCanRevokeTablePrivilege");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanRevokeTablePrivilege(context, privilege, tableName, revokee, grantOption);
         }
     }
@@ -561,7 +534,7 @@ public class TracingAccessControl
     public void checkCanGrantEntityPrivilege(SecurityContext context, EntityPrivilege privilege, EntityKindAndName entity, TrinoPrincipal grantee, boolean grantOption)
     {
         Span span = startSpan("checkCanGrantEntityPrivilege");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanGrantEntityPrivilege(context, privilege, entity, grantee, grantOption);
         }
     }
@@ -570,7 +543,7 @@ public class TracingAccessControl
     public void checkCanDenyEntityPrivilege(SecurityContext context, EntityPrivilege privilege, EntityKindAndName entity, TrinoPrincipal grantee)
     {
         Span span = startSpan("checkCanDenyEntityPrivilege");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanDenyEntityPrivilege(context, privilege, entity, grantee);
         }
     }
@@ -579,7 +552,7 @@ public class TracingAccessControl
     public void checkCanRevokeEntityPrivilege(SecurityContext context, EntityPrivilege privilege, EntityKindAndName entity, TrinoPrincipal revokee, boolean grantOption)
     {
         Span span = startSpan("checkCanRevokeEntityPrivilege");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanRevokeEntityPrivilege(context, privilege, entity, revokee, grantOption);
         }
     }
@@ -588,7 +561,7 @@ public class TracingAccessControl
     public void checkCanSetSystemSessionProperty(Identity identity, QueryId queryId, String propertyName)
     {
         Span span = startSpan("checkCanSetSystemSessionProperty");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanSetSystemSessionProperty(identity, queryId, propertyName);
         }
     }
@@ -597,7 +570,7 @@ public class TracingAccessControl
     public void checkCanSetCatalogSessionProperty(SecurityContext context, String catalogName, String propertyName)
     {
         Span span = startSpan("checkCanSetCatalogSessionProperty");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanSetCatalogSessionProperty(context, catalogName, propertyName);
         }
     }
@@ -606,7 +579,7 @@ public class TracingAccessControl
     public void checkCanSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columnNames)
     {
         Span span = startSpan("checkCanSelectFromColumns");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanSelectFromColumns(context, tableName, columnNames);
         }
     }
@@ -615,7 +588,7 @@ public class TracingAccessControl
     public void checkCanCreateRole(SecurityContext context, String role, Optional<TrinoPrincipal> grantor, Optional<String> catalogName)
     {
         Span span = startSpan("checkCanCreateRole");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanCreateRole(context, role, grantor, catalogName);
         }
     }
@@ -624,7 +597,7 @@ public class TracingAccessControl
     public void checkCanDropRole(SecurityContext context, String role, Optional<String> catalogName)
     {
         Span span = startSpan("checkCanDropRole");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanDropRole(context, role, catalogName);
         }
     }
@@ -633,7 +606,7 @@ public class TracingAccessControl
     public void checkCanGrantRoles(SecurityContext context, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor, Optional<String> catalogName)
     {
         Span span = startSpan("checkCanGrantRoles");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanGrantRoles(context, roles, grantees, adminOption, grantor, catalogName);
         }
     }
@@ -642,7 +615,7 @@ public class TracingAccessControl
     public void checkCanRevokeRoles(SecurityContext context, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor, Optional<String> catalogName)
     {
         Span span = startSpan("checkCanRevokeRoles");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanRevokeRoles(context, roles, grantees, adminOption, grantor, catalogName);
         }
     }
@@ -651,7 +624,7 @@ public class TracingAccessControl
     public void checkCanSetCatalogRole(SecurityContext context, String role, String catalogName)
     {
         Span span = startSpan("checkCanSetCatalogRole");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanSetCatalogRole(context, role, catalogName);
         }
     }
@@ -660,7 +633,7 @@ public class TracingAccessControl
     public void checkCanShowRoles(SecurityContext context, Optional<String> catalogName)
     {
         Span span = startSpan("checkCanShowRoles");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanShowRoles(context, catalogName);
         }
     }
@@ -669,7 +642,7 @@ public class TracingAccessControl
     public void checkCanShowCurrentRoles(SecurityContext context, Optional<String> catalogName)
     {
         Span span = startSpan("checkCanShowCurrentRoles");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanShowCurrentRoles(context, catalogName);
         }
     }
@@ -678,7 +651,7 @@ public class TracingAccessControl
     public void checkCanShowRoleGrants(SecurityContext context, Optional<String> catalogName)
     {
         Span span = startSpan("checkCanShowRoleGrants");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanShowRoleGrants(context, catalogName);
         }
     }
@@ -687,7 +660,7 @@ public class TracingAccessControl
     public void checkCanExecuteProcedure(SecurityContext context, QualifiedObjectName procedureName)
     {
         Span span = startSpan("checkCanExecuteProcedure");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanExecuteProcedure(context, procedureName);
         }
     }
@@ -696,7 +669,7 @@ public class TracingAccessControl
     public boolean canExecuteFunction(SecurityContext context, QualifiedObjectName functionName)
     {
         Span span = startSpan("canExecuteFunction");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             return delegate.canExecuteFunction(context, functionName);
         }
     }
@@ -705,7 +678,7 @@ public class TracingAccessControl
     public boolean canCreateViewWithExecuteFunction(SecurityContext context, QualifiedObjectName functionName)
     {
         Span span = startSpan("canCreateViewWithExecuteFunction");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             return delegate.canCreateViewWithExecuteFunction(context, functionName);
         }
     }
@@ -714,7 +687,7 @@ public class TracingAccessControl
     public void checkCanExecuteTableProcedure(SecurityContext context, QualifiedObjectName tableName, String procedureName)
     {
         Span span = startSpan("checkCanExecuteTableProcedure");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanExecuteTableProcedure(context, tableName, procedureName);
         }
     }
@@ -723,7 +696,7 @@ public class TracingAccessControl
     public void checkCanShowFunctions(SecurityContext context, CatalogSchemaName schema)
     {
         Span span = startSpan("checkCanShowFunctions");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanShowFunctions(context, schema);
         }
     }
@@ -732,7 +705,7 @@ public class TracingAccessControl
     public Set<SchemaFunctionName> filterFunctions(SecurityContext context, String catalogName, Set<SchemaFunctionName> functionNames)
     {
         Span span = startSpan("filterFunctions");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             return delegate.filterFunctions(context, catalogName, functionNames);
         }
     }
@@ -741,7 +714,7 @@ public class TracingAccessControl
     public void checkCanCreateFunction(SecurityContext context, QualifiedObjectName functionName)
     {
         Span span = startSpan("checkCanCreateFunction");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanCreateFunction(context, functionName);
         }
     }
@@ -750,8 +723,17 @@ public class TracingAccessControl
     public void checkCanDropFunction(SecurityContext context, QualifiedObjectName functionName)
     {
         Span span = startSpan("checkCanDropFunction");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             delegate.checkCanDropFunction(context, functionName);
+        }
+    }
+
+    @Override
+    public void checkCanShowCreateFunction(SecurityContext context, QualifiedObjectName functionName)
+    {
+        Span span = startSpan("checkCanShowCreateFunction");
+        try (var ignored = scopedSpan(span)) {
+            delegate.checkCanShowCreateFunction(context, functionName);
         }
     }
 
@@ -759,17 +741,26 @@ public class TracingAccessControl
     public List<ViewExpression> getRowFilters(SecurityContext context, QualifiedObjectName tableName)
     {
         Span span = startSpan("getRowFilters");
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             return delegate.getRowFilters(context, tableName);
         }
     }
 
     @Override
-    public Optional<ViewExpression> getColumnMask(SecurityContext context, QualifiedObjectName tableName, String columnName, Type type)
+    public Map<ColumnSchema, ViewExpression> getColumnMasks(SecurityContext context, QualifiedObjectName tableName, List<ColumnSchema> columns)
     {
-        Span span = startSpan("getColumnMask");
+        Span span = startSpan("getColumnMasks");
+        try (var _ = scopedSpan(span)) {
+            return delegate.getColumnMasks(context, tableName, columns);
+        }
+    }
+
+    @Override
+    public void checkCanSetEntityAuthorization(SecurityContext context, EntityKindAndName entityKindAndName, TrinoPrincipal principal)
+    {
+        Span span = startSpan("checkCanSetEntityAuthorization");
         try (var ignored = scopedSpan(span)) {
-            return delegate.getColumnMask(context, tableName, columnName, type);
+            delegate.checkCanSetEntityAuthorization(context, entityKindAndName, principal);
         }
     }
 

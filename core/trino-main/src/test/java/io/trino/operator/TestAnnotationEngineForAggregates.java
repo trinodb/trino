@@ -46,6 +46,7 @@ import io.trino.spi.function.BlockIndex;
 import io.trino.spi.function.BlockPosition;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.Constraint;
 import io.trino.spi.function.Convention;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.FunctionDependencies;
@@ -66,7 +67,6 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.tree.QualifiedName;
-import io.trino.type.Constraint;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -152,7 +152,7 @@ public class TestAnnotationEngineForAggregates
         BoundSignature boundSignature = builtinFunction("simple_exact_aggregate", DoubleType.DOUBLE, ImmutableList.of(DoubleType.DOUBLE));
         AggregationFunctionMetadata aggregationMetadata = aggregation.getAggregationMetadata();
         assertThat(aggregationMetadata.isOrderSensitive()).isFalse();
-        assertThat(aggregationMetadata.getIntermediateTypes().isEmpty()).isFalse();
+        assertThat(aggregationMetadata.getIntermediateTypes()).isNotEmpty();
         aggregation.specialize(boundSignature, NO_FUNCTION_DEPENDENCIES);
     }
 
@@ -252,7 +252,7 @@ public class TestAnnotationEngineForAggregates
         BoundSignature boundSignature = builtinFunction(aggregation.getFunctionMetadata().getCanonicalName(), DoubleType.DOUBLE, ImmutableList.of(DoubleType.DOUBLE));
         AggregationFunctionMetadata aggregationMetadata = aggregation.getAggregationMetadata();
         assertThat(aggregationMetadata.isOrderSensitive()).isFalse();
-        assertThat(aggregationMetadata.getIntermediateTypes().isEmpty()).isFalse();
+        assertThat(aggregationMetadata.getIntermediateTypes()).isNotEmpty();
         aggregation.specialize(boundSignature, NO_FUNCTION_DEPENDENCIES);
     }
 
@@ -293,7 +293,7 @@ public class TestAnnotationEngineForAggregates
         BoundSignature boundSignature = builtinFunction(aggregation.getFunctionMetadata().getCanonicalName(), DoubleType.DOUBLE, ImmutableList.of(DoubleType.DOUBLE));
         AggregationFunctionMetadata aggregationMetadata = aggregation.getAggregationMetadata();
         assertThat(aggregationMetadata.isOrderSensitive()).isFalse();
-        assertThat(aggregationMetadata.getIntermediateTypes().isEmpty()).isTrue();
+        assertThat(aggregationMetadata.getIntermediateTypes()).isEmpty();
         aggregation.specialize(boundSignature, NO_FUNCTION_DEPENDENCIES);
     }
 
@@ -373,7 +373,7 @@ public class TestAnnotationEngineForAggregates
         BoundSignature boundSignature = builtinFunction(aggregation.getFunctionMetadata().getCanonicalName(), DoubleType.DOUBLE, ImmutableList.of(DoubleType.DOUBLE));
         AggregationFunctionMetadata aggregationMetadata = aggregation.getAggregationMetadata();
         assertThat(aggregationMetadata.isOrderSensitive()).isFalse();
-        assertThat(aggregationMetadata.getIntermediateTypes().isEmpty()).isFalse();
+        assertThat(aggregationMetadata.getIntermediateTypes()).isNotEmpty();
         aggregation.specialize(boundSignature, NO_FUNCTION_DEPENDENCIES);
     }
 
@@ -430,7 +430,7 @@ public class TestAnnotationEngineForAggregates
         BoundSignature boundSignature = builtinFunction(aggregation.getFunctionMetadata().getCanonicalName(), DoubleType.DOUBLE, ImmutableList.of(DoubleType.DOUBLE));
         AggregationFunctionMetadata aggregationMetadata = aggregation.getAggregationMetadata();
         assertThat(aggregationMetadata.isOrderSensitive()).isFalse();
-        assertThat(aggregationMetadata.getIntermediateTypes().isEmpty()).isFalse();
+        assertThat(aggregationMetadata.getIntermediateTypes()).isNotEmpty();
         aggregation.specialize(boundSignature, NO_FUNCTION_DEPENDENCIES);
     }
 
@@ -520,7 +520,7 @@ public class TestAnnotationEngineForAggregates
         BoundSignature boundSignature = builtinFunction(aggregation.getFunctionMetadata().getCanonicalName(), DoubleType.DOUBLE, ImmutableList.of(new ArrayType(DoubleType.DOUBLE)));
         AggregationFunctionMetadata aggregationMetadata = aggregation.getAggregationMetadata();
         assertThat(aggregationMetadata.isOrderSensitive()).isFalse();
-        assertThat(aggregationMetadata.getIntermediateTypes().isEmpty()).isFalse();
+        assertThat(aggregationMetadata.getIntermediateTypes()).isNotEmpty();
         aggregation.specialize(boundSignature, NO_FUNCTION_DEPENDENCIES);
     }
 
@@ -609,7 +609,7 @@ public class TestAnnotationEngineForAggregates
         BoundSignature boundSignature = builtinFunction(aggregation.getFunctionMetadata().getCanonicalName(), DoubleType.DOUBLE, ImmutableList.of(new ArrayType(DoubleType.DOUBLE)));
         AggregationFunctionMetadata aggregationMetadata = aggregation.getAggregationMetadata();
         assertThat(aggregationMetadata.isOrderSensitive()).isFalse();
-        assertThat(aggregationMetadata.getIntermediateTypes().isEmpty()).isFalse();
+        assertThat(aggregationMetadata.getIntermediateTypes()).isNotEmpty();
         aggregation.specialize(boundSignature, NO_FUNCTION_DEPENDENCIES);
     }
 
@@ -667,7 +667,7 @@ public class TestAnnotationEngineForAggregates
                 .build();
 
         List<ParametricAggregation> aggregations = parseFunctionDefinitions(MultiOutputAggregationFunction.class);
-        assertThat(aggregations.size()).isEqualTo(2);
+        assertThat(aggregations).hasSize(2);
 
         ParametricAggregation aggregation1 = aggregations.stream().filter(aggregate -> aggregate.getFunctionMetadata().getCanonicalName().equals("multi_output_aggregate_1")).collect(toImmutableList()).get(0);
         assertThat(aggregation1.getFunctionMetadata().getSignature()).isEqualTo(expectedSignature1);
@@ -692,7 +692,7 @@ public class TestAnnotationEngineForAggregates
         BoundSignature boundSignature = builtinFunction(aggregation1.getFunctionMetadata().getCanonicalName(), DoubleType.DOUBLE, ImmutableList.of(DoubleType.DOUBLE));
         AggregationFunctionMetadata aggregationMetadata = aggregation1.getAggregationMetadata();
         assertThat(aggregationMetadata.isOrderSensitive()).isFalse();
-        assertThat(aggregationMetadata.getIntermediateTypes().isEmpty()).isFalse();
+        assertThat(aggregationMetadata.getIntermediateTypes()).isNotEmpty();
         aggregation1.specialize(boundSignature, NO_FUNCTION_DEPENDENCIES);
     }
 
@@ -758,9 +758,9 @@ public class TestAnnotationEngineForAggregates
         assertThat(implementation.getDefinitionClass()).isEqualTo(InjectOperatorAggregateFunction.class);
         assertDependencyCount(implementation, 1, 1, 1);
 
-        assertThat(implementation.getInputDependencies().get(0) instanceof OperatorImplementationDependency).isTrue();
-        assertThat(implementation.getCombineDependencies().get(0) instanceof OperatorImplementationDependency).isTrue();
-        assertThat(implementation.getOutputDependencies().get(0) instanceof OperatorImplementationDependency).isTrue();
+        assertThat(implementation.getInputDependencies().get(0)).isInstanceOf(OperatorImplementationDependency.class);
+        assertThat(implementation.getCombineDependencies().get(0)).isInstanceOf(OperatorImplementationDependency.class);
+        assertThat(implementation.getOutputDependencies().get(0)).isInstanceOf(OperatorImplementationDependency.class);
 
         assertThat(implementation.hasSpecializedTypeParameters()).isFalse();
         assertThat(implementation.getInputParameterKinds()).isEqualTo(ImmutableList.of(STATE, INPUT_CHANNEL));
@@ -817,14 +817,14 @@ public class TestAnnotationEngineForAggregates
         assertThat(aggregation.getFunctionMetadata().getSignature()).isEqualTo(expectedSignature);
         ParametricImplementationsGroup<ParametricAggregationImplementation> implementations = aggregation.getImplementations();
 
-        assertThat(implementations.getGenericImplementations().size()).isEqualTo(1);
+        assertThat(implementations.getGenericImplementations()).hasSize(1);
         ParametricAggregationImplementation implementation = implementations.getGenericImplementations().get(0);
         assertThat(implementation.getDefinitionClass()).isEqualTo(InjectTypeAggregateFunction.class);
         assertDependencyCount(implementation, 1, 1, 1);
 
-        assertThat(implementation.getInputDependencies().get(0) instanceof TypeImplementationDependency).isTrue();
-        assertThat(implementation.getCombineDependencies().get(0) instanceof TypeImplementationDependency).isTrue();
-        assertThat(implementation.getOutputDependencies().get(0) instanceof TypeImplementationDependency).isTrue();
+        assertThat(implementation.getInputDependencies().get(0)).isInstanceOf(TypeImplementationDependency.class);
+        assertThat(implementation.getCombineDependencies().get(0)).isInstanceOf(TypeImplementationDependency.class);
+        assertThat(implementation.getOutputDependencies().get(0)).isInstanceOf(TypeImplementationDependency.class);
 
         assertThat(implementation.hasSpecializedTypeParameters()).isFalse();
         assertThat(implementation.getInputParameterKinds()).isEqualTo(ImmutableList.of(STATE, INPUT_CHANNEL));
@@ -880,14 +880,14 @@ public class TestAnnotationEngineForAggregates
         assertThat(aggregation.getFunctionMetadata().getSignature()).isEqualTo(expectedSignature);
         ParametricImplementationsGroup<ParametricAggregationImplementation> implementations = aggregation.getImplementations();
 
-        assertThat(implementations.getGenericImplementations().size()).isEqualTo(1);
+        assertThat(implementations.getGenericImplementations()).hasSize(1);
         ParametricAggregationImplementation implementation = implementations.getGenericImplementations().get(0);
         assertThat(implementation.getDefinitionClass()).isEqualTo(InjectLiteralAggregateFunction.class);
         assertDependencyCount(implementation, 1, 1, 1);
 
-        assertThat(implementation.getInputDependencies().get(0) instanceof LiteralImplementationDependency).isTrue();
-        assertThat(implementation.getCombineDependencies().get(0) instanceof LiteralImplementationDependency).isTrue();
-        assertThat(implementation.getOutputDependencies().get(0) instanceof LiteralImplementationDependency).isTrue();
+        assertThat(implementation.getInputDependencies().get(0)).isInstanceOf(LiteralImplementationDependency.class);
+        assertThat(implementation.getCombineDependencies().get(0)).isInstanceOf(LiteralImplementationDependency.class);
+        assertThat(implementation.getOutputDependencies().get(0)).isInstanceOf(LiteralImplementationDependency.class);
 
         assertThat(implementation.hasSpecializedTypeParameters()).isFalse();
         assertThat(implementation.getInputParameterKinds()).isEqualTo(ImmutableList.of(STATE, INPUT_CHANNEL));
@@ -895,7 +895,7 @@ public class TestAnnotationEngineForAggregates
         BoundSignature boundSignature = builtinFunction(aggregation.getFunctionMetadata().getCanonicalName(), createVarcharType(17), ImmutableList.of(createVarcharType(17)));
         AggregationFunctionMetadata aggregationMetadata = aggregation.getAggregationMetadata();
         assertThat(aggregationMetadata.isOrderSensitive()).isFalse();
-        assertThat(aggregationMetadata.getIntermediateTypes().isEmpty()).isFalse();
+        assertThat(aggregationMetadata.getIntermediateTypes()).isNotEmpty();
         aggregation.specialize(boundSignature, NO_FUNCTION_DEPENDENCIES);
     }
 
@@ -947,7 +947,7 @@ public class TestAnnotationEngineForAggregates
         assertThat(aggregation.getFunctionMetadata().getSignature()).isEqualTo(expectedSignature);
         ParametricImplementationsGroup<ParametricAggregationImplementation> implementations = aggregation.getImplementations();
 
-        assertThat(implementations.getGenericImplementations().size()).isEqualTo(1);
+        assertThat(implementations.getGenericImplementations()).hasSize(1);
         ParametricAggregationImplementation implementation = implementations.getGenericImplementations().get(0);
         assertThat(implementation.getDefinitionClass()).isEqualTo(LongConstraintAggregateFunction.class);
         assertDependencyCount(implementation, 0, 0, 0);
@@ -958,7 +958,7 @@ public class TestAnnotationEngineForAggregates
         BoundSignature boundSignature = builtinFunction(aggregation.getFunctionMetadata().getCanonicalName(), createVarcharType(30), ImmutableList.of(createVarcharType(17), createVarcharType(13)));
         AggregationFunctionMetadata aggregationMetadata = aggregation.getAggregationMetadata();
         assertThat(aggregationMetadata.isOrderSensitive()).isFalse();
-        assertThat(aggregationMetadata.getIntermediateTypes().isEmpty()).isFalse();
+        assertThat(aggregationMetadata.getIntermediateTypes()).isNotEmpty();
         aggregation.specialize(boundSignature, NO_FUNCTION_DEPENDENCIES);
     }
 
@@ -1133,13 +1133,13 @@ public class TestAnnotationEngineForAggregates
     public void testAggregateFunctionGetCanonicalName()
     {
         List<ParametricAggregation> aggregationFunctions = parseFunctionDefinitions(AggregationOutputFunctionWithAlias.class);
-        assertThat(aggregationFunctions.size()).isEqualTo(1);
+        assertThat(aggregationFunctions).hasSize(1);
         ParametricAggregation aggregation = getOnlyElement(aggregationFunctions);
         assertThat(aggregation.getFunctionMetadata().getCanonicalName()).isEqualTo("aggregation_output");
         assertThat(aggregation.getFunctionMetadata().getNames()).containsExactlyInAnyOrder("aggregation_output", "aggregation_output_alias_1", "aggregation_output_alias_2");
 
         aggregationFunctions = parseFunctionDefinitions(AggregationFunctionWithAlias.class);
-        assertThat(aggregationFunctions.size()).isEqualTo(1);
+        assertThat(aggregationFunctions).hasSize(1);
         aggregation = getOnlyElement(aggregationFunctions);
         assertThat(aggregation.getFunctionMetadata().getCanonicalName()).isEqualTo("aggregation");
         assertThat(aggregation.getFunctionMetadata().getNames()).containsExactlyInAnyOrder("aggregation", "aggregation_alias_1", "aggregation_alias_2");
@@ -1152,7 +1152,7 @@ public class TestAnnotationEngineForAggregates
 
         AggregationFunctionMetadata aggregationMetadata = aggregation.getAggregationMetadata();
         assertThat(aggregationMetadata.isOrderSensitive()).isFalse();
-        assertThat(aggregationMetadata.getIntermediateTypes().isEmpty()).isFalse();
+        assertThat(aggregationMetadata.getIntermediateTypes()).isNotEmpty();
         FunctionDependencyDeclaration dependencyDeclaration = aggregation.getFunctionDependencies(boundSignature);
 
         ImmutableMap.Builder<TypeSignature, Type> typeDependencies = ImmutableMap.builder();
@@ -1184,7 +1184,7 @@ public class TestAnnotationEngineForAggregates
         return PLANNER_CONTEXT.getFunctionResolver().resolveFunction(TEST_SESSION, name, fromTypeSignatures(dependency.getArgumentTypes()), new AllowAllAccessControl());
     }
 
-    private static BoundSignature builtinFunction(String name, Type returnType, ImmutableList<Type> argumentTypes)
+    private static BoundSignature builtinFunction(String name, Type returnType, List<Type> argumentTypes)
     {
         return new BoundSignature(builtinFunctionName(name), returnType, argumentTypes);
     }

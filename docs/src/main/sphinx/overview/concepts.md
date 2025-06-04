@@ -23,7 +23,6 @@ provide further information about Trino and the concepts in use.
 :::
 
 (trino-concept-architecture)=
-
 ## Architecture
 
 Trino is a distributed query engine that processes data in parallel across
@@ -33,23 +32,31 @@ multiple servers. There are two types of Trino servers,
 servers and other components of Trino's architecture.
 
 (trino-concept-cluster)=
-
 ### Cluster
 
-A Trino cluster consists of a {ref}`coordinator <trino-concept-coordinator>` and
-many {ref}`workers <trino-concept-worker>`. Users connect to the coordinator
-with their {ref}`SQL <glossSQL>` query tool. The coordinator collaborates with the
-workers. The coordinator and the workers access the connected
-{ref}`data sources <trino-concept-data-sources>`. This access is configured in
-{ref}`catalogs <trino-concept-catalog>`.
+A Trino cluster consists of several Trino [nodes](trino-concept-node) - one
+[coordinator](trino-concept-coordinator) and zero or more
+[workers](trino-concept-worker). Users connect to the coordinator with their
+[SQL](glossSQL) query tool. The coordinator collaborates with the workers. The
+coordinator and the workers access the connected [data
+sources](trino-concept-data-source). This access is configured in
+[catalogs](trino-concept-catalog).
 
 Processing each query is a stateful operation. The workload is orchestrated by
 the coordinator and spread parallel across all workers in the cluster. Each node
 runs Trino in one JVM instance, and processing is parallelized further using
 threads.
 
-(trino-concept-coordinator)=
+(trino-concept-node)=
+### Node
 
+Any Trino server in a specific Trino cluster is considered a **node** of the
+[cluster](trino-concept-cluster). Technically this refers to the Java process
+running the Trino program, but node is often used to refer to the computer
+running the process due to the recommendation to run only one Trino process per
+computer.
+
+(trino-concept-coordinator)=
 ### Coordinator
 
 The Trino coordinator is the server that is responsible for parsing
@@ -69,7 +76,6 @@ Trino workers.
 Coordinators communicate with workers and clients using a REST API.
 
 (trino-concept-worker)=
-
 ### Worker
 
 A Trino worker is a server in a Trino installation, which is responsible
@@ -85,74 +91,129 @@ for task execution.
 Workers communicate with other workers and Trino coordinators
 using a REST API.
 
-(trino-concept-data-sources)=
+(trino-concept-client)=
+## Client
 
-## Data sources
+Clients allow you to connect to Trino, submit SQL queries, and receive the
+results. Clients can access all configured data sources using
+[catalogs](trino-concept-catalog). Clients are full-featured client applications
+or client drivers and libraries that allow you to connect with any application
+supporting that driver, or even your own custom application or script.
+
+Clients applications include command line tools, desktop applications, web-based
+applications, and software-as-a-service solutions with features such as
+interactive SQL query authoring with editors, or rich user interfaces for
+graphical query creation, query running and result rendering, visualizations
+with charts and graphs, reporting, and dashboard creation.
+
+Client application that support other query languages or user interface
+components to build a query, must translate each request to [SQL as supported by
+Trino](/language).
+
+More details are available in the [Trino client documentation](/client).
+
+(trino-concept-plugin)=
+## Plugin
+
+Trino uses a plugin architecture to extend its capabilities and integrate with
+various data sources and other systems. Details about different types of
+plugins, installation, removal, and other aspects are available in the [Plugin
+documentation](/installation/plugins).
+
+(trino-concept-data-source)=
+## Data source
+
+Trino is a query engine that you can use to query many different data sources.
+They include data lakes and lakehouses, numerous relational database management
+systems, key-value stores, and many other data stores.
+
+[A comprehensive list with more details for each data source is available on the
+Trino website](https://trino.io/ecosystem/data-source).
+
+Data sources provide the data for Trino to query. Configure a
+[catalog](trino-concept-catalog) with the required Trino
+[connector](trino-concept-connector) for the specific data source to access the
+data. With Trino you are ready to use any supported
+[client](trino-concept-client) to query the data sources using SQL and the
+features of your client.
 
 Throughout this documentation, you'll read terms such as connector,
 catalog, schema, and table. These fundamental concepts cover Trino's
 model of a particular data source and are described in the following
 section.
 
+(trino-concept-connector)=
 ### Connector
 
-A connector adapts Trino to a data source such as Hive or a
-relational database. You can think of a connector the same way you
-think of a driver for a database. It is an implementation of Trino's
-{doc}`SPI </develop/spi-overview>`, which allows Trino to interact
-with a resource using a standard API.
+A connector adapts Trino to a data source such as a data lake using Hadoop/Hive
+or Apache Iceberg, or a relational database such as PostgreSQL. You can think of
+a connector the same way you think of a driver for a database. It is an
+implementation of Trino's [service provider interface
+(SPI)](/develop/spi-overview), which allows Trino to interact with a resource
+using a standard API.
 
-Trino contains several built-in connectors: a connector for
-{doc}`JMX </connector/jmx>`, a {doc}`System </connector/system>`
-connector which provides access to built-in system tables,
-a {doc}`Hive </connector/hive>` connector, and a
-{doc}`TPCH </connector/tpch>` connector designed to serve TPC-H benchmark
-data. Many third-party developers have contributed connectors so that
-Trino can access data in a variety of data sources.
+Trino contains [many built-in connectors](/connector):
 
-Every catalog is associated with a specific connector. If you examine
-a catalog configuration file, you see that each contains a
-mandatory property `connector.name`, which is used by the catalog
-manager to create a connector for a given catalog. It is possible
-to have more than one catalog use the same connector to access two
-different instances of a similar database. For example, if you have
-two Hive clusters, you can configure two catalogs in a single Trino
-cluster that both use the Hive connector, allowing you to query data
-from both Hive clusters, even within the same SQL query.
+* Connectors for data lakes and lakehouses including the [Delta
+  Lake](/connector/delta-lake), [Hive](/connector/hive),
+  [Hudi](/connector/hudi), and [Iceberg](/connector/iceberg) connectors.
+* Connectors for relational database management systems, including the
+  [MySQL](/connector/mysql), [PostgreSQL](/connector/postgresql),
+  [Oracle](/connector/oracle), and [SQL Server](/connector/sqlserver)
+  connectors.
+* Connectors for a variety of other systems, including the
+  [Cassandra](/connector/cassandra), [ClickHouse](/connector/clickhouse),
+  [OpenSearch](/connector/opensearch), [Pinot](/connector/pinot),
+  [Prometheus](/connector/prometheus), [SingleStore](/connector/singlestore),
+  and [Snowflake](/connector/snowflake) connectors.
+* A number of other utility connectors such as the [JMX](/connector/jmx),
+  [System](/connector/system), and [TPC-H](/connector/tpch) connectors.
+
+Every catalog uses a specific connector. If you examine a catalog configuration
+file, you see that each contains a mandatory property `connector.name` with the
+value identifying the connector.
 
 (trino-concept-catalog)=
-
 ### Catalog
 
-A Trino catalog contains schemas and references a data source via a
-connector.  For example, you can configure a JMX catalog to provide
-access to JMX information via the JMX connector. When you run SQL
-statements in Trino, you are running them against one or more catalogs.
-Other examples of catalogs include the Hive catalog to connect to a
-Hive data source.
+A Trino catalog is a collection of configuration properties used to access a
+specific data source, including the required connector and any other details
+such as credentials and URL. Catalogs are defined in properties files stored in
+the Trino configuration directory. The name of the properties file determines
+the name of the catalog. For example, the properties file
+`etc/example.properties` results in a catalog name `example`.
 
-When addressing a table in Trino, the fully-qualified table name is
-always rooted in a catalog. For example, a fully-qualified table name
-of `hive.test_data.test` refers to the `test` table in the
-`test_data` schema in the `hive` catalog.
+You can configure and use many catalogs, with different or identical connectors,
+to access different data sources. For example, if you have two data lakes, you
+can configure two catalogs in a single Trino cluster that both use the Hive
+connector, allowing you to query data from both clusters, even within the same
+SQL query. You can also use a Hive connector for one catalog to access a data
+lake, and use the Iceberg connector for another catalog to access the data
+lakehouse. Or, you can configure different catalogs to access different
+PostgreSQL database. The combination of different catalogs is determined by your
+needs to access different data sources only.
 
-Catalogs are defined in properties files stored in the Trino
-configuration directory.
+A catalog contains one or more schemas, which in turn contain objects such as
+tables, views, or materialized views. When addressing an objects such as tables
+in Trino, the fully-qualified name is always rooted in a catalog. For example, a
+fully-qualified table name of `example.test_data.test` refers to the `test`
+table in the `test_data` schema in the `example` catalog.
 
 ### Schema
 
-Schemas are a way to organize tables. Together, a catalog and schema
-define a set of tables that can be queried. When accessing Hive or a
-relational database such as MySQL with Trino, a schema translates to
-the same concept in the target database. Other types of connectors may
-choose to organize tables into schemas in a way that makes sense for
-the underlying data source.
+Schemas are a way to organize tables. Together, a catalog and schema define a
+set of tables and other objects that can be queried. When accessing Hive or a
+relational database such as MySQL with Trino, a schema translates to the same
+concept in the target database. Other types of connectors may organize tables
+into schemas in a way that makes sense for the underlying data source.
 
 ### Table
 
-A table is a set of unordered rows, which are organized into named columns
-with types. This is the same as in any relational database. The mapping
-from source data to tables is defined by the connector.
+A table is a set of unordered rows, which are organized into named columns with
+[types](/language/types). This is the same as in any relational database. Type
+mapping from source data to Trino is defined by the connector, varies across
+connectors, and is documented in the specific connector documentation, for
+example the [type mapping in the PostgreSQL connector](postgresql-type-mapping).
 
 ## Query execution model
 
@@ -190,7 +251,6 @@ and other components and data sources working in concert to produce a
 result.
 
 (trino-concept-stage)=
-
 ### Stage
 
 When Trino executes a query, it does so by breaking up the execution
@@ -207,7 +267,6 @@ model a distributed query plan, but stages themselves don't run on
 Trino workers.
 
 (trino-concept-task)=
-
 ### Task
 
 As mentioned in the previous section, stages model a particular
@@ -224,7 +283,6 @@ parallel by a series of tasks, a task is executing in parallel with a
 series of drivers.
 
 (trino-concept-splits)=
-
 ### Split
 
 Tasks operate on splits, which are sections of a larger data

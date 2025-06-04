@@ -13,17 +13,7 @@
  */
 package io.trino.plugin.iceberg.catalog.glue;
 
-import com.amazonaws.services.glue.AWSGlueAsync;
-import com.amazonaws.services.glue.AWSGlueAsyncClientBuilder;
-import com.amazonaws.services.glue.model.GetTableRequest;
-import com.amazonaws.services.glue.model.GetTableVersionsRequest;
-import com.amazonaws.services.glue.model.GetTableVersionsResult;
-import com.amazonaws.services.glue.model.Table;
-import com.amazonaws.services.glue.model.TableInput;
-import com.amazonaws.services.glue.model.TableVersion;
-import com.amazonaws.services.glue.model.UpdateTableRequest;
 import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.hive.metastore.glue.AwsApiCallStats;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.plugin.iceberg.SchemaInitializer;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
@@ -36,6 +26,11 @@ import org.apache.iceberg.io.FileIO;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import software.amazon.awssdk.services.glue.GlueClient;
+import software.amazon.awssdk.services.glue.model.GetTableVersionsResponse;
+import software.amazon.awssdk.services.glue.model.Table;
+import software.amazon.awssdk.services.glue.model.TableInput;
+import software.amazon.awssdk.services.glue.model.TableVersion;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -45,10 +40,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.getPaginatedResults;
-import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.getTableParameters;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.catalog.glue.GlueIcebergUtil.getTableInput;
 import static io.trino.testing.TestingConnectorSession.SESSION;
@@ -60,7 +52,7 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 /*
  * The test currently uses AWS Default Credential Provider Chain,
- * See https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/credentials.html#credentials-default
+ * See https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/credentials-chain.html#credentials-default
  * on ways to set your AWS credentials which will be needed to run this test.
  */
 @TestInstance(PER_CLASS)
@@ -68,13 +60,13 @@ public class TestIcebergGlueCatalogSkipArchive
         extends AbstractTestQueryFramework
 {
     private final String schemaName = "test_iceberg_skip_archive_" + randomNameSuffix();
-    private AWSGlueAsync glueClient;
+    private GlueClient glueClient;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        glueClient = AWSGlueAsyncClientBuilder.defaultClient();
+        glueClient = GlueClient.create();
         File schemaDirectory = Files.createTempDirectory("test_iceberg").toFile();
         schemaDirectory.deleteOnExit();
 
@@ -100,17 +92,17 @@ public class TestIcebergGlueCatalogSkipArchive
     @Test
     public void testSkipArchive()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_skip_archive", "(col int)")) {
+        try (TestTable table = newTrinoTable("test_skip_archive", "(col int)")) {
             List<TableVersion> tableVersionsBeforeInsert = getTableVersions(schemaName, table.getName());
             assertThat(tableVersionsBeforeInsert).hasSize(1);
-            String versionIdBeforeInsert = getOnlyElement(tableVersionsBeforeInsert).getVersionId();
+            String versionIdBeforeInsert = getOnlyElement(tableVersionsBeforeInsert).versionId();
 
             assertUpdate("INSERT INTO " + table.getName() + " VALUES 1", 1);
 
             // Verify count of table versions isn't increased, but version id is changed
             List<TableVersion> tableVersionsAfterInsert = getTableVersions(schemaName, table.getName());
             assertThat(tableVersionsAfterInsert).hasSize(1);
-            String versionIdAfterInsert = getOnlyElement(tableVersionsAfterInsert).getVersionId();
+            String versionIdAfterInsert = getOnlyElement(tableVersionsAfterInsert).versionId();
             assertThat(versionIdBeforeInsert).isNotEqualTo(versionIdAfterInsert);
         }
     }
@@ -118,20 +110,20 @@ public class TestIcebergGlueCatalogSkipArchive
     @Test
     public void testNotRemoveExistingArchive()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_remove_archive", "(col int)")) {
+        try (TestTable table = newTrinoTable("test_remove_archive", "(col int)")) {
             List<TableVersion> tableVersionsBeforeInsert = getTableVersions(schemaName, table.getName());
             assertThat(tableVersionsBeforeInsert).hasSize(1);
             TableVersion initialVersion = getOnlyElement(tableVersionsBeforeInsert);
 
             // Add a new archive using Glue client
-            Table glueTable = glueClient.getTable(new GetTableRequest().withDatabaseName(schemaName).withName(table.getName())).getTable();
-            Map<String, String> tableParameters = new HashMap<>(getTableParameters(glueTable));
+            Table glueTable = glueClient.getTable(builder -> builder.databaseName(schemaName).name(table.getName())).table();
+            Map<String, String> tableParameters = new HashMap<>(glueTable.parameters());
             String metadataLocation = tableParameters.remove(METADATA_LOCATION_PROP);
             FileIO io = new ForwardingFileIo(getFileSystemFactory(getDistributedQueryRunner()).create(SESSION));
             TableMetadata metadata = TableMetadataParser.read(io, io.newInputFile(metadataLocation));
             boolean cacheTableMetadata = new IcebergGlueCatalogConfig().isCacheTableMetadata();
-            TableInput tableInput = getTableInput(TESTING_TYPE_MANAGER, table.getName(), Optional.empty(), metadata, metadataLocation, tableParameters, cacheTableMetadata);
-            glueClient.updateTable(new UpdateTableRequest().withDatabaseName(schemaName).withTableInput(tableInput));
+            TableInput tableInput = getTableInput(TESTING_TYPE_MANAGER, table.getName(), Optional.empty(), metadata, metadata.location(), metadataLocation, tableParameters, cacheTableMetadata);
+            glueClient.updateTable(builder -> builder.databaseName(schemaName).tableInput(tableInput));
             assertThat(getTableVersions(schemaName, table.getName())).hasSize(2);
 
             assertUpdate("INSERT INTO " + table.getName() + " VALUES 1", 1);
@@ -144,14 +136,13 @@ public class TestIcebergGlueCatalogSkipArchive
 
     private List<TableVersion> getTableVersions(String databaseName, String tableName)
     {
-        return getPaginatedResults(
-                glueClient::getTableVersions,
-                new GetTableVersionsRequest().withDatabaseName(databaseName).withTableName(tableName),
-                GetTableVersionsRequest::setNextToken,
-                GetTableVersionsResult::getNextToken,
-                new AwsApiCallStats())
-                .map(GetTableVersionsResult::getTableVersions)
+        return glueClient
+                .getTableVersionsPaginator(x -> x
+                        .databaseName(databaseName)
+                        .tableName(tableName))
+                .stream()
+                .map(GetTableVersionsResponse::tableVersions)
                 .flatMap(Collection::stream)
-                .collect(toImmutableList());
+                .toList();
     }
 }

@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.errorprone.annotations.FormatMethod;
-import io.airlift.slice.Slices;
+import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.geospatial.KdbTree;
 import io.trino.geospatial.KdbTreeUtils;
@@ -32,14 +32,15 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.Split;
 import io.trino.metadata.TableHandle;
-import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.split.PageSourceManager;
+import io.trino.split.PageSourceProvider;
 import io.trino.split.SplitManager;
 import io.trino.split.SplitSource;
 import io.trino.split.SplitSource.SplitBatch;
@@ -458,21 +459,22 @@ public class ExtractSpatialJoins
 
         Optional<KdbTree> kdbTree = Optional.empty();
         try (SplitSource splitSource = splitManager.getSplits(session, session.getQuerySpan(), tableHandle, DynamicFilter.EMPTY, alwaysTrue())) {
+            PageSourceProvider statefulPageSourceProvider = pageSourceManager.createPageSourceProvider(tableHandle.catalogHandle());
             while (!Thread.currentThread().isInterrupted()) {
                 SplitBatch splitBatch = getFutureValue(splitSource.getNextBatch(1000));
                 List<Split> splits = splitBatch.getSplits();
 
                 for (Split split : splits) {
-                    try (ConnectorPageSource pageSource = pageSourceManager.createPageSource(session, split, tableHandle, ImmutableList.of(kdbTreeColumn), DynamicFilter.EMPTY)) {
+                    try (ConnectorPageSource pageSource = statefulPageSourceProvider.createPageSource(session, split, tableHandle, ImmutableList.of(kdbTreeColumn), DynamicFilter.EMPTY)) {
                         do {
                             getFutureValue(pageSource.isBlocked());
-                            Page page = pageSource.getNextPage();
+                            SourcePage page = pageSource.getNextSourcePage();
                             if (page != null && page.getPositionCount() > 0) {
                                 checkSpatialPartitioningTable(kdbTree.isEmpty(), "Expected exactly one row for table %s, but found more", name);
                                 checkSpatialPartitioningTable(page.getPositionCount() == 1, "Expected exactly one row for table %s, but found %s rows", name, page.getPositionCount());
-                                String kdbTreeJson = VARCHAR.getSlice(page.getBlock(0), 0).toStringUtf8();
+                                Slice slice = VARCHAR.getSlice(page.getBlock(0), 0);
                                 try {
-                                    kdbTree = Optional.of(KdbTreeUtils.fromJson(kdbTreeJson));
+                                    kdbTree = Optional.of(KdbTreeUtils.fromJson(slice));
                                 }
                                 catch (IllegalArgumentException e) {
                                     checkSpatialPartitioningTable(false, "Invalid JSON string for KDB tree: %s", e.getMessage());
@@ -506,7 +508,7 @@ public class ExtractSpatialJoins
 
     private static QualifiedObjectName toQualifiedObjectName(String name, String catalog, String schema)
     {
-        ImmutableList<String> ids = ImmutableList.copyOf(Splitter.on('.').split(name));
+        List<String> ids = ImmutableList.copyOf(Splitter.on('.').split(name));
         if (ids.size() == 3) {
             return new QualifiedObjectName(ids.get(0), ids.get(1), ids.get(2));
         }
@@ -588,7 +590,7 @@ public class ExtractSpatialJoins
         TypeSignature typeSignature = new TypeSignature(KDB_TREE_TYPENAME);
         BuiltinFunctionCallBuilder spatialPartitionsCall = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
                 .setName("spatial_partitions")
-                .addArgument(typeSignature, new Cast(new Constant(VARCHAR, Slices.utf8Slice(KdbTreeUtils.toJson(kdbTree))), plannerContext.getTypeManager().getType(typeSignature)))
+                .addArgument(typeSignature, new Cast(new Constant(VARCHAR, KdbTreeUtils.toJson(kdbTree)), plannerContext.getTypeManager().getType(typeSignature)))
                 .addArgument(GEOMETRY_TYPE_SIGNATURE, geometry);
         radius.ifPresent(value -> spatialPartitionsCall.addArgument(DOUBLE, value));
         Call partitioningFunction = spatialPartitionsCall.build();

@@ -29,17 +29,7 @@ public class ShowColumns
     private final Optional<String> likePattern;
     private final Optional<String> escape;
 
-    public ShowColumns(QualifiedName table, Optional<String> likePattern, Optional<String> escape)
-    {
-        this(Optional.empty(), table, likePattern, escape);
-    }
-
     public ShowColumns(NodeLocation location, QualifiedName table, Optional<String> likePattern, Optional<String> escape)
-    {
-        this(Optional.of(location), table, likePattern, escape);
-    }
-
-    private ShowColumns(Optional<NodeLocation> location, QualifiedName table, Optional<String> likePattern, Optional<String> escape)
     {
         super(location);
         this.table = requireNonNull(table, "table is null");

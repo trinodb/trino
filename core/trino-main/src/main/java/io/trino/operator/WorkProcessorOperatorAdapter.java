@@ -13,54 +13,43 @@
  */
 package io.trino.operator;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.memory.context.MemoryTrackingContext;
+import io.trino.operator.join.JoinOperatorFactory;
+import io.trino.operator.join.LookupJoinOperatorFactory;
 import io.trino.spi.Page;
+
+import java.util.Optional;
+import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
 
 /**
  * This {@link WorkProcessorOperator} adapter allows to adapt {@link WorkProcessor} operators
- * that require customization of input handling (e.g. aggregation operators that want to skip extra
- * buffering step or operators that require more sophisticated initial blocking condition).
- * If such customization is not required, it's recommended to use {@link BasicWorkProcessorOperatorAdapter}
- * instead.
+ * as {@link Operator} instances.
  */
 public class WorkProcessorOperatorAdapter
         implements Operator
 {
-    public interface AdapterWorkProcessorOperator
-            extends WorkProcessorOperator
-    {
-        boolean needsInput();
-
-        void addInput(Page page);
-
-        void finish();
-    }
-
-    public interface AdapterWorkProcessorOperatorFactory
-            extends WorkProcessorOperatorFactory
-    {
-        AdapterWorkProcessorOperator createAdapterOperator(ProcessorContext processorContext);
-
-        AdapterWorkProcessorOperatorFactory duplicate();
-    }
-
-    public static OperatorFactory createAdapterOperatorFactory(AdapterWorkProcessorOperatorFactory operatorFactory)
+    public static OperatorFactory createAdapterOperatorFactory(WorkProcessorOperatorFactory operatorFactory)
     {
         return new Factory(operatorFactory);
     }
 
     /**
      * Provides {@link OperatorFactory} implementation for {@link WorkProcessorSourceOperator}.
+     * This class implements {@link JoinOperatorFactory} interface because it's required to
+     * propagate {@link LookupJoinOperatorFactory} implementation of {@link JoinOperatorFactory#createOuterOperatorFactory()}.
+     * For non-join operators {@link Factory#createOuterOperatorFactory()} returns {@link Optional#empty()}.
      */
-    private static class Factory
-            implements OperatorFactory
+    @VisibleForTesting
+    public static class Factory
+            implements OperatorFactory, JoinOperatorFactory
     {
-        final AdapterWorkProcessorOperatorFactory operatorFactory;
+        private final WorkProcessorOperatorFactory operatorFactory;
 
-        Factory(AdapterWorkProcessorOperatorFactory operatorFactory)
+        Factory(WorkProcessorOperatorFactory operatorFactory)
         {
             this.operatorFactory = requireNonNull(operatorFactory, "operatorFactory is null");
         }
@@ -86,22 +75,45 @@ public class WorkProcessorOperatorAdapter
         {
             return new Factory(operatorFactory.duplicate());
         }
+
+        @Override
+        public Optional<OperatorFactory> createOuterOperatorFactory()
+        {
+            if (!(operatorFactory instanceof JoinOperatorFactory lookupJoin)) {
+                return Optional.empty();
+            }
+
+            return lookupJoin.createOuterOperatorFactory();
+        }
+
+        @VisibleForTesting
+        public WorkProcessorOperatorFactory getWorkProcessorOperatorFactory()
+        {
+            return operatorFactory;
+        }
     }
 
     private final OperatorContext operatorContext;
-    private final AdapterWorkProcessorOperator workProcessorOperator;
     private final WorkProcessor<Page> pages;
+    private final PageBuffer pageBuffer = new PageBuffer();
+    private final WorkProcessorOperator workProcessorOperator;
 
-    public WorkProcessorOperatorAdapter(OperatorContext operatorContext, AdapterWorkProcessorOperatorFactory workProcessorOperatorFactory)
+    public WorkProcessorOperatorAdapter(OperatorContext operatorContext, WorkProcessorOperatorFactory workProcessorOperatorFactory)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         MemoryTrackingContext memoryTrackingContext = new MemoryTrackingContext(
                 operatorContext.aggregateUserMemoryContext(),
                 operatorContext.aggregateRevocableMemoryContext());
         memoryTrackingContext.initializeLocalMemoryContexts(workProcessorOperatorFactory.getOperatorType());
-        this.workProcessorOperator = workProcessorOperatorFactory.createAdapterOperator(new ProcessorContext(operatorContext.getSession(), memoryTrackingContext, operatorContext));
+        this.workProcessorOperator = workProcessorOperatorFactory.create(new ProcessorContext(operatorContext.getSession(), memoryTrackingContext, operatorContext), pageBuffer.pages());
         this.pages = workProcessorOperator.getOutputPages();
-        operatorContext.setInfoSupplier(() -> workProcessorOperator.getOperatorInfo().orElse(null));
+        operatorContext.setInfoSupplier(createInfoSupplier(workProcessorOperator));
+    }
+
+    // static method to avoid capturing a reference to "this"
+    private static Supplier<OperatorInfo> createInfoSupplier(WorkProcessorOperator workProcessorOperator)
+    {
+        return () -> workProcessorOperator.getOperatorInfo().orElse(null);
     }
 
     @Override
@@ -123,13 +135,13 @@ public class WorkProcessorOperatorAdapter
     @Override
     public boolean needsInput()
     {
-        return !isFinished() && workProcessorOperator.needsInput();
+        return !pages.isBlocked() && !pages.isFinished() && pageBuffer.isEmpty() && !pageBuffer.isFinished();
     }
 
     @Override
     public void addInput(Page page)
     {
-        workProcessorOperator.addInput(page);
+        pageBuffer.add(page);
     }
 
     @Override
@@ -152,7 +164,7 @@ public class WorkProcessorOperatorAdapter
     @Override
     public void finish()
     {
-        workProcessorOperator.finish();
+        pageBuffer.finish();
     }
 
     @Override

@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.mongodb;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.mongodb.ConnectionString;
 import org.bson.Document;
@@ -65,7 +64,7 @@ public class AuthenticatedMongoServer
                 database));
     }
 
-    public static Document createRole(String role, ImmutableList<Document> privileges, ImmutableList<Object> roles)
+    public static Document createRole(String role, List<Document> privileges, List<Object> roles)
     {
         return new Document(ImmutableMap.of(
                 "createRole", role,
@@ -87,7 +86,7 @@ public class AuthenticatedMongoServer
                 "collection", collectionName));
     }
 
-    public static Document createUser(String user, String password, ImmutableList<Document> roles)
+    public static Document createUser(String user, String password, List<Document> roles)
     {
         return new Document(ImmutableMap.of(
                 "createUser", user,

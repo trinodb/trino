@@ -13,14 +13,13 @@
  */
 package io.trino.spi.block;
 
-import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.DictionaryId.randomDictionaryId;
 
 public sealed interface Block
-        permits DictionaryBlock, RunLengthEncodedBlock, LazyBlock, ValueBlock
+        permits DictionaryBlock, RunLengthEncodedBlock, ValueBlock
 {
     /**
      * Gets the value at the specified position as a single element block.  The method
@@ -39,52 +38,19 @@ public sealed interface Block
     int getPositionCount();
 
     /**
-     * Returns the size of this block as if it was compacted, ignoring any over-allocations
-     * and any unloaded nested blocks.
-     * For example, in dictionary blocks, this only counts each dictionary entry once,
-     * rather than each time a value is referenced.
+     * Returns the estimated size of this block as if were fully expanded.
+     * This size includes the extra space to represent null values.
+     * For example, the size of an RLE block is the size of the repeated value
+     * times the number of positions in the block. The size of a dictionary
+     * block is the average size of a dictionary entry times the number of
+     * positions in the block.
      */
     long getSizeInBytes();
 
     /**
-     * Returns the size of the block contents, regardless of internal representation.
-     * The same logical data values should always have the same size, no matter
-     * what block type is used or how they are represented within a specific block.
-     * <p>
-     * This can differ substantially from {@link #getSizeInBytes} for certain block
-     * types. For RLE, it will be {@code N} times larger. For dictionary, it will be
-     * larger based on how many times dictionary entries are reused.
-     */
-    default long getLogicalSizeInBytes()
-    {
-        return getSizeInBytes();
-    }
-
-    /**
      * Returns the size of {@code block.getRegion(position, length)}.
-     * The method can be expensive. Do not use it outside an implementation of Block.
      */
     long getRegionSizeInBytes(int position, int length);
-
-    /**
-     * Returns the number of bytes (in terms of {@link Block#getSizeInBytes()}) required per position
-     * that this block contains, assuming that the number of bytes required is a known static quantity
-     * and not dependent on any particular specific position. This allows for some complex block wrappings
-     * to potentially avoid having to call {@link Block#getPositionsSizeInBytes(boolean[], int)}  which
-     * would require computing the specific positions selected
-     *
-     * @return The size in bytes, per position, if this block type does not require specific position information to compute its size
-     */
-    OptionalInt fixedSizeInBytesPerPosition();
-
-    /**
-     * Returns the size of all positions marked true in the positions array.
-     * This is equivalent to multiple calls of {@code block.getRegionSizeInBytes(position, length)}
-     * where you mark all positions for the regions first.
-     * The 'selectedPositionsCount' variable may be used to skip iterating through
-     * the positions array in case this is a fixed-width block
-     */
-    long getPositionsSizeInBytes(boolean[] positions, int selectedPositionsCount);
 
     /**
      * Returns the retained size of this block in memory, including over-allocations.
@@ -107,11 +73,6 @@ public sealed interface Block
      * must include the instance size of the current block
      */
     void retainedBytesForEachPart(ObjLongConsumer<Object> consumer);
-
-    /**
-     * Get the encoding for this block.
-     */
-    String getEncodingName();
 
     /**
      * Create a new block from the current block by keeping the same elements only with respect
@@ -169,34 +130,25 @@ public sealed interface Block
     }
 
     /**
+     * Does this block have a null value? This method is expected to be O(N).
+     */
+    default boolean hasNull()
+    {
+        for (int i = 0; i < getPositionCount(); i++) {
+            if (isNull(i)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Is the specified position null?
      *
      * @throws IllegalArgumentException if this position is not valid. The method may return false
      * without throwing exception when there are no nulls in the block, even if the position is invalid
      */
     boolean isNull(int position);
-
-    /**
-     * Returns true if block data is fully loaded into memory.
-     */
-    default boolean isLoaded()
-    {
-        return true;
-    }
-
-    /**
-     * Returns a fully loaded block that assures all data is in memory.
-     * Neither the returned block nor any nested block will be a {@link LazyBlock}.
-     * The same block will be returned if neither the current block nor any
-     * nested blocks are {@link LazyBlock},
-     * <p>
-     * This allows streaming data sources to skip sections that are not
-     * accessed in a query.
-     */
-    default Block getLoadedBlock()
-    {
-        return this;
-    }
 
     /**
      * Returns a block that contains a copy of the contents of the current block, and an appended null at the end. The
