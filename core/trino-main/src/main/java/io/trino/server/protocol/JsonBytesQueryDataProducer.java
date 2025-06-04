@@ -41,8 +41,8 @@ public class JsonBytesQueryDataProducer
         }
 
         verify(!closed, "JsonBytesQueryDataProducer is already closed");
-        List<OutputColumn> columns = rows.getOutputColumns();
         if (typeEncoders == null) {
+            List<OutputColumn> columns = rows.getOutputColumns();
             typeEncoders = createTypeEncoders(session, columns);
             sourcePageChannels = requireNonNull(columns, "columns is null").stream()
                     .mapToInt(OutputColumn::sourcePageChannel)
