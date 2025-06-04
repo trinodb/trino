@@ -192,7 +192,8 @@ public class TestDeltaLakeSplitManager
                 deltaLakeConfig,
                 new FileFormatDataSourceStats(),
                 hdfsFileSystemFactory,
-                new ParquetReaderConfig())
+                new ParquetReaderConfig(),
+                newDirectExecutorService())
         {
             @Override
             public Stream<AddFileEntry> getActiveFiles(
@@ -214,7 +215,9 @@ public class TestDeltaLakeSplitManager
                 new NodeVersion("test_version"),
                 transactionLogAccess,
                 new FileFormatDataSourceStats(),
-                JsonCodec.jsonCodec(LastCheckpoint.class));
+                JsonCodec.jsonCodec(LastCheckpoint.class),
+                new DeltaLakeConfig(),
+                newDirectExecutorService());
 
         HiveMetastoreFactory hiveMetastoreFactory = HiveMetastoreFactory.ofInstance(createTestingFileHiveMetastore(new MemoryFileSystemFactory(), Location.of("memory:///")));
         DeltaLakeMetadataFactory metadataFactory = new DeltaLakeMetadataFactory(
@@ -222,7 +225,6 @@ public class TestDeltaLakeSplitManager
                 hdfsFileSystemFactory,
                 transactionLogAccess,
                 typeManager,
-                DeltaLakeAccessControlMetadataFactory.DEFAULT,
                 new DeltaLakeConfig(),
                 JsonCodec.jsonCodec(DataFileInfo.class),
                 JsonCodec.jsonCodec(DeltaLakeMergeResult.class),
@@ -232,6 +234,7 @@ public class TestDeltaLakeSplitManager
                 checkpointWriterManager,
                 new CachingExtendedStatisticsAccess(new MetaDirStatisticsAccess(HDFS_FILE_SYSTEM_FACTORY, new JsonCodecFactory().jsonCodec(ExtendedStatistics.class))),
                 true,
+                false,
                 new NodeVersion("test_version"),
                 new DeltaLakeTableMetadataScheduler(new TestingNodeManager(), TESTING_TYPE_MANAGER, new DeltaLakeFileMetastoreTableOperationsProvider(hiveMetastoreFactory), Integer.MAX_VALUE, new DeltaLakeConfig()),
                 newDirectExecutorService());

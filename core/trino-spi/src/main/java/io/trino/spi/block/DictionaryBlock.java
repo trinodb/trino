@@ -106,8 +106,7 @@ public final class DictionaryBlock
         this.ids = ids;
         this.dictionarySourceId = requireNonNull(dictionarySourceId, "dictionarySourceId is null");
         this.retainedSizeInBytes = INSTANCE_SIZE + sizeOf(ids);
-        // avoid eager loading of lazy dictionaries
-        this.mayHaveNull = positionCount > 0 && (!dictionary.isLoaded() || dictionary.mayHaveNull());
+        this.mayHaveNull = positionCount > 0 && dictionary.mayHaveNull();
 
         if (dictionaryIsCompacted) {
             this.sizeInBytes = dictionary.getSizeInBytes() + (Integer.BYTES * (long) positionCount);
@@ -279,12 +278,6 @@ public final class DictionaryBlock
     }
 
     @Override
-    public String getEncodingName()
-    {
-        return DictionaryBlockEncoding.NAME;
-    }
-
-    @Override
     public Block copyPositions(int[] positions, int offset, int length)
     {
         checkArrayRange(positions, offset, length);
@@ -381,6 +374,12 @@ public final class DictionaryBlock
     }
 
     @Override
+    public boolean hasNull()
+    {
+        return mayHaveNull && dictionary.hasNull();
+    }
+
+    @Override
     public boolean isNull(int position)
     {
         if (!mayHaveNull) {
@@ -458,23 +457,6 @@ public final class DictionaryBlock
     }
 
     @Override
-    public boolean isLoaded()
-    {
-        return dictionary.isLoaded();
-    }
-
-    @Override
-    public Block getLoadedBlock()
-    {
-        Block loadedDictionary = dictionary.getLoadedBlock();
-
-        if (loadedDictionary == dictionary) {
-            return this;
-        }
-        return createInternal(idsOffset, getPositionCount(), loadedDictionary, ids, randomDictionaryId());
-    }
-
-    @Override
     public ValueBlock getUnderlyingValueBlock()
     {
         return dictionary;
@@ -497,13 +479,6 @@ public final class DictionaryBlock
             throw new IllegalArgumentException("newDictionary must have the same position count");
         }
 
-        // if the new dictionary is lazy be careful to not materialize it
-        if (newDictionary instanceof LazyBlock lazyBlock) {
-            return new LazyBlock(positionCount, () -> {
-                Block newDictionaryBlock = lazyBlock.getBlock();
-                return createProjection(newDictionaryBlock);
-            });
-        }
         if (newDictionary instanceof ValueBlock valueBlock) {
             return new DictionaryBlock(idsOffset, positionCount, valueBlock, ids, isCompact(), false, dictionarySourceId);
         }

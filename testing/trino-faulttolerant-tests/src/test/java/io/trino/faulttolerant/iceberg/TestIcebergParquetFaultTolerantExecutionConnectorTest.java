@@ -78,6 +78,13 @@ public class TestIcebergParquetFaultTolerantExecutionConnectorTest
         abort("We always get 3 partitions with FTE");
     }
 
+    @Test
+    @Override
+    public void testMaxWriterTaskCount()
+    {
+        abort("Max writer task count is not supported with FTE");
+    }
+
     @Override
     protected boolean isFileSorted(String path, String sortColumnName)
     {

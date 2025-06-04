@@ -1804,10 +1804,10 @@ public final class GeoFunctions
         if (geometry == null) {
             return ImmutableList.of();
         }
-        if (!(geometry instanceof OGCConcreteGeometryCollection)) {
+        if (!(geometry instanceof OGCConcreteGeometryCollection geometryCollection)) {
             return ImmutableList.of(geometry);
         }
-        if (((OGCConcreteGeometryCollection) geometry).numGeometries() == 0) {
+        if (geometryCollection.numGeometries() == 0) {
             return ImmutableList.of();
         }
         return () -> new GeometryCollectionIterator(geometry);

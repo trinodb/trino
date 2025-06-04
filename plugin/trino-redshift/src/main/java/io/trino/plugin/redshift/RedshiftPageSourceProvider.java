@@ -121,6 +121,7 @@ public class RedshiftPageSourceProvider
         return new ParquetReader(
                 Optional.ofNullable(parquetMetadata.getFileMetaData().getCreatedBy()),
                 fields,
+                false,
                 rowGroupInfoBuilder.build(),
                 dataSource,
                 timeZone,

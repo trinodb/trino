@@ -15,6 +15,7 @@ package io.trino.orc;
 
 import io.trino.orc.metadata.CompressionKind;
 import io.trino.spi.Page;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
@@ -60,11 +61,11 @@ public class TestOrcReaderMemoryUsage
             long readerMemoryUsage = reader.getMemoryUsage();
 
             while (true) {
-                Page page = reader.nextPage();
-                if (page == null) {
+                SourcePage sourcePage = reader.nextPage();
+                if (sourcePage == null) {
                     break;
                 }
-                page = page.getLoadedPage();
+                Page page = sourcePage.getPage();
 
                 // We only verify the memory usage when the batchSize reaches MAX_BATCH_SIZE as batchSize may be
                 // increasing during the test, which will cause the StreamReader buffer sizes to increase too.
@@ -105,11 +106,11 @@ public class TestOrcReaderMemoryUsage
             long readerMemoryUsage = reader.getMemoryUsage();
 
             while (true) {
-                Page page = reader.nextPage();
-                if (page == null) {
+                SourcePage sourcePage = reader.nextPage();
+                if (sourcePage == null) {
                     break;
                 }
-                page = page.getLoadedPage();
+                Page page = sourcePage.getPage();
 
                 // We only verify the memory usage when the batchSize reaches MAX_BATCH_SIZE as batchSize may be
                 // increasing during the test, which will cause the StreamReader buffer sizes to increase too.
@@ -152,11 +153,11 @@ public class TestOrcReaderMemoryUsage
             long readerMemoryUsage = reader.getMemoryUsage();
 
             while (true) {
-                Page page = reader.nextPage();
-                if (page == null) {
+                SourcePage sourcePage = reader.nextPage();
+                if (sourcePage == null) {
                     break;
                 }
-                page = page.getLoadedPage();
+                Page page = sourcePage.getPage();
 
                 // We only verify the memory usage when the batchSize reaches MAX_BATCH_SIZE as batchSize may be
                 // increasing during the test, which will cause the StreamReader buffer sizes to increase too.

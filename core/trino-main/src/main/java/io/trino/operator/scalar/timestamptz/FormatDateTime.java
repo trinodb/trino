@@ -35,7 +35,7 @@ import static io.trino.util.DateTimeZoneIndex.unpackChronology;
 
 @Description("Formats the given time by the given format")
 @ScalarFunction("format_datetime")
-public class FormatDateTime
+public final class FormatDateTime
 {
     private FormatDateTime() {}
 

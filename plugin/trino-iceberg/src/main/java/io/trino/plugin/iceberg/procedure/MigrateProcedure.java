@@ -29,9 +29,9 @@ import io.trino.metastore.PrincipalPrivileges;
 import io.trino.metastore.RawHiveMetastoreFactory;
 import io.trino.metastore.Storage;
 import io.trino.plugin.hive.HiveStorageFormat;
+import io.trino.plugin.hive.security.UsingSystemSecurity;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergFileFormat;
-import io.trino.plugin.iceberg.IcebergSecurityConfig;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import io.trino.plugin.iceberg.procedure.MigrationUtils.RecursiveDirectory;
@@ -86,8 +86,6 @@ import static io.trino.plugin.hive.util.HiveUtil.isDeltaLakeTable;
 import static io.trino.plugin.hive.util.HiveUtil.isHudiTable;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_COMMIT_ERROR;
-import static io.trino.plugin.iceberg.IcebergSecurityConfig.IcebergSecurity.SYSTEM;
-import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergTypeForNewColumn;
 import static io.trino.plugin.iceberg.procedure.MigrationUtils.buildDataFiles;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_COLUMN_NAME;
@@ -140,14 +138,14 @@ public class MigrateProcedure
             TrinoFileSystemFactory fileSystemFactory,
             TypeManager typeManager,
             IcebergConfig icebergConfig,
-            IcebergSecurityConfig securityConfig)
+            @UsingSystemSecurity boolean usingSystemSecurity)
     {
         this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
         this.metastoreFactory = requireNonNull(metastoreFactory, "metastoreFactory is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.formatVersion = icebergConfig.getFormatVersion();
-        this.isUsingSystemSecurity = securityConfig.getSecuritySystem() == SYSTEM;
+        this.isUsingSystemSecurity = usingSystemSecurity;
     }
 
     @Override
@@ -205,7 +203,7 @@ public class MigrateProcedure
         String location = hiveTable.getStorage().getLocation();
 
         Map<String, String> properties = icebergTableProperties(location, hiveTable.getParameters(), nameMapping, toIcebergFileFormat(storageFormat));
-        PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitionColumnNames(hiveTable));
+        PartitionSpec partitionSpec = parsePartitionFields(schema, hiveTable);
         try {
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
             ImmutableList.Builder<DataFile> dataFilesBuilder = ImmutableList.builder();
@@ -230,9 +228,9 @@ public class MigrateProcedure
                     session,
                     sourceTableName,
                     schema,
-                    parsePartitionFields(schema, toPartitionFields(hiveTable)),
+                    partitionSpec,
                     unsorted(),
-                    location,
+                    Optional.of(location),
                     properties);
 
             List<DataFile> dataFiles = dataFilesBuilder.build();
@@ -248,7 +246,7 @@ public class MigrateProcedure
                     .setParameter(METADATA_LOCATION_PROP, location)
                     .setParameter(TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE.toUpperCase(ENGLISH))
                     .build();
-            metastore.replaceTable(schemaName, tableName, newTable, principalPrivileges);
+            metastore.replaceTable(schemaName, tableName, newTable, principalPrivileges, ImmutableMap.of());
 
             transaction.commitTransaction();
             log.debug("Successfully migrated %s table to Iceberg format", sourceTableName);
@@ -367,11 +365,12 @@ public class MigrateProcedure
         };
     }
 
-    private static List<String> toPartitionFields(io.trino.metastore.Table table)
+    private static PartitionSpec parsePartitionFields(Schema schema, io.trino.metastore.Table table)
     {
-        ImmutableList.Builder<String> fields = ImmutableList.builder();
-        fields.addAll(getPartitionColumnNames(table));
-        return fields.build();
+        PartitionSpec.Builder builder = PartitionSpec.builderFor(schema);
+        List<String> partitionColumnNames = getPartitionColumnNames(table);
+        partitionColumnNames.forEach(builder::identity);
+        return builder.build();
     }
 
     private static List<String> getPartitionColumnNames(io.trino.metastore.Table table)

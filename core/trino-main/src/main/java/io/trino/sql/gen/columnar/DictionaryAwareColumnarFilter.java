@@ -14,11 +14,11 @@
 package io.trino.sql.gen.columnar;
 
 import io.trino.operator.project.InputChannels;
-import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SourcePage;
 
 import static com.google.common.base.Verify.verify;
 import static java.lang.System.arraycopy;
@@ -38,7 +38,7 @@ public final class DictionaryAwareColumnarFilter
     }
 
     @Override
-    public int filterPositionsRange(ConnectorSession session, int[] outputPositions, int offset, int size, Page loadedPage)
+    public int filterPositionsRange(ConnectorSession session, int[] outputPositions, int offset, int size, SourcePage loadedPage)
     {
         Block block = loadedPage.getBlock(0);
         if (block instanceof RunLengthEncodedBlock runLengthEncodedBlock) {
@@ -60,7 +60,7 @@ public final class DictionaryAwareColumnarFilter
     }
 
     @Override
-    public int filterPositionsList(ConnectorSession session, int[] outputPositions, int[] activePositions, int offset, int size, Page loadedPage)
+    public int filterPositionsList(ConnectorSession session, int[] outputPositions, int[] activePositions, int offset, int size, SourcePage loadedPage)
     {
         Block block = loadedPage.getBlock(0);
         if (block instanceof RunLengthEncodedBlock runLengthEncodedBlock) {
@@ -142,7 +142,7 @@ public final class DictionaryAwareColumnarFilter
 
         int positionCount = dictionary.getPositionCount();
         int[] selectedPositions = new int[positionCount];
-        int selectedPositionsCount = columnarFilter.filterPositionsRange(session, selectedPositions, 0, positionCount, new Page(positionCount, dictionary));
+        int selectedPositionsCount = columnarFilter.filterPositionsRange(session, selectedPositions, 0, positionCount, SourcePage.create(dictionary));
 
         boolean[] positionsMask = new boolean[positionCount];
         for (int index = 0; index < selectedPositionsCount; index++) {

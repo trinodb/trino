@@ -30,6 +30,8 @@ import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.operator.join.JoinHashSupplier.PagesHashType.BIGINT;
+import static io.trino.operator.join.JoinHashSupplier.PagesHashType.DEFAULT;
 import static io.trino.operator.join.JoinUtils.channelsToPages;
 import static java.util.Objects.requireNonNull;
 
@@ -86,12 +88,10 @@ public class JoinHashSupplier
         this.pages = channelsToPages(channels);
         this.pageInstancesRetainedSizeInBytes = getPageInstancesRetainedSizeInBytes(channels);
 
-        if (singleBigintJoinChannel.isPresent() && addresses.size() <= JOIN_POSITIONS_ARRAY_CUTOFF) {
-            this.pagesHash = new BigintPagesHash(addresses, pagesHashStrategy, positionLinksFactoryBuilder, hashArraySizeSupplier, pages, singleBigintJoinChannel.getAsInt());
-        }
-        else {
-            this.pagesHash = new DefaultPagesHash(addresses, pagesHashStrategy, positionLinksFactoryBuilder, hashArraySizeSupplier);
-        }
+        this.pagesHash = switch (getPagesHashType(addresses, singleBigintJoinChannel)) {
+            case BIGINT -> new BigintPagesHash(addresses, pagesHashStrategy, positionLinksFactoryBuilder, hashArraySizeSupplier, pages, singleBigintJoinChannel.getAsInt());
+            case DEFAULT -> new DefaultPagesHash(addresses, pagesHashStrategy, positionLinksFactoryBuilder, hashArraySizeSupplier);
+        };
         this.positionLinks = positionLinksFactoryBuilder.isEmpty() ? Optional.empty() : Optional.of(positionLinksFactoryBuilder.build());
     }
 
@@ -137,12 +137,10 @@ public class JoinHashSupplier
             result += ArrayPositionLinks.getEstimatedRetainedSizeInBytes(positionCount);
         }
         result += getPageInstancesRetainedSizeInBytes(channels);
-        if (singleBigintJoinChannel.isPresent() && addresses.size() <= JOIN_POSITIONS_ARRAY_CUTOFF) {
-            result += BigintPagesHash.getEstimatedRetainedSizeInBytes(positionCount, hashArraySizeSupplier, addresses, channels, blocksSizeInBytes);
-        }
-        else {
-            result += DefaultPagesHash.getEstimatedRetainedSizeInBytes(positionCount, hashArraySizeSupplier, addresses, channels, blocksSizeInBytes);
-        }
+        result += switch (getPagesHashType(addresses, singleBigintJoinChannel)) {
+            case BIGINT -> BigintPagesHash.getEstimatedRetainedSizeInBytes(positionCount, hashArraySizeSupplier, addresses, channels, blocksSizeInBytes);
+            case DEFAULT -> DefaultPagesHash.getEstimatedRetainedSizeInBytes(positionCount, hashArraySizeSupplier, addresses, channels, blocksSizeInBytes);
+        };
         return result;
     }
 
@@ -153,5 +151,18 @@ public class JoinHashSupplier
         }
         int pagesCount = channels.get(0).size();
         return Page.getInstanceSizeInBytes(channels.size()) * pagesCount;
+    }
+
+    public enum PagesHashType {
+        BIGINT,
+        DEFAULT
+    }
+
+    private static PagesHashType getPagesHashType(LongArrayList addresses, OptionalInt singleBigintJoinChannel)
+    {
+        if (singleBigintJoinChannel.isPresent() && addresses.size() <= JOIN_POSITIONS_ARRAY_CUTOFF) {
+            return BIGINT;
+        }
+        return DEFAULT;
     }
 }

@@ -84,9 +84,7 @@ public final class TestGroups
     public static final String ICEBERG_REST = "iceberg_rest";
     public static final String ICEBERG_JDBC = "iceberg_jdbc";
     public static final String ICEBERG_NESSIE = "iceberg_nessie";
-    public static final String PHOENIX = "phoenix";
     public static final String CLICKHOUSE = "clickhouse";
-    public static final String KUDU = "kudu";
     public static final String MARIADB = "mariadb";
     public static final String RANGER = "ranger";
     public static final String SNOWFLAKE = "snowflake";
@@ -96,12 +94,10 @@ public final class TestGroups
     public static final String DELTA_LAKE_AZURE = "delta-lake-azure";
     public static final String DELTA_LAKE_GCS = "delta-lake-gcs";
     public static final String DELTA_LAKE_DATABRICKS = "delta-lake-databricks";
-    public static final String DELTA_LAKE_DATABRICKS_113 = "delta-lake-databricks-113";
     public static final String DELTA_LAKE_DATABRICKS_122 = "delta-lake-databricks-122";
     public static final String DELTA_LAKE_DATABRICKS_133 = "delta-lake-databricks-133";
     public static final String DELTA_LAKE_DATABRICKS_143 = "delta-lake-databricks-143";
-    public static final String DATABRICKS_UNITY_HTTP_HMS = "databricks-unity-http-hms";
-    public static final String DELTA_LAKE_EXCLUDE_104 = "delta-lake-exclude-104";
+    public static final String DELTA_LAKE_EXCLUDE_113 = "delta-lake-exclude-113";
     public static final String DELTA_LAKE_ALLUXIO_CACHING = "delta-lake-alluxio-caching";
     public static final String HUDI = "hudi";
     public static final String PARQUET = "parquet";

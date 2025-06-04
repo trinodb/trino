@@ -28,7 +28,7 @@ public final class HiveCompressionCodecs
         HiveCompressionOption compressionOption = HiveSessionProperties.getCompressionCodec(session);
         return HiveStorageFormat.getHiveStorageFormat(storageFormat)
                 .map(format -> selectCompressionCodec(compressionOption, format))
-                .orElseGet(() -> selectCompressionCodec(compressionOption));
+                .orElseGet(() -> toCompressionCodec(compressionOption));
     }
 
     public static HiveCompressionCodec selectCompressionCodec(ConnectorSession session, HiveStorageFormat storageFormat)
@@ -36,9 +36,9 @@ public final class HiveCompressionCodecs
         return selectCompressionCodec(HiveSessionProperties.getCompressionCodec(session), storageFormat);
     }
 
-    public static HiveCompressionCodec selectCompressionCodec(HiveCompressionOption compressionOption, HiveStorageFormat storageFormat)
+    private static HiveCompressionCodec selectCompressionCodec(HiveCompressionOption compressionOption, HiveStorageFormat storageFormat)
     {
-        HiveCompressionCodec selectedCodec = selectCompressionCodec(compressionOption);
+        HiveCompressionCodec selectedCodec = toCompressionCodec(compressionOption);
 
         // perform codec vs format validation
         if ((storageFormat == HiveStorageFormat.PARQUET && selectedCodec.getParquetCompressionCodec().isEmpty()) ||
@@ -49,7 +49,7 @@ public final class HiveCompressionCodecs
         return selectedCodec;
     }
 
-    private static HiveCompressionCodec selectCompressionCodec(HiveCompressionOption compressionOption)
+    public static HiveCompressionCodec toCompressionCodec(HiveCompressionOption compressionOption)
     {
         return switch (compressionOption) {
             case NONE -> HiveCompressionCodec.NONE;

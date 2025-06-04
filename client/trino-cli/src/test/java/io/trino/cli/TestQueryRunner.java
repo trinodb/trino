@@ -37,6 +37,7 @@ import java.time.ZoneId;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.OptionalDouble;
+import java.util.OptionalLong;
 import java.util.Properties;
 
 import static com.google.common.io.ByteStreams.nullOutputStream;
@@ -146,7 +147,7 @@ public class TestQueryRunner
                 null,
                 ImmutableList.of(),
                 null,
-                null);
+                OptionalLong.empty());
         return QUERY_RESULTS_CODEC.toJson(queryResults);
     }
 

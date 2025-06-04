@@ -30,6 +30,14 @@ public interface BlockEncodingSerde
     void writeBlock(SliceOutput output, Block block);
 
     /**
+     * Estimate the size of the block when serialized to the on-the-wire representation.
+     */
+    default long estimatedWriteSize(Block block)
+    {
+        return block.getSizeInBytes();
+    }
+
+    /**
      * Reads a type from the input.
      */
     Type readType(SliceInput sliceInput);

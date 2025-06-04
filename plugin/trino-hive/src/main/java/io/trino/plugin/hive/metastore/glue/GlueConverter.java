@@ -101,7 +101,7 @@ import static io.trino.plugin.hive.util.HiveUtil.isDeltaLakeTable;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 import static java.util.Objects.requireNonNull;
 
-final class GlueConverter
+public final class GlueConverter
 {
     static final String PUBLIC_OWNER = "PUBLIC";
     private static final Storage FAKE_PARQUET_STORAGE = new Storage(
@@ -307,7 +307,7 @@ final class GlueConverter
     private static Storage fromGlueStorage(StorageDescriptor sd, String tablePartitionName)
     {
         Optional<HiveBucketProperty> bucketProperty = Optional.empty();
-        if (sd.numberOfBuckets() > 0) {
+        if (sd.numberOfBuckets() != null && sd.numberOfBuckets() > 0) {
             if (sd.bucketColumns().isEmpty()) {
                 throw new TrinoException(HIVE_INVALID_METADATA, "Table/partition metadata has 'numBuckets' set, but 'bucketCols' is not set: " + tablePartitionName);
             }

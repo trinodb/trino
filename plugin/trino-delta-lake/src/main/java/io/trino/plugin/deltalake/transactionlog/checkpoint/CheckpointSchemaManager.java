@@ -63,7 +63,6 @@ public class CheckpointSchemaManager
             RowType.field("lastUpdated", BIGINT)));
 
     private final RowType metadataEntryType;
-    private final RowType commitInfoEntryType;
     private final RowType removeEntryType;
     private final RowType sidecarEntryType;
     private final ArrayType stringList;
@@ -87,26 +86,6 @@ public class CheckpointSchemaManager
                 RowType.field("partitionColumns", stringList),
                 RowType.field("configuration", stringMap),
                 RowType.field("createdTime", BIGINT)));
-
-        commitInfoEntryType = RowType.from(ImmutableList.of(
-                RowType.field("version", BIGINT),
-                RowType.field("timestamp", TIMESTAMP_MILLIS),
-                RowType.field("userId", VARCHAR),
-                RowType.field("userName", VARCHAR),
-                RowType.field("operation", VARCHAR),
-                RowType.field("operationParameters", stringMap),
-                RowType.field("job", RowType.from(ImmutableList.of(
-                        RowType.field("jobId", VARCHAR),
-                        RowType.field("jobName", VARCHAR),
-                        RowType.field("runId", VARCHAR),
-                        RowType.field("jobOwnerId", VARCHAR),
-                        RowType.field("triggerType", VARCHAR)))),
-                RowType.field("notebook", RowType.from(
-                        ImmutableList.of(RowType.field("notebookId", VARCHAR)))),
-                RowType.field("clusterId", VARCHAR),
-                RowType.field("readVersion", BIGINT),
-                RowType.field("isolationLevel", VARCHAR),
-                RowType.field("isBlindAppend", BOOLEAN)));
 
         removeEntryType = RowType.from(ImmutableList.of(
                 RowType.field("path", VARCHAR),
@@ -197,15 +176,6 @@ public class CheckpointSchemaManager
         return RowType.from(addFields.build());
     }
 
-    public RowType getAddEntryPartitionValuesType()
-    {
-        ImmutableList.Builder<RowType.Field> addFields = ImmutableList.builder();
-        MapType stringMap = (MapType) typeManager.getType(TypeSignature.mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
-        addFields.add(RowType.field("partitionValues", stringMap));
-
-        return RowType.from(addFields.build());
-    }
-
     private static RowType.Field buildNullCountType(Optional<String> columnName, Type columnType)
     {
         if (columnType instanceof RowType rowType) {
@@ -240,11 +210,6 @@ public class CheckpointSchemaManager
             fields.add(RowType.field("writerFeatures", stringList));
         }
         return RowType.from(fields.build());
-    }
-
-    public RowType getCommitInfoEntryType()
-    {
-        return commitInfoEntryType;
     }
 
     public RowType getSidecarEntryType()

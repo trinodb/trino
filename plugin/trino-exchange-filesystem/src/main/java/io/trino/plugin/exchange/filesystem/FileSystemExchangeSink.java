@@ -85,8 +85,8 @@ public class FileSystemExchangeSink
     private volatile boolean closed;
 
     private final MetricsBuilder metricsBuilder = new MetricsBuilder();
-    private final CounterMetricBuilder totalFilesMetric = metricsBuilder.getCounterMetric("FileSystemExchangeSource.filesTotal");
-    private final DistributionMetricBuilder fileSizeMetric = metricsBuilder.getDistributionMetric("FileSystemExchangeSource.fileSize");
+    private final CounterMetricBuilder totalFilesMetric = metricsBuilder.getCounterMetric("FileSystemExchangeSink.filesTotal");
+    private final DistributionMetricBuilder fileSizeMetric = metricsBuilder.getDistributionMetric("FileSystemExchangeSink.fileSize");
 
     public FileSystemExchangeSink(
             FileSystemExchangeStorage exchangeStorage,
@@ -99,8 +99,11 @@ public class FileSystemExchangeSink
             int exchangeSinkBuffersPerPartition,
             long maxFileSizeInBytes)
     {
-        checkArgument(maxPageStorageSizeInBytes <= maxFileSizeInBytes,
-                format("maxPageStorageSizeInBytes %s exceeded maxFileSizeInBytes %s", succinctBytes(maxPageStorageSizeInBytes), succinctBytes(maxFileSizeInBytes)));
+        checkArgument(
+                maxPageStorageSizeInBytes <= maxFileSizeInBytes,
+                "maxPageStorageSizeInBytes %s exceeded maxFileSizeInBytes %s",
+                succinctBytes(maxPageStorageSizeInBytes),
+                succinctBytes(maxFileSizeInBytes));
 
         this.exchangeStorage = requireNonNull(exchangeStorage, "exchangeStorage is null");
         this.stats = requireNonNull(stats, "stats is null");
@@ -315,19 +318,18 @@ public class FileSystemExchangeSink
 
             if (currentFileSize + requiredPageStorageSize > maxFileSizeInBytes && !preserveOrderWithinPartition) {
                 stats.getFileSizeInBytes().add(currentFileSize);
+                fileSizeMetric.add(currentFileSize);
+                totalFilesMetric.increment();
                 flushIfNeeded(true);
                 setupWriterForNextPart();
                 currentFileSize = 0;
                 currentBuffer = null;
-                fileSizeMetric.add(currentFileSize);
-                totalFilesMetric.increment();
             }
 
             Slice sizeSlice = Slices.allocate(Integer.BYTES);
             sizeSlice.setInt(0, data.length());
             writeInternal(sizeSlice);
             writeInternal(data);
-
             currentFileSize += requiredPageStorageSize;
         }
 
@@ -338,6 +340,8 @@ public class FileSystemExchangeSink
             }
 
             stats.getFileSizeInBytes().add(currentFileSize);
+            fileSizeMetric.add(currentFileSize);
+            totalFilesMetric.increment();
             flushIfNeeded(true);
             if (writers.size() == 1) {
                 return currentWriter.finish();

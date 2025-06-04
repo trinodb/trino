@@ -37,7 +37,7 @@ import static java.lang.String.format;
 import static org.joda.time.DateTimeZone.UTC;
 
 @ScalarFunction("with_timezone")
-public class WithTimeZone
+public final class WithTimeZone
 {
     private WithTimeZone() {}
 

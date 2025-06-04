@@ -47,8 +47,8 @@ public class DelegatingRestSessionCatalog
         super.close();
         adapter.close();
 
-        if (delegate instanceof Closeable) {
-            ((Closeable) delegate).close();
+        if (delegate instanceof Closeable closeable) {
+            closeable.close();
         }
     }
 

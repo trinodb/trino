@@ -203,6 +203,10 @@ values. Typical usage does not require you to configure them.
   - Number of threads used for retrieving metadata. Currently, only table loading 
     is parallelized.
   - `8`
+* - `delta.checkpoint-processing.parallelism`
+  - Number of threads used for retrieving checkpoint files of each table. Currently, only 
+    retrievals of V2 Checkpoint's sidecar files are parallelized.
+  - `4`
 :::
 
 ### Catalog session properties
@@ -662,6 +666,25 @@ EXECUTE <alter-table-execute>`.
 ```{include} optimize.fragment
 ```
 
+Use a `WHERE` clause with [metadata columns](delta-lake-special-columns) to filter
+which files are optimized.
+
+```sql
+ALTER TABLE test_table EXECUTE optimize
+WHERE "$file_modified_time" > date_trunc('day', CURRENT_TIMESTAMP);
+```
+
+```sql
+ALTER TABLE test_table EXECUTE optimize
+WHERE "$path" <> 'skipping-file-path'
+```
+
+```sql
+-- optimze files smaller than 1MB
+ALTER TABLE test_table EXECUTE optimize
+WHERE "$file_size" <= 1024 * 1024
+```
+
 (delta-lake-alter-table-rename-to)=
 #### ALTER TABLE RENAME TO
 
@@ -775,6 +798,10 @@ The output of the query has the following history columns:
 * - `timestamp`
   - `TIMESTAMP(3) WITH TIME ZONE`
   - The time when the table version became active
+    For tables with in-Commit timestamps enabled, this field returns value of 
+    [inCommitTimestamp](https://github.com/delta-io/delta/blob/master/PROTOCOL.md#in-commit-timestamps),
+    Otherwise returns value of `timestamp` field that in the 
+    [commitInfo](https://github.com/delta-io/delta/blob/master/PROTOCOL.md#commit-provenance-information)
 * - `user_id`
   - `VARCHAR`
   - The identifier for the user which performed the operation

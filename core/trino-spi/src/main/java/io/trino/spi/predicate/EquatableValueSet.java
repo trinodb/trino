@@ -404,10 +404,10 @@ public class EquatableValueSet
         if (!getType().equals(other.getType())) {
             throw new IllegalStateException(format("Mismatched types: %s vs %s", getType(), other.getType()));
         }
-        if (!(other instanceof EquatableValueSet)) {
+        if (!(other instanceof EquatableValueSet equatableValueSet)) {
             throw new IllegalStateException(format("ValueSet is not a EquatableValueSet: %s", other.getClass()));
         }
-        return (EquatableValueSet) other;
+        return equatableValueSet;
     }
 
     @Override

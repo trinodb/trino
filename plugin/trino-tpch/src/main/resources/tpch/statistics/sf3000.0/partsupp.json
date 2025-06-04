@@ -1,27 +1,27 @@
  {
-    "rowCount" : 2.4E9,
+    "rowCount" : 2400000000,
      "columns" : {
         "ps_suppkey" : {
-             "distinctValuesCount" : 4.5300013E7,
+             "distinctValuesCount" : 45300013,
              "min" : 1,
              "max" : 30000000
         },
         "ps_partkey" : {
-             "distinctValuesCount" : 5.35201957E8,
+             "distinctValuesCount" : 535201957,
              "min" : 1,
              "max" : 600000000
         },
         "ps_comment" : {
-             "dataSize" : 2.96396748667E11,
-             "distinctValuesCount" : 2.79448686E8
+             "dataSize" : 296396748667,
+             "distinctValuesCount" : 279448686
         },
         "ps_availqty" : {
-             "distinctValuesCount" : 13152.0,
+             "distinctValuesCount" : 13152,
              "min" : 1,
              "max" : 9999
         },
         "ps_supplycost" : {
-             "distinctValuesCount" : 100756.0,
+             "distinctValuesCount" : 100756,
              "min" : 1.0,
              "max" : 1000.0
         }

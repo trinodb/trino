@@ -137,12 +137,31 @@ public class TestArrayOperators
     @Test
     public void testTypeConstructor()
     {
+        assertThat(assertions.expression("ARRAY[]"))
+                .hasType(new ArrayType(UNKNOWN))
+                .isEqualTo(ImmutableList.of());
+
+        assertThat(assertions.expression("[]"))
+                .hasType(new ArrayType(UNKNOWN))
+                .isEqualTo(ImmutableList.of());
+
         assertThat(assertions.expression("ARRAY[a]")
                 .binding("a", "7"))
                 .hasType(new ArrayType(INTEGER))
                 .isEqualTo(ImmutableList.of(7));
 
+        assertThat(assertions.expression("[a]")
+                .binding("a", "7"))
+                .hasType(new ArrayType(INTEGER))
+                .isEqualTo(ImmutableList.of(7));
+
         assertThat(assertions.expression("ARRAY[a, b]")
+                .binding("a", "12.34E0")
+                .binding("b", "56.78E0"))
+                .hasType(new ArrayType(DOUBLE))
+                .isEqualTo(ImmutableList.of(12.34, 56.78));
+
+        assertThat(assertions.expression("[a, b]")
                 .binding("a", "12.34E0")
                 .binding("b", "56.78E0"))
                 .hasType(new ArrayType(DOUBLE))

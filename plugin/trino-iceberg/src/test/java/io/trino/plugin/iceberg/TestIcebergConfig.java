@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.trino.plugin.hive.HiveCompressionCodec;
+import io.trino.plugin.hive.HiveCompressionOption;
 import jakarta.validation.constraints.AssertFalse;
 import org.junit.jupiter.api.Test;
 
@@ -30,7 +30,7 @@ import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.trino.plugin.hive.HiveCompressionCodec.ZSTD;
+import static io.trino.plugin.hive.HiveCompressionOption.ZSTD;
 import static io.trino.plugin.iceberg.CatalogType.GLUE;
 import static io.trino.plugin.iceberg.CatalogType.HIVE_METASTORE;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
@@ -72,14 +72,15 @@ public class TestIcebergConfig
                 .setSortedWritingEnabled(true)
                 .setQueryPartitionFilterRequired(false)
                 .setQueryPartitionFilterRequiredSchemas(ImmutableSet.of())
-                .setSplitManagerThreads(Runtime.getRuntime().availableProcessors() * 2)
+                .setSplitManagerThreads(Integer.toString(Runtime.getRuntime().availableProcessors() * 2))
                 .setAllowedExtraProperties(ImmutableList.of())
                 .setIncrementalRefreshEnabled(true)
                 .setMetadataCacheEnabled(true)
                 .setIncrementalRefreshEnabled(true)
                 .setObjectStoreLayoutEnabled(false)
                 .setMetadataParallelism(8)
-                .setBucketExecutionEnabled(true));
+                .setBucketExecutionEnabled(true)
+                .setFileBasedConflictDetectionEnabled(true));
     }
 
     @Test
@@ -120,11 +121,12 @@ public class TestIcebergConfig
                 .put("iceberg.object-store-layout.enabled", "true")
                 .put("iceberg.metadata.parallelism", "10")
                 .put("iceberg.bucket-execution", "false")
+                .put("iceberg.file-based-conflict-detection", "false")
                 .buildOrThrow();
 
         IcebergConfig expected = new IcebergConfig()
                 .setFileFormat(ORC)
-                .setCompressionCodec(HiveCompressionCodec.NONE)
+                .setCompressionCodec(HiveCompressionOption.NONE)
                 .setMaxCommitRetry(100)
                 .setUseFileSizeFromMetadata(false)
                 .setMaxPartitionsPerWriter(222)
@@ -150,14 +152,15 @@ public class TestIcebergConfig
                 .setSortedWritingEnabled(false)
                 .setQueryPartitionFilterRequired(true)
                 .setQueryPartitionFilterRequiredSchemas(ImmutableSet.of("bronze", "silver"))
-                .setSplitManagerThreads(42)
+                .setSplitManagerThreads("42")
                 .setAllowedExtraProperties(ImmutableList.of("propX", "propY"))
                 .setIncrementalRefreshEnabled(false)
                 .setMetadataCacheEnabled(false)
                 .setIncrementalRefreshEnabled(false)
                 .setObjectStoreLayoutEnabled(true)
                 .setMetadataParallelism(10)
-                .setBucketExecutionEnabled(false);
+                .setBucketExecutionEnabled(false)
+                .setFileBasedConflictDetectionEnabled(false);
 
         assertFullMapping(properties, expected);
     }

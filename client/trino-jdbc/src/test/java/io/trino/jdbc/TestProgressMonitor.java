@@ -42,6 +42,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
 import java.util.OptionalDouble;
+import java.util.OptionalLong;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -103,7 +104,7 @@ public class TestProgressMonitor
                 null,
                 ImmutableList.of(),
                 null,
-                null);
+                OptionalLong.empty());
 
         return QUERY_RESULTS_CODEC.toJson(queryResults);
     }

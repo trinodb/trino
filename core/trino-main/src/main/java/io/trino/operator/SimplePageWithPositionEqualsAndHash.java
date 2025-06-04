@@ -13,15 +13,13 @@
  */
 package io.trino.operator;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
 import io.trino.type.BlockTypeOperators.BlockPositionIsIdentical;
-import it.unimi.dsi.fastutil.ints.IntArrayList;
-import it.unimi.dsi.fastutil.ints.IntList;
 
 import java.util.List;
 
@@ -31,36 +29,34 @@ import static java.util.Objects.requireNonNull;
 public class SimplePageWithPositionEqualsAndHash
         implements PageWithPositionEqualsAndHash
 {
-    private final IntList equalityChannels;
-    private final List<BlockPositionIsIdentical> identicalOperators;
-    private final List<BlockPositionHashCode> hashOperators;
+    private final int[] equalityChannels;
+    private final BlockPositionIsIdentical[] identicalOperators;
+    private final BlockPositionHashCode[] hashOperators;
 
     public SimplePageWithPositionEqualsAndHash(List<Type> channelTypes, List<Integer> equalityChannels, BlockTypeOperators blockTypeOperators)
     {
         requireNonNull(channelTypes, "channelTypes is null");
-        this.equalityChannels = new IntArrayList(requireNonNull(equalityChannels, "equalityChannels is null"));
-        checkArgument(channelTypes.size() >= equalityChannels.size(), "channelTypes cannot have fewer columns then equalityChannels");
+        checkArgument(channelTypes.size() == equalityChannels.size(), "channelTypes and equalityChannels must have the same size");
+        this.equalityChannels = Ints.toArray(requireNonNull(equalityChannels, "equalityChannels is null"));
 
         // Use IS DISTINCT FROM for equality, because it evaluates NULL and NaN values as distinct (unlike SQL EQUALS)
-        ImmutableList.Builder<BlockPositionIsIdentical> identicalOperators = ImmutableList.builder();
-        ImmutableList.Builder<BlockPositionHashCode> hashOperators = ImmutableList.builder();
-        for (int index = 0; index < equalityChannels.size(); index++) {
-            Type type = channelTypes.get(this.equalityChannels.getInt(index));
-            identicalOperators.add(blockTypeOperators.getIdenticalOperator(type));
-            hashOperators.add(blockTypeOperators.getHashCodeOperator(type));
+        this.identicalOperators = new BlockPositionIsIdentical[this.equalityChannels.length];
+        this.hashOperators = new BlockPositionHashCode[this.equalityChannels.length];
+        for (int index = 0; index < this.identicalOperators.length; index++) {
+            Type type = channelTypes.get(index);
+            identicalOperators[index] = blockTypeOperators.getIdenticalOperator(type);
+            hashOperators[index] = blockTypeOperators.getHashCodeOperator(type);
         }
-        this.identicalOperators = identicalOperators.build();
-        this.hashOperators = hashOperators.build();
     }
 
     @Override
     public boolean equals(Page left, int leftPosition, Page right, int rightPosition)
     {
-        for (int i = 0; i < equalityChannels.size(); i++) {
-            int equalityChannel = equalityChannels.getInt(i);
+        for (int i = 0; i < equalityChannels.length; i++) {
+            int equalityChannel = equalityChannels[i];
             Block leftBlock = left.getBlock(equalityChannel);
             Block rightBlock = right.getBlock(equalityChannel);
-            if (!identicalOperators.get(i).isIdentical(leftBlock, leftPosition, rightBlock, rightPosition)) {
+            if (!identicalOperators[i].isIdentical(leftBlock, leftPosition, rightBlock, rightPosition)) {
                 return false;
             }
         }
@@ -71,10 +67,10 @@ public class SimplePageWithPositionEqualsAndHash
     public long hashCode(Page page, int position)
     {
         long hashCode = 0;
-        for (int i = 0; i < equalityChannels.size(); i++) {
-            int equalityChannel = equalityChannels.getInt(i);
+        for (int i = 0; i < equalityChannels.length; i++) {
+            int equalityChannel = equalityChannels[i];
             Block block = page.getBlock(equalityChannel);
-            hashCode = 31 * hashCode + hashOperators.get(i).hashCodeNullSafe(block, position);
+            hashCode = 31 * hashCode + hashOperators[i].hashCodeNullSafe(block, position);
         }
         return hashCode;
     }

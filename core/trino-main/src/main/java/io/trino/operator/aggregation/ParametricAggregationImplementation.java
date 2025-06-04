@@ -452,8 +452,8 @@ public class ParametricAggregationImplementation
             Annotation[][] parameterAnnotations = inputFunction.getParameterAnnotations();
             for (Annotation[] annotations : parameterAnnotations) {
                 for (Annotation annotation : annotations) {
-                    if (annotation instanceof SqlType) {
-                        String typeName = ((SqlType) annotation).value();
+                    if (annotation instanceof SqlType sqlType) {
+                        String typeName = sqlType.value();
                         builder.add(parseTypeSignature(typeName, literalParameters));
                     }
                 }

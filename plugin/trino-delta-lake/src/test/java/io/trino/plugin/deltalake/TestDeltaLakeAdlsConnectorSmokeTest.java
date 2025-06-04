@@ -112,7 +112,6 @@ public class TestDeltaLakeAdlsConnectorSmokeTest
     protected Map<String, String> hiveStorageConfiguration()
     {
         return ImmutableMap.<String, String>builder()
-                .put("fs.hadoop.enabled", "false")
                 .put("fs.native-azure.enabled", "true")
                 .put("azure.auth-type", "ACCESS_KEY")
                 .put("azure.access-key", accessKey)

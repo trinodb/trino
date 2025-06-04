@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
+import io.trino.execution.StageInfo;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
@@ -43,10 +44,12 @@ import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.Plan;
+import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.DistributedQueryRunner;
@@ -100,6 +103,7 @@ import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -109,9 +113,12 @@ import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static io.trino.SystemSessionProperties.DETERMINE_PARTITION_COUNT_FOR_WRITE_ENABLED;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
+import static io.trino.SystemSessionProperties.MAX_HASH_PARTITION_COUNT;
+import static io.trino.SystemSessionProperties.MAX_WRITER_TASK_COUNT;
 import static io.trino.SystemSessionProperties.SCALE_WRITERS;
 import static io.trino.SystemSessionProperties.TASK_MAX_WRITER_COUNT;
 import static io.trino.SystemSessionProperties.TASK_MIN_WRITER_COUNT;
+import static io.trino.SystemSessionProperties.TASK_SCALE_WRITERS_ENABLED;
 import static io.trino.SystemSessionProperties.USE_PREFERRED_WRITE_PARTITIONING;
 import static io.trino.plugin.iceberg.IcebergFileFormat.AVRO;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
@@ -153,6 +160,7 @@ import static java.time.ZoneOffset.UTC;
 import static java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
+import static java.util.Map.entry;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -289,6 +297,15 @@ public abstract class BaseIcebergConnectorTest
     {
         try (TestTable table = newTrinoTable("test_delete_", "WITH (format_version = 1) AS SELECT * FROM orders")) {
             assertQueryFails("DELETE FROM " + table.getName() + " WHERE custkey <= 100", "Iceberg table updates require at least format version 2");
+        }
+    }
+
+    @Test
+    public void testDeleteOnV1TableWhenManifestFileIsNotExist()
+    {
+        try (TestTable table = newTrinoTable("test_delete_", "(a bigint, dt date) WITH (format_version = 1, partitioning = ARRAY['dt'])")) {
+            assertQuerySucceeds("DELETE FROM " + table.getName() + " WHERE dt = date '2025-02-17'");
+            assertQueryReturnsEmptyResult("SELECT * FROM " + table.getName());
         }
     }
 
@@ -1440,11 +1457,11 @@ public abstract class BaseIcebergConnectorTest
         // Insert "large" number of rows, supposedly topping over iceberg.writer-sort-buffer-size so that temporary files are utilized by the sorting writer.
         assertUpdate(
                 """
-                INSERT INTO %s
-                SELECT v.*
-                FROM (VALUES %s, %s, %s) v
-                CROSS JOIN UNNEST (sequence(1, 10_000)) a(i)
-                """.formatted(tableName, values, highValues, lowValues), 30000);
+                        INSERT INTO %s
+                        SELECT v.*
+                        FROM (VALUES %s, %s, %s) v
+                        CROSS JOIN UNNEST (sequence(1, 10_000)) a(i)
+                        """.formatted(tableName, values, highValues, lowValues), 30000);
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -1694,7 +1711,7 @@ public abstract class BaseIcebergConnectorTest
         // extra insert which should be dropped on rollback
         assertUpdate("INSERT INTO test_rollback (col0, col1) VALUES (999, CAST(999 AS BIGINT))", 1);
 
-        assertUpdate(format("ALTER TABLE tpch.test_rollback EXECUTE rollback_to_snapshot(%s)", afterSecondInsertId));
+        assertUpdate(format(rollbackToSnapshotFormat, afterSecondInsertId));
         assertQuery("SELECT * FROM test_rollback ORDER BY col0", "VALUES (789, CAST(987 AS BIGINT))");
 
         assertUpdate("DROP TABLE test_rollback");
@@ -4120,6 +4137,20 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testPredicateOnDataColumnForPartitionedTableIsNotPushedDown()
+    {
+        try (TestTable testTable = newTrinoTable(
+                "test_predicate_on_data_column_for_partitioned_table_is_not_pushed_down",
+                "(a integer, dt date) WITH (partitioning = ARRAY['dt'])")) {
+            assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE a = 10"))
+                    .isNotFullyPushedDown(FilterNode.class);
+            assertUpdate("INSERT INTO " + testTable.getName() + " VALUES (10, date '2025-02-18')", 1);
+            assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE a = 10"))
+                    .isNotFullyPushedDown(FilterNode.class);
+        }
+    }
+
+    @Test
     public void testPredicatesWithStructuralTypes()
     {
         String tableName = "test_predicate_with_structural_types";
@@ -4199,7 +4230,14 @@ public abstract class BaseIcebergConnectorTest
                             // total_size is not exactly deterministic, so grab whatever value there is
                             "(SELECT total_size FROM \"test_partitions_with_conflict$partitions\"), " +
                             "CAST(" +
-                            " NULL AS row(" +
+                            "  ROW (" +
+                            (partitioned ? "" : "  NULL, ") +
+                            "    NULL, " +
+                            "    NULL, " +
+                            "    NULL, " +
+                            "    NULL " +
+                            "  ) " +
+                            " AS row(" +
                             (partitioned ? "" : "    p row(min integer, max integer, null_count bigint, nan_count bigint), ") +
                             "    row_count row(min integer, max integer, null_count bigint, nan_count bigint), " +
                             "    record_count row(min integer, max integer, null_count bigint, nan_count bigint), " +
@@ -5047,25 +5085,6 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
-    public void testGetIcebergTableProperties()
-    {
-        assertUpdate("CREATE TABLE test_iceberg_get_table_props (x BIGINT)");
-        verifyIcebergTableProperties(computeActual("SELECT * FROM \"test_iceberg_get_table_props$properties\""));
-        assertUpdate("DROP TABLE test_iceberg_get_table_props");
-    }
-
-    protected void verifyIcebergTableProperties(MaterializedResult actual)
-    {
-        assertThat(actual).isNotNull();
-        MaterializedResult expected = resultBuilder(getSession())
-                .row("write.format.default", format.name())
-                .row("write.parquet.compression-codec", "zstd")
-                .row("commit.retry.num-retries", "4")
-                .build();
-        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
-    }
-
-    @Test
     public void testGetIcebergTableWithLegacyOrcBloomFilterProperties()
             throws IOException
     {
@@ -5290,6 +5309,40 @@ public abstract class BaseIcebergConnectorTest
         // Query with predicates on nested columns only
         assertQuery("SELECT id, root.f2 FROM test_projection_pushdown_comments WHERE root.f1 = 2", "VALUES (1, 3)");
         assertUpdate("DROP TABLE IF EXISTS test_projection_pushdown_comments");
+    }
+
+    @Test
+    public void testMaxWriterTaskCount()
+    {
+        int workerCount = getQueryRunner().getNodeCount();
+        checkState(workerCount > 1, "testMaxWriterTaskCount requires multiple workers");
+
+        assertUpdate("CREATE TABLE test_max_writer_task_count_insert (id BIGINT) WITH (partitioning = ARRAY['id'])");
+
+        Session session = Session.builder(getSession())
+                // disable writer scaling for the test
+                .setSystemProperty(SCALE_WRITERS, "false")
+                .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, "false")
+                // limit number of writer tasks to 1
+                .setSystemProperty(MAX_WRITER_TASK_COUNT, "1")
+                .setSystemProperty(MAX_HASH_PARTITION_COUNT, Integer.toString(workerCount))
+                .build();
+        QueryId id = getDistributedQueryRunner()
+                .executeWithPlan(session, """
+                        INSERT INTO test_max_writer_task_count_insert
+                        SELECT * FROM TABLE(sequence(start => 0, stop => 100, step => 1))
+                        """)
+                .queryId();
+        StageInfo writerStage = getDistributedQueryRunner().getCoordinator()
+                .getFullQueryInfo(id)
+                .getOutputStage()
+                .orElseThrow()
+                .getSubStages()
+                .getFirst();
+        assertThat(PlanNodeSearcher.searchFrom(writerStage.getPlan().getRoot()).whereIsInstanceOfAny(TableWriterNode.class).matches()).isTrue();
+        assertThat(writerStage.getTasks().size()).isEqualTo(1);
+
+        assertUpdate("DROP TABLE IF EXISTS test_max_writer_task_count_insert");
     }
 
     @Test
@@ -5568,6 +5621,42 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testOptimizeFilesDoNotInheritSequenceNumber()
+            throws IOException
+    {
+        String tableName = "test_optimize_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM nation", 25);
+
+        assertUpdate("DELETE FROM " + tableName + " WHERE nationkey = 7", 1);
+
+        // Verify that delete file exists
+        assertQuery(
+                "SELECT summary['total-delete-files'] FROM \"" + tableName + "$snapshots\" WHERE snapshot_id = " + getCurrentSnapshotId(tableName),
+                "VALUES '1'");
+
+        // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
+        computeActual(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+
+        List<IcebergEntry> activeEntries = getIcebergEntries(tableName);
+        assertThat(activeEntries).hasSize(3);
+
+        // New rewritten data file should not inherit sequence number as it is a rewrite
+        assertThat(activeEntries.stream().filter(entry -> entry.status() == 1))
+                .hasSize(1)
+                .allMatch(entry -> entry.sequenceNumber() == 2 && entry.fileSequenceNumber() == 3);
+
+        // Other files should inherit sequence number
+        assertThat(activeEntries.stream().filter(entry -> entry.status() == 2))
+                .hasSize(2)
+                .allMatch(entry -> entry.sequenceNumber().equals(entry.fileSequenceNumber()));
+
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("SELECT * FROM nation WHERE nationkey != 7");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testOptimizeSnapshot()
     {
         String tableName = "test_optimize_snapshot_" + randomNameSuffix();
@@ -5657,6 +5746,17 @@ public abstract class BaseIcebergConnectorTest
                 .map(String.class::cast)
                 .collect(toImmutableList());
     }
+
+    private List<IcebergEntry> getIcebergEntries(String tableName)
+    {
+        return computeActual(format("SELECT status, data_file.file_path, sequence_number, file_sequence_number FROM \"%s$entries\"", tableName))
+                .getMaterializedRows()
+                .stream()
+                .map(row -> new IcebergEntry((int) row.getField(0), (String) row.getField(1), (Long) row.getField(2), (Long) row.getField(3)))
+                .collect(toImmutableList());
+    }
+
+    private record IcebergEntry(int status, String filePath, Long sequenceNumber, Long fileSequenceNumber) {}
 
     protected String getTableLocation(String tableName)
     {
@@ -5787,6 +5887,217 @@ public abstract class BaseIcebergConnectorTest
         assertQueryReturnsEmptyResult("SELECT * FROM " + tableName);
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    void testPartitionHiddenColumn()
+    {
+        String tableName = "test_partition_" + randomNameSuffix();
+        @Language("SQL") String createTable = "CREATE TABLE " + tableName + " " +
+                "WITH (partitioning = ARRAY['zip']) AS " +
+                "SELECT * FROM (VALUES " +
+                "(0, 0), (3, 0), (6, 0), " +
+                "(1, 1), (4, 1), (7, 1), " +
+                "(2, 2), (5, 2) " +
+                " ) t(userid, zip)";
+        assertUpdate(createTable, 8);
+
+        // Describe output should not have the $partition hidden column
+        assertThat(query("DESCRIBE " + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES ('userid', 'integer', '', ''), ('zip', 'integer', '', '')");
+
+        String somePath = (String) computeScalar("SELECT \"$partition\" FROM " + tableName + " WHERE userid = 2");
+        String anotherPath = (String) computeScalar("SELECT \"$partition\" FROM " + tableName + " WHERE userid = 3");
+        assertThat(query("SELECT userid FROM " + tableName + " WHERE \"$partition\" = '" + somePath + "'"))
+                .matches("VALUES 2, 5")
+                .isFullyPushedDown();
+        assertThat(query("SELECT userid FROM " + tableName + " WHERE \"$partition\" IN ('" + somePath + "', '" + anotherPath + "')"))
+                .matches("VALUES 0, 2, 3, 5, 6")
+                .isFullyPushedDown();
+        assertThat(query("SELECT userid FROM " + tableName + " WHERE \"$partition\" <> '" + somePath + "'"))
+                .matches("VALUES 0, 1, 3, 4, 6, 7")
+                .isFullyPushedDown();
+        assertThat(query("SELECT userid FROM " + tableName + " WHERE \"$partition\" = '" + somePath + "' AND userid > 0"))
+                .matches("VALUES 2, 5");
+
+        assertThat(query("SELECT userid FROM " + tableName + " WHERE \"$partition\" IS NOT NULL"))
+                .matches("VALUES 0, 1, 2, 3, 4, 5, 6, 7")
+                .isFullyPushedDown();
+        assertThat(query("SELECT userid FROM " + tableName + " WHERE \"$partition\" IS NULL"))
+                .returnsEmptyResult()
+                .isFullyPushedDown();
+
+        String min = format == AVRO ? "NULL" : "'2'";
+        String max = format == AVRO ? "NULL" : "'5'";
+        assertThat(query("SHOW STATS FOR (SELECT userid FROM " + tableName + " WHERE \"$partition\" = '" + somePath + "')"))
+                .skippingTypesCheck()
+                .matches("VALUES " +
+                        "('userid', NULL, 2e0, 0e0, NULL, " + min + ", " + max + "), " +
+                        "(NULL, NULL, NULL, NULL, 2e0, NULL, NULL)");
+
+        // EXPLAIN triggers stats calculation and also rendering
+        assertQuerySucceeds("EXPLAIN SELECT userid FROM " + tableName + " WHERE \"$partition\" = '" + somePath + "'");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    void testPartitionHiddenNestedField()
+    {
+        try (TestTable table = newTrinoTable("test_nested_partition", "WITH (partitioning = ARRAY['\"part.f\"']) AS SELECT 1 id, CAST(ROW(10) AS ROW(f int)) part")) {
+            assertThat(query("SELECT id, \"$partition\" FROM " + table.getName()))
+                    .matches("VALUES (1, VARCHAR 'part.f=10')");
+        }
+    }
+
+    @Test
+    void testPartitionHiddenColumnNull()
+    {
+        try (TestTable table = newTrinoTable("test_null_partition", "WITH (partitioning = ARRAY['part']) AS SELECT 1 id, CAST(NULL AS integer) part")) {
+            assertThat(query("SELECT id, \"$partition\" FROM " + table.getName()))
+                    .matches("VALUES (1, VARCHAR 'part=null')");
+        }
+    }
+
+    @Test
+    void testPartitionHiddenColumnWithNonPartitionTable()
+    {
+        try (TestTable table = newTrinoTable("test_non_partition", " AS SELECT 1 id")) {
+            assertThat(query("SELECT id, \"$partition\" FROM " + table.getName()))
+                    .matches("VALUES (1, VARCHAR '')");
+        }
+    }
+
+    @Test
+    void testPartitionHiddenColumnMultiplePartitions()
+    {
+        try (TestTable table = newTrinoTable("test_multiple_partition", "WITH (partitioning = ARRAY['p1', 'p2']) AS SELECT 1 id, 10 p1, 100 p2")) {
+            assertThat(query("SELECT id, \"$partition\" FROM " + table.getName()))
+                    .matches("VALUES (1, VARCHAR 'p1=10/p2=100')");
+        }
+    }
+
+    @Test
+    void testPartitionHiddenColumnTransform()
+    {
+        testPartitionHiddenColumnTransform("year(part)", "timestamp '2017-05-01 10:12:34'", "part_year=2017", "timestamp '2018-05-01 10:12:34'", "part_year=2018");
+        testPartitionHiddenColumnTransform("month(part)", "timestamp '2017-05-01 10:12:34'", "part_month=2017-05", "timestamp '2018-05-01 10:12:34'", "part_month=2018-05");
+        testPartitionHiddenColumnTransform("day(part)", "timestamp '2017-05-01 10:12:34'", "part_day=2017-05-01", "timestamp '2018-05-01 10:12:34'", "part_day=2018-05-01");
+        testPartitionHiddenColumnTransform("hour(part)", "timestamp '2017-05-01 10:12:34'", "part_hour=2017-05-01-10", "timestamp '2018-05-01 10:12:34'", "part_hour=2018-05-01-10");
+        testPartitionHiddenColumnTransform("bucket(part, 10)", "1", "part_bucket=6", "2", "part_bucket=2");
+        testPartitionHiddenColumnTransform("truncate(part, 3)", "'abcde'", "part_trunc=abc", "'vwxyz'", "part_trunc=vwx");
+    }
+
+    private void testPartitionHiddenColumnTransform(String partitioning, String firstInput, String firstPartition, String secondInput, String secondPartition)
+    {
+        try (TestTable table = newTrinoTable("test_transform_partition", "WITH (partitioning = ARRAY['" + partitioning + "']) AS SELECT 1 id, " + firstInput + " part")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (2, " + secondInput + ")", 1);
+
+            assertThat(computeActual("SELECT \"$partition\" FROM " + table.getName()).getOnlyColumnAsSet())
+                    .containsExactlyInAnyOrder(firstPartition, secondPartition);
+
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE \"$partition\" = '" + firstPartition + "'"))
+                    .isFullyPushedDown()
+                    .matches("VALUES 1");
+
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE \"$partition\" = '" + secondPartition + "'"))
+                    .isFullyPushedDown()
+                    .matches("VALUES 2");
+        }
+    }
+
+    @Test
+    void testPartitionHiddenColumnRenameColumn()
+    {
+        try (TestTable table = newTrinoTable("test_rename_partition", "WITH (partitioning = ARRAY['part']) AS SELECT 1 id, 10 part")) {
+            assertThat(query("SELECT id, \"$partition\" FROM " + table.getName()))
+                    .matches("VALUES (1, VARCHAR 'part=10')");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " RENAME COLUMN part TO renamed_part");
+            assertThat(query("SELECT id, \"$partition\" FROM " + table.getName()))
+                    .matches("VALUES (1, VARCHAR 'part=10')");
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (2, 20)", 1);
+            assertThat(query("SELECT id, \"$partition\" FROM " + table.getName()))
+                    .matches("VALUES (1, VARCHAR 'part=10'), (2, VARCHAR 'part=20')");
+
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE \"$partition\" = 'part=10'"))
+                    .isFullyPushedDown()
+                    .matches("VALUES 1");
+
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE \"$partition\" = 'part=20'"))
+                    .isFullyPushedDown()
+                    .matches("VALUES 2");
+        }
+    }
+
+    @Test
+    void testPartitionHiddenColumnChangePartition()
+    {
+        try (TestTable table = newTrinoTable("test_change_partition", "WITH (partitioning = ARRAY['y']) AS SELECT 1 x, 10 y")) {
+            assertThat(query("SELECT x, \"$partition\" FROM " + table.getName()))
+                    .matches("VALUES (1, VARCHAR 'y=10')");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES partitioning = ARRAY['x']");
+            assertThat(query("SELECT x, \"$partition\" FROM " + table.getName()))
+                    .matches("VALUES (1, VARCHAR 'y=10')");
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (2, 20)", 1);
+            assertThat(query("SELECT x, \"$partition\" FROM " + table.getName()))
+                    .matches("VALUES (1, VARCHAR 'y=10'), (2, VARCHAR 'x=2')");
+
+            assertThat(query("SELECT x FROM " + table.getName() + " WHERE \"$partition\" = 'y=10'"))
+                    .isFullyPushedDown()
+                    .matches("VALUES 1");
+
+            assertThat(query("SELECT x FROM " + table.getName() + " WHERE \"$partition\" = 'x=2'"))
+                    .isFullyPushedDown()
+                    .matches("VALUES 2");
+        }
+    }
+
+    @Test
+    void testOptimizeWithPartitionHiddenColumn()
+    {
+        try (TestTable table = newTrinoTable("test_optimize_partition", "(id int, part int) WITH (partitioning = ARRAY['bucket(part, 3)'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 10), (2, 20), (3, 30)", 3);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (4, 10), (5, 20), (6, 30)", 3);
+
+            Set<Object> filesInBucket0Before = computeActual("SELECT \"$path\" FROM " + table.getName() + " WHERE \"$partition\" = 'part_bucket=0'").getOnlyColumnAsSet();
+            Set<Object> filesInBucket1Before = computeActual("SELECT \"$path\" FROM " + table.getName() + " WHERE \"$partition\" = 'part_bucket=1'").getOnlyColumnAsSet();
+            Set<Object> filesInBucket2Before = computeActual("SELECT \"$path\" FROM " + table.getName() + " WHERE \"$partition\" = 'part_bucket=2'").getOnlyColumnAsSet();
+
+            assertThat(filesInBucket0Before).hasSize(2);
+            assertThat(filesInBucket1Before).hasSize(2);
+            assertThat(filesInBucket2Before).hasSize(2);
+
+            // Execute optimize procedure on the specific partition
+            assertUpdate("ALTER TABLE " + table.getName() + " EXECUTE OPTIMIZE WHERE \"$partition\" = 'part_bucket=0'");
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES (1, 10), (2, 20), (3, 30), (4, 10), (5, 20), (6, 30)");
+
+            Set<Object> filesInBucket0After = computeActual("SELECT \"$path\" FROM " + table.getName() + " WHERE \"$partition\" = 'part_bucket=0'").getOnlyColumnAsSet();
+            Set<Object> filesInBucket1After = computeActual("SELECT \"$path\" FROM " + table.getName() + " WHERE \"$partition\" = 'part_bucket=1'").getOnlyColumnAsSet();
+            Set<Object> filesInBucket2After = computeActual("SELECT \"$path\" FROM " + table.getName() + " WHERE \"$partition\" = 'part_bucket=2'").getOnlyColumnAsSet();
+
+            assertThat(filesInBucket0After).hasSize(1).doesNotContain(filesInBucket0Before);
+            assertThat(filesInBucket1After).hasSize(2).isEqualTo(filesInBucket1Before);
+            assertThat(filesInBucket2After).hasSize(2).isEqualTo(filesInBucket2Before);
+
+            // Repeat optimize procedure on the same bucket and verify that the file isn't rewritten
+            assertUpdate("ALTER TABLE " + table.getName() + " EXECUTE OPTIMIZE WHERE \"$partition\" = 'part_bucket=0'");
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES (1, 10), (2, 20), (3, 30), (4, 10), (5, 20), (6, 30)");
+
+            Set<Object> filesInBucket0Repeat = computeActual("SELECT \"$path\" FROM " + table.getName() + " WHERE \"$partition\" = 'part_bucket=0'").getOnlyColumnAsSet();
+            Set<Object> filesInBucket1Repeat = computeActual("SELECT \"$path\" FROM " + table.getName() + " WHERE \"$partition\" = 'part_bucket=1'").getOnlyColumnAsSet();
+            Set<Object> filesInBucket2Repeat = computeActual("SELECT \"$path\" FROM " + table.getName() + " WHERE \"$partition\" = 'part_bucket=2'").getOnlyColumnAsSet();
+
+            assertThat(filesInBucket0Repeat).hasSize(1).isEqualTo(filesInBucket0After);
+            assertThat(filesInBucket1Repeat).hasSize(2).isEqualTo(filesInBucket1After);
+            assertThat(filesInBucket2Repeat).hasSize(2).isEqualTo(filesInBucket2After);
+        }
     }
 
     @Test
@@ -6136,43 +6447,42 @@ public abstract class BaseIcebergConnectorTest
     public void testOptimizeWithFileModifiedTimeColumn()
             throws Exception
     {
-        String tableName = "test_optimize_with_file_modified_time_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (id integer)");
+        try (TestTable table = newTrinoTable("test_optimize_with_file_modified_time_", "(id INT)")) {
+            String tableName = table.getName();
 
-        assertUpdate("INSERT INTO " + tableName + " VALUES (1)", 1);
-        storageTimePrecision.sleep(1);
-        assertUpdate("INSERT INTO " + tableName + " VALUES (2)", 1);
-        storageTimePrecision.sleep(1);
-        assertUpdate("INSERT INTO " + tableName + " VALUES (3)", 1);
-        storageTimePrecision.sleep(1);
-        assertUpdate("INSERT INTO " + tableName + " VALUES (4)", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1)", 1);
+            storageTimePrecision.sleep(1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (2)", 1);
+            storageTimePrecision.sleep(1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (3)", 1);
+            storageTimePrecision.sleep(1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (4)", 1);
 
-        ZonedDateTime firstFileModifiedTime = (ZonedDateTime) computeScalar("SELECT \"$file_modified_time\" FROM " + tableName + " WHERE id = 1");
-        ZonedDateTime secondFileModifiedTime = (ZonedDateTime) computeScalar("SELECT \"$file_modified_time\" FROM " + tableName + " WHERE id = 2");
-        ZonedDateTime thirdFileModifiedTime = (ZonedDateTime) computeScalar("SELECT \"$file_modified_time\" FROM " + tableName + " WHERE id = 3");
-        ZonedDateTime fourthFileModifiedTime = (ZonedDateTime) computeScalar("SELECT \"$file_modified_time\" FROM " + tableName + " WHERE id = 4");
-        // Sanity check
-        assertThat(List.of(firstFileModifiedTime, secondFileModifiedTime, thirdFileModifiedTime, fourthFileModifiedTime))
-                .doesNotHaveDuplicates();
+            ZonedDateTime firstFileModifiedTime = (ZonedDateTime) computeScalar("SELECT \"$file_modified_time\" FROM " + tableName + " WHERE id = 1");
+            ZonedDateTime secondFileModifiedTime = (ZonedDateTime) computeScalar("SELECT \"$file_modified_time\" FROM " + tableName + " WHERE id = 2");
+            ZonedDateTime thirdFileModifiedTime = (ZonedDateTime) computeScalar("SELECT \"$file_modified_time\" FROM " + tableName + " WHERE id = 3");
+            ZonedDateTime fourthFileModifiedTime = (ZonedDateTime) computeScalar("SELECT \"$file_modified_time\" FROM " + tableName + " WHERE id = 4");
+            // Sanity check
+            assertThat(List.of(firstFileModifiedTime, secondFileModifiedTime, thirdFileModifiedTime, fourthFileModifiedTime))
+                    .doesNotHaveDuplicates();
 
-        List<String> initialFiles = getActiveFiles(tableName);
-        assertThat(initialFiles).hasSize(4);
+            List<String> initialFiles = getActiveFiles(tableName);
+            assertThat(initialFiles).hasSize(4);
 
-        storageTimePrecision.sleep(1);
-        // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
-        assertQuerySucceeds(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE " +
-                "\"$file_modified_time\" = from_iso8601_timestamp('" + firstFileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "') OR " +
-                "\"$file_modified_time\" = from_iso8601_timestamp('" + secondFileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "')");
-        assertQuerySucceeds(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE " +
-                "\"$file_modified_time\" = from_iso8601_timestamp('" + thirdFileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "') OR " +
-                "\"$file_modified_time\" = from_iso8601_timestamp('" + fourthFileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "')");
+            storageTimePrecision.sleep(1);
+            // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
+            assertQuerySucceeds(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE " +
+                    "\"$file_modified_time\" = from_iso8601_timestamp('" + firstFileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "') OR " +
+                    "\"$file_modified_time\" = from_iso8601_timestamp('" + secondFileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "')");
+            assertQuerySucceeds(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE " +
+                    "\"$file_modified_time\" = from_iso8601_timestamp('" + thirdFileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "') OR " +
+                    "\"$file_modified_time\" = from_iso8601_timestamp('" + fourthFileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "')");
 
-        List<String> updatedFiles = getActiveFiles(tableName);
-        assertThat(updatedFiles)
-                .hasSize(2)
-                .doesNotContainAnyElementsOf(initialFiles);
-
-        assertUpdate("DROP TABLE " + tableName);
+            List<String> updatedFiles = getActiveFiles(tableName);
+            assertThat(updatedFiles)
+                    .hasSize(2)
+                    .doesNotContainAnyElementsOf(initialFiles);
+        }
     }
 
     @Test
@@ -8187,35 +8497,35 @@ public abstract class BaseIcebergConnectorTest
                 TestTable dimensionTable = newTrinoTable("dimension_table", "(date date, following_holiday boolean, year int)")) {
             assertUpdate(
                     """
-                    INSERT INTO %s
-                    VALUES
-                        (DATE '2023-01-01' , false, 2023),
-                        (DATE '2023-01-02' , true, 2023),
-                        (DATE '2023-01-03' , false, 2023)""".formatted(dimensionTable.getName()), 3);
+                            INSERT INTO %s
+                            VALUES
+                                (DATE '2023-01-01' , false, 2023),
+                                (DATE '2023-01-02' , true, 2023),
+                                (DATE '2023-01-03' , false, 2023)""".formatted(dimensionTable.getName()), 3);
             assertUpdate(
                     """
-                    INSERT INTO %s
-                    VALUES
-                        (DATE '2023-01-02' , '#2023#1', DECIMAL '122.12'),
-                        (DATE '2023-01-02' , '#2023#2', DECIMAL '124.12'),
-                        (DATE '2023-01-02' , '#2023#3', DECIMAL '99.99'),
-                        (DATE '2023-01-02' , '#2023#4', DECIMAL '95.12'),
-                        (DATE '2023-01-03' , '#2023#5', DECIMAL '199.12'),
-                        (DATE '2023-01-04' , '#2023#6', DECIMAL '99.55'),
-                        (DATE '2023-01-05' , '#2023#7', DECIMAL '50.11'),
-                        (DATE '2023-01-05' , '#2023#8', DECIMAL '60.20'),
-                        (DATE '2023-01-05' , '#2023#9', DECIMAL '70.75'),
-                        (DATE '2023-01-05' , '#2023#10', DECIMAL '80.12')""".formatted(salesTable.getName()), 10);
+                            INSERT INTO %s
+                            VALUES
+                                (DATE '2023-01-02' , '#2023#1', DECIMAL '122.12'),
+                                (DATE '2023-01-02' , '#2023#2', DECIMAL '124.12'),
+                                (DATE '2023-01-02' , '#2023#3', DECIMAL '99.99'),
+                                (DATE '2023-01-02' , '#2023#4', DECIMAL '95.12'),
+                                (DATE '2023-01-03' , '#2023#5', DECIMAL '199.12'),
+                                (DATE '2023-01-04' , '#2023#6', DECIMAL '99.55'),
+                                (DATE '2023-01-05' , '#2023#7', DECIMAL '50.11'),
+                                (DATE '2023-01-05' , '#2023#8', DECIMAL '60.20'),
+                                (DATE '2023-01-05' , '#2023#9', DECIMAL '70.75'),
+                                (DATE '2023-01-05' , '#2023#10', DECIMAL '80.12')""".formatted(salesTable.getName()), 10);
 
             String selectQuery =
                     """
-                    SELECT receipt_id
-                    FROM %s s
-                    JOIN %s d
-                        ON  s.date = d.date
-                    WHERE
-                        d.following_holiday = true AND
-                        d.date BETWEEN DATE '2023-01-01' AND DATE '2024-01-01'""".formatted(salesTable.getName(), dimensionTable.getName());
+                            SELECT receipt_id
+                            FROM %s s
+                            JOIN %s d
+                                ON  s.date = d.date
+                            WHERE
+                                d.following_holiday = true AND
+                                d.date BETWEEN DATE '2023-01-01' AND DATE '2024-01-01'""".formatted(salesTable.getName(), dimensionTable.getName());
             MaterializedResultWithPlan result = getDistributedQueryRunner().executeWithPlan(
                     Session.builder(getSession())
                             .setCatalogSessionProperty(catalog, DYNAMIC_FILTERING_WAIT_TIMEOUT, "10s")
@@ -8261,17 +8571,66 @@ public abstract class BaseIcebergConnectorTest
                 .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "compression_codec", compressionCodec.name())
                 .build();
         String tableName = "test_table_with_compression_" + compressionCodec;
-        String createTableSql = format("CREATE TABLE %s AS TABLE tpch.tiny.nation", tableName);
-        // TODO (https://github.com/trinodb/trino/issues/9142) Support LZ4 compression with native Parquet writer
-        if ((format == IcebergFileFormat.PARQUET || format == AVRO) && compressionCodec == HiveCompressionCodec.LZ4) {
+        String createTableSql = format("CREATE TABLE %s AS SELECT * FROM tpch.tiny.nation WITH NO DATA", tableName);
+        if (format == AVRO && compressionCodec == HiveCompressionCodec.LZ4) {
             assertTrinoExceptionThrownBy(() -> computeActual(session, createTableSql))
                     .hasMessage("Compression codec LZ4 not supported for " + format.humanName());
             return;
         }
-        assertUpdate(session, createTableSql, 25);
+        assertUpdate(session, createTableSql, 0);
+        verifyCodecInIcebergTableProperties(tableName, compressionCodec);
+        String insertIntoSql = format("INSERT INTO %s SELECT * FROM tpch.tiny.nation", tableName);
+        // TODO (https://github.com/trinodb/trino/issues/9142) Support LZ4 compression with native Parquet writer
+        if (format == IcebergFileFormat.PARQUET && compressionCodec == HiveCompressionCodec.LZ4) {
+            assertTrinoExceptionThrownBy(() -> computeActual(session, insertIntoSql))
+                    .hasMessage("Compression codec LZ4 not supported for " + format.humanName());
+            return;
+        }
+        assertUpdate(session, insertIntoSql, 25);
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
         assertQuery("SELECT count(*) FROM " + tableName, "VALUES 25");
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    protected void verifyCodecInIcebergTableProperties(String tableName, HiveCompressionCodec codec)
+    {
+        assertThat(tableName).isNotNull();
+        Optional<String> codecName = switch (format) {
+            case AVRO -> switch (codec) {
+                case NONE -> Optional.of("uncompressed");
+                case SNAPPY -> Optional.of("snappy");
+                case LZ4 -> Optional.empty(); // codec unsupported by Iceberg
+                case ZSTD -> Optional.of("zstd");
+                case GZIP -> Optional.of("gzip");
+            };
+            case ORC -> switch (codec) {
+                case NONE -> Optional.of("none");
+                case SNAPPY -> Optional.of("snappy");
+                case LZ4 -> Optional.of("lz4");
+                case ZSTD -> Optional.of("zstd");
+                case GZIP -> Optional.of("zlib");
+            };
+            case PARQUET -> switch (codec) {
+                case NONE -> Optional.of("uncompressed");
+                case SNAPPY -> Optional.of("snappy");
+                case LZ4 -> Optional.of("lz4");
+                case ZSTD -> Optional.of("zstd");
+                case GZIP -> Optional.of("gzip");
+            };
+        };
+        Map<String, String> actual = getTableProperties(tableName);
+        assertThat(actual).contains(entry("write.format.default", format.name()));
+        codecName.ifPresent(name -> assertThat(actual).contains(entry("write.%s.compression-codec".formatted(format.name().toLowerCase(ENGLISH)), name)));
+        if (format != PARQUET) {
+            // this is incorrectly persisted in Iceberg: https://github.com/trinodb/trino/issues/20401
+            assertThat(actual).contains(entry("write.parquet.compression-codec", "zstd"));
+        }
+    }
+
+    private Map<String, String> getTableProperties(String tableName)
+    {
+        return computeActual("SELECT key, value FROM \"" + tableName + "$properties\"").getMaterializedRows().stream()
+                .collect(toImmutableMap(row -> (String) row.getField(0), row -> (String) row.getField(1)));
     }
 
     @Test
@@ -8619,7 +8978,8 @@ public abstract class BaseIcebergConnectorTest
         }
     }
 
-    @Test // regression test for https://github.com/trinodb/trino/issues/22922
+    // regression test for https://github.com/trinodb/trino/issues/22922
+    @Test
     void testArrayElementChange()
     {
         try (TestTable table = newTrinoTable(
@@ -8928,7 +9288,7 @@ public abstract class BaseIcebergConnectorTest
     {
         return plan -> {
             int actualRemoteExchangesCount = searchFrom(plan.getRoot())
-                    .where(node -> node instanceof ExchangeNode && ((ExchangeNode) node).getScope() == ExchangeNode.Scope.REMOTE)
+                    .where(node -> node instanceof ExchangeNode exchangeNode && exchangeNode.getScope() == ExchangeNode.Scope.REMOTE)
                     .count();
             assertThat(actualRemoteExchangesCount).isEqualTo(expectedRemoteExchangesCount);
         };

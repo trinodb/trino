@@ -4,12 +4,12 @@
 
 * Add [](/connector/duckdb). ({issue}`18031`)
 * Add [](/connector/loki). ({issue}`23053`)
-* Add support for `WITH SESSION` to set per-query session properties with
-  `SELECT` queries. ({issue}`24889`)
+* Add support for the [](select-with-session) to set per-query session
+  properties with `SELECT` queries. ({issue}`24889`)
 * Improve compatibility of fault-tolerant exchange storage with S3-compliant
   object stores. ({issue}`24822`)
 * Allow skipping directory schema validation to improve compatibility of
-  fault-tolerant exchange storage with HFDS-like file systems. This can be
+  fault-tolerant exchange storage with HDFS-like file systems. This can be
   configured with the `exchange.hdfs.skip-directory-scheme-validation` property. ({issue}`24627`)
 * Export JMX metric for `blockedQueries`. ({issue}`24907`)
 * {{breaking}} Remove support for the `optimize_hash_generation` session

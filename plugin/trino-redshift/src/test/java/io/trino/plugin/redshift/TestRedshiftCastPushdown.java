@@ -31,7 +31,7 @@ import static io.trino.plugin.redshift.TestingRedshiftServer.TEST_SCHEMA;
 import static java.util.Arrays.asList;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestRedshiftCastPushdown
+final class TestRedshiftCastPushdown
         extends BaseJdbcCastPushdownTest
 {
     private CastDataTypeTestTable left;
@@ -57,7 +57,7 @@ public class TestRedshiftCastPushdown
     }
 
     @BeforeAll
-    public void setupTable()
+    void setupTable()
     {
         left = closeAfterClass(CastDataTypeTestTable.create(3)
                 .addColumn("id", "int", asList(11, 12, 13))
@@ -218,7 +218,7 @@ public class TestRedshiftCastPushdown
     }
 
     @Test
-    public void testJoinPushdownWithNestedCast()
+    void testJoinPushdownWithNestedCast()
     {
         CastTestCase testCase = new CastTestCase("c_decimal_10_2", "bigint", "c_bigint");
         assertThat(query("SELECT l.id FROM %s l LEFT JOIN %s r ON CAST(CAST(l.%s AS %s) AS integer) = r.%s".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn())))
@@ -226,7 +226,7 @@ public class TestRedshiftCastPushdown
     }
 
     @Test
-    public void testAllJoinPushdownWithCast()
+    void testAllJoinPushdownWithCast()
     {
         CastTestCase testCase = new CastTestCase("c_int", "bigint", "c_bigint");
         assertThat(query("SELECT l.id FROM %s l LEFT JOIN %s r ON CAST(l.%s AS %s) = r.%s".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn())))
@@ -274,7 +274,7 @@ public class TestRedshiftCastPushdown
     }
 
     @Test
-    public void testCastPushdownDisabled()
+    void testCastPushdownDisabled()
     {
         Session sessionWithoutPushdown = Session.builder(getSession())
                 .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "complex_expression_pushdown", "false")
@@ -284,7 +284,7 @@ public class TestRedshiftCastPushdown
     }
 
     @Test
-    public void testCastPushdownOutOfRangeValue()
+    void testCastPushdownOutOfRangeValue()
     {
         CastDataTypeTestTable table = closeAfterClass(CastDataTypeTestTable.create(1)
                 .addColumn("id", "int", List.of(1))
@@ -320,62 +320,63 @@ public class TestRedshiftCastPushdown
 
         assertInvalidCast(
                 table.getName(),
-                ImmutableList.of(
+                ImmutableList.<InvalidCastTestCase>builder()
                         // Not pushdown for tinyint type
-                        new InvalidCastTestCase("c_smallint_1", "tinyint", "Out of range for tinyint: -129"),
-                        new InvalidCastTestCase("c_smallint_2", "tinyint", "Out of range for tinyint: 128"),
-                        new InvalidCastTestCase("c_int_1", "tinyint", "Out of range for tinyint: -65537"),
-                        new InvalidCastTestCase("c_int_2", "tinyint", "Out of range for tinyint: 65536"),
-                        new InvalidCastTestCase("c_bigint_1", "tinyint", "Out of range for tinyint: -2147483649"),
-                        new InvalidCastTestCase("c_bigint_2", "tinyint", "Out of range for tinyint: 2147483648"),
+                        .add(new InvalidCastTestCase("c_smallint_1", "tinyint", "Out of range for tinyint: -129"))
+                        .add(new InvalidCastTestCase("c_smallint_2", "tinyint", "Out of range for tinyint: 128"))
+                        .add(new InvalidCastTestCase("c_int_1", "tinyint", "Out of range for tinyint: -65537"))
+                        .add(new InvalidCastTestCase("c_int_2", "tinyint", "Out of range for tinyint: 65536"))
+                        .add(new InvalidCastTestCase("c_bigint_1", "tinyint", "Out of range for tinyint: -2147483649"))
+                        .add(new InvalidCastTestCase("c_bigint_2", "tinyint", "Out of range for tinyint: 2147483648"))
 
-                        new InvalidCastTestCase("c_int_1", "smallint", "Out of range for smallint: -65537", "(?s).*ERROR: Value out of range for 2 bytes(?s).*"),
-                        new InvalidCastTestCase("c_int_2", "smallint", "Out of range for smallint: 65536", "(?s).*Value out of range for 2 bytes(?s).*"),
-                        new InvalidCastTestCase("c_bigint_1", "smallint", "Out of range for smallint: -2147483649", "(?s).*Value out of range for 2 bytes(?s).*"),
-                        new InvalidCastTestCase("c_bigint_2", "smallint", "Out of range for smallint: 2147483648", "(?s).*Value out of range for 2 bytes(?s).*"),
-                        new InvalidCastTestCase("c_bigint_1", "integer", "Out of range for integer: -2147483649", "(?s).*Value out of range for 4 bytes(?s).*"),
-                        new InvalidCastTestCase("c_bigint_2", "integer", "Out of range for integer: 2147483648", "(?s).*Value out of range for 4 bytes(?s).*"),
+                        .add(new InvalidCastTestCase("c_int_1", "smallint", "Out of range for smallint: -65537", "(?s).*ERROR: Value out of range for 2 bytes(?s).*"))
+                        .add(new InvalidCastTestCase("c_int_2", "smallint", "Out of range for smallint: 65536", "(?s).*Value out of range for 2 bytes(?s).*"))
+                        .add(new InvalidCastTestCase("c_bigint_1", "smallint", "Out of range for smallint: -2147483649", "(?s).*Value out of range for 2 bytes(?s).*"))
+                        .add(new InvalidCastTestCase("c_bigint_2", "smallint", "Out of range for smallint: 2147483648", "(?s).*Value out of range for 2 bytes(?s).*"))
+                        .add(new InvalidCastTestCase("c_bigint_1", "integer", "Out of range for integer: -2147483649", "(?s).*Value out of range for 4 bytes(?s).*"))
+                        .add(new InvalidCastTestCase("c_bigint_2", "integer", "Out of range for integer: 2147483648", "(?s).*Value out of range for 4 bytes(?s).*"))
 
                         // Not pushdown for tinyint type
-                        new InvalidCastTestCase("c_decimal_1", "tinyint", "Cannot cast '-129.49' to TINYINT"),
-                        new InvalidCastTestCase("c_decimal_2", "tinyint", "Cannot cast '-128.94' to TINYINT"),
-                        new InvalidCastTestCase("c_decimal_3", "tinyint", "Cannot cast '127.94' to TINYINT"),
-                        new InvalidCastTestCase("c_decimal_4", "tinyint", "Cannot cast '128.49' to TINYINT"),
+                        .add(new InvalidCastTestCase("c_decimal_1", "tinyint", "Cannot cast '-129.49' to TINYINT"))
+                        .add(new InvalidCastTestCase("c_decimal_2", "tinyint", "Cannot cast '-128.94' to TINYINT"))
+                        .add(new InvalidCastTestCase("c_decimal_3", "tinyint", "Cannot cast '127.94' to TINYINT"))
+                        .add(new InvalidCastTestCase("c_decimal_4", "tinyint", "Cannot cast '128.49' to TINYINT"))
 
-                        new InvalidCastTestCase("c_decimal_5", "smallint", "Cannot cast '-65537.49' to SMALLINT", "(?s).*Value out of range for 2 bytes(?s).*"),
-                        new InvalidCastTestCase("c_decimal_6", "smallint", "Cannot cast '-65536.94' to SMALLINT", "(?s).*Value out of range for 2 bytes(?s).*"),
-                        new InvalidCastTestCase("c_decimal_7", "smallint", "Cannot cast '65535.94' to SMALLINT", "(?s).*Value out of range for 2 bytes(?s).*"),
-                        new InvalidCastTestCase("c_decimal_8", "smallint", "Cannot cast '65536.49' to SMALLINT", "(?s).*Value out of range for 2 bytes(?s).*"),
-                        new InvalidCastTestCase("c_decimal_9", "integer", "Cannot cast '-2147483649.49' to INTEGER", "(?s).*Value out of range for 4 bytes(?s).*"),
-                        new InvalidCastTestCase("c_decimal_10", "integer", "Cannot cast '-2147483648.94' to INTEGER", "(?s).*Value out of range for 4 bytes(?s).*"),
-                        new InvalidCastTestCase("c_decimal_11", "integer", "Cannot cast '2147483647.94' to INTEGER", "(?s).*Value out of range for 4 bytes(?s).*"),
-                        new InvalidCastTestCase("c_decimal_12", "integer", "Cannot cast '2147483648.49' to INTEGER", "(?s).*Value out of range for 4 bytes(?s).*"),
-                        new InvalidCastTestCase("c_decimal_13", "bigint", "Cannot cast '-9223372036854775809.49' to BIGINT", "(?s).*Value out of range for 8 bytes(?s).*"),
-                        new InvalidCastTestCase("c_decimal_14", "bigint", "Cannot cast '-9223372036854775808.94' to BIGINT", "(?s).*Value out of range for 8 bytes(?s).*"),
-                        new InvalidCastTestCase("c_decimal_15", "bigint", "Cannot cast '9223372036854775807.94' to BIGINT", "(?s).*Value out of range for 8 bytes(?s).*"),
-                        new InvalidCastTestCase("c_decimal_16", "bigint", "Cannot cast '9223372036854775808.49' to BIGINT", "(?s).*Value out of range for 8 bytes(?s).*"),
+                        .add(new InvalidCastTestCase("c_decimal_5", "smallint", "Cannot cast '-65537.49' to SMALLINT", "(?s).*Value out of range for 2 bytes(?s).*"))
+                        .add(new InvalidCastTestCase("c_decimal_6", "smallint", "Cannot cast '-65536.94' to SMALLINT", "(?s).*Value out of range for 2 bytes(?s).*"))
+                        .add(new InvalidCastTestCase("c_decimal_7", "smallint", "Cannot cast '65535.94' to SMALLINT", "(?s).*Value out of range for 2 bytes(?s).*"))
+                        .add(new InvalidCastTestCase("c_decimal_8", "smallint", "Cannot cast '65536.49' to SMALLINT", "(?s).*Value out of range for 2 bytes(?s).*"))
+                        .add(new InvalidCastTestCase("c_decimal_9", "integer", "Cannot cast '-2147483649.49' to INTEGER", "(?s).*Value out of range for 4 bytes(?s).*"))
+                        .add(new InvalidCastTestCase("c_decimal_10", "integer", "Cannot cast '-2147483648.94' to INTEGER", "(?s).*Value out of range for 4 bytes(?s).*"))
+                        .add(new InvalidCastTestCase("c_decimal_11", "integer", "Cannot cast '2147483647.94' to INTEGER", "(?s).*Value out of range for 4 bytes(?s).*"))
+                        .add(new InvalidCastTestCase("c_decimal_12", "integer", "Cannot cast '2147483648.49' to INTEGER", "(?s).*Value out of range for 4 bytes(?s).*"))
+                        .add(new InvalidCastTestCase("c_decimal_13", "bigint", "Cannot cast '-9223372036854775809.49' to BIGINT", "(?s).*Value out of range for 8 bytes(?s).*"))
+                        .add(new InvalidCastTestCase("c_decimal_14", "bigint", "Cannot cast '-9223372036854775808.94' to BIGINT", "(?s).*Value out of range for 8 bytes(?s).*"))
+                        .add(new InvalidCastTestCase("c_decimal_15", "bigint", "Cannot cast '9223372036854775807.94' to BIGINT", "(?s).*Value out of range for 8 bytes(?s).*"))
+                        .add(new InvalidCastTestCase("c_decimal_16", "bigint", "Cannot cast '9223372036854775808.49' to BIGINT", "(?s).*Value out of range for 8 bytes(?s).*"))
 
                         // No pushdown for real datatype to integral types
-                        new InvalidCastTestCase("c_infinity_real_1", "tinyint", "Out of range for tinyint: Infinity"),
-                        new InvalidCastTestCase("c_infinity_real_1", "smallint", "Out of range for smallint: Infinity"),
-                        new InvalidCastTestCase("c_infinity_real_1", "integer", "Out of range for integer: Infinity"),
-                        new InvalidCastTestCase("c_infinity_real_2", "tinyint", "Out of range for tinyint: -Infinity"),
-                        new InvalidCastTestCase("c_infinity_real_2", "smallint", "Out of range for smallint: -Infinity"),
-                        new InvalidCastTestCase("c_infinity_real_2", "integer", "Out of range for integer: -Infinity"),
+                        .add(new InvalidCastTestCase("c_infinity_real_1", "tinyint", "Out of range for tinyint: Infinity"))
+                        .add(new InvalidCastTestCase("c_infinity_real_1", "smallint", "Out of range for smallint: Infinity"))
+                        .add(new InvalidCastTestCase("c_infinity_real_1", "integer", "Out of range for integer: Infinity"))
+                        .add(new InvalidCastTestCase("c_infinity_real_2", "tinyint", "Out of range for tinyint: -Infinity"))
+                        .add(new InvalidCastTestCase("c_infinity_real_2", "smallint", "Out of range for smallint: -Infinity"))
+                        .add(new InvalidCastTestCase("c_infinity_real_2", "integer", "Out of range for integer: -Infinity"))
 
                         // No pushdown for double precision datatype to integral types
-                        new InvalidCastTestCase("c_infinity_double_1", "tinyint", "Out of range for tinyint: Infinity"),
-                        new InvalidCastTestCase("c_infinity_double_1", "smallint", "Out of range for smallint: Infinity"),
-                        new InvalidCastTestCase("c_infinity_double_1", "integer", "Out of range for integer: Infinity"),
-                        new InvalidCastTestCase("c_infinity_double_1", "bigint", "Unable to cast Infinity to bigint"),
-                        new InvalidCastTestCase("c_infinity_double_2", "tinyint", "Out of range for tinyint: -Infinity"),
-                        new InvalidCastTestCase("c_infinity_double_2", "smallint", "Out of range for smallint: -Infinity"),
-                        new InvalidCastTestCase("c_infinity_double_2", "integer", "Out of range for integer: -Infinity"),
-                        new InvalidCastTestCase("c_infinity_double_2", "bigint", "Unable to cast -Infinity to bigint")));
+                        .add(new InvalidCastTestCase("c_infinity_double_1", "tinyint", "Out of range for tinyint: Infinity"))
+                        .add(new InvalidCastTestCase("c_infinity_double_1", "smallint", "Out of range for smallint: Infinity"))
+                        .add(new InvalidCastTestCase("c_infinity_double_1", "integer", "Out of range for integer: Infinity"))
+                        .add(new InvalidCastTestCase("c_infinity_double_1", "bigint", "Unable to cast Infinity to bigint"))
+                        .add(new InvalidCastTestCase("c_infinity_double_2", "tinyint", "Out of range for tinyint: -Infinity"))
+                        .add(new InvalidCastTestCase("c_infinity_double_2", "smallint", "Out of range for smallint: -Infinity"))
+                        .add(new InvalidCastTestCase("c_infinity_double_2", "integer", "Out of range for integer: -Infinity"))
+                        .add(new InvalidCastTestCase("c_infinity_double_2", "bigint", "Unable to cast -Infinity to bigint"))
+                        .build());
     }
 
     @Test
-    public void testCastRealInfinityValueToBigint()
+    void testCastRealInfinityValueToBigint()
     {
         assertThat(query("SELECT CAST(c_Infinity_real AS BIGINT) FROM %s".formatted(leftTable())))
                 .matches("VALUES (BIGINT '9223372036854775807'), (BIGINT '-9223372036854775808'), (null)")
@@ -383,7 +384,7 @@ public class TestRedshiftCastPushdown
     }
 
     @Test
-    public void testCastPushdownWithForcedTypedToInteger()
+    void testCastPushdownWithForcedTypedToInteger()
     {
         // These column types are not supported by default by trino. These types are forced mapped to varchar.
         assertThat(query("SELECT CAST(c_super AS INTEGER) FROM %s".formatted(leftTable())))
@@ -405,175 +406,178 @@ public class TestRedshiftCastPushdown
     @Override
     protected List<CastTestCase> supportedCastTypePushdown()
     {
-        return ImmutableList.of(
-                new CastTestCase("c_boolean", "smallint", "c_smallint"),
-                new CastTestCase("c_smallint", "smallint", "c_smallint"),
-                new CastTestCase("c_integer", "smallint", "c_smallint"),
-                new CastTestCase("c_bigint", "smallint", "c_smallint"),
-                new CastTestCase("c_decimal_10_2", "smallint", "c_smallint"),
-                new CastTestCase("c_decimal_19_2", "smallint", "c_smallint"),
-                new CastTestCase("c_decimal_30_2", "smallint", "c_smallint"),
-                new CastTestCase("c_decimal_negative", "smallint", "c_smallint"),
+        return ImmutableList.<CastTestCase>builder()
+                .add(new CastTestCase("c_boolean", "smallint", "c_smallint"))
+                .add(new CastTestCase("c_smallint", "smallint", "c_smallint"))
+                .add(new CastTestCase("c_integer", "smallint", "c_smallint"))
+                .add(new CastTestCase("c_bigint", "smallint", "c_smallint"))
+                .add(new CastTestCase("c_decimal_10_2", "smallint", "c_smallint"))
+                .add(new CastTestCase("c_decimal_19_2", "smallint", "c_smallint"))
+                .add(new CastTestCase("c_decimal_30_2", "smallint", "c_smallint"))
+                .add(new CastTestCase("c_decimal_negative", "smallint", "c_smallint"))
 
-                new CastTestCase("c_boolean", "integer", "c_integer"),
-                new CastTestCase("c_smallint", "integer", "c_integer"),
-                new CastTestCase("c_int2", "integer", "c_integer"),
-                new CastTestCase("c_integer", "integer", "c_integer"),
-                new CastTestCase("c_int", "integer", "c_integer"),
-                new CastTestCase("c_int4", "integer", "c_integer"),
-                new CastTestCase("c_bigint", "integer", "c_integer"),
-                new CastTestCase("c_int8", "integer", "c_integer"),
-                new CastTestCase("c_decimal_10_2", "integer", "c_integer"),
-                new CastTestCase("c_decimal_19_2", "integer", "c_integer"),
-                new CastTestCase("c_decimal_30_2", "integer", "c_integer"),
-                new CastTestCase("c_numeric_10_2", "integer", "c_integer"),
-                new CastTestCase("c_numeric_19_2", "integer", "c_integer"),
-                new CastTestCase("c_numeric_30_2", "integer", "c_integer"),
-                new CastTestCase("c_decimal_negative", "integer", "c_integer"),
+                .add(new CastTestCase("c_boolean", "integer", "c_integer"))
+                .add(new CastTestCase("c_smallint", "integer", "c_integer"))
+                .add(new CastTestCase("c_int2", "integer", "c_integer"))
+                .add(new CastTestCase("c_integer", "integer", "c_integer"))
+                .add(new CastTestCase("c_int", "integer", "c_integer"))
+                .add(new CastTestCase("c_int4", "integer", "c_integer"))
+                .add(new CastTestCase("c_bigint", "integer", "c_integer"))
+                .add(new CastTestCase("c_int8", "integer", "c_integer"))
+                .add(new CastTestCase("c_decimal_10_2", "integer", "c_integer"))
+                .add(new CastTestCase("c_decimal_19_2", "integer", "c_integer"))
+                .add(new CastTestCase("c_decimal_30_2", "integer", "c_integer"))
+                .add(new CastTestCase("c_numeric_10_2", "integer", "c_integer"))
+                .add(new CastTestCase("c_numeric_19_2", "integer", "c_integer"))
+                .add(new CastTestCase("c_numeric_30_2", "integer", "c_integer"))
+                .add(new CastTestCase("c_decimal_negative", "integer", "c_integer"))
 
-                new CastTestCase("c_boolean", "bigint", "c_bigint"),
-                new CastTestCase("c_smallint", "bigint", "c_bigint"),
-                new CastTestCase("c_integer", "bigint", "c_bigint"),
-                new CastTestCase("c_bigint", "bigint", "c_bigint"),
-                new CastTestCase("c_decimal_10_2", "bigint", "c_bigint"),
-                new CastTestCase("c_decimal_19_2", "bigint", "c_bigint"),
-                new CastTestCase("c_decimal_30_2", "bigint", "c_bigint"),
-                new CastTestCase("c_decimal_negative", "bigint", "c_bigint"),
+                .add(new CastTestCase("c_boolean", "bigint", "c_bigint"))
+                .add(new CastTestCase("c_smallint", "bigint", "c_bigint"))
+                .add(new CastTestCase("c_integer", "bigint", "c_bigint"))
+                .add(new CastTestCase("c_bigint", "bigint", "c_bigint"))
+                .add(new CastTestCase("c_decimal_10_2", "bigint", "c_bigint"))
+                .add(new CastTestCase("c_decimal_19_2", "bigint", "c_bigint"))
+                .add(new CastTestCase("c_decimal_30_2", "bigint", "c_bigint"))
+                .add(new CastTestCase("c_decimal_negative", "bigint", "c_bigint"))
 
-                new CastTestCase("c_char", "char(1)", "c_nchar"),
-                new CastTestCase("c_char_50", "char(10)", "c_char_10"),
-                new CastTestCase("c_char_50", "char(10)", "c_nchar_10"),
-                new CastTestCase("c_bpchar", "char(10)", "c_char_10"),
-                new CastTestCase("c_char_10", "char(50)", "c_char_50"),
-                new CastTestCase("c_char_10", "char(256)", "c_bpchar"),
-                new CastTestCase("c_char", "char(4096)", "c_char_4096"),
+                .add(new CastTestCase("c_char", "char(1)", "c_nchar"))
+                .add(new CastTestCase("c_char_50", "char(10)", "c_char_10"))
+                .add(new CastTestCase("c_char_50", "char(10)", "c_nchar_10"))
+                .add(new CastTestCase("c_bpchar", "char(10)", "c_char_10"))
+                .add(new CastTestCase("c_char_10", "char(50)", "c_char_50"))
+                .add(new CastTestCase("c_char_10", "char(256)", "c_bpchar"))
+                .add(new CastTestCase("c_char", "char(4096)", "c_char_4096"))
 
-                new CastTestCase("c_varchar_10", "varchar(10)", "c_varchar_10"),
-                new CastTestCase("c_varchar_15_unicode", "varchar(50)", "c_varchar_50"),
-                new CastTestCase("c_nvarchar_15_unicode", "varchar(50)", "c_varchar_50"),
-                new CastTestCase("c_varchar_50", "varchar(10)", "c_varchar_10"),
-                new CastTestCase("c_nvarchar_50", "varchar(10)", "c_nvarchar_10"),
-                new CastTestCase("c_text", "varchar(10)", "c_varchar_10"),
-                new CastTestCase("c_varchar_10", "varchar(50)", "c_varchar_50"),
-                new CastTestCase("c_nvarchar_10", "varchar(50)", "c_varchar_50"),
-                new CastTestCase("c_nvarchar", "varchar(50)", "c_varchar_50"),
-                new CastTestCase("c_text", "varchar(50)", "c_varchar_50"),
-                new CastTestCase("c_varchar_10", "varchar(256)", "c_text"),
-                new CastTestCase("c_varchar_65535", "varchar(256)", "c_text"),
-                new CastTestCase("c_varchar_10", "varchar(65535)", "c_varchar_65535"),
-                new CastTestCase("c_varchar_10", "varchar(65535)", "c_nvarchar_65535"));
+                .add(new CastTestCase("c_varchar_10", "varchar(10)", "c_varchar_10"))
+                .add(new CastTestCase("c_varchar_15_unicode", "varchar(50)", "c_varchar_50"))
+                .add(new CastTestCase("c_nvarchar_15_unicode", "varchar(50)", "c_varchar_50"))
+                .add(new CastTestCase("c_varchar_50", "varchar(10)", "c_varchar_10"))
+                .add(new CastTestCase("c_nvarchar_50", "varchar(10)", "c_nvarchar_10"))
+                .add(new CastTestCase("c_text", "varchar(10)", "c_varchar_10"))
+                .add(new CastTestCase("c_varchar_10", "varchar(50)", "c_varchar_50"))
+                .add(new CastTestCase("c_nvarchar_10", "varchar(50)", "c_varchar_50"))
+                .add(new CastTestCase("c_nvarchar", "varchar(50)", "c_varchar_50"))
+                .add(new CastTestCase("c_text", "varchar(50)", "c_varchar_50"))
+                .add(new CastTestCase("c_varchar_10", "varchar(256)", "c_text"))
+                .add(new CastTestCase("c_varchar_65535", "varchar(256)", "c_text"))
+                .add(new CastTestCase("c_varchar_10", "varchar(65535)", "c_varchar_65535"))
+                .add(new CastTestCase("c_varchar_10", "varchar(65535)", "c_nvarchar_65535"))
+                .build();
     }
 
     @Override
     protected List<CastTestCase> unsupportedCastTypePushdown()
     {
-        return ImmutableList.of(
-                new CastTestCase("c_boolean", "tinyint", "c_smallint"),
-                new CastTestCase("c_smallint", "tinyint", "c_smallint"),
-                new CastTestCase("c_integer", "tinyint", "c_smallint"),
-                new CastTestCase("c_bigint", "tinyint", "c_smallint"),
-                new CastTestCase("c_decimal_10_2", "tinyint", "c_smallint"),
-                new CastTestCase("c_decimal_19_2", "tinyint", "c_smallint"),
-                new CastTestCase("c_decimal_30_2", "tinyint", "c_smallint"),
-                new CastTestCase("c_decimal_negative", "tinyint", "c_smallint"),
+        return ImmutableList.<CastTestCase>builder()
+                .add(new CastTestCase("c_boolean", "tinyint", "c_smallint"))
+                .add(new CastTestCase("c_smallint", "tinyint", "c_smallint"))
+                .add(new CastTestCase("c_integer", "tinyint", "c_smallint"))
+                .add(new CastTestCase("c_bigint", "tinyint", "c_smallint"))
+                .add(new CastTestCase("c_decimal_10_2", "tinyint", "c_smallint"))
+                .add(new CastTestCase("c_decimal_19_2", "tinyint", "c_smallint"))
+                .add(new CastTestCase("c_decimal_30_2", "tinyint", "c_smallint"))
+                .add(new CastTestCase("c_decimal_negative", "tinyint", "c_smallint"))
 
-                new CastTestCase("c_real", "tinyint", "c_smallint"),
-                new CastTestCase("c_float4", "tinyint", "c_smallint"),
-                new CastTestCase("c_double_precision", "tinyint", "c_smallint"),
-                new CastTestCase("c_float", "tinyint", "c_smallint"),
-                new CastTestCase("c_float8", "tinyint", "c_smallint"),
-                new CastTestCase("c_varchar_numeric", "tinyint", "c_smallint"),
-                new CastTestCase("c_text_numeric", "tinyint", "c_smallint"),
-                new CastTestCase("c_nvarchar_numeric", "tinyint", "c_smallint"),
-                new CastTestCase("c_varchar_numeric_sign", "tinyint", "c_smallint"),
+                .add(new CastTestCase("c_real", "tinyint", "c_smallint"))
+                .add(new CastTestCase("c_float4", "tinyint", "c_smallint"))
+                .add(new CastTestCase("c_double_precision", "tinyint", "c_smallint"))
+                .add(new CastTestCase("c_float", "tinyint", "c_smallint"))
+                .add(new CastTestCase("c_float8", "tinyint", "c_smallint"))
+                .add(new CastTestCase("c_varchar_numeric", "tinyint", "c_smallint"))
+                .add(new CastTestCase("c_text_numeric", "tinyint", "c_smallint"))
+                .add(new CastTestCase("c_nvarchar_numeric", "tinyint", "c_smallint"))
+                .add(new CastTestCase("c_varchar_numeric_sign", "tinyint", "c_smallint"))
 
-                new CastTestCase("c_real", "smallint", "c_smallint"),
-                new CastTestCase("c_float4", "smallint", "c_smallint"),
-                new CastTestCase("c_double_precision", "smallint", "c_smallint"),
-                new CastTestCase("c_float", "smallint", "c_smallint"),
-                new CastTestCase("c_float8", "smallint", "c_smallint"),
-                new CastTestCase("c_varchar_numeric", "smallint", "c_smallint"),
-                new CastTestCase("c_text_numeric", "smallint", "c_smallint"),
-                new CastTestCase("c_nvarchar_numeric", "smallint", "c_smallint"),
-                new CastTestCase("c_varchar_numeric_sign", "smallint", "c_smallint"),
+                .add(new CastTestCase("c_real", "smallint", "c_smallint"))
+                .add(new CastTestCase("c_float4", "smallint", "c_smallint"))
+                .add(new CastTestCase("c_double_precision", "smallint", "c_smallint"))
+                .add(new CastTestCase("c_float", "smallint", "c_smallint"))
+                .add(new CastTestCase("c_float8", "smallint", "c_smallint"))
+                .add(new CastTestCase("c_varchar_numeric", "smallint", "c_smallint"))
+                .add(new CastTestCase("c_text_numeric", "smallint", "c_smallint"))
+                .add(new CastTestCase("c_nvarchar_numeric", "smallint", "c_smallint"))
+                .add(new CastTestCase("c_varchar_numeric_sign", "smallint", "c_smallint"))
 
-                new CastTestCase("c_real", "integer", "c_integer"),
-                new CastTestCase("c_float4", "integer", "c_integer"),
-                new CastTestCase("c_double_precision", "integer", "c_integer"),
-                new CastTestCase("c_float", "integer", "c_integer"),
-                new CastTestCase("c_float8", "integer", "c_integer"),
-                new CastTestCase("c_varchar_numeric", "integer", "c_integer"),
-                new CastTestCase("c_text_numeric", "integer", "c_integer"),
-                new CastTestCase("c_nvarchar_numeric", "integer", "c_integer"),
-                new CastTestCase("c_varchar_numeric_sign", "integer", "c_integer"),
+                .add(new CastTestCase("c_real", "integer", "c_integer"))
+                .add(new CastTestCase("c_float4", "integer", "c_integer"))
+                .add(new CastTestCase("c_double_precision", "integer", "c_integer"))
+                .add(new CastTestCase("c_float", "integer", "c_integer"))
+                .add(new CastTestCase("c_float8", "integer", "c_integer"))
+                .add(new CastTestCase("c_varchar_numeric", "integer", "c_integer"))
+                .add(new CastTestCase("c_text_numeric", "integer", "c_integer"))
+                .add(new CastTestCase("c_nvarchar_numeric", "integer", "c_integer"))
+                .add(new CastTestCase("c_varchar_numeric_sign", "integer", "c_integer"))
 
-                new CastTestCase("c_real", "bigint", "c_bigint"),
-                new CastTestCase("c_float4", "bigint", "c_bigint"),
-                new CastTestCase("c_double_precision", "bigint", "c_bigint"),
-                new CastTestCase("c_float", "bigint", "c_bigint"),
-                new CastTestCase("c_float8", "bigint", "c_bigint"),
-                new CastTestCase("c_varchar_numeric", "bigint", "c_bigint"),
-                new CastTestCase("c_text_numeric", "bigint", "c_bigint"),
-                new CastTestCase("c_nvarchar_numeric", "bigint", "c_bigint"),
-                new CastTestCase("c_varchar_numeric_sign", "bigint", "c_bigint"),
+                .add(new CastTestCase("c_real", "bigint", "c_bigint"))
+                .add(new CastTestCase("c_float4", "bigint", "c_bigint"))
+                .add(new CastTestCase("c_double_precision", "bigint", "c_bigint"))
+                .add(new CastTestCase("c_float", "bigint", "c_bigint"))
+                .add(new CastTestCase("c_float8", "bigint", "c_bigint"))
+                .add(new CastTestCase("c_varchar_numeric", "bigint", "c_bigint"))
+                .add(new CastTestCase("c_text_numeric", "bigint", "c_bigint"))
+                .add(new CastTestCase("c_nvarchar_numeric", "bigint", "c_bigint"))
+                .add(new CastTestCase("c_varchar_numeric_sign", "bigint", "c_bigint"))
 
-                new CastTestCase("c_smallint", "boolean", "c_boolean"),
-                new CastTestCase("c_real", "double", "c_double_precision"),
-                new CastTestCase("c_double_precision", "real", "c_real"),
-                new CastTestCase("c_double_precision", "decimal(10,2)", "c_decimal_10_2"),
+                .add(new CastTestCase("c_smallint", "boolean", "c_boolean"))
+                .add(new CastTestCase("c_real", "double", "c_double_precision"))
+                .add(new CastTestCase("c_double_precision", "real", "c_real"))
+                .add(new CastTestCase("c_double_precision", "decimal(10,2)", "c_decimal_10_2"))
 
-                new CastTestCase("c_varchar_15_unicode", "char(50)", "c_char_50"),
-                new CastTestCase("c_nvarchar_15_unicode", "char(50)", "c_char_50"),
-                new CastTestCase("c_varchar_50", "char(50)", "c_char_50"),
+                .add(new CastTestCase("c_varchar_15_unicode", "char(50)", "c_char_50"))
+                .add(new CastTestCase("c_nvarchar_15_unicode", "char(50)", "c_char_50"))
+                .add(new CastTestCase("c_varchar_50", "char(50)", "c_char_50"))
 
-                new CastTestCase("c_char_50", "varchar(50)", "c_varchar_50"),
-                new CastTestCase("c_boolean", "varchar(50)", "c_varchar_50"),
-                new CastTestCase("c_smallint", "varchar(50)", "c_varchar_50"),
-                new CastTestCase("c_int2", "varchar(50)", "c_varchar_50"),
-                new CastTestCase("c_integer", "varchar(50)", "c_varchar_50"),
-                new CastTestCase("c_int", "varchar(50)", "c_varchar_50"),
-                new CastTestCase("c_int4", "varchar(50)", "c_varchar_50"),
-                new CastTestCase("c_bigint", "varchar(50)", "c_varchar_50"),
-                new CastTestCase("c_int8", "varchar(50)", "c_varchar_50"),
-                new CastTestCase("c_real", "varchar(50)", "c_varchar_50"),
-                new CastTestCase("c_float4", "varchar(50)", "c_varchar_50"),
-                new CastTestCase("c_float", "varchar(50)", "c_varchar_50"),
-                new CastTestCase("c_float8", "varchar(50)", "c_varchar_50"),
-                new CastTestCase("c_double_precision", "varchar(50)", "c_varchar_50"),
+                .add(new CastTestCase("c_char_50", "varchar(50)", "c_varchar_50"))
+                .add(new CastTestCase("c_boolean", "varchar(50)", "c_varchar_50"))
+                .add(new CastTestCase("c_smallint", "varchar(50)", "c_varchar_50"))
+                .add(new CastTestCase("c_int2", "varchar(50)", "c_varchar_50"))
+                .add(new CastTestCase("c_integer", "varchar(50)", "c_varchar_50"))
+                .add(new CastTestCase("c_int", "varchar(50)", "c_varchar_50"))
+                .add(new CastTestCase("c_int4", "varchar(50)", "c_varchar_50"))
+                .add(new CastTestCase("c_bigint", "varchar(50)", "c_varchar_50"))
+                .add(new CastTestCase("c_int8", "varchar(50)", "c_varchar_50"))
+                .add(new CastTestCase("c_real", "varchar(50)", "c_varchar_50"))
+                .add(new CastTestCase("c_float4", "varchar(50)", "c_varchar_50"))
+                .add(new CastTestCase("c_float", "varchar(50)", "c_varchar_50"))
+                .add(new CastTestCase("c_float8", "varchar(50)", "c_varchar_50"))
+                .add(new CastTestCase("c_double_precision", "varchar(50)", "c_varchar_50"))
 
-                new CastTestCase("c_varchar_10", "varchar", "c_varchar_65535"),
-                new CastTestCase("c_varchar_15_unicode", "varchar", "c_varchar_65535"),
-                new CastTestCase("c_nvarchar_15_unicode", "varchar", "c_varchar_65535"),
-                new CastTestCase("c_text", "varchar", "c_varchar_65535"),
+                .add(new CastTestCase("c_varchar_10", "varchar", "c_varchar_65535"))
+                .add(new CastTestCase("c_varchar_15_unicode", "varchar", "c_varchar_65535"))
+                .add(new CastTestCase("c_nvarchar_15_unicode", "varchar", "c_varchar_65535"))
+                .add(new CastTestCase("c_text", "varchar", "c_varchar_65535"))
 
-                new CastTestCase("c_timestamp", "varchar(50)", "c_varchar_50"),
-                new CastTestCase("c_date", "varchar(50)", "c_varchar_50"),
+                .add(new CastTestCase("c_timestamp", "varchar(50)", "c_varchar_50"))
+                .add(new CastTestCase("c_date", "varchar(50)", "c_varchar_50"))
 
-                new CastTestCase("c_timestamp", "date", "c_date"),
-                new CastTestCase("c_timestamp", "time", "c_time"),
-                new CastTestCase("c_date", "timestamp", "c_timestamp"),
-                new CastTestCase("c_varchar_timestamp", "timestamp", "c_timestamp"),
-                new CastTestCase("c_varchar_timestamptz", "timestamp", "c_timestamp"));
+                .add(new CastTestCase("c_timestamp", "date", "c_date"))
+                .add(new CastTestCase("c_timestamp", "time", "c_time"))
+                .add(new CastTestCase("c_date", "timestamp", "c_timestamp"))
+                .add(new CastTestCase("c_varchar_timestamp", "timestamp", "c_timestamp"))
+                .add(new CastTestCase("c_varchar_timestamptz", "timestamp", "c_timestamp"))
+                .build();
     }
 
     @Override
     protected List<InvalidCastTestCase> invalidCast()
     {
-        return ImmutableList.of(
-                new InvalidCastTestCase("c_varchar_decimal", "integer"),
-                new InvalidCastTestCase("c_varchar_decimal_sign", "integer"),
-                new InvalidCastTestCase("c_varchar_alpha_numeric", "integer"),
-                new InvalidCastTestCase("c_char_50", "integer"),
-                new InvalidCastTestCase("c_char_numeric", "integer"),
-                new InvalidCastTestCase("c_bpchar_numeric", "integer"),
-                new InvalidCastTestCase("c_nan_real", "integer"),
-                new InvalidCastTestCase("c_nan_double", "integer"),
+        return ImmutableList.<InvalidCastTestCase>builder()
+                .add(new InvalidCastTestCase("c_varchar_decimal", "integer"))
+                .add(new InvalidCastTestCase("c_varchar_decimal_sign", "integer"))
+                .add(new InvalidCastTestCase("c_varchar_alpha_numeric", "integer"))
+                .add(new InvalidCastTestCase("c_char_50", "integer"))
+                .add(new InvalidCastTestCase("c_char_numeric", "integer"))
+                .add(new InvalidCastTestCase("c_bpchar_numeric", "integer"))
+                .add(new InvalidCastTestCase("c_nan_real", "integer"))
+                .add(new InvalidCastTestCase("c_nan_double", "integer"))
 
                 // c_timetz is not supported by default by trino. This is forced mapped to varchar.
-                new InvalidCastTestCase("c_timetz", "tinyint"),
-                new InvalidCastTestCase("c_timetz", "smallint"),
-                new InvalidCastTestCase("c_timetz", "int"),
-                new InvalidCastTestCase("c_timetz", "bigint"));
+                .add(new InvalidCastTestCase("c_timetz", "tinyint"))
+                .add(new InvalidCastTestCase("c_timetz", "smallint"))
+                .add(new InvalidCastTestCase("c_timetz", "int"))
+                .add(new InvalidCastTestCase("c_timetz", "bigint"))
+                .build();
     }
 
     @Test

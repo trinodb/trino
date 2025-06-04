@@ -130,7 +130,7 @@ public class Assignments
     {
         Expression expression = assignments.get(output);
 
-        return expression instanceof Reference && ((Reference) expression).name().equals(output.name());
+        return expression instanceof Reference reference && reference.name().equals(output.name());
     }
 
     public boolean isIdentity()
@@ -138,7 +138,7 @@ public class Assignments
         for (Map.Entry<Symbol, Expression> entry : assignments.entrySet()) {
             Expression expression = entry.getValue();
             Symbol symbol = entry.getKey();
-            if (!(expression instanceof Reference && ((Reference) expression).name().equals(symbol.name()))) {
+            if (!(expression instanceof Reference reference && reference.name().equals(symbol.name()))) {
                 return false;
             }
         }

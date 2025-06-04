@@ -2483,6 +2483,55 @@ public abstract class BaseOpenSearchConnectorTest
         deleteIndex(tableName);
     }
 
+    @Test
+    public void testWildcardTableSameSchema()
+            throws IOException
+    {
+        String suffix = randomNameSuffix();
+        String firstIndex = format("test_wildcard_%s_1", suffix);
+        String secondIndex = format("test_wildcard_%s_2", suffix);
+        String wildcardTable = format("test_wildcard_%s_*", suffix);
+
+        String mappings =
+                """
+                {
+                    "properties": {
+                      "long_column":      { "type": "long" },
+                      "text_column":      { "type": "text" }
+                    }
+                }
+                """;
+
+        createIndex(firstIndex, mappings);
+        index(firstIndex, ImmutableMap.<String, Object>builder()
+                .put("long_column", 1L)
+                .put("text_column", "Trino")
+                .buildOrThrow());
+        createIndex(secondIndex, mappings);
+        index(secondIndex, ImmutableMap.<String, Object>builder()
+                .put("long_column", 2L)
+                .put("text_column", "rocks")
+                .buildOrThrow());
+
+        try {
+            assertThat(query("DESCRIBE \"" + wildcardTable + "\""))
+                    .skippingTypesCheck()
+                    .matches("VALUES ('long_column', 'bigint', '', ''), ('text_column', 'varchar', '', '')");
+            assertThat(query("SELECT * FROM \"" + wildcardTable + "\""))
+                    .matches("VALUES (BIGINT '1', VARCHAR 'Trino'), (BIGINT '2', VARCHAR 'rocks')");
+
+            // Unsupported operations
+            assertQueryFails("DROP TABLE \"" + wildcardTable + "\"", "This connector does not support dropping tables");
+            assertQueryFails("INSERT INTO \"" + wildcardTable + "\" VALUES (3, 'SQL')", "This connector does not support inserts");
+            assertQueryFails("ALTER TABLE \"" + wildcardTable + "\" ADD COLUMN new_column INT", "This connector does not support adding columns");
+            assertQueryFails("ALTER TABLE \"" + wildcardTable + "\" RENAME TO new_wildcard_table", "This connector does not support renaming tables");
+        }
+        finally {
+            deleteIndex(firstIndex);
+            deleteIndex(secondIndex);
+        }
+    }
+
     protected void assertTableDoesNotExist(String name)
     {
         String catalogName = getSession().getCatalog().orElseThrow();

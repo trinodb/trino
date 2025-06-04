@@ -25,7 +25,7 @@ import static com.google.common.util.concurrent.Futures.withTimeout;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-public class AsyncResponseUtils
+public final class AsyncResponseUtils
 {
     private AsyncResponseUtils() {}
 

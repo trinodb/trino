@@ -71,9 +71,6 @@ public class MemoryPool
     @GuardedBy("this")
     private final Map<TaskId, Long> taskRevocableMemoryReservations = new HashMap<>();
 
-    @GuardedBy("this")
-    private long connectorsReservedBytes;
-
     private final List<MemoryPoolListener> listeners = new CopyOnWriteArrayList<>();
 
     public MemoryPool(DataSize size)
@@ -210,20 +207,6 @@ public class MemoryPool
         return true;
     }
 
-    public boolean tryReserveConnectorMemory(long bytes)
-    {
-        checkArgument(bytes >= 0, "'%s' is negative", bytes);
-        synchronized (this) {
-            if (getFreeBytes() - bytes < 0) {
-                return false;
-            }
-            connectorsReservedBytes += bytes;
-            reservedBytes += bytes;
-        }
-        onMemoryReserved();
-        return true;
-    }
-
     public boolean tryReserveRevocable(long bytes)
     {
         checkArgument(bytes >= 0, "'%s' is negative", bytes);
@@ -338,24 +321,6 @@ public class MemoryPool
         }
     }
 
-    public synchronized void freeConnectorMemory(long bytes)
-    {
-        checkArgument(bytes >= 0, "'%s' is negative", bytes);
-        checkArgument(reservedBytes >= bytes, "tried to free more memory than is reserved");
-        checkArgument(connectorsReservedBytes >= bytes, "tried to free more memory for the connectors than is reserved");
-        if (bytes == 0) {
-            // Freeing zero bytes is a no-op
-            return;
-        }
-
-        connectorsReservedBytes -= bytes;
-        reservedBytes -= bytes;
-        if (getFreeBytes() > 0 && future != null) {
-            future.set(null);
-            future = null;
-        }
-    }
-
     /**
      * Returns the number of free bytes. This value may be negative, which indicates that the pool is over-committed.
      */
@@ -381,12 +346,6 @@ public class MemoryPool
     public synchronized long getReservedRevocableBytes()
     {
         return reservedRevocableBytes;
-    }
-
-    @Managed
-    public synchronized long getConnectorsReservedBytes()
-    {
-        return connectorsReservedBytes;
     }
 
     long getQueryMemoryReservation(QueryId queryId)

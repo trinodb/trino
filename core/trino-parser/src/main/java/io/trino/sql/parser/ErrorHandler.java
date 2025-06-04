@@ -81,8 +81,8 @@ class ErrorHandler
                 currentToken = e.getOffendingToken();
                 context = e.getCtx();
 
-                if (e instanceof NoViableAltException) {
-                    currentToken = ((NoViableAltException) e).getStartToken();
+                if (e instanceof NoViableAltException noViableAltException) {
+                    currentToken = noViableAltException.getStartToken();
                 }
             }
             else {
@@ -299,8 +299,8 @@ class ErrorHandler
                             activeStates.push(new ParsingState(ruleTransition.followState, endToken, suppressed && endToken == currentToken, parser));
                         }
                     }
-                    else if (transition instanceof PrecedencePredicateTransition) {
-                        if (precedence < ((PrecedencePredicateTransition) transition).precedence) {
+                    else if (transition instanceof PrecedencePredicateTransition precedencePredicateTransition) {
+                        if (precedence < precedencePredicateTransition.precedence) {
                             activeStates.push(new ParsingState(transition.target, tokenIndex, suppressed, parser));
                         }
                     }

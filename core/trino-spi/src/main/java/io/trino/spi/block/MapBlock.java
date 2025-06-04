@@ -232,6 +232,20 @@ public final class MapBlock
     }
 
     @Override
+    public boolean hasNull()
+    {
+        if (mapIsNull == null) {
+            return false;
+        }
+        for (int i = 0; i < positionCount; i++) {
+            if (mapIsNull[i + startOffset]) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
     public int getPositionCount()
     {
         return positionCount;
@@ -241,9 +255,6 @@ public final class MapBlock
     public long getSizeInBytes()
     {
         if (valueSizeInBytes < 0) {
-            if (!valueBlock.isLoaded()) {
-                return baseSizeInBytes + valueBlock.getSizeInBytes();
-            }
             valueSizeInBytes = calculateSize(valueBlock);
         }
 
@@ -283,35 +294,6 @@ public final class MapBlock
         return "MapBlock{positionCount=" + getPositionCount() + '}';
     }
 
-    @Override
-    public boolean isLoaded()
-    {
-        return keyBlock.isLoaded() && valueBlock.isLoaded();
-    }
-
-    @Override
-    public Block getLoadedBlock()
-    {
-        if (keyBlock != keyBlock.getLoadedBlock()) {
-            // keyBlock has to be loaded since MapBlock constructs hash table eagerly.
-            throw new IllegalStateException();
-        }
-
-        Block loadedValueBlock = valueBlock.getLoadedBlock();
-        if (loadedValueBlock == valueBlock) {
-            return this;
-        }
-        return createMapBlockInternal(
-                getMapType(),
-                startOffset,
-                positionCount,
-                Optional.ofNullable(mapIsNull),
-                offsets,
-                keyBlock,
-                loadedValueBlock,
-                hashTables);
-    }
-
     void ensureHashTableLoaded()
     {
         hashTables.buildAllHashTablesIfNecessary(keyBlock, offsets, mapIsNull);
@@ -342,12 +324,6 @@ public final class MapBlock
     private int getOffset(int position)
     {
         return offsets[position + startOffset];
-    }
-
-    @Override
-    public String getEncodingName()
-    {
-        return MapBlockEncoding.NAME;
     }
 
     @Override

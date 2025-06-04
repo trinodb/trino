@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>470</version>
+        <version>475</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -13,6 +13,11 @@
     <description>Trino - Parquet file format support</description>
 
     <dependencies>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>com.google.errorprone</groupId>
             <artifactId>error_prone_annotations</artifactId>
@@ -237,7 +242,7 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-compiler-plugin</artifactId>
                     <configuration>
-                        <compilerArgs combine.children="append">
+                        <compilerArgs combine.self="merge">
                             <arg>${extraJavaVectorArgs}</arg>
                         </compilerArgs>
                     </configuration>
@@ -246,7 +251,7 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-javadoc-plugin</artifactId>
                     <configuration>
-                        <additionalOptions combine.self="append">${extraJavaVectorArgs}</additionalOptions>
+                        <additionalOptions combine.self="merge">${extraJavaVectorArgs}</additionalOptions>
                     </configuration>
                 </plugin>
             </plugins>

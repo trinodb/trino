@@ -157,6 +157,20 @@ public final class Fixed12Block
     }
 
     @Override
+    public boolean hasNull()
+    {
+        if (valueIsNull == null) {
+            return false;
+        }
+        for (int i = 0; i < positionCount; i++) {
+            if (valueIsNull[i + positionOffset]) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
     public boolean isNull(int position)
     {
         checkReadablePosition(this, position);
@@ -221,12 +235,6 @@ public final class Fixed12Block
             return this;
         }
         return new Fixed12Block(0, length, newValueIsNull, newValues);
-    }
-
-    @Override
-    public String getEncodingName()
-    {
-        return Fixed12BlockEncoding.NAME;
     }
 
     @Override

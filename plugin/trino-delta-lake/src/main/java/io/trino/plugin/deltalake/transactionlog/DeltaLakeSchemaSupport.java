@@ -86,6 +86,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.StandardTypes.JSON;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
@@ -296,14 +297,14 @@ public final class DeltaLakeSchemaSupport
 
     public static Object serializeColumnType(ColumnMappingMode columnMappingMode, AtomicInteger maxColumnId, Type columnType)
     {
-        if (columnType instanceof ArrayType) {
-            return serializeArrayType(columnMappingMode, maxColumnId, (ArrayType) columnType);
+        if (columnType instanceof ArrayType arrayType) {
+            return serializeArrayType(columnMappingMode, maxColumnId, arrayType);
         }
-        if (columnType instanceof RowType) {
-            return serializeStructType(columnMappingMode, maxColumnId, (RowType) columnType);
+        if (columnType instanceof RowType rowType) {
+            return serializeStructType(columnMappingMode, maxColumnId, rowType);
         }
-        if (columnType instanceof MapType) {
-            return serializeMapType(columnMappingMode, maxColumnId, (MapType) columnType);
+        if (columnType instanceof MapType mapType) {
+            return serializeMapType(columnMappingMode, maxColumnId, mapType);
         }
         return serializePrimitiveType(columnType);
     }
@@ -413,8 +414,8 @@ public final class DeltaLakeSchemaSupport
 
     private static void validateStructuralType(Optional<Type> rootType, Type type)
     {
-        if (type instanceof ArrayType) {
-            validateType(rootType, ((ArrayType) type).getElementType());
+        if (type instanceof ArrayType arrayType) {
+            validateType(rootType, arrayType.getElementType());
         }
 
         if (type instanceof MapType mapType) {
@@ -430,8 +431,8 @@ public final class DeltaLakeSchemaSupport
     private static void validatePrimitiveType(Type type)
     {
         if (serializeSupportedPrimitiveType(type).isEmpty() ||
-                (type instanceof TimestampType && ((TimestampType) type).getPrecision() != 6) ||
-                (type instanceof TimestampWithTimeZoneType && ((TimestampWithTimeZoneType) type).getPrecision() != 3)) {
+                (type instanceof TimestampType timestampType && timestampType.getPrecision() != 6) ||
+                (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType && timestampWithTimeZoneType.getPrecision() != 3)) {
             throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Unsupported type: " + type);
         }
     }
@@ -765,7 +766,7 @@ public final class DeltaLakeSchemaSupport
             // For more info, see https://delta-users.slack.com/archives/GKTUWT03T/p1585760533005400
             // and https://cwiki.apache.org/confluence/display/Hive/Different+TIMESTAMP+types
             case "timestamp" -> TIMESTAMP_TZ_MILLIS;
-            case "variant" -> throw new UnsupportedTypeException("variant");
+            case "variant" -> typeManager.getType(new TypeSignature(JSON));
             default -> throw new TypeNotFoundException(new TypeSignature(primitiveType));
         };
     }
@@ -825,11 +826,6 @@ public final class DeltaLakeSchemaSupport
     public static class UnsupportedTypeException
             extends Exception
     {
-        public UnsupportedTypeException(String type)
-        {
-            super("Unsupported type: %s".formatted(requireNonNull(type, "type is null")));
-        }
-
         public UnsupportedTypeException(String fromType, String toType)
         {
             super("Type change from '%s' to '%s' is not supported".formatted(requireNonNull(fromType, "fromType is null"), requireNonNull(toType, "toType is null")));

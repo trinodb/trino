@@ -283,7 +283,15 @@ Hive connector documentation.
   - `false`
 * - `hive.partition-projection-enabled`
   - Enables Athena partition projection support
-  - `false`
+  - `true`
+* - `hive.s3-glacier-filter`
+  - Filter S3 objects based on their storage class and restored status if applicable. Possible
+    values are
+      * `READ_ALL` - read files from all S3 storage classes
+      * `READ_NON_GLACIER` - read files from non S3 Glacier storage classes
+      * `READ_NON_GLACIER_AND_RESTORED` - read files from non S3 Glacier storage classes and 
+        restored objects from Glacier storage class
+  - `READ_ALL`
 * - `hive.max-partition-drops-per-query`
   - Maximum number of partitions to drop in a single query.
   - 100,000

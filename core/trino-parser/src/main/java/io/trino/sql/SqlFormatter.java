@@ -32,6 +32,7 @@ import io.trino.sql.tree.CommentCharacteristic;
 import io.trino.sql.tree.Commit;
 import io.trino.sql.tree.CompoundStatement;
 import io.trino.sql.tree.ControlStatement;
+import io.trino.sql.tree.Corresponding;
 import io.trino.sql.tree.CreateCatalog;
 import io.trino.sql.tree.CreateFunction;
 import io.trino.sql.tree.CreateMaterializedView;
@@ -140,16 +141,14 @@ import io.trino.sql.tree.SecurityCharacteristic;
 import io.trino.sql.tree.Select;
 import io.trino.sql.tree.SelectItem;
 import io.trino.sql.tree.SessionProperty;
+import io.trino.sql.tree.SetAuthorizationStatement;
 import io.trino.sql.tree.SetColumnType;
 import io.trino.sql.tree.SetPath;
 import io.trino.sql.tree.SetProperties;
 import io.trino.sql.tree.SetRole;
-import io.trino.sql.tree.SetSchemaAuthorization;
 import io.trino.sql.tree.SetSession;
 import io.trino.sql.tree.SetSessionAuthorization;
-import io.trino.sql.tree.SetTableAuthorization;
 import io.trino.sql.tree.SetTimeZone;
-import io.trino.sql.tree.SetViewAuthorization;
 import io.trino.sql.tree.ShowCatalogs;
 import io.trino.sql.tree.ShowColumns;
 import io.trino.sql.tree.ShowCreate;
@@ -507,8 +506,8 @@ public final class SqlFormatter
                     append(indent, "");
                 }
                 Node value = argument.getValue();
-                if (value instanceof Expression) {
-                    builder.append(formatExpression((Expression) value));
+                if (value instanceof Expression expression) {
+                    builder.append(formatExpression(expression));
                 }
                 else {
                     process(value, indent + 1);
@@ -523,7 +522,7 @@ public final class SqlFormatter
         protected Void visitTableArgument(TableFunctionTableArgument node, Integer indent)
         {
             Relation relation = node.getTable();
-            Node unaliased = relation instanceof AliasedRelation ? ((AliasedRelation) relation).getRelation() : relation;
+            Node unaliased = relation instanceof AliasedRelation aliasedRelation ? aliasedRelation.getRelation() : relation;
             if (unaliased instanceof TableSubquery) {
                 // unpack the relation from TableSubquery to avoid adding another pair of parentheses
                 unaliased = ((TableSubquery) unaliased).getQuery();
@@ -1034,6 +1033,7 @@ public final class SqlFormatter
                     if (!node.isDistinct()) {
                         builder.append("ALL ");
                     }
+                    appendCorresponding(node.getCorresponding());
                 }
             }
 
@@ -1049,6 +1049,7 @@ public final class SqlFormatter
             if (!node.isDistinct()) {
                 builder.append("ALL ");
             }
+            appendCorresponding(node.getCorresponding());
 
             processRelation(node.getRight(), indent);
 
@@ -1068,10 +1069,24 @@ public final class SqlFormatter
                     if (!node.isDistinct()) {
                         builder.append("ALL ");
                     }
+                    appendCorresponding(node.getCorresponding());
                 }
             }
 
             return null;
+        }
+
+        private void appendCorresponding(Optional<Corresponding> node)
+        {
+            node.ifPresent(corresponding -> {
+                builder.append("CORRESPONDING ");
+                if (!corresponding.getColumns().isEmpty()) {
+                    builder.append("BY ");
+                    builder.append(corresponding.getColumns().stream()
+                            .map(SqlFormatter::formatName)
+                            .collect(joining(", ", "(", ") ")));
+                }
+            });
         }
 
         @Override
@@ -1210,9 +1225,11 @@ public final class SqlFormatter
         }
 
         @Override
-        protected Void visitSetViewAuthorization(SetViewAuthorization node, Integer indent)
+        protected Void visitSetAuthorization(SetAuthorizationStatement node, Integer indent)
         {
-            builder.append("ALTER VIEW ")
+            builder.append("ALTER ")
+                    .append(node.getOwnedEntityKind())
+                    .append(" ")
                     .append(formatName(node.getSource()))
                     .append(" SET AUTHORIZATION ")
                     .append(formatPrincipal(node.getPrincipal()));
@@ -1287,11 +1304,11 @@ public final class SqlFormatter
             List<String> options = new ArrayList<>();
 
             for (ExplainOption option : node.getOptions()) {
-                if (option instanceof ExplainType) {
-                    options.add("TYPE " + ((ExplainType) option).getType());
+                if (option instanceof ExplainType explainType) {
+                    options.add("TYPE " + explainType.getType());
                 }
-                else if (option instanceof ExplainFormat) {
-                    options.add("FORMAT " + ((ExplainFormat) option).getType());
+                else if (option instanceof ExplainFormat explainFormat) {
+                    options.add("FORMAT " + explainFormat.getType());
                 }
                 else {
                     throw new UnsupportedOperationException("unhandled explain option: " + option);
@@ -1542,17 +1559,6 @@ public final class SqlFormatter
                     .append(formatName(node.getSource()))
                     .append(" RENAME TO ")
                     .append(formatName(node.getTarget()));
-
-            return null;
-        }
-
-        @Override
-        protected Void visitSetSchemaAuthorization(SetSchemaAuthorization node, Integer indent)
-        {
-            builder.append("ALTER SCHEMA ")
-                    .append(formatName(node.getSource()))
-                    .append(" SET AUTHORIZATION ")
-                    .append(formatPrincipal(node.getPrincipal()));
 
             return null;
         }
@@ -1877,17 +1883,6 @@ public final class SqlFormatter
                     .append(" ALTER COLUMN ")
                     .append(formatName(node.getColumn()))
                     .append(" DROP NOT NULL");
-
-            return null;
-        }
-
-        @Override
-        protected Void visitSetTableAuthorization(SetTableAuthorization node, Integer indent)
-        {
-            builder.append("ALTER TABLE ")
-                    .append(formatName(node.getSource()))
-                    .append(" SET AUTHORIZATION ")
-                    .append(formatPrincipal(node.getPrincipal()));
 
             return null;
         }
@@ -2608,9 +2603,9 @@ public final class SqlFormatter
         private void processRelation(Relation relation, Integer indent)
         {
             // TODO: handle this properly
-            if (relation instanceof Table) {
+            if (relation instanceof Table table) {
                 builder.append("TABLE ")
-                        .append(formatName(((Table) relation).getName()))
+                        .append(formatName(table.getName()))
                         .append('\n');
             }
             else {

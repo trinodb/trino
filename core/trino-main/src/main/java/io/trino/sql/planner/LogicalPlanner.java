@@ -43,7 +43,6 @@ import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableLayout;
 import io.trino.metadata.TableMetadata;
 import io.trino.operator.RetryPolicy;
-import io.trino.server.protocol.spooling.SpoolingManagerRegistry;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.RefreshType;
 import io.trino.spi.TrinoException;
@@ -134,7 +133,6 @@ import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.isCollectPlanStatisticsForAllQueries;
 import static io.trino.SystemSessionProperties.isUsePreferredWritePartitioning;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
-import static io.trino.server.protocol.spooling.SpooledBlock.SPOOLING_METADATA_SYMBOL;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.CONSTRAINT_VIOLATION;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
@@ -183,7 +181,6 @@ public class LogicalPlanner
     private final SymbolAllocator symbolAllocator = new SymbolAllocator();
     private final Metadata metadata;
     private final PlannerContext plannerContext;
-    private final SpoolingManagerRegistry spoolingManagerRegistry;
     private final StatisticsAggregationPlanner statisticsAggregationPlanner;
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
@@ -196,14 +193,13 @@ public class LogicalPlanner
             List<PlanOptimizer> planOptimizers,
             PlanNodeIdAllocator idAllocator,
             PlannerContext plannerContext,
-            SpoolingManagerRegistry spoolingManagerRegistry,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
             WarningCollector warningCollector,
             PlanOptimizersStatsCollector planOptimizersStatsCollector,
             CachingTableStatsProvider tableStatsProvider)
     {
-        this(session, planOptimizers, DISTRIBUTED_PLAN_SANITY_CHECKER, idAllocator, plannerContext, spoolingManagerRegistry, statsCalculator, costCalculator, warningCollector, planOptimizersStatsCollector, tableStatsProvider);
+        this(session, planOptimizers, DISTRIBUTED_PLAN_SANITY_CHECKER, idAllocator, plannerContext, statsCalculator, costCalculator, warningCollector, planOptimizersStatsCollector, tableStatsProvider);
     }
 
     public LogicalPlanner(
@@ -212,7 +208,6 @@ public class LogicalPlanner
             PlanSanityChecker planSanityChecker,
             PlanNodeIdAllocator idAllocator,
             PlannerContext plannerContext,
-            SpoolingManagerRegistry spoolingManagerRegistry,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
             WarningCollector warningCollector,
@@ -224,7 +219,6 @@ public class LogicalPlanner
         this.planSanityChecker = requireNonNull(planSanityChecker, "planSanityChecker is null");
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
-        this.spoolingManagerRegistry = requireNonNull(spoolingManagerRegistry, "spoolingManagerRegistry is null");
         this.metadata = plannerContext.getMetadata();
         this.statisticsAggregationPlanner = new StatisticsAggregationPlanner(symbolAllocator, plannerContext, session);
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
@@ -354,39 +348,39 @@ public class LogicalPlanner
 
     private RelationPlan planStatementWithoutOutput(Analysis analysis, Statement statement)
     {
-        if (statement instanceof CreateTableAsSelect) {
+        if (statement instanceof CreateTableAsSelect createTableAsSelect) {
             if (analysis.getCreate().orElseThrow().isCreateTableAsSelectNoOp()) {
                 throw new TrinoException(NOT_SUPPORTED, "CREATE TABLE IF NOT EXISTS is not supported in this context " + statement.getClass().getSimpleName());
             }
-            return createTableCreationPlan(analysis, ((CreateTableAsSelect) statement).getQuery());
+            return createTableCreationPlan(analysis, createTableAsSelect.getQuery());
         }
-        if (statement instanceof Analyze) {
-            return createAnalyzePlan(analysis, (Analyze) statement);
+        if (statement instanceof Analyze analyze) {
+            return createAnalyzePlan(analysis, analyze);
         }
-        if (statement instanceof Insert) {
+        if (statement instanceof Insert insert) {
             checkState(analysis.getInsert().isPresent(), "Insert handle is missing");
-            return createInsertPlan(analysis, (Insert) statement);
+            return createInsertPlan(analysis, insert);
         }
         if (statement instanceof RefreshMaterializedView) {
             return createRefreshMaterializedViewPlan(analysis);
         }
-        if (statement instanceof Delete) {
-            return createDeletePlan(analysis, (Delete) statement);
+        if (statement instanceof Delete delete) {
+            return createDeletePlan(analysis, delete);
         }
-        if (statement instanceof Update) {
-            return createUpdatePlan(analysis, (Update) statement);
+        if (statement instanceof Update update) {
+            return createUpdatePlan(analysis, update);
         }
-        if (statement instanceof Merge) {
-            return createMergePlan(analysis, (Merge) statement);
+        if (statement instanceof Merge merge) {
+            return createMergePlan(analysis, merge);
         }
-        if (statement instanceof Query) {
-            return createRelationPlan(analysis, (Query) statement);
+        if (statement instanceof Query query) {
+            return createRelationPlan(analysis, query);
         }
-        if (statement instanceof ExplainAnalyze) {
-            return createExplainAnalyzePlan(analysis, (ExplainAnalyze) statement);
+        if (statement instanceof ExplainAnalyze explainAnalyze) {
+            return createExplainAnalyzePlan(analysis, explainAnalyze);
         }
-        if (statement instanceof TableExecute) {
-            return createTableExecutePlan(analysis, (TableExecute) statement);
+        if (statement instanceof TableExecute tableExecute) {
+            return createTableExecutePlan(analysis, tableExecute);
         }
         throw new TrinoException(NOT_SUPPORTED, "Unsupported statement type " + statement.getClass().getSimpleName());
     }
@@ -808,11 +802,11 @@ public class LogicalPlanner
             return new Cast(expression, toType);
         }
         int targetLength;
-        if (toType instanceof VarcharType) {
-            if (((VarcharType) toType).isUnbounded()) {
+        if (toType instanceof VarcharType varcharType) {
+            if (varcharType.isUnbounded()) {
                 return new Cast(expression, toType);
             }
-            targetLength = ((VarcharType) toType).getBoundedLength();
+            targetLength = varcharType.getBoundedLength();
         }
         else {
             targetLength = ((CharType) toType).getLength();
@@ -906,11 +900,6 @@ public class LogicalPlanner
             outputs.add(symbol);
 
             columnNumber++;
-        }
-
-        if (session.getQueryDataEncoding().isPresent() && spoolingManagerRegistry.getSpoolingManager().isPresent()) {
-            names.add(SPOOLING_METADATA_SYMBOL.name());
-            outputs.add(SPOOLING_METADATA_SYMBOL);
         }
         return new OutputNode(idAllocator.getNextId(), plan.getRoot(), names.build(), outputs.build());
     }

@@ -18,6 +18,7 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.SourcePage;
 
 import java.io.IOException;
 import java.util.List;
@@ -56,9 +57,9 @@ public class MergeJdbcPageSource
     }
 
     @Override
-    public Page getNextPage()
+    public SourcePage getNextSourcePage()
     {
-        Page page = delegate.getNextPage();
+        SourcePage page = delegate.getNextSourcePage();
         if (page == null || columnAdaptations.isEmpty()) {
             return page;
         }
@@ -66,14 +67,14 @@ public class MergeJdbcPageSource
         return getColumnAdaptationsPage(page);
     }
 
-    private Page getColumnAdaptationsPage(Page page)
+    private SourcePage getColumnAdaptationsPage(SourcePage page)
     {
         Block[] blocks = new Block[columnAdaptations.size()];
         for (int i = 0; i < columnAdaptations.size(); i++) {
             blocks[i] = columnAdaptations.get(i).getBlock(page);
         }
 
-        return new Page(page.getPositionCount(), blocks);
+        return SourcePage.create(new Page(page.getPositionCount(), blocks));
     }
 
     @Override
@@ -91,7 +92,7 @@ public class MergeJdbcPageSource
 
     public interface ColumnAdaptation
     {
-        Block getBlock(Page sourcePage);
+        Block getBlock(SourcePage sourcePage);
     }
 
     public static final class MergedRowAdaptation
@@ -105,7 +106,7 @@ public class MergeJdbcPageSource
         }
 
         @Override
-        public Block getBlock(Page page)
+        public Block getBlock(SourcePage page)
         {
             requireNonNull(page, "page is null");
             Block[] mergeRowIdBlocks = new Block[mergeRowIdSourceChannels.size()];
@@ -125,7 +126,7 @@ public class MergeJdbcPageSource
         }
 
         @Override
-        public Block getBlock(Page sourcePage)
+        public Block getBlock(SourcePage sourcePage)
         {
             return sourcePage.getBlock(sourceChannel);
         }

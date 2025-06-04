@@ -136,7 +136,7 @@ public class TestInlineSession
         assertThat(assertions.query("WITH SESSION invalid_key = 'invalid_value' SELECT 1"))
                 .failure()
                 .hasErrorCode(INVALID_SESSION_PROPERTY)
-                .hasMessageContaining("line 1:28: Session property invalid_key does not exist");
+                .hasMessageContaining("line 1:28: Session property 'invalid_key' does not exist");
 
         assertThat(assertions.query("WITH SESSION query_max_total_memory = 'invalid_value' SELECT 1"))
                 .failure()
@@ -146,7 +146,7 @@ public class TestInlineSession
         assertThat(assertions.query("WITH SESSION query_max_total_memory = '10GB', query_max_total_memory = '16GB' SELECT 1"))
                 .failure()
                 .hasErrorCode(INVALID_SESSION_PROPERTY)
-                .hasMessageContaining("line 1:47: Session property query_max_total_memory already set");
+                .hasMessageContaining("line 1:47: Session property 'query_max_total_memory' already set");
     }
 
     @Test
@@ -154,7 +154,7 @@ public class TestInlineSession
     {
         assertThat(assertions.query("WITH SESSION mock.invalid_key = 'invalid_value' SELECT 1"))
                 .failure()
-                .hasMessageContaining("line 1:33: Session property mock.invalid_key does not exist");
+                .hasMessageContaining("line 1:33: Session property 'mock.invalid_key' does not exist");
 
         assertThat(assertions.query("WITH SESSION mock.catalog_property = true SELECT 1"))
                 .failure()
@@ -162,6 +162,6 @@ public class TestInlineSession
 
         assertThat(assertions.query("WITH SESSION mock.catalog_property = 'true', mock.catalog_property = 'false' SELECT 1"))
                 .failure()
-                .hasMessageContaining("line 1:46: Session property mock.catalog_property already set");
+                .hasMessageContaining("line 1:46: Session property 'mock.catalog_property' already set");
     }
 }

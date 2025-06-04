@@ -42,7 +42,7 @@ import static io.trino.sql.planner.plan.Patterns.patternRecognition;
 import static io.trino.sql.planner.plan.Patterns.project;
 import static io.trino.sql.planner.plan.Patterns.source;
 
-public class MergePatternRecognitionNodes
+public final class MergePatternRecognitionNodes
 {
     private MergePatternRecognitionNodes() {}
 

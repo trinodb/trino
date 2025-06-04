@@ -13,7 +13,6 @@
  */
 package io.trino.operator.scalar.timestamp;
 
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.ScalarOperator;
@@ -33,15 +32,15 @@ public final class TimestampToDateCast
 
     @LiteralParameters("p")
     @SqlType(StandardTypes.DATE)
-    public static long cast(ConnectorSession session, @SqlType("timestamp(p)") long timestamp)
+    public static long cast(@SqlType("timestamp(p)") long timestamp)
     {
         return floorDiv(timestamp, MICROSECONDS_PER_DAY);
     }
 
     @LiteralParameters("p")
     @SqlType(StandardTypes.DATE)
-    public static long cast(ConnectorSession session, @SqlType("timestamp(p)") LongTimestamp timestamp)
+    public static long cast(@SqlType("timestamp(p)") LongTimestamp timestamp)
     {
-        return cast(session, timestamp.getEpochMicros());
+        return cast(timestamp.getEpochMicros());
     }
 }

@@ -66,7 +66,7 @@ public record TaskInfo(
 
     public TaskInfo pruneDigests()
     {
-        return new TaskInfo(taskStatus, lastHeartbeat, outputBuffers, noMoreSplits, stats.pruneDigests(), estimatedMemory, needsPlan);
+        return new TaskInfo(taskStatus, lastHeartbeat, outputBuffers.pruneDigests(), noMoreSplits, stats.pruneDigests(), estimatedMemory, needsPlan);
     }
 
     @Override

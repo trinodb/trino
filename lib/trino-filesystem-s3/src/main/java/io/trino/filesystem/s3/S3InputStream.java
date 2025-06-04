@@ -32,10 +32,12 @@ import java.io.InterruptedIOException;
 import static java.lang.Math.clamp;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
+import static software.amazon.awssdk.utils.IoUtils.drainInputStream;
 
 final class S3InputStream
         extends TrinoInputStream
 {
+    private static final long DEFAULT_TCP_BUFFER_SIZE = 1024 * 8;
     private static final int MAX_SKIP_BYTES = 1024 * 1024;
 
     private final Location location;
@@ -242,7 +244,16 @@ final class S3InputStream
         }
 
         try (var _ = in) {
-            in.abort();
+            // According to the documentation: Abort will close the underlying connection, dropping all remaining data
+            // in the stream, and not leaving the connection open to be used for future requests. This can be more expensive
+            // than just reading remaining data.
+            if (length != null && length - streamPosition <= DEFAULT_TCP_BUFFER_SIZE) {
+                drainInputStream(in);
+            }
+            else {
+                in.abort();
+                in.release();
+            }
         }
         catch (AbortedException | IOException _) {
         }

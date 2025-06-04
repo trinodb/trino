@@ -40,11 +40,13 @@ import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.trino.filesystem.tracing.FileSystemAttributes.FILE_LOCATION;
 import static io.trino.plugin.deltalake.DeltaLakeConfig.DEFAULT_TRANSACTION_LOG_MAX_CACHED_SIZE;
 import static io.trino.plugin.deltalake.transactionlog.TableSnapshot.MetadataAndProtocolEntry;
@@ -125,6 +127,7 @@ public class TestTableSnapshot
     public void readsCheckpointFile()
             throws IOException
     {
+        ExecutorService executorService = newDirectExecutorService();
         Optional<LastCheckpoint> lastCheckpoint = readLastCheckpoint(trackingFileSystem, tableLocation);
         TableSnapshot tableSnapshot = load(
                 new SchemaTableName("schema", "person"),
@@ -144,7 +147,8 @@ public class TestTableSnapshot
                 new DeltaLakeConfig(),
                 new FileFormatDataSourceStats(),
                 tracingFileSystemFactory,
-                new ParquetReaderConfig());
+                new ParquetReaderConfig(),
+                executorService);
         MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(SESSION, tableSnapshot);
         ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, tableSnapshot);
         tableSnapshot.setCachedMetadata(Optional.of(metadataEntry));
@@ -157,7 +161,8 @@ public class TestTableSnapshot
                 new FileFormatDataSourceStats(),
                 Optional.of(new MetadataAndProtocolEntry(metadataEntry, protocolEntry)),
                 TupleDomain.all(),
-                Optional.of(alwaysTrue()))) {
+                Optional.of(alwaysTrue()),
+                executorService)) {
             List<DeltaLakeTransactionLogEntry> entries = stream.collect(toImmutableList());
 
             assertThat(entries).hasSize(9);
@@ -207,7 +212,8 @@ public class TestTableSnapshot
                 new FileFormatDataSourceStats(),
                 Optional.of(new MetadataAndProtocolEntry(metadataEntry, protocolEntry)),
                 TupleDomain.all(),
-                Optional.of(alwaysTrue()))) {
+                Optional.of(alwaysTrue()),
+                executorService)) {
             List<DeltaLakeTransactionLogEntry> entries = stream.collect(toImmutableList());
 
             assertThat(entries).hasSize(10);

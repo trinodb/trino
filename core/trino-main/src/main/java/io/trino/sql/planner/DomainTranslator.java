@@ -119,7 +119,7 @@ public final class DomainTranslator
         return IrUtils.combineConjuncts(toPredicateConjuncts(tupleDomain));
     }
 
-    public List<Expression> toPredicateConjuncts(TupleDomain<Symbol> tupleDomain)
+    private List<Expression> toPredicateConjuncts(TupleDomain<Symbol> tupleDomain)
     {
         if (tupleDomain.isNone()) {
             return ImmutableList.of(FALSE);
@@ -132,7 +132,7 @@ public final class DomainTranslator
                 .collect(toImmutableList());
     }
 
-    private Expression toPredicate(Domain domain, Reference reference)
+    public Expression toPredicate(Domain domain, Reference reference)
     {
         if (domain.getValues().isNone()) {
             return domain.isNullAllowed() ? new IsNull(reference) : FALSE;
@@ -468,10 +468,10 @@ public final class DomainTranslator
                 // type of expression which is then cast to type of value
                 Type castSourceType = castExpression.expression().type();
                 Type castTargetType = castExpression.type();
-                if (castSourceType instanceof VarcharType && castTargetType == DATE) {
+                if (castSourceType instanceof VarcharType varcharType && castTargetType == DATE) {
                     Optional<ExtractionResult> result = createVarcharCastToDateComparisonExtractionResult(
                             normalized,
-                            (VarcharType) castSourceType,
+                            varcharType,
                             complement,
                             node);
                     if (result.isPresent()) {

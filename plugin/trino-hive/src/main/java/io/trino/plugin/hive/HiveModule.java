@@ -14,7 +14,6 @@
 package io.trino.plugin.hive;
 
 import com.google.inject.Binder;
-import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
@@ -39,7 +38,6 @@ import io.trino.plugin.hive.line.SimpleSequenceFileWriterFactory;
 import io.trino.plugin.hive.line.SimpleTextFilePageSourceFactory;
 import io.trino.plugin.hive.line.SimpleTextFileWriterFactory;
 import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
-import io.trino.plugin.hive.metastore.thrift.TranslateHiveViews;
 import io.trino.plugin.hive.orc.OrcFileWriterFactory;
 import io.trino.plugin.hive.orc.OrcPageSourceFactory;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
@@ -49,23 +47,15 @@ import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.plugin.hive.rcfile.RcFilePageSourceFactory;
-import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ScheduledExecutorService;
-
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
-import static io.trino.plugin.base.ClosingBinder.closingBinder;
-import static java.util.concurrent.Executors.newCachedThreadPool;
-import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class HiveModule
@@ -141,32 +131,14 @@ public class HiveModule
         configBinder(binder).bindConfig(ParquetWriterConfig.class);
         fileWriterFactoryBinder.addBinding().to(ParquetFileWriterFactory.class).in(Scopes.SINGLETON);
 
-        closingBinder(binder).registerExecutor(ExecutorService.class);
-        closingBinder(binder).registerExecutor(Key.get(ScheduledExecutorService.class, ForHiveTransactionHeartbeats.class));
+        binder.install(new HiveExecutorModule());
     }
 
-    @Singleton
     @Provides
-    public ExecutorService createHiveClientExecutor(CatalogName catalogName)
-    {
-        return newCachedThreadPool(daemonThreadsNamed("hive-" + catalogName + "-%s"));
-    }
-
-    @ForHiveTransactionHeartbeats
     @Singleton
-    @Provides
-    public ScheduledExecutorService createHiveTransactionHeartbeatExecutor(CatalogName catalogName, HiveConfig hiveConfig)
+    @HideDeltaLakeTables
+    public boolean hideDeltaLakeTables(HiveMetastoreConfig config)
     {
-        return newScheduledThreadPool(
-                hiveConfig.getHiveTransactionHeartbeatThreads(),
-                daemonThreadsNamed("hive-heartbeat-" + catalogName + "-%s"));
-    }
-
-    @TranslateHiveViews
-    @Singleton
-    @Provides
-    public boolean translateHiveViews(HiveConfig hiveConfig)
-    {
-        return hiveConfig.isTranslateHiveViews();
+        return config.isHideDeltaLakeTables();
     }
 }

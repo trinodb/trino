@@ -30,21 +30,14 @@ import io.trino.metadata.InMemoryNodeManager;
 import io.trino.operator.DriverContext;
 import io.trino.operator.JoinOperatorType;
 import io.trino.operator.Operator;
-import io.trino.operator.OperatorContext;
 import io.trino.operator.OperatorFactory;
-import io.trino.operator.ProcessorContext;
 import io.trino.operator.TaskContext;
-import io.trino.operator.WorkProcessor;
-import io.trino.operator.WorkProcessorOperator;
-import io.trino.operator.WorkProcessorOperatorAdapter;
-import io.trino.operator.WorkProcessorOperatorFactory;
 import io.trino.operator.join.InternalJoinFilterFunction;
 import io.trino.operator.join.JoinBridgeManager;
 import io.trino.operator.join.JoinOperatorInfo;
 import io.trino.operator.join.unspilled.JoinTestUtils.BuildSideSetup;
 import io.trino.operator.join.unspilled.JoinTestUtils.TestInternalJoinFilterFunction;
 import io.trino.spi.Page;
-import io.trino.spi.block.LazyBlock;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.VariableWidthBlock;
@@ -66,7 +59,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
@@ -80,15 +72,12 @@ import static io.trino.operator.OperatorAssertion.dropChannel;
 import static io.trino.operator.OperatorAssertion.toMaterializedResult;
 import static io.trino.operator.OperatorAssertion.toPages;
 import static io.trino.operator.OperatorFactories.join;
-import static io.trino.operator.WorkProcessor.ProcessState.finished;
-import static io.trino.operator.WorkProcessor.ProcessState.ofResult;
 import static io.trino.operator.join.unspilled.JoinTestUtils.buildLookupSource;
 import static io.trino.operator.join.unspilled.JoinTestUtils.getHashChannelAsInt;
 import static io.trino.operator.join.unspilled.JoinTestUtils.innerJoinOperatorFactory;
 import static io.trino.operator.join.unspilled.JoinTestUtils.instantiateBuildDrivers;
 import static io.trino.operator.join.unspilled.JoinTestUtils.setupBuildSide;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -251,58 +240,6 @@ public class TestHashJoinOperator
     private JoinOperatorInfo getJoinOperatorInfo(DriverContext driverContext)
     {
         return (JoinOperatorInfo) getOnlyElement(driverContext.getOperatorStats()).getInfo();
-    }
-
-    @Test
-    public void testUnwrapsLazyBlocks()
-    {
-        testUnwrapsLazyBlocks(false);
-        testUnwrapsLazyBlocks(true);
-    }
-
-    private void testUnwrapsLazyBlocks(boolean singleBigintLookupSource)
-    {
-        TaskContext taskContext = createTaskContext();
-        DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
-
-        InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction(
-                (leftPosition, leftPage, rightPosition, rightPage) -> {
-                    // force loading of probe block
-                    rightPage.getBlock(1).getLoadedBlock();
-                    return true;
-                });
-
-        RowPagesBuilder buildPages = rowPagesBuilder(false, Ints.asList(0), ImmutableList.of(BIGINT)).addSequencePage(1, 0);
-        BuildSideSetup buildSideSetup = setupBuildSide(nodePartitioningManager, true, taskContext, buildPages, Optional.of(filterFunction), singleBigintLookupSource);
-        JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory = buildSideSetup.getLookupSourceFactoryManager();
-
-        RowPagesBuilder probePages = rowPagesBuilder(false, Ints.asList(0), ImmutableList.of(BIGINT, BIGINT));
-        List<Page> probeInput = probePages.addSequencePage(1, 0, 0).build();
-        probeInput = probeInput.stream()
-                .map(page -> new Page(page.getBlock(0), new LazyBlock(1, () -> page.getBlock(1))))
-                .collect(toImmutableList());
-
-        OperatorFactory joinOperatorFactory = join(
-                innerJoin(false, false),
-                0,
-                new PlanNodeId("test"),
-                lookupSourceFactory,
-                true,
-                probePages.getTypes(),
-                Ints.asList(0),
-                getHashChannelAsInt(probePages),
-                Optional.empty(),
-                TYPE_OPERATORS);
-
-        instantiateBuildDrivers(buildSideSetup, taskContext);
-        buildLookupSource(executor, buildSideSetup);
-        Operator operator = joinOperatorFactory.createOperator(driverContext);
-        assertThat(operator.needsInput()).isTrue();
-        operator.addInput(probeInput.get(0));
-        operator.finish();
-
-        Page output = operator.getOutput();
-        assertThat(output.getBlock(1)).isNotInstanceOf(LazyBlock.class);
     }
 
     @Test
@@ -1534,87 +1471,6 @@ public class TestHashJoinOperator
             assertThat(joinOperator.isBlocked().isDone()).isFalse();
             assertThat(joinOperator.isFinished()).isFalse();
         }
-    }
-
-    @Test
-    public void testInnerJoinLoadsPagesInOrder()
-    {
-        TaskContext taskContext = createTaskContext();
-
-        // build factory
-        List<Type> buildTypes = ImmutableList.of(VARCHAR);
-        RowPagesBuilder buildPages = rowPagesBuilder(false, Ints.asList(0), buildTypes);
-        for (int i = 0; i < 100_000; ++i) {
-            buildPages.row("a");
-        }
-        BuildSideSetup buildSideSetup = setupBuildSide(nodePartitioningManager, false, taskContext, buildPages, Optional.empty());
-        JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory = buildSideSetup.getLookupSourceFactoryManager();
-
-        // probe factory
-        List<Type> probeTypes = ImmutableList.of(VARCHAR, INTEGER, INTEGER);
-        RowPagesBuilder probePages = rowPagesBuilder(false, Ints.asList(0), probeTypes);
-        probePages.row("a", 1L, 2L);
-        WorkProcessorOperatorFactory joinOperatorFactory = ((WorkProcessorOperatorAdapter.Factory) innerJoinOperatorFactory(lookupSourceFactory, probePages, false))
-                .getWorkProcessorOperatorFactory();
-
-        // build drivers and operators
-        instantiateBuildDrivers(buildSideSetup, taskContext);
-        buildLookupSource(executor, buildSideSetup);
-
-        Page probePage = getOnlyElement(probePages.build());
-        AtomicInteger totalProbePages = new AtomicInteger();
-        WorkProcessor<Page> inputPages = WorkProcessor.create(() -> {
-            int probePageNumber = totalProbePages.incrementAndGet();
-            if (probePageNumber == 5) {
-                return finished();
-            }
-
-            return ofResult(new Page(
-                    1,
-                    probePage.getBlock(0),
-                    // this block should not be loaded by join operator as it's not being used by join
-                    new LazyBlock(1, () -> probePage.getBlock(1)),
-                    // this block is force loaded in test to ensure join doesn't fetch next probe page before joining
-                    // and outputting current probe page
-                    new LazyBlock(
-                            1,
-                            () -> {
-                                // when loaded this block should be the latest one
-                                assertThat(probePageNumber).isEqualTo(totalProbePages.get());
-                                return probePage.getBlock(2);
-                            })));
-        });
-
-        DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
-        OperatorContext operatorContext = driverContext.addOperatorContext(joinOperatorFactory.getOperatorId(), joinOperatorFactory.getPlanNodeId(), joinOperatorFactory.getOperatorType());
-        WorkProcessorOperator joinOperator = joinOperatorFactory.create(
-                new ProcessorContext(taskContext.getSession(), taskContext.getTaskMemoryContext(), operatorContext),
-                inputPages);
-        WorkProcessor<Page> outputPages = joinOperator.getOutputPages();
-        int totalOutputPages = 0;
-        for (int i = 0; i < 1_000_000; ++i) {
-            if (!outputPages.process()) {
-                // allow join to progress
-                driverContext.getYieldSignal().resetYieldForTesting();
-                continue;
-            }
-
-            if (outputPages.isFinished()) {
-                break;
-            }
-
-            Page page = outputPages.getResult();
-            totalOutputPages++;
-            assertThat(page.getBlock(1).isLoaded()).isFalse();
-            page.getBlock(2).getLoadedBlock();
-
-            // yield to enforce more complex execution
-            driverContext.getYieldSignal().forceYieldForTesting();
-        }
-
-        // make sure that multiple pages were produced for some probe pages
-        assertThat(totalOutputPages > totalProbePages.get()).isTrue();
-        assertThat(outputPages.isFinished()).isTrue();
     }
 
     private OperatorFactory createJoinOperatorFactoryWithBlockingLookupSource(TaskContext taskContext, boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean waitForBuild)

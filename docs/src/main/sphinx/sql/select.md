@@ -60,6 +60,7 @@ and `grouping_element` is one of
 ```text
 ()
 expression
+AUTO
 GROUPING SETS ( ( column [, ...] ) [, ...] )
 CUBE ( column [, ...] )
 ROLLUP ( column [, ...] )
@@ -68,6 +69,31 @@ ROLLUP ( column [, ...] )
 ## Description
 
 Retrieve rows from zero or more tables.
+
+(select-with-session)=
+## WITH SESSION clause
+
+The `WITH SESSION` clause allows you to [set session and catalog session
+property values](/sql/set-session) applicable for the processing of the current
+SELECT statement only. The defined values override any other configuration and
+session property settings. Multiple properties are separated by commas.
+
+The following example overrides the global configuration property
+`query.max-execution-time` with the session property `query_max_execution_time`
+to reduce the time to `2h`. It also overrides the catalog property
+`iceberg.query-partition-filter-required` from the `example` catalog using
+[](/connector/iceberg) setting the catalog session property
+`query_partition_filter_required` to `true`:
+
+```sql
+WITH
+  SESSION
+    query_max_execution_time='2h',
+    example.query_partition_filter_required=true
+SELECT *
+FROM example.default.thetable
+LIMIT 100;
+```
 
 ## WITH FUNCTION clause
 
@@ -748,15 +774,15 @@ specifications contains the component, the default value is used.
 to combine the results of more than one select statement into a single result set:
 
 ```text
-query UNION [ALL | DISTINCT] query
+query UNION [ALL | DISTINCT] [CORRESPONDING] query
 ```
 
 ```text
-query INTERSECT [ALL | DISTINCT] query
+query INTERSECT [ALL | DISTINCT] [CORRESPONDING] query
 ```
 
 ```text
-query EXCEPT [ALL | DISTINCT] query
+query EXCEPT [ALL | DISTINCT] [CORRESPONDING] query
 ```
 
 The argument `ALL` or `DISTINCT` controls which rows are included in
@@ -825,6 +851,36 @@ SELECT * FROM (VALUES 42, 13);
 (2 rows)
 ```
 
+`CORRESPONDING` matches columns by name instead of by position:
+
+```sql
+SELECT * FROM (VALUES (1, 'alice')) AS t(id, name)
+UNION ALL CORRESPONDING
+SELECT * FROM (VALUES ('bob', 2)) AS t(name, id);
+```
+
+```text
+ id | name
+----+-------
+  1 | alice
+  2 | bob
+(2 rows)
+```
+
+```sql
+SELECT * FROM (VALUES (DATE '2025-04-23', 'alice')) AS t(order_date, name)
+UNION ALL CORRESPONDING
+SELECT * FROM (VALUES ('bob', 123.45)) AS t(name, price);
+```
+
+```text
+ name
+-------
+ alice
+ bob
+(2 rows)
+```
+
 ### INTERSECT clause
 
 `INTERSECT` returns only the rows that are in the result sets of both the first and
@@ -846,6 +902,21 @@ SELECT 13;
 (2 rows)
 ```
 
+`CORRESPONDING` matches columns by name instead of by position:
+
+```sql
+SELECT * FROM (VALUES (1, 'alice')) AS t(id, name)
+INTERSECT CORRESPONDING
+SELECT * FROM (VALUES ('alice', 1)) AS t(name, id);
+```
+
+```text
+ id | name
+----+-------
+  1 | alice
+(1 row)
+```
+
 ### EXCEPT clause
 
 `EXCEPT` returns the rows that are in the result set of the first query,
@@ -865,6 +936,21 @@ SELECT 13;
 -------
    42
 (2 rows)
+```
+
+`CORRESPONDING` matches columns by name instead of by position:
+
+```sql
+SELECT * FROM (VALUES (1, 'alice'), (2, 'bob')) AS t(id, name)
+EXCEPT CORRESPONDING
+SELECT * FROM (VALUES ('alice', 1)) AS t(name, id);
+```
+
+```text
+ id | name
+----+------
+  2 | bob
+(1 row)
 ```
 
 (order-by-clause)=

@@ -75,12 +75,4 @@ public final class ClassLoaderSafeNodePartitioningProvider
             return delegate.getSplitBucketFunction(transactionHandle, session, partitioningHandle, bucketCount);
         }
     }
-
-    @Override
-    public ToIntFunction<ConnectorSplit> getSplitBucketFunction(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
-    {
-        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getSplitBucketFunction(transactionHandle, session, partitioningHandle);
-        }
-    }
 }

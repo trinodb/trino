@@ -473,11 +473,11 @@ public class NestedColumnReader<BufferType>
         }
 
         log.debug("readNextPage field %s, page %s, pageLastRowUnfinished %b", field, page, pageLastRowUnfinished);
-        if (page instanceof DataPageV1) {
-            readFlatPageV1((DataPageV1) page);
+        if (page instanceof DataPageV1 dataPageV1) {
+            readFlatPageV1(dataPageV1);
         }
-        else if (page instanceof DataPageV2) {
-            readFlatPageV2((DataPageV2) page);
+        else if (page instanceof DataPageV2 dataPageV2) {
+            readFlatPageV2(dataPageV2);
         }
 
         pageValueCount = page.getValueCount();

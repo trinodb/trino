@@ -13,12 +13,19 @@
  */
 package io.trino.sql.gen;
 
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
+import com.google.common.util.concurrent.UncheckedExecutionException;
+import com.google.inject.Inject;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.ClassDefinition;
+import io.airlift.bytecode.DynamicClassLoader;
+import io.airlift.bytecode.FieldDefinition;
 import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.Scope;
@@ -27,10 +34,14 @@ import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.control.WhileLoop;
 import io.airlift.bytecode.instruction.LabelNode;
 import io.airlift.slice.Slice;
+import io.trino.cache.CacheStatsMBean;
+import io.trino.cache.NonEvictableLoadingCache;
 import io.trino.metadata.FunctionManager;
 import io.trino.operator.DriverYieldSignal;
+import io.trino.operator.project.CursorProcessor;
 import io.trino.operator.project.CursorProcessorOutput;
 import io.trino.spi.PageBuilder;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.RecordCursor;
@@ -44,11 +55,20 @@ import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.RowExpressionVisitor;
 import io.trino.sql.relational.SpecialForm;
 import io.trino.sql.relational.VariableReferenceExpression;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static io.airlift.bytecode.Access.FINAL;
+import static io.airlift.bytecode.Access.PRIVATE;
 import static io.airlift.bytecode.Access.PUBLIC;
 import static io.airlift.bytecode.Access.a;
 import static io.airlift.bytecode.Parameter.arg;
@@ -57,35 +77,123 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
 import static io.airlift.bytecode.expression.BytecodeExpressions.or;
 import static io.airlift.bytecode.instruction.JumpInstruction.jump;
+import static io.trino.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.gen.BytecodeUtils.generateWrite;
+import static io.trino.sql.gen.BytecodeUtils.invoke;
 import static io.trino.sql.gen.LambdaExpressionExtractor.extractLambdaExpressions;
+import static io.trino.sql.relational.Expressions.constant;
+import static io.trino.util.CompilerUtils.defineClass;
+import static io.trino.util.CompilerUtils.makeClassName;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class CursorProcessorCompiler
-        implements BodyCompiler
 {
+    private static final int MAX_PROJECTIONS_PER_CHUNK = 100;
+
     private final FunctionManager functionManager;
 
+    private final NonEvictableLoadingCache<CacheKey, Class<? extends CursorProcessor>> cursorProcessors;
+    private final CacheStatsMBean cacheStatsMBean;
+
+    @Inject
     public CursorProcessorCompiler(FunctionManager functionManager)
     {
-        this.functionManager = functionManager;
+        this.functionManager = requireNonNull(functionManager, "functionManager is null");
+        this.cursorProcessors = buildNonEvictableCache(CacheBuilder.newBuilder()
+                        .recordStats()
+                        .maximumSize(1000),
+                CacheLoader.from(key -> compile(key.filter(), key.projections())));
+        this.cacheStatsMBean = new CacheStatsMBean(cursorProcessors);
     }
 
-    @Override
-    public void generateMethods(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, RowExpression filter, List<RowExpression> projections)
+    @Managed
+    @Nested
+    public CacheStatsMBean getCursorProcessorCache()
+    {
+        return cacheStatsMBean;
+    }
+
+    public Supplier<CursorProcessor> compileCursorProcessor(Optional<RowExpression> filter, List<RowExpression> projections, Object uniqueKey)
+    {
+        Class<? extends CursorProcessor> cursorProcessor;
+        try {
+            cursorProcessor = cursorProcessors.getUnchecked(new CacheKey(filter, projections, uniqueKey));
+        }
+        catch (UncheckedExecutionException e) {
+            throwIfInstanceOf(e.getCause(), TrinoException.class);
+            throw e;
+        }
+
+        return () -> {
+            try {
+                return cursorProcessor.getConstructor().newInstance();
+            }
+            catch (ReflectiveOperationException e) {
+                throw new RuntimeException(e);
+            }
+        };
+    }
+
+    private Class<? extends CursorProcessor> compile(Optional<RowExpression> filter, List<RowExpression> projections)
+    {
+        // create filter and project page iterator class
+        return compileProcessor(filter.orElse(constant(true, BOOLEAN)), projections);
+    }
+
+    private Class<? extends CursorProcessor> compileProcessor(RowExpression filter, List<RowExpression> projections)
+    {
+        CallSiteBinder callSiteBinder = new CallSiteBinder();
+
+        // Projections are split into multiple classes to prevent the process method from exceeding the JVM method size limit
+        // and to avoid hitting the constant pool size limit in the generated CursorProcessor.
+        List<CursorProcessorChunkClass> chunkClasses = new ArrayList<>();
+        List<List<RowExpression>> partitions = Lists.partition(projections, MAX_PROJECTIONS_PER_CHUNK);
+        int projectionStartIndex = 0;
+        for (List<RowExpression> partition : partitions) {
+            int chunkNumber = chunkClasses.size();
+
+            CursorProcessorChunkClass chunkClass = generateCursorProcessorChunk(partition, projectionStartIndex, callSiteBinder, chunkNumber);
+            chunkClasses.add(chunkClass);
+
+            projectionStartIndex += partition.size();
+        }
+
+        ClassDefinition classDefinition = new ClassDefinition(
+                a(PUBLIC, FINAL),
+                makeClassName(CursorProcessor.class.getSimpleName()),
+                type(Object.class),
+                type(CursorProcessor.class));
+
+        generateMethods(classDefinition, callSiteBinder, filter, chunkClasses);
+
+        //
+        // toString method
+        //
+        generateToString(
+                classDefinition,
+                callSiteBinder,
+                toStringHelper(classDefinition.getType().getJavaClassName())
+                        .add("filter", filter)
+                        .add("projections", projections)
+                        .toString());
+
+        DynamicClassLoader dynamicClassLoader = new DynamicClassLoader(getClass().getClassLoader(), callSiteBinder.getBindings());
+        for (CursorProcessorChunkClass chunkClass : chunkClasses) {
+            defineClass(chunkClass.classDefinition(), Object.class, dynamicClassLoader);
+        }
+        return defineClass(classDefinition, CursorProcessor.class, dynamicClassLoader);
+    }
+
+    private void generateMethods(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, RowExpression filter, List<CursorProcessorChunkClass> chunkClasses)
     {
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(classDefinition, callSiteBinder);
 
-        generateProcessMethod(classDefinition, projections.size());
+        generateProcessMethod(classDefinition, chunkClasses);
 
         Map<LambdaDefinitionExpression, CompiledLambda> filterCompiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, filter, "filter");
         generateFilterMethod(classDefinition, callSiteBinder, cachedInstanceBinder, filterCompiledLambdaMap, filter);
-
-        for (int i = 0; i < projections.size(); i++) {
-            String methodName = "project_" + i;
-            Map<LambdaDefinitionExpression, CompiledLambda> projectCompiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, projections.get(i), methodName);
-            generateProjectMethod(classDefinition, callSiteBinder, cachedInstanceBinder, projectCompiledLambdaMap, methodName, projections.get(i));
-        }
 
         MethodDefinition constructorDefinition = classDefinition.declareConstructor(a(PUBLIC));
         BytecodeBlock constructorBody = constructorDefinition.getBody();
@@ -94,11 +202,16 @@ public class CursorProcessorCompiler
                 .append(thisVariable)
                 .invokeConstructor(Object.class);
 
+        for (CursorProcessorChunkClass chunkClass : chunkClasses) {
+            FieldDefinition chunkField = classDefinition.declareField(a(PRIVATE, FINAL), "chunk_" + chunkClass.chunkNumber(), chunkClass.classDefinition().getType());
+            constructorBody.append(thisVariable.setField(chunkField, newInstance(chunkClass.classDefinition().getType())));
+        }
+
         cachedInstanceBinder.generateInitializations(thisVariable, constructorBody);
         constructorBody.ret();
     }
 
-    private static void generateProcessMethod(ClassDefinition classDefinition, int projections)
+    private static void generateProcessMethod(ClassDefinition classDefinition, List<CursorProcessorChunkClass> chunkClasses)
     {
         Parameter session = arg("session", ConnectorSession.class);
         Parameter yieldSignal = arg("yieldSignal", DriverYieldSignal.class);
@@ -134,7 +247,7 @@ public class CursorProcessorCompiler
                                         .putVariable(finishedVariable, true)
                                         .gotoLabel(done)))
                         .comment("do the projection")
-                        .append(createProjectIfStatement(classDefinition, method, session, cursor, pageBuilder, projections))
+                        .append(createProjectIfStatement(classDefinition, method, session, cursor, pageBuilder, chunkClasses))
                         .comment("completedPositions++;")
                         .incrementVariable(completedPositionsVariable, (byte) 1));
 
@@ -151,7 +264,7 @@ public class CursorProcessorCompiler
             Parameter session,
             Parameter cursor,
             Parameter pageBuilder,
-            int projections)
+            List<CursorProcessorChunkClass> chunkClasses)
     {
         // if (filter(cursor))
         IfStatement ifStatement = new IfStatement();
@@ -166,29 +279,106 @@ public class CursorProcessorCompiler
                 .getVariable(pageBuilder)
                 .invokeVirtual(PageBuilder.class, "declarePosition", void.class);
 
-        // this.project_43(session, cursor, pageBuilder.getBlockBuilder(42)));
-        for (int projectionIndex = 0; projectionIndex < projections; projectionIndex++) {
+        for (CursorProcessorChunkClass chunkClass : chunkClasses) {
             ifStatement.ifTrue()
-                    .append(method.getThis())
+                    .append(method.getThis()
+                            .getField(classDefinition.getType(), "chunk_" + chunkClass.chunkNumber(), chunkClass.classDefinition().getType())
+                            .invoke(chunkClass.projectMethod(), ImmutableList.of(session, cursor, pageBuilder)));
+        }
+
+        return ifStatement;
+    }
+
+    private CursorProcessorChunkClass generateCursorProcessorChunk(
+            List<RowExpression> projections,
+            int projectionStartIndex,
+            CallSiteBinder callSiteBinder,
+            int chunkNumber)
+    {
+        ClassDefinition definition = new ClassDefinition(
+                a(PUBLIC, FINAL),
+                makeClassName("CursorProcessorChunk"),
+                type(Object.class));
+
+        CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(definition, callSiteBinder);
+
+        MethodDefinition constructorDefinition = definition.declareConstructor(a(PUBLIC));
+        BytecodeBlock constructorBody = constructorDefinition.getBody();
+        Variable thisVariable = constructorDefinition.getThis();
+        constructorBody.comment("super();")
+                .append(thisVariable)
+                .invokeConstructor(Object.class);
+
+        MethodDefinition project = generateProjectChunk(definition, projectionStartIndex, callSiteBinder, cachedInstanceBinder, projections);
+
+        cachedInstanceBinder.generateInitializations(thisVariable, constructorBody);
+        constructorBody.ret();
+
+        return new CursorProcessorChunkClass(definition, project, chunkNumber);
+    }
+
+    private MethodDefinition generateProjectChunk(
+            ClassDefinition classDefinition,
+            int projectionStartIndex,
+            CallSiteBinder callSiteBinder,
+            CachedInstanceBinder cachedInstanceBinder,
+            List<RowExpression> projections)
+    {
+        Parameter session = arg("session", ConnectorSession.class);
+        Parameter cursor = arg("cursor", RecordCursor.class);
+        Parameter pageBuilder = arg("pageBuilder", PageBuilder.class);
+
+        MethodDefinition methodDefinition = classDefinition.declareMethod(
+                a(PUBLIC),
+                "project",
+                type(void.class),
+                session,
+                cursor,
+                pageBuilder);
+
+        BytecodeBlock block = methodDefinition.getBody();
+
+        // this.project_43(session, cursor, pageBuilder.getBlockBuilder(43)));
+        int projectionIndex = projectionStartIndex;
+        for (RowExpression projection : projections) {
+            String methodName = "project_" + projectionIndex;
+            Map<LambdaDefinitionExpression, CompiledLambda> projectCompiledLambdaMap = generateMethodsForLambda(
+                    classDefinition,
+                    callSiteBinder,
+                    cachedInstanceBinder,
+                    projection,
+                    methodName);
+            generateProjectMethod(
+                    classDefinition,
+                    callSiteBinder,
+                    cachedInstanceBinder,
+                    projectCompiledLambdaMap,
+                    methodName,
+                    projection);
+
+            block.append(methodDefinition.getThis())
                     .getVariable(session)
                     .getVariable(cursor);
 
             // pageBuilder.getBlockBuilder(0)
-            ifStatement.ifTrue()
-                    .getVariable(pageBuilder)
+            block.getVariable(pageBuilder)
                     .push(projectionIndex)
                     .invokeVirtual(PageBuilder.class, "getBlockBuilder", BlockBuilder.class, int.class);
 
             // project(block..., blockBuilder)gen
-            ifStatement.ifTrue()
-                    .invokeVirtual(classDefinition.getType(),
-                            "project_" + projectionIndex,
-                            type(void.class),
-                            type(ConnectorSession.class),
-                            type(RecordCursor.class),
-                            type(BlockBuilder.class));
+            block.invokeVirtual(classDefinition.getType(),
+                    methodName,
+                    type(void.class),
+                    type(ConnectorSession.class),
+                    type(RecordCursor.class),
+                    type(BlockBuilder.class));
+
+            projectionIndex++;
         }
-        return ifStatement;
+
+        block.ret();
+
+        return methodDefinition;
     }
 
     private Map<LambdaDefinitionExpression, CompiledLambda> generateMethodsForLambda(
@@ -375,4 +565,23 @@ public class CursorProcessorCompiler
             }
         };
     }
+
+    private static void generateToString(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, String string)
+    {
+        // bind constant via invokedynamic to avoid constant pool issues due to large strings
+        classDefinition.declareMethod(a(PUBLIC), "toString", type(String.class))
+                .getBody()
+                .append(invoke(callSiteBinder.bind(string, String.class), "toString"))
+                .retObject();
+    }
+
+    private record CacheKey(Optional<RowExpression> filter, List<RowExpression> projections, Object uniqueKey)
+    {
+        CacheKey
+        {
+            projections = ImmutableList.copyOf(requireNonNull(projections, "projections is null"));
+        }
+    }
+
+    private record CursorProcessorChunkClass(ClassDefinition classDefinition, MethodDefinition projectMethod, int chunkNumber) {}
 }

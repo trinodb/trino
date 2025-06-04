@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
+import io.airlift.units.Duration;
 import io.trino.cache.EvictableCacheBuilder;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.iceberg.IcebergConfig;
@@ -42,6 +43,7 @@ import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.apache.iceberg.CatalogProperties.AUTH_SESSION_TIMEOUT_MS;
 import static org.apache.iceberg.rest.auth.OAuth2Properties.CREDENTIAL;
 import static org.apache.iceberg.rest.auth.OAuth2Properties.TOKEN;
 
@@ -56,8 +58,11 @@ public class TrinoIcebergRestCatalogFactory
     private final Optional<String> warehouse;
     private final boolean nestedNamespaceEnabled;
     private final SessionType sessionType;
+    private final Duration sessionTimeout;
     private final boolean vendedCredentialsEnabled;
+    private final boolean viewEndpointsEnabled;
     private final SecurityProperties securityProperties;
+    private final AwsProperties awsProperties;
     private final boolean uniqueTableLocation;
     private final TypeManager typeManager;
     private final boolean caseInsensitiveNameMatching;
@@ -73,6 +78,7 @@ public class TrinoIcebergRestCatalogFactory
             CatalogName catalogName,
             IcebergRestCatalogConfig restConfig,
             SecurityProperties securityProperties,
+            AwsProperties awsProperties,
             IcebergConfig icebergConfig,
             TypeManager typeManager,
             NodeVersion nodeVersion)
@@ -86,8 +92,11 @@ public class TrinoIcebergRestCatalogFactory
         this.warehouse = restConfig.getWarehouse();
         this.nestedNamespaceEnabled = restConfig.isNestedNamespaceEnabled();
         this.sessionType = restConfig.getSessionType();
+        this.sessionTimeout = restConfig.getSessionTimeout();
         this.vendedCredentialsEnabled = restConfig.isVendedCredentialsEnabled();
+        this.viewEndpointsEnabled = restConfig.isViewEndpointsEnabled();
         this.securityProperties = requireNonNull(securityProperties, "securityProperties is null");
+        this.awsProperties = requireNonNull(awsProperties, "awsProperties is null");
         requireNonNull(icebergConfig, "icebergConfig is null");
         this.uniqueTableLocation = icebergConfig.isUniqueTableLocation();
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -112,9 +121,11 @@ public class TrinoIcebergRestCatalogFactory
             properties.put(CatalogProperties.URI, serverUri.toString());
             warehouse.ifPresent(location -> properties.put(CatalogProperties.WAREHOUSE_LOCATION, location));
             prefix.ifPresent(prefix -> properties.put("prefix", prefix));
-            properties.put("view-endpoints-supported", "true");
+            properties.put("view-endpoints-supported", Boolean.toString(viewEndpointsEnabled));
             properties.put("trino-version", trinoVersion);
+            properties.put(AUTH_SESSION_TIMEOUT_MS, String.valueOf(sessionTimeout.toMillis()));
             properties.putAll(securityProperties.get());
+            properties.putAll(awsProperties.get());
 
             if (vendedCredentialsEnabled) {
                 properties.put("header.X-Iceberg-Access-Delegation", "vended-credentials");

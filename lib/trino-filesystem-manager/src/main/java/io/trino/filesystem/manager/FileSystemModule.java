@@ -37,6 +37,8 @@ import io.trino.filesystem.cache.DefaultCachingHostAddressProvider;
 import io.trino.filesystem.cache.TrinoFileSystemCache;
 import io.trino.filesystem.gcs.GcsFileSystemFactory;
 import io.trino.filesystem.gcs.GcsFileSystemModule;
+import io.trino.filesystem.local.LocalFileSystemConfig;
+import io.trino.filesystem.local.LocalFileSystemFactory;
 import io.trino.filesystem.memory.MemoryFileSystemCache;
 import io.trino.filesystem.memory.MemoryFileSystemCacheModule;
 import io.trino.filesystem.s3.FileSystemS3;
@@ -51,6 +53,7 @@ import java.util.function.Function;
 
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;
 
 public class FileSystemModule
@@ -117,6 +120,12 @@ public class FileSystemModule
         if (config.isNativeGcsEnabled()) {
             install(new GcsFileSystemModule());
             factories.addBinding("gs").to(GcsFileSystemFactory.class);
+        }
+
+        if (config.isNativeLocalEnabled()) {
+            configBinder(binder).bindConfig(LocalFileSystemConfig.class);
+            factories.addBinding("local").to(LocalFileSystemFactory.class);
+            factories.addBinding("file").to(LocalFileSystemFactory.class);
         }
 
         newOptionalBinder(binder, CachingHostAddressProvider.class).setDefault().to(DefaultCachingHostAddressProvider.class).in(Scopes.SINGLETON);

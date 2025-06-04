@@ -29,12 +29,11 @@ import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.jdbc.JdbcCatalog;
 import org.apache.iceberg.rest.DelegatingRestSessionCatalog;
-import org.assertj.core.util.Files;
 import org.junit.jupiter.api.Test;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Optional;
@@ -56,7 +55,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 final class TestIcebergRestCatalogNestedNamespaceConnectorSmokeTest
         extends BaseIcebergConnectorSmokeTest
 {
-    private File warehouseLocation;
+    private Path warehouseLocation;
     private JdbcCatalog backend;
 
     public TestIcebergRestCatalogNestedNamespaceConnectorSmokeTest()
@@ -77,8 +76,8 @@ final class TestIcebergRestCatalogNestedNamespaceConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        warehouseLocation = Files.newTemporaryFolder();
-        closeAfterClass(() -> deleteRecursively(warehouseLocation.toPath(), ALLOW_INSECURE));
+        warehouseLocation = Files.createTempDirectory(null);
+        closeAfterClass(() -> deleteRecursively(warehouseLocation, ALLOW_INSECURE));
 
         backend = closeAfterClass((JdbcCatalog) backendCatalog(warehouseLocation));
 
@@ -95,7 +94,7 @@ final class TestIcebergRestCatalogNestedNamespaceConnectorSmokeTest
                         .setCatalog(ICEBERG_CATALOG)
                         .setSchema(nestedSchema)
                         .build())
-                .setBaseDataDir(Optional.of(warehouseLocation.toPath()))
+                .setBaseDataDir(Optional.of(warehouseLocation))
                 .build();
 
         Map<String, String> nestedNamespaceDisabled = ImmutableMap.<String, String>builder()

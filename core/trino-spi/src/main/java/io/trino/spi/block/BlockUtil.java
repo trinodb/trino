@@ -246,27 +246,6 @@ final class BlockUtil
         return true;
     }
 
-    /**
-     * Returns the input blocks array if all blocks are already loaded, otherwise returns a new blocks array with all blocks loaded
-     */
-    static Block[] ensureBlocksAreLoaded(Block[] blocks)
-    {
-        for (int i = 0; i < blocks.length; i++) {
-            Block loaded = blocks[i].getLoadedBlock();
-            if (loaded != blocks[i]) {
-                // Transition to new block creation mode after the first newly loaded block is encountered
-                Block[] loadedBlocks = blocks.clone();
-                loadedBlocks[i++] = loaded;
-                for (; i < blocks.length; i++) {
-                    loadedBlocks[i] = blocks[i].getLoadedBlock();
-                }
-                return loadedBlocks;
-            }
-        }
-        // No newly loaded blocks
-        return blocks;
-    }
-
     static boolean[] copyIsNullAndAppendNull(@Nullable boolean[] isNull, int offsetBase, int positionCount)
     {
         int desiredLength = offsetBase + positionCount + 1;
@@ -360,12 +339,10 @@ final class BlockUtil
 
     static void appendRawBlockRange(Block rawBlock, int offset, int length, BlockBuilder blockBuilder)
     {
-        rawBlock = rawBlock.getLoadedBlock();
         switch (rawBlock) {
             case RunLengthEncodedBlock rleBlock -> blockBuilder.appendRepeated(rleBlock.getValue(), 0, length);
             case DictionaryBlock dictionaryBlock -> blockBuilder.appendPositions(dictionaryBlock.getDictionary(), dictionaryBlock.getRawIds(), offset, length);
             case ValueBlock valueBlock -> blockBuilder.appendRange(valueBlock, offset, length);
-            case LazyBlock _ -> throw new IllegalStateException("Did not expect LazyBlock after loading " + rawBlock.getClass().getSimpleName());
         }
     }
 

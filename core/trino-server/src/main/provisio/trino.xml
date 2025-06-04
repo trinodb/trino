@@ -2,40 +2,22 @@
     <!-- Target -->
     <archive name="${project.artifactId}-${project.version}.tar.gz" hardLinkIncludes="**/*.jar" />
 
-    <!-- Notices -->
-    <fileSet to="/">
-        <directory path="${basedir}">
-            <include>NOTICE</include>
-            <include>README.txt</include>
-        </directory>
-    </fileSet>
-
-    <!-- Launcher -->
-    <artifactSet to="bin">
-        <artifact id="io.airlift:launcher:tar.gz:bin:${dep.launcher.version}">
-            <unpack />
-        </artifact>
-        <artifact id="io.airlift:launcher:tar.gz:properties:${dep.launcher.version}">
-            <unpack filter="true" />
-        </artifact>
-    </artifactSet>
-
-    <!-- Server -->
-    <artifactSet to="lib">
-        <artifact id="${project.groupId}:trino-server-main:${project.version}" />
-    </artifactSet>
-
-    <!-- Configuration Plugins -->
-    <artifactSet to="secrets-plugin/keystore-secrets-plugin">
-        <artifact id="io.airlift:secrets-keystore-plugin:zip:${dep.airlift.version}">
+   <!-- Expand on top of trino-server-core -->
+    <artifactSet to="">
+        <artifact id="${project.groupId}:trino-server-core:tar.gz:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>
 
     <!-- Plugins -->
+<<<<<<< HEAD
 <!--
     <artifactSet to="plugin/apache-ranger">
         <artifact id="${project.groupId}:trino-ranger:zip:${project.version}">
+=======
+    <artifactSet to="plugin/ai-functions">
+        <artifact id="${project.groupId}:trino-ai-functions:zip:${project.version}">
+>>>>>>> tags/475
             <unpack />
         </artifact>
     </artifactSet>
@@ -124,6 +106,7 @@
     </artifactSet>
 -->
 
+<<<<<<< HEAD
     <artifactSet to="plugin/exchange-filesystem">
         <artifact id="${project.groupId}:trino-exchange-filesystem:zip:${project.version}">
             <unpack />
@@ -131,6 +114,8 @@
     </artifactSet>
 
 <!--
+=======
+>>>>>>> tags/475
     <artifactSet to="plugin/exchange-hdfs">
         <artifact id="${project.groupId}:trino-exchange-hdfs:zip:${project.version}">
             <unpack />
@@ -146,6 +131,7 @@
     </artifactSet>
 -->
 
+<<<<<<< HEAD
     <artifactSet to="plugin/functions-python">
         <artifact id="${project.groupId}:trino-functions-python:zip:${project.version}">
             <unpack />
@@ -159,6 +145,8 @@
     </artifactSet>
 
 <!--
+=======
+>>>>>>> tags/475
     <artifactSet to="plugin/google-sheets">
         <artifact id="${project.groupId}:trino-google-sheets:zip:${project.version}">
             <unpack />
@@ -239,17 +227,27 @@
     </artifactSet>
 -->
 
+<<<<<<< HEAD
 <!--
     <artifactSet to="plugin/kudu">
         <artifact id="${project.groupId}:trino-kudu:zip:${project.version}">
+=======
+    <artifactSet to="plugin/loki">
+        <artifact id="${project.groupId}:trino-loki:zip:${project.version}">
+>>>>>>> tags/475
             <unpack />
         </artifact>
     </artifactSet>
 -->
 
+<<<<<<< HEAD
 <!--
     <artifactSet to="plugin/loki">
         <artifact id="${project.groupId}:trino-loki:zip:${project.version}">
+=======
+    <artifactSet to="plugin/ldap-group-provider">
+        <artifact id="${project.groupId}:trino-ldap-group-provider:zip:${project.version}">
+>>>>>>> tags/475
             <unpack />
         </artifact>
     </artifactSet>
@@ -321,6 +319,7 @@
         </artifact>
     </artifactSet>
 
+<<<<<<< HEAD
     <artifactSet to="plugin/password-authenticators">
         <artifact id="${project.groupId}:trino-password-authenticators:zip:${project.version}">
             <unpack />
@@ -336,6 +335,8 @@
 -->
 
 <!--
+=======
+>>>>>>> tags/475
     <artifactSet to="plugin/pinot">
         <artifact id="${project.groupId}:trino-pinot:zip:${project.version}">
             <unpack />
@@ -357,7 +358,17 @@
     </artifactSet>
 -->
 
+<<<<<<< HEAD
 <!--
+=======
+    <artifactSet to="plugin/ranger">
+        <artifact id="${project.groupId}:trino-ranger:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+
+>>>>>>> tags/475
     <artifactSet to="plugin/redis">
         <artifact id="${project.groupId}:trino-redis:zip:${project.version}">
             <unpack />
@@ -373,18 +384,6 @@
     </artifactSet>
 -->
 
-    <artifactSet to="plugin/resource-group-managers">
-        <artifact id="${project.groupId}:trino-resource-group-managers:zip:${project.version}">
-            <unpack />
-        </artifact>
-    </artifactSet>
-
-    <artifactSet to="plugin/session-property-managers">
-        <artifact id="${project.groupId}:trino-session-property-managers:zip:${project.version}">
-            <unpack />
-        </artifact>
-    </artifactSet>
-
     <artifactSet to="plugin/singlestore">
         <artifact id="${project.groupId}:trino-singlestore:zip:${project.version}">
             <unpack />
@@ -399,6 +398,7 @@
     </artifactSet>
 -->
 
+<<<<<<< HEAD
     <artifactSet to="plugin/spooling-filesystem">
         <artifact id="${project.groupId}:trino-spooling-filesystem:zip:${project.version}">
             <unpack />
@@ -406,6 +406,8 @@
     </artifactSet>
 
 <!--
+=======
+>>>>>>> tags/475
     <artifactSet to="plugin/sqlserver">
         <artifact id="${project.groupId}:trino-sqlserver:zip:${project.version}">
             <unpack />

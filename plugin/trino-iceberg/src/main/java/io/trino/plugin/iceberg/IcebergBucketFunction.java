@@ -140,11 +140,11 @@ public class IcebergBucketFunction
                 return (long) hashCodeOperator.invoke(value);
             }
             catch (Throwable throwable) {
-                if (throwable instanceof Error) {
-                    throw (Error) throwable;
+                if (throwable instanceof Error error) {
+                    throw error;
                 }
-                if (throwable instanceof RuntimeException) {
-                    throw (RuntimeException) throwable;
+                if (throwable instanceof RuntimeException runtimeException) {
+                    throw runtimeException;
                 }
                 throw new RuntimeException(throwable);
             }

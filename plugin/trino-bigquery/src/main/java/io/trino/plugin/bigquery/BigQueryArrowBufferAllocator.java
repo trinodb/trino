@@ -27,15 +27,18 @@ import static java.util.Objects.requireNonNull;
 public class BigQueryArrowBufferAllocator
 {
     private static final Logger log = Logger.get(BigQueryArrowBufferAllocator.class);
+    private static final long NO_RESERVATION = 0;
 
-    private final long maximumAllocation;
+    private final long maximumAllocationPerWorkerThread;
     private final BigQueryArrowAllocatorStats stats;
     private final BufferAllocator rootAllocator;
 
     @Inject
     public BigQueryArrowBufferAllocator(BigQueryArrowConfig config, BigQueryArrowAllocatorStats stats)
     {
-        this.maximumAllocation = requireNonNull(config, "config is null").getMaxAllocation().toBytes();
+        long estimatedMaxWorkerThreads = (long) Runtime.getRuntime().availableProcessors() * 2;
+        long maximumAllocation = requireNonNull(config, "config is null").getMaxAllocation().toBytes();
+        this.maximumAllocationPerWorkerThread = maximumAllocation / estimatedMaxWorkerThreads;
         this.stats = requireNonNull(stats, "stats is null");
         this.rootAllocator = new RootAllocator(stats, maximumAllocation);
     }
@@ -45,8 +48,8 @@ public class BigQueryArrowBufferAllocator
         return rootAllocator.newChildAllocator(
                 split.streamName(),
                 new RetryingAllocationListener(split.streamName(), stats),
-                split.dataSize().orElse(0),
-                maximumAllocation);
+                NO_RESERVATION,
+                maximumAllocationPerWorkerThread);
     }
 
     @Managed

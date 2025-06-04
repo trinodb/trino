@@ -19,10 +19,12 @@ import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 import jakarta.validation.constraints.NotNull;
+import org.apache.iceberg.CatalogProperties;
 
 import java.net.URI;
 import java.util.Optional;
 
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 @DefunctConfig("iceberg.rest-catalog.parent-namespace")
@@ -46,7 +48,10 @@ public class IcebergRestCatalogConfig
     private boolean nestedNamespaceEnabled;
     private Security security = Security.NONE;
     private SessionType sessionType = SessionType.NONE;
+    private Duration sessionTimeout = new Duration(CatalogProperties.AUTH_SESSION_TIMEOUT_MS_DEFAULT, MILLISECONDS);
     private boolean vendedCredentialsEnabled;
+    private boolean viewEndpointsEnabled = true;
+    private boolean sigV4Enabled;
     private boolean caseInsensitiveNameMatching;
     private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(1, MINUTES);
 
@@ -133,6 +138,21 @@ public class IcebergRestCatalogConfig
         return this;
     }
 
+    @NotNull
+    @MinDuration("0ms")
+    public Duration getSessionTimeout()
+    {
+        return sessionTimeout;
+    }
+
+    @Config("iceberg.rest-catalog.session-timeout")
+    @ConfigDescription("Duration to keep authentication session in cache")
+    public IcebergRestCatalogConfig setSessionTimeout(Duration sessionTimeout)
+    {
+        this.sessionTimeout = sessionTimeout;
+        return this;
+    }
+
     public boolean isVendedCredentialsEnabled()
     {
         return vendedCredentialsEnabled;
@@ -143,6 +163,32 @@ public class IcebergRestCatalogConfig
     public IcebergRestCatalogConfig setVendedCredentialsEnabled(boolean vendedCredentialsEnabled)
     {
         this.vendedCredentialsEnabled = vendedCredentialsEnabled;
+        return this;
+    }
+
+    public boolean isViewEndpointsEnabled()
+    {
+        return viewEndpointsEnabled;
+    }
+
+    @Config("iceberg.rest-catalog.view-endpoints-enabled")
+    @ConfigDescription("Enable view endpoints")
+    public IcebergRestCatalogConfig setViewEndpointsEnabled(boolean viewEndpointsEnabled)
+    {
+        this.viewEndpointsEnabled = viewEndpointsEnabled;
+        return this;
+    }
+
+    public boolean isSigV4Enabled()
+    {
+        return sigV4Enabled;
+    }
+
+    @Config("iceberg.rest-catalog.sigv4-enabled")
+    @ConfigDescription("Enable AWS Signature version 4 (SigV4)")
+    public IcebergRestCatalogConfig setSigV4Enabled(boolean sigV4Enabled)
+    {
+        this.sigV4Enabled = sigV4Enabled;
         return this;
     }
 

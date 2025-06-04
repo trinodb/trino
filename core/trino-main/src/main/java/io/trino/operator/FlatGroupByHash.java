@@ -35,6 +35,7 @@ import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.operator.FlatHash.sumExact;
 import static java.lang.Math.min;
 import static java.lang.Math.multiplyExact;
+import static java.util.Objects.requireNonNull;
 
 // This implementation assumes arrays used in the hash are always a power of 2
 public class FlatGroupByHash
@@ -45,9 +46,9 @@ public class FlatGroupByHash
     // Max (page value count / cumulative dictionary size) to trigger the low cardinality case
     private static final double SMALL_DICTIONARIES_MAX_CARDINALITY_RATIO = 0.25;
 
+    private final GroupByHashMode hashMode;
     private final FlatHash flatHash;
     private final int groupByChannelCount;
-    private final boolean hasPrecomputedHash;
 
     private final boolean processDictionary;
 
@@ -63,19 +64,19 @@ public class FlatGroupByHash
 
     public FlatGroupByHash(
             List<Type> hashTypes,
-            boolean hasPrecomputedHash,
+            GroupByHashMode hashMode,
             int expectedSize,
             boolean processDictionary,
             FlatHashStrategyCompiler hashStrategyCompiler,
             UpdateMemory checkMemoryReservation)
     {
-        this.flatHash = new FlatHash(hashStrategyCompiler.getFlatHashStrategy(hashTypes), hasPrecomputedHash, expectedSize, checkMemoryReservation);
+        this.hashMode = requireNonNull(hashMode, "hashMode is null");
+        this.flatHash = new FlatHash(hashStrategyCompiler.getFlatHashStrategy(hashTypes), hashMode, expectedSize, checkMemoryReservation);
         this.groupByChannelCount = hashTypes.size();
-        this.hasPrecomputedHash = hasPrecomputedHash;
 
         checkArgument(expectedSize > 0, "expectedSize must be greater than zero");
 
-        int totalChannels = hashTypes.size() + (hasPrecomputedHash ? 1 : 0);
+        int totalChannels = hashTypes.size() + (hashMode.isHashPrecomputed() ? 1 : 0);
         this.currentBlocks = new Block[totalChannels];
         this.currentBlockBuilders = new BlockBuilder[totalChannels];
 
@@ -86,7 +87,7 @@ public class FlatGroupByHash
     {
         this.flatHash = other.flatHash.copy();
         groupByChannelCount = other.groupByChannelCount;
-        hasPrecomputedHash = other.hasPrecomputedHash;
+        hashMode = other.hashMode;
         processDictionary = other.processDictionary;
         dictionaryLookBack = other.dictionaryLookBack == null ? null : other.dictionaryLookBack.copy();
         currentPageSizeInBytes = other.currentPageSizeInBytes;
@@ -103,11 +104,6 @@ public class FlatGroupByHash
                 })
                 .toArray(BlockBuilder[]::new);
         currentHashes = other.currentHashes == null ? null : Arrays.copyOf(other.currentHashes, other.currentHashes.length);
-    }
-
-    public int getPhysicalPosition(int groupId)
-    {
-        return flatHash.getPhysicalPosition(groupId);
     }
 
     @Override
@@ -238,7 +234,7 @@ public class FlatGroupByHash
             return false;
         }
 
-        if (!hasPrecomputedHash) {
+        if (!hashMode.isHashPrecomputed()) {
             return true;
         }
 

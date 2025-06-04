@@ -19,6 +19,7 @@ import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
+import io.trino.sql.gen.OrderingCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.TestingTaskContext;
 import io.trino.tpch.LineItem;
@@ -42,6 +43,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.trino.SessionTestUtils.TEST_SESSION;
@@ -89,14 +91,20 @@ public class BenchmarkTopNOperator
 
             List<Type> types = ImmutableList.of(DOUBLE, DOUBLE, DATE, DOUBLE);
             pages = createInputPages(Integer.valueOf(positionsPerPage), types);
+            OrderingCompiler orderingCompiler = new OrderingCompiler(new TypeOperators());
+            List<Integer> sortChannels = ImmutableList.of(0, 2);
+            List<Type> sortTypes = sortChannels.stream()
+                    .map(types::get)
+                    .collect(toImmutableList());
             operatorFactory = TopNOperator.createOperatorFactory(
                     0,
                     new PlanNodeId("test"),
                     types,
                     Integer.valueOf(topN),
-                    ImmutableList.of(0, 2),
-                    ImmutableList.of(DESC_NULLS_LAST, ASC_NULLS_FIRST),
-                    new TypeOperators());
+                    orderingCompiler.compilePageWithPositionComparator(
+                            sortTypes,
+                            sortChannels,
+                            ImmutableList.of(DESC_NULLS_LAST, ASC_NULLS_FIRST)));
         }
 
         @TearDown

@@ -140,8 +140,6 @@ public class DistinctWindowAccumulator
                 // all positions selected
                 pagesIndex.addPage(page);
             }
-            // no positions selected
-            return;
         }
         else {
             PageBuilder filteredPageBuilder = new PageBuilder(argumentTypes);

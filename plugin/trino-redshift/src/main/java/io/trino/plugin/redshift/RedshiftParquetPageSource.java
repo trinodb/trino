@@ -15,9 +15,9 @@ package io.trino.plugin.redshift;
 
 import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.reader.ParquetReader;
-import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.metrics.Metrics;
 
 import java.io.IOException;
@@ -66,9 +66,9 @@ public class RedshiftParquetPageSource
     }
 
     @Override
-    public Page getNextPage()
+    public SourcePage getNextSourcePage()
     {
-        Page page;
+        SourcePage page;
         try {
             page = parquetReader.nextPage();
         }
@@ -116,8 +116,8 @@ public class RedshiftParquetPageSource
 
     static TrinoException handleException(Exception exception)
     {
-        if (exception instanceof TrinoException) {
-            return (TrinoException) exception;
+        if (exception instanceof TrinoException trinoException) {
+            return trinoException;
         }
         if (exception instanceof ParquetCorruptionException) {
             return new TrinoException(REDSHIFT_PARQUET_BAD_DATA, exception);

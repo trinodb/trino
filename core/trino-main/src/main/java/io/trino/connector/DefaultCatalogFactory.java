@@ -25,7 +25,6 @@ import io.trino.connector.system.StaticSystemTablesProvider;
 import io.trino.connector.system.SystemConnector;
 import io.trino.connector.system.SystemTablesProvider;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
-import io.trino.memory.LocalMemoryManager;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
@@ -73,7 +72,6 @@ public class DefaultCatalogFactory
     private final int maxPrefetchedInformationSchemaPrefixes;
 
     private final ConcurrentMap<ConnectorName, ConnectorFactory> connectorFactories = new ConcurrentHashMap<>();
-    private final LocalMemoryManager localMemoryManager;
     private final SecretsResolver secretsResolver;
 
     @Inject
@@ -90,7 +88,6 @@ public class DefaultCatalogFactory
             TypeManager typeManager,
             NodeSchedulerConfig nodeSchedulerConfig,
             OptimizerConfig optimizerConfig,
-            LocalMemoryManager localMemoryManager,
             SecretsResolver secretsResolver)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
@@ -105,7 +102,6 @@ public class DefaultCatalogFactory
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.schedulerIncludeCoordinator = nodeSchedulerConfig.isIncludeCoordinator();
         this.maxPrefetchedInformationSchemaPrefixes = optimizerConfig.getMaxPrefetchedInformationSchemaPrefixes();
-        this.localMemoryManager = requireNonNull(localMemoryManager, "localMemoryManager is null");
         this.secretsResolver = requireNonNull(secretsResolver, "secretsResolver is null");
     }
 
@@ -178,7 +174,9 @@ public class DefaultCatalogFactory
                 new SystemConnector(
                         nodeManager,
                         systemTablesProvider,
-                        transactionId -> transactionManager.getConnectorTransaction(transactionId, catalogHandle)));
+                        transactionId -> transactionManager.getConnectorTransaction(transactionId, catalogHandle),
+                        accessControl,
+                        catalogHandle.getCatalogName().toString()));
 
         return new CatalogConnector(
                 catalogHandle,
@@ -186,7 +184,6 @@ public class DefaultCatalogFactory
                 catalogConnector,
                 informationSchemaConnector,
                 systemConnector,
-                localMemoryManager,
                 catalogProperties);
     }
 

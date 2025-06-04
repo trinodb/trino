@@ -110,6 +110,7 @@ public class TestQueryStateMachine
     private static final String QUERY = "sql";
     private static final URI LOCATION = URI.create("fake://fake-query");
     private static final List<Input> INPUTS = ImmutableList.of(new Input(
+            Optional.of("connectorName"),
             "connector",
             new CatalogVersion("default"),
             "schema",
@@ -731,8 +732,8 @@ public class TestQueryStateMachine
             FailureInfo failure = queryInfo.getFailureInfo().toFailureInfo();
             assertThat(failure).isNotNull();
             assertThat(failure.getType()).isEqualTo(expectedException.getClass().getName());
-            if (expectedException instanceof TrinoException) {
-                assertThat(queryInfo.getErrorCode()).isEqualTo(((TrinoException) expectedException).getErrorCode());
+            if (expectedException instanceof TrinoException trinoException) {
+                assertThat(queryInfo.getErrorCode()).isEqualTo(trinoException.getErrorCode());
             }
             else {
                 assertThat(queryInfo.getErrorCode()).isEqualTo(GENERIC_INTERNAL_ERROR.toErrorCode());

@@ -22,7 +22,6 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 
-import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
@@ -30,6 +29,7 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import static com.google.common.net.HttpHeaders.ACCEPT_ENCODING;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -57,6 +57,7 @@ public class OkHttpSegmentLoader
         Request request = new Request.Builder()
                 .url(segment.getDataUri().toString())
                 .headers(toHeaders(segment.getHeaders()))
+                .addHeader(ACCEPT_ENCODING, "identity")
                 .build();
 
         Response response = callFactory.newCall(request).execute();
@@ -65,7 +66,7 @@ public class OkHttpSegmentLoader
         }
 
         if (response.isSuccessful()) {
-            return delegatingInputStream(response, response.body().byteStream(), segment);
+            return response.body().byteStream();
         }
         throw new IOException(format("Could not open segment for streaming, got error '%s' with code %d", response.message(), response.code()));
     }
@@ -93,21 +94,6 @@ public class OkHttpSegmentLoader
                 response.close();
             }
         });
-    }
-
-    private InputStream delegatingInputStream(Response response, InputStream delegate, SpooledSegment segment)
-    {
-        return new FilterInputStream(delegate)
-        {
-            @Override
-            public void close()
-                    throws IOException
-            {
-                try (Response ignored = response; InputStream ignored2 = delegate) {
-                    acknowledge(segment);
-                }
-            }
-        };
     }
 
     private static Headers toHeaders(Map<String, List<String>> headers)

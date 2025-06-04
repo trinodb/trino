@@ -17,9 +17,11 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.DataSize;
 
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
+
 public class BigQueryArrowConfig
 {
-    private DataSize maxAllocation = DataSize.ofBytes(Integer.MAX_VALUE);
+    private DataSize maxAllocation = DataSize.of(100, MEGABYTE);
 
     public DataSize getMaxAllocation()
     {

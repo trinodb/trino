@@ -74,7 +74,6 @@ import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.ADD;
-import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.COMMIT;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.METADATA;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.PROTOCOL;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.REMOVE;
@@ -532,7 +531,7 @@ public class TestCheckpointEntryIterator
                         .collect(toImmutableMap("intcol%s"::formatted, columnIndex -> random.nextLong(0, 1000))))
                 .putAll(IntStream.rangeClosed(1, countStringColumns)
                         .boxed()
-                        .collect(toImmutableMap("stringcol%s"::formatted, columnIndex -> "A".repeat(random.nextInt(0, 10)) + UUID.randomUUID())))
+                        .collect(toImmutableMap("stringcol%s"::formatted, columnIndex -> "A".repeat(random.nextInt(1, 10)) + UUID.randomUUID())))
                 .buildOrThrow();
         Map<String, Object> maxValues = ImmutableMap.<String, Object>builder()
                 .putAll(IntStream.rangeClosed(1, countIntegerColumns)
@@ -540,7 +539,7 @@ public class TestCheckpointEntryIterator
                         .collect(toImmutableMap("intcol%s"::formatted, columnIndex -> 1000L + random.nextLong(0, 1000))))
                 .putAll(IntStream.rangeClosed(1, countStringColumns)
                         .boxed()
-                        .collect(toImmutableMap("stringcol%s"::formatted, columnIndex -> "Z".repeat(random.nextInt(0, 10)) + UUID.randomUUID())))
+                        .collect(toImmutableMap("stringcol%s"::formatted, columnIndex -> "Z".repeat(random.nextInt(1, 10)) + UUID.randomUUID())))
                 .buildOrThrow();
         Map<String, Object> nullCount = ImmutableMap.<String, Object>builder()
                 .putAll(IntStream.rangeClosed(1, countIntegerColumns)
@@ -565,7 +564,7 @@ public class TestCheckpointEntryIterator
         MetadataEntry metadataEntry = readMetadataEntry(checkpointUri);
         CheckpointEntryIterator checkpointEntryIterator = createCheckpointEntryIterator(
                 checkpointUri,
-                ImmutableSet.of(METADATA, PROTOCOL, TRANSACTION, ADD, REMOVE, COMMIT),
+                ImmutableSet.of(METADATA, PROTOCOL, TRANSACTION, ADD, REMOVE),
                 Optional.of(readMetadataEntry(checkpointUri)),
                 Optional.of(readProtocolEntry(checkpointUri)),
                 TupleDomain.all(),
@@ -614,13 +613,6 @@ public class TestCheckpointEntryIterator
                         1579190155406L,
                         false,
                         Optional.empty()));
-
-        // CommitInfoEntry
-        // not found in the checkpoint, TODO add a test
-        assertThat(entries)
-                .map(DeltaLakeTransactionLogEntry::getCommitInfo)
-                .filteredOn(Objects::nonNull)
-                .isEmpty();
     }
 
     @Test

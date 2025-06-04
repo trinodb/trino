@@ -16,15 +16,14 @@ package io.trino.operator.project;
 import com.google.common.collect.ImmutableList;
 import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.Work;
-import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DictionaryBlock;
-import io.trino.spi.block.LazyBlock;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.Type;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
@@ -62,7 +61,7 @@ public class TestDictionaryAwarePageProjection
     @Test
     public void testDelegateMethods()
     {
-        DictionaryAwarePageProjection projection = createProjection(false);
+        DictionaryAwarePageProjection projection = createProjection();
         assertThat(projection.isDeterministic()).isEqualTo(true);
         assertThat(projection.getInputChannels().getInputChannels()).isEqualTo(ImmutableList.of(3));
         assertThat(projection.getType()).isEqualTo(BIGINT);
@@ -72,9 +71,8 @@ public class TestDictionaryAwarePageProjection
     public void testSimpleBlock()
     {
         ValueBlock block = createLongSequenceBlock(0, 100);
-        testProject(block, block.getClass(), true, false);
-        testProject(block, block.getClass(), false, true);
-        testProject(block, block.getClass(), false, false);
+        testProject(block, block.getClass(), true);
+        testProject(block, block.getClass(), false);
     }
 
     @Test
@@ -83,9 +81,8 @@ public class TestDictionaryAwarePageProjection
         Block value = createLongSequenceBlock(42, 43);
         RunLengthEncodedBlock block = (RunLengthEncodedBlock) RunLengthEncodedBlock.create(value, 100);
 
-        testProject(block, RunLengthEncodedBlock.class, true, false);
-        testProject(block, RunLengthEncodedBlock.class, false, true);
-        testProject(block, RunLengthEncodedBlock.class, false, false);
+        testProject(block, RunLengthEncodedBlock.class, true);
+        testProject(block, RunLengthEncodedBlock.class, false);
     }
 
     @Test
@@ -94,9 +91,8 @@ public class TestDictionaryAwarePageProjection
         Block value = createLongSequenceBlock(-43, -42);
         RunLengthEncodedBlock block = (RunLengthEncodedBlock) RunLengthEncodedBlock.create(value, 100);
 
-        testProjectFails(block, RunLengthEncodedBlock.class, true, false);
-        testProjectFails(block, RunLengthEncodedBlock.class, false, true);
-        testProjectFails(block, RunLengthEncodedBlock.class, false, false);
+        testProjectFails(block, RunLengthEncodedBlock.class, true);
+        testProjectFails(block, RunLengthEncodedBlock.class, false);
     }
 
     @Test
@@ -104,9 +100,8 @@ public class TestDictionaryAwarePageProjection
     {
         Block block = createDictionaryBlock(10, 100);
 
-        testProject(block, DictionaryBlock.class, true, false);
-        testProject(block, DictionaryBlock.class, false, true);
-        testProject(block, DictionaryBlock.class, false, false);
+        testProject(block, DictionaryBlock.class, true);
+        testProject(block, DictionaryBlock.class, false);
     }
 
     @Test
@@ -114,9 +109,8 @@ public class TestDictionaryAwarePageProjection
     {
         Block block = createDictionaryBlockWithFailure(10, 100);
 
-        testProjectFails(block, DictionaryBlock.class, true, false);
-        testProjectFails(block, DictionaryBlock.class, false, true);
-        testProjectFails(block, DictionaryBlock.class, false, false);
+        testProjectFails(block, DictionaryBlock.class, true);
+        testProjectFails(block, DictionaryBlock.class, false);
     }
 
     @Test
@@ -125,65 +119,63 @@ public class TestDictionaryAwarePageProjection
         Block block = createDictionaryBlockWithUnusedEntries(10, 100);
 
         // failures in the dictionary processing will cause a fallback to normal columnar processing
-        testProject(block, LongArrayBlock.class, true, false);
-        testProject(block, LongArrayBlock.class, false, true);
-        testProject(block, LongArrayBlock.class, false, false);
+        testProject(block, LongArrayBlock.class, true);
+        testProject(block, LongArrayBlock.class, false);
     }
 
     @Test
     public void testDictionaryProcessingIgnoreYield()
     {
-        DictionaryAwarePageProjection projection = createProjection(false);
+        DictionaryAwarePageProjection projection = createProjection();
 
         // the same input block will bypass yield with multiple projections
         Block block = createDictionaryBlock(10, 100);
-        testProjectRange(block, DictionaryBlock.class, projection, true, false);
-        testProjectFastReturnIgnoreYield(block, projection, false);
-        testProjectFastReturnIgnoreYield(block, projection, false);
-        testProjectFastReturnIgnoreYield(block, projection, false);
+        testProjectRange(block, DictionaryBlock.class, projection, true);
+        testProjectFastReturnIgnoreYield(block, projection);
+        testProjectFastReturnIgnoreYield(block, projection);
+        testProjectFastReturnIgnoreYield(block, projection);
     }
 
     @Test
     public void testDictionaryProcessingEnableDisable()
     {
-        testDictionaryProcessingEnableDisable(true, false);
-        testDictionaryProcessingEnableDisable(false, true);
-        testDictionaryProcessingEnableDisable(false, false);
+        testDictionaryProcessingEnableDisable(true);
+        testDictionaryProcessingEnableDisable(false);
     }
 
-    private void testDictionaryProcessingEnableDisable(boolean forceYield, boolean produceLazyBlock)
+    private void testDictionaryProcessingEnableDisable(boolean forceYield)
     {
-        DictionaryAwarePageProjection projection = createProjection(produceLazyBlock);
+        DictionaryAwarePageProjection projection = createProjection();
 
         // function will always process the first dictionary
         Block ineffectiveBlock = createDictionaryBlock(100, 20);
-        testProjectRange(ineffectiveBlock, DictionaryBlock.class, projection, forceYield, produceLazyBlock);
-        testProjectFastReturnIgnoreYield(ineffectiveBlock, projection, produceLazyBlock);
+        testProjectRange(ineffectiveBlock, DictionaryBlock.class, projection, forceYield);
+        testProjectFastReturnIgnoreYield(ineffectiveBlock, projection);
         // dictionary processing can reuse the last dictionary
         // in this case, we don't even check yield signal; make yieldForce to false
-        testProjectList(ineffectiveBlock, DictionaryBlock.class, projection, false, produceLazyBlock);
+        testProjectList(ineffectiveBlock, DictionaryBlock.class, projection, false);
 
         // last dictionary not effective, and incoming dictionary is also not effective, so dictionary processing is disabled
         Block anotherIneffectiveBlock = createDictionaryBlock(100, 25);
-        testProjectRange(anotherIneffectiveBlock, LongArrayBlock.class, projection, forceYield, produceLazyBlock);
-        testProjectList(anotherIneffectiveBlock, LongArrayBlock.class, projection, forceYield, produceLazyBlock);
+        testProjectRange(anotherIneffectiveBlock, LongArrayBlock.class, projection, forceYield);
+        testProjectList(anotherIneffectiveBlock, LongArrayBlock.class, projection, forceYield);
 
         for (int i = 0; i < 15; i++) {
             // Increase usage count of large ineffective dictionary with multiple pages of small positions count
-            testProjectRange(anotherIneffectiveBlock, LongArrayBlock.class, projection, forceYield, produceLazyBlock);
+            testProjectRange(anotherIneffectiveBlock, LongArrayBlock.class, projection, forceYield);
         }
 
         // last dictionary effective, so dictionary processing is enabled again
-        testProjectRange(ineffectiveBlock, DictionaryBlock.class, projection, forceYield, produceLazyBlock);
-        testProjectFastReturnIgnoreYield(ineffectiveBlock, projection, produceLazyBlock);
+        testProjectRange(ineffectiveBlock, DictionaryBlock.class, projection, forceYield);
+        testProjectFastReturnIgnoreYield(ineffectiveBlock, projection);
         // dictionary processing can reuse the last dictionary
         // in this case, we don't even check yield signal; make yieldForce to false
-        testProjectList(ineffectiveBlock, DictionaryBlock.class, projection, false, produceLazyBlock);
+        testProjectList(ineffectiveBlock, DictionaryBlock.class, projection, false);
 
         // last dictionary not effective, but incoming dictionary is effective, so dictionary processing stays enabled
         Block effectiveBlock = createDictionaryBlock(10, 100);
-        testProjectRange(effectiveBlock, DictionaryBlock.class, projection, forceYield, produceLazyBlock);
-        testProjectFastReturnIgnoreYield(effectiveBlock, projection, produceLazyBlock);
+        testProjectRange(effectiveBlock, DictionaryBlock.class, projection, forceYield);
+        testProjectFastReturnIgnoreYield(effectiveBlock, projection);
     }
 
     @Test
@@ -191,20 +183,19 @@ public class TestDictionaryAwarePageProjection
     {
         DictionaryAwarePageProjection projection = new DictionaryAwarePageProjection(
                 new InputPageProjection(0, BIGINT),
-                block -> randomDictionaryId(),
-                false);
+                block -> randomDictionaryId());
         Block dictionary = createLongsBlock(0, 1);
         Block firstDictionaryBlock = DictionaryBlock.create(4, dictionary, new int[] {0, 1, 2, 3});
         Block secondDictionaryBlock = DictionaryBlock.create(4, dictionary, new int[] {3, 2, 1, 0});
 
         DriverYieldSignal yieldSignal = new DriverYieldSignal();
-        Work<Block> firstWork = projection.project(null, yieldSignal, new Page(firstDictionaryBlock), SelectedPositions.positionsList(new int[] {0, 1}, 0, 2));
+        Work<Block> firstWork = projection.project(null, yieldSignal, SourcePage.create(firstDictionaryBlock), SelectedPositions.positionsList(new int[] {0, 1}, 0, 2));
 
         assertThat(firstWork.process()).isTrue();
         Block firstOutputBlock = firstWork.getResult();
         assertThat(firstOutputBlock).isInstanceOf(DictionaryBlock.class);
 
-        Work<Block> secondWork = projection.project(null, yieldSignal, new Page(secondDictionaryBlock), SelectedPositions.positionsList(new int[] {0, 1}, 0, 2));
+        Work<Block> secondWork = projection.project(null, yieldSignal, SourcePage.create(secondDictionaryBlock), SelectedPositions.positionsList(new int[] {0, 1}, 0, 2));
 
         assertThat(secondWork.process()).isTrue();
         Block secondOutputBlock = secondWork.getResult();
@@ -259,38 +250,26 @@ public class TestDictionaryAwarePageProjection
         }
     }
 
-    private static void testProject(Block block, Class<? extends Block> expectedResultType, boolean forceYield, boolean produceLazyBlock)
+    private static void testProject(Block block, Class<? extends Block> expectedResultType, boolean forceYield)
     {
-        testProjectRange(block, expectedResultType, createProjection(produceLazyBlock), forceYield, produceLazyBlock);
-        testProjectList(block, expectedResultType, createProjection(produceLazyBlock), forceYield, produceLazyBlock);
-        testProjectRange(lazyWrapper(block), expectedResultType, createProjection(produceLazyBlock), forceYield, produceLazyBlock);
-        testProjectList(lazyWrapper(block), expectedResultType, createProjection(produceLazyBlock), forceYield, produceLazyBlock);
+        testProjectRange(block, expectedResultType, createProjection(), forceYield);
+        testProjectList(block, expectedResultType, createProjection(), forceYield);
     }
 
-    private static void testProjectFails(Block block, Class<? extends Block> expectedResultType, boolean forceYield, boolean produceLazyBlock)
+    private static void testProjectFails(Block block, Class<? extends Block> expectedResultType, boolean forceYield)
     {
-        assertThatThrownBy(() -> testProjectRange(block, expectedResultType, createProjection(produceLazyBlock), forceYield, produceLazyBlock))
+        assertThatThrownBy(() -> testProjectRange(block, expectedResultType, createProjection(), forceYield))
                 .isInstanceOf(NegativeValueException.class)
                 .hasMessageContaining("value is negative");
-        assertThatThrownBy(() -> testProjectList(block, expectedResultType, createProjection(produceLazyBlock), forceYield, produceLazyBlock))
-                .isInstanceOf(NegativeValueException.class)
-                .hasMessageContaining("value is negative");
-        assertThatThrownBy(() -> testProjectRange(lazyWrapper(block), expectedResultType, createProjection(produceLazyBlock), forceYield, produceLazyBlock))
-                .isInstanceOf(NegativeValueException.class)
-                .hasMessageContaining("value is negative");
-        assertThatThrownBy(() -> testProjectList(lazyWrapper(block), expectedResultType, createProjection(produceLazyBlock), forceYield, produceLazyBlock))
+        assertThatThrownBy(() -> testProjectList(block, expectedResultType, createProjection(), forceYield))
                 .isInstanceOf(NegativeValueException.class)
                 .hasMessageContaining("value is negative");
     }
 
-    private static void testProjectRange(Block block, Class<? extends Block> expectedResultType, DictionaryAwarePageProjection projection, boolean forceYield, boolean produceLazyBlock)
+    private static void testProjectRange(Block block, Class<? extends Block> expectedResultType, DictionaryAwarePageProjection projection, boolean forceYield)
     {
-        if (produceLazyBlock) {
-            block = lazyWrapper(block);
-        }
-
         DriverYieldSignal yieldSignal = new DriverYieldSignal();
-        Work<Block> work = projection.project(null, yieldSignal, new Page(block), SelectedPositions.positionsRange(5, 10));
+        Work<Block> work = projection.project(null, yieldSignal, SourcePage.create(block), SelectedPositions.positionsRange(5, 10));
         Block result;
         if (forceYield) {
             result = projectWithYield(work, yieldSignal);
@@ -298,13 +277,6 @@ public class TestDictionaryAwarePageProjection
         else {
             assertThat(work.process()).isTrue();
             result = work.getResult();
-        }
-
-        if (produceLazyBlock) {
-            assertThat(result).isInstanceOf(LazyBlock.class);
-            assertThat(result.isLoaded()).isFalse();
-            assertThat(block.isLoaded()).isFalse();
-            result = result.getLoadedBlock();
         }
 
         assertBlockEquals(
@@ -314,15 +286,11 @@ public class TestDictionaryAwarePageProjection
         assertThat(result).isInstanceOf(expectedResultType);
     }
 
-    private static void testProjectList(Block block, Class<? extends Block> expectedResultType, DictionaryAwarePageProjection projection, boolean forceYield, boolean produceLazyBlock)
+    private static void testProjectList(Block block, Class<? extends Block> expectedResultType, DictionaryAwarePageProjection projection, boolean forceYield)
     {
-        if (produceLazyBlock) {
-            block = lazyWrapper(block);
-        }
-
         DriverYieldSignal yieldSignal = new DriverYieldSignal();
         int[] positions = {0, 2, 4, 6, 8, 10};
-        Work<Block> work = projection.project(null, yieldSignal, new Page(block), SelectedPositions.positionsList(positions, 0, positions.length));
+        Work<Block> work = projection.project(null, yieldSignal, SourcePage.create(block), SelectedPositions.positionsList(positions, 0, positions.length));
         Block result;
         if (forceYield) {
             result = projectWithYield(work, yieldSignal);
@@ -330,13 +298,6 @@ public class TestDictionaryAwarePageProjection
         else {
             assertThat(work.process()).isTrue();
             result = work.getResult();
-        }
-
-        if (produceLazyBlock) {
-            assertThat(result).isInstanceOf(LazyBlock.class);
-            assertThat(result.isLoaded()).isFalse();
-            assertThat(block.isLoaded()).isFalse();
-            result = result.getLoadedBlock();
         }
 
         assertBlockEquals(
@@ -346,14 +307,10 @@ public class TestDictionaryAwarePageProjection
         assertThat(result).isInstanceOf(expectedResultType);
     }
 
-    private static void testProjectFastReturnIgnoreYield(Block block, DictionaryAwarePageProjection projection, boolean produceLazyBlock)
+    private static void testProjectFastReturnIgnoreYield(Block block, DictionaryAwarePageProjection projection)
     {
-        if (produceLazyBlock) {
-            block = lazyWrapper(block);
-        }
-
         DriverYieldSignal yieldSignal = new DriverYieldSignal();
-        Work<Block> work = projection.project(null, yieldSignal, new Page(block), SelectedPositions.positionsRange(5, 10));
+        Work<Block> work = projection.project(null, yieldSignal, SourcePage.create(block), SelectedPositions.positionsRange(5, 10));
         yieldSignal.setWithDelay(1, executor);
         yieldSignal.forceYieldForTesting();
 
@@ -362,13 +319,6 @@ public class TestDictionaryAwarePageProjection
         Block result = work.getResult();
         yieldSignal.reset();
 
-        if (produceLazyBlock) {
-            assertThat(result).isInstanceOf(LazyBlock.class);
-            assertThat(result.isLoaded()).isFalse();
-            assertThat(block.isLoaded()).isFalse();
-            result = result.getLoadedBlock();
-        }
-
         assertBlockEquals(
                 BIGINT,
                 result,
@@ -376,17 +326,11 @@ public class TestDictionaryAwarePageProjection
         assertThat(result).isInstanceOf(DictionaryBlock.class);
     }
 
-    private static DictionaryAwarePageProjection createProjection(boolean produceLazyBlock)
+    private static DictionaryAwarePageProjection createProjection()
     {
         return new DictionaryAwarePageProjection(
                 new TestPageProjection(),
-                block -> randomDictionaryId(),
-                produceLazyBlock);
-    }
-
-    private static LazyBlock lazyWrapper(Block block)
-    {
-        return new LazyBlock(block.getPositionCount(), block::getLoadedBlock);
+                _ -> randomDictionaryId());
     }
 
     private static class TestPageProjection
@@ -411,7 +355,7 @@ public class TestDictionaryAwarePageProjection
         }
 
         @Override
-        public Work<Block> project(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
+        public Work<Block> project(ConnectorSession session, DriverYieldSignal yieldSignal, SourcePage page, SelectedPositions selectedPositions)
         {
             return new TestPageProjectionWork(yieldSignal, page, selectedPositions);
         }
@@ -427,7 +371,7 @@ public class TestDictionaryAwarePageProjection
             private int nextIndexOrPosition;
             private Block result;
 
-            public TestPageProjectionWork(DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
+            public TestPageProjectionWork(DriverYieldSignal yieldSignal, SourcePage page, SelectedPositions selectedPositions)
             {
                 this.yieldSignal = yieldSignal;
                 this.block = page.getBlock(0);

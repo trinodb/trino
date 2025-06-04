@@ -41,7 +41,7 @@ public class Minio
 {
     private static final Logger log = Logger.get(Minio.class);
 
-    public static final String DEFAULT_IMAGE = "minio/minio:RELEASE.2025-01-20T14-49-07Z";
+    public static final String DEFAULT_IMAGE = "minio/minio:RELEASE.2024-12-18T13-15-44Z";
     public static final String DEFAULT_HOST_NAME = "minio";
 
     public static final int MINIO_API_PORT = 4566;

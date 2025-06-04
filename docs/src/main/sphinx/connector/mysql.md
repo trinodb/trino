@@ -105,6 +105,37 @@ creates a catalog named `sales` using the configured connector.
 The connector supports {doc}`/admin/fault-tolerant-execution` of query
 processing. Read and write operations are both supported with any retry policy.
 
+## Table properties
+
+Table property usage example:
+
+```
+CREATE TABLE person (
+  id INT NOT NULL,
+  name VARCHAR,
+  age INT,
+  birthday DATE 
+)
+WITH (
+  primary_key = ARRAY['id']
+);
+```
+
+The following are supported MySQL table properties: 
+
+:::{list-table}
+:widths: 30, 10, 60
+:header-rows: 1
+
+* - Property name
+  - Required
+  - Description
+* - `primary_key`
+  - No
+  - The primary key of the table, can choose multi columns as the table primary key.
+    All key columns must be defined as `NOT NULL`.
+:::
+
 (mysql-type-mapping)=
 ## Type mapping
 

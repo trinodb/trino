@@ -147,7 +147,7 @@ public class SkewedPartitionRebalancer
         // compared to only a single hive bucket reaching the min limit.
         int bucketCount = (handle.getConnectorHandle() instanceof SystemPartitioningHandle)
                 ? SCALE_WRITERS_PARTITION_COUNT
-                : nodePartitioningManager.getBucketNodeMap(session, handle).getBucketCount();
+                : nodePartitioningManager.getBucketCount(session, handle);
         return nodePartitioningManager.getPartitionFunction(
                 session,
                 scheme,

@@ -40,6 +40,7 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
+import io.trino.sql.analyzer.Analysis.CorrespondingAnalysis;
 import io.trino.sql.analyzer.Analysis.JsonTableAnalysis;
 import io.trino.sql.analyzer.Analysis.TableArgumentAnalysis;
 import io.trino.sql.analyzer.Analysis.TableFunctionInvocationAnalysis;
@@ -422,7 +423,7 @@ class RelationPlanner
 
     private RelationPlan addColumnMasks(Table table, RelationPlan plan)
     {
-        Map<String, io.trino.sql.tree.Expression> columnMasks = analysis.getColumnMasks(table);
+        Map<Field, io.trino.sql.tree.Expression> columnMasks = analysis.getColumnMasks(table);
 
         // A Table can represent a WITH query, which can have anonymous fields. On the other hand,
         // it can't have masks. The loop below expects fields to have proper names, so bail out
@@ -441,7 +442,7 @@ class RelationPlanner
         for (int i = 0; i < plan.getDescriptor().getAllFieldCount(); i++) {
             Field field = plan.getDescriptor().getFieldByIndex(i);
 
-            io.trino.sql.tree.Expression mask = columnMasks.get(field.getName().orElseThrow());
+            io.trino.sql.tree.Expression mask = columnMasks.get(field);
             Symbol symbol = plan.getFieldMappings().get(i);
             Expression projection = symbol.toSymbolReference();
             if (mask != null) {
@@ -944,10 +945,10 @@ class RelationPlanner
                     // it to the list complex expressions and let the optimizers figure out how to push it down later.
                     complexJoinExpressions.add(conjunct);
                 }
-                else if (conjunct instanceof io.trino.sql.tree.ComparisonExpression) {
-                    io.trino.sql.tree.Expression firstExpression = ((io.trino.sql.tree.ComparisonExpression) conjunct).getLeft();
-                    io.trino.sql.tree.Expression secondExpression = ((io.trino.sql.tree.ComparisonExpression) conjunct).getRight();
-                    io.trino.sql.tree.ComparisonExpression.Operator comparisonOperator = ((io.trino.sql.tree.ComparisonExpression) conjunct).getOperator();
+                else if (conjunct instanceof io.trino.sql.tree.ComparisonExpression comparisonExpression) {
+                    io.trino.sql.tree.Expression firstExpression = comparisonExpression.getLeft();
+                    io.trino.sql.tree.Expression secondExpression = comparisonExpression.getRight();
+                    io.trino.sql.tree.ComparisonExpression.Operator comparisonOperator = comparisonExpression.getOperator();
                     Set<QualifiedName> firstDependencies = NamesExtractor.extractNames(firstExpression, analysis.getColumnReferences());
                     Set<QualifiedName> secondDependencies = NamesExtractor.extractNames(secondExpression, analysis.getColumnReferences());
 
@@ -1205,33 +1206,33 @@ class RelationPlanner
 
     private static Optional<Unnest> getUnnest(Relation relation)
     {
-        if (relation instanceof AliasedRelation) {
-            return getUnnest(((AliasedRelation) relation).getRelation());
+        if (relation instanceof AliasedRelation aliasedRelation) {
+            return getUnnest(aliasedRelation.getRelation());
         }
-        if (relation instanceof Unnest) {
-            return Optional.of((Unnest) relation);
+        if (relation instanceof Unnest unnest) {
+            return Optional.of(unnest);
         }
         return Optional.empty();
     }
 
     private static Optional<JsonTable> getJsonTable(Relation relation)
     {
-        if (relation instanceof AliasedRelation) {
-            return getJsonTable(((AliasedRelation) relation).getRelation());
+        if (relation instanceof AliasedRelation aliasedRelation) {
+            return getJsonTable(aliasedRelation.getRelation());
         }
-        if (relation instanceof JsonTable) {
-            return Optional.of((JsonTable) relation);
+        if (relation instanceof JsonTable jsonTable) {
+            return Optional.of(jsonTable);
         }
         return Optional.empty();
     }
 
     private static Optional<Lateral> getLateral(Relation relation)
     {
-        if (relation instanceof AliasedRelation) {
-            return getLateral(((AliasedRelation) relation).getRelation());
+        if (relation instanceof AliasedRelation aliasedRelation) {
+            return getLateral(aliasedRelation.getRelation());
         }
-        if (relation instanceof Lateral) {
-            return Optional.of((Lateral) relation);
+        if (relation instanceof Lateral lateral) {
+            return Optional.of(lateral);
         }
         return Optional.empty();
     }
@@ -1764,8 +1765,8 @@ class RelationPlanner
 
         ImmutableList.Builder<Expression> rows = ImmutableList.builder();
         for (io.trino.sql.tree.Expression row : node.getRows()) {
-            if (row instanceof io.trino.sql.tree.Row) {
-                rows.add(new Row(((io.trino.sql.tree.Row) row).getItems().stream()
+            if (row instanceof io.trino.sql.tree.Row value) {
+                rows.add(new Row(value.getItems().stream()
                         .map(item -> coerceIfNecessary(analysis, item, translationMap.rewrite(item)))
                         .collect(toImmutableList())));
             }
@@ -1865,8 +1866,32 @@ class RelationPlanner
         ImmutableListMultimap.Builder<Symbol, Symbol> symbolMapping = ImmutableListMultimap.builder();
         ImmutableList.Builder<PlanNode> sources = ImmutableList.builder();
 
-        for (Relation child : node.getRelations()) {
+        List<Relation> relations = node.getRelations();
+        checkArgument(relations.size() == 2, "relations size must be 2");
+        for (Relation child : relations) {
             RelationPlan plan = process(child, null);
+
+            if (node.getCorresponding().isPresent()) {
+                int[] fieldIndexForVisibleColumn = new int[plan.getDescriptor().getVisibleFieldCount()];
+                int visibleColumn = 0;
+                for (int i = 0; i < plan.getDescriptor().getAllFieldCount(); i++) {
+                    if (!plan.getDescriptor().getFieldByIndex(i).isHidden()) {
+                        fieldIndexForVisibleColumn[visibleColumn] = i;
+                        visibleColumn++;
+                    }
+                }
+
+                CorrespondingAnalysis correspondingAnalysis = analysis.getCorrespondingAnalysis(child);
+                List<Symbol> requiredColumns = correspondingAnalysis.indexes().stream()
+                        .filter(column -> column < fieldIndexForVisibleColumn.length)
+                        .map(column -> fieldIndexForVisibleColumn[column])
+                        .map(plan::getSymbol)
+                        .collect(toImmutableList());
+
+                ProjectNode projectNode = new ProjectNode(idAllocator.getNextId(), plan.getRoot(), Assignments.identity(requiredColumns));
+                Scope scope = Scope.builder().withRelationType(plan.getScope().getRelationId(), new RelationType(correspondingAnalysis.fields())).build();
+                plan = new RelationPlan(projectNode, scope, requiredColumns, plan.getOuterContext());
+            }
 
             NodeAndMappings planAndMappings;
             List<Type> types = analysis.getRelationCoercion(child);

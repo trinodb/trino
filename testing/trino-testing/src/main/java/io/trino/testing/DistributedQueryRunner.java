@@ -325,9 +325,9 @@ public class DistributedQueryRunner
 
             // Use few threads in tests to preserve resources on CI
             propertiesBuilder.put("failure-detector.http-client.min-threads", "1"); // default 8
-            propertiesBuilder.put("memoryManager.http-client.min-threads", "1"); // default 8
+            propertiesBuilder.put("memory-manager.http-client.min-threads", "1"); // default 8
             propertiesBuilder.put("scheduler.http-client.min-threads", "1"); // default 8
-            propertiesBuilder.put("workerInfo.http-client.min-threads", "1"); // default 8
+            propertiesBuilder.put("worker-info.http-client.min-threads", "1"); // default 8
         }
         HashMap<String, String> properties = new HashMap<>(propertiesBuilder.buildOrThrow());
         properties.putAll(extraProperties);
@@ -583,18 +583,24 @@ public class DistributedQueryRunner
         // session must be in a transaction registered with the transaction manager in this query runner
         getTransactionManager().getTransactionInfo(session.getRequiredTransactionId());
 
-        spansValid = concurrentQueries.incrementAndGet() == 1;
+        lock.readLock().lock();
         try {
-            spanExporter.reset();
-            return coordinator.getQueryExplainer().getLogicalPlan(
-                    session,
-                    coordinator.getInstance(Key.get(SqlParser.class)).createStatement(sql),
-                    ImmutableList.of(),
-                    WarningCollector.NOOP,
-                    createPlanOptimizersStatsCollector());
+            spansValid = concurrentQueries.incrementAndGet() == 1;
+            try {
+                spanExporter.reset();
+                return coordinator.getQueryExplainer().getLogicalPlan(
+                        session,
+                        coordinator.getInstance(Key.get(SqlParser.class)).createStatement(sql),
+                        ImmutableList.of(),
+                        WarningCollector.NOOP,
+                        createPlanOptimizersStatsCollector());
+            }
+            finally {
+                concurrentQueries.decrementAndGet();
+            }
         }
         finally {
-            concurrentQueries.decrementAndGet();
+            lock.readLock().unlock();
         }
     }
 
@@ -911,7 +917,7 @@ public class DistributedQueryRunner
                 addExtraProperty("protocol.spooling.enabled", "true");
                 // create smaller number of segments
                 addExtraProperty("protocol.spooling.initial-segment-size", "16MB");
-                addExtraProperty("protocol.spooling.maximum-segment-size", "32MB");
+                addExtraProperty("protocol.spooling.max-segment-size", "32MB");
                 addExtraProperty("protocol.spooling.shared-secret-key", randomAESKey());
                 // LocalSpoolingManager doesn't support direct storage access
                 addExtraProperty("protocol.spooling.retrieval-mode", "coordinator_proxy");
@@ -924,7 +930,10 @@ public class DistributedQueryRunner
                 OpenTracingCollector collector = new OpenTracingCollector();
                 collector.start();
                 extraCloseables.add(collector);
-                addExtraProperties(Map.of("tracing.enabled", "true", "tracing.exporter.endpoint", collector.getExporterEndpoint().toString()));
+                addExtraProperties(Map.of(
+                        "tracing.enabled", "true",
+                        "tracing.exporter.endpoint", collector.getExporterEndpoint().toString(),
+                        "tracing.exporter.protocol", "http/protobuf"));
                 checkState(eventListeners.isEmpty(), "eventListeners already set");
                 setEventListener(new EventListener()
                 {

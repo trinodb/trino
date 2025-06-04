@@ -16,16 +16,16 @@ package io.trino.plugin.base.security;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.ConnectorAccessControl;
 
-import java.io.File;
+import java.nio.file.Path;
 import java.util.Map;
 
 public class TestFileBasedAccessControl
         extends BaseFileBasedConnectorAccessControlTest
 {
     @Override
-    protected ConnectorAccessControl createAccessControl(File configFile, Map<String, String> properties)
+    protected ConnectorAccessControl createAccessControl(Path configFile, Map<String, String> properties)
     {
         return createAccessControl(ImmutableMap.<String, String>builder().putAll(properties).put("security.config-file",
-                configFile.getAbsolutePath()).buildOrThrow());
+                configFile.toAbsolutePath().toString()).buildOrThrow());
     }
 }

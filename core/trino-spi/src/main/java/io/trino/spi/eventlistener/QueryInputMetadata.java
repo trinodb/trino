@@ -30,11 +30,12 @@ import static java.util.Objects.requireNonNull;
  */
 public class QueryInputMetadata
 {
+    private final Optional<String> connectorName;
     private final String catalogName;
     private final CatalogVersion catalogVersion;
     private final String schema;
     private final String table;
-    private final List<String> columns;
+    private final List<Column> columns;
     private final Optional<Object> connectorInfo;
     private final Metrics connectorMetrics;
     private final OptionalLong physicalInputBytes;
@@ -43,16 +44,18 @@ public class QueryInputMetadata
     @JsonCreator
     @Unstable
     public QueryInputMetadata(
+            Optional<String> connectorName,
             String catalogName,
             CatalogVersion catalogVersion,
             String schema,
             String table,
-            List<String> columns,
+            List<Column> columns,
             Optional<Object> connectorInfo,
             Metrics connectorMetrics,
             OptionalLong physicalInputBytes,
             OptionalLong physicalInputRows)
     {
+        this.connectorName = requireNonNull(connectorName, "connectorName is null");
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.catalogVersion = requireNonNull(catalogVersion, "catalogVersion is null");
         this.schema = requireNonNull(schema, "schema is null");
@@ -62,6 +65,12 @@ public class QueryInputMetadata
         this.connectorMetrics = requireNonNull(connectorMetrics, "connectorMetrics is null");
         this.physicalInputBytes = requireNonNull(physicalInputBytes, "physicalInputBytes is null");
         this.physicalInputRows = requireNonNull(physicalInputRows, "physicalInputRows is null");
+    }
+
+    @JsonProperty
+    public Optional<String> getConnectorName()
+    {
+        return connectorName;
     }
 
     @JsonProperty
@@ -89,7 +98,7 @@ public class QueryInputMetadata
     }
 
     @JsonProperty
-    public List<String> getColumns()
+    public List<Column> getColumns()
     {
         return columns;
     }
@@ -117,4 +126,6 @@ public class QueryInputMetadata
     {
         return physicalInputRows;
     }
+
+    public record Column(String name, String type) {}
 }

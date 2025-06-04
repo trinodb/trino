@@ -128,9 +128,6 @@ public final class ArrayBlock
     public long getSizeInBytes()
     {
         if (sizeInBytes < 0) {
-            if (!values.isLoaded()) {
-                return getBaseSizeInBytes();
-            }
             calculateSize();
         }
         return sizeInBytes;
@@ -193,43 +190,29 @@ public final class ArrayBlock
     }
 
     @Override
-    public String getEncodingName()
-    {
-        return ArrayBlockEncoding.NAME;
-    }
-
-    @Override
     public boolean mayHaveNull()
     {
         return valueIsNull != null;
     }
 
     @Override
+    public boolean hasNull()
+    {
+        if (valueIsNull == null) {
+            return false;
+        }
+        for (int i = 0; i < positionCount; i++) {
+            if (valueIsNull[i + arrayOffset]) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
     public String toString()
     {
         return "ArrayBlock{positionCount=" + getPositionCount() + '}';
-    }
-
-    @Override
-    public boolean isLoaded()
-    {
-        return values.isLoaded();
-    }
-
-    @Override
-    public ArrayBlock getLoadedBlock()
-    {
-        Block loadedValuesBlock = values.getLoadedBlock();
-
-        if (loadedValuesBlock == values) {
-            return this;
-        }
-        return createArrayBlockInternal(
-                arrayOffset,
-                positionCount,
-                valueIsNull,
-                offsets,
-                loadedValuesBlock);
     }
 
     @Override

@@ -13,7 +13,6 @@
  */
 package io.trino.cli;
 
-import com.google.common.base.Strings;
 import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -412,7 +411,7 @@ Spilled: 20GB
 
         String id = String.valueOf(stageNumberCounter.getAndIncrement());
         String name = indent + id;
-        name += Strings.repeat(".", max(0, 10 - name.length()));
+        name += ".".repeat(max(0, 10 - name.length()));
 
         String bytesPerSecond;
         String rowsPerSecond;

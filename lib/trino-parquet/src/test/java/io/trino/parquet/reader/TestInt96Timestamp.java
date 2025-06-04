@@ -25,9 +25,9 @@ import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.metadata.ParquetMetadata;
 import io.trino.plugin.base.type.DecodedTimestamp;
-import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.Fixed12Block;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Timestamps;
@@ -115,10 +115,10 @@ public class TestInt96Timestamp
         ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
         ParquetReader reader = createParquetReader(dataSource, parquetMetadata, newSimpleAggregatedMemoryContext(), types, columnNames);
 
-        Page page = reader.nextPage();
+        SourcePage page = reader.nextPage();
         ImmutableList.Builder<LocalDateTime> builder = ImmutableList.builder();
         while (page != null) {
-            Fixed12Block block = (Fixed12Block) page.getBlock(0).getLoadedBlock();
+            Fixed12Block block = (Fixed12Block) page.getBlock(0);
             for (int i = 0; i < block.getPositionCount(); i++) {
                 builder.add(toLocalDateTime(block, i));
             }

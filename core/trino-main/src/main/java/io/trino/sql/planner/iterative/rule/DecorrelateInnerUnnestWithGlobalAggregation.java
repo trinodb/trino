@@ -261,7 +261,7 @@ public class DecorrelateInnerUnnestWithGlobalAggregation
         PlanNode unnestSource = lookup.resolve(unnestNode.getSource());
         Set<Symbol> correlationSymbols = ImmutableSet.copyOf(correlation);
         boolean basedOnCorrelation = correlationSymbols.containsAll(unnestSymbols) ||
-                unnestSource instanceof ProjectNode && correlationSymbols.containsAll(SymbolsExtractor.extractUnique(((ProjectNode) unnestSource).getAssignments().getExpressions()));
+                unnestSource instanceof ProjectNode projectNode && correlationSymbols.containsAll(SymbolsExtractor.extractUnique(projectNode.getAssignments().getExpressions()));
 
         return isScalar(unnestNode.getSource(), lookup) &&
                 unnestNode.getReplicateSymbols().isEmpty() &&

@@ -97,8 +97,8 @@ public class JmxRecordSetProvider
                         }
                     }
                     else if (javaType == long.class) {
-                        if (value instanceof Number) {
-                            row.add(((Number) value).longValue());
+                        if (value instanceof Number number) {
+                            row.add(number.longValue());
                         }
                         else {
                             // mbeans can lie about types
@@ -106,8 +106,8 @@ public class JmxRecordSetProvider
                         }
                     }
                     else if (javaType == double.class) {
-                        if (value instanceof Number) {
-                            row.add(((Number) value).doubleValue());
+                        if (value instanceof Number number) {
+                            row.add(number.doubleValue());
                         }
                         else {
                             // mbeans can lie about types

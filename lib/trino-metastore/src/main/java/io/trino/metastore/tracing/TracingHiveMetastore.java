@@ -236,13 +236,13 @@ public class TracingHiveMetastore
     }
 
     @Override
-    public void replaceTable(String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges)
+    public void replaceTable(String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges, Map<String, String> environmentContext)
     {
         Span span = tracer.spanBuilder("HiveMetastore.replaceTable")
                 .setAttribute(SCHEMA, databaseName)
                 .setAttribute(TABLE, tableName)
                 .startSpan();
-        withTracing(span, () -> delegate.replaceTable(databaseName, tableName, newTable, principalPrivileges));
+        withTracing(span, () -> delegate.replaceTable(databaseName, tableName, newTable, principalPrivileges, environmentContext));
     }
 
     @Override

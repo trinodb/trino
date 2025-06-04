@@ -21,7 +21,6 @@ import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
-import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -47,7 +46,6 @@ public class TpchModule
         binder.bind(NodeManager.class).toInstance(nodeManager);
         binder.bind(Connector.class).to(TpchConnector.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorMetadata.class).to(TpchMetadata.class).in(Scopes.SINGLETON);
-        binder.bind(ConnectorRecordSetProvider.class).to(TpchRecordSetProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPageSourceProvider.class).to(TpchPageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorSplitManager.class).to(TpchSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorNodePartitioningProvider.class).to(TpchNodePartitioningProvider.class).in(Scopes.SINGLETON);

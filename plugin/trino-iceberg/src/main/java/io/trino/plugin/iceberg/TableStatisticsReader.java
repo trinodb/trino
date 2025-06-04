@@ -63,8 +63,9 @@ import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.isMetadataColumnId;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isExtendedStatisticsEnabled;
-import static io.trino.plugin.iceberg.IcebergUtil.getFileModifiedTimePathDomain;
+import static io.trino.plugin.iceberg.IcebergUtil.getFileModifiedTimeDomain;
 import static io.trino.plugin.iceberg.IcebergUtil.getModificationTime;
+import static io.trino.plugin.iceberg.IcebergUtil.getPartitionDomain;
 import static io.trino.plugin.iceberg.IcebergUtil.getPathDomain;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
@@ -142,8 +143,9 @@ public final class TableStatisticsReader
                 .map(IcebergColumnHandle::getId)
                 .collect(toImmutableSet());
 
+        Domain partitionDomain = getPartitionDomain(effectivePredicate);
         Domain pathDomain = getPathDomain(effectivePredicate);
-        Domain fileModifiedTimeDomain = getFileModifiedTimePathDomain(effectivePredicate);
+        Domain fileModifiedTimeDomain = getFileModifiedTimeDomain(effectivePredicate);
         Schema snapshotSchema = schemaFor(icebergTable, snapshotId);
         TableScan tableScan = icebergTable.newScan()
                 .filter(toIcebergExpression(effectivePredicate.filter((column, domain) -> !isMetadataColumnId(column.getId()))))
@@ -157,6 +159,9 @@ public final class TableStatisticsReader
         IcebergStatistics.Builder icebergStatisticsBuilder = new IcebergStatistics.Builder(columns, typeManager);
         try (CloseableIterable<FileScanTask> fileScanTasks = tableScan.planFiles()) {
             fileScanTasks.forEach(fileScanTask -> {
+                if (!partitionDomain.isAll() && !partitionDomain.includesNullableValue(utf8Slice(fileScanTask.spec().partitionToPath(fileScanTask.partition())))) {
+                    return;
+                }
                 if (!pathDomain.isAll() && !pathDomain.includesNullableValue(utf8Slice(fileScanTask.file().location()))) {
                     return;
                 }

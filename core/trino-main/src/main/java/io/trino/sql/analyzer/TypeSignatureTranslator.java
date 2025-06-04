@@ -63,7 +63,7 @@ import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static java.lang.String.format;
 
-public class TypeSignatureTranslator
+public final class TypeSignatureTranslator
 {
     private static final SqlParser SQL_PARSER = new SqlParser();
 
@@ -181,8 +181,8 @@ public class TypeSignatureTranslator
 
         if (type.getPrecision().isPresent()) {
             DataTypeParameter precision = type.getPrecision().get();
-            if (precision instanceof NumericParameter) {
-                parameters.add(numericParameter(Long.parseLong(((NumericParameter) precision).getValue())));
+            if (precision instanceof NumericParameter numericParameter) {
+                parameters.add(numericParameter(Long.parseLong(numericParameter.getValue())));
             }
             else if (precision instanceof TypeParameter typeParameter) {
                 DataType typeVariable = typeParameter.getValue();

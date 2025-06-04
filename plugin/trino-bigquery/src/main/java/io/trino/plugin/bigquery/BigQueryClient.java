@@ -52,6 +52,7 @@ import io.trino.spi.connector.TableNotFoundException;
 
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -92,7 +93,6 @@ import static java.util.stream.Collectors.joining;
 public class BigQueryClient
 {
     private static final Logger log = Logger.get(BigQueryClient.class);
-    private static final int PAGE_SIZE = 100;
 
     // BigQuery has different table_type in `INFORMATION_SCHEMA` than API responses that returns TableDefinition.Type
     // see https://cloud.google.com/bigquery/docs/information-schema-tables#schema
@@ -110,6 +110,7 @@ public class BigQueryClient
     private final ViewMaterializationCache materializationCache;
     private final boolean caseInsensitiveNameMatching;
     private final LoadingCache<String, List<DatasetId>> remoteDatasetIdCache;
+    private final int metadataPageSize;
     private final Cache<DatasetId, RemoteDatabaseObject> remoteDatasetCaseInsensitiveCache;
     private final Cache<TableId, RemoteDatabaseObject> remoteTableCaseInsensitiveCache;
     private final Optional<String> configProjectId;
@@ -122,6 +123,7 @@ public class BigQueryClient
             Duration caseInsensitiveNameMatchingCacheTtl,
             ViewMaterializationCache materializationCache,
             Duration metadataCacheTtl,
+            int metadataPageSize,
             Optional<String> configProjectId)
     {
         this.bigQuery = requireNonNull(bigQuery, "bigQuery is null");
@@ -133,6 +135,7 @@ public class BigQueryClient
                 .expireAfterWrite(metadataCacheTtl.toMillis(), MILLISECONDS)
                 .shareNothingWhenDisabled()
                 .build(CacheLoader.from(this::listDatasetIdsFromBigQuery));
+        this.metadataPageSize = metadataPageSize;
         this.remoteDatasetCaseInsensitiveCache = buildCache(caseInsensitiveNameMatchingCacheTtl);
         this.remoteTableCaseInsensitiveCache = buildCache(caseInsensitiveNameMatchingCacheTtl);
         this.configProjectId = requireNonNull(configProjectId, "projectId is null");
@@ -189,9 +192,49 @@ public class BigQueryClient
         return toRemoteTable(projectId, remoteDatasetName, tableName, () -> findTableIdsIgnoreCase(session, DatasetId.of(projectId, remoteDatasetName), tableName));
     }
 
-    public Optional<RemoteDatabaseObject> toRemoteTable(String projectId, String remoteDatasetName, String tableName, Iterable<TableId> tableIds)
+    /**
+     * Similar to BigQueryClient#toRemoteTable method, but this iterates through all tableIds filtering out
+     * the ambiguous tables when caseInsensitiveNameMatching is enabled, additionally mapping them to a SchemaTableName
+     */
+    public List<SchemaTableName> listNonAmbiguousSchemaTableNames(String projectId, String remoteDatasetName, Iterable<TableId> tableIds)
     {
-        return toRemoteTable(projectId, remoteDatasetName, tableName, () -> tableIds);
+        checkState(projectId != null, "projectId was not set");
+        checkState(remoteDatasetName != null, "remoteDatasetName was not set");
+        if (!caseInsensitiveNameMatching) {
+            return stream(tableIds)
+                    .map(table -> new SchemaTableName(toSchemaName(DatasetId.of(projectId, table.getDataset())), table.getTable()))
+                    .collect(Collectors.toList());
+        }
+
+        ImmutableList.Builder<SchemaTableName> schemaTableNamesBuilder = ImmutableList.builder();
+        Map<TableId, Set<String>> collisionTracker = new HashMap<>();
+        for (TableId table : tableIds) {
+            String tableName = table.getTable().toLowerCase(ENGLISH);
+            TableId cacheKey = TableId.of(projectId, remoteDatasetName, tableName);
+
+            RemoteDatabaseObject remoteTableFromCache = remoteTableCaseInsensitiveCache.getIfPresent(cacheKey);
+            // cache entry exists and there are no multiple tables with a case-insensitively matching name (i.e no ambiguity)
+            if (remoteTableFromCache != null && remoteTableFromCache.remoteNames.size() == 1) {
+                schemaTableNamesBuilder.add(new SchemaTableName(toSchemaName(DatasetId.of(projectId, remoteDatasetName)), cacheKey.getTable()));
+                continue;
+            }
+            collisionTracker.computeIfAbsent(cacheKey, _ -> new HashSet<>()).add(table.getTable());
+        }
+
+        for (Map.Entry<TableId, Set<String>> entry : collisionTracker.entrySet()) {
+            TableId cacheKey = entry.getKey();
+            Set<String> remoteNames = entry.getValue();
+            if (remoteNames.size() == 1) {
+                String uniqueTableName = getOnlyElement(remoteNames);
+                RemoteDatabaseObject remoteTable = RemoteDatabaseObject.of(uniqueTableName);
+                updateCache(remoteTableCaseInsensitiveCache, cacheKey, remoteTable);
+                schemaTableNamesBuilder.add(new SchemaTableName(toSchemaName(DatasetId.of(projectId, remoteDatasetName)), uniqueTableName));
+            }
+            else {
+                log.debug("Filtered out [%s] due to ambiguous remote names: %s", cacheKey.getTable(), remoteNames);
+            }
+        }
+        return schemaTableNamesBuilder.build();
     }
 
     private Optional<RemoteDatabaseObject> toRemoteTable(String projectId, String remoteDatasetName, String tableName, Supplier<Iterable<TableId>> tableIds)
@@ -269,6 +312,7 @@ public class BigQueryClient
             return Optional.ofNullable(bigQuery.getTable(remoteTableId));
         }
         catch (BigQueryException e) {
+            log.debug(e, "Failed to get table '%s'", remoteTableId);
             // getTable method throws an exception in some situations, e.g. wild card tables
             return Optional.empty();
         }
@@ -323,7 +367,7 @@ public class BigQueryClient
     private List<DatasetId> listDatasetIdsFromBigQuery(String projectId)
     {
         // BigQuery.listDatasets returns partial information on each dataset. See javadoc for more details.
-        return stream(bigQuery.listDatasets(projectId, BigQuery.DatasetListOption.pageSize(PAGE_SIZE)).iterateAll())
+        return stream(bigQuery.listDatasets(projectId, BigQuery.DatasetListOption.pageSize(metadataPageSize)).iterateAll())
                 .map(Dataset::getDatasetId)
                 .collect(toImmutableList());
     }
@@ -333,7 +377,7 @@ public class BigQueryClient
         // BigQuery.listTables returns partial information on each table. See javadoc for more details.
         Iterable<Table> allTables;
         try {
-            allTables = bigQuery.listTables(remoteDatasetId, BigQuery.TableListOption.pageSize(PAGE_SIZE)).iterateAll();
+            allTables = bigQuery.listTables(remoteDatasetId, BigQuery.TableListOption.pageSize(metadataPageSize)).iterateAll();
         }
         catch (BigQueryException e) {
             throw new TrinoException(BIGQUERY_LISTING_TABLE_ERROR, "Failed to retrieve tables from BigQuery", e);

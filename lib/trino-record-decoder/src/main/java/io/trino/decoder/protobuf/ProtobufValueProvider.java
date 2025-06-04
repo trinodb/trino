@@ -104,8 +104,8 @@ public class ProtobufValueProvider
     public boolean getBoolean()
     {
         requireNonNull(value, "value is null");
-        if (value instanceof Boolean) {
-            return (Boolean) value;
+        if (value instanceof Boolean booleanValue) {
+            return booleanValue;
         }
         throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, format("cannot decode object of '%s' as '%s' for column '%s'", value.getClass(), columnType, columnName));
     }
@@ -114,15 +114,18 @@ public class ProtobufValueProvider
     public long getLong()
     {
         requireNonNull(value, "value is null");
-        if (value instanceof Long || value instanceof Integer) {
-            return ((Number) value).longValue();
+        if (value instanceof Long longValue) {
+            return longValue;
         }
-        if (value instanceof Float) {
-            return Float.floatToIntBits((Float) value);
+        if (value instanceof Integer intValue) {
+            return intValue.longValue();
         }
-        if (value instanceof DynamicMessage) {
+        if (value instanceof Float floatValue) {
+            return Float.floatToIntBits(floatValue);
+        }
+        if (value instanceof DynamicMessage dynamicMessage) {
             checkArgument(columnType instanceof TimestampType, "type should be an instance of Timestamp");
-            return parseTimestamp(((TimestampType) columnType).getPrecision(), (DynamicMessage) value);
+            return parseTimestamp(((TimestampType) columnType).getPrecision(), dynamicMessage);
         }
         throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, format("cannot decode object of '%s' as '%s' for column '%s'", value.getClass(), columnType, columnName));
     }
@@ -146,8 +149,8 @@ public class ProtobufValueProvider
             return truncateToLength(utf8Slice(value.toString()), type);
         }
 
-        if (type instanceof VarbinaryType && value instanceof ByteString) {
-            return Slices.wrappedBuffer(((ByteString) value).toByteArray());
+        if (type instanceof VarbinaryType && value instanceof ByteString byteString) {
+            return Slices.wrappedBuffer(byteString.toByteArray());
         }
 
         if (type.equals(jsonType)) {
@@ -220,13 +223,13 @@ public class ProtobufValueProvider
             return;
         }
 
-        if (type instanceof DoubleType && value instanceof Double) {
-            type.writeDouble(blockBuilder, (Double) value);
+        if (type instanceof DoubleType && value instanceof Double doubleValue) {
+            type.writeDouble(blockBuilder, doubleValue);
             return;
         }
 
-        if (type instanceof RealType && value instanceof Float) {
-            type.writeLong(blockBuilder, floatToIntBits((Float) value));
+        if (type instanceof RealType && value instanceof Float floatValue) {
+            type.writeLong(blockBuilder, floatToIntBits(floatValue));
             return;
         }
 
@@ -235,9 +238,9 @@ public class ProtobufValueProvider
             return;
         }
 
-        if (type instanceof TimestampType && ((TimestampType) type).isShort()) {
+        if (type instanceof TimestampType timestampType && timestampType.isShort()) {
             checkArgument(value instanceof DynamicMessage, "value should be an instance of DynamicMessage");
-            type.writeLong(blockBuilder, parseTimestamp(((TimestampType) type).getPrecision(), (DynamicMessage) value));
+            type.writeLong(blockBuilder, parseTimestamp(timestampType.getPrecision(), (DynamicMessage) value));
             return;
         }
 
@@ -300,7 +303,7 @@ public class ProtobufValueProvider
             Field field = fields.get(i);
             checkState(field.getName().isPresent(), "field name not found");
             FieldDescriptor fieldDescriptor = getFieldDescriptor(record, field.getName().get());
-            checkState(fieldDescriptor != null, format("Unknown Field %s", field.getName().get()));
+            checkState(fieldDescriptor != null, "Unknown Field %s", field.getName().get());
             serializeObject(
                     fieldBuilders.get(i),
                     record.getField(fieldDescriptor),

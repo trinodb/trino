@@ -17,9 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.operator.WorkProcessor.TransformationState;
 import io.trino.spi.Page;
-import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
@@ -39,11 +37,9 @@ public class TopNOperator
             PlanNodeId planNodeId,
             List<? extends Type> types,
             int n,
-            List<Integer> sortChannels,
-            List<SortOrder> sortOrders,
-            TypeOperators typeOperators)
+            PageWithPositionComparator comparator)
     {
-        return createAdapterOperatorFactory(new Factory(operatorId, planNodeId, types, n, sortChannels, sortOrders, typeOperators));
+        return createAdapterOperatorFactory(new Factory(operatorId, planNodeId, types, n, comparator));
     }
 
     private static class Factory
@@ -53,9 +49,7 @@ public class TopNOperator
         private final PlanNodeId planNodeId;
         private final List<Type> sourceTypes;
         private final int n;
-        private final List<Integer> sortChannels;
-        private final List<SortOrder> sortOrders;
-        private final TypeOperators typeOperators;
+        private final PageWithPositionComparator comparator;
         private boolean closed;
 
         private Factory(
@@ -63,17 +57,13 @@ public class TopNOperator
                 PlanNodeId planNodeId,
                 List<? extends Type> types,
                 int n,
-                List<Integer> sortChannels,
-                List<SortOrder> sortOrders,
-                TypeOperators typeOperators)
+                PageWithPositionComparator comparator)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.sourceTypes = ImmutableList.copyOf(requireNonNull(types, "types is null"));
             this.n = n;
-            this.sortChannels = ImmutableList.copyOf(requireNonNull(sortChannels, "sortChannels is null"));
-            this.sortOrders = ImmutableList.copyOf(requireNonNull(sortOrders, "sortOrders is null"));
-            this.typeOperators = typeOperators;
+            this.comparator = requireNonNull(comparator, "comparator is null");
         }
 
         @Override
@@ -87,9 +77,7 @@ public class TopNOperator
                     sourcePages,
                     sourceTypes,
                     n,
-                    sortChannels,
-                    sortOrders,
-                    typeOperators);
+                    comparator);
         }
 
         @Override
@@ -119,11 +107,10 @@ public class TopNOperator
         @Override
         public Factory duplicate()
         {
-            return new Factory(operatorId, planNodeId, sourceTypes, n, sortChannels, sortOrders, typeOperators);
+            return new Factory(operatorId, planNodeId, sourceTypes, n, comparator);
         }
     }
 
-    private final TopNProcessor topNProcessor;
     private final WorkProcessor<Page> pages;
 
     private TopNOperator(
@@ -131,23 +118,19 @@ public class TopNOperator
             WorkProcessor<Page> sourcePages,
             List<Type> types,
             int n,
-            List<Integer> sortChannels,
-            List<SortOrder> sortOrders,
-            TypeOperators typeOperators)
+            PageWithPositionComparator comparator)
     {
-        this.topNProcessor = new TopNProcessor(
-                memoryTrackingContext.aggregateUserMemoryContext(),
-                types,
-                n,
-                sortChannels,
-                sortOrders,
-                typeOperators);
-
         if (n == 0) {
             pages = WorkProcessor.of();
         }
         else {
-            pages = sourcePages.transform(new TopNPages());
+            pages = sourcePages.transform(
+                    new TopNPages(
+                            new TopNProcessor(
+                                    memoryTrackingContext.aggregateUserMemoryContext(),
+                                    types,
+                                    n,
+                                    comparator)));
         }
     }
 
@@ -157,9 +140,16 @@ public class TopNOperator
         return pages;
     }
 
-    private class TopNPages
+    private static final class TopNPages
             implements WorkProcessor.Transformation<Page, Page>
     {
+        private final TopNProcessor topNProcessor;
+
+        private TopNPages(TopNProcessor topNProcessor)
+        {
+            this.topNProcessor = requireNonNull(topNProcessor, "topNProcessor is null");
+        }
+
         @Override
         public TransformationState<Page> process(Page inputPage)
         {

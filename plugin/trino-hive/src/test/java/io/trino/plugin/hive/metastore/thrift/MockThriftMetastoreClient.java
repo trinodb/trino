@@ -28,6 +28,7 @@ import io.trino.hive.thrift.metastore.HiveObjectPrivilege;
 import io.trino.hive.thrift.metastore.HiveObjectRef;
 import io.trino.hive.thrift.metastore.LockRequest;
 import io.trino.hive.thrift.metastore.LockResponse;
+import io.trino.hive.thrift.metastore.LockState;
 import io.trino.hive.thrift.metastore.LongColumnStatsData;
 import io.trino.hive.thrift.metastore.NoSuchObjectException;
 import io.trino.hive.thrift.metastore.Partition;
@@ -78,6 +79,7 @@ public class MockThriftMetastoreClient
             new RolePrincipalGrant("role1", "user", USER, false, 0, "grantor1", USER),
             new RolePrincipalGrant("role2", "role1", ROLE, true, 0, "grantor2", ROLE));
     public static final List<String> PARTITION_COLUMN_NAMES = ImmutableList.of(TEST_COLUMN);
+    public static final String TEST_EXCEPTION_LOCK_MESSAGE = "Fail to connect to metastore. LockId = %s";
 
     private static final StorageDescriptor DEFAULT_STORAGE_DESCRIPTOR =
             new StorageDescriptor(ImmutableList.of(new FieldSchema(TEST_COLUMN, "bigint", "")), "", null, null, false, 0, new SerDeInfo(TEST_TABLE, null, ImmutableMap.of()), null, null, ImmutableMap.of());
@@ -88,6 +90,9 @@ public class MockThriftMetastoreClient
 
     private boolean throwException;
     private boolean returnTable = true;
+
+    private long testLockId;
+    private LockState testLockState;
 
     public MockThriftMetastoreClient()
     {
@@ -140,6 +145,16 @@ public class MockThriftMetastoreClient
     public int getAccessCount()
     {
         return accessCount.get();
+    }
+
+    public void setTestLockId(long testLockId)
+    {
+        this.testLockId = testLockId;
+    }
+
+    public void setTestLockState(LockState testLockState)
+    {
+        this.testLockState = testLockState;
     }
 
     @Override
@@ -523,19 +538,24 @@ public class MockThriftMetastoreClient
     @Override
     public LockResponse acquireLock(LockRequest lockRequest)
     {
-        throw new UnsupportedOperationException();
+        return new LockResponse(testLockId, testLockState);
     }
 
     @Override
     public LockResponse checkLock(long lockId)
+            throws TException
     {
-        throw new UnsupportedOperationException();
+        accessCount.incrementAndGet();
+        if (throwException) {
+            throw new MetaException(TEST_EXCEPTION_LOCK_MESSAGE.formatted(lockId));
+        }
+        return new LockResponse(testLockId, testLockState);
     }
 
     @Override
     public void unlock(long lockId)
     {
-        throw new UnsupportedOperationException();
+        accessCount.incrementAndGet();
     }
 
     @Override

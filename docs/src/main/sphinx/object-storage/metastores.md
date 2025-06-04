@@ -208,32 +208,37 @@ properties:
   -
 :::
 
-Use the following configuration properties for HTTP client transport mode, so
-when the `hive.metastore.uri` uses the `http://` or `https://` protocol.
+(iceberg-hive-catalog)=
+### Iceberg-specific Hive catalog configuration properties
 
-:::{list-table} Thrift metastore HTTP configuration properties
-:widths: 40, 60
+When using the Hive catalog, the Iceberg connector supports the same
+{ref}`general Thrift metastore configuration properties <hive-thrift-metastore>` 
+as previously described with the following additional property:
+
+:::{list-table} Iceberg Hive catalog configuration property
+:widths: 35, 50, 15
 :header-rows: 1
 
 * - Property name
   - Description
-* - `hive.metastore.http.client.authentication.type`
-  - The authentication type to use with the HTTP client transport mode. When set
-    to the only supported value of `BEARER`, the token configured in
-    `hive.metastore.http.client.bearer-token` is used to authenticate to the
-    metastore service.
-* - `hive.metastore.http.client.bearer-token`
-  - Bearer token to use for authentication with the metastore service when HTTPS
-    transport mode is used by using a `https://` protocol in
-    `hive.metastore.uri`. This must not be set with `http://`.
-* - `hive.metastore.http.client.additional-headers`
-  - Additional headers to send with metastore service requests. These headers
-    must be comma-separated and delimited using `:`. For example,
-    `header1:value1,header2:value2` sends two headers `header1` and `header2`
-    with the values as `value1` and `value2`. Escape comma (`,`) or colon(`:`)
-    characters in a header name or value with a backslash (`\`). Use
-    `X-Databricks-Catalog-Name:[catalog_name]` to configure the required
-    header values for Unity catalog.
+  - Default
+* - `iceberg.hive-catalog.locking-enabled`
+  - Commit to tables using Hive locks.
+  - `true`
+:::
+
+:::{warning}
+Setting `iceberg.hive-catalog.locking-enabled=false` will cause the catalog to
+commit to tables without using Hive locks. This should only be set to false if all
+following conditions are met:
+
+* [HIVE-26882](https://issues.apache.org/jira/browse/HIVE-26882) is available on
+  the Hive metastore server. Requires version 2.3.10, 4.0.0-beta-1 or later.
+* [HIVE-28121](https://issues.apache.org/jira/browse/HIVE-28121) is available on
+  the Hive metastore server, if it is backed by MySQL or MariaDB. Requires version
+  2.3.10, 4.1.0, 4.0.1 or later.
+* All other catalogs committing to tables that this catalogs commits to are also
+  on Iceberg 1.3 or later, and disabled Hive locks on commit.
 :::
 
 (hive-thrift-metastore-authentication)=
@@ -487,6 +492,8 @@ following properties:
 * - `iceberg.rest-catalog.session`
   - Session information included when communicating with the REST Catalog.
     Options are `NONE` or `USER` (default: `NONE`).
+* - `iceberg.rest-catalog.session-timeout`
+  - [Duration](prop-type-duration) to keep authentication session in cache. Defaults to `1h`.
 * - `iceberg.rest-catalog.oauth2.token`
   - The bearer token used for interactions with the server. A `token` or
     `credential` is required for `OAUTH2` security. Example: `AbCdEf123456`
@@ -499,6 +506,9 @@ following properties:
     when using `credential`.
 * - `iceberg.rest-catalog.oauth2.server-uri`
   - The endpoint to retrieve access token from OAuth2 Server.
+* - `iceberg.rest-catalog.oauth2.token-refresh-enabled`
+  - Controls whether a token should be refreshed if information about its expiration time is available.
+    Defaults to `true`
 * - `iceberg.rest-catalog.vended-credentials-enabled`
   - Use credentials provided by the REST backend for file system access.
     Defaults to `false`.

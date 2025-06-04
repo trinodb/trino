@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.SetMultimap;
-import com.google.common.collect.Sets;
 import com.google.common.io.Closer;
 import com.google.common.util.concurrent.ForwardingListenableFuture;
 import com.google.common.util.concurrent.Futures;
@@ -49,6 +48,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executor;
@@ -463,7 +463,7 @@ class EventDrivenTaskSource
         private final ListenableFuture<T> delegate;
 
         @GuardedBy("listeners")
-        private final Set<SettableFuture<T>> listeners = Sets.newIdentityHashSet();
+        private final Set<FutureRef<T>> listeners = new HashSet<>();
 
         private CallbackProxyFuture(ListenableFuture<T> delegate)
         {
@@ -487,14 +487,14 @@ class EventDrivenTaskSource
         {
             SettableFuture<T> listener = SettableFuture.create();
             synchronized (listeners) {
-                listeners.add(listener);
+                listeners.add(new FutureRef<>(listener));
             }
 
             listener.addListener(
                     () -> {
                         if (listener.isCancelled()) {
                             synchronized (listeners) {
-                                listeners.remove(listener);
+                                listeners.remove(new FutureRef<>(listener));
                             }
                         }
                     },
@@ -513,13 +513,39 @@ class EventDrivenTaskSource
 
             List<SettableFuture<T>> futures;
             synchronized (listeners) {
-                futures = ImmutableList.copyOf(listeners);
+                futures = ImmutableList.copyOf(listeners).stream()
+                        .map(FutureRef::future)
+                        .collect(toImmutableList());
                 listeners.clear();
             }
 
             for (SettableFuture<T> future : futures) {
                 future.setFuture(delegate);
             }
+        }
+    }
+
+    private record FutureRef<V>(SettableFuture<V> future)
+    {
+        private FutureRef(SettableFuture<V> future)
+        {
+            this.future = requireNonNull(future, "future is null");
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            FutureRef<?> futureRef = (FutureRef<?>) o;
+            return future == futureRef.future;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hashCode(future);
         }
     }
 }

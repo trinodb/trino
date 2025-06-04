@@ -21,12 +21,11 @@ import io.trino.plugin.iceberg.containers.UnityCatalogContainer;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
-import org.assertj.core.util.Files;
 import org.junit.jupiter.api.Test;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
 
@@ -38,12 +37,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 final class TestIcebergUnityRestCatalogConnectorSmokeTest
         extends BaseIcebergConnectorSmokeTest
 {
-    private final File warehouseLocation;
+    private final Path warehouseLocation;
+    private UnityCatalogContainer unityCatalog;
 
     public TestIcebergUnityRestCatalogConnectorSmokeTest()
+            throws IOException
     {
         super(new IcebergConfig().getFileFormat().toIceberg());
-        warehouseLocation = Files.newTemporaryFolder();
+        warehouseLocation = Files.createTempDirectory(null);
     }
 
     @Override
@@ -61,11 +62,11 @@ final class TestIcebergUnityRestCatalogConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        closeAfterClass(() -> deleteRecursively(warehouseLocation.toPath(), ALLOW_INSECURE));
-        UnityCatalogContainer unityCatalog = closeAfterClass(new UnityCatalogContainer("unity", "tpch"));
+        closeAfterClass(() -> deleteRecursively(warehouseLocation, ALLOW_INSECURE));
+        unityCatalog = closeAfterClass(new UnityCatalogContainer("unity", "tpch"));
 
         DistributedQueryRunner queryRunner = IcebergQueryRunner.builder()
-                .setBaseDataDir(Optional.of(warehouseLocation.toPath()))
+                .setBaseDataDir(Optional.of(warehouseLocation))
                 .addIcebergProperty("iceberg.file-format", format.name())
                 .addIcebergProperty("iceberg.security", "read_only")
                 .addIcebergProperty("iceberg.catalog.type", "rest")
@@ -78,6 +79,25 @@ final class TestIcebergUnityRestCatalogConnectorSmokeTest
         unityCatalog.copyTpchTables(REQUIRED_TPCH_TABLES);
 
         return queryRunner;
+    }
+
+    @Override
+    protected void createSchema(String schemaName)
+    {
+        unityCatalog.createSchema(schemaName);
+    }
+
+    @Override
+    protected void dropSchema(String schema)
+    {
+        unityCatalog.dropSchema(schema);
+    }
+
+    @Override
+    protected AutoCloseable createTable(String schema, String tableName, String tableDefinition)
+    {
+        unityCatalog.createTable(schema, tableName, tableDefinition);
+        return () -> unityCatalog.dropTable(schema, tableName);
     }
 
     @Override
@@ -95,7 +115,7 @@ final class TestIcebergUnityRestCatalogConnectorSmokeTest
     @Override
     protected String schemaPath()
     {
-        return format("%s/%s", warehouseLocation, getSession().getSchema());
+        return format("%s/%s", warehouseLocation, getSession().getSchema().orElseThrow());
     }
 
     @Override

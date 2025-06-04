@@ -20,9 +20,15 @@ import io.trino.metastore.TableInfo;
 import io.trino.metastore.TableInfo.ExtendedRelationType;
 import io.trino.plugin.base.util.AutoCloseableCloser;
 import io.trino.plugin.hive.NodeVersion;
+import io.trino.plugin.hive.orc.OrcReaderConfig;
+import io.trino.plugin.hive.orc.OrcWriterConfig;
+import io.trino.plugin.hive.parquet.ParquetReaderConfig;
+import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.plugin.iceberg.CommitTaskData;
+import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergFileFormat;
 import io.trino.plugin.iceberg.IcebergMetadata;
+import io.trino.plugin.iceberg.IcebergSessionProperties;
 import io.trino.plugin.iceberg.TableStatisticsWriter;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogHandle;
@@ -34,6 +40,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.type.VarcharType;
+import io.trino.testing.TestingConnectorSession;
 import org.apache.iceberg.NullOrder;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
@@ -66,7 +73,6 @@ import static io.trino.plugin.iceberg.IcebergUtil.quotedTableName;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
-import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -74,8 +80,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 public abstract class BaseTrinoCatalogTest
 {
     private static final Logger LOG = Logger.get(BaseTrinoCatalogTest.class);
+    protected static final ConnectorSession SESSION = TestingConnectorSession.builder()
+            .setPropertyMetadata(new IcebergSessionProperties(
+                    new IcebergConfig(),
+                    new OrcReaderConfig(),
+                    new OrcWriterConfig(),
+                    new ParquetReaderConfig(),
+                    new ParquetWriterConfig())
+                    .getSessionProperties())
+            .build();
 
-    protected abstract TrinoCatalog createTrinoCatalog(boolean useUniqueTableLocations);
+    protected abstract TrinoCatalog createTrinoCatalog(boolean useUniqueTableLocations)
+            throws IOException;
 
     protected Map<String, Object> defaultNamespaceProperties(String newNamespaceName)
     {
@@ -84,6 +100,7 @@ public abstract class BaseTrinoCatalogTest
 
     @Test
     public void testCreateNamespaceWithLocation()
+            throws Exception
     {
         TrinoCatalog catalog = createTrinoCatalog(false);
         String namespace = "test_create_namespace_with_location_" + randomNameSuffix();
@@ -100,6 +117,7 @@ public abstract class BaseTrinoCatalogTest
 
     @Test
     public void testNonLowercaseNamespace()
+            throws Exception
     {
         TrinoCatalog catalog = createTrinoCatalog(false);
 
@@ -165,7 +183,7 @@ public abstract class BaseTrinoCatalogTest
                             new Schema(Types.NestedField.of(1, true, "col1", Types.LongType.get())),
                             PartitionSpec.unpartitioned(),
                             SortOrder.unsorted(),
-                            tableLocation,
+                            Optional.of(tableLocation),
                             tableProperties)
                     .commitTransaction();
             assertThat(catalog.listTables(SESSION, Optional.of(namespace))).contains(new TableInfo(schemaTableName, TABLE));
@@ -225,7 +243,7 @@ public abstract class BaseTrinoCatalogTest
                             tableSchema,
                             PartitionSpec.unpartitioned(),
                             sortOrder,
-                            tableLocation,
+                            Optional.of(tableLocation),
                             ImmutableMap.of())
                     .commitTransaction();
             assertThat(catalog.listTables(SESSION, Optional.of(namespace))).contains(new TableInfo(schemaTableName, TABLE));
@@ -280,7 +298,7 @@ public abstract class BaseTrinoCatalogTest
                             new Schema(Types.NestedField.of(1, true, "col1", Types.LongType.get())),
                             PartitionSpec.unpartitioned(),
                             SortOrder.unsorted(),
-                            arbitraryTableLocation(catalog, SESSION, sourceSchemaTableName),
+                            Optional.of(arbitraryTableLocation(catalog, SESSION, sourceSchemaTableName)),
                             ImmutableMap.of())
                     .commitTransaction();
             assertThat(catalog.listTables(SESSION, Optional.of(namespace))).contains(new TableInfo(sourceSchemaTableName, TABLE));
@@ -313,6 +331,7 @@ public abstract class BaseTrinoCatalogTest
 
     @Test
     public void testUseUniqueTableLocations()
+            throws Exception
     {
         TrinoCatalog catalog = createTrinoCatalog(true);
         String namespace = "test_unique_table_locations_" + randomNameSuffix();
@@ -430,7 +449,7 @@ public abstract class BaseTrinoCatalogTest
                             new Schema(Types.NestedField.of(1, true, "col1", Types.LongType.get())),
                             PartitionSpec.unpartitioned(),
                             SortOrder.unsorted(),
-                            arbitraryTableLocation(catalog, SESSION, table1),
+                            Optional.of(arbitraryTableLocation(catalog, SESSION, table1)),
                             ImmutableMap.of())
                     .commitTransaction();
             closer.register(() -> catalog.dropTable(SESSION, table1));
@@ -441,7 +460,7 @@ public abstract class BaseTrinoCatalogTest
                             new Schema(Types.NestedField.of(1, true, "col1", Types.LongType.get())),
                             PartitionSpec.unpartitioned(),
                             SortOrder.unsorted(),
-                            arbitraryTableLocation(catalog, SESSION, table2),
+                            Optional.of(arbitraryTableLocation(catalog, SESSION, table2)),
                             ImmutableMap.of())
                     .commitTransaction();
             closer.register(() -> catalog.dropTable(SESSION, table2));

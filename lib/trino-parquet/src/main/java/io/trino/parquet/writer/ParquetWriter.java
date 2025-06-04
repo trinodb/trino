@@ -32,6 +32,7 @@ import io.trino.parquet.reader.ParquetReader;
 import io.trino.parquet.reader.RowGroupInfo;
 import io.trino.parquet.writer.ColumnWriter.BufferData;
 import io.trino.spi.Page;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
 import org.apache.parquet.column.ColumnDescriptor;
@@ -129,7 +130,7 @@ public class ParquetWriter
             Optional<ParquetWriteValidationBuilder> validationBuilder)
     {
         this.validationBuilder = requireNonNull(validationBuilder, "validationBuilder is null");
-        this.outputStream = new OutputStreamSliceOutput(requireNonNull(outputStream, "outputstream is null"));
+        this.outputStream = new OutputStreamSliceOutput(requireNonNull(outputStream, "outputStream is null"));
         this.messageType = requireNonNull(messageType, "messageType is null");
         this.primitiveTypes = requireNonNull(primitiveTypes, "primitiveTypes is null");
         this.writerOption = requireNonNull(writerOption, "writerOption is null");
@@ -173,9 +174,6 @@ public class ParquetWriter
         }
 
         checkArgument(page.getChannelCount() == columnWriters.size());
-
-        // page should already be loaded, but double check
-        page = page.getLoadedPage();
 
         Page validationPage = page;
         recordValidation(validation -> validation.addPage(validationPage));
@@ -242,15 +240,15 @@ public class ParquetWriter
         try {
             ParquetMetadata parquetMetadata = MetadataReader.readFooter(input, Optional.of(writeValidation));
             try (ParquetReader parquetReader = createParquetReader(input, parquetMetadata, writeValidation)) {
-                for (Page page = parquetReader.nextPage(); page != null; page = parquetReader.nextPage()) {
+                for (SourcePage page = parquetReader.nextPage(); page != null; page = parquetReader.nextPage()) {
                     // fully load the page
-                    page.getLoadedPage();
+                    page.getPage();
                 }
             }
         }
         catch (IOException e) {
-            if (e instanceof ParquetCorruptionException) {
-                throw (ParquetCorruptionException) e;
+            if (e instanceof ParquetCorruptionException pce) {
+                throw pce;
             }
             throw new ParquetCorruptionException(input.getId(), "Validation failed with exception %s", e);
         }
@@ -286,6 +284,7 @@ public class ParquetWriter
         return new ParquetReader(
                 Optional.ofNullable(fileMetaData.getCreatedBy()),
                 columnFields.build(),
+                false,
                 rowGroupInfoBuilder.build(),
                 input,
                 parquetTimeZone.orElseThrow(),

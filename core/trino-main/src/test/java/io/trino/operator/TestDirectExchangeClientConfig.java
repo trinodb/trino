@@ -37,8 +37,8 @@ public class TestDirectExchangeClientConfig
                 .setConcurrentRequestMultiplier(3)
                 .setMaxErrorDuration(new Duration(1, TimeUnit.MINUTES))
                 .setMaxResponseSize(new HttpClientConfig().getMaxContentLength())
-                .setPageBufferClientMaxCallbackThreads(25)
-                .setClientThreads(25)
+                .setPageBufferClientMaxCallbackThreads("25")
+                .setClientThreads("25")
                 .setAcknowledgePages(true)
                 .setDeduplicationBufferSize(DataSize.of(32, Unit.MEGABYTE)));
     }
@@ -62,8 +62,8 @@ public class TestDirectExchangeClientConfig
                 .setConcurrentRequestMultiplier(13)
                 .setMaxErrorDuration(new Duration(33, TimeUnit.SECONDS))
                 .setMaxResponseSize(DataSize.of(1, Unit.MEGABYTE))
-                .setClientThreads(2)
-                .setPageBufferClientMaxCallbackThreads(16)
+                .setClientThreads("2")
+                .setPageBufferClientMaxCallbackThreads("16")
                 .setAcknowledgePages(false)
                 .setDeduplicationBufferSize(DataSize.of(2, Unit.MEGABYTE));
 

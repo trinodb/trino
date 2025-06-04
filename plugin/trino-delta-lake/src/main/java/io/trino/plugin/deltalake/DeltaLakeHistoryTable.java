@@ -92,7 +92,11 @@ public class DeltaLakeHistoryTable
             pagesBuilder.beginRow();
 
             pagesBuilder.appendBigint(commitInfoEntry.version());
-            pagesBuilder.appendTimestampTzMillis(commitInfoEntry.timestamp(), timeZoneKey);
+            commitInfoEntry.inCommitTimestamp().ifPresentOrElse(
+                    // use `inCommitTimestamp` if table In-Commit timestamps enabled, otherwise read the `timestamp` field
+                    // https://github.com/delta-io/delta/blob/master/PROTOCOL.md#recommendations-for-readers-of-tables-with-in-commit-timestamps
+                    inCommitTimestamp -> pagesBuilder.appendTimestampTzMillis(inCommitTimestamp, timeZoneKey),
+                    () -> pagesBuilder.appendTimestampTzMillis(commitInfoEntry.timestamp(), timeZoneKey));
             write(commitInfoEntry.userId(), pagesBuilder);
             write(commitInfoEntry.userName(), pagesBuilder);
             write(commitInfoEntry.operation(), pagesBuilder);

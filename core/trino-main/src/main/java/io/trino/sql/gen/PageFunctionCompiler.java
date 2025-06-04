@@ -44,11 +44,11 @@ import io.trino.operator.project.PageFieldsToInputParametersRewriter;
 import io.trino.operator.project.PageFilter;
 import io.trino.operator.project.PageProjection;
 import io.trino.operator.project.SelectedPositions;
-import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SourcePage;
 import io.trino.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
 import io.trino.sql.planner.CompilerConfig;
 import io.trino.sql.relational.ConstantExpression;
@@ -208,12 +208,12 @@ public class PageFunctionCompiler
         catch (Exception e) {
             if (Throwables.getRootCause(e) instanceof MethodTooLargeException) {
                 throw new TrinoException(QUERY_EXCEEDED_COMPILER_LIMIT,
-                        "Query exceeded maximum columns. Please reduce the number of columns referenced and re-run the query.", e);
+                        "Failed to execute query; there may be too many columns used or expressions are too complex", e);
             }
             throw new TrinoException(COMPILER_ERROR, e);
         }
 
-        MethodHandle pageProjectionConstructor = constructorMethodHandle(pageProjectionWorkClass, BlockBuilder.class, ConnectorSession.class, Page.class, SelectedPositions.class);
+        MethodHandle pageProjectionConstructor = constructorMethodHandle(pageProjectionWorkClass, BlockBuilder.class, ConnectorSession.class, SourcePage.class, SelectedPositions.class);
         return () -> new GeneratedPageProjection(
                 result.getRewrittenExpression(),
                 isExpressionDeterministic,
@@ -256,7 +256,7 @@ public class PageFunctionCompiler
         // constructor
         Parameter blockBuilder = arg("blockBuilder", BlockBuilder.class);
         Parameter session = arg("session", ConnectorSession.class);
-        Parameter page = arg("page", Page.class);
+        Parameter page = arg("page", SourcePage.class);
         Parameter selectedPositions = arg("selectedPositions", SelectedPositions.class);
 
         MethodDefinition constructorDefinition = classDefinition.declareConstructor(a(PUBLIC), blockBuilder, session, page, selectedPositions);
@@ -475,7 +475,7 @@ public class PageFunctionCompiler
     private static MethodDefinition generatePageFilterMethod(ClassDefinition classDefinition, FieldDefinition selectedPositionsField)
     {
         Parameter session = arg("session", ConnectorSession.class);
-        Parameter page = arg("page", Page.class);
+        Parameter page = arg("page", SourcePage.class);
 
         MethodDefinition method = classDefinition.declareMethod(
                 a(PUBLIC),
@@ -523,7 +523,7 @@ public class PageFunctionCompiler
             RowExpression filter)
     {
         Parameter session = arg("session", ConnectorSession.class);
-        Parameter page = arg("page", Page.class);
+        Parameter page = arg("page", SourcePage.class);
         Parameter position = arg("position", int.class);
 
         MethodDefinition method = classDefinition.declareMethod(
@@ -618,8 +618,8 @@ public class PageFunctionCompiler
     {
         TreeSet<Integer> channels = new TreeSet<>();
         for (RowExpression expression : Expressions.subExpressions(expressions)) {
-            if (expression instanceof InputReferenceExpression) {
-                channels.add(((InputReferenceExpression) expression).field());
+            if (expression instanceof InputReferenceExpression inputReferenceExpression) {
+                channels.add(inputReferenceExpression.field());
             }
         }
         return ImmutableList.copyOf(channels);

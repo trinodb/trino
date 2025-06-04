@@ -621,8 +621,8 @@ public class OpenSearchClient
             Throwable[] suppressed = e.getSuppressed();
             if (suppressed.length > 0) {
                 Throwable cause = suppressed[0];
-                if (cause instanceof ResponseException) {
-                    throw propagate((ResponseException) cause);
+                if (cause instanceof ResponseException responseException) {
+                    throw propagate(responseException);
                 }
             }
 

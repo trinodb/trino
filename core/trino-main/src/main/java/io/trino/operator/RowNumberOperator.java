@@ -185,6 +185,7 @@ public class RowNumberOperator
                     operatorContext.getSession(),
                     partitionTypes,
                     hashChannel.isPresent(),
+                    false,
                     expectedPositions,
                     hashStrategyCompiler,
                     this::updateMemoryReservation));

@@ -400,11 +400,11 @@ public class DefaultQueryBuilder
 
     protected String getFrom(JdbcClient client, JdbcRelationHandle baseRelation, Consumer<QueryParameter> accumulator)
     {
-        if (baseRelation instanceof JdbcNamedRelationHandle) {
-            return " FROM " + getRelation(client, ((JdbcNamedRelationHandle) baseRelation).getRemoteTableName());
+        if (baseRelation instanceof JdbcNamedRelationHandle jdbcNamedRelationHandle) {
+            return " FROM " + getRelation(client, jdbcNamedRelationHandle.getRemoteTableName());
         }
-        if (baseRelation instanceof JdbcQueryRelationHandle) {
-            PreparedQuery preparedQuery = ((JdbcQueryRelationHandle) baseRelation).getPreparedQuery();
+        if (baseRelation instanceof JdbcQueryRelationHandle jdbcQueryRelationHandle) {
+            PreparedQuery preparedQuery = jdbcQueryRelationHandle.getPreparedQuery();
             preparedQuery.parameters().forEach(accumulator);
             return " FROM (" + preparedQuery.query() + ") o";
         }

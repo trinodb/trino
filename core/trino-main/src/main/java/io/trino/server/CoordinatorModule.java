@@ -185,7 +185,7 @@ public class CoordinatorModule
         install(new FailureDetectorModule());
         jaxrsBinder(binder).bind(NodeResource.class);
         jaxrsBinder(binder).bind(WorkerResource.class);
-        install(internalHttpClientModule("workerInfo", ForWorkerInfo.class).build());
+        install(internalHttpClientModule("worker-info", ForWorkerInfo.class).build());
 
         // query monitor
         jsonCodecBinder(binder).bindJsonCodec(ExecutionFailureInfo.class);
@@ -225,7 +225,7 @@ public class CoordinatorModule
 
         // cluster memory manager
         binder.bind(ClusterMemoryManager.class).in(Scopes.SINGLETON);
-        install(internalHttpClientModule("memoryManager", ForMemoryManager.class)
+        install(internalHttpClientModule("memory-manager", ForMemoryManager.class)
                 .withConfigDefaults(config -> {
                     config.setIdleTimeout(new Duration(30, SECONDS));
                     config.setRequestTimeout(new Duration(10, SECONDS));

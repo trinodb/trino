@@ -20,7 +20,7 @@ import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.DictionaryId.randomDictionaryId;
 
 public sealed interface Block
-        permits DictionaryBlock, RunLengthEncodedBlock, LazyBlock, ValueBlock
+        permits DictionaryBlock, RunLengthEncodedBlock, ValueBlock
 {
     /**
      * Gets the value at the specified position as a single element block.  The method
@@ -39,8 +39,7 @@ public sealed interface Block
     int getPositionCount();
 
     /**
-     * Returns the size of this block as if it was compacted, ignoring any over-allocations
-     * and any unloaded nested blocks.
+     * Returns the size of this block as if it was compacted, ignoring any over-allocations.
      * For example, in dictionary blocks, this only counts each dictionary entry once,
      * rather than each time a value is referenced.
      */
@@ -93,11 +92,6 @@ public sealed interface Block
      * must include the instance size of the current block
      */
     void retainedBytesForEachPart(ObjLongConsumer<Object> consumer);
-
-    /**
-     * Get the encoding for this block.
-     */
-    String getEncodingName();
 
     /**
      * Create a new block from the current block by keeping the same elements only with respect
@@ -155,34 +149,25 @@ public sealed interface Block
     }
 
     /**
+     * Does this block have a null value? This method is expected to be O(N).
+     */
+    default boolean hasNull()
+    {
+        for (int i = 0; i < getPositionCount(); i++) {
+            if (isNull(i)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Is the specified position null?
      *
      * @throws IllegalArgumentException if this position is not valid. The method may return false
      * without throwing exception when there are no nulls in the block, even if the position is invalid
      */
     boolean isNull(int position);
-
-    /**
-     * Returns true if block data is fully loaded into memory.
-     */
-    default boolean isLoaded()
-    {
-        return true;
-    }
-
-    /**
-     * Returns a fully loaded block that assures all data is in memory.
-     * Neither the returned block nor any nested block will be a {@link LazyBlock}.
-     * The same block will be returned if neither the current block nor any
-     * nested blocks are {@link LazyBlock},
-     * <p>
-     * This allows streaming data sources to skip sections that are not
-     * accessed in a query.
-     */
-    default Block getLoadedBlock()
-    {
-        return this;
-    }
 
     /**
      * Returns a block that contains a copy of the contents of the current block, and an appended null at the end. The

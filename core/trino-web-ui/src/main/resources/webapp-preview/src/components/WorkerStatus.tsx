@@ -63,9 +63,11 @@ export const WorkerStatus = () => {
     const [error, setError] = useState<string | null>(null)
 
     useEffect(() => {
-        getWorkerStatus()
-        const intervalId = setInterval(getWorkerStatus, 1000)
-        return () => clearInterval(intervalId)
+        const runLoop = () => {
+            getWorkerStatus()
+            setTimeout(runLoop, 1000)
+        }
+        runLoop()
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
@@ -230,7 +232,7 @@ export const WorkerStatus = () => {
     return (
         <>
             <Box sx={{ pb: 2 }}>
-                <Typography variant="h4">Worker Status</Typography>
+                <Typography variant="h4">Worker status</Typography>
             </Box>
 
             {loading && <CircularProgress />}
@@ -252,7 +254,7 @@ export const WorkerStatus = () => {
                                             <TableCell>{workerStatus.info.nodeId}</TableCell>
                                         </TableRow>
                                         <TableRow>
-                                            <TableCell sx={{ fontWeight: 'bold' }}>Heap Memory</TableCell>
+                                            <TableCell sx={{ fontWeight: 'bold' }}>Heap memory</TableCell>
                                             <TableCell>{formatDataSize(workerStatus.info.heapAvailable)}</TableCell>
                                         </TableRow>
                                         <TableRow>
@@ -272,11 +274,11 @@ export const WorkerStatus = () => {
                                             <TableCell>{workerStatus.info.uptime}</TableCell>
                                         </TableRow>
                                         <TableRow>
-                                            <TableCell sx={{ fontWeight: 'bold' }}>External Address</TableCell>
+                                            <TableCell sx={{ fontWeight: 'bold' }}>External address</TableCell>
                                             <TableCell>{workerStatus.info.externalAddress}</TableCell>
                                         </TableRow>
                                         <TableRow>
-                                            <TableCell sx={{ fontWeight: 'bold' }}>Internal Address</TableCell>
+                                            <TableCell sx={{ fontWeight: 'bold' }}>Internal address</TableCell>
                                             <TableCell>{workerStatus.info.internalAddress}</TableCell>
                                         </TableRow>
                                     </TableBody>
@@ -286,7 +288,7 @@ export const WorkerStatus = () => {
                     </Grid>
 
                     <Box sx={{ pt: 2 }}>
-                        <Typography variant="h6">Resource Utilization</Typography>
+                        <Typography variant="h6">Resource utilization</Typography>
                         <Divider />
                     </Box>
                     <Grid container spacing={3}>
@@ -296,7 +298,7 @@ export const WorkerStatus = () => {
                                     <TableBody>
                                         <TableRow>
                                             <TableCell sx={{ border: 'none', fontWeight: 'bold' }}>
-                                                Process CPU Utilization
+                                                Process CPU utilization
                                             </TableCell>
                                             <TableCell rowSpan={2}>
                                                 <SparkLineChart
@@ -319,7 +321,7 @@ export const WorkerStatus = () => {
                                         </TableRow>
                                         <TableRow>
                                             <TableCell sx={{ border: 'none', fontWeight: 'bold' }}>
-                                                System CPU Utilization
+                                                System CPU utilization
                                             </TableCell>
                                             <TableCell rowSpan={2}>
                                                 <SparkLineChart
@@ -350,7 +352,7 @@ export const WorkerStatus = () => {
                                     <TableBody>
                                         <TableRow>
                                             <TableCell sx={{ border: 'none', fontWeight: 'bold' }}>
-                                                Heap Utilization
+                                                Heap utilization
                                             </TableCell>
                                             <TableCell rowSpan={2}>
                                                 <SparkLineChart
@@ -373,7 +375,7 @@ export const WorkerStatus = () => {
                                         </TableRow>
                                         <TableRow>
                                             <TableCell sx={{ border: 'none', fontWeight: 'bold' }}>
-                                                Non-Heap Memory Used
+                                                Non-Heap memory used
                                             </TableCell>
                                             <TableCell rowSpan={2}>
                                                 <SparkLineChart
@@ -401,7 +403,7 @@ export const WorkerStatus = () => {
                     </Box>
                     <Grid container spacing={3}>
                         <Grid size={{ sm: 12, md: 6 }}>
-                            {renderPoolChart('Memory Usage', workerStatus.info.memoryInfo.pool)}
+                            {renderPoolChart('Memory usage', workerStatus.info.memoryInfo.pool)}
                         </Grid>
                         <Grid size={{ sm: 12 }}>{renderPoolQueries(workerStatus.info.memoryInfo.pool)}</Grid>
                     </Grid>

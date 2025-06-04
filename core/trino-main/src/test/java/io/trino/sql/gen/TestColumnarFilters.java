@@ -32,12 +32,11 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.block.IntArrayBlockBuilder;
-import io.trino.spi.block.LazyBlock;
-import io.trino.spi.block.LazyBlockLoader;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlNullable;
@@ -670,7 +669,7 @@ public class TestColumnarFilters
                     new DriverYieldSignal(),
                     context,
                     new PageProcessorMetrics(),
-                    inputPage);
+                    SourcePage.create(inputPage));
             if (workProcessor.process() && !workProcessor.isFinished()) {
                 outputPagesBuilder.add(workProcessor.getResult());
             }
@@ -688,21 +687,16 @@ public class TestColumnarFilters
             builder.add(new Page(
                     positionsCount,
                     createRowNumberBlock(finalRowCount, positionsCount),
-                    lazyBlock(positionsCount, () -> createDoublesBlock(positionsCount, nullsProvider, dictionaryEncoded)),
-                    lazyBlock(positionsCount, () -> createIntsBlock(positionsCount, nullsProvider, dictionaryEncoded)),
-                    lazyBlock(positionsCount, () -> createStringsBlock(positionsCount, nullsProvider, dictionaryEncoded)),
-                    lazyBlock(positionsCount, () -> createIntsBlock(positionsCount, nullsProvider, dictionaryEncoded)),
-                    lazyBlock(positionsCount, () -> createIntsBlock(positionsCount, nullsProvider, dictionaryEncoded)),
-                    lazyBlock(positionsCount, () -> createArraysBlock(positionsCount, nullsProvider)),
-                    lazyBlock(positionsCount, () -> createIntsBlock(positionsCount, nullsProvider, dictionaryEncoded))));
+                    createDoublesBlock(positionsCount, nullsProvider, dictionaryEncoded),
+                    createIntsBlock(positionsCount, nullsProvider, dictionaryEncoded),
+                    createStringsBlock(positionsCount, nullsProvider, dictionaryEncoded),
+                    createIntsBlock(positionsCount, nullsProvider, dictionaryEncoded),
+                    createIntsBlock(positionsCount, nullsProvider, dictionaryEncoded),
+                    createArraysBlock(positionsCount, nullsProvider),
+                    createIntsBlock(positionsCount, nullsProvider, dictionaryEncoded)));
             rowCount += positionsCount;
         }
         return builder.build();
-    }
-
-    private static Block lazyBlock(int positionCount, LazyBlockLoader loader)
-    {
-        return new LazyBlock(positionCount, loader);
     }
 
     private static Block createRowNumberBlock(long start, int positionsCount)

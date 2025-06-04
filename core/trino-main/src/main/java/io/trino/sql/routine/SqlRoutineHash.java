@@ -234,7 +234,7 @@ public final class SqlRoutineHash
                 case Slice sliceValue -> hasher.putBytes(sliceValue.getBytes());
                 default -> {
                     Block block = literal.getBlockValue();
-                    SliceOutput output = new DynamicSliceOutput(toIntExact(block.getSizeInBytes() + block.getEncodingName().length() + (2 * Integer.BYTES)));
+                    SliceOutput output = new DynamicSliceOutput(toIntExact(blockEncodingSerde.estimatedWriteSize(block)));
                     blockEncodingSerde.writeBlock(output, block);
                     hasher.putBytes(output.slice().getBytes());
                 }

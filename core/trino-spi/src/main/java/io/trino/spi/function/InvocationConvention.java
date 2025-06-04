@@ -138,7 +138,7 @@ public class InvocationConvention
         /**
          * Argument is passed as a flat slice. The sql value may not be null.
          */
-        FLAT(false, 3),
+        FLAT(false, 4),
         /**
          * Argument is passed in an InOut. The sql value may be null.
          */

@@ -170,9 +170,9 @@ public class HiveConfig
     private double minimumAssignedSplitWeight = 0.05;
     private boolean autoPurge;
 
-    private boolean partitionProjectionEnabled;
+    private boolean partitionProjectionEnabled = true;
 
-    private S3StorageClassFilter s3StorageClassFilter = S3StorageClassFilter.READ_ALL;
+    private S3GlacierFilter s3GlacierFilter = S3GlacierFilter.READ_ALL;
 
     private int metadataParallelism = 8;
 
@@ -1255,18 +1255,17 @@ public class HiveConfig
         return this;
     }
 
-    @Deprecated
-    public S3StorageClassFilter getS3StorageClassFilter()
+    public S3GlacierFilter getS3GlacierFilter()
     {
-        return s3StorageClassFilter;
+        return s3GlacierFilter;
     }
 
-    @Deprecated
-    @Config("hive.s3.storage-class-filter")
+    @LegacyConfig("hive.s3.storage-class-filter")
+    @Config("hive.s3-glacier-filter")
     @ConfigDescription("Filter based on storage class of S3 object")
-    public HiveConfig setS3StorageClassFilter(S3StorageClassFilter s3StorageClassFilter)
+    public HiveConfig setS3GlacierFilter(S3GlacierFilter s3GlacierFilter)
     {
-        this.s3StorageClassFilter = s3StorageClassFilter;
+        this.s3GlacierFilter = s3GlacierFilter;
         return this;
     }
 

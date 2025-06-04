@@ -74,24 +74,56 @@ bigquery.project-id=<your Google Cloud Platform project id>
 
 ### Multiple GCP projects
 
-The BigQuery connector can only access a single GCP project.Thus, if you have
-data in multiple GCP projects, You need to create several catalogs, each
+The BigQuery connector can only access a single GCP project. If you have
+data in multiple GCP projects, you must create several catalogs, each
 pointing to a different GCP project. For example, if you have two GCP projects,
 one for the sales and one for analytics, you can create two properties files in
 `etc/catalog` named `sales.properties` and `analytics.properties`, both
 having `connector.name=bigquery` but with different `project-id`. This will
 create the two catalogs, `sales` and `analytics` respectively.
 
+(bigquery-project-id-resolution)=
+### Billing and data projects
+
+The BigQuery connector determines the [project
+ID](https://cloud.google.com/resource-manager/docs/creating-managing-projects)
+to use based on the configuration settings. This behavior provides users with
+flexibility in selecting both the project to query and the project to bill for
+BigQuery operations. The following table explains how project IDs are resolved
+in different scenarios:
+
+:::{list-table} Billing and data project ID resolution
+:widths: 30, 33, 33
+:header-rows: 1
+
+* - Configured properties
+  - Billing project
+  - Data project
+* - Only `bigquery.credentials-key`
+  - The project ID from the credentials key is used for billing.
+  - The project ID from the credentials key is used for querying data.
+* - `bigquery.credentials-key` and `bigquery.project-id`
+  - The project ID from the credentials key is used for billing.
+  - `bigquery.project-id` is used for querying data.
+* - `bigquery.credentials-key` and `bigquery.parent-project-id`
+  - `bigquery.parent-project-id` is used for billing.
+  - The project ID from the credentials key is used for querying data.
+* - `bigquery.credentials-key` and `bigquery.parent-project-id`
+    and `bigquery.project-id`
+  - `bigquery.parent-project-id` is used for billing.
+  - `bigquery.project-id` is used for querying data.
+:::
+
 (bigquery-arrow-serialization-support)=
 ### Arrow serialization support
 
 This is a feature which introduces support for using Apache Arrow
-as the serialization format when reading from BigQuery.  Please note there are
-a few caveats:
+as the serialization format when reading from BigQuery. Add the following
+required, additional JVM argument to the [](jvm-config):
 
-- Using Apache Arrow serialization is enabled by default. Add
-  `--add-opens=java.base/java.nio=ALL-UNNAMED` to the Trino
-  {ref}`jvm-config`.
+```none
+--add-opens=java.base/java.nio=ALL-UNNAMED
+```
 
 (bigquery-reading-from-views)=
 ### Reading from views
@@ -121,10 +153,12 @@ a few caveats:
   - Description
   - Default
 * - `bigquery.project-id`
-  - The Google Cloud Project ID where the data reside.
-  - Taken from the service account
+  - The project ID of the Google Cloud account used to store the data,
+    see also [](bigquery-project-id-resolution)
+  - Taken from the service account or from `bigquery.parent-project-id`, if set
 * - `bigquery.parent-project-id`
-  - The project ID Google Cloud Project to bill for the export.
+  - The project ID Google Cloud Project to bill for the export,
+    see also [](bigquery-project-id-resolution)
   - Taken from the service account
 * - `bigquery.views-enabled`
   - Enables the connector to read from views and not only tables. Read
@@ -177,6 +211,10 @@ a few caveats:
   - Enable using Apache Arrow serialization when reading data from BigQuery.
     Read this [section](bigquery-arrow-serialization-support) before using this feature.
   - `true`
+* - `bigquery.max-parallelism`
+  - The max number of partitions to split the data into. Reduce this number if
+    the default parallelism (number of workers x 3) is too high.
+  -
 * - `bigquery.channel-pool.initial-size`
   - The initial size of the connection pool, also known as a channel pool,
     used for gRPC communication.
@@ -437,6 +475,17 @@ the following features:
 - {doc}`/sql/comment`
 
 ```{include} sql-delete-limitation.fragment
+```
+
+### Wildcard table
+
+The connector provides support to query multiple tables using a concise
+[wildcard table](https://cloud.google.com/bigquery/docs/querying-wildcard-tables)
+notation.
+
+```sql
+SELECT *
+FROM example.web."page_views_*";
 ```
 
 ### Procedures

@@ -36,6 +36,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.IntStream;
 
@@ -198,6 +199,13 @@ public abstract class AbstractTestBlock
         for (int position = 0; position < block.getPositionCount(); position++) {
             assertBlockPosition(block, position, expectedValues[position]);
         }
+        if (Arrays.stream(expectedValues).anyMatch(Objects::isNull)) {
+            assertThat(block.hasNull()).isTrue();
+            assertThat(block.mayHaveNull()).isTrue();
+        }
+        else {
+            assertThat(block.hasNull()).isFalse();
+        }
     }
 
     protected static List<Block> splitBlock(Block block, int count)
@@ -263,9 +271,9 @@ public abstract class AbstractTestBlock
 
     private static long getCompactedBlockSizeInBytes(Block block)
     {
-        if (block instanceof DictionaryBlock) {
+        if (block instanceof DictionaryBlock dictionaryBlock) {
             // dictionary blocks might become unwrapped when copyRegion is called on a block that is already compact
-            return ((DictionaryBlock) block).compact().getSizeInBytes();
+            return dictionaryBlock.compact().getSizeInBytes();
         }
         return copyBlockViaCopyRegion(block).getSizeInBytes();
     }

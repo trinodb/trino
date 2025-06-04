@@ -32,6 +32,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
@@ -497,7 +498,7 @@ public class OrcTester
             boolean isFirst = true;
             int rowsProcessed = 0;
             Iterator<?> iterator = expectedValues.iterator();
-            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
+            for (SourcePage page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
                 int batchSize = page.getPositionCount();
                 if (skipStripe && rowsProcessed < 10000) {
                     assertThat(advance(iterator, batchSize)).isEqualTo(batchSize);
@@ -626,6 +627,7 @@ public class OrcTester
         return orcReader.createRecordReader(
                 orcReader.getRootColumn().getNestedColumns(),
                 ImmutableList.of(type),
+                false,
                 predicate,
                 HIVE_STORAGE_TIME_ZONE,
                 newSimpleAggregatedMemoryContext(),
@@ -1160,8 +1162,8 @@ public class OrcTester
         if (type instanceof VarcharType) {
             return value;
         }
-        if (type instanceof CharType) {
-            return new HiveChar((String) value, ((CharType) type).getLength());
+        if (type instanceof CharType charType) {
+            return new HiveChar((String) value, charType.getLength());
         }
         if (type.equals(VARBINARY)) {
             return ((SqlVarbinary) value).getBytes();
@@ -1402,14 +1404,14 @@ public class OrcTester
         if (type instanceof TimestampWithTimeZoneType) {
             return true;
         }
-        if (type instanceof ArrayType) {
-            return isTimestampTz(((ArrayType) type).getElementType());
+        if (type instanceof ArrayType arrayType) {
+            return isTimestampTz(arrayType.getElementType());
         }
-        if (type instanceof MapType) {
-            return isTimestampTz(((MapType) type).getKeyType()) || isTimestampTz(((MapType) type).getValueType());
+        if (type instanceof MapType mapType) {
+            return isTimestampTz(mapType.getKeyType()) || isTimestampTz(mapType.getValueType());
         }
-        if (type instanceof RowType) {
-            return ((RowType) type).getFields().stream()
+        if (type instanceof RowType rowType) {
+            return rowType.getFields().stream()
                     .map(RowType.Field::getType)
                     .anyMatch(OrcTester::isTimestampTz);
         }
@@ -1421,14 +1423,14 @@ public class OrcTester
         if (type.equals(UUID)) {
             return true;
         }
-        if (type instanceof ArrayType) {
-            return isUuid(((ArrayType) type).getElementType());
+        if (type instanceof ArrayType arrayType) {
+            return isUuid(arrayType.getElementType());
         }
-        if (type instanceof MapType) {
-            return isUuid(((MapType) type).getKeyType()) || isUuid(((MapType) type).getValueType());
+        if (type instanceof MapType mapType) {
+            return isUuid(mapType.getKeyType()) || isUuid(mapType.getValueType());
         }
-        if (type instanceof RowType) {
-            return ((RowType) type).getFields().stream()
+        if (type instanceof RowType rowType) {
+            return rowType.getFields().stream()
                     .map(RowType.Field::getType)
                     .anyMatch(OrcTester::isUuid);
         }

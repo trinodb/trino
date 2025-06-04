@@ -47,6 +47,7 @@ public class HudiConfig
     private int splitGeneratorParallelism = 4;
     private long perTransactionMetastoreCacheMaximumSize = 2000;
     private boolean queryPartitionFilterRequired;
+    private boolean ignoreAbsentPartitions;
 
     public List<String> getColumnsToHide()
     {
@@ -202,5 +203,17 @@ public class HudiConfig
     public boolean isQueryPartitionFilterRequired()
     {
         return queryPartitionFilterRequired;
+    }
+
+    @Config("hudi.ignore-absent-partitions")
+    public HudiConfig setIgnoreAbsentPartitions(boolean ignoreAbsentPartitions)
+    {
+        this.ignoreAbsentPartitions = ignoreAbsentPartitions;
+        return this;
+    }
+
+    public boolean isIgnoreAbsentPartitions()
+    {
+        return ignoreAbsentPartitions;
     }
 }

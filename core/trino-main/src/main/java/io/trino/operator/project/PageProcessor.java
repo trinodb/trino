@@ -26,9 +26,11 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.DictionaryId;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SourcePage;
 import io.trino.sql.gen.ExpressionProfiler;
 import io.trino.sql.gen.columnar.FilterEvaluator;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -76,7 +78,7 @@ public class PageProcessor
         this.projections = projections.stream()
                 .map(projection -> {
                     if (projection.getInputChannels().size() == 1 && projection.isDeterministic()) {
-                        return new DictionaryAwarePageProjection(projection, dictionarySourceIdFunction, projection instanceof InputPageProjection);
+                        return new DictionaryAwarePageProjection(projection, dictionarySourceIdFunction);
                     }
                     return projection;
                 })
@@ -92,7 +94,7 @@ public class PageProcessor
     }
 
     @VisibleForTesting
-    public Iterator<Optional<Page>> process(ConnectorSession session, DriverYieldSignal yieldSignal, LocalMemoryContext memoryContext, Page page)
+    public Iterator<Optional<Page>> process(ConnectorSession session, DriverYieldSignal yieldSignal, LocalMemoryContext memoryContext, SourcePage page)
     {
         WorkProcessor<Page> processor = createWorkProcessor(session, yieldSignal, memoryContext, new PageProcessorMetrics(), page);
         return processor.yieldingIterator();
@@ -103,7 +105,7 @@ public class PageProcessor
             DriverYieldSignal yieldSignal,
             LocalMemoryContext memoryContext,
             PageProcessorMetrics metrics,
-            Page page)
+            SourcePage page)
     {
         // limit the scope of the dictionary ids to just one page
         dictionarySourceIdFunction.reset();
@@ -146,7 +148,7 @@ public class PageProcessor
         private final LocalMemoryContext memoryContext;
         private final PageProcessorMetrics metrics;
 
-        private Page page;
+        private SourcePage page;
         private final Block[] previouslyComputedResults;
         private SelectedPositions selectedPositions;
         private long retainedSizeInBytes;
@@ -161,7 +163,7 @@ public class PageProcessor
                 DriverYieldSignal yieldSignal,
                 LocalMemoryContext memoryContext,
                 PageProcessorMetrics metrics,
-                Page page,
+                SourcePage page,
                 SelectedPositions selectedPositions)
         {
             checkArgument(!selectedPositions.isEmpty(), "selectedPositions is empty");
@@ -234,9 +236,7 @@ public class PageProcessor
                 }
                 else {
                     page = null;
-                    for (int i = 0; i < previouslyComputedResults.length; i++) {
-                        previouslyComputedResults[i] = null;
-                    }
+                    Arrays.fill(previouslyComputedResults, null);
                     memoryContext.setBytes(0);
                 }
 
@@ -259,20 +259,16 @@ public class PageProcessor
 
         private void updateRetainedSize()
         {
-            // increment the size only when it is the first reference
+            // TODO: This is an estimate without knowing anything about the SourcePage implementation details. SourcePage
+            // should expose this information directly
             retainedSizeInBytes = Page.getInstanceSizeInBytes(page.getChannelCount());
+            // increment the size only when it is the first reference
             ReferenceCountMap referenceCountMap = new ReferenceCountMap();
-            for (int channel = 0; channel < page.getChannelCount(); channel++) {
-                Block block = page.getBlock(channel);
-                // TODO: block might be partially loaded
-                if (block.isLoaded()) {
-                    block.retainedBytesForEachPart((object, size) -> {
-                        if (referenceCountMap.incrementAndGet(object) == 1) {
-                            retainedSizeInBytes += size;
-                        }
-                    });
+            page.retainedBytesForEachPart((object, size) -> {
+                if (referenceCountMap.incrementAndGet(object) == 1) {
+                    retainedSizeInBytes += size;
                 }
-            }
+            });
             for (Block previouslyComputedResult : previouslyComputedResults) {
                 if (previouslyComputedResult != null) {
                     previouslyComputedResult.retainedBytesForEachPart((object, size) -> {
@@ -324,7 +320,6 @@ public class PageProcessor
                     blocks[i] = previouslyComputedResults[i];
                 }
 
-                blocks[i] = blocks[i].getLoadedBlock();
                 pageSize += blocks[i].getSizeInBytes();
             }
             return ProcessBatchResult.processBatchSuccess(new Page(positionsBatch.size(), blocks));

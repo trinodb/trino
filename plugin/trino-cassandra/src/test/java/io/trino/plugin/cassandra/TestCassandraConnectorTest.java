@@ -196,17 +196,19 @@ public class TestCassandraConnectorTest
     public void testShowCreateTable()
     {
         assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
-                .isEqualTo("CREATE TABLE cassandra.tpch.orders (\n" +
-                        "   orderkey bigint,\n" +
-                        "   custkey bigint,\n" +
-                        "   orderstatus varchar,\n" +
-                        "   totalprice double,\n" +
-                        "   orderdate date,\n" +
-                        "   orderpriority varchar,\n" +
-                        "   clerk varchar,\n" +
-                        "   shippriority integer,\n" +
-                        "   comment varchar\n" +
-                        ")");
+                .isEqualTo(
+                        """
+                        CREATE TABLE cassandra.tpch.orders (
+                           orderkey bigint,
+                           custkey bigint,
+                           orderstatus varchar,
+                           totalprice double,
+                           orderdate date,
+                           orderpriority varchar,
+                           clerk varchar,
+                           shippriority integer,
+                           comment varchar
+                        )""");
     }
 
     @Test
@@ -1003,27 +1005,30 @@ public class TestCassandraConnectorTest
          */
         String uppercaseKeyspaceName = "KEYSPACE_1" + randomNameSuffix().toUpperCase(ENGLISH);
         String lowercaseKeyspaceName = uppercaseKeyspaceName.toLowerCase(ENGLISH);
-        createKeyspace(uppercaseKeyspaceName);
+        try {
+            createKeyspace(uppercaseKeyspaceName);
 
-        assertContainsEventually(() -> computeActual("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
-                .row(lowercaseKeyspaceName)
-                .build(), new Duration(1, MINUTES));
+            assertContainsEventually(() -> computeActual("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
+                    .row(lowercaseKeyspaceName)
+                    .build(), new Duration(1, MINUTES));
 
-        session.execute("CREATE TABLE " + uppercaseKeyspaceName + ".TABLE_1 (COLUMN_1 bigint PRIMARY KEY)");
-        assertContainsEventually(() -> computeActual("SHOW TABLES FROM cassandra." + lowercaseKeyspaceName), resultBuilder(getSession(), createUnboundedVarcharType())
-                .row("table_1")
-                .build(), new Duration(1, MINUTES));
-        assertContains(computeActual("SHOW COLUMNS FROM cassandra." + lowercaseKeyspaceName + ".table_1"), resultBuilder(getSession(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType())
-                .row("column_1", "bigint", "", "")
-                .build());
+            session.execute("CREATE TABLE " + uppercaseKeyspaceName + ".TABLE_1 (COLUMN_1 bigint PRIMARY KEY)");
+            assertContainsEventually(() -> computeActual("SHOW TABLES FROM cassandra." + lowercaseKeyspaceName), resultBuilder(getSession(), createUnboundedVarcharType())
+                    .row("table_1")
+                    .build(), new Duration(1, MINUTES));
+            assertContains(computeActual("SHOW COLUMNS FROM cassandra." + lowercaseKeyspaceName + ".table_1"), resultBuilder(getSession(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType())
+                    .row("column_1", "bigint", "", "")
+                    .build());
 
-        assertUpdate("INSERT INTO " + lowercaseKeyspaceName + ".table_1 (column_1) VALUES (1)", 1);
+            assertUpdate("INSERT INTO " + lowercaseKeyspaceName + ".table_1 (column_1) VALUES (1)", 1);
 
-        assertThat(computeActual("SELECT column_1 FROM cassandra." + lowercaseKeyspaceName + ".table_1").getRowCount()).isEqualTo(1);
-        assertUpdate("DROP TABLE cassandra." + lowercaseKeyspaceName + ".table_1");
-
-        // when an identifier is unquoted the lowercase and uppercase spelling may be used interchangeable
-        dropKeyspace(lowercaseKeyspaceName);
+            assertThat(computeActual("SELECT column_1 FROM cassandra." + lowercaseKeyspaceName + ".table_1").getRowCount()).isEqualTo(1);
+            assertUpdate("DROP TABLE cassandra." + lowercaseKeyspaceName + ".table_1");
+        }
+        finally {
+            // when an identifier is unquoted the lowercase and uppercase spelling may be used interchangeable
+            dropKeyspace(lowercaseKeyspaceName);
+        }
     }
 
     @Test
@@ -1036,27 +1041,30 @@ public class TestCassandraConnectorTest
          */
         String uppercaseKeyspaceName = "KEYSPACE_2%s".formatted(randomNameSuffix().toUpperCase(ENGLISH));
         String quotedUppercaseKeyspaceName = "\"%s\"".formatted(uppercaseKeyspaceName);
-        createKeyspace(quotedUppercaseKeyspaceName);
-        String lowerCaseKeyspaceName = uppercaseKeyspaceName.toLowerCase(ENGLISH);
-        assertContainsEventually(() -> computeActual("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
-                .row(lowerCaseKeyspaceName)
-                .build(), new Duration(1, MINUTES));
+        try {
+            createKeyspace(quotedUppercaseKeyspaceName);
+            String lowerCaseKeyspaceName = uppercaseKeyspaceName.toLowerCase(ENGLISH);
+            assertContainsEventually(() -> computeActual("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
+                    .row(lowerCaseKeyspaceName)
+                    .build(), new Duration(1, MINUTES));
 
-        session.execute("CREATE TABLE " + quotedUppercaseKeyspaceName + ".\"TABLE_2\" (\"COLUMN_2\" bigint PRIMARY KEY)");
-        assertContainsEventually(() -> computeActual("SHOW TABLES FROM cassandra." + lowerCaseKeyspaceName), resultBuilder(getSession(), createUnboundedVarcharType())
-                .row("table_2")
-                .build(), new Duration(1, MINUTES));
-        assertContains(computeActual("SHOW COLUMNS FROM cassandra.%s.table_2".formatted(lowerCaseKeyspaceName)), resultBuilder(getSession(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType())
-                .row("column_2", "bigint", "", "")
-                .build());
+            session.execute("CREATE TABLE " + quotedUppercaseKeyspaceName + ".\"TABLE_2\" (\"COLUMN_2\" bigint PRIMARY KEY)");
+            assertContainsEventually(() -> computeActual("SHOW TABLES FROM cassandra." + lowerCaseKeyspaceName), resultBuilder(getSession(), createUnboundedVarcharType())
+                    .row("table_2")
+                    .build(), new Duration(1, MINUTES));
+            assertContains(computeActual("SHOW COLUMNS FROM cassandra.%s.table_2".formatted(lowerCaseKeyspaceName)), resultBuilder(getSession(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType())
+                    .row("column_2", "bigint", "", "")
+                    .build());
 
-        assertUpdate("INSERT INTO " + quotedUppercaseKeyspaceName + ".\"TABLE_2\" (\"COLUMN_2\") VALUES (1)", 1);
+            assertUpdate("INSERT INTO " + quotedUppercaseKeyspaceName + ".\"TABLE_2\" (\"COLUMN_2\") VALUES (1)", 1);
 
-        assertThat(computeActual("SELECT column_2 FROM cassandra.%s.table_2".formatted(lowerCaseKeyspaceName)).getRowCount()).isEqualTo(1);
-        assertUpdate("DROP TABLE cassandra.%s.table_2".formatted(lowerCaseKeyspaceName));
-
-        // when an identifier is unquoted the lowercase and uppercase spelling may be used interchangeable
-        dropKeyspace(quotedUppercaseKeyspaceName);
+            assertThat(computeActual("SELECT column_2 FROM cassandra.%s.table_2".formatted(lowerCaseKeyspaceName)).getRowCount()).isEqualTo(1);
+            assertUpdate("DROP TABLE cassandra.%s.table_2".formatted(lowerCaseKeyspaceName));
+        }
+        finally {
+            // when an identifier is unquoted the lowercase and uppercase spelling may be used interchangeable
+            dropKeyspace(quotedUppercaseKeyspaceName);
+        }
     }
 
     @Test
@@ -1074,24 +1082,27 @@ public class TestCassandraConnectorTest
             String quotedKeyspaceMixedCaseName1 = "\"%s\"".formatted(mixedCaseKeyspaceName1);
             String quotedKeyspaceMixedCaseName2 = "\"%s\"".formatted(mixedCaseKeyspaceName2);
 
-            createKeyspace(quotedKeyspaceMixedCaseName1);
-            createKeyspace(quotedKeyspaceMixedCaseName2);
+            try {
+                createKeyspace(quotedKeyspaceMixedCaseName1);
+                createKeyspace(quotedKeyspaceMixedCaseName2);
 
-            // Although in Trino all the schema and table names are always displayed as lowercase
-            assertContainsEventually(() -> computeActual("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
-                    .row(lowercaseKeyspaceName)
-                    .row(lowercaseKeyspaceName)
-                    .build(), new Duration(1, MINUTES));
+                // Although in Trino all the schema and table names are always displayed as lowercase
+                assertContainsEventually(() -> computeActual("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
+                        .row(lowercaseKeyspaceName)
+                        .row(lowercaseKeyspaceName)
+                        .build(), new Duration(1, MINUTES));
 
-            // There is no way to figure out what the exactly keyspace we want to retrieve tables from
-            assertQueryFailsEventually(
-                    "SHOW TABLES FROM cassandra.%s".formatted(lowercaseKeyspaceName),
-                    "Error listing tables for catalog cassandra: More than one keyspace has been found for the case insensitive schema name: %s -> \\(%s, %s\\)"
-                            .formatted(lowercaseKeyspaceName, mixedCaseKeyspaceName1, mixedCaseKeyspaceName2),
-                    new Duration(1, MINUTES));
-
-            dropKeyspace(quotedKeyspaceMixedCaseName1);
-            dropKeyspace(quotedKeyspaceMixedCaseName2);
+                // There is no way to figure out what the exactly keyspace we want to retrieve tables from
+                assertQueryFailsEventually(
+                        "SHOW TABLES FROM cassandra.%s".formatted(lowercaseKeyspaceName),
+                        "Error listing tables for catalog cassandra: More than one keyspace has been found for the case insensitive schema name: %s -> \\(%s, %s\\)"
+                                .formatted(lowercaseKeyspaceName, mixedCaseKeyspaceName1, mixedCaseKeyspaceName2),
+                        new Duration(1, MINUTES));
+            }
+            finally {
+                dropKeyspace(quotedKeyspaceMixedCaseName1);
+                dropKeyspace(quotedKeyspaceMixedCaseName2);
+            }
             // Wait until the schema becomes invisible to Trino. Otherwise, testSelectInformationSchemaColumns may fail due to ambiguous schema names.
             assertEventually(() -> assertThat(computeActual("SHOW SCHEMAS FROM cassandra").getOnlyColumnAsSet())
                     .doesNotContain(lowercaseKeyspaceName));
@@ -1348,32 +1359,35 @@ public class TestCassandraConnectorTest
     @Test
     public void testNestedCollectionType()
     {
-        String keyspaceName = "keyspace_test_nested_collection" + randomNameSuffix();
-        createKeyspace(keyspaceName);
-        assertContainsEventually(() -> computeActual("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
-                .row(keyspaceName)
-                .build(), new Duration(1, MINUTES));
+        String tableNameForSet = "table_set_" + randomNameSuffix();
+        String tableNameForList = "table_list_" + randomNameSuffix();
+        String tableNameForMap = "table_map_" + randomNameSuffix();
 
-        session.execute("CREATE TABLE " + keyspaceName + ".table_set (column_5 bigint PRIMARY KEY, nested_collection frozen<set<set<bigint>>>)");
-        session.execute("CREATE TABLE " + keyspaceName + ".table_list (column_5 bigint PRIMARY KEY, nested_collection frozen<list<list<bigint>>>)");
-        session.execute("CREATE TABLE " + keyspaceName + ".table_map (column_5 bigint PRIMARY KEY, nested_collection frozen<map<int, map<bigint, bigint>>>)");
+        try {
+            session.execute("CREATE TABLE tpch." + tableNameForSet + " (column_5 bigint PRIMARY KEY, nested_collection frozen<set<set<bigint>>>)");
+            session.execute("CREATE TABLE tpch." + tableNameForList + " (column_5 bigint PRIMARY KEY, nested_collection frozen<list<list<bigint>>>)");
+            session.execute("CREATE TABLE tpch." + tableNameForMap + " (column_5 bigint PRIMARY KEY, nested_collection frozen<map<int, map<bigint, bigint>>>)");
 
-        assertContainsEventually(() -> computeActual("SHOW TABLES FROM cassandra." + keyspaceName), resultBuilder(getSession(), createUnboundedVarcharType())
-                .row("table_set")
-                .row("table_list")
-                .row("table_map")
-                .build(), new Duration(1, MINUTES));
+            assertContainsEventually(() -> computeActual("SHOW TABLES FROM cassandra.tpch"), resultBuilder(getSession(), createUnboundedVarcharType())
+                    .row(tableNameForSet)
+                    .row(tableNameForList)
+                    .row(tableNameForMap)
+                    .build(), new Duration(1, MINUTES));
 
-        session.execute("INSERT INTO " + keyspaceName + ".table_set (column_5, nested_collection) VALUES (1, {{1, 2, 3}})");
-        assertThat(computeActual("SELECT nested_collection FROM cassandra." + keyspaceName + ".table_set").getMaterializedRows().get(0)).isEqualTo(new MaterializedRow(DEFAULT_PRECISION, "[[1,2,3]]"));
+            session.execute("INSERT INTO tpch." + tableNameForSet + " (column_5, nested_collection) VALUES (1, {{1, 2, 3}})");
+            assertThat(computeActual("SELECT nested_collection FROM cassandra.tpch." + tableNameForSet).getMaterializedRows().get(0)).isEqualTo(new MaterializedRow(DEFAULT_PRECISION, "[[1,2,3]]"));
 
-        session.execute("INSERT INTO " + keyspaceName + ".table_list (column_5, nested_collection) VALUES (1, [[4, 5, 6]])");
-        assertThat(computeActual("SELECT nested_collection FROM cassandra." + keyspaceName + ".table_list").getMaterializedRows().get(0)).isEqualTo(new MaterializedRow(DEFAULT_PRECISION, "[[4,5,6]]"));
+            session.execute("INSERT INTO tpch." + tableNameForList + " (column_5, nested_collection) VALUES (1, [[4, 5, 6]])");
+            assertThat(computeActual("SELECT nested_collection FROM cassandra.tpch." + tableNameForList).getMaterializedRows().get(0)).isEqualTo(new MaterializedRow(DEFAULT_PRECISION, "[[4,5,6]]"));
 
-        session.execute("INSERT INTO " + keyspaceName + ".table_map (column_5, nested_collection) VALUES (1, {7:{8:9}})");
-        assertThat(computeActual("SELECT nested_collection FROM cassandra." + keyspaceName + ".table_map").getMaterializedRows().get(0)).isEqualTo(new MaterializedRow(DEFAULT_PRECISION, "{7:{8:9}}"));
-
-        dropKeyspace(keyspaceName);
+            session.execute("INSERT INTO tpch." + tableNameForMap + " (column_5, nested_collection) VALUES (1, {7:{8:9}})");
+            assertThat(computeActual("SELECT nested_collection FROM cassandra.tpch." + tableNameForMap).getMaterializedRows().get(0)).isEqualTo(new MaterializedRow(DEFAULT_PRECISION, "{7:{8:9}}"));
+        }
+        finally {
+            onCassandra("DROP TABLE IF EXISTS tpch." + tableNameForSet);
+            onCassandra("DROP TABLE IF EXISTS tpch." + tableNameForList);
+            onCassandra("DROP TABLE IF EXISTS tpch." + tableNameForMap);
+        }
     }
 
     @Test

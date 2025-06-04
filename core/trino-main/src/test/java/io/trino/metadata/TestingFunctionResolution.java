@@ -24,6 +24,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.TypeSignatureProvider;
+import io.trino.sql.gen.CursorProcessorCompiler;
 import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
@@ -106,7 +107,12 @@ public class TestingFunctionResolution
 
     public ExpressionCompiler getExpressionCompiler()
     {
-        return new ExpressionCompiler(plannerContext.getFunctionManager(), getPageFunctionCompiler(), getColumnarFilterCompiler());
+        return new ExpressionCompiler(getCursorProcessorCompiler(), getPageFunctionCompiler(), getColumnarFilterCompiler());
+    }
+
+    public CursorProcessorCompiler getCursorProcessorCompiler()
+    {
+        return new CursorProcessorCompiler(plannerContext.getFunctionManager());
     }
 
     public PageFunctionCompiler getPageFunctionCompiler()

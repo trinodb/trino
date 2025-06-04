@@ -95,7 +95,7 @@ WITH (
 The following are supported Ignite table properties from [https://ignite.apache.org/docs/latest/sql-reference/ddl](https://ignite.apache.org/docs/latest/sql-reference/ddl)
 
 :::{list-table}
-:widths: 30, 10, 100
+:widths: 30, 10, 60
 :header-rows: 1
 
 * - Property name
@@ -103,7 +103,7 @@ The following are supported Ignite table properties from [https://ignite.apache.
   - Description
 * - `primary_key`
   - No
-  - The primary key of the table, can chose multi columns as the table primary
+  - The primary key of the table, can choose multi columns as the table primary
     key. Table at least contains one column not in primary key.
 :::
 

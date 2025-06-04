@@ -27,8 +27,6 @@
   trino hard nproc 128000
   ```
 
-% These values are used in core/trino-server-rpm/src/main/resources/dist/etc/init.d/trino
-
 (requirements-java)=
 ### Java runtime environment
 
@@ -47,6 +45,16 @@ Docker image](https://hub.docker.com/r/trinodb/trino).
 Download the Trino server tarball, {maven_download}`server`, and unpack it. The
 tarball contains a single top-level directory, `trino-server-|trino_version|`,
 which we call the *installation* directory.
+
+The default tarball contains all plugins and must be configured for use. The
+minimal `server-core` tarball, {maven_download}`server-core`, contains a minimal
+set of essential plugins, and it is therefore mostly suitable as a base for
+custom tarball creation.
+
+The [trino-packages project](https://github.com/trinodb/trino-packages) includes
+a module to create a fully configured tarball with an example configuration. The
+custom tarball is ready to use and can be further configured and adjusted to
+your needs.
 
 Trino needs a *data* directory for storing logs, etc. By default, an
 installation from the tarball uses the same location for the installation and data
@@ -332,11 +340,11 @@ configuration files in `etc`, the data directory identical to the installation
 directory, the pid file as `var/run/launcher.pid` and log files in the `var/log`
 directory.
 
-You can change these values to adjust your Trino usage to any
-requirements, such as using a directory outside the installation directory,
-specific mount points or locations, and even using other file names. For
-example, the Trino RPM adjusts the used directories to better follow the Linux
-Filesystem Hierarchy Standard (FHS).
+You can change these values to adjust your Trino usage to any requirements, such
+as using a directory outside the installation directory, specific mount points
+or locations, and even using other file names. For example, the [Trino
+RPM](https://github.com/trinodb/trino-packages) adjusts the used directories to
+better follow the Linux Filesystem Hierarchy Standard (FHS).
 
 After starting Trino, you can find log files in the `log` directory inside
 the data directory `var`:

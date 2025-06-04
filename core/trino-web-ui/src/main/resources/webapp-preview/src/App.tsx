@@ -94,7 +94,7 @@ const NotFound = () => {
                     <Typography variant="h3">404</Typography>
                     <Typography paragraph>The page you’re looking for doesn’t exist.</Typography>
                     <Button variant="contained" component={Link} href="/">
-                        Back Home
+                        Back home
                     </Button>
                 </Grid>
             </Grid>

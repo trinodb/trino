@@ -105,6 +105,11 @@ public final class TypeConverter
                 return RowType.from(fields.stream()
                         .map(field -> new RowType.Field(Optional.of(field.name()), toTrinoType(field.type(), typeManager)))
                         .collect(toImmutableList()));
+            case VARIANT:
+                // TODO https://github.com/trinodb/trino/issues/24538 Support variant type
+                break;
+            case UNKNOWN:
+                break;
         }
         throw new UnsupportedOperationException(format("Cannot convert from Iceberg type '%s' (%s) to Trino type", type, type.typeId()));
     }
@@ -136,8 +141,8 @@ public final class TypeConverter
         if (type instanceof DoubleType) {
             return Types.DoubleType.get();
         }
-        if (type instanceof DecimalType) {
-            return fromDecimal((DecimalType) type);
+        if (type instanceof DecimalType decimalType) {
+            return fromDecimal(decimalType);
         }
         if (type instanceof VarcharType) {
             return Types.StringType.get();
@@ -169,14 +174,14 @@ public final class TypeConverter
         if (type instanceof MapType mapType) {
             return fromMap(mapType, columnIdentity, nextFieldId);
         }
-        if (type instanceof TimeType) {
-            throw new TrinoException(NOT_SUPPORTED, format("Time precision (%s) not supported for Iceberg. Use \"time(6)\" instead.", ((TimeType) type).getPrecision()));
+        if (type instanceof TimeType timeType) {
+            throw new TrinoException(NOT_SUPPORTED, format("Time precision (%s) not supported for Iceberg. Use \"time(6)\" instead.", timeType.getPrecision()));
         }
-        if (type instanceof TimestampType) {
-            throw new TrinoException(NOT_SUPPORTED, format("Timestamp precision (%s) not supported for Iceberg. Use \"timestamp(6)\" instead.", ((TimestampType) type).getPrecision()));
+        if (type instanceof TimestampType timestampType) {
+            throw new TrinoException(NOT_SUPPORTED, format("Timestamp precision (%s) not supported for Iceberg. Use \"timestamp(6)\" instead.", timestampType.getPrecision()));
         }
-        if (type instanceof TimestampWithTimeZoneType) {
-            throw new TrinoException(NOT_SUPPORTED, format("Timestamp precision (%s) not supported for Iceberg. Use \"timestamp(6) with time zone\" instead.", ((TimestampWithTimeZoneType) type).getPrecision()));
+        if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
+            throw new TrinoException(NOT_SUPPORTED, format("Timestamp precision (%s) not supported for Iceberg. Use \"timestamp(6) with time zone\" instead.", timestampWithTimeZoneType.getPrecision()));
         }
         throw new TrinoException(NOT_SUPPORTED, "Type not supported for Iceberg: " + type.getDisplayName());
     }

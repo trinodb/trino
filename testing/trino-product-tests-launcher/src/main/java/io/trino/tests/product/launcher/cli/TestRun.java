@@ -355,8 +355,6 @@ public final class TestRun
                                         "-Xmx1g",
                                         "-Djava.util.logging.config.file=/docker/trino-product-tests/conf/tempto/logging.properties",
                                         "-Duser.timezone=Asia/Kathmandu",
-                                        // https://bugs.openjdk.org/browse/JDK-8327134
-                                        "-Djava.security.manager=allow",
                                         // Tempto has progress logging built in
                                         "-DProgressLoggingListener.enabled=false")
                                 .addAll(temptoJavaOptions)

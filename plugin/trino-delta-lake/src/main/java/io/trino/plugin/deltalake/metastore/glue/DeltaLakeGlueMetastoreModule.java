@@ -24,14 +24,12 @@ import io.trino.plugin.deltalake.MaxTableParameterLength;
 import io.trino.plugin.deltalake.metastore.DeltaLakeTableOperationsProvider;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreModule;
-import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 
 import java.util.EnumSet;
 import java.util.Set;
 
 import static com.google.inject.multibindings.ProvidesIntoOptional.Type.ACTUAL;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class DeltaLakeGlueMetastoreModule
         extends AbstractConfigurationAwareModule
@@ -42,8 +40,6 @@ public class DeltaLakeGlueMetastoreModule
         configBinder(binder).bindConfig(DeltaLakeGlueMetastoreConfig.class);
 
         install(new GlueMetastoreModule());
-        binder.bind(GlueMetastoreStats.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(GlueMetastoreStats.class).withGeneratedName();
         binder.bind(DeltaLakeTableOperationsProvider.class).to(DeltaLakeGlueMetastoreTableOperationsProvider.class).in(Scopes.SINGLETON);
         binder.bind(Key.get(boolean.class, AllowDeltaLakeManagedTableRename.class)).toInstance(true);
         // Limit per Glue API docs (https://docs.aws.amazon.com/glue/latest/webapi/API_TableInput.html#Glue-Type-TableInput-Parameters as of this writing)

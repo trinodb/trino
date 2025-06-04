@@ -163,7 +163,7 @@ public class TestEventListenerWithSplits
         // Deterministic statistics
         assertThat(statistics.getPhysicalInputBytes()).isEqualTo(0);
         assertThat(statistics.getPhysicalInputRows()).isEqualTo(expectedCompletedPositions);
-        assertThat(statistics.getProcessedInputBytes()).isEqualTo(0);
+        assertThat(statistics.getProcessedInputBytes()).isEqualTo(300875L);
         assertThat(statistics.getProcessedInputRows()).isEqualTo(expectedCompletedPositions);
         assertThat(statistics.getInternalNetworkBytes()).isEqualTo(132);
         assertThat(statistics.getInternalNetworkRows()).isEqualTo(3);

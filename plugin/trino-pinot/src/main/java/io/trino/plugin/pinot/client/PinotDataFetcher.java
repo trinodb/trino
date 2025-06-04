@@ -13,29 +13,24 @@
  */
 package io.trino.plugin.pinot.client;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.plugin.pinot.PinotException;
 import io.trino.plugin.pinot.PinotSplit;
 import org.apache.pinot.common.datatable.DataTable;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_EXCEPTION;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static org.apache.pinot.common.datatable.DataTable.EXCEPTION_METADATA_KEY;
 
 public interface PinotDataFetcher
 {
     default void checkExceptions(DataTable dataTable, PinotSplit split, String query)
     {
-        List<String> exceptions = dataTable.getMetadata().entrySet().stream()
-                .filter(metadataEntry -> metadataEntry.getKey().startsWith(EXCEPTION_METADATA_KEY))
-                .map(Map.Entry::getValue)
-                .collect(toImmutableList());
+        List<String> exceptions = ImmutableList.copyOf(dataTable.getExceptions().values());
         if (!exceptions.isEmpty()) {
             throw new PinotException(PINOT_EXCEPTION, Optional.of(query), format("Encountered %d pinot exceptions for split %s: %s", exceptions.size(), split, exceptions));
         }

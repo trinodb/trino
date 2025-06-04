@@ -29,12 +29,12 @@ export const Texts = {
         Logout: 'Log Out',
         InvalidUsernameOrPassword: 'Invalid username or password',
         NotAvailableAuthInfo: 'Authentication information not available',
-        NotImplementedAuthType: 'The configured authentication type is not implemented for the frontend',
+        NotImplementedAuthType: 'The configured authentication type is not supported',
     },
     Api: {
         FetchingData: 'Fetching data...',
         Stats: {
-            Name: 'Cluster Statistics',
+            Name: 'Cluster statistics',
         },
     },
     Error: {
@@ -43,6 +43,7 @@ export const Texts = {
         Forbidden: 'Forbidden',
         Network: 'The network has wandered off, please try again later!',
         NodeInformationNotLoaded: 'Node information could not be loaded',
+        QueryListNotLoaded: 'Query list could not be loaded',
     },
     Menu: {
         Header: {
@@ -54,8 +55,28 @@ export const Texts = {
         Drawer: {
             Dashboard: 'Dashboard',
             Workers: 'Workers',
-            QueryHistory: 'Query History',
-            DemoComponents: 'Demo Components',
+            QueryHistory: 'Query history',
+            DemoComponents: 'Demo components',
+        },
+    },
+    QueryList: {
+        NoQueries: 'No Queries',
+        NoMatchedFilterQueries: 'No queries matched filters',
+        Filter: {
+            Search: 'Search',
+            SearchPlaceholder:
+                'User, source, query ID, query state, resource group, error name, query text or client tags',
+            State: 'State',
+            Type: {
+                RUNNING: 'Running',
+                QUEUED: 'Queued',
+                FINISHED: 'Finished',
+            },
+
+            SortBy: 'SortBy',
+            Ordering: 'Ordering',
+            ReorderInterval: 'Reorder Interval',
+            Limit: 'Limit',
         },
     },
 }

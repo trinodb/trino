@@ -24,7 +24,6 @@ import io.trino.memory.QueryContext;
 import io.trino.spi.Page;
 import io.trino.spi.QueryId;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.type.Type;
 import io.trino.spiller.SpillSpaceTracker;
 
@@ -95,8 +94,8 @@ public final class GroupByHashYieldAssertion
                 .addDriverContext();
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        byte[] pointer = new byte[VariableWidthData.POINTER_SIZE];
-        VariableWidthData variableWidthData = new VariableWidthData();
+        byte[] pointer = new byte[AppendOnlyVariableWidthData.POINTER_SIZE];
+        AppendOnlyVariableWidthData variableWidthData = new AppendOnlyVariableWidthData();
 
         // run operator
         int yieldCount = 0;
@@ -106,9 +105,9 @@ public final class GroupByHashYieldAssertion
             long pageVariableWidthSize = 0;
             if (hashKeyType == VARCHAR) {
                 long oldVariableWidthSize = variableWidthData.getRetainedSizeBytes();
+                Block block = page.getBlock(0);
                 for (int position = 0; position < page.getPositionCount(); position++) {
-                    Block block = page.getBlock(0);
-                    variableWidthData.allocate(pointer, 0, ((VariableWidthBlock) block.getUnderlyingValueBlock()).getSliceLength(block.getUnderlyingValuePosition(position)));
+                    variableWidthData.allocate(pointer, 0, hashKeyType.getFlatVariableWidthSize(block, position));
                 }
                 pageVariableWidthSize = variableWidthData.getRetainedSizeBytes() - oldVariableWidthSize;
             }
@@ -175,15 +174,8 @@ public final class GroupByHashYieldAssertion
                 // Hash table capacity should not have changed, because memory must be allocated first
                 assertThat(oldCapacity).isEqualTo((long) getHashCapacity.apply(operator));
 
-                long expectedHashBytes;
-                if (hashKeyType == BIGINT) {
-                    // The increase in hash memory should be twice the current capacity.
-                    expectedHashBytes = getHashTableSizeInBytes(hashKeyType, oldCapacity * 2);
-                }
-                else {
-                    // Flat hash uses an incremental rehash, so as new memory is allocated old memory is freed
-                    expectedHashBytes = getHashTableSizeInBytes(hashKeyType, oldCapacity) + oldCapacity;
-                }
+                // The increase in hash memory should be twice the current capacity.
+                long expectedHashBytes = getHashTableSizeInBytes(hashKeyType, oldCapacity * 2);
                 assertThat(actualHashIncreased).isBetween(expectedHashBytes, expectedHashBytes + additionalMemoryInBytes);
 
                 // Output should be blocked as well
@@ -240,14 +232,7 @@ public final class GroupByHashYieldAssertion
 
         @SuppressWarnings("OverlyComplexArithmeticExpression")
         int sizePerEntry = Byte.BYTES + // control byte
-                Integer.BYTES + // groupId to hashPosition
-                VariableWidthData.POINTER_SIZE + // variable width pointer
-                Integer.BYTES + // groupId
-                Long.BYTES + // rawHash (optional, but present in this test)
-                Byte.BYTES + // field null
-                Integer.BYTES + // field variable length
-                Long.BYTES + // field first 8 bytes
-                Integer.BYTES; // field variable offset (or 4 more field bytes)
+                Integer.BYTES; // hashPosition to groupId
         return (long) capacity * sizePerEntry;
     }
 

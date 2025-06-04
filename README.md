@@ -8,18 +8,22 @@
     See the <a href="https://trino.io/docs/current/">User Manual</a> for deployment instructions and end user documentation.
 </p>
 <p align="center">
-  <a href="https://trino.io/download.html" style="text-decoration: none">
-    <img src="https://img.shields.io/maven-central/v/io.trino/trino-server.svg?label=Trino" alt="Trino download" />
-  </a>
-  <a href="https://github.com/jvm-repo-rebuild/reproducible-central/blob/master/content/io/trino/README.md" style="text-decoration: none">
-    <img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jvm-repo-rebuild/reproducible-central/master/content/io/trino/badge.json" alt="Reproducible builds supported" />
-  </a>
-  <a href="https://trino.io/slack.html"  style="text-decoration: none">
-    <img src="https://img.shields.io/static/v1?logo=slack&logoColor=959DA5&label=Slack&labelColor=333a41&message=join%20conversation&color=3AC358" alt="Trino Slack" />
-  </a>
-  <a href="https://trino.io/trino-the-definitive-guide.html"  style="text-decoration: none">
-    <img src="https://img.shields.io/badge/Trino%3A%20The%20Definitive%20Guide-download-brightgreen" alt="Trino: The Definitive Guide book download" />
-  </a>
+  <a href="https://trino.io/download.html" style="text-decoration: none"><img
+    src="https://img.shields.io/maven-central/v/io.trino/trino-server.svg?label=Trino"
+    alt="Trino download"
+  /></a>
+  <a href="https://github.com/jvm-repo-rebuild/reproducible-central/blob/master/content/io/trino/README.md" style="text-decoration: none"><img
+    src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jvm-repo-rebuild/reproducible-central/master/content/io/trino/badge.json"
+    alt="Reproducible builds supported"
+  /></a>
+  <a href="https://trino.io/slack.html" style="text-decoration: none"><img
+    src="https://img.shields.io/static/v1?logo=slack&logoColor=959DA5&label=Slack&labelColor=333a41&message=join%20conversation&color=3AC358"
+    alt="Trino Slack"
+  /></a>
+  <a href="https://trino.io/trino-the-definitive-guide.html" style="text-decoration: none"><img
+    src="https://img.shields.io/badge/Trino%3A%20The%20Definitive%20Guide-download-brightgreen"
+    alt="Trino: The Definitive Guide book download"
+  /></a>
 </p>
 
 ## Development
@@ -54,6 +58,9 @@ Trino supports [reproducible builds](https://reproducible-builds.org) as of vers
 ## Build requirements
 
 * Mac OS X or Linux
+  * Note that some npm packages used to build the web UI are only available
+    for x86 architectures, so if you're building on Apple Silicon, you need 
+    to have Rosetta 2 installed
 * Java 23.0.0+, 64-bit
 * Docker
   * Turn SELinux or other systems disabling write access to the local checkout

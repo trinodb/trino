@@ -14,7 +14,6 @@
 package io.trino.plugin.loki;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.log.Logger;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitManager;
@@ -30,8 +29,6 @@ import java.util.List;
 public class LokiSplitManager
         implements ConnectorSplitManager
 {
-    private static final Logger log = Logger.get(LokiSplitManager.class);
-
     @Override
     public ConnectorSplitSource getSplits(
             ConnectorTransactionHandle transaction,
@@ -43,8 +40,6 @@ public class LokiSplitManager
         final LokiTableHandle table = (LokiTableHandle) connectorTableHandle;
 
         List<ConnectorSplit> splits = ImmutableList.of(new LokiSplit(table.query(), table.start(), table.end(), table.step()));
-
-        log.debug("created %d splits", splits.size());
         return new FixedSplitSource(splits);
     }
 }

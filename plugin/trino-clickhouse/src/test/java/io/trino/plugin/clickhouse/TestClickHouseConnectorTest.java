@@ -486,7 +486,7 @@ public class TestClickHouseConnectorTest
                 .isEqualTo(format("" +
                         "CREATE TABLE clickhouse.tpch.%s (\n" +
                         "   id integer NOT NULL,\n" +
-                        "   x smallint NOT NULL,\n" +
+                        "   x boolean NOT NULL,\n" +
                         "   y varchar NOT NULL\n" +
                         ")\n" +
                         "WITH (\n" +
@@ -1154,7 +1154,7 @@ public class TestClickHouseConnectorTest
             throws SQLException
     {
         String sql = "SELECT * FROM system.tables WHERE database = ? AND name = ?";
-        try (Connection connection = DriverManager.getConnection(clickhouseServer.getJdbcUrl());
+        try (Connection connection = DriverManager.getConnection(clickhouseServer.getJdbcUrl(), clickhouseServer.getUsername(), clickhouseServer.getPassword());
                 PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
             preparedStatement.setString(1, schemaName);
             preparedStatement.setString(2, tableName);

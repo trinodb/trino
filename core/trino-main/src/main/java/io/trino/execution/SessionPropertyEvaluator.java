@@ -14,6 +14,8 @@
 package io.trino.execution;
 
 import com.google.inject.Inject;
+import info.debatty.java.stringsimilarity.JaroWinkler;
+import info.debatty.java.stringsimilarity.interfaces.StringSimilarity;
 import io.trino.Session;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.security.AccessControl;
@@ -32,7 +34,10 @@ import io.trino.sql.tree.QualifiedName;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
+import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.TIME_ZONE_ID;
 import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
 import static io.trino.metadata.SessionPropertyManager.evaluatePropertyValue;
@@ -40,10 +45,13 @@ import static io.trino.metadata.SessionPropertyManager.serializeSessionProperty;
 import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static java.lang.String.format;
+import static java.util.Comparator.comparingDouble;
 import static java.util.Objects.requireNonNull;
 
 public class SessionPropertyEvaluator
 {
+    private static final StringSimilarity SIMILARITY = new JaroWinkler();
+
     private final PlannerContext plannerContext;
     private final AccessControl accessControl;
     private final SessionPropertyManager sessionPropertyManager;
@@ -63,7 +71,7 @@ public class SessionPropertyEvaluator
         List<String> nameParts = name.getParts();
         if (nameParts.size() == 1) {
             PropertyMetadata<?> systemPropertyMetadata = sessionPropertyManager.getSystemSessionPropertyMetadata(nameParts.getFirst())
-                    .orElseThrow(() -> semanticException(INVALID_SESSION_PROPERTY, expression, "Session property %s does not exist", name));
+                    .orElseThrow(() -> semanticException(INVALID_SESSION_PROPERTY, expression, "Session property '%s' does not exist%s", name, suggest(name, sessionPropertyManager.getSystemSessionPropertiesMetadata())));
 
             return evaluate(session, name, expression, parameters, systemPropertyMetadata);
         }
@@ -73,7 +81,7 @@ public class SessionPropertyEvaluator
 
             CatalogHandle catalogHandle = getRequiredCatalogHandle(plannerContext.getMetadata(), session, expression, catalogName);
             PropertyMetadata<?> connectorPropertyMetadata = sessionPropertyManager.getConnectorSessionPropertyMetadata(catalogHandle, propertyName)
-                    .orElseThrow(() -> semanticException(INVALID_SESSION_PROPERTY, expression, "Session property %s does not exist", name));
+                    .orElseThrow(() -> semanticException(INVALID_SESSION_PROPERTY, expression, "Session property '%s' does not exist%s", name, suggest(name, sessionPropertyManager.getConnectionSessionPropertiesMetadata(catalogHandle))));
 
             return evaluate(session, name, expression, parameters, connectorPropertyMetadata);
         }
@@ -109,5 +117,49 @@ public class SessionPropertyEvaluator
         }
 
         return value;
+    }
+
+    public static List<PropertyMetadata<?>> findSimilar(String propertyName, Set<PropertyMetadata<?>> candidates, int count)
+    {
+        return candidates.stream()
+                .filter(property -> !property.isHidden())
+                .map(candidate -> new Match(candidate, SIMILARITY.similarity(candidate.getName(), propertyName)))
+                .filter(match -> match.ratio() > 0.85)
+                .sorted(comparingDouble(Match::ratio).reversed())
+                .limit(count)
+                .map(Match::metadata)
+                .collect(toImmutableList());
+    }
+
+    private record Match(PropertyMetadata<?> metadata, double ratio)
+    {
+        public Match
+        {
+            requireNonNull(metadata, "metadata is null");
+            verify(ratio >= 0.0 && ratio <= 1.0, "ratio must be in the [0, 1.0] range");
+        }
+    }
+
+    private static String suggest(QualifiedName propertyName, Set<PropertyMetadata<?>> knownProperties)
+    {
+        List<PropertyMetadata<?>> suggestions = findSimilar(propertyName.getSuffix(), knownProperties, 3);
+        if (suggestions.isEmpty()) {
+            return "";
+        }
+
+        return ". Did you mean to use " + switch (suggestions.size()) {
+            case 3 -> "'" + formatSuggestion(propertyName, suggestions.get(0)) + "', '" + formatSuggestion(propertyName, suggestions.get(1)) + "' or '" + formatSuggestion(propertyName, suggestions.get(2)) + "'?";
+            case 2 -> "'" + formatSuggestion(propertyName, suggestions.get(0)) + "' or '" + formatSuggestion(propertyName, suggestions.get(1)) + "'?";
+            default -> "'" + formatSuggestion(propertyName, suggestions.get(0)) + "'?";
+        };
+    }
+
+    private static String formatSuggestion(QualifiedName name, PropertyMetadata<?> suggestion)
+    {
+        if (name.getParts().size() == 2) {
+            return name.getParts().getFirst() + "." + suggestion.getName();
+        }
+
+        return suggestion.getName();
     }
 }

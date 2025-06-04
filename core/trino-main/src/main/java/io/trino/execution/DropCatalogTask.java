@@ -15,6 +15,7 @@ package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Inject;
+import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.CatalogManager;
 import io.trino.security.AccessControl;
@@ -57,10 +58,13 @@ public class DropCatalogTask
             WarningCollector warningCollector)
     {
         if (statement.isCascade()) {
-            throw new TrinoException(NOT_SUPPORTED, "CASCADE is not yet supported for DROP SCHEMA");
+            throw new TrinoException(NOT_SUPPORTED, "CASCADE is not yet supported for DROP CATALOG");
         }
 
         String catalogName = statement.getCatalogName().getValue().toLowerCase(ENGLISH);
+        if (catalogName.equals(GlobalSystemConnector.NAME)) {
+            throw new TrinoException(NOT_SUPPORTED, "Dropping system catalog is not allowed");
+        }
         accessControl.checkCanDropCatalog(stateMachine.getSession().toSecurityContext(), catalogName);
         catalogManager.dropCatalog(new CatalogName(catalogName), statement.isExists());
         return immediateVoidFuture();

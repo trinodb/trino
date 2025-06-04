@@ -32,7 +32,7 @@ import static io.trino.sql.DynamicFilters.isDynamicFilterFunction;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.type.LikeFunctions.LIKE_FUNCTION_NAME;
 
-public class IrExpressions
+public final class IrExpressions
 {
     // TODO: these should be attributes of the function
     private static final List<CatalogSchemaFunctionName> NEVER_FAIL = ImmutableList.of(

@@ -35,9 +35,9 @@ import io.trino.testing.containers.Minio;
 import io.trino.tpch.TpchTable;
 import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.rest.DelegatingRestSessionCatalog;
-import org.assertj.core.util.Files;
 
 import java.io.File;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileAttribute;
 import java.nio.file.attribute.PosixFilePermission;
@@ -167,7 +167,8 @@ public final class IcebergQueryRunner
                     queryRunner.createCatalog("tpcds", "tpcds");
                 }
 
-                if (!icebergProperties.buildOrThrow().containsKey("fs.hadoop.enabled")) {
+                if (icebergProperties.buildOrThrow().keySet().stream().noneMatch(key ->
+                        key.equals("fs.hadoop.enabled") || key.startsWith("fs.native-"))) {
                     icebergProperties.put("fs.hadoop.enabled", "true");
                 }
 
@@ -199,8 +200,8 @@ public final class IcebergQueryRunner
         public static void main(String[] args)
                 throws Exception
         {
-            File warehouseLocation = Files.newTemporaryFolder();
-            warehouseLocation.deleteOnExit();
+            Path warehouseLocation = Files.createTempDirectory(null);
+            warehouseLocation.toFile().deleteOnExit();
 
             Catalog backend = backendCatalog(warehouseLocation);
 
@@ -213,7 +214,7 @@ public final class IcebergQueryRunner
 
             @SuppressWarnings("resource")
             QueryRunner queryRunner = icebergQueryRunnerMainBuilder()
-                    .setBaseDataDir(Optional.of(warehouseLocation.toPath()))
+                    .setBaseDataDir(Optional.of(warehouseLocation))
                     .setIcebergProperties(ImmutableMap.of(
                             "iceberg.catalog.type", "rest",
                             "iceberg.rest-catalog.uri", testServer.getBaseUrl().toString()))
@@ -233,20 +234,20 @@ public final class IcebergQueryRunner
         public static void main(String[] args)
                 throws Exception
         {
-            File warehouseLocation = Files.newTemporaryFolder();
-            warehouseLocation.deleteOnExit();
+            Path warehouseLocation = Files.createTempDirectory(null);
+            warehouseLocation.toFile().deleteOnExit();
 
             @SuppressWarnings("resource")
-            TestingPolarisCatalog polarisCatalog = new TestingPolarisCatalog(warehouseLocation.getPath());
+            TestingPolarisCatalog polarisCatalog = new TestingPolarisCatalog(warehouseLocation.toString());
 
             @SuppressWarnings("resource")
             QueryRunner queryRunner = icebergQueryRunnerMainBuilder()
-                    .setBaseDataDir(Optional.of(warehouseLocation.toPath()))
+                    .setBaseDataDir(Optional.of(warehouseLocation))
                     .addIcebergProperty("iceberg.catalog.type", "rest")
                     .addIcebergProperty("iceberg.rest-catalog.uri", polarisCatalog.restUri() + "/api/catalog")
                     .addIcebergProperty("iceberg.rest-catalog.warehouse", TestingPolarisCatalog.WAREHOUSE)
                     .addIcebergProperty("iceberg.rest-catalog.security", "OAUTH2")
-                    .addIcebergProperty("iceberg.rest-catalog.oauth2.credential", polarisCatalog.oauth2Credentials())
+                    .addIcebergProperty("iceberg.rest-catalog.oauth2.credential", TestingPolarisCatalog.CREDENTIAL)
                     .addIcebergProperty("iceberg.rest-catalog.oauth2.scope", "PRINCIPAL_ROLE:ALL")
                     .setInitialTables(TpchTable.getTables())
                     .build();
@@ -264,8 +265,8 @@ public final class IcebergQueryRunner
         public static void main(String[] args)
                 throws Exception
         {
-            File warehouseLocation = Files.newTemporaryFolder();
-            warehouseLocation.deleteOnExit();
+            Path warehouseLocation = Files.createTempDirectory(null);
+            warehouseLocation.toFile().deleteOnExit();
 
             @SuppressWarnings("resource")
             UnityCatalogContainer unityCatalog = new UnityCatalogContainer("unity", "tpch");
@@ -273,7 +274,7 @@ public final class IcebergQueryRunner
             @SuppressWarnings("resource")
             QueryRunner queryRunner = IcebergQueryRunner.builder()
                     .addCoordinatorProperty("http-server.http.port", "8080")
-                    .setBaseDataDir(Optional.of(warehouseLocation.toPath()))
+                    .setBaseDataDir(Optional.of(warehouseLocation))
                     .addIcebergProperty("iceberg.security", "read_only")
                     .addIcebergProperty("iceberg.catalog.type", "rest")
                     .addIcebergProperty("iceberg.rest-catalog.uri", unityCatalog.uri() + "/iceberg")
@@ -327,7 +328,6 @@ public final class IcebergQueryRunner
                     .setIcebergProperties(Map.of(
                             "iceberg.catalog.type", "HIVE_METASTORE",
                             "hive.metastore.uri", hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint().toString(),
-                            "fs.hadoop.enabled", "false",
                             "fs.native-s3.enabled", "true",
                             "s3.aws-access-key", MINIO_ACCESS_KEY,
                             "s3.aws-secret-key", MINIO_SECRET_KEY,
@@ -369,7 +369,6 @@ public final class IcebergQueryRunner
                     .setIcebergProperties(Map.of(
                             "iceberg.catalog.type", "TESTING_FILE_METASTORE",
                             "hive.metastore.catalog.dir", "s3://%s/".formatted(bucketName),
-                            "fs.hadoop.enabled", "false",
                             "fs.native-s3.enabled", "true",
                             "s3.aws-access-key", MINIO_ACCESS_KEY,
                             "s3.aws-secret-key", MINIO_SECRET_KEY,
@@ -422,7 +421,6 @@ public final class IcebergQueryRunner
                     .setIcebergProperties(Map.of(
                             "iceberg.catalog.type", "HIVE_METASTORE",
                             "hive.metastore.uri", hiveHadoop.getHiveMetastoreEndpoint().toString(),
-                            "fs.hadoop.enabled", "false",
                             "fs.native-azure.enabled", "true",
                             "azure.auth-type", "ACCESS_KEY",
                             "azure.access-key", azureAccessKey))
@@ -447,8 +445,8 @@ public final class IcebergQueryRunner
         public static void main(String[] args)
                 throws Exception
         {
-            File warehouseLocation = Files.newTemporaryFolder();
-            warehouseLocation.deleteOnExit();
+            Path warehouseLocation = Files.createTempDirectory(null);
+            warehouseLocation.toFile().deleteOnExit();
 
             TestingIcebergJdbcServer server = new TestingIcebergJdbcServer();
 
@@ -461,7 +459,7 @@ public final class IcebergQueryRunner
                             .put("iceberg.jdbc-catalog.connection-user", USER)
                             .put("iceberg.jdbc-catalog.connection-password", PASSWORD)
                             .put("iceberg.jdbc-catalog.catalog-name", "tpch")
-                            .put("iceberg.jdbc-catalog.default-warehouse-dir", warehouseLocation.getAbsolutePath())
+                            .put("iceberg.jdbc-catalog.default-warehouse-dir", warehouseLocation.toAbsolutePath().toString())
                             .buildOrThrow())
                     .setInitialTables(TpchTable.getTables())
                     .build();

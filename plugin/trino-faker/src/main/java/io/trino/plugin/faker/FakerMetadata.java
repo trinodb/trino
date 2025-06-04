@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.slice.Slice;
-import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ColumnHandle;
@@ -38,6 +37,7 @@ import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.connector.ViewNotFoundException;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionDependencyDeclaration;
@@ -54,10 +54,21 @@ import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.CharType;
+import io.trino.spi.type.HyperLogLogType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.P4HyperLogLogType;
+import io.trino.spi.type.QuantileDigestType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
+import io.trino.type.IpAddressType;
+import io.trino.type.JsonType;
+import io.trino.type.TDigestType;
 import jakarta.inject.Inject;
 import net.datafaker.Faker;
 
@@ -400,7 +411,23 @@ public class FakerMetadata
 
     private static boolean isRangeType(Type type)
     {
-        return !(type instanceof CharType || type instanceof VarcharType || type instanceof VarbinaryType);
+        return !(type instanceof BooleanType ||
+                type instanceof HyperLogLogType ||
+                type instanceof QuantileDigestType ||
+                type instanceof TDigestType ||
+                type instanceof P4HyperLogLogType ||
+                isCharacterType(type) ||
+                type instanceof RowType ||
+                type instanceof ArrayType ||
+                type instanceof MapType ||
+                type instanceof JsonType ||
+                type instanceof IpAddressType ||
+                type instanceof UuidType);
+    }
+
+    private static boolean isCharacterType(Type type)
+    {
+        return type instanceof CharType || type instanceof VarcharType || type instanceof VarbinaryType;
     }
 
     private static boolean isSequenceType(Type type)
@@ -516,9 +543,6 @@ public class FakerMetadata
 
     private static ColumnInfo createColumnInfoFromStats(ColumnInfo column, Object min, Object max, long distinctValues, Optional<Long> nonNullValues, long rowCount, boolean isSequenceDetectionEnabled, List<Object> allowedValues)
     {
-        if (!isRangeType(column.type())) {
-            return column;
-        }
         FakerColumnHandle handle = column.handle();
         Map<String, Object> properties = new HashMap<>(column.metadata().getProperties());
         if (allowedValues != null) {
@@ -527,7 +551,7 @@ public class FakerMetadata
                     .map(value -> Literal.format(column.type(), value))
                     .collect(toImmutableList()));
         }
-        else if (min != null && max != null) {
+        else if (isRangeType(column.type()) && min != null && max != null) {
             handle = handle.withDomain(Domain.create(ValueSet.ofRanges(Range.range(column.type(), min, true, max, true)), false));
             properties.put(MIN_PROPERTY, Literal.format(column.type(), min));
             properties.put(MAX_PROPERTY, Literal.format(column.type(), max));
@@ -576,9 +600,9 @@ public class FakerMetadata
         }
         ImmutableMap.Builder<String, List<Object>> columnValues = ImmutableMap.builder();
         try (FakerPageSource pageSource = new FakerPageSource(faker, random, dictionaryColumns, 0, MAX_DICTIONARY_SIZE * 2)) {
-            Page page = null;
+            SourcePage page = null;
             while (page == null) {
-                page = pageSource.getNextPage();
+                page = pageSource.getNextSourcePage();
             }
             Map<String, Type> types = columns.stream().collect(toImmutableMap(ColumnInfo::name, ColumnInfo::type));
             for (int channel = 0; channel < dictionaryColumns.size(); channel++) {

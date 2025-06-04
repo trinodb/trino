@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.io.Closer;
+import com.google.errorprone.annotations.CheckReturnValue;
 import com.google.errorprone.annotations.FormatMethod;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
@@ -40,7 +41,10 @@ import io.trino.orc.reader.ColumnReader;
 import io.trino.orc.stream.InputStreamSources;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.LongArrayBlock;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.Type;
+import jakarta.annotation.Nullable;
 import org.joda.time.DateTimeZone;
 
 import java.io.Closeable;
@@ -54,10 +58,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.Function;
+import java.util.function.ObjLongConsumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.orc.OrcDataSourceUtils.mergeAdjacentDiskRanges;
 import static io.trino.orc.OrcReader.BATCH_SIZE_GROWTH_FACTOR;
@@ -65,11 +72,11 @@ import static io.trino.orc.OrcReader.MAX_BATCH_SIZE;
 import static io.trino.orc.OrcRecordReader.LinearProbeRangeFinder.createTinyStripesRangeFinder;
 import static io.trino.orc.OrcWriteValidation.WriteChecksumBuilder.createWriteChecksumBuilder;
 import static io.trino.orc.reader.ColumnReaders.createColumnReader;
-import static io.trino.spi.block.LazyBlock.listenForLoads;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Comparator.comparingLong;
+import static java.util.Objects.checkIndex;
 import static java.util.Objects.requireNonNull;
 
 public class OrcRecordReader
@@ -77,7 +84,9 @@ public class OrcRecordReader
 {
     private static final int INSTANCE_SIZE = instanceSize(OrcRecordReader.class);
 
+    private final List<OrcColumn> columns;
     private final OrcDataSource orcDataSource;
+    private final boolean appendRowNumberColumn;
 
     private final ColumnReader[] columnReaders;
     private final long[] currentBytesPerCell;
@@ -109,12 +118,14 @@ public class OrcRecordReader
     private long currentGroupRowCount;
     private long nextRowInGroup;
 
+    private int currentPageId;
+
     private final Map<String, Slice> userMetadata;
 
     private final AggregatedMemoryContext memoryUsage;
     private final LocalMemoryContext orcDataSourceMemoryUsage;
 
-    private final OrcBlockFactory blockFactory;
+    private final Function<Exception, RuntimeException> exceptionTransform;
 
     private final Optional<OrcWriteValidation> writeValidation;
     private final Optional<WriteChecksumBuilder> writeChecksumBuilder;
@@ -129,6 +140,7 @@ public class OrcRecordReader
             List<OrcColumn> readColumns,
             List<Type> readTypes,
             List<OrcReader.ProjectedLayout> readLayouts,
+            boolean appendRowNumberColumn,
             OrcPredicate predicate,
             long numberOfRows,
             List<StripeInformation> fileStripes,
@@ -152,7 +164,7 @@ public class OrcRecordReader
             FieldMapperFactory fieldMapperFactory)
             throws OrcCorruptionException
     {
-        requireNonNull(readColumns, "readColumns is null");
+        this.columns = requireNonNull(readColumns, "readColumns is null");
         checkArgument(readColumns.stream().distinct().count() == readColumns.size(), "readColumns contains duplicate entries");
         requireNonNull(readTypes, "readTypes is null");
         checkArgument(readColumns.size() == readTypes.size(), "readColumns and readTypes must have the same size");
@@ -168,6 +180,7 @@ public class OrcRecordReader
         requireNonNull(userMetadata, "userMetadata is null");
         requireNonNull(memoryUsage, "memoryUsage is null");
         requireNonNull(exceptionTransform, "exceptionTransform is null");
+        this.appendRowNumberColumn = appendRowNumberColumn;
 
         this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
         this.writeChecksumBuilder = writeValidation.map(validation -> createWriteChecksumBuilder(orcTypes, readTypes));
@@ -175,7 +188,7 @@ public class OrcRecordReader
         this.stripeStatisticsValidation = writeValidation.map(validation -> validation.createWriteStatisticsBuilder(orcTypes, readTypes));
         this.fileStatisticsValidation = writeValidation.map(validation -> validation.createWriteStatisticsBuilder(orcTypes, readTypes));
         this.memoryUsage = memoryUsage.newAggregatedMemoryContext();
-        this.blockFactory = new OrcBlockFactory(exceptionTransform, options.isNestedLazy());
+        this.exceptionTransform = requireNonNull(exceptionTransform, "exceptionTransform is null");
 
         requireNonNull(options, "options is null");
         this.maxBlockBytes = options.getMaxBlockSize().toBytes();
@@ -264,7 +277,6 @@ public class OrcRecordReader
                 readTypes,
                 readLayouts,
                 streamReadersMemoryContext,
-                blockFactory,
                 fieldMapperFactory);
 
         currentBytesPerCell = new long[columnReaders.length];
@@ -406,7 +418,7 @@ public class OrcRecordReader
         }
     }
 
-    public Page nextPage()
+    public SourcePage nextPage()
             throws IOException
     {
         // update position for current row group (advancing resets them)
@@ -445,21 +457,155 @@ public class OrcRecordReader
         nextRowInGroup += currentBatchSize;
 
         // create a lazy page
-        blockFactory.nextPage();
+        currentPageId++;
         Arrays.fill(currentBytesPerCell, 0);
-        Block[] blocks = new Block[columnReaders.length];
-        for (int i = 0; i < columnReaders.length; i++) {
-            int columnIndex = i;
-            blocks[columnIndex] = blockFactory.createBlock(
-                    currentBatchSize,
-                    columnReaders[columnIndex]::readBlock,
-                    false);
-            listenForLoads(blocks[columnIndex], block -> blockLoaded(columnIndex, block));
-        }
-
-        Page page = new Page(currentBatchSize, blocks);
+        SourcePage page = new OrcSourcePage(currentBatchSize);
         validateWritePageChecksum(page);
         return page;
+    }
+
+    private class OrcSourcePage
+            implements SourcePage
+    {
+        private final int expectedPageId = currentPageId;
+        private final Block[] blocks = new Block[columnReaders.length + (appendRowNumberColumn ? 1 : 0)];
+        private final int rowNumberColumnIndex = appendRowNumberColumn ? columnReaders.length : -1;
+        private SelectedPositions selectedPositions;
+
+        private long sizeInBytes;
+        private long retainedSizeInBytes;
+
+        public OrcSourcePage(int positionCount)
+        {
+            selectedPositions = new SelectedPositions(positionCount, null);
+        }
+
+        @Override
+        public int getPositionCount()
+        {
+            return selectedPositions.positionCount();
+        }
+
+        @Override
+        public long getSizeInBytes()
+        {
+            return sizeInBytes;
+        }
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            return retainedSizeInBytes;
+        }
+
+        @Override
+        public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
+        {
+            for (Block block : blocks) {
+                if (block != null) {
+                    block.retainedBytesForEachPart(consumer);
+                }
+            }
+        }
+
+        @Override
+        public int getChannelCount()
+        {
+            return blocks.length;
+        }
+
+        @Override
+        public Block getBlock(int channel)
+        {
+            checkState(currentPageId == expectedPageId);
+            checkIndex(channel, blocks.length);
+
+            Block block = blocks[channel];
+            if (block == null) {
+                if (channel == rowNumberColumnIndex) {
+                    block = selectedPositions.createRowNumberBlock(filePosition);
+                }
+                else {
+                    try {
+                        // todo use selected positions to improve read performance
+                        block = columnReaders[channel].readBlock();
+                    }
+                    catch (IOException e) {
+                        throw exceptionTransform.apply(e);
+                    }
+                    blockLoaded(channel, block);
+                    block = selectedPositions.apply(block);
+                }
+                blocks[channel] = block;
+                sizeInBytes += block.getSizeInBytes();
+                retainedSizeInBytes += block.getRetainedSizeInBytes();
+            }
+            return block;
+        }
+
+        @Override
+        public Page getPage()
+        {
+            // ensure all blocks are loaded
+            for (int i = 0; i < blocks.length; i++) {
+                getBlock(i);
+            }
+            return new Page(selectedPositions.positionCount(), blocks);
+        }
+
+        @Override
+        public void selectPositions(int[] positions, int offset, int size)
+        {
+            selectedPositions = selectedPositions.selectPositions(positions, offset, size);
+            retainedSizeInBytes = 0;
+            for (int i = 0; i < blocks.length; i++) {
+                Block block = blocks[i];
+                if (block != null) {
+                    block = selectedPositions.apply(block);
+                    retainedSizeInBytes += block.getRetainedSizeInBytes();
+                    blocks[i] = block;
+                }
+            }
+        }
+    }
+
+    private record SelectedPositions(int positionCount, @Nullable int[] positions)
+    {
+        @CheckReturnValue
+        public Block apply(Block block)
+        {
+            if (positions == null) {
+                return block;
+            }
+            return block.getPositions(positions, 0, positionCount);
+        }
+
+        public Block createRowNumberBlock(long filePosition)
+        {
+            long[] rowNumbers = new long[positionCount];
+            for (int i = 0; i < positionCount; i++) {
+                int position = positions == null ? i : positions[i];
+                rowNumbers[i] = filePosition + position;
+            }
+            return new LongArrayBlock(positionCount, Optional.empty(), rowNumbers);
+        }
+
+        @CheckReturnValue
+        public SelectedPositions selectPositions(int[] positions, int offset, int size)
+        {
+            if (this.positions == null) {
+                for (int i = 0; i < size; i++) {
+                    checkIndex(offset + i, positionCount);
+                }
+                return new SelectedPositions(size, Arrays.copyOfRange(positions, offset, offset + size));
+            }
+
+            int[] newPositions = new int[size];
+            for (int i = 0; i < size; i++) {
+                newPositions[i] = this.positions[positions[offset + i]];
+            }
+            return new SelectedPositions(size, newPositions);
+        }
     }
 
     private void blockLoaded(int columnIndex, Block block)
@@ -586,10 +732,10 @@ public class OrcRecordReader
         writeChecksumBuilder.ifPresent(builder -> builder.addStripe(rowCount));
     }
 
-    private void validateWritePageChecksum(Page page)
+    private void validateWritePageChecksum(SourcePage sourcePage)
     {
         if (writeChecksumBuilder.isPresent()) {
-            page = page.getLoadedPage();
+            Page page = sourcePage.getPage();
             writeChecksumBuilder.get().addPage(page);
             rowGroupStatisticsValidation.get().addPage(page);
             stripeStatisticsValidation.get().addPage(page);
@@ -597,12 +743,21 @@ public class OrcRecordReader
         }
     }
 
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("orcDataSource", orcDataSource.getId())
+                .add("columns", columns)
+                .add("appendRowNumberColumn", appendRowNumberColumn)
+                .toString();
+    }
+
     private static ColumnReader[] createColumnReaders(
             List<OrcColumn> columns,
             List<Type> readTypes,
             List<OrcReader.ProjectedLayout> readLayouts,
             AggregatedMemoryContext memoryContext,
-            OrcBlockFactory blockFactory,
             FieldMapperFactory fieldMapperFactory)
             throws OrcCorruptionException
     {
@@ -611,7 +766,7 @@ public class OrcRecordReader
             Type readType = readTypes.get(columnIndex);
             OrcColumn column = columns.get(columnIndex);
             OrcReader.ProjectedLayout projectedLayout = readLayouts.get(columnIndex);
-            columnReaders[columnIndex] = createColumnReader(readType, column, projectedLayout, memoryContext, blockFactory, fieldMapperFactory);
+            columnReaders[columnIndex] = createColumnReader(readType, column, projectedLayout, memoryContext, fieldMapperFactory);
         }
         return columnReaders;
     }

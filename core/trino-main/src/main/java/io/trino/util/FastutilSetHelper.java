@@ -462,6 +462,6 @@ public final class FastutilSetHelper
                 type instanceof TimeType ||
                 type instanceof DateType ||
                 type instanceof TimestampType timestampType && timestampType.isShort() ||
-                (type instanceof DecimalType && ((DecimalType) type).isShort());
+                type instanceof DecimalType decimalType && decimalType.isShort();
     }
 }
