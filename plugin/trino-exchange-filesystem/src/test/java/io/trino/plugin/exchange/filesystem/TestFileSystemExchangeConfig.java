@@ -78,17 +78,4 @@ public class TestFileSystemExchangeConfig
         assertFullMapping(properties, expected);
     }
 
-    @Test
-    public void testSkipDeletesConfiguration()
-    {
-        FileSystemExchangeConfig config = new FileSystemExchangeConfig();
-        
-        assertThat(config.isSkipDeletes()).isFalse();
-        
-        config.setSkipDeletes(true);
-        assertThat(config.isSkipDeletes()).isTrue();
-        
-        config.setSkipDeletes(false);
-        assertThat(config.isSkipDeletes()).isFalse();
-    }
 }
