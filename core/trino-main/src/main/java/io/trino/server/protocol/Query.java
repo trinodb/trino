@@ -531,7 +531,7 @@ class Query
                 getQueryInfoUri(queryInfoUrl, queryId, externalUriInfo),
                 partialCancelUri,
                 nextResultsUri,
-                resultRows.getOptionalColumns(),
+                columns,
                 queryData,
                 toStatementStats(queryInfo),
                 toQueryError(queryInfo, typeSerializationException),
@@ -569,6 +569,10 @@ class Query
     private synchronized QueryResultRows removePagesFromExchange(ResultQueryInfo queryInfo)
     {
         if (!resultsConsumed && queryInfo.outputStage().isEmpty()) {
+            if (columns == null) {
+                columns = ImmutableList.of();
+                types = ImmutableList.of();
+            }
             return queryResultRowsBuilder()
                     .withColumnsAndTypes(ImmutableList.of(), ImmutableList.of())
                     .build();
