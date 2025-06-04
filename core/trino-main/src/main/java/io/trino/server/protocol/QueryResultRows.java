@@ -28,7 +28,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.server.protocol.ProtocolUtil.createColumn;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
 
@@ -57,15 +56,6 @@ public class QueryResultRows
     public List<OutputColumn> getOutputColumns()
     {
         return columns.orElseThrow(() -> new IllegalStateException("Columns are not present"));
-    }
-
-    public List<Column> getOptionalColumns()
-    {
-        return columns
-                .map(columns -> columns.stream()
-                    .map(value -> createColumn(value.columnName(), value.type(), true))
-                    .collect(toImmutableList()))
-                .orElse(null);
     }
 
     public List<Page> getPages()
