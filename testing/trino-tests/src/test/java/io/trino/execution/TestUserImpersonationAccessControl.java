@@ -14,7 +14,6 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.Duration;
 import io.trino.client.ClientSession;
 import io.trino.client.QueryError;
 import io.trino.client.StatementClient;
@@ -27,6 +26,7 @@ import okhttp3.OkHttpClient;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
+import java.time.Duration;
 import java.time.ZoneId;
 import java.util.Locale;
 import java.util.Map;
@@ -36,7 +36,6 @@ import static com.google.common.io.Resources.getResource;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.client.StatementClientFactory.newStatementClient;
 import static io.trino.plugin.base.security.FileBasedAccessControlConfig.SECURITY_CONFIG_FILE;
-import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestUserImpersonationAccessControl
@@ -86,7 +85,7 @@ public class TestUserImpersonationAccessControl
                     .source("source")
                     .timeZone(ZoneId.of("America/Los_Angeles"))
                     .locale(Locale.ENGLISH)
-                    .clientRequestTimeout(new Duration(2, MINUTES))
+                    .clientRequestTimeout(Duration.ofMinutes(2))
                     .compressionDisabled(true)
                     .build();
 

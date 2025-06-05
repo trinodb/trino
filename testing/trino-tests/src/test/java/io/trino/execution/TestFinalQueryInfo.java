@@ -14,7 +14,6 @@
 package io.trino.execution;
 
 import com.google.common.util.concurrent.SettableFuture;
-import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.client.ClientSession;
 import io.trino.client.StatementClient;
@@ -27,6 +26,7 @@ import okhttp3.OkHttpClient;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
+import java.time.Duration;
 import java.time.ZoneId;
 import java.util.Locale;
 import java.util.Optional;
@@ -34,7 +34,6 @@ import java.util.Optional;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.client.StatementClientFactory.newStatementClient;
-import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -72,7 +71,7 @@ public class TestFinalQueryInfo
                     .timeZone(ZoneId.of("America/Los_Angeles"))
                     .locale(Locale.ENGLISH)
                     .transactionId(null)
-                    .clientRequestTimeout(new Duration(2, MINUTES))
+                    .clientRequestTimeout(Duration.ofMinutes(2))
                     .compressionDisabled(true)
                     .build();
 

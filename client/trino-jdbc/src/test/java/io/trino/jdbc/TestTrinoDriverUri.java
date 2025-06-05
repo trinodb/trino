@@ -14,11 +14,11 @@
 package io.trino.jdbc;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.units.Duration;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
 import java.sql.SQLException;
+import java.time.Duration;
 import java.time.ZoneId;
 import java.time.zone.ZoneRulesException;
 import java.util.Properties;
@@ -259,7 +259,7 @@ public class TestTrinoDriverUri
             throws SQLException
     {
         TrinoDriverUri parameters = createDriverUri("jdbc:trino://localhost:8080/?timeout=10s");
-        assertThat(parameters.getTimeout()).isEqualTo(Duration.valueOf("10s"));
+        assertThat(parameters.getTimeout()).isEqualTo(Duration.ofSeconds(10));
     }
 
     @Test

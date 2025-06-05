@@ -20,7 +20,6 @@ import org.ietf.jgss.GSSException;
 
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class DelegatedConstrainedContextProvider
         extends BaseGSSContextProvider
@@ -36,7 +35,7 @@ public class DelegatedConstrainedContextProvider
     public GSSContext getContext(String servicePrincipal)
             throws GSSException
     {
-        if (gssCredential.getRemainingLifetime() < MIN_CREDENTIAL_LIFETIME.getValue(SECONDS)) {
+        if (gssCredential.getRemainingLifetime() < MIN_CREDENTIAL_LIFETIME.toSeconds()) {
             throw new ClientException(format("Kerberos credential is expired: %s seconds", gssCredential.getRemainingLifetime()));
         }
         return createContext(servicePrincipal, gssCredential);
