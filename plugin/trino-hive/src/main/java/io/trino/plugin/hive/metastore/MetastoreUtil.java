@@ -35,6 +35,7 @@ import io.trino.metastore.PrincipalPrivileges;
 import io.trino.metastore.Storage;
 import io.trino.metastore.Table;
 import io.trino.plugin.hive.HiveColumnHandle;
+import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.plugin.hive.PartitionOfflineException;
 import io.trino.plugin.hive.TableOfflineException;
 import io.trino.spi.TrinoException;
@@ -90,6 +91,7 @@ import static io.trino.hive.thrift.metastore.hive_metastoreConstants.META_TABLE_
 import static io.trino.hive.thrift.metastore.hive_metastoreConstants.META_TABLE_PARTITION_COLUMN_TYPES;
 import static io.trino.metastore.Partitions.makePartName;
 import static io.trino.plugin.hive.HiveSplitManager.PRESTO_OFFLINE;
+import static io.trino.plugin.hive.HiveStorageFormat.getHiveStorageFormat;
 import static io.trino.plugin.hive.metastore.SparkMetastoreUtil.getSparkBasicStatistics;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_COMMENTS;
 import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_LIB;
@@ -299,6 +301,9 @@ public final class MetastoreUtil
         }
         if (table.getDataColumns().size() <= 1) {
             throw new TrinoException(NOT_SUPPORTED, "Cannot drop the only non-partition column in a table");
+        }
+        if (!getHiveStorageFormat(table.getStorage().getStorageFormat()).map(HiveStorageFormat::supportsColumnDropOperation).get()) {
+            throw new TrinoException(NOT_SUPPORTED, "Cannot drop columns because SerDe may be incompatible");
         }
     }
 

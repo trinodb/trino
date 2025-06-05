@@ -135,6 +135,85 @@ abstract class BaseTestHiveOnDataLake
     }
 
     @Test
+    public void testDropColumnWithSerDe()
+    {
+        testDropColumnWithSupportedSerDe(HiveStorageFormat.PARQUET);
+        testDropColumnWithSupportedSerDe(HiveStorageFormat.RCTEXT);
+        testDropColumnWithSupportedSerDe(HiveStorageFormat.SEQUENCEFILE);
+        testDropColumnWithSupportedSerDe(HiveStorageFormat.TEXTFILE);
+
+        testDropColumnWithUnsupportedSerDe(HiveStorageFormat.AVRO);
+        testDropColumnWithUnsupportedSerDe(HiveStorageFormat.ORC);
+        testDropColumnWithUnsupportedSerDe(HiveStorageFormat.RCBINARY);
+        testDropColumnWithUnsupportedSerDe(HiveStorageFormat.JSON);
+        testDropColumnWithUnsupportedSerDe(HiveStorageFormat.OPENX_JSON);
+        testDropColumnWithUnsupportedSerDe(HiveStorageFormat.CSV);
+    }
+
+    private void testDropColumnWithSupportedSerDe(HiveStorageFormat format)
+    {
+        String tableName = "test_drop_column" + randomNameSuffix();
+        String fullyQualifiedTestTableName = getFullyQualifiedTestTableName(tableName);
+
+        assertUpdate(format(
+                "CREATE TABLE %s" +
+                        " (a VARCHAR, b VARCHAR) " +
+                        "WITH ( " +
+                        "   format = '%s'" +
+                        ")",
+                fullyQualifiedTestTableName,
+                format));
+
+        assertUpdate(format("ALTER TABLE %s DROP COLUMN b", fullyQualifiedTestTableName));
+        assertThat(query("SHOW COLUMNS FROM " + fullyQualifiedTestTableName))
+                .skippingTypesCheck()
+                .matches("VALUES ('a', 'varchar', '', '')");
+        assertUpdate("DROP TABLE " + fullyQualifiedTestTableName);
+
+        assertUpdate(format(
+                "CREATE TABLE %s" +
+                        " (a VARCHAR, b VARCHAR) " +
+                        "WITH ( " +
+                        "   format = '%s'" +
+                        ")",
+                fullyQualifiedTestTableName,
+                format));
+
+        hiveMinioDataLake.runOnHive(format("ALTER TABLE %s REPLACE COLUMNS (a String)", getHiveTestTableName(tableName)));
+        assertThat(query("SHOW COLUMNS FROM " + fullyQualifiedTestTableName))
+                .skippingTypesCheck()
+                .matches("VALUES ('a', 'varchar', '', '')");
+        assertUpdate("DROP TABLE " + fullyQualifiedTestTableName);
+    }
+
+    private void testDropColumnWithUnsupportedSerDe(HiveStorageFormat format)
+    {
+        String tableName = "test_drop_column" + randomNameSuffix();
+        String fullyQualifiedTestTableName = getFullyQualifiedTestTableName(tableName);
+
+        assertUpdate(format(
+                "CREATE TABLE %s" +
+                        " (a VARCHAR, b VARCHAR) " +
+                        "WITH ( " +
+                        "   format = '%s'" +
+                        ")",
+                fullyQualifiedTestTableName,
+                format));
+        assertQueryFails(format("ALTER TABLE %s DROP COLUMN b", fullyQualifiedTestTableName), ".*Cannot drop columns because SerDe may be incompatible.*");
+
+        String hiveSql = format("ALTER TABLE %s REPLACE COLUMNS (a string)", getHiveTestTableName(tableName));
+        assertThatThrownBy(() -> hiveMinioDataLake.runOnHive(hiveSql), ".*SerDe may be incompatible.*");
+
+        assertThat(query("SHOW COLUMNS FROM " + fullyQualifiedTestTableName))
+                .skippingTypesCheck()
+                .matches("VALUES " +
+                        "('a', 'varchar', '', '')," +
+                        "('b', 'varchar', '', '')");
+
+        assertUpdate("DROP TABLE " + fullyQualifiedTestTableName);
+    }
+
+    @Test
     public void testHiveViewColumnComment()
     {
         String tableName = "default.test_with_column_comment" + randomNameSuffix();
