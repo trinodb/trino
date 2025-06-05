@@ -39,8 +39,8 @@ class TestSpoolingConfig
                 .setRetrievalMode(STORAGE)
                 .setInitialSegmentSize(DataSize.of(8, MEGABYTE))
                 .setMaximumSegmentSize(DataSize.of(16, MEGABYTE))
-                .setInliningMaxRows(1000)
-                .setInliningMaxSize(DataSize.of(128, KILOBYTE))
+                .setInliningMaxRows(50000)
+                .setInliningMaxSize(DataSize.of(3, MEGABYTE))
                 .setInliningEnabled(true));
     }
 
@@ -55,7 +55,7 @@ class TestSpoolingConfig
                 .put("protocol.spooling.inlining.enabled", "false")
                 .put("protocol.spooling.initial-segment-size", "1kB")
                 .put("protocol.spooling.max-segment-size", "8kB")
-                .put("protocol.spooling.inlining.max-rows", "1024")
+                .put("protocol.spooling.inlining.max-rows", "10000")
                 .put("protocol.spooling.inlining.max-size", "1MB")
                 .buildOrThrow();
 
@@ -64,7 +64,7 @@ class TestSpoolingConfig
                 .setSharedSecretKey(randomAesEncryptionKey)
                 .setInitialSegmentSize(DataSize.of(1, KILOBYTE))
                 .setMaximumSegmentSize(DataSize.of(8, KILOBYTE))
-                .setInliningMaxRows(1024)
+                .setInliningMaxRows(10000)
                 .setInliningMaxSize(DataSize.of(1, MEGABYTE))
                 .setInliningEnabled(false);
 

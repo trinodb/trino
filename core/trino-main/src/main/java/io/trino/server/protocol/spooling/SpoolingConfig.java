@@ -28,7 +28,6 @@ import jakarta.validation.constraints.NotNull;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 
-import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.util.Ciphers.is256BitSecretKeySpec;
 import static java.util.Base64.getDecoder;
@@ -39,8 +38,8 @@ public class SpoolingConfig
     private SegmentRetrievalMode retrievalMode = SegmentRetrievalMode.STORAGE;
 
     private boolean inliningEnabled = true;
-    private long inliningMaxRows = 1000;
-    private DataSize inliningMaxSize = DataSize.of(128, KILOBYTE);
+    private long inliningMaxRows = 50_000;
+    private DataSize inliningMaxSize = DataSize.of(3, MEGABYTE);
     private DataSize initialSegmentSize = DataSize.of(8, MEGABYTE);
     private DataSize maximumSegmentSize = DataSize.of(16, MEGABYTE);
 
@@ -132,7 +131,7 @@ public class SpoolingConfig
     }
 
     @MinDataSize("1kB")
-    @MaxDataSize("1MB")
+    @MaxDataSize("3MB")
     public DataSize getInliningMaxSize()
     {
         return inliningMaxSize;
