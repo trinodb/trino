@@ -73,6 +73,7 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetWriterP
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetWriterPageValueCount;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isOrcWriterValidate;
 import static io.trino.plugin.iceberg.IcebergTableProperties.ORC_BLOOM_FILTER_FPP_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergUtil.getHiveCompressionCodec;
 import static io.trino.plugin.iceberg.IcebergUtil.getOrcBloomFilterColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.getOrcBloomFilterFpp;
 import static io.trino.plugin.iceberg.IcebergUtil.getParquetBloomFilterColumns;
@@ -131,7 +132,7 @@ public class IcebergFileWriterFactory
             // TODO use metricsConfig https://github.com/trinodb/trino/issues/9791
             case PARQUET -> createParquetWriter(MetricsConfig.getDefault(), fileSystem, outputPath, icebergSchema, session, storageProperties);
             case ORC -> createOrcWriter(metricsConfig, fileSystem, outputPath, icebergSchema, session, storageProperties, getOrcStringStatisticsLimit(session));
-            case AVRO -> createAvroWriter(fileSystem, outputPath, icebergSchema, session);
+            case AVRO -> createAvroWriter(fileSystem, outputPath, icebergSchema, session, storageProperties);
         };
     }
 
@@ -145,7 +146,7 @@ public class IcebergFileWriterFactory
         return switch (fileFormat) {
             case PARQUET -> createParquetWriter(FULL_METRICS_CONFIG, fileSystem, outputPath, POSITION_DELETE_SCHEMA, session, storageProperties);
             case ORC -> createOrcWriter(FULL_METRICS_CONFIG, fileSystem, outputPath, POSITION_DELETE_SCHEMA, session, storageProperties, DataSize.ofBytes(Integer.MAX_VALUE));
-            case AVRO -> createAvroWriter(fileSystem, outputPath, POSITION_DELETE_SCHEMA, session);
+            case AVRO -> createAvroWriter(fileSystem, outputPath, POSITION_DELETE_SCHEMA, session, storageProperties);
         };
     }
 
@@ -177,7 +178,9 @@ public class IcebergFileWriterFactory
                     .setBloomFilterColumns(getParquetBloomFilterColumns(storageProperties))
                     .build();
 
-            HiveCompressionCodec hiveCompressionCodec = toCompressionCodec(getCompressionCodec(session));
+            HiveCompressionCodec compressionCodec = getHiveCompressionCodec(IcebergFileFormat.PARQUET, storageProperties)
+                    .orElseGet(() -> toCompressionCodec(getCompressionCodec(session)));
+
             return new IcebergParquetFileWriter(
                     metricsConfig,
                     outputFile,
@@ -188,8 +191,8 @@ public class IcebergFileWriterFactory
                     makeTypeMap(fileColumnTypes, fileColumnNames),
                     parquetWriterOptions,
                     IntStream.range(0, fileColumnNames.size()).toArray(),
-                    hiveCompressionCodec.getParquetCompressionCodec()
-                            .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "Compression codec %s not supported for Parquet".formatted(hiveCompressionCodec))),
+                    compressionCodec.getParquetCompressionCodec()
+                            .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "Compression codec %s not supported for Parquet".formatted(compressionCodec))),
                     nodeVersion.toString());
         }
         catch (IOException e) {
@@ -233,6 +236,9 @@ public class IcebergFileWriterFactory
                 });
             }
 
+            HiveCompressionCodec compressionCodec = getHiveCompressionCodec(IcebergFileFormat.ORC, storageProperties)
+                    .orElseGet(() -> toCompressionCodec(getCompressionCodec(session)));
+
             return new IcebergOrcFileWriter(
                     metricsConfig,
                     icebergSchema,
@@ -241,7 +247,7 @@ public class IcebergFileWriterFactory
                     fileColumnNames,
                     fileColumnTypes,
                     toOrcType(icebergSchema),
-                    toCompressionCodec(getCompressionCodec(session)).getOrcCompressionKind(),
+                    compressionCodec.getOrcCompressionKind(),
                     withBloomFilterOptions(orcWriterOptions, storageProperties)
                             .withStripeMinSize(getOrcWriterMinStripeSize(session))
                             .withStripeMaxSize(getOrcWriterMaxStripeSize(session))
@@ -286,7 +292,8 @@ public class IcebergFileWriterFactory
             TrinoFileSystem fileSystem,
             Location outputPath,
             Schema icebergSchema,
-            ConnectorSession session)
+            ConnectorSession session,
+            Map<String, String> storageProperties)
     {
         Closeable rollbackAction = () -> fileSystem.deleteFile(outputPath);
 
@@ -294,11 +301,14 @@ public class IcebergFileWriterFactory
                 .map(column -> toTrinoType(column.type(), typeManager))
                 .collect(toImmutableList());
 
+        HiveCompressionCodec compressionCodec = getHiveCompressionCodec(IcebergFileFormat.AVRO, storageProperties)
+                .orElseGet(() -> toCompressionCodec(getCompressionCodec(session)));
+
         return new IcebergAvroFileWriter(
                 new ForwardingOutputFile(fileSystem, outputPath),
                 rollbackAction,
                 icebergSchema,
                 columnTypes,
-                toCompressionCodec(getCompressionCodec(session)));
+                compressionCodec);
     }
 }
