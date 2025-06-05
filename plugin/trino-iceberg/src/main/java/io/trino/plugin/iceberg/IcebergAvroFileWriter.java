@@ -27,6 +27,7 @@ import org.apache.iceberg.io.OutputFile;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Optional;
 
@@ -70,7 +71,7 @@ public final class IcebergAvroFileWriter
                     .set(AVRO_COMPRESSION, toIcebergAvroCompressionName(hiveCompressionCodec))
                     .build();
         }
-        catch (IOException e) {
+        catch (IOException | UncheckedIOException e) {
             throw new TrinoException(ICEBERG_WRITER_OPEN_ERROR, "Error creating Avro file: " + file.location(), e);
         }
     }

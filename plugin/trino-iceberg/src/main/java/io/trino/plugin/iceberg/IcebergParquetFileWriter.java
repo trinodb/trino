@@ -28,14 +28,15 @@ import org.apache.parquet.schema.MessageType;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
 
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static io.trino.plugin.iceberg.util.ParquetUtil.footerMetrics;
 import static io.trino.plugin.iceberg.util.ParquetUtil.getSplitOffsets;
-import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -85,8 +86,8 @@ public final class IcebergParquetFileWriter
             parquetMetadata = new ParquetMetadata(parquetFileWriter.getFileMetadata(), new ParquetDataSourceId(location.toString()));
             return new FileMetrics(footerMetrics(parquetMetadata, Stream.empty(), metricsConfig), Optional.of(getSplitOffsets(parquetMetadata)));
         }
-        catch (IOException e) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Error creating metadata for Parquet file %s", location), e);
+        catch (IOException | UncheckedIOException e) {
+            throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, format("Error creating metadata for Parquet file %s", location), e);
         }
     }
 
