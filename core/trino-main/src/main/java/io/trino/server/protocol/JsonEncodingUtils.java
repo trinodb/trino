@@ -374,7 +374,7 @@ public final class JsonEncodingUtils
                 // Map keys are always serialized as strings for backward compatibility with existing clients.
                 // Map values are always properly encoded using their types.
                 // TODO: improve in v2 JSON format
-                generator.writeFieldName(mapType.getKeyType().getObjectValue(session, keyBlock, offset + i).toString());
+                generator.writeFieldName(mapType.getKeyType().getObjectValue(keyBlock, offset + i).toString());
                 valueEncoder.encode(generator, session, valueBlock, offset + i);
             }
             generator.writeEndObject();
@@ -431,7 +431,7 @@ public final class JsonEncodingUtils
                 return;
             }
 
-            Object value = roundParametricTypes(type.getObjectValue(session, block, position));
+            Object value = roundParametricTypes(type.getObjectValue(block, position));
 
             switch (value) {
                 case BigDecimal bigDecimalValue -> generator.writeNumber(bigDecimalValue);

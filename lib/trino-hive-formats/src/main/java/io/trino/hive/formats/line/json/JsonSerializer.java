@@ -117,7 +117,7 @@ public class JsonSerializer
         }
         else if (type instanceof DecimalType decimalType) {
             return (generator, block, position) -> {
-                SqlDecimal value = (SqlDecimal) decimalType.getObjectValue(null, block, position);
+                SqlDecimal value = (SqlDecimal) decimalType.getObjectValue(block, position);
                 generator.writeNumber(value.toBigDecimal().toString());
             };
         }
@@ -205,7 +205,7 @@ public class JsonSerializer
             return (block, position) -> String.valueOf(TINYINT.getByte(block, position));
         }
         else if (type instanceof DecimalType decimalType) {
-            return (block, position) -> decimalType.getObjectValue(null, block, position).toString();
+            return (block, position) -> decimalType.getObjectValue(block, position).toString();
         }
         else if (REAL.equals(type)) {
             return (block, position) -> String.valueOf(REAL.getFloat(block, position));

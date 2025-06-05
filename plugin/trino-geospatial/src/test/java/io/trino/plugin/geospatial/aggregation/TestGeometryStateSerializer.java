@@ -40,7 +40,7 @@ public class TestGeometryStateSerializer
         serializer.serialize(state, builder);
         Block block = builder.build();
 
-        assertThat(GeometryType.GEOMETRY.getObjectValue(null, block, 0)).isEqualTo("POINT (1 2)");
+        assertThat(GeometryType.GEOMETRY.getObjectValue(block, 0)).isEqualTo("POINT (1 2)");
 
         state.setGeometry(null);
         serializer.deserialize(block, 0, state);
@@ -68,7 +68,7 @@ public class TestGeometryStateSerializer
         serializer.serialize(state, builder);
         Block block = builder.build();
 
-        assertThat(GeometryType.GEOMETRY.getObjectValue(null, block, 0)).isEqualTo("POINT (1 2)");
+        assertThat(GeometryType.GEOMETRY.getObjectValue(block, 0)).isEqualTo("POINT (1 2)");
 
         state.setGeometry(null);
         serializer.deserialize(block, 0, state);

@@ -622,7 +622,7 @@ class ParquetTester
 
         Map<Object, Object> map = new HashMap<>(sqlMap.getSize());
         for (int i = 0; i < sqlMap.getSize(); i++) {
-            map.put(keyType.getObjectValue(SESSION, rawKeyBlock, rawOffset + i), valueType.getObjectValue(SESSION, rawValueBlock, rawOffset + i));
+            map.put(keyType.getObjectValue(rawKeyBlock, rawOffset + i), valueType.getObjectValue(rawValueBlock, rawOffset + i));
         }
         return Collections.unmodifiableMap(map);
     }
@@ -631,7 +631,7 @@ class ParquetTester
     {
         List<Object> values = new ArrayList<>();
         for (int position = 0; position < arrayBlock.getPositionCount(); position++) {
-            values.add(elementType.getObjectValue(SESSION, arrayBlock, position));
+            values.add(elementType.getObjectValue(arrayBlock, position));
         }
         return Collections.unmodifiableList(values);
     }
@@ -640,7 +640,7 @@ class ParquetTester
     {
         List<Object> values = new ArrayList<>(rowBlock.getPositionCount());
         for (int i = 0; i < rowBlock.getPositionCount(); i++) {
-            values.add(fieldTypes.get(i).getObjectValue(SESSION, rowBlock, i));
+            values.add(fieldTypes.get(i).getObjectValue(rowBlock, i));
         }
         return Collections.unmodifiableList(values);
     }
@@ -785,7 +785,7 @@ class ParquetTester
             return null;
         }
 
-        return type.getObjectValue(SESSION, block, position);
+        return type.getObjectValue(block, position);
     }
 
     private static void writeParquetColumnTrino(

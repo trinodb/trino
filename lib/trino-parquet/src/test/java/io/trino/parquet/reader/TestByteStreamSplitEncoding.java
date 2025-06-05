@@ -35,7 +35,6 @@ import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregate
 import static io.trino.parquet.ParquetTestUtils.createParquetReader;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
-import static io.trino.testing.TestingConnectorSession.SESSION;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestByteStreamSplitEncoding
@@ -88,10 +87,10 @@ public class TestByteStreamSplitEncoding
                     List<Double> expectedValues = expected.get(channel);
                     for (int postition = 0; postition < block.getPositionCount(); postition++) {
                         if (block instanceof IntArrayBlock) {
-                            assertThat(REAL.getObjectValue(SESSION, block, postition)).isEqualTo(expectedValues.get(rowCount + postition).floatValue());
+                            assertThat(REAL.getObjectValue(block, postition)).isEqualTo(expectedValues.get(rowCount + postition).floatValue());
                         }
                         else {
-                            assertThat(DOUBLE.getObjectValue(SESSION, block, postition)).isEqualTo(expectedValues.get(rowCount + postition));
+                            assertThat(DOUBLE.getObjectValue(block, postition)).isEqualTo(expectedValues.get(rowCount + postition));
                         }
                     }
                 }
