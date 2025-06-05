@@ -33,6 +33,7 @@ import java.util.List;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.client.spooling.DataAttribute.SEGMENT_SIZE;
 import static io.trino.plugin.base.util.JsonUtils.jsonFactory;
 import static io.trino.server.protocol.JsonEncodingUtils.createTypeEncoders;
@@ -54,7 +55,10 @@ public class JsonQueryDataEncoder
     public JsonQueryDataEncoder(Session session, List<OutputColumn> columns)
     {
         this.session = requireNonNull(session, "session is null");
-        this.typeEncoders = createTypeEncoders(session, requireNonNull(columns, "columns is null"));
+        this.typeEncoders = createTypeEncoders(session, requireNonNull(columns, "columns is null")
+                .stream()
+                .map(OutputColumn::type)
+                .collect(toImmutableList()));
         this.sourcePageChannels = requireNonNull(columns, "columns is null").stream()
             .mapToInt(OutputColumn::sourcePageChannel)
             .toArray();
