@@ -94,7 +94,7 @@ public final class ExpressionFormatter
                             return "null::" + node.type();
                         }
                         else {
-                            return node.type() + " '" + node.type().getObjectValue(null, node.getValueAsBlock(), 0) + "'";
+                            return node.type() + " '" + node.type().getObjectValue(node.getValueAsBlock(), 0) + "'";
                         }
                     });
         }

@@ -418,7 +418,7 @@ public class MaterializedResult
                 for (int channel = 0; channel < page.getChannelCount(); channel++) {
                     Type type = types.get(channel);
                     Block block = page.getBlock(channel);
-                    values.add(type.getObjectValue(session, block, position));
+                    values.add(type.getObjectValue(block, position));
                 }
                 values = Collections.unmodifiableList(values);
 

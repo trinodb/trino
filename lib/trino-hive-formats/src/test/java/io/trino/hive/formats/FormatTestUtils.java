@@ -467,7 +467,7 @@ public final class FormatTestUtils
     {
         List<Object> values = new ArrayList<>();
         for (int i = 0; i < columns.size(); i++) {
-            values.add(columns.get(i).type().getObjectValue(null, page.getBlock(i), position));
+            values.add(columns.get(i).type().getObjectValue(page.getBlock(i), position));
         }
         return values;
     }

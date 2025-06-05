@@ -17,7 +17,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import io.airlift.slice.Slice;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.connector.ConnectorSession;
 
 import static io.trino.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 
@@ -51,8 +50,8 @@ public class P4HyperLogLogType
     }
 
     @Override
-    public Object getObjectValue(ConnectorSession session, Block block, int position)
+    public Object getObjectValue(Block block, int position)
     {
-        return HYPER_LOG_LOG.getObjectValue(session, block, position);
+        return HYPER_LOG_LOG.getObjectValue(block, position);
     }
 }

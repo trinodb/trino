@@ -642,7 +642,7 @@ public class TestPagePartitioner
                     result.add(null);
                 }
                 else {
-                    result.add(type.getObjectValue(null, block, i));
+                    result.add(type.getObjectValue(block, i));
                 }
             }
         });

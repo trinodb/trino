@@ -165,7 +165,7 @@ public class TestTimestamp
                 Block block = page.getBlock(0);
 
                 for (int i = 0; i < block.getPositionCount(); i++) {
-                    assertThat(type.getObjectValue(session, block, i)).isEqualTo(expected.next());
+                    assertThat(type.getObjectValue(block, i)).isEqualTo(expected.next());
                 }
             }
 

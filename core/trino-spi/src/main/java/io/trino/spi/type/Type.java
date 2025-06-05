@@ -119,7 +119,7 @@ public interface Type
      * {@code position}. This is the value returned to the user via the
      * REST endpoint and therefore must be JSON serializable.
      */
-    Object getObjectValue(ConnectorSession session, Block block, int position);
+    Object getObjectValue(Block block, int position);
 
     /**
      * Gets the value at the {@code block} {@code position} as a boolean.
@@ -145,6 +145,12 @@ public interface Type
      * Gets the value at the {@code block} {@code position} as an Object.
      */
     Object getObject(Block block, int position);
+
+    @Deprecated
+    default Object getObject(ConnectorSession ignored, Block block, int position)
+    {
+        return getObject(block, position);
+    }
 
     /**
      * Writes the boolean value into the {@code BlockBuilder}.
