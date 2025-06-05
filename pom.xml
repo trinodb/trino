@@ -190,7 +190,7 @@
         <dep.checkstyle.version>10.23.1</dep.checkstyle.version>
         <dep.docker.images.version>113</dep.docker.images.version>
         <dep.drift.version>1.23</dep.drift.version>
-        <dep.flyway.version>11.9.0</dep.flyway.version>
+        <dep.flyway.version>11.9.1</dep.flyway.version>
         <dep.frontend-maven-plugin.version>1.15.1</dep.frontend-maven-plugin.version>
         <dep.frontend-node.version>v22.14.0</dep.frontend-node.version>
         <dep.frontend-npm.version>11.2.0</dep.frontend-npm.version>
