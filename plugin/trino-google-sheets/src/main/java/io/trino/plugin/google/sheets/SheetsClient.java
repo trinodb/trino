@@ -54,6 +54,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.google.sheets.SheetsErrorCode.SHEETS_BAD_CREDENTIALS_ERROR;
 import static io.trino.plugin.google.sheets.SheetsErrorCode.SHEETS_INSERT_ERROR;
+import static io.trino.plugin.google.sheets.SheetsErrorCode.SHEETS_INVALID_TABLE_FORMAT;
 import static io.trino.plugin.google.sheets.SheetsErrorCode.SHEETS_METASTORE_ERROR;
 import static io.trino.plugin.google.sheets.SheetsErrorCode.SHEETS_TABLE_LOAD_ERROR;
 import static io.trino.plugin.google.sheets.SheetsErrorCode.SHEETS_UNKNOWN_TABLE_ERROR;
@@ -311,7 +312,7 @@ public class SheetsClient
             log.debug("Accessing sheet id [%s] with range [%s]", sheetId, defaultRange);
             List<List<Object>> values = sheetsService.spreadsheets().values().get(sheetId, defaultRange).execute().getValues();
             if (values == null) {
-                throw new TrinoException(SHEETS_TABLE_LOAD_ERROR, "No non-empty cells found in sheet: " + sheetExpression);
+                throw new TrinoException(SHEETS_INVALID_TABLE_FORMAT, "No non-empty cells found in sheet: " + sheetExpression);
             }
             return values;
         }
