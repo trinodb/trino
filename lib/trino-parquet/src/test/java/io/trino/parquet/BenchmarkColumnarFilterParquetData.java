@@ -34,7 +34,6 @@ import io.trino.spi.connector.SourcePage;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.ExpressionCompiler;
-import io.trino.sql.relational.CallExpression;
 import io.trino.sql.relational.InputReferenceExpression;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SpecialForm;
@@ -42,6 +41,7 @@ import io.trino.sql.relational.SpecialForm.Form;
 import io.trino.tpch.LineItem;
 import io.trino.tpch.LineItemColumn;
 import io.trino.tpch.TpchColumn;
+import io.trino.type.LikePattern;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
@@ -73,9 +73,12 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.relational.Expressions.call;
 import static io.trino.sql.relational.Expressions.constant;
 import static io.trino.sql.relational.Expressions.field;
 import static io.trino.tpch.TpchTable.LINE_ITEM;
+import static io.trino.type.LikePatternType.LIKE_PATTERN;
 
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.SECONDS)
@@ -91,6 +94,7 @@ public class BenchmarkColumnarFilterParquetData
     private static final int SHIP_DATE = 2;
     private static final int QUANTITY = 3;
     private static final int SHIP_MODE = 4;
+    private static final int COMMENT = 5;
 
     private static final long MIN_SHIP_DATE = LocalDate.parse("1994-01-01").toEpochDay();
     private static final long MAX_SHIP_DATE = LocalDate.parse("1995-01-01").toEpochDay();
@@ -112,6 +116,7 @@ public class BenchmarkColumnarFilterParquetData
             "AND",
             "BETWEEN",
             "IN",
+            "OR",
     })
     public FilterProvider filterProvider;
 
@@ -130,36 +135,21 @@ public class BenchmarkColumnarFilterParquetData
                         Form.AND,
                         BOOLEAN,
                         ImmutableList.of(
-                                new CallExpression(
+                                call(
                                         FUNCTION_RESOLUTION.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(DATE, DATE)),
                                         ImmutableList.of(constant(MIN_SHIP_DATE, DATE), field(SHIP_DATE, DATE))),
-                                new SpecialForm(
-                                        Form.AND,
-                                        BOOLEAN,
-                                        ImmutableList.of(
-                                                new CallExpression(
-                                                        FUNCTION_RESOLUTION.resolveOperator(LESS_THAN, ImmutableList.of(DATE, DATE)),
-                                                        ImmutableList.of(field(SHIP_DATE, DATE), constant(MAX_SHIP_DATE, DATE))),
-                                                new SpecialForm(
-                                                        Form.AND,
-                                                        BOOLEAN,
-                                                        ImmutableList.of(
-                                                                new CallExpression(
-                                                                        FUNCTION_RESOLUTION.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(DOUBLE, DOUBLE)),
-                                                                        ImmutableList.of(constant(0.05, DOUBLE), field(DISCOUNT, DOUBLE))),
-                                                                new SpecialForm(
-                                                                        Form.AND,
-                                                                        BOOLEAN,
-                                                                        ImmutableList.of(
-                                                                                new CallExpression(
-                                                                                        FUNCTION_RESOLUTION.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(DOUBLE, DOUBLE)),
-                                                                                        ImmutableList.of(field(DISCOUNT, DOUBLE), constant(0.07, DOUBLE))),
-                                                                                new CallExpression(
-                                                                                        FUNCTION_RESOLUTION.resolveOperator(LESS_THAN, ImmutableList.of(DOUBLE, DOUBLE)),
-                                                                                        ImmutableList.of(field(QUANTITY, DOUBLE), constant(24.0, DOUBLE)))),
-                                                                        ImmutableList.of())),
-                                                        ImmutableList.of())),
-                                        ImmutableList.of())),
+                                call(
+                                        FUNCTION_RESOLUTION.resolveOperator(LESS_THAN, ImmutableList.of(DATE, DATE)),
+                                        ImmutableList.of(field(SHIP_DATE, DATE), constant(MAX_SHIP_DATE, DATE))),
+                                call(
+                                        FUNCTION_RESOLUTION.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(DOUBLE, DOUBLE)),
+                                        ImmutableList.of(constant(0.05, DOUBLE), field(DISCOUNT, DOUBLE))),
+                                call(
+                                        FUNCTION_RESOLUTION.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(DOUBLE, DOUBLE)),
+                                        ImmutableList.of(field(DISCOUNT, DOUBLE), constant(0.07, DOUBLE))),
+                                call(
+                                        FUNCTION_RESOLUTION.resolveOperator(LESS_THAN, ImmutableList.of(DOUBLE, DOUBLE)),
+                                        ImmutableList.of(field(QUANTITY, DOUBLE), constant(24.0, DOUBLE)))),
                         ImmutableList.of());
             }
         },
@@ -190,7 +180,31 @@ public class BenchmarkColumnarFilterParquetData
                         ImmutableList.of(field(SHIP_MODE, VARCHAR), constant(SHIP, VARCHAR), constant(MAIL, VARCHAR)),
                         functionalDependencies);
             }
-        }
+        },
+        OR {
+            // where comment like 'fur%'
+            //    or discount >= 0.01
+            //    or quantity < 24;
+            @Override
+            RowExpression getExpression()
+            {
+                return new SpecialForm(
+                        Form.OR,
+                        BOOLEAN,
+                        ImmutableList.of(
+                                call(
+                                        FUNCTION_RESOLUTION.resolveFunction("$like", fromTypes(VARCHAR, LIKE_PATTERN)),
+                                        field(COMMENT, VARCHAR),
+                                        constant(LikePattern.compile("fur%", Optional.empty()), LIKE_PATTERN)),
+                                call(
+                                        FUNCTION_RESOLUTION.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(DOUBLE, DOUBLE)),
+                                        ImmutableList.of(constant(0.01, DOUBLE), field(DISCOUNT, DOUBLE))),
+                                call(
+                                        FUNCTION_RESOLUTION.resolveOperator(LESS_THAN, ImmutableList.of(DOUBLE, DOUBLE)),
+                                        ImmutableList.of(field(QUANTITY, DOUBLE), constant(24.0, DOUBLE)))),
+                        ImmutableList.of());
+            }
+        },
         /**/;
 
         abstract RowExpression getExpression();
@@ -204,6 +218,7 @@ public class BenchmarkColumnarFilterParquetData
         ExpressionCompiler expressionCompiler = FUNCTION_RESOLUTION.getExpressionCompiler();
         compiledProcessor = expressionCompiler.compilePageProcessor(
                         columnarEvaluationEnabled,
+                        true,
                         Optional.of(filterExpression),
                         Optional.empty(),
                         ImmutableList.of(new InputReferenceExpression(EXTENDED_PRICE, DOUBLE)),
@@ -216,7 +231,8 @@ public class BenchmarkColumnarFilterParquetData
                 LineItemColumn.DISCOUNT,
                 LineItemColumn.SHIP_DATE,
                 LineItemColumn.QUANTITY,
-                LineItemColumn.SHIP_MODE);
+                LineItemColumn.SHIP_MODE,
+                LineItemColumn.COMMENT);
         BenchmarkParquetFormatUtils.TestData testData = createTpchDataSet(LINE_ITEM, columns);
 
         dataSource = new TestingParquetDataSource(
