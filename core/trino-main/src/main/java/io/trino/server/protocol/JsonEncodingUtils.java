@@ -80,16 +80,16 @@ public final class JsonEncodingUtils
     private static final VarcharEncoder VARCHAR_ENCODER = new VarcharEncoder();
     private static final VarbinaryEncoder VARBINARY_ENCODER = new VarbinaryEncoder();
 
-    public static TypeEncoder[] createTypeEncoders(Session session, List<OutputColumn> columns)
+    public static TypeEncoder[] createTypeEncoders(Session session, List<Type> types)
     {
-        verify(!columns.isEmpty(), "Columns must not be empty");
+        verify(!types.isEmpty(), "Columns must not be empty");
 
         boolean supportsParametricDateTime = requireNonNull(session, "session is null")
                 .getClientCapabilities()
                 .contains(ClientCapabilities.PARAMETRIC_DATETIME.toString());
 
-        return columns.stream()
-                .map(column -> createTypeEncoder(column.type(), supportsParametricDateTime))
+        return types.stream()
+                .map(type -> createTypeEncoder(type, supportsParametricDateTime))
                 .toArray(TypeEncoder[]::new);
     }
 
