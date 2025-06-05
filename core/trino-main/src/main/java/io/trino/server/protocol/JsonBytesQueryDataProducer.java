@@ -18,7 +18,6 @@ import io.trino.client.QueryData;
 import io.trino.server.ExternalUriInfo;
 import io.trino.server.protocol.JsonEncodingUtils.TypeEncoder;
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 
 import java.util.List;
@@ -32,8 +31,6 @@ import static java.util.Objects.requireNonNull;
 public class JsonBytesQueryDataProducer
         implements QueryDataProducer
 {
-    private final ConnectorSession connectorSession;
-
     private TypeEncoder[] typeEncoders;
     private int[] sourcePageChannels;
     private boolean closed;
@@ -44,7 +41,6 @@ public class JsonBytesQueryDataProducer
         typeEncoders = createTypeEncoders(session, types);
         sourcePageChannels = IntStream.range(0, typeEncoders.length)
                 .toArray();
-        connectorSession = session.toConnectorSession();
     }
 
     @Override
@@ -56,7 +52,7 @@ public class JsonBytesQueryDataProducer
 
         verify(!closed, "JsonBytesQueryDataProducer is already closed");
         // Write to a buffer so we can capture and propagate the exception
-        return new JsonBytesQueryData(connectorSession, throwableConsumer, typeEncoders, sourcePageChannels, rows.getPages());
+        return new JsonBytesQueryData(throwableConsumer, typeEncoders, sourcePageChannels, rows.getPages());
     }
 
     @Override
