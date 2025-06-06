@@ -13,6 +13,7 @@
  */
 package io.trino.sql.analyzer;
 
+import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.NamedTypeSignature;
@@ -65,6 +66,15 @@ import static java.lang.String.format;
 
 public final class TypeSignatureTranslator
 {
+    private static final CharMatcher IS_DIGIT = CharMatcher.inRange('0', '9')
+            .precomputed();
+
+    private static final CharMatcher IS_VALID_IDENTIFIER_CHAR = CharMatcher.inRange('a', 'z')
+            .or(CharMatcher.inRange('A', 'Z'))
+            .or(CharMatcher.is('_'))
+            .or(CharMatcher.inRange('0', '9'))
+            .precomputed();
+
     private static final SqlParser SQL_PARSER = new SqlParser();
 
     private TypeSignatureTranslator() {}
@@ -266,11 +276,22 @@ public final class TypeSignatureTranslator
 
     private static boolean requiresDelimiting(String identifier)
     {
-        if (!identifier.matches("[a-zA-Z][a-zA-Z0-9_]*")) {
+        if (!isValidIdentifier(identifier)) {
             return true;
         }
 
         return ReservedIdentifiers.reserved(identifier);
+    }
+
+    private static boolean isValidIdentifier(String identifier)
+    {
+        if (IS_DIGIT.matches(identifier.charAt(0))) {
+            return false;
+        }
+
+        // We've already checked that first char does not contain digits,
+        // so to avoid copying we are checking whole string.
+        return IS_VALID_IDENTIFIER_CHAR.matchesAllOf(identifier);
     }
 
     private static DataTypeParameter toTypeParameter(TypeSignatureParameter parameter)
