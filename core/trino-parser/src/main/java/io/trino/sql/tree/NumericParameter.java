@@ -19,12 +19,14 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static io.trino.sql.tree.NumericParser.parseNumeric;
 import static java.util.Objects.requireNonNull;
 
 public class NumericParameter
         extends DataTypeParameter
 {
     private final String value;
+    private final long parsedValue;
 
     public NumericParameter(NodeLocation location, String value)
     {
@@ -35,11 +37,17 @@ public class NumericParameter
     {
         super(location);
         this.value = requireNonNull(value, "value is null");
+        this.parsedValue = parseNumeric(value, location.orElse(new NodeLocation(1, 1)));
     }
 
     public String getValue()
     {
         return value;
+    }
+
+    public long getParsedValue()
+    {
+        return parsedValue;
     }
 
     @Override
