@@ -230,7 +230,7 @@ public class TableSnapshot
             TrinoFileSystem fileSystem,
             FileFormatDataSourceStats stats,
             Optional<MetadataAndProtocolEntry> metadataAndProtocol,
-            TupleDomain<DeltaLakeColumnHandle> partitionConstraint,
+            TupleDomain<DeltaLakeColumnHandle> constraint,
             Optional<Predicate<String>> addStatsMinMaxColumnFilter,
             Executor executor)
             throws IOException
@@ -259,7 +259,7 @@ public class TableSnapshot
                         stats,
                         checkpoint,
                         checkpointFile,
-                        partitionConstraint,
+                        constraint,
                         addStatsMinMaxColumnFilter,
                         executor));
     }
@@ -280,7 +280,7 @@ public class TableSnapshot
             FileFormatDataSourceStats stats,
             LastCheckpoint checkpoint,
             TrinoInputFile checkpointFile,
-            TupleDomain<DeltaLakeColumnHandle> partitionConstraint,
+            TupleDomain<DeltaLakeColumnHandle> constraint,
             Optional<Predicate<String>> addStatsMinMaxColumnFilter,
             Executor executor)
     {
@@ -305,7 +305,7 @@ public class TableSnapshot
                     stats,
                     checkpoint,
                     checkpointFile,
-                    partitionConstraint,
+                    constraint,
                     addStatsMinMaxColumnFilter,
                     fileSystem,
                     fileSize,
@@ -324,7 +324,7 @@ public class TableSnapshot
                 parquetReaderOptions,
                 checkpointRowStatisticsWritingEnabled,
                 domainCompactionThreshold,
-                partitionConstraint,
+                constraint,
                 addStatsMinMaxColumnFilter);
         return stream(checkpointEntryIterator).onClose(checkpointEntryIterator::close);
     }
@@ -339,7 +339,7 @@ public class TableSnapshot
             FileFormatDataSourceStats stats,
             LastCheckpoint checkpoint,
             TrinoInputFile checkpointFile,
-            TupleDomain<DeltaLakeColumnHandle> partitionConstraint,
+            TupleDomain<DeltaLakeColumnHandle> constraint,
             Optional<Predicate<String>> addStatsMinMaxColumnFilter,
             TrinoFileSystem fileSystem,
             long fileSize,
@@ -348,7 +348,7 @@ public class TableSnapshot
         // Sidecar files contain only ADD and REMOVE entry types. https://github.com/delta-io/delta/blob/master/PROTOCOL.md#v2-spec
         Set<CheckpointEntryIterator.EntryType> dataEntryTypes = Sets.intersection(entryTypes, Set.of(ADD, REMOVE));
         List<CompletableFuture<Stream<DeltaLakeTransactionLogEntry>>> logEntryStreamFutures =
-                getV2CheckpointEntries(session, entryTypes, metadataEntry, protocolEntry, checkpointSchemaManager, typeManager, stats, checkpoint, checkpointFile, partitionConstraint, addStatsMinMaxColumnFilter, fileSystem, fileSize)
+                getV2CheckpointEntries(session, entryTypes, metadataEntry, protocolEntry, checkpointSchemaManager, typeManager, stats, checkpoint, checkpointFile, constraint, addStatsMinMaxColumnFilter, fileSystem, fileSize)
                         .map(v2checkpointEntry -> {
                             if (v2checkpointEntry.getSidecar() == null || dataEntryTypes.isEmpty()) {
                                 return CompletableFuture.completedFuture(Stream.of(v2checkpointEntry));
@@ -369,7 +369,7 @@ public class TableSnapshot
                                         parquetReaderOptions,
                                         checkpointRowStatisticsWritingEnabled,
                                         domainCompactionThreshold,
-                                        partitionConstraint,
+                                        constraint,
                                         addStatsMinMaxColumnFilter);
                                 return stream(iterator).onClose(iterator::close);
                             }, executor);
@@ -391,7 +391,7 @@ public class TableSnapshot
             FileFormatDataSourceStats stats,
             LastCheckpoint checkpoint,
             TrinoInputFile checkpointFile,
-            TupleDomain<DeltaLakeColumnHandle> partitionConstraint,
+            TupleDomain<DeltaLakeColumnHandle> constraint,
             Optional<Predicate<String>> addStatsMinMaxColumnFilter,
             TrinoFileSystem fileSystem,
             long fileSize)
@@ -423,7 +423,7 @@ public class TableSnapshot
                     parquetReaderOptions,
                     checkpointRowStatisticsWritingEnabled,
                     domainCompactionThreshold,
-                    partitionConstraint,
+                    constraint,
                     addStatsMinMaxColumnFilter);
             return stream(checkpointEntryIterator)
                     .onClose(checkpointEntryIterator::close);

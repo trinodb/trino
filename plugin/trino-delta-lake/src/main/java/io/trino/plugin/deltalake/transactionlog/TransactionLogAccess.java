@@ -344,13 +344,14 @@ public class TransactionLogAccess
             MetadataEntry metadataEntry,
             ProtocolEntry protocolEntry,
             TupleDomain<DeltaLakeColumnHandle> partitionConstraint,
+            TupleDomain<DeltaLakeColumnHandle> nonPartitionConstraint,
             Set<DeltaLakeColumnHandle> projectedColumns)
     {
         Set<String> baseColumnNames = projectedColumns.stream()
                 .filter(DeltaLakeColumnHandle::isBaseColumn) // Only base column stats are supported
                 .map(DeltaLakeColumnHandle::columnName)
                 .collect(toImmutableSet());
-        return getActiveFiles(session, tableSnapshot, metadataEntry, protocolEntry, partitionConstraint, baseColumnNames::contains);
+        return getActiveFiles(session, tableSnapshot, metadataEntry, protocolEntry, partitionConstraint.intersect(nonPartitionConstraint), baseColumnNames::contains);
     }
 
     public Stream<AddFileEntry> getActiveFiles(
@@ -358,12 +359,12 @@ public class TransactionLogAccess
             TableSnapshot tableSnapshot,
             MetadataEntry metadataEntry,
             ProtocolEntry protocolEntry,
-            TupleDomain<DeltaLakeColumnHandle> partitionConstraint,
+            TupleDomain<DeltaLakeColumnHandle> constraint,
             Predicate<String> addStatsMinMaxColumnFilter)
     {
         try {
             if (isCheckpointFilteringEnabled(session)) {
-                return loadActiveFiles(session, tableSnapshot, metadataEntry, protocolEntry, partitionConstraint, addStatsMinMaxColumnFilter);
+                return loadActiveFiles(session, tableSnapshot, metadataEntry, protocolEntry, constraint, addStatsMinMaxColumnFilter);
             }
 
             TableVersion tableVersion = new TableVersion(new TableLocation(tableSnapshot.getTable(), tableSnapshot.getTableLocation()), tableSnapshot.getVersion());
@@ -411,7 +412,7 @@ public class TransactionLogAccess
             TableSnapshot tableSnapshot,
             MetadataEntry metadataEntry,
             ProtocolEntry protocolEntry,
-            TupleDomain<DeltaLakeColumnHandle> partitionConstraint,
+            TupleDomain<DeltaLakeColumnHandle> constraint,
             Predicate<String> addStatsMinMaxColumnFilter)
     {
         List<Transaction> transactions = tableSnapshot.getTransactions();
@@ -424,13 +425,13 @@ public class TransactionLogAccess
                 fileSystem,
                 fileFormatDataSourceStats,
                 Optional.of(new MetadataAndProtocolEntry(metadataEntry, protocolEntry)),
-                partitionConstraint,
+                constraint,
                 Optional.of(addStatsMinMaxColumnFilter),
                 new BoundedExecutor(executorService, checkpointProcessingParallelism))) {
             return activeAddEntries(checkpointEntries, transactions, fileSystem)
-                    .filter(partitionConstraint.isAll()
+                    .filter(constraint.isAll()
                             ? addAction -> true
-                            : addAction -> partitionMatchesPredicate(addAction.getCanonicalPartitionValues(), partitionConstraint.getDomains().orElseThrow()));
+                            : addAction -> partitionMatchesPredicate(addAction.getCanonicalPartitionValues(), constraint.getDomains().orElseThrow()));
         }
         catch (IOException e) {
             throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Error reading transaction log for " + tableSnapshot.getTable(), e);
