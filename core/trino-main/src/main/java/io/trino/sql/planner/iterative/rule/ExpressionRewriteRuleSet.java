@@ -304,9 +304,11 @@ public class ExpressionRewriteRuleSet
                 Expression rewritten;
                 if (row instanceof Row value) {
                     // preserve the structure of row
-                    rewritten = new Row(value.items().stream()
-                            .map(item -> rewriter.rewrite(item, context))
-                            .collect(toImmutableList()));
+                    ImmutableList.Builder<Expression> rowValues = ImmutableList.builderWithExpectedSize(value.items().size());
+                    for (Expression item : value.items()) {
+                        rowValues.add(rewriter.rewrite(item, context));
+                    }
+                    rewritten = new Row(rowValues.build());
                 }
                 else {
                     rewritten = rewriter.rewrite(row, context);
