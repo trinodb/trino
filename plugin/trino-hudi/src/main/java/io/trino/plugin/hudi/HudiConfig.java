@@ -307,7 +307,7 @@ public class HudiConfig
         return dynamicFilteringWaitTimeout;
     }
 
-    @Config("hudi.column-stats.wait-timeout")
+    @Config("hudi.index.column-stats.wait-timeout")
     @ConfigDescription("Maximum timeout to wait for loading column stats, e.g. 1000ms, 20s, 2m, 1h")
     public HudiConfig setColumnStatsWaitTimeout(Duration columnStatusWaitTimeout)
     {

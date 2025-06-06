@@ -90,68 +90,6 @@ public class HudiSecondaryIndexSupport
     }
 
     @Override
-    public Map<String, List<FileSlice>> lookupCandidateFilesInMetadataTable(
-            Map<String, List<FileSlice>> inputFileSlices,
-            TupleDomain<String> regularColumnPredicates)
-    {
-        if (regularColumnPredicates.isAll() || metaClient.getIndexMetadata().isEmpty()) {
-            log.debug("Predicates cover all data, skipping secondary index lookup.");
-            return inputFileSlices;
-        }
-
-        Optional<Map.Entry<String, HoodieIndexDefinition>> firstApplicableIndex = findFirstApplicableSecondaryIndex(regularColumnPredicates);
-        if (firstApplicableIndex.isEmpty()) {
-            log.debug("No secondary index definition found matching the query's referenced columns.");
-            return inputFileSlices;
-        }
-
-        Map.Entry<String, HoodieIndexDefinition> applicableIndexEntry = firstApplicableIndex.get();
-        String indexName = applicableIndexEntry.getKey();
-        // `indexedColumns` should only contain one element as secondary indices only support one column
-        List<String> indexedColumns = applicableIndexEntry.getValue().getSourceFields();
-        log.debug(String.format("Using secondary index '%s' on columns %s for pruning.", indexName, indexedColumns));
-        TupleDomain<String> indexPredicates = extractPredicatesForColumns(regularColumnPredicates, indexedColumns);
-
-        List<String> secondaryKeys = constructRecordKeys(indexPredicates, indexedColumns);
-        if (secondaryKeys.isEmpty()) {
-            log.warn(String.format("Could not construct secondary keys for index '%s' from predicates. Skipping pruning.", indexName));
-            return inputFileSlices;
-        }
-        log.debug(String.format("Constructed %d secondary keys for index lookup.", secondaryKeys.size()));
-
-        // Perform index lookup in metadataTable
-        // TODO: document here what this map is keyed by
-        Map<String, HoodieRecordGlobalLocation> recordKeyLocationsMap = tableMetadata.readSecondaryIndex(secondaryKeys, indexName);
-        if (recordKeyLocationsMap.isEmpty()) {
-            log.debug("Secondary index lookup returned no locations for the given keys.");
-            // Return all original fileSlices
-            return inputFileSlices;
-        }
-
-        // Collect fileIds for pruning
-        Set<String> relevantFileIds = recordKeyLocationsMap.values().stream()
-                .map(HoodieRecordGlobalLocation::getFileId)
-                .collect(Collectors.toSet());
-        log.debug(String.format("Secondary index lookup identified %d relevant file IDs.", relevantFileIds.size()));
-
-        // Prune fileSlices: Loop through each partition and filter for fileSlices that are in relevantFileIds
-        // Note: This may return partitions with empty list of fileSlices
-        Map<String, List<FileSlice>> candidateFileSlices = inputFileSlices.entrySet().stream()
-                .collect(Collectors.toMap(
-                        Map.Entry::getKey,
-                        entry -> entry.getValue().stream()
-                                // Only include fileSlices that are returned from metadata lookup
-                                .filter(fileSlice -> relevantFileIds.contains(fileSlice.getFileId()))
-                                .collect(Collectors.toList())));
-
-        // Remove partitions where no files remain after filtering
-        candidateFileSlices.entrySet().removeIf(entry -> entry.getValue().isEmpty());
-
-        printDebugMessage(candidateFileSlices, inputFileSlices);
-        return candidateFileSlices;
-    }
-
-    @Override
     public boolean shouldSkipFileSlice(FileSlice slice)
     {
         return relevantFileIdsOption.map(fileIds -> !fileIds.contains(slice.getFileId())).orElse(false);

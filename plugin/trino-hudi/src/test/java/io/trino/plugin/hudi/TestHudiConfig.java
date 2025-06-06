@@ -75,7 +75,7 @@ public class TestHudiConfig
                 .put("hudi.index.column-stats-index-enabled", "false")
                 .put("hudi.index.partition-stats-index-enabled", "false")
                 .put("hudi.dynamic-filtering.wait-timeout", "2s")
-                .put("hudi.column-stats.wait-timeout", "2s")
+                .put("hudi.index.column-stats.wait-timeout", "2s")
                 .buildOrThrow();
 
         HudiConfig expected = new HudiConfig()

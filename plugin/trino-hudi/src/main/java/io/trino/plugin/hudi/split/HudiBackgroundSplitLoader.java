@@ -79,7 +79,7 @@ public class HudiBackgroundSplitLoader
         this.commitTime = requireNonNull(commitTime, "commitTime is null");
         this.enableMetadataTable = enableMetadataTable;
         this.errorListener = requireNonNull(errorListener, "errorListener is null");
-        this.partitionIndexSupportOpt = enableMetadataTable & metadataTableOpt.isPresent() ?
+        this.partitionIndexSupportOpt = enableMetadataTable && metadataTableOpt.isPresent() ?
                 IndexSupportFactory.createPartitionStatsIndexSupport(metaClient, metadataTableOpt.get(), tableHandle.getRegularPredicates(), session) : Optional.empty();
     }
 

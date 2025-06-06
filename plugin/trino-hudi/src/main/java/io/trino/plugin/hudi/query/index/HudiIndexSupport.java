@@ -21,10 +21,6 @@ import java.util.Map;
 
 public interface HudiIndexSupport
 {
-    Map<String, List<FileSlice>> lookupCandidateFilesInMetadataTable(
-            Map<String, List<FileSlice>> inputFileSlices,
-            TupleDomain<String> regularColumnPredicates);
-
     boolean canApply(TupleDomain<String> tupleDomain);
 
     default boolean shouldSkipFileSlice(FileSlice slice)

@@ -96,35 +96,6 @@ public class HudiRecordLevelIndexSupport
     }
 
     @Override
-    public Map<String, List<FileSlice>> lookupCandidateFilesInMetadataTable(
-            Map<String, List<FileSlice>> inputFileSlices,
-            TupleDomain<String> regularColumnPredicates)
-    {
-        // Should not happen since canApply checks for this, include for safety
-        if (regularColumnPredicates.isAll() || relevantFileIdsOption.isEmpty()) {
-            log.debug("Predicates cover all data, skipping record level index lookup.");
-            return inputFileSlices;
-        }
-        // Prune fileSlices: Loop through each partition and filter for fileSlices that are in relevantFileIds
-        // Note: This may return partitions with empty list of fileSlices
-        Map<String, List<FileSlice>> candidateFileSlices = inputFileSlices
-                .entrySet()
-                .stream()
-                .collect(Collectors.toMap(
-                        Map.Entry::getKey,
-                        entry -> entry.getValue()
-                                .stream()
-                                .filter(fileSlice -> relevantFileIdsOption.get().contains(fileSlice.getFileId()))
-                                .collect(Collectors.toList())));
-
-        // Remove partitions where no files remain after filtering
-        candidateFileSlices.entrySet().removeIf(entry -> entry.getValue().isEmpty());
-
-        printDebugMessage(candidateFileSlices, inputFileSlices);
-        return candidateFileSlices;
-    }
-
-    @Override
     public boolean shouldSkipFileSlice(FileSlice slice)
     {
         return relevantFileIdsOption.map(fileIds -> !fileIds.contains(slice.getFileId())).orElse(false);

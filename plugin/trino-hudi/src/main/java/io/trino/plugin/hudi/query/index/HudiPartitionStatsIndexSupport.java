@@ -19,7 +19,6 @@ import io.trino.plugin.hudi.util.TupleDomainUtils;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.predicate.TupleDomain;
 import org.apache.hudi.avro.model.HoodieMetadataColumnStats;
-import org.apache.hudi.common.model.FileSlice;
 import org.apache.hudi.common.model.HoodieIndexDefinition;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.common.util.hash.ColumnIndexID;
@@ -45,12 +44,6 @@ public class HudiPartitionStatsIndexSupport
     {
         super(log, session, metaClient, metadataTable, regularColumnPredicates);
         this.metadataTable = metadataTable;
-    }
-
-    @Override
-    public Map<String, List<FileSlice>> lookupCandidateFilesInMetadataTable(Map<String, List<FileSlice>> inputFileSlices, TupleDomain<String> regularColumnPredicates)
-    {
-        throw new UnsupportedOperationException("This method is not supported by " + getClass().getSimpleName());
     }
 
     public Optional<List<String>> prunePartitions(

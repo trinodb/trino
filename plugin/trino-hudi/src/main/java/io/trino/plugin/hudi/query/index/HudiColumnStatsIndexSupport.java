@@ -106,33 +106,10 @@ public class HudiColumnStatsIndexSupport
     }
 
     @Override
-    public Map<String, List<FileSlice>> lookupCandidateFilesInMetadataTable(
-            Map<String, List<FileSlice>> inputFileSlices, TupleDomain<String> regularColumnPredicates)
-    {
-        if (regularColumnPredicates.isAll() || !regularColumnPredicates.getDomains().isPresent()) {
-            return inputFileSlices;
-        }
-
-        // Prune files
-        Map<String, List<FileSlice>> candidateFileSlices = inputFileSlices
-                .entrySet()
-                .stream()
-                .collect(Collectors
-                        .toMap(entry -> entry.getKey(), entry -> entry
-                                .getValue()
-                                .stream()
-                                .filter(fileSlice -> !shouldSkipFileSlice(fileSlice))
-                                .collect(Collectors.toList())));
-
-        this.printDebugMessage(candidateFileSlices, inputFileSlices);
-        return candidateFileSlices;
-    }
-
-    @Override
     public boolean shouldSkipFileSlice(FileSlice slice)
     {
         try {
-            // Wait up to 100 milliseconds for stats to be ready
+            // Wait till timeout for stats to be ready
             Optional<Map<String, Map<String, HoodieMetadataColumnStats>>> statsOpt =
                     statsByFileNameFuture.get(columnStatsWaitTimeout.toMillis(), TimeUnit.MILLISECONDS);
 

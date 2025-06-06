@@ -82,7 +82,7 @@ public class HudiSnapshotDirectoryLister
                                 hiveTable,
                                 hiveMetastore)));
         TupleDomain<HiveColumnHandle> regularPredicates = tableHandle.getRegularPredicates();
-        this.indexSupportOpt = enableMetadataTable & tableMetadataOpt.isPresent() ?
+        this.indexSupportOpt = enableMetadataTable && tableMetadataOpt.isPresent() ?
                 IndexSupportFactory.createIndexSupport(metaClient, tableMetadataOpt.get(), regularPredicates, session) : Optional.empty();
     }
 
