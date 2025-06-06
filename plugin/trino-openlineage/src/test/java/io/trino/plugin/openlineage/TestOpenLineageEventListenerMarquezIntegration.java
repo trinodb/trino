@@ -77,9 +77,9 @@ final class TestOpenLineageEventListenerMarquezIntegration
             URI trino = new URI(trinoURI);
 
             String expectedNamespace = URLEncoder.encode(format("trino://%s:%s", trino.getHost(), trino.getPort()), UTF_8);
-            String expectedQueryId = URLEncoder.encode(queryId, UTF_8);
+            String expectedJobName = URLEncoder.encode(queryId, UTF_8);
 
-            checkJobRegistration(client, expectedNamespace, expectedQueryId);
+            checkJobRegistration(client, expectedNamespace, expectedJobName);
         });
     }
 
@@ -109,17 +109,17 @@ final class TestOpenLineageEventListenerMarquezIntegration
             URI trino = new URI(trinoURI);
 
             String expectedNamespace = URLEncoder.encode(format("trino://%s:%s", trino.getHost(), trino.getPort()), UTF_8);
-            String expectedQueryId = URLEncoder.encode(queryId, UTF_8);
+            String expectedJobName = URLEncoder.encode(queryId, UTF_8);
 
-            checkJobRegistration(client, expectedNamespace, expectedQueryId);
+            checkJobRegistration(client, expectedNamespace, expectedJobName);
         });
     }
 
-    private void checkJobRegistration(HttpClient client, String expectedNamespace, String expectedQueryId)
+    private void checkJobRegistration(HttpClient client, String expectedNamespace, String expectedJobName)
             throws URISyntaxException, IOException, InterruptedException
     {
         HttpRequest requestJob = HttpRequest.newBuilder()
-                .uri(new URI(marquezURI + "/api/v1/namespaces/" + expectedNamespace + "/jobs/" + expectedQueryId))
+                .uri(new URI(marquezURI + "/api/v1/namespaces/" + expectedNamespace + "/jobs/" + expectedJobName))
                 .GET()
                 .build();
 
