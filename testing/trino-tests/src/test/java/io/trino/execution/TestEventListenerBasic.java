@@ -630,7 +630,7 @@ public class TestEventListenerBasic
         TableInfo table = tables.get(0);
         assertThat(table)
                 .hasCatalogSchemaTable("tpch", "tiny", "nation")
-                .hasAuthorization("user")
+                .hasAuthorization("alice")
                 .isDirectlyReferenced()
                 .hasColumnsWithoutMasking("nationkey")
                 .hasNoRowFilters()
