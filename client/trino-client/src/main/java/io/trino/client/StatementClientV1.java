@@ -143,7 +143,7 @@ class StatementClientV1
         this.compressionDisabled = session.isCompressionDisabled();
         this.heartbeatInterval = session.getHeartbeatInterval().toMillis() * 1_000_000;
 
-        this.resultRowsDecoder = new ResultRowsDecoder(new OkHttpSegmentLoader(requireNonNull(segmentHttpCallFactory, "segmentHttpCallFactory is null")));
+        this.resultRowsDecoder = createResultRowsDecoder(segmentHttpCallFactory, session.isSegmentLoggingEnabled());
 
         Request request = buildQueryRequest(session, query, session.getEncoding());
         // Pass empty as materializedJsonSizeLimit to always materialize the first response
@@ -736,5 +736,14 @@ class StatementClientV1
                 }
             };
         }
+    }
+
+    private static ResultRowsDecoder createResultRowsDecoder(Call.Factory segmentHttpCallFactory, boolean segmentLoggingEnabled)
+    {
+        ResultRowsDecoder decoder = new ResultRowsDecoder(new OkHttpSegmentLoader(requireNonNull(segmentHttpCallFactory, "segmentHttpCallFactory is null")));
+        if (segmentLoggingEnabled) {
+            return new LoggingResultRowsDecoder(decoder);
+        }
+        return decoder;
     }
 }
