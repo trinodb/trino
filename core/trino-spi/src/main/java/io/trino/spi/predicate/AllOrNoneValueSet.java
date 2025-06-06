@@ -15,7 +15,6 @@ package io.trino.spi.predicate;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 
 import java.util.Collection;
@@ -163,13 +162,7 @@ public class AllOrNoneValueSet
     }
 
     @Override
-    public String toString(ConnectorSession session)
-    {
-        return toString();
-    }
-
-    @Override
-    public String toString(ConnectorSession session, int limit)
+    public String toString(int limit)
     {
         return toString();
     }

@@ -16,7 +16,6 @@ package io.trino.spi.predicate;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.block.Block;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
@@ -318,22 +317,16 @@ public class EquatableValueSet
     @Override
     public String toString()
     {
-        return toString(ToStringSession.INSTANCE);
+        return toString(10);
     }
 
     @Override
-    public String toString(ConnectorSession session)
-    {
-        return toString(session, 10);
-    }
-
-    @Override
-    public String toString(ConnectorSession session, int limit)
+    public String toString(int limit)
     {
         return new StringJoiner(", ", EquatableValueSet.class.getSimpleName() + "[", "]")
                 .add("type=" + type)
                 .add("values=" + getValuesCount())
-                .add(formatValues(session, limit))
+                .add(formatValues(limit))
                 .toString();
     }
 
@@ -353,11 +346,11 @@ public class EquatableValueSet
         return INSTANCE_SIZE + estimatedSizeOf(entries, ValueEntry::getRetainedSizeInBytes);
     }
 
-    private String formatValues(ConnectorSession session, int limit)
+    private String formatValues(int limit)
     {
         return Stream.concat(
                 entries.stream()
-                        .map(entry -> type.getObjectValue(session, entry.getBlock(), 0).toString())
+                        .map(entry -> type.getObjectValue(entry.getBlock(), 0).toString())
                         .limit(limit),
                 limit < getValuesCount() ? Stream.of("...") : Stream.of())
                 .collect(joining(", ", inclusive ? "{" : "EXCLUDES{", "}"));

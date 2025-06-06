@@ -31,7 +31,6 @@ import java.util.List;
 import java.util.Map;
 
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.testing.TestingConnectorSession.SESSION;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Fail.fail;
@@ -119,7 +118,7 @@ public final class AvroDecoderTestUtil
                 checkRowValues(rowType.getObject(block, index), elementType, list.get(index));
             }
             else {
-                checkPrimitiveValue(elementType.getObjectValue(SESSION, block, index), list.get(index));
+                checkPrimitiveValue(elementType.getObjectValue(block, index), list.get(index));
             }
         }
     }
@@ -169,7 +168,7 @@ public final class AvroDecoderTestUtil
                 checkRowValues(rowType.getObject(rawValueBlock, rawOffset + index), valueType, expected.get(actualKey));
             }
             else {
-                checkPrimitiveValue(valueType.getObjectValue(SESSION, rawValueBlock, rawOffset + index), expected.get(actualKey));
+                checkPrimitiveValue(valueType.getObjectValue(rawValueBlock, rawOffset + index), expected.get(actualKey));
             }
         }
     }
@@ -233,7 +232,7 @@ public final class AvroDecoderTestUtil
             checkRowValues(rowType.getObject(actualBlock, position), type, expectedValue);
         }
         else {
-            checkPrimitiveValue(type.getObjectValue(SESSION, actualBlock, position), expectedValue);
+            checkPrimitiveValue(type.getObjectValue(actualBlock, position), expectedValue);
         }
     }
 }

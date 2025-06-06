@@ -122,7 +122,7 @@ public class TestEquatableValueSet
         assertThat(equatables.containsValue(3L)).isTrue();
         assertThat(equatables.containsValue(4L)).isFalse();
         assertThat(equatables.toString()).isEqualTo("EquatableValueSet[type=id, values=3, {1, 2, 3}]");
-        assertThat(equatables.toString(ToStringSession.INSTANCE, 2)).isEqualTo("EquatableValueSet[type=id, values=3, {1, 2, ...}]");
+        assertThat(equatables.toString(2)).isEqualTo("EquatableValueSet[type=id, values=3, {1, 2, ...}]");
 
         // exclusive
         assertThat(complement.getType()).isEqualTo(ID);
@@ -138,7 +138,7 @@ public class TestEquatableValueSet
         assertThat(complement.containsValue(3L)).isFalse();
         assertThat(complement.containsValue(4L)).isTrue();
         assertThat(complement.toString()).isEqualTo("EquatableValueSet[type=id, values=3, EXCLUDES{1, 2, 3}]");
-        assertThat(complement.toString(ToStringSession.INSTANCE, 2)).isEqualTo("EquatableValueSet[type=id, values=3, EXCLUDES{1, 2, ...}]");
+        assertThat(complement.toString(2)).isEqualTo("EquatableValueSet[type=id, values=3, EXCLUDES{1, 2, ...}]");
     }
 
     @Test

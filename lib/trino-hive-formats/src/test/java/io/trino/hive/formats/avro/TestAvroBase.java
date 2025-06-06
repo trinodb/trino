@@ -375,7 +375,7 @@ public abstract class TestAvroBase
         assertBlockEquals(INTEGER, ARRAY_INTEGER.getObject(p.getBlock(8), 0), createIntsBlock(1, 2, 3, 4));
         // test map
         assertThat(p.getBlock(9)).isInstanceOf(MapBlock.class);
-        assertThat(MAP_VARCHAR_INTEGER.getObjectValue(null, p.getBlock(9), 0)).isEqualTo(ImmutableMap.of("key1", 1, "key2", 2));
+        assertThat(MAP_VARCHAR_INTEGER.getObjectValue(p.getBlock(9), 0)).isEqualTo(ImmutableMap.of("key1", 1, "key2", 2));
         // test enum
         assertThat(p.getBlock(10)).isInstanceOf(VariableWidthBlock.class);
         assertThat(VARCHAR.getObject(p.getBlock(10), 0)).isEqualTo(Slices.utf8Slice("A"));

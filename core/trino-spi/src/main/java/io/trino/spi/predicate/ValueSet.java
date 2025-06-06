@@ -15,7 +15,6 @@ package io.trino.spi.predicate;
 
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 
 import java.util.Collection;
@@ -158,9 +157,7 @@ public interface ValueSet
     @Override
     String toString();
 
-    String toString(ConnectorSession session);
-
-    String toString(ConnectorSession session, int limit);
+    String toString(int limit);
 
     long getRetainedSizeInBytes();
 

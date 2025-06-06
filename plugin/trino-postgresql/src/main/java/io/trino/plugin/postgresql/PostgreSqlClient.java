@@ -586,7 +586,7 @@ public class PostgreSqlClient
                 int decimalDigits = typeHandle.requiredDecimalDigits();
                 return Optional.of(timestampWithTimeZoneColumnMapping(decimalDigits));
             case "hstore":
-                return Optional.of(hstoreColumnMapping(session));
+                return Optional.of(hstoreColumnMapping());
             case "vector":
                 return Optional.of(vectorColumnMapping());
             case "geometry":
@@ -705,19 +705,19 @@ public class PostgreSqlClient
             return baseElementMapping
                     .map(elementMapping -> {
                         ArrayType trinoArrayType = new ArrayType(elementMapping.getType());
-                        ColumnMapping arrayColumnMapping = arrayColumnMapping(session, trinoArrayType, elementMapping, baseElementTypeName);
+                        ColumnMapping arrayColumnMapping = arrayColumnMapping(trinoArrayType, elementMapping, baseElementTypeName);
 
                         int arrayDimensions = typeHandle.arrayDimensions().get();
                         for (int i = 1; i < arrayDimensions; i++) {
                             trinoArrayType = new ArrayType(trinoArrayType);
-                            arrayColumnMapping = arrayColumnMapping(session, trinoArrayType, arrayColumnMapping, baseElementTypeName);
+                            arrayColumnMapping = arrayColumnMapping(trinoArrayType, arrayColumnMapping, baseElementTypeName);
                         }
                         return arrayColumnMapping;
                     });
         }
         if (arrayMapping == AS_JSON) {
             return baseElementMapping
-                    .map(elementMapping -> arrayAsJsonColumnMapping(session, elementMapping));
+                    .map(elementMapping -> arrayAsJsonColumnMapping(elementMapping));
         }
         throw new IllegalStateException("Unsupported array mapping type: " + arrayMapping);
     }
@@ -821,7 +821,7 @@ public class PostgreSqlClient
         if (type instanceof ArrayType arrayType && getArrayMapping(session) == AS_ARRAY) {
             Type elementType = arrayType.getElementType();
             String elementDataType = toWriteMapping(session, elementType).getDataType();
-            return WriteMapping.objectMapping(elementDataType + "[]", arrayWriteFunction(session, elementType, getArrayElementPgTypeName(session, this, elementType)));
+            return WriteMapping.objectMapping(elementDataType + "[]", arrayWriteFunction(elementType, getArrayElementPgTypeName(session, this, elementType)));
         }
 
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
@@ -1568,12 +1568,12 @@ public class PostgreSqlClient
                 });
     }
 
-    private ColumnMapping hstoreColumnMapping(ConnectorSession session)
+    private ColumnMapping hstoreColumnMapping()
     {
         return ColumnMapping.objectMapping(
                 varcharMapType,
                 varcharMapReadFunction(),
-                hstoreWriteFunction(session),
+                hstoreWriteFunction(),
                 DISABLE_PUSHDOWN);
     }
 
@@ -1601,7 +1601,7 @@ public class PostgreSqlClient
         });
     }
 
-    private ObjectWriteFunction hstoreWriteFunction(ConnectorSession session)
+    private ObjectWriteFunction hstoreWriteFunction()
     {
         return ObjectWriteFunction.of(SqlMap.class, (statement, index, sqlMap) -> {
             int rawOffset = sqlMap.getRawOffset();
@@ -1613,18 +1613,18 @@ public class PostgreSqlClient
 
             Map<Object, Object> map = new HashMap<>();
             for (int i = 0; i < sqlMap.getSize(); i++) {
-                map.put(keyType.getObjectValue(session, rawKeyBlock, rawOffset + i), valueType.getObjectValue(session, rawValueBlock, rawOffset + i));
+                map.put(keyType.getObjectValue(rawKeyBlock, rawOffset + i), valueType.getObjectValue(rawValueBlock, rawOffset + i));
             }
             statement.setObject(index, Collections.unmodifiableMap(map));
         });
     }
 
-    private static ColumnMapping arrayColumnMapping(ConnectorSession session, ArrayType arrayType, ColumnMapping arrayElementMapping, String baseElementJdbcTypeName)
+    private static ColumnMapping arrayColumnMapping(ArrayType arrayType, ColumnMapping arrayElementMapping, String baseElementJdbcTypeName)
     {
         return ColumnMapping.objectMapping(
                 arrayType,
                 arrayReadFunction(arrayType.getElementType(), arrayElementMapping.getReadFunction()),
-                arrayWriteFunction(session, arrayType.getElementType(), baseElementJdbcTypeName));
+                arrayWriteFunction(arrayType.getElementType(), baseElementJdbcTypeName));
     }
 
     private static ObjectReadFunction arrayReadFunction(Type elementType, ReadFunction elementReadFunction)
@@ -1659,24 +1659,24 @@ public class PostgreSqlClient
         });
     }
 
-    private static ObjectWriteFunction arrayWriteFunction(ConnectorSession session, Type elementType, String baseElementJdbcTypeName)
+    private static ObjectWriteFunction arrayWriteFunction(Type elementType, String baseElementJdbcTypeName)
     {
         return ObjectWriteFunction.of(Block.class, (statement, index, block) -> {
-            Array jdbcArray = statement.getConnection().createArrayOf(baseElementJdbcTypeName, getJdbcObjectArray(session, elementType, block));
+            Array jdbcArray = statement.getConnection().createArrayOf(baseElementJdbcTypeName, getJdbcObjectArray(elementType, block));
             statement.setArray(index, jdbcArray);
         });
     }
 
-    private ColumnMapping arrayAsJsonColumnMapping(ConnectorSession session, ColumnMapping baseElementMapping)
+    private ColumnMapping arrayAsJsonColumnMapping(ColumnMapping baseElementMapping)
     {
         return ColumnMapping.sliceMapping(
                 jsonType,
-                arrayAsJsonReadFunction(session, baseElementMapping),
+                arrayAsJsonReadFunction(baseElementMapping),
                 (statement, index, block) -> { throw new TrinoException(NOT_SUPPORTED, "Writing to array type is unsupported"); },
                 DISABLE_PUSHDOWN);
     }
 
-    private static SliceReadFunction arrayAsJsonReadFunction(ConnectorSession session, ColumnMapping baseElementMapping)
+    private static SliceReadFunction arrayAsJsonReadFunction(ColumnMapping baseElementMapping)
     {
         return (resultSet, columnIndex) -> {
             // resolve array type
@@ -1696,7 +1696,7 @@ public class PostgreSqlClient
             // convert block to JSON slice
             BlockBuilder builder = type.createBlockBuilder(null, 1);
             type.writeObject(builder, block);
-            Object value = type.getObjectValue(session, builder.build(), 0);
+            Object value = type.getObjectValue(builder.build(), 0);
 
             if (!(value instanceof List<?> list)) {
                 throw new TrinoException(JDBC_ERROR, "Unexpected JSON object value for " + type.getDisplayName() + " expected List, got " + value.getClass().getSimpleName());

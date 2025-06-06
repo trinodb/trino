@@ -17,7 +17,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.errorprone.annotations.DoNotCall;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 
 import java.util.ArrayList;
@@ -511,11 +510,6 @@ public final class TupleDomain<T>
     @Override
     public String toString()
     {
-        return toString(ToStringSession.INSTANCE);
-    }
-
-    public String toString(ConnectorSession session)
-    {
         if (isAll()) {
             return "ALL";
         }
@@ -523,7 +517,7 @@ public final class TupleDomain<T>
             return "NONE";
         }
         return domains.orElseThrow().entrySet().stream()
-                .collect(toLinkedMap(Map.Entry::getKey, entry -> entry.getValue().toString(session)))
+                .collect(toLinkedMap(Map.Entry::getKey, entry -> entry.getValue().toString()))
                 .toString();
     }
 

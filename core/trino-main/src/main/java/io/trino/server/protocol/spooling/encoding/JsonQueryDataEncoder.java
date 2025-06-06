@@ -25,7 +25,6 @@ import io.trino.server.protocol.spooling.QueryDataEncoder;
 import io.trino.server.protocol.spooling.QueryDataEncodingConfig;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.ConnectorSession;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -48,13 +47,11 @@ public class JsonQueryDataEncoder
 
     private static final JsonFactory JSON_FACTORY = jsonFactory();
     private static final String ENCODING = "json";
-    private final Session session;
     private TypeEncoder[] typeEncoders;
     private int[] sourcePageChannels;
 
     public JsonQueryDataEncoder(Session session, List<OutputColumn> columns)
     {
-        this.session = requireNonNull(session, "session is null");
         this.typeEncoders = createTypeEncoders(session, requireNonNull(columns, "columns is null")
                 .stream()
                 .map(OutputColumn::type)
@@ -69,9 +66,8 @@ public class JsonQueryDataEncoder
             throws IOException
     {
         verify(!closed, "JsonQueryDataEncoder is already closed");
-        ConnectorSession connectorSession = session.toConnectorSession();
         try (CountingOutputStream wrapper = new CountingOutputStream(output); JsonGenerator generator = JSON_FACTORY.createGenerator(wrapper)) {
-            writePagesToJsonGenerator(connectorSession, e -> { throw e; }, generator, typeEncoders, sourcePageChannels, pages);
+            writePagesToJsonGenerator(e -> { throw e; }, generator, typeEncoders, sourcePageChannels, pages);
             return DataAttributes.builder()
                     .set(SEGMENT_SIZE, toIntExact(wrapper.getCount()))
                     .build();

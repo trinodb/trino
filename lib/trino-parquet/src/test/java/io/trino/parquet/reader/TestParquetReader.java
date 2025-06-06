@@ -25,7 +25,6 @@ import io.trino.parquet.metadata.ParquetMetadata;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.metrics.Count;
 import io.trino.spi.metrics.Metric;
@@ -35,7 +34,6 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
-import io.trino.testing.TestingConnectorSession;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
@@ -229,7 +227,6 @@ public class TestParquetReader
         ParquetDataSource dataSource = new FileParquetDataSource(
                 file,
                 ParquetReaderOptions.defaultOptions());
-        ConnectorSession session = TestingConnectorSession.builder().build();
         ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
         try (ParquetReader reader = createParquetReader(dataSource, parquetMetadata, newSimpleAggregatedMemoryContext(), ImmutableList.of(columnType), columnNames)) {
             SourcePage page = reader.nextPage();
@@ -237,7 +234,7 @@ public class TestParquetReader
             while (page != null) {
                 Block block = page.getBlock(0);
                 for (int i = 0; i < block.getPositionCount(); i++) {
-                    assertThat(columnType.getObjectValue(session, block, i)).isEqualTo(expected.next());
+                    assertThat(columnType.getObjectValue(block, i)).isEqualTo(expected.next());
                 }
                 page = reader.nextPage();
             }

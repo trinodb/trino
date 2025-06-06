@@ -232,7 +232,7 @@ public final class SessionPropertyManager
 
         // convert to object value type of SQL type
         Block block = writeNativeValue(expectedType, value);
-        Object objectValue = expectedType.getObjectValue(session.toConnectorSession(), block, 0);
+        Object objectValue = expectedType.getObjectValue(block, 0);
 
         if (objectValue == null) {
             throw new TrinoException(INVALID_SESSION_PROPERTY, "Session property value must not be null");

@@ -35,12 +35,10 @@ import io.trino.decoder.RowDecoderSpec;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.SqlMap;
 import io.trino.spi.block.SqlRow;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.SqlVarbinary;
-import io.trino.testing.TestingSession;
 import io.trino.type.JsonType;
 import org.junit.jupiter.api.Test;
 
@@ -519,16 +517,15 @@ public class TestProtobufDecoder
 
         SqlRow sqlRow = (SqlRow) decodedRow.get(rowColumn).getObject();
         int rawIndex = sqlRow.getRawIndex();
-        ConnectorSession session = TestingSession.testSessionBuilder().build().toConnectorSession();
-        assertThat(VARCHAR.getObjectValue(session, sqlRow.getRawFieldBlock(0), rawIndex)).isEqualTo(stringData);
-        assertThat(INTEGER.getObjectValue(session, sqlRow.getRawFieldBlock(1), rawIndex)).isEqualTo(integerData);
-        assertThat(BIGINT.getObjectValue(session, sqlRow.getRawFieldBlock(2), rawIndex)).isEqualTo(longData);
-        assertThat(DOUBLE.getObjectValue(session, sqlRow.getRawFieldBlock(3), rawIndex)).isEqualTo(doubleData);
-        assertThat(REAL.getObjectValue(session, sqlRow.getRawFieldBlock(4), rawIndex)).isEqualTo(floatData);
-        assertThat(BOOLEAN.getObjectValue(session, sqlRow.getRawFieldBlock(5), rawIndex)).isEqualTo(booleanData);
-        assertThat(VARCHAR.getObjectValue(session, sqlRow.getRawFieldBlock(6), rawIndex)).isEqualTo(enumData);
-        assertThat(TIMESTAMP_MICROS.getObjectValue(session, sqlRow.getRawFieldBlock(7), rawIndex)).isEqualTo(sqlTimestamp.roundTo(6));
-        assertThat(VARBINARY.getObjectValue(session, sqlRow.getRawFieldBlock(8), rawIndex)).isEqualTo(new SqlVarbinary(bytesData));
+        assertThat(VARCHAR.getObjectValue(sqlRow.getRawFieldBlock(0), rawIndex)).isEqualTo(stringData);
+        assertThat(INTEGER.getObjectValue(sqlRow.getRawFieldBlock(1), rawIndex)).isEqualTo(integerData);
+        assertThat(BIGINT.getObjectValue(sqlRow.getRawFieldBlock(2), rawIndex)).isEqualTo(longData);
+        assertThat(DOUBLE.getObjectValue(sqlRow.getRawFieldBlock(3), rawIndex)).isEqualTo(doubleData);
+        assertThat(REAL.getObjectValue(sqlRow.getRawFieldBlock(4), rawIndex)).isEqualTo(floatData);
+        assertThat(BOOLEAN.getObjectValue(sqlRow.getRawFieldBlock(5), rawIndex)).isEqualTo(booleanData);
+        assertThat(VARCHAR.getObjectValue(sqlRow.getRawFieldBlock(6), rawIndex)).isEqualTo(enumData);
+        assertThat(TIMESTAMP_MICROS.getObjectValue(sqlRow.getRawFieldBlock(7), rawIndex)).isEqualTo(sqlTimestamp.roundTo(6));
+        assertThat(VARBINARY.getObjectValue(sqlRow.getRawFieldBlock(8), rawIndex)).isEqualTo(new SqlVarbinary(bytesData));
     }
 
     @Test

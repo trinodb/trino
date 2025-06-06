@@ -104,28 +104,28 @@ public abstract class AbstractRowEncoder
             appendByteBuffer(varbinaryType.getSlice(block, position).toByteBuffer());
         }
         else if (type == DATE) {
-            appendSqlDate((SqlDate) DATE.getObjectValue(session, block, position));
+            appendSqlDate((SqlDate) DATE.getObjectValue(block, position));
         }
         else if (type instanceof TimeType) {
-            appendSqlTime((SqlTime) type.getObjectValue(session, block, position));
+            appendSqlTime((SqlTime) type.getObjectValue(block, position));
         }
         else if (type instanceof TimeWithTimeZoneType) {
-            appendSqlTimeWithTimeZone((SqlTimeWithTimeZone) type.getObjectValue(session, block, position));
+            appendSqlTimeWithTimeZone((SqlTimeWithTimeZone) type.getObjectValue(block, position));
         }
         else if (type instanceof TimestampType) {
-            appendSqlTimestamp((SqlTimestamp) type.getObjectValue(session, block, position));
+            appendSqlTimestamp((SqlTimestamp) type.getObjectValue(block, position));
         }
         else if (type instanceof TimestampWithTimeZoneType) {
-            appendSqlTimestampWithTimeZone((SqlTimestampWithTimeZone) type.getObjectValue(session, block, position));
+            appendSqlTimestampWithTimeZone((SqlTimestampWithTimeZone) type.getObjectValue(block, position));
         }
         else if (type instanceof ArrayType) {
-            appendArray((List<Object>) type.getObjectValue(session, block, position));
+            appendArray((List<Object>) type.getObjectValue(block, position));
         }
         else if (type instanceof MapType) {
-            appendMap((Map<Object, Object>) type.getObjectValue(session, block, position));
+            appendMap((Map<Object, Object>) type.getObjectValue(block, position));
         }
         else if (type instanceof RowType) {
-            appendRow((List<Object>) type.getObjectValue(session, block, position));
+            appendRow((List<Object>) type.getObjectValue(block, position));
         }
         else {
             throw new UnsupportedOperationException(format("Unsupported type '%s' for column '%s'", type, columnHandles.get(currentColumnIndex).getName()));

@@ -71,7 +71,7 @@ public record Constant(Type type, @JsonIgnore Object value)
     public String toString()
     {
         return "[%s]::%s".formatted(
-                value == null ? "<null>" : type.getObjectValue(null, getValueAsBlock(), 0),
+                value == null ? "<null>" : type.getObjectValue(getValueAsBlock(), 0),
                 type);
     }
 }

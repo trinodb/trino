@@ -122,7 +122,7 @@ public class TestRealHistogramAggregation
     private static Map<Float, Float> extractSingleValue(Block block)
     {
         MapType mapType = mapType(REAL, REAL);
-        return (Map<Float, Float>) mapType.getObjectValue(null, block, 0);
+        return (Map<Float, Float>) mapType.getObjectValue(block, 0);
     }
 
     private static Page makeInput(int numberOfBuckets)

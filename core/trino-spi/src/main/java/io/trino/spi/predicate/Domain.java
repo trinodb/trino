@@ -15,7 +15,6 @@ package io.trino.spi.predicate;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 
 import java.util.ArrayList;
@@ -318,15 +317,10 @@ public final class Domain
     @Override
     public String toString()
     {
-        return toString(ToStringSession.INSTANCE);
+        return toString(10);
     }
 
-    public String toString(ConnectorSession session)
-    {
-        return toString(session, 10);
-    }
-
-    public String toString(ConnectorSession session, int limit)
+    public String toString(int limit)
     {
         if (isAll()) {
             return "ALL";
@@ -337,7 +331,7 @@ public final class Domain
         if (isOnlyNull()) {
             return "[NULL]";
         }
-        return "[ " + (nullAllowed ? "NULL, " : "") + values.toString(session, limit) + " ]";
+        return "[ " + (nullAllowed ? "NULL, " : "") + values.toString(limit) + " ]";
     }
 
     public long getRetainedSizeInBytes()

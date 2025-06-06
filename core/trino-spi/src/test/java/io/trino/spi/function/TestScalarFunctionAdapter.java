@@ -49,7 +49,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.trino.spi.block.TestingSession.SESSION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
@@ -1008,7 +1007,7 @@ public class TestScalarFunctionAdapter
         private static void assertBlockEquals(Type type, Block actual, Block expected)
         {
             for (int position = 0; position < actual.getPositionCount(); position++) {
-                assertThat(type.getObjectValue(SESSION, actual, position)).isEqualTo(type.getObjectValue(SESSION, expected, position));
+                assertThat(type.getObjectValue(actual, position)).isEqualTo(type.getObjectValue(expected, position));
             }
         }
     }

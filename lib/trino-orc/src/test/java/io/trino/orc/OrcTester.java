@@ -173,7 +173,6 @@ import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.Varchars.truncateToLength;
 import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
-import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
@@ -512,7 +511,7 @@ public class OrcTester
 
                     List<Object> data = new ArrayList<>(block.getPositionCount());
                     for (int position = 0; position < block.getPositionCount(); position++) {
-                        data.add(type.getObjectValue(SESSION, block, position));
+                        data.add(type.getObjectValue(block, position));
                     }
 
                     for (int i = 0; i < batchSize; i++) {

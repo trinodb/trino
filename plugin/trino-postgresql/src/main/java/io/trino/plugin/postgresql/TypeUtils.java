@@ -113,14 +113,14 @@ final class TypeUtils
         return client.toWriteMapping(session, elementType).getDataType();
     }
 
-    static Object[] getJdbcObjectArray(ConnectorSession session, Type elementType, Block block)
+    static Object[] getJdbcObjectArray(Type elementType, Block block)
             throws SQLException
     {
         int positionCount = block.getPositionCount();
         Object[] valuesArray = new Object[positionCount];
         int subArrayLength = 1;
         for (int i = 0; i < positionCount; i++) {
-            Object objectValue = trinoNativeToJdbcObject(session, elementType, readNativeValue(elementType, block, i));
+            Object objectValue = trinoNativeToJdbcObject(elementType, readNativeValue(elementType, block, i));
             valuesArray[i] = objectValue;
             if (objectValue != null && objectValue.getClass().isArray()) {
                 subArrayLength = Math.max(subArrayLength, Array.getLength(objectValue));
@@ -156,7 +156,7 @@ final class TypeUtils
         }
     }
 
-    private static Object trinoNativeToJdbcObject(ConnectorSession session, Type trinoType, Object trinoNative)
+    private static Object trinoNativeToJdbcObject(Type trinoType, Object trinoNative)
             throws SQLException
     {
         if (trinoNative == null) {
@@ -222,7 +222,7 @@ final class TypeUtils
 
         if (trinoType instanceof ArrayType arrayType) {
             // process subarray of multi-dimensional array
-            return getJdbcObjectArray(session, arrayType.getElementType(), (Block) trinoNative);
+            return getJdbcObjectArray(arrayType.getElementType(), (Block) trinoNative);
         }
 
         if (UUID.equals(trinoType)) {
