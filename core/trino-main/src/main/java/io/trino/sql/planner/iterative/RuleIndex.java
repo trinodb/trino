@@ -14,34 +14,54 @@
 
 package io.trino.sql.planner.iterative;
 
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheLoader;
 import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.reflect.TypeToken;
+import io.trino.cache.EvictableCacheBuilder;
 import io.trino.matching.Pattern;
 import io.trino.matching.pattern.TypeOfPattern;
 
 import java.util.Set;
-import java.util.stream.Stream;
+import java.util.concurrent.ExecutionException;
 
 public class RuleIndex
+        extends CacheLoader<Class<?>, Set<Rule<?>>>
 {
     private final ListMultimap<Class<?>, Rule<?>> rulesByRootType;
+    private final Cache<Class<?>, Set<Rule<?>>> rulesByClass = EvictableCacheBuilder.newBuilder()
+            .maximumSize(128) // we have a limited number of node types, so this is more than enough
+            .build(this);
 
     private RuleIndex(ListMultimap<Class<?>, Rule<?>> rulesByRootType)
     {
         this.rulesByRootType = ImmutableListMultimap.copyOf(rulesByRootType);
     }
 
-    public Stream<Rule<?>> getCandidates(Object object)
+    public Set<Rule<?>> getCandidates(Object object)
     {
-        return supertypes(object.getClass())
-                .flatMap(clazz -> rulesByRootType.get(clazz).stream());
+        try {
+            return rulesByClass.get(object.getClass(), () -> load(object.getClass()));
+        }
+        catch (ExecutionException e) {
+            throw new RuntimeException(e);
+        }
     }
 
-    private static Stream<Class<?>> supertypes(Class<?> type)
+    @Override
+    public Set<Rule<?>> load(Class<?> key)
+            throws Exception
     {
-        return TypeToken.of(type).getTypes().stream()
-                .map(TypeToken::getRawType);
+        ImmutableSet.Builder<Rule<?>> builder = ImmutableSet.builder();
+        TypeToken.of(key).getTypes().forEach(clazz -> {
+            Class<?> rawType = clazz.getRawType();
+            if (rulesByRootType.containsKey(rawType)) {
+                builder.addAll(rulesByRootType.get(rawType));
+            }
+        });
+        return builder.build();
     }
 
     public static Builder builder()
