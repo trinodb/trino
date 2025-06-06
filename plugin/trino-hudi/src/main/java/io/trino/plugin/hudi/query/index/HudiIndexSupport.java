@@ -16,9 +16,6 @@ package io.trino.plugin.hudi.query.index;
 import io.trino.spi.predicate.TupleDomain;
 import org.apache.hudi.common.model.FileSlice;
 
-import java.util.List;
-import java.util.Map;
-
 public interface HudiIndexSupport
 {
     boolean canApply(TupleDomain<String> tupleDomain);
