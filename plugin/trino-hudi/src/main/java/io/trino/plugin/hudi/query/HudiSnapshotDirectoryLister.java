@@ -14,14 +14,14 @@
 package io.trino.plugin.hudi.query;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.metastore.Column;
-import io.trino.metastore.HiveMetastore;
-import io.trino.metastore.Table;
+import io.trino.filesystem.Location;
+import io.trino.metastore.Partition;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hudi.HudiTableHandle;
 import io.trino.plugin.hudi.partition.HiveHudiPartitionInfo;
 import io.trino.plugin.hudi.partition.HudiPartitionInfo;
 import io.trino.plugin.hudi.storage.TrinoStorageConfiguration;
+import io.trino.spi.connector.SchemaTableName;
 import org.apache.hudi.common.config.HoodieMetadataConfig;
 import org.apache.hudi.common.engine.HoodieLocalEngineContext;
 import org.apache.hudi.common.model.FileSlice;
@@ -32,7 +32,6 @@ import org.apache.hudi.common.table.view.HoodieTableFileSystemView;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -41,17 +40,14 @@ public class HudiSnapshotDirectoryLister
         implements HudiDirectoryLister
 {
     private final HoodieTableFileSystemView fileSystemView;
-    private final List<Column> partitionColumns;
     private final Map<String, HudiPartitionInfo> allPartitionInfoMap;
 
     public HudiSnapshotDirectoryLister(
             HudiTableHandle tableHandle,
             HoodieTableMetaClient metaClient,
             boolean enableMetadataTable,
-            HiveMetastore hiveMetastore,
-            Table hiveTable,
             List<HiveColumnHandle> partitionColumnHandles,
-            List<String> hivePartitionNames,
+            Map<String, Partition> allPartitions,
             String commitTime)
     {
         HoodieMetadataConfig metadataConfig = HoodieMetadataConfig.newBuilder()
@@ -62,18 +58,17 @@ public class HudiSnapshotDirectoryLister
         if (enableMetadataTable) {
             fileSystemView.loadAllPartitions();
         }
-        //new HoodieTableFileSystemView(metaClient, metaClient.getActiveTimeline().getCommitsTimeline().filterCompletedInstants());
-        this.partitionColumns = hiveTable.getPartitionColumns();
-        this.allPartitionInfoMap = hivePartitionNames.stream()
+        SchemaTableName schemaTableName = tableHandle.getSchemaTableName();
+        this.allPartitionInfoMap = allPartitions.entrySet().stream()
                 .collect(Collectors.toMap(
-                        Function.identity(),
-                        hivePartitionName -> new HiveHudiPartitionInfo(
-                                hivePartitionName,
-                                partitionColumns,
+                        Map.Entry::getKey,
+                        e -> new HiveHudiPartitionInfo(
+                                schemaTableName,
+                                Location.of(tableHandle.getBasePath()),
+                                e.getKey(),
+                                e.getValue(),
                                 partitionColumnHandles,
-                                tableHandle.getPartitionPredicates(),
-                                hiveTable,
-                                hiveMetastore)));
+                                tableHandle.getPartitionPredicates())));
     }
 
     @Override

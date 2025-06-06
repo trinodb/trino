@@ -20,7 +20,7 @@ import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.metastore.HiveMetastore;
+import io.trino.metastore.Partition;
 import io.trino.metastore.Table;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HivePartitionKey;
@@ -82,7 +82,6 @@ public class HudiSplitSource
 
     public HudiSplitSource(
             ConnectorSession session,
-            HiveMetastore metastore,
             Table table,
             HudiTableHandle tableHandle,
             TrinoFileSystemFactory fileSystemFactory,
@@ -91,7 +90,7 @@ public class HudiSplitSource
             ScheduledExecutorService splitLoaderExecutorService,
             int maxSplitsPerSecond,
             int maxOutstandingSplits,
-            List<String> partitions,
+            Map<String, Partition> partitions,
             DynamicFilter dynamicFilter,
             Duration dynamicFilteringWaitTimeoutMillis)
     {
@@ -110,8 +109,6 @@ public class HudiSplitSource
                 tableHandle,
                 metaClient,
                 enableMetadataTable,
-                metastore,
-                table,
                 partitionColumnHandles,
                 partitions,
                 latestCommitTime);
@@ -124,7 +121,7 @@ public class HudiSplitSource
                 queue,
                 new BoundedExecutor(executor, getSplitGeneratorParallelism(session)),
                 createSplitWeightProvider(session),
-                partitions,
+                partitions.keySet().stream().toList(),
                 latestCommitTime,
                 enableMetadataTable,
                 metaClient,

@@ -13,11 +13,9 @@
  */
 package io.trino.plugin.hudi.partition;
 
-import io.trino.metastore.Partition;
 import io.trino.plugin.hive.HivePartitionKey;
 
 import java.util.List;
-import java.util.Optional;
 
 public interface HudiPartitionInfo
 {
@@ -26,6 +24,4 @@ public interface HudiPartitionInfo
     List<HivePartitionKey> getHivePartitionKeys();
 
     boolean doesMatchPredicates();
-
-    void loadPartitionInfo(Optional<Partition> partition);
 }

@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.metastore.Column;
 import io.trino.metastore.HivePartition;
 import io.trino.metastore.HiveType;
 import io.trino.plugin.hive.HiveColumnHandle;
@@ -127,7 +126,7 @@ public final class HudiUtil
         return true;
     }
 
-    public static List<HivePartitionKey> buildPartitionKeys(List<Column> keys, List<String> values)
+    public static List<HivePartitionKey> buildPartitionKeys(List<HiveColumnHandle> keys, List<String> values)
     {
         checkCondition(keys.size() == values.size(), HIVE_INVALID_METADATA,
                 "Expected %s partition key values, but got %s. Keys: %s, Values: %s.",
