@@ -14,6 +14,7 @@
 package io.trino.server;
 
 import com.google.inject.Binder;
+import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.discovery.client.ForDiscoveryClient;
@@ -52,7 +53,7 @@ public class InternalCommunicationModule
         }
         discoveryFilterBinder.addBinding().to(InternalAuthenticationManager.class);
         configBinder(binder).bindConfigDefaults(HttpClientConfig.class, ForDiscoveryClient.class, config -> configureClient(config, internalCommunicationConfig));
-        binder.bind(InternalAuthenticationManager.class);
+        binder.bind(InternalAuthenticationManager.class).in(Scopes.SINGLETON);
     }
 
     private static class DiscoveryEncodeAddressAsHostname

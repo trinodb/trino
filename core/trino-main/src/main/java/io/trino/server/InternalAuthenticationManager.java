@@ -30,8 +30,10 @@ import jakarta.ws.rs.core.Response;
 
 import javax.crypto.SecretKey;
 
+import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.util.Date;
+import java.util.function.Supplier;
 
 import static io.airlift.http.client.Request.Builder.fromRequest;
 import static io.jsonwebtoken.security.Keys.hmacShaKeyFor;
@@ -41,12 +43,14 @@ import static io.trino.server.security.jwt.JwtUtil.newJwtParserBuilder;
 import static jakarta.ws.rs.core.MediaType.TEXT_PLAIN_TYPE;
 import static jakarta.ws.rs.core.Response.Status.UNAUTHORIZED;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.time.temporal.ChronoUnit.MINUTES;
 import static java.util.Objects.requireNonNull;
 
 public class InternalAuthenticationManager
         implements HttpRequestFilter
 {
     private static final Logger log = Logger.get(InternalAuthenticationManager.class);
+    private static final Supplier<Instant> DEFAULT_EXPIRATION_SUPPLIER = () -> ZonedDateTime.now().plusMinutes(5).toInstant();
 
     private static final String TRINO_INTERNAL_BEARER = "X-Trino-Internal-Bearer";
 
@@ -54,10 +58,13 @@ public class InternalAuthenticationManager
     private final String nodeId;
     private final JwtParser jwtParser;
 
+    private InternalToken currentToken;
+
     @Inject
     public InternalAuthenticationManager(InternalCommunicationConfig internalCommunicationConfig, SecurityConfig securityConfig, NodeInfo nodeInfo)
     {
         this(getSharedSecret(internalCommunicationConfig, nodeInfo, !securityConfig.getAuthenticationTypes().equals(ImmutableList.of("insecure"))), nodeInfo.getNodeId());
+        this.currentToken = createJwt();
     }
 
     private static String getSharedSecret(InternalCommunicationConfig internalCommunicationConfig, NodeInfo nodeInfo, boolean authenticationEnabled)
@@ -118,17 +125,26 @@ public class InternalAuthenticationManager
     public Request filterRequest(Request request)
     {
         return fromRequest(request)
-                .addHeader(TRINO_INTERNAL_BEARER, generateJwt())
+                .addHeader(TRINO_INTERNAL_BEARER, getOrGenerateJwt())
                 .build();
     }
 
-    private String generateJwt()
+    private synchronized String getOrGenerateJwt()
     {
-        return newJwtBuilder()
+        if (currentToken.isExpired()) {
+            currentToken = createJwt();
+        }
+        return currentToken.token();
+    }
+
+    private InternalToken createJwt()
+    {
+        Instant expiration = DEFAULT_EXPIRATION_SUPPLIER.get();
+        return new InternalToken(expiration, newJwtBuilder()
                 .signWith(hmac)
                 .subject(nodeId)
-                .expiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
-                .compact();
+                .expiration(Date.from(expiration))
+                .compact());
     }
 
     private String parseJwt(String jwt)
@@ -137,5 +153,19 @@ public class InternalAuthenticationManager
                 .parseSignedClaims(jwt)
                 .getPayload()
                 .getSubject();
+    }
+    private record InternalToken(Instant expiration, String token)
+    {
+        public InternalToken
+        {
+            expiration = requireNonNull(expiration, "expiration is null")
+                    .minus(2, MINUTES);
+            requireNonNull(token, "token is null");
+        }
+
+        public boolean isExpired()
+        {
+            return Instant.now().isAfter(expiration);
+        }
     }
 }
