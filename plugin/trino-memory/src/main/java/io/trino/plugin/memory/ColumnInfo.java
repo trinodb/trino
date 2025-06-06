@@ -16,6 +16,7 @@ package io.trino.plugin.memory;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.type.Type;
 
 import java.util.Optional;
@@ -23,12 +24,13 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public record ColumnInfo(ColumnHandle handle, String name, Type type, boolean nullable, Optional<String> comment)
+public record ColumnInfo(ColumnHandle handle, String name, Type type, Optional<ConnectorExpression> defaultValue, boolean nullable, Optional<String> comment)
 {
     public ColumnInfo
     {
         requireNonNull(handle, "handle is null");
         requireNonNull(name, "name is null");
+        requireNonNull(defaultValue, "defaultValue is null");
         requireNonNull(type, "type is null");
         requireNonNull(comment, "comment is null");
     }
@@ -39,6 +41,7 @@ public record ColumnInfo(ColumnHandle handle, String name, Type type, boolean nu
         return ColumnMetadata.builder()
                 .setName(name)
                 .setType(type)
+                .setDefaultValue(defaultValue)
                 .setNullable(nullable)
                 .setComment(comment)
                 .build();
@@ -50,6 +53,7 @@ public record ColumnInfo(ColumnHandle handle, String name, Type type, boolean nu
         return toStringHelper(this)
                 .add("name", name)
                 .add("type", type)
+                .add("defaultValue", defaultValue)
                 .add("nullable", nullable)
                 .add("comment", comment)
                 .toString();

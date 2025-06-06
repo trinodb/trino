@@ -72,6 +72,8 @@ import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.PointerType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableProcedureMetadata;
+import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.expression.Constant;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.FunctionKind;
 import io.trino.spi.function.OperatorType;
@@ -404,6 +406,7 @@ import static io.trino.sql.analyzer.ScopeReferenceExtractor.getReferencesToScope
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
+import static io.trino.sql.planner.ConnectorExpressionTranslator.translate;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.DereferenceExpression.getQualifiedName;
 import static io.trino.sql.tree.Join.Type.FULL;
@@ -3769,11 +3772,21 @@ class StatementAnalyzer
                     .map(fieldIndexes::get)
                     .collect(toImmutableList());
 
-            Set<ColumnHandle> nonNullableColumnHandles = metadata.getTableMetadata(session, handle).columns().stream()
-                    .filter(column -> !column.isNullable())
-                    .map(ColumnMetadata::getName)
-                    .map(allColumnHandles::get)
-                    .collect(toImmutableSet());
+            ImmutableSet.Builder<ColumnHandle> nonNullableColumnHandles = ImmutableSet.builder();
+            ImmutableMap.Builder<ColumnHandle, io.trino.sql.ir.Expression> defaultColumnValues = ImmutableMap.builder();
+            for (ColumnMetadata column : metadata.getTableMetadata(session, handle).columns()) {
+                ColumnHandle columnHandle = allColumnHandles.get(column.getName());
+                if (column.getDefaultValue().isPresent()) {
+                    ConnectorExpression defaultExpression = column.getDefaultValue().get();
+                    if (!(defaultExpression instanceof Constant)) {
+                        throw semanticException(NOT_SUPPORTED, table, "Unsupported default expression: %s", defaultExpression);
+                    }
+                    defaultColumnValues.put(columnHandle, translate(session, defaultExpression, plannerContext, Map.of()));
+                }
+                if (!column.isNullable()) {
+                    nonNullableColumnHandles.add(columnHandle);
+                }
+            }
 
             // create the RowType that holds all column values
             List<RowType.Field> fields = new ArrayList<>();
@@ -3792,7 +3805,8 @@ class StatementAnalyzer
                     redistributionColumnHandles,
                     mergeCaseColumns,
                     updateCaseColumns,
-                    nonNullableColumnHandles,
+                    defaultColumnValues.buildOrThrow(),
+                    nonNullableColumnHandles.build(),
                     columnHandleFieldNumbers,
                     mergeRowType,
                     insertPartitioningArgumentIndexes,

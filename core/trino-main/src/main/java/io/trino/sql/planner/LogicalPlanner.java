@@ -50,6 +50,7 @@ import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.statistics.TableStatistics;
@@ -149,6 +150,7 @@ import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
+import static io.trino.sql.planner.ConnectorExpressionTranslator.translate;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.sql.planner.PlanBuilder.newPlanBuilder;
@@ -535,7 +537,16 @@ public class LogicalPlanner
                 if (supportsMissingColumnsOnInsert) {
                     continue;
                 }
-                expression = new Constant(column.getType(), null);
+                if (column.getDefaultValue().isPresent()) {
+                    ConnectorExpression defaultExpression = column.getDefaultValue().get();
+                    if (!(defaultExpression instanceof io.trino.spi.expression.Constant)) {
+                        throw semanticException(NOT_SUPPORTED, table, "Unsupported default expression: %s", defaultExpression);
+                    }
+                    expression = translate(session, defaultExpression, plannerContext, Map.of());
+                }
+                else {
+                    expression = new Constant(column.getType(), null);
+                }
             }
             else {
                 Symbol input = visibleFieldMappings.get(index);
