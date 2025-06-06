@@ -38,13 +38,11 @@ public class HudiSecondaryIndexSupport
 {
     private static final Logger log = Logger.get(HudiSecondaryIndexSupport.class);
     private final Optional<Set<String>> relevantFileIdsOption;
-    private final HoodieTableMetadata tableMetadata;
 
     public HudiSecondaryIndexSupport(HoodieTableMetaClient metaClient, HoodieTableMetadata tableMetadata, TupleDomain<HiveColumnHandle> regularColumnPredicates)
     {
         super(log, metaClient);
         TupleDomain<String> regularPredicatesTransformed = regularColumnPredicates.transformKeys(HiveColumnHandle::getName);
-        this.tableMetadata = tableMetadata;
         if (regularColumnPredicates.isAll() || metaClient.getIndexMetadata().isEmpty()) {
             this.relevantFileIdsOption = Optional.empty();
         }

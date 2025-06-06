@@ -50,7 +50,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static io.trino.parquet.predicate.PredicateUtils.isStatisticsOverflow;
-import static io.trino.plugin.hudi.HudiSessionProperties.getColumnStatusWaitTimeout;
+import static io.trino.plugin.hudi.HudiSessionProperties.getColumnStatsWaitTimeout;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -78,7 +78,7 @@ public class HudiColumnStatsIndexSupport
     public HudiColumnStatsIndexSupport(Logger log, ConnectorSession session, HoodieTableMetaClient metaClient, HoodieTableMetadata metadataTable, TupleDomain<HiveColumnHandle> regularColumnPredicates)
     {
         super(log, metaClient);
-        this.columnStatsWaitTimeout = getColumnStatusWaitTimeout(session);
+        this.columnStatsWaitTimeout = getColumnStatsWaitTimeout(session);
         this.regularColumnPredicates = regularColumnPredicates.transformKeys(HiveColumnHandle::getName);
         this.regularColumns = this.regularColumnPredicates
                 .getDomains().get().entrySet().stream().map(Map.Entry::getKey).collect(Collectors.toList());
@@ -186,8 +186,7 @@ public class HudiColumnStatsIndexSupport
         }
         for (String regularColumn : regularColumns) {
             Domain columnPredicate = regularColumnPredicates.getDomains().get().get(regularColumn);
-            Optional<HoodieMetadataColumnStats> currentColumnStats = stats.containsKey(regularColumn) ?
-                    Optional.of(stats.get(regularColumn)) : Optional.empty();
+            Optional<HoodieMetadataColumnStats> currentColumnStats = Optional.ofNullable(stats.get(regularColumn));
             if (currentColumnStats.isEmpty()) {
                 // No stats for column
             }

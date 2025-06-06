@@ -26,6 +26,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.metadata.HoodieTableMetadata;
+import org.apache.hudi.util.Lazy;
 
 import java.util.ArrayList;
 import java.util.Deque;
@@ -66,7 +67,7 @@ public class HudiBackgroundSplitLoader
             List<String> partitions,
             String commitTime,
             boolean enableMetadataTable,
-            Optional<HoodieTableMetadata> metadataTableOpt,
+            Lazy<HoodieTableMetadata> metadataTableOpt,
             HoodieTableMetaClient metaClient,
             Consumer<Throwable> errorListener)
     {
@@ -79,7 +80,7 @@ public class HudiBackgroundSplitLoader
         this.commitTime = requireNonNull(commitTime, "commitTime is null");
         this.enableMetadataTable = enableMetadataTable;
         this.errorListener = requireNonNull(errorListener, "errorListener is null");
-        this.partitionIndexSupportOpt = enableMetadataTable && metadataTableOpt.isPresent() ?
+        this.partitionIndexSupportOpt = enableMetadataTable ?
                 IndexSupportFactory.createPartitionStatsIndexSupport(metaClient, metadataTableOpt.get(), tableHandle.getRegularPredicates(), session) : Optional.empty();
     }
 

@@ -282,7 +282,7 @@ public class HudiSessionProperties
         return session.getProperty(DYNAMIC_FILTERING_WAIT_TIMEOUT, Duration.class);
     }
 
-    public static Duration getColumnStatusWaitTimeout(ConnectorSession session)
+    public static Duration getColumnStatsWaitTimeout(ConnectorSession session)
     {
         return session.getProperty(COLUMN_STATS_WAIT_TIMEOUT, Duration.class);
     }
