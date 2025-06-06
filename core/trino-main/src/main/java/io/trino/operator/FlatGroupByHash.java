@@ -510,7 +510,7 @@ public class FlatGroupByHash
         public GetNonDictionaryGroupIdsWork(Block[] blocks)
         {
             this.blocks = blocks;
-            this.groupIds = new int[currentBlocks[0].getPositionCount()];
+            this.groupIds = new int[blocks[0].getPositionCount()];
         }
 
         @Override
