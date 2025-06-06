@@ -13,6 +13,10 @@
  */
 package io.trino.hive.formats.line.grok;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Maps;
 import io.trino.hive.formats.line.grok.exception.GrokException;
 
 import java.io.BufferedReader;
@@ -20,7 +24,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.io.Serializable;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -88,16 +92,24 @@ public class Grok
      */
     private Map<String, ArrayList<String>> grokDateFormats;
 
-    private static final Map<String, String> DEFAULT_PATTERNS = new TreeMap<>();
-    private static final Map<String, String> DEFAULT_DATA_TYPES = new HashMap<>();
-    private static final Map<String, ArrayList<String>> DEFAULT_DATE_FORMATS = new HashMap<>();
+    private static final ImmutableSortedMap<String, String> DEFAULT_PATTERNS;
+    private static final ImmutableMap<String, String> DEFAULT_DATA_TYPES;
+    private static final ImmutableMap<String, ImmutableList<String>> DEFAULT_DATE_FORMATS;
 
     static {
         try {
+            Map<String, String> patterns = new TreeMap<>();
+            Map<String, String> dataTypes = new HashMap<>();
+            Map<String, ImmutableList.Builder<String>> dateFormats = new HashMap<>();
+
             // Load default patterns statically without creating an instance
-            loadDefaultPatternsFromReader(getFileFromResources("grok/patterns"), DEFAULT_PATTERNS);
-            loadDefaultPatternsFromReader(getFileFromResources("grok/datatype"), DEFAULT_DATA_TYPES);
-            loadDefaultDatePatternsFromReader(getFileFromResources("grok/dateformat"));
+            loadDefaultPatternsFromReader(getFileFromResources("grok/patterns"), patterns);
+            loadDefaultPatternsFromReader(getFileFromResources("grok/datatype"), dataTypes);
+            loadDefaultDatePatternsFromReader(getFileFromResources("grok/dateformat"), dateFormats);
+
+            DEFAULT_PATTERNS = ImmutableSortedMap.copyOf(patterns);
+            DEFAULT_DATA_TYPES = ImmutableMap.copyOf(dataTypes);
+            DEFAULT_DATE_FORMATS = ImmutableMap.copyOf(Maps.transformValues(dateFormats, ImmutableList.Builder::build));
         }
         catch (Exception e) {
             throw new ExceptionInInitializerError(e);
@@ -119,12 +131,17 @@ public class Grok
         originalGrokPattern = "";
         namedRegex = "";
         compiledNamedRegex = null;
-        grokPatternDefinition = DEFAULT_PATTERNS;
-        grokPatternDefaultDatatype = DEFAULT_DATA_TYPES;
+        grokPatternDefinition = new TreeMap<>(DEFAULT_PATTERNS);
+        grokPatternDefaultDatatype = new HashMap<>(DEFAULT_DATA_TYPES);
         grokPatternPatterns = new HashMap<>();
-        grokDateFormats = DEFAULT_DATE_FORMATS;
+        grokDateFormats = copyDateFormats();
         namedRegexCollection = new TreeMap<>();
         strictMode = false;
+    }
+
+    private static Map<String, ArrayList<String>> copyDateFormats()
+    {
+        return new HashMap<>(Maps.transformValues(DEFAULT_DATE_FORMATS, formats -> new ArrayList<>(formats)));
     }
 
     /**
@@ -153,7 +170,7 @@ public class Grok
         }
     }
 
-    private static void loadDefaultDatePatternsFromReader(Reader reader)
+    private static void loadDefaultDatePatternsFromReader(Reader reader, Map<String, ImmutableList.Builder<String>> defaultConfig)
             throws GrokException
     {
         try (BufferedReader br = new BufferedReader(reader)) {
@@ -167,7 +184,7 @@ public class Grok
                     key = line;
                 }
                 else {
-                    loadDefaultDatePatterns(key, line);
+                    loadDefaultDatePatterns(key, line, defaultConfig);
                 }
             }
         }
@@ -196,7 +213,7 @@ public class Grok
         defaultConfig.put(name, conf);
     }
 
-    private static void loadDefaultDatePatterns(String name, String conf)
+    private static void loadDefaultDatePatterns(String name, String conf, Map<String, ImmutableList.Builder<String>> defaultConfig)
             throws GrokException
     {
         if (name == null || name.isBlank()) {
@@ -205,13 +222,12 @@ public class Grok
         if (conf == null || conf.isBlank()) {
             throw new GrokException("Invalid value when loading config file");
         }
-        if (DEFAULT_DATE_FORMATS.containsKey(name)) {
-            DEFAULT_DATE_FORMATS.get(name).add(conf);
+
+        if (defaultConfig.containsKey(name)) {
+            defaultConfig.get(name).add(conf);
         }
         else {
-            ArrayList<String> formatContainer = new ArrayList<>();
-            formatContainer.add(conf);
-            DEFAULT_DATE_FORMATS.put(name, formatContainer);
+            defaultConfig.put(name, ImmutableList.<String>builder().add(conf));
         }
     }
 
@@ -225,7 +241,7 @@ public class Grok
     static Reader getFileFromResources(String filePath)
             throws GrokException
     {
-        Reader reader = new InputStreamReader(Grok.class.getClassLoader().getResourceAsStream(filePath), Charset.defaultCharset());
+        Reader reader = new InputStreamReader(Grok.class.getClassLoader().getResourceAsStream(filePath), StandardCharsets.UTF_8);
         if (reader == null) {
             throw new GrokException("File <" + filePath + "> not found.");
         }
