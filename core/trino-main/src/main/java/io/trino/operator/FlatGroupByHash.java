@@ -393,11 +393,10 @@ public class FlatGroupByHash
         {
             verify(canProcessDictionary(blocks), "invalid call to addDictionaryPage");
             this.dictionaryBlock = (DictionaryBlock) blocks[0];
-
-            this.dictionaries = Arrays.stream(blocks)
-                    .map(block -> (DictionaryBlock) block)
-                    .map(DictionaryBlock::getDictionary)
-                    .toArray(Block[]::new);
+            this.dictionaries = blocks;
+            for (int i = 0; i < dictionaries.length; i++) {
+                dictionaries[i] = ((DictionaryBlock) dictionaries[i]).getDictionary();
+            }
             updateDictionaryLookBack(dictionaries[0]);
         }
 
@@ -620,13 +619,12 @@ public class FlatGroupByHash
             verify(canProcessDictionary(blocks), "invalid call to processDictionary");
 
             this.dictionaryBlock = (DictionaryBlock) blocks[0];
-            this.groupIds = new int[dictionaryBlock.getPositionCount()];
-
-            this.dictionaries = Arrays.stream(blocks)
-                    .map(block -> (DictionaryBlock) block)
-                    .map(DictionaryBlock::getDictionary)
-                    .toArray(Block[]::new);
+            this.dictionaries = blocks;
+            for (int i = 0; i < dictionaries.length; i++) {
+                dictionaries[i] = ((DictionaryBlock) dictionaries[i]).getDictionary();
+            }
             updateDictionaryLookBack(dictionaries[0]);
+            this.groupIds = new int[dictionaryBlock.getPositionCount()];
         }
 
         @Override
