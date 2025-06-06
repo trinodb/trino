@@ -48,7 +48,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.type.StandardTypes.INTERVAL_DAY_TO_SECOND;
 import static io.trino.spi.type.StandardTypes.INTERVAL_YEAR_TO_MONTH;
 import static io.trino.spi.type.StandardTypes.ROW;
@@ -62,7 +61,6 @@ import static io.trino.spi.type.TypeSignatureParameter.numericParameter;
 import static io.trino.spi.type.TypeSignatureParameter.typeParameter;
 import static io.trino.spi.type.TypeSignatureParameter.typeVariable;
 import static io.trino.spi.type.VarcharType.UNBOUNDED_LENGTH;
-import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static java.lang.String.format;
@@ -144,13 +142,7 @@ public final class TypeSignatureTranslator
         for (DataTypeParameter parameter : type.getArguments()) {
             switch (parameter) {
                 case NumericParameter numericParameter -> {
-                    String value = numericParameter.getValue();
-                    try {
-                        parameters.add(numericParameter(Long.parseLong(value)));
-                    }
-                    catch (NumberFormatException e) {
-                        throw semanticException(TYPE_MISMATCH, parameter, "Invalid type parameter: %s", value);
-                    }
+                    parameters.add(numericParameter(numericParameter.getParsedValue()));
                 }
                 case TypeParameter typeParameter -> {
                     DataType value = typeParameter.getValue();
@@ -215,7 +207,7 @@ public final class TypeSignatureTranslator
         if (type.getPrecision().isPresent()) {
             DataTypeParameter precision = type.getPrecision().get();
             if (precision instanceof NumericParameter numericParameter) {
-                parameters.add(numericParameter(Long.parseLong(numericParameter.getValue())));
+                parameters.add(numericParameter(numericParameter.getParsedValue()));
             }
             else if (precision instanceof TypeParameter typeParameter) {
                 DataType typeVariable = typeParameter.getValue();
@@ -286,7 +278,7 @@ public final class TypeSignatureTranslator
                     new Identifier(typeSignature.getBase(), false),
                     typeSignature.getParameters().stream()
                             .filter(parameter -> parameter.getLongLiteral() != UNBOUNDED_LENGTH)
-                            .map(parameter -> new NumericParameter(Optional.empty(), String.valueOf(parameter)))
+                            .map(parameter -> new NumericParameter(Optional.empty(), parameter.toString()))
                             .collect(toImmutableList()));
             default -> new GenericDataType(
                     Optional.empty(),
@@ -320,7 +312,7 @@ public final class TypeSignatureTranslator
     private static DataTypeParameter toTypeParameter(TypeSignatureParameter parameter)
     {
         return switch (parameter.getKind()) {
-            case LONG -> new NumericParameter(Optional.empty(), String.valueOf(parameter.getLongLiteral()));
+            case LONG -> new NumericParameter(Optional.empty(), parameter.toString());
             case TYPE -> new TypeParameter(toDataType(parameter.getTypeSignature()));
             default -> throw new UnsupportedOperationException("Unsupported parameter kind");
         };
