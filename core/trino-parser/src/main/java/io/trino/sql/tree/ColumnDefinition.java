@@ -27,7 +27,7 @@ public final class ColumnDefinition
 {
     private final QualifiedName name;
     private final DataType type;
-    private final Optional<Literal> defaultValue;
+    private final Optional<Expression> defaultValue;
     private final boolean nullable;
     private final List<Property> properties;
     private final Optional<String> comment;
@@ -42,12 +42,12 @@ public final class ColumnDefinition
         this(Optional.of(location), name, type, Optional.empty(), nullable, properties, comment);
     }
 
-    public ColumnDefinition(QualifiedName name, DataType type, Optional<Literal> defaultValue, boolean nullable, List<Property> properties, Optional<String> comment)
+    public ColumnDefinition(QualifiedName name, DataType type, Optional<Expression> defaultValue, boolean nullable, List<Property> properties, Optional<String> comment)
     {
         this(Optional.empty(), name, type, defaultValue, nullable, properties, comment);
     }
 
-    public ColumnDefinition(NodeLocation location, QualifiedName name, DataType type, Optional<Literal> defaultValue, boolean nullable, List<Property> properties, Optional<String> comment)
+    public ColumnDefinition(NodeLocation location, QualifiedName name, DataType type, Optional<Expression> defaultValue, boolean nullable, List<Property> properties, Optional<String> comment)
     {
         this(Optional.of(location), name, type, defaultValue, nullable, properties, comment);
     }
@@ -56,7 +56,7 @@ public final class ColumnDefinition
             Optional<NodeLocation> location,
             QualifiedName name,
             DataType type,
-            Optional<Literal> defaultValue,
+            Optional<Expression> defaultValue,
             boolean nullable,
             List<Property> properties,
             Optional<String> comment)
@@ -80,7 +80,7 @@ public final class ColumnDefinition
         return type;
     }
 
-    public Optional<Literal> getDefaultValue()
+    public Optional<Expression> getDefaultValue()
     {
         return defaultValue;
     }

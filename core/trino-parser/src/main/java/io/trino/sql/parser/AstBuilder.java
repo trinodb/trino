@@ -165,7 +165,6 @@ import io.trino.sql.tree.LeaveStatement;
 import io.trino.sql.tree.LikeClause;
 import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.Limit;
-import io.trino.sql.tree.Literal;
 import io.trino.sql.tree.LocalTime;
 import io.trino.sql.tree.LocalTimestamp;
 import io.trino.sql.tree.LogicalExpression;
@@ -3041,7 +3040,7 @@ class AstBuilder
     @Override
     public Node visitColumnDefinition(SqlBaseParser.ColumnDefinitionContext context)
     {
-        Optional<Literal> defaultValue = visitIfPresent(context.literal(), Literal.class);
+        Optional<Expression> defaultValue = visitIfPresent(context.literal(), Expression.class);
 
         Optional<String> comment = Optional.empty();
         if (context.COMMENT() != null) {
