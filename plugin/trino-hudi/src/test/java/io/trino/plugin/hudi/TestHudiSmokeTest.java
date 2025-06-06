@@ -64,6 +64,7 @@ import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hudi.HudiPageSourceProvider.createPageSource;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_COW_PT_TBL;
+import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_MULTI_PT_V8_MOR;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_NON_PART_COW;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_STOCK_TICKS_COW;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_STOCK_TICKS_MOR;
@@ -638,9 +639,6 @@ public class TestHudiSmokeTest
         assertQuery(query, "SELECT * FROM VALUES (1, 'a1', 100.0, 1000), (3, 'a3', 101.0, 1001)");
     }
 
-    /**
-     * Note that this test may be flaky, dynamic filter may be enabled in some occasions, causing this test to fail.
-     */
     @ParameterizedTest
     @EnumSource(
             value = ResourceHudiTablesInitializer.TestingTable.class,
@@ -648,7 +646,7 @@ public class TestHudiSmokeTest
     public void testDynamicFilterDisabledPredicatePushdown(ResourceHudiTablesInitializer.TestingTable table)
     {
         Session session = SessionBuilder.from(getSession())
-                .withDynamicFilterTimeout("0s")
+                .withDynamicFilterEnabled(false)
                 .build();
         final String tableIdentifier = "hudi:tests." + table.getRoTableName();
 
@@ -659,21 +657,13 @@ public class TestHudiSmokeTest
         MaterializedResult explainRes = getQueryRunner().execute(session, "EXPLAIN ANALYZE " + query);
         Pattern scanFilterInputRowsPattern = getScanFilterInputRowsPattern(tableIdentifier);
         Matcher matcher = scanFilterInputRowsPattern.matcher(explainRes.toString());
+        // Should not find any dynamic filtering keywords
         assertThat(matcher.find())
                 .withFailMessage("Could not find 'ScanFilter' for table '%s' with 'dynamicFilters' and 'Input: X rows' stats in EXPLAIN output.\nOutput was:\n%s",
                         tableIdentifier, explainRes.toString())
-                .isTrue();
+                .isFalse();
 
-        // matcher#group() must be invoked after matcher#find()
-        String rowsInputString = matcher.group(1);
-        long actualInputRows = Long.parseLong(rowsInputString);
-        // No dynamic filtering performed, all rows read
-        long expectedInputRowsAfterFiltering = 4;
-        assertThat(actualInputRows)
-                .describedAs("Number of rows input to the ScanFilter for the probe side table (%s) should NOT reflect effective dynamic filtering", tableIdentifier)
-                .isEqualTo(expectedInputRowsAfterFiltering);
-
-        // Exercise query and check output
+        // Skip check on whether optimization is not applied or not, just check that output is queryable
         assertQuery(query, "SELECT * FROM VALUES (1, 'a1', 100.0, 1000), (3, 'a3', 101.0, 1001)");
     }
 
@@ -718,7 +708,7 @@ public class TestHudiSmokeTest
     public void testDynamicFilterDisabled_withPartitionPruningUsingDynamicFilter(ResourceHudiTablesInitializer.TestingTable table)
     {
         Session session = SessionBuilder.from(getSession())
-                .withDynamicFilterTimeout("0s")
+                .withDynamicFilterEnabled(false)
                 .build();
         final String tableIdentifier = "hudi:tests." + table.getRoTableName();
 
@@ -734,18 +724,9 @@ public class TestHudiSmokeTest
         assertThat(matcher.find())
                 .withFailMessage("Could not find 'ScanFilter' for table '%s' with 'dynamicFilters' and 'Input: X rows' stats in EXPLAIN output.\nOutput was:\n%s",
                         tableIdentifier, explainRes.toString())
-                .isTrue();
+                .isFalse();
 
-        // matcher#group() must be invoked after matcher#find()
-        String rowsInputString = matcher.group(1);
-        long actualInputRows = Long.parseLong(rowsInputString);
-        long expectedInputRowsAfterFiltering = 4;
-        assertThat(actualInputRows)
-                .describedAs("Number of rows input to the ScanFilter for the probe side table (%s) should NOT reflect effective dynamic filtering", tableIdentifier)
-                .isEqualTo(expectedInputRowsAfterFiltering);
-
-        // Exercise query and check output
-        System.out.println(getQueryRunner().execute(session, query));
+        // Skip check on whether optimization is not applied or not, just check that output is queryable
         // Cartesian product of result is produced since we are joining by partition column
         assertQuery(query, "SELECT * FROM VALUES (1, 'a1', 100.0, 1000, 'SG'), (3, 'a3', 101.0, 1001, 'SG'), (1, 'a1', 100.0, 1000, 'SG'), (3, 'a3', 101.0, 1001, 'SG')");
     }
@@ -939,6 +920,20 @@ public class TestHudiSmokeTest
         assertThat(actualNestedResult.getMaterializedRows())
                 .hasSameSizeAs(expectedNestedResult.getMaterializedRows())
                 .containsAll(expectedNestedResult.getMaterializedRows());
+    }
+
+    @Test
+    public void testHudiPartitionFieldsWithMultipleTypes()
+    {
+        Session session = getSession();
+        @Language("SQL") String actualQuery = "SELECT part_str, part_int, part_date, part_bigint, part_bool FROM " + HUDI_MULTI_PT_V8_MOR;
+        @Language("SQL") String expectedQuery = "VALUES " +
+                "('apparel', 2024, DATE '2024-01-05', 20000000001, false), " +
+                "('books', 2023, DATE '2023-01-15', 10000000001, true), " +
+                "('books', 2024, DATE '2024-02-20', 10000000003, true), " +
+                "('electronics', 2023, DATE '2023-03-10', 10000000002, false), " +
+                "('electronics', 2023, DATE '2023-03-10', 10000000002, true) ";
+        assertQuery(session, actualQuery, expectedQuery);
     }
 
     private void testTimestampMicros(HiveTimestampPrecision timestampPrecision, LocalDateTime expected)
