@@ -16,6 +16,7 @@ package io.trino.operator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
@@ -29,9 +30,12 @@ import io.trino.operator.aggregation.builder.HashAggregationBuilder;
 import io.trino.operator.aggregation.builder.InMemoryHashAggregationBuilder;
 import io.trino.operator.aggregation.partial.PartialAggregationController;
 import io.trino.plugin.base.metrics.LongCount;
+import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.spi.Page;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.PageBuilderStatus;
+import io.trino.spi.metrics.Metric;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spiller.Spiller;
@@ -75,6 +79,8 @@ import static io.trino.operator.OperatorAssertion.assertPagesEqualIgnoreOrder;
 import static io.trino.operator.OperatorAssertion.dropChannel;
 import static io.trino.operator.OperatorAssertion.toMaterializedResult;
 import static io.trino.operator.OperatorAssertion.toPages;
+import static io.trino.operator.SpillMetrics.SPILL_COUNT_METRIC_NAME;
+import static io.trino.operator.SpillMetrics.SPILL_DATA_SIZE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -108,8 +114,7 @@ public class TestHashAggregationOperator
 
     private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
     private final ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
-    private final TypeOperators typeOperators = new TypeOperators();
-    private final FlatHashStrategyCompiler hashStrategyCompiler = new FlatHashStrategyCompiler(typeOperators);
+    private final FlatHashStrategyCompiler hashStrategyCompiler = new FlatHashStrategyCompiler(new TypeOperators());
 
     @AfterAll
     public void tearDown()
@@ -172,7 +177,6 @@ public class TestHashAggregationOperator
                 succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory,
                 hashStrategyCompiler,
-                typeOperators,
                 Optional.empty());
 
         DriverContext driverContext = createDriverContext(memoryLimitForMerge);
@@ -243,7 +247,6 @@ public class TestHashAggregationOperator
                 succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory,
                 hashStrategyCompiler,
-                typeOperators,
                 Optional.empty());
 
         DriverContext driverContext = createDriverContext(memoryLimitForMerge);
@@ -305,7 +308,6 @@ public class TestHashAggregationOperator
                 succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory,
                 hashStrategyCompiler,
-                typeOperators,
                 Optional.empty());
 
         Operator operator = operatorFactory.createOperator(driverContext);
@@ -359,7 +361,6 @@ public class TestHashAggregationOperator
                 100_000,
                 Optional.of(DataSize.of(16, MEGABYTE)),
                 hashStrategyCompiler,
-                typeOperators,
                 Optional.empty());
 
         toPages(operatorFactory, driverContext, input);
@@ -415,7 +416,6 @@ public class TestHashAggregationOperator
                 succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory,
                 hashStrategyCompiler,
-                typeOperators,
                 Optional.empty());
 
         toPages(operatorFactory, driverContext, input, revokeMemoryWhenAddingPages);
@@ -444,7 +444,6 @@ public class TestHashAggregationOperator
                 1,
                 Optional.of(DataSize.of(16, MEGABYTE)),
                 hashStrategyCompiler,
-                typeOperators,
                 Optional.empty());
 
         // get result with yield; pick a relatively small buffer for aggregator's memory usage
@@ -508,7 +507,6 @@ public class TestHashAggregationOperator
                 100_000,
                 Optional.of(DataSize.of(16, MEGABYTE)),
                 hashStrategyCompiler,
-                typeOperators,
                 Optional.empty());
 
         toPages(operatorFactory, driverContext, input);
@@ -549,7 +547,6 @@ public class TestHashAggregationOperator
                 100_000,
                 Optional.of(DataSize.of(16, MEGABYTE)),
                 hashStrategyCompiler,
-                typeOperators,
                 Optional.empty());
 
         assertThat(toPages(operatorFactory, createDriverContext(), input)).hasSize(2);
@@ -588,7 +585,6 @@ public class TestHashAggregationOperator
                 100_000,
                 Optional.of(DataSize.of(1, KILOBYTE)),
                 hashStrategyCompiler,
-                typeOperators,
                 Optional.empty());
 
         DriverContext driverContext = createDriverContext(1024);
@@ -676,7 +672,6 @@ public class TestHashAggregationOperator
                 succinctBytes(Integer.MAX_VALUE),
                 spillerFactory,
                 hashStrategyCompiler,
-                typeOperators,
                 Optional.empty());
 
         DriverContext driverContext = createDriverContext(smallPagesSpillThresholdSize);
@@ -687,6 +682,67 @@ public class TestHashAggregationOperator
         }
 
         assertOperatorEqualsIgnoreOrder(operatorFactory, driverContext, input, resultBuilder.build());
+    }
+
+    @Test
+    public void testSpillMetricsRecorded()
+    {
+        /*
+         * Force the operator to spill by setting ridiculous per-operator memory
+         * limits (8 bytes) and feeding it more rows than can possibly stay in
+         * memory.  After the run we assert that the driver-level metric map
+         * contains the histogram entries produced by SpillMetrics – and that
+         * their counts/values are strictly positive.
+         */
+
+        DummySpillerFactory spillerFactory = new DummySpillerFactory();
+
+        RowPagesBuilder pages = rowPagesBuilder(BIGINT)
+                // ~0.8 MB of data – comfortably larger than the 8 B quota
+                .addSequencePage(50_000, 0);
+
+        HashAggregationOperatorFactory factory = new HashAggregationOperatorFactory(
+                0,
+                new PlanNodeId("spill-metrics"),
+                ImmutableList.of(BIGINT),
+                ImmutableList.of(0),
+                ImmutableList.of(),
+                SINGLE,
+                false,
+                ImmutableList.of(LONG_MIN.createAggregatorFactory(SINGLE, ImmutableList.of(0), OptionalInt.empty())),
+                pages.getHashChannel(),
+                Optional.empty(),
+                10,
+                Optional.of(DataSize.of(16, MEGABYTE)),
+                /* spill enabled */ true,
+                /* memoryLimitForMerge */ DataSize.ofBytes(8),
+                /* memoryLimitForMergeWithMemory */ succinctBytes(Integer.MAX_VALUE),
+                spillerFactory,
+                hashStrategyCompiler,
+                Optional.empty());
+
+        DriverContext context = createDriverContext(8);
+
+        // run the operator; we don’t care about the output pages here
+        toPages(factory, context, pages.build());
+
+        Metrics metrics = context.getDriverStats().getOperatorStats().get(0).getMetrics();
+        Metric<?> spillCountMetric = metrics.getMetrics().get(SPILL_COUNT_METRIC_NAME);
+        Metric<?> spillSizeMetric = metrics.getMetrics().get(SPILL_DATA_SIZE);
+
+        assertThat(spillCountMetric).describedAs("metric present").isNotNull();
+        assertThat(spillSizeMetric).describedAs("metric present").isNotNull();
+
+        TDigestHistogram spillCountHistogram = (TDigestHistogram) spillCountMetric;
+        TDigestHistogram spillSizeHist = (TDigestHistogram) spillSizeMetric;
+
+        assertThat(spillCountHistogram.getDigest().getCount())
+                .describedAs("exact number of spills recorded")
+                .isEqualTo(spillerFactory.getSpillsCount());
+
+        assertThat(spillSizeHist.getDigest().getCount())
+                .describedAs("histogram contains at least one entry")
+                .isGreaterThan(0);
     }
 
     @Test
@@ -732,7 +788,6 @@ public class TestHashAggregationOperator
                 succinctBytes(Integer.MAX_VALUE),
                 new FailingSpillerFactory(),
                 hashStrategyCompiler,
-                typeOperators,
                 Optional.empty());
 
         assertThatThrownBy(() -> toPages(operatorFactory, driverContext, input))
@@ -762,7 +817,6 @@ public class TestHashAggregationOperator
                 100_000,
                 Optional.of(DataSize.of(16, MEGABYTE)),
                 hashStrategyCompiler,
-                typeOperators,
                 Optional.empty());
 
         DriverContext driverContext = createDriverContext(1024);
@@ -800,7 +854,6 @@ public class TestHashAggregationOperator
                 100,
                 Optional.of(maxPartialMemory), // this setting makes operator to flush after each page
                 hashStrategyCompiler,
-                typeOperators,
                 // 1 byte maxPartialMemory causes adaptive partial aggregation to be triggered after each page flush
                 Optional.of(partialAggregationController));
 
@@ -882,7 +935,6 @@ public class TestHashAggregationOperator
                 10,
                 Optional.of(DataSize.of(16, MEGABYTE)), // this setting makes operator to flush only after all pages
                 hashStrategyCompiler,
-                typeOperators,
                 // 1 byte maxPartialMemory causes adaptive partial aggregation to be triggered after each page flush
                 Optional.of(partialAggregationController));
 
@@ -914,6 +966,197 @@ public class TestHashAggregationOperator
         driverContext = createDriverContext(1024);
         assertOperatorEquals(driverContext, operatorFactory, operator2Input, operator2Expected);
         assertInputRowsWithPartialAggregationDisabled(driverContext, 20);
+    }
+
+    @Test
+    public void testAsyncSpillBlocksAndUnblocksDriver()
+            throws Exception
+    {
+        /*
+         *  – force:  revocable bytes   > 0
+         *            spiller.present  == true
+         *            shouldMergeWithMemory(size) == false
+         *
+         *  so buildResult() will hit `blocked(spillToDisk())`
+         */
+        SlowSpiller spiller = new SlowSpiller();
+        SlowSpillerFactory spillerFactory = new SlowSpillerFactory(spiller);
+
+        //  tiny memory limits → convert-to-user will fail
+        long memoryLimitForMerge = 8;
+        long memoryLimitForMergeWithMemory = 0;
+
+        // plenty of rows → revocable mem >
+        RowPagesBuilder pages = rowPagesBuilder(false, Ints.asList(0), BIGINT)
+                .addSequencePage(5_000, 0);
+
+        HashAggregationOperatorFactory factory =
+                new HashAggregationOperatorFactory(
+                        0,
+                        new PlanNodeId("async"),
+                        ImmutableList.of(BIGINT),
+                        Ints.asList(0),
+                        ImmutableList.of(),
+                        SINGLE,
+                        false,
+                        ImmutableList.of(COUNT.createAggregatorFactory(SINGLE, ImmutableList.of(0), OptionalInt.empty())),
+                        Optional.empty(),
+                        Optional.empty(),
+                        /* expectedGroups */ 1,
+                        Optional.of(DataSize.of(16, MEGABYTE)),
+                        /* spill enabled */  true,
+                        succinctBytes(memoryLimitForMerge),
+                        succinctBytes(memoryLimitForMergeWithMemory),
+                        spillerFactory,
+                        hashStrategyCompiler,
+                        Optional.empty());
+
+        DriverContext context = createDriverContext(memoryLimitForMerge);
+
+        try (Operator operator = factory.createOperator(context)) {
+            // feed all input
+            for (Page page : pages.build()) {
+                assertThat(operator.needsInput()).isTrue();
+                operator.addInput(page);
+            }
+            operator.finish();
+
+            // first call returns null, operator is now blocked
+            assertThat(operator.getOutput()).isNull();
+            ListenableFuture<Void> blocked = operator.isBlocked();
+            assertThat(blocked.isDone()).isFalse();
+
+            // unblock the spiller
+            spiller.complete();
+
+            // driver sees the unblock
+            blocked.get();
+            // drive operator to completion
+            toPages(operator, emptyIterator());
+            assertThat(operator.isFinished())
+                    .as("operator must finish after async spill")
+                    .isTrue();
+        }
+    }
+
+    @Test
+    public void testRevocableMemoryConvertedAfterAsyncSpill()
+            throws Exception
+    {
+        long memoryLimitForMerge = DataSize.of(64, KILOBYTE).toBytes();   // force spill early
+        long memoryLimitForMergeWithMemory = 0;                                     // make shouldMergeWithMemory() return false
+
+        // plenty of rows to allocate >64 kB in the hash builder
+        RowPagesBuilder pagesBuilder = rowPagesBuilder(false, Ints.asList(0), BIGINT)
+                .addSequencePage(50_000, 0);
+
+        SlowSpiller slowSpiller = new SlowSpiller();
+        SlowSpillerFactory slowSpillerFactory = new SlowSpillerFactory(slowSpiller);
+
+        HashAggregationOperatorFactory factory = new HashAggregationOperatorFactory(
+                0,
+                new PlanNodeId("async-spill"),
+                ImmutableList.of(BIGINT),
+                Ints.asList(0),
+                ImmutableList.of(),
+                SINGLE,
+                false,
+                ImmutableList.of(
+                        COUNT.createAggregatorFactory(SINGLE,
+                                ImmutableList.of(0),
+                                OptionalInt.empty())),
+                Optional.empty(),
+                Optional.empty(),
+                10,
+                Optional.of(DataSize.of(16, MEGABYTE)),
+                /* spill enabled */ true,
+                DataSize.ofBytes(memoryLimitForMerge),
+                DataSize.ofBytes(memoryLimitForMergeWithMemory),
+                slowSpillerFactory,
+                hashStrategyCompiler,
+                Optional.empty());
+
+        DriverContext context = createDriverContext(memoryLimitForMerge);
+
+        try (Operator operator = factory.createOperator(context)) {
+            for (Page page : pagesBuilder.build()) {
+                operator.addInput(page);
+            }
+            operator.finish();
+
+            // first call returns null, operator is now blocked
+            assertThat(operator.getOutput()).isNull();
+            ListenableFuture<Void> blocked = operator.isBlocked();
+            assertThat(blocked.isDone()).isFalse();
+
+            assertThat(context.getRevocableMemoryUsage())
+                    .as("revocable bytes should be > 0 while spill is running")
+                    .isGreaterThan(0L);
+
+            // complete the spill asynchronously
+            slowSpiller.complete();        // finish spill
+            blocked.get();                 // wait until operator is unblocked
+
+            // advance state
+            operator.getOutput();
+            // revocable memory must have been cleared by updateMemory()
+            long revocableAfterSpill = context.getRevocableMemoryUsage();
+            assertThat(revocableAfterSpill)
+                    .as("revocable bytes must be 0 right after spill completion")
+                    .isZero();
+
+            // drive operator to completion
+            toPages(operator, emptyIterator());
+
+            assertThat(operator.isFinished()).isTrue();
+
+            // all reservations are released at the very end
+            assertThat(context.getRevocableMemoryUsage()).isZero();
+            assertThat(context.getMemoryUsage()).isZero();
+        }
+    }
+
+    private static class SlowSpillerFactory
+            implements SpillerFactory
+    {
+        private final SlowSpiller spiller;
+
+        SlowSpillerFactory(SlowSpiller spiller)
+        {
+            this.spiller = spiller;
+        }
+
+        @Override
+        public Spiller create(List<Type> t, SpillContext sc, AggregatedMemoryContext mc)
+        {
+            return spiller;
+        }
+    }
+
+    private static class SlowSpiller
+            implements Spiller
+    {
+        private final SettableFuture<DataSize> future = SettableFuture.create();
+
+        @Override
+        public ListenableFuture<DataSize> spill(Iterator<Page> i)
+        {
+            return future;
+        }
+
+        @Override
+        public List<Iterator<Page>> getSpills()
+        {
+            return ImmutableList.of();
+        }
+
+        @Override
+        public void close() {}
+
+        void complete()
+        {
+            future.set(DataSize.ofBytes(0));
+        }
     }
 
     private void assertInputRowsWithPartialAggregationDisabled(DriverContext context, long expectedRowCount)
@@ -974,7 +1217,7 @@ public class TestHashAggregationOperator
             return new Spiller()
             {
                 @Override
-                public ListenableFuture<Void> spill(Iterator<Page> pageIterator)
+                public ListenableFuture<DataSize> spill(Iterator<Page> pageIterator)
                 {
                     return immediateFailedFuture(new IOException("Failed to spill"));
                 }

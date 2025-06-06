@@ -58,7 +58,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterators.unmodifiableIterator;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.operator.HashArraySizeSupplier.incrementalLoadFactorHashArraySizeSupplier;
 import static io.trino.operator.JoinOperatorType.innerJoin;
@@ -336,14 +335,14 @@ public final class JoinTestUtils
                 private final List<Page> spills = new ArrayList<>();
 
                 @Override
-                public ListenableFuture<Void> spill(Iterator<Page> pageIterator)
+                public ListenableFuture<DataSize> spill(Iterator<Page> pageIterator)
                 {
                     checkState(writing, "writing already finished");
                     if (failSpill) {
                         return immediateFailedFuture(new TrinoException(GENERIC_INTERNAL_ERROR, "Spill failed"));
                     }
                     Iterators.addAll(spills, pageIterator);
-                    return immediateVoidFuture();
+                    return immediateFuture(DataSize.ofBytes(0L));
                 }
 
                 @Override

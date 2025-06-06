@@ -118,7 +118,7 @@ class Query
     private final ExchangeDataSource exchangeDataSource;
 
     @GuardedBy("this")
-    private final QueryDataProducer queryDataProducer;
+    private QueryDataProducer queryDataProducer = QueryDataProducer.THROWING;
 
     @GuardedBy("this")
     private ListenableFuture<Void> exchangeDataSourceBlocked;
@@ -196,7 +196,6 @@ class Query
             Session session,
             Slug slug,
             QueryManager queryManager,
-            QueryDataProducerFactory queryDataProducerFactory,
             Optional<URI> queryInfoUrl,
             DirectExchangeClientSupplier directExchangeClientSupplier,
             ExchangeManagerRegistry exchangeManagerRegistry,
@@ -214,7 +213,7 @@ class Query
                 getRetryPolicy(session),
                 exchangeManagerRegistry);
 
-        Query result = new Query(session, slug, queryManager, queryDataProducerFactory.create(session), queryInfoUrl, exchangeDataSource, dataProcessorExecutor, timeoutExecutor, blockEncodingSerde);
+        Query result = new Query(session, slug, queryManager, queryInfoUrl, exchangeDataSource, dataProcessorExecutor, timeoutExecutor, blockEncodingSerde);
 
         result.queryManager.setOutputInfoListener(result.getQueryId(), result::setQueryOutputInfo);
 
@@ -234,7 +233,6 @@ class Query
             Session session,
             Slug slug,
             QueryManager queryManager,
-            QueryDataProducer queryDataProducer,
             Optional<URI> queryInfoUrl,
             ExchangeDataSource exchangeDataSource,
             Executor resultsProcessorExecutor,
@@ -244,7 +242,6 @@ class Query
         requireNonNull(session, "session is null");
         requireNonNull(slug, "slug is null");
         requireNonNull(queryManager, "queryManager is null");
-        requireNonNull(queryDataProducer, "queryDataProducer is null");
         requireNonNull(queryInfoUrl, "queryInfoUrl is null");
         requireNonNull(exchangeDataSource, "exchangeDataSource is null");
         requireNonNull(resultsProcessorExecutor, "resultsProcessorExecutor is null");
@@ -252,7 +249,6 @@ class Query
         requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
 
         this.queryManager = queryManager;
-        this.queryDataProducer = queryDataProducer;
         this.queryId = session.getQueryId();
         this.session = session;
         this.slug = slug;
@@ -453,7 +449,7 @@ class Query
             resultRows = empty();
         }
 
-        QueryData queryData = queryDataProducer.produce(externalUriInfo, session, resultRows, this::handleSerializationException);
+        QueryData queryData = queryDataProducer.produce(externalUriInfo, resultRows, this::handleSerializationException);
         if (deserializer == null) {
             queryDataProducer.close(); // Close when there are no more pages
         }
@@ -531,7 +527,7 @@ class Query
                 getQueryInfoUri(queryInfoUrl, queryId, externalUriInfo),
                 partialCancelUri,
                 nextResultsUri,
-                resultRows.getOptionalColumns(),
+                columns,
                 queryData,
                 toStatementStats(queryInfo),
                 toQueryError(queryInfo, typeSerializationException),
@@ -569,9 +565,11 @@ class Query
     private synchronized QueryResultRows removePagesFromExchange(ResultQueryInfo queryInfo)
     {
         if (!resultsConsumed && queryInfo.outputStage().isEmpty()) {
-            return queryResultRowsBuilder()
-                    .withColumnsAndTypes(ImmutableList.of(), ImmutableList.of())
-                    .build();
+            if (columns == null) {
+                columns = ImmutableList.of();
+                types = ImmutableList.of();
+            }
+            return QueryResultRows.empty();
         }
         // Remove as many pages as possible from the exchange until just greater than DESIRED_RESULT_BYTES
         // NOTE: it is critical that query results are created for the pages removed from the exchange
@@ -579,7 +577,7 @@ class Query
         // last page is removed.  If another thread observes this state before the response is cached
         // the pages will be lost.
         QueryResultRows.Builder resultBuilder = queryResultRowsBuilder()
-                .withColumnsAndTypes(columns, types);
+                .withTypes(types);
 
         long targetResultBytes = TARGET_RESULT_SIZE.toBytes();
         try {
@@ -694,6 +692,7 @@ class Query
             }
             columns = list.build();
             types = outputInfo.getColumnTypes();
+            queryDataProducer = QueryDataProducerFactory.create(session, types);
         }
 
         outputInfo.drainInputs(exchangeDataSource::addInput);

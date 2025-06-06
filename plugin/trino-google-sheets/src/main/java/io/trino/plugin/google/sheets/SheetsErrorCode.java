@@ -29,6 +29,7 @@ public enum SheetsErrorCode
     SHEETS_UNKNOWN_TABLE_ERROR(2, USER_ERROR),
     SHEETS_TABLE_LOAD_ERROR(3, INTERNAL_ERROR),
     SHEETS_INSERT_ERROR(4, INTERNAL_ERROR),
+    SHEETS_INVALID_TABLE_FORMAT(5, EXTERNAL)
     /**/;
 
     private final ErrorCode errorCode;

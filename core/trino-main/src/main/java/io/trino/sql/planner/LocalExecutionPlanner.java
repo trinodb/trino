@@ -3096,8 +3096,7 @@ public class LocalExecutionPlanner
                         probeTypes,
                         probeJoinChannels,
                         probeHashChannel,
-                        Optional.of(probeOutputChannels),
-                        typeOperators);
+                        Optional.of(probeOutputChannels));
             }
 
             ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
@@ -4158,7 +4157,6 @@ public class LocalExecutionPlanner
                     unspillMemoryLimit,
                     spillerFactory,
                     hashStrategyCompiler,
-                    typeOperators,
                     createPartialAggregationController(maxPartialAggregationMemorySize, step, session));
         }
     }

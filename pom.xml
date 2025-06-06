@@ -5,12 +5,12 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>262</version>
+        <version>264</version>
     </parent>
 
     <groupId>io.trino</groupId>
     <artifactId>trino-root</artifactId>
-    <version>476-SNAPSHOT</version>
+    <version>477-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>${project.artifactId}</name>
@@ -142,14 +142,14 @@
     <scm child.scm.connection.inherit.append.path="false" child.scm.developerConnection.inherit.append.path="false" child.scm.url.inherit.append.path="false">
         <connection>scm:git:git://github.com/trinodb/trino.git</connection>
         <developerConnection>scm:git:git@github.com:trinodb/trino.git</developerConnection>
-        <tag>HEAD</tag>
+        <tag>476</tag>
         <url>https://github.com/trinodb/trino</url>
     </scm>
 
     <properties>
         <project.build.targetJdk>24</project.build.targetJdk>
         <!-- for reproducible build support, updated by release plugin -->
-        <project.build.outputTimestamp>2025-04-23T23:42:41Z</project.build.outputTimestamp>
+        <project.build.outputTimestamp>2025-06-06T03:29:47Z</project.build.outputTimestamp>
         <!-- TODO remove this property when no module overrides it -->
         <trino.error-prone.guarded-by>ERROR</trino.error-prone.guarded-by>
 
@@ -180,31 +180,32 @@
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}</air.test.jvm.additional-arguments>
 
         <!-- keep dependency properties sorted -->
-        <dep.airlift.version>335</dep.airlift.version>
+        <dep.airlift.version>336</dep.airlift.version>
         <dep.alluxio.version>2.9.6</dep.alluxio.version>
         <dep.antlr.version>4.13.2</dep.antlr.version>
         <dep.avro.version>1.12.0</dep.avro.version>
-        <dep.aws-sdk.version>1.12.783</dep.aws-sdk.version>
+        <dep.aws-sdk.version>1.12.785</dep.aws-sdk.version>
         <dep.cassandra.version>4.17.0</dep.cassandra.version>
         <dep.confluent.version>7.8.0</dep.confluent.version>
+        <dep.checkstyle.version>10.23.1</dep.checkstyle.version>
         <dep.docker.images.version>113</dep.docker.images.version>
         <dep.drift.version>1.23</dep.drift.version>
-        <dep.flyway.version>11.8.2</dep.flyway.version>
+        <dep.flyway.version>11.9.1</dep.flyway.version>
         <dep.frontend-maven-plugin.version>1.15.1</dep.frontend-maven-plugin.version>
         <dep.frontend-node.version>v22.14.0</dep.frontend-node.version>
         <dep.frontend-npm.version>11.2.0</dep.frontend-npm.version>
         <dep.gib.version>4.5.4</dep.gib.version>
         <dep.httpcore5.version>5.3.4</dep.httpcore5.version>
-        <dep.iceberg.version>1.9.0</dep.iceberg.version>
+        <dep.iceberg.version>1.9.1</dep.iceberg.version>
         <dep.jna.version>5.17.0</dep.jna.version>
         <dep.jsonwebtoken.version>0.12.6</dep.jsonwebtoken.version>
         <dep.jts.version>1.20.0</dep.jts.version>
         <dep.kafka-clients.version>4.0.0</dep.kafka-clients.version>
-        <dep.okio.version>3.11.0</dep.okio.version>
+        <dep.okio.version>3.12.0</dep.okio.version>
         <dep.parquet.version>1.15.2</dep.parquet.version>
         <dep.plugin.failsafe.version>${dep.plugin.surefire.version}</dep.plugin.failsafe.version>
-        <dep.protobuf.version>3.25.7</dep.protobuf.version>
-        <dep.snowflake.version>3.24.0</dep.snowflake.version>
+        <dep.protobuf.version>3.25.8</dep.protobuf.version>
+        <dep.snowflake.version>3.24.2</dep.snowflake.version>
         <dep.swagger.version>2.2.32</dep.swagger.version>
         <dep.takari.version>2.3.0</dep.takari.version>
         <dep.tcnative.version>2.0.72.Final</dep.tcnative.version>
@@ -225,7 +226,7 @@
             <dependency>
                 <groupId>com.azure</groupId>
                 <artifactId>azure-sdk-bom</artifactId>
-                <version>1.2.34</version>
+                <version>1.2.35</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -297,7 +298,7 @@
             <dependency>
                 <groupId>org.testcontainers</groupId>
                 <artifactId>testcontainers-bom</artifactId>
-                <version>1.21.0</version>
+                <version>1.21.1</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -305,7 +306,7 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.31.49</version>
+                <version>2.31.57</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -313,7 +314,7 @@
             <dependency>
                 <groupId>com.adobe.testing</groupId>
                 <artifactId>s3mock-testcontainers</artifactId>
-                <version>4.3.0</version>
+                <version>4.4.0</version>
             </dependency>
 
             <dependency>
@@ -436,6 +437,12 @@
             </dependency>
 
             <dependency>
+                <groupId>com.fasterxml.woodstox</groupId>
+                <artifactId>woodstox-core</artifactId>
+                <version>7.1.1</version>
+            </dependency>
+
+            <dependency>
                 <groupId>com.github.ben-manes.caffeine</groupId>
                 <artifactId>caffeine</artifactId>
                 <version>3.2.0</version>
@@ -456,7 +463,7 @@
             <dependency>
                 <groupId>com.github.oshi</groupId>
                 <artifactId>oshi-core</artifactId>
-                <version>6.8.1</version>
+                <version>6.8.2</version>
             </dependency>
 
             <dependency>
@@ -468,7 +475,7 @@
             <dependency>
                 <groupId>com.google.cloud.bigdataoss</groupId>
                 <artifactId>gcs-connector</artifactId>
-                <version>3.1.2</version>
+                <version>3.1.3</version>
                 <classifier>shaded</classifier>
                 <exclusions>
                     <exclusion>
@@ -548,14 +555,14 @@
             <dependency>
                 <groupId>com.nimbusds</groupId>
                 <artifactId>oauth2-oidc-sdk</artifactId>
-                <version>11.24</version>
+                <version>11.25</version>
                 <classifier>jdk11</classifier>
             </dependency>
 
             <dependency>
                 <groupId>com.opencsv</groupId>
                 <artifactId>opencsv</artifactId>
-                <version>5.11</version>
+                <version>5.11.1</version>
             </dependency>
 
             <dependency>
@@ -724,7 +731,7 @@
             <dependency>
                 <groupId>io.azam.ulidj</groupId>
                 <artifactId>ulidj</artifactId>
-                <version>1.0.5</version>
+                <version>2.0.0</version>
             </dependency>
 
             <dependency>
@@ -777,7 +784,7 @@
             <dependency>
                 <groupId>io.dropwizard.metrics</groupId>
                 <artifactId>metrics-core</artifactId>
-                <version>4.2.30</version>
+                <version>4.2.32</version>
             </dependency>
 
             <dependency>
@@ -2186,7 +2193,7 @@
             <dependency>
                 <groupId>org.checkerframework</groupId>
                 <artifactId>checker-qual</artifactId>
-                <version>3.49.3</version>
+                <version>3.49.4</version>
             </dependency>
 
             <dependency>
@@ -2291,7 +2298,7 @@
             <dependency>
                 <groupId>org.postgresql</groupId>
                 <artifactId>postgresql</artifactId>
-                <version>42.7.5</version>
+                <version>42.7.6</version>
             </dependency>
 
             <dependency>
@@ -2456,7 +2463,7 @@
                 <plugin>
                     <groupId>org.codehaus.mojo</groupId>
                     <artifactId>exec-maven-plugin</artifactId>
-                    <version>3.5.0</version>
+                    <version>3.5.1</version>
                 </plugin>
 
                 <plugin>

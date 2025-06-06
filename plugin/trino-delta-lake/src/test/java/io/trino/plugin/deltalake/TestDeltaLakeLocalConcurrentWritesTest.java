@@ -23,6 +23,7 @@ import io.trino.filesystem.TrinoOutputFile;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
@@ -205,6 +206,7 @@ public class TestDeltaLakeLocalConcurrentWritesTest
     }
 
     @Test
+    @Disabled // TODO https://github.com/trinodb/trino/issues/21725 Fix flaky test
     public void testConcurrentInsertsSelectingFromTheSameVersionedTable()
             throws Exception
     {
@@ -391,6 +393,7 @@ public class TestDeltaLakeLocalConcurrentWritesTest
 
     // Copied from BaseDeltaLakeConnectorSmokeTest
     @Test
+    @Disabled // TODO https://github.com/trinodb/trino/issues/22455 Fix flaky test
     public void testConcurrentInsertsReconciliationForMixedInserts()
             throws Exception
     {

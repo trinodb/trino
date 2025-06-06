@@ -534,7 +534,7 @@ public class IcebergPageSourceProvider
                     partitionSpecId,
                     partitionData,
                     dataColumns,
-                    parquetReaderOptions
+                    ParquetReaderOptions.builder(parquetReaderOptions)
                             .withMaxReadBlockSize(getParquetMaxReadBlockSize(session))
                             .withMaxReadBlockRowCount(getParquetMaxReadBlockRowCount(session))
                             .withSmallFileThreshold(getParquetSmallFileThreshold(session))
@@ -542,7 +542,8 @@ public class IcebergPageSourceProvider
                             .withBloomFilter(useParquetBloomFilter(session))
                             // TODO https://github.com/trinodb/trino/issues/11000
                             .withUseColumnIndex(false)
-                            .withVectorizedDecodingEnabled(isParquetVectorizedDecodingEnabled(session)),
+                            .withVectorizedDecodingEnabled(isParquetVectorizedDecodingEnabled(session))
+                            .build(),
                     predicate,
                     fileFormatDataSourceStats,
                     nameMapping,
@@ -1104,7 +1105,7 @@ public class IcebergPageSourceProvider
                 fileModifiedTime = OptionalLong.of(inputFile.lastModified().toEpochMilli());
             }
         }
-        catch (IOException e) {
+        catch (IOException | UncheckedIOException e) {
             throw new TrinoException(ICEBERG_CANNOT_OPEN_SPLIT, e);
         }
 
@@ -1189,7 +1190,7 @@ public class IcebergPageSourceProvider
                     Optional.empty(),
                     Optional.empty());
         }
-        catch (IOException e) {
+        catch (IOException | UncheckedIOException e) {
             throw new TrinoException(ICEBERG_CANNOT_OPEN_SPLIT, e);
         }
     }

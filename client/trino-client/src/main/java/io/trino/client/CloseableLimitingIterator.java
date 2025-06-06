@@ -11,37 +11,44 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.jdbc;
+package io.trino.client;
 
 import com.google.common.collect.AbstractIterator;
 
+import java.io.IOException;
+
 import static java.util.Objects.requireNonNull;
 
-public class CancellableLimitingIterator<T>
+public class CloseableLimitingIterator<T>
         extends AbstractIterator<T>
-        implements CancellableIterator<T>
+        implements CloseableIterator<T>
 {
     private final long maxRows;
-    private final CancellableIterator<T> delegate;
+    private final CloseableIterator<T> delegate;
     private long currentRow;
 
-    CancellableLimitingIterator(CancellableIterator<T> delegate, long maxRows)
+    CloseableLimitingIterator(CloseableIterator<T> delegate, long maxRows)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.maxRows = maxRows;
     }
 
     @Override
-    public void cancel()
+    public void close()
+            throws IOException
     {
-        delegate.cancel();
+        delegate.close();
     }
 
     @Override
     protected T computeNext()
     {
         if (maxRows > 0 && currentRow >= maxRows) {
-            cancel();
+            try {
+                close();
+            }
+            catch (IOException ignored) {
+            }
             return endOfData();
         }
         currentRow++;
@@ -51,8 +58,14 @@ public class CancellableLimitingIterator<T>
         return endOfData();
     }
 
-    static <T> CancellableIterator<T> limit(CancellableIterator<T> delegate, long maxRows)
+    @Override
+    public String toString()
     {
-        return new CancellableLimitingIterator<>(delegate, maxRows);
+        return "CloseableLimitingIterator{delegate=" + delegate + ", maxRows=" + maxRows + "}";
+    }
+
+    public static <T> CloseableIterator<T> limit(CloseableIterator<T> delegate, long maxRows)
+    {
+        return new CloseableLimitingIterator<>(delegate, maxRows);
     }
 }

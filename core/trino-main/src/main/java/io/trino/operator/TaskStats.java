@@ -58,6 +58,8 @@ public class TaskStats
     private final DataSize peakUserMemoryReservation;
     private final DataSize revocableMemoryReservation;
 
+    private final DataSize spilledDataSize;
+
     private final Duration totalScheduledTime;
     private final Duration totalCpuTime;
     private final Duration totalBlockedTime;
@@ -116,6 +118,7 @@ public class TaskStats
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
+                DataSize.ofBytes(0),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
@@ -167,6 +170,8 @@ public class TaskStats
             @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
             @JsonProperty("peakUserMemoryReservation") DataSize peakUserMemoryReservation,
             @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
+
+            @JsonProperty("spilledDataSize") DataSize spilledDataSize,
 
             @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
             @JsonProperty("totalCpuTime") Duration totalCpuTime,
@@ -238,6 +243,8 @@ public class TaskStats
         this.userMemoryReservation = requireNonNull(userMemoryReservation, "userMemoryReservation is null");
         this.peakUserMemoryReservation = requireNonNull(peakUserMemoryReservation, "peakUserMemoryReservation is null");
         this.revocableMemoryReservation = requireNonNull(revocableMemoryReservation, "revocableMemoryReservation is null");
+
+        this.spilledDataSize = requireNonNull(spilledDataSize, "spilledDataSize is null");
 
         this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
         this.totalCpuTime = requireNonNull(totalCpuTime, "totalCpuTime is null");
@@ -386,6 +393,12 @@ public class TaskStats
     public DataSize getRevocableMemoryReservation()
     {
         return revocableMemoryReservation;
+    }
+
+    @JsonProperty
+    public DataSize getSpilledDataSize()
+    {
+        return spilledDataSize;
     }
 
     @JsonProperty
@@ -580,6 +593,7 @@ public class TaskStats
                 userMemoryReservation,
                 peakUserMemoryReservation,
                 revocableMemoryReservation,
+                spilledDataSize,
                 totalScheduledTime,
                 totalCpuTime,
                 totalBlockedTime,
@@ -630,6 +644,7 @@ public class TaskStats
                 userMemoryReservation,
                 peakUserMemoryReservation,
                 revocableMemoryReservation,
+                spilledDataSize,
                 totalScheduledTime,
                 totalCpuTime,
                 totalBlockedTime,
@@ -680,6 +695,7 @@ public class TaskStats
                 userMemoryReservation,
                 peakUserMemoryReservation,
                 revocableMemoryReservation,
+                spilledDataSize,
                 totalScheduledTime,
                 totalCpuTime,
                 totalBlockedTime,

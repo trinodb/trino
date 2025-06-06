@@ -39,7 +39,8 @@ this spill path is not eligible for spilling.
 ## `spiller-threads`
 
 - **Type:** {ref}`prop-type-integer`
-- **Default value:** `4`
+- **Default value:** The number of spill directories multiplied by 2, with a minimum
+  value of 4.
 
 Number of spiller threads. Increase this value if the default is not able
 to saturate the underlying spilling device (for example, when using RAID).

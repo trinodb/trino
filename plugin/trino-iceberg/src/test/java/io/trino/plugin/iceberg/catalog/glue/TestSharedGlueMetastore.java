@@ -26,7 +26,6 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
@@ -148,14 +147,4 @@ public class TestSharedGlueMetastore
                 ")";
         return format(expectedIcebergCreateSchema, catalogName, tpchSchema, dataDirectory.toUri());
     }
-
-    // TODO https://github.com/trinodb/trino/issues/25859 Fix broken migrate procedure on Glue metastore
-    @Test
-    @Override
-    public void testMigrateTable() {}
-
-    // TODO https://github.com/trinodb/trino/issues/25859 Fix broken migrate procedure on Glue metastore
-    @Test
-    @Override
-    public void testMigratePartitionedTable() {}
 }

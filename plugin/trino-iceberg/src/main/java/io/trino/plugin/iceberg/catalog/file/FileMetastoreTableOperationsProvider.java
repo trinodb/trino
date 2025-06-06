@@ -24,6 +24,7 @@ import io.trino.spi.connector.ConnectorSession;
 
 import java.util.Optional;
 
+import static io.trino.plugin.iceberg.IcebergSessionProperties.isUseFileSizeFromMetadata;
 import static java.util.Objects.requireNonNull;
 
 public class FileMetastoreTableOperationsProvider
@@ -47,7 +48,7 @@ public class FileMetastoreTableOperationsProvider
             Optional<String> location)
     {
         return new FileMetastoreTableOperations(
-                new ForwardingFileIo(fileSystemFactory.create(session)),
+                new ForwardingFileIo(fileSystemFactory.create(session), isUseFileSizeFromMetadata(session)),
                 ((TrinoHiveCatalog) catalog).getMetastore(),
                 session,
                 database,

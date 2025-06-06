@@ -61,6 +61,7 @@ public class TestStageStats
             DataSize.ofBytes(16),
             DataSize.ofBytes(17),
             DataSize.ofBytes(18),
+            DataSize.ofBytes(19),
 
             new Duration(19, NANOSECONDS),
             new Duration(20, NANOSECONDS),
@@ -155,6 +156,8 @@ public class TestStageStats
         assertThat(actual.getTotalMemoryReservation()).isEqualTo(DataSize.ofBytes(16));
         assertThat(actual.getPeakUserMemoryReservation()).isEqualTo(DataSize.ofBytes(17));
         assertThat(actual.getPeakRevocableMemoryReservation()).isEqualTo(DataSize.ofBytes(18));
+
+        assertThat(actual.getSpilledDataSize()).isEqualTo(DataSize.ofBytes(19));
 
         assertThat(actual.getTotalScheduledTime()).isEqualTo(new Duration(19, NANOSECONDS));
         assertThat(actual.getFailedScheduledTime()).isEqualTo(new Duration(20, NANOSECONDS));

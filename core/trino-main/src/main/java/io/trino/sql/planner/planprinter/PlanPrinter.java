@@ -450,6 +450,9 @@ public class PlanPrinter
                 queryStats.getExecutionTime().convertToMostSuccinctTimeUnit()));
 
         for (StageInfo stageInfo : allStages) {
+            if (stageInfo.getPlan() == null) {
+                continue;
+            }
             builder.append(formatFragment(
                     tableScanNode -> tableInfos.get(tableScanNode.getId()),
                     dynamicFilterDomainStats,

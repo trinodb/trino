@@ -163,6 +163,8 @@ public class TestJdbcConnection
                 Statement statement = connection.createStatement()) {
             statement.execute("SET ROLE admin IN hive");
             statement.execute("CREATE SCHEMA default");
+            statement.execute("CREATE TABLE hive.default.dummy(a bigint)");
+
             statement.execute("CREATE SCHEMA fruit");
             statement.execute(
                     "CREATE TABLE blackhole.default.devzero(dummy bigint) " +
@@ -649,6 +651,37 @@ public class TestJdbcConnection
 
         assertThatCode(() -> createConnectionUsingInvalidPassword("validateConnection=false"))
                 .doesNotThrowAnyException();
+    }
+
+    private Connection createConnectionCatalogSchema(String catalog, String schema)
+            throws SQLException
+    {
+        String url = format("jdbc:trino://localhost:%s/%s/%s", server.getHttpsAddress().getPort(), catalog, schema);
+        Properties properties = new Properties();
+        properties.put("user", TEST_USER);
+        properties.put("password", TEST_PASSWORD);
+        properties.setProperty("SSL", "true");
+        properties.setProperty("SSLTrustStorePath", sslTrustStorePath);
+        properties.setProperty("SSLTrustStorePassword", "changeit");
+        return DriverManager.getConnection(url, properties);
+    }
+
+    @Test
+    public void testMixedCaseSchema()
+            throws SQLException
+    {
+        try (Connection conn = createConnectionCatalogSchema("hive", "DeFaUlT")) {
+            assertThat(conn.createStatement().execute("select * from dummy")).isTrue();
+        }
+    }
+
+    @Test
+    public void testMixedCaseCatalog()
+            throws SQLException
+    {
+        try (Connection conn = createConnectionCatalogSchema("HiVe", "default")) {
+            assertThat(conn.createStatement().execute("select * from dummy")).isTrue();
+        }
     }
 
     private void testConcurrentCancellationOnConnectionClose(boolean autoCommit)

@@ -27,7 +27,6 @@ import io.trino.operator.WorkProcessor;
 import io.trino.operator.aggregation.AggregatorFactory;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
 import io.trino.spiller.Spiller;
 import io.trino.spiller.SpillerFactory;
 import io.trino.sql.planner.plan.AggregationNode;
@@ -35,13 +34,21 @@ import io.trino.sql.planner.plan.AggregationNode;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
+import static io.airlift.concurrent.MoreFutures.asVoid;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
-import static io.trino.operator.Operator.NOT_BLOCKED;
+import static io.trino.operator.WorkProcessor.ProcessState.Type.FINISHED;
+import static io.trino.operator.WorkProcessor.ProcessState.Type.RESULT;
+import static io.trino.operator.WorkProcessor.ProcessState.blocked;
+import static io.trino.operator.WorkProcessor.ProcessState.finished;
+import static io.trino.operator.WorkProcessor.ProcessState.ofResult;
+import static io.trino.operator.WorkProcessor.flatten;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 
@@ -64,15 +71,15 @@ public class SpillableHashAggregationBuilder
     private Optional<Spiller> spiller = Optional.empty();
     private Optional<MergingHashAggregationBuilder> merger = Optional.empty();
     private Optional<MergeHashSort> mergeHashSort = Optional.empty();
-    private ListenableFuture<Void> spillInProgress = immediateVoidFuture();
+    private ListenableFuture<DataSize> spillInProgress = immediateFuture(DataSize.ofBytes(0L));
     private final FlatHashStrategyCompiler hashStrategyCompiler;
-    private final TypeOperators typeOperators;
     private final AggregationMetrics aggregationMetrics;
 
     // todo get rid of that and only use revocable memory
     private long emptyHashAggregationBuilderSize;
 
     private boolean producingOutput;
+    private boolean finishing;
 
     public SpillableHashAggregationBuilder(
             List<AggregatorFactory> aggregatorFactories,
@@ -86,7 +93,6 @@ public class SpillableHashAggregationBuilder
             DataSize memoryLimitForMergeWithMemory,
             SpillerFactory spillerFactory,
             FlatHashStrategyCompiler hashStrategyCompiler,
-            TypeOperators typeOperators,
             AggregationMetrics aggregationMetrics)
     {
         this.aggregatorFactories = aggregatorFactories;
@@ -102,7 +108,6 @@ public class SpillableHashAggregationBuilder
         this.memoryLimitForMergeWithMemory = memoryLimitForMergeWithMemory.toBytes();
         this.spillerFactory = spillerFactory;
         this.hashStrategyCompiler = hashStrategyCompiler;
-        this.typeOperators = typeOperators;
         this.aggregationMetrics = requireNonNull(aggregationMetrics, "aggregationMetrics is null");
 
         rebuildHashAggregationBuilder();
@@ -152,18 +157,13 @@ public class SpillableHashAggregationBuilder
     @Override
     public ListenableFuture<Void> startMemoryRevoke()
     {
-        if (producingOutput) {
-            // all revocable memory has been released in buildResult method
-            verify(localRevocableMemoryContext.getBytes() == 0);
-            return NOT_BLOCKED;
-        }
-
         return spillToDisk();
     }
 
     @Override
     public void finishMemoryRevoke()
     {
+        checkState(hasPreviousSpillCompletedSuccessfully(), "Previous spill hasn't yet finished");
         updateMemory();
     }
 
@@ -175,33 +175,41 @@ public class SpillableHashAggregationBuilder
     @Override
     public WorkProcessor<Page> buildResult()
     {
-        checkState(hasPreviousSpillCompletedSuccessfully(), "Previous spill hasn't yet finished");
-        producingOutput = true;
+        return flatten(WorkProcessor.create(() -> {
+            checkState(hasPreviousSpillCompletedSuccessfully(), "Previous spill hasn't yet finished");
+            // update memory after potential spill from the previous call to buildResult
+            updateMemory();
+            producingOutput = true;
 
-        // Convert revocable memory to user memory as returned WorkProcessor holds on to memory so we no longer can revoke.
-        if (localRevocableMemoryContext.getBytes() > 0) {
-            long currentRevocableBytes = localRevocableMemoryContext.getBytes();
-            localRevocableMemoryContext.setBytes(0);
-            if (!localUserMemoryContext.trySetBytes(localUserMemoryContext.getBytes() + currentRevocableBytes)) {
-                // TODO: this might fail (even though we have just released memory), but we don't
-                // have a proper way to atomically convert memory reservations
-                localRevocableMemoryContext.setBytes(currentRevocableBytes);
-                // spill since revocable memory could not be converted to user memory immediately
-                // TODO: this should be asynchronous
-                getFutureValue(spillToDisk());
-                updateMemory();
+            if (finishing) {
+                return finished();
             }
-        }
 
-        if (spiller.isEmpty()) {
-            return hashAggregationBuilder.buildResult();
-        }
+            if (localRevocableMemoryContext.getBytes() > 0) {
+                // No spill happened, try to build result from memory
+                if (spiller.isEmpty()) {
+                    // No spill happened, try to build result from memory. Revocable memory needs to be converted to user memory as producing output stage is no longer revocable.
+                    long currentRevocableBytes = localRevocableMemoryContext.getBytes();
+                    localRevocableMemoryContext.setBytes(0);
+                    if (!localUserMemoryContext.trySetBytes(localUserMemoryContext.getBytes() + currentRevocableBytes)) {
+                        // TODO: this might fail (even though we have just released memory), but we don't
+                        // have a proper way to atomically convert memory reservations
+                        localRevocableMemoryContext.setBytes(currentRevocableBytes);
+                        // spill since revocable memory could not be converted to user memory immediately
+                        return blocked(spillToDisk());
+                    }
+                }
+                else if (!shouldMergeWithMemory(getSizeInMemoryWhenUnspilling())) {
+                    return blocked(spillToDisk());
+                }
+            }
 
-        if (shouldMergeWithMemory(getSizeInMemoryWhenUnspilling())) {
-            return mergeFromDiskAndMemory();
-        }
-        getFutureValue(spillToDisk());
-        return mergeFromDisk();
+            finishing = true;
+            if (spiller.isEmpty()) {
+                return ofResult(hashAggregationBuilder.buildResult());
+            }
+            return ofResult(mergeFromDiskAndMemory());
+        }));
     }
 
     /**
@@ -236,23 +244,42 @@ public class SpillableHashAggregationBuilder
 
     private ListenableFuture<Void> spillToDisk()
     {
+        if (!spillInProgress.isDone()) {
+            // Spill can be triggered first in SpillableHashAggregationBuilder.buildResult and then by Driver (via HashAggregationOperator#startMemoryRevoke).
+            // While spill is in progress revocable memory is not released, hence redundant call to spillToDisk might be made.
+            return asVoid(spillInProgress);
+        }
+
+        if (localRevocableMemoryContext.getBytes() == 0 || hasNoGroups()) {
+            // This must be a stale revoke request as hashAggregationBuilder revocable memory could have been converted to user memory or
+            // spill is completed but updateMemory() was not called yet.
+            return immediateVoidFuture();
+        }
+
         checkState(hasPreviousSpillCompletedSuccessfully(), "Previous spill hasn't yet finished");
         hashAggregationBuilder.setSpillOutput();
 
         if (spiller.isEmpty()) {
             spiller = Optional.of(spillerFactory.create(
-                    hashAggregationBuilder.buildTypes(),
+                    hashAggregationBuilder.buildSpillTypes(),
                     operatorContext.getSpillContext(),
                     operatorContext.newAggregateUserMemoryContext()));
         }
 
         // start spilling process with current content of the hashAggregationBuilder builder...
-        spillInProgress = spiller.get().spill(hashAggregationBuilder.buildHashSortedResult().iterator());
+        long spillStartNanos = System.nanoTime();
+        spillInProgress = spiller.get().spill(hashAggregationBuilder.buildSpillResult().iterator());
+        addSuccessCallback(spillInProgress, dataSize -> aggregationMetrics.recordSpillSince(spillStartNanos, dataSize.toBytes()));
         // ... and immediately create new hashAggregationBuilder so effectively memory ownership
         // over hashAggregationBuilder is transferred from this thread to a spilling thread
         rebuildHashAggregationBuilder();
 
-        return spillInProgress;
+        return asVoid(spillInProgress);
+    }
+
+    private boolean hasNoGroups()
+    {
+        return hashAggregationBuilder.getGroupCount() == 0;
     }
 
     private WorkProcessor<Page> mergeFromDiskAndMemory()
@@ -260,37 +287,34 @@ public class SpillableHashAggregationBuilder
         checkState(spiller.isPresent());
 
         hashAggregationBuilder.setSpillOutput();
-        mergeHashSort = Optional.of(new MergeHashSort(operatorContext.newAggregateUserMemoryContext(), typeOperators));
+        mergeHashSort = Optional.of(new MergeHashSort(operatorContext.newAggregateUserMemoryContext()));
 
+        List<Type> spillTypes = hashAggregationBuilder.buildSpillTypes();
+        long unspillStartNanos = System.nanoTime();
+        AtomicLong unspillBytes = new AtomicLong(0);
         WorkProcessor<Page> mergedSpilledPages = mergeHashSort.get().merge(
-                groupByTypes,
-                hashAggregationBuilder.buildSpillTypes(),
+                spillTypes,
                 ImmutableList.<WorkProcessor<Page>>builder()
                         .addAll(spiller.get().getSpills().stream()
                                 .map(WorkProcessor::fromIterator)
+                                .map(processor -> processor.withProcessStateMonitor(state -> {
+                                    if (state.getType() == RESULT) {
+                                        unspillBytes.addAndGet(state.getResult().getSizeInBytes());
+                                    }
+                                }))
                                 .collect(toImmutableList()))
-                        .add(hashAggregationBuilder.buildHashSortedResult())
+                        .add(hashAggregationBuilder.buildSpillResult())
                         .build(),
-                operatorContext.getDriverContext().getYieldSignal());
+                operatorContext.getDriverContext().getYieldSignal(),
+                spillTypes.size() - 1);
+        mergedSpilledPages = mergedSpilledPages.withProcessStateMonitor(state -> {
+            if (state.getType() == FINISHED) {
+                aggregationMetrics.recordUnspillSince(unspillStartNanos, unspillBytes.get());
+            }
+        });
 
+        spiller = Optional.empty();
         return mergeSortedPages(mergedSpilledPages, max(memoryLimitForMerge - memoryLimitForMergeWithMemory, 1L));
-    }
-
-    private WorkProcessor<Page> mergeFromDisk()
-    {
-        checkState(spiller.isPresent());
-
-        mergeHashSort = Optional.of(new MergeHashSort(operatorContext.newAggregateUserMemoryContext(), typeOperators));
-
-        WorkProcessor<Page> mergedSpilledPages = mergeHashSort.get().merge(
-                groupByTypes,
-                hashAggregationBuilder.buildSpillTypes(),
-                spiller.get().getSpills().stream()
-                        .map(WorkProcessor::fromIterator)
-                        .collect(toImmutableList()),
-                operatorContext.getDriverContext().getYieldSignal());
-
-        return mergeSortedPages(mergedSpilledPages, memoryLimitForMerge);
     }
 
     private WorkProcessor<Page> mergeSortedPages(WorkProcessor<Page> sortedPages, long memoryLimitForMerge)

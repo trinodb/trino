@@ -38,7 +38,6 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.BYTE;
-import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.execution.DistributionSnapshot.pruneMetrics;
 import static io.trino.execution.StageState.RUNNING;
 import static java.lang.Math.min;
@@ -71,6 +70,8 @@ public class StageStats
     private final DataSize totalMemoryReservation;
     private final DataSize peakUserMemoryReservation;
     private final DataSize peakRevocableMemoryReservation;
+
+    private final DataSize spilledDataSize;
 
     private final Duration totalScheduledTime;
     private final Duration failedScheduledTime;
@@ -148,6 +149,8 @@ public class StageStats
             @JsonProperty("totalMemoryReservation") DataSize totalMemoryReservation,
             @JsonProperty("peakUserMemoryReservation") DataSize peakUserMemoryReservation,
             @JsonProperty("peakRevocableMemoryReservation") DataSize peakRevocableMemoryReservation,
+
+            @JsonProperty("spilledDataSize") DataSize spilledDataSize,
 
             @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
             @JsonProperty("failedScheduledTime") Duration failedScheduledTime,
@@ -231,6 +234,7 @@ public class StageStats
         this.totalMemoryReservation = requireNonNull(totalMemoryReservation, "totalMemoryReservation is null");
         this.peakUserMemoryReservation = requireNonNull(peakUserMemoryReservation, "peakUserMemoryReservation is null");
         this.peakRevocableMemoryReservation = requireNonNull(peakRevocableMemoryReservation, "peakRevocableMemoryReservation is null");
+        this.spilledDataSize = requireNonNull(spilledDataSize, "spilledDataSize is null");
 
         this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
         this.failedScheduledTime = requireNonNull(failedScheduledTime, "failedScheduledTime is null");
@@ -407,6 +411,12 @@ public class StageStats
     public DataSize getPeakRevocableMemoryReservation()
     {
         return peakRevocableMemoryReservation;
+    }
+
+    @JsonProperty
+    public DataSize getSpilledDataSize()
+    {
+        return spilledDataSize;
     }
 
     @JsonProperty
@@ -678,7 +688,7 @@ public class StageStats
                 internalNetworkInputPositions,
                 rawInputDataSize,
                 rawInputPositions,
-                succinctBytes(operatorSummaries.stream().mapToLong(operatorSummary -> operatorSummary.getSpilledDataSize().toBytes()).sum()),
+                spilledDataSize,
                 (long) cumulativeUserMemory,
                 (long) failedCumulativeUserMemory,
                 userMemoryReservation,
@@ -715,6 +725,7 @@ public class StageStats
                 totalMemoryReservation,
                 peakUserMemoryReservation,
                 peakRevocableMemoryReservation,
+                spilledDataSize,
                 totalScheduledTime,
                 failedScheduledTime,
                 totalCpuTime,
@@ -778,6 +789,7 @@ public class StageStats
                 0,
                 0,
                 0,
+                zeroBytes,
                 zeroBytes,
                 zeroBytes,
                 zeroBytes,

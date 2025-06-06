@@ -102,7 +102,7 @@ public class RedshiftPageSourceProvider
     private ParquetReader parquetReader(TrinoInputFile inputFile, List<ColumnHandle> columns)
             throws IOException
     {
-        ParquetReaderOptions options = new ParquetReaderOptions();
+        ParquetReaderOptions options = ParquetReaderOptions.defaultOptions();
         TrinoParquetDataSource dataSource = new TrinoParquetDataSource(inputFile, options, fileFormatDataSourceStats);
         ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
         MessageType fileSchema = parquetMetadata.getFileMetaData().getSchema();

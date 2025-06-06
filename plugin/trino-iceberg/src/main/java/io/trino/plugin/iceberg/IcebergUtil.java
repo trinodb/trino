@@ -79,6 +79,7 @@ import org.apache.iceberg.types.Types.NestedField;
 import org.apache.iceberg.types.Types.StructType;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.lang.invoke.MethodHandle;
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -1148,7 +1149,7 @@ public final class IcebergUtil
                         latestMetadataLocations));
             }
         }
-        catch (IOException e) {
+        catch (IOException | UncheckedIOException e) {
             throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed checking table location: " + location, e);
         }
         return getOnlyElement(latestMetadataLocations).toString();
@@ -1193,7 +1194,7 @@ public final class IcebergUtil
             TrinoInputFile inputFile = fileSystem.newInputFile(Location.of(path));
             return inputFile.lastModified().toEpochMilli();
         }
-        catch (IOException e) {
+        catch (IOException | UncheckedIOException e) {
             throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed to get file modification time: " + path, e);
         }
     }

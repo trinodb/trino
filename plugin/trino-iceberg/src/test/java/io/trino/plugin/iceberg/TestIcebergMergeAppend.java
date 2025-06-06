@@ -27,7 +27,6 @@ import io.trino.spi.type.TestingTypeManager;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.TestingConnectorSession;
 import org.apache.iceberg.Table;
 import org.junit.jupiter.api.Test;
 
@@ -72,7 +71,7 @@ public class TestIcebergMergeAppend
     public void testInsertWithAppend()
     {
         assertUpdate("CREATE TABLE table_to_insert (_bigint BIGINT, _varchar VARCHAR)");
-        Table table = IcebergUtil.loadIcebergTable(trinoCatalog, tableOperationsProvider, TestingConnectorSession.SESSION,
+        Table table = IcebergUtil.loadIcebergTable(trinoCatalog, tableOperationsProvider, IcebergTestUtils.SESSION,
                 new SchemaTableName("tpch", "table_to_insert"));
         table.updateProperties()
                 .set("commit.manifest.min-count-to-merge", "2")

@@ -398,7 +398,7 @@ public class TestDeltaLakeBasic
             RowType partitionValuesParsedType = (RowType) partitionValuesParsedField.getType();
             assertThat(partitionValuesParsedType.getFields().stream().collect(onlyElement()).getName().orElseThrow()).isEqualTo(physicalColumnName);
 
-            TrinoParquetDataSource dataSource = new TrinoParquetDataSource(new LocalInputFile(checkpoint.toFile()), new ParquetReaderOptions(), new FileFormatDataSourceStats());
+            TrinoParquetDataSource dataSource = new TrinoParquetDataSource(new LocalInputFile(checkpoint.toFile()), ParquetReaderOptions.defaultOptions(), new FileFormatDataSourceStats());
             ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
             try (ParquetReader reader = createParquetReader(dataSource, parquetMetadata, ImmutableList.of(addEntryType), List.of("add"))) {
                 List<Object> actual = new ArrayList<>();
@@ -477,7 +477,7 @@ public class TestDeltaLakeBasic
         // Verify optimized parquet file contains the expected physical id and name
         TrinoInputFile inputFile = new LocalInputFile(tableLocation.resolve(addFileEntry.getPath()).toFile());
         ParquetMetadata parquetMetadata = MetadataReader.readFooter(
-                new TrinoParquetDataSource(inputFile, new ParquetReaderOptions(), new FileFormatDataSourceStats()),
+                new TrinoParquetDataSource(inputFile, ParquetReaderOptions.defaultOptions(), new FileFormatDataSourceStats()),
                 Optional.empty());
         FileMetadata fileMetaData = parquetMetadata.getFileMetaData();
         PrimitiveType physicalType = getOnlyElement(fileMetaData.getSchema().getColumns().iterator()).getPrimitiveType();
@@ -1691,7 +1691,7 @@ public class TestDeltaLakeBasic
         assertQueryFails("TABLE " + tableName, "Metadata not found in transaction log for tpch." + tableName);
         assertQueryFails("SELECT * FROM \"" + tableName + "$history\"", "Metadata not found in transaction log for tpch." + tableName);
         assertQueryFails("SELECT * FROM \"" + tableName + "$properties\"", "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("SELECT * FROM \"" + tableName + "$partitions\"", "Metadata not found in transaction log for tpch." + tableName + "\\$partitions");
+        assertQueryFails("SELECT * FROM \"" + tableName + "$partitions\"", "Metadata not found in transaction log for tpch." + tableName);
         assertQueryFails("SELECT * FROM " + tableName + " WHERE false", "Metadata not found in transaction log for tpch." + tableName);
         assertQueryFails("SELECT 1 FROM " + tableName + " WHERE false", "Metadata not found in transaction log for tpch." + tableName);
         assertQueryFails("SHOW CREATE TABLE " + tableName, "Metadata not found in transaction log for tpch." + tableName);

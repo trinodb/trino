@@ -15,6 +15,7 @@ package io.trino.operator;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.client.spooling.DataAttributes;
 import io.trino.memory.context.AggregatedMemoryContext;
@@ -47,6 +48,7 @@ import java.util.function.ToLongFunction;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.airlift.units.Duration.succinctDuration;
 import static io.trino.client.spooling.DataAttribute.EXPIRES_AT;
 import static io.trino.client.spooling.DataAttribute.ROWS_COUNT;
@@ -142,6 +144,8 @@ public class OutputSpoolingOperatorFactory
     static class OutputSpoolingOperator
             implements Operator
     {
+        private static final long SPOOLING_THRESHOLD = DataSize.of(2, MEGABYTE).toBytes(); // this roughly translates to 400 KB compressed segment
+
         private final SpoolingController controller;
         private final ZoneId clientZoneId;
 
@@ -205,13 +209,13 @@ public class OutputSpoolingOperatorFactory
             outputPage = switch (controller.nextMode(page)) {
                 case SPOOL -> {
                     buffer.add(page);
-                    yield outputBuffer();
+                    yield outputBuffer(false);
                 }
                 case BUFFER -> {
                     buffer.add(page);
                     yield null;
                 }
-                case INLINE -> inline(page);
+                case INLINE -> inline(List.of(page));
             };
 
             if (outputPage != null) {
@@ -239,7 +243,7 @@ public class OutputSpoolingOperatorFactory
         public void finish()
         {
             if (state == NEEDS_INPUT) {
-                outputPage = outputBuffer();
+                outputPage = outputBuffer(true);
                 if (outputPage != null) {
                     state = HAS_LAST_OUTPUT;
                     controller.finish();
@@ -256,10 +260,15 @@ public class OutputSpoolingOperatorFactory
             return state == FINISHED;
         }
 
-        private Page outputBuffer()
+        private Page outputBuffer(boolean lastPage)
         {
             if (buffer.isEmpty()) {
                 return null;
+            }
+
+            if (lastPage && buffer.getSize() < SPOOLING_THRESHOLD) {
+                // If the buffer is small enough, inline it to save the overhead of spooling
+                return inline(buffer.removeAll());
             }
 
             return spool(buffer.removeAll());
@@ -294,13 +303,13 @@ public class OutputSpoolingOperatorFactory
             }
         }
 
-        private Page inline(Page page)
+        private Page inline(List<Page> pages)
         {
             OperationTimer overallTimer = new OperationTimer(false);
             try (ByteArrayOutputStream output = new ByteArrayOutputStream()) {
-                DataAttributes attributes = queryDataEncoder.encodeTo(output, List.of(page))
+                DataAttributes attributes = queryDataEncoder.encodeTo(output, pages)
                         .toBuilder()
-                        .set(ROWS_COUNT, (long) page.getPositionCount())
+                        .set(ROWS_COUNT, reduce(pages, Page::getPositionCount))
                         .build();
                 inlinedEncodedBytes.addAndGet(attributes.get(SEGMENT_SIZE, Integer.class));
                 return SpooledMetadataBlock.forInlineData(attributes, output.toByteArray()).serialize();

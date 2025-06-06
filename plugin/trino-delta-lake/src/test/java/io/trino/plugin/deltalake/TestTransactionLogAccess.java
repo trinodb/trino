@@ -31,6 +31,7 @@ import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.MetadataAndProtocolEntries;
+import io.trino.plugin.deltalake.transactionlog.reader.FileSystemTransactionLogReaderFactory;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
@@ -72,6 +73,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.filesystem.tracing.FileSystemAttributes.FILE_LOCATION;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
+import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.createTable;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractColumnMetadata;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.LAST_CHECKPOINT_FILENAME;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.TRANSACTION_LOG_DIRECTORY;
@@ -137,26 +139,10 @@ public class TestTransactionLogAccess
                 fileFormatDataSourceStats,
                 tracingFileSystemFactory,
                 new ParquetReaderConfig(),
-                newDirectExecutorService());
+                newDirectExecutorService(),
+                new FileSystemTransactionLogReaderFactory(tracingFileSystemFactory));
 
-        DeltaLakeTableHandle tableHandle = new DeltaLakeTableHandle(
-                "schema",
-                tableName,
-                true,
-                "location",
-                new MetadataEntry("id", "test", "description", null, "", ImmutableList.of(), ImmutableMap.of(), 0),
-                new ProtocolEntry(1, 2, Optional.empty(), Optional.empty()),
-                TupleDomain.none(),
-                TupleDomain.none(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                0,
-                false);
-
-        tableSnapshot = transactionLogAccess.loadSnapshot(SESSION, tableHandle.getSchemaTableName(), tableLocation, endVersion);
+        tableSnapshot = transactionLogAccess.loadSnapshot(SESSION, createTable(new SchemaTableName("schema", tableName), tableLocation), endVersion);
     }
 
     @Test
@@ -199,7 +185,7 @@ public class TestTransactionLogAccess
         MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(SESSION, tableSnapshot);
         ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, tableSnapshot);
         List<AddFileEntry> addFileEntries;
-        try (Stream<AddFileEntry> addFileEntriesStream = transactionLogAccess.getActiveFiles(SESSION, tableSnapshot, metadataEntry, protocolEntry, TupleDomain.all(), alwaysTrue())) {
+        try (Stream<AddFileEntry> addFileEntriesStream = transactionLogAccess.getActiveFiles(SESSION, createTable(metadataEntry, protocolEntry), tableSnapshot, TupleDomain.all(), alwaysTrue())) {
             addFileEntries = addFileEntriesStream.collect(toImmutableList());
         }
         Set<String> paths = addFileEntries
@@ -208,7 +194,7 @@ public class TestTransactionLogAccess
                 .collect(Collectors.toSet());
         assertThat(paths).isEqualTo(EXPECTED_ADD_FILE_PATHS);
 
-        try (Stream<AddFileEntry> checkpointFilteredAddFileEntriesStream = transactionLogAccess.getActiveFiles(SESSION, tableSnapshot, metadataEntry, protocolEntry, TupleDomain.all(), alwaysTrue())) {
+        try (Stream<AddFileEntry> checkpointFilteredAddFileEntriesStream = transactionLogAccess.getActiveFiles(SESSION, createTable(metadataEntry, protocolEntry), tableSnapshot, TupleDomain.all(), alwaysTrue())) {
             assertThat(checkpointFilteredAddFileEntriesStream.collect(toImmutableList())).isEqualTo(addFileEntries);
         }
 
@@ -238,7 +224,7 @@ public class TestTransactionLogAccess
         MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(SESSION, tableSnapshot);
         ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, tableSnapshot);
 
-        try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(SESSION, tableSnapshot, metadataEntry, protocolEntry, TupleDomain.all(), alwaysTrue())) {
+        try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(SESSION, createTable(metadataEntry, protocolEntry), tableSnapshot, TupleDomain.all(), alwaysTrue())) {
             AddFileEntry addFileEntry = addFileEntries
                     .filter(entry -> entry.getPath().equals("ALA=1/part-00000-20a863e0-890d-4776-8825-f9dccc8973ba.c000.snappy.parquet"))
                     .collect(onlyElement());
@@ -262,7 +248,7 @@ public class TestTransactionLogAccess
         setupTransactionLogAccessFromResources("person_test_pruning", "databricks73/person_test_pruning");
         MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(SESSION, tableSnapshot);
         ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, tableSnapshot);
-        try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(SESSION, tableSnapshot, metadataEntry, protocolEntry, TupleDomain.all(), alwaysTrue())) {
+        try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(SESSION, createTable(metadataEntry, protocolEntry), tableSnapshot, TupleDomain.all(), alwaysTrue())) {
             Set<String> paths = addFileEntries
                     .map(AddFileEntry::getPath)
                     .collect(Collectors.toSet());
@@ -280,7 +266,7 @@ public class TestTransactionLogAccess
         MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(SESSION, tableSnapshot);
         ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, tableSnapshot);
         List<AddFileEntry> addFileEntries;
-        try (Stream<AddFileEntry> addFileEntryStream = transactionLogAccess.getActiveFiles(SESSION, tableSnapshot, metadataEntry, protocolEntry, TupleDomain.all(), alwaysTrue())) {
+        try (Stream<AddFileEntry> addFileEntryStream = transactionLogAccess.getActiveFiles(SESSION, createTable(metadataEntry, protocolEntry), tableSnapshot, TupleDomain.all(), alwaysTrue())) {
             addFileEntries = addFileEntryStream.collect(toImmutableList());
         }
 
@@ -305,7 +291,7 @@ public class TestTransactionLogAccess
         setupTransactionLogAccessFromResources("person_test_pruning", "databricks73/person_test_pruning");
         MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(SESSION, tableSnapshot);
         ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, tableSnapshot);
-        try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(SESSION, tableSnapshot, metadataEntry, protocolEntry, TupleDomain.all(), alwaysTrue())) {
+        try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(SESSION, createTable(metadataEntry, protocolEntry), tableSnapshot, TupleDomain.all(), alwaysTrue())) {
             // Test data contains an entry added by the parquet checkpoint, removed by a JSON action, and then added back by a later JSON action
             List<AddFileEntry> activeEntries = addFileEntries
                     .filter(addFileEntry -> addFileEntry.getPath().equals("age=30/part-00002-5800be2e-2373-47d8-8b86-776a8ea9d69f.c000.snappy.parquet"))
@@ -386,7 +372,7 @@ public class TestTransactionLogAccess
         setupTransactionLogAccessFromResources(tableName, resourcePath);
         MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(SESSION, tableSnapshot);
         ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, tableSnapshot);
-        try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(SESSION, tableSnapshot, metadataEntry, protocolEntry, TupleDomain.all(), alwaysTrue())) {
+        try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(SESSION, createTable(metadataEntry, protocolEntry), tableSnapshot, TupleDomain.all(), alwaysTrue())) {
             Set<String> paths = addFileEntries
                     .map(AddFileEntry::getPath)
                     .collect(Collectors.toSet());
@@ -438,7 +424,7 @@ public class TestTransactionLogAccess
 
         String lastTransactionName = format("%020d.json", 12);
         Files.copy(resourceDir.resolve(lastTransactionName), new File(transactionLogDir, lastTransactionName).toPath());
-        TableSnapshot updatedSnapshot = transactionLogAccess.loadSnapshot(SESSION, new SchemaTableName("schema", tableName), tableDir.toURI().toString(), Optional.empty());
+        TableSnapshot updatedSnapshot = transactionLogAccess.loadSnapshot(SESSION, createTable(new SchemaTableName("schema", tableName), tableDir.toURI().toString()), Optional.empty());
         assertThat(updatedSnapshot.getVersion()).isEqualTo(12);
     }
 
@@ -457,7 +443,7 @@ public class TestTransactionLogAccess
         setupTransactionLogAccess(tableName, tableDir.toURI().toString());
         MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(SESSION, tableSnapshot);
         ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, tableSnapshot);
-        try (Stream<AddFileEntry> activeDataFiles = transactionLogAccess.getActiveFiles(SESSION, tableSnapshot, metadataEntry, protocolEntry, TupleDomain.all(), alwaysTrue())) {
+        try (Stream<AddFileEntry> activeDataFiles = transactionLogAccess.getActiveFiles(SESSION, createTable(metadataEntry, protocolEntry), tableSnapshot, TupleDomain.all(), alwaysTrue())) {
             Set<String> dataFiles = ImmutableSet.of(
                     "age=42/part-00000-b82d8859-84a0-4f05-872c-206b07dd54f0.c000.snappy.parquet",
                     "age=30/part-00000-72a56c23-01ba-483a-9062-dd0accc86599.c000.snappy.parquet",
@@ -470,8 +456,8 @@ public class TestTransactionLogAccess
         }
 
         copyTransactionLogEntry(7, 9, resourceDir, transactionLogDir);
-        TableSnapshot updatedSnapshot = transactionLogAccess.loadSnapshot(SESSION, new SchemaTableName("schema", tableName), tableDir.toURI().toString(), Optional.empty());
-        try (Stream<AddFileEntry> activeDataFiles = transactionLogAccess.getActiveFiles(SESSION, updatedSnapshot, metadataEntry, protocolEntry, TupleDomain.all(), alwaysTrue())) {
+        TableSnapshot updatedSnapshot = transactionLogAccess.loadSnapshot(SESSION, createTable(new SchemaTableName("schema", tableName), tableDir.toURI().toString()), Optional.empty());
+        try (Stream<AddFileEntry> activeDataFiles = transactionLogAccess.getActiveFiles(SESSION, createTable(metadataEntry, protocolEntry), updatedSnapshot, TupleDomain.all(), alwaysTrue())) {
             Set<String> dataFiles = ImmutableSet.of(
                     "age=21/part-00000-3d546786-bedc-407f-b9f7-e97aa12cce0f.c000.snappy.parquet",
                     "age=21/part-00001-290f0f26-19cf-4772-821e-36d55d9b7872.c000.snappy.parquet",
@@ -501,7 +487,7 @@ public class TestTransactionLogAccess
 
         MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(SESSION, tableSnapshot);
         ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, tableSnapshot);
-        try (Stream<AddFileEntry> activeDataFiles = transactionLogAccess.getActiveFiles(SESSION, tableSnapshot, metadataEntry, protocolEntry, TupleDomain.all(), alwaysTrue())) {
+        try (Stream<AddFileEntry> activeDataFiles = transactionLogAccess.getActiveFiles(SESSION, createTable(metadataEntry, protocolEntry), tableSnapshot, TupleDomain.all(), alwaysTrue())) {
             Set<String> dataFiles = ImmutableSet.of(
                     "age=21/part-00000-3d546786-bedc-407f-b9f7-e97aa12cce0f.c000.snappy.parquet",
                     "age=21/part-00001-290f0f26-19cf-4772-821e-36d55d9b7872.c000.snappy.parquet",
@@ -515,8 +501,8 @@ public class TestTransactionLogAccess
 
         copyTransactionLogEntry(8, 12, resourceDir, transactionLogDir);
         Files.copy(new File(resourceDir, LAST_CHECKPOINT_FILENAME).toPath(), new File(transactionLogDir, LAST_CHECKPOINT_FILENAME).toPath());
-        TableSnapshot updatedSnapshot = transactionLogAccess.loadSnapshot(SESSION, new SchemaTableName("schema", tableName), tableDir.toURI().toString(), Optional.empty());
-        try (Stream<AddFileEntry> activeDataFiles = transactionLogAccess.getActiveFiles(SESSION, updatedSnapshot, metadataEntry, protocolEntry, TupleDomain.all(), alwaysTrue())) {
+        TableSnapshot updatedSnapshot = transactionLogAccess.loadSnapshot(SESSION, createTable(new SchemaTableName("schema", tableName), tableDir.toURI().toString()), Optional.empty());
+        try (Stream<AddFileEntry> activeDataFiles = transactionLogAccess.getActiveFiles(SESSION, createTable(metadataEntry, protocolEntry), updatedSnapshot, TupleDomain.all(), alwaysTrue())) {
             Set<String> dataFiles = ImmutableSet.of(
                     "age=21/part-00000-3d546786-bedc-407f-b9f7-e97aa12cce0f.c000.snappy.parquet",
                     "age=21/part-00001-290f0f26-19cf-4772-821e-36d55d9b7872.c000.snappy.parquet",
@@ -573,7 +559,7 @@ public class TestTransactionLogAccess
         assertFileSystemAccesses(
                 () -> {
                     setupTransactionLogAccess(tableName, tableDir.toURI().toString());
-                    try (Stream<AddFileEntry> activeDataFiles = transactionLogAccess.getActiveFiles(activeDataFileCacheSession, tableSnapshot, metadataEntry, protocolEntry, TupleDomain.all(), alwaysTrue())) {
+                    try (Stream<AddFileEntry> activeDataFiles = transactionLogAccess.getActiveFiles(activeDataFileCacheSession, createTable(metadataEntry, protocolEntry), tableSnapshot, TupleDomain.all(), alwaysTrue())) {
                         assertThat(activeDataFiles.map(AddFileEntry::getPath).collect(Collectors.toSet())).containsExactlyInAnyOrderElementsOf(originalDataFiles);
                     }
                 },
@@ -592,8 +578,28 @@ public class TestTransactionLogAccess
                 "age=29/part-00000-3794c463-cb0c-4beb-8d07-7cc1e3b5920f.c000.snappy.parquet");
         assertFileSystemAccesses(
                 () -> {
-                    TableSnapshot updatedTableSnapshot = transactionLogAccess.loadSnapshot(activeDataFileCacheSession, new SchemaTableName("schema", tableName), tableDir.toURI().toString(), Optional.empty());
-                    try (Stream<AddFileEntry> activeDataFiles = transactionLogAccess.getActiveFiles(activeDataFileCacheSession, updatedTableSnapshot, metadataEntry, protocolEntry, TupleDomain.all(), alwaysTrue())) {
+                    TableSnapshot updatedTableSnapshot = transactionLogAccess.loadSnapshot(activeDataFileCacheSession, createTable(new SchemaTableName("schema", tableName), tableDir.toURI().toString()), Optional.empty());
+                    try (Stream<AddFileEntry> activeDataFiles = transactionLogAccess.getActiveFiles(
+                            activeDataFileCacheSession,
+                            new DeltaLakeTableHandle(
+                                    "schema",
+                                    tableName,
+                                    true,
+                                    tableDir.toURI().toString(), // the location should keep the same as the previous test cases
+                                    metadataEntry,
+                                    protocolEntry,
+                                    TupleDomain.none(),
+                                    TupleDomain.none(),
+                                    Optional.empty(),
+                                    Optional.empty(),
+                                    Optional.empty(),
+                                    Optional.empty(),
+                                    Optional.empty(),
+                                    0,
+                                    false),
+                            updatedTableSnapshot,
+                            TupleDomain.all(),
+                            alwaysTrue())) {
                         assertThat(activeDataFiles.map(AddFileEntry::getPath).collect(Collectors.toSet())).containsExactlyInAnyOrderElementsOf(union(originalDataFiles, newDataFiles));
                     }
                 },
@@ -625,7 +631,7 @@ public class TestTransactionLogAccess
         MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(SESSION, tableSnapshot);
         ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, tableSnapshot);
         List<AddFileEntry> expectedDataFiles;
-        try (Stream<AddFileEntry> addFileEntryStream = transactionLogAccess.getActiveFiles(SESSION, tableSnapshot, metadataEntry, protocolEntry, TupleDomain.all(), alwaysTrue())) {
+        try (Stream<AddFileEntry> addFileEntryStream = transactionLogAccess.getActiveFiles(SESSION, createTable(metadataEntry, protocolEntry), tableSnapshot, TupleDomain.all(), alwaysTrue())) {
             expectedDataFiles = addFileEntryStream.collect(toImmutableList());
         }
 
@@ -633,13 +639,13 @@ public class TestTransactionLogAccess
         Set<String> newDataFiles = ImmutableSet.of(
                 "age=28/part-00000-40dd1707-1d42-4328-a59a-21f5c945fe60.c000.snappy.parquet",
                 "age=29/part-00000-3794c463-cb0c-4beb-8d07-7cc1e3b5920f.c000.snappy.parquet");
-        TableSnapshot updatedTableSnapshot = transactionLogAccess.loadSnapshot(SESSION, new SchemaTableName("schema", tableName), tableDir.toURI().toString(), Optional.empty());
+        TableSnapshot updatedTableSnapshot = transactionLogAccess.loadSnapshot(SESSION, createTable(new SchemaTableName("schema", tableName), tableDir.toURI().toString()), Optional.empty());
         List<AddFileEntry> allDataFiles;
-        try (Stream<AddFileEntry> addFileEntryStream = transactionLogAccess.getActiveFiles(SESSION, updatedTableSnapshot, metadataEntry, protocolEntry, TupleDomain.all(), alwaysTrue())) {
+        try (Stream<AddFileEntry> addFileEntryStream = transactionLogAccess.getActiveFiles(SESSION, createTable(metadataEntry, protocolEntry), updatedTableSnapshot, TupleDomain.all(), alwaysTrue())) {
             allDataFiles = addFileEntryStream.collect(toImmutableList());
         }
         List<AddFileEntry> dataFilesWithFixedVersion;
-        try (Stream<AddFileEntry> addFileEntryStream = transactionLogAccess.getActiveFiles(SESSION, tableSnapshot, metadataEntry, protocolEntry, TupleDomain.all(), alwaysTrue())) {
+        try (Stream<AddFileEntry> addFileEntryStream = transactionLogAccess.getActiveFiles(SESSION, createTable(metadataEntry, protocolEntry), tableSnapshot, TupleDomain.all(), alwaysTrue())) {
             dataFilesWithFixedVersion = addFileEntryStream.collect(toImmutableList());
         }
         for (String newFilePath : newDataFiles) {
@@ -693,11 +699,11 @@ public class TestTransactionLogAccess
         assertThat(tableSnapshot.getVersion()).isEqualTo(0L);
 
         copyTransactionLogEntry(1, 2, resourceDir, transactionLogDir);
-        TableSnapshot firstUpdate = transactionLogAccess.loadSnapshot(SESSION, schemaTableName, tableLocation, Optional.empty());
+        TableSnapshot firstUpdate = transactionLogAccess.loadSnapshot(SESSION, createTable(schemaTableName, tableLocation), Optional.empty());
         assertThat(firstUpdate.getVersion()).isEqualTo(1L);
 
         copyTransactionLogEntry(2, 3, resourceDir, transactionLogDir);
-        TableSnapshot secondUpdate = transactionLogAccess.loadSnapshot(SESSION, schemaTableName, tableLocation, Optional.empty());
+        TableSnapshot secondUpdate = transactionLogAccess.loadSnapshot(SESSION, createTable(schemaTableName, tableLocation), Optional.empty());
         assertThat(secondUpdate.getVersion()).isEqualTo(2L);
     }
 
@@ -712,7 +718,7 @@ public class TestTransactionLogAccess
         MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(SESSION, tableSnapshot);
         ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, tableSnapshot);
         List<AddFileEntry> addFileEntries;
-        try (Stream<AddFileEntry> addFileEntryStream = transactionLogAccess.getActiveFiles(SESSION, tableSnapshot, metadataEntry, protocolEntry, TupleDomain.all(), alwaysTrue())) {
+        try (Stream<AddFileEntry> addFileEntryStream = transactionLogAccess.getActiveFiles(SESSION, createTable(metadataEntry, protocolEntry), tableSnapshot, TupleDomain.all(), alwaysTrue())) {
             addFileEntries = addFileEntryStream.collect(toImmutableList());
         }
 
@@ -774,7 +780,7 @@ public class TestTransactionLogAccess
         // With the transaction log cache disabled, when loading the snapshot again, all the needed files will be opened again
         assertFileSystemAccesses(
                 () -> {
-                    transactionLogAccess.loadSnapshot(SESSION, new SchemaTableName("schema", tableName), tableDir, Optional.empty());
+                    transactionLogAccess.loadSnapshot(SESSION, createTable(new SchemaTableName("schema", tableName), tableDir), Optional.empty());
                 },
                 ImmutableMultiset.<FileOperation>builder()
                         .add(new FileOperation("_last_checkpoint", "InputFile.newStream"))
@@ -811,7 +817,7 @@ public class TestTransactionLogAccess
         assertFileSystemAccesses(
                 () -> {
                     setupTransactionLogAccess(tableName, tableDir, shortLivedActiveDataFilesCacheConfig, Optional.empty());
-                    try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(activeDataFileCacheSession, tableSnapshot, metadataEntry, protocolEntry, TupleDomain.all(), alwaysTrue())) {
+                    try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(activeDataFileCacheSession, createTable(metadataEntry, protocolEntry), tableSnapshot, TupleDomain.all(), alwaysTrue())) {
                         assertThat(addFileEntries.count()).isEqualTo(12L);
                     }
                 },
@@ -831,7 +837,7 @@ public class TestTransactionLogAccess
         // The internal data cache should still contain the data files for the table
         assertFileSystemAccesses(
                 () -> {
-                    try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(activeDataFileCacheSession, tableSnapshot, metadataEntry, protocolEntry, TupleDomain.all(), alwaysTrue())) {
+                    try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(activeDataFileCacheSession, createTable(metadataEntry, protocolEntry), tableSnapshot, TupleDomain.all(), alwaysTrue())) {
                         assertThat(addFileEntries.count()).isEqualTo(12L);
                     }
                 },
@@ -854,7 +860,7 @@ public class TestTransactionLogAccess
         assertFileSystemAccesses(
                 () -> {
                     setupTransactionLogAccess(tableName, tableDir, shortLivedActiveDataFilesCacheConfig, Optional.empty());
-                    try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(SESSION, tableSnapshot, metadataEntry, protocolEntry, TupleDomain.all(), alwaysTrue())) {
+                    try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(SESSION, createTable(metadataEntry, protocolEntry), tableSnapshot, TupleDomain.all(), alwaysTrue())) {
                         assertThat(addFileEntries.count()).isEqualTo(12L);
                     }
                 },
@@ -875,8 +881,8 @@ public class TestTransactionLogAccess
         transactionLogAccess.flushCache();
         assertFileSystemAccesses(
                 () -> {
-                    transactionLogAccess.loadSnapshot(SESSION, new SchemaTableName("schema", tableName), tableDir, Optional.empty());
-                    try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(SESSION, tableSnapshot, metadataEntry, protocolEntry, TupleDomain.all(), alwaysTrue())) {
+                    transactionLogAccess.loadSnapshot(SESSION, createTable(new SchemaTableName("schema", tableName), tableDir), Optional.empty());
+                    try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(SESSION, createTable(metadataEntry, protocolEntry), tableSnapshot, TupleDomain.all(), alwaysTrue())) {
                         assertThat(addFileEntries.count()).isEqualTo(12L);
                     }
                 },
@@ -910,7 +916,7 @@ public class TestTransactionLogAccess
         assertFileSystemAccesses(
                 () -> {
                     setupTransactionLogAccess(tableName, tableDir, shortLivedActiveDataFilesCacheConfig, Optional.empty());
-                    try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(SESSION, tableSnapshot, metadataEntry, protocolEntry, TupleDomain.all(), alwaysTrue())) {
+                    try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(SESSION, createTable(metadataEntry, protocolEntry), tableSnapshot, TupleDomain.all(), alwaysTrue())) {
                         assertThat(addFileEntries.count()).isEqualTo(12L);
                     }
                 },
@@ -931,7 +937,7 @@ public class TestTransactionLogAccess
         // the checkpoint file will be read again
         assertFileSystemAccesses(
                 () -> {
-                    try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(SESSION, tableSnapshot, metadataEntry, protocolEntry, TupleDomain.all(), alwaysTrue())) {
+                    try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(SESSION, createTable(metadataEntry, protocolEntry), tableSnapshot, TupleDomain.all(), alwaysTrue())) {
                         assertThat(addFileEntries.count()).isEqualTo(12L);
                     }
                 },
@@ -957,8 +963,8 @@ public class TestTransactionLogAccess
         transactionLogAccess.flushCache();
         assertFileSystemAccesses(
                 () -> {
-                    transactionLogAccess.loadSnapshot(SESSION, new SchemaTableName("schema", tableName), tableDir, Optional.of(9L));
-                    try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(SESSION, tableSnapshot, metadataEntry, protocolEntry, TupleDomain.all(), alwaysTrue())) {
+                    transactionLogAccess.loadSnapshot(SESSION, createTable(new SchemaTableName("schema", tableName), tableDir), Optional.of(9L));
+                    try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(SESSION, createTable(metadataEntry, protocolEntry), tableSnapshot, TupleDomain.all(), alwaysTrue())) {
                         assertThat(addFileEntries.count()).isEqualTo(8L);
                     }
                 },
@@ -990,8 +996,8 @@ public class TestTransactionLogAccess
         transactionLogAccess.flushCache();
         assertFileSystemAccesses(
                 () -> {
-                    transactionLogAccess.loadSnapshot(SESSION, new SchemaTableName("schema", tableName), tableDir, Optional.of(10L));
-                    try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(SESSION, tableSnapshot, metadataEntry, protocolEntry, TupleDomain.all(), alwaysTrue())) {
+                    transactionLogAccess.loadSnapshot(SESSION, createTable(new SchemaTableName("schema", tableName), tableDir), Optional.of(10L));
+                    try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(SESSION, createTable(metadataEntry, protocolEntry), tableSnapshot, TupleDomain.all(), alwaysTrue())) {
                         assertThat(addFileEntries.count()).isEqualTo(9L);
                     }
                 },
@@ -1005,8 +1011,8 @@ public class TestTransactionLogAccess
         transactionLogAccess.flushCache();
         assertFileSystemAccesses(
                 () -> {
-                    transactionLogAccess.loadSnapshot(SESSION, new SchemaTableName("schema", tableName), tableDir, Optional.of(11L));
-                    try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(SESSION, tableSnapshot, metadataEntry, protocolEntry, TupleDomain.all(), alwaysTrue())) {
+                    transactionLogAccess.loadSnapshot(SESSION, createTable(new SchemaTableName("schema", tableName), tableDir), Optional.of(11L));
+                    try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(SESSION, createTable(metadataEntry, protocolEntry), tableSnapshot, TupleDomain.all(), alwaysTrue())) {
                         assertThat(addFileEntries.count()).isEqualTo(10L);
                     }
                 },

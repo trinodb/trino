@@ -24,6 +24,7 @@ import org.apache.iceberg.snowflake.SnowflakeIcebergTableOperations;
 
 import java.util.Optional;
 
+import static io.trino.plugin.iceberg.IcebergSessionProperties.isUseFileSizeFromMetadata;
 import static java.util.Objects.requireNonNull;
 
 public class SnowflakeIcebergTableOperationsProvider
@@ -52,7 +53,7 @@ public class SnowflakeIcebergTableOperationsProvider
     {
         return new SnowflakeIcebergTableOperations(
                 (TrinoSnowflakeCatalog) catalog,
-                new ForwardingFileIo(fileSystemFactory.create(session)),
+                new ForwardingFileIo(fileSystemFactory.create(session), isUseFileSizeFromMetadata(session)),
                 session,
                 snowflakeDatabase,
                 database,

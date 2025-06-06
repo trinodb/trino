@@ -42,16 +42,23 @@ public class ForwardingFileIo
 
     private final TrinoFileSystem fileSystem;
     private final Map<String, String> properties;
+    private final boolean useFileSizeFromMetadata;
 
     public ForwardingFileIo(TrinoFileSystem fileSystem)
     {
-        this(fileSystem, ImmutableMap.of());
+        this(fileSystem, ImmutableMap.of(), true);
     }
 
-    public ForwardingFileIo(TrinoFileSystem fileSystem, Map<String, String> properties)
+    public ForwardingFileIo(TrinoFileSystem fileSystem, boolean useFileSizeFromMetadata)
+    {
+        this(fileSystem, ImmutableMap.of(), useFileSizeFromMetadata);
+    }
+
+    public ForwardingFileIo(TrinoFileSystem fileSystem, Map<String, String> properties, boolean useFileSizeFromMetadata)
     {
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
         this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
+        this.useFileSizeFromMetadata = useFileSizeFromMetadata;
     }
 
     @Override
@@ -63,6 +70,10 @@ public class ForwardingFileIo
     @Override
     public InputFile newInputFile(String path, long length)
     {
+        if (!useFileSizeFromMetadata) {
+            return new ForwardingInputFile(fileSystem.newInputFile(Location.of(path)));
+        }
+
         return new ForwardingInputFile(fileSystem.newInputFile(Location.of(path), length));
     }
 

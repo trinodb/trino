@@ -14,58 +14,36 @@
 package io.trino.server.protocol;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.client.Column;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.OptionalLong;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.server.protocol.ProtocolUtil.createColumn;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static java.util.Objects.requireNonNull;
 
 public class QueryResultRows
 {
-    private final Optional<List<OutputColumn>> columns;
     private final List<Page> pages;
     private final long totalRows;
+    private final List<Type> types;
 
-    private QueryResultRows(Optional<List<OutputColumn>> columns, List<Page> pages)
+    private QueryResultRows(List<Type> types, List<Page> pages)
     {
-        this.columns = requireNonNull(columns, "columns is null")
-                .map(values -> values.stream()
-                .collect(toImmutableList()));
+        this.types = types;
         this.pages = ImmutableList.copyOf(pages);
         this.totalRows = countRows(pages);
 
-        verify(totalRows == 0 || (totalRows > 0 && columns.isPresent()), "data present without columns and types");
+        verify(totalRows == 0 || (totalRows > 0 && types != null), "data present without types");
     }
 
     public boolean isEmpty()
     {
         return totalRows == 0;
-    }
-
-    public List<OutputColumn> getOutputColumns()
-    {
-        return columns.orElseThrow(() -> new IllegalStateException("Columns are not present"));
-    }
-
-    public List<Column> getOptionalColumns()
-    {
-        return columns
-                .map(columns -> columns.stream()
-                    .map(value -> createColumn(value.columnName(), value.type(), true))
-                    .collect(toImmutableList()))
-                .orElse(null);
     }
 
     public List<Page> getPages()
@@ -76,12 +54,11 @@ public class QueryResultRows
     public OptionalLong getUpdateCount()
     {
         // We should have exactly single bigint value as an update count.
-        if (totalRows != 1 || columns.isEmpty()) {
+        if (totalRows != 1 || types == null) {
             return OptionalLong.empty();
         }
 
-        List<OutputColumn> onlyColumn = columns.get();
-        if (onlyColumn.size() != 1 || !onlyColumn.getFirst().type().equals(BIGINT)) {
+        if (types.size() != 1 || !types.getFirst().equals(BIGINT)) {
             return OptionalLong.empty();
         }
 
@@ -106,7 +83,7 @@ public class QueryResultRows
     public String toString()
     {
         return toStringHelper(this)
-                .add("columns", columns)
+                .add("types", types)
                 .add("totalRowsCount", totalRows)
                 .add("pagesCount", pages.size())
                 .toString();
@@ -114,7 +91,7 @@ public class QueryResultRows
 
     public static QueryResultRows empty()
     {
-        return new QueryResultRows(Optional.empty(), ImmutableList.of());
+        return new QueryResultRows(null, ImmutableList.of());
     }
 
     public static Builder queryResultRowsBuilder()
@@ -124,8 +101,8 @@ public class QueryResultRows
 
     public static class Builder
     {
-        private ImmutableList.Builder<Page> pages = ImmutableList.builder();
-        private Optional<List<OutputColumn>> columns = Optional.empty();
+        private final ImmutableList.Builder<Page> pages = ImmutableList.builder();
+        private List<Type> types;
 
         public Builder addPage(Page page)
         {
@@ -139,32 +116,15 @@ public class QueryResultRows
             return this;
         }
 
-        public Builder withColumnsAndTypes(List<Column> columns, List<Type> types)
+        public Builder withTypes(List<Type> types)
         {
-            this.columns = combine(columns, types);
+            this.types = types;
             return this;
         }
 
         public QueryResultRows build()
         {
-            return new QueryResultRows(columns, pages.build());
-        }
-
-        private static Optional<List<OutputColumn>> combine(List<Column> columns, List<Type> types)
-        {
-            if (columns == null && types == null) {
-                return Optional.empty();
-            }
-            checkArgument(columns != null && types != null, "columns and types must be present at the same time");
-            checkArgument(columns.size() == types.size(), "columns and types size mismatch");
-
-            ImmutableList.Builder<OutputColumn> builder = ImmutableList.builderWithExpectedSize(columns.size());
-
-            for (int i = 0; i < columns.size(); i++) {
-                builder.add(new OutputColumn(i, columns.get(i).getName(), types.get(i)));
-            }
-
-            return Optional.of(builder.build());
+            return new QueryResultRows(types, pages.build());
         }
     }
 }
