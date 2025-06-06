@@ -66,15 +66,19 @@ public final class ColumnDefaultOptions
 {
     private ColumnDefaultOptions() {}
 
-    public static Constant evaluateLiteral(
+    public static Constant evaluateDefaultValue(
             Session session,
             PlannerContext plannerContext,
             AccessControl accessControl,
             Map<NodeRef<Parameter>, Expression> parameters,
             WarningCollector warningCollector,
             Type columnType,
-            Literal literal)
+            Expression defaultLiteral)
     {
+        if (!(defaultLiteral instanceof Literal literal)) {
+            throw new IllegalArgumentException("Unsupported default expression: " + defaultLiteral);
+        }
+
         LiteralInterpreter literalInterpreter = new LiteralInterpreter(plannerContext, session);
         try {
             Object value;

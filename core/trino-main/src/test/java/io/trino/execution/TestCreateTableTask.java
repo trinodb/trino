@@ -70,6 +70,7 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.SmallintType.SMALLINT;
@@ -264,7 +265,7 @@ class TestCreateTableTask
     }
 
     @Test
-    void testCreateWithInvalidDefaultColumnTypeCoercion()
+    void testCreateWithDefaultColumnSupportedTypeCoercion()
     {
         List<TableElement> varcharColumn = ImmutableList.<TableElement>builder()
                 .add(new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.of("varchar_col"), toSqlType(createVarcharType(4)), Optional.of(new StringLiteral(new NodeLocation(1, 1), "abcde")), true, emptyList(), Optional.empty()))
@@ -273,11 +274,35 @@ class TestCreateTableTask
         CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("test_table_default_columns"), varcharColumn, IGNORE, ImmutableList.of(), Optional.empty());
 
         queryRunner.inTransaction(transactionSession -> {
+            // MockMetadata.getSupportedType method changes varchar(4) to unbounded varchar
+            getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), _ -> {}, WarningCollector.NOOP));
+
+            assertThat(metadata.getCreateTableCallCount()).isEqualTo(1);
+            List<ColumnMetadata> columns = metadata.getReceivedTableMetadata().getFirst().getColumns();
+            assertThat(columns).hasSize(1);
+
+            assertThat(columns.getFirst().getName()).isEqualTo("varchar_col");
+            assertThat(columns.getFirst().getType()).isEqualTo(VARCHAR);
+            assertThat(columns.getFirst().getDefaultValue()).contains(new Constant(utf8Slice("abcde"), VARCHAR));
+            return null;
+        });
+    }
+
+    @Test
+    void testCreateWithDefaultColumnUnsupportedTypeCoercion()
+    {
+        List<TableElement> varcharColumn = ImmutableList.<TableElement>builder()
+                .add(new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.of("char_col"), toSqlType(createCharType(4)), Optional.of(new StringLiteral(new NodeLocation(1, 1), "abcde")), true, emptyList(), Optional.empty()))
+                .build();
+
+        CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("test_table_default_columns"), varcharColumn, IGNORE, ImmutableList.of(), Optional.empty());
+
+        queryRunner.inTransaction(transactionSession -> {
             assertTrinoExceptionThrownBy(() ->
                     getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), _ -> {}, WarningCollector.NOOP)))
                     .hasErrorCode(INVALID_LITERAL)
-                    .hasMessage("line 1:1: ''abcde'' is not a valid VARCHAR(4) literal")
-                    .hasStackTraceContaining("Cannot truncate characters when casting value 'abcde' to varchar(4)");
+                    .hasMessage("line 1:1: ''abcde'' is not a valid CHAR(4) literal")
+                    .hasStackTraceContaining("Cannot truncate characters when casting value 'abcde' to char(4)");
             return null;
         });
     }

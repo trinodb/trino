@@ -87,7 +87,7 @@ import static io.trino.sql.tree.LikeClause.PropertiesOption.INCLUDING;
 import static io.trino.sql.tree.SaveMode.FAIL;
 import static io.trino.sql.tree.SaveMode.REPLACE;
 import static io.trino.type.UnknownType.UNKNOWN;
-import static io.trino.util.ColumnDefaultOptions.evaluateLiteral;
+import static io.trino.util.ColumnDefaultOptions.evaluateDefaultValue;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -208,7 +208,7 @@ public class CreateTableTask
                 columns.put(name.getValue().toLowerCase(ENGLISH), ColumnMetadata.builder()
                         .setName(name.getValue().toLowerCase(ENGLISH))
                         .setType(supportedType)
-                        .setDefaultValue(column.getDefaultValue().map(value -> evaluateLiteral(session, plannerContext, accessControl, parameterLookup, warningCollector, type, value)))
+                        .setDefaultValue(column.getDefaultValue().map(value -> evaluateDefaultValue(session, plannerContext, accessControl, parameterLookup, warningCollector, supportedType, value)))
                         .setNullable(column.isNullable())
                         .setComment(column.getComment())
                         .setProperties(columnProperties)

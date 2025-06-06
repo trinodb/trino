@@ -62,7 +62,7 @@ import static io.trino.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONST
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.trino.type.UnknownType.UNKNOWN;
-import static io.trino.util.ColumnDefaultOptions.evaluateLiteral;
+import static io.trino.util.ColumnDefaultOptions.evaluateDefaultValue;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -161,7 +161,7 @@ public class AddColumnTask
             ColumnMetadata column = ColumnMetadata.builder()
                     .setName(columnName.getValue())
                     .setType(supportedType)
-                    .setDefaultValue(element.getDefaultValue().map(value -> evaluateLiteral(session, plannerContext, accessControl, parameterLookup, warningCollector, type, value)))
+                    .setDefaultValue(element.getDefaultValue().map(value -> evaluateDefaultValue(session, plannerContext, accessControl, parameterLookup, warningCollector, supportedType, value)))
                     .setNullable(element.isNullable())
                     .setComment(element.getComment())
                     .setProperties(columnProperties)

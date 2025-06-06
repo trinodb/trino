@@ -57,7 +57,7 @@ import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.type.DateTimes.longTimestampWithTimeZone;
-import static io.trino.util.ColumnDefaultOptions.evaluateLiteral;
+import static io.trino.util.ColumnDefaultOptions.evaluateDefaultValue;
 import static java.lang.Float.floatToIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
@@ -349,6 +349,6 @@ final class TestColumnDefaultOptions
 
     private Constant evaluate(Literal literal, Type type)
     {
-        return evaluateLiteral(TEST_SESSION, plannerContext, new AllowAllAccessControl(), Map.of(), WarningCollector.NOOP, type, literal);
+        return evaluateDefaultValue(TEST_SESSION, plannerContext, new AllowAllAccessControl(), Map.of(), WarningCollector.NOOP, type, literal);
     }
 }
