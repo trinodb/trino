@@ -14,7 +14,10 @@
 package io.trino.sql.analyzer;
 
 import com.google.common.base.CharMatcher;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheLoader;
 import com.google.common.collect.ImmutableList;
+import io.trino.cache.EvictableCacheBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.NamedTypeSignature;
 import io.trino.spi.type.RowFieldName;
@@ -37,12 +40,12 @@ import org.assertj.core.util.VisibleForTesting;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
@@ -63,9 +66,22 @@ import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 
 public final class TypeSignatureTranslator
 {
+    private static final SqlParser SQL_PARSER = new SqlParser();
+
+    private static final Cache<String, DataType> DATA_TYPE_CACHE = EvictableCacheBuilder.newBuilder()
+            .maximumSize(4096)
+            .build(new CacheLoader<>() {
+                @Override
+                public DataType load(String signature)
+                {
+                    return parseDataType(signature);
+                }
+            });
+
     private static final CharMatcher IS_DIGIT = CharMatcher.inRange('0', '9')
             .precomputed();
 
@@ -74,8 +90,6 @@ public final class TypeSignatureTranslator
             .or(CharMatcher.is('_'))
             .or(CharMatcher.inRange('0', '9'))
             .precomputed();
-
-    private static final SqlParser SQL_PARSER = new SqlParser();
 
     private TypeSignatureTranslator() {}
 
@@ -103,7 +117,16 @@ public final class TypeSignatureTranslator
     {
         Set<String> variables = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
         variables.addAll(typeVariables);
-        return toTypeSignature(SQL_PARSER.createType(signature), variables);
+        try {
+            return toTypeSignature(DATA_TYPE_CACHE.get(signature.toLowerCase(ENGLISH), () -> parseDataType(signature)), variables);
+        }
+        catch (Exception e) {
+            if (e.getCause() != null) {
+                throwIfUnchecked(e.getCause());
+            }
+            throwIfUnchecked(e);
+            throw new RuntimeException(e);
+        }
     }
 
     private static TypeSignature toTypeSignature(GenericDataType type, Set<String> typeVariables)
@@ -213,7 +236,7 @@ public final class TypeSignatureTranslator
             return identifier.getValue();
         }
 
-        return identifier.getValue().toLowerCase(Locale.ENGLISH); // TODO: make this toUpperCase to match standard SQL semantics
+        return identifier.getValue().toLowerCase(ENGLISH); // TODO: make this toUpperCase to match standard SQL semantics
     }
 
     @VisibleForTesting
@@ -301,5 +324,10 @@ public final class TypeSignatureTranslator
             case TYPE -> new TypeParameter(toDataType(parameter.getTypeSignature()));
             default -> throw new UnsupportedOperationException("Unsupported parameter kind");
         };
+    }
+
+    private static DataType parseDataType(String signature)
+    {
+        return SQL_PARSER.createType(signature);
     }
 }
