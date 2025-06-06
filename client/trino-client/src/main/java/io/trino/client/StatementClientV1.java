@@ -35,7 +35,6 @@ import okhttp3.Response;
 
 import java.io.IOException;
 import java.io.InterruptedIOException;
-import java.io.UncheckedIOException;
 import java.net.ProtocolException;
 import java.net.SocketTimeoutException;
 import java.net.URI;
@@ -647,9 +646,10 @@ class StatementClientV1
         // releasing all resources and pruning remote segments
         try {
             Closeables.close(currentRows.get(), false);
+            resultRowsDecoder.close();
         }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
+        catch (Exception e) {
+            throw new RuntimeException(e);
         }
     }
 
