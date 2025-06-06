@@ -62,12 +62,10 @@ public class RuleIndex
         public Builder register(Rule<?> rule)
         {
             Pattern<?> pattern = getFirstPattern(rule.getPattern());
-            if (pattern instanceof TypeOfPattern) {
-                rulesByRootType.put(((TypeOfPattern<?>) pattern).expectedClass(), rule);
-            }
-            else {
+            if (!(pattern instanceof TypeOfPattern<?> typeOfPattern)) {
                 throw new IllegalArgumentException("Unexpected Pattern: " + pattern);
             }
+            rulesByRootType.put(typeOfPattern.expectedClass(), rule);
             return this;
         }
 
