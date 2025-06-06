@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
+import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
+import io.trino.plugin.prometheus.expression.LabelFilterExpression;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -31,6 +33,8 @@ import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.predicate.TupleDomain;
 
 import java.util.HashMap;
 import java.util.Iterator;
@@ -82,7 +86,7 @@ public class PrometheusMetadata
             return null;
         }
 
-        return new PrometheusTableHandle(tableName.getSchemaName(), tableName.getTableName(), Optional.empty());
+        return new PrometheusTableHandle(tableName.getSchemaName(), tableName.getTableName(), TupleDomain.all(), ImmutableList.of());
     }
 
     @Override
@@ -173,8 +177,13 @@ public class PrometheusMetadata
     @Override
     public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint constraint)
     {
+        ConnectorExpression expression = constraint.getExpression();
+
+        ConnectorExpressionRewriter<List<LabelFilterExpression>> rewriter = new ConnectorExpressionRewriter<>(LabelFilterExpression.APPLICABLE_EXPRESSION_RULES);
+
         PrometheusTableHandle tableHandle = ((PrometheusTableHandle) handle)
-                .withPredicate(constraint.getSummary());
+                .withPredicate(constraint.getSummary())
+                .withExpressions(rewriter.rewrite(session, expression, constraint.getAssignments()).orElseGet(ImmutableList::of));
         return Optional.of(new ConstraintApplicationResult<>(tableHandle, constraint.getSummary(), constraint.getExpression(), false));
     }
 }

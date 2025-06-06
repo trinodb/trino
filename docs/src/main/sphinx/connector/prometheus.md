@@ -163,6 +163,31 @@ SELECT * FROM example.default.up;
 (2 rows)
 ```
 
+### Predicate pushdown support
+
+Only label values & time filters are currently supported for predicate pushdown.
+
+For example, the following query:
+
+```sql
+SELECT * FROM example.default.up
+WHERE labels['job'] = 'prometheus' AND labels['instance'] = 'localhost:9090';
+```
+
+will be translated to a Prometheus query:
+
+```up{job="prometheus",instance="localhost:9090"}[1d]```
+
+Not all logical operations are supported. That's why you might encounter slower execution times when using complex filters.
+
+The following logical operations are supported:
+- `labels['label_name'] IN ('a','b')` -> `label_name=~'a|b'` (matches any of the values)
+- `labels['label_name'] = 'a'` -> `label_name='a'` (equals)
+- `labels['label_name'] != 'a'` -> `label_name!='a'` (not equals)
+- `labels['label_name'] LIKE '%a_b%'` -> `label_name=~'.*a.b.*'` (case-sensitive match)
+- `labels['label_name'] LIKE '%a\_b\%' ESCAPE '\'` -> `label_name=~'.*a_b%'` (case-sensitive match with escape character)
+- `predicate_1 AND predicate_2` (logical and)
+
 (prometheus-sql-support)=
 ## SQL support
 

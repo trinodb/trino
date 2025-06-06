@@ -13,11 +13,15 @@
  */
 package io.trino.plugin.prometheus;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import io.airlift.testing.EquivalenceTester;
+import io.trino.plugin.prometheus.expression.LabelFilterExpression;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.predicate.TupleDomain;
 import org.junit.jupiter.api.Test;
 
-import java.util.Optional;
+import java.util.List;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -47,6 +51,11 @@ public class TestPrometheusTableHandle
 
     public static PrometheusTableHandle newTableHandle(String schemaName, String tableName)
     {
-        return new PrometheusTableHandle(schemaName, tableName, Optional.empty());
+        return newTableHandle(schemaName, tableName, TupleDomain.all(), ImmutableList.of());
+    }
+
+    public static PrometheusTableHandle newTableHandle(String schemaName, String tableName, TupleDomain<ColumnHandle> predicate, List<LabelFilterExpression> expressions)
+    {
+        return new PrometheusTableHandle(schemaName, tableName, predicate, expressions);
     }
 }
