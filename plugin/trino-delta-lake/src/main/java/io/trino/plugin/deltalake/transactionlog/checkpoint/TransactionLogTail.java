@@ -59,17 +59,34 @@ public class TransactionLogTail
             DataSize transactionLogMaxCachedFileSize)
             throws IOException
     {
-        ImmutableList.Builder<Transaction> entriesBuilder = ImmutableList.builder();
-
         if (startVersion.isPresent() && endVersion.isPresent() && startVersion.get().equals(endVersion.get())) {
             // This is time travel to a specific checkpoint. No need to read transaction log files.
-            return new TransactionLogTail(entriesBuilder.build(), startVersion.get());
+            return new TransactionLogTail(ImmutableList.of(), startVersion.get());
         }
 
-        long version = startVersion.orElse(0L);
-        long entryNumber = startVersion.map(start -> start + 1).orElse(0L);
-        checkArgument(endVersion.isEmpty() || entryNumber <= endVersion.get(), "Invalid start/end versions: %s, %s", startVersion, endVersion);
+        if (endVersion.isPresent()) {
+            return loadNewTail(fileSystem, tableLocation, startVersion, endVersion.get(), transactionLogMaxCachedFileSize);
+        }
 
+        if (startVersion.isPresent()) {
+            return loadNewTail(fileSystem, tableLocation, startVersion.get(), startVersion.get() + 1, endVersion, transactionLogMaxCachedFileSize);
+        }
+
+        return loadNewTail(fileSystem, tableLocation, 0L, 0L, endVersion, transactionLogMaxCachedFileSize);
+    }
+
+    public static TransactionLogTail loadNewTail(
+            TrinoFileSystem fileSystem,
+            String tableLocation,
+            long version,
+            long startVersion,
+            Optional<Long> endVersion,
+            DataSize transactionLogMaxCachedFileSize)
+            throws IOException
+    {
+        ImmutableList.Builder<Transaction> entriesBuilder = ImmutableList.builder();
+        long entryNumber = startVersion;
+        checkArgument(endVersion.isEmpty() || entryNumber <= endVersion.get(), "Invalid start/end versions: %s, %s", startVersion, endVersion);
         String transactionLogDir = getTransactionLogDir(tableLocation);
 
         boolean endOfTail = false;
@@ -81,7 +98,7 @@ public class TransactionLogTail
                 entryNumber++;
             }
             else {
-                if (endVersion.isPresent()) {
+                if (endVersion.isPresent() && entryNumber > startVersion) {
                     throw new MissingTransactionLogException(getTransactionLogJsonEntryPath(transactionLogDir, entryNumber).toString());
                 }
                 endOfTail = true;
@@ -93,6 +110,40 @@ public class TransactionLogTail
         }
 
         return new TransactionLogTail(entriesBuilder.build(), version);
+    }
+
+    // Load a section of the Transaction Log JSON entries. Optionally from a given end version (inclusive) through an start version (exclusive)
+    private static TransactionLogTail loadNewTail(
+            TrinoFileSystem fileSystem,
+            String tableLocation,
+            Optional<Long> startVersion,
+            long endVersion,
+            DataSize transactionLogMaxCachedFileSize)
+            throws IOException
+    {
+        ImmutableList.Builder<Transaction> transactionsBuilder = ImmutableList.builder();
+        String transactionLogDir = getTransactionLogDir(tableLocation);
+
+        long version = endVersion;
+        long entryNumber = version;
+        boolean endOfHead = false;
+
+        while (!endOfHead) {
+            Optional<TransactionLogEntries> results = getEntriesFromJson(entryNumber, transactionLogDir, fileSystem, transactionLogMaxCachedFileSize);
+            if (results.isPresent()) {
+                transactionsBuilder.add(new Transaction(entryNumber, results.get()));
+                version = entryNumber;
+                entryNumber--;
+            }
+            else {
+                // When there is a gap in the transaction log version, indicate the end of the current head
+                endOfHead = true;
+            }
+            if ((startVersion.isPresent() && version == startVersion.get() + 1) || entryNumber < 0) {
+                endOfHead = true;
+            }
+        }
+        return new TransactionLogTail(transactionsBuilder.build().reversed(), endVersion);
     }
 
     public Optional<TransactionLogTail> getUpdatedTail(TrinoFileSystem fileSystem, String tableLocation, Optional<Long> endVersion, DataSize transactionLogMaxCachedFileSize)
