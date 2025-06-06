@@ -25,6 +25,7 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
 
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -34,9 +35,16 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class ConfluentSchemaRegistryConfig
 {
     private Set<HostAddress> confluentSchemaRegistryUrls = ImmutableSet.of();
+    private ConfluentSchemaRegistryAuthType confluentSchemaRegistryAuthType = ConfluentSchemaRegistryAuthType.NONE;
     private int confluentSchemaRegistryClientCacheSize = 1000;
     private EmptyFieldStrategy emptyFieldStrategy = IGNORE;
     private Duration confluentSubjectsCacheRefreshInterval = new Duration(1, SECONDS);
+
+    public enum ConfluentSchemaRegistryAuthType
+    {
+        NONE,
+        BASIC_AUTH,
+    }
 
     @Size(min = 1)
     public Set<HostAddress> getConfluentSchemaRegistryUrls()
@@ -51,6 +59,19 @@ public class ConfluentSchemaRegistryConfig
         this.confluentSchemaRegistryUrls = confluentSchemaRegistryUrls.stream()
                 .map(ConfluentSchemaRegistryConfig::toHostAddress)
                 .collect(toImmutableSet());
+        return this;
+    }
+
+    public Optional<ConfluentSchemaRegistryAuthType> getConfluentSchemaRegistryAuthType()
+    {
+        return Optional.ofNullable(confluentSchemaRegistryAuthType);
+    }
+
+    @Config("kafka.confluent-schema-registry-auth-type")
+    @ConfigDescription("Auth type for logging in Confluent Schema Registry")
+    public ConfluentSchemaRegistryConfig setConfluentSchemaRegistryAuthType(ConfluentSchemaRegistryAuthType confluentSchemaRegistryAuthType)
+    {
+        this.confluentSchemaRegistryAuthType = confluentSchemaRegistryAuthType;
         return this;
     }
 
