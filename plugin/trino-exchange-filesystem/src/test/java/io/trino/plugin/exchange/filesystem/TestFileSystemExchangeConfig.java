@@ -24,6 +24,7 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDe
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestFileSystemExchangeConfig
 {
@@ -40,7 +41,8 @@ public class TestFileSystemExchangeConfig
                 .setExchangeSourceMaxFilesPerReader(25)
                 .setMaxOutputPartitionCount(50)
                 .setExchangeFileListingParallelism(50)
-                .setExchangeSourceHandleTargetDataSize(DataSize.of(256, MEGABYTE)));
+                .setExchangeSourceHandleTargetDataSize(DataSize.of(256, MEGABYTE))
+                .setSkipDeletes(false));
     }
 
     @Test
@@ -57,6 +59,7 @@ public class TestFileSystemExchangeConfig
                 .put("exchange.max-output-partition-count", "53")
                 .put("exchange.file-listing-parallelism", "20")
                 .put("exchange.source-handle-target-data-size", "1GB")
+                .put("exchange.skip-deletes", "true")
                 .buildOrThrow();
 
         FileSystemExchangeConfig expected = new FileSystemExchangeConfig()
@@ -69,8 +72,10 @@ public class TestFileSystemExchangeConfig
                 .setExchangeSourceMaxFilesPerReader(111)
                 .setMaxOutputPartitionCount(53)
                 .setExchangeFileListingParallelism(20)
-                .setExchangeSourceHandleTargetDataSize(DataSize.of(1, GIGABYTE));
+                .setExchangeSourceHandleTargetDataSize(DataSize.of(1, GIGABYTE))
+                .setSkipDeletes(true);
 
         assertFullMapping(properties, expected);
     }
+
 }
