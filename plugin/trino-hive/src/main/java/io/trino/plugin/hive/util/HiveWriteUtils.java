@@ -240,7 +240,12 @@ public final class HiveWriteUtils
 
     public static boolean isFileCreatedByQuery(String fileName, String queryId)
     {
-        return fileName.startsWith(queryId) || fileName.endsWith(queryId);
+        return fileName.startsWith(queryId)
+                || fileName.endsWith(queryId)
+                // TODO: using a more robust way to check if the file is created by the query
+                //  When the file is written with compression, the fileName will end with the compression extension,
+                //  thus the queryId will be in the middle of the file name
+                || fileName.contains(queryId + ".");
     }
 
     public static Optional<Location> createTemporaryPath(TrinoFileSystem fileSystem, ConnectorIdentity identity, Location targetPath, String temporaryStagingDirectoryPath)

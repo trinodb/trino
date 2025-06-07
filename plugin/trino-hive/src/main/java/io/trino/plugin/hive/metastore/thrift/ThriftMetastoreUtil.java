@@ -674,7 +674,7 @@ public final class ThriftMetastoreUtil
             throw new TrinoException(HIVE_INVALID_METADATA, "Table storage descriptor is missing SerDe info");
         }
 
-        builder.setStorageFormat(StorageFormat.createNullable(serdeInfo.getSerializationLib(), storageDescriptor.getInputFormat(), storageDescriptor.getOutputFormat()))
+        builder.setStorageFormat(StorageFormat.createNullable(serdeInfo.getSerializationLib(), storageDescriptor.getInputFormat(), storageDescriptor.getOutputFormat(), ""))
                 .setLocation(nullToEmpty(storageDescriptor.getLocation()))
                 .setBucketProperty(createBucketProperty(storageDescriptor, tablePartitionName))
                 .setSkewed(storageDescriptor.isSetSkewedInfo() && storageDescriptor.getSkewedInfo().isSetSkewedColNames() && !storageDescriptor.getSkewedInfo().getSkewedColNames().isEmpty())

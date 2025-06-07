@@ -77,7 +77,8 @@ public abstract class AbstractIcebergTableOperations
     public static final StorageFormat ICEBERG_METASTORE_STORAGE_FORMAT = StorageFormat.create(
             LAZY_SIMPLE_SERDE_CLASS,
             FILE_INPUT_FORMAT_CLASS,
-            FILE_OUTPUT_FORMAT_CLASS);
+            FILE_OUTPUT_FORMAT_CLASS,
+            "");
 
     protected final ConnectorSession session;
     protected final String database;
