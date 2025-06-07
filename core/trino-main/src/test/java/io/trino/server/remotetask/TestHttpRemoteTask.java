@@ -213,9 +213,11 @@ public class TestHttpRemoteTask
         remoteTask.noMoreSplits(TABLE_SCAN_NODE_ID);
         poll(() -> testingTaskResource.getTaskSplitAssignment(TABLE_SCAN_NODE_ID).isNoMoreSplits());
 
-        remoteTask.cancel();
+        testingTaskResource.markFinished();
         poll(() -> remoteTask.getTaskStatus().getState().isDone());
         poll(() -> remoteTask.getTaskInfo().taskStatus().getState().isDone());
+
+        assertEventually(new Duration(5, SECONDS), () -> assertThat(testingTaskResource.isCleanupCalled()).isTrue());
 
         httpRemoteTaskFactory.stop();
     }
@@ -320,7 +322,7 @@ public class TestHttpRemoteTask
         assertThat(remoteTask.getDynamicFiltersFetcher().isRunning()).isTrue();
 
         // make sure getting older DF version after newer version was observed causes task to fail
-        remoteTask.getDynamicFiltersFetcher().updateDynamicFiltersVersionAndFetchIfNecessary(10L);
+        remoteTask.getDynamicFiltersFetcher().updateDynamicFiltersVersionAndFetchIfNecessary(10L, true);
         assertEventually(new Duration(30, SECONDS), () -> assertThat(remoteTask.getTaskStatus().getState()).isEqualTo(FAILED));
         assertThat(remoteTask.getDynamicFiltersFetcher().isRunning()).isFalse();
 
@@ -590,6 +592,9 @@ public class TestHttpRemoteTask
                 .describedAs(format("TaskStatus is not in a done state: %s", remoteTask.getTaskStatus()))
                 .isTrue();
 
+        // explicit cleanup not done for failed tasks
+        assertThat(testingTaskResource.isCleanupCalled()).isFalse();
+
         ErrorCode actualErrorCode = getOnlyElement(remoteTask.getTaskStatus().getFailures()).getErrorCode();
         switch (failureScenario) {
             case TASK_MISMATCH:
@@ -787,6 +792,7 @@ public class TestHttpRemoteTask
         private long createOrUpdateCounter;
         private long dynamicFiltersFetchCounter;
         private long dynamicFiltersSentCounter;
+        private boolean cleanupCalled;
         private final List<DynamicFiltersFetchRequest> dynamicFiltersFetchRequests = new ArrayList<>();
 
         public TestingTaskResource(AtomicLong lastActivityNanos, FailureScenario failureScenario)
@@ -900,6 +906,23 @@ public class TestHttpRemoteTask
 
             taskState = abort ? TaskState.ABORTED : TaskState.CANCELED;
             return buildTaskInfo();
+        }
+
+        @POST
+        @Path("{taskId}/cleanup")
+        public void cleanupTask(@PathParam("taskId") TaskId taskId)
+        {
+            cleanupCalled = true;
+        }
+
+        public boolean isCleanupCalled()
+        {
+            return cleanupCalled;
+        }
+
+        public void markFinished()
+        {
+            taskState = TaskState.FINISHED;
         }
 
         public void setInitialTaskInfo(TaskInfo initialTaskInfo)
