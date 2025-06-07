@@ -52,6 +52,7 @@ import static io.trino.spi.security.AccessDeniedException.denyCreateViewWithSele
 import static io.trino.spi.security.AccessDeniedException.denyDeleteTable;
 import static io.trino.spi.security.AccessDeniedException.denyDenyEntityPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyDenySchemaPrivilege;
+import static io.trino.spi.security.AccessDeniedException.denyDenyTableBranchPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyDenyTablePrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyDropCatalog;
 import static io.trino.spi.security.AccessDeniedException.denyDropColumn;
@@ -67,6 +68,7 @@ import static io.trino.spi.security.AccessDeniedException.denyExecuteTableProced
 import static io.trino.spi.security.AccessDeniedException.denyGrantEntityPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyGrantRoles;
 import static io.trino.spi.security.AccessDeniedException.denyGrantSchemaPrivilege;
+import static io.trino.spi.security.AccessDeniedException.denyGrantTableBranchPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyGrantTablePrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyImpersonateUser;
 import static io.trino.spi.security.AccessDeniedException.denyInsertTable;
@@ -80,6 +82,7 @@ import static io.trino.spi.security.AccessDeniedException.denyRenameTable;
 import static io.trino.spi.security.AccessDeniedException.denyRevokeEntityPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyRevokeRoles;
 import static io.trino.spi.security.AccessDeniedException.denyRevokeSchemaPrivilege;
+import static io.trino.spi.security.AccessDeniedException.denyRevokeTableBranchPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static io.trino.spi.security.AccessDeniedException.denySelectColumns;
 import static io.trino.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
@@ -728,6 +731,36 @@ public interface SystemAccessControl
     }
 
     /**
+     * Check if identity is allowed to grant the specified privilege to the grantee on the specified branch.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanGrantTableBranchPrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaTableName table, String branchName, TrinoPrincipal grantee, boolean grantOption)
+    {
+        denyGrantTableBranchPrivilege(privilege.toString(), table.toString(), branchName);
+    }
+
+    /**
+     * Check if identity is allowed to deny the specified privilege to the grantee on the specified branch.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanDenyTableBranchPrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaTableName table, String branchName, TrinoPrincipal grantee)
+    {
+        denyDenyTableBranchPrivilege(privilege.toString(), table.toString(), branchName);
+    }
+
+    /**
+     * Check if identity is allowed to revoke the specified privilege on the specified table from the branch.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanRevokeTableBranchPrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaTableName table, String branchName, TrinoPrincipal revokee, boolean grantOption)
+    {
+        denyRevokeTableBranchPrivilege(privilege.toString(), table.toString(), branchName);
+    }
+
+    /**
      * Check if identity is allowed to grant the specified privilege to the grantee on the specified entity.
      *
      * @throws AccessDeniedException if not allowed
@@ -984,6 +1017,36 @@ public interface SystemAccessControl
                 .map(column -> Map.entry(column, getColumnMask(context, tableName, column.getName(), column.getType())))
                 .filter(entry -> entry.getValue().isPresent())
                 .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().get()));
+    }
+
+    /**
+     * Check if identity is allowed to create the specified branch in the table.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanCreateBranch(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName tableName, String name)
+    {
+        AccessDeniedException.denyCreateBranch(tableName.toString(), name);
+    }
+
+    /**
+     * Check if identity is allowed to drop the specified branch in the table.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanDropBranch(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName tableName, String name)
+    {
+        AccessDeniedException.denyDropBranch(tableName.toString(), name);
+    }
+
+    /**
+     * Check if identity is allowed to drop the specified branch in the table.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanAlterBranch(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName tableName, String name)
+    {
+        AccessDeniedException.denyAlterBranch(tableName.toString(), name);
     }
 
     /**
