@@ -166,7 +166,6 @@ import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorIndex;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.connector.WriterScalingOptions;
@@ -179,7 +178,6 @@ import io.trino.spi.function.WindowAccumulator;
 import io.trino.spi.function.WindowFunction;
 import io.trino.spi.function.WindowFunctionSupplier;
 import io.trino.spi.function.table.TableFunctionProcessorProvider;
-import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.spool.SpoolingManager;
 import io.trino.spi.type.RowType;
@@ -440,14 +438,12 @@ public class LocalExecutionPlanner
     private final int largePartitionedMaxDistinctValuesPerDriver;
     private final int smallMaxDistinctValuesPerDriver;
     private final int smallPartitionedMaxDistinctValuesPerDriver;
+    private final int bloomFilterMaxDistinctValuesPerDriver;
+    private final int partitionedBloomFilterMaxDistinctValuesPerDriver;
     private final DataSize largeMaxSizePerDriver;
     private final DataSize largePartitionedMaxSizePerDriver;
     private final DataSize smallMaxSizePerDriver;
     private final DataSize smallPartitionedMaxSizePerDriver;
-    private final int largeRangeRowLimitPerDriver;
-    private final int largePartitionedRangeRowLimitPerDriver;
-    private final int smallRangeRowLimitPerDriver;
-    private final int smallPartitionedRangeRowLimitPerDriver;
     private final DataSize largeMaxSizePerOperator;
     private final DataSize largePartitionedMaxSizePerOperator;
     private final DataSize smallMaxSizePerOperator;
@@ -530,15 +526,13 @@ public class LocalExecutionPlanner
         this.largePartitionedMaxSizePerDriver = dynamicFilterConfig.getLargePartitionedMaxSizePerDriver();
         this.smallMaxSizePerDriver = dynamicFilterConfig.getSmallMaxSizePerDriver();
         this.smallPartitionedMaxSizePerDriver = dynamicFilterConfig.getSmallPartitionedMaxSizePerDriver();
-        this.largeRangeRowLimitPerDriver = dynamicFilterConfig.getLargeRangeRowLimitPerDriver();
-        this.largePartitionedRangeRowLimitPerDriver = dynamicFilterConfig.getLargePartitionedRangeRowLimitPerDriver();
-        this.smallRangeRowLimitPerDriver = dynamicFilterConfig.getSmallRangeRowLimitPerDriver();
-        this.smallPartitionedRangeRowLimitPerDriver = dynamicFilterConfig.getSmallPartitionedRangeRowLimitPerDriver();
         this.largeMaxSizePerOperator = dynamicFilterConfig.getLargeMaxSizePerOperator();
         this.largePartitionedMaxSizePerOperator = dynamicFilterConfig.getLargePartitionedMaxSizePerOperator();
         this.smallMaxSizePerOperator = dynamicFilterConfig.getSmallMaxSizePerOperator();
         this.smallPartitionedMaxSizePerOperator = dynamicFilterConfig.getSmallPartitionedMaxSizePerOperator();
         this.largePartitionedMaxDistinctValuesPerDriver = dynamicFilterConfig.getLargePartitionedMaxDistinctValuesPerDriver();
+        this.bloomFilterMaxDistinctValuesPerDriver = dynamicFilterConfig.getBloomFilterMaxDistinctValuesPerDriver();
+        this.partitionedBloomFilterMaxDistinctValuesPerDriver = dynamicFilterConfig.getPartitionedBloomFilterMaxDistinctValuesPerDriver();
         this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.tableExecuteContextManager = requireNonNull(tableExecuteContextManager, "tableExecuteContextManager is null");
@@ -2118,10 +2112,10 @@ public class LocalExecutionPlanner
             Map<Symbol, Integer> outputMappings = outputMappingsBuilder.buildOrThrow();
 
             Optional<Expression> staticFilters = filterExpression.flatMap(this::getStaticFilter);
-            DynamicFilter dynamicFilter = filterExpression
+            InternalDynamicFilter dynamicFilter = filterExpression
                     .filter(expression -> sourceNode instanceof TableScanNode)
                     .map(expression -> getDynamicFilter((TableScanNode) sourceNode, expression, context))
-                    .orElse(DynamicFilter.EMPTY);
+                    .orElse(InternalDynamicFilter.EMPTY);
 
             List<Expression> projections = new ArrayList<>();
             for (Symbol symbol : outputSymbols) {
@@ -2136,7 +2130,7 @@ public class LocalExecutionPlanner
             try {
                 boolean columnarFilterEvaluationEnabled = isColumnarFilterEvaluationEnabled(session);
                 Optional<DynamicPageFilter> dynamicPageFilterFactory = Optional.empty();
-                if (dynamicFilter != DynamicFilter.EMPTY && isEnableDynamicRowFiltering(session)) {
+                if (dynamicFilter != InternalDynamicFilter.EMPTY && isEnableDynamicRowFiltering(session)) {
                     dynamicPageFilterFactory = Optional.of(new DynamicPageFilter(
                             plannerContext,
                             session,
@@ -2144,7 +2138,7 @@ public class LocalExecutionPlanner
                             sourceLayout,
                             getDynamicRowFilterSelectivityThreshold(session)));
                 }
-                Function<DynamicFilter, PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(
+                Function<InternalDynamicFilter, PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(
                         columnarFilterEvaluationEnabled,
                         translatedFilter,
                         dynamicPageFilterFactory,
@@ -2213,7 +2207,7 @@ public class LocalExecutionPlanner
                 columns.add(node.getAssignments().get(symbol));
             }
 
-            DynamicFilter dynamicFilter = getDynamicFilter(node, filterExpression, context);
+            InternalDynamicFilter dynamicFilter = getDynamicFilter(node, filterExpression, context);
             OperatorFactory operatorFactory = new TableScanOperatorFactory(context.getNextOperatorId(), planNodeId, node.getId(), pageSourceManager, node.getTable(), columns, dynamicFilter);
             return new PhysicalOperation(operatorFactory, makeLayout(node));
         }
@@ -2228,7 +2222,7 @@ public class LocalExecutionPlanner
             return Optional.of(staticFilter);
         }
 
-        private DynamicFilter getDynamicFilter(
+        private InternalDynamicFilter getDynamicFilter(
                 TableScanNode tableScanNode,
                 Expression filterExpression,
                 LocalExecutionPlanContext context)
@@ -2236,7 +2230,7 @@ public class LocalExecutionPlanner
             DynamicFilters.ExtractResult extractDynamicFilterResult = extractDynamicFilters(filterExpression);
             List<DynamicFilters.Descriptor> dynamicFilters = extractDynamicFilterResult.getDynamicConjuncts();
             if (dynamicFilters.isEmpty()) {
-                return DynamicFilter.EMPTY;
+                return InternalDynamicFilter.EMPTY;
             }
 
             log.debug("[TableScan] Dynamic filters: %s", dynamicFilters);
@@ -3175,8 +3169,8 @@ public class LocalExecutionPlanner
                             dynamicFilter,
                             filterBuildChannels,
                             multipleIf(getDynamicFilteringMaxDistinctValuesPerDriver(session, partitioned), taskConcurrency, isBuildSideSingle),
+                            multipleIf(getBloomFilterMaxDistinctValuesPerDriver(partitioned), taskConcurrency, isBuildSideSingle),
                             multipleIf(getDynamicFilteringMaxSizePerDriver(session, partitioned), taskConcurrency, isBuildSideSingle),
-                            multipleIf(getDynamicFilteringRangeRowLimitPerDriver(session, partitioned), taskConcurrency, isBuildSideSingle),
                             typeOperators),
                     buildSource.getLayout(),
                     buildSource);
@@ -3208,7 +3202,7 @@ public class LocalExecutionPlanner
                 return Optional.empty();
             }
             log.debug("[Join] Dynamic filters: %s", node.getDynamicFilters());
-            ImmutableList.Builder<Consumer<Map<DynamicFilterId, Domain>>> collectors = ImmutableList.builder();
+            ImmutableList.Builder<Consumer<Map<DynamicFilterId, DynamicFilterDomain>>> collectors = ImmutableList.builder();
             TaskContext taskContext = context.getTaskContext();
             if (!localDynamicFilters.isEmpty()) {
                 collectors.add(taskContext::addDynamicFilter);
@@ -3278,7 +3272,7 @@ public class LocalExecutionPlanner
                 // Add a DynamicFilterSourceOperatorFactory to build operator factories
                 DynamicFilterId filterId = node.getDynamicFilterId().get();
                 log.debug("[Semi-join] Dynamic filter: %s", filterId);
-                ImmutableList.Builder<Consumer<Map<DynamicFilterId, Domain>>> collectors = ImmutableList.builder();
+                ImmutableList.Builder<Consumer<Map<DynamicFilterId, DynamicFilterDomain>>> collectors = ImmutableList.builder();
                 TaskContext taskContext = context.getTaskContext();
                 if (isLocalDynamicFilter) {
                     collectors.add(taskContext::addDynamicFilter);
@@ -3299,8 +3293,8 @@ public class LocalExecutionPlanner
                                 filterConsumer,
                                 ImmutableList.of(new DynamicFilterSourceOperator.Channel(filterId, buildSource.getTypes().get(buildChannel), buildChannel)),
                                 getDynamicFilteringMaxDistinctValuesPerDriver(session, partitioned),
+                                getBloomFilterMaxDistinctValuesPerDriver(partitioned),
                                 getDynamicFilteringMaxSizePerDriver(session, partitioned),
-                                getDynamicFilteringRangeRowLimitPerDriver(session, partitioned),
                                 typeOperators),
                         buildSource.getLayout(),
                         buildSource);
@@ -3344,7 +3338,7 @@ public class LocalExecutionPlanner
             return ImmutableSet.of();
         }
 
-        private static Consumer<Map<DynamicFilterId, Domain>> getCoordinatorDynamicFilterDomainsCollector(TaskContext taskContext, Set<DynamicFilterId> coordinatorDynamicFilters)
+        private static Consumer<Map<DynamicFilterId, DynamicFilterDomain>> getCoordinatorDynamicFilterDomainsCollector(TaskContext taskContext, Set<DynamicFilterId> coordinatorDynamicFilters)
         {
             return domains -> taskContext.updateDomains(
                     domains.entrySet().stream()
@@ -4194,6 +4188,14 @@ public class LocalExecutionPlanner
         return smallMaxDistinctValuesPerDriver;
     }
 
+    private int getBloomFilterMaxDistinctValuesPerDriver(boolean partitioned)
+    {
+        if (partitioned) {
+            return partitionedBloomFilterMaxDistinctValuesPerDriver;
+        }
+        return bloomFilterMaxDistinctValuesPerDriver;
+    }
+
     private DataSize getDynamicFilteringMaxSizePerDriver(Session session, boolean partitioned)
     {
         if (isEnableLargeDynamicFilters(session)) {
@@ -4206,20 +4208,6 @@ public class LocalExecutionPlanner
             return smallPartitionedMaxSizePerDriver;
         }
         return smallMaxSizePerDriver;
-    }
-
-    private int getDynamicFilteringRangeRowLimitPerDriver(Session session, boolean partitioned)
-    {
-        if (isEnableLargeDynamicFilters(session)) {
-            if (partitioned) {
-                return largePartitionedRangeRowLimitPerDriver;
-            }
-            return largeRangeRowLimitPerDriver;
-        }
-        if (partitioned) {
-            return smallPartitionedRangeRowLimitPerDriver;
-        }
-        return smallRangeRowLimitPerDriver;
     }
 
     private DataSize getDynamicFilteringMaxSizePerOperator(Session session, boolean partitioned)

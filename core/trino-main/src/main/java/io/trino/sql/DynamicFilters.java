@@ -37,6 +37,7 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.BuiltinFunctionCallBuilder;
+import io.trino.sql.planner.DynamicFilterDomain;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.DynamicFilterId;
 
@@ -290,7 +291,7 @@ public final class DynamicFilters
                     .toString();
         }
 
-        public Domain applyComparison(Domain domain)
+        public DynamicFilterDomain applyComparison(DynamicFilterDomain domain)
         {
             if (domain.isAll()) {
                 return domain;
@@ -299,33 +300,36 @@ public final class DynamicFilters
                 // Dynamic filter collection skips nulls
                 // In case of IS NOT DISTINCT FROM, an empty Domain should still allow null
                 if (nullAllowed) {
-                    return Domain.onlyNull(domain.getType());
+                    return DynamicFilterDomain.onlyNull(domain.getType());
                 }
                 return domain;
             }
-            Range span = domain.getValues().getRanges().getSpan();
             return switch (operator) {
                 case EQUAL -> {
                     if (nullAllowed) {
-                        yield Domain.create(domain.getValues(), true);
+                        yield domain.withNullsAllowed();
                     }
                     yield domain;
                 }
                 case LESS_THAN -> {
+                    Range span = domain.getSpan();
                     Range range = Range.lessThan(span.getType(), span.getHighBoundedValue());
-                    yield Domain.create(ValueSet.ofRanges(range), false);
+                    yield DynamicFilterDomain.fromDomain(Domain.create(ValueSet.ofRanges(range), false));
                 }
                 case LESS_THAN_OR_EQUAL -> {
+                    Range span = domain.getSpan();
                     Range range = Range.lessThanOrEqual(span.getType(), span.getHighBoundedValue());
-                    yield Domain.create(ValueSet.ofRanges(range), false);
+                    yield DynamicFilterDomain.fromDomain(Domain.create(ValueSet.ofRanges(range), false));
                 }
                 case GREATER_THAN -> {
+                    Range span = domain.getSpan();
                     Range range = Range.greaterThan(span.getType(), span.getLowBoundedValue());
-                    yield Domain.create(ValueSet.ofRanges(range), false);
+                    yield DynamicFilterDomain.fromDomain(Domain.create(ValueSet.ofRanges(range), false));
                 }
                 case GREATER_THAN_OR_EQUAL -> {
+                    Range span = domain.getSpan();
                     Range range = Range.greaterThanOrEqual(span.getType(), span.getLowBoundedValue());
-                    yield Domain.create(ValueSet.ofRanges(range), false);
+                    yield DynamicFilterDomain.fromDomain(Domain.create(ValueSet.ofRanges(range), false));
                 }
                 default -> throw new IllegalArgumentException("Unsupported dynamic filtering comparison operator: " + operator);
             };

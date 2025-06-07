@@ -18,11 +18,11 @@ import io.airlift.units.DataSize;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
-import io.trino.spi.predicate.Domain;
-import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
+import io.trino.sql.planner.DynamicFilterDomain;
 import io.trino.sql.planner.DynamicFilterSourceConsumer;
+import io.trino.sql.planner.DynamicFilterTupleDomain;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNodeId;
 
@@ -54,8 +54,8 @@ public class DynamicFilterSourceOperator
         private final DynamicFilterSourceConsumer dynamicPredicateConsumer;
         private final List<Channel> channels;
         private final int maxDistinctValues;
+        private final int bloomFilterMaxDistinctValues;
         private final DataSize maxFilterSize;
-        private final int minMaxCollectionLimit;
         private final TypeOperators typeOperators;
 
         private boolean closed;
@@ -67,8 +67,8 @@ public class DynamicFilterSourceOperator
                 DynamicFilterSourceConsumer dynamicPredicateConsumer,
                 List<Channel> channels,
                 int maxDistinctValues,
+                int bloomFilterMaxDistinctValues,
                 DataSize maxFilterSize,
-                int minMaxCollectionLimit,
                 TypeOperators typeOperators)
         {
             this.operatorId = operatorId;
@@ -80,8 +80,8 @@ public class DynamicFilterSourceOperator
             verify(channels.stream().map(Channel::index).collect(toSet()).size() == channels.size(),
                     "duplicate channel indices are not allowed");
             this.maxDistinctValues = maxDistinctValues;
+            this.bloomFilterMaxDistinctValues = bloomFilterMaxDistinctValues;
             this.maxFilterSize = maxFilterSize;
-            this.minMaxCollectionLimit = minMaxCollectionLimit;
             this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         }
 
@@ -97,8 +97,8 @@ public class DynamicFilterSourceOperator
                         dynamicPredicateConsumer,
                         channels,
                         maxDistinctValues,
+                        bloomFilterMaxDistinctValues,
                         maxFilterSize,
-                        minMaxCollectionLimit,
                         typeOperators);
             }
             // Return a pass-through operator which adds little overhead
@@ -120,13 +120,13 @@ public class DynamicFilterSourceOperator
             // by LocalExecutionPlanner#addLookupOuterDrivers to add a new driver to output the unmatched rows in an outer join.
             // Since the logic for tracking partitions count for dynamicPredicateConsumer requires there to be only one DynamicFilterSourceOperatorFactory,
             // we turn off dynamic filtering and provide a duplicate factory which will act as pass through to allow the query to succeed.
-            dynamicPredicateConsumer.addPartition(TupleDomain.all());
+            dynamicPredicateConsumer.addPartition(DynamicFilterTupleDomain.all());
             return new DynamicFilterSourceOperatorFactory(
                     operatorId,
                     planNodeId,
                     new DynamicFilterSourceConsumer() {
                         @Override
-                        public void addPartition(TupleDomain<DynamicFilterId> tupleDomain)
+                        public void addPartition(DynamicFilterTupleDomain<DynamicFilterId> tupleDomain)
                         {
                             throw new UnsupportedOperationException();
                         }
@@ -142,8 +142,8 @@ public class DynamicFilterSourceOperator
                     },
                     channels,
                     maxDistinctValues,
+                    bloomFilterMaxDistinctValues,
                     maxFilterSize,
-                    minMaxCollectionLimit,
                     typeOperators);
         }
     }
@@ -157,7 +157,6 @@ public class DynamicFilterSourceOperator
     private final List<Channel> channels;
     private final JoinDomainBuilder[] joinDomainBuilders;
 
-    private int minMaxCollectionLimit;
     private boolean isDomainCollectionComplete;
 
     private DynamicFilterSourceOperator(
@@ -165,13 +164,12 @@ public class DynamicFilterSourceOperator
             DynamicFilterSourceConsumer dynamicPredicateConsumer,
             List<Channel> channels,
             int maxDistinctValues,
+            int bloomFilterMaxDistinctValues,
             DataSize maxFilterSize,
-            int minMaxCollectionLimit,
             TypeOperators typeOperators)
     {
         this.context = requireNonNull(context, "context is null");
         this.userMemoryContext = context.localUserMemoryContext();
-        this.minMaxCollectionLimit = minMaxCollectionLimit;
         this.dynamicPredicateConsumer = requireNonNull(dynamicPredicateConsumer, "dynamicPredicateConsumer is null");
         this.channels = requireNonNull(channels, "channels is null");
 
@@ -180,8 +178,8 @@ public class DynamicFilterSourceOperator
                 .map(type -> new JoinDomainBuilder(
                         type,
                         maxDistinctValues,
+                        bloomFilterMaxDistinctValues,
                         maxFilterSize,
-                        minMaxCollectionLimit > 0,
                         this::finishDomainCollectionIfNecessary,
                         typeOperators))
                 .toArray(JoinDomainBuilder[]::new);
@@ -211,16 +209,6 @@ public class DynamicFilterSourceOperator
 
         if (isDomainCollectionComplete) {
             return;
-        }
-
-        if (minMaxCollectionLimit >= 0) {
-            minMaxCollectionLimit -= page.getPositionCount();
-            if (minMaxCollectionLimit < 0) {
-                for (int channelIndex = 0; channelIndex < channels.size(); channelIndex++) {
-                    joinDomainBuilders[channelIndex].disableMinMax();
-                }
-                finishDomainCollectionIfNecessary();
-            }
         }
 
         // Collect only the columns which are relevant for the JOIN.
@@ -257,12 +245,12 @@ public class DynamicFilterSourceOperator
             return;
         }
 
-        ImmutableMap.Builder<DynamicFilterId, Domain> domainsBuilder = ImmutableMap.builder();
+        ImmutableMap.Builder<DynamicFilterId, DynamicFilterDomain> domainsBuilder = ImmutableMap.builder();
         for (int channelIndex = 0; channelIndex < channels.size(); ++channelIndex) {
             DynamicFilterId filterId = channels.get(channelIndex).filterId();
             domainsBuilder.put(filterId, joinDomainBuilders[channelIndex].build());
         }
-        dynamicPredicateConsumer.addPartition(TupleDomain.withColumnDomains(domainsBuilder.buildOrThrow()));
+        dynamicPredicateConsumer.addPartition(DynamicFilterTupleDomain.withColumnDomains(domainsBuilder.buildOrThrow()));
         userMemoryContext.setBytes(0);
         Arrays.fill(joinDomainBuilders, null);
     }
@@ -284,7 +272,7 @@ public class DynamicFilterSourceOperator
     {
         if (!isDomainCollectionComplete && stream(joinDomainBuilders).noneMatch(JoinDomainBuilder::isCollecting)) {
             // allow all probe-side values to be read.
-            dynamicPredicateConsumer.addPartition(TupleDomain.all());
+            dynamicPredicateConsumer.addPartition(DynamicFilterTupleDomain.all());
             isDomainCollectionComplete = true;
             userMemoryContext.setBytes(0);
         }

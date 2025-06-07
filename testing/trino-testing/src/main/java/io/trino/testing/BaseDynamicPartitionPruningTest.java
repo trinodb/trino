@@ -22,8 +22,6 @@ import io.trino.operator.OperatorStats;
 import io.trino.server.DynamicFilterService.DynamicFilterDomainStats;
 import io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import io.trino.spi.QueryId;
-import io.trino.spi.predicate.Domain;
-import io.trino.spi.predicate.ValueSet;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.tpch.TpchTable;
@@ -44,7 +42,6 @@ import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.spi.predicate.Domain.none;
 import static io.trino.spi.predicate.Domain.singleValue;
-import static io.trino.spi.predicate.Range.range;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.PARTITIONED;
 import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy.NONE;
@@ -68,7 +65,6 @@ public abstract class BaseDynamicPartitionPruningTest
     protected static final Map<String, String> EXTRA_PROPERTIES = ImmutableMap.of(
             // Reduced partitioned join limit for large DF to enable DF min/max collection with ENABLE_LARGE_DYNAMIC_FILTERS
             "dynamic-filtering.large-partitioned.max-distinct-values-per-driver", "100",
-            "dynamic-filtering.large-partitioned.range-row-limit-per-driver", "100000",
             // disable semi join to inner join rewrite to test semi join operators explicitly
             "optimizer.rewrite-filtering-semi-join-to-inner-join", "false");
 
@@ -204,8 +200,7 @@ public abstract class BaseDynamicPartitionPruningTest
         assertThat(dynamicFiltersStats.getDynamicFiltersCompleted()).isEqualTo(1L);
 
         DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        assertThat(domainStats.getSimplifiedDomain()).isEqualTo(Domain.create(ValueSet.ofRanges(range(BIGINT, 1L, true, 60000L, true)), false)
-                .toString(getSession().toConnectorSession()));
+        assertThat(domainStats.getSimplifiedDomain()).isEqualTo("[ Bloom filter approx cardinality: 15000, SortedRangeSet[type=bigint, ranges=1, {[1,60000]}], size: 2MB ]");
     }
 
     @Test
@@ -348,8 +343,7 @@ public abstract class BaseDynamicPartitionPruningTest
         assertThat(dynamicFiltersStats.getDynamicFiltersCompleted()).isEqualTo(1L);
 
         DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        assertThat(domainStats.getSimplifiedDomain()).isEqualTo(Domain.create(ValueSet.ofRanges(range(BIGINT, 1L, true, 60000L, true)), false)
-                .toString(getSession().toConnectorSession()));
+        assertThat(domainStats.getSimplifiedDomain()).isEqualTo("[ Bloom filter approx cardinality: 15002, SortedRangeSet[type=bigint, ranges=1, {[1,60000]}], size: 2MB ]");
     }
 
     @Test

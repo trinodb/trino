@@ -207,19 +207,15 @@ When large dynamic filters are enabled, limits on the size of dynamic filters ca
 be configured using the configuration properties
 `dynamic-filtering.large.max-distinct-values-per-driver`,
 `dynamic-filtering.large.max-size-per-driver` ,
-`dynamic-filtering.large.range-row-limit-per-driver`,
-`dynamic-filtering.large-partitioned.max-distinct-values-per-driver`,
-`dynamic-filtering.large-partitioned.max-size-per-driver` and
-`dynamic-filtering.large-partitioned.range-row-limit-per-driver`.
+`dynamic-filtering.large-partitioned.max-distinct-values-per-driver` and
+`dynamic-filtering.large-partitioned.max-size-per-driver`.
 
 Similarly, limits for dynamic filters when `enable-large-dynamic-filters`
 is not enabled can be configured using configuration properties like
 `dynamic-filtering.small.max-distinct-values-per-driver`,
 `dynamic-filtering.small.max-size-per-driver` ,
-`dynamic-filtering.small.range-row-limit-per-driver`,
-`dynamic-filtering.small-partitioned.max-distinct-values-per-driver`,
-`dynamic-filtering.small-partitioned.max-size-per-driver` and
-`dynamic-filtering.small-partitioned.range-row-limit-per-driver`.
+`dynamic-filtering.small-partitioned.max-distinct-values-per-driver` and
+`dynamic-filtering.small-partitioned.max-size-per-driver`.
 
 The `dynamic-filtering.large.*` and `dynamic-filtering.small.*` limits are applied
 when dynamic filters are collected before build side is partitioned on join

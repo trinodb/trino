@@ -13,12 +13,11 @@
  */
 package io.trino.sql.planner;
 
-import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.plan.DynamicFilterId;
 
 public interface DynamicFilterSourceConsumer
 {
-    void addPartition(TupleDomain<DynamicFilterId> tupleDomain);
+    void addPartition(DynamicFilterTupleDomain<DynamicFilterId> tupleDomain);
 
     void setPartitionCount(int partitionCount);
 

@@ -36,7 +36,9 @@ public class TestCoordinatorDynamicFiltering
                         // keep limits lower to test edge cases
                         "enable-large-dynamic-filters", "false",
                         "dynamic-filtering.small-partitioned.max-distinct-values-per-driver", "10",
-                        "dynamic-filtering.small.max-distinct-values-per-driver", "10"))
+                        "dynamic-filtering.small.max-distinct-values-per-driver", "10",
+                        "dynamic-filtering.partitioned-bloom-filter.max-distinct-values-per-driver", "50",
+                        "dynamic-filtering.bloom-filter.max-distinct-values-per-driver", "100"))
                 .build();
     }
 

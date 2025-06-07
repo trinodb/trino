@@ -76,6 +76,7 @@ import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.DynamicFilters;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.planner.DynamicFilterDomain;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.SymbolKeyDeserializer;
@@ -229,7 +230,7 @@ public class TestHttpRemoteTask
         Symbol symbol1 = symbolAllocator.newSymbol("DF_SYMBOL1", BIGINT);
         Reference df1 = symbol1.toSymbolReference();
         DynamicFilterId filterId1 = new DynamicFilterId("df1");
-        Map<DynamicFilterId, Domain> domain = ImmutableMap.of(filterId1, Domain.singleValue(BIGINT, 1L));
+        Map<DynamicFilterId, DynamicFilterDomain> domain = ImmutableMap.of(filterId1, DynamicFilterDomain.singleValue(BIGINT, 1L));
         ColumnHandle handle1 = new TestingColumnHandle("column1");
         QueryId queryId = new QueryId("test");
 
@@ -287,7 +288,7 @@ public class TestHttpRemoteTask
         Symbol symbol1 = symbolAllocator.newSymbol("DF_SYMBOL1", BIGINT);
         Reference df1 = symbol1.toSymbolReference();
         DynamicFilterId filterId1 = new DynamicFilterId("df1");
-        Map<DynamicFilterId, Domain> domain = ImmutableMap.of(filterId1, Domain.singleValue(BIGINT, 1L));
+        Map<DynamicFilterId, DynamicFilterDomain> domain = ImmutableMap.of(filterId1, DynamicFilterDomain.singleValue(BIGINT, 1L));
         ColumnHandle handle1 = new TestingColumnHandle("column1");
         QueryId queryId = new QueryId("test");
 
@@ -352,9 +353,9 @@ public class TestHttpRemoteTask
         HttpRemoteTaskFactory httpRemoteTaskFactory = createHttpRemoteTaskFactory(testingTaskResource, dynamicFilterService);
         RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory, ImmutableSet.of());
 
-        Map<DynamicFilterId, Domain> initialDomain = ImmutableMap.of(
+        Map<DynamicFilterId, DynamicFilterDomain> initialDomain = ImmutableMap.of(
                 filterId1,
-                Domain.singleValue(BIGINT, 1L));
+                DynamicFilterDomain.singleValue(BIGINT, 1L));
         testingTaskResource.setInitialTaskInfo(remoteTask.getTaskInfo());
         testingTaskResource.setDynamicFilterDomains(new VersionedDynamicFilterDomains(1L, initialDomain));
         dynamicFilterService.registerQuery(
@@ -394,7 +395,7 @@ public class TestHttpRemoteTask
         future = dynamicFilter.isBlocked();
         testingTaskResource.setDynamicFilterDomains(new VersionedDynamicFilterDomains(
                 2L,
-                ImmutableMap.of(filterId2, Domain.singleValue(BIGINT, 2L))));
+                ImmutableMap.of(filterId2, DynamicFilterDomain.singleValue(BIGINT, 2L))));
         future.get();
         assertThat(dynamicFilter.getCurrentPredicate()).isEqualTo(TupleDomain.withColumnDomains(ImmutableMap.of(
                 handle1, Domain.singleValue(BIGINT, 1L),
@@ -450,7 +451,7 @@ public class TestHttpRemoteTask
         CompletableFuture<?> future = dynamicFilter.isBlocked();
         dynamicFilterService.addTaskDynamicFilters(
                 new TaskId(new StageId(queryId.getId(), 1), 1, 0),
-                ImmutableMap.of(filterId1, Domain.singleValue(BIGINT, 1L)));
+                ImmutableMap.of(filterId1, DynamicFilterDomain.singleValue(BIGINT, 1L)));
         future.get();
         assertThat(dynamicFilter.getCurrentPredicate()).isEqualTo(TupleDomain.withColumnDomains(ImmutableMap.of(
                 handle1, Domain.singleValue(BIGINT, 1L))));
@@ -471,12 +472,12 @@ public class TestHttpRemoteTask
         // make sure dynamic filter was sent in task updates only once
         assertThat(testingTaskResource.getDynamicFiltersSentCounter()).isEqualTo(1L);
         assertThat(testingTaskResource.getCreateOrUpdateCounter()).isEqualTo(3L);
-        assertThat(testingTaskResource.getLatestDynamicFilterFromCoordinator()).isEqualTo(ImmutableMap.of(filterId1, Domain.singleValue(BIGINT, 1L)));
+        assertThat(testingTaskResource.getLatestDynamicFilterFromCoordinator()).isEqualTo(ImmutableMap.of(filterId1, DynamicFilterDomain.singleValue(BIGINT, 1L)));
 
         future = dynamicFilter.isBlocked();
         dynamicFilterService.addTaskDynamicFilters(
                 new TaskId(new StageId(queryId.getId(), 1), 1, 0),
-                ImmutableMap.of(filterId2, Domain.singleValue(BIGINT, 2L)));
+                ImmutableMap.of(filterId2, DynamicFilterDomain.singleValue(BIGINT, 2L)));
         future.get();
         assertThat(dynamicFilter.getCurrentPredicate()).isEqualTo(TupleDomain.withColumnDomains(ImmutableMap.of(
                 handle1, Domain.singleValue(BIGINT, 1L),
@@ -488,7 +489,7 @@ public class TestHttpRemoteTask
                 () -> assertThat(testingTaskResource.getDynamicFiltersSentCounter()).isEqualTo(2L));
         assertThat(testingTaskResource.getCreateOrUpdateCounter()).isEqualTo(4L);
         // previously sent dynamic filter should not be repeated
-        assertThat(testingTaskResource.getLatestDynamicFilterFromCoordinator()).isEqualTo(ImmutableMap.of(filterId2, Domain.singleValue(BIGINT, 2L)));
+        assertThat(testingTaskResource.getLatestDynamicFilterFromCoordinator()).isEqualTo(ImmutableMap.of(filterId2, DynamicFilterDomain.singleValue(BIGINT, 2L)));
 
         httpRemoteTaskFactory.stop();
     }
@@ -781,7 +782,7 @@ public class TestHttpRemoteTask
         private long version;
         private TaskState taskState;
         private String taskInstanceId = INITIAL_TASK_INSTANCE_ID;
-        private Map<DynamicFilterId, Domain> latestDynamicFilterFromCoordinator = ImmutableMap.of();
+        private Map<DynamicFilterId, DynamicFilterDomain> latestDynamicFilterFromCoordinator = ImmutableMap.of();
 
         private long statusFetchCounter;
         private long createOrUpdateCounter;
@@ -934,7 +935,7 @@ public class TestHttpRemoteTask
             this.dynamicFilterFailureCount = OptionalInt.of(failureCount);
         }
 
-        public Map<DynamicFilterId, Domain> getLatestDynamicFilterFromCoordinator()
+        public Map<DynamicFilterId, DynamicFilterDomain> getLatestDynamicFilterFromCoordinator()
         {
             return latestDynamicFilterFromCoordinator;
         }

@@ -20,7 +20,7 @@ import io.opentelemetry.api.trace.Span;
 import io.trino.SessionRepresentation;
 import io.trino.execution.SplitAssignment;
 import io.trino.execution.buffer.OutputBuffers;
-import io.trino.spi.predicate.Domain;
+import io.trino.sql.planner.DynamicFilterDomain;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.DynamicFilterId;
 
@@ -41,7 +41,7 @@ public record TaskUpdateRequest(
         Optional<PlanFragment> fragment,
         List<SplitAssignment> splitAssignments,
         OutputBuffers outputIds,
-        Map<DynamicFilterId, Domain> dynamicFilterDomains,
+        Map<DynamicFilterId, DynamicFilterDomain> dynamicFilterDomains,
         Optional<Slice> exchangeEncryptionKey,
         boolean speculative)
 {

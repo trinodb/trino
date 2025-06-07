@@ -54,9 +54,9 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.VersionEmbedder;
 import io.trino.spi.catalog.CatalogProperties;
 import io.trino.spi.connector.CatalogHandle;
-import io.trino.spi.predicate.Domain;
 import io.trino.spiller.LocalSpillManager;
 import io.trino.spiller.NodeSpillConfig;
+import io.trino.sql.planner.DynamicFilterDomain;
 import io.trino.sql.planner.LocalExecutionPlanner;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.DynamicFilterId;
@@ -500,7 +500,7 @@ public class SqlTaskManager
             Optional<PlanFragment> fragment,
             List<SplitAssignment> splitAssignments,
             OutputBuffers outputBuffers,
-            Map<DynamicFilterId, Domain> dynamicFilterDomains,
+            Map<DynamicFilterId, DynamicFilterDomain> dynamicFilterDomains,
             boolean speculative)
     {
         try {
@@ -520,7 +520,7 @@ public class SqlTaskManager
             Optional<PlanFragment> fragment,
             List<SplitAssignment> splitAssignments,
             OutputBuffers outputBuffers,
-            Map<DynamicFilterId, Domain> dynamicFilterDomains,
+            Map<DynamicFilterId, DynamicFilterDomain> dynamicFilterDomains,
             boolean speculative)
     {
         requireNonNull(session, "session is null");

@@ -36,7 +36,7 @@ import io.trino.memory.QueryContextVisitor;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.memory.context.MemoryTrackingContext;
-import io.trino.spi.predicate.Domain;
+import io.trino.sql.planner.DynamicFilterDomain;
 import io.trino.sql.planner.LocalDynamicFiltersCollector;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import org.joda.time.DateTime;
@@ -422,7 +422,7 @@ public class TaskContext
         return toIntExact(max(0, endFullGcCount - startFullGcCount));
     }
 
-    public void updateDomains(Map<DynamicFilterId, Domain> dynamicFilterDomains)
+    public void updateDomains(Map<DynamicFilterId, DynamicFilterDomain> dynamicFilterDomains)
     {
         dynamicFiltersCollector.updateDomains(dynamicFilterDomains);
     }
@@ -665,7 +665,7 @@ public class TaskContext
         return localDynamicFiltersCollector;
     }
 
-    public void addDynamicFilter(Map<DynamicFilterId, Domain> dynamicFilterDomains)
+    public void addDynamicFilter(Map<DynamicFilterId, DynamicFilterDomain> dynamicFilterDomains)
     {
         localDynamicFiltersCollector.collectDynamicFilterDomains(dynamicFilterDomains);
     }

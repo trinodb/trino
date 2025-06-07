@@ -29,11 +29,11 @@ import io.trino.parquet.reader.ParquetReader;
 import io.trino.parquet.reader.TestingParquetDataSource;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.spi.Page;
-import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.ExpressionCompiler;
+import io.trino.sql.planner.InternalDynamicFilter;
 import io.trino.sql.relational.CallExpression;
 import io.trino.sql.relational.InputReferenceExpression;
 import io.trino.sql.relational.RowExpression;
@@ -209,7 +209,7 @@ public class BenchmarkColumnarFilterParquetData
                         ImmutableList.of(new InputReferenceExpression(EXTENDED_PRICE, DOUBLE)),
                         Optional.empty(),
                         OptionalInt.empty())
-                .apply(DynamicFilter.EMPTY);
+                .apply(InternalDynamicFilter.EMPTY);
 
         List<TpchColumn<LineItem>> columns = ImmutableList.of(
                 LineItemColumn.EXTENDED_PRICE,

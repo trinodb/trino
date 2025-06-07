@@ -16,14 +16,14 @@ package io.trino.execution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
-import io.trino.spi.predicate.Domain;
+import io.trino.sql.planner.DynamicFilterDomain;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
-import static io.trino.spi.predicate.Domain.multipleValues;
-import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.planner.DynamicFilterDomain.multipleValues;
+import static io.trino.sql.planner.DynamicFilterDomain.singleValue;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDynamicFiltersCollector
@@ -40,7 +40,7 @@ public class TestDynamicFiltersCollector
         assertThat(domains.getVersion()).isEqualTo(INITIAL_DYNAMIC_FILTERS_VERSION);
         assertThat(domains.getDynamicFilterDomains()).isEqualTo(ImmutableMap.of());
 
-        Domain initialDomain = multipleValues(BIGINT, ImmutableList.of(1L, 2L, 3L));
+        DynamicFilterDomain initialDomain = multipleValues(BIGINT, ImmutableList.of(1L, 2L, 3L));
         collector.updateDomains(ImmutableMap.of(filter, initialDomain));
 
         domains = collector.acknowledgeAndGetNewDomains(INITIAL_DYNAMIC_FILTERS_VERSION);
@@ -58,7 +58,7 @@ public class TestDynamicFiltersCollector
 
         domains = collector.acknowledgeAndGetNewDomains(1L);
         assertThat(domains.getVersion()).isEqualTo(3L);
-        assertThat(domains.getDynamicFilterDomains()).isEqualTo(ImmutableMap.of(filter, Domain.none(BIGINT)));
+        assertThat(domains.getDynamicFilterDomains()).isEqualTo(ImmutableMap.of(filter, DynamicFilterDomain.none(BIGINT)));
 
         // make sure old domains are removed
         DynamicFilterId filter2 = new DynamicFilterId("filter2");

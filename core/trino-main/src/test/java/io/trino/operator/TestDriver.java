@@ -28,10 +28,10 @@ import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSplit;
-import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedPageSource;
 import io.trino.spi.type.Type;
 import io.trino.split.PageSourceProvider;
+import io.trino.sql.planner.InternalDynamicFilter;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.PageConsumerOperator;
@@ -175,7 +175,7 @@ public class TestDriver
                         .build()),
                 TEST_TABLE_HANDLE,
                 ImmutableList.of(),
-                DynamicFilter.EMPTY);
+                InternalDynamicFilter.EMPTY);
 
         PageConsumerOperator sink = createSinkOperator(types);
         Driver driver = Driver.createDriver(driverContext, source, sink);
@@ -581,7 +581,7 @@ public class TestDriver
                 TableHandle table,
                 Iterable<ColumnHandle> columns)
         {
-            super(operatorContext, planNodeId, pageSourceProvider, table, columns, DynamicFilter.EMPTY);
+            super(operatorContext, planNodeId, pageSourceProvider, table, columns, InternalDynamicFilter.EMPTY);
         }
 
         @Override
@@ -601,7 +601,7 @@ public class TestDriver
                 TableHandle table,
                 Iterable<ColumnHandle> columns)
         {
-            super(operatorContext, planNodeId, pageSourceProvider, table, columns, DynamicFilter.EMPTY);
+            super(operatorContext, planNodeId, pageSourceProvider, table, columns, InternalDynamicFilter.EMPTY);
         }
 
         @Override
@@ -626,7 +626,7 @@ public class TestDriver
                 TableHandle table,
                 Iterable<ColumnHandle> columns)
         {
-            super(operatorContext, planNodeId, pageSourceProvider, table, columns, DynamicFilter.EMPTY);
+            super(operatorContext, planNodeId, pageSourceProvider, table, columns, InternalDynamicFilter.EMPTY);
         }
 
         @Override

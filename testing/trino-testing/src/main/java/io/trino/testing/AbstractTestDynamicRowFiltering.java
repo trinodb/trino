@@ -80,6 +80,10 @@ public abstract class AbstractTestDynamicRowFiltering
             assertNoRowFiltering(
                     "SELECT * FROM  customer c, nation n WHERE c.nationkey = n.nationkey",
                     joinDistributionType);
+
+            assertNoRowFiltering(
+                    "SELECT * FROM  customer c1, customer c2 WHERE c1.custkey = c2.custkey",
+                    joinDistributionType);
         }
     }
 
