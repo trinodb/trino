@@ -51,6 +51,7 @@ import io.trino.spi.connector.TestingColumnHandle;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.security.Identity;
+import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.Type;
@@ -143,6 +144,7 @@ public abstract class BaseDataDefinitionTaskTest
                 MATERIALIZED_VIEW_PROPERTY_2_NAME, stringProperty(MATERIALIZED_VIEW_PROPERTY_2_NAME, "property 2", MATERIALIZED_VIEW_PROPERTY_2_DEFAULT_VALUE, false));
         materializedViewPropertyManager = new MaterializedViewPropertyManager(CatalogServiceProvider.singleton(TEST_CATALOG_HANDLE, properties));
         queryStateMachine = stateMachine(transactionManager, createTestMetadataManager(), new AllowAllAccessControl(), testSession);
+        metadata.createSchema(testSession, new CatalogSchemaName(TEST_CATALOG_NAME, SCHEMA), ImmutableMap.of(), new TrinoPrincipal(PrincipalType.ROLE, "role"));
     }
 
     @AfterEach
@@ -590,6 +592,12 @@ public abstract class BaseDataDefinitionTaskTest
             SchemaTableName oldViewName = source.asSchemaTableName();
             views.put(target.asSchemaTableName(), verifyNotNull(views.get(oldViewName), "View not found %s", oldViewName));
             views.remove(oldViewName);
+        }
+
+        @Override
+        public void refreshView(Session session, QualifiedObjectName viewName, ViewDefinition viewDefinition)
+        {
+            views.replace(viewName.asSchemaTableName(), viewDefinition);
         }
 
         @Override
