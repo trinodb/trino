@@ -71,12 +71,13 @@ public class HiveTableHandle
             @JsonProperty("tablePartitioning") Optional<HiveTablePartitioning> tablePartitioning,
             @JsonProperty("bucketFilter") Optional<HiveBucketFilter> bucketFilter,
             @JsonProperty("analyzePartitionValues") Optional<List<List<String>>> analyzePartitionValues,
-            @JsonProperty("transaction") AcidTransaction transaction)
+            @JsonProperty("transaction") AcidTransaction transaction,
+            @JsonProperty("tableParameters") Optional<Map<String, String>> tableParameters)
     {
         this(
                 schemaName,
                 tableName,
-                Optional.empty(),
+                tableParameters,
                 partitionColumns,
                 dataColumns,
                 Optional.empty(),
@@ -340,8 +341,7 @@ public class HiveTableHandle
         return tableName;
     }
 
-    // do not serialize tableParameters as they are not needed on workers
-    @JsonIgnore
+    @JsonProperty
     public Optional<Map<String, String>> getTableParameters()
     {
         return tableParameters;

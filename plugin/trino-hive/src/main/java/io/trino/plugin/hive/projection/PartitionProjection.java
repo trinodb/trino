@@ -14,11 +14,13 @@
 package io.trino.plugin.hive.projection;
 
 import com.google.common.base.VerifyException;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.metastore.Column;
 import io.trino.metastore.Partition;
 import io.trino.metastore.Table;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
@@ -50,6 +52,55 @@ public final class PartitionProjection
     {
         this.storageLocationTemplate = requireNonNull(storageLocationTemplate, "storageLocationTemplate is null");
         this.columnProjections = ImmutableMap.copyOf(requireNonNull(columnProjections, "columnProjections is null"));
+    }
+
+    // TODO: support writing partition projection
+    public boolean allowWrite()
+    {
+        if (storageLocationTemplate.isPresent()) {
+            String template = storageLocationTemplate.get();
+            if (template.endsWith("/")) {
+                template = template.substring(0, template.length() - 1);
+            }
+            List<String> columns = ImmutableList.copyOf(columnProjections.keySet());
+            String partition = columns.stream()
+                    .map(column -> column + "=${" + column + "}")
+                    .collect(Collectors.joining("/"));
+            if (!template.endsWith(partition)) {
+                return false;
+            }
+
+            template = template.substring(0, template.length() - partition.length());
+
+            // It means all the partitions are "appended" in the path.
+            // Just check if there is any other reference to the partition
+            for (String column : columns) {
+                if (template.contains("${" + column + "}")) {
+                    return false;
+                }
+            }
+        }
+
+        for (Projection projection : columnProjections.values()) {
+            // DateProjection may contain a user-defined format that is incompatible with Hive.
+            // Currently, we only support writing partitions in Hive's default date format.
+            // Allowing custom date formats in partition projection can lead to inconsistencies
+            // between reading and writing of the projection partition.
+            // To ensure compatibility and avoid incorrect query results, disable writing for now.
+            if (projection instanceof DateProjection dateProjection && !dateProjection.allowWrite()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public Optional<NullableValue> parsePartitionValue(String columnName, String value)
+    {
+        Projection projection = columnProjections.get(columnName);
+        if (projection == null) {
+            return Optional.empty();
+        }
+        return projection.parsePartitionValue(value);
     }
 
     public Optional<List<String>> getProjectedPartitionNamesByFilter(List<String> columnNames, TupleDomain<String> partitionKeysFilter)
