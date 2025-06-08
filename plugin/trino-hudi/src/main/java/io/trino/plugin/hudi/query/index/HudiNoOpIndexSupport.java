@@ -18,6 +18,7 @@ import io.trino.spi.predicate.TupleDomain;
 import org.apache.hudi.common.model.FileSlice;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.metadata.HoodieTableMetadata;
+import org.apache.hudi.util.Lazy;
 
 import java.util.List;
 import java.util.Map;
@@ -30,9 +31,9 @@ public class HudiNoOpIndexSupport
 {
     private static final Logger log = Logger.get(HudiNoOpIndexSupport.class);
 
-    public HudiNoOpIndexSupport(HoodieTableMetaClient metaClient)
+    public HudiNoOpIndexSupport(Lazy<HoodieTableMetaClient> lazyMetaClient)
     {
-        super(log, metaClient);
+        super(log, lazyMetaClient);
     }
 
     @Override

@@ -74,7 +74,7 @@ public class TimelineTable
     @Override
     public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
-        HoodieTableMetaClient metaClient = buildTableMetaClient(fileSystem, location);
+        HoodieTableMetaClient metaClient = buildTableMetaClient(fileSystem, tableMetadata.getTable().toString(), location);
         Iterable<List<Object>> records = () -> metaClient.getCommitsTimeline().getInstants().stream()
                 .map(this::getRecord).iterator();
         return new InMemoryRecordSet(types, records).cursor();

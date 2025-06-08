@@ -16,6 +16,7 @@ package io.trino.plugin.hudi.split;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.MoreFutures;
+import io.trino.metastore.Partition;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HivePartitionKey;
 import io.trino.plugin.hive.util.AsyncQueue;
@@ -36,6 +37,7 @@ import org.apache.hudi.common.engine.HoodieLocalEngineContext;
 import org.apache.hudi.common.model.FileSlice;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.metadata.HoodieTableMetadata;
+import org.apache.hudi.util.Lazy;
 
 import java.util.ArrayList;
 import java.util.Deque;
@@ -58,16 +60,16 @@ import static java.util.Objects.requireNonNull;
 public class HudiBackgroundSplitLoader
         implements Runnable
 {
+    private final HudiTableHandle tableHandle;
     private final HudiDirectoryLister hudiDirectoryLister;
     private final AsyncQueue<ConnectorSplit> asyncQueue;
     private final Executor splitGeneratorExecutor;
     private final int splitGeneratorNumThreads;
     private final HudiSplitFactory hudiSplitFactory;
-    private final List<String> partitions;
-    private final String commitTime;
+    private final Lazy<List<String>> lazyPartitions;
     private final Consumer<Throwable> errorListener;
     private final boolean enableMetadataTable;
-    private final HoodieTableMetaClient metaClient;
+    private final Lazy<HoodieTableMetaClient> lazyMetaClient;
     private final TupleDomain<HiveColumnHandle> regularPredicates;
     private final Optional<HudiIndexSupport> indexSupportOpt;
     private final Optional<HudiPartitionStatsIndexSupport> partitionIndexSupportOpt;
@@ -79,25 +81,23 @@ public class HudiBackgroundSplitLoader
             AsyncQueue<ConnectorSplit> asyncQueue,
             Executor splitGeneratorExecutor,
             HudiSplitWeightProvider hudiSplitWeightProvider,
-            List<String> partitions,
-            String commitTime,
+            Lazy<Map<String, Partition>> lazyPartitionMap,
             boolean enableMetadataTable,
-            HoodieTableMetaClient metaClient,
             Consumer<Throwable> errorListener)
     {
+        this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
         this.hudiDirectoryLister = requireNonNull(hudiDirectoryLister, "hudiDirectoryLister is null");
         this.asyncQueue = requireNonNull(asyncQueue, "asyncQueue is null");
         this.splitGeneratorExecutor = requireNonNull(splitGeneratorExecutor, "splitGeneratorExecutorService is null");
         this.splitGeneratorNumThreads = getSplitGeneratorParallelism(session);
         this.hudiSplitFactory = new HudiSplitFactory(tableHandle, hudiSplitWeightProvider);
-        this.partitions = requireNonNull(partitions, "partitions is null");
-        this.commitTime = requireNonNull(commitTime, "commitTime is null");
+        this.lazyPartitions = Lazy.lazily(() -> requireNonNull(lazyPartitionMap, "partitions is null").get().keySet().stream().toList());
         this.enableMetadataTable = enableMetadataTable;
-        this.metaClient = requireNonNull(metaClient, "metaClient is null");
+        this.lazyMetaClient = Lazy.lazily(tableHandle::getMetaClient);
         this.regularPredicates = tableHandle.getRegularPredicates();
         this.errorListener = requireNonNull(errorListener, "errorListener is null");
-        this.indexSupportOpt = IndexSupportFactory.createIndexSupport(metaClient, regularPredicates, session);
-        this.partitionIndexSupportOpt = IndexSupportFactory.createPartitionStatsIndexSupport(metaClient, regularPredicates, session);
+        this.indexSupportOpt = IndexSupportFactory.createIndexSupport(lazyMetaClient, regularPredicates, session);
+        this.partitionIndexSupportOpt = IndexSupportFactory.createPartitionStatsIndexSupport(lazyMetaClient, regularPredicates, session);
     }
 
     @Override
@@ -124,26 +124,26 @@ public class HudiBackgroundSplitLoader
     {
         // Data Skipping based on column stats
         HoodieMetadataConfig metadataConfig = HoodieMetadataConfig.newBuilder().enable(true).build();
-        HoodieEngineContext engineContext = new HoodieLocalEngineContext(metaClient.getStorage().getConf());
+        HoodieEngineContext engineContext = new HoodieLocalEngineContext(lazyMetaClient.get().getStorage().getConf());
         HoodieTableMetadata metadataTable = HoodieTableMetadata.create(
                 engineContext,
-                metaClient.getStorage(), metadataConfig, metaClient.getBasePath().toString(), true);
+                lazyMetaClient.get().getStorage(), metadataConfig, lazyMetaClient.get().getBasePath().toString(), true);
 
         // Attempt to apply partition pruning using partition stats index
         Optional<List<String>> effectivePartitionsOpt = partitionIndexSupportOpt.isPresent() ? partitionIndexSupportOpt.get().prunePartitions(
-                partitions, metadataTable, regularPredicates.transformKeys(HiveColumnHandle::getName)) : Optional.empty();
+                lazyPartitions.get(), metadataTable, regularPredicates.transformKeys(HiveColumnHandle::getName)) : Optional.empty();
 
         // For MDT the file listing is already loaded in memory
         // TODO(yihua): refactor split loader/directory lister API for maintainability
         Map<String, List<FileSlice>> partitionFileSliceMap = new HashMap<>();
         Map<String, List<HivePartitionKey>> partitionToPartitionKeyMap = new HashMap<>();
         // non-partitioned tables have empty strings
-        for (String partitionName : effectivePartitionsOpt.orElse(partitions)) {
+        for (String partitionName : effectivePartitionsOpt.orElse(lazyPartitions.get())) {
             Optional<HudiPartitionInfo> partitionInfo = hudiDirectoryLister.getPartitionInfo(partitionName);
             partitionInfo.ifPresent(hudiPartitionInfo -> {
                 if (hudiPartitionInfo.doesMatchPredicates() || partitionName.equals(NON_PARTITION)) {
                     List<HivePartitionKey> partitionKeys = hudiPartitionInfo.getHivePartitionKeys();
-                    List<FileSlice> partitionFileSlices = hudiDirectoryLister.listStatus(hudiPartitionInfo, commitTime);
+                    List<FileSlice> partitionFileSlices = hudiDirectoryLister.listStatus(hudiPartitionInfo);
                     partitionFileSliceMap.put(partitionName, partitionFileSlices);
                     partitionToPartitionKeyMap.put(partitionName, partitionKeys);
                 }
@@ -155,7 +155,7 @@ public class HudiBackgroundSplitLoader
         prunedFiles.entrySet().stream()
                 .flatMap(entry -> entry.getValue().stream().flatMap(slice ->
                         hudiSplitFactory.createSplits(
-                                partitionToPartitionKeyMap.get(entry.getKey()), slice, commitTime).stream()))
+                                partitionToPartitionKeyMap.get(entry.getKey()), slice, tableHandle.getLatestCommitTime()).stream()))
                 .map(asyncQueue::offer)
                 .forEachOrdered(MoreFutures::getFutureValue);
         asyncQueue.finish();
@@ -163,13 +163,13 @@ public class HudiBackgroundSplitLoader
 
     private void partitionPruningSplitGenerator()
     {
-        Deque<String> partitionQueue = new ConcurrentLinkedDeque<>(partitions);
+        Deque<String> partitionQueue = new ConcurrentLinkedDeque<>(lazyPartitions.get());
         List<HudiPartitionInfoLoader> splitGeneratorList = new ArrayList<>();
         List<ListenableFuture<Void>> splitGeneratorFutures = new ArrayList<>();
 
         // Start a number of partition split generators to generate the splits in parallel
         for (int i = 0; i < splitGeneratorNumThreads; i++) {
-            HudiPartitionInfoLoader generator = new HudiPartitionInfoLoader(hudiDirectoryLister, commitTime, hudiSplitFactory, asyncQueue, partitionQueue);
+            HudiPartitionInfoLoader generator = new HudiPartitionInfoLoader(hudiDirectoryLister, tableHandle.getLatestCommitTime(), hudiSplitFactory, asyncQueue, partitionQueue);
             splitGeneratorList.add(generator);
             ListenableFuture<Void> future = Futures.submit(generator, splitGeneratorExecutor);
             addExceptionCallback(future, errorListener);

@@ -35,6 +35,7 @@ import org.apache.hudi.common.table.HoodieTableVersion;
 import org.apache.hudi.common.util.hash.ColumnIndexID;
 import org.apache.hudi.metadata.HoodieTableMetadata;
 import org.apache.hudi.metadata.HoodieTableMetadataUtil;
+import org.apache.hudi.util.Lazy;
 
 import java.util.List;
 import java.util.Map;
@@ -57,14 +58,14 @@ public class HudiColumnStatsIndexSupport
 {
     private static final Logger log = Logger.get(HudiColumnStatsIndexSupport.class);
 
-    public HudiColumnStatsIndexSupport(HoodieTableMetaClient metaClient)
+    public HudiColumnStatsIndexSupport(Lazy<HoodieTableMetaClient> lazyMetaClient)
     {
-        super(log, metaClient);
+        super(log, lazyMetaClient);
     }
 
-    public HudiColumnStatsIndexSupport(Logger log, HoodieTableMetaClient metaClient)
+    public HudiColumnStatsIndexSupport(Logger log, Lazy<HoodieTableMetaClient> lazyMetaClient)
     {
-        super(log, metaClient);
+        super(log, lazyMetaClient);
     }
 
     @Override
@@ -112,7 +113,7 @@ public class HudiColumnStatsIndexSupport
         boolean isIndexSupported = isIndexSupportAvailable();
         // indexDefinition is only available after table version EIGHT
         // For tables that have versions < EIGHT, column stats index is available as long as partition in metadata is available
-        if (!isIndexSupported || metaClient.getTableConfig().getTableVersion().lesserThan(HoodieTableVersion.EIGHT)) {
+        if (!isIndexSupported || lazyMetaClient.get().getTableConfig().getTableVersion().lesserThan(HoodieTableVersion.EIGHT)) {
             log.debug("Column Stats Index partition is not enabled in metadata.");
             return isIndexSupported;
         }
@@ -139,7 +140,7 @@ public class HudiColumnStatsIndexSupport
 
     public boolean isIndexSupportAvailable()
     {
-        return metaClient.getTableConfig().getMetadataPartitions()
+        return lazyMetaClient.get().getTableConfig().getMetadataPartitions()
                 .contains(HoodieTableMetadataUtil.PARTITION_NAME_COLUMN_STATS);
     }
 

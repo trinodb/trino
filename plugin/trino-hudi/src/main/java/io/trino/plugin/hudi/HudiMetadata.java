@@ -15,7 +15,8 @@ package io.trino.plugin.hudi;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.filesystem.Location;
+import com.google.common.collect.ImmutableSet;
+import io.airlift.log.Logger;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.Column;
@@ -24,8 +25,6 @@ import io.trino.metastore.Table;
 import io.trino.metastore.TableInfo;
 import io.trino.plugin.base.classloader.ClassLoaderSafeSystemTable;
 import io.trino.plugin.hive.HiveColumnHandle;
-import io.trino.plugin.hudi.storage.HudiTrinoStorage;
-import io.trino.plugin.hudi.storage.TrinoStorageConfiguration;
 import io.trino.plugin.hudi.util.HudiTableTypeUtils;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
@@ -45,9 +44,7 @@ import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeManager;
 import org.apache.hudi.common.model.HoodieTableType;
-import org.apache.hudi.common.table.HoodieTableConfig;
-import org.apache.hudi.common.table.HoodieTableMetaClient;
-import org.apache.hudi.storage.StoragePath;
+import org.apache.hudi.util.Lazy;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -71,12 +68,11 @@ import static io.trino.plugin.hive.util.HiveUtil.getPartitionKeyColumnHandles;
 import static io.trino.plugin.hive.util.HiveUtil.hiveColumnHandles;
 import static io.trino.plugin.hive.util.HiveUtil.isHiveSystemSchema;
 import static io.trino.plugin.hive.util.HiveUtil.isHudiTable;
-import static io.trino.plugin.hudi.HudiErrorCode.HUDI_BAD_DATA;
 import static io.trino.plugin.hudi.HudiSessionProperties.getColumnsToHide;
 import static io.trino.plugin.hudi.HudiSessionProperties.isQueryPartitionFilterRequired;
 import static io.trino.plugin.hudi.HudiTableProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.hudi.HudiTableProperties.PARTITIONED_BY_PROPERTY;
-import static io.trino.plugin.hudi.HudiUtil.hudiMetadataExists;
+import static io.trino.plugin.hudi.HudiUtil.buildTableMetaClient;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.QUERY_REJECTED;
 import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
@@ -89,6 +85,7 @@ import static java.util.function.Function.identity;
 public class HudiMetadata
         implements ConnectorMetadata
 {
+    private static final Logger log = Logger.get(HudiMetadata.class);
     private final HiveMetastore metastore;
     private final TrinoFileSystemFactory fileSystemFactory;
     private final TypeManager typeManager;
@@ -111,6 +108,7 @@ public class HudiMetadata
     @Override
     public HudiTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
     {
+        log.info("Creating new HudiTableHandle for %s", tableName);
         if (startVersion.isPresent() || endVersion.isPresent()) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
         }
@@ -127,31 +125,20 @@ public class HudiMetadata
         if (!isHudiTable(table)) {
             throw new TrinoException(UNSUPPORTED_TABLE_TYPE, format("Not a Hudi table: %s", tableName));
         }
-        Location location = Location.of(table.getStorage().getLocation());
+        String basePath = table.getStorage().getLocation();
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-        if (!hudiMetadataExists(fileSystem, location)) {
-            throw new TrinoException(HUDI_BAD_DATA, "Location of table %s does not contain Hudi table metadata: %s".formatted(tableName, location));
-        }
-        StoragePath metaLocation = new StoragePath(
-                table.getStorage().getLocation(), HoodieTableMetaClient.METAFOLDER_NAME);
-        HoodieTableConfig tableConfig = new HoodieTableConfig(
-                new HudiTrinoStorage(fileSystem, new TrinoStorageConfiguration()),
-                metaLocation,
-                null,
-                null,
-                null);
-        String preCombineField = tableConfig.getPreCombineField();
-
         String inputFormat = table.getStorage().getStorageFormat().getInputFormat();
         HoodieTableType hoodieTableType = HudiTableTypeUtils.fromInputFormat(inputFormat);
 
         return new HudiTableHandle(
+                Optional.of(table),
+                Optional.of(Lazy.lazily(() -> buildTableMetaClient(fileSystem, tableName.toString(), basePath))),
                 tableName.getSchemaName(),
                 tableName.getTableName(),
                 table.getStorage().getLocation(),
                 hoodieTableType,
-                preCombineField,
                 getPartitionKeyColumnHandles(table, typeManager),
+                ImmutableSet.of(),
                 TupleDomain.all(),
                 TupleDomain.all());
     }

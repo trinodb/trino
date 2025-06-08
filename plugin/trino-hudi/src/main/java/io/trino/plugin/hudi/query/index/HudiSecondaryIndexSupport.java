@@ -22,6 +22,7 @@ import org.apache.hudi.common.model.HoodieRecordGlobalLocation;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.metadata.HoodieTableMetadata;
 import org.apache.hudi.metadata.HoodieTableMetadataUtil;
+import org.apache.hudi.util.Lazy;
 
 import java.util.List;
 import java.util.Map;
@@ -37,9 +38,9 @@ public class HudiSecondaryIndexSupport
 {
     private static final Logger log = Logger.get(HudiSecondaryIndexSupport.class);
 
-    public HudiSecondaryIndexSupport(HoodieTableMetaClient metaClient)
+    public HudiSecondaryIndexSupport(Lazy<HoodieTableMetaClient> lazyMetaClient)
     {
-        super(log, metaClient);
+        super(log, lazyMetaClient);
     }
 
     @Override
@@ -48,7 +49,7 @@ public class HudiSecondaryIndexSupport
             Map<String, List<FileSlice>> inputFileSlices,
             TupleDomain<String> regularColumnPredicates)
     {
-        if (regularColumnPredicates.isAll() || metaClient.getIndexMetadata().isEmpty()) {
+        if (regularColumnPredicates.isAll() || lazyMetaClient.get().getIndexMetadata().isEmpty()) {
             log.debug("Predicates cover all data, skipping secondary index lookup.");
             return inputFileSlices;
         }

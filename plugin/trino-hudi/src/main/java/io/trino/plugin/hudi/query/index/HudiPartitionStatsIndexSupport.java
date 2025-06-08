@@ -23,6 +23,7 @@ import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.common.util.hash.ColumnIndexID;
 import org.apache.hudi.metadata.HoodieTableMetadata;
 import org.apache.hudi.metadata.HoodieTableMetadataUtil;
+import org.apache.hudi.util.Lazy;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -37,9 +38,9 @@ public class HudiPartitionStatsIndexSupport
 {
     private static final Logger log = Logger.get(HudiColumnStatsIndexSupport.class);
 
-    public HudiPartitionStatsIndexSupport(HoodieTableMetaClient metaClient)
+    public HudiPartitionStatsIndexSupport(Lazy<HoodieTableMetaClient> lazyMetaClient)
     {
-        super(log, metaClient);
+        super(log, lazyMetaClient);
     }
 
     @Override
@@ -104,7 +105,7 @@ public class HudiPartitionStatsIndexSupport
     @Override
     public boolean isIndexSupportAvailable()
     {
-        return metaClient.getTableConfig().getMetadataPartitions()
+        return lazyMetaClient.get().getTableConfig().getMetadataPartitions()
                 .contains(HoodieTableMetadataUtil.PARTITION_NAME_PARTITION_STATS);
     }
 

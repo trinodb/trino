@@ -167,17 +167,6 @@ public class HudiPageSourceProvider
             start = hudiBaseFileOpt.get().getStart();
             length = hudiBaseFileOpt.get().getLength();
         }
-        // TODO: Move this into HudiTableHandle
-        HoodieTableMetaClient metaClient = buildTableMetaClient(fileSystemFactory.create(session), hudiTableHandle.getBasePath());
-        String latestCommitTime = metaClient.getCommitsTimeline().lastInstant().get().requestedTime();
-        Schema dataSchema;
-        try {
-            dataSchema = new TableSchemaResolver(metaClient).getTableAvroSchema(latestCommitTime);
-        }
-        catch (Exception e) {
-            // Unable to find table schema
-            throw new TrinoException(HUDI_FILESYSTEM_ERROR, e);
-        }
 
         // Enable predicate pushdown for splits containing only base files
         boolean isBaseFileOnly = hudiSplit.getLogFiles().isEmpty();
@@ -215,6 +204,19 @@ public class HudiPageSourceProvider
                     hiveColumnHandles,
                     dataColumnHandles,
                     synthesizedColumnHandler);
+        }
+
+        // TODO: Move this into HudiTableHandle
+        HoodieTableMetaClient metaClient = buildTableMetaClient(
+                fileSystemFactory.create(session), hudiTableHandle.getSchemaTableName().toString(), hudiTableHandle.getBasePath());
+        String latestCommitTime = metaClient.getCommitsTimeline().lastInstant().get().requestedTime();
+        Schema dataSchema;
+        try {
+            dataSchema = new TableSchemaResolver(metaClient).getTableAvroSchema(latestCommitTime);
+        }
+        catch (Exception e) {
+            // Unable to find table schema
+            throw new TrinoException(HUDI_FILESYSTEM_ERROR, e);
         }
 
         HudiTrinoReaderContext readerContext = new HudiTrinoReaderContext(

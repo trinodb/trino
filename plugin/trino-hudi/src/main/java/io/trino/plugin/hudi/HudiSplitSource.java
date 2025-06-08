@@ -19,9 +19,7 @@ import com.google.common.util.concurrent.Futures;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.Partition;
-import io.trino.metastore.Table;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HivePartitionKey;
 import io.trino.plugin.hive.util.AsyncQueue;
@@ -40,8 +38,7 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
-import org.apache.hudi.common.table.HoodieTableMetaClient;
-import org.apache.hudi.common.table.timeline.HoodieInstant;
+import org.apache.hudi.util.Lazy;
 
 import java.util.HashMap;
 import java.util.List;
@@ -63,11 +60,9 @@ import static io.trino.plugin.hudi.HudiSessionProperties.getSplitGeneratorParall
 import static io.trino.plugin.hudi.HudiSessionProperties.getStandardSplitWeightSize;
 import static io.trino.plugin.hudi.HudiSessionProperties.isHudiMetadataTableEnabled;
 import static io.trino.plugin.hudi.HudiSessionProperties.isSizeBasedSplitWeightsEnabled;
-import static io.trino.plugin.hudi.HudiUtil.buildTableMetaClient;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.stream.Collectors.toList;
 
 public class HudiSplitSource
         implements ConnectorSplitSource
@@ -82,36 +77,20 @@ public class HudiSplitSource
 
     public HudiSplitSource(
             ConnectorSession session,
-            Table table,
             HudiTableHandle tableHandle,
-            TrinoFileSystemFactory fileSystemFactory,
-            Map<String, HiveColumnHandle> partitionColumnHandleMap,
             ExecutorService executor,
             ScheduledExecutorService splitLoaderExecutorService,
             int maxSplitsPerSecond,
             int maxOutstandingSplits,
-            Map<String, Partition> partitions,
+            Lazy<Map<String, Partition>> lazyPartitions,
             DynamicFilter dynamicFilter,
             Duration dynamicFilteringWaitTimeoutMillis)
     {
         boolean enableMetadataTable = isHudiMetadataTableEnabled(session);
-        HoodieTableMetaClient metaClient = buildTableMetaClient(fileSystemFactory.create(session), tableHandle.getBasePath());
-        String latestCommitTime = metaClient.getActiveTimeline()
-                .getCommitsTimeline()
-                .filterCompletedInstants()
-                .lastInstant()
-                .map(HoodieInstant::requestedTime)
-                .orElseThrow(() -> new TrinoException(HudiErrorCode.HUDI_NO_VALID_COMMIT, "Table has no valid commits"));
-        List<HiveColumnHandle> partitionColumnHandles = table.getPartitionColumns().stream()
-                .map(column -> partitionColumnHandleMap.get(column.getName())).collect(toList());
-
         HudiDirectoryLister hudiDirectoryLister = new HudiSnapshotDirectoryLister(
                 tableHandle,
-                metaClient,
                 enableMetadataTable,
-                partitionColumnHandles,
-                partitions,
-                latestCommitTime);
+                lazyPartitions);
 
         this.queue = new ThrottledAsyncQueue<>(maxSplitsPerSecond, maxOutstandingSplits, executor);
         HudiBackgroundSplitLoader splitLoader = new HudiBackgroundSplitLoader(
@@ -121,13 +100,11 @@ public class HudiSplitSource
                 queue,
                 new BoundedExecutor(executor, getSplitGeneratorParallelism(session)),
                 createSplitWeightProvider(session),
-                partitions.keySet().stream().toList(),
-                latestCommitTime,
+                lazyPartitions,
                 enableMetadataTable,
-                metaClient,
                 throwable -> {
                     trinoException.compareAndSet(null, new TrinoException(HUDI_CANNOT_OPEN_SPLIT,
-                            "Failed to generate splits for " + table.getSchemaTableName(), throwable));
+                            "Failed to generate splits for " + tableHandle.getSchemaTableName(), throwable));
                     queue.finish();
                 });
         this.splitLoaderFuture = splitLoaderExecutorService.schedule(splitLoader, 0, TimeUnit.MILLISECONDS);
