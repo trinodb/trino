@@ -41,7 +41,6 @@ import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.util.List;
 
-import static io.trino.SystemSessionProperties.DISTINCT_AGGREGATIONS_STRATEGY;
 import static io.trino.plugin.druid.DruidQueryRunner.copyAndIngestTpchData;
 import static io.trino.plugin.druid.DruidTpchTables.SELECT_FROM_ORDERS;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -672,19 +671,16 @@ public class TestDruidConnectorTest
         assertThat(query("SELECT min(DISTINCT regionkey) FROM nation")).isFullyPushedDown();
         assertThat(query("SELECT DISTINCT regionkey, min(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
 
-        Session withMarkDistinct = Session.builder(getSession())
-                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "mark_distinct")
-                .build();
         // distinct aggregation
-        assertThat(query(withMarkDistinct, "SELECT count(DISTINCT regionkey) FROM nation")).isFullyPushedDown();
+        assertThat(query("SELECT count(DISTINCT regionkey) FROM nation")).isFullyPushedDown();
         // distinct aggregation with GROUP BY
-        assertThat(query(withMarkDistinct, "SELECT count(DISTINCT nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
+        assertThat(query("SELECT count(DISTINCT nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
         // distinct aggregation with varchar
-        assertThat(query(withMarkDistinct, "SELECT count(DISTINCT comment) FROM nation")).isFullyPushedDown();
+        assertThat(query("SELECT count(DISTINCT comment) FROM nation")).isFullyPushedDown();
         // distinct aggregation and a non-distinct aggregation
-        assertThat(query(withMarkDistinct, "SELECT count(DISTINCT regionkey), sum(nationkey) FROM nation")).isFullyPushedDown();
+        assertThat(query("SELECT count(DISTINCT regionkey), sum(nationkey) FROM nation")).isFullyPushedDown();
         // two distinct aggregations
-        assertThat(query(withMarkDistinct, "SELECT count(DISTINCT regionkey), sum(DISTINCT nationkey) FROM nation")).isFullyPushedDown();
+        assertThat(query("SELECT count(DISTINCT regionkey), sum(DISTINCT nationkey) FROM nation")).isFullyPushedDown();
     }
 
     @Test
@@ -699,7 +695,8 @@ public class TestDruidConnectorTest
                 .build();
         try {
             copyAndIngestTpchData(rows, druidServer, caseSensitiveTable);
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             fail("Could not complete table load for test", e);
         }
 
