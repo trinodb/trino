@@ -63,7 +63,7 @@ public class TestHiveMetadataListing
             Optional.of("comment"),
             ImmutableMap.of());
     private static final Storage TABLE_STORAGE = new Storage(
-            StorageFormat.create("serde", "input", "output"),
+            StorageFormat.create("serde", "input", "output", ".ext"),
             Optional.of("location"),
             Optional.of(new HiveBucketProperty(ImmutableList.of("column"), 10, ImmutableList.of(new SortingColumn("column", SortingColumn.Order.ASCENDING)))),
             true,
