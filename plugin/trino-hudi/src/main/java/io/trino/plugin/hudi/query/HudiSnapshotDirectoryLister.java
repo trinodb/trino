@@ -23,15 +23,15 @@ import io.trino.plugin.hudi.partition.HudiPartitionInfo;
 import io.trino.plugin.hudi.query.index.HudiIndexSupport;
 import io.trino.plugin.hudi.query.index.IndexSupportFactory;
 import io.trino.plugin.hudi.storage.TrinoStorageConfiguration;
-import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SchemaTableName;
 import org.apache.hudi.common.config.HoodieMetadataConfig;
 import org.apache.hudi.common.engine.HoodieLocalEngineContext;
 import org.apache.hudi.common.model.FileSlice;
+import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.common.table.view.FileSystemViewManager;
 import org.apache.hudi.common.table.view.HoodieTableFileSystemView;
 import org.apache.hudi.common.util.HoodieTimer;
-import org.apache.hudi.util.Lazy;
 import org.apache.hudi.metadata.HoodieTableMetadata;
 import org.apache.hudi.util.Lazy;
 
@@ -50,7 +50,7 @@ public class HudiSnapshotDirectoryLister
     private final HudiTableHandle tableHandle;
     private final Lazy<HoodieTableFileSystemView> lazyFileSystemView;
     private final Lazy<Map<String, HudiPartitionInfo>> lazyAllPartitionInfoMap;
-    private final Optional<HudiIndexSupport> laazyIndexSupportOpt;
+    private final Optional<HudiIndexSupport> lazyIndexSupportOpt;
 
     public HudiSnapshotDirectoryLister(
             ConnectorSession session,
@@ -84,8 +84,9 @@ public class HudiSnapshotDirectoryLister
                                 e.getValue(),
                                 tableHandle.getPartitionColumns(),
                                 tableHandle.getPartitionPredicates()))));
-        this.laazyIndexSupportOpt = enableMetadataTable ?
-                IndexSupportFactory.createIndexSupport(metaClient, lazyTableMetadata, tableHandle.getRegularPredicates(), session) : Optional.empty();
+        Lazy<HoodieTableMetaClient> lazyMetaClient = Lazy.lazily(tableHandle::getMetaClient);
+        this.lazyIndexSupportOpt = enableMetadataTable ?
+                IndexSupportFactory.createIndexSupport(lazyMetaClient, lazyTableMetadata, tableHandle.getRegularPredicates(), session) : Optional.empty();
     }
 
     @Override
@@ -102,7 +103,7 @@ public class HudiSnapshotDirectoryLister
         }
 
         ImmutableList<FileSlice> collect = slices
-                .filter(slice -> laazyIndexSupportOpt
+                .filter(slice -> lazyIndexSupportOpt
                         .map(indexSupport -> !indexSupport.shouldSkipFileSlice(slice))
                         .orElse(true))
                 .collect(toImmutableList());

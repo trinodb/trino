@@ -38,12 +38,10 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
-import org.apache.hudi.util.Lazy;
 import org.apache.hudi.common.config.HoodieMetadataConfig;
 import org.apache.hudi.common.engine.HoodieEngineContext;
 import org.apache.hudi.common.engine.HoodieLocalEngineContext;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
-import org.apache.hudi.common.table.timeline.HoodieInstant;
 import org.apache.hudi.metadata.HoodieTableMetadata;
 import org.apache.hudi.util.Lazy;
 
@@ -94,31 +92,22 @@ public class HudiSplitSource
             Duration dynamicFilteringWaitTimeoutMillis)
     {
         boolean enableMetadataTable = isHudiMetadataTableEnabled(session);
-        HoodieTableMetaClient metaClient = buildTableMetaClient(fileSystemFactory.create(session), tableHandle.getBasePath());
-        String latestCommitTime = metaClient.getActiveTimeline()
-                .getCommitsTimeline()
-                .filterCompletedInstants()
-                .lastInstant()
-                .map(HoodieInstant::requestedTime)
-                .orElseThrow(() -> new TrinoException(HudiErrorCode.HUDI_NO_VALID_COMMIT, "Table has no valid commits"));
-        List<HiveColumnHandle> partitionColumnHandles = table.getPartitionColumns().stream()
-                .map(column -> partitionColumnHandleMap.get(column.getName())).collect(toList());
-
-        Lazy<HoodieTableMetadata> tableMetadata = Lazy.lazily(() -> {
+        Lazy<HoodieTableMetadata> lazyTableMetadata = Lazy.lazily(() -> {
             HoodieMetadataConfig metadataConfig = HoodieMetadataConfig.newBuilder()
                     .enable(enableMetadataTable)
                     .build();
+            HoodieTableMetaClient metaClient = tableHandle.getMetaClient();
             HoodieEngineContext engineContext = new HoodieLocalEngineContext(metaClient.getStorage().getConf());
             return HoodieTableMetadata.create(
                     engineContext,
-                    metaClient.getStorage(), metadataConfig, metaClient.getBasePath().toString(), true);
+                    tableHandle.getMetaClient().getStorage(), metadataConfig, metaClient.getBasePath().toString(), true);
         });
 
         HudiDirectoryLister hudiDirectoryLister = new HudiSnapshotDirectoryLister(
                 session,
                 tableHandle,
                 enableMetadataTable,
-                tableMetadata,
+                lazyTableMetadata,
                 lazyPartitions);
 
         this.queue = new ThrottledAsyncQueue<>(maxSplitsPerSecond, maxOutstandingSplits, executor);
@@ -131,7 +120,7 @@ public class HudiSplitSource
                 createSplitWeightProvider(session),
                 lazyPartitions,
                 enableMetadataTable,
-                tableMetadata,
+                lazyTableMetadata,
                 throwable -> {
                     trinoException.compareAndSet(null, new TrinoException(HUDI_CANNOT_OPEN_SPLIT,
                             "Failed to generate splits for " + tableHandle.getSchemaTableName(), throwable));

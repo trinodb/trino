@@ -66,7 +66,7 @@ public class HudiPartitionStatsIndexSupport
                 .map(col -> new ColumnIndexID(col).asBase64EncodedString()).toList();
 
         // Map of partition stats keyed by partition name
-        Map<String, Map<String, HoodieMetadataColumnStats>> statsByPartitionName = metadataTable.getRecordsByKeyPrefixes(
+        Map<String, Map<String, HoodieMetadataColumnStats>> statsByPartitionName = lazyMetadataTable.get().getRecordsByKeyPrefixes(
                         encodedTargetColumnNames,
                         HoodieTableMetadataUtil.PARTITION_NAME_PARTITION_STATS, true)
                 .collectAsList()

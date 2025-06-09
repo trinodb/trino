@@ -114,6 +114,6 @@ public class SessionBuilder
 
     public SessionBuilder withColumnStatsTimeout(String durationProp)
     {
-        return setProperty(COLUMN_STATS_WAIT_TIMEOUT, durationProp);
+        return setCatalogProperty(COLUMN_STATS_WAIT_TIMEOUT, durationProp);
     }
 }

@@ -50,7 +50,7 @@ public class HudiRecordLevelIndexSupport
     public static final String DEFAULT_RECORD_KEY_PARTS_SEPARATOR = ",";
     private final Optional<Set<String>> relevantFileIdsOption;
 
-    public HudiRecordLevelIndexSupport(Lazy<HoodieTableMetaClient> lazyMetaClient, HoodieTableMetadata metadataTable, TupleDomain<HiveColumnHandle> regularColumnPredicates)
+    public HudiRecordLevelIndexSupport(Lazy<HoodieTableMetaClient> lazyMetaClient, Lazy<HoodieTableMetadata> lazyTableMetadata, TupleDomain<HiveColumnHandle> regularColumnPredicates)
     {
         super(log, lazyMetaClient);
         if (regularColumnPredicates.isAll()) {
@@ -81,7 +81,7 @@ public class HudiRecordLevelIndexSupport
 
             // Perform index lookup in metadataTable
             // TODO: document here what this map is keyed by
-            Map<String, HoodieRecordGlobalLocation> recordIndex = metadataTable.readRecordIndex(recordKeys);
+            Map<String, HoodieRecordGlobalLocation> recordIndex = lazyTableMetadata.get().readRecordIndex(recordKeys);
             if (recordIndex.isEmpty()) {
                 log.debug("Record level index lookup returned no locations for the given keys.");
                 // Return all original fileSlices
