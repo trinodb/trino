@@ -24,6 +24,7 @@ import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.common.util.hash.ColumnIndexID;
 import org.apache.hudi.metadata.HoodieTableMetadata;
 import org.apache.hudi.metadata.HoodieTableMetadataUtil;
+import org.apache.hudi.util.Lazy;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -38,12 +39,12 @@ public class HudiPartitionStatsIndexSupport
         extends HudiColumnStatsIndexSupport
 {
     private static final Logger log = Logger.get(HudiColumnStatsIndexSupport.class);
-    private final HoodieTableMetadata metadataTable;
+    private final Lazy<HoodieTableMetadata> lazyMetadataTable;
 
-    public HudiPartitionStatsIndexSupport(HoodieTableMetaClient metaClient, ConnectorSession session, HoodieTableMetadata metadataTable, TupleDomain<HiveColumnHandle> regularColumnPredicates)
+    public HudiPartitionStatsIndexSupport(Lazy<HoodieTableMetaClient> lazyMetaClient, ConnectorSession session, Lazy<HoodieTableMetadata> lazyTableMetadata, TupleDomain<HiveColumnHandle> regularColumnPredicates)
     {
-        super(log, session, metaClient, metadataTable, regularColumnPredicates);
-        this.metadataTable = metadataTable;
+        super(log, session, lazyMetaClient, lazyTableMetadata, regularColumnPredicates);
+        this.lazyMetadataTable = lazyTableMetadata;
     }
 
     public Optional<List<String>> prunePartitions(
@@ -104,7 +105,7 @@ public class HudiPartitionStatsIndexSupport
     @Override
     public boolean isIndexSupportAvailable()
     {
-        return metaClient.getTableConfig().getMetadataPartitions()
+        return lazyMetaClient.get().getTableConfig().getMetadataPartitions()
                 .contains(HoodieTableMetadataUtil.PARTITION_NAME_PARTITION_STATS);
     }
 

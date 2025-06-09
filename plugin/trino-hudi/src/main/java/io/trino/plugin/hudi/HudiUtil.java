@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.metastore.Column;
 import io.trino.metastore.HivePartition;
 import io.trino.metastore.HiveType;
 import io.trino.plugin.hive.HiveColumnHandle;
@@ -42,6 +41,7 @@ import org.apache.hudi.common.model.HoodieFileFormat;
 import org.apache.hudi.common.model.HoodieFileGroupId;
 import org.apache.hudi.common.model.HoodieLogFile;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
+import org.apache.hudi.exception.TableNotFoundException;
 import org.apache.hudi.storage.StoragePath;
 
 import java.io.IOException;
@@ -53,6 +53,7 @@ import java.util.stream.IntStream;
 
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.plugin.hive.util.HiveUtil.checkCondition;
+import static io.trino.plugin.hudi.HudiErrorCode.HUDI_BAD_DATA;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_FILESYSTEM_ERROR;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_UNSUPPORTED_FILE_FORMAT;
 import static org.apache.hudi.common.model.HoodieRecord.HOODIE_META_COLUMNS;
@@ -127,7 +128,7 @@ public final class HudiUtil
         return true;
     }
 
-    public static List<HivePartitionKey> buildPartitionKeys(List<Column> keys, List<String> values)
+    public static List<HivePartitionKey> buildPartitionKeys(List<HiveColumnHandle> keys, List<String> values)
     {
         checkCondition(keys.size() == values.size(), HIVE_INVALID_METADATA,
                 "Expected %s partition key values, but got %s. Keys: %s, Values: %s.",
@@ -143,12 +144,19 @@ public final class HudiUtil
 
     public static HoodieTableMetaClient buildTableMetaClient(
             TrinoFileSystem fileSystem,
+            String tableName,
             String basePath)
     {
-        return HoodieTableMetaClient.builder()
-                .setStorage(new HudiTrinoStorage(fileSystem, new TrinoStorageConfiguration()))
-                .setBasePath(basePath)
-                .build();
+        try {
+            return HoodieTableMetaClient.builder()
+                    .setStorage(new HudiTrinoStorage(fileSystem, new TrinoStorageConfiguration()))
+                    .setBasePath(basePath)
+                    .build();
+        }
+        catch (TableNotFoundException e) {
+            throw new TrinoException(HUDI_BAD_DATA,
+                    "Location of table %s does not contain Hudi table metadata: %s".formatted(tableName, basePath));
+        }
     }
 
     public static Schema constructSchema(List<String> columnNames, List<HiveType> columnTypes)

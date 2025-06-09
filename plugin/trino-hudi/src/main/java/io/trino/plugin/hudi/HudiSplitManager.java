@@ -14,13 +14,16 @@
 package io.trino.plugin.hudi;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
-import io.trino.filesystem.TrinoFileSystemFactory;
+import io.airlift.log.Logger;
 import io.trino.metastore.HiveMetastore;
-import io.trino.metastore.Table;
+import io.trino.metastore.Partition;
+import io.trino.metastore.StorageFormat;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitSource;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveTransactionHandle;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
@@ -30,47 +33,42 @@ import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.security.ConnectorIdentity;
-import io.trino.spi.type.TypeManager;
+import org.apache.hudi.common.util.HoodieTimer;
+import org.apache.hudi.util.Lazy;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.computePartitionKeyFilter;
-import static io.trino.plugin.hive.util.HiveUtil.getPartitionKeyColumnHandles;
+import static io.trino.plugin.hudi.HudiErrorCode.HUDI_PARTITION_NOT_FOUND;
 import static io.trino.plugin.hudi.HudiSessionProperties.getDynamicFilteringWaitTimeout;
 import static io.trino.plugin.hudi.HudiSessionProperties.getMaxOutstandingSplits;
 import static io.trino.plugin.hudi.HudiSessionProperties.getMaxSplitsPerSecond;
 import static io.trino.plugin.hudi.partition.HiveHudiPartitionInfo.NON_PARTITION;
-import static io.trino.spi.connector.SchemaTableName.schemaTableName;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.function.Function.identity;
 
 public class HudiSplitManager
         implements ConnectorSplitManager
 {
-    private final TypeManager typeManager;
+    private static final Logger log = Logger.get(HudiSplitManager.class);
     private final BiFunction<ConnectorIdentity, HiveTransactionHandle, HiveMetastore> metastoreProvider;
-    private final TrinoFileSystemFactory fileSystemFactory;
     private final ExecutorService executor;
     private final ScheduledExecutorService splitLoaderExecutorService;
 
     @Inject
     public HudiSplitManager(
-            TypeManager typeManager,
             BiFunction<ConnectorIdentity, HiveTransactionHandle, HiveMetastore> metastoreProvider,
             @ForHudiSplitManager ExecutorService executor,
-            TrinoFileSystemFactory fileSystemFactory,
             @ForHudiSplitSource ScheduledExecutorService splitLoaderExecutorService)
     {
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.metastoreProvider = requireNonNull(metastoreProvider, "metastoreProvider is null");
         this.executor = requireNonNull(executor, "executor is null");
-        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.splitLoaderExecutorService = requireNonNull(splitLoaderExecutorService, "splitLoaderExecutorService is null");
     }
 
@@ -84,42 +82,59 @@ public class HudiSplitManager
     {
         HudiTableHandle hudiTableHandle = (HudiTableHandle) tableHandle;
         HiveMetastore metastore = metastoreProvider.apply(session.getIdentity(), (HiveTransactionHandle) transaction);
-        Table table = metastore.getTable(hudiTableHandle.getSchemaName(), hudiTableHandle.getTableName())
-                .orElseThrow(() -> new TableNotFoundException(schemaTableName(hudiTableHandle.getSchemaName(), hudiTableHandle.getTableName())));
-
-        List<HiveColumnHandle> partitionColumns = getPartitionKeyColumnHandles(table, typeManager);
-        Map<String, HiveColumnHandle> partitionColumnHandles = partitionColumns.stream()
-                .collect(toImmutableMap(HiveColumnHandle::getName, identity()));
-        List<String> allPartitions = getPartitions(metastore, hudiTableHandle, partitionColumns);
+        Lazy<Map<String, Partition>> lazyAllPartitions = Lazy.lazily(() -> {
+            HoodieTimer timer = HoodieTimer.start();
+            Map<String, Partition> allPartitions = getPartitions(metastore, hudiTableHandle);
+            log.info("Found %s partitions for table %s.%s in %s ms",
+                    allPartitions.size(), hudiTableHandle.getSchemaName(), hudiTableHandle.getTableName(), timer.endTimer());
+            return allPartitions;
+        });
 
         HudiSplitSource splitSource = new HudiSplitSource(
                 session,
-                metastore,
-                table,
                 hudiTableHandle,
-                fileSystemFactory,
-                partitionColumnHandles,
                 executor,
                 splitLoaderExecutorService,
                 getMaxSplitsPerSecond(session),
                 getMaxOutstandingSplits(session),
-                allPartitions,
+                lazyAllPartitions,
                 dynamicFilter,
                 getDynamicFilteringWaitTimeout(session));
         return new ClassLoaderSafeConnectorSplitSource(splitSource, HudiSplitManager.class.getClassLoader());
     }
 
-    private static List<String> getPartitions(HiveMetastore metastore, HudiTableHandle table, List<HiveColumnHandle> partitionColumns)
+    private static Map<String, Partition> getPartitions(
+            HiveMetastore metastore,
+            HudiTableHandle tableHandle)
     {
+        List<HiveColumnHandle> partitionColumns = tableHandle.getPartitionColumns();
         if (partitionColumns.isEmpty()) {
-            return ImmutableList.of(NON_PARTITION);
+            return ImmutableMap.of(
+                    NON_PARTITION, Partition.builder()
+                            .setDatabaseName(tableHandle.getSchemaName())
+                            .setTableName(tableHandle.getTableName())
+                            .withStorage(storageBuilder ->
+                                    storageBuilder.setLocation(tableHandle.getBasePath())
+                                            .setStorageFormat(StorageFormat.NULL_STORAGE_FORMAT))
+                            .setColumns(ImmutableList.of())
+                            .setValues(ImmutableList.of())
+                            .build());
         }
 
-        return metastore.getPartitionNamesByFilter(
-                        table.getSchemaName(),
-                        table.getTableName(),
+        List<String> partitionNames = metastore.getPartitionNamesByFilter(
+                        tableHandle.getSchemaName(),
+                        tableHandle.getTableName(),
                         partitionColumns.stream().map(HiveColumnHandle::getName).collect(Collectors.toList()),
-                        computePartitionKeyFilter(partitionColumns, table.getPartitionPredicates()))
-                .orElseThrow(() -> new TableNotFoundException(table.getSchemaTableName()));
+                        computePartitionKeyFilter(partitionColumns, tableHandle.getPartitionPredicates()))
+                .orElseThrow(() -> new TableNotFoundException(tableHandle.getSchemaTableName()));
+        Map<String, Optional<Partition>> partitionsByNames = metastore.getPartitionsByNames(tableHandle.getTable(), partitionNames);
+        List<String> partitionsNotFound = partitionsByNames.entrySet().stream().filter(e -> e.getValue().isEmpty()).map(Map.Entry::getKey).toList();
+        if (!partitionsNotFound.isEmpty()) {
+            throw new TrinoException(HUDI_PARTITION_NOT_FOUND, format("Cannot find partitions in metastore: %s", partitionsNotFound));
+        }
+        return partitionsByNames
+                .entrySet().stream()
+                .filter(e -> e.getValue().isPresent())
+                .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().get()));
     }
 }

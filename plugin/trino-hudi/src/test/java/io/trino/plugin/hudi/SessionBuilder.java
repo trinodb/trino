@@ -15,6 +15,7 @@ package io.trino.plugin.hudi;
 
 import io.trino.Session;
 
+import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.plugin.hudi.HudiSessionProperties.COLUMN_STATS_INDEX_ENABLED;
 import static io.trino.plugin.hudi.HudiSessionProperties.COLUMN_STATS_WAIT_TIMEOUT;
 import static io.trino.plugin.hudi.HudiSessionProperties.DYNAMIC_FILTERING_WAIT_TIMEOUT;
@@ -49,9 +50,15 @@ public class SessionBuilder
         return new SessionBuilder(session);
     }
 
-    private SessionBuilder setProperty(String propertyName, String propertyValue)
+    private SessionBuilder setCatalogProperty(String propertyName, String propertyValue)
     {
         this.sessionBuilder.setCatalogSessionProperty(catalogName, propertyName, propertyValue);
+        return this;
+    }
+
+    private SessionBuilder setSystemProperty(String propertyName, String propertyValue)
+    {
+        this.sessionBuilder.setSystemProperty(propertyName, propertyValue);
         return this;
     }
 
@@ -67,37 +74,42 @@ public class SessionBuilder
 
     public SessionBuilder withPartitionFilterRequired(boolean required)
     {
-        return setProperty(QUERY_PARTITION_FILTER_REQUIRED, String.valueOf(required));
+        return setCatalogProperty(QUERY_PARTITION_FILTER_REQUIRED, String.valueOf(required));
     }
 
     public SessionBuilder withMdtEnabled(boolean enabled)
     {
-        return setProperty(METADATA_TABLE_ENABLED, String.valueOf(enabled));
+        return setCatalogProperty(METADATA_TABLE_ENABLED, String.valueOf(enabled));
+    }
+
+    public SessionBuilder withDynamicFilterEnabled(boolean isDynamicFilterEnabled)
+    {
+        return setSystemProperty(ENABLE_DYNAMIC_FILTERING, String.valueOf(isDynamicFilterEnabled));
     }
 
     public SessionBuilder withDynamicFilterTimeout(String durationProp)
     {
-        return setProperty(DYNAMIC_FILTERING_WAIT_TIMEOUT, durationProp);
+        return setCatalogProperty(DYNAMIC_FILTERING_WAIT_TIMEOUT, durationProp);
     }
 
     public SessionBuilder withColStatsIndexEnabled(boolean enabled)
     {
-        return setProperty(COLUMN_STATS_INDEX_ENABLED, String.valueOf(enabled));
+        return setCatalogProperty(COLUMN_STATS_INDEX_ENABLED, String.valueOf(enabled));
     }
 
     public SessionBuilder withRecordLevelIndexEnabled(boolean enabled)
     {
-        return setProperty(RECORD_LEVEL_INDEX_ENABLED, String.valueOf(enabled));
+        return setCatalogProperty(RECORD_LEVEL_INDEX_ENABLED, String.valueOf(enabled));
     }
 
     public SessionBuilder withSecondaryIndexEnabled(boolean enabled)
     {
-        return setProperty(SECONDARY_INDEX_ENABLED, String.valueOf(enabled));
+        return setCatalogProperty(SECONDARY_INDEX_ENABLED, String.valueOf(enabled));
     }
 
     public SessionBuilder withPartitionStatsIndexEnabled(boolean enabled)
     {
-        return setProperty(PARTITION_STATS_INDEX_ENABLED, String.valueOf(enabled));
+        return setCatalogProperty(PARTITION_STATS_INDEX_ENABLED, String.valueOf(enabled));
     }
 
     public SessionBuilder withColumnStatsTimeout(String durationProp)

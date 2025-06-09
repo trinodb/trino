@@ -13,77 +13,59 @@
  */
 package io.trino.plugin.hudi.partition;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.filesystem.Location;
-import io.trino.metastore.Column;
-import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.Partition;
-import io.trino.metastore.Table;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HivePartitionKey;
-import io.trino.spi.TrinoException;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
 
-import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.trino.metastore.Partitions.toPartitionValues;
-import static io.trino.plugin.hudi.HudiErrorCode.HUDI_PARTITION_NOT_FOUND;
 import static io.trino.plugin.hudi.HudiUtil.buildPartitionKeys;
 import static io.trino.plugin.hudi.HudiUtil.partitionMatchesPredicates;
-import static java.lang.String.format;
 
 public class HiveHudiPartitionInfo
         implements HudiPartitionInfo
 {
     public static final String NON_PARTITION = "";
 
-    private final Table table;
+    private final SchemaTableName schemaTableName;
     private final List<HiveColumnHandle> partitionColumnHandles;
     private final TupleDomain<HiveColumnHandle> constraintSummary;
     private final String hivePartitionName;
-    private final List<Column> partitionColumns;
-    private final HiveMetastore hiveMetastore;
-    private String relativePartitionPath;
-    private List<HivePartitionKey> hivePartitionKeys;
+    private final String relativePartitionPath;
+    private final List<HivePartitionKey> hivePartitionKeys;
 
     public HiveHudiPartitionInfo(
+            SchemaTableName schemaTableName,
+            Location tableLocation,
             String hivePartitionName,
-            List<Column> partitionColumns,
+            Partition partition,
             List<HiveColumnHandle> partitionColumnHandles,
-            TupleDomain<HiveColumnHandle> constraintSummary,
-            Table table,
-            HiveMetastore hiveMetastore)
+            TupleDomain<HiveColumnHandle> constraintSummary)
     {
-        this.table = table;
+        this.schemaTableName = schemaTableName;
         this.partitionColumnHandles = partitionColumnHandles;
         this.constraintSummary = constraintSummary;
         this.hivePartitionName = hivePartitionName;
-        this.partitionColumns = partitionColumns;
-        if (partitionColumns.isEmpty()) {
-            this.relativePartitionPath = NON_PARTITION;
-            this.hivePartitionKeys = Collections.emptyList();
-        }
-        this.hiveMetastore = hiveMetastore;
+        this.relativePartitionPath = getRelativePartitionPath(
+                tableLocation,
+                Location.of(partition.getStorage().getLocation()));
+        this.hivePartitionKeys = buildPartitionKeys(
+                partitionColumnHandles, partition.getValues());
     }
 
     @Override
     public String getRelativePartitionPath()
     {
-        if (relativePartitionPath == null) {
-            loadPartitionInfo(hiveMetastore.getPartition(table, toPartitionValues(hivePartitionName)));
-        }
         return relativePartitionPath;
     }
 
     @Override
     public List<HivePartitionKey> getHivePartitionKeys()
     {
-        if (hivePartitionKeys == null) {
-            loadPartitionInfo(hiveMetastore.getPartition(table, toPartitionValues(hivePartitionName)));
-        }
         return hivePartitionKeys;
     }
 
@@ -91,22 +73,9 @@ public class HiveHudiPartitionInfo
     public boolean doesMatchPredicates()
     {
         if (hivePartitionName.equals(NON_PARTITION)) {
-            hivePartitionKeys = ImmutableList.of();
             return true;
         }
-        return partitionMatchesPredicates(table.getSchemaTableName(), hivePartitionName, partitionColumnHandles, constraintSummary);
-    }
-
-    @Override
-    public void loadPartitionInfo(Optional<Partition> partition)
-    {
-        if (partition.isEmpty()) {
-            throw new TrinoException(HUDI_PARTITION_NOT_FOUND, format("Cannot find partition in Hive Metastore: %s", hivePartitionName));
-        }
-        this.relativePartitionPath = getRelativePartitionPath(
-                Location.of(table.getStorage().getLocation()),
-                Location.of(partition.get().getStorage().getLocation()));
-        this.hivePartitionKeys = buildPartitionKeys(partitionColumns, partition.get().getValues());
+        return partitionMatchesPredicates(schemaTableName, hivePartitionName, partitionColumnHandles, constraintSummary);
     }
 
     public String getHivePartitionName()

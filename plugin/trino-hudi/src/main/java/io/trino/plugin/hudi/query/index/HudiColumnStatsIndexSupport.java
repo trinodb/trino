@@ -38,6 +38,7 @@ import org.apache.hudi.common.table.HoodieTableVersion;
 import org.apache.hudi.common.util.hash.ColumnIndexID;
 import org.apache.hudi.metadata.HoodieTableMetadata;
 import org.apache.hudi.metadata.HoodieTableMetadataUtil;
+import org.apache.hudi.util.Lazy;
 
 import java.util.List;
 import java.util.Map;
@@ -70,14 +71,14 @@ public class HudiColumnStatsIndexSupport
     private final List<String> regularColumns;
     private final Duration columnStatsWaitTimeout;
 
-    public HudiColumnStatsIndexSupport(ConnectorSession session, HoodieTableMetaClient metaClient, HoodieTableMetadata metadataTable, TupleDomain<HiveColumnHandle> regularColumnPredicates)
+    public HudiColumnStatsIndexSupport(ConnectorSession session, Lazy<HoodieTableMetaClient> lazyMetaClient, Lazy<HoodieTableMetadata> lazyTableMetadata, TupleDomain<HiveColumnHandle> regularColumnPredicates)
     {
-        this(log, session, metaClient, metadataTable, regularColumnPredicates);
+        this(log, session, lazyMetaClient, lazyTableMetadata, regularColumnPredicates);
     }
 
-    public HudiColumnStatsIndexSupport(Logger log, ConnectorSession session, HoodieTableMetaClient metaClient, HoodieTableMetadata metadataTable, TupleDomain<HiveColumnHandle> regularColumnPredicates)
+    public HudiColumnStatsIndexSupport(Logger log, ConnectorSession session, Lazy<HoodieTableMetaClient> lazyMetaClient, Lazy<HoodieTableMetadata> lazyTableMetadata, TupleDomain<HiveColumnHandle> regularColumnPredicates)
     {
-        super(log, metaClient);
+        super(log, lazyMetaClient);
         this.columnStatsWaitTimeout = getColumnStatsWaitTimeout(session);
         this.regularColumnPredicates = regularColumnPredicates.transformKeys(HiveColumnHandle::getName);
         this.regularColumns = this.regularColumnPredicates
@@ -91,7 +92,7 @@ public class HudiColumnStatsIndexSupport
                     .stream()
                     .map(col -> new ColumnIndexID(col).asBase64EncodedString()).collect(Collectors.toList());
             statsByFileNameFuture = CompletableFuture.supplyAsync(() ->
-                    Optional.of(metadataTable.getRecordsByKeyPrefixes(encodedTargetColumnNames,
+                    Optional.of(lazyTableMetadata.get().getRecordsByKeyPrefixes(encodedTargetColumnNames,
                                     HoodieTableMetadataUtil.PARTITION_NAME_COLUMN_STATS, true)
                             .collectAsList()
                             .stream()
@@ -129,7 +130,7 @@ public class HudiColumnStatsIndexSupport
         boolean isIndexSupported = isIndexSupportAvailable();
         // indexDefinition is only available after table version EIGHT
         // For tables that have versions < EIGHT, column stats index is available as long as partition in metadata is available
-        if (!isIndexSupported || metaClient.getTableConfig().getTableVersion().lesserThan(HoodieTableVersion.EIGHT)) {
+        if (!isIndexSupported || lazyMetaClient.get().getTableConfig().getTableVersion().lesserThan(HoodieTableVersion.EIGHT)) {
             log.debug("Column Stats Index partition is not enabled in metadata.");
             return isIndexSupported;
         }
@@ -156,7 +157,7 @@ public class HudiColumnStatsIndexSupport
 
     public boolean isIndexSupportAvailable()
     {
-        return metaClient.getTableConfig().getMetadataPartitions()
+        return lazyMetaClient.get().getTableConfig().getMetadataPartitions()
                 .contains(HoodieTableMetadataUtil.PARTITION_NAME_COLUMN_STATS);
     }
 

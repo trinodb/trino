@@ -15,6 +15,11 @@ package io.trino.plugin.hudi.split;
 
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.concurrent.MoreFutures;
+import io.airlift.log.Logger;
+import io.trino.metastore.Partition;
+import io.trino.plugin.hive.HiveColumnHandle;
+import io.trino.plugin.hive.HivePartitionKey;
 import io.trino.plugin.hive.util.AsyncQueue;
 import io.trino.plugin.hudi.HudiTableHandle;
 import io.trino.plugin.hudi.partition.HudiPartitionInfoLoader;
@@ -46,15 +51,19 @@ import static java.util.Objects.requireNonNull;
 public class HudiBackgroundSplitLoader
         implements Runnable
 {
+    private static final Logger log = Logger.get(HudiBackgroundSplitLoader.class);
+    private final HudiTableHandle tableHandle;
     private final HudiDirectoryLister hudiDirectoryLister;
     private final AsyncQueue<ConnectorSplit> asyncQueue;
     private final Executor splitGeneratorExecutor;
     private final int splitGeneratorNumThreads;
     private final HudiSplitFactory hudiSplitFactory;
-    private final List<String> partitions;
-    private final String commitTime;
+    private final Lazy<List<String>> lazyPartitions;
     private final Consumer<Throwable> errorListener;
     private final boolean enableMetadataTable;
+    private final Lazy<HoodieTableMetaClient> lazyMetaClient;
+    private final TupleDomain<HiveColumnHandle> regularPredicates;
+    private final Optional<HudiIndexSupport> indexSupportOpt;
     private final Optional<HudiPartitionStatsIndexSupport> partitionIndexSupportOpt;
 
     public HudiBackgroundSplitLoader(
@@ -64,21 +73,22 @@ public class HudiBackgroundSplitLoader
             AsyncQueue<ConnectorSplit> asyncQueue,
             Executor splitGeneratorExecutor,
             HudiSplitWeightProvider hudiSplitWeightProvider,
-            List<String> partitions,
-            String commitTime,
+            Lazy<Map<String, Partition>> lazyPartitionMap,
             boolean enableMetadataTable,
             Lazy<HoodieTableMetadata> metadataTableOpt,
             HoodieTableMetaClient metaClient,
             Consumer<Throwable> errorListener)
     {
+        this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
         this.hudiDirectoryLister = requireNonNull(hudiDirectoryLister, "hudiDirectoryLister is null");
         this.asyncQueue = requireNonNull(asyncQueue, "asyncQueue is null");
         this.splitGeneratorExecutor = requireNonNull(splitGeneratorExecutor, "splitGeneratorExecutorService is null");
         this.splitGeneratorNumThreads = getSplitGeneratorParallelism(session);
         this.hudiSplitFactory = new HudiSplitFactory(tableHandle, hudiSplitWeightProvider);
-        this.partitions = requireNonNull(partitions, "partitions is null");
-        this.commitTime = requireNonNull(commitTime, "commitTime is null");
+        this.lazyPartitions = Lazy.lazily(() -> requireNonNull(lazyPartitionMap, "partitions is null").get().keySet().stream().toList());
         this.enableMetadataTable = enableMetadataTable;
+        this.lazyMetaClient = Lazy.lazily(tableHandle::getMetaClient);
+        this.regularPredicates = tableHandle.getRegularPredicates();
         this.errorListener = requireNonNull(errorListener, "errorListener is null");
         this.partitionIndexSupportOpt = enableMetadataTable ?
                 IndexSupportFactory.createPartitionStatsIndexSupport(metaClient, metadataTableOpt.get(), tableHandle.getRegularPredicates(), session) : Optional.empty();
@@ -125,10 +135,12 @@ public class HudiBackgroundSplitLoader
         // Signal all generators to stop once partition queue is drained
         splitGenerators.forEach(HudiPartitionInfoLoader::stopRunning);
 
+        log.info("Wait for partition pruning split generation to finish on table %s.%s", tableHandle.getSchemaName(), tableHandle.getTableName());
         try {
             Futures.whenAllComplete(futures)
                     .run(asyncQueue::finish, directExecutor())
                     .get();
+            log.info("Partition pruning split generation finished on table %s.%s", tableHandle.getSchemaName(), tableHandle.getTableName());
         }
         catch (InterruptedException | ExecutionException e) {
             if (e instanceof InterruptedException) {

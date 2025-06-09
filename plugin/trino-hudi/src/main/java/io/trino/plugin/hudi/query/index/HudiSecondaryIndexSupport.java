@@ -23,6 +23,7 @@ import org.apache.hudi.common.model.HoodieRecordGlobalLocation;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.metadata.HoodieTableMetadata;
 import org.apache.hudi.metadata.HoodieTableMetadataUtil;
+import org.apache.hudi.util.Lazy;
 
 import java.util.List;
 import java.util.Map;
@@ -39,11 +40,11 @@ public class HudiSecondaryIndexSupport
     private static final Logger log = Logger.get(HudiSecondaryIndexSupport.class);
     private final Optional<Set<String>> relevantFileIdsOption;
 
-    public HudiSecondaryIndexSupport(HoodieTableMetaClient metaClient, HoodieTableMetadata tableMetadata, TupleDomain<HiveColumnHandle> regularColumnPredicates)
+    public HudiSecondaryIndexSupport(Lazy<HoodieTableMetaClient> lazyMetaClient, Lazy<HoodieTableMetadata> lazyTableMetadata, TupleDomain<HiveColumnHandle> regularColumnPredicates)
     {
-        super(log, metaClient);
+        super(log, lazyMetaClient);
         TupleDomain<String> regularPredicatesTransformed = regularColumnPredicates.transformKeys(HiveColumnHandle::getName);
-        if (regularColumnPredicates.isAll() || metaClient.getIndexMetadata().isEmpty()) {
+        if (regularColumnPredicates.isAll() || lazyMetaClient.get().getIndexMetadata().isEmpty()) {
             this.relevantFileIdsOption = Optional.empty();
         }
         else {
@@ -72,7 +73,7 @@ public class HudiSecondaryIndexSupport
 
             // Perform index lookup in metadataTable
             // TODO: document here what this map is keyed by
-            Map<String, HoodieRecordGlobalLocation> recordKeyLocationsMap = tableMetadata.readSecondaryIndex(secondaryKeys, indexName);
+            Map<String, HoodieRecordGlobalLocation> recordKeyLocationsMap = lazyTableMetadata.get().readSecondaryIndex(secondaryKeys, indexName);
             if (recordKeyLocationsMap.isEmpty()) {
                 log.debug("Secondary index lookup returned no locations for the given keys.");
                 // Return all original fileSlices

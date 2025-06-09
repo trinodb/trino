@@ -26,6 +26,7 @@ import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.common.util.Option;
 import org.apache.hudi.metadata.HoodieTableMetadata;
 import org.apache.hudi.metadata.HoodieTableMetadataUtil;
+import org.apache.hudi.util.Lazy;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -49,14 +50,14 @@ public class HudiRecordLevelIndexSupport
     public static final String DEFAULT_RECORD_KEY_PARTS_SEPARATOR = ",";
     private final Optional<Set<String>> relevantFileIdsOption;
 
-    public HudiRecordLevelIndexSupport(HoodieTableMetaClient metaClient, HoodieTableMetadata metadataTable, TupleDomain<HiveColumnHandle> regularColumnPredicates)
+    public HudiRecordLevelIndexSupport(Lazy<HoodieTableMetaClient> lazyMetaClient, HoodieTableMetadata metadataTable, TupleDomain<HiveColumnHandle> regularColumnPredicates)
     {
-        super(log, metaClient);
+        super(log, lazyMetaClient);
         if (regularColumnPredicates.isAll()) {
             this.relevantFileIdsOption = Optional.empty();
         }
         else {
-            Option<String[]> recordKeyFieldsOpt = metaClient.getTableConfig().getRecordKeyFields();
+            Option<String[]> recordKeyFieldsOpt = lazyMetaClient.get().getTableConfig().getRecordKeyFields();
             if (recordKeyFieldsOpt.isEmpty() || recordKeyFieldsOpt.get().length == 0) {
                 // Should not happen since canApply checks for this, include for safety
                 throw new TrinoException(HUDI_BAD_DATA, "Record key fields must be defined to use Record Level Index.");
@@ -113,7 +114,7 @@ public class HudiRecordLevelIndexSupport
             return false;
         }
 
-        Option<String[]> recordKeyFieldsOpt = metaClient.getTableConfig().getRecordKeyFields();
+        Option<String[]> recordKeyFieldsOpt = lazyMetaClient.get().getTableConfig().getRecordKeyFields();
         if (recordKeyFieldsOpt.isEmpty() || recordKeyFieldsOpt.get().length == 0) {
             log.debug("Record key fields are not defined in table config.");
             return false;
@@ -135,7 +136,7 @@ public class HudiRecordLevelIndexSupport
 
     private boolean isIndexSupportAvailable()
     {
-        return metaClient.getTableConfig().getMetadataPartitions()
+        return lazyMetaClient.get().getTableConfig().getMetadataPartitions()
                 .contains(HoodieTableMetadataUtil.PARTITION_NAME_RECORD_INDEX);
     }
 
