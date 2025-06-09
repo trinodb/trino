@@ -72,7 +72,7 @@ public class AsyncResultIterator
                     warningsManager.addWarnings(results.getWarnings());
                     for (List<Object> row : client.currentRows()) {
                         rowQueue.put(row);
-                        if (rowsProcessed++ % BATCH_SIZE == 0) {
+                        if (rowsProcessed++ == BATCH_SIZE) {
                             semaphore.release(rowsProcessed);
                             rowsProcessed = 0;
                         }
