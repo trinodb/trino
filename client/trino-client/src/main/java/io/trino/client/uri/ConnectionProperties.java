@@ -116,6 +116,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<String, Map<String, String>> RESOURCE_ESTIMATES = new ResourceEstimates();
     public static final ConnectionProperty<String, List<String>> SQL_PATH = new SqlPath();
     public static final ConnectionProperty<String, Boolean> VALIDATE_CONNECTION = new ValidateConnection();
+    public static final ConnectionProperty<String, Integer> FETCH_SIZE = new FetchSize();
 
     private static final Set<ConnectionProperty<?, ?>> ALL_PROPERTIES = ImmutableSet.<ConnectionProperty<?, ?>>builder()
             // Keep sorted
@@ -137,6 +138,7 @@ final class ConnectionProperties
             .add(EXTERNAL_AUTHENTICATION_TIMEOUT)
             .add(EXTERNAL_AUTHENTICATION_TOKEN_CACHE)
             .add(EXTRA_CREDENTIALS)
+            .add(FETCH_SIZE)
             .add(HOSTNAME_IN_CERTIFICATE)
             .add(HTTP_LOGGING_LEVEL)
             .add(HTTP_PROXY)
@@ -955,6 +957,19 @@ final class ConnectionProperties
         public AssumeNullCatalogMeansCurrentCatalog()
         {
             super(PropertyName.ASSUME_NULL_CATALOG_MEANS_CURRENT_CATALOG, NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
+        }
+    }
+
+    private static class FetchSize
+            extends AbstractConnectionProperty<String, Integer>
+    {
+        public FetchSize()
+        {
+            super(
+                    PropertyName.FETCH_SIZE,
+                    NOT_REQUIRED,
+                    validator(properties -> FETCH_SIZE.getValue(properties).orElse(1) > 0, "Fetch size must be a positive number"),
+                    converter(Integer::valueOf, String::valueOf));
         }
     }
 

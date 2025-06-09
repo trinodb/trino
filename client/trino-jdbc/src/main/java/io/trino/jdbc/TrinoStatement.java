@@ -42,7 +42,6 @@ public class TrinoStatement
 {
     private final AtomicLong maxRows = new AtomicLong();
     private final AtomicInteger queryTimeoutSeconds = new AtomicInteger();
-    private final AtomicInteger fetchSize = new AtomicInteger();
     private final AtomicBoolean closeOnCompletion = new AtomicBoolean();
     private final AtomicReference<TrinoConnection> connection;
     private final Consumer<TrinoStatement> onClose;
@@ -52,11 +51,13 @@ public class TrinoStatement
     private final AtomicLong currentUpdateCount = new AtomicLong(-1);
     private final AtomicReference<String> currentUpdateType = new AtomicReference<>();
     private final AtomicReference<Consumer<QueryStats>> progressCallback = new AtomicReference<>();
+    private final AtomicInteger fetchSize;
 
     TrinoStatement(TrinoConnection connection, Consumer<TrinoStatement> onClose)
     {
         this.connection = new AtomicReference<>(requireNonNull(connection, "connection is null"));
         this.onClose = requireNonNull(onClose, "onClose is null");
+        this.fetchSize = new AtomicInteger(connection.getFetchSize());
     }
 
     public void setProgressMonitor(Consumer<QueryStats> progressMonitor)
@@ -273,7 +274,7 @@ public class TrinoStatement
             executingClient.set(client);
             WarningsManager warningsManager = new WarningsManager();
             currentWarningsManager.set(warningsManager);
-            resultSet = TrinoResultSet.create(this, client, maxRows.get(), this::progressCallback, warningsManager);
+            resultSet = TrinoResultSet.create(this, client, maxRows.get(), fetchSize.get(), this::progressCallback, warningsManager);
 
             // check if this is a query
             if (client.currentStatusInfo().getUpdateType() == null) {

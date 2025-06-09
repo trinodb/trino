@@ -22,8 +22,6 @@ import io.trino.client.StatementClient;
 
 import java.sql.SQLException;
 import java.util.List;
-import java.util.Optional;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
@@ -43,7 +41,6 @@ public class AsyncResultIterator
         implements CloseableIterator<List<Object>>
 {
     private static final int BATCH_SIZE = 100;
-    private static final int MAX_QUEUED_ROWS = 50_000;
     private static final ExecutorService executorService = newCachedThreadPool(
             new ThreadFactoryBuilder().setNameFormat("Trino JDBC worker-%s").setDaemon(true).build());
 
@@ -57,13 +54,13 @@ public class AsyncResultIterator
     private volatile boolean cancelled;
     private volatile boolean finished;
 
-    AsyncResultIterator(StatementClient client, Consumer<QueryStats> progressCallback, WarningsManager warningsManager, Optional<BlockingQueue<List<Object>>> queue)
+    AsyncResultIterator(StatementClient client, Consumer<QueryStats> progressCallback, WarningsManager warningsManager, BlockingQueue<List<Object>> queue)
     {
         requireNonNull(progressCallback, "progressCallback is null");
         requireNonNull(warningsManager, "warningsManager is null");
 
         this.client = client;
-        this.rowQueue = queue.orElseGet(() -> new ArrayBlockingQueue<>(MAX_QUEUED_ROWS));
+        this.rowQueue = requireNonNull(queue, "queue is null");
         this.cancelled = false;
         this.finished = false;
         this.future = executorService.submit(() -> {

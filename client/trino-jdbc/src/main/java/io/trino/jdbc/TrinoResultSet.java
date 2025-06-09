@@ -22,6 +22,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Verify.verify;
@@ -42,21 +43,21 @@ public class TrinoResultSet
     @GuardedBy("this")
     private boolean closeStatementOnClose;
 
-    static TrinoResultSet create(Statement statement, StatementClient client, long maxRows, Consumer<QueryStats> progressCallback, WarningsManager warningsManager)
+    static TrinoResultSet create(Statement statement, StatementClient client, long maxRows, int maxBufferedRows, Consumer<QueryStats> progressCallback, WarningsManager warningsManager)
             throws SQLException
     {
         requireNonNull(client, "client is null");
         List<Column> columns = getColumns(client, progressCallback);
-        return new TrinoResultSet(statement, client, columns, maxRows, progressCallback, warningsManager);
+        return new TrinoResultSet(statement, client, columns, maxRows, maxBufferedRows, progressCallback, warningsManager);
     }
 
-    private TrinoResultSet(Statement statement, StatementClient client, List<Column> columns, long maxRows, Consumer<QueryStats> progressCallback, WarningsManager warningsManager)
+    private TrinoResultSet(Statement statement, StatementClient client, List<Column> columns, long maxRows, int maxBufferedRows, Consumer<QueryStats> progressCallback, WarningsManager warningsManager)
             throws SQLException
     {
         super(
                 Optional.of(requireNonNull(statement, "statement is null")),
                 columns,
-                limit(new AsyncResultIterator(requireNonNull(client, "client is null"), progressCallback, warningsManager, Optional.empty()), maxRows));
+                limit(new AsyncResultIterator(requireNonNull(client, "client is null"), progressCallback, warningsManager, new ArrayBlockingQueue<>(maxBufferedRows)), maxRows));
 
         this.statement = statement;
         this.client = requireNonNull(client, "client is null");
