@@ -53,13 +53,13 @@ public class RewriteHelpers
         // This method assumes that
         List<ConnectorExpression> arguments = captures.get(captureKey).getArguments();
         Object labelNameObject = ((Constant) arguments.getLast()).getValue();
-        if (!(labelNameObject instanceof Slice)) {
+        if (!(labelNameObject instanceof Slice slice)) {
             if (labelNameObject == null) {
                 throw new IllegalArgumentException("Label name cannot be null");
             }
             throw new IllegalArgumentException("Expected label name to be a Slice, but got: " + labelNameObject.getClass().getSimpleName());
         }
-        return ((Slice) labelNameObject).toStringUtf8();
+        return slice.toStringUtf8();
     }
 
     public static boolean isCharOrStringType(Type type)

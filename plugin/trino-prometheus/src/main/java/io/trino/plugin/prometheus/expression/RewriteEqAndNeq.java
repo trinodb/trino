@@ -79,6 +79,6 @@ public class RewriteEqAndNeq
                 labelName,
                 labelValue,
                 false,
-                call.getFunctionName() == NOT_EQUAL_OPERATOR_FUNCTION_NAME)));
+                call.getFunctionName().equals(NOT_EQUAL_OPERATOR_FUNCTION_NAME))));
     }
 }
