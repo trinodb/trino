@@ -259,7 +259,10 @@ public class MongoSession
             return tableCache.get(tableName, () -> loadTableSchema(tableName));
         }
         catch (ExecutionException | UncheckedExecutionException e) {
-            throwIfInstanceOf(e.getCause(), TrinoException.class);
+            Throwable cause = e.getCause();
+            if (cause != null) {
+                throwIfInstanceOf(cause, TrinoException.class);
+            }
             throw new RuntimeException(e);
         }
     }
