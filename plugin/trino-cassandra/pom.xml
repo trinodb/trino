@@ -15,6 +15,7 @@
     <properties>
         <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
         <dep.native-protocol.version>1.5.2</dep.native-protocol.version>
+        <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default} --add-opens=java.base/java.nio=ALL-UNNAMED --sun-misc-unsafe-memory-access=allow</air.test.jvm.additional-arguments>
     </properties>
 
     <dependencies>

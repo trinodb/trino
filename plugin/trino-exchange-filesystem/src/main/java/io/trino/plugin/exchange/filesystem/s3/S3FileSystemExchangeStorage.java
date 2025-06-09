@@ -40,8 +40,6 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.Slices;
 import io.airlift.units.Duration;
-import io.netty.buffer.PooledByteBufAllocator;
-import io.netty.channel.ChannelOption;
 import io.trino.annotation.NotThreadSafe;
 import io.trino.cache.NonEvictableLoadingCache;
 import io.trino.plugin.exchange.filesystem.ExchangeSourceFile;
@@ -509,9 +507,6 @@ public class S3FileSystemExchangeStorage
                 .addPlugin(LegacyMd5Plugin.create())
                 .httpClientBuilder(NettyNioAsyncHttpClient.builder()
                         .maxConcurrency(maxConcurrency)
-                        // Restore previous default allocator to circumvent:
-                        // https://github.com/netty/netty/issues/15206 & https://github.com/aws/aws-sdk-java-v2/issues/6030
-                        .putChannelOption(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT)
                         .maxPendingConnectionAcquires(maxPendingConnectionAcquires)
                         .connectionAcquisitionTimeout(java.time.Duration.ofMillis(connectionAcquisitionTimeout.toMillis())))
                 .endpointOverride(endpoint.map(URI::create).orElseGet(() -> AwsClientEndpointProvider.builder()

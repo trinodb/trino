@@ -54,6 +54,7 @@ import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static io.trino.plugin.base.ClosingBinder.closingBinder;
+import static io.trino.plugin.base.JdkCompatibilityChecks.verifyConnectorUnsafeAllowed;
 import static io.trino.plugin.cassandra.CassandraClientConfig.CassandraAuthenticationType.PASSWORD;
 import static java.util.Objects.requireNonNull;
 
@@ -71,6 +72,8 @@ public class CassandraClientModule
     public void setup(Binder binder)
     {
         binder.bind(TypeManager.class).toInstance(typeManager);
+
+        verifyConnectorUnsafeAllowed(binder, "cassandra");
 
         binder.bind(CassandraConnector.class).in(Scopes.SINGLETON);
         binder.bind(CassandraMetadata.class).in(Scopes.SINGLETON);
