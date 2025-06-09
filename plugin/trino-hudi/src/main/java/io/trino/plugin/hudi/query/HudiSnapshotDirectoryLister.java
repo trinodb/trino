@@ -80,9 +80,12 @@ public class HudiSnapshotDirectoryLister
     @Override
     public List<FileSlice> listStatus(HudiPartitionInfo partitionInfo)
     {
+        HoodieTimer timer = HoodieTimer.start();
         ImmutableList<FileSlice> collect = lazyFileSystemView.get()
                 .getLatestFileSlicesBeforeOrOn(partitionInfo.getRelativePartitionPath(), tableHandle.getLatestCommitTime(), false)
                 .collect(toImmutableList());
+        log.info("Listed partition [%s] on table %s.%s in %s ms",
+                partitionInfo, tableHandle.getSchemaName(), tableHandle.getTableName(), timer.endTimer());
         return collect;
     }
 

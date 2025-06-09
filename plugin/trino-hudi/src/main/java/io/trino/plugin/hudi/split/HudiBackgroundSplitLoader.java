@@ -16,6 +16,7 @@ package io.trino.plugin.hudi.split;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.MoreFutures;
+import io.airlift.log.Logger;
 import io.trino.metastore.Partition;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HivePartitionKey;
@@ -60,6 +61,7 @@ import static java.util.Objects.requireNonNull;
 public class HudiBackgroundSplitLoader
         implements Runnable
 {
+    private static final Logger log = Logger.get(HudiBackgroundSplitLoader.class);
     private final HudiTableHandle tableHandle;
     private final HudiDirectoryLister hudiDirectoryLister;
     private final AsyncQueue<ConnectorSplit> asyncQueue;
@@ -122,6 +124,7 @@ public class HudiBackgroundSplitLoader
 
     private void indexEnabledSplitGenerator(HudiIndexSupport hudiIndexSupport)
     {
+        log.info("Start split generation with index support on table %s.%s", tableHandle.getSchemaName(), tableHandle.getTableName());
         // Data Skipping based on column stats
         HoodieMetadataConfig metadataConfig = HoodieMetadataConfig.newBuilder().enable(true).build();
         HoodieEngineContext engineContext = new HoodieLocalEngineContext(lazyMetaClient.get().getStorage().getConf());
@@ -159,10 +162,12 @@ public class HudiBackgroundSplitLoader
                 .map(asyncQueue::offer)
                 .forEachOrdered(MoreFutures::getFutureValue);
         asyncQueue.finish();
+        log.info("Split generation with index support finished on table %s.%s", tableHandle.getSchemaName(), tableHandle.getTableName());
     }
 
     private void partitionPruningSplitGenerator()
     {
+        log.info("Start partition pruning split generation on table %s.%s", tableHandle.getSchemaName(), tableHandle.getTableName());
         Deque<String> partitionQueue = new ConcurrentLinkedDeque<>(lazyPartitions.get());
         List<HudiPartitionInfoLoader> splitGeneratorList = new ArrayList<>();
         List<ListenableFuture<Void>> splitGeneratorFutures = new ArrayList<>();
@@ -181,11 +186,13 @@ public class HudiBackgroundSplitLoader
             generator.stopRunning();
         }
 
+        log.info("Wait for partition pruning split generation to finish on table %s.%s", tableHandle.getSchemaName(), tableHandle.getTableName());
         try {
             // Wait for all split generators to finish
             Futures.whenAllComplete(splitGeneratorFutures)
                     .run(asyncQueue::finish, directExecutor())
                     .get();
+            log.info("Partition pruning split generation finished on table %s.%s", tableHandle.getSchemaName(), tableHandle.getTableName());
         }
         catch (InterruptedException | ExecutionException e) {
             if (e instanceof InterruptedException) {
