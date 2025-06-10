@@ -33,8 +33,10 @@ public class TestHudiConfig
     {
         assertRecordedDefaults(recordDefaults(HudiConfig.class)
                 .setColumnsToHide(ImmutableList.of())
+                .setTableStatisticsEnabled(true)
                 .setMetadataEnabled(false)
                 .setUseParquetColumnNames(true)
+                .setTableStatisticsExecutorParallelism(4)
                 .setSizeBasedSplitWeightsEnabled(true)
                 .setStandardSplitWeightSize(DataSize.of(128, MEGABYTE))
                 .setMinimumAssignedSplitWeight(0.05)
@@ -57,8 +59,10 @@ public class TestHudiConfig
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("hudi.columns-to-hide", "_hoodie_record_key")
+                .put("hudi.table-statistics-enabled", "false")
                 .put("hudi.metadata-enabled", "true")
                 .put("hudi.parquet.use-column-names", "false")
+                .put("hudi.table-statistics-executor-parallelism", "16")
                 .put("hudi.size-based-split-weights-enabled", "false")
                 .put("hudi.standard-split-weight-size", "64MB")
                 .put("hudi.minimum-assigned-split-weight", "0.1")
@@ -78,8 +82,10 @@ public class TestHudiConfig
 
         HudiConfig expected = new HudiConfig()
                 .setColumnsToHide(ImmutableList.of("_hoodie_record_key"))
+                .setTableStatisticsEnabled(false)
                 .setMetadataEnabled(true)
                 .setUseParquetColumnNames(false)
+                .setTableStatisticsExecutorParallelism(16)
                 .setSizeBasedSplitWeightsEnabled(false)
                 .setStandardSplitWeightSize(DataSize.of(64, MEGABYTE))
                 .setMinimumAssignedSplitWeight(0.1)

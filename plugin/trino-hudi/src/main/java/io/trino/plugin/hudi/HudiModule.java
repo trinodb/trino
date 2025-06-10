@@ -28,6 +28,7 @@ import io.trino.plugin.hive.HiveTransactionHandle;
 import io.trino.plugin.hive.metastore.thrift.TranslateHiveViews;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
+import io.trino.plugin.hudi.stats.ForHudiTableStatistics;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
@@ -73,8 +74,19 @@ public class HudiModule
         binder.bind(FileFormatDataSourceStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(FileFormatDataSourceStats.class).withGeneratedName();
 
+        closingBinder(binder).registerExecutor(Key.get(ExecutorService.class, ForHudiTableStatistics.class));
         closingBinder(binder).registerExecutor(Key.get(ExecutorService.class, ForHudiSplitManager.class));
         closingBinder(binder).registerExecutor(Key.get(ScheduledExecutorService.class, ForHudiSplitSource.class));
+    }
+
+    @Provides
+    @Singleton
+    @ForHudiTableStatistics
+    public ExecutorService createTableStatisticsExecutor(HudiConfig hudiConfig)
+    {
+        return newScheduledThreadPool(
+                hudiConfig.getTableStatisticsExecutorParallelism(),
+                daemonThreadsNamed("hudi-table-statistics-executor-%s"));
     }
 
     @Provides

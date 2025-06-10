@@ -33,23 +33,29 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.Type;
+import io.trino.sql.planner.OptimizerConfig;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorSession;
 import org.apache.hudi.common.table.HoodieTableVersion;
+import org.apache.hudi.common.util.Option;
 import org.intellij.lang.annotations.Language;
 import org.joda.time.DateTimeZone;
+import org.json.JSONArray;
+import org.json.JSONObject;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.File;
 import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -63,6 +69,8 @@ import static io.trino.metastore.HiveType.HIVE_TIMESTAMP;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hudi.HudiPageSourceProvider.createPageSource;
+import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_COMPREHENSIVE_TYPES_V6_MOR;
+import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_COMPREHENSIVE_TYPES_V8_MOR;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_COW_PT_TBL;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_MULTI_PT_V8_MOR;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_NON_PART_COW;
@@ -266,6 +274,55 @@ public class TestHudiSmokeTest
         assertQuery("SELECT \"$partition\" FROM " + HUDI_COW_PT_TBL + " WHERE id = 2", "VALUES 'dt=2021-12-09/hh=11'");
 
         assertQueryFails("SELECT \"$partition\" FROM " + HUDI_NON_PART_COW, ".* Column '\\$partition' cannot be resolved");
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testTableStatistics(boolean tableStatisticsEnabled)
+            throws InterruptedException
+    {
+        @Language("SQL") String query = "EXPLAIN (FORMAT JSON) SELECT t1.uuid, t1.driver, t1.fare, t1.ts "
+                + "FROM " + HUDI_TRIPS_COW_V8 + " t1 "
+                + "INNER JOIN " + HUDI_TRIPS_COW_V8 + " t2 ON t1.uuid = t2.uuid "
+                + "WHERE t2.ts > 0";
+        Session session = SessionBuilder.from(getSession())
+                .withJoinDistributionType(OptimizerConfig.JoinDistributionType.AUTOMATIC.name())
+                .withTableStatisticsEnabled(tableStatisticsEnabled)
+                .withMdtEnabled(true)
+                .build();
+        QueryRunner queryRunner = getQueryRunner();
+        // First time the asynchronous table statistics calculation is triggered
+        queryRunner.execute(session, query);
+        Thread.sleep(2000);
+        // Second time the table statistics is available for CBO and the join distribution type should be REPLICATED
+        String jsonPlanString = (String) queryRunner.execute(session, query).getOnlyValue();
+
+        // Navigate to the ScanFilterProject node
+        String tableName = "tests.hudi_trips_cow_v8";
+        JSONObject scanNode = findNodeInPlan(jsonPlanString, "ScanFilterProject", Option.of(tableName));
+        assertThat(scanNode).isNotNull();
+
+        // Verify the estimates are based on the table statistics if enabled
+        JSONArray estimatesArray = scanNode.getJSONArray("estimates");
+        assertThat(estimatesArray).isNotNull();
+        assertThat(estimatesArray.length()).isGreaterThan(0);
+        JSONObject estimates = estimatesArray.getJSONObject(0);
+        assertThat(estimates).isNotNull();
+        if (tableStatisticsEnabled) {
+            assertThat(estimates.getDouble("outputRowCount")).isEqualTo(40000.0);
+            assertThat(estimates.getDouble("outputSizeInBytes")).isGreaterThan(20000.0);
+        }
+        else {
+            assertThat(estimates.getString("outputRowCount")).isEqualTo("NaN");
+            assertThat(estimates.getString("outputSizeInBytes")).isEqualTo("NaN");
+        }
+
+        // Verify the join distribution type is REPLICATED if table statistics is enabled; PARTITIONED otherwise
+        JSONObject joinNode = findNodeInPlan(jsonPlanString, "InnerJoin", Option.empty());
+        String distributionDetails = findDetailContaining(joinNode, "Distribution");
+        assertThat(distributionDetails).isNotNull();
+        String distribution = distributionDetails.split(":")[1].trim();
+        assertThat(distribution).isEqualTo(tableStatisticsEnabled ? "REPLICATED" : "PARTITIONED");
     }
 
     @Test
@@ -1009,8 +1066,8 @@ public class TestHudiSmokeTest
     private static Stream<Arguments> comprehensiveTestParameters()
     {
         ResourceHudiTablesInitializer.TestingTable[] tablesToTest = {
-                ResourceHudiTablesInitializer.TestingTable.HUDI_COMPREHENSIVE_TYPES_V6_MOR,
-                ResourceHudiTablesInitializer.TestingTable.HUDI_COMPREHENSIVE_TYPES_V8_MOR
+                HUDI_COMPREHENSIVE_TYPES_V6_MOR,
+                HUDI_COMPREHENSIVE_TYPES_V8_MOR
         };
         Boolean[] booleanValues = {true, false};
 
@@ -1018,5 +1075,95 @@ public class TestHudiSmokeTest
                 .flatMap(table ->
                         Stream.of(booleanValues)
                                 .map(boolValue -> Arguments.of(table, boolValue)));
+    }
+
+    /**
+     * Entry point for finding a node in the complete JSON plan string.
+     * It iterates through each plan fragment ("0", "1", etc.) and starts the recursive search.
+     *
+     * @param jsonPlanString the complete JSON string of the execution plan
+     * @param nodeType the "name" of the node type to find (e.g., "InnerJoin", "ScanFilterProject")
+     * @param tableName the name of the table to match for nodes like "ScanFilterProject". can be empty
+     * @return The found JSONObject, or null if not found in any fragment.
+     */
+    public static JSONObject findNodeInPlan(String jsonPlanString, String nodeType, Option<String> tableName)
+    {
+        JSONObject fullPlan = new JSONObject(jsonPlanString);
+
+        // Iterate over the fragment keys ("0", "1", etc.)
+        Iterator<String> fragmentKeys = fullPlan.keys();
+        while (fragmentKeys.hasNext()) {
+            String key = fragmentKeys.next();
+            JSONObject fragmentNode = fullPlan.getJSONObject(key);
+
+            // Start the recursive search from the root node of the fragment
+            JSONObject result = findNodeRecursive(fragmentNode, nodeType, tableName);
+            if (result != null) {
+                return result;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Recursively searches for a node within a plan tree starting from the given node.
+     *
+     * @param currentNode the current {@link JSONObject} node in the plan tree to inspect
+     * @param nodeType the "name" of the node type to find
+     * @param tableName the table name to match for specific node types. can be empty
+     * @return the found {@link JSONObject}, or null if not found.
+     */
+    private static JSONObject findNodeRecursive(JSONObject currentNode, String nodeType, Option<String> tableName)
+    {
+        if (currentNode.has("name") && currentNode.getString("name").equals(nodeType)) {
+            // If a tableName is specified, we must match it (for Scan/Filter/Project nodes)
+            if (tableName.isPresent()) {
+                if (currentNode.has("descriptor") && currentNode.getJSONObject("descriptor").has("table")) {
+                    String table = currentNode.getJSONObject("descriptor").getString("table");
+                    if (table.contains(tableName.get())) {
+                        return currentNode;
+                    }
+                }
+            }
+            else {
+                // If no tableName is required, found a match by nodeType alone
+                return currentNode;
+            }
+        }
+
+        // If not a match, recurse into the children
+        if (currentNode.has("children")) {
+            JSONArray children = currentNode.getJSONArray("children");
+            for (int i = 0; i < children.length(); i++) {
+                JSONObject childNode = children.getJSONObject(i);
+                JSONObject result = findNodeRecursive(childNode, nodeType, tableName);
+                if (result != null) {
+                    return result;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Searches the "details" array of a given plan node for a string containing specific text.
+     *
+     * @param node the {@link JSONObject} plan node to search within
+     * @param content the substring to search for in the details array
+     * @return the full text of the first matching detail, or null if no match is found.
+     */
+    public static String findDetailContaining(JSONObject node, String content)
+    {
+        if (node != null && node.has("details")) {
+            JSONArray details = node.getJSONArray("details");
+            for (int i = 0; i < details.length(); i++) {
+                String detailText = details.getString(i);
+                if (detailText.contains(content)) {
+                    return detailText;
+                }
+            }
+        }
+        return null;
     }
 }
