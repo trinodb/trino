@@ -13,8 +13,10 @@
  */
 package io.trino.plugin.hive.metastore.glue;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
+import com.google.common.collect.Sets;
 import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.plugin.hive.HiveQueryRunner;
@@ -26,29 +28,37 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
 import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
 import static io.trino.plugin.hive.metastore.glue.GlueMetastoreMethod.CREATE_TABLE;
+import static io.trino.plugin.hive.metastore.glue.GlueMetastoreMethod.DELETE_COLUMN_STATISTICS_FOR_PARTITION;
 import static io.trino.plugin.hive.metastore.glue.GlueMetastoreMethod.DELETE_COLUMN_STATISTICS_FOR_TABLE;
+import static io.trino.plugin.hive.metastore.glue.GlueMetastoreMethod.GET_COLUMN_STATISTICS_FOR_PARTITION;
 import static io.trino.plugin.hive.metastore.glue.GlueMetastoreMethod.GET_COLUMN_STATISTICS_FOR_TABLE;
 import static io.trino.plugin.hive.metastore.glue.GlueMetastoreMethod.GET_DATABASE;
+import static io.trino.plugin.hive.metastore.glue.GlueMetastoreMethod.GET_PARTITION;
 import static io.trino.plugin.hive.metastore.glue.GlueMetastoreMethod.GET_PARTITIONS;
 import static io.trino.plugin.hive.metastore.glue.GlueMetastoreMethod.GET_PARTITION_NAMES;
 import static io.trino.plugin.hive.metastore.glue.GlueMetastoreMethod.GET_TABLE;
 import static io.trino.plugin.hive.metastore.glue.GlueMetastoreMethod.GET_TABLES;
 import static io.trino.plugin.hive.metastore.glue.GlueMetastoreMethod.UPDATE_COLUMN_STATISTICS_FOR_TABLE;
+import static io.trino.plugin.hive.metastore.glue.GlueMetastoreMethod.UPDATE_PARTITION;
 import static io.trino.plugin.hive.metastore.glue.GlueMetastoreMethod.UPDATE_TABLE;
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
@@ -62,6 +72,7 @@ public class TestHiveGlueMetastoreAccessOperations
     private final String testSchema = "test_schema_" + randomNameSuffix();
 
     private GlueMetastoreStats glueStats;
+    private Path schemaDir;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -77,6 +88,7 @@ public class TestHiveGlueMetastoreAccessOperations
                 .setCreateTpchSchemas(false)
                 .build();
         queryRunner.execute("CREATE SCHEMA " + testSchema);
+        schemaDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").resolve("glue").resolve(testSchema);
         glueStats = getConnectorService(queryRunner, GlueHiveMetastore.class).getStats();
         return queryRunner;
     }
@@ -85,6 +97,40 @@ public class TestHiveGlueMetastoreAccessOperations
     public void cleanUpSchema()
     {
         getQueryRunner().execute("DROP SCHEMA " + testSchema + " CASCADE");
+    }
+
+    @Test
+    void testInsertOverwriteStatisticsDisabled()
+    {
+        String tableName = "test_insert_overwrite_" + randomNameSuffix();
+
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id INT, part INT) WITH (partitioned_by = ARRAY['part'])");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 1), (2, 1)", 2);
+
+            Session insertOverwriteSession = Session.builder(getQueryRunner().getDefaultSession())
+                    .setCatalogSessionProperty("hive", "insert_existing_partitions_behavior", "OVERWRITE")
+                    .setCatalogSessionProperty("hive", "collect_column_statistics_on_write", "false")
+                    .setCatalogSessionProperty("hive", "statistics_enabled", "false")
+                    .build();
+            assertInvocations(insertOverwriteSession, "INSERT INTO " + tableName + " VALUES (3, 1)",
+                    ImmutableMultiset.<GlueMetastoreMethod>builder()
+                            .add(DELETE_COLUMN_STATISTICS_FOR_PARTITION)
+                            .add(GET_COLUMN_STATISTICS_FOR_PARTITION)
+                            .add(GET_PARTITION)
+                            .add(GET_TABLE)
+                            .add(UPDATE_PARTITION)
+                            .build(),
+                    // We can't disable partition cache in glue v2, see GlueMetastoreModule#createGlueCache
+                    // there is maybe 1 time additional call for the GET_PARTITION
+                    ImmutableMultiset.<GlueMetastoreMethod>builder()
+                            .add(GET_PARTITION)
+                            .build());
+            assertQuery("SELECT * FROM " + tableName, "VALUES (3, 1)");
+        }
+        finally {
+            getQueryRunner().execute("DROP TABLE IF EXISTS " + tableName);
+        }
     }
 
     @Test
@@ -492,6 +538,26 @@ public class TestHiveGlueMetastoreAccessOperations
 
     private void assertInvocations(Session session, @Language("SQL") String query, Multiset<GlueMetastoreMethod> expectedGlueInvocations)
     {
+        assertMultisetsEqual(getActualInvocations(session, query), expectedGlueInvocations);
+    }
+
+    private void assertInvocations(
+            Session session, @Language("SQL") String query,
+            Multiset<GlueMetastoreMethod> determinedExpectedGlueInvocations,
+            Multiset<GlueMetastoreMethod> possibleExpectedGlueInvocations)
+    {
+        Multiset<GlueMetastoreMethod> actualInvocations = getActualInvocations(session, query);
+        if (!mismatchMultisets(determinedExpectedGlueInvocations, actualInvocations).isEmpty()) {
+            Multiset<GlueMetastoreMethod> expectedGlueInvocations = ImmutableMultiset.<GlueMetastoreMethod>builder()
+                    .addAll(determinedExpectedGlueInvocations)
+                    .addAll(possibleExpectedGlueInvocations)
+                    .build();
+            assertMultisetsEqual(expectedGlueInvocations, actualInvocations);
+        }
+    }
+
+    private Multiset<GlueMetastoreMethod> getActualInvocations(Session session, @Language("SQL") String query)
+    {
         Map<GlueMetastoreMethod, Integer> countsBefore = Arrays.stream(GlueMetastoreMethod.values())
                 .collect(toImmutableMap(Function.identity(), method -> method.getInvocationCount(glueStats)));
 
@@ -500,9 +566,29 @@ public class TestHiveGlueMetastoreAccessOperations
         Map<GlueMetastoreMethod, Integer> countsAfter = Arrays.stream(GlueMetastoreMethod.values())
                 .collect(toImmutableMap(Function.identity(), method -> method.getInvocationCount(glueStats)));
 
-        Multiset<GlueMetastoreMethod> actualGlueInvocations = Arrays.stream(GlueMetastoreMethod.values())
+        return Arrays.stream(GlueMetastoreMethod.values())
                 .collect(toImmutableMultiset(Function.identity(), method -> requireNonNull(countsAfter.get(method)) - requireNonNull(countsBefore.get(method))));
+    }
 
-        assertMultisetsEqual(actualGlueInvocations, expectedGlueInvocations);
+    private static List<String> mismatchMultisets(Multiset<?> actual, Multiset<?> expected)
+    {
+        if (expected.equals(actual)) {
+            return ImmutableList.of();
+        }
+
+        return Sets.union(expected.elementSet(), actual.elementSet()).stream()
+                .filter(key -> expected.count(key) != actual.count(key))
+                .flatMap(key -> {
+                    int expectedCount = expected.count(key);
+                    int actualCount = actual.count(key);
+                    if (actualCount < expectedCount) {
+                        return Stream.of(format("%s more occurrences of %s", expectedCount - actualCount, key));
+                    }
+                    if (actualCount > expectedCount) {
+                        return Stream.of(format("%s fewer occurrences of %s", actualCount - expectedCount, key));
+                    }
+                    return Stream.of();
+                })
+                .collect(toImmutableList());
     }
 }
