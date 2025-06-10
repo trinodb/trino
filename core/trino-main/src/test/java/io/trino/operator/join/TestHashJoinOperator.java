@@ -1888,17 +1888,6 @@ public class TestHashJoinOperator
                 TYPE_OPERATORS);
     }
 
-    private static <T> List<List<T>> product(List<List<T>> left, List<List<T>> right)
-    {
-        List<List<T>> result = new ArrayList<>();
-        for (List<T> l : left) {
-            for (List<T> r : right) {
-                result.add(concat(l, r));
-            }
-        }
-        return result;
-    }
-
     private static <T> List<T> concat(List<T> initialElements, List<T> moreElements)
     {
         return ImmutableList.copyOf(Iterables.concat(initialElements, moreElements));
