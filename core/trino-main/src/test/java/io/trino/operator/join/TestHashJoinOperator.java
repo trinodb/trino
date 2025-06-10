@@ -125,6 +125,7 @@ public class TestHashJoinOperator
     private static final SingleStreamSpillerFactory SINGLE_STREAM_SPILLER_FACTORY = new DummySpillerFactory();
     private static final PartitioningSpillerFactory PARTITIONING_SPILLER_FACTORY = new GenericPartitioningSpillerFactory(SINGLE_STREAM_SPILLER_FACTORY);
     private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
+    private static final long SMALL_MEMORY_POOL_BYTES = DataSize.of(1, DataSize.Unit.MEGABYTE).toBytes();
 
     private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
     private final ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
@@ -1301,17 +1302,9 @@ public class TestHashJoinOperator
 
     private void testHashBuilderFinishInputWaitsForMemory(boolean spillEnabled)
     {
-        long memoryPoolSizeInBytes = DataSize.of(1, DataSize.Unit.MEGABYTE).toBytes();
-        TaskContext taskContext = TestingTaskContext.builder(executor, scheduledExecutor, TEST_SESSION)
-                .setMemoryPoolSize(DataSize.ofBytes(memoryPoolSizeInBytes))
-                .build();
-        DriverContext driverContext = taskContext
-                .addPipelineContext(0, false, false, false)
-                .addDriverContext();
-        OperatorContext operatorContext = driverContext
-                .addOperatorContext(0, new PlanNodeId("0"), HashBuilderOperator.class.getName());
-        OperatorContext anotherOperatorContext = driverContext
-                .addOperatorContext(1, new PlanNodeId("1"), "another operator");
+        DriverTestContext contexts = createDriverTestContext();
+        OperatorContext operatorContext = contexts.operatorContext;
+        OperatorContext anotherOperatorContext = contexts.anotherOperatorContext;
         ImmutableList<Type> types = ImmutableList.of(BIGINT, BIGINT);
         PartitionedLookupSourceFactory lookupSourceFactory = new PartitionedLookupSourceFactory(
                 types,
@@ -1341,7 +1334,7 @@ public class TestHashJoinOperator
             }
 
             // occupy the whole memory pool with another operator so finish() has to wait
-            anotherOperatorContext.getOperatorMemoryContext().localUserMemoryContext().setBytes(memoryPoolSizeInBytes);
+            anotherOperatorContext.getOperatorMemoryContext().localUserMemoryContext().setBytes(SMALL_MEMORY_POOL_BYTES);
             operator.finish();
             assertThat(operator.getState()).isEqualTo(HashBuilderOperator.State.CONSUMING_INPUT);
             assertThat(operator.isFinished()).isFalse();
@@ -1373,17 +1366,9 @@ public class TestHashJoinOperator
     public void testHashBuilderUnspillWaitsForMemory()
             throws Exception
     {
-        long memoryPoolSizeInBytes = DataSize.of(1, DataSize.Unit.MEGABYTE).toBytes();
-        TaskContext taskContext = TestingTaskContext.builder(executor, scheduledExecutor, TEST_SESSION)
-                .setMemoryPoolSize(DataSize.ofBytes(memoryPoolSizeInBytes))
-                .build();
-        DriverContext driverContext = taskContext
-                .addPipelineContext(0, false, false, false)
-                .addDriverContext();
-        OperatorContext operatorContext = driverContext
-                .addOperatorContext(0, new PlanNodeId("0"), HashBuilderOperator.class.getName());
-        OperatorContext anotherOperatorContext = driverContext
-                .addOperatorContext(1, new PlanNodeId("1"), "another operator");
+        DriverTestContext contexts = createDriverTestContext();
+        OperatorContext operatorContext = contexts.operatorContext;
+        OperatorContext anotherOperatorContext = contexts.anotherOperatorContext;
         ImmutableList<Type> types = ImmutableList.of(BIGINT);
         PartitionedLookupSourceFactory lookupSourceFactory = new PartitionedLookupSourceFactory(
                 types,
@@ -1427,7 +1412,7 @@ public class TestHashJoinOperator
             assertThat(operator.getState()).isEqualTo(HashBuilderOperator.State.INPUT_UNSPILLING);
 
             // block memory so unspilling cannot reserve memory
-            anotherOperatorContext.getOperatorMemoryContext().localUserMemoryContext().setBytes(memoryPoolSizeInBytes);
+            anotherOperatorContext.getOperatorMemoryContext().localUserMemoryContext().setBytes(SMALL_MEMORY_POOL_BYTES);
             operator.finish();
             assertThat(operator.getState()).isEqualTo(HashBuilderOperator.State.INPUT_UNSPILLING);
             assertThat(operatorContext.isWaitingForMemory()).isNotDone();
@@ -1453,15 +1438,8 @@ public class TestHashJoinOperator
     @Test
     public void testMemoryRevokeCompactionUpdatesRevocableMemory()
     {
-        long memoryPoolSizeInBytes = DataSize.of(1, DataSize.Unit.MEGABYTE).toBytes();
-        TaskContext taskContext = TestingTaskContext.builder(executor, scheduledExecutor, TEST_SESSION)
-                .setMemoryPoolSize(DataSize.ofBytes(memoryPoolSizeInBytes))
-                .build();
-        DriverContext driverContext = taskContext
-                .addPipelineContext(0, false, false, false)
-                .addDriverContext();
-        OperatorContext operatorContext = driverContext
-                .addOperatorContext(0, new PlanNodeId("0"), HashBuilderOperator.class.getName());
+        DriverTestContext contexts = createDriverTestContext();
+        OperatorContext operatorContext = contexts.operatorContext;
         ImmutableList<Type> types = ImmutableList.of(VARCHAR);
         PartitionedLookupSourceFactory lookupSourceFactory = new PartitionedLookupSourceFactory(
                 types,
@@ -1950,6 +1928,23 @@ public class TestHashJoinOperator
                 PARTITIONING_SPILLER_FACTORY,
                 TYPE_OPERATORS);
     }
+
+    private DriverTestContext createDriverTestContext()
+    {
+        TaskContext taskContext = TestingTaskContext.builder(executor, scheduledExecutor, TEST_SESSION)
+                .setMemoryPoolSize(DataSize.ofBytes(SMALL_MEMORY_POOL_BYTES))
+                .build();
+        DriverContext driverContext = taskContext
+                .addPipelineContext(0, false, false, false)
+                .addDriverContext();
+        OperatorContext operatorContext = driverContext
+                .addOperatorContext(0, new PlanNodeId("0"), HashBuilderOperator.class.getName());
+        OperatorContext anotherOperatorContext = driverContext
+                .addOperatorContext(1, new PlanNodeId("1"), "another operator");
+        return new DriverTestContext(taskContext, driverContext, operatorContext, anotherOperatorContext);
+    }
+
+    private record DriverTestContext(TaskContext taskContext, DriverContext driverContext, OperatorContext operatorContext, OperatorContext anotherOperatorContext) {}
 
     private static <T> List<T> concat(List<T> initialElements, List<T> moreElements)
     {
