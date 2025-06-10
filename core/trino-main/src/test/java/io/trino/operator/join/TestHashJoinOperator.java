@@ -31,6 +31,7 @@ import io.trino.execution.TaskStateMachine;
 import io.trino.execution.scheduler.NodeScheduler;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.execution.scheduler.UniformNodeSelectorFactory;
+import io.trino.memory.context.LocalMemoryContext;
 import io.trino.metadata.InMemoryNodeManager;
 import io.trino.operator.Driver;
 import io.trino.operator.DriverContext;
@@ -49,6 +50,7 @@ import io.trino.operator.join.JoinTestUtils.TestInternalJoinFilterFunction;
 import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.spi.Page;
 import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
@@ -1442,6 +1444,67 @@ public class TestHashJoinOperator
             try (LookupSource lookupSource = lookupSourceFuture.get().get()) {
                 assertThat(lookupSource.getJoinPositionCount()).isEqualTo(100);
             }
+        }
+        finally {
+            operatorContext.destroy();
+        }
+    }
+
+    @Test
+    public void testMemoryRevokeCompactionUpdatesRevocableMemory()
+    {
+        long memoryPoolSizeInBytes = DataSize.of(1, DataSize.Unit.MEGABYTE).toBytes();
+        TaskContext taskContext = TestingTaskContext.builder(executor, scheduledExecutor, TEST_SESSION)
+                .setMemoryPoolSize(DataSize.ofBytes(memoryPoolSizeInBytes))
+                .build();
+        DriverContext driverContext = taskContext
+                .addPipelineContext(0, false, false, false)
+                .addDriverContext();
+        OperatorContext operatorContext = driverContext
+                .addOperatorContext(0, new PlanNodeId("0"), HashBuilderOperator.class.getName());
+        ImmutableList<Type> types = ImmutableList.of(VARCHAR);
+        PartitionedLookupSourceFactory lookupSourceFactory = new PartitionedLookupSourceFactory(
+                types,
+                types,
+                ImmutableList.of(VARCHAR),
+                2,
+                false,
+                TYPE_OPERATORS);
+
+        try (HashBuilderOperator operator = new HashBuilderOperator(
+                operatorContext,
+                lookupSourceFactory,
+                0,
+                ImmutableList.of(0),
+                ImmutableList.of(0),
+                OptionalInt.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableList.of(),
+                10_000,
+                new PagesIndex.TestingFactory(false),
+                true,
+                SINGLE_STREAM_SPILLER_FACTORY,
+                defaultHashArraySizeSupplier())) {
+            // add page to build index
+            operator.addInput(new Page(new VariableWidthBlock(1, Slices.allocate(100000), new int[] {0, 1}, Optional.empty())));
+
+            LocalMemoryContext revocableMemoryContext = operatorContext.localRevocableMemoryContext();
+            long beforeBytes = revocableMemoryContext.getBytes();
+
+            // trigger memory revocation which performs compaction
+            getFutureValue(operator.startMemoryRevoke());
+            operator.finishMemoryRevoke();
+            assertThat(operator.getState()).isEqualTo(HashBuilderOperator.State.CONSUMING_INPUT);
+
+            long afterBytes = revocableMemoryContext.getBytes();
+            assertThat(afterBytes).isLessThan(beforeBytes);
+
+            // subsequent revocation should revoke all memory
+            getFutureValue(operator.startMemoryRevoke());
+            operator.finishMemoryRevoke();
+            assertThat(revocableMemoryContext.getBytes()).isEqualTo(0);
+            assertThat(operator.getState()).isEqualTo(HashBuilderOperator.State.SPILLING_INPUT);
         }
         finally {
             operatorContext.destroy();
