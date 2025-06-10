@@ -250,7 +250,6 @@
         </artifact>
     </artifactSet>
 
-
     <artifactSet to="plugin/redis">
         <artifact id="${project.groupId}:trino-redis:zip:${project.version}">
             <unpack />
@@ -277,12 +276,6 @@
 
     <artifactSet to="plugin/sqlserver">
         <artifact id="${project.groupId}:trino-sqlserver:zip:${project.version}">
-            <unpack />
-        </artifact>
-    </artifactSet>
-
-    <artifactSet to="plugin/teradata-functions">
-        <artifact id="${project.groupId}:trino-teradata-functions:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>
