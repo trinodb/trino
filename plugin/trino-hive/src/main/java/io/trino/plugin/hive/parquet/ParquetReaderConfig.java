@@ -16,7 +16,6 @@ package io.trino.plugin.hive.parquet;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
-import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
@@ -29,7 +28,8 @@ import jakarta.validation.constraints.NotNull;
         "hive.parquet.fail-on-corrupted-statistics",
         "parquet.fail-on-corrupted-statistics",
         "parquet.optimized-reader.enabled",
-        "parquet.optimized-nested-reader.enabled"
+        "parquet.optimized-nested-reader.enabled",
+        "hive.parquet.max-read-block-size",
 })
 public class ParquetReaderConfig
 {
@@ -59,7 +59,6 @@ public class ParquetReaderConfig
     }
 
     @Config("parquet.max-read-block-size")
-    @LegacyConfig("hive.parquet.max-read-block-size")
     public ParquetReaderConfig setMaxReadBlockSize(DataSize maxReadBlockSize)
     {
         options = ParquetReaderOptions.builder(options)
