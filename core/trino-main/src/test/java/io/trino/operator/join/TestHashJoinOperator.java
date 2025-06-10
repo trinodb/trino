@@ -36,7 +36,9 @@ import io.trino.operator.Driver;
 import io.trino.operator.DriverContext;
 import io.trino.operator.Operator;
 import io.trino.operator.OperatorAssertion;
+import io.trino.operator.OperatorContext;
 import io.trino.operator.OperatorFactory;
+import io.trino.operator.PagesIndex;
 import io.trino.operator.TaskContext;
 import io.trino.operator.ValuesOperator.ValuesOperatorFactory;
 import io.trino.operator.index.PageBuffer;
@@ -72,6 +74,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -79,7 +82,9 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
+import static io.trino.SequencePageBuilder.createSequencePage;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.operator.HashArraySizeSupplier.defaultHashArraySizeSupplier;
 import static io.trino.operator.JoinOperatorType.fullOuterJoin;
 import static io.trino.operator.JoinOperatorType.innerJoin;
 import static io.trino.operator.JoinOperatorType.lookupOuterJoin;
@@ -1283,6 +1288,164 @@ public class TestHashJoinOperator
         assertThatThrownBy(() -> buildLookupSource(executor, buildSideSetup))
                 .isInstanceOf(ExceededMemoryLimitException.class)
                 .hasMessageMatching("Query exceeded per-node memory limit of.*");
+    }
+
+    @Test
+    public void testHashBuilderFinishInputWaitsForMemory()
+    {
+        testHashBuilderFinishInputWaitsForMemory(true);
+        testHashBuilderFinishInputWaitsForMemory(false);
+    }
+
+    private void testHashBuilderFinishInputWaitsForMemory(boolean spillEnabled)
+    {
+        long memoryPoolSizeInBytes = DataSize.of(1, DataSize.Unit.MEGABYTE).toBytes();
+        TaskContext taskContext = TestingTaskContext.builder(executor, scheduledExecutor, TEST_SESSION)
+                .setMemoryPoolSize(DataSize.ofBytes(memoryPoolSizeInBytes))
+                .build();
+        DriverContext driverContext = taskContext
+                .addPipelineContext(0, false, false, false)
+                .addDriverContext();
+        OperatorContext operatorContext = driverContext
+                .addOperatorContext(0, new PlanNodeId("0"), HashBuilderOperator.class.getName());
+        OperatorContext anotherOperatorContext = driverContext
+                .addOperatorContext(1, new PlanNodeId("1"), "another operator");
+        ImmutableList<Type> types = ImmutableList.of(BIGINT, BIGINT);
+        PartitionedLookupSourceFactory lookupSourceFactory = new PartitionedLookupSourceFactory(
+                types,
+                ImmutableList.of(BIGINT),
+                ImmutableList.of(BIGINT),
+                1,
+                false,
+                TYPE_OPERATORS);
+        try (HashBuilderOperator operator = new HashBuilderOperator(
+                operatorContext,
+                lookupSourceFactory,
+                0,
+                ImmutableList.of(0),
+                ImmutableList.of(1),
+                OptionalInt.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableList.of(),
+                10_000,
+                new PagesIndex.TestingFactory(false),
+                spillEnabled,
+                SINGLE_STREAM_SPILLER_FACTORY,
+                defaultHashArraySizeSupplier())) {
+            // add enough pages to require memory reservation when finish() is called
+            for (int i = 0; i < 100; i++) {
+                operator.addInput(createSequencePage(types, 1));
+            }
+
+            // occupy the whole memory pool with another operator so finish() has to wait
+            anotherOperatorContext.getOperatorMemoryContext().localUserMemoryContext().setBytes(memoryPoolSizeInBytes);
+            operator.finish();
+            assertThat(operator.getState()).isEqualTo(HashBuilderOperator.State.CONSUMING_INPUT);
+            assertThat(operator.isFinished()).isFalse();
+            if (spillEnabled) {
+                assertThat(operatorContext.isWaitingForRevocableMemory()).isNotDone();
+            }
+            else {
+                assertThat(operatorContext.isWaitingForMemory()).isNotDone();
+            }
+
+            // free memory and let finish() proceed
+            anotherOperatorContext.getOperatorMemoryContext().localUserMemoryContext().setBytes(0);
+            operator.finish();
+            assertThat(operator.getState()).isEqualTo(HashBuilderOperator.State.LOOKUP_SOURCE_BUILT);
+            assertThat(operator.isFinished()).isFalse();
+            if (spillEnabled) {
+                assertThat(operatorContext.isWaitingForRevocableMemory()).isDone();
+            }
+            else {
+                assertThat(operatorContext.isWaitingForMemory()).isDone();
+            }
+        }
+        finally {
+            operatorContext.destroy();
+        }
+    }
+
+    @Test
+    public void testHashBuilderUnspillWaitsForMemory()
+            throws Exception
+    {
+        long memoryPoolSizeInBytes = DataSize.of(1, DataSize.Unit.MEGABYTE).toBytes();
+        TaskContext taskContext = TestingTaskContext.builder(executor, scheduledExecutor, TEST_SESSION)
+                .setMemoryPoolSize(DataSize.ofBytes(memoryPoolSizeInBytes))
+                .build();
+        DriverContext driverContext = taskContext
+                .addPipelineContext(0, false, false, false)
+                .addDriverContext();
+        OperatorContext operatorContext = driverContext
+                .addOperatorContext(0, new PlanNodeId("0"), HashBuilderOperator.class.getName());
+        OperatorContext anotherOperatorContext = driverContext
+                .addOperatorContext(1, new PlanNodeId("1"), "another operator");
+        ImmutableList<Type> types = ImmutableList.of(BIGINT);
+        PartitionedLookupSourceFactory lookupSourceFactory = new PartitionedLookupSourceFactory(
+                types,
+                types,
+                ImmutableList.of(BIGINT),
+                2,
+                false,
+                TYPE_OPERATORS);
+
+        try (HashBuilderOperator operator = new HashBuilderOperator(
+                operatorContext,
+                lookupSourceFactory,
+                0,
+                ImmutableList.of(0),
+                ImmutableList.of(0),
+                OptionalInt.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableList.of(),
+                10_000,
+                new PagesIndex.TestingFactory(false),
+                true,
+                SINGLE_STREAM_SPILLER_FACTORY,
+                defaultHashArraySizeSupplier())) {
+            for (int i = 0; i < 100; i++) {
+                operator.addInput(createSequencePage(types, 1));
+            }
+
+            // spill the index
+            revokeMemory(operator);
+            assertThat(operator.getState()).isEqualTo(HashBuilderOperator.State.SPILLING_INPUT);
+            operator.finish();
+            assertThat(operator.getState()).isEqualTo(HashBuilderOperator.State.INPUT_SPILLED);
+
+            // request partition to trigger unspilling
+            PartitionedConsumption<Supplier<LookupSource>> consumption = lookupSourceFactory.finishProbeOperator(OptionalInt.of(1)).get();
+            PartitionedConsumption.Partition<Supplier<LookupSource>> partition = consumption.beginConsumption().next();
+            ListenableFuture<Supplier<LookupSource>> lookupSourceFuture = partition.load();
+            operator.finish();
+            assertThat(operatorContext.isWaitingForMemory()).isDone();
+            assertThat(operator.getState()).isEqualTo(HashBuilderOperator.State.INPUT_UNSPILLING);
+
+            // block memory so unspilling cannot reserve memory
+            anotherOperatorContext.getOperatorMemoryContext().localUserMemoryContext().setBytes(memoryPoolSizeInBytes);
+            operator.finish();
+            assertThat(operator.getState()).isEqualTo(HashBuilderOperator.State.INPUT_UNSPILLING);
+            assertThat(operatorContext.isWaitingForMemory()).isNotDone();
+            assertThat(lookupSourceFuture).isNotDone();
+
+            // release memory and continue
+            anotherOperatorContext.getOperatorMemoryContext().localUserMemoryContext().setBytes(0);
+            operator.finish();
+            assertThat(operator.getState()).isEqualTo(HashBuilderOperator.State.INPUT_UNSPILLED_AND_BUILT);
+
+            assertThat(lookupSourceFuture).isDone();
+            assertThat(operatorContext.isWaitingForMemory()).isDone();
+
+            try (LookupSource lookupSource = lookupSourceFuture.get().get()) {
+                assertThat(lookupSource.getJoinPositionCount()).isEqualTo(100);
+            }
+        }
+        finally {
+            operatorContext.destroy();
+        }
     }
 
     @Test
