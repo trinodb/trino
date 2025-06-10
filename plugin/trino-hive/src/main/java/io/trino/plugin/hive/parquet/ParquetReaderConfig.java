@@ -175,6 +175,22 @@ public class ParquetReaderConfig
         return options.isVectorizedDecodingEnabled();
     }
 
+    @Config("parquet.max-footer-read-size")
+    @ConfigDescription("Maximum allowed size of the parquet footer. Files with footers larger than this will generate an exception on read")
+    public ParquetReaderConfig setMaxFooterReadSize(DataSize maxFooterReadSize)
+    {
+        options = ParquetReaderOptions.builder(options)
+                .withMaxFooterReadSize(maxFooterReadSize)
+                .build();
+        return this;
+    }
+
+    @NotNull
+    public DataSize getMaxFooterReadSize()
+    {
+        return options.getMaxFooterReadSize();
+    }
+
     public ParquetReaderOptions toParquetReaderOptions()
     {
         return options;

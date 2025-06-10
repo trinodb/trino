@@ -101,6 +101,12 @@ with Parquet files performed by supported object storage connectors:
     The equivalent catalog session property is
     `parquet_vectorized_decoding_enabled`.
   - `true`
+* - `parquet.max-footer-read-size`
+  - Sets the maximum allowed read size for Parquet file footers. Attempting to
+    read a file with a footer larger than this value will result in an error.
+    This prevents workers from going into full GC or crashing due to poorly
+    configured Parquet writers.
+  - `15MB`
 :::
 
 [](file-compression) is automatically performed and some details can be
