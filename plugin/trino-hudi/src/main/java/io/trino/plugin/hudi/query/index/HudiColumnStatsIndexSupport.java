@@ -70,6 +70,7 @@ public class HudiColumnStatsIndexSupport
     protected final TupleDomain<String> regularColumnPredicates;
     private final List<String> regularColumns;
     private final Duration columnStatsWaitTimeout;
+    private final long futureStartTimeMs;
 
     public HudiColumnStatsIndexSupport(ConnectorSession session, Lazy<HoodieTableMetaClient> lazyMetaClient, Lazy<HoodieTableMetadata> lazyTableMetadata, TupleDomain<HiveColumnHandle> regularColumnPredicates)
     {
@@ -104,22 +105,36 @@ public class HudiColumnStatsIndexSupport
                                             HoodieMetadataColumnStats::getColumnName,
                                             Function.identity())))));
         }
+        this.futureStartTimeMs = System.currentTimeMillis();
     }
 
     @Override
     public boolean shouldSkipFileSlice(FileSlice slice)
     {
         try {
-            // Wait till timeout for stats to be ready
-            Optional<Map<String, Map<String, HoodieMetadataColumnStats>>> statsOpt =
-                    statsByFileNameFuture.get(columnStatsWaitTimeout.toMillis(), TimeUnit.MILLISECONDS);
+            if (statsByFileNameFuture.isDone()) {
+                Optional<Map<String, Map<String, HoodieMetadataColumnStats>>> statsOpt = statsByFileNameFuture.get();
+                return statsOpt
+                        .map(stats -> shouldSkipFileSlice(slice, stats, regularColumnPredicates, regularColumns))
+                        .orElse(false);
+            }
 
-            return statsOpt.map(fileIdStatsMap ->
-                    shouldSkipFileSlice(slice, fileIdStatsMap, regularColumnPredicates, regularColumns)
-            ).orElse(false);
+            long elapsedMs = System.currentTimeMillis() - futureStartTimeMs;
+            if (elapsedMs > columnStatsWaitTimeout.toMillis()) {
+                // Took too long; skip decision
+                return false;
+            }
+
+            // If still within the timeout window, wait up to the remaining time
+            long remainingMs = columnStatsWaitTimeout.toMillis() - elapsedMs;
+            Optional<Map<String, Map<String, HoodieMetadataColumnStats>>> statsOpt =
+                    statsByFileNameFuture.get(remainingMs, TimeUnit.MILLISECONDS);
+
+            return statsOpt
+                    .map(stats -> shouldSkipFileSlice(slice, stats, regularColumnPredicates, regularColumns))
+                    .orElse(false);
         }
         catch (TimeoutException | InterruptedException | ExecutionException e) {
-            // Stats not ready within 100ms, skip making a decision
             return false;
         }
     }

@@ -50,7 +50,9 @@ public class TestHudiConfig
                 .setColumnStatsIndexEnabled(true)
                 .setPartitionStatsIndexEnabled(true)
                 .setDynamicFilteringWaitTimeout(Duration.valueOf("1s"))
-                .setColumnStatsWaitTimeout(Duration.valueOf("100ms")));
+                .setColumnStatsWaitTimeout(Duration.valueOf("100ms"))
+                .setRecordIndexWaitTimeout(Duration.valueOf("1s"))
+                .setSecondaryIndexWaitTimeout(Duration.valueOf("1s")));
     }
 
     @Test
@@ -76,6 +78,8 @@ public class TestHudiConfig
                 .put("hudi.index.partition-stats-index-enabled", "false")
                 .put("hudi.dynamic-filtering.wait-timeout", "2s")
                 .put("hudi.index.column-stats.wait-timeout", "2s")
+                .put("hudi.index.record-index.wait-timeout", "2s")
+                .put("hudi.index.secondary-index.wait-timeout", "2s")
                 .buildOrThrow();
 
         HudiConfig expected = new HudiConfig()
@@ -97,7 +101,9 @@ public class TestHudiConfig
                 .setColumnStatsIndexEnabled(false)
                 .setPartitionStatsIndexEnabled(false)
                 .setDynamicFilteringWaitTimeout(Duration.valueOf("2s"))
-                .setColumnStatsWaitTimeout(Duration.valueOf("2s"));
+                .setColumnStatsWaitTimeout(Duration.valueOf("2s"))
+                .setRecordIndexWaitTimeout(Duration.valueOf("2s"))
+                .setSecondaryIndexWaitTimeout(Duration.valueOf("2s"));
 
         assertFullMapping(properties, expected);
     }

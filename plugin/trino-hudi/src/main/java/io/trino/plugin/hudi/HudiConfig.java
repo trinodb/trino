@@ -59,6 +59,8 @@ public class HudiConfig
     private boolean isColumnStatsIndexEnabled = true;
     private boolean isPartitionStatsIndexEnabled = true;
     private Duration columnStatsWaitTimeout = new Duration(100, MILLISECONDS);
+    private Duration recordIndexWaitTimeout = new Duration(1000, MILLISECONDS);
+    private Duration secondaryIndexWaitTimeout = new Duration(1000, MILLISECONDS);
 
     public List<String> getColumnsToHide()
     {
@@ -319,5 +321,33 @@ public class HudiConfig
     public Duration getColumnStatsWaitTimeout()
     {
         return columnStatsWaitTimeout;
+    }
+
+    @Config("hudi.index.record-index.wait-timeout")
+    @ConfigDescription("Maximum timeout to wait for loading record index, e.g. 1000ms, 20s, 2m, 1h")
+    public HudiConfig setRecordIndexWaitTimeout(Duration recordIndexWaitTimeout)
+    {
+        this.recordIndexWaitTimeout = recordIndexWaitTimeout;
+        return this;
+    }
+
+    @NotNull
+    public Duration getRecordIndexWaitTimeout()
+    {
+        return recordIndexWaitTimeout;
+    }
+
+    @Config("hudi.index.secondary-index.wait-timeout")
+    @ConfigDescription("Maximum timeout to wait for loading secondary index, e.g. 1000ms, 20s, 2m, 1h")
+    public HudiConfig setSecondaryIndexWaitTimeout(Duration secondaryIndexWaitTimeout)
+    {
+        this.secondaryIndexWaitTimeout = secondaryIndexWaitTimeout;
+        return this;
+    }
+
+    @NotNull
+    public Duration getSecondaryIndexWaitTimeout()
+    {
+        return secondaryIndexWaitTimeout;
     }
 }

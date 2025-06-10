@@ -15,9 +15,11 @@ package io.trino.plugin.hudi.query.index;
 
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.airlift.units.Duration;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hudi.util.TupleDomainUtils;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import org.apache.hudi.common.model.FileSlice;
@@ -37,9 +39,14 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_BAD_DATA;
+import static io.trino.plugin.hudi.HudiSessionProperties.getRecordIndexWaitTimeout;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class HudiRecordLevelIndexSupport
         extends HudiBaseIndexSupport
@@ -48,58 +55,80 @@ public class HudiRecordLevelIndexSupport
 
     public static final String DEFAULT_COLUMN_VALUE_SEPARATOR = ":";
     public static final String DEFAULT_RECORD_KEY_PARTS_SEPARATOR = ",";
-    private final Optional<Set<String>> relevantFileIdsOption;
+    private final CompletableFuture<Optional<Set<String>>> relevantFileIdsFuture;
+    private final Duration recordIndexWaitTimeout;
+    private final long futureStartTimeMs;
 
-    public HudiRecordLevelIndexSupport(Lazy<HoodieTableMetaClient> lazyMetaClient, Lazy<HoodieTableMetadata> lazyTableMetadata, TupleDomain<HiveColumnHandle> regularColumnPredicates)
+    public HudiRecordLevelIndexSupport(ConnectorSession session, Lazy<HoodieTableMetaClient> lazyMetaClient, Lazy<HoodieTableMetadata> lazyTableMetadata, TupleDomain<HiveColumnHandle> regularColumnPredicates)
     {
         super(log, lazyMetaClient);
+        this.recordIndexWaitTimeout = getRecordIndexWaitTimeout(session);
         if (regularColumnPredicates.isAll()) {
-            this.relevantFileIdsOption = Optional.empty();
+            this.relevantFileIdsFuture = CompletableFuture.completedFuture(Optional.empty());
         }
         else {
-            Option<String[]> recordKeyFieldsOpt = lazyMetaClient.get().getTableConfig().getRecordKeyFields();
-            if (recordKeyFieldsOpt.isEmpty() || recordKeyFieldsOpt.get().length == 0) {
-                // Should not happen since canApply checks for this, include for safety
-                throw new TrinoException(HUDI_BAD_DATA, "Record key fields must be defined to use Record Level Index.");
-            }
-            List<String> recordKeyFields = Arrays.asList(recordKeyFieldsOpt.get());
+            this.relevantFileIdsFuture = CompletableFuture.supplyAsync(() -> {
+                Option<String[]> recordKeyFieldsOpt = lazyMetaClient.get().getTableConfig().getRecordKeyFields();
+                if (recordKeyFieldsOpt.isEmpty() || recordKeyFieldsOpt.get().length == 0) {
+                    // Should not happen since canApply checks for this, include for safety
+                    throw new TrinoException(HUDI_BAD_DATA, "Record key fields must be defined to use Record Level Index.");
+                }
+                List<String> recordKeyFields = Arrays.asList(recordKeyFieldsOpt.get());
 
-            TupleDomain<String> regularPredicatesTransformed = regularColumnPredicates.transformKeys(HiveColumnHandle::getName);
-            // Only extract the predicates relevant to the record key fields
-            TupleDomain<String> filteredDomains = extractPredicatesForColumns(regularPredicatesTransformed, recordKeyFields);
+                TupleDomain<String> regularPredicatesTransformed = regularColumnPredicates.transformKeys(HiveColumnHandle::getName);
+                // Only extract the predicates relevant to the record key fields
+                TupleDomain<String> filteredDomains = extractPredicatesForColumns(regularPredicatesTransformed, recordKeyFields);
 
-            // Construct the actual record keys based on the filtered predicates using Hudi's encoding scheme
-            List<String> recordKeys = constructRecordKeys(filteredDomains, recordKeyFields);
+                // Construct the actual record keys based on the filtered predicates using Hudi's encoding scheme
+                List<String> recordKeys = constructRecordKeys(filteredDomains, recordKeyFields);
 
-            if (recordKeys.isEmpty()) {
-                // If key construction fails (e.g., incompatible predicates not caught by canApply, or placeholder issue)
-                log.warn("Could not construct record keys from predicates. Skipping record index pruning.");
-                this.relevantFileIdsOption = Optional.empty();
-                return;
-            }
-            log.debug(String.format("Constructed %d record keys for index lookup.", recordKeys.size()));
+                if (recordKeys.isEmpty()) {
+                    // If key construction fails (e.g., incompatible predicates not caught by canApply, or placeholder issue)
+                    log.warn("Could not construct record keys from predicates. Skipping record index pruning.");
+                    return Optional.empty();
+                }
+                log.debug(String.format("Constructed %d record keys for index lookup.", recordKeys.size()));
 
-            // Perform index lookup in metadataTable
-            // TODO: document here what this map is keyed by
-            Map<String, HoodieRecordGlobalLocation> recordIndex = lazyTableMetadata.get().readRecordIndex(recordKeys);
-            if (recordIndex.isEmpty()) {
-                log.debug("Record level index lookup returned no locations for the given keys.");
-                // Return all original fileSlices
-                this.relevantFileIdsOption = Optional.empty();
-                return;
-            }
+                // Perform index lookup in metadataTable
+                // TODO: document here what this map is keyed by
+                Map<String, HoodieRecordGlobalLocation> recordIndex = lazyTableMetadata.get().readRecordIndex(recordKeys);
+                if (recordIndex.isEmpty()) {
+                    log.debug("Record level index lookup returned no locations for the given keys.");
+                    // Return all original fileSlices
+                    return Optional.empty();
+                }
 
-            // Collect fileIds for pruning
-            this.relevantFileIdsOption = Optional.of(recordIndex.values().stream()
-                    .map(HoodieRecordGlobalLocation::getFileId)
-                    .collect(Collectors.toSet()));
+                // Collect fileIds for pruning
+                return Optional.of(recordIndex.values().stream()
+                        .map(HoodieRecordGlobalLocation::getFileId)
+                        .collect(Collectors.toSet()));
+            });
         }
+        this.futureStartTimeMs = System.currentTimeMillis();
     }
 
     @Override
     public boolean shouldSkipFileSlice(FileSlice slice)
     {
-        return relevantFileIdsOption.map(fileIds -> !fileIds.contains(slice.getFileId())).orElse(false);
+        try {
+            if (relevantFileIdsFuture.isDone()) {
+                Optional<Set<String>> relevantFileIds = relevantFileIdsFuture.get();
+                return relevantFileIds.map(fileIds -> !fileIds.contains(slice.getFileId())).orElse(false);
+            }
+
+            long elapsedMs = System.currentTimeMillis() - futureStartTimeMs;
+            if (elapsedMs > recordIndexWaitTimeout.toMillis()) {
+                // Took too long; skip decision
+                return false;
+            }
+
+            long remainingMs = recordIndexWaitTimeout.toMillis() - elapsedMs;
+            Optional<Set<String>> relevantFileIds = relevantFileIdsFuture.get(remainingMs, MILLISECONDS);
+            return relevantFileIds.map(fileIds -> !fileIds.contains(slice.getFileId())).orElse(false);
+        }
+        catch (TimeoutException | InterruptedException | ExecutionException e) {
+            return false;
+        }
     }
 
     /**

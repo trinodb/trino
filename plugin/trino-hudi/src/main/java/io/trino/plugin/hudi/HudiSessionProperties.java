@@ -64,6 +64,8 @@ public class HudiSessionProperties
     static final String COLUMN_STATS_INDEX_ENABLED = "column_stats_index_enabled";
     static final String PARTITION_STATS_INDEX_ENABLED = "partition_stats_index_enabled";
     static final String COLUMN_STATS_WAIT_TIMEOUT = "column_stats_wait_timeout";
+    static final String RECORD_INDEX_WAIT_TIMEOUT = "record_index_wait_timeout";
+    static final String SECONDARY_INDEX_WAIT_TIMEOUT = "secondary_index_wait_timeout";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -172,6 +174,16 @@ public class HudiSessionProperties
                         COLUMN_STATS_WAIT_TIMEOUT,
                         "Maximum timeout to wait for loading column stats",
                         hudiConfig.getColumnStatsWaitTimeout(),
+                        false),
+                durationProperty(
+                        RECORD_INDEX_WAIT_TIMEOUT,
+                        "Maximum timeout to wait for loading record index",
+                        hudiConfig.getRecordIndexWaitTimeout(),
+                        false),
+                durationProperty(
+                        SECONDARY_INDEX_WAIT_TIMEOUT,
+                        "Maximum timeout to wait for loading secondary index",
+                        hudiConfig.getSecondaryIndexWaitTimeout(),
                         false),
                 durationProperty(
                         DYNAMIC_FILTERING_WAIT_TIMEOUT,
@@ -285,5 +297,15 @@ public class HudiSessionProperties
     public static Duration getColumnStatsWaitTimeout(ConnectorSession session)
     {
         return session.getProperty(COLUMN_STATS_WAIT_TIMEOUT, Duration.class);
+    }
+
+    public static Duration getRecordIndexWaitTimeout(ConnectorSession session)
+    {
+        return session.getProperty(RECORD_INDEX_WAIT_TIMEOUT, Duration.class);
+    }
+
+    public static Duration getSecondaryIndexWaitTimeout(ConnectorSession session)
+    {
+        return session.getProperty(SECONDARY_INDEX_WAIT_TIMEOUT, Duration.class);
     }
 }

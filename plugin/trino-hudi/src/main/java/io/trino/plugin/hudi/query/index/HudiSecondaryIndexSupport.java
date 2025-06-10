@@ -14,8 +14,10 @@
 package io.trino.plugin.hudi.query.index;
 
 import io.airlift.log.Logger;
+import io.airlift.units.Duration;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hudi.util.TupleDomainUtils;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.predicate.TupleDomain;
 import org.apache.hudi.common.model.FileSlice;
 import org.apache.hudi.common.model.HoodieIndexDefinition;
@@ -29,69 +31,95 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
+import static io.trino.plugin.hudi.HudiSessionProperties.getSecondaryIndexWaitTimeout;
 import static io.trino.plugin.hudi.query.index.HudiRecordLevelIndexSupport.constructRecordKeys;
 import static io.trino.plugin.hudi.query.index.HudiRecordLevelIndexSupport.extractPredicatesForColumns;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class HudiSecondaryIndexSupport
         extends HudiBaseIndexSupport
 {
     private static final Logger log = Logger.get(HudiSecondaryIndexSupport.class);
-    private final Optional<Set<String>> relevantFileIdsOption;
+    private final CompletableFuture<Optional<Set<String>>> relevantFileIdsFuture;
+    private final Duration secondaryIndexWaitTimeout;
+    private final long futureStartTimeMs;
 
-    public HudiSecondaryIndexSupport(Lazy<HoodieTableMetaClient> lazyMetaClient, Lazy<HoodieTableMetadata> lazyTableMetadata, TupleDomain<HiveColumnHandle> regularColumnPredicates)
+    public HudiSecondaryIndexSupport(ConnectorSession session, Lazy<HoodieTableMetaClient> lazyMetaClient, Lazy<HoodieTableMetadata> lazyTableMetadata, TupleDomain<HiveColumnHandle> regularColumnPredicates)
     {
         super(log, lazyMetaClient);
+        this.secondaryIndexWaitTimeout = getSecondaryIndexWaitTimeout(session);
         TupleDomain<String> regularPredicatesTransformed = regularColumnPredicates.transformKeys(HiveColumnHandle::getName);
         if (regularColumnPredicates.isAll() || lazyMetaClient.get().getIndexMetadata().isEmpty()) {
-            this.relevantFileIdsOption = Optional.empty();
+            this.relevantFileIdsFuture = CompletableFuture.completedFuture(Optional.empty());
         }
         else {
-            Optional<Map.Entry<String, HoodieIndexDefinition>> firstApplicableIndex = findFirstApplicableSecondaryIndex(regularPredicatesTransformed);
-            if (firstApplicableIndex.isEmpty()) {
-                log.debug("No secondary index definition found matching the query's referenced columns.");
-                this.relevantFileIdsOption = Optional.empty();
-                return;
-            }
+            this.relevantFileIdsFuture = CompletableFuture.supplyAsync(() -> {
+                Optional<Map.Entry<String, HoodieIndexDefinition>> firstApplicableIndex = findFirstApplicableSecondaryIndex(regularPredicatesTransformed);
+                if (firstApplicableIndex.isEmpty()) {
+                    log.debug("No secondary index definition found matching the query's referenced columns.");
+                    return Optional.empty();
+                }
 
-            Map.Entry<String, HoodieIndexDefinition> applicableIndexEntry = firstApplicableIndex.get();
-            String indexName = applicableIndexEntry.getKey();
-            // `indexedColumns` should only contain one element as secondary indices only support one column
-            List<String> indexedColumns = applicableIndexEntry.getValue().getSourceFields();
-            log.debug(String.format("Using secondary index '%s' on columns %s for pruning.", indexName, indexedColumns));
+                Map.Entry<String, HoodieIndexDefinition> applicableIndexEntry = firstApplicableIndex.get();
+                String indexName = applicableIndexEntry.getKey();
+                // `indexedColumns` should only contain one element as secondary indices only support one column
+                List<String> indexedColumns = applicableIndexEntry.getValue().getSourceFields();
+                log.debug(String.format("Using secondary index '%s' on columns %s for pruning.", indexName, indexedColumns));
 
-            TupleDomain<String> indexPredicates = extractPredicatesForColumns(regularPredicatesTransformed, indexedColumns);
+                TupleDomain<String> indexPredicates = extractPredicatesForColumns(regularPredicatesTransformed, indexedColumns);
 
-            List<String> secondaryKeys = constructRecordKeys(indexPredicates, indexedColumns);
-            if (secondaryKeys.isEmpty()) {
-                log.warn(String.format("Could not construct secondary keys for index '%s' from predicates. Skipping pruning.", indexName));
-                this.relevantFileIdsOption = Optional.empty();
-                return;
-            }
-            log.debug(String.format("Constructed %d secondary keys for index lookup.", secondaryKeys.size()));
+                List<String> secondaryKeys = constructRecordKeys(indexPredicates, indexedColumns);
+                if (secondaryKeys.isEmpty()) {
+                    log.warn(String.format("Could not construct secondary keys for index '%s' from predicates. Skipping pruning.", indexName));
+                    return Optional.empty();
+                }
+                log.debug(String.format("Constructed %d secondary keys for index lookup.", secondaryKeys.size()));
 
-            // Perform index lookup in metadataTable
-            // TODO: document here what this map is keyed by
-            Map<String, HoodieRecordGlobalLocation> recordKeyLocationsMap = lazyTableMetadata.get().readSecondaryIndex(secondaryKeys, indexName);
-            if (recordKeyLocationsMap.isEmpty()) {
-                log.debug("Secondary index lookup returned no locations for the given keys.");
-                // Return all original fileSlices
-                this.relevantFileIdsOption = Optional.empty();
-                return;
-            }
+                // Perform index lookup in metadataTable
+                // TODO: document here what this map is keyed by
+                Map<String, HoodieRecordGlobalLocation> recordKeyLocationsMap = lazyTableMetadata.get().readSecondaryIndex(secondaryKeys, indexName);
+                if (recordKeyLocationsMap.isEmpty()) {
+                    log.debug("Secondary index lookup returned no locations for the given keys.");
+                    // Return all original fileSlices
+                    return Optional.empty();
+                }
 
-            // Collect fileIds for pruning
-            this.relevantFileIdsOption = Optional.of(recordKeyLocationsMap.values().stream()
-                    .map(HoodieRecordGlobalLocation::getFileId)
-                    .collect(Collectors.toSet()));
+                // Collect fileIds for pruning
+                return Optional.of(recordKeyLocationsMap.values().stream()
+                        .map(HoodieRecordGlobalLocation::getFileId)
+                        .collect(Collectors.toSet()));
+            });
         }
+        this.futureStartTimeMs = System.currentTimeMillis();
     }
 
     @Override
     public boolean shouldSkipFileSlice(FileSlice slice)
     {
-        return relevantFileIdsOption.map(fileIds -> !fileIds.contains(slice.getFileId())).orElse(false);
+        try {
+            if (relevantFileIdsFuture.isDone()) {
+                Optional<Set<String>> relevantFileIds = relevantFileIdsFuture.get();
+                return relevantFileIds.map(fileIds -> !fileIds.contains(slice.getFileId())).orElse(false);
+            }
+
+            long elapsedMs = System.currentTimeMillis() - futureStartTimeMs;
+            if (elapsedMs > secondaryIndexWaitTimeout.toMillis()) {
+                // Took too long; skip decision
+                return false;
+            }
+
+            long remainingMs = secondaryIndexWaitTimeout.toMillis() - elapsedMs;
+            Optional<Set<String>> relevantFileIds = relevantFileIdsFuture.get(remainingMs, MILLISECONDS);
+            return relevantFileIds.map(fileIds -> !fileIds.contains(slice.getFileId())).orElse(false);
+        }
+        catch (TimeoutException | InterruptedException | ExecutionException e) {
+            return false;
+        }
     }
 
     /**
