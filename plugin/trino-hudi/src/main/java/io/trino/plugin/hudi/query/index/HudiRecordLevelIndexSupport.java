@@ -28,7 +28,6 @@ import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.common.util.Option;
 import org.apache.hudi.metadata.HoodieTableMetadata;
 import org.apache.hudi.metadata.HoodieTableMetadataUtil;
-import org.apache.hudi.util.Lazy;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -59,49 +58,47 @@ public class HudiRecordLevelIndexSupport
     private final Duration recordIndexWaitTimeout;
     private final long futureStartTimeMs;
 
-    public HudiRecordLevelIndexSupport(ConnectorSession session, Lazy<HoodieTableMetaClient> lazyMetaClient, Lazy<HoodieTableMetadata> lazyTableMetadata, TupleDomain<HiveColumnHandle> regularColumnPredicates)
+    public HudiRecordLevelIndexSupport(ConnectorSession session, CompletableFuture<HoodieTableMetaClient> metaClientFuture, CompletableFuture<HoodieTableMetadata> lazyTableMetadata, TupleDomain<HiveColumnHandle> regularColumnPredicates)
     {
-        super(log, lazyMetaClient);
+        super(log, metaClientFuture);
         this.recordIndexWaitTimeout = getRecordIndexWaitTimeout(session);
         if (regularColumnPredicates.isAll()) {
             this.relevantFileIdsFuture = CompletableFuture.completedFuture(Optional.empty());
         }
         else {
-            this.relevantFileIdsFuture = CompletableFuture.supplyAsync(() -> {
-                Option<String[]> recordKeyFieldsOpt = lazyMetaClient.get().getTableConfig().getRecordKeyFields();
+            this.relevantFileIdsFuture = metaClientFuture.thenCombineAsync(lazyTableMetadata, (metaClient, metadata) -> {
+                Option<String[]> recordKeyFieldsOpt = metaClient.getTableConfig().getRecordKeyFields();
+
                 if (recordKeyFieldsOpt.isEmpty() || recordKeyFieldsOpt.get().length == 0) {
-                    // Should not happen since canApply checks for this, include for safety
                     throw new TrinoException(HUDI_BAD_DATA, "Record key fields must be defined to use Record Level Index.");
                 }
+
                 List<String> recordKeyFields = Arrays.asList(recordKeyFieldsOpt.get());
 
                 TupleDomain<String> regularPredicatesTransformed = regularColumnPredicates.transformKeys(HiveColumnHandle::getName);
-                // Only extract the predicates relevant to the record key fields
                 TupleDomain<String> filteredDomains = extractPredicatesForColumns(regularPredicatesTransformed, recordKeyFields);
 
-                // Construct the actual record keys based on the filtered predicates using Hudi's encoding scheme
                 List<String> recordKeys = constructRecordKeys(filteredDomains, recordKeyFields);
 
                 if (recordKeys.isEmpty()) {
-                    // If key construction fails (e.g., incompatible predicates not caught by canApply, or placeholder issue)
                     log.warn("Could not construct record keys from predicates. Skipping record index pruning.");
                     return Optional.empty();
                 }
-                log.debug(String.format("Constructed %d record keys for index lookup.", recordKeys.size()));
 
-                // Perform index lookup in metadataTable
-                // TODO: document here what this map is keyed by
-                Map<String, HoodieRecordGlobalLocation> recordIndex = lazyTableMetadata.get().readRecordIndex(recordKeys);
+                log.debug("Constructed {} record keys for index lookup.", recordKeys.size());
+
+                Map<String, HoodieRecordGlobalLocation> recordIndex = metadata.readRecordIndex(recordKeys);
+
                 if (recordIndex.isEmpty()) {
                     log.debug("Record level index lookup returned no locations for the given keys.");
-                    // Return all original fileSlices
                     return Optional.empty();
                 }
 
-                // Collect fileIds for pruning
-                return Optional.of(recordIndex.values().stream()
-                        .map(HoodieRecordGlobalLocation::getFileId)
-                        .collect(Collectors.toSet()));
+                return Optional.of(
+                        recordIndex.values().stream()
+                                .map(HoodieRecordGlobalLocation::getFileId)
+                                .collect(Collectors.toSet())
+                );
             });
         }
         this.futureStartTimeMs = System.currentTimeMillis();
@@ -143,7 +140,13 @@ public class HudiRecordLevelIndexSupport
             return false;
         }
 
-        Option<String[]> recordKeyFieldsOpt = lazyMetaClient.get().getTableConfig().getRecordKeyFields();
+        Option<String[]> recordKeyFieldsOpt = null;
+        try {
+            recordKeyFieldsOpt = metaClientFuture.get().getTableConfig().getRecordKeyFields();
+        }
+        catch (InterruptedException | ExecutionException e) {
+            return false;
+        }
         if (recordKeyFieldsOpt.isEmpty() || recordKeyFieldsOpt.get().length == 0) {
             log.debug("Record key fields are not defined in table config.");
             return false;
@@ -165,8 +168,13 @@ public class HudiRecordLevelIndexSupport
 
     private boolean isIndexSupportAvailable()
     {
-        return lazyMetaClient.get().getTableConfig().getMetadataPartitions()
-                .contains(HoodieTableMetadataUtil.PARTITION_NAME_RECORD_INDEX);
+        try {
+            return metaClientFuture.get().getTableConfig().getMetadataPartitions()
+                    .contains(HoodieTableMetadataUtil.PARTITION_NAME_RECORD_INDEX);
+        }
+        catch (InterruptedException | ExecutionException e) {
+            return false;
+        }
     }
 
     /**

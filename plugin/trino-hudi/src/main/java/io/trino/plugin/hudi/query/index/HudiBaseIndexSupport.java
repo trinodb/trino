@@ -17,10 +17,11 @@ import io.airlift.log.Logger;
 import org.apache.hudi.common.model.FileSlice;
 import org.apache.hudi.common.model.HoodieIndexDefinition;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
-import org.apache.hudi.util.Lazy;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 import static java.util.Objects.requireNonNull;
 
@@ -28,12 +29,12 @@ public abstract class HudiBaseIndexSupport
         implements HudiIndexSupport
 {
     private final Logger log;
-    protected final Lazy<HoodieTableMetaClient> lazyMetaClient;
+    protected final CompletableFuture<HoodieTableMetaClient> metaClientFuture;
 
-    public HudiBaseIndexSupport(Logger log, Lazy<HoodieTableMetaClient> lazyMetaClient)
+    public HudiBaseIndexSupport(Logger log, CompletableFuture<HoodieTableMetaClient> metaClientFuture)
     {
         this.log = requireNonNull(log, "log is null");
-        this.lazyMetaClient = requireNonNull(lazyMetaClient, "metaClient is null");
+        this.metaClientFuture = requireNonNull(metaClientFuture, "metaClient is null");
     }
 
     public void printDebugMessage(Map<String, List<FileSlice>> candidateFileSlices, Map<String, List<FileSlice>> inputFileSlices)
@@ -51,10 +52,15 @@ public abstract class HudiBaseIndexSupport
 
     protected Map<String, HoodieIndexDefinition> getAllIndexDefinitions()
     {
-        if (lazyMetaClient.get().getIndexMetadata().isEmpty()) {
+        try {
+            if (metaClientFuture.get().getIndexMetadata().isEmpty()) {
+                return Map.of();
+            }
+
+            return metaClientFuture.get().getIndexMetadata().get().getIndexDefinitions();
+        }
+        catch (InterruptedException | ExecutionException e) {
             return Map.of();
         }
-
-        return lazyMetaClient.get().getIndexMetadata().get().getIndexDefinitions();
     }
 }

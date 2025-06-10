@@ -38,6 +38,7 @@ import org.apache.hudi.util.Lazy;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -50,13 +51,13 @@ public class HudiSnapshotDirectoryLister
     private final HudiTableHandle tableHandle;
     private final Lazy<HoodieTableFileSystemView> lazyFileSystemView;
     private final Lazy<Map<String, HudiPartitionInfo>> lazyAllPartitionInfoMap;
-    private final Optional<HudiIndexSupport> lazyIndexSupportOpt;
+    private final Optional<HudiIndexSupport> indexSupportOpt;
 
     public HudiSnapshotDirectoryLister(
             ConnectorSession session,
             HudiTableHandle tableHandle,
             boolean enableMetadataTable,
-            Lazy<HoodieTableMetadata> lazyTableMetadata,
+            CompletableFuture<HoodieTableMetadata> tableMetadataFuture,
             Lazy<Map<String, Partition>> lazyAllPartitions)
     {
         this.tableHandle = tableHandle;
@@ -84,9 +85,9 @@ public class HudiSnapshotDirectoryLister
                                 e.getValue(),
                                 tableHandle.getPartitionColumns(),
                                 tableHandle.getPartitionPredicates()))));
-        Lazy<HoodieTableMetaClient> lazyMetaClient = Lazy.lazily(tableHandle::getMetaClient);
-        this.lazyIndexSupportOpt = enableMetadataTable ?
-                IndexSupportFactory.createIndexSupport(lazyMetaClient, lazyTableMetadata, tableHandle.getRegularPredicates(), session) : Optional.empty();
+        CompletableFuture<HoodieTableMetaClient> metaClientFuture = CompletableFuture.supplyAsync(tableHandle::getMetaClient);
+        this.indexSupportOpt = enableMetadataTable ?
+                IndexSupportFactory.createIndexSupport(metaClientFuture, tableMetadataFuture, tableHandle.getRegularPredicates(), session) : Optional.empty();
     }
 
     @Override
@@ -103,7 +104,7 @@ public class HudiSnapshotDirectoryLister
         }
 
         ImmutableList<FileSlice> collect = slices
-                .filter(slice -> lazyIndexSupportOpt
+                .filter(slice -> indexSupportOpt
                         .map(indexSupport -> !indexSupport.shouldSkipFileSlice(slice))
                         .orElse(true))
                 .collect(toImmutableList());

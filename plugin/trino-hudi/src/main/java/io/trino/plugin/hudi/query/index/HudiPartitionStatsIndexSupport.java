@@ -27,9 +27,12 @@ import org.apache.hudi.metadata.HoodieTableMetadataUtil;
 import org.apache.hudi.util.Lazy;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -39,12 +42,12 @@ public class HudiPartitionStatsIndexSupport
         extends HudiColumnStatsIndexSupport
 {
     private static final Logger log = Logger.get(HudiColumnStatsIndexSupport.class);
-    private final Lazy<HoodieTableMetadata> lazyMetadataTable;
+    private final CompletableFuture<HoodieTableMetadata> metadataTableFuture;
 
-    public HudiPartitionStatsIndexSupport(Lazy<HoodieTableMetaClient> lazyMetaClient, ConnectorSession session, Lazy<HoodieTableMetadata> lazyTableMetadata, TupleDomain<HiveColumnHandle> regularColumnPredicates)
+    public HudiPartitionStatsIndexSupport(CompletableFuture<HoodieTableMetaClient> metaClientFuture, ConnectorSession session, CompletableFuture<HoodieTableMetadata> tableMetadataFuture, TupleDomain<HiveColumnHandle> regularColumnPredicates)
     {
-        super(log, session, lazyMetaClient, lazyTableMetadata, regularColumnPredicates);
-        this.lazyMetadataTable = lazyTableMetadata;
+        super(log, session, metaClientFuture, tableMetadataFuture, regularColumnPredicates);
+        this.metadataTableFuture = tableMetadataFuture;
     }
 
     public Optional<List<String>> prunePartitions(
@@ -66,47 +69,57 @@ public class HudiPartitionStatsIndexSupport
                 .map(col -> new ColumnIndexID(col).asBase64EncodedString()).toList();
 
         // Map of partition stats keyed by partition name
-        Map<String, Map<String, HoodieMetadataColumnStats>> statsByPartitionName = lazyMetadataTable.get().getRecordsByKeyPrefixes(
-                        encodedTargetColumnNames,
-                        HoodieTableMetadataUtil.PARTITION_NAME_PARTITION_STATS, true)
-                .collectAsList()
-                .stream()
-                .filter(f -> f.getData().getColumnStatMetadata().isPresent())
-                .map(f -> f.getData().getColumnStatMetadata().get())
-                .collect(Collectors.groupingBy(
-                        HoodieMetadataColumnStats::getFileName,
-                        Collectors.toMap(
-                                HoodieMetadataColumnStats::getColumnName,
-                                Function.identity())));
+        try {
+            Map<String, Map<String, HoodieMetadataColumnStats>> statsByPartitionName = metadataTableFuture.get().getRecordsByKeyPrefixes(
+                            encodedTargetColumnNames,
+                            HoodieTableMetadataUtil.PARTITION_NAME_PARTITION_STATS, true)
+                    .collectAsList()
+                    .stream()
+                    .filter(f -> f.getData().getColumnStatMetadata().isPresent())
+                    .map(f -> f.getData().getColumnStatMetadata().get())
+                    .collect(Collectors.groupingBy(
+                            HoodieMetadataColumnStats::getFileName,
+                            Collectors.toMap(
+                                    HoodieMetadataColumnStats::getColumnName,
+                                    Function.identity())));
 
-        // For each partition, determine if it should be kept based on stats availability and predicate evaluation
-        List<String> prunedPartitions = allPartitions.stream()
-                .filter(partition -> {
-                    // Check if stats exist for this partition
-                    Map<String, HoodieMetadataColumnStats> partitionStats = statsByPartitionName.get(partition);
-                    if (partitionStats == null) {
-                        // Partition has no stats in the index, keep it
-                        return true;
-                    }
-                    else {
-                        // Partition has stats, evaluate the predicate against them
-                        // Keep the partition only if the predicate evaluates to true
-                        // Important: If some columns in encodedTargetColumnNames is not available in partition stats, partition will not be pruned iff all available predicate
-                        // evaluates to true. Since we cannot determine if the predicate will evaluate to true or not on the missing stat, adopt conservative measure to true,
-                        // i.e. to not prune
-                        return evaluateStatisticPredicate(filteredRegularPredicates, partitionStats, regularColumns);
-                    }
-                })
-                .collect(Collectors.toList());
+            // For each partition, determine if it should be kept based on stats availability and predicate evaluation
+            List<String> prunedPartitions = allPartitions.stream()
+                    .filter(partition -> {
+                        // Check if stats exist for this partition
+                        Map<String, HoodieMetadataColumnStats> partitionStats = statsByPartitionName.get(partition);
+                        if (partitionStats == null) {
+                            // Partition has no stats in the index, keep it
+                            return true;
+                        }
+                        else {
+                            // Partition has stats, evaluate the predicate against them
+                            // Keep the partition only if the predicate evaluates to true
+                            // Important: If some columns in encodedTargetColumnNames is not available in partition stats, partition will not be pruned iff all available predicate
+                            // evaluates to true. Since we cannot determine if the predicate will evaluate to true or not on the missing stat, adopt conservative measure to true,
+                            // i.e. to not prune
+                            return evaluateStatisticPredicate(filteredRegularPredicates, partitionStats, regularColumns);
+                        }
+                    })
+                    .collect(Collectors.toList());
+            return Optional.of(prunedPartitions);
+        }
+        catch (InterruptedException | ExecutionException e) {
+            return Optional.of(allPartitions);
+        }
 
-        return Optional.of(prunedPartitions);
     }
 
     @Override
     public boolean isIndexSupportAvailable()
     {
-        return lazyMetaClient.get().getTableConfig().getMetadataPartitions()
-                .contains(HoodieTableMetadataUtil.PARTITION_NAME_PARTITION_STATS);
+        try {
+            return metaClientFuture.get().getTableConfig().getMetadataPartitions()
+                    .contains(HoodieTableMetadataUtil.PARTITION_NAME_PARTITION_STATS);
+        }
+        catch (InterruptedException | ExecutionException e) {
+            return false;
+        }
     }
 
     @Override

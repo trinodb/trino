@@ -18,6 +18,8 @@ import io.trino.spi.predicate.TupleDomain;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.util.Lazy;
 
+import java.util.concurrent.CompletableFuture;
+
 /**
  * Noop index support to ensure that MDT enabled split generation is entered.
  */
@@ -26,9 +28,9 @@ public class HudiNoOpIndexSupport
 {
     private static final Logger log = Logger.get(HudiNoOpIndexSupport.class);
 
-    public HudiNoOpIndexSupport(Lazy<HoodieTableMetaClient> lazyMetaClient)
+    public HudiNoOpIndexSupport(CompletableFuture<HoodieTableMetaClient> metaClientFuture)
     {
-        super(log, lazyMetaClient);
+        super(log, metaClientFuture);
     }
 
     @Override

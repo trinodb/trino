@@ -34,6 +34,7 @@ import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
@@ -69,7 +70,7 @@ public class HudiBackgroundSplitLoader
             HudiSplitWeightProvider hudiSplitWeightProvider,
             Lazy<Map<String, Partition>> lazyPartitionMap,
             boolean enableMetadataTable,
-            Lazy<HoodieTableMetadata> lazyMetadataTable,
+            CompletableFuture<HoodieTableMetadata> metadataTableFuture,
             Consumer<Throwable> errorListener)
     {
         this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
@@ -82,7 +83,7 @@ public class HudiBackgroundSplitLoader
         this.enableMetadataTable = enableMetadataTable;
         this.errorListener = requireNonNull(errorListener, "errorListener is null");
         this.partitionIndexSupportOpt = enableMetadataTable ?
-                IndexSupportFactory.createPartitionStatsIndexSupport(Lazy.lazily(tableHandle::getMetaClient), lazyMetadataTable, tableHandle.getRegularPredicates(), session) : Optional.empty();
+                IndexSupportFactory.createPartitionStatsIndexSupport(CompletableFuture.supplyAsync(tableHandle::getMetaClient), metadataTableFuture, tableHandle.getRegularPredicates(), session) : Optional.empty();
     }
 
     @Override

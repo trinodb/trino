@@ -92,7 +92,7 @@ public class HudiSplitSource
             Duration dynamicFilteringWaitTimeoutMillis)
     {
         boolean enableMetadataTable = isHudiMetadataTableEnabled(session);
-        Lazy<HoodieTableMetadata> lazyTableMetadata = Lazy.lazily(() -> {
+        CompletableFuture<HoodieTableMetadata> tableMetadataFuture = CompletableFuture.supplyAsync(() -> {
             HoodieMetadataConfig metadataConfig = HoodieMetadataConfig.newBuilder()
                     .enable(enableMetadataTable)
                     .build();
@@ -107,7 +107,7 @@ public class HudiSplitSource
                 session,
                 tableHandle,
                 enableMetadataTable,
-                lazyTableMetadata,
+                tableMetadataFuture,
                 lazyPartitions);
 
         this.queue = new ThrottledAsyncQueue<>(maxSplitsPerSecond, maxOutstandingSplits, executor);
@@ -120,7 +120,7 @@ public class HudiSplitSource
                 createSplitWeightProvider(session),
                 lazyPartitions,
                 enableMetadataTable,
-                lazyTableMetadata,
+                tableMetadataFuture,
                 throwable -> {
                     trinoException.compareAndSet(null, new TrinoException(HUDI_CANNOT_OPEN_SPLIT,
                             "Failed to generate splits for " + tableHandle.getSchemaTableName(), throwable));

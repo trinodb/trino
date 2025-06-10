@@ -25,7 +25,6 @@ import org.apache.hudi.common.model.HoodieRecordGlobalLocation;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.metadata.HoodieTableMetadata;
 import org.apache.hudi.metadata.HoodieTableMetadataUtil;
-import org.apache.hudi.util.Lazy;
 
 import java.util.List;
 import java.util.Map;
@@ -49,50 +48,60 @@ public class HudiSecondaryIndexSupport
     private final Duration secondaryIndexWaitTimeout;
     private final long futureStartTimeMs;
 
-    public HudiSecondaryIndexSupport(ConnectorSession session, Lazy<HoodieTableMetaClient> lazyMetaClient, Lazy<HoodieTableMetadata> lazyTableMetadata, TupleDomain<HiveColumnHandle> regularColumnPredicates)
+    public HudiSecondaryIndexSupport(ConnectorSession session, CompletableFuture<HoodieTableMetaClient> lazyMetaClient, CompletableFuture<HoodieTableMetadata> lazyTableMetadata, TupleDomain<HiveColumnHandle> regularColumnPredicates)
     {
         super(log, lazyMetaClient);
         this.secondaryIndexWaitTimeout = getSecondaryIndexWaitTimeout(session);
         TupleDomain<String> regularPredicatesTransformed = regularColumnPredicates.transformKeys(HiveColumnHandle::getName);
-        if (regularColumnPredicates.isAll() || lazyMetaClient.get().getIndexMetadata().isEmpty()) {
+        if (regularColumnPredicates.isAll()) {
             this.relevantFileIdsFuture = CompletableFuture.completedFuture(Optional.empty());
         }
         else {
-            this.relevantFileIdsFuture = CompletableFuture.supplyAsync(() -> {
-                Optional<Map.Entry<String, HoodieIndexDefinition>> firstApplicableIndex = findFirstApplicableSecondaryIndex(regularPredicatesTransformed);
+            this.relevantFileIdsFuture = lazyMetaClient.thenCompose(metaClient -> {
+
+                if (metaClient.getIndexMetadata().isEmpty()) {
+                    return CompletableFuture.completedFuture(Optional.empty());
+                }
+
+                Optional<Map.Entry<String, HoodieIndexDefinition>> firstApplicableIndex =
+                        findFirstApplicableSecondaryIndex(regularPredicatesTransformed);
+
                 if (firstApplicableIndex.isEmpty()) {
                     log.debug("No secondary index definition found matching the query's referenced columns.");
-                    return Optional.empty();
+                    return CompletableFuture.completedFuture(Optional.empty());
                 }
 
                 Map.Entry<String, HoodieIndexDefinition> applicableIndexEntry = firstApplicableIndex.get();
                 String indexName = applicableIndexEntry.getKey();
-                // `indexedColumns` should only contain one element as secondary indices only support one column
                 List<String> indexedColumns = applicableIndexEntry.getValue().getSourceFields();
+
                 log.debug(String.format("Using secondary index '%s' on columns %s for pruning.", indexName, indexedColumns));
 
                 TupleDomain<String> indexPredicates = extractPredicatesForColumns(regularPredicatesTransformed, indexedColumns);
-
                 List<String> secondaryKeys = constructRecordKeys(indexPredicates, indexedColumns);
+
                 if (secondaryKeys.isEmpty()) {
                     log.warn(String.format("Could not construct secondary keys for index '%s' from predicates. Skipping pruning.", indexName));
-                    return Optional.empty();
+                    return CompletableFuture.completedFuture(Optional.empty());
                 }
+
                 log.debug(String.format("Constructed %d secondary keys for index lookup.", secondaryKeys.size()));
 
-                // Perform index lookup in metadataTable
-                // TODO: document here what this map is keyed by
-                Map<String, HoodieRecordGlobalLocation> recordKeyLocationsMap = lazyTableMetadata.get().readSecondaryIndex(secondaryKeys, indexName);
-                if (recordKeyLocationsMap.isEmpty()) {
-                    log.debug("Secondary index lookup returned no locations for the given keys.");
-                    // Return all original fileSlices
-                    return Optional.empty();
-                }
+                return lazyTableMetadata.thenApply(metadata -> {
+                    Map<String, HoodieRecordGlobalLocation> recordKeyLocationsMap =
+                            metadata.readSecondaryIndex(secondaryKeys, indexName);
 
-                // Collect fileIds for pruning
-                return Optional.of(recordKeyLocationsMap.values().stream()
-                        .map(HoodieRecordGlobalLocation::getFileId)
-                        .collect(Collectors.toSet()));
+                    if (recordKeyLocationsMap.isEmpty()) {
+                        log.debug("Secondary index lookup returned no locations for the given keys.");
+                        return Optional.empty();
+                    }
+
+                    Set<String> fileIds = recordKeyLocationsMap.values().stream()
+                            .map(HoodieRecordGlobalLocation::getFileId)
+                            .collect(Collectors.toSet());
+
+                    return Optional.of(fileIds);
+                });
             });
         }
         this.futureStartTimeMs = System.currentTimeMillis();
