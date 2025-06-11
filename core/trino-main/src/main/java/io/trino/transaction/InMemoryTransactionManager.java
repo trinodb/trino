@@ -31,8 +31,8 @@ import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.transaction.IsolationLevel;
-import org.joda.time.DateTime;
 
+import java.time.Instant;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -335,7 +335,7 @@ public class InMemoryTransactionManager
     @ThreadSafe
     private static class TransactionMetadata
     {
-        private final DateTime createTime = DateTime.now();
+        private final Instant createTime = Instant.now();
         private final CatalogManager catalogManager;
         private final TransactionId transactionId;
         private final IsolationLevel isolationLevel;

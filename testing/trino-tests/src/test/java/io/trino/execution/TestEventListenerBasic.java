@@ -913,15 +913,17 @@ public class TestEventListenerBasic
         assertThat(1L).isEqualTo(queryCompletedEvent.getStatistics().getOutputRows());
 
         // Ensure the proper conversion in QueryMonitor#createQueryStatistics
+        // We are comparing java.time.Duration here because its toMillis()
+        // rounds differently than the airlift's Duration.
         QueryStatistics statistics = queryCompletedEvent.getStatistics();
         assertThat(statistics.getCpuTime().toMillis()).isEqualTo(queryStats.getTotalCpuTime().toMillis());
-        assertThat(statistics.getWallTime().toMillis()).isEqualTo(queryStats.getElapsedTime().toMillis());
-        assertThat(statistics.getQueuedTime().toMillis()).isEqualTo(queryStats.getQueuedTime().toMillis());
-        assertThat(statistics.getScheduledTime().get().toMillis()).isEqualTo(queryStats.getTotalScheduledTime().toMillis());
-        assertThat(statistics.getResourceWaitingTime().get().toMillis()).isEqualTo(queryStats.getResourceWaitingTime().toMillis());
-        assertThat(statistics.getAnalysisTime().get().toMillis()).isEqualTo(queryStats.getAnalysisTime().toMillis());
-        assertThat(statistics.getPlanningTime().get().toMillis()).isEqualTo(queryStats.getPlanningTime().toMillis());
-        assertThat(statistics.getExecutionTime().get().toMillis()).isEqualTo(queryStats.getExecutionTime().toMillis());
+        assertThat(statistics.getWallTime()).isEqualTo(queryStats.getElapsedTime().toJavaTime());
+        assertThat(statistics.getQueuedTime()).isEqualTo(queryStats.getQueuedTime().toJavaTime());
+        assertThat(statistics.getScheduledTime().get()).isEqualTo(queryStats.getTotalScheduledTime().toJavaTime());
+        assertThat(statistics.getResourceWaitingTime().get()).isEqualTo(queryStats.getResourceWaitingTime().toJavaTime());
+        assertThat(statistics.getAnalysisTime().get()).isEqualTo(queryStats.getAnalysisTime().toJavaTime());
+        assertThat(statistics.getPlanningTime().get()).isEqualTo(queryStats.getPlanningTime().toJavaTime());
+        assertThat(statistics.getExecutionTime().get()).isEqualTo(queryStats.getExecutionTime().toJavaTime());
         assertThat(statistics.getPeakUserMemoryBytes()).isEqualTo(queryStats.getPeakUserMemoryReservation().toBytes());
         assertThat(statistics.getPeakTaskUserMemory()).isEqualTo(queryStats.getPeakTaskUserMemory().toBytes());
         assertThat(statistics.getPeakTaskTotalMemory()).isEqualTo(queryStats.getPeakTaskTotalMemory().toBytes());

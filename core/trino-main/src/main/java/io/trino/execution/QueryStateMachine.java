@@ -63,9 +63,9 @@ import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionInfo;
 import io.trino.transaction.TransactionManager;
 import jakarta.annotation.Nullable;
-import org.joda.time.DateTime;
 
 import java.net.URI;
+import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -1343,12 +1343,12 @@ public class QueryStateMachine
         queryStateTimer.endAnalysis();
     }
 
-    public DateTime getCreateTime()
+    public Instant getCreateTime()
     {
         return queryStateTimer.getCreateTime();
     }
 
-    public Optional<DateTime> getExecutionStartTime()
+    public Optional<Instant> getExecutionStartTime()
     {
         return queryStateTimer.getExecutionStartTime();
     }
@@ -1360,12 +1360,12 @@ public class QueryStateMachine
                 .map(_ -> queryStateTimer.getPlanningTime());
     }
 
-    public DateTime getLastHeartbeat()
+    public Instant getLastHeartbeat()
     {
         return queryStateTimer.getLastHeartbeat();
     }
 
-    public Optional<DateTime> getEndTime()
+    public Optional<Instant> getEndTime()
     {
         return queryStateTimer.getEndTime();
     }

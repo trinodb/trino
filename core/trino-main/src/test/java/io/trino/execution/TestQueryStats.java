@@ -25,9 +25,9 @@ import io.trino.spi.eventlistener.QueryPlanOptimizerStatistics;
 import io.trino.spi.eventlistener.StageGcStatistics;
 import io.trino.spi.metrics.Metrics;
 import io.trino.sql.planner.plan.PlanNodeId;
-import org.joda.time.DateTime;
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalDouble;
@@ -37,7 +37,6 @@ import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.joda.time.DateTimeZone.UTC;
 
 public class TestQueryStats
 {
@@ -182,10 +181,10 @@ public class TestQueryStats
                     0));
 
     public static final QueryStats EXPECTED = new QueryStats(
-            new DateTime(1),
-            new DateTime(2),
-            new DateTime(3),
-            new DateTime(4),
+            Instant.ofEpochMilli(1),
+            Instant.ofEpochMilli(2),
+            Instant.ofEpochMilli(3),
+            Instant.ofEpochMilli(4),
             new Duration(6, NANOSECONDS),
             new Duration(5, NANOSECONDS),
             new Duration(31, NANOSECONDS),
@@ -296,10 +295,10 @@ public class TestQueryStats
 
     public static void assertExpectedQueryStats(QueryStats actual)
     {
-        assertThat(actual.getCreateTime()).isEqualTo(new DateTime(1, UTC));
-        assertThat(actual.getExecutionStartTime()).isEqualTo(new DateTime(2, UTC));
-        assertThat(actual.getLastHeartbeat()).isEqualTo(new DateTime(3, UTC));
-        assertThat(actual.getEndTime()).isEqualTo(new DateTime(4, UTC));
+        assertThat(actual.getCreateTime()).isEqualTo(Instant.ofEpochMilli(1));
+        assertThat(actual.getExecutionStartTime()).isEqualTo(Instant.ofEpochMilli(2));
+        assertThat(actual.getLastHeartbeat()).isEqualTo(Instant.ofEpochMilli(3));
+        assertThat(actual.getEndTime()).isEqualTo(Instant.ofEpochMilli(4));
 
         assertThat(actual.getElapsedTime()).isEqualTo(new Duration(6, NANOSECONDS));
         assertThat(actual.getQueuedTime()).isEqualTo(new Duration(5, NANOSECONDS));

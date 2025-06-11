@@ -57,9 +57,9 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.testing.TestingMetadata.TestingColumnHandle;
-import org.joda.time.DateTime;
 
 import java.net.URI;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -260,7 +260,7 @@ public class MockRemoteTaskFactory
         {
             return new TaskInfo(
                     getTaskStatus(),
-                    DateTime.now(),
+                    Instant.now(),
                     outputBuffer.getInfo(),
                     ImmutableSet.of(),
                     taskContext.getTaskStats(),

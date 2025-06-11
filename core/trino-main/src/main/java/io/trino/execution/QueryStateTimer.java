@@ -15,10 +15,10 @@ package io.trino.execution;
 
 import com.google.common.base.Ticker;
 import io.airlift.units.Duration;
-import org.joda.time.DateTime;
 
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadMXBean;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -33,7 +33,7 @@ class QueryStateTimer
     private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
     private final Ticker ticker;
 
-    private final DateTime createTime = DateTime.now();
+    private final Instant createTime = Instant.now();
 
     private final long createNanos;
     private final AtomicReference<Long> beginResourceWaitingNanos = new AtomicReference<>();
@@ -190,19 +190,19 @@ class QueryStateTimer
     // Stats
     //
 
-    public DateTime getCreateTime()
+    public Instant getCreateTime()
     {
         return createTime;
     }
 
-    public Optional<DateTime> getExecutionStartTime()
+    public Optional<Instant> getExecutionStartTime()
     {
-        return toDateTime(beginPlanningNanos);
+        return toInstant(beginPlanningNanos);
     }
 
-    public Optional<DateTime> getPlanningStartTime()
+    public Optional<Instant> getPlanningStartTime()
     {
-        return toDateTime(beginPlanningNanos);
+        return toInstant(beginPlanningNanos);
     }
 
     public Duration getElapsedTime()
@@ -259,9 +259,9 @@ class QueryStateTimer
         return getDuration(executionTime, beginPlanningNanos);
     }
 
-    public Optional<DateTime> getEndTime()
+    public Optional<Instant> getEndTime()
     {
-        return toDateTime(endNanos);
+        return toInstant(endNanos);
     }
 
     public Duration getAnalysisTime()
@@ -269,9 +269,9 @@ class QueryStateTimer
         return getDuration(analysisTime, beginAnalysisNanos);
     }
 
-    public DateTime getLastHeartbeat()
+    public Instant getLastHeartbeat()
     {
-        return toDateTime(lastHeartbeatNanos.get());
+        return toInstant(lastHeartbeatNanos.get());
     }
 
     //
@@ -310,19 +310,18 @@ class QueryStateTimer
         return new Duration(0, MILLISECONDS);
     }
 
-    private Optional<DateTime> toDateTime(AtomicReference<Long> instantNanos)
+    private Optional<Instant> toInstant(AtomicReference<Long> instantNanos)
     {
         Long nanos = instantNanos.get();
         if (nanos == null) {
             return Optional.empty();
         }
-        return Optional.of(toDateTime(nanos));
+        return Optional.of(toInstant(nanos));
     }
 
-    private DateTime toDateTime(long instantNanos)
+    private Instant toInstant(long instantNanos)
     {
-        long millisSinceCreate = NANOSECONDS.toMillis(instantNanos - createNanos);
-        return new DateTime(createTime.getMillis() + millisSinceCreate);
+        return createTime.plusMillis(NANOSECONDS.toMillis(instantNanos - createNanos));
     }
 
     private static long currentThreadCpuTime()

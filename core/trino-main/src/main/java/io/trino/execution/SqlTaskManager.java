@@ -62,12 +62,12 @@ import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
-import org.joda.time.DateTime;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
 import java.io.Closeable;
+import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -659,14 +659,14 @@ public class SqlTaskManager
     @VisibleForTesting
     void removeOldTasks()
     {
-        DateTime oldestAllowedTask = DateTime.now().minus(infoCacheTime.toMillis());
+        Instant oldestAllowedTask = Instant.now().minusMillis(infoCacheTime.toMillis());
         tasks.asMap().values().stream()
                 .map(SqlTask::getTaskInfo)
                 .filter(Objects::nonNull)
                 .forEach(taskInfo -> {
                     TaskId taskId = taskInfo.taskStatus().getTaskId();
                     try {
-                        DateTime endTime = taskInfo.stats().getEndTime();
+                        Instant endTime = taskInfo.stats().getEndTime();
                         if (endTime != null && endTime.isBefore(oldestAllowedTask)) {
                             // The removal here is concurrency safe with respect to any concurrent loads: the cache has no expiration,
                             // the taskId is in the cache, so there mustn't be an ongoing load.
@@ -681,8 +681,8 @@ public class SqlTaskManager
 
     private void failAbandonedTasks()
     {
-        DateTime now = DateTime.now();
-        DateTime oldestAllowedHeartbeat = now.minus(clientTimeout.toMillis());
+        Instant now = Instant.now();
+        Instant oldestAllowedHeartbeat = now.minusMillis(clientTimeout.toMillis());
         for (SqlTask sqlTask : tasks.asMap().values()) {
             try {
                 TaskInfo taskInfo = sqlTask.getTaskInfo();
@@ -690,7 +690,7 @@ public class SqlTaskManager
                 if (taskStatus.getState().isDone()) {
                     continue;
                 }
-                DateTime lastHeartbeat = taskInfo.lastHeartbeat();
+                Instant lastHeartbeat = taskInfo.lastHeartbeat();
                 if (lastHeartbeat != null && lastHeartbeat.isBefore(oldestAllowedHeartbeat)) {
                     log.info("Failing abandoned task %s", taskStatus.getTaskId());
                     sqlTask.failed(new TrinoException(ABANDONED_TASK, format("Task %s has not been accessed since %s: currentTime %s", taskStatus.getTaskId(), lastHeartbeat, now)));

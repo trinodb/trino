@@ -26,10 +26,10 @@ import io.trino.execution.resourcegroups.InternalResourceGroup;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.QueryId;
 import io.trino.spi.resourcegroups.QueryType;
-import org.joda.time.DateTime;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalDouble;
@@ -108,10 +108,10 @@ public class TestQueryStateInfo
                 query,
                 Optional.empty(),
                 new QueryStats(
-                        DateTime.parse("1991-09-06T05:00-05:30"),
-                        DateTime.parse("1991-09-06T05:01-05:30"),
-                        DateTime.parse("1991-09-06T05:02-05:30"),
-                        DateTime.parse("1991-09-06T06:00-05:30"),
+                        Instant.parse("2025-05-11T13:32:17.751968Z"),
+                        Instant.parse("2025-05-11T13:32:17.751968Z"),
+                        Instant.parse("2025-05-11T13:32:17.751968Z"),
+                        Instant.parse("2025-05-11T13:32:17.751968Z"),
                         new Duration(10, SECONDS),
                         new Duration(8, MINUTES),
                         new Duration(7, MINUTES),

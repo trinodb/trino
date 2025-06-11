@@ -21,9 +21,9 @@ import io.trino.Session;
 import io.trino.execution.QueryTracker.TrackedQuery;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
-import org.joda.time.DateTime;
 import org.weakref.jmx.Managed;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.NoSuchElementException;
 import java.util.Optional;
@@ -184,19 +184,20 @@ public class QueryTracker<T extends TrackedQuery>
             if (query.isDone()) {
                 continue;
             }
+            Instant now = Instant.now();
             Duration queryMaxRunTime = getQueryMaxRunTime(query.getSession());
             Duration queryMaxExecutionTime = getQueryMaxExecutionTime(query.getSession());
             Duration queryMaxPlanningTime = getQueryMaxPlanningTime(query.getSession());
-            Optional<DateTime> executionStartTime = query.getExecutionStartTime();
+            Optional<Instant> executionStartTime = query.getExecutionStartTime();
             Optional<Duration> planningTime = query.getPlanningTime();
-            DateTime createTime = query.getCreateTime();
-            if (executionStartTime.isPresent() && executionStartTime.get().plus(queryMaxExecutionTime.toMillis()).isBeforeNow()) {
+            Instant createTime = query.getCreateTime();
+            if (executionStartTime.isPresent() && executionStartTime.get().plusMillis(queryMaxExecutionTime.toMillis()).isBefore(now)) {
                 query.fail(new TrinoException(EXCEEDED_TIME_LIMIT, "Query exceeded the maximum execution time limit of " + queryMaxExecutionTime));
             }
             planningTime
                     .filter(duration -> duration.compareTo(queryMaxPlanningTime) > 0)
                     .ifPresent(_ -> query.fail(new TrinoException(EXCEEDED_TIME_LIMIT, "Query exceeded the maximum planning time limit of " + queryMaxPlanningTime)));
-            if (createTime.plus(queryMaxRunTime.toMillis()).isBeforeNow()) {
+            if (createTime.plusMillis(queryMaxRunTime.toMillis()).isBefore(now)) {
                 query.fail(new TrinoException(EXCEEDED_TIME_LIMIT, "Query exceeded maximum time limit of " + queryMaxRunTime));
             }
         }
@@ -232,7 +233,7 @@ public class QueryTracker<T extends TrackedQuery>
      */
     private void removeExpiredQueries()
     {
-        DateTime timeHorizon = DateTime.now().minus(minQueryExpireAge.toMillis());
+        Instant timeHorizon = Instant.now().minusMillis(minQueryExpireAge.toMillis());
 
         // we're willing to keep queries beyond timeHorizon as long as we have fewer than maxQueryHistory
         while (expirationQueue.size() > maxQueryHistory) {
@@ -243,7 +244,7 @@ public class QueryTracker<T extends TrackedQuery>
 
             // expirationQueue is FIFO based on query end time. Stop when we see the
             // first query that's too young to expire
-            Optional<DateTime> endTime = query.getEndTime();
+            Optional<Instant> endTime = query.getEndTime();
             if (endTime.isEmpty()) {
                 // this shouldn't happen but it is better to be safe here
                 continue;
@@ -276,7 +277,7 @@ public class QueryTracker<T extends TrackedQuery>
                             "Query %s was abandoned by the client, as it may have exited or stopped checking for query results. Query results have not been accessed since %s: currentTime %s",
                             query.getQueryId(),
                             query.getLastHeartbeat(),
-                            DateTime.now())));
+                            Instant.now())));
                 }
             }
             catch (RuntimeException e) {
@@ -287,8 +288,8 @@ public class QueryTracker<T extends TrackedQuery>
 
     private boolean isAbandoned(T query)
     {
-        DateTime oldestAllowedHeartbeat = DateTime.now().minus(clientTimeout.toMillis());
-        DateTime lastHeartbeat = query.getLastHeartbeat();
+        Instant oldestAllowedHeartbeat = Instant.now().minusMillis(clientTimeout.toMillis());
+        Instant lastHeartbeat = query.getLastHeartbeat();
 
         return lastHeartbeat != null && lastHeartbeat.isBefore(oldestAllowedHeartbeat);
     }
@@ -319,15 +320,15 @@ public class QueryTracker<T extends TrackedQuery>
 
         Session getSession();
 
-        DateTime getCreateTime();
+        Instant getCreateTime();
 
-        Optional<DateTime> getExecutionStartTime();
+        Optional<Instant> getExecutionStartTime();
 
         Optional<Duration> getPlanningTime();
 
-        DateTime getLastHeartbeat();
+        Instant getLastHeartbeat();
 
-        Optional<DateTime> getEndTime();
+        Optional<Instant> getEndTime();
 
         void fail(Throwable cause);
 

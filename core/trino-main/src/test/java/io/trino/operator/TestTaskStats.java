@@ -18,25 +18,24 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import org.joda.time.DateTime;
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
 import java.util.Optional;
 
 import static io.trino.operator.TestPipelineStats.assertExpectedPipelineStats;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.joda.time.DateTimeZone.UTC;
 
 public class TestTaskStats
 {
     public static final TaskStats EXPECTED = new TaskStats(
-            new DateTime(1),
-            new DateTime(2),
-            new DateTime(100),
-            new DateTime(102),
-            new DateTime(101),
-            new DateTime(3),
+            Instant.ofEpochMilli(1),
+            Instant.ofEpochMilli(2),
+            Instant.ofEpochMilli(100),
+            Instant.ofEpochMilli(102),
+            Instant.ofEpochMilli(101),
+            Instant.ofEpochMilli(3),
             new Duration(4, NANOSECONDS),
             new Duration(5, NANOSECONDS),
 
@@ -103,12 +102,12 @@ public class TestTaskStats
 
     public static void assertExpectedTaskStats(TaskStats actual)
     {
-        assertThat(actual.getCreateTime()).isEqualTo(new DateTime(1, UTC));
-        assertThat(actual.getFirstStartTime()).isEqualTo(new DateTime(2, UTC));
-        assertThat(actual.getLastStartTime()).isEqualTo(new DateTime(100, UTC));
-        assertThat(actual.getTerminatingStartTime()).isEqualTo(new DateTime(102, UTC));
-        assertThat(actual.getLastEndTime()).isEqualTo(new DateTime(101, UTC));
-        assertThat(actual.getEndTime()).isEqualTo(new DateTime(3, UTC));
+        assertThat(actual.getCreateTime()).isEqualTo(Instant.ofEpochMilli(1));
+        assertThat(actual.getFirstStartTime()).isEqualTo(Instant.ofEpochMilli(2));
+        assertThat(actual.getLastStartTime()).isEqualTo(Instant.ofEpochMilli(100));
+        assertThat(actual.getTerminatingStartTime()).isEqualTo(Instant.ofEpochMilli(102));
+        assertThat(actual.getLastEndTime()).isEqualTo(Instant.ofEpochMilli(101));
+        assertThat(actual.getEndTime()).isEqualTo(Instant.ofEpochMilli(3));
         assertThat(actual.getElapsedTime()).isEqualTo(new Duration(4, NANOSECONDS));
         assertThat(actual.getQueuedTime()).isEqualTo(new Duration(5, NANOSECONDS));
 
