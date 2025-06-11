@@ -43,6 +43,7 @@ public class HudiSessionProperties
 {
     private static final String COLUMNS_TO_HIDE = "columns_to_hide";
     private static final String USE_PARQUET_COLUMN_NAMES = "use_parquet_column_names";
+    private static final String PARQUET_MAX_READ_BLOCK_ROW_COUNT = "parquet_max_read_block_row_count";
     private static final String PARQUET_SMALL_FILE_THRESHOLD = "parquet_small_file_threshold";
     private static final String PARQUET_VECTORIZED_DECODING_ENABLED = "parquet_vectorized_decoding_enabled";
     private static final String SIZE_BASED_SPLIT_WEIGHTS_ENABLED = "size_based_split_weights_enabled";
@@ -75,6 +76,18 @@ public class HudiSessionProperties
                         USE_PARQUET_COLUMN_NAMES,
                         "Access parquet columns using names from the file. If disabled, then columns are accessed using index.",
                         hudiConfig.getUseParquetColumnNames(),
+                        false),
+                integerProperty(
+                        PARQUET_MAX_READ_BLOCK_ROW_COUNT,
+                        "Parquet: Maximum number of rows read in a batch",
+                        parquetReaderConfig.getMaxReadBlockRowCount(),
+                        value -> {
+                            if (value < 128 || value > 65536) {
+                                throw new TrinoException(
+                                        INVALID_SESSION_PROPERTY,
+                                        format("%s must be between 128 and 65536: %s", PARQUET_MAX_READ_BLOCK_ROW_COUNT, value));
+                            }
+                        },
                         false),
                 dataSizeProperty(
                         PARQUET_SMALL_FILE_THRESHOLD,
@@ -149,6 +162,11 @@ public class HudiSessionProperties
     public static boolean shouldUseParquetColumnNames(ConnectorSession session)
     {
         return session.getProperty(USE_PARQUET_COLUMN_NAMES, Boolean.class);
+    }
+
+    public static int getParquetMaxReadBlockRowCount(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_MAX_READ_BLOCK_ROW_COUNT, Integer.class);
     }
 
     public static DataSize getParquetSmallFileThreshold(ConnectorSession session)

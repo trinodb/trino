@@ -92,6 +92,7 @@ import static io.trino.plugin.hudi.HudiErrorCode.HUDI_CANNOT_OPEN_SPLIT;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_CURSOR_ERROR;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_INVALID_PARTITION_VALUE;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_UNSUPPORTED_FILE_FORMAT;
+import static io.trino.plugin.hudi.HudiSessionProperties.getParquetMaxReadBlockRowCount;
 import static io.trino.plugin.hudi.HudiSessionProperties.getParquetSmallFileThreshold;
 import static io.trino.plugin.hudi.HudiSessionProperties.isParquetVectorizedDecodingEnabled;
 import static io.trino.plugin.hudi.HudiSessionProperties.shouldUseParquetColumnNames;
@@ -178,6 +179,7 @@ public class HudiPageSourceProvider
                 ParquetReaderOptions.builder(options)
                         .withSmallFileThreshold(getParquetSmallFileThreshold(session))
                         .withVectorizedDecodingEnabled(isParquetVectorizedDecodingEnabled(session))
+                        .withMaxReadBlockRowCount(getParquetMaxReadBlockRowCount(session))
                         .build(),
                 timeZone);
 
