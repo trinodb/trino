@@ -111,6 +111,7 @@ public class StageStats
     private final DataSize outputDataSize;
     private final DataSize failedOutputDataSize;
     private final long outputPositions;
+    private final long updatedPositions;
     private final long failedOutputPositions;
     private final Metrics outputBufferMetrics;
 
@@ -190,6 +191,7 @@ public class StageStats
             @JsonProperty("outputDataSize") DataSize outputDataSize,
             @JsonProperty("failedOutputDataSize") DataSize failedOutputDataSize,
             @JsonProperty("outputPositions") long outputPositions,
+            @JsonProperty("updatedPositions") long updatedPositions,
             @JsonProperty("failedOutputPositions") long failedOutputPositions,
             @JsonProperty("outputBufferMetrics") Metrics outputBufferMetrics,
 
@@ -283,6 +285,8 @@ public class StageStats
         this.failedOutputDataSize = requireNonNull(failedOutputDataSize, "failedOutputDataSize is null");
         checkArgument(outputPositions >= 0, "outputPositions is negative");
         this.outputPositions = outputPositions;
+        checkArgument(updatedPositions >= 0, "updatedPositions is negative");
+        this.updatedPositions = updatedPositions;
         checkArgument(failedOutputPositions >= 0, "failedOutputPositions is negative");
         this.failedOutputPositions = failedOutputPositions;
         this.outputBufferMetrics = requireNonNull(outputBufferMetrics, "outputBufferMetrics is null");
@@ -612,6 +616,12 @@ public class StageStats
     }
 
     @JsonProperty
+    public long getUpdatedPositions()
+    {
+        return updatedPositions;
+    }
+
+    @JsonProperty
     public long getFailedOutputPositions()
     {
         return failedOutputPositions;
@@ -758,6 +768,7 @@ public class StageStats
                 outputDataSize,
                 failedOutputDataSize,
                 outputPositions,
+                updatedPositions,
                 failedOutputPositions,
                 pruneMetrics(outputBufferMetrics),
                 outputBlockedTime,
@@ -826,6 +837,7 @@ public class StageStats
                 Optional.empty(),
                 zeroBytes,
                 zeroBytes,
+                0,
                 0,
                 0,
                 Metrics.EMPTY,

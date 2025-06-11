@@ -78,6 +78,7 @@ public class TestTaskStats
 
             DataSize.ofBytes(23),
             24,
+            0,
 
             new Duration(272, NANOSECONDS),
 

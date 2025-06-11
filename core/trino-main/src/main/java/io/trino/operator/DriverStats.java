@@ -69,6 +69,7 @@ public class DriverStats
 
     private final DataSize outputDataSize;
     private final long outputPositions;
+    private final long updatedPositions;
 
     private final Duration outputBlockedTime;
 
@@ -113,6 +114,7 @@ public class DriverStats
 
         this.outputDataSize = DataSize.ofBytes(0);
         this.outputPositions = 0;
+        this.updatedPositions = 0;
 
         this.outputBlockedTime = new Duration(0, MILLISECONDS);
 
@@ -158,6 +160,7 @@ public class DriverStats
 
             @JsonProperty("outputDataSize") DataSize outputDataSize,
             @JsonProperty("outputPositions") long outputPositions,
+            @JsonProperty("updatedPositions") long updatedPositions,
 
             @JsonProperty("outputBlockedTime") Duration outputBlockedTime,
 
@@ -205,6 +208,8 @@ public class DriverStats
         this.outputDataSize = requireNonNull(outputDataSize, "outputDataSize is null");
         checkArgument(outputPositions >= 0, "outputPositions is negative");
         this.outputPositions = outputPositions;
+        checkArgument(updatedPositions >= 0, "updatedPositions is negative");
+        this.updatedPositions = updatedPositions;
 
         this.outputBlockedTime = requireNonNull(outputBlockedTime, "outputBlockedTime is null");
 
@@ -369,6 +374,12 @@ public class DriverStats
     public long getOutputPositions()
     {
         return outputPositions;
+    }
+
+    @JsonProperty
+    public long getUpdatedPositions()
+    {
+        return updatedPositions;
     }
 
     @JsonProperty
