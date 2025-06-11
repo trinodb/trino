@@ -162,7 +162,6 @@ public class TestHiveGlueMetastoreAccessOperations
                     ImmutableMultiset.<GlueMetastoreMethod>builder()
                             .add(GET_TABLE)
                             .add(CREATE_PARTITIONS)
-                            .add(DELETE_COLUMN_STATISTICS_FOR_PARTITION)
                             .addCopies(GET_PARTITION_NAMES, 5)
                             .build());
 
