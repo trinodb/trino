@@ -671,6 +671,11 @@ CREATE TABLE example.default.new_table (id BIGINT, address VARCHAR);
 The Delta Lake connector also supports creating tables using the {doc}`CREATE
 TABLE AS </sql/create-table-as>` syntax.
 
+#### Schema evolution
+
+The Delta Lake connector supports schema evolution, with safe column add, drop,
+and rename operations for non nested structures.
+
 (delta-lake-alter-table)=
 The connector supports the following [](/sql/alter-table) statements.
 
