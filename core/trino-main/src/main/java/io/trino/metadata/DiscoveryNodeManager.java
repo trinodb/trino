@@ -419,7 +419,8 @@ public final class DiscoveryNodeManager
     private static NodeVersion getNodeVersion(ServiceDescriptor descriptor)
     {
         String nodeVersion = descriptor.getProperties().get("node_version");
-        return nodeVersion == null ? null : new NodeVersion(nodeVersion);
+        Optional<String> javaVersion = Optional.ofNullable(descriptor.getProperties().get("java_version"));
+        return nodeVersion == null ? null : new NodeVersion(nodeVersion, javaVersion);
     }
 
     private static boolean isCoordinator(ServiceDescriptor service)

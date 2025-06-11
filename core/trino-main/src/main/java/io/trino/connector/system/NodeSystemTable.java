@@ -51,6 +51,7 @@ public class NodeSystemTable
             .column("node_id", createUnboundedVarcharType())
             .column("http_uri", createUnboundedVarcharType())
             .column("node_version", createUnboundedVarcharType())
+            .column("java_version", createUnboundedVarcharType())
             .column("coordinator", BOOLEAN)
             .column("state", createUnboundedVarcharType())
             .build();
@@ -92,13 +93,24 @@ public class NodeSystemTable
     private void addRows(Builder table, Set<InternalNode> nodes, NodeState state)
     {
         for (InternalNode node : nodes) {
-            table.addRow(node.getNodeIdentifier(), node.getInternalUri().toString(), getNodeVersion(node), isCoordinator(node), state.toString().toLowerCase(Locale.ENGLISH));
+            table.addRow(
+                    node.getNodeIdentifier(),
+                    node.getInternalUri().toString(),
+                    getNodeVersion(node),
+                    getNodeJavaVersion(node),
+                    isCoordinator(node),
+                    state.toString().toLowerCase(Locale.ENGLISH));
         }
     }
 
     private static String getNodeVersion(InternalNode node)
     {
-        return node.getNodeVersion().toString();
+        return node.getNodeVersion().getVersion();
+    }
+
+    private static String getNodeJavaVersion(InternalNode node)
+    {
+        return node.getNodeVersion().getJavaVersion().orElse(null);
     }
 
     private boolean isCoordinator(InternalNode node)

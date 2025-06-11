@@ -158,6 +158,7 @@ import io.trino.type.TypeSignatureKeyDeserializer;
 import io.trino.util.EmbedVersion;
 import io.trino.util.FinalizerService;
 
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
@@ -450,9 +451,10 @@ public class ServerMainModule
         binder.bind(SplitMonitor.class).in(Scopes.SINGLETON);
 
         // version and announcement
-        binder.bind(NodeVersion.class).toInstance(new NodeVersion(nodeVersion));
+        binder.bind(NodeVersion.class).toInstance(new NodeVersion(nodeVersion, Optional.of(Runtime.version().toString())));
         discoveryBinder(binder).bindHttpAnnouncement("trino")
                 .addProperty("node_version", nodeVersion)
+                .addProperty("java_version", Runtime.version().toString())
                 .addProperty("coordinator", String.valueOf(serverConfig.isCoordinator()));
 
         // server info resource

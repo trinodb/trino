@@ -18,26 +18,40 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.errorprone.annotations.Immutable;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class NodeVersion
 {
-    public static final NodeVersion UNKNOWN = new NodeVersion("<unknown>");
+    public static final NodeVersion UNKNOWN = new NodeVersion("<unknown>", Optional.empty());
 
     private final String version;
+    private final Optional<String> javaVersion;
 
     @JsonCreator
-    public NodeVersion(@JsonProperty("version") String version)
+    public NodeVersion(@JsonProperty("version") String version, @JsonProperty("java_version") Optional<String> javaVersion)
     {
         this.version = requireNonNull(version, "version is null");
+        this.javaVersion = requireNonNull(javaVersion, "javaVersion is null");
+    }
+
+    public NodeVersion(String version)
+    {
+        this(version, Optional.empty());
     }
 
     @JsonProperty
     public String getVersion()
     {
         return version;
+    }
+
+    @JsonProperty
+    public Optional<String> getJavaVersion()
+    {
+        return javaVersion;
     }
 
     @Override
@@ -51,18 +65,19 @@ public class NodeVersion
         }
 
         NodeVersion that = (NodeVersion) o;
-        return Objects.equals(version, that.version);
+        return Objects.equals(version, that.version) &&
+               Objects.equals(javaVersion, that.javaVersion);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(version);
+        return Objects.hash(version, javaVersion);
     }
 
     @Override
     public String toString()
     {
-        return version;
+        return version + " (" + javaVersion.orElse("unknown") + ")";
     }
 }
