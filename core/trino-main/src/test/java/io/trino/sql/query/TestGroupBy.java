@@ -198,6 +198,22 @@ public class TestGroupBy
 
         assertThat(assertions.query(
                 """
+                SELECT a, -sum(b)
+                FROM (VALUES (1, 10), (1, 20)) t(a, b)
+                GROUP BY AUTO
+                """))
+                .matches("VALUES (1, BIGINT '-30')");
+
+        assertThat(assertions.query(
+                """
+                SELECT a, abs(sum(b))
+                FROM (VALUES (1, -10), (1, -20)) t(a, b)
+                GROUP BY AUTO
+                """))
+                .matches("VALUES (1, BIGINT '30')");
+
+        assertThat(assertions.query(
+                """
                 SELECT a AS new_a, sum(b) AS sum_b
                 FROM (VALUES (1, 10), (1, 20)) t(a, b)
                 GROUP BY AUTO
