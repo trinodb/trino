@@ -21,8 +21,8 @@ import com.google.errorprone.annotations.Immutable;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import jakarta.annotation.Nullable;
-import org.joda.time.DateTime;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Set;
 
@@ -33,9 +33,9 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 @Immutable
 public class DriverStats
 {
-    private final DateTime createTime;
-    private final DateTime startTime;
-    private final DateTime endTime;
+    private final Instant createTime;
+    private final Instant startTime;
+    private final Instant endTime;
 
     private final Duration queuedTime;
     private final Duration elapsedTime;
@@ -78,7 +78,7 @@ public class DriverStats
 
     public DriverStats()
     {
-        this.createTime = DateTime.now();
+        this.createTime = Instant.now();
         this.startTime = null;
         this.endTime = null;
         this.queuedTime = new Duration(0, MILLISECONDS);
@@ -123,9 +123,9 @@ public class DriverStats
 
     @JsonCreator
     public DriverStats(
-            @JsonProperty("createTime") DateTime createTime,
-            @JsonProperty("startTime") DateTime startTime,
-            @JsonProperty("endTime") DateTime endTime,
+            @JsonProperty("createTime") Instant createTime,
+            @JsonProperty("startTime") Instant startTime,
+            @JsonProperty("endTime") Instant endTime,
             @JsonProperty("queuedTime") Duration queuedTime,
             @JsonProperty("elapsedTime") Duration elapsedTime,
 
@@ -214,21 +214,21 @@ public class DriverStats
     }
 
     @JsonProperty
-    public DateTime getCreateTime()
+    public Instant getCreateTime()
     {
         return createTime;
     }
 
     @Nullable
     @JsonProperty
-    public DateTime getStartTime()
+    public Instant getStartTime()
     {
         return startTime;
     }
 
     @Nullable
     @JsonProperty
-    public DateTime getEndTime()
+    public Instant getEndTime()
     {
         return endTime;
     }

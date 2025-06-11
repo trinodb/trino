@@ -51,10 +51,10 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.transaction.TransactionId;
 import io.trino.type.TypeSignatureDeserializer;
 import io.trino.type.TypeSignatureKeyDeserializer;
-import org.joda.time.DateTime;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
+import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
 
@@ -270,7 +270,7 @@ public class TestQueryInfo
     private static StageStats createStageStats(int value)
     {
         return new StageStats(
-                new DateTime(value),
+                Instant.ofEpochMilli(value),
                 ImmutableMap.of(new PlanNodeId(Integer.toString(value)), new Distribution.DistributionSnapshot(value, value, value, value, value, value, value, value, value, value, value, value, value, value)),
                 ImmutableMap.of(new PlanNodeId(Integer.toString(value)), new Metrics(ImmutableMap.of("abc", new LongCount(value)))),
                 value,

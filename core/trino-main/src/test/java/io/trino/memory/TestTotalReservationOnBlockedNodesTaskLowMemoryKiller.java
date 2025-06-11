@@ -29,10 +29,10 @@ import io.trino.execution.buffer.OutputBufferInfo;
 import io.trino.execution.buffer.OutputBufferStatus;
 import io.trino.operator.TaskStats;
 import io.trino.plugin.base.metrics.TDigestHistogram;
-import org.joda.time.DateTime;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
+import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
 
@@ -246,7 +246,7 @@ public class TestTotalReservationOnBlockedNodesTaskLowMemoryKiller
                         0,
                         1,
                         1),
-                DateTime.now(),
+                Instant.now(),
                 new OutputBufferInfo(
                         "TESTING",
                         BufferState.FINISHED,
@@ -261,7 +261,7 @@ public class TestTotalReservationOnBlockedNodesTaskLowMemoryKiller
                         Optional.empty(),
                         Optional.empty()),
                 ImmutableSet.of(),
-                new TaskStats(DateTime.now(),
+                new TaskStats(Instant.now(),
                         null,
                         null,
                         null,

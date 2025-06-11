@@ -21,8 +21,8 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.execution.QueryStats;
 import io.trino.operator.BlockedReason;
-import org.joda.time.DateTime;
 
+import java.time.Instant;
 import java.util.OptionalDouble;
 import java.util.Set;
 
@@ -37,8 +37,8 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 @Immutable
 public class BasicQueryStats
 {
-    private final DateTime createTime;
-    private final DateTime endTime;
+    private final Instant createTime;
+    private final Instant endTime;
 
     private final Duration queuedTime;
     private final Duration elapsedTime;
@@ -81,8 +81,8 @@ public class BasicQueryStats
 
     @JsonCreator
     public BasicQueryStats(
-            @JsonProperty("createTime") DateTime createTime,
-            @JsonProperty("endTime") DateTime endTime,
+            @JsonProperty("createTime") Instant createTime,
+            @JsonProperty("endTime") Instant endTime,
             @JsonProperty("queuedTime") Duration queuedTime,
             @JsonProperty("elapsedTime") Duration elapsedTime,
             @JsonProperty("executionTime") Duration executionTime,
@@ -208,7 +208,7 @@ public class BasicQueryStats
 
     public static BasicQueryStats immediateFailureQueryStats()
     {
-        DateTime now = DateTime.now();
+        Instant now = Instant.now();
         return new BasicQueryStats(
                 now,
                 now,
@@ -248,13 +248,13 @@ public class BasicQueryStats
     }
 
     @JsonProperty
-    public DateTime getCreateTime()
+    public Instant getCreateTime()
     {
         return createTime;
     }
 
     @JsonProperty
-    public DateTime getEndTime()
+    public Instant getEndTime()
     {
         return endTime;
     }

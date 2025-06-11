@@ -39,8 +39,8 @@ import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.spi.predicate.Domain;
 import io.trino.sql.planner.LocalDynamicFiltersCollector;
 import io.trino.sql.planner.plan.DynamicFilterId;
-import org.joda.time.DateTime;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -83,10 +83,10 @@ public class TaskContext
 
     private final AtomicLong currentPeakUserMemoryReservation = new AtomicLong(0);
 
-    private final AtomicReference<DateTime> executionStartTime = new AtomicReference<>();
-    private final AtomicReference<DateTime> lastExecutionStartTime = new AtomicReference<>();
-    private final AtomicReference<DateTime> terminatingStartTime = new AtomicReference<>();
-    private final AtomicReference<DateTime> executionEndTime = new AtomicReference<>();
+    private final AtomicReference<Instant> executionStartTime = new AtomicReference<>();
+    private final AtomicReference<Instant> lastExecutionStartTime = new AtomicReference<>();
+    private final AtomicReference<Instant> terminatingStartTime = new AtomicReference<>();
+    private final AtomicReference<Instant> executionEndTime = new AtomicReference<>();
 
     private final List<PipelineContext> pipelineContexts = new CopyOnWriteArrayList<>();
 
@@ -207,7 +207,7 @@ public class TaskContext
 
     public void start()
     {
-        DateTime now = DateTime.now();
+        Instant now = Instant.now();
         executionStartTime.compareAndSet(null, now);
         startNanos.compareAndSet(0, System.nanoTime());
         startFullGcCount.compareAndSet(-1, gcMonitor.getMajorGcCount());
@@ -220,10 +220,10 @@ public class TaskContext
     private void updateStatsIfDone(TaskState newState)
     {
         if (newState.isTerminating()) {
-            terminatingStartTime.compareAndSet(null, DateTime.now());
+            terminatingStartTime.compareAndSet(null, Instant.now());
         }
         else if (newState.isDone()) {
-            DateTime now = DateTime.now();
+            Instant now = Instant.now();
             long majorGcCount = gcMonitor.getMajorGcCount();
             long majorGcTime = gcMonitor.getMajorGcTime().roundTo(NANOSECONDS);
 
@@ -495,7 +495,7 @@ public class TaskContext
 
         for (PipelineStats pipeline : pipelineStats) {
             if (pipeline.getLastEndTime() != null) {
-                lastExecutionEndTime = max(pipeline.getLastEndTime().getMillis(), lastExecutionEndTime);
+                lastExecutionEndTime = max(pipeline.getLastEndTime().toEpochMilli(), lastExecutionEndTime);
             }
             if (pipeline.getRunningDrivers() > 0 || pipeline.getRunningPartitionedDrivers() > 0 || pipeline.getBlockedDrivers() > 0) {
                 // pipeline is running
@@ -587,7 +587,7 @@ public class TaskContext
                 executionStartTime.get(),
                 lastExecutionStartTime.get(),
                 terminatingStartTime.get(),
-                lastExecutionEndTime == 0 ? null : new DateTime(lastExecutionEndTime),
+                lastExecutionEndTime == 0 ? null : Instant.ofEpochMilli(lastExecutionEndTime),
                 executionEndTime.get(),
                 elapsedTime.convertToMostSuccinctTimeUnit(),
                 queuedTime.convertToMostSuccinctTimeUnit(),

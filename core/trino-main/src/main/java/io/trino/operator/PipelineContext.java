@@ -29,8 +29,8 @@ import io.trino.memory.QueryContextVisitor;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.spi.metrics.Metrics;
-import org.joda.time.DateTime;
 
+import java.time.Instant;
 import java.util.Iterator;
 import java.util.List;
 import java.util.TreeMap;
@@ -70,9 +70,9 @@ public class PipelineContext
     private final AtomicInteger completedDrivers = new AtomicInteger();
     private final AtomicLong completedSplitsWeight = new AtomicLong();
 
-    private final AtomicReference<DateTime> executionStartTime = new AtomicReference<>();
-    private final AtomicReference<DateTime> lastExecutionStartTime = new AtomicReference<>();
-    private final AtomicReference<DateTime> lastExecutionEndTime = new AtomicReference<>();
+    private final AtomicReference<Instant> executionStartTime = new AtomicReference<>();
+    private final AtomicReference<Instant> lastExecutionStartTime = new AtomicReference<>();
+    private final AtomicReference<Instant> lastExecutionEndTime = new AtomicReference<>();
 
     private final CounterStat spilledDataSize = new CounterStat();
 
@@ -201,7 +201,7 @@ public class PipelineContext
         }
 
         // always update last execution end time
-        lastExecutionEndTime.set(DateTime.now());
+        lastExecutionEndTime.set(Instant.now());
 
         DriverStats driverStats = driverContext.getDriverStats();
 
@@ -252,7 +252,7 @@ public class PipelineContext
 
     public void start()
     {
-        DateTime now = DateTime.now();
+        Instant now = Instant.now();
         executionStartTime.compareAndSet(null, now);
         // always update last execution start time
         lastExecutionStartTime.set(now);
@@ -383,7 +383,7 @@ public class PipelineContext
     {
         // check for end state to avoid callback ordering problems
         if (taskContext.getState().isDone()) {
-            DateTime now = DateTime.now();
+            Instant now = Instant.now();
             executionStartTime.compareAndSet(null, now);
             lastExecutionStartTime.compareAndSet(null, now);
             lastExecutionEndTime.compareAndSet(null, now);

@@ -22,8 +22,8 @@ import io.airlift.stats.Distribution.DistributionSnapshot;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import jakarta.annotation.Nullable;
-import org.joda.time.DateTime;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Set;
 
@@ -36,9 +36,9 @@ public class PipelineStats
 {
     private final int pipelineId;
 
-    private final DateTime firstStartTime;
-    private final DateTime lastStartTime;
-    private final DateTime lastEndTime;
+    private final Instant firstStartTime;
+    private final Instant lastStartTime;
+    private final Instant lastEndTime;
 
     private final boolean inputPipeline;
     private final boolean outputPipeline;
@@ -96,9 +96,9 @@ public class PipelineStats
     public PipelineStats(
             @JsonProperty("pipelineId") int pipelineId,
 
-            @JsonProperty("firstStartTime") DateTime firstStartTime,
-            @JsonProperty("lastStartTime") DateTime lastStartTime,
-            @JsonProperty("lastEndTime") DateTime lastEndTime,
+            @JsonProperty("firstStartTime") Instant firstStartTime,
+            @JsonProperty("lastStartTime") Instant lastStartTime,
+            @JsonProperty("lastEndTime") Instant lastEndTime,
 
             @JsonProperty("inputPipeline") boolean inputPipeline,
             @JsonProperty("outputPipeline") boolean outputPipeline,
@@ -233,21 +233,21 @@ public class PipelineStats
 
     @Nullable
     @JsonProperty
-    public DateTime getFirstStartTime()
+    public Instant getFirstStartTime()
     {
         return firstStartTime;
     }
 
     @Nullable
     @JsonProperty
-    public DateTime getLastStartTime()
+    public Instant getLastStartTime()
     {
         return lastStartTime;
     }
 
     @Nullable
     @JsonProperty
-    public DateTime getLastEndTime()
+    public Instant getLastEndTime()
     {
         return lastEndTime;
     }
