@@ -13,7 +13,7 @@ data.
 To connect to Databricks Delta Lake, you need:
 
 - Tables written by Databricks Runtime 7.3 LTS, 9.1 LTS, 10.4 LTS, 11.3 LTS,
-  12.2 LTS, 13.3 LTS, 14.3 LTS and 15.4 LTS are supported.
+  12.2 LTS, 13.3 LTS, 14.3 LTS, 15.4 LTS and 16.4 LTS are supported.
 - Deployments using AWS, HDFS, Azure Storage, and Google Cloud Storage (GCS) are
   fully supported.
 - Network access from the coordinator and workers to the Delta Lake storage.
