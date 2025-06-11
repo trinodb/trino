@@ -192,6 +192,9 @@ final class TestColumnDefaultOptions
         assertLiteral(createCharType(10), new StringLiteral(LOCATION, "test"), utf8Slice("test"));
         assertLiteral(createCharType(5), new StringLiteral(LOCATION, "攻殻機動隊"), utf8Slice("攻殻機動隊"));
         assertLiteral(createCharType(1), new StringLiteral(LOCATION, "😂"), utf8Slice("😂"));
+
+        // Trim trailing spaces
+        assertLiteral(createCharType(4), new StringLiteral(LOCATION, "test "), utf8Slice("test"));
     }
 
     @Test
@@ -200,11 +203,7 @@ final class TestColumnDefaultOptions
         assertInvalidLiteralFails(
                 createCharType(4),
                 new StringLiteral(new NodeLocation(1, 1), " abcd"),
-                "Cannot truncate characters when casting value ' abcd' to char(4)");
-        assertInvalidLiteralFails(
-                createCharType(4),
-                new StringLiteral(new NodeLocation(1, 1), "abcd "),
-                "Cannot truncate characters when casting value 'abcd ' to char(4)");
+                "Cannot truncate non-space characters when casting from varchar(5) to char(4) on INSERT");
     }
 
     @Test
@@ -215,6 +214,9 @@ final class TestColumnDefaultOptions
         assertLiteral(VARCHAR, new StringLiteral(LOCATION, "test"), utf8Slice("test"));
         assertLiteral(createVarcharType(5), new StringLiteral(LOCATION, "攻殻機動隊"), utf8Slice("攻殻機動隊"));
         assertLiteral(createVarcharType(1), new StringLiteral(LOCATION, "😂"), utf8Slice("😂"));
+
+        // Trim trailing spaces
+        assertLiteral(createVarcharType(4), new StringLiteral(LOCATION, "test "), utf8Slice("test"));
     }
 
     @Test
@@ -223,11 +225,7 @@ final class TestColumnDefaultOptions
         assertInvalidLiteralFails(
                 createVarcharType(4),
                 new StringLiteral(new NodeLocation(1, 1), " abcd"),
-                "Cannot truncate characters when casting value ' abcd' to varchar(4)");
-        assertInvalidLiteralFails(
-                createVarcharType(4),
-                new StringLiteral(new NodeLocation(1, 1), "abcd "),
-                "Cannot truncate characters when casting value 'abcd ' to varchar(4)");
+                "Cannot truncate non-space characters when casting from varchar(5) to varchar(4) on INSERT");
     }
 
     @Test
@@ -275,20 +273,12 @@ final class TestColumnDefaultOptions
         assertLiteral(createTimestampType(10), new GenericLiteral(LOCATION, "TIMESTAMP(10)", "1970-01-01 00:00:00.9999999999"), new LongTimestamp(999999L, 999900));
         assertLiteral(createTimestampType(11), new GenericLiteral(LOCATION, "TIMESTAMP(11)", "1970-01-01 00:00:00.99999999999"), new LongTimestamp(999999L, 999990));
         assertLiteral(createTimestampType(12), new GenericLiteral(LOCATION, "TIMESTAMP(12)", "1970-01-01 00:00:00.999999999999"), new LongTimestamp(999999L, 999999));
-    }
 
-    @Test
-    void testInvalidTimestamp()
-    {
-        assertInvalidLiteralFails(
-                createTimestampType(0),
-                new GenericLiteral(new NodeLocation(1, 1), "TIMESTAMP(1)", "1970-01-01 00:00:00.1"),
-                "Value too large");
-
-        assertInvalidLiteralFails(
-                createTimestampType(9),
-                new GenericLiteral(new NodeLocation(1, 1), "TIMESTAMP(10)", "1970-01-01 00:00:00.0123456789"),
-                "Value too large");
+        // Round fractional seconds
+        assertLiteral(createTimestampType(0), new GenericLiteral(LOCATION, "TIMESTAMP(1)", "1970-01-01 00:00:00.4"), 0L);
+        assertLiteral(createTimestampType(0), new GenericLiteral(LOCATION, "TIMESTAMP(1)", "1970-01-01 00:00:00.5"), 1000000L);
+        assertLiteral(createTimestampType(9), new GenericLiteral(LOCATION, "TIMESTAMP(9)", "1970-01-01 00:00:00.9999999994"), new LongTimestamp(999999L, 999000));
+        assertLiteral(createTimestampType(9), new GenericLiteral(LOCATION, "TIMESTAMP(9)", "1970-01-01 00:00:00.9999999995"), new LongTimestamp(1000000L, 0));
     }
 
     @Test
@@ -307,20 +297,12 @@ final class TestColumnDefaultOptions
         assertLiteral(createTimestampWithTimeZoneType(10), new GenericLiteral(LOCATION, "TIMESTAMP(10) WITH TIME ZONE", "1970-01-01 00:00:00.9999999999 UTC"), longTimestampWithTimeZone(0, 999999999900L, UTC));
         assertLiteral(createTimestampWithTimeZoneType(11), new GenericLiteral(LOCATION, "TIMESTAMP(11) WITH TIME ZONE", "1970-01-01 00:00:00.99999999999 UTC"), longTimestampWithTimeZone(0, 999999999990L, UTC));
         assertLiteral(createTimestampWithTimeZoneType(12), new GenericLiteral(LOCATION, "TIMESTAMP(12) WITH TIME ZONE", "1970-01-01 00:00:00.999999999999 UTC"), longTimestampWithTimeZone(0, 999999999999L, UTC));
-    }
 
-    @Test
-    void testInvalidTimestampWithTimeZone()
-    {
-        assertInvalidLiteralFails(
-                createTimestampWithTimeZoneType(0),
-                new GenericLiteral(new NodeLocation(1, 1), "TIMESTAMP(1) WITH TIME ZONE", "1970-01-01 00:00:00.1 UTC"),
-                "Value too large");
-
-        assertInvalidLiteralFails(
-                createTimestampWithTimeZoneType(9),
-                new GenericLiteral(new NodeLocation(1, 1), "TIMESTAMP(10) WITH TIME ZONE", "1970-01-01 00:00:00.0123456789 UTC"),
-                "Value too large");
+        // Round fractional seconds
+        assertLiteral(createTimestampWithTimeZoneType(0), new GenericLiteral(LOCATION, "TIMESTAMP(1) WITH TIME ZONE", "1970-01-01 00:00:00.4 UTC"), packDateTimeWithZone(0, UTC_KEY));
+        assertLiteral(createTimestampWithTimeZoneType(0), new GenericLiteral(LOCATION, "TIMESTAMP(1) WITH TIME ZONE", "1970-01-01 00:00:00.5 UTC"), packDateTimeWithZone(1000, UTC_KEY));
+        assertLiteral(createTimestampWithTimeZoneType(9), new GenericLiteral(LOCATION, "TIMESTAMP(10) WITH TIME ZONE", "1970-01-01 00:00:00.9999999994 UTC"), longTimestampWithTimeZone(0, 999999999000L, UTC));
+        assertLiteral(createTimestampWithTimeZoneType(9), new GenericLiteral(LOCATION, "TIMESTAMP(10) WITH TIME ZONE", "1970-01-01 00:00:00.9999999995 UTC"), longTimestampWithTimeZone(1, 0L, UTC));
     }
 
     private void assertLiteral(Type columnType, Literal literal, Object expected)

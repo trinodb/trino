@@ -263,8 +263,7 @@ public class TestAddColumnTask
         assertTrinoExceptionThrownBy(() ->
                 getFutureValue(executeAddColumn(asQualifiedName(tableName), charColumn, new ColumnPosition.Last(), false, false)))
                 .hasErrorCode(INVALID_LITERAL)
-                .hasMessage("line 1:1: ''abcde'' is not a valid CHAR(4) literal")
-                .hasStackTraceContaining("Cannot truncate characters when casting value 'abcde' to char(4)");
+                .hasMessage("line 1:1: ''abcde'' is not a valid CHAR(4) literal");
     }
 
     @Test

@@ -300,8 +300,7 @@ class TestCreateTableTask
             assertTrinoExceptionThrownBy(() ->
                     getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), _ -> {}, WarningCollector.NOOP)))
                     .hasErrorCode(INVALID_LITERAL)
-                    .hasMessage("line 1:1: ''abcde'' is not a valid CHAR(4) literal")
-                    .hasStackTraceContaining("Cannot truncate characters when casting value 'abcde' to char(4)");
+                    .hasMessage("line 1:1: ''abcde'' is not a valid CHAR(4) literal");
             return null;
         });
     }
