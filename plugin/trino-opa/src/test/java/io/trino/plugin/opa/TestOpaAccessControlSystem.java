@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.opa;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.blackhole.BlackHolePlugin;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -23,7 +24,9 @@ import org.junit.jupiter.api.TestInstance;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import java.io.File;
 import java.io.IOException;
+import java.util.Map;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -37,6 +40,8 @@ public class TestOpaAccessControlSystem
     private QueryRunnerHelper runner;
     private static final String OPA_ALLOW_POLICY_NAME = "allow";
     private static final String OPA_BATCH_ALLOW_POLICY_NAME = "batchAllow";
+    private static final Map<String, String> OPA_ADDITIONAL_CONTEXT = ImmutableMap.of("namespace", "some-namespace");
+    private static final File OPA_ADDITIONAL_CONTEXT_FILE = new File("src/test/resources/additional-context.json");
     @Container
     private static final OpaContainer OPA_CONTAINER = new OpaContainer();
 
@@ -213,6 +218,96 @@ public class TestOpaAccessControlSystem
                     """);
             Set<String> version = runner.querySetOfStrings("bob", "SELECT version()");
             assertThat(version).isNotEmpty();
+        }
+    }
+
+    @Nested
+    @TestInstance(PER_CLASS)
+    @DisplayName("Additional Context Authorizer Tests")
+    class AdditionalContextAuthorizerTests
+    {
+        @BeforeAll
+        public void setupTrino()
+        {
+            setupTrinoWithOpa(new OpaConfig()
+                    .setAdditionalContextFile(OPA_ADDITIONAL_CONTEXT_FILE)
+                    .setOpaUri(OPA_CONTAINER.getOpaUriForPolicyPath(OPA_ALLOW_POLICY_NAME)));
+        }
+
+        @AfterAll
+        public void teardown()
+        {
+            if (runner != null) {
+                runner.teardown();
+            }
+        }
+
+        @Test
+        public void testAllowsQueryAndFilters()
+                throws IOException, InterruptedException
+        {
+            OPA_CONTAINER.submitPolicy(
+                    """
+                    package trino
+                    import future.keywords.in
+                    import future.keywords.if
+                    default allow = false
+                    allow {
+                      is_bob
+                      is_some_namespace
+                      can_be_accessed_by_bob
+                    }
+                    allow if is_admin
+                    is_admin {
+                      input.context.identity.user == "admin"
+                    }
+                    is_bob {
+                      input.context.identity.user == "bob"
+                    }
+                    is_some_namespace {
+                        input.context.additionalContext.properties.namespace == "some-namespace"
+                    }
+                    can_be_accessed_by_bob {
+                      input.action.operation in ["ImpersonateUser", "ExecuteQuery"]
+                    }
+                    can_be_accessed_by_bob {
+                      input.action.operation in ["FilterCatalogs", "AccessCatalog"]
+                      input.action.resource.catalog.name == "catalog_one"
+                    }
+                    """);
+            Set<String> catalogsForBob = runner.querySetOfStrings("bob", "SHOW CATALOGS");
+            assertThat(catalogsForBob).containsExactlyInAnyOrder("catalog_one");
+            Set<String> catalogsForAdmin = runner.querySetOfStrings("admin", "SHOW CATALOGS");
+            assertThat(catalogsForAdmin).containsExactlyInAnyOrder("catalog_one", "catalog_two", "system");
+        }
+
+        @Test
+        public void testShouldDenyQueryIfDirected()
+                throws IOException, InterruptedException
+        {
+            OPA_CONTAINER.submitPolicy(
+                    """
+                    package trino
+                    import future.keywords.in
+                    import future.keywords.if
+                    default allow = false
+                    allow {
+                        is_bob_in_diff_namespace
+                    }
+                    allow if is_admin
+                    is_admin {
+                        input.context.identity.user == "admin"
+                    }
+                    is_bob_in_diff_namespace {
+                        input.context.identity.user == "bob"
+                        input.context.additionalContext.properties.namespace == "diff-namespace"
+                    }
+                    """);
+            assertThatThrownBy(() -> runner.querySetOfStrings("bob", "SHOW CATALOGS"))
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessageContaining("Access Denied");
+            // smoke test: we can still query if we are the right user
+            runner.querySetOfStrings("admin", "SHOW CATALOGS");
         }
     }
 

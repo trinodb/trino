@@ -22,6 +22,7 @@ import io.trino.spi.security.Identity;
 import io.trino.spi.security.SystemAccessControlFactory;
 import io.trino.spi.security.SystemSecurityContext;
 
+import java.io.File;
 import java.net.URI;
 import java.time.Instant;
 
@@ -58,6 +59,7 @@ public final class TestConstants
     public static final URI OPA_SERVER_BATCH_URI = URI.create("http://my-batch-uri/");
     public static final URI OPA_ROW_FILTERING_URI = URI.create("http://my-row-filtering-uri/");
     public static final URI OPA_COLUMN_MASKING_URI = URI.create("http://my-column-masking-uri/");
+    public static final File OPA_ADDITIONAL_CONTEXT_FILE = new File("src/test/resources/additional-context.json");
     public static final Identity TEST_IDENTITY = Identity.forUser("source-user").withGroups(ImmutableSet.of("some-group")).build();
     public static final QueryId TEST_QUERY_ID = QueryId.valueOf("abcde");
     public static final SystemSecurityContext TEST_SECURITY_CONTEXT = new SystemSecurityContext(TEST_IDENTITY, new QueryIdGenerator().createNextQueryId(), Instant.now());

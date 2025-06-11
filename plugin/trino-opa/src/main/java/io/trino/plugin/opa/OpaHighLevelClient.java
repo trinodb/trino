@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.opa;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
@@ -32,6 +34,9 @@ import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.security.AccessDeniedException;
 
+import java.io.File;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.URI;
 import java.util.Collection;
 import java.util.List;
@@ -55,6 +60,7 @@ public class OpaHighLevelClient
     private final Optional<URI> opaRowFiltersUri;
     private final Optional<URI> opaColumnMaskingUri;
     private final Optional<URI> opaBatchColumnMaskingUri;
+    protected final OpaAdditionalContext opaAdditionalContext;
 
     @Inject
     public OpaHighLevelClient(
@@ -74,6 +80,7 @@ public class OpaHighLevelClient
         this.opaRowFiltersUri = config.getOpaRowFiltersUri();
         this.opaColumnMaskingUri = config.getOpaColumnMaskingUri();
         this.opaBatchColumnMaskingUri = config.getOpaBatchColumnMaskingUri();
+        this.opaAdditionalContext = loadAdditionalContextFromFile(config.getAdditionalContextFile());
     }
 
     public boolean queryOpa(OpaQueryInput input)
@@ -155,6 +162,11 @@ public class OpaHighLevelClient
                 .orElse(ImmutableMap.of());
     }
 
+    public OpaAdditionalContext getAdditionalContext()
+    {
+        return opaAdditionalContext;
+    }
+
     public static OpaQueryInput buildQueryInputForSimpleResource(OpaQueryContext context, String operation, OpaQueryInputResource resource)
     {
         return new OpaQueryInput(context, OpaQueryInputAction.builder().operation(operation).resource(resource).build());
@@ -189,5 +201,24 @@ public class OpaHighLevelClient
     private static OpaQueryInput buildQueryInputForSimpleAction(OpaQueryContext context, String operation)
     {
         return new OpaQueryInput(context, OpaQueryInputAction.builder().operation(operation).build());
+    }
+
+    private OpaAdditionalContext loadAdditionalContextFromFile(Optional<File> additionalContextFile)
+    {
+        if (additionalContextFile.isEmpty()) {
+            return new OpaAdditionalContext(new HashMap<>());
+        }
+
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            TypeReference<Map<String, String>> typeRef = new TypeReference<Map<String, String>>() {};
+
+            Map<String, String> properties = ImmutableMap.copyOf(mapper.readValue(additionalContextFile.get(), typeRef));
+
+            return new OpaAdditionalContext(properties);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 }
