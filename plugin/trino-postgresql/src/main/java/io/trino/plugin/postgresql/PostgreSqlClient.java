@@ -592,9 +592,14 @@ public class PostgreSqlClient
             case "geometry":
                 return Optional.of(geometryColumnMapping());
         }
+
+        // Handling of schema-qualified types
+        // TODO: Find more reliable way to detect these types. The type name can be eg. "schema-name"."vector"
         if (jdbcTypeName.endsWith("\"vector\"")) {
-            // TODO: Find more reliable way to detect vector type. The type name can be "schema-name"."vector"
             return Optional.of(vectorColumnMapping());
+        }
+        if (jdbcTypeName.endsWith("\"geometry\"")) {
+            return Optional.of(geometryColumnMapping());
         }
 
         switch (typeHandle.jdbcType()) {
