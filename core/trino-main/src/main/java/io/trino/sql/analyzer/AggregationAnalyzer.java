@@ -16,6 +16,7 @@ package io.trino.sql.analyzer;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.metadata.FunctionResolver;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.security.AccessControl;
 import io.trino.spi.StandardErrorCode;
 import io.trino.sql.PlannerContext;
@@ -32,6 +33,7 @@ import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.CurrentDate;
 import io.trino.sql.tree.CurrentTime;
 import io.trino.sql.tree.CurrentTimestamp;
+import io.trino.sql.tree.DefaultExpressionTraversalVisitor;
 import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.ExistsPredicate;
 import io.trino.sql.tree.Expression;
@@ -88,6 +90,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -100,6 +104,7 @@ import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_AGGREGATE;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.NESTED_AGGREGATION;
 import static io.trino.spi.StandardErrorCode.NESTED_WINDOW;
+import static io.trino.spi.function.FunctionKind.AGGREGATE;
 import static io.trino.sql.NodeUtils.getSortItemsFromOrderBy;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractAggregateFunctions;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractWindowExpressions;
@@ -809,5 +814,36 @@ class AggregationAnalyzer
                 .ifPresent(expression -> {
                     throw semanticException(errorCode, expression, "%s", errorString);
                 });
+    }
+
+    public static boolean containsAggregation(Expression expression, Function<FunctionCall, ResolvedFunction> functionResolver)
+    {
+        requireNonNull(functionResolver, "functionResolver is null");
+        requireNonNull(expression, "expression is null");
+
+        AtomicBoolean containsAggregation = new AtomicBoolean(false);
+        new AggregationFunctionVisitor(functionResolver).process(expression, containsAggregation);
+        return containsAggregation.get();
+    }
+
+    private static class AggregationFunctionVisitor
+            extends DefaultExpressionTraversalVisitor<AtomicBoolean>
+    {
+        private final Function<FunctionCall, ResolvedFunction> functionResolver;
+
+        public AggregationFunctionVisitor(Function<FunctionCall, ResolvedFunction> functionResolver)
+        {
+            this.functionResolver = functionResolver;
+        }
+
+        @Override
+        protected Void visitFunctionCall(FunctionCall node, AtomicBoolean containsAggregation)
+        {
+            if (functionResolver.apply(node).functionKind() == AGGREGATE) {
+                containsAggregation.set(true);
+                return null;
+            }
+            return super.visitFunctionCall(node, containsAggregation);
+        }
     }
 }
