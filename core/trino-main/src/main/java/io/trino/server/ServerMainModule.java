@@ -44,6 +44,7 @@ import io.trino.execution.LocationFactory;
 import io.trino.execution.MemoryRevokingScheduler;
 import io.trino.execution.NoOpFailureInjector;
 import io.trino.execution.NodeTaskMap;
+import io.trino.execution.QueryIdGenerator;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.SqlTaskManager;
 import io.trino.execution.TableExecuteContextManager;
@@ -457,6 +458,7 @@ public class ServerMainModule
 
         // server info resource
         jaxrsBinder(binder).bind(ServerInfoResource.class);
+        newOptionalBinder(binder, QueryIdGenerator.class);
 
         // node status resource
         jaxrsBinder(binder).bind(StatusResource.class);
