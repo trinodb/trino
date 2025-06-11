@@ -28,6 +28,8 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
@@ -40,7 +42,9 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
+import static com.google.common.collect.Iterators.getOnlyElement;
 import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
+import static io.trino.plugin.hive.metastore.glue.GlueMetastoreMethod.CREATE_PARTITIONS;
 import static io.trino.plugin.hive.metastore.glue.GlueMetastoreMethod.CREATE_TABLE;
 import static io.trino.plugin.hive.metastore.glue.GlueMetastoreMethod.DELETE_COLUMN_STATISTICS_FOR_PARTITION;
 import static io.trino.plugin.hive.metastore.glue.GlueMetastoreMethod.DELETE_COLUMN_STATISTICS_FOR_TABLE;
@@ -127,6 +131,43 @@ public class TestHiveGlueMetastoreAccessOperations
                             .add(GET_PARTITION)
                             .build());
             assertQuery("SELECT * FROM " + tableName, "VALUES (3, 1)");
+        }
+        finally {
+            getQueryRunner().execute("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    void testSyncPartitionMetadataProcedure()
+            throws IOException
+    {
+        String tableName = "test_sync_partition_metadata_" + randomNameSuffix();
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id INT, part INT) WITH (partitioned_by = ARRAY['part'])");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 1)", 1);
+            Path tableDir = schemaDir.resolve(tableName);
+            Path sourcePartitionDir = tableDir.resolve("part=1");
+            Path sourceFile;
+            try (Stream<Path> paths = Files.list(sourcePartitionDir)) {
+                sourceFile = getOnlyElement(paths.iterator());
+            }
+
+            // prepare partition to sync
+            Path targetPartitionDir = tableDir.resolve("part=2");
+            Files.createDirectories(targetPartitionDir);
+            Files.copy(sourceFile, targetPartitionDir.resolve("data"));
+
+            // the sync_partition_metadata doesn't call UPDATE_COLUMN_STATISTICS_FOR_PARTITION
+            assertInvocations("CALL system.sync_partition_metadata('%s', '%s', 'FULL')".formatted(testSchema, tableName),
+                    ImmutableMultiset.<GlueMetastoreMethod>builder()
+                            .add(GET_TABLE)
+                            .add(CREATE_PARTITIONS)
+                            .add(DELETE_COLUMN_STATISTICS_FOR_PARTITION)
+                            .addCopies(GET_PARTITION_NAMES, 5)
+                            .build());
+
+            // the partition is successfully synced
+            assertQuery("SELECT * FROM " + tableName + " WHERE part = 2", "VALUES (1, 2)");
         }
         finally {
             getQueryRunner().execute("DROP TABLE IF EXISTS " + tableName);
