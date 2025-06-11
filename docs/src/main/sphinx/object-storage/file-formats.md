@@ -89,7 +89,7 @@ with Parquet files performed by supported object storage connectors:
 * - `parquet.max-read-block-row-count`
   - Sets the maximum number of rows read in a batch. The equivalent catalog
     session property is named `parquet_max_read_block_row_count` and supported
-    by the Delta Lake, Hive, and Iceberg connectors.
+    by the Delta Lake, Hive, Iceberg and Hudi connectors.
   - `8192`
 * - `parquet.small-file-threshold`
   - [Data size](prop-type-data-size) below which a Parquet file is read
