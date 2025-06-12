@@ -521,10 +521,10 @@ public class HashBuilderOperator
 
         LookupSourceSupplier partition = buildLookupSource();
         if (spillEnabled) {
-            localRevocableMemoryContext.setBytes(partition.get().getInMemorySizeInBytes());
+            localRevocableMemoryContext.setBytes(partition.get().getInMemorySizeInBytes() + index.getExtraPagesIndexMemoryWithLookupSourceBuild());
         }
         else {
-            localUserMemoryContext.setBytes(partition.get().getInMemorySizeInBytes());
+            localUserMemoryContext.setBytes(partition.get().getInMemorySizeInBytes() + index.getExtraPagesIndexMemoryWithLookupSourceBuild());
         }
         lookupSourceNotNeeded = Optional.of(lookupSourceFactory.lendPartitionLookupSource(partitionIndex, partition));
 
@@ -633,7 +633,7 @@ public class HashBuilderOperator
         LookupSourceSupplier partition = buildLookupSource();
         lookupSourceChecksum.ifPresent(checksum ->
                 checkState(partition.checksum() == checksum, "Unspilled lookupSource checksum does not match original one"));
-        localUserMemoryContext.setBytes(partition.get().getInMemorySizeInBytes());
+        localUserMemoryContext.setBytes(partition.get().getInMemorySizeInBytes() + index.getExtraPagesIndexMemoryWithLookupSourceBuild());
 
         spilledLookupSourceHandle.setLookupSource(partition);
 
