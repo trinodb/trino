@@ -86,6 +86,7 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SequencePageBuilder.createSequencePage;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.memory.context.CoarseGrainLocalMemoryContext.DEFAULT_GRANULARITY;
 import static io.trino.operator.HashArraySizeSupplier.defaultHashArraySizeSupplier;
 import static io.trino.operator.JoinOperatorType.fullOuterJoin;
 import static io.trino.operator.JoinOperatorType.innerJoin;
@@ -1327,7 +1328,8 @@ public class TestHashJoinOperator
                 new PagesIndex.TestingFactory(false),
                 spillEnabled,
                 SINGLE_STREAM_SPILLER_FACTORY,
-                defaultHashArraySizeSupplier())) {
+                defaultHashArraySizeSupplier(),
+                1)) {
             // add enough pages to require memory reservation when finish() is called
             for (int i = 0; i < 100; i++) {
                 operator.addInput(createSequencePage(types, 1));
@@ -1392,7 +1394,8 @@ public class TestHashJoinOperator
                 new PagesIndex.TestingFactory(false),
                 true,
                 SINGLE_STREAM_SPILLER_FACTORY,
-                defaultHashArraySizeSupplier())) {
+                defaultHashArraySizeSupplier(),
+                1)) {
             for (int i = 0; i < 100; i++) {
                 operator.addInput(createSequencePage(types, 1));
             }
@@ -1463,7 +1466,8 @@ public class TestHashJoinOperator
                 new PagesIndex.TestingFactory(false),
                 true,
                 SINGLE_STREAM_SPILLER_FACTORY,
-                defaultHashArraySizeSupplier())) {
+                defaultHashArraySizeSupplier(),
+                DEFAULT_GRANULARITY)) {
             // add page to build index
             operator.addInput(new Page(new VariableWidthBlock(1, Slices.allocate(100000), new int[] {0, 1}, Optional.empty())));
 
