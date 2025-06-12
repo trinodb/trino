@@ -61,6 +61,11 @@ public final class TestingPolarisCatalog
         polarisCatalog.waitingFor(new LogMessageWaitStrategy().withRegEx(".*Apache Polaris Server.* started.*"));
         polarisCatalog.withEnv("POLARIS_BOOTSTRAP_CREDENTIALS", "default-realm,root,s3cr3t");
         polarisCatalog.withEnv("polaris.realm-context.realms", "default-realm");
+        polarisCatalog.withEnv("polaris.readiness.ignore-severe-issues", "true");
+        polarisCatalog.withEnv("polaris.features.\"SUPPORTED_CATALOG_STORAGE_TYPES\"", "[\"FILE\"]");
+        polarisCatalog.withEnv("polaris.features.\"ALLOW_INSECURE_STORAGE_TYPES\"", "true");
+        polarisCatalog.withEnv("polaris.features.\"DROP_WITH_PURGE_ENABLED\"", "true");
+
         polarisCatalog.start();
 
         token = getToken();
@@ -94,7 +99,8 @@ public final class TestingPolarisCatalog
                 "\"id\": 1," +
                 "\"type\": \"INTERNAL\"," +
                 "\"readOnly\": false, " +
-                "\"storageConfigInfo\": {\"storageType\": \"FILE\"}, \"properties\": {\"default-base-location\": \"file://" + warehouseLocation + "\"}" +
+                "\"storageConfigInfo\": {\"storageType\": \"FILE\", \"allowedLocations\":[\"" + warehouseLocation + "\"]}, " +
+                "\"properties\": {\"default-base-location\": \"file://" + warehouseLocation + "\"}" +
                 "}";
         Request request = Request.Builder.preparePost()
                 .setUri(URI.create(restUri() + "/api/management/v1/catalogs"))
