@@ -671,7 +671,12 @@ public class PagesIndex
                 getSingleBigintJoinChannel(joinChannels, types),
                 hashArraySizeSupplier);
         // PageIndex is retained during LookupSource creation, hence any extra memory retained by the PagesIndex must be accounted here
-        long pagesIndexAdditionalRetainedSizeInBytes = INSTANCE_SIZE + sizeOf(positionCounts.elements());
+        long pagesIndexAdditionalRetainedSizeInBytes = getExtraPagesIndexMemoryWithLookupSourceBuild();
         return pagesIndexAdditionalRetainedSizeInBytes + lookupSourceEstimatedRetainedSizeInBytes;
+    }
+
+    public long getExtraPagesIndexMemoryWithLookupSourceBuild()
+    {
+        return INSTANCE_SIZE + sizeOf(positionCounts.elements());
     }
 }
