@@ -200,8 +200,6 @@ public class MultipleDistinctAggregationsToSubqueries
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
                 ImmutableMap.of(),
                 Optional.empty());
     }

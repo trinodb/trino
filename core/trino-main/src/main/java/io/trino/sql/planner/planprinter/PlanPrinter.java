@@ -694,7 +694,6 @@ public class PlanPrinter
                 ImmutableMap.Builder<String, String> descriptor = ImmutableMap.<String, String>builder()
                         .put("criteria", Joiner.on(" AND ").join(anonymizeExpressions(criteriaExpressions)));
                 node.getFilter().ifPresent(filter -> descriptor.put("filter", formatFilter(filter)));
-                descriptor.put("hash", formatHash(node.getLeftHashSymbol(), node.getRightHashSymbol()));
                 node.getDistributionType().ifPresent(distribution -> descriptor.put("distribution", distribution.name()));
                 nodeOutput = addNode(
                         node,
@@ -738,8 +737,7 @@ public class PlanPrinter
             NodeRepresentation nodeOutput = addNode(node,
                     "SemiJoin",
                     ImmutableMap.of(
-                            "criteria", anonymizer.anonymize(node.getSourceJoinSymbol()) + " = " + anonymizer.anonymize(node.getFilteringSourceJoinSymbol()),
-                            "hash", formatHash(node.getSourceHashSymbol(), node.getFilteringSourceHashSymbol())),
+                            "criteria", anonymizer.anonymize(node.getSourceJoinSymbol()) + " = " + anonymizer.anonymize(node.getFilteringSourceJoinSymbol())),
                     context);
             node.getDistributionType().ifPresent(distributionType -> nodeOutput.appendDetails("Distribution: %s", distributionType));
             node.getDynamicFilterId().ifPresent(dynamicFilterId -> nodeOutput.appendDetails("dynamicFilterId: %s", dynamicFilterId));
@@ -792,8 +790,7 @@ public class PlanPrinter
             addNode(node,
                     format("%sIndexJoin", node.getType().getJoinLabel()),
                     ImmutableMap.of(
-                            "criteria", Joiner.on(" AND ").join(anonymizeExpressions(joinExpressions)),
-                            "hash", formatHash(node.getProbeHashSymbol(), node.getIndexHashSymbol())),
+                            "criteria", Joiner.on(" AND ").join(anonymizeExpressions(joinExpressions))),
                     context);
             node.getProbeSource().accept(this, new Context(context.isInitialPlan()));
             node.getIndexSource().accept(this, new Context(context.isInitialPlan()));

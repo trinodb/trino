@@ -34,7 +34,6 @@ import org.junit.jupiter.api.parallel.Execution;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -108,7 +107,6 @@ public class TestHashBuilderOperator
                 0,
                 ImmutableList.of(0),
                 ImmutableList.of(1),
-                OptionalInt.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 ImmutableList.of(),

@@ -26,7 +26,6 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalInt;
 
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.SizeOf.sizeOfIntArray;
@@ -149,7 +148,6 @@ public class TestPagesIndex
                 LookupSource lookupSource = pagesIndex.createLookupSourceSupplier(
                         TEST_SESSION,
                         ImmutableList.of(joinChannel),
-                        OptionalInt.empty(),
                         sortChannel.map(channel -> filterFunctionFactory),
                         sortChannel,
                         ImmutableList.of(filterFunctionFactory),

@@ -141,8 +141,6 @@ public class TransformFilteringSemiJoinToInnerJoin
                 joinFilter,
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
                 semiJoin.getDynamicFilterId()
                         .map(id -> ImmutableMap.of(id, semiJoin.getFilteringSourceJoinSymbol()))
                         .orElse(ImmutableMap.of()),

@@ -236,8 +236,6 @@ public class TestPushDownDereferencesRules
                                         p.symbol("msg2", ROW_TYPE),
                                         p.symbol("filtering_msg", ROW_TYPE),
                                         p.symbol("match"),
-                                        Optional.empty(),
-                                        Optional.empty(),
                                         p.values(p.symbol("msg1", ROW_TYPE), p.symbol("msg2", ROW_TYPE)),
                                         p.values(p.symbol("filtering_msg", ROW_TYPE)))))
                 .matches(

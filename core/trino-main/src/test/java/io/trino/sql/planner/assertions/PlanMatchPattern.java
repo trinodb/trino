@@ -248,13 +248,11 @@ public final class PlanMatchPattern
     public static PlanMatchPattern indexJoin(
             IndexJoinNode.Type type,
             List<ExpectedValueProvider<IndexJoinNode.EquiJoinClause>> criteria,
-            Optional<String> probeHashSymbol,
-            Optional<String> indexHashSymbol,
             PlanMatchPattern probeSource,
             PlanMatchPattern indexSource)
     {
         return node(IndexJoinNode.class, probeSource, indexSource)
-                .with(new IndexJoinMatcher(type, criteria, probeHashSymbol.map(SymbolAlias::new), indexHashSymbol.map(SymbolAlias::new)));
+                .with(new IndexJoinMatcher(type, criteria));
     }
 
     public static ExpectedValueProvider<IndexJoinNode.EquiJoinClause> indexJoinEquiClause(String probe, String index)

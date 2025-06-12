@@ -42,7 +42,6 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.function.Function;
@@ -87,7 +86,6 @@ public final class JoinTestUtils
                 hasFilter,
                 probePages.getTypes(),
                 probePages.getHashChannels().orElseThrow(),
-                getHashChannelAsInt(probePages),
                 Optional.empty());
     }
 
@@ -189,8 +187,6 @@ public final class JoinTestUtils
                 lookupSourceFactoryManager,
                 rangeList(buildPages.getTypes().size()),
                 hashChannels,
-                buildPages.getHashChannel()
-                        .map(OptionalInt::of).orElse(OptionalInt.empty()),
                 filterFunctionFactory,
                 Optional.empty(),
                 ImmutableList.of(),
@@ -237,12 +233,6 @@ public final class JoinTestUtils
                 runDriverInThread(executor, driver);
             }
         });
-    }
-
-    public static OptionalInt getHashChannelAsInt(RowPagesBuilder probePages)
-    {
-        return probePages.getHashChannel()
-                .map(OptionalInt::of).orElse(OptionalInt.empty());
     }
 
     private static List<Integer> rangeList(int endExclusive)

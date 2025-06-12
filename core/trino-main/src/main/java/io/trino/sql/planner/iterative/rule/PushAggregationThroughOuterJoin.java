@@ -156,8 +156,6 @@ public class PushAggregationThroughOuterJoin
                     // there are no duplicate rows possible since outer rows were guaranteed to be distinct
                     false,
                     join.getFilter(),
-                    join.getLeftHashSymbol(),
-                    join.getRightHashSymbol(),
                     join.getDistributionType(),
                     join.isSpillable(),
                     join.getDynamicFilters(),
@@ -175,8 +173,6 @@ public class PushAggregationThroughOuterJoin
                     // there are no duplicate rows possible since outer rows were guaranteed to be distinct
                     false,
                     join.getFilter(),
-                    join.getLeftHashSymbol(),
-                    join.getRightHashSymbol(),
                     join.getDistributionType(),
                     join.isSpillable(),
                     join.getDynamicFilters(),
@@ -248,8 +244,6 @@ public class PushAggregationThroughOuterJoin
                 outerJoin.getOutputSymbols(),
                 aggregationOverNull.getOutputSymbols(),
                 false,
-                Optional.empty(),
-                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),

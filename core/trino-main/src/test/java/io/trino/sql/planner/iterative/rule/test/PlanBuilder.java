@@ -814,8 +814,6 @@ public class PlanBuilder
             Symbol sourceJoinSymbol,
             Symbol filteringSourceJoinSymbol,
             Symbol semiJoinOutput,
-            Optional<Symbol> sourceHashSymbol,
-            Optional<Symbol> filteringSourceHashSymbol,
             PlanNode source,
             PlanNode filteringSource)
     {
@@ -825,8 +823,6 @@ public class PlanBuilder
                 sourceJoinSymbol,
                 filteringSourceJoinSymbol,
                 semiJoinOutput,
-                sourceHashSymbol,
-                filteringSourceHashSymbol,
                 Optional.empty(),
                 Optional.empty());
     }
@@ -837,8 +833,6 @@ public class PlanBuilder
             Symbol sourceJoinSymbol,
             Symbol filteringSourceJoinSymbol,
             Symbol semiJoinOutput,
-            Optional<Symbol> sourceHashSymbol,
-            Optional<Symbol> filteringSourceHashSymbol,
             Optional<SemiJoinNode.DistributionType> distributionType)
     {
         return semiJoin(
@@ -847,8 +841,6 @@ public class PlanBuilder
                 sourceJoinSymbol,
                 filteringSourceJoinSymbol,
                 semiJoinOutput,
-                sourceHashSymbol,
-                filteringSourceHashSymbol,
                 distributionType,
                 Optional.empty());
     }
@@ -859,8 +851,6 @@ public class PlanBuilder
             Symbol sourceJoinSymbol,
             Symbol filteringSourceJoinSymbol,
             Symbol semiJoinOutput,
-            Optional<Symbol> sourceHashSymbol,
-            Optional<Symbol> filteringSourceHashSymbol,
             Optional<SemiJoinNode.DistributionType> distributionType,
             Optional<DynamicFilterId> dynamicFilterId)
     {
@@ -871,8 +861,6 @@ public class PlanBuilder
                 sourceJoinSymbol,
                 filteringSourceJoinSymbol,
                 semiJoinOutput,
-                sourceHashSymbol,
-                filteringSourceHashSymbol,
                 distributionType,
                 dynamicFilterId);
     }
@@ -1029,14 +1017,7 @@ public class PlanBuilder
                 left.getOutputSymbols(),
                 right.getOutputSymbols(),
                 filter,
-                Optional.empty(),
-                Optional.empty(),
                 ImmutableMap.of());
-    }
-
-    public JoinNode join(JoinType type, PlanNode left, PlanNode right, List<JoinNode.EquiJoinClause> criteria, List<Symbol> leftOutputSymbols, List<Symbol> rightOutputSymbols, Optional<Expression> filter)
-    {
-        return join(type, left, right, criteria, leftOutputSymbols, rightOutputSymbols, filter, Optional.empty(), Optional.empty());
     }
 
     public JoinNode join(JoinType type, JoinNode.DistributionType distributionType, PlanNode left, PlanNode right, JoinNode.EquiJoinClause... criteria)
@@ -1049,8 +1030,6 @@ public class PlanBuilder
                 left.getOutputSymbols(),
                 right.getOutputSymbols(),
                 Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
                 Optional.of(distributionType),
                 ImmutableMap.of());
     }
@@ -1062,11 +1041,9 @@ public class PlanBuilder
             List<JoinNode.EquiJoinClause> criteria,
             List<Symbol> leftOutputSymbols,
             List<Symbol> rightOutputSymbols,
-            Optional<Expression> filter,
-            Optional<Symbol> leftHashSymbol,
-            Optional<Symbol> rightHashSymbol)
+            Optional<Expression> filter)
     {
-        return join(type, left, right, criteria, leftOutputSymbols, rightOutputSymbols, filter, leftHashSymbol, rightHashSymbol, Optional.empty(), ImmutableMap.of());
+        return join(type, left, right, criteria, leftOutputSymbols, rightOutputSymbols, filter, Optional.empty(), ImmutableMap.of());
     }
 
     public JoinNode join(
@@ -1077,11 +1054,9 @@ public class PlanBuilder
             List<Symbol> leftOutputSymbols,
             List<Symbol> rightOutputSymbols,
             Optional<Expression> filter,
-            Optional<Symbol> leftHashSymbol,
-            Optional<Symbol> rightHashSymbol,
             Map<DynamicFilterId, Symbol> dynamicFilters)
     {
-        return join(type, left, right, criteria, leftOutputSymbols, rightOutputSymbols, filter, leftHashSymbol, rightHashSymbol, Optional.empty(), dynamicFilters);
+        return join(type, left, right, criteria, leftOutputSymbols, rightOutputSymbols, filter, Optional.empty(), dynamicFilters);
     }
 
     public JoinNode join(
@@ -1092,8 +1067,6 @@ public class PlanBuilder
             List<Symbol> leftOutputSymbols,
             List<Symbol> rightOutputSymbols,
             Optional<Expression> filter,
-            Optional<Symbol> leftHashSymbol,
-            Optional<Symbol> rightHashSymbol,
             Optional<JoinNode.DistributionType> distributionType,
             Map<DynamicFilterId, Symbol> dynamicFilters)
     {
@@ -1105,8 +1078,6 @@ public class PlanBuilder
                 leftOutputSymbols,
                 rightOutputSymbols,
                 filter,
-                leftHashSymbol,
-                rightHashSymbol,
                 distributionType,
                 dynamicFilters);
     }
@@ -1120,8 +1091,6 @@ public class PlanBuilder
             List<Symbol> leftOutputSymbols,
             List<Symbol> rightOutputSymbols,
             Optional<Expression> filter,
-            Optional<Symbol> leftHashSymbol,
-            Optional<Symbol> rightHashSymbol,
             Optional<JoinNode.DistributionType> distributionType,
             Map<DynamicFilterId, Symbol> dynamicFilters)
     {
@@ -1135,8 +1104,6 @@ public class PlanBuilder
                 rightOutputSymbols,
                 false,
                 filter,
-                leftHashSymbol,
-                rightHashSymbol,
                 distributionType,
                 Optional.empty(),
                 dynamicFilters,
@@ -1145,25 +1112,21 @@ public class PlanBuilder
 
     public PlanNode indexJoin(IndexJoinNode.Type type, PlanNode probe, PlanNode index)
     {
-        return indexJoin(type, probe, index, emptyList(), Optional.empty(), Optional.empty());
+        return indexJoin(type, probe, index, emptyList());
     }
 
     public PlanNode indexJoin(
             IndexJoinNode.Type type,
             PlanNode probe,
             PlanNode index,
-            List<IndexJoinNode.EquiJoinClause> criteria,
-            Optional<Symbol> probeHashSymbol,
-            Optional<Symbol> indexHashSymbol)
+            List<IndexJoinNode.EquiJoinClause> criteria)
     {
         return new IndexJoinNode(
                 idAllocator.getNextId(),
                 type,
                 probe,
                 index,
-                criteria,
-                probeHashSymbol,
-                indexHashSymbol);
+                criteria);
     }
 
     public PlanNode spatialJoin(

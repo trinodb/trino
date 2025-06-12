@@ -1055,8 +1055,6 @@ public class TestDynamicFilterService
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
                         ImmutableMap.of(producedDynamicFilterId, buildSymbol),
                         Optional.empty()),
                 ImmutableSet.of(symbol),
