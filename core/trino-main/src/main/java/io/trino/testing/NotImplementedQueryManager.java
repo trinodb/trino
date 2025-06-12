@@ -13,6 +13,7 @@
  */
 package io.trino.testing;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.Session;
 import io.trino.execution.QueryExecution;
@@ -37,114 +38,97 @@ public class NotImplementedQueryManager
     @Override
     public List<BasicQueryInfo> getQueries()
     {
-        throw new RuntimeException("not implemented");
+        return ImmutableList.of();
     }
 
     @Override
     public void setOutputInfoListener(QueryId queryId, Consumer<QueryExecution.QueryOutputInfo> listener)
-            throws NoSuchElementException
     {
-        throw new RuntimeException("not implemented");
+        throw new NoSuchElementException(queryId.toString());
     }
 
     @Override
     public void outputTaskFailed(TaskId taskId, Throwable failure)
     {
-        throw new RuntimeException("not implemented");
+        throw new NoSuchElementException(taskId.getQueryId().toString());
     }
 
     @Override
     public void resultsConsumed(QueryId queryId)
     {
-        throw new RuntimeException("not implemented");
+        throw new NoSuchElementException(queryId.toString());
     }
 
     @Override
     public void addStateChangeListener(QueryId queryId, StateMachine.StateChangeListener<QueryState> listener)
-            throws NoSuchElementException
     {
-        throw new RuntimeException("not implemented");
+        throw new NoSuchElementException(queryId.toString());
     }
 
     @Override
     public ListenableFuture<QueryState> getStateChange(QueryId queryId, QueryState currentState)
     {
-        throw new RuntimeException("not implemented");
+        throw new NoSuchElementException(queryId.toString());
     }
 
     @Override
     public BasicQueryInfo getQueryInfo(QueryId queryId)
-            throws NoSuchElementException
     {
-        throw new RuntimeException("not implemented");
+        throw new NoSuchElementException(queryId.toString());
     }
 
     @Override
     public QueryInfo getFullQueryInfo(QueryId queryId)
-            throws NoSuchElementException
     {
-        throw new RuntimeException("not implemented");
+        throw new NoSuchElementException(queryId.toString());
     }
 
     @Override
     public ResultQueryInfo getResultQueryInfo(QueryId queryId)
             throws NoSuchElementException
     {
-        throw new RuntimeException("not implemented");
+        throw new NoSuchElementException(queryId.toString());
     }
 
     @Override
     public Session getQuerySession(QueryId queryId)
     {
-        throw new RuntimeException("not implemented");
+        throw new NoSuchElementException(queryId.toString());
     }
 
     @Override
     public Slug getQuerySlug(QueryId queryId)
     {
-        throw new RuntimeException("not implemented");
+        throw new NoSuchElementException(queryId.toString());
     }
 
     @Override
     public QueryState getQueryState(QueryId queryId)
-            throws NoSuchElementException
     {
-        throw new RuntimeException("not implemented");
+        throw new NoSuchElementException(queryId.toString());
     }
 
     @Override
     public boolean hasQuery(QueryId queryId)
     {
-        throw new RuntimeException("not implemented");
+        return false;
     }
 
     @Override
-    public void recordHeartbeat(QueryId queryId)
-    {
-        throw new RuntimeException("not implemented");
-    }
+    public void recordHeartbeat(QueryId queryId) {}
 
     @Override
     public void createQuery(QueryExecution execution)
     {
-        throw new RuntimeException("not implemented");
+        throw new UnsupportedOperationException();
     }
 
     @Override
-    public void failQuery(QueryId queryId, Throwable cause)
-    {
-        throw new RuntimeException("not implemented");
-    }
+    public void failQuery(QueryId queryId, Throwable cause) {}
 
     @Override
-    public void cancelQuery(QueryId queryId)
-    {
-        throw new RuntimeException("not implemented");
-    }
+    public void cancelQuery(QueryId queryId) {}
 
     @Override
-    public void cancelStage(StageId stageId)
-    {
-        throw new RuntimeException("not implemented");
-    }
+    public void cancelStage(StageId stageId) {}
 }
