@@ -748,8 +748,6 @@ public class TestEffectivePredicateExtractor
                 Optional.of(lessThanOrEqual(new Reference(BIGINT, "b"), new Reference(BIGINT, "e"))),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
                 ImmutableMap.of(),
                 Optional.empty());
 
@@ -790,8 +788,6 @@ public class TestEffectivePredicateExtractor
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
                 ImmutableMap.of(),
                 Optional.empty());
 
@@ -819,8 +815,6 @@ public class TestEffectivePredicateExtractor
                 rightScan.getOutputSymbols(),
                 false,
                 Optional.of(FALSE),
-                Optional.empty(),
-                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 ImmutableMap.of(),
@@ -856,8 +850,6 @@ public class TestEffectivePredicateExtractor
                 left.getOutputSymbols(),
                 right.getOutputSymbols(),
                 false,
-                Optional.empty(),
-                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
@@ -903,8 +895,6 @@ public class TestEffectivePredicateExtractor
                 left.getOutputSymbols(),
                 right.getOutputSymbols(),
                 false,
-                Optional.empty(),
-                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
@@ -957,8 +947,6 @@ public class TestEffectivePredicateExtractor
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
                 ImmutableMap.of(),
                 Optional.empty());
 
@@ -1003,8 +991,6 @@ public class TestEffectivePredicateExtractor
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
                 ImmutableMap.of(),
                 Optional.empty());
 
@@ -1025,8 +1011,6 @@ public class TestEffectivePredicateExtractor
                 filter(baseTableScan, and(greaterThan(new Reference(BIGINT, "a"), bigintLiteral(10)), lessThan(new Reference(BIGINT, "a"), bigintLiteral(100)))),
                 filter(baseTableScan, greaterThan(new Reference(BIGINT, "a"), bigintLiteral(5))),
                 new Symbol(BIGINT, "a"), new Symbol(BIGINT, "b"), new Symbol(DOUBLE, "c"),
-                Optional.empty(),
-                Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
 

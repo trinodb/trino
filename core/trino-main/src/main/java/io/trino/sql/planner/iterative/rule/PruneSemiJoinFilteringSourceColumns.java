@@ -14,7 +14,7 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Streams;
+import com.google.common.collect.ImmutableSet;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.planner.Symbol;
@@ -22,9 +22,7 @@ import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.SemiJoinNode;
 
 import java.util.Set;
-import java.util.stream.Stream;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.sql.planner.iterative.rule.Util.restrictOutputs;
 import static io.trino.sql.planner.plan.Patterns.semiJoin;
 
@@ -42,10 +40,7 @@ public class PruneSemiJoinFilteringSourceColumns
     @Override
     public Result apply(SemiJoinNode semiJoinNode, Captures captures, Context context)
     {
-        Set<Symbol> requiredFilteringSourceInputs = Streams.concat(
-                Stream.of(semiJoinNode.getFilteringSourceJoinSymbol()),
-                semiJoinNode.getFilteringSourceHashSymbol().stream())
-                .collect(toImmutableSet());
+        Set<Symbol> requiredFilteringSourceInputs = ImmutableSet.of(semiJoinNode.getFilteringSourceJoinSymbol());
 
         return restrictOutputs(context.getIdAllocator(), semiJoinNode.getFilteringSource(), requiredFilteringSourceInputs)
                 .map(newFilteringSource ->

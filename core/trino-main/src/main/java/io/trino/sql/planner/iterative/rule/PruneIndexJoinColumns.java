@@ -41,14 +41,12 @@ public class PruneIndexJoinColumns
                 .addAll(indexJoinNode.getCriteria().stream()
                         .map(IndexJoinNode.EquiJoinClause::getProbe)
                         .collect(toImmutableList()));
-        indexJoinNode.getProbeHashSymbol().ifPresent(probeInputs::add);
 
         ImmutableSet.Builder<Symbol> indexInputs = ImmutableSet.<Symbol>builder()
                 .addAll(referencedOutputs)
                 .addAll(indexJoinNode.getCriteria().stream()
                         .map(IndexJoinNode.EquiJoinClause::getIndex)
                         .collect(toImmutableList()));
-        indexJoinNode.getIndexHashSymbol().ifPresent(indexInputs::add);
 
         return restrictChildOutputs(context.getIdAllocator(), indexJoinNode, probeInputs.build(), indexInputs.build());
     }

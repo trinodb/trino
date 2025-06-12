@@ -254,9 +254,7 @@ public class PushPartialAggregationThroughJoin
         return Streams.concat(
                         node.getCriteria().stream().map(JoinNode.EquiJoinClause::getLeft),
                         node.getCriteria().stream().map(JoinNode.EquiJoinClause::getRight),
-                        node.getFilter().map(SymbolsExtractor::extractUnique).orElse(ImmutableSet.of()).stream(),
-                        node.getLeftHashSymbol().map(ImmutableSet::of).orElse(ImmutableSet.of()).stream(),
-                        node.getRightHashSymbol().map(ImmutableSet::of).orElse(ImmutableSet.of()).stream())
+                        node.getFilter().map(SymbolsExtractor::extractUnique).orElse(ImmutableSet.of()).stream())
                 .collect(toImmutableSet());
     }
 
@@ -310,8 +308,6 @@ public class PushPartialAggregationThroughJoin
                 rightChild.getOutputSymbols(),
                 child.isMaySkipOutputDuplicates(),
                 child.getFilter(),
-                child.getLeftHashSymbol(),
-                child.getRightHashSymbol(),
                 child.getDistributionType(),
                 child.isSpillable(),
                 child.getDynamicFilters(),

@@ -258,8 +258,6 @@ public class ExpressionRewriteRuleSet
                         joinNode.getRightOutputSymbols(),
                         joinNode.isMaySkipOutputDuplicates(),
                         filter,
-                        joinNode.getLeftHashSymbol(),
-                        joinNode.getRightHashSymbol(),
                         joinNode.getDistributionType(),
                         joinNode.isSpillable(),
                         joinNode.getDynamicFilters(),

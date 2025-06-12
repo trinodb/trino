@@ -43,7 +43,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
@@ -448,10 +447,10 @@ public class WindowOperator
                 List<WindowFunctionDefinition> windowFunctionDefinitions)
         {
             this.pagesIndex = pagesIndexFactory.newPagesIndex(sourceTypes, expectedPositions);
-            this.preGroupedPartitionHashStrategy = pagesIndex.createPagesHashStrategy(preGroupedPartitionChannels, OptionalInt.empty());
-            this.unGroupedPartitionHashStrategy = pagesIndex.createPagesHashStrategy(unGroupedPartitionChannels, OptionalInt.empty());
-            this.preSortedPartitionHashStrategy = pagesIndex.createPagesHashStrategy(preSortedChannels, OptionalInt.empty());
-            this.peerGroupHashStrategy = pagesIndex.createPagesHashStrategy(sortChannels, OptionalInt.empty());
+            this.preGroupedPartitionHashStrategy = pagesIndex.createPagesHashStrategy(preGroupedPartitionChannels);
+            this.unGroupedPartitionHashStrategy = pagesIndex.createPagesHashStrategy(unGroupedPartitionChannels);
+            this.preSortedPartitionHashStrategy = pagesIndex.createPagesHashStrategy(preSortedChannels);
+            this.peerGroupHashStrategy = pagesIndex.createPagesHashStrategy(sortChannels);
             this.preGroupedPartitionChannels = Ints.toArray(preGroupedPartitionChannels);
             this.frameBoundComparators = createFrameBoundComparators(pagesIndex, windowFunctionDefinitions);
         }

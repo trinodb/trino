@@ -804,8 +804,6 @@ public class TestCostCalculator
                 right.getOutputSymbols(),
                 false,
                 Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
                 Optional.of(distributionType),
                 Optional.empty(),
                 ImmutableMap.of(),

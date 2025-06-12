@@ -1088,8 +1088,6 @@ public class UnaliasSymbolReferences
             List<JoinNode.EquiJoinClause> newCriteria = builder.build();
 
             Optional<Expression> newFilter = node.getFilter().map(mapper::map);
-            Optional<Symbol> newLeftHashSymbol = node.getLeftHashSymbol().map(mapper::map);
-            Optional<Symbol> newRightHashSymbol = node.getRightHashSymbol().map(mapper::map);
 
             // rewrite dynamic filters
             Map<Symbol, DynamicFilterId> canonicalDynamicFilters = new HashMap<>();
@@ -1140,8 +1138,6 @@ public class UnaliasSymbolReferences
                             newRightOutputSymbols,
                             node.isMaySkipOutputDuplicates(),
                             newFilter,
-                            newLeftHashSymbol,
-                            newRightHashSymbol,
                             node.getDistributionType(),
                             node.isSpillable(),
                             newDynamicFilters,
@@ -1165,8 +1161,6 @@ public class UnaliasSymbolReferences
             Symbol newSourceJoinSymbol = mapper.map(node.getSourceJoinSymbol());
             Symbol newFilteringSourceJoinSymbol = mapper.map(node.getFilteringSourceJoinSymbol());
             Symbol newSemiJoinOutput = mapper.map(node.getSemiJoinOutput());
-            Optional<Symbol> newSourceHashSymbol = node.getSourceHashSymbol().map(mapper::map);
-            Optional<Symbol> newFilteringSourceHashSymbol = node.getFilteringSourceHashSymbol().map(mapper::map);
 
             return new PlanAndMappings(
                     new SemiJoinNode(
@@ -1176,8 +1170,6 @@ public class UnaliasSymbolReferences
                             newSourceJoinSymbol,
                             newFilteringSourceJoinSymbol,
                             newSemiJoinOutput,
-                            newSourceHashSymbol,
-                            newFilteringSourceHashSymbol,
                             node.getDistributionType(),
                             node.getDynamicFilterId()),
                     outputMapping);
@@ -1226,11 +1218,8 @@ public class UnaliasSymbolReferences
             }
             List<IndexJoinNode.EquiJoinClause> newEquiCriteria = builder.build();
 
-            Optional<Symbol> newProbeHashSymbol = node.getProbeHashSymbol().map(mapper::map);
-            Optional<Symbol> newIndexHashSymbol = node.getIndexHashSymbol().map(mapper::map);
-
             return new PlanAndMappings(
-                    new IndexJoinNode(node.getId(), node.getType(), rewrittenProbe.getRoot(), rewrittenIndex.getRoot(), newEquiCriteria, newProbeHashSymbol, newIndexHashSymbol),
+                    new IndexJoinNode(node.getId(), node.getType(), rewrittenProbe.getRoot(), rewrittenIndex.getRoot(), newEquiCriteria),
                     outputMapping);
         }
 

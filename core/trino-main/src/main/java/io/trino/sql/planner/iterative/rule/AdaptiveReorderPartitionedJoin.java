@@ -89,7 +89,7 @@ public class AdaptiveReorderPartitionedJoin
 {
     private static final Capture<ExchangeNode> LOCAL_EXCHANGE_NODE = Capture.newCapture();
     private static final Pattern<JoinNode> PATTERN = join()
-            .matching(AdaptiveReorderPartitionedJoin::isPartitionedJoinWithNoHashSymbols)
+            .matching(AdaptiveReorderPartitionedJoin::isPartitionedJoin)
             .or(
                     // In case partial aggregation is missing
                     prev -> prev.with(right().matching(
@@ -113,14 +113,10 @@ public class AdaptiveReorderPartitionedJoin
         this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
-    private static boolean isPartitionedJoinWithNoHashSymbols(JoinNode joinNode)
+    private static boolean isPartitionedJoin(JoinNode joinNode)
     {
         // Check if the join is partitioned and does not have hash symbols
-        return joinNode.getDistributionType().equals(Optional.of(PARTITIONED))
-                // TODO: Add support for hash symbols. For now, it's not important since hash optimization
-                //  is disabled by default
-                && joinNode.getRightHashSymbol().isEmpty()
-                && joinNode.getLeftHashSymbol().isEmpty();
+        return joinNode.getDistributionType().equals(Optional.of(PARTITIONED));
     }
 
     @Override
@@ -206,8 +202,6 @@ public class AdaptiveReorderPartitionedJoin
                 flippedJoinNode.getRightOutputSymbols(),
                 flippedJoinNode.isMaySkipOutputDuplicates(),
                 flippedJoinNode.getFilter(),
-                flippedJoinNode.getLeftHashSymbol(),
-                flippedJoinNode.getRightHashSymbol(),
                 flippedJoinNode.getDistributionType(),
                 flippedJoinNode.isSpillable(),
                 flippedJoinNode.getDynamicFilters(),

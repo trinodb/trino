@@ -169,8 +169,6 @@ public final class PlanCopier
                     node.getRightOutputSymbols(),
                     node.isMaySkipOutputDuplicates(),
                     node.getFilter(),
-                    node.getLeftHashSymbol(),
-                    node.getRightHashSymbol(),
                     node.getDistributionType(),
                     node.isSpillable(),
                     node.getDynamicFilters(),

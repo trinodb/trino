@@ -53,7 +53,6 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -115,7 +114,6 @@ public class BenchmarkHashBuildAndJoinOperators
         protected ExecutorService executor;
         protected ScheduledExecutorService scheduledExecutor;
         protected List<Page> buildPages;
-        protected OptionalInt hashChannel;
         protected List<Type> types;
         protected List<Integer> hashChannels;
 
@@ -151,11 +149,6 @@ public class BenchmarkHashBuildAndJoinOperators
             return TestingTaskContext.createTaskContext(executor, scheduledExecutor, getSession(), DataSize.of(2, GIGABYTE));
         }
 
-        public OptionalInt getHashChannel()
-        {
-            return hashChannel;
-        }
-
         public List<Integer> getHashChannels()
         {
             return hashChannels;
@@ -186,8 +179,6 @@ public class BenchmarkHashBuildAndJoinOperators
 
             types = buildPagesBuilder.getTypes();
             buildPages = buildPagesBuilder.build();
-            hashChannel = buildPagesBuilder.getHashChannel()
-                    .map(OptionalInt::of).orElse(OptionalInt.empty());
         }
     }
 
@@ -240,7 +231,6 @@ public class BenchmarkHashBuildAndJoinOperators
                     false,
                     types,
                     hashChannels,
-                    hashChannel,
                     Optional.of(outputChannels));
             buildHash(this, lookupSourceFactory, outputChannels, partitionCount);
             initializeProbePages();
@@ -340,7 +330,6 @@ public class BenchmarkHashBuildAndJoinOperators
                 lookupSourceFactoryManager,
                 outputChannels,
                 buildContext.getHashChannels(),
-                buildContext.getHashChannel(),
                 Optional.empty(),
                 Optional.empty(),
                 ImmutableList.of(),
