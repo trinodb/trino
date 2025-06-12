@@ -91,6 +91,7 @@ import org.apache.iceberg.avro.AvroSchemaUtil;
 import org.apache.iceberg.io.InputFile;
 import org.apache.iceberg.mapping.MappedField;
 import org.apache.iceberg.mapping.MappedFields;
+import org.apache.iceberg.mapping.MappingUtil;
 import org.apache.iceberg.mapping.NameMapping;
 import org.apache.iceberg.mapping.NameMappingParser;
 import org.apache.iceberg.parquet.ParquetSchemaUtil;
@@ -266,7 +267,7 @@ public class IcebergPageSourceProvider
                 split.getFileFormat(),
                 split.getFileIoProperties(),
                 split.getDataSequenceNumber(),
-                tableHandle.getNameMappingJson().map(NameMappingParser::fromJson));
+                tableHandle.getNameMappingJson().map(NameMappingParser::fromJson).orElseGet(() -> MappingUtil.create(schema)));
     }
 
     public ConnectorPageSource createPageSource(
@@ -288,7 +289,7 @@ public class IcebergPageSourceProvider
             IcebergFileFormat fileFormat,
             Map<String, String> fileIoProperties,
             long dataSequenceNumber,
-            Optional<NameMapping> nameMapping)
+            NameMapping nameMapping)
     {
         Map<Integer, Optional<String>> partitionKeys = getPartitionKeys(partitionData, partitionSpec);
         TupleDomain<IcebergColumnHandle> effectivePredicate = getUnenforcedPredicate(
@@ -469,6 +470,7 @@ public class IcebergPageSourceProvider
             List<IcebergColumnHandle> columns,
             TupleDomain<IcebergColumnHandle> tupleDomain)
     {
+        Schema schema = schemaFromHandles(columns);
         return createDataPageSource(
                 session,
                 fileSystem.newInputFile(Location.of(delete.path()), delete.fileSizeInBytes()),
@@ -478,10 +480,10 @@ public class IcebergPageSourceProvider
                 0,
                 "",
                 IcebergFileFormat.fromIceberg(delete.format()),
-                schemaFromHandles(columns),
+                schema,
                 columns,
                 tupleDomain,
-                Optional.empty(),
+                MappingUtil.create(schema),
                 "",
                 ImmutableMap.of())
                 .pageSource();
@@ -499,7 +501,7 @@ public class IcebergPageSourceProvider
             Schema fileSchema,
             List<IcebergColumnHandle> dataColumns,
             TupleDomain<IcebergColumnHandle> predicate,
-            Optional<NameMapping> nameMapping,
+            NameMapping nameMapping,
             String partition,
             Map<Integer, Optional<String>> partitionKeys)
     {
@@ -608,7 +610,7 @@ public class IcebergPageSourceProvider
             OrcReaderOptions options,
             FileFormatDataSourceStats stats,
             TypeManager typeManager,
-            Optional<NameMapping> nameMapping,
+            NameMapping nameMapping,
             String partition,
             Map<Integer, Optional<String>> partitionKeys)
     {
@@ -891,7 +893,7 @@ public class IcebergPageSourceProvider
             ParquetReaderOptions options,
             TupleDomain<IcebergColumnHandle> effectivePredicate,
             FileFormatDataSourceStats fileFormatDataSourceStats,
-            Optional<NameMapping> nameMapping,
+            NameMapping nameMapping,
             String partition,
             Map<Integer, Optional<String>> partitionKeys)
     {
@@ -903,9 +905,9 @@ public class IcebergPageSourceProvider
             ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, options.getMaxFooterReadSize());
             FileMetadata fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();
-            if (nameMapping.isPresent() && !ParquetSchemaUtil.hasIds(fileSchema)) {
+            if (!ParquetSchemaUtil.hasIds(fileSchema)) {
                 // NameMapping conversion is necessary because MetadataReader converts all column names to lowercase and NameMapping is case sensitive
-                fileSchema = ParquetSchemaUtil.applyNameMapping(fileSchema, convertToLowercase(nameMapping.get()));
+                fileSchema = ParquetSchemaUtil.applyNameMapping(fileSchema, convertToLowercase(nameMapping));
             }
 
             // Mapping from Iceberg field ID to Parquet fields.
@@ -1094,7 +1096,7 @@ public class IcebergPageSourceProvider
             int partitionSpecId,
             String partitionData,
             Schema fileSchema,
-            Optional<NameMapping> nameMapping,
+            NameMapping nameMapping,
             String partition,
             List<IcebergColumnHandle> columns)
     {
@@ -1113,9 +1115,9 @@ public class IcebergPageSourceProvider
         try (DataFileStream<?> avroFileReader = new DataFileStream<>(file.newStream(), new GenericDatumReader<>())) {
             org.apache.avro.Schema avroSchema = avroFileReader.getSchema();
             List<org.apache.avro.Schema.Field> fileFields = avroSchema.getFields();
-            if (nameMapping.isPresent() && fileFields.stream().noneMatch(IcebergPageSourceProvider::hasId)) {
+            if (fileFields.stream().noneMatch(IcebergPageSourceProvider::hasId)) {
                 fileFields = fileFields.stream()
-                        .map(field -> setMissingFieldId(field, nameMapping.get(), ImmutableList.of(field.name())))
+                        .map(field -> setMissingFieldId(field, nameMapping, ImmutableList.of(field.name())))
                         .collect(toImmutableList());
             }
 
@@ -1178,7 +1180,7 @@ public class IcebergPageSourceProvider
                     start,
                     length,
                     fileSchema,
-                    nameMapping,
+                    Optional.of(nameMapping),
                     columnNames.build(),
                     columnTypes.build(),
                     appendRowNumberColumn,
