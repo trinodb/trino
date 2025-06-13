@@ -59,15 +59,10 @@ import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.Decimals;
 import io.trino.spi.type.DoubleType;
-import io.trino.spi.type.Int128;
 import io.trino.spi.type.IntegerType;
-import io.trino.spi.type.LongTimestamp;
-import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.SmallintType;
-import io.trino.spi.type.SqlTime;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
@@ -75,10 +70,12 @@ import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.SqlEnvironmentConfig;
 import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.parser.ParsingException;
 import io.trino.sql.parser.SqlParser;
+import io.trino.sql.planner.ConnectorExpressionTranslator;
 import io.trino.sql.tree.AllColumns;
 import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.BinaryLiteral;
@@ -129,7 +126,6 @@ import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.TableElement;
 import io.trino.sql.tree.Values;
 
-import java.time.ZoneId;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -166,9 +162,6 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
-import static io.trino.spi.type.DateTimeEncoding.unpackZoneKey;
-import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.QueryUtil.aliased;
 import static io.trino.sql.QueryUtil.aliasedName;
@@ -195,12 +188,6 @@ import static io.trino.sql.tree.CreateView.Security.DEFINER;
 import static io.trino.sql.tree.CreateView.Security.INVOKER;
 import static io.trino.sql.tree.LogicalExpression.and;
 import static io.trino.sql.tree.SaveMode.FAIL;
-import static io.trino.type.DateTimes.formatTimestamp;
-import static io.trino.type.DateTimes.formatTimestampWithTimeZone;
-import static io.trino.util.DateTimeUtils.printDate;
-import static java.lang.Float.intBitsToFloat;
-import static java.lang.Math.toIntExact;
-import static java.time.ZoneOffset.UTC;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -208,6 +195,7 @@ import static java.util.stream.Collectors.toList;
 public final class ShowQueriesRewrite
         implements StatementRewrite.Rewrite
 {
+    private final PlannerContext plannerContext;
     private final Metadata metadata;
     private final SqlParser parser;
     private final AccessControl accessControl;
@@ -222,7 +210,7 @@ public final class ShowQueriesRewrite
     @Inject
     public ShowQueriesRewrite(
             SqlEnvironmentConfig sqlEnvironmentConfig,
-            Metadata metadata,
+            PlannerContext plannerContext,
             SqlParser parser,
             AccessControl accessControl,
             SessionPropertyManager sessionPropertyManager,
@@ -232,7 +220,8 @@ public final class ShowQueriesRewrite
             ViewPropertyManager viewPropertyManager,
             MaterializedViewPropertyManager materializedViewPropertyManager)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+        this.metadata = requireNonNull(plannerContext.getMetadata(), "metadata is null");
         this.parser = requireNonNull(parser, "parser is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
@@ -701,35 +690,30 @@ public final class ShowQueriesRewrite
             return singleValueQuery("Create Table", formatSql(createTable).trim());
         }
 
-        private static Literal toLiteral(Type type, ConnectorExpression expression)
+        private Literal toLiteral(Type type, ConnectorExpression expression)
                 throws TrinoException
         {
             checkArgument(type.equals(expression.getType()), "Type '%s' must equal '%s'", type, expression.getType());
 
-            if (!(expression instanceof Constant constant)) {
+            if (!(expression instanceof Constant)) {
                 throw new TrinoException(NOT_SUPPORTED, "Unsupported expression: " + expression);
             }
 
-            Object value = constant.getValue();
+            io.trino.sql.ir.Constant constant = (io.trino.sql.ir.Constant) ConnectorExpressionTranslator.translate(session, expression, plannerContext, Map.of());
+            Object value = constant.value();
             if (value == null) {
                 return new NullLiteral();
             }
 
+            String valueString = type.getObjectValue(constant.getValueAsBlock(), 0).toString();
+
             // TODO: Support all literals
             return switch (type) {
-                case BooleanType _ -> new BooleanLiteral(value.toString());
-                case TinyintType _, SmallintType _, IntegerType _, BigintType _ -> new LongLiteral(value.toString());
-                case RealType _ -> {
-                    float real = intBitsToFloat(toIntExact((long) value));
-                    yield new GenericLiteral("REAL", Float.toString(real));
-                }
-                case DoubleType _ -> new DoubleLiteral(Double.toString((double) value));
-                case DecimalType decimalType -> {
-                    if (decimalType.isShort()) {
-                        yield new DecimalLiteral(Decimals.toString((long) value, decimalType.getScale()));
-                    }
-                    yield new DecimalLiteral(Decimals.toString(((Int128) value).toBigInteger(), decimalType.getScale()));
-                }
+                case BooleanType _ -> new BooleanLiteral(valueString);
+                case TinyintType _, SmallintType _, IntegerType _, BigintType _ -> new LongLiteral(valueString);
+                case RealType _ -> new GenericLiteral("REAL", valueString);
+                case DoubleType _ -> new DoubleLiteral(valueString);
+                case DecimalType _ -> new DecimalLiteral(valueString);
                 case CharType _, VarcharType _ -> new StringLiteral(((Slice) value).toStringUtf8());
                 case VarbinaryType _ -> {
                     Slice slice = (Slice) value;
@@ -739,42 +723,9 @@ public final class ShowQueriesRewrite
                     }
                     yield new BinaryLiteral(null, varbinaryBuilder.toString());
                 }
-                case TimeType timeType -> new GenericLiteral("TIME", SqlTime.newInstance(timeType.getPrecision(), (long) value).toString());
-                case DateType _ -> new GenericLiteral("DATE", printDate(toIntExact((long) value)));
-                case TimestampType timestampType -> {
-                    long epochMicros;
-                    int fraction;
-
-                    if (timestampType.isShort()) {
-                        epochMicros = (long) value;
-                        fraction = 0;
-                    }
-                    else {
-                        LongTimestamp timestamp = (LongTimestamp) value;
-                        epochMicros = timestamp.getEpochMicros();
-                        fraction = timestamp.getPicosOfMicro();
-                    }
-                    yield new GenericLiteral("TIMESTAMP", formatTimestamp(timestampType.getPrecision(), epochMicros, fraction, UTC));
-                }
-                case TimestampWithTimeZoneType timestampWithTimeZoneType -> {
-                    long epochMillis;
-                    int picosOfMilli;
-                    ZoneId zoneId;
-
-                    if (timestampWithTimeZoneType.isShort()) {
-                        long packedEpochMillis = (long) value;
-                        epochMillis = unpackMillisUtc(packedEpochMillis);
-                        picosOfMilli = 0;
-                        zoneId = unpackZoneKey(packedEpochMillis).getZoneId();
-                    }
-                    else {
-                        LongTimestampWithTimeZone timestamp = (LongTimestampWithTimeZone) value;
-                        epochMillis = timestamp.getEpochMillis();
-                        picosOfMilli = timestamp.getPicosOfMilli();
-                        zoneId = getTimeZoneKey(timestamp.getTimeZoneKey()).getZoneId();
-                    }
-                    yield new GenericLiteral("TIMESTAMP", formatTimestampWithTimeZone(timestampWithTimeZoneType.getPrecision(), epochMillis, picosOfMilli, zoneId));
-                }
+                case TimeType _ -> new GenericLiteral("TIME", valueString);
+                case DateType _ -> new GenericLiteral("DATE", valueString);
+                case TimestampType _, TimestampWithTimeZoneType _ -> new GenericLiteral("TIMESTAMP", valueString);
                 default -> throw new IllegalArgumentException("Unsupported type: " + type);
             };
         }
