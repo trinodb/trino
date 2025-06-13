@@ -13,12 +13,14 @@
  */
 package io.trino.tests;
 
+import com.google.common.collect.ImmutableMap;
 import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.dispatcher.DispatchManager;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryManager;
 import io.trino.execution.QueryState;
+import io.trino.plugin.hive.TestingHivePlugin;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.SessionContext;
 import io.trino.server.protocol.Slug;
@@ -31,12 +33,14 @@ import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.QUERY_MAX_WRITE_PHYSICAL_BYTES;
 import static io.trino.execution.QueryRunnerUtil.createQuery;
 import static io.trino.execution.QueryRunnerUtil.waitForQueryState;
 import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.RUNNING;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_CPU_LIMIT;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_SCAN_LIMIT;
+import static io.trino.spi.StandardErrorCode.EXCEEDED_WRITE_LIMIT;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Fail.fail;
@@ -130,6 +134,41 @@ public class TestQueryManager
             BasicQueryInfo queryInfo = queryManager.getQueryInfo(queryId);
             assertThat(queryInfo.getState()).isEqualTo(FAILED);
             assertThat(queryInfo.getErrorCode()).isEqualTo(EXCEEDED_SCAN_LIMIT.toErrorCode());
+        }
+    }
+
+    @Test(timeOut = 60_000L)
+    public void testQueryWriteExceededSession()
+            throws Exception
+    {
+        try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder().build()) {
+            queryRunner.installPlugin(new TestingHivePlugin());
+            queryRunner.createCatalog("hive", "hive", ImmutableMap.of(
+                    "hive.metastore", "file",
+                    "hive.metastore.catalog.dir", queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile().getAbsolutePath(),
+                    "hive.allow-drop-table", "true",
+                    "hive.allow-rename-table", "true",
+                    "hive.allow-add-column", "true",
+                    "hive.allow-drop-column", "true",
+                    "hive.allow-rename-column", "true"));
+
+            Session session = testSessionBuilder()
+                    .setCatalog("hive")
+                    .setSchema("test")
+                    .setClientCapabilities(stream(ClientCapabilities.values())
+                            .map(ClientCapabilities::toString)
+                            .collect(toImmutableSet()))
+                    .setSystemProperty(QUERY_MAX_WRITE_PHYSICAL_BYTES, "0B")
+                    .build();
+
+            queryRunner.execute(session, "CREATE SCHEMA IF NOT EXISTS test");
+            QueryId queryId = createQuery(queryRunner, session, "CREATE TABLE test_table AS SELECT * FROM tpch.tiny.orders");
+
+            waitForQueryState(queryRunner, queryId, FAILED);
+            QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
+            BasicQueryInfo queryInfo = queryManager.getQueryInfo(queryId);
+            assertEquals(queryInfo.getState(), FAILED);
+            assertEquals(queryInfo.getErrorCode(), EXCEEDED_WRITE_LIMIT.toErrorCode());
         }
     }
 }
