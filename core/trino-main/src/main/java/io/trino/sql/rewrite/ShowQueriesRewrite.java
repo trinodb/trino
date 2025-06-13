@@ -82,6 +82,7 @@ import io.trino.sql.tree.QuerySpecification;
 import io.trino.sql.tree.Relation;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.SelectItem;
+import io.trino.sql.tree.ShowBranches;
 import io.trino.sql.tree.ShowCatalogs;
 import io.trino.sql.tree.ShowColumns;
 import io.trino.sql.tree.ShowCreate;
@@ -804,6 +805,40 @@ public final class ShowQueriesRewrite
                 case SCALAR -> "scalar";
                 case TABLE -> "table";
             };
+        }
+
+        @Override
+        protected Node visitShowBranches(ShowBranches showBranches, Void context)
+        {
+            QualifiedObjectName tableName = createQualifiedObjectName(session, showBranches, showBranches.getTableName());
+            accessControl.checkCanShowBranches(session.toSecurityContext(), tableName);
+            getRequiredCatalogHandle(metadata, session, showBranches, tableName.catalogName());
+            if (!metadata.schemaExists(session, new CatalogSchemaName(tableName.catalogName(), tableName.schemaName()))) {
+                throw semanticException(SCHEMA_NOT_FOUND, showBranches, "Schema '%s' does not exist", tableName.schemaName());
+            }
+            if (metadata.isMaterializedView(session, tableName)) {
+                throw semanticException(NOT_SUPPORTED, showBranches, "Relation '%s' is a materialized view, not a table", tableName);
+            }
+            if (metadata.isView(session, tableName)) {
+                throw semanticException(NOT_SUPPORTED, showBranches, "Relation '%s' is a view, not a table", tableName);
+            }
+            Optional<TableHandle> tableHandle = metadata.getRedirectionAwareTableHandle(session, tableName).tableHandle();
+            if (tableHandle.isEmpty()) {
+                throw semanticException(TABLE_NOT_FOUND, showBranches, "Table '%s' does not exist", tableName);
+            }
+
+            ImmutableList.Builder<Expression> rows = ImmutableList.builder();
+            for (String branch : metadata.listBranches(session, tableName)) {
+                rows.add(row(new StringLiteral(branch)));
+            }
+
+            return simpleQuery(
+                    selectList(
+                            aliasedName("branch_name", "Branch")),
+                    aliased(
+                            new Values(rows.build()),
+                            "branches",
+                            ImmutableList.of("branch_name")));
         }
 
         @Override
