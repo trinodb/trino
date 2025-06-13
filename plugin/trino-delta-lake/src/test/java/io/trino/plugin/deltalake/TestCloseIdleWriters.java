@@ -77,9 +77,9 @@ public class TestCloseIdleWriters
                         WHEN shipmode IN ('MAIL', 'RAIL', 'REG AIR') THEN 1
                         ELSE 2
                     END AS shipmodeVal
-                    FROM tpch.tiny.lineitem
+                    FROM tpch."sf0.1".lineitem
                     ORDER BY shipmode
-                    LIMIT 60174
+                    LIMIT 600571
                     """.formatted(tableName);
 
             // Disable all kind of scaling and set idle writer threshold to 10MB
@@ -92,7 +92,7 @@ public class TestCloseIdleWriters
                             .setSystemProperty(IDLE_WRITER_MIN_DATA_SIZE_THRESHOLD, "0.1MB")
                             .build(),
                     createTableSql,
-                    60174);
+                    600571);
             long files = (long) computeScalar("SELECT count(DISTINCT \"$path\") FROM " + tableName);
             // There should more than 2 files since we triggered close idle writers.
             assertThat(files).isGreaterThan(2);
