@@ -17,7 +17,7 @@ echo "Creating the Amazon Redshift cluster ${REDSHIFT_CLUSTER_IDENTIFIER} on the
 REDSHIFT_CREATE_CLUSTER_OUTPUT=$(aws redshift create-cluster \
   --db-name testdb \
   --region ${AWS_REGION} \
-  --node-type dc2.large \
+  --node-type ra3.large \
   --number-of-nodes 1 \
   --master-username admin \
   --master-user-password ${REDSHIFT_PASSWORD} \
@@ -26,7 +26,7 @@ REDSHIFT_CREATE_CLUSTER_OUTPUT=$(aws redshift create-cluster \
   --cluster-type single-node\
   --vpc-security-group-ids "${REDSHIFT_VPC_SECURITY_GROUP_IDS}" \
   --iam-roles ${REDSHIFT_IAM_ROLES} \
-  --automated-snapshot-retention-period 0 \
+  --automated-snapshot-retention-period 1 \
   --publicly-accessible \
   --tags Key=cloud,Value=aws Key=environment,Value=test Key=project,Value=trino-redshift Key=ttl,Value=${REDSHIFT_CLUSTER_TTL})
 
