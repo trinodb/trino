@@ -4252,8 +4252,8 @@ public class LocalExecutionPlanner
 
     private static Page validateSpooledLayoutProcessor(Page page)
     {
+        verify(page.getPositionCount() > 0, "Expected at least one position in spooled metadata block");
         verify(page.getChannelCount() == 1, "Expected a single output channel when spooling");
-        verify(page.getPositionCount() == 1, "Expected a single output position when spooling");
         verify(page.getBlock(0) instanceof RowBlock, "Expected a RowBlock for spooling metadata");
         return page;
     }
