@@ -485,7 +485,7 @@ public class S3FileSystemExchangeStorage
                     .build();
         }
 
-        return DefaultCredentialsProvider.create();
+        return DefaultCredentialsProvider.builder().build();
     }
 
     private S3AsyncClient createS3AsyncClient(
