@@ -344,6 +344,8 @@ public class ResourceHudiTablesInitializer
         HUDI_COMPREHENSIVE_TYPES_V6_MOR(hudiComprehensiveTypesColumns(), hudiComprehensiveTypesPartitionColumns(), hudiComprehensiveTypesPartitions(), true),
         HUDI_COMPREHENSIVE_TYPES_V8_MOR(hudiComprehensiveTypesColumns(), hudiComprehensiveTypesPartitionColumns(), hudiComprehensiveTypesPartitions(), true),
         HUDI_MULTI_PT_V8_MOR(hudiMultiPtMorColumns(), hudiMultiPtMorPartitionColumns(), hudiMultiPtMorPartitions(), false),
+        HUDI_TIMESTAMP_KEYGEN_PT_EPOCH_TO_YYYY_MM_DD_HH_V8_MOR(hudiTimestampKeygenColumns(), hudiTimestampKeygenPartitionColumns(), hudiTimestampKeygenPartitions("EPOCHMILLISECONDS"), true),
+        HUDI_TIMESTAMP_KEYGEN_PT_SCALAR_TO_YYYY_MM_DD_HH_V8_MOR(hudiTimestampKeygenColumns(), hudiTimestampKeygenPartitionColumns(), hudiTimestampKeygenPartitions("SCALAR"), true)
         /**/;
 
         private static final List<Column> HUDI_META_COLUMNS = ImmutableList.of(
@@ -677,6 +679,40 @@ public class ResourceHudiTablesInitializer
                     "part_str=electronics/part_int=2023/part_date=2023-03-10/part_bigint=10000000002/part_decimal=50.00/part_timestamp=2023-03-10 12%3A30%3A00/part_bool=false", "part_str=electronics/part_int=2023/part_date=2023-03-10/part_bigint=10000000002/part_decimal=50.00/part_timestamp=2023-03-10 12%3A30%3A00/part_bool=false",
                     "part_str=books/part_int=2023/part_date=2023-01-15/part_bigint=10000000001/part_decimal=123.00/part_timestamp=2023-01-15 10%3A00%3A00/part_bool=true", "part_str=books/part_int=2023/part_date=2023-01-15/part_bigint=10000000001/part_decimal=123.00/part_timestamp=2023-01-15 10%3A00%3A00/part_bool=true",
                     "part_str=books/part_int=2024/part_date=2024-02-20/part_bigint=10000000003/part_decimal=75.00/part_timestamp=2024-02-20 08%3A45%3A10/part_bool=true", "part_str=books/part_int=2024/part_date=2024-02-20/part_bigint=10000000003/part_decimal=75.00/part_timestamp=2024-02-20 08%3A45%3A10/part_bool=true");
+        }
+
+        private static List<Column> hudiTimestampKeygenColumns()
+        {
+            return ImmutableList.of(
+                    column("id", HIVE_INT),
+                    column("name", HIVE_STRING),
+                    column("price", HIVE_DOUBLE),
+                    column("ts", HIVE_LONG));
+        }
+
+        private static List<Column> hudiTimestampKeygenPartitionColumns()
+        {
+            // Data stored in files are long, but partition value that is synced to metastore is String
+            return ImmutableList.of(column("partition_field", HIVE_STRING));
+        }
+
+        private static Map<String, String> hudiTimestampKeygenPartitions(String timestampType)
+        {
+            return switch (timestampType) {
+                case "EPOCHMILLISECONDS" -> ImmutableMap.of(
+                        "partition_field=2025-05-13 02", "2025-05-13 02",
+                        "partition_field=2025-06-05 05", "2025-06-05 05",
+                        "partition_field=2025-06-06 09", "2025-06-06 09",
+                        "partition_field=2025-06-06 10", "2025-06-06 10",
+                        "partition_field=2025-06-07 08", "2025-06-07 08");
+                case "SCALAR" -> ImmutableMap.of(
+                        "partition_field=2024-10-08 12", "2024-10-08 12",
+                        "partition_field=2024-10-07 12", "2024-10-07 12",
+                        "partition_field=2024-10-06 12", "2024-10-06 12",
+                        "partition_field=2024-10-05 12", "2024-10-05 12",
+                        "partition_field=2024-10-04 12", "2024-10-04 12");
+                default -> ImmutableMap.of();
+            };
         }
     }
 

@@ -49,6 +49,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
@@ -202,21 +204,39 @@ public final class HudiUtil
 
     public static List<HiveColumnHandle> prependHudiMetaColumns(List<HiveColumnHandle> dataColumns)
     {
-        List<HiveColumnHandle> columns = new ArrayList<>();
-        if (dataColumns.stream().noneMatch(handle -> HOODIE_META_COLUMNS.contains(handle.getName()))) {
-            columns.addAll(IntStream.range(0, HOODIE_META_COLUMNS.size())
-                    .boxed()
-                    .map(i -> new HiveColumnHandle(
-                            HOODIE_META_COLUMNS.get(i),
-                            i,
-                            HiveType.HIVE_STRING,
-                            VarcharType.VARCHAR,
-                            Optional.empty(),
-                            HiveColumnHandle.ColumnType.REGULAR, Optional.empty()))
-                    .toList());
+        //For efficient lookup
+        Set<String> dataColumnNames = dataColumns.stream()
+                .map(HiveColumnHandle::getName)
+                .collect(Collectors.toSet());
+
+        // If all Hudi meta columns are already present, return the original list
+        if (dataColumnNames.containsAll(HOODIE_META_COLUMNS)) {
+            return dataColumns;
         }
 
+        // Identify only the meta columns that are missing from dataColumns to avoid duplicates
+        List<String> missingMetaColumns = HOODIE_META_COLUMNS.stream()
+                .filter(metaColumn -> !dataColumnNames.contains(metaColumn))
+                .toList();
+
+        List<HiveColumnHandle> columns = new ArrayList<>();
+
+        // Create and prepend the new HiveColumnHandles for the missing meta columns
+        columns.addAll(IntStream.range(0, missingMetaColumns.size())
+                .boxed()
+                .map(i -> new HiveColumnHandle(
+                        missingMetaColumns.get(i),
+                        i,
+                        HiveType.HIVE_STRING,
+                        VarcharType.VARCHAR,
+                        Optional.empty(),
+                        HiveColumnHandle.ColumnType.REGULAR,
+                        Optional.empty()))
+                .toList());
+
+        // Add all the original data columns after the new meta columns
         columns.addAll(dataColumns);
+
         return columns;
     }
 
