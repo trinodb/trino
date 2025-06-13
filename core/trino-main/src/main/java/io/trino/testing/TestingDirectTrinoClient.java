@@ -118,7 +118,7 @@ public class TestingDirectTrinoClient
                 Optional.of(ProtocolUtil.toStatementStats(new ResultQueryInfo(queryInfo))));
     }
 
-    private static List<MaterializedRow> toMaterializedRows(List<Type> types, List<Page> pages)
+    public static List<MaterializedRow> toMaterializedRows(List<Type> types, List<Page> pages)
     {
         ImmutableList.Builder<MaterializedRow> rows = ImmutableList.builder();
         for (Page page : pages) {
