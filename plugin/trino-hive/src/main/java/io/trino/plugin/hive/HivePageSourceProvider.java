@@ -26,6 +26,7 @@ import io.trino.plugin.hive.HiveSplit.BucketValidation;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.coercions.CoercionUtils.CoercionContext;
 import io.trino.plugin.hive.coercions.TypeCoercer;
+import io.trino.plugin.hive.projection.PartitionProjection;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
@@ -71,6 +72,7 @@ import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.trino.plugin.hive.coercions.CoercionUtils.createCoercer;
 import static io.trino.plugin.hive.coercions.CoercionUtils.createTypeFromCoercer;
 import static io.trino.plugin.hive.coercions.CoercionUtils.extractHiveStorageFormat;
+import static io.trino.plugin.hive.projection.PartitionProjectionProperties.getPartitionProjectionFromHiveTable;
 import static io.trino.plugin.hive.util.HiveBucketing.HiveBucketFilter;
 import static io.trino.plugin.hive.util.HiveBucketing.getHiveBucketFilter;
 import static io.trino.plugin.hive.util.HiveTypeUtil.getHiveTypeForDereferences;
@@ -132,7 +134,8 @@ public class HivePageSourceProvider
                 hiveSplit.getPath(),
                 hiveSplit.getTableBucketNumber(),
                 hiveSplit.getEstimatedFileSize(),
-                hiveSplit.getFileModifiedTime());
+                hiveSplit.getFileModifiedTime(),
+                getPartitionProjectionFromHiveTable(hiveTable));
 
         // Perform dynamic partition pruning in case coordinator didn't prune split.
         // This can happen when dynamic filters are collected after partition splits were listed.
@@ -467,6 +470,21 @@ public class HivePageSourceProvider
                 long estimatedFileSize,
                 long fileModifiedTime)
         {
+            return buildColumnMappings(partitionName, partitionKeys, columns, requiredInterimColumns, hiveColumnCoercions, path, bucketNumber, estimatedFileSize, fileModifiedTime, Optional.empty());
+        }
+
+        public static List<ColumnMapping> buildColumnMappings(
+                String partitionName,
+                List<HivePartitionKey> partitionKeys,
+                List<HiveColumnHandle> columns,
+                List<HiveColumnHandle> requiredInterimColumns,
+                Map<Integer, HiveTypeName> hiveColumnCoercions,
+                String path,
+                OptionalInt bucketNumber,
+                long estimatedFileSize,
+                long fileModifiedTime,
+                Optional<PartitionProjection> partitionProjection)
+        {
             Map<String, HivePartitionKey> partitionKeysByName = uniqueIndex(partitionKeys, HivePartitionKey::name);
 
             // Maintain state about hive columns added to the mapping as we iterate (for validation)
@@ -515,7 +533,7 @@ public class HivePageSourceProvider
                 else {
                     columnMappings.add(prefilled(
                             column,
-                            getPrefilledColumnValue(column, partitionKeysByName.get(column.getName()), path, bucketNumber, estimatedFileSize, fileModifiedTime, partitionName),
+                            getPrefilledColumnValue(column, partitionKeysByName.get(column.getName()), path, bucketNumber, estimatedFileSize, fileModifiedTime, partitionName, partitionProjection),
                             baseTypeCoercionFrom));
                 }
             }

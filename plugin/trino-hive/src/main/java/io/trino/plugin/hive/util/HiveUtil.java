@@ -33,6 +33,7 @@ import io.trino.orc.OrcWriterOptions;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HivePartitionKey;
 import io.trino.plugin.hive.HiveTimestampPrecision;
+import io.trino.plugin.hive.projection.PartitionProjection;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnMetadata;
@@ -150,8 +151,8 @@ public final class HiveUtil
     public static final String ICEBERG_TABLE_TYPE_VALUE = "iceberg";
 
     private static final LocalDateTime EPOCH_DAY = new LocalDateTime(1970, 1, 1, 0, 0);
-    private static final DateTimeFormatter HIVE_DATE_PARSER;
-    private static final DateTimeFormatter HIVE_TIMESTAMP_PARSER;
+    public static final DateTimeFormatter HIVE_DATE_PARSER;
+    public static final DateTimeFormatter HIVE_TIMESTAMP_PARSER;
 
     private static final String BIG_DECIMAL_POSTFIX = "BD";
 
@@ -234,9 +235,14 @@ public final class HiveUtil
                 type instanceof CharType;
     }
 
-    public static NullableValue parsePartitionValue(String partitionName, String value, Type type)
+    public static NullableValue parsePartitionValue(String partitionName, String value, Type type, String columName, Optional<PartitionProjection> partitionProjection)
     {
         verifyPartitionTypeSupported(partitionName, type);
+
+        Optional<NullableValue> parsedValue = partitionProjection.flatMap(projection -> projection.parsePartitionValue(columName, value));
+        if (parsedValue.isPresent()) {
+            return parsedValue.get();
+        }
 
         boolean isNull = HIVE_DEFAULT_DYNAMIC_PARTITION.equals(value);
 
@@ -596,7 +602,8 @@ public final class HiveUtil
             OptionalInt bucketNumber,
             long fileSize,
             long fileModifiedTime,
-            String partitionName)
+            String partitionName,
+            Optional<PartitionProjection> partitionProjection)
     {
         String columnValue;
         if (partitionKey != null) {
@@ -623,6 +630,12 @@ public final class HiveUtil
 
         byte[] bytes = columnValue.getBytes(UTF_8);
         String name = columnHandle.getName();
+
+        Optional<NullableValue> parsedValue = partitionProjection.flatMap(projection -> projection.parsePartitionValue(name, columnValue));
+        if (parsedValue.isPresent()) {
+            return parsedValue.get();
+        }
+
         Type type = columnHandle.getType();
         if (isHiveNull(bytes)) {
             return NullableValue.asNull(type);
