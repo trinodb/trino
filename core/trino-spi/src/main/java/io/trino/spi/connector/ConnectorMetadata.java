@@ -1656,6 +1656,14 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Sets the user/role on the specified materialized view.
+     */
+    default void setMaterializedViewAuthorization(ConnectorSession session, SchemaTableName viewName, TrinoPrincipal principal)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting an owner on a materialized view");
+    }
+
+    /**
      * Gets the definitions of materialized views, possibly filtered by schema.
      * This optional method may be implemented by connectors that can support fetching
      * view data in bulk. It is used to populate {@code information_schema.columns}.
