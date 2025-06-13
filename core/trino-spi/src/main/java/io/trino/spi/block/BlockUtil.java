@@ -96,16 +96,7 @@ final class BlockUtil
 
     static int calculateBlockResetSize(int currentSize)
     {
-        long newSize = (long) ceil(currentSize * BLOCK_RESET_SKEW);
-
-        // verify new size is within reasonable bounds
-        if (newSize < DEFAULT_CAPACITY) {
-            newSize = DEFAULT_CAPACITY;
-        }
-        else if (newSize > MAX_ARRAY_SIZE) {
-            newSize = MAX_ARRAY_SIZE;
-        }
-        return (int) newSize;
+        return clamp((long) ceil(currentSize * BLOCK_RESET_SKEW), DEFAULT_CAPACITY, MAX_ARRAY_SIZE);
     }
 
     static int calculateBlockResetBytes(int currentBytes)
