@@ -414,6 +414,27 @@ public interface AccessControl
     void checkCanRevokeTablePrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, TrinoPrincipal revokee, boolean grantOption);
 
     /**
+     * Check if identity is allowed to grant a privilege to the grantee on the specified branch.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanGrantTableBranchPrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, String branchName, TrinoPrincipal grantee, boolean grantOption);
+
+    /**
+     * Check if identity is allowed to deny a privilege to the grantee on the specified branch.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanDenyTableBranchPrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, String branchName, TrinoPrincipal grantee);
+
+    /**
+     * Check if identity is allowed to revoke a privilege from the revokee on the specified branch.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanRevokeTableBranchPrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, String branchName, TrinoPrincipal revokee, boolean grantOption);
+
+    /**
      * Check if identity is allowed to grant the specified privilege to the grantee on the specified entity.
      *
      * @throws AccessDeniedException if not allowed
@@ -601,4 +622,25 @@ public interface AccessControl
      * @throws AccessDeniedException if not allowed
      */
     void checkCanSetEntityAuthorization(SecurityContext context, EntityKindAndName entityKindAndName, TrinoPrincipal principal);
+
+    /**
+     * Check if identity is allowed to create the specified branch.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanCreateBranch(SecurityContext context, QualifiedObjectName tableName, String name);
+
+    /**
+     * Check if identity is allowed to drop the specified branch.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void canCanDropBranch(SecurityContext context, QualifiedObjectName tableName, String name);
+
+    /**
+     * Check if identity is allowed to alter the specified branch.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void canCanAlterBranch(SecurityContext context, QualifiedObjectName tableName, String name);
 }
