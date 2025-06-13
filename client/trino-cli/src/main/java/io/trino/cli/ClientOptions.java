@@ -300,6 +300,9 @@ public class ClientOptions
     @Option(names = "--decimal-data-size", description = "Show data size and rate in base 10 rather than base 2")
     public boolean decimalDataSize;
 
+    @Option(names = "--segment-logging", description = "Enable spooling protocol segment logging")
+    public boolean segmentLoggingEnabled;
+
     public enum OutputFormat
     {
         AUTO,
@@ -346,6 +349,7 @@ public class ClientOptions
                 .toClientSessionBuilder()
                 .source(uri.getSource().orElse(SOURCE_DEFAULT))
                 .encoding(encoding)
+                .segmentLoggingEnabled(segmentLoggingEnabled)
                 .build();
     }
 

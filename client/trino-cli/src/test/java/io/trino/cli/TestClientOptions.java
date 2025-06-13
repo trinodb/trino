@@ -383,6 +383,7 @@ public class TestClientOptions
             case "editingMode":
             case "disableAutoSuggestion":
             case "decimalDataSize":
+            case "segmentLoggingEnabled":
                 return true;
         }
 
