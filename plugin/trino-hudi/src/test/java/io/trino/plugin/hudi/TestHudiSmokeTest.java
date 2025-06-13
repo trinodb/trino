@@ -739,7 +739,7 @@ public class TestHudiSmokeTest
                 .isEqualTo(expectedInputRowsAfterFiltering);
 
         // Exercise query and check output
-        assertQuery(query, "SELECT * FROM VALUES (1, 'a1', 100.0, 1000), (3, 'a3', 101.0, 1001)");
+        assertQuery(query, "VALUES (1, 'a1', 100.0, 1000), (3, 'a3', 101.0, 1001)");
     }
 
     @ParameterizedTest
@@ -767,7 +767,7 @@ public class TestHudiSmokeTest
                 .isFalse();
 
         // Skip check on whether optimization is not applied or not, just check that output is queryable
-        assertQuery(query, "SELECT * FROM VALUES (1, 'a1', 100.0, 1000), (3, 'a3', 101.0, 1001)");
+        assertQuery(query, "VALUES (1, 'a1', 100.0, 1000), (3, 'a3', 101.0, 1001)");
     }
 
     @ParameterizedTest
@@ -780,7 +780,7 @@ public class TestHudiSmokeTest
                 .withDynamicFilterTimeout("10s")
                 .build();
         final String tableIdentifier = "hudi:tests." + table.getRoTableName();
-        // Query is joined-on recordKey and partitionField
+        // Query is joined-on partitionField
         @Language("SQL") String query = "SELECT t1.id, t1.name, t1.price, t1.ts, t1.country FROM " +
                 table + " t1 " +
                 "INNER JOIN " + table + " t2 ON t1.country = t2.country " +
@@ -803,7 +803,42 @@ public class TestHudiSmokeTest
                 .isEqualTo(expectedInputRowsAfterFiltering);
 
         // Exercise query and check output
-        assertQuery(query, "SELECT * FROM VALUES (1, 'a1', 100.0, 1000, 'SG'), (3, 'a3', 101.0, 1001, 'SG'), (1, 'a1', 100.0, 1000, 'SG'), (3, 'a3', 101.0, 1001, 'SG')");
+        assertQuery(query, "VALUES (1, 'a1', 100.0, 1000, 'SG'), (3, 'a3', 101.0, 1001, 'SG'), (1, 'a1', 100.0, 1000, 'SG'), (3, 'a3', 101.0, 1001, 'SG')");
+    }
+
+    @Test
+    public void testDynamicFilterEnabled_withPartitionPruningUsingDynamicFilterOnNestedPartitions()
+    {
+        Session session = SessionBuilder.from(getSession())
+                .withDynamicFilterTimeout("10s")
+                .build();
+        final String tableIdentifier = "hudi:tests." + HUDI_MULTI_PT_V8_MOR.getRoTableName();
+        // Query is joined-on recordKey and partitionField
+        @Language("SQL") String query = "SELECT t1.id FROM " +
+                HUDI_MULTI_PT_V8_MOR + " t1 " +
+                "INNER JOIN " + HUDI_MULTI_PT_V8_MOR + " t2 ON t1.id = t2.id AND t1.part_int = t2.part_int " +
+                "WHERE t2.part_int = 2023";
+
+        MaterializedResult explainRes = getQueryRunner().execute(session, "EXPLAIN ANALYZE " + query);
+        Pattern scanFilterInputRowsPattern = getScanFilterInputRowsPattern(tableIdentifier);
+        Matcher matcher = scanFilterInputRowsPattern.matcher(explainRes.toString());
+        assertThat(matcher.find())
+                .withFailMessage("Could not find 'ScanFilter' for table '%s' with 'dynamicFilters' and 'Input: X rows' stats in EXPLAIN output.\nOutput was:\n%s",
+                        tableIdentifier, explainRes.toString())
+                .isTrue();
+
+        // matcher#group() must be invoked after matcher#find()
+        String rowsInputString = matcher.group(1);
+        long actualInputRows = Long.parseLong(rowsInputString);
+        // 1 row in each split, should only scan 3 splits, i.e. 3 rows
+        // For a more strict search, we can check the number of splits scanned on the builder side
+        long expectedInputRowsAfterFiltering = 3;
+        assertThat(actualInputRows)
+                .describedAs("Number of rows input to the ScanFilter for the probe side table (%s) should reflect effective dynamic filtering", tableIdentifier)
+                .isEqualTo(expectedInputRowsAfterFiltering);
+
+        // Exercise query and check output
+        assertQuery(query, "VALUES (1), (2), (4)");
     }
 
     @ParameterizedTest
@@ -833,7 +868,26 @@ public class TestHudiSmokeTest
 
         // Skip check on whether optimization is not applied or not, just check that output is queryable
         // Cartesian product of result is produced since we are joining by partition column
-        assertQuery(query, "SELECT * FROM VALUES (1, 'a1', 100.0, 1000, 'SG'), (3, 'a3', 101.0, 1001, 'SG'), (1, 'a1', 100.0, 1000, 'SG'), (3, 'a3', 101.0, 1001, 'SG')");
+        assertQuery(query, "VALUES (1, 'a1', 100.0, 1000, 'SG'), (3, 'a3', 101.0, 1001, 'SG'), (1, 'a1', 100.0, 1000, 'SG'), (3, 'a3', 101.0, 1001, 'SG')");
+    }
+
+    @Test
+    public void testPartitionPruningOnNestedPartitions()
+    {
+        // Should only scan paths that match the part_str=*/part_int=2023/part_date=*/part_bigint=*/part_decimal=*/part_timestamp=*/part_bool=*
+        Session session = getSession();
+        // No partition pruning
+        @Language("SQL") String actualQuery = "SELECT part_str, part_int, part_date, part_bigint, part_bool FROM " + HUDI_MULTI_PT_V8_MOR;
+        MaterializedResult actualRes = getQueryRunner().execute(session, actualQuery);
+        int actualTotalSplits = actualRes.getStatementStats().get().getTotalSplits();
+        assertThat(actualTotalSplits).isEqualTo(5);
+
+        // With partition pruning
+        @Language("SQL") String actualPartPruneQuery = actualQuery + " WHERE part_int = 2023";
+        MaterializedResult actualPartPruneRes = getQueryRunner().execute(session, actualPartPruneQuery);
+        int actualPartPruneSplits = actualPartPruneRes.getStatementStats().get().getTotalSplits();
+        assertThat(actualPartPruneSplits).isLessThan(actualTotalSplits);
+        assertThat(actualPartPruneSplits).isEqualTo(3);
     }
 
     @ParameterizedTest
