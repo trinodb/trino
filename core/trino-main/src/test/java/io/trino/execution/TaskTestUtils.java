@@ -161,12 +161,12 @@ public final class TaskTestUtils
                 new JoinFilterFunctionCompiler(PLANNER_CONTEXT.getFunctionManager()),
                 new IndexJoinLookupStats(),
                 new TaskManagerConfig(),
-                new GenericSpillerFactory((types, spillContext, memoryContext) -> {
+                new GenericSpillerFactory((types, spillContext, memoryContext, parallelSpill) -> {
                     throw new UnsupportedOperationException();
                 }),
                 new QueryDataEncoders(new SpoolingEnabledConfig(), Set.of()),
                 Optional.empty(),
-                (types, spillContext, memoryContext) -> {
+                (types, spillContext, memoryContext, parallelSpill) -> {
                     throw new UnsupportedOperationException();
                 },
                 (types, partitionFunction, spillContext, memoryContext) -> {
