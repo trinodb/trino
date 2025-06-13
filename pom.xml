@@ -184,7 +184,7 @@
         <dep.alluxio.version>2.9.6</dep.alluxio.version>
         <dep.antlr.version>4.13.2</dep.antlr.version>
         <dep.avro.version>1.12.0</dep.avro.version>
-        <dep.aws-sdk.version>1.12.786</dep.aws-sdk.version>
+        <dep.aws-sdk.version>1.12.787</dep.aws-sdk.version>
         <dep.cassandra.version>4.17.0</dep.cassandra.version>
         <dep.confluent.version>7.8.0</dep.confluent.version>
         <dep.checkstyle.version>10.23.1</dep.checkstyle.version>
