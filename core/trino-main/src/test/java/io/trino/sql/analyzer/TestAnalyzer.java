@@ -7814,7 +7814,7 @@ public class TestAnalyzer
     {
         StatementRewrite statementRewrite = new StatementRewrite(ImmutableSet.of(new ShowQueriesRewrite(
                 new SqlEnvironmentConfig(),
-                plannerContext.getMetadata(),
+                plannerContext,
                 SQL_PARSER,
                 accessControl,
                 new SessionPropertyManager(),

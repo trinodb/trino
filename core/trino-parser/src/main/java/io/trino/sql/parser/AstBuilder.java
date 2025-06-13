@@ -3040,6 +3040,8 @@ class AstBuilder
     @Override
     public Node visitColumnDefinition(SqlBaseParser.ColumnDefinitionContext context)
     {
+        Optional<Expression> defaultValue = visitIfPresent(context.literal(), Expression.class);
+
         Optional<String> comment = Optional.empty();
         if (context.COMMENT() != null) {
             comment = Optional.of(visitString(context.string()).getValue());
@@ -3056,6 +3058,7 @@ class AstBuilder
                 getLocation(context),
                 getQualifiedName(context.qualifiedName()),
                 (DataType) visit(context.type()),
+                defaultValue,
                 nullable,
                 properties,
                 comment);

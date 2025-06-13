@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 import com.google.inject.Inject;
+import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
@@ -38,10 +39,13 @@ import io.trino.metadata.TablePropertyManager;
 import io.trino.metadata.ViewDefinition;
 import io.trino.metadata.ViewPropertyManager;
 import io.trino.security.AccessControl;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.expression.Constant;
 import io.trino.spi.function.FunctionKind;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.LanguageFunction;
@@ -50,13 +54,31 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.session.PropertyMetadata;
+import io.trino.spi.type.BigintType;
+import io.trino.spi.type.BooleanType;
+import io.trino.spi.type.CharType;
+import io.trino.spi.type.DateType;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.RealType;
+import io.trino.spi.type.SmallintType;
+import io.trino.spi.type.TimeType;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
+import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.VarbinaryType;
+import io.trino.spi.type.VarcharType;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.SqlEnvironmentConfig;
 import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.parser.ParsingException;
 import io.trino.sql.parser.SqlParser;
+import io.trino.sql.planner.ConnectorExpressionTranslator;
 import io.trino.sql.tree.AllColumns;
 import io.trino.sql.tree.AstVisitor;
+import io.trino.sql.tree.BinaryLiteral;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.ColumnDefinition;
@@ -64,12 +86,17 @@ import io.trino.sql.tree.CreateMaterializedView;
 import io.trino.sql.tree.CreateSchema;
 import io.trino.sql.tree.CreateTable;
 import io.trino.sql.tree.CreateView;
+import io.trino.sql.tree.DecimalLiteral;
+import io.trino.sql.tree.DoubleLiteral;
 import io.trino.sql.tree.Explain;
 import io.trino.sql.tree.ExplainAnalyze;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.GrantObject;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.LikePredicate;
+import io.trino.sql.tree.Literal;
+import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NullLiteral;
@@ -105,6 +132,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.connector.informationschema.InformationSchemaTable.COLUMNS;
@@ -167,6 +195,7 @@ import static java.util.stream.Collectors.toList;
 public final class ShowQueriesRewrite
         implements StatementRewrite.Rewrite
 {
+    private final PlannerContext plannerContext;
     private final Metadata metadata;
     private final SqlParser parser;
     private final AccessControl accessControl;
@@ -181,7 +210,7 @@ public final class ShowQueriesRewrite
     @Inject
     public ShowQueriesRewrite(
             SqlEnvironmentConfig sqlEnvironmentConfig,
-            Metadata metadata,
+            PlannerContext plannerContext,
             SqlParser parser,
             AccessControl accessControl,
             SessionPropertyManager sessionPropertyManager,
@@ -191,7 +220,8 @@ public final class ShowQueriesRewrite
             ViewPropertyManager viewPropertyManager,
             MaterializedViewPropertyManager materializedViewPropertyManager)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+        this.metadata = requireNonNull(plannerContext.getMetadata(), "metadata is null");
         this.parser = requireNonNull(parser, "parser is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
@@ -639,6 +669,7 @@ public final class ShowQueriesRewrite
                         return new ColumnDefinition(
                                 QualifiedName.of(column.getName()),
                                 toSqlType(column.getType()),
+                                column.getDefaultValue().map(value -> toLiteral(column.getType(), value)),
                                 column.isNullable(),
                                 propertyNodes,
                                 Optional.ofNullable(column.getComment()));
@@ -657,6 +688,46 @@ public final class ShowQueriesRewrite
                     propertyNodes,
                     connectorTableMetadata.getComment());
             return singleValueQuery("Create Table", formatSql(createTable).trim());
+        }
+
+        private Literal toLiteral(Type type, ConnectorExpression expression)
+                throws TrinoException
+        {
+            checkArgument(type.equals(expression.getType()), "Type '%s' must equal '%s'", type, expression.getType());
+
+            if (!(expression instanceof Constant)) {
+                throw new TrinoException(NOT_SUPPORTED, "Unsupported expression: " + expression);
+            }
+
+            io.trino.sql.ir.Constant constant = (io.trino.sql.ir.Constant) ConnectorExpressionTranslator.translate(session, expression, plannerContext, Map.of());
+            Object value = constant.value();
+            if (value == null) {
+                return new NullLiteral();
+            }
+
+            String valueString = type.getObjectValue(constant.getValueAsBlock(), 0).toString();
+
+            // TODO: Support all literals
+            return switch (type) {
+                case BooleanType _ -> new BooleanLiteral(valueString);
+                case TinyintType _, SmallintType _, IntegerType _, BigintType _ -> new LongLiteral(valueString);
+                case RealType _ -> new GenericLiteral("REAL", valueString);
+                case DoubleType _ -> new DoubleLiteral(valueString);
+                case DecimalType _ -> new DecimalLiteral(valueString);
+                case CharType _, VarcharType _ -> new StringLiteral(((Slice) value).toStringUtf8());
+                case VarbinaryType _ -> {
+                    Slice slice = (Slice) value;
+                    StringBuilder varbinaryBuilder = new StringBuilder();
+                    for (int i = 0; i < slice.length(); i++) {
+                        varbinaryBuilder.append(slice.getByte(i));
+                    }
+                    yield new BinaryLiteral(null, varbinaryBuilder.toString());
+                }
+                case TimeType _ -> new GenericLiteral("TIME", valueString);
+                case DateType _ -> new GenericLiteral("DATE", valueString);
+                case TimestampType _, TimestampWithTimeZoneType _ -> new GenericLiteral("TIMESTAMP", valueString);
+                default -> throw new IllegalArgumentException("Unsupported type: " + type);
+            };
         }
 
         private Query showCreateSchema(ShowCreate node)
