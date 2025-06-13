@@ -16,7 +16,6 @@ package io.trino.server.protocol.spooling;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.client.spooling.DataAttributes;
-import io.trino.spi.Page;
 import io.trino.spi.spool.SpooledLocation;
 import io.trino.spi.spool.SpooledLocation.CoordinatorLocation;
 import io.trino.spi.spool.SpooledLocation.DirectLocation;
@@ -31,11 +30,6 @@ import static java.util.Objects.requireNonNull;
 public sealed interface SpooledMetadataBlock
 {
     DataAttributes attributes();
-
-    default Page serialize()
-    {
-        return SpooledMetadataBlockSerde.serialize(this);
-    }
 
     static SpooledMetadataBlock forInlineData(DataAttributes attributes, byte[] data)
     {
