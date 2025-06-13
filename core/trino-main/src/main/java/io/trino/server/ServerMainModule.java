@@ -167,6 +167,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.concurrent.Threads.virtualThreadsNamed;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
@@ -567,7 +568,7 @@ public class ServerMainModule
             return directExecutor();
         }
         return new BoundedExecutor(
-                newCachedThreadPool(daemonThreadsNamed("startup-%s")),
+                newCachedThreadPool(virtualThreadsNamed("startup#%s")),
                 Runtime.getRuntime().availableProcessors());
     }
 
