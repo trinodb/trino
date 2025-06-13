@@ -174,3 +174,33 @@ FROM
     )
   )
 ;
+```
+
+The output types are as follows
+
+```sql
+PREPARE result FROM
+SELECT 
+  timestamp, 
+  value, 
+  labels['province'] AS province
+FROM
+  TABLE(
+    example.system.query_range(
+      '{origin="CA"}',
+      TIMESTAMP '2025-01-01 00:00:00',
+      TIMESTAMP '2025-01-02 00:00:00'
+    )
+  )
+;
+DESCRIBE OUTPUT result;
+```
+
+```
+ Column Name | Type
+-------------+----------------------------
+   timestamp | timestamp(3) with time zone
+       value | double
+    province | varchar
+(3 rows)
+```
