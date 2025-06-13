@@ -60,6 +60,7 @@ import static io.trino.client.uri.ConnectionProperties.EXTERNAL_AUTHENTICATION_R
 import static io.trino.client.uri.ConnectionProperties.EXTERNAL_AUTHENTICATION_TIMEOUT;
 import static io.trino.client.uri.ConnectionProperties.EXTERNAL_AUTHENTICATION_TOKEN_CACHE;
 import static io.trino.client.uri.ConnectionProperties.EXTRA_CREDENTIALS;
+import static io.trino.client.uri.ConnectionProperties.FETCH_SIZE;
 import static io.trino.client.uri.ConnectionProperties.HOSTNAME_IN_CERTIFICATE;
 import static io.trino.client.uri.ConnectionProperties.HTTP_LOGGING_LEVEL;
 import static io.trino.client.uri.ConnectionProperties.HTTP_PROXY;
@@ -371,6 +372,11 @@ public class TrinoUri
     public Optional<GSSCredential> getKerberosConstrainedDelegation()
     {
         return resolveOptional(KERBEROS_CONSTRAINED_DELEGATION);
+    }
+
+    public Optional<Integer> getFetchSize()
+    {
+        return resolveOptional(FETCH_SIZE);
     }
 
     public Optional<String> getAccessToken()
@@ -926,6 +932,11 @@ public class TrinoUri
         public Builder setKerberosConstrainedDelegation(GSSCredential kerberosConstrainedDelegation)
         {
             return setProperty(KERBEROS_CONSTRAINED_DELEGATION, requireNonNull(kerberosConstrainedDelegation, "kerberosConstrainedDelegation is null"));
+        }
+
+        public Builder setFetchSize(int maxBufferedRows)
+        {
+            return setProperty(FETCH_SIZE, maxBufferedRows);
         }
 
         public Builder setAccessToken(String accessToken)
