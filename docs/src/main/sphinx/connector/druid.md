@@ -17,7 +17,7 @@ database from Trino.
 
 To connect to Druid, you need:
 
-- Druid version 0.18.0 or higher.
+- Druid version 0.19.0 or higher.
 - Network access from the Trino coordinator and workers to your Druid broker.
   Port 8082 is the default port.
 
@@ -67,6 +67,21 @@ properties files.
 
 ```{include} jdbc-case-insensitive-matching.fragment
 ```
+
+### Approximate `count distinct` configuration
+Druid has the ability to use [an "approximate cardinality algorithm"](https://druid.apache.org/docs/latest/querying/sql-query-context/#sql-query-context-parameters) when calling `COUNT(DISTINCT <col>)`, similar to Trino's {func}`approx_distinct` function. However, when Druid uses this approximation algorithm it cannot accept some [aggregations pushed down](druid-pushdown) from Trino that contain a `DISTINCT`.
+
+:::{list-table}
+:widths: 30, 58, 12
+:header-rows: 1
+
+* - Property name
+  - Description
+  - Default value
+* - ``druid.count-distinct-strategy``
+  - Defines Druid behavior for pushed-down ``DISTINCT`` aggregations by setting (or leaving unset) ``useApproximateCountDistinct``. Must be one of ``DEFAULT``, ``APPROXIMATE``, or ``EXACT``. When ``DEFAULT`` is set, the behavior is left up to the Druid cluster. ``APPROXIMATE`` sets ``useApproximateCountDistinct`` explicitly to ``true``, while ``EXACT`` sets it to ``false``. Note that Druid will reject pushed-down ``DISTINCT`` aggregations unless ``useApproximateCountDistinct=false``. This can either be done on the Trino side by setting this property to ``EXACT``, or it can be done on the Druid cluster. 
+  - ``DEFAULT``
+:::
 
 (druid-type-mapping)=
 ## Type mapping
@@ -170,4 +185,20 @@ FROM
 ```
 
 ```{include} query-table-function-ordering.fragment
+```
+
+## Performance
+
+(druid-pushdown)=
+### Pushdown
+
+The connector supports {ref}`aggregate pushdown <aggregation-pushdown>` for the following functions:
+
+- {func}`avg`
+- {func}`count`
+- {func}`max`
+- {func}`min`
+- {func}`sum`
+
+```{include} pushdown-correctness-behavior.fragment
 ```
