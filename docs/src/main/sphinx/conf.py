@@ -145,8 +145,6 @@ html_theme_options = {
     'site_url': html_baseurl,
     'toc_title': 'Contents',
     'features': [
-        'content.action.edit',
-        'content.action.view',
         'content.code.copy',
         'content.tabs.link',
         'content.tooltips'
