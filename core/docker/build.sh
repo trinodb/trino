@@ -132,7 +132,6 @@ for arch in "${ARCHITECTURES[@]}"; do
     echo "🫙  Building the image for $arch with JDK ${JDK_RELEASE}"
     docker build \
         "${WORK_DIR}" \
-        --progress=plain \
         --pull \
         --build-arg ARCH="${arch}" \
         --build-arg JDK_VERSION="${JDK_RELEASE}" \
