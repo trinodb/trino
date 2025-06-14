@@ -62,7 +62,7 @@ public class TestPruneOrderByInAggregation
                                 ImmutableList.of("mask"),
                                 Optional.empty(),
                                 SINGLE,
-                                values("input", "key", "keyHash", "mask")));
+                                values("input", "key", "mask")));
     }
 
     private AggregationNode buildAggregation(PlanBuilder planBuilder)
@@ -71,9 +71,8 @@ public class TestPruneOrderByInAggregation
         Symbol arrayAgg = planBuilder.symbol("array_agg");
         Symbol input = planBuilder.symbol("input");
         Symbol key = planBuilder.symbol("key");
-        Symbol keyHash = planBuilder.symbol("keyHash");
         Symbol mask = planBuilder.symbol("mask");
-        List<Symbol> sourceSymbols = ImmutableList.of(input, key, keyHash, mask);
+        List<Symbol> sourceSymbols = ImmutableList.of(input, key, mask);
         return planBuilder.aggregation(aggregationBuilder -> aggregationBuilder
                 .singleGroupingSet(key)
                 .addAggregation(avg, PlanBuilder.aggregation(
@@ -92,7 +91,6 @@ public class TestPruneOrderByInAggregation
                                 ImmutableMap.of(new Symbol(BIGINT, "input"), SortOrder.ASC_NULLS_LAST))),
                         ImmutableList.of(BIGINT),
                         mask)
-                .hashSymbol(keyHash)
                 .source(planBuilder.values(sourceSymbols, ImmutableList.of())));
     }
 }

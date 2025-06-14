@@ -73,7 +73,6 @@ public class PushdownLimitIntoRowNumber
                 node.getPartitionBy(),
                 limitNode.requiresPreSortedInputs() || node.isOrderSensitive(),
                 node.getRowNumberSymbol(),
-                Optional.of(newRowCountPerPartition),
-                node.getHashSymbol());
+                Optional.of(newRowCountPerPartition));
     }
 }

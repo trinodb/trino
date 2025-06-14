@@ -206,7 +206,6 @@ public class TransformCorrelatedGroupedAggregationWithProjection
                         .addAll(groupedAggregation.getGroupingKeys())
                         .build()))
                 .setPreGroupedSymbols(ImmutableList.of())
-                .setHashSymbol(Optional.empty())
                 .setGroupIdSymbol(Optional.empty())
                 .build();
 

@@ -69,7 +69,6 @@ public class InMemoryHashAggregationBuilder
             int expectedGroups,
             List<Type> groupByTypes,
             List<Integer> groupByChannels,
-            Optional<Integer> hashChannel,
             boolean spillable,
             OperatorContext operatorContext,
             Optional<DataSize> maxPartialMemory,
@@ -82,7 +81,6 @@ public class InMemoryHashAggregationBuilder
                 expectedGroups,
                 groupByTypes,
                 groupByChannels,
-                hashChannel,
                 spillable,
                 operatorContext,
                 maxPartialMemory,
@@ -98,7 +96,6 @@ public class InMemoryHashAggregationBuilder
             int expectedGroups,
             List<Type> groupByTypes,
             List<Integer> groupByChannels,
-            Optional<Integer> hashChannel,
             boolean spillable,
             OperatorContext operatorContext,
             Optional<DataSize> maxPartialMemory,
@@ -107,26 +104,12 @@ public class InMemoryHashAggregationBuilder
             UpdateMemory updateMemory,
             AggregationMetrics aggregationMetrics)
     {
-        if (hashChannel.isPresent()) {
-            this.groupByOutputTypes = ImmutableList.<Type>builderWithExpectedSize(groupByTypes.size() + 1)
-                    .addAll(groupByTypes)
-                    .add(BIGINT)
-                    .build();
-            this.groupByChannels = new int[groupByChannels.size() + 1];
-            for (int i = 0; i < groupByChannels.size(); i++) {
-                this.groupByChannels[i] = groupByChannels.get(i);
-            }
-            this.groupByChannels[groupByChannels.size()] = hashChannel.get();
-        }
-        else {
-            this.groupByOutputTypes = ImmutableList.copyOf(groupByTypes);
-            this.groupByChannels = Ints.toArray(groupByChannels);
-        }
+        this.groupByOutputTypes = ImmutableList.copyOf(groupByTypes);
+        this.groupByChannels = Ints.toArray(groupByChannels);
 
         this.groupByHash = createGroupByHash(
                 operatorContext.getSession(),
                 groupByTypes,
-                hashChannel.isPresent(),
                 spillable,
                 expectedGroups,
                 hashStrategyCompiler,
@@ -348,13 +331,10 @@ public class InMemoryHashAggregationBuilder
         };
     }
 
-    public static List<Type> toTypes(List<? extends Type> groupByType, List<AggregatorFactory> factories, Optional<Integer> hashChannel)
+    public static List<Type> toTypes(List<? extends Type> groupByType, List<AggregatorFactory> factories)
     {
-        ImmutableList.Builder<Type> types = ImmutableList.builderWithExpectedSize(groupByType.size() + (hashChannel.isPresent() ? 1 : 0) + factories.size());
+        ImmutableList.Builder<Type> types = ImmutableList.builderWithExpectedSize(groupByType.size() + factories.size());
         types.addAll(groupByType);
-        if (hashChannel.isPresent()) {
-            types.add(BIGINT);
-        }
         for (AggregatorFactory factory : factories) {
             types.add(factory.createAggregator(new AggregationMetrics()).getType());
         }

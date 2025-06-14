@@ -198,7 +198,6 @@ public class SymbolMapper
                         node.getGlobalGroupingSets()),
                 ImmutableList.of(),
                 node.getStep(),
-                node.getHashSymbol().map(this::map),
                 node.getGroupIdSymbol().map(this::map));
     }
 
@@ -501,8 +500,7 @@ public class SymbolMapper
                 source,
                 node.getLimit(),
                 node.isPartial(),
-                mapAndDistinct(node.getDistinctSymbols()),
-                node.getHashSymbol().map(this::map));
+                mapAndDistinct(node.getDistinctSymbols()));
     }
 
     public StatisticsWriterNode map(StatisticsWriterNode node, PlanNode source)
@@ -636,8 +634,7 @@ public class SymbolMapper
                 mapAndDistinct(node.getPartitionBy()),
                 node.isOrderSensitive(),
                 map(node.getRowNumberSymbol()),
-                node.getMaxRowCountPerPartition(),
-                node.getHashSymbol().map(this::map));
+                node.getMaxRowCountPerPartition());
     }
 
     public TopNRankingNode map(TopNRankingNode node, PlanNode source)
@@ -649,8 +646,7 @@ public class SymbolMapper
                 node.getRankingType(),
                 map(node.getRankingSymbol()),
                 node.getMaxRankingPerPartition(),
-                node.isPartial(),
-                node.getHashSymbol().map(this::map));
+                node.isPartial());
     }
 
     public TopNNode map(TopNNode node, PlanNode source)

@@ -103,7 +103,6 @@ public class WindowFilterPushDown
                         node.getPartitionBy(),
                         false,
                         getOnlyElement(node.getWindowFunctions().keySet()),
-                        Optional.empty(),
                         Optional.empty());
             }
             return replaceChildren(node, ImmutableList.of(rewrittenSource));
@@ -262,8 +261,7 @@ public class WindowFilterPushDown
                     node.getPartitionBy(),
                     node.isOrderSensitive(),
                     node.getRowNumberSymbol(),
-                    Optional.of(newRowCountPerPartition),
-                    node.getHashSymbol());
+                    Optional.of(newRowCountPerPartition));
         }
 
         private TopNRankingNode convertToTopNRanking(WindowNode windowNode, RankingType rankingType, int limit)
@@ -274,8 +272,7 @@ public class WindowFilterPushDown
                     rankingType,
                     getOnlyElement(windowNode.getWindowFunctions().keySet()),
                     limit,
-                    false,
-                    Optional.empty());
+                    false);
         }
 
         private boolean canReplaceWithRowNumber(WindowNode node)

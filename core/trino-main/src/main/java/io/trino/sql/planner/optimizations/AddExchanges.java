@@ -264,7 +264,7 @@ public class AddExchanges
                         .flatMap(partitioningColumns -> useParentPreferredPartitioning(node, partitioningColumns))
                         .orElse(node.getGroupingKeys());
                 child = withDerivedProperties(
-                        partitionedExchange(idAllocator.getNextId(), REMOTE, child.getNode(), partitioningKeys, node.getHashSymbol()),
+                        partitionedExchange(idAllocator.getNextId(), REMOTE, child.getNode(), partitioningKeys, Optional.empty()),
                         child.getProperties());
             }
             return rebaseAndDeriveProperties(node, child);
@@ -359,7 +359,7 @@ public class AddExchanges
                                 REMOTE,
                                 child.getNode(),
                                 node.getDistinctSymbols(),
-                                node.getHashSymbol()),
+                                Optional.empty()),
                         child.getProperties());
             }
 
@@ -508,7 +508,7 @@ public class AddExchanges
                                 REMOTE,
                                 child.getNode(),
                                 node.getPartitionBy(),
-                                node.getHashSymbol()),
+                                Optional.empty()),
                         child.getProperties());
             }
 
@@ -531,7 +531,7 @@ public class AddExchanges
                 preferredChildProperties = computePreference(
                         partitionedWithLocal(ImmutableSet.copyOf(node.getPartitionBy()), grouped(node.getPartitionBy())),
                         preferredProperties);
-                addExchange = partial -> partitionedExchange(idAllocator.getNextId(), REMOTE, partial, node.getPartitionBy(), node.getHashSymbol());
+                addExchange = partial -> partitionedExchange(idAllocator.getNextId(), REMOTE, partial, node.getPartitionBy(), Optional.empty());
             }
 
             PlanWithProperties child = planChild(node, preferredChildProperties);
@@ -545,8 +545,7 @@ public class AddExchanges
                                 node.getRankingType(),
                                 node.getRankingSymbol(),
                                 node.getMaxRankingPerPartition(),
-                                true,
-                                node.getHashSymbol()),
+                                true),
                         child.getProperties());
 
                 child = withDerivedProperties(addExchange.apply(child.getNode()), child.getProperties());
@@ -655,7 +654,7 @@ public class AddExchanges
                         gatheringExchange(
                                 idAllocator.getNextId(),
                                 REMOTE,
-                                new DistinctLimitNode(idAllocator.getNextId(), child.getNode(), node.getLimit(), true, node.getDistinctSymbols(), node.getHashSymbol())),
+                                new DistinctLimitNode(idAllocator.getNextId(), child.getNode(), node.getLimit(), true, node.getDistinctSymbols())),
                         child.getProperties());
             }
 

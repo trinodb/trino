@@ -353,12 +353,7 @@ public class PlanBuilder
 
     public MarkDistinctNode markDistinct(Symbol markerSymbol, List<Symbol> distinctSymbols, PlanNode source)
     {
-        return new MarkDistinctNode(idAllocator.getNextId(), source, markerSymbol, distinctSymbols, Optional.empty());
-    }
-
-    public MarkDistinctNode markDistinct(Symbol markerSymbol, List<Symbol> distinctSymbols, Symbol hashSymbol, PlanNode source)
-    {
-        return new MarkDistinctNode(idAllocator.getNextId(), source, markerSymbol, distinctSymbols, Optional.of(hashSymbol));
+        return new MarkDistinctNode(idAllocator.getNextId(), source, markerSymbol, distinctSymbols);
     }
 
     public FilterNode filter(Expression predicate, PlanNode source)
@@ -400,18 +395,12 @@ public class PlanBuilder
 
     public DistinctLimitNode distinctLimit(long count, List<Symbol> distinctSymbols, PlanNode source)
     {
-        return distinctLimit(count, distinctSymbols, Optional.empty(), source);
-    }
-
-    public DistinctLimitNode distinctLimit(long count, List<Symbol> distinctSymbols, Optional<Symbol> hashSymbol, PlanNode source)
-    {
         return new DistinctLimitNode(
                 idAllocator.getNextId(),
                 source,
                 count,
                 false,
-                distinctSymbols,
-                hashSymbol);
+                distinctSymbols);
     }
 
     public class AggregationBuilder
@@ -421,7 +410,6 @@ public class PlanBuilder
         private AggregationNode.GroupingSetDescriptor groupingSets;
         private List<Symbol> preGroupedSymbols = new ArrayList<>();
         private Step step = Step.SINGLE;
-        private Optional<Symbol> hashSymbol = Optional.empty();
         private Optional<Symbol> groupIdSymbol = Optional.empty();
         private Optional<PlanNodeId> nodeId = Optional.empty();
         private Optional<Boolean> exchangeInputAggregation = Optional.empty();
@@ -492,12 +480,6 @@ public class PlanBuilder
             return this;
         }
 
-        public AggregationBuilder hashSymbol(Symbol hashSymbol)
-        {
-            this.hashSymbol = Optional.of(hashSymbol);
-            return this;
-        }
-
         public AggregationBuilder nodeId(PlanNodeId nodeId)
         {
             this.nodeId = Optional.of(nodeId);
@@ -520,7 +502,6 @@ public class PlanBuilder
                     groupingSets,
                     preGroupedSymbols,
                     step,
-                    hashSymbol,
                     groupIdSymbol,
                     exchangeInputAggregation);
         }
@@ -1378,22 +1359,16 @@ public class PlanBuilder
 
     public RowNumberNode rowNumber(List<Symbol> partitionBy, Optional<Integer> maxRowCountPerPartition, Symbol rowNumberSymbol, PlanNode source)
     {
-        return rowNumber(partitionBy, maxRowCountPerPartition, rowNumberSymbol, Optional.empty(), source);
-    }
-
-    public RowNumberNode rowNumber(List<Symbol> partitionBy, Optional<Integer> maxRowCountPerPartition, Symbol rowNumberSymbol, Optional<Symbol> hashSymbol, PlanNode source)
-    {
         return new RowNumberNode(
                 idAllocator.getNextId(),
                 source,
                 partitionBy,
                 false,
                 rowNumberSymbol,
-                maxRowCountPerPartition,
-                hashSymbol);
+                maxRowCountPerPartition);
     }
 
-    public TopNRankingNode topNRanking(DataOrganizationSpecification specification, RankingType rankingType, int maxRankingPerPartition, Symbol rankingSymbol, Optional<Symbol> hashSymbol, PlanNode source)
+    public TopNRankingNode topNRanking(DataOrganizationSpecification specification, RankingType rankingType, int maxRankingPerPartition, Symbol rankingSymbol, PlanNode source)
     {
         return new TopNRankingNode(
                 idAllocator.getNextId(),
@@ -1402,8 +1377,7 @@ public class PlanBuilder
                 rankingType,
                 rankingSymbol,
                 maxRankingPerPartition,
-                false,
-                hashSymbol);
+                false);
     }
 
     public PatternRecognitionNode patternRecognition(Consumer<PatternRecognitionBuilder> consumer)

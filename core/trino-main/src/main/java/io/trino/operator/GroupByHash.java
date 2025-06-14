@@ -34,7 +34,6 @@ public interface GroupByHash
     static GroupByHash createGroupByHash(
             Session session,
             List<Type> types,
-            boolean hasPrecomputedHash,
             boolean spillable,
             int expectedSize,
             FlatHashStrategyCompiler hashStrategyCompiler,
@@ -43,18 +42,15 @@ public interface GroupByHash
         boolean dictionaryAggregationEnabled = isDictionaryAggregationEnabled(session);
         return createGroupByHash(
                 types,
-                selectGroupByHashMode(hasPrecomputedHash, spillable, types),
+                selectGroupByHashMode(spillable, types),
                 expectedSize,
                 dictionaryAggregationEnabled,
                 hashStrategyCompiler,
                 updateMemory);
     }
 
-    static GroupByHashMode selectGroupByHashMode(boolean hasPrecomputedHash, boolean spillable, List<Type> types)
+    static GroupByHashMode selectGroupByHashMode(boolean spillable, List<Type> types)
     {
-        if (hasPrecomputedHash) {
-            return GroupByHashMode.PRECOMPUTED;
-        }
         // Spillable aggregations should always cache hash values since spilling requires sorting by the hash value
         if (spillable) {
             return GroupByHashMode.CACHED;
@@ -92,7 +88,7 @@ public interface GroupByHash
             UpdateMemory updateMemory)
     {
         if (types.size() == 1 && types.get(0).equals(BIGINT)) {
-            return new BigintGroupByHash(hashMode.isHashPrecomputed(), expectedSize, updateMemory);
+            return new BigintGroupByHash(expectedSize, updateMemory);
         }
         return new FlatGroupByHash(
                 types,
