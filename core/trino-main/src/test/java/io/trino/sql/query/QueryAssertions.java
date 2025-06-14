@@ -650,7 +650,7 @@ public class QueryAssertions
         private final boolean ordered;
         private boolean skipTypesCheck;
 
-        private ResultAssert(
+        public ResultAssert(
                 QueryRunner runner,
                 Session session,
                 Description description,
@@ -755,6 +755,21 @@ public class QueryAssertions
                         .withRepresentation(ROWS_REPRESENTATION)
                         .containsAll(expected.getMaterializedRows());
             });
+        }
+
+        @CanIgnoreReturnValue
+        public ResultAssert hasColumnNames(String... expectedColumnNames)
+        {
+            return hasColumnNames(Arrays.asList(expectedColumnNames));
+        }
+
+        @CanIgnoreReturnValue
+        public ResultAssert hasColumnNames(List<String> expectedColumnNames)
+        {
+            assertThat(actual.getColumnNames())
+                    .as("Column names for query [%s]", description)
+                    .isEqualTo(expectedColumnNames);
+            return this;
         }
 
         @CanIgnoreReturnValue

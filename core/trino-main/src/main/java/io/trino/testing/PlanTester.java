@@ -113,6 +113,7 @@ import io.trino.operator.DriverContext;
 import io.trino.operator.DriverFactory;
 import io.trino.operator.FlatHashStrategyCompiler;
 import io.trino.operator.GroupByHashPageIndexerFactory;
+import io.trino.operator.OutputFactory;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesIndexPageSorter;
 import io.trino.operator.TaskContext;
@@ -144,6 +145,7 @@ import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.connector.ConnectorName;
+import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spiller.GenericSpillerFactory;
@@ -184,10 +186,10 @@ import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.SubPlan;
 import io.trino.sql.planner.optimizations.AdaptivePlanOptimizer;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
+import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.TableScanNode;
-import io.trino.sql.planner.planprinter.PlanPrinter;
 import io.trino.sql.planner.sanity.PlanSanityChecker;
 import io.trino.sql.rewrite.DescribeInputRewrite;
 import io.trino.sql.rewrite.DescribeOutputRewrite;
@@ -196,6 +198,7 @@ import io.trino.sql.rewrite.ShowQueriesRewrite;
 import io.trino.sql.rewrite.ShowStatsRewrite;
 import io.trino.sql.rewrite.StatementRewrite;
 import io.trino.testing.NullOutputOperator.NullOutputFactory;
+import io.trino.testing.PageConsumerOperator.PageConsumerOutputFactory;
 import io.trino.transaction.InMemoryTransactionManager;
 import io.trino.transaction.TransactionManager;
 import io.trino.transaction.TransactionManagerConfig;
@@ -218,6 +221,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -252,7 +256,9 @@ import static io.trino.spiller.PartitioningSpillerFactory.unsupportedPartitionin
 import static io.trino.spiller.SingleStreamSpillerFactory.unsupportedSingleStreamSpillerFactory;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
+import static io.trino.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
 import static io.trino.sql.testing.TreeAssertions.assertFormattedSql;
+import static io.trino.testing.TestingDirectTrinoClient.toMaterializedRows;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static io.trino.testing.TransactionBuilder.transaction;
 import static io.trino.util.EmbedVersion.testingVersionEmbedder;
@@ -685,11 +691,17 @@ public class PlanTester
 
     public void executeStatement(@Language("SQL") String sql)
     {
+        executePlan(session -> createPlan(session, sql), new NullOutput());
+    }
+
+    public <T> T executePlan(Function<Session, Plan> planFactory, Output<T> output)
+    {
         accessControl.checkCanExecuteQuery(defaultSession.getIdentity(), defaultSession.getQueryId());
 
-        inTransaction(defaultSession, transactionSession -> {
+        return inTransaction(defaultSession, session -> {
             try (Closer closer = Closer.create()) {
-                List<Driver> drivers = createDrivers(transactionSession, sql);
+                Plan plan = planFactory.apply(session);
+                List<Driver> drivers = createDrivers(session, plan, output.outputFactory());
                 drivers.forEach(closer::register);
 
                 boolean done = false;
@@ -703,7 +715,8 @@ public class PlanTester
                     }
                     done = !processed;
                 }
-                return null;
+
+                return output.result(((OutputNode) plan.getRoot()).getColumnNames());
             }
             catch (IOException e) {
                 throw new UncheckedIOException(e);
@@ -717,18 +730,18 @@ public class PlanTester
         return planFragmenter.createSubPlans(session, plan, forceSingleNode, NOOP);
     }
 
-    private List<Driver> createDrivers(Session session, @Language("SQL") String sql)
+    private List<Driver> createDrivers(Session session, Plan plan, OutputFactory outputFactory)
     {
-        Plan plan = createPlan(session, sql);
         if (printPlan) {
-            System.out.println(PlanPrinter.textLogicalPlan(
+            String planText = textLogicalPlan(
                     plan.getRoot(),
                     plannerContext.getMetadata(),
                     plannerContext.getFunctionManager(),
                     plan.getStatsAndCosts(),
                     session,
                     0,
-                    false));
+                    false);
+            System.out.println("Query Plan:\n\n" + planText + "\u00A0\n");
         }
 
         SubPlan subplan = createSubPlans(session, plan, true);
@@ -777,7 +790,7 @@ public class PlanTester
                 subplan.getFragment().getRoot(),
                 subplan.getFragment().getOutputPartitioningScheme().getOutputLayout(),
                 subplan.getFragment().getPartitionedSources(),
-                new NullOutputFactory());
+                outputFactory);
 
         // generate splitAssignments
         List<SplitAssignment> splitAssignments = new ArrayList<>();
@@ -990,5 +1003,51 @@ public class PlanTester
                 .findAll().stream()
                 .map(TableScanNode.class::cast)
                 .collect(toImmutableList());
+    }
+
+    public interface Output<T>
+    {
+        OutputFactory outputFactory();
+
+        T result(List<String> columnNames);
+    }
+
+    public static final class NullOutput
+            implements Output<Void>
+    {
+        @Override
+        public OutputFactory outputFactory()
+        {
+            return new NullOutputFactory();
+        }
+
+        @Override
+        public Void result(List<String> columnNames)
+        {
+            return null;
+        }
+    }
+
+    public static final class MaterializedResultOutput
+            implements Output<MaterializedResult>
+    {
+        private final ImmutableList.Builder<MaterializedRow> rows = ImmutableList.builder();
+        private final AtomicReference<List<Type>> types = new AtomicReference<>();
+
+        @Override
+        public OutputFactory outputFactory()
+        {
+            return new PageConsumerOutputFactory(types -> {
+                this.types.set(types);
+                return page -> rows.addAll(toMaterializedRows(types, List.of(page)));
+            });
+        }
+
+        @Override
+        public MaterializedResult result(List<String> columnNames)
+        {
+            checkState(types.get() != null, "types were not set");
+            return new MaterializedResult(Optional.empty(), rows.build(), types.get(), columnNames);
+        }
     }
 }
