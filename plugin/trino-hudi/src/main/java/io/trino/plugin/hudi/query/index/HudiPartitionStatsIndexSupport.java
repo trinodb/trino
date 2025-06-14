@@ -15,11 +15,13 @@ package io.trino.plugin.hudi.query.index;
 
 import io.airlift.log.Logger;
 import io.trino.plugin.hudi.util.TupleDomainUtils;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
 import org.apache.hudi.avro.model.HoodieMetadataColumnStats;
 import org.apache.hudi.common.model.FileSlice;
 import org.apache.hudi.common.model.HoodieIndexDefinition;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
+import org.apache.hudi.common.util.HoodieTimer;
 import org.apache.hudi.common.util.hash.ColumnIndexID;
 import org.apache.hudi.metadata.HoodieTableMetadata;
 import org.apache.hudi.metadata.HoodieTableMetadataUtil;
@@ -38,9 +40,9 @@ public class HudiPartitionStatsIndexSupport
 {
     private static final Logger log = Logger.get(HudiColumnStatsIndexSupport.class);
 
-    public HudiPartitionStatsIndexSupport(Lazy<HoodieTableMetaClient> lazyMetaClient)
+    public HudiPartitionStatsIndexSupport(SchemaTableName schemaTableName, Lazy<HoodieTableMetaClient> lazyMetaClient)
     {
-        super(log, lazyMetaClient);
+        super(log, schemaTableName, lazyMetaClient);
     }
 
     @Override
@@ -54,11 +56,14 @@ public class HudiPartitionStatsIndexSupport
             HoodieTableMetadata metadataTable,
             TupleDomain<String> regularColumnPredicates)
     {
+        HoodieTimer timer = HoodieTimer.start();
+
         // Filter out predicates containing simple null checks (`IS NULL` or `IS NOT NULL`)
         TupleDomain<String> filteredRegularPredicates = regularColumnPredicates.filter((_, domain) -> !hasSimpleNullCheck(domain));
 
         // Sanity check, if no regular domains, return immediately
         if (filteredRegularPredicates.getDomains().isEmpty()) {
+            timer.endTimer();
             return Optional.empty();
         }
 
@@ -99,6 +104,7 @@ public class HudiPartitionStatsIndexSupport
                 })
                 .collect(Collectors.toList());
 
+        log.info("Took %s ms to prune partitions using Partition Stats Index for table %s", timer.endTimer(), schemaTableName);
         return Optional.of(prunedPartitions);
     }
 

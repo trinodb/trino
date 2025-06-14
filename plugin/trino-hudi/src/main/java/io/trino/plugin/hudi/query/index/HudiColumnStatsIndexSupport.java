@@ -19,6 +19,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.parquet.predicate.TupleDomainParquetPredicate;
 import io.trino.plugin.hudi.util.TupleDomainUtils;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
@@ -32,6 +33,7 @@ import org.apache.hudi.common.model.FileSlice;
 import org.apache.hudi.common.model.HoodieIndexDefinition;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.common.table.HoodieTableVersion;
+import org.apache.hudi.common.util.HoodieTimer;
 import org.apache.hudi.common.util.hash.ColumnIndexID;
 import org.apache.hudi.metadata.HoodieTableMetadata;
 import org.apache.hudi.metadata.HoodieTableMetadataUtil;
@@ -58,14 +60,14 @@ public class HudiColumnStatsIndexSupport
 {
     private static final Logger log = Logger.get(HudiColumnStatsIndexSupport.class);
 
-    public HudiColumnStatsIndexSupport(Lazy<HoodieTableMetaClient> lazyMetaClient)
+    public HudiColumnStatsIndexSupport(SchemaTableName schemaTableName, Lazy<HoodieTableMetaClient> lazyMetaClient)
     {
-        super(log, lazyMetaClient);
+        super(log, schemaTableName, lazyMetaClient);
     }
 
-    public HudiColumnStatsIndexSupport(Logger log, Lazy<HoodieTableMetaClient> lazyMetaClient)
+    public HudiColumnStatsIndexSupport(Logger log, SchemaTableName schemaTableName, Lazy<HoodieTableMetaClient> lazyMetaClient)
     {
-        super(log, lazyMetaClient);
+        super(log, schemaTableName, lazyMetaClient);
     }
 
     @Override
@@ -73,7 +75,10 @@ public class HudiColumnStatsIndexSupport
             HoodieTableMetadata metadataTable, Map<String, List<FileSlice>> inputFileSlices,
             TupleDomain<String> regularColumnPredicates)
     {
+        HoodieTimer timer = HoodieTimer.start();
+
         if (regularColumnPredicates.isAll() || !regularColumnPredicates.getDomains().isPresent()) {
+            timer.endTimer();
             return inputFileSlices;
         }
 
@@ -103,7 +108,7 @@ public class HudiColumnStatsIndexSupport
                                 .filter(fileSlice -> shouldKeepFileSlice(fileSlice, statsByFileName, regularColumnPredicates, regularColumns))
                                 .collect(Collectors.toList())));
 
-        this.printDebugMessage(candidateFileSlices, inputFileSlices);
+        this.printDebugMessage(candidateFileSlices, inputFileSlices, timer.endTimer());
         return candidateFileSlices;
     }
 
