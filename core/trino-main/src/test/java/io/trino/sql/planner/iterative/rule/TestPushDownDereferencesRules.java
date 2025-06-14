@@ -550,7 +550,6 @@ public class TestPushDownDereferencesRules
                                         ROW_NUMBER,
                                         5,
                                         p.symbol("ranking"),
-                                        Optional.empty(),
                                         p.values(p.symbol("msg1", ROW_TYPE), p.symbol("msg2", ROW_TYPE), p.symbol("msg3", ROW_TYPE)))))
                 .matches(
                         strictProject(

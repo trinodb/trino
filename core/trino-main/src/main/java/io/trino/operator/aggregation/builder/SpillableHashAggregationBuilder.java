@@ -62,7 +62,6 @@ public class SpillableHashAggregationBuilder
     private final int expectedGroups;
     private final List<Type> groupByTypes;
     private final List<Integer> groupByChannels;
-    private final Optional<Integer> hashChannel;
     private final OperatorContext operatorContext;
     private final LocalMemoryContext localUserMemoryContext;
     private final LocalMemoryContext localRevocableMemoryContext;
@@ -87,7 +86,6 @@ public class SpillableHashAggregationBuilder
             int expectedGroups,
             List<Type> groupByTypes,
             List<Integer> groupByChannels,
-            Optional<Integer> hashChannel,
             OperatorContext operatorContext,
             DataSize memoryLimitForMerge,
             DataSize memoryLimitForMergeWithMemory,
@@ -100,7 +98,6 @@ public class SpillableHashAggregationBuilder
         this.expectedGroups = expectedGroups;
         this.groupByTypes = groupByTypes;
         this.groupByChannels = groupByChannels;
-        this.hashChannel = hashChannel;
         this.operatorContext = operatorContext;
         this.localUserMemoryContext = operatorContext.localUserMemoryContext();
         this.localRevocableMemoryContext = operatorContext.localRevocableMemoryContext();
@@ -324,7 +321,6 @@ public class SpillableHashAggregationBuilder
                 step,
                 expectedGroups,
                 groupByTypes,
-                hashChannel,
                 operatorContext,
                 sortedPages,
                 operatorContext.aggregateUserMemoryContext(),
@@ -348,7 +344,6 @@ public class SpillableHashAggregationBuilder
                 expectedGroups,
                 groupByTypes,
                 groupByChannels,
-                hashChannel,
                 true, // spillable
                 operatorContext,
                 Optional.of(DataSize.succinctBytes(0)),

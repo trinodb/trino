@@ -113,7 +113,6 @@ public class TestRowNumberOperator
                 Ints.asList(),
                 ImmutableList.of(),
                 Optional.empty(),
-                Optional.empty(),
                 10,
                 hashStrategyCompiler);
 
@@ -152,7 +151,6 @@ public class TestRowNumberOperator
                     ImmutableList.of(0),
                     ImmutableList.of(0),
                     ImmutableList.of(type),
-                    Optional.empty(),
                     Optional.of(1),
                     1,
                     hashStrategyCompiler);
@@ -164,9 +162,9 @@ public class TestRowNumberOperator
 
             int count = 0;
             for (Page page : result.getOutput()) {
-                assertThat(page.getChannelCount()).isEqualTo(3);
+                assertThat(page.getChannelCount()).isEqualTo(2);
                 for (int i = 0; i < page.getPositionCount(); i++) {
-                    assertThat(BIGINT.getLong(page.getBlock(2), i)).isEqualTo(1);
+                    assertThat(BIGINT.getLong(page.getBlock(1), i)).isEqualTo(1);
                     count++;
                 }
             }
@@ -177,141 +175,135 @@ public class TestRowNumberOperator
     @Test
     public void testRowNumberPartitioned()
     {
-        for (boolean hashEnabled : Arrays.asList(true, false)) {
-            DriverContext driverContext = getDriverContext();
-            RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), BIGINT, DOUBLE);
-            List<Page> input = rowPagesBuilder
-                    .row(1L, 0.3)
-                    .row(2L, 0.2)
-                    .row(3L, 0.1)
-                    .row(3L, 0.19)
-                    .pageBreak()
-                    .row(1L, 0.4)
-                    .pageBreak()
-                    .row(1L, 0.5)
-                    .row(1L, 0.6)
-                    .row(2L, 0.7)
-                    .row(2L, 0.8)
-                    .row(2L, 0.9)
-                    .build();
+        DriverContext driverContext = getDriverContext();
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(false, Ints.asList(0), BIGINT, DOUBLE);
+        List<Page> input = rowPagesBuilder
+                .row(1L, 0.3)
+                .row(2L, 0.2)
+                .row(3L, 0.1)
+                .row(3L, 0.19)
+                .pageBreak()
+                .row(1L, 0.4)
+                .pageBreak()
+                .row(1L, 0.5)
+                .row(1L, 0.6)
+                .row(2L, 0.7)
+                .row(2L, 0.8)
+                .row(2L, 0.9)
+                .build();
 
-            RowNumberOperator.RowNumberOperatorFactory operatorFactory = new RowNumberOperator.RowNumberOperatorFactory(
-                    0,
-                    new PlanNodeId("test"),
-                    ImmutableList.of(BIGINT, DOUBLE),
-                    Ints.asList(1, 0),
-                    Ints.asList(0),
-                    ImmutableList.of(BIGINT),
-                    Optional.of(10),
-                    rowPagesBuilder.getHashChannel(),
-                    10,
-                    hashStrategyCompiler);
+        RowNumberOperator.RowNumberOperatorFactory operatorFactory = new RowNumberOperator.RowNumberOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                ImmutableList.of(BIGINT, DOUBLE),
+                Ints.asList(1, 0),
+                Ints.asList(0),
+                ImmutableList.of(BIGINT),
+                Optional.of(10),
+                10,
+                hashStrategyCompiler);
 
-            MaterializedResult expectedPartition1 = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
-                    .row(0.3, 1L)
-                    .row(0.4, 1L)
-                    .row(0.5, 1L)
-                    .row(0.6, 1L)
-                    .build();
+        MaterializedResult expectedPartition1 = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
+                .row(0.3, 1L)
+                .row(0.4, 1L)
+                .row(0.5, 1L)
+                .row(0.6, 1L)
+                .build();
 
-            MaterializedResult expectedPartition2 = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
-                    .row(0.2, 2L)
-                    .row(0.7, 2L)
-                    .row(0.8, 2L)
-                    .row(0.9, 2L)
-                    .build();
+        MaterializedResult expectedPartition2 = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
+                .row(0.2, 2L)
+                .row(0.7, 2L)
+                .row(0.8, 2L)
+                .row(0.9, 2L)
+                .build();
 
-            MaterializedResult expectedPartition3 = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
-                    .row(0.1, 3L)
-                    .row(0.19, 3L)
-                    .build();
+        MaterializedResult expectedPartition3 = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
+                .row(0.1, 3L)
+                .row(0.19, 3L)
+                .build();
 
-            List<Page> pages = toPages(operatorFactory, driverContext, input);
-            Block rowNumberColumn = getRowNumberColumn(pages);
-            assertThat(rowNumberColumn.getPositionCount()).isEqualTo(10);
+        List<Page> pages = toPages(operatorFactory, driverContext, input);
+        Block rowNumberColumn = getRowNumberColumn(pages);
+        assertThat(rowNumberColumn.getPositionCount()).isEqualTo(10);
 
-            pages = stripRowNumberColumn(pages);
-            MaterializedResult actual = toMaterializedResult(driverContext.getSession(), ImmutableList.of(DOUBLE, BIGINT), pages);
-            Set<?> actualSet = ImmutableSet.copyOf(actual.getMaterializedRows());
-            Set<?> expectedPartition1Set = ImmutableSet.copyOf(expectedPartition1.getMaterializedRows());
-            Set<?> expectedPartition2Set = ImmutableSet.copyOf(expectedPartition2.getMaterializedRows());
-            Set<?> expectedPartition3Set = ImmutableSet.copyOf(expectedPartition3.getMaterializedRows());
-            assertThat(Sets.intersection(expectedPartition1Set, actualSet)).hasSize(4);
-            assertThat(Sets.intersection(expectedPartition2Set, actualSet)).hasSize(4);
-            assertThat(Sets.intersection(expectedPartition3Set, actualSet)).hasSize(2);
-        }
+        pages = stripRowNumberColumn(pages);
+        MaterializedResult actual = toMaterializedResult(driverContext.getSession(), ImmutableList.of(DOUBLE, BIGINT), pages);
+        Set<?> actualSet = ImmutableSet.copyOf(actual.getMaterializedRows());
+        Set<?> expectedPartition1Set = ImmutableSet.copyOf(expectedPartition1.getMaterializedRows());
+        Set<?> expectedPartition2Set = ImmutableSet.copyOf(expectedPartition2.getMaterializedRows());
+        Set<?> expectedPartition3Set = ImmutableSet.copyOf(expectedPartition3.getMaterializedRows());
+        assertThat(Sets.intersection(expectedPartition1Set, actualSet)).hasSize(4);
+        assertThat(Sets.intersection(expectedPartition2Set, actualSet)).hasSize(4);
+        assertThat(Sets.intersection(expectedPartition3Set, actualSet)).hasSize(2);
     }
 
     @Test
     public void testRowNumberPartitionedLimit()
     {
-        for (boolean hashEnabled : Arrays.asList(true, false)) {
-            DriverContext driverContext = getDriverContext();
-            RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), BIGINT, DOUBLE);
-            List<Page> input = rowPagesBuilder
-                    .row(1L, 0.3)
-                    .row(2L, 0.2)
-                    .row(3L, 0.1)
-                    .row(3L, 0.19)
-                    .pageBreak()
-                    .row(1L, 0.4)
-                    .pageBreak()
-                    .row(1L, 0.5)
-                    .row(1L, 0.6)
-                    .row(2L, 0.7)
-                    .row(2L, 0.8)
-                    .row(2L, 0.9)
-                    .build();
+        DriverContext driverContext = getDriverContext();
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(false, Ints.asList(0), BIGINT, DOUBLE);
+        List<Page> input = rowPagesBuilder
+                .row(1L, 0.3)
+                .row(2L, 0.2)
+                .row(3L, 0.1)
+                .row(3L, 0.19)
+                .pageBreak()
+                .row(1L, 0.4)
+                .pageBreak()
+                .row(1L, 0.5)
+                .row(1L, 0.6)
+                .row(2L, 0.7)
+                .row(2L, 0.8)
+                .row(2L, 0.9)
+                .build();
 
-            RowNumberOperator.RowNumberOperatorFactory operatorFactory = new RowNumberOperator.RowNumberOperatorFactory(
-                    0,
-                    new PlanNodeId("test"),
-                    ImmutableList.of(BIGINT, DOUBLE),
-                    Ints.asList(1, 0),
-                    Ints.asList(0),
-                    ImmutableList.of(BIGINT),
-                    Optional.of(3),
-                    Optional.empty(),
-                    10,
-                    hashStrategyCompiler);
+        RowNumberOperator.RowNumberOperatorFactory operatorFactory = new RowNumberOperator.RowNumberOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                ImmutableList.of(BIGINT, DOUBLE),
+                Ints.asList(1, 0),
+                Ints.asList(0),
+                ImmutableList.of(BIGINT),
+                Optional.of(3),
+                10,
+                hashStrategyCompiler);
 
-            MaterializedResult expectedPartition1 = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
-                    .row(0.3, 1L)
-                    .row(0.4, 1L)
-                    .row(0.5, 1L)
-                    .row(0.6, 1L)
-                    .build();
+        MaterializedResult expectedPartition1 = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
+                .row(0.3, 1L)
+                .row(0.4, 1L)
+                .row(0.5, 1L)
+                .row(0.6, 1L)
+                .build();
 
-            MaterializedResult expectedPartition2 = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
-                    .row(0.2, 2L)
-                    .row(0.7, 2L)
-                    .row(0.8, 2L)
-                    .row(0.9, 2L)
-                    .build();
+        MaterializedResult expectedPartition2 = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
+                .row(0.2, 2L)
+                .row(0.7, 2L)
+                .row(0.8, 2L)
+                .row(0.9, 2L)
+                .build();
 
-            MaterializedResult expectedPartition3 = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
-                    .row(0.1, 3L)
-                    .row(0.19, 3L)
-                    .build();
+        MaterializedResult expectedPartition3 = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
+                .row(0.1, 3L)
+                .row(0.19, 3L)
+                .build();
 
-            List<Page> pages = toPages(operatorFactory, driverContext, input);
-            Block rowNumberColumn = getRowNumberColumn(pages);
-            assertThat(rowNumberColumn.getPositionCount()).isEqualTo(8);
-            // Check that all row numbers generated are <= 3
-            for (int i = 0; i < rowNumberColumn.getPositionCount(); i++) {
-                assertThat(BIGINT.getLong(rowNumberColumn, i) <= 3).isTrue();
-            }
-
-            pages = stripRowNumberColumn(pages);
-            MaterializedResult actual = toMaterializedResult(driverContext.getSession(), ImmutableList.of(DOUBLE, BIGINT), pages);
-            Set<?> actualSet = ImmutableSet.copyOf(actual.getMaterializedRows());
-            Set<?> expectedPartition1Set = ImmutableSet.copyOf(expectedPartition1.getMaterializedRows());
-            Set<?> expectedPartition2Set = ImmutableSet.copyOf(expectedPartition2.getMaterializedRows());
-            Set<?> expectedPartition3Set = ImmutableSet.copyOf(expectedPartition3.getMaterializedRows());
-            assertThat(Sets.intersection(expectedPartition1Set, actualSet)).hasSize(3);
-            assertThat(Sets.intersection(expectedPartition2Set, actualSet)).hasSize(3);
-            assertThat(Sets.intersection(expectedPartition3Set, actualSet)).hasSize(2);
+        List<Page> pages = toPages(operatorFactory, driverContext, input);
+        Block rowNumberColumn = getRowNumberColumn(pages);
+        assertThat(rowNumberColumn.getPositionCount()).isEqualTo(8);
+        // Check that all row numbers generated are <= 3
+        for (int i = 0; i < rowNumberColumn.getPositionCount(); i++) {
+            assertThat(BIGINT.getLong(rowNumberColumn, i) <= 3).isTrue();
         }
+
+        pages = stripRowNumberColumn(pages);
+        MaterializedResult actual = toMaterializedResult(driverContext.getSession(), ImmutableList.of(DOUBLE, BIGINT), pages);
+        Set<?> actualSet = ImmutableSet.copyOf(actual.getMaterializedRows());
+        Set<?> expectedPartition1Set = ImmutableSet.copyOf(expectedPartition1.getMaterializedRows());
+        Set<?> expectedPartition2Set = ImmutableSet.copyOf(expectedPartition2.getMaterializedRows());
+        Set<?> expectedPartition3Set = ImmutableSet.copyOf(expectedPartition3.getMaterializedRows());
+        assertThat(Sets.intersection(expectedPartition1Set, actualSet)).hasSize(3);
+        assertThat(Sets.intersection(expectedPartition2Set, actualSet)).hasSize(3);
+        assertThat(Sets.intersection(expectedPartition3Set, actualSet)).hasSize(2);
     }
 
     @Test
@@ -341,7 +333,6 @@ public class TestRowNumberOperator
                 Ints.asList(),
                 ImmutableList.of(),
                 Optional.of(3),
-                Optional.empty(),
                 10,
                 hashStrategyCompiler);
 

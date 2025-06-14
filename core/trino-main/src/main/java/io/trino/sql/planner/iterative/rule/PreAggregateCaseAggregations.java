@@ -213,7 +213,6 @@ public class PreAggregateCaseAggregations
                 aggregationNode.getGroupingSets(),
                 aggregationNode.getPreGroupedSymbols(),
                 aggregationNode.getStep(),
-                aggregationNode.getHashSymbol(),
                 aggregationNode.getGroupIdSymbol());
     }
 

@@ -66,7 +66,7 @@ public class UnloadedIndexKeyRecordSet
         }
 
         ImmutableList.Builder<PageAndPositions> builder = ImmutableList.builder();
-        GroupByHash groupByHash = createGroupByHash(session, distinctChannelTypes, false, false, 10_000, hashStrategyCompiler, NOOP);
+        GroupByHash groupByHash = createGroupByHash(session, distinctChannelTypes, false, 10_000, hashStrategyCompiler, NOOP);
         for (UpdateRequest request : requests) {
             Page page = request.getPage();
 

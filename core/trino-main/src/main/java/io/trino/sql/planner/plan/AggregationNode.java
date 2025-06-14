@@ -50,7 +50,6 @@ public class AggregationNode
     private final GroupingSetDescriptor groupingSets;
     private final List<Symbol> preGroupedSymbols;
     private final Step step;
-    private final Optional<Symbol> hashSymbol;
     private final Optional<Symbol> groupIdSymbol;
     private final List<Symbol> outputs;
     /**
@@ -65,7 +64,7 @@ public class AggregationNode
             Map<Symbol, Aggregation> aggregations,
             GroupingSetDescriptor groupingSets)
     {
-        return new AggregationNode(id, source, aggregations, groupingSets, ImmutableList.of(), SINGLE, Optional.empty(), Optional.empty());
+        return new AggregationNode(id, source, aggregations, groupingSets, ImmutableList.of(), SINGLE, Optional.empty());
     }
 
     public AggregationNode(
@@ -75,10 +74,9 @@ public class AggregationNode
             GroupingSetDescriptor groupingSets,
             List<Symbol> preGroupedSymbols,
             Step step,
-            Optional<Symbol> hashSymbol,
             Optional<Symbol> groupIdSymbol)
     {
-        this(id, source, aggregations, groupingSets, preGroupedSymbols, step, hashSymbol, groupIdSymbol, Optional.empty());
+        this(id, source, aggregations, groupingSets, preGroupedSymbols, step, groupIdSymbol, Optional.empty());
     }
 
     @JsonCreator
@@ -89,7 +87,6 @@ public class AggregationNode
             @JsonProperty("groupingSets") GroupingSetDescriptor groupingSets,
             @JsonProperty("preGroupedSymbols") List<Symbol> preGroupedSymbols,
             @JsonProperty("step") Step step,
-            @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol,
             @JsonProperty("groupIdSymbol") Optional<Symbol> groupIdSymbol,
             @JsonProperty("isInputReducingAggregation") Optional<Boolean> isInputReducingAggregation)
     {
@@ -111,7 +108,6 @@ public class AggregationNode
         checkArgument(noOrderBy || step == SINGLE, "ORDER BY does not support distributed aggregation");
 
         this.step = step;
-        this.hashSymbol = hashSymbol;
 
         requireNonNull(preGroupedSymbols, "preGroupedSymbols is null");
         checkArgument(preGroupedSymbols.isEmpty() || groupingSets.getGroupingKeys().containsAll(preGroupedSymbols), "Pre-grouped symbols must be a subset of the grouping keys");
@@ -119,7 +115,6 @@ public class AggregationNode
 
         ImmutableList.Builder<Symbol> outputs = ImmutableList.builder();
         outputs.addAll(groupingSets.getGroupingKeys());
-        hashSymbol.ifPresent(outputs::add);
         outputs.addAll(aggregations.keySet());
 
         this.outputs = outputs.build();
@@ -213,12 +208,6 @@ public class AggregationNode
     public Step getStep()
     {
         return step;
-    }
-
-    @JsonProperty("hashSymbol")
-    public Optional<Symbol> getHashSymbol()
-    {
-        return hashSymbol;
     }
 
     @JsonProperty("groupIdSymbol")
@@ -537,7 +526,6 @@ public class AggregationNode
         private GroupingSetDescriptor groupingSets;
         private List<Symbol> preGroupedSymbols;
         private Step step;
-        private Optional<Symbol> hashSymbol;
         private Optional<Symbol> groupIdSymbol;
         private Optional<Boolean> isInputReducingAggregation;
 
@@ -550,7 +538,6 @@ public class AggregationNode
             this.groupingSets = node.getGroupingSets();
             this.preGroupedSymbols = node.getPreGroupedSymbols();
             this.step = node.getStep();
-            this.hashSymbol = node.getHashSymbol();
             this.groupIdSymbol = node.getGroupIdSymbol();
             this.isInputReducingAggregation = node.isInputReducingAggregation;
         }
@@ -591,12 +578,6 @@ public class AggregationNode
             return this;
         }
 
-        public Builder setHashSymbol(Optional<Symbol> hashSymbol)
-        {
-            this.hashSymbol = requireNonNull(hashSymbol, "hashSymbol is null");
-            return this;
-        }
-
         public Builder setGroupIdSymbol(Optional<Symbol> groupIdSymbol)
         {
             this.groupIdSymbol = requireNonNull(groupIdSymbol, "groupIdSymbol is null");
@@ -618,7 +599,6 @@ public class AggregationNode
                     groupingSets,
                     preGroupedSymbols,
                     step,
-                    hashSymbol,
                     groupIdSymbol,
                     isInputReducingAggregation);
         }

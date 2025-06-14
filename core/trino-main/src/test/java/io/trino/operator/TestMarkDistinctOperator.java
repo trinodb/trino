@@ -87,7 +87,6 @@ public class TestMarkDistinctOperator
                 new PlanNodeId("test"),
                 rowPagesBuilder.getTypes(),
                 ImmutableList.of(0),
-                rowPagesBuilder.getHashChannel(),
                 hashStrategyCompiler);
 
         MaterializedResult.Builder expected = resultBuilder(driverContext.getSession(), BIGINT, BOOLEAN);
@@ -124,7 +123,6 @@ public class TestMarkDistinctOperator
                 new PlanNodeId("test"),
                 rowPagesBuilder.getTypes(),
                 ImmutableList.of(0),
-                rowPagesBuilder.getHashChannel(),
                 hashStrategyCompiler);
 
         int maskChannel = firstInput.getChannelCount(); // mask channel is appended to the input
@@ -180,7 +178,7 @@ public class TestMarkDistinctOperator
     {
         List<Page> input = createPagesWithDistinctHashKeys(type, 6_000, 600);
 
-        OperatorFactory operatorFactory = new MarkDistinctOperatorFactory(0, new PlanNodeId("test"), ImmutableList.of(type), ImmutableList.of(0), Optional.of(1), hashStrategyCompiler);
+        OperatorFactory operatorFactory = new MarkDistinctOperatorFactory(0, new PlanNodeId("test"), ImmutableList.of(type), ImmutableList.of(0), hashStrategyCompiler);
 
         // get result with yield; pick a relatively small buffer for partitionRowCount's memory usage
         GroupByHashYieldAssertion.GroupByHashYieldResult result = finishOperatorWithYieldingGroupByHash(input, type, operatorFactory, operator -> ((MarkDistinctOperator) operator).getCapacity(), 450_000);

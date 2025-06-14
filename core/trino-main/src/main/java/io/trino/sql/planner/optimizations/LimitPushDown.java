@@ -29,7 +29,6 @@ import io.trino.sql.planner.plan.ValuesNode;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -134,7 +133,7 @@ public class LimitPushDown
                     node.getOutputSymbols().size() == node.getGroupingKeys().size() &&
                     node.getOutputSymbols().containsAll(node.getGroupingKeys())) {
                 PlanNode rewrittenSource = context.rewrite(node.getSource());
-                return new DistinctLimitNode(idAllocator.getNextId(), rewrittenSource, limit.getCount(), false, rewrittenSource.getOutputSymbols(), Optional.empty());
+                return new DistinctLimitNode(idAllocator.getNextId(), rewrittenSource, limit.getCount(), false, rewrittenSource.getOutputSymbols());
             }
             PlanNode rewrittenNode = context.defaultRewrite(node);
             if (limit != null) {

@@ -400,8 +400,7 @@ public class DecorrelateUnnest
                         ImmutableList.of(uniqueSymbol),
                         false,
                         rowNumberSymbol,
-                        Optional.of(2),
-                        Optional.empty());
+                        Optional.of(2));
             }
             Expression predicate = ifExpression(
                     new Comparison(
@@ -442,7 +441,6 @@ public class DecorrelateUnnest
                         ImmutableList.of(uniqueSymbol),
                         false,
                         rowNumberSymbol,
-                        Optional.empty(),
                         Optional.empty());
             }
 

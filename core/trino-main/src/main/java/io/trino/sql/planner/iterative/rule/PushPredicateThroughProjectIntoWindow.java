@@ -34,7 +34,6 @@ import io.trino.sql.planner.plan.TopNRankingNode.RankingType;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
 
-import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -138,8 +137,7 @@ public class PushPredicateThroughProjectIntoWindow
                 rankingType,
                 rankingSymbol,
                 upperBound.getAsInt(),
-                false,
-                Optional.empty())));
+                false)));
         if (!allRankingValuesInDomain(tupleDomain, rankingSymbol, upperBound.getAsInt())) {
             return Result.ofPlanNode(filter.replaceChildren(ImmutableList.of(project)));
         }

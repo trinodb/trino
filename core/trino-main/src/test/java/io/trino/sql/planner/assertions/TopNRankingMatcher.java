@@ -42,22 +42,19 @@ public class TopNRankingMatcher
     private final Optional<RankingType> rankingType;
     private final Optional<Integer> maxRankingPerPartition;
     private final Optional<Boolean> partial;
-    private final Optional<Optional<SymbolAlias>> hashSymbol;
 
     private TopNRankingMatcher(
             Optional<ExpectedValueProvider<DataOrganizationSpecification>> specification,
             Optional<SymbolAlias> rankingSymbol,
             Optional<RankingType> rankingType,
             Optional<Integer> maxRankingPerPartition,
-            Optional<Boolean> partial,
-            Optional<Optional<SymbolAlias>> hashSymbol)
+            Optional<Boolean> partial)
     {
         this.specification = requireNonNull(specification, "specification is null");
         this.rankingSymbol = requireNonNull(rankingSymbol, "rankingSymbol is null");
         this.rankingType = requireNonNull(rankingType, "rankingType is null");
         this.maxRankingPerPartition = requireNonNull(maxRankingPerPartition, "maxRankingPerPartition is null");
         this.partial = requireNonNull(partial, "partial is null");
-        this.hashSymbol = requireNonNull(hashSymbol, "hashSymbol is null");
     }
 
     @Override
@@ -105,13 +102,6 @@ public class TopNRankingMatcher
             }
         }
 
-        if (hashSymbol.isPresent()) {
-            Optional<Symbol> expected = hashSymbol.get().map(alias -> alias.toSymbol(symbolAliases));
-            if (!expected.equals(topNRankingNode.getHashSymbol())) {
-                return NO_MATCH;
-            }
-        }
-
         return match();
     }
 
@@ -124,7 +114,6 @@ public class TopNRankingMatcher
                 .add("rankingType", rankingType)
                 .add("maxRankingPerPartition", maxRankingPerPartition)
                 .add("partial", partial)
-                .add("hashSymbol", hashSymbol)
                 .toString();
     }
 
@@ -136,7 +125,6 @@ public class TopNRankingMatcher
         private Optional<RankingType> rankingType = Optional.empty();
         private Optional<Integer> maxRankingPerPartition = Optional.empty();
         private Optional<Boolean> partial = Optional.empty();
-        private Optional<Optional<SymbolAlias>> hashSymbol = Optional.empty();
 
         Builder(PlanMatchPattern source)
         {
@@ -173,12 +161,6 @@ public class TopNRankingMatcher
             return this;
         }
 
-        public Builder hashSymbol(Optional<SymbolAlias> hashSymbol)
-        {
-            this.hashSymbol = Optional.of(requireNonNull(hashSymbol, "hashSymbol is null"));
-            return this;
-        }
-
         PlanMatchPattern build()
         {
             return node(TopNRankingNode.class, source).with(
@@ -187,8 +169,7 @@ public class TopNRankingMatcher
                             rankingSymbol,
                             rankingType,
                             maxRankingPerPartition,
-                            partial,
-                            hashSymbol));
+                            partial));
         }
     }
 }

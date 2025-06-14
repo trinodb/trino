@@ -55,7 +55,6 @@ public class TopNRankingOperator
         private final List<Integer> sortChannels;
         private final int maxRowCountPerPartition;
         private final boolean partial;
-        private final Optional<Integer> hashChannel;
         private final int expectedPositions;
 
         private final boolean generateRanking;
@@ -76,7 +75,6 @@ public class TopNRankingOperator
                 List<Integer> sortChannels,
                 int maxRowCountPerPartition,
                 boolean partial,
-                Optional<Integer> hashChannel,
                 int expectedPositions,
                 Optional<DataSize> maxPartialMemory,
                 FlatHashStrategyCompiler hashStrategyCompiler,
@@ -91,7 +89,6 @@ public class TopNRankingOperator
             this.partitionChannels = ImmutableList.copyOf(requireNonNull(partitionChannels, "partitionChannels is null"));
             this.partitionTypes = ImmutableList.copyOf(requireNonNull(partitionTypes, "partitionTypes is null"));
             this.sortChannels = ImmutableList.copyOf(requireNonNull(sortChannels));
-            this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
             this.partial = partial;
             checkArgument(maxRowCountPerPartition > 0, "maxRowCountPerPartition must be > 0");
             this.maxRowCountPerPartition = maxRowCountPerPartition;
@@ -119,7 +116,6 @@ public class TopNRankingOperator
                     sortChannels,
                     maxRowCountPerPartition,
                     generateRanking,
-                    hashChannel,
                     expectedPositions,
                     maxPartialMemory,
                     hashStrategyCompiler,
@@ -147,7 +143,6 @@ public class TopNRankingOperator
                     sortChannels,
                     maxRowCountPerPartition,
                     partial,
-                    hashChannel,
                     expectedPositions,
                     maxPartialMemory,
                     hashStrategyCompiler,
@@ -179,7 +174,6 @@ public class TopNRankingOperator
             List<Integer> sortChannels,
             int maxRankingPerPartition,
             boolean generateRanking,
-            Optional<Integer> hashChannel,
             int expectedPositions,
             Optional<DataSize> maxPartialMemory,
             FlatHashStrategyCompiler hashStrategyCompiler,
@@ -205,17 +199,7 @@ public class TopNRankingOperator
         checkArgument(maxPartialMemory.isEmpty() || !generateRanking, "no partial memory on final TopN");
         this.maxFlushableBytes = maxPartialMemory.map(DataSize::toBytes).orElse(Long.MAX_VALUE);
 
-        int[] groupByChannels;
-        if (hashChannel.isPresent()) {
-            groupByChannels = new int[partitionChannels.size() + 1];
-            for (int i = 0; i < partitionChannels.size(); i++) {
-                groupByChannels[i] = partitionChannels.get(i);
-            }
-            groupByChannels[partitionChannels.size()] = hashChannel.get();
-        }
-        else {
-            groupByChannels = Ints.toArray(partitionChannels);
-        }
+        int[] groupByChannels = Ints.toArray(partitionChannels);
 
         this.groupedTopNBuilderSupplier = getGroupedTopNBuilderSupplier(
                 rankingType,
@@ -229,7 +213,6 @@ public class TopNRankingOperator
                 getGroupByHashSupplier(
                         expectedPositions,
                         partitionTypes,
-                        hashChannel.isPresent(),
                         operatorContext.getSession(),
                         hashStrategyCompiler,
                         this::updateMemoryReservation));
@@ -238,7 +221,6 @@ public class TopNRankingOperator
     private static Supplier<GroupByHash> getGroupByHashSupplier(
             int expectedPositions,
             List<Type> partitionTypes,
-            boolean hasPrecomputedHash,
             Session session,
             FlatHashStrategyCompiler hashStrategyCompiler,
             UpdateMemory updateMemory)
@@ -250,7 +232,6 @@ public class TopNRankingOperator
         return () -> createGroupByHash(
                 session,
                 partitionTypes,
-                hasPrecomputedHash,
                 false,
                 expectedPositions,
                 hashStrategyCompiler,

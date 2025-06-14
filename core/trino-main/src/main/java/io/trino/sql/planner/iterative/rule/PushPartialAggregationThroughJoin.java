@@ -68,10 +68,6 @@ public class PushPartialAggregationThroughJoin
             return false;
         }
 
-        if (aggregationNode.getHashSymbol().isPresent()) {
-            // TODO: add support for hash symbol in aggregation node
-            return false;
-        }
         return aggregationNode.getStep() == PARTIAL && aggregationNode.getGroupingSetCount() == 1;
     }
 
@@ -355,8 +351,6 @@ public class PushPartialAggregationThroughJoin
                 // through the join may or may not preserve these properties. Hence, it is safest to drop preGroupedSymbols here.
                 ImmutableList.of(),
                 INTERMEDIATE,
-                // hash symbol is not supported by this rule
-                Optional.empty(),
                 partialAggregation.getGroupIdSymbol());
     }
 }

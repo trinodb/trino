@@ -258,7 +258,7 @@ public class TestGroupedTopNRankBuilder
     {
         return GroupByHash.createGroupByHash(
                 ImmutableList.of(partitionType),
-                GroupByHash.selectGroupByHashMode(false, false, ImmutableList.of(partitionType)),
+                GroupByHash.selectGroupByHashMode(false, ImmutableList.of(partitionType)),
                 1,
                 false,
                 new FlatHashStrategyCompiler(typeOperators),

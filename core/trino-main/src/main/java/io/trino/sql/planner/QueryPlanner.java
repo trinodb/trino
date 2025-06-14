@@ -909,7 +909,7 @@ class QueryPlanner
 
         // Mark distinct combinations of the unique_id value and the case_number
         Symbol isDistinctSymbol = symbolAllocator.newSymbol("is_distinct", BOOLEAN);
-        MarkDistinctNode markDistinctNode = new MarkDistinctNode(idAllocator.getNextId(), project, isDistinctSymbol, ImmutableList.of(uniqueIdSymbol, caseNumberSymbol), Optional.empty());
+        MarkDistinctNode markDistinctNode = new MarkDistinctNode(idAllocator.getNextId(), project, isDistinctSymbol, ImmutableList.of(uniqueIdSymbol, caseNumberSymbol));
 
         // Raise an error if unique_id symbol is non-null and the unique_id/case_number combination was not distinct
         Expression filter = ifExpression(
@@ -1311,7 +1311,6 @@ class QueryPlanner
                         globalGroupingSets.build()),
                 ImmutableList.of(),
                 AggregationNode.Step.SINGLE,
-                Optional.empty(),
                 groupIdSymbol);
 
         return new PlanBuilder(

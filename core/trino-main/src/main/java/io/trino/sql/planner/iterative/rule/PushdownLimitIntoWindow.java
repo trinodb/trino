@@ -82,8 +82,7 @@ public class PushdownLimitIntoWindow
                 rankingType.get(),
                 getOnlyElement(source.getWindowFunctions().keySet()),
                 limit,
-                false,
-                Optional.empty());
+                false);
         if (rankingType.get() == ROW_NUMBER && source.getPartitionBy().isEmpty()) {
             return Result.ofPlanNode(topNRowNumberNode);
         }

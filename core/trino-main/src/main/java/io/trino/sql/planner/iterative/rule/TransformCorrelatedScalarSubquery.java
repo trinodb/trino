@@ -33,8 +33,6 @@ import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 
-import java.util.Optional;
-
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.matching.Pattern.nonEmpty;
 import static io.trino.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
@@ -153,8 +151,7 @@ public class TransformCorrelatedScalarSubquery
                 context.getIdAllocator().getNextId(),
                 rewrittenCorrelatedJoinNode,
                 isDistinct,
-                rewrittenCorrelatedJoinNode.getInput().getOutputSymbols(),
-                Optional.empty());
+                rewrittenCorrelatedJoinNode.getInput().getOutputSymbols());
 
         FilterNode filterNode = new FilterNode(
                 context.getIdAllocator().getNextId(),

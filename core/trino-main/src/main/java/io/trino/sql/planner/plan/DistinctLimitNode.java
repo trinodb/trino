@@ -21,7 +21,6 @@ import com.google.errorprone.annotations.Immutable;
 import io.trino.sql.planner.Symbol;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -34,7 +33,6 @@ public class DistinctLimitNode
     private final long limit;
     private final boolean partial;
     private final List<Symbol> distinctSymbols;
-    private final Optional<Symbol> hashSymbol;
 
     @JsonCreator
     public DistinctLimitNode(
@@ -42,8 +40,7 @@ public class DistinctLimitNode
             @JsonProperty("source") PlanNode source,
             @JsonProperty("limit") long limit,
             @JsonProperty("partial") boolean partial,
-            @JsonProperty("distinctSymbols") List<Symbol> distinctSymbols,
-            @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol)
+            @JsonProperty("distinctSymbols") List<Symbol> distinctSymbols)
     {
         super(id);
         this.source = requireNonNull(source, "source is null");
@@ -51,8 +48,6 @@ public class DistinctLimitNode
         this.limit = limit;
         this.partial = partial;
         this.distinctSymbols = ImmutableList.copyOf(distinctSymbols);
-        this.hashSymbol = requireNonNull(hashSymbol, "hashSymbol is null");
-        checkArgument(hashSymbol.isEmpty() || !distinctSymbols.contains(hashSymbol.get()), "distinctSymbols should not contain hash symbol");
     }
 
     @Override
@@ -80,12 +75,6 @@ public class DistinctLimitNode
     }
 
     @JsonProperty
-    public Optional<Symbol> getHashSymbol()
-    {
-        return hashSymbol;
-    }
-
-    @JsonProperty
     public List<Symbol> getDistinctSymbols()
     {
         return distinctSymbols;
@@ -94,10 +83,7 @@ public class DistinctLimitNode
     @Override
     public List<Symbol> getOutputSymbols()
     {
-        ImmutableList.Builder<Symbol> outputSymbols = ImmutableList.builder();
-        outputSymbols.addAll(distinctSymbols);
-        hashSymbol.ifPresent(outputSymbols::add);
-        return outputSymbols.build();
+        return distinctSymbols;
     }
 
     @Override
@@ -109,6 +95,6 @@ public class DistinctLimitNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new DistinctLimitNode(getId(), Iterables.getOnlyElement(newChildren), limit, partial, distinctSymbols, hashSymbol);
+        return new DistinctLimitNode(getId(), Iterables.getOnlyElement(newChildren), limit, partial, distinctSymbols);
     }
 }

@@ -172,27 +172,6 @@ public class TestMultipleDistinctAggregationsToSubqueries
                 })
                 .doesNotFire();
 
-        // hash symbol
-        ruleTester.assertThat(newMultipleDistinctAggregationsToSubqueries(ruleTester))
-                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "split_to_subqueries")
-                .on(p -> {
-                    Symbol input1Symbol = p.symbol("input1Symbol", BIGINT);
-                    Symbol input2Symbol = p.symbol("input2Symbol", BIGINT);
-                    return p.aggregation(builder -> builder
-                            .globalGrouping()
-                            .addAggregation(p.symbol("output1", BIGINT), PlanBuilder.aggregation("count", true, ImmutableList.of(new Reference(BIGINT, "input1Symbol"))), ImmutableList.of(BIGINT))
-                            .addAggregation(p.symbol("output2", BIGINT), PlanBuilder.aggregation("sum", true, ImmutableList.of(new Reference(BIGINT, "input2Symbol"))), ImmutableList.of(BIGINT))
-                            .hashSymbol(p.symbol("hashSymbol", BIGINT))
-                            .source(
-                                    p.tableScan(
-                                            testTableHandle(ruleTester),
-                                            ImmutableList.of(input1Symbol, input2Symbol),
-                                            ImmutableMap.of(
-                                                    input1Symbol, COLUMN_1_HANDLE,
-                                                    input2Symbol, COLUMN_2_HANDLE))));
-                })
-                .doesNotFire();
-
         // non-distinct
         ruleTester.assertThat(newMultipleDistinctAggregationsToSubqueries(ruleTester))
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "split_to_subqueries")

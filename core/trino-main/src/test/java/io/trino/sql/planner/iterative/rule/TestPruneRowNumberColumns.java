@@ -124,10 +124,9 @@ public class TestPruneRowNumberColumns
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");
-                    Symbol hash = p.symbol("hash");
                     return p.project(
                             Assignments.identity(a, rowNumber),
-                            p.rowNumber(ImmutableList.of(a), Optional.empty(), rowNumber, Optional.of(hash), p.values(a, hash)));
+                            p.rowNumber(ImmutableList.of(a), Optional.empty(), rowNumber, p.values(a)));
                 })
                 .doesNotFire();
     }

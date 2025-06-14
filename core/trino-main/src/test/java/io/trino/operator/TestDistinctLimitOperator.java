@@ -27,7 +27,6 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -84,7 +83,6 @@ public class TestDistinctLimitOperator
                 rowPagesBuilder.getTypes(),
                 Ints.asList(0),
                 5,
-                rowPagesBuilder.getHashChannel(),
                 hashStrategyCompiler);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
@@ -120,7 +118,6 @@ public class TestDistinctLimitOperator
                 rowPagesBuilder.getTypes(),
                 Ints.asList(0),
                 3,
-                rowPagesBuilder.getHashChannel(),
                 hashStrategyCompiler);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
@@ -155,7 +152,6 @@ public class TestDistinctLimitOperator
                 rowPagesBuilder.getTypes(),
                 Ints.asList(0),
                 5,
-                rowPagesBuilder.getHashChannel(),
                 hashStrategyCompiler);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
@@ -185,7 +181,6 @@ public class TestDistinctLimitOperator
                 ImmutableList.of(type, BIGINT),
                 ImmutableList.of(0),
                 Integer.MAX_VALUE,
-                Optional.of(1),
                 hashStrategyCompiler);
 
         GroupByHashYieldAssertion.GroupByHashYieldResult result = finishOperatorWithYieldingGroupByHash(input, type, operatorFactory, operator -> ((DistinctLimitOperator) operator).getCapacity(), 450_000);

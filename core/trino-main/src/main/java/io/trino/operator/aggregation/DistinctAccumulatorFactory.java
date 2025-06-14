@@ -113,7 +113,6 @@ public class DistinctAccumulatorFactory
             this.hash = new MarkDistinctHash(
                     session,
                     inputTypes,
-                    false,
                     hashStrategyCompiler,
                     UpdateMemory.NOOP);
         }
@@ -190,7 +189,6 @@ public class DistinctAccumulatorFactory
                             .add(INTEGER) // group id column
                             .addAll(inputTypes)
                             .build(),
-                    false,
                     hashStrategyCompiler,
                     UpdateMemory.NOOP);
         }

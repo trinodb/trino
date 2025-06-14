@@ -267,8 +267,7 @@ public class PlanNodeDecorrelator
                     ImmutableList.copyOf(childDecorrelationResult.symbolsToPropagate),
                     false,
                     symbolAllocator.newSymbol("row_number", BIGINT),
-                    Optional.of(toIntExact(node.getCount())),
-                    Optional.empty());
+                    Optional.of(toIntExact(node.getCount())));
 
             return Optional.of(new DecorrelationResult(
                     rowNumberNode,
@@ -337,8 +336,7 @@ public class PlanNodeDecorrelator
                                 ROW_NUMBER,
                                 symbolAllocator.newSymbol("ranking", BIGINT),
                                 toIntExact(node.getCount()),
-                                false,
-                                Optional.empty());
+                                false);
 
                         return Optional.of(new DecorrelationResult(
                                 topNRankingNode,
@@ -356,8 +354,7 @@ public class PlanNodeDecorrelator
                                 ImmutableList.copyOf(childDecorrelationResult.symbolsToPropagate),
                                 false,
                                 symbolAllocator.newSymbol("row_number", BIGINT),
-                                Optional.of(toIntExact(node.getCount())),
-                                Optional.empty());
+                                Optional.of(toIntExact(node.getCount())));
 
                         return Optional.of(new DecorrelationResult(
                                 rowNumberNode,

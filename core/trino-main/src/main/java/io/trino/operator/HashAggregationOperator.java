@@ -24,10 +24,8 @@ import io.trino.operator.aggregation.builder.InMemoryHashAggregationBuilder;
 import io.trino.operator.aggregation.builder.SpillableHashAggregationBuilder;
 import io.trino.operator.aggregation.partial.PartialAggregationController;
 import io.trino.operator.aggregation.partial.SkipAggregationBuilder;
-import io.trino.operator.scalar.CombineHashFunction;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
-import io.trino.spi.type.BigintType;
 import io.trino.spi.type.Type;
 import io.trino.spiller.SpillerFactory;
 import io.trino.sql.planner.plan.AggregationNode.Step;
@@ -40,10 +38,8 @@ import java.util.OptionalLong;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.trino.operator.HashGenerator.INITIAL_HASH_VALUE;
 import static io.trino.operator.aggregation.builder.InMemoryHashAggregationBuilder.toTypes;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.type.TypeUtils.NULL_HASH_CODE;
 import static java.util.Objects.requireNonNull;
 
 public class HashAggregationOperator
@@ -62,7 +58,6 @@ public class HashAggregationOperator
         private final Step step;
         private final boolean produceDefaultOutput;
         private final List<AggregatorFactory> aggregatorFactories;
-        private final Optional<Integer> hashChannel;
         private final Optional<Integer> groupIdChannel;
 
         private final int expectedGroups;
@@ -85,7 +80,6 @@ public class HashAggregationOperator
                 List<Integer> globalAggregationGroupIds,
                 Step step,
                 List<AggregatorFactory> aggregatorFactories,
-                Optional<Integer> hashChannel,
                 Optional<Integer> groupIdChannel,
                 int expectedGroups,
                 Optional<DataSize> maxPartialMemory,
@@ -100,7 +94,6 @@ public class HashAggregationOperator
                     step,
                     false,
                     aggregatorFactories,
-                    hashChannel,
                     groupIdChannel,
                     expectedGroups,
                     maxPartialMemory,
@@ -123,7 +116,6 @@ public class HashAggregationOperator
                 Step step,
                 boolean produceDefaultOutput,
                 List<AggregatorFactory> aggregatorFactories,
-                Optional<Integer> hashChannel,
                 Optional<Integer> groupIdChannel,
                 int expectedGroups,
                 Optional<DataSize> maxPartialMemory,
@@ -141,7 +133,6 @@ public class HashAggregationOperator
                     step,
                     produceDefaultOutput,
                     aggregatorFactories,
-                    hashChannel,
                     groupIdChannel,
                     expectedGroups,
                     maxPartialMemory,
@@ -163,7 +154,6 @@ public class HashAggregationOperator
                 Step step,
                 boolean produceDefaultOutput,
                 List<AggregatorFactory> aggregatorFactories,
-                Optional<Integer> hashChannel,
                 Optional<Integer> groupIdChannel,
                 int expectedGroups,
                 Optional<DataSize> maxPartialMemory,
@@ -176,7 +166,6 @@ public class HashAggregationOperator
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-            this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
             this.groupIdChannel = requireNonNull(groupIdChannel, "groupIdChannel is null");
             this.groupByTypes = ImmutableList.copyOf(groupByTypes);
             this.groupByChannels = ImmutableList.copyOf(groupByChannels);
@@ -208,7 +197,6 @@ public class HashAggregationOperator
                     step,
                     produceDefaultOutput,
                     aggregatorFactories,
-                    hashChannel,
                     groupIdChannel,
                     expectedGroups,
                     maxPartialMemory,
@@ -238,7 +226,6 @@ public class HashAggregationOperator
                     step,
                     produceDefaultOutput,
                     aggregatorFactories,
-                    hashChannel,
                     groupIdChannel,
                     expectedGroups,
                     maxPartialMemory,
@@ -259,7 +246,6 @@ public class HashAggregationOperator
     private final Step step;
     private final boolean produceDefaultOutput;
     private final List<AggregatorFactory> aggregatorFactories;
-    private final Optional<Integer> hashChannel;
     private final Optional<Integer> groupIdChannel;
     private final int expectedGroups;
     private final Optional<DataSize> maxPartialMemory;
@@ -293,7 +279,6 @@ public class HashAggregationOperator
             Step step,
             boolean produceDefaultOutput,
             List<AggregatorFactory> aggregatorFactories,
-            Optional<Integer> hashChannel,
             Optional<Integer> groupIdChannel,
             int expectedGroups,
             Optional<DataSize> maxPartialMemory,
@@ -315,13 +300,12 @@ public class HashAggregationOperator
         this.groupByChannels = ImmutableList.copyOf(groupByChannels);
         this.globalAggregationGroupIds = ImmutableList.copyOf(globalAggregationGroupIds);
         this.aggregatorFactories = ImmutableList.copyOf(aggregatorFactories);
-        this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
         this.groupIdChannel = requireNonNull(groupIdChannel, "groupIdChannel is null");
         this.step = step;
         this.produceDefaultOutput = produceDefaultOutput;
         this.expectedGroups = expectedGroups;
         this.maxPartialMemory = requireNonNull(maxPartialMemory, "maxPartialMemory is null");
-        this.types = toTypes(groupByTypes, aggregatorFactories, hashChannel);
+        this.types = toTypes(groupByTypes, aggregatorFactories);
         this.spillEnabled = spillEnabled;
         this.memoryLimitForMerge = requireNonNull(memoryLimitForMerge, "memoryLimitForMerge is null");
         this.memoryLimitForMergeWithMemory = requireNonNull(memoryLimitForMergeWithMemory, "memoryLimitForMergeWithMemory is null");
@@ -385,7 +369,7 @@ public class HashAggregationOperator
                     .map(PartialAggregationController::isPartialAggregationDisabled)
                     .orElse(false);
             if (step.isOutputPartial() && partialAggregationDisabled) {
-                aggregationBuilder = new SkipAggregationBuilder(groupByChannels, hashChannel, aggregatorFactories, memoryContext, aggregationMetrics);
+                aggregationBuilder = new SkipAggregationBuilder(groupByChannels, aggregatorFactories, memoryContext, aggregationMetrics);
             }
             else if (step.isOutputPartial() || !spillEnabled || !isSpillable()) {
                 // TODO: We ignore spillEnabled here if any aggregate has ORDER BY clause or DISTINCT because they are not yet implemented for spilling.
@@ -395,7 +379,6 @@ public class HashAggregationOperator
                         expectedGroups,
                         groupByTypes,
                         groupByChannels,
-                        hashChannel,
                         false, // spillable
                         operatorContext,
                         maxPartialMemory,
@@ -417,7 +400,6 @@ public class HashAggregationOperator
                         expectedGroups,
                         groupByTypes,
                         groupByChannels,
-                        hashChannel,
                         operatorContext,
                         memoryLimitForMerge,
                         memoryLimitForMergeWithMemory,
@@ -574,12 +556,6 @@ public class HashAggregationOperator
                 channel++;
             }
 
-            if (hashChannel.isPresent()) {
-                long hashValue = calculateDefaultOutputHash(groupByTypes, groupIdChannel.orElseThrow(), groupId);
-                BIGINT.writeLong(output.getBlockBuilder(channel), hashValue);
-                channel++;
-            }
-
             for (AggregatorFactory aggregatorFactory : aggregatorFactories) {
                 aggregatorFactory.createAggregator(aggregationMetrics).evaluate(output.getBlockBuilder(channel));
                 channel++;
@@ -590,20 +566,5 @@ public class HashAggregationOperator
             return null;
         }
         return output.build();
-    }
-
-    private static long calculateDefaultOutputHash(List<Type> groupByChannels, int groupIdChannel, int groupId)
-    {
-        // Default output has NULLs on all columns except of groupIdChannel
-        long result = INITIAL_HASH_VALUE;
-        for (int channel = 0; channel < groupByChannels.size(); channel++) {
-            if (channel != groupIdChannel) {
-                result = CombineHashFunction.getHash(result, NULL_HASH_CODE);
-            }
-            else {
-                result = CombineHashFunction.getHash(result, BigintType.hash(groupId));
-            }
-        }
-        return result;
     }
 }
