@@ -36,8 +36,10 @@ public class QueryRunner
     private final boolean debug;
     private final OkHttpClient httpClient;
     private final OkHttpClient segmentHttpClient;
+    private final int maxQueuedRows;
+    private final int maxBufferedRows;
 
-    public QueryRunner(TrinoUri uri, ClientSession session, boolean debug)
+    public QueryRunner(TrinoUri uri, ClientSession session, boolean debug, int maxQueuedRows, int maxBufferedRows)
     {
         this.session = new AtomicReference<>(requireNonNull(session, "session is null"));
         this.httpClient = HttpClientFactory.toHttpClientBuilder(uri, USER_AGENT).build();
@@ -45,6 +47,8 @@ public class QueryRunner
                 .unauthenticatedClientBuilder(uri, USER_AGENT)
                 .build();
         this.debug = debug;
+        this.maxQueuedRows = maxQueuedRows;
+        this.maxBufferedRows = maxBufferedRows;
     }
 
     public ClientSession getSession()
@@ -64,7 +68,7 @@ public class QueryRunner
 
     public Query startQuery(String query)
     {
-        return new Query(startInternalQuery(session.get(), query), debug);
+        return new Query(startInternalQuery(session.get(), query), debug, maxQueuedRows, maxBufferedRows);
     }
 
     public StatementClient startInternalQuery(String query)

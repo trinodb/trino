@@ -177,7 +177,9 @@ public class Console
         try (QueryRunner queryRunner = new QueryRunner(
                 uri,
                 session,
-                clientOptions.debug)) {
+                clientOptions.debug,
+                clientOptions.maxQueuedRows,
+                clientOptions.maxBufferedRows)) {
             if (hasQuery) {
                 return executeCommand(
                         queryRunner,
