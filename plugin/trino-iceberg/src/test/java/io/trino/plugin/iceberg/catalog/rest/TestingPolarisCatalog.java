@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg.catalog.rest;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
+import io.airlift.http.client.StatusResponseHandler;
 import io.airlift.http.client.StringResponseHandler.StringResponse;
 import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.json.ObjectMapperProvider;
@@ -29,6 +30,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
 
+import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static io.airlift.http.client.StringResponseHandler.createStringResponseHandler;
@@ -108,7 +110,8 @@ public final class TestingPolarisCatalog
                 .setHeader("Content-Type", "application/json")
                 .setBodyGenerator(createStaticBodyGenerator(body, UTF_8))
                 .build();
-        HTTP_CLIENT.execute(request, createStatusResponseHandler());
+        StatusResponseHandler.StatusResponse response = HTTP_CLIENT.execute(request, createStatusResponseHandler());
+        checkState(response.getStatusCode() == 201, "Failed to create polaris catalog, status code: %s", response.getStatusCode());
     }
 
     private void grantPrivilege()
