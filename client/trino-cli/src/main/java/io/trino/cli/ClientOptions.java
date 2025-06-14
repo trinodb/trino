@@ -300,6 +300,12 @@ public class ClientOptions
     @Option(names = "--decimal-data-size", description = "Show data size and rate in base 10 rather than base 2")
     public boolean decimalDataSize;
 
+    @Option(names = "--max-buffered-rows", paramLabel = "<maxBufferedRows>", description = "Maximum number of rows to buffer in memory before writing to output (default: ${DEFAULT-VALUE})")
+    public int maxBufferedRows = 10_000;
+
+    @Option(names = "--max-queued-rows", paramLabel = "<maxQueuedRows>", description = "Maximum number of rows to queue before blocking the query (default: ${DEFAULT-VALUE})")
+    public int maxQueuedRows = 50_000;
+
     public enum OutputFormat
     {
         AUTO,
