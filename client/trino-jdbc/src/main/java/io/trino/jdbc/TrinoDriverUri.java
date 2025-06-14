@@ -51,6 +51,7 @@ import static io.trino.client.OkHttpUtil.setupKerberos;
 import static io.trino.client.OkHttpUtil.setupSocksProxy;
 import static io.trino.client.OkHttpUtil.setupSsl;
 import static io.trino.client.OkHttpUtil.tokenAuth;
+import io.trino.jdbc.OciSigningInterceptor; // Added import
 import static io.trino.jdbc.ConnectionProperties.ACCESS_TOKEN;
 import static io.trino.jdbc.ConnectionProperties.APPLICATION_NAME_PREFIX;
 import static io.trino.jdbc.ConnectionProperties.ASSUME_LITERAL_NAMES_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS;
@@ -72,6 +73,10 @@ import static io.trino.jdbc.ConnectionProperties.KERBEROS_PRINCIPAL;
 import static io.trino.jdbc.ConnectionProperties.KERBEROS_REMOTE_SERVICE_NAME;
 import static io.trino.jdbc.ConnectionProperties.KERBEROS_SERVICE_PRINCIPAL_PATTERN;
 import static io.trino.jdbc.ConnectionProperties.KERBEROS_USE_CANONICAL_HOSTNAME;
+// OCI Properties
+import static io.trino.jdbc.ConnectionProperties.OCI_AUTHENTICATION_ENABLED;
+import static io.trino.jdbc.ConnectionProperties.OCI_CONFIG_PATH;
+import static io.trino.jdbc.ConnectionProperties.OCI_PROFILE;
 import static io.trino.jdbc.ConnectionProperties.PASSWORD;
 import static io.trino.jdbc.ConnectionProperties.ROLES;
 import static io.trino.jdbc.ConnectionProperties.SESSION_PROPERTIES;
@@ -347,6 +352,28 @@ public final class TrinoDriverUri
 
                 builder.authenticator(authenticator);
                 builder.addInterceptor(authenticator);
+            }
+
+            // OCI Authentication
+            if (OCI_AUTHENTICATION_ENABLED.getValue(properties).orElse(false)) {
+                if (!useSecureConnection) {
+                    throw new SQLException("Authentication using OCI Signatures requires SSL to be enabled");
+                }
+                Optional<String> ociProfileOptional = OCI_PROFILE.getValue(properties);
+                if (!ociProfileOptional.isPresent() || ociProfileOptional.get().isEmpty()) {
+                    // This should ideally be caught by ConnectionProperties.validate, but as a safeguard:
+                    throw new SQLException("OCI Profile ('ociProfile') is required when OCI Authentication ('ociAuthenticationEnabled') is enabled.");
+                }
+                String ociProfile = ociProfileOptional.get();
+                // ociConfigPath is optional for the interceptor constructor
+                String ociConfigPath = OCI_CONFIG_PATH.getValue(properties).orElse(null);
+
+                try {
+                    OciSigningInterceptor ociInterceptor = new OciSigningInterceptor(ociProfile, ociConfigPath);
+                    builder.addInterceptor(ociInterceptor);
+                } catch (RuntimeException e) {
+                    throw new SQLException("Failed to initialize OCI Signing Interceptor: " + e.getMessage(), e);
+                }
             }
         }
         catch (ClientException e) {

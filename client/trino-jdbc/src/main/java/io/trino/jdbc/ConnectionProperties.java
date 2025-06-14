@@ -89,6 +89,11 @@ final class ConnectionProperties
     public static final ConnectionProperty<Map<String, String>> SESSION_PROPERTIES = new SessionProperties();
     public static final ConnectionProperty<String> SOURCE = new Source();
 
+    // OCI authentication properties
+    public static final ConnectionProperty<Boolean> OCI_AUTHENTICATION_ENABLED = new OciAuthenticationEnabled();
+    public static final ConnectionProperty<String> OCI_PROFILE = new OciProfile();
+    public static final ConnectionProperty<String> OCI_CONFIG_PATH = new OciConfigPath();
+
     private static final Set<ConnectionProperty<?>> ALL_PROPERTIES = ImmutableSet.<ConnectionProperty<?>>builder()
             .add(USER)
             .add(PASSWORD)
@@ -128,6 +133,9 @@ final class ConnectionProperties
             .add(EXTERNAL_AUTHENTICATION_TIMEOUT)
             .add(EXTERNAL_AUTHENTICATION_TOKEN_CACHE)
             .add(EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS)
+            .add(OCI_AUTHENTICATION_ENABLED)
+            .add(OCI_PROFILE)
+            .add(OCI_CONFIG_PATH)
             .build();
 
     private static final Map<String, ConnectionProperty<?>> KEY_LOOKUP = unmodifiableMap(ALL_PROPERTIES.stream()
@@ -646,6 +654,39 @@ final class ConnectionProperties
             // do not log value as it may contain sensitive information
             checkArgument(PRINTABLE_ASCII.matchesAllOf(value), "%s value for key '%s' contains spaces or is not printable ASCII", mapName, key);
             return immutableEntry(key, value);
+        }
+    }
+
+    // OCI Authentication
+    private static Predicate<Properties> isOciAuthEnabled()
+    {
+        return checkedPredicate(properties -> OCI_AUTHENTICATION_ENABLED.getValue(properties).orElse(false));
+    }
+
+    private static class OciAuthenticationEnabled
+            extends AbstractConnectionProperty<Boolean>
+    {
+        public OciAuthenticationEnabled()
+        {
+            super("ociAuthenticationEnabled", Optional.of("false"), ALLOWED, BOOLEAN_CONVERTER);
+        }
+    }
+
+    private static class OciProfile
+            extends AbstractConnectionProperty<String>
+    {
+        public OciProfile()
+        {
+            super("ociProfile", NOT_REQUIRED, isOciAuthEnabled(), NON_EMPTY_STRING_CONVERTER);
+        }
+    }
+
+    private static class OciConfigPath
+            extends AbstractConnectionProperty<String>
+    {
+        public OciConfigPath()
+        {
+            super("ociConfigPath", NOT_REQUIRED, isOciAuthEnabled(), STRING_CONVERTER);
         }
     }
 }
