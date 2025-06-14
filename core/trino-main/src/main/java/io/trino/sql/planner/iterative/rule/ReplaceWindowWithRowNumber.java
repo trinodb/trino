@@ -62,7 +62,6 @@ public class ReplaceWindowWithRowNumber
                 node.getPartitionBy(),
                 false,
                 getOnlyElement(node.getWindowFunctions().keySet()),
-                Optional.empty(),
                 Optional.empty()));
     }
 }

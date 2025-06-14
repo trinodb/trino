@@ -569,8 +569,7 @@ public class AddLocalExchanges
                     node.getId(),
                     child.getNode(),
                     node.getMarkerSymbol(),
-                    pruneMarkDistinctSymbols(node, child.getProperties().getLocalProperties()),
-                    node.getHashSymbol());
+                    pruneMarkDistinctSymbols(node, child.getProperties().getLocalProperties()));
 
             return deriveProperties(result, child.getProperties());
         }

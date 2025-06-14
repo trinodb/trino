@@ -115,8 +115,7 @@ public class TestAnonymizeJsonRepresentation
                         "Aggregate",
                         ImmutableMap.of(
                                 "type", "FINAL",
-                                "keys", "[symbol_1, symbol_2]",
-                                "hash", "[]"),
+                                "keys", "[symbol_1, symbol_2]"),
                         ImmutableList.of(
                                 new Symbol(BIGINT, "symbol_1"),
                                 new Symbol(BIGINT, "symbol_2"),

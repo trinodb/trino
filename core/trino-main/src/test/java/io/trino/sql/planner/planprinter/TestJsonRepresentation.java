@@ -138,8 +138,7 @@ public class TestJsonRepresentation
                         "Aggregate",
                         ImmutableMap.of(
                                 "type", "FINAL",
-                                "keys", "[y, z]",
-                                "hash", "[]"),
+                                "keys", "[y, z]"),
                         ImmutableList.of(
                                 new Symbol(BIGINT, "y"),
                                 new Symbol(BIGINT, "z"),

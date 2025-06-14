@@ -25,7 +25,6 @@ import io.trino.sql.planner.plan.ValuesNode;
 
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.extractCardinality;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
@@ -51,7 +50,6 @@ public class RemoveRedundantDistinctLimit
     @Override
     public Result apply(DistinctLimitNode node, Captures captures, Context context)
     {
-        checkArgument(node.getHashSymbol().isEmpty(), "HashSymbol should be empty");
         if (node.getLimit() == 0) {
             return Result.ofPlanNode(new ValuesNode(node.getId(), node.getOutputSymbols()));
         }
@@ -67,7 +65,6 @@ public class RemoveRedundantDistinctLimit
                     singleGroupingSet(node.getDistinctSymbols()),
                     ImmutableList.of(),
                     SINGLE,
-                    node.getHashSymbol(),
                     Optional.empty()));
         }
         return Result.empty();

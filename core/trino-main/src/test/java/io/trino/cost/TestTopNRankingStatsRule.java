@@ -74,7 +74,6 @@ public class TestTopNRankingStatsRule
                                 ROW_NUMBER,
                                 10,
                                 pb.symbol("z", DOUBLE),
-                                Optional.empty(),
                                 pb.values(pb.symbol("x", DOUBLE), pb.symbol("y", DOUBLE))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10000)
@@ -104,7 +103,6 @@ public class TestTopNRankingStatsRule
                                 ROW_NUMBER,
                                 20,
                                 pb.symbol("z", DOUBLE),
-                                Optional.empty(),
                                 pb.values(
                                         pb.symbol("x", DOUBLE),
                                         pb.symbol("y", DOUBLE),
@@ -144,7 +142,6 @@ public class TestTopNRankingStatsRule
                                 RANK,
                                 10,
                                 pb.symbol("z", DOUBLE),
-                                Optional.empty(),
                                 pb.values(pb.symbol("x", DOUBLE), pb.symbol("y", DOUBLE))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10000)
@@ -174,7 +171,6 @@ public class TestTopNRankingStatsRule
                                 RANK,
                                 20,
                                 pb.symbol("z", DOUBLE),
-                                Optional.empty(),
                                 pb.values(
                                         pb.symbol("x", DOUBLE),
                                         pb.symbol("y", DOUBLE),
@@ -214,7 +210,6 @@ public class TestTopNRankingStatsRule
                                 DENSE_RANK,
                                 3,
                                 pb.symbol("z", DOUBLE),
-                                Optional.empty(),
                                 pb.values(pb.symbol("x", DOUBLE), pb.symbol("y", DOUBLE))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10000)
@@ -244,7 +239,6 @@ public class TestTopNRankingStatsRule
                                 DENSE_RANK,
                                 10,
                                 pb.symbol("z", DOUBLE),
-                                Optional.empty(),
                                 pb.values(
                                         pb.symbol("x", DOUBLE),
                                         pb.symbol("y", DOUBLE),
@@ -285,7 +279,6 @@ public class TestTopNRankingStatsRule
                                 rankingType,
                                 10,
                                 pb.symbol("z", DOUBLE),
-                                Optional.empty(),
                                 pb.values(pb.symbol("x", DOUBLE), pb.symbol("y", DOUBLE))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10000)
@@ -326,7 +319,6 @@ public class TestTopNRankingStatsRule
                                 rankingType,
                                 10,
                                 pb.symbol("z", DOUBLE),
-                                Optional.empty(),
                                 pb.values(pb.symbol("x", DOUBLE), pb.symbol("y", DOUBLE))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(NaN)
@@ -354,7 +346,6 @@ public class TestTopNRankingStatsRule
                                 rankingType,
                                 10,
                                 pb.symbol("z", DOUBLE),
-                                Optional.empty(),
                                 pb.values(pb.symbol("x", DOUBLE), pb.symbol("y", DOUBLE))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10000)
@@ -382,7 +373,6 @@ public class TestTopNRankingStatsRule
                                 rankingType,
                                 10,
                                 pb.symbol("z", DOUBLE),
-                                Optional.empty(),
                                 pb.values(pb.symbol("x", DOUBLE), pb.symbol("y", DOUBLE))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(0)

@@ -1040,7 +1040,6 @@ public class LocalExecutionPlanner
             int channel = source.getTypes().size();
             outputMappings.put(node.getRowNumberSymbol(), channel);
 
-            Optional<Integer> hashChannel = node.getHashSymbol().map(channelGetter(source));
             OperatorFactory operatorFactory = new RowNumberOperator.RowNumberOperatorFactory(
                     context.getNextOperatorId(),
                     node.getId(),
@@ -1049,7 +1048,6 @@ public class LocalExecutionPlanner
                     partitionChannels,
                     partitionTypes,
                     node.getMaxRowCountPerPartition(),
-                    hashChannel,
                     10_000,
                     hashStrategyCompiler);
             return new PhysicalOperation(operatorFactory, outputMappings.buildOrThrow(), source);
@@ -1080,7 +1078,6 @@ public class LocalExecutionPlanner
                 outputChannels.add(i);
             }
 
-            Optional<Integer> hashChannel = node.getHashSymbol().map(channelGetter(source));
             boolean isPartial = node.isPartial();
             Optional<DataSize> maxPartialTopNMemorySize = isPartial ? Optional.of(SystemSessionProperties.getMaxPartialTopNMemory(session)).filter(
                     maxSize -> maxSize.compareTo(DataSize.ofBytes(0)) > 0) : Optional.empty();
@@ -1095,7 +1092,6 @@ public class LocalExecutionPlanner
                     sortChannels,
                     node.getMaxRankingPerPartition(),
                     isPartial,
-                    hashChannel,
                     1000,
                     maxPartialTopNMemorySize,
                     hashStrategyCompiler,
@@ -1923,7 +1919,6 @@ public class LocalExecutionPlanner
         {
             PhysicalOperation source = node.getSource().accept(this, context);
 
-            Optional<Integer> hashChannel = node.getHashSymbol().map(channelGetter(source));
             List<Integer> distinctChannels = getChannelsForSymbols(node.getDistinctSymbols(), source.getLayout());
 
             OperatorFactory operatorFactory = new DistinctLimitOperatorFactory(
@@ -1932,7 +1927,6 @@ public class LocalExecutionPlanner
                     source.getTypes(),
                     distinctChannels,
                     node.getLimit(),
-                    hashChannel,
                     hashStrategyCompiler);
             return new PhysicalOperation(operatorFactory, makeLayout(node), source);
         }
@@ -2008,8 +2002,7 @@ public class LocalExecutionPlanner
             PhysicalOperation source = node.getSource().accept(this, context);
 
             List<Integer> channels = getChannelsForSymbols(node.getDistinctSymbols(), source.getLayout());
-            Optional<Integer> hashChannel = node.getHashSymbol().map(channelGetter(source));
-            MarkDistinctOperatorFactory operator = new MarkDistinctOperatorFactory(context.getNextOperatorId(), node.getId(), source.getTypes(), channels, hashChannel, hashStrategyCompiler);
+            MarkDistinctOperatorFactory operator = new MarkDistinctOperatorFactory(context.getNextOperatorId(), node.getId(), source.getTypes(), channels, hashStrategyCompiler);
             return new PhysicalOperation(operator, makeLayout(node), source);
         }
 
@@ -3375,7 +3368,6 @@ public class LocalExecutionPlanner
                         groupingSymbols,
                         PARTIAL,
                         Optional.empty(),
-                        Optional.empty(),
                         source,
                         false,
                         false,
@@ -3451,7 +3443,6 @@ public class LocalExecutionPlanner
                         ImmutableSet.of(),
                         groupingSymbols,
                         FINAL,
-                        Optional.empty(),
                         Optional.empty(),
                         source,
                         false,
@@ -4036,7 +4027,6 @@ public class LocalExecutionPlanner
                     node.getGlobalGroupingSets(),
                     node.getGroupingKeys(),
                     node.getStep(),
-                    node.getHashSymbol(),
                     node.getGroupIdSymbol(),
                     source,
                     node.hasDefaultOutput(),
@@ -4057,7 +4047,6 @@ public class LocalExecutionPlanner
                 Set<Integer> globalGroupingSets,
                 List<Symbol> groupBySymbols,
                 Step step,
-                Optional<Symbol> hashSymbol,
                 Optional<Symbol> groupIdSymbol,
                 PhysicalOperation source,
                 boolean hasDefaultOutput,
@@ -4091,11 +4080,6 @@ public class LocalExecutionPlanner
                 channel++;
             }
 
-            // hashChannel follows the group by channels
-            if (hashSymbol.isPresent()) {
-                outputMappings.put(hashSymbol.get(), channel++);
-            }
-
             // aggregations go in following channels
             for (Symbol symbol : aggregationOutputSymbols) {
                 outputMappings.put(symbol, channel);
@@ -4117,7 +4101,6 @@ public class LocalExecutionPlanner
                         aggregatorFactories,
                         joinCompiler);
             }
-            Optional<Integer> hashChannel = hashSymbol.map(channelGetter(source));
             return new HashAggregationOperatorFactory(
                     context.getNextOperatorId(),
                     planNodeId,
@@ -4127,7 +4110,6 @@ public class LocalExecutionPlanner
                     step,
                     hasDefaultOutput,
                     aggregatorFactories,
-                    hashChannel,
                     groupIdChannel,
                     expectedGroups,
                     maxPartialAggregationMemorySize,

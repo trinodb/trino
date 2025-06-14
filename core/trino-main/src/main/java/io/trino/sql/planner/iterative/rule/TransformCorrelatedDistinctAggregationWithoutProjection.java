@@ -138,8 +138,6 @@ public class TransformCorrelatedDistinctAggregationWithoutProjection
                                 .build()))
                 .setPreGroupedSymbols(
                         ImmutableList.of())
-                .setHashSymbol(
-                        Optional.empty())
                 .setGroupIdSymbol(Optional.empty())
                 .build();
 
