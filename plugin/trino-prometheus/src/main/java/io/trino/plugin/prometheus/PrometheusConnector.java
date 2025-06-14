@@ -30,7 +30,6 @@ import java.util.List;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.prometheus.PrometheusTransactionHandle.INSTANCE;
 import static java.util.Objects.requireNonNull;
 
 public class PrometheusConnector
@@ -64,7 +63,7 @@ public class PrometheusConnector
     @Override
     public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
     {
-        return INSTANCE;
+        return PrometheusTransactionHandle.INSTANCE;
     }
 
     @Override
