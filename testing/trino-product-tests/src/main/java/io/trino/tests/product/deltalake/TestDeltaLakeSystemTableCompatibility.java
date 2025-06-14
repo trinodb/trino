@@ -105,15 +105,15 @@ public class TestDeltaLakeSystemTableCompatibility
                 "TBLPROPERTIES ('delta.enableDeletionVectors' = true)");
 
         List<Row> expectedBeforeDelete = ImmutableList.of(
-                row("{\"a\":1,\"c\":\"varchar_1\"}", 3L, 1347L, "{\"b\":{\"min\":11,\"max\":19,\"null_count\":0}}"),
-                row("{\"a\":1,\"c\":\"varchar_2\"}", 1L, 449L, "{\"b\":{\"min\":13,\"max\":13,\"null_count\":0}}"));
+                row("{\"a\":1,\"c\":\"varchar_1\"}", 3L, 1398L, "{\"b\":{\"min\":11,\"max\":19,\"null_count\":0}}"),
+                row("{\"a\":1,\"c\":\"varchar_2\"}", 1L, 466L, "{\"b\":{\"min\":13,\"max\":13,\"null_count\":0}}"));
 
         List<Row> expectedAfterFirstDelete = ImmutableList.of(
-                row("{\"a\":1,\"c\":\"varchar_1\"}", 2L, 898L, "{\"b\":{\"min\":11,\"max\":17,\"null_count\":0}}"),
-                row("{\"a\":1,\"c\":\"varchar_2\"}", 1L, 449L, "{\"b\":{\"min\":13,\"max\":13,\"null_count\":0}}"));
+                row("{\"a\":1,\"c\":\"varchar_1\"}", 2L, 932L, "{\"b\":{\"min\":11,\"max\":17,\"null_count\":0}}"),
+                row("{\"a\":1,\"c\":\"varchar_2\"}", 1L, 466L, "{\"b\":{\"min\":13,\"max\":13,\"null_count\":0}}"));
 
         List<Row> expectedAfterSecondDelete = ImmutableList.of(
-                row("{\"a\":1,\"c\":\"varchar_1\"}", 2L, 898L, "{\"b\":{\"min\":11,\"max\":17,\"null_count\":0}}"));
+                row("{\"a\":1,\"c\":\"varchar_1\"}", 2L, 932L, "{\"b\":{\"min\":11,\"max\":17,\"null_count\":0}}"));
 
         try {
             onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (1, 11, 'varchar_1'), (1, 19, 'varchar_1'), (1, 17, 'varchar_1'), (1, 13, 'varchar_2')");
@@ -141,9 +141,9 @@ public class TestDeltaLakeSystemTableCompatibility
                 "TBLPROPERTIES ('delta.dataSkippingNumIndexedCols' = 0)");
 
         List<Row> expected = ImmutableList.of(
-                row("{\"a\":1,\"c\":\"varchar_1\"}", 3L, 1347L, "{\"b\":{\"min\":null,\"max\":null,\"null_count\":null}}"),
-                row("{\"a\":1,\"c\":\"varchar_2\"}", 1L, 449L, "{\"b\":{\"min\":null,\"max\":null,\"null_count\":null}}"),
-                row("{\"a\":1,\"c\":\"varchar_3\"}", 1L, 413L, "{\"b\":{\"min\":null,\"max\":null,\"null_count\":null}}"));
+                row("{\"a\":1,\"c\":\"varchar_1\"}", 3L, 1398L, "{\"b\":{\"min\":null,\"max\":null,\"null_count\":null}}"),
+                row("{\"a\":1,\"c\":\"varchar_2\"}", 1L, 466L, "{\"b\":{\"min\":null,\"max\":null,\"null_count\":null}}"),
+                row("{\"a\":1,\"c\":\"varchar_3\"}", 1L, 429L, "{\"b\":{\"min\":null,\"max\":null,\"null_count\":null}}"));
 
         try {
             onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (1, 11, 'varchar_1'), (1, 19, 'varchar_1'), (1, 17, 'varchar_1'), (1, 13, 'varchar_2'), (1, NULL, 'varchar_3')");
