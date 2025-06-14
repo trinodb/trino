@@ -55,6 +55,7 @@ import static io.trino.plugin.opa.TestConstants.BAD_REQUEST_RESPONSE;
 import static io.trino.plugin.opa.TestConstants.MALFORMED_RESPONSE;
 import static io.trino.plugin.opa.TestConstants.NO_ACCESS_RESPONSE;
 import static io.trino.plugin.opa.TestConstants.OK_RESPONSE;
+import static io.trino.plugin.opa.TestConstants.OPA_ADDITIONAL_CONTEXT_FILE;
 import static io.trino.plugin.opa.TestConstants.OPA_COLUMN_MASKING_URI;
 import static io.trino.plugin.opa.TestConstants.OPA_ROW_FILTERING_URI;
 import static io.trino.plugin.opa.TestConstants.OPA_SERVER_URI;
@@ -681,10 +682,51 @@ public class TestOpaAccessControl
                         },
                         "softwareStack": {
                             "trinoVersion": "%s"
+                        },
+                        "additionalContext": {
+                            "properties" : {
+                            }
                         }
                     }
                 }\
                 """.formatted(expectedTrinoVersion);
+        assertStringRequestsEqual(ImmutableSet.of(expectedRequest), mockClient.getRequests(), "/input");
+    }
+
+    @Test
+    public void testRequestContextContentsForAdditionalContext()
+    {
+        InstrumentedHttpClient mockClient = createMockHttpClient(OPA_SERVER_URI, request -> OK_RESPONSE);
+        OpaAccessControl authorizer = (OpaAccessControl) OpaAccessControlFactory.create(
+                ImmutableMap.of("opa.policy.uri", OPA_SERVER_URI.toString(), "opa.additional-context-file", OPA_ADDITIONAL_CONTEXT_FILE.getPath()),
+                Optional.of(mockClient),
+                Optional.empty());
+        Identity sampleIdentityWithGroups = Identity.forUser("test_user").withGroups(ImmutableSet.of("some_group")).build();
+
+        authorizer.checkCanExecuteQuery(sampleIdentityWithGroups, TEST_QUERY_ID);
+
+        String expectedRequest =
+                """
+                {
+                    "action": {
+                        "operation": "ExecuteQuery"
+                    },
+                    "context": {
+                        "identity": {
+                            "user": "test_user",
+                            "groups": ["some_group"]
+                        },
+                        "softwareStack": {
+                            "trinoVersion": "UNKNOWN"
+                        },
+                        "additionalContext": {
+                            "properties" : {
+                                "namespace" : "some-namespace"
+                            }
+                        }
+                    }
+                }
+                """;
         assertStringRequestsEqual(ImmutableSet.of(expectedRequest), mockClient.getRequests(), "/input");
     }
 
