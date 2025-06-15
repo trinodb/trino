@@ -200,7 +200,6 @@ public final class PlanCopier
                     idAllocator.getNextId(),
                     context.rewrite(node.getSource()),
                     node.getSpecification(),
-                    node.getHashSymbol(),
                     node.getPrePartitionedInputs(),
                     node.getPreSortedOrderPrefix(),
                     node.getWindowFunctions(),

@@ -325,7 +325,6 @@ public class SymbolMapper
                 node.getId(),
                 source,
                 newSpecification.specification(),
-                node.getHashSymbol().map(this::map),
                 node.getPrePartitionedInputs().stream()
                         .map(this::map)
                         .collect(toImmutableSet()),

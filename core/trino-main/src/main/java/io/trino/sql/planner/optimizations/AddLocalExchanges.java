@@ -461,7 +461,6 @@ public class AddLocalExchanges
                     node.getId(),
                     child.getNode(),
                     node.getSpecification(),
-                    node.getHashSymbol(),
                     prePartitionedInputs,
                     preSortedOrderPrefix,
                     node.getWindowFunctions(),

@@ -658,7 +658,6 @@ class RelationPlanner
                 idAllocator.getNextId(),
                 planBuilder.getRoot(),
                 specification,
-                Optional.empty(),
                 ImmutableSet.of(),
                 0,
                 ImmutableMap.of(),
