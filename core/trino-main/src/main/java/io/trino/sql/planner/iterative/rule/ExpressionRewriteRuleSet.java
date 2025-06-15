@@ -383,7 +383,6 @@ public class ExpressionRewriteRuleSet
                         node.getId(),
                         node.getSource(),
                         node.getSpecification(),
-                        node.getHashSymbol(),
                         node.getPrePartitionedInputs(),
                         node.getPreSortedOrderPrefix(),
                         node.getWindowFunctions(),
