@@ -546,7 +546,6 @@ public class AddLocalExchanges
                     node.getSpecification(),
                     prePartitionedInputs,
                     preSortedOrderPrefix,
-                    node.getHashSymbol(),
                     node.getHandle());
 
             return deriveProperties(result, child.getProperties());

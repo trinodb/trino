@@ -1967,7 +1967,7 @@ public class PlanPrinter
                 specification.orderingScheme().ifPresent(orderingScheme -> descriptor.put("orderBy", formatOrderingScheme(orderingScheme, node.getPreSorted())));
             });
 
-            addNode(node, "TableFunctionProcessor", descriptor.put("hash", formatHash(node.getHashSymbol())).buildOrThrow(), context);
+            addNode(node, "TableFunctionProcessor", descriptor.buildOrThrow(), context);
 
             return processChildren(node, new Context(context.isInitialPlan()));
         }

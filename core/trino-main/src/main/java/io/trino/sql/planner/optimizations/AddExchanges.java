@@ -472,7 +472,7 @@ public class AddExchanges
                 }
                 else {
                     child = withDerivedProperties(
-                            partitionedExchange(idAllocator.getNextId(), REMOTE, child.getNode(), partitionBy, node.getHashSymbol()),
+                            partitionedExchange(idAllocator.getNextId(), REMOTE, child.getNode(), partitionBy, Optional.empty()),
                             child.getProperties());
                 }
             }
