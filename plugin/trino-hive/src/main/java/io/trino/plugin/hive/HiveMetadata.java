@@ -208,6 +208,7 @@ import static io.trino.plugin.hive.HiveSessionProperties.getHiveStorageFormat;
 import static io.trino.plugin.hive.HiveSessionProperties.getHudiCatalogName;
 import static io.trino.plugin.hive.HiveSessionProperties.getIcebergCatalogName;
 import static io.trino.plugin.hive.HiveSessionProperties.getInsertExistingPartitionsBehavior;
+import static io.trino.plugin.hive.HiveSessionProperties.getPaimonCatalogName;
 import static io.trino.plugin.hive.HiveSessionProperties.getQueryPartitionFilterRequiredSchemas;
 import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.trino.plugin.hive.HiveSessionProperties.isBucketExecutionEnabled;
@@ -316,6 +317,7 @@ import static io.trino.plugin.hive.util.HiveUtil.isDeltaLakeTable;
 import static io.trino.plugin.hive.util.HiveUtil.isHiveSystemSchema;
 import static io.trino.plugin.hive.util.HiveUtil.isHudiTable;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
+import static io.trino.plugin.hive.util.HiveUtil.isPaimonTable;
 import static io.trino.plugin.hive.util.HiveUtil.isSparkBucketedTable;
 import static io.trino.plugin.hive.util.HiveUtil.parsePartitionValue;
 import static io.trino.plugin.hive.util.HiveUtil.verifyPartitionTypeSupported;
@@ -544,6 +546,9 @@ public class HiveMetadata
         }
         if (isHudiTable(table)) {
             throw new TrinoException(UNSUPPORTED_TABLE_TYPE, format("Cannot query Hudi table '%s'", tableName));
+        }
+        if (isPaimonTable(table)) {
+            throw new TrinoException(UNSUPPORTED_TABLE_TYPE, format("Cannot query Paimon table '%s'", tableName));
         }
 
         // we must not allow system tables due to how permissions are checked in SystemTableAwareAccessControl
@@ -3921,6 +3926,7 @@ public class HiveMetadata
         Optional<String> icebergCatalogName = getIcebergCatalogName(session);
         Optional<String> deltaLakeCatalogName = getDeltaLakeCatalogName(session);
         Optional<String> hudiCatalogName = getHudiCatalogName(session);
+        Optional<String> paimonCatalogName = getPaimonCatalogName(session);
 
         if (icebergCatalogName.isEmpty() && deltaLakeCatalogName.isEmpty() && hudiCatalogName.isEmpty()) {
             return Optional.empty();
@@ -3939,7 +3945,8 @@ public class HiveMetadata
         Optional<CatalogSchemaTableName> catalogSchemaTableName = Optional.<CatalogSchemaTableName>empty()
                 .or(() -> redirectTableToIceberg(icebergCatalogName, table.get()))
                 .or(() -> redirectTableToDeltaLake(deltaLakeCatalogName, table.get()))
-                .or(() -> redirectTableToHudi(hudiCatalogName, table.get()));
+                .or(() -> redirectTableToHudi(hudiCatalogName, table.get()))
+                .or(() -> redirectTableToPaimon(paimonCatalogName, table.get()));
 
         // stitch back the suffix we cut off.
         return catalogSchemaTableName.map(name -> new CatalogSchemaTableName(
@@ -3977,6 +3984,17 @@ public class HiveMetadata
             return Optional.empty();
         }
         if (isHudiTable(table)) {
+            return targetCatalogName.map(catalog -> new CatalogSchemaTableName(catalog, table.getSchemaTableName()));
+        }
+        return Optional.empty();
+    }
+
+    private static Optional<CatalogSchemaTableName> redirectTableToPaimon(Optional<String> targetCatalogName, Table table)
+    {
+        if (targetCatalogName.isEmpty()) {
+            return Optional.empty();
+        }
+        if (isPaimonTable(table)) {
             return targetCatalogName.map(catalog -> new CatalogSchemaTableName(catalog, table.getSchemaTableName()));
         }
         return Optional.empty();
