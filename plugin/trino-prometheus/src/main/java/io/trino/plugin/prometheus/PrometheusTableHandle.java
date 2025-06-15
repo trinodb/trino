@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.prometheus;
 
+import com.google.common.collect.ImmutableList;
+import io.trino.plugin.prometheus.expression.LabelFilterExpression;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
@@ -23,7 +25,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public record PrometheusTableHandle(String schemaName, String tableName, Optional<TupleDomain<ColumnHandle>> predicate)
+public record PrometheusTableHandle(String schemaName, String tableName, Optional<TupleDomain<ColumnHandle>> predicate, ImmutableList<LabelFilterExpression> expressions)
         implements ConnectorTableHandle
 {
     public PrometheusTableHandle
@@ -31,6 +33,7 @@ public record PrometheusTableHandle(String schemaName, String tableName, Optiona
         requireNonNull(schemaName, "schemaName is null");
         requireNonNull(tableName, "tableName is null");
         requireNonNull(predicate, "predicate is null");
+        requireNonNull(expressions, "expressions is null");
     }
 
     public SchemaTableName toSchemaTableName()
@@ -40,7 +43,12 @@ public record PrometheusTableHandle(String schemaName, String tableName, Optiona
 
     public PrometheusTableHandle withPredicate(TupleDomain<ColumnHandle> predicate)
     {
-        return new PrometheusTableHandle(schemaName, tableName, Optional.of(predicate));
+        return new PrometheusTableHandle(schemaName, tableName, Optional.of(predicate), expressions);
+    }
+
+    public PrometheusTableHandle withExpressions(ImmutableList<LabelFilterExpression> expressions)
+    {
+        return new PrometheusTableHandle(schemaName, tableName, predicate, expressions);
     }
 
     @Override
