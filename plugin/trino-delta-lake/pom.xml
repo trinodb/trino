@@ -406,6 +406,7 @@
                     <plugin>
                         <artifactId>maven-dependency-plugin</artifactId>
                         <configuration>
+                            <skip>true</skip>
                             <ignoredNonTestScopedDependencies>
                                 <!-- dependency plugin fails to recognize aws-java-sdk-core as a compile-time dependency, because
                                      we only explicitly use a class from aws-java-sdk-glue, which in turn extends from a class from

@@ -163,7 +163,7 @@
                             <goal>copy</goal>
                         </goals>
                         <configuration>
-                            <skip>false</skip>
+                            <skip>true</skip>
                             <artifactItems>
                                 <artifactItem>
                                     <groupId>io.trino</groupId>

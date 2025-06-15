@@ -390,6 +390,7 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-dependency-plugin</artifactId>
                     <configuration>
+                        <skip>true</skip>
                         <ignoredNonTestScopedDependencies>
                             <!-- TODO: https://issues.apache.org/jira/browse/MDEP-791 -->
                             <!-- elasticsearch-x-content is required in compile scope by org.elasticsearch:elasticsearch -->

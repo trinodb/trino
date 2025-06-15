@@ -1,7 +1,21 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package io.trino.jdbc;
 
 import com.oracle.bmc.auth.AuthenticationDetailsProvider;
 import com.oracle.bmc.auth.ConfigFileAuthenticationDetailsProvider;
+import com.oracle.bmc.http.client.io.DuplicatableInputStream;
 import com.oracle.bmc.http.signing.DefaultRequestSigner;
 import com.oracle.bmc.http.signing.RequestSigner;
 import okhttp3.Interceptor;
@@ -13,11 +27,9 @@ import okio.Buffer;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 
 public class OciSigningInterceptor
         implements Interceptor
@@ -26,7 +38,6 @@ public class OciSigningInterceptor
 
     public OciSigningInterceptor(String ociProfile, @Nullable String ociConfigPath)
     {
-        Objects.requireNonNull(ociProfile, "ociProfile is null");
         try {
             // ConfigFileAuthenticationDetailsProvider correctly handles null ociConfigPath
             // by defaulting to "~/.oci/config" or environment variables.
@@ -48,7 +59,7 @@ public class OciSigningInterceptor
             throws IOException
     {
         Request request = chain.request();
-        RequestSigner signer = DefaultRequestSigner.create(authenticationDetailsProvider);
+        RequestSigner signer = DefaultRequestSigner.createRequestSigner(authenticationDetailsProvider);
 
         Map<String, List<String>> convertedHeaders = convertHeaders(request);
         byte[] bodyBytes = bodyToBytes(request.body());
@@ -58,11 +69,16 @@ public class OciSigningInterceptor
             // OkHttp typically adds Host. The OCI signer might add Date or expect it.
             // For Trino, common headers like X-Trino-User, X-Trino-Source, etc., will be part of `convertedHeaders`.
 
+            DuplicatableInputStream duplicatableBody = null;
+            if (bodyBytes != null) {
+                duplicatableBody = new SimpleDuplicatableInputStream(bodyBytes);
+            }
+
             Map<String, String> ociAuthHeaders = signer.signRequest(
                     request.url().uri(),
                     request.method(),
                     convertedHeaders,
-                    bodyBytes);
+                    duplicatableBody);
 
             Request.Builder signedRequestBuilder = request.newBuilder();
             for (Map.Entry<String, String> entry : ociAuthHeaders.entrySet()) {

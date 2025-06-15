@@ -668,7 +668,7 @@ final class ConnectionProperties
     {
         public OciAuthenticationEnabled()
         {
-            super("ociAuthenticationEnabled", Optional.of("false"), ALLOWED, BOOLEAN_CONVERTER);
+            super("ociAuthenticationEnabled", NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
         }
     }
 

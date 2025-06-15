@@ -51,7 +51,6 @@ import static io.trino.client.OkHttpUtil.setupKerberos;
 import static io.trino.client.OkHttpUtil.setupSocksProxy;
 import static io.trino.client.OkHttpUtil.setupSsl;
 import static io.trino.client.OkHttpUtil.tokenAuth;
-import io.trino.jdbc.OciSigningInterceptor; // Added import
 import static io.trino.jdbc.ConnectionProperties.ACCESS_TOKEN;
 import static io.trino.jdbc.ConnectionProperties.APPLICATION_NAME_PREFIX;
 import static io.trino.jdbc.ConnectionProperties.ASSUME_LITERAL_NAMES_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS;
@@ -73,7 +72,6 @@ import static io.trino.jdbc.ConnectionProperties.KERBEROS_PRINCIPAL;
 import static io.trino.jdbc.ConnectionProperties.KERBEROS_REMOTE_SERVICE_NAME;
 import static io.trino.jdbc.ConnectionProperties.KERBEROS_SERVICE_PRINCIPAL_PATTERN;
 import static io.trino.jdbc.ConnectionProperties.KERBEROS_USE_CANONICAL_HOSTNAME;
-// OCI Properties
 import static io.trino.jdbc.ConnectionProperties.OCI_AUTHENTICATION_ENABLED;
 import static io.trino.jdbc.ConnectionProperties.OCI_CONFIG_PATH;
 import static io.trino.jdbc.ConnectionProperties.OCI_PROFILE;
@@ -371,7 +369,8 @@ public final class TrinoDriverUri
                 try {
                     OciSigningInterceptor ociInterceptor = new OciSigningInterceptor(ociProfile, ociConfigPath);
                     builder.addInterceptor(ociInterceptor);
-                } catch (RuntimeException e) {
+                }
+                catch (RuntimeException e) {
                     throw new SQLException("Failed to initialize OCI Signing Interceptor: " + e.getMessage(), e);
                 }
             }
