@@ -165,7 +165,6 @@ public class ImplementTableFunctionSource
                     Optional.empty(),
                     ImmutableSet.of(),
                     0,
-                    Optional.empty(),
                     node.getHandle()));
         }
 
@@ -187,7 +186,6 @@ public class ImplementTableFunctionSource
                     sourceProperties.specification(),
                     ImmutableSet.of(),
                     0,
-                    Optional.empty(),
                     node.getHandle()));
         }
         Map<String, SourceWithProperties> sources = mapSourcesByName(node.getSources(), node.getTableArgumentProperties());
@@ -282,7 +280,6 @@ public class ImplementTableFunctionSource
                 Optional.of(new DataOrganizationSpecification(finalPartitionBy, finalOrderBy)),
                 ImmutableSet.of(),
                 0,
-                Optional.empty(),
                 node.getHandle()));
     }
 

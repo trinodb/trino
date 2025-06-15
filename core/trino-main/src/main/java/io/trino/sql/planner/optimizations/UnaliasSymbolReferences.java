@@ -365,7 +365,6 @@ public class UnaliasSymbolReferences
                                 Optional.empty(),
                                 ImmutableSet.of(),
                                 0,
-                                node.getHashSymbol().map(mapper::map),
                                 node.getHandle()),
                         mapping);
             }

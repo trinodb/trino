@@ -436,7 +436,6 @@ public class SymbolMapper
                         .map(this::map)
                         .collect(toImmutableSet()),
                 newSpecification.map(SpecificationWithPreSortedPrefix::preSorted).orElse(node.getPreSorted()),
-                node.getHashSymbol().map(this::map),
                 node.getHandle());
     }
 
