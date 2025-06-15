@@ -260,7 +260,6 @@ public class SymbolMapper
                 source,
                 newSpecification.specification(),
                 newFunctions.buildOrThrow(),
-                node.getHashSymbol().map(this::map),
                 node.getPrePartitionedInputs().stream()
                         .map(this::map)
                         .collect(toImmutableSet()),

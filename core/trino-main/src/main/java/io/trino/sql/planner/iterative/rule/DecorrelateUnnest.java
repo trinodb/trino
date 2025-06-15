@@ -471,7 +471,6 @@ public class DecorrelateUnnest
                     source.getPlan(),
                     new DataOrganizationSpecification(ImmutableList.of(uniqueSymbol), Optional.of(node.getOrderingScheme())),
                     ImmutableMap.of(rowNumberSymbol, rowNumberFunction),
-                    Optional.empty(),
                     ImmutableSet.of(),
                     0);
 

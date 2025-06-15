@@ -416,7 +416,6 @@ public class TestEffectivePredicateExtractor
                                 ImmutableList.of(new Symbol(BIGINT, "a")),
                                 ImmutableMap.of(new Symbol(BIGINT, "a"), SortOrder.ASC_NULLS_LAST)))),
                 ImmutableMap.of(),
-                Optional.empty(),
                 ImmutableSet.of(),
                 0);
 

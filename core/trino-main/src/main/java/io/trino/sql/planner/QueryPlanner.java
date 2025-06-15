@@ -324,7 +324,6 @@ class QueryPlanner
                 checkConvergenceStep.getNode(),
                 new DataOrganizationSpecification(ImmutableList.of(), Optional.empty()),
                 ImmutableMap.of(countSymbol, countFunction),
-                Optional.empty(),
                 ImmutableSet.of(),
                 0);
 
@@ -1808,7 +1807,6 @@ class QueryPlanner
                         subPlan.getRoot(),
                         specification,
                         functions.buildOrThrow(),
-                        Optional.empty(),
                         ImmutableSet.of(),
                         0));
     }

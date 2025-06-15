@@ -930,7 +930,7 @@ public class PlanPrinter
             NodeRepresentation nodeOutput = addNode(
                     node,
                     "Window",
-                    descriptor.put("hash", formatHash(node.getHashSymbol())).buildOrThrow(),
+                    descriptor.buildOrThrow(),
                     context);
 
             for (Entry<Symbol, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {

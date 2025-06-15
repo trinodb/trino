@@ -77,7 +77,6 @@ public class PruneOrderByInWindowAggregation
                 node.getSource(),
                 node.getSpecification(),
                 rewritten.buildOrThrow(),
-                node.getHashSymbol(),
                 node.getPrePartitionedInputs(),
                 node.getPreSortedOrderPrefix()));
     }
