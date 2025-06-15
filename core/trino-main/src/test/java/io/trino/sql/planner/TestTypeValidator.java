@@ -152,7 +152,6 @@ public class TestTypeValidator
                 baseTableScan,
                 specification,
                 ImmutableMap.of(windowSymbol, function),
-                Optional.empty(),
                 ImmutableSet.of(),
                 0);
 
@@ -247,7 +246,6 @@ public class TestTypeValidator
                 baseTableScan,
                 specification,
                 ImmutableMap.of(windowSymbol, function),
-                Optional.empty(),
                 ImmutableSet.of(),
                 0);
 
@@ -280,7 +278,6 @@ public class TestTypeValidator
                 baseTableScan,
                 specification,
                 ImmutableMap.of(windowSymbol, function),
-                Optional.empty(),
                 ImmutableSet.of(),
                 0);
 

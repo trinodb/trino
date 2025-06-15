@@ -190,7 +190,7 @@ public final class PlanCopier
         @Override
         public PlanNode visitWindow(WindowNode node, RewriteContext<Void> context)
         {
-            return new WindowNode(idAllocator.getNextId(), context.rewrite(node.getSource()), node.getSpecification(), node.getWindowFunctions(), node.getHashSymbol(), node.getPrePartitionedInputs(), node.getPreSortedOrderPrefix());
+            return new WindowNode(idAllocator.getNextId(), context.rewrite(node.getSource()), node.getSpecification(), node.getWindowFunctions(), node.getPrePartitionedInputs(), node.getPreSortedOrderPrefix());
         }
 
         @Override

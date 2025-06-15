@@ -319,7 +319,6 @@ public class ImplementTableFunctionSource
                 ImmutableMap.of(
                         rowNumber, new WindowNode.Function(rowNumberFunction, ImmutableList.of(), Optional.empty(), FULL_FRAME, false, false),
                         partitionSize, new WindowNode.Function(countFunction, ImmutableList.of(), Optional.empty(), FULL_FRAME, false, false)),
-                Optional.empty(),
                 ImmutableSet.of(),
                 0);
 
