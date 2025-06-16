@@ -170,8 +170,8 @@ public final class FlatHash
 
     public long hashPosition(int groupId)
     {
-        if (groupId < 0) {
-            throw new IllegalArgumentException("groupId is negative");
+        if (groupId < 0 || groupId >= nextGroupId) {
+            throw new IllegalArgumentException("groupId out of range: " + groupId);
         }
         byte[] fixedSizeRecords = getFixedSizeRecords(groupId);
         int fixedRecordOffset = getFixedRecordOffset(groupId);
