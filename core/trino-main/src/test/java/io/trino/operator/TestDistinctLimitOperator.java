@@ -33,7 +33,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.operator.GroupByHashYieldAssertion.createPagesWithDistinctHashKeys;
+import static io.trino.operator.GroupByHashYieldAssertion.createPages;
 import static io.trino.operator.GroupByHashYieldAssertion.finishOperatorWithYieldingGroupByHash;
 import static io.trino.operator.OperatorAssertion.assertOperatorEquals;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -64,14 +64,8 @@ public class TestDistinctLimitOperator
     @Test
     public void testDistinctLimit()
     {
-        testDistinctLimit(true);
-        testDistinctLimit(false);
-    }
-
-    public void testDistinctLimit(boolean hashEnabled)
-    {
         DriverContext driverContext = newDriverContext();
-        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), BIGINT);
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(Ints.asList(0), BIGINT);
         List<Page> input = rowPagesBuilder
                 .addSequencePage(3, 1)
                 .addSequencePage(5, 2)
@@ -93,20 +87,14 @@ public class TestDistinctLimitOperator
                 .row(5L)
                 .build();
 
-        assertOperatorEquals(operatorFactory, driverContext, input, expected, hashEnabled, ImmutableList.of(1));
+        assertOperatorEquals(operatorFactory, driverContext, input, expected);
     }
 
     @Test
     public void testDistinctLimitWithPageAlignment()
     {
-        testDistinctLimitWithPageAlignment(true);
-        testDistinctLimitWithPageAlignment(false);
-    }
-
-    public void testDistinctLimitWithPageAlignment(boolean hashEnabled)
-    {
         DriverContext driverContext = newDriverContext();
-        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), BIGINT);
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(Ints.asList(0), BIGINT);
         List<Page> input = rowPagesBuilder
                 .addSequencePage(3, 1)
                 .addSequencePage(3, 2)
@@ -126,21 +114,15 @@ public class TestDistinctLimitOperator
                 .row(3L)
                 .build();
 
-        assertOperatorEquals(operatorFactory, driverContext, input, expected, hashEnabled, ImmutableList.of(1));
+        assertOperatorEquals(operatorFactory, driverContext, input, expected);
     }
 
     @Test
     public void testDistinctLimitValuesLessThanLimit()
     {
-        testDistinctLimitValuesLessThanLimit(true);
-        testDistinctLimitValuesLessThanLimit(false);
-    }
-
-    public void testDistinctLimitValuesLessThanLimit(boolean hashEnabled)
-    {
         DriverContext driverContext = newDriverContext();
 
-        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), BIGINT);
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(Ints.asList(0), BIGINT);
         List<Page> input = rowPagesBuilder
                 .addSequencePage(3, 1)
                 .addSequencePage(3, 2)
@@ -161,7 +143,7 @@ public class TestDistinctLimitOperator
                 .row(4L)
                 .build();
 
-        assertOperatorEquals(operatorFactory, driverContext, input, expected, hashEnabled, ImmutableList.of(1));
+        assertOperatorEquals(operatorFactory, driverContext, input, expected);
     }
 
     @Test
@@ -173,7 +155,7 @@ public class TestDistinctLimitOperator
 
     public void testMemoryReservationYield(Type type)
     {
-        List<Page> input = createPagesWithDistinctHashKeys(type, 6_000, 600);
+        List<Page> input = createPages(type, 6_000, 600);
 
         OperatorFactory operatorFactory = new DistinctLimitOperator.DistinctLimitOperatorFactory(
                 0,
