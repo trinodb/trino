@@ -36,7 +36,6 @@ import com.google.errorprone.annotations.CheckReturnValue;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.log.Logger;
-import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.trace.Span;
@@ -152,8 +151,6 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMaxPartitionCount;
-import static io.trino.SystemSessionProperties.getFaultTolerantExecutionRuntimeAdaptivePartitioningMaxTaskSize;
-import static io.trino.SystemSessionProperties.getFaultTolerantExecutionRuntimeAdaptivePartitioningPartitionCount;
 import static io.trino.SystemSessionProperties.getMaxTasksWaitingForExecutionPerQuery;
 import static io.trino.SystemSessionProperties.getMaxTasksWaitingForNodePerQuery;
 import static io.trino.SystemSessionProperties.getRetryDelayScaleFactor;
@@ -162,7 +159,6 @@ import static io.trino.SystemSessionProperties.getRetryMaxDelay;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.getTaskRetryAttemptsPerTask;
 import static io.trino.SystemSessionProperties.isFaultTolerantExecutionAdaptiveQueryPlanningEnabled;
-import static io.trino.SystemSessionProperties.isFaultTolerantExecutionRuntimeAdaptivePartitioningEnabled;
 import static io.trino.SystemSessionProperties.isFaultTolerantExecutionStageEstimationForEagerParentEnabled;
 import static io.trino.execution.BasicStageStats.aggregateBasicStageStats;
 import static io.trino.execution.StageState.ABORTED;
@@ -373,9 +369,6 @@ public class EventDrivenFaultTolerantQueryScheduler
                             Stopwatch.createUnstarted()),
                     originalPlan,
                     maxPartitionCount,
-                    isFaultTolerantExecutionRuntimeAdaptivePartitioningEnabled(session),
-                    getFaultTolerantExecutionRuntimeAdaptivePartitioningPartitionCount(session),
-                    getFaultTolerantExecutionRuntimeAdaptivePartitioningMaxTaskSize(session),
                     stageEstimationForEagerParentEnabled,
                     adaptivePlanner);
             queryExecutor.submit(scheduler::run);
@@ -714,9 +707,6 @@ public class EventDrivenFaultTolerantQueryScheduler
         private final StageExecutionStats stageExecutionStats;
         private final DynamicFilterService dynamicFilterService;
         private final int maxPartitionCount;
-        private final boolean runtimeAdaptivePartitioningEnabled;
-        private final int runtimeAdaptivePartitioningPartitionCount;
-        private final long runtimeAdaptivePartitioningMaxTaskSizeInBytes;
         private final boolean stageEstimationForEagerParentEnabled;
 
         private final BlockingQueue<Event> eventQueue = new LinkedBlockingQueue<>();
@@ -774,9 +764,6 @@ public class EventDrivenFaultTolerantQueryScheduler
                 SchedulingDelayer schedulingDelayer,
                 SubPlan plan,
                 int maxPartitionCount,
-                boolean runtimeAdaptivePartitioningEnabled,
-                int runtimeAdaptivePartitioningPartitionCount,
-                DataSize runtimeAdaptivePartitioningMaxTaskSize,
                 boolean stageEstimationForEagerParentEnabled,
                 Optional<AdaptivePlanner> adaptivePlanner)
         {
@@ -808,9 +795,6 @@ public class EventDrivenFaultTolerantQueryScheduler
             this.schedulingDelayer = requireNonNull(schedulingDelayer, "schedulingDelayer is null");
             this.plan = requireNonNull(plan, "plan is null");
             this.maxPartitionCount = maxPartitionCount;
-            this.runtimeAdaptivePartitioningEnabled = runtimeAdaptivePartitioningEnabled;
-            this.runtimeAdaptivePartitioningPartitionCount = runtimeAdaptivePartitioningPartitionCount;
-            this.runtimeAdaptivePartitioningMaxTaskSizeInBytes = requireNonNull(runtimeAdaptivePartitioningMaxTaskSize, "runtimeAdaptivePartitioningMaxTaskSize is null").toBytes();
             this.adaptivePlanner = requireNonNull(adaptivePlanner, "adaptivePlanner is null");
             this.stageEstimationForEagerParentEnabled = stageEstimationForEagerParentEnabled;
             this.schedulerSpan = tracer.spanBuilder("scheduler")
@@ -994,9 +978,6 @@ public class EventDrivenFaultTolerantQueryScheduler
                     .add("maxTasksWaitingForNode", maxTasksWaitingForNode)
                     .add("maxTasksWaitingForExecution", maxTasksWaitingForExecution)
                     .add("maxPartitionCount", maxPartitionCount)
-                    .add("runtimeAdaptivePartitioningEnabled", runtimeAdaptivePartitioningEnabled)
-                    .add("runtimeAdaptivePartitioningPartitionCount", runtimeAdaptivePartitioningPartitionCount)
-                    .add("runtimeAdaptivePartitioningMaxTaskSizeInBytes", runtimeAdaptivePartitioningMaxTaskSizeInBytes)
                     .add("stageEstimationForEagerParentEnabled", stageEstimationForEagerParentEnabled)
                     .add("started", started)
                     .add("nextSchedulingPriority", nextSchedulingPriority)
