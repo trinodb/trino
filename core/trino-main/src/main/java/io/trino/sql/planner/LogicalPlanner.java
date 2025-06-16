@@ -722,7 +722,6 @@ public class LogicalPlanner
                 partitioningScheme = Optional.of(new PartitioningScheme(
                         Partitioning.create(FIXED_HASH_DISTRIBUTION, partitionFunctionArguments),
                         outputLayout,
-                        Optional.empty(),
                         false,
                         Optional.empty(),
                         maxWritersNodesCount));
@@ -1015,7 +1014,6 @@ public class LogicalPlanner
                 partitioningScheme = Optional.of(new PartitioningScheme(
                         Partitioning.create(FIXED_HASH_DISTRIBUTION, partitionFunctionArguments),
                         outputLayout,
-                        Optional.empty(),
                         false,
                         Optional.empty(),
                         maxWritersNodesCount));

@@ -581,18 +581,15 @@ public class PlanPrinter
                 })
                 .collect(toImmutableList());
         builder.append(indentString(1));
-        String hashColumn = partitioningScheme.getHashColumn().map(anonymizer::anonymize).map(column -> "[" + column + "]").orElse("");
         if (replicateNullsAndAny) {
-            builder.append(format("Output partitioning: %s (replicate nulls and any) [%s]%s",
+            builder.append(format("Output partitioning: %s (replicate nulls and any) [%s]",
                     anonymizer.anonymize(partitioningScheme.getPartitioning().getHandle()),
-                    Joiner.on(", ").join(arguments),
-                    hashColumn));
+                    Joiner.on(", ").join(arguments)));
         }
         else {
-            builder.append(format("Output partitioning: %s [%s]%s\n",
+            builder.append(format("Output partitioning: %s [%s]\n",
                     anonymizer.anonymize(partitioningScheme.getPartitioning().getHandle()),
-                    Joiner.on(", ").join(arguments),
-                    hashColumn));
+                    Joiner.on(", ").join(arguments)));
         }
         partitioningScheme.getPartitionCount().ifPresent(partitionCount -> builder.append(format("%sOutput partition count: %s\n", indentString(1), partitionCount)));
         fragment.getPartitionCount().ifPresent(partitionCount -> builder.append(format("%sInput partition count: %s\n", indentString(1), partitionCount)));
@@ -1673,7 +1670,6 @@ public class PlanPrinter
                         ImmutableMap.of(
                                 "partitioning", anonymizer.anonymize(node.getPartitioningScheme().getPartitioning().getHandle()),
                                 "isReplicateNullsAndAny", formatBoolean(node.getPartitioningScheme().isReplicateNullsAndAny()),
-                                "hashColumn", formatHash(node.getPartitioningScheme().getHashColumn()),
                                 "arguments", formatCollection(node.getPartitioningScheme().getPartitioning().getArguments(), anonymizer::anonymize)),
                         context);
             }
@@ -1684,8 +1680,7 @@ public class PlanPrinter
                                 "partitionCount", node.getPartitioningScheme().getPartitionCount().map(String::valueOf).orElse(""),
                                 "scaleWriters", formatBoolean(node.getPartitioningScheme().getPartitioning().getHandle().isScaleWriters()),
                                 "type", node.getType().name(),
-                                "isReplicateNullsAndAny", formatBoolean(node.getPartitioningScheme().isReplicateNullsAndAny()),
-                                "hashColumn", formatHash(node.getPartitioningScheme().getHashColumn())),
+                                "isReplicateNullsAndAny", formatBoolean(node.getPartitioningScheme().isReplicateNullsAndAny())),
                         context);
             }
             return processChildren(node, new Context(context.isInitialPlan()));

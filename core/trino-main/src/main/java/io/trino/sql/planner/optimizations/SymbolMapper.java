@@ -599,7 +599,6 @@ public class SymbolMapper
         return new PartitioningScheme(
                 scheme.getPartitioning().translate(this::map),
                 mapAndDistinct(sourceLayout),
-                scheme.getHashColumn().map(this::map),
                 scheme.isReplicateNullsAndAny(),
                 scheme.getBucketToPartition(),
                 scheme.getPartitionCount());

@@ -566,40 +566,30 @@ public class LocalExecutionPlanner
         }
 
         // We can convert the symbols directly into channels, because the root must be a sink and therefore the layout is fixed
-        List<Integer> partitionChannels;
-        List<Optional<NullableValue>> partitionConstants;
-        List<Type> partitionChannelTypes;
-        if (partitioningScheme.getHashColumn().isPresent()) {
-            partitionChannels = ImmutableList.of(outputLayout.indexOf(partitioningScheme.getHashColumn().get()));
-            partitionConstants = ImmutableList.of(Optional.empty());
-            partitionChannelTypes = ImmutableList.of(BIGINT);
-        }
-        else {
-            partitionChannels = partitioningScheme.getPartitioning().getArguments().stream()
-                    .map(argument -> {
-                        if (argument.isConstant()) {
-                            return -1;
-                        }
-                        return outputLayout.indexOf(argument.getColumn());
-                    })
-                    .collect(toImmutableList());
-            partitionConstants = partitioningScheme.getPartitioning().getArguments().stream()
-                    .map(argument -> {
-                        if (argument.isConstant()) {
-                            return Optional.of(argument.getConstant());
-                        }
-                        return Optional.<NullableValue>empty();
-                    })
-                    .collect(toImmutableList());
-            partitionChannelTypes = partitioningScheme.getPartitioning().getArguments().stream()
-                    .map(argument -> {
-                        if (argument.isConstant()) {
-                            return argument.getConstant().getType();
-                        }
-                        return argument.getColumn().type();
-                    })
-                    .collect(toImmutableList());
-        }
+        List<Integer> partitionChannels = partitioningScheme.getPartitioning().getArguments().stream()
+                .map(argument -> {
+                    if (argument.isConstant()) {
+                        return -1;
+                    }
+                    return outputLayout.indexOf(argument.getColumn());
+                })
+                .collect(toImmutableList());
+        List<Optional<NullableValue>> partitionConstants = partitioningScheme.getPartitioning().getArguments().stream()
+                .map(argument -> {
+                    if (argument.isConstant()) {
+                        return Optional.of(argument.getConstant());
+                    }
+                    return Optional.<NullableValue>empty();
+                })
+                .collect(toImmutableList());
+        List<Type> partitionChannelTypes = partitioningScheme.getPartitioning().getArguments().stream()
+                .map(argument -> {
+                    if (argument.isConstant()) {
+                        return argument.getConstant().getType();
+                    }
+                    return argument.getColumn().type();
+                })
+                .collect(toImmutableList());
 
         PartitionFunction partitionFunction;
         Optional<SkewedPartitionRebalancer> skewedPartitionRebalancer = Optional.empty();
@@ -3706,7 +3696,6 @@ public class LocalExecutionPlanner
                     node.getPartitioningScheme().getPartitioning().getHandle(),
                     ImmutableList.of(),
                     ImmutableList.of(),
-                    Optional.empty(),
                     maxLocalExchangeBufferSize,
                     typeOperators,
                     getWriterScalingMinDataProcessed(session),
@@ -3761,8 +3750,6 @@ public class LocalExecutionPlanner
             List<Integer> partitionChannels = node.getPartitioningScheme().getPartitioning().getArguments().stream()
                     .map(argument -> node.getOutputSymbols().indexOf(argument.getColumn()))
                     .collect(toImmutableList());
-            Optional<Integer> hashChannel = node.getPartitioningScheme().getHashColumn()
-                    .map(symbol -> node.getOutputSymbols().indexOf(symbol));
             List<Type> partitionChannelTypes = partitionChannels.stream()
                     .map(types::get)
                     .collect(toImmutableList());
@@ -3783,7 +3770,6 @@ public class LocalExecutionPlanner
                     node.getPartitioningScheme().getPartitioning().getHandle(),
                     partitionChannels,
                     partitionChannelTypes,
-                    hashChannel,
                     maxLocalExchangeBufferSize,
                     typeOperators,
                     getWriterScalingMinDataProcessed(session),
