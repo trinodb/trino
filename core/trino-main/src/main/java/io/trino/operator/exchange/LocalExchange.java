@@ -24,7 +24,6 @@ import io.trino.Session;
 import io.trino.operator.BucketPartitionFunction;
 import io.trino.operator.HashGenerator;
 import io.trino.operator.PartitionFunction;
-import io.trino.operator.PrecomputedHashGenerator;
 import io.trino.operator.output.SkewedPartitionRebalancer;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
@@ -37,7 +36,6 @@ import io.trino.sql.planner.SystemPartitioningHandle;
 import java.io.Closeable;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -94,7 +92,6 @@ public class LocalExchange
             PartitioningHandle partitioning,
             List<Integer> partitionChannels,
             List<Type> partitionChannelTypes,
-            Optional<Integer> partitionHashChannel,
             DataSize maxBufferedBytes,
             TypeOperators typeOperators,
             DataSize writerScalingMinDataProcessed,
@@ -159,8 +156,7 @@ public class LocalExchange
                         partitioning,
                         partitionCount,
                         partitionChannels,
-                        partitionChannelTypes,
-                        partitionHashChannel);
+                        partitionChannelTypes);
                 return new ScaleWriterPartitioningExchanger(
                         asPageConsumers(sources),
                         memoryManager,
@@ -187,8 +183,7 @@ public class LocalExchange
                         partitioning,
                         bufferCount,
                         partitionChannels,
-                        partitionChannelTypes,
-                        partitionHashChannel);
+                        partitionChannelTypes);
                 return new PartitioningExchanger(
                         asPageConsumers(sources),
                         memoryManager,
@@ -242,19 +237,12 @@ public class LocalExchange
             PartitioningHandle partitioning,
             int partitionCount,
             List<Integer> partitionChannels,
-            List<Type> partitionChannelTypes,
-            Optional<Integer> partitionHashChannel)
+            List<Type> partitionChannelTypes)
     {
         checkArgument(Integer.bitCount(partitionCount) == 1, "partitionCount must be a power of 2");
 
         if (isSystemPartitioning(partitioning)) {
-            HashGenerator hashGenerator;
-            if (partitionHashChannel.isPresent()) {
-                hashGenerator = new PrecomputedHashGenerator(partitionHashChannel.get());
-            }
-            else {
-                hashGenerator = createChannelsHashGenerator(partitionChannelTypes, Ints.toArray(partitionChannels), typeOperators);
-            }
+            HashGenerator hashGenerator = createChannelsHashGenerator(partitionChannelTypes, Ints.toArray(partitionChannels), typeOperators);
             return new LocalPartitionGenerator(hashGenerator, partitionCount);
         }
 

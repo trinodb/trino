@@ -100,14 +100,6 @@ public class PushProjectionThroughExchange
                         inputs.add(inputSymbol);
                     });
 
-            // Need to retain the hash symbol for the exchange
-            exchange.getPartitioningScheme().getHashColumn()
-                    .map(outputToInputMap::get)
-                    .ifPresent(inputSymbol -> {
-                        projections.putIdentity(inputSymbol);
-                        inputs.add(inputSymbol);
-                    });
-
             if (exchange.getOrderingScheme().isPresent()) {
                 // Need to retain ordering columns for the exchange
                 exchange.getOrderingScheme().get().orderBy().stream()
@@ -122,7 +114,6 @@ public class PushProjectionThroughExchange
 
             ImmutableSet.Builder<Symbol> outputBuilder = ImmutableSet.builder();
             partitioningColumns.forEach(outputBuilder::add);
-            exchange.getPartitioningScheme().getHashColumn().ifPresent(outputBuilder::add);
             exchange.getOrderingScheme().ifPresent(orderingScheme -> outputBuilder.addAll(orderingScheme.orderBy()));
             Set<Symbol> partitioningHashAndOrderingOutputs = outputBuilder.build();
 
@@ -146,7 +137,6 @@ public class PushProjectionThroughExchange
         // Construct the output symbols in the same order as the sources
         ImmutableList.Builder<Symbol> outputBuilder = ImmutableList.builder();
         partitioningColumns.forEach(outputBuilder::add);
-        exchange.getPartitioningScheme().getHashColumn().ifPresent(outputBuilder::add);
         if (exchange.getOrderingScheme().isPresent()) {
             exchange.getOrderingScheme().get().orderBy().stream()
                     // Do not duplicate symbols in outputs list (for consistency with inputs lists)
@@ -168,7 +158,6 @@ public class PushProjectionThroughExchange
         PartitioningScheme partitioningScheme = new PartitioningScheme(
                 exchange.getPartitioningScheme().getPartitioning(),
                 outputBuilder.build(),
-                exchange.getPartitioningScheme().getHashColumn(),
                 exchange.getPartitioningScheme().isReplicateNullsAndAny(),
                 exchange.getPartitioningScheme().getBucketToPartition(),
                 exchange.getPartitioningScheme().getPartitionCount());

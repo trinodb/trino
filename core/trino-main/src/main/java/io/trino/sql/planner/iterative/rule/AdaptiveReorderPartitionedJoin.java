@@ -152,10 +152,7 @@ public class AdaptiveReorderPartitionedJoin
     private static boolean isBuildSideLocalExchangeNode(ExchangeNode exchangeNode, Set<Symbol> rightSymbols)
     {
         return exchangeNode.getScope() == LOCAL
-                && exchangeNode.getPartitioningScheme().getPartitioning().getColumns().equals(rightSymbols)
-                // TODO: Add support for local exchange with hash symbols. For now, it's not important since hash
-                //  optimization is disabled by default
-                && exchangeNode.getPartitioningScheme().getHashColumn().isEmpty();
+                && exchangeNode.getPartitioningScheme().getPartitioning().getColumns().equals(rightSymbols);
     }
 
     private static JoinNode flipJoinAndFixLocalExchanges(
@@ -303,8 +300,7 @@ public class AdaptiveReorderPartitionedJoin
                     context.getIdAllocator().getNextId(),
                     LOCAL,
                     node,
-                    buildSymbols,
-                    Optional.empty());
+                    buildSymbols);
         }
 
         @Override

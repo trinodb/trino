@@ -44,7 +44,6 @@ public class PruneTableExecuteSourceColumns
         if (tableExecuteNode.getPartitioningScheme().isPresent()) {
             PartitioningScheme partitioningScheme = tableExecuteNode.getPartitioningScheme().get();
             partitioningScheme.getPartitioning().getColumns().forEach(requiredInputs::add);
-            partitioningScheme.getHashColumn().ifPresent(requiredInputs::add);
         }
 
         return restrictChildOutputs(context.getIdAllocator(), tableExecuteNode, requiredInputs.build())

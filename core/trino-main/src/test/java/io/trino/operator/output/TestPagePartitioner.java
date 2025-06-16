@@ -176,7 +176,7 @@ public class TestPagePartitioner
 
         PagePartitioner pagePartitioner = pagePartitioner(outputBuffer, BIGINT)
                 .withPartitionFunction(new BucketPartitionFunction(
-                        ROUND_ROBIN.createBucketFunction(null, false, PARTITION_COUNT, null),
+                        ROUND_ROBIN.createBucketFunction(null, PARTITION_COUNT, null),
                         IntStream.range(0, PARTITION_COUNT).toArray()))
                 .withPartitionChannels(ImmutableList.of())
                 .build();

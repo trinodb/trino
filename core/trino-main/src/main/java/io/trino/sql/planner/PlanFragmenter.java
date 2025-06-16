@@ -224,7 +224,6 @@ public class PlanFragmenter
                 new PartitioningScheme(
                         newOutputPartitioning,
                         outputPartitioningScheme.getOutputLayout(),
-                        outputPartitioningScheme.getHashColumn(),
                         outputPartitioningScheme.isReplicateNullsAndAny(),
                         outputPartitioningScheme.getBucketToPartition(),
                         outputPartitioningScheme.getPartitionCount()),

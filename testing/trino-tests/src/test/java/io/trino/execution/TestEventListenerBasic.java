@@ -1471,7 +1471,6 @@ public class TestEventListenerBasic
                                         ImmutableMap.of(
                                                 "partitioning", "[connectorHandleType = SystemPartitioningHandle, partitioning = SINGLE, function = SINGLE]",
                                                 "isReplicateNullsAndAny", "",
-                                                "hashColumn", "[]",
                                                 "arguments", "[]"),
                                         ImmutableList.of(new Symbol(DOUBLE, "symbol_1")),
                                         ImmutableList.of(),
