@@ -108,7 +108,7 @@ public class StateMachine<T>
 
     /**
      * Tries to change the state.  State will not change if the new state {@code .equals()} the current state,
-     * of if the current state is a terminal state. If the state changed, listeners and waiters will be notified.
+     * or if the current state is a terminal state. If the state changed, listeners and waiters will be notified.
      *
      * @return the state before the possible state change
      */
