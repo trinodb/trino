@@ -59,6 +59,7 @@ import static io.trino.operator.OutputSpoolingOperatorFactory.OutputSpoolingOper
 import static io.trino.operator.OutputSpoolingOperatorFactory.OutputSpoolingOperator.State.NEEDS_INPUT;
 import static io.trino.operator.SpoolingController.Mode.INLINE;
 import static io.trino.operator.SpoolingController.Mode.SPOOL;
+import static io.trino.server.protocol.spooling.SpooledMetadataBlockSerde.serialize;
 import static io.trino.server.protocol.spooling.SpoolingSessionProperties.getInitialSegmentSize;
 import static io.trino.server.protocol.spooling.SpoolingSessionProperties.getMaxSegmentSize;
 import static java.util.Objects.requireNonNull;
@@ -148,6 +149,9 @@ public class OutputSpoolingOperatorFactory
 
         private final SpoolingController controller;
         private final ZoneId clientZoneId;
+        private final AtomicLong spooledSegmentsCount = new AtomicLong();
+        private final AtomicLong inlinedSegmentsCount = new AtomicLong();
+        private final long maxSegmentSize;
 
         enum State
         {
@@ -179,13 +183,15 @@ public class OutputSpoolingOperatorFactory
                     new OperatorSpoolingController(
                         getInitialSegmentSize(operatorContext.getSession()).toBytes(),
                         getMaxSegmentSize(operatorContext.getSession()).toBytes()));
+
+            this.maxSegmentSize = getMaxSegmentSize(operatorContext.getSession()).toBytes();
             this.aggregatedMemoryContext = operatorContext.newAggregateUserMemoryContext();
             this.queryDataEncoder = requireNonNull(queryDataEncoder, "queryDataEncoder is null");
             this.spoolingManager = requireNonNull(spoolingManager, "spoolingManager is null");
             this.buffer = PageBuffer.create();
             this.localMemoryContext = aggregatedMemoryContext.newLocalMemoryContext(OutputSpoolingOperator.class.getSimpleName());
 
-            operatorContext.setInfoSupplier(new OutputSpoolingInfoSupplier(spoolingTiming, controller, inlinedEncodedBytes, spooledEncodedBytes));
+            operatorContext.setInfoSupplier(new OutputSpoolingInfoSupplier(spoolingTiming, controller, inlinedEncodedBytes, spooledEncodedBytes, inlinedSegmentsCount, spooledSegmentsCount));
         }
 
         @Override
@@ -215,7 +221,7 @@ public class OutputSpoolingOperatorFactory
                     buffer.add(page);
                     yield null;
                 }
-                case INLINE -> inline(List.of(page));
+                case INLINE -> serialize(inline(List.of(page)));
             };
 
             if (outputPage != null) {
@@ -268,43 +274,60 @@ public class OutputSpoolingOperatorFactory
 
             if (lastPage && buffer.getSize() < SPOOLING_THRESHOLD) {
                 // If the buffer is small enough, inline it to save the overhead of spooling
-                return inline(buffer.removeAll());
+                return serialize(inline(buffer.removeAll()));
             }
 
-            return spool(buffer.removeAll());
+            return serialize(spool(buffer.removeAll()));
         }
 
-        private Page spool(List<Page> pages)
+        private List<SpooledMetadataBlock> spool(List<Page> pages)
         {
-            long rows = reduce(pages, Page::getPositionCount);
-            long size = reduce(pages, Page::getSizeInBytes);
-            SpooledSegmentHandle segmentHandle = spoolingManager.create(new SpoolingContext(
-                    queryDataEncoder.encoding(),
-                    operatorContext.getDriverContext().getSession().getQueryId(),
-                    rows,
-                    size));
+            List<List<Page>> partitions = SpoolingPagePartitioner.partition(pages, maxSegmentSize);
+            ImmutableList.Builder<SpooledMetadataBlock> spooledMetadataBuilder = ImmutableList.builderWithExpectedSize(partitions.size());
 
-            OperationTimer overallTimer = new OperationTimer(false);
-            try (OutputStream output = spoolingManager.createOutputStream(segmentHandle)) {
-                DataAttributes attributes = queryDataEncoder.encodeTo(output, pages)
-                        .toBuilder()
-                        .set(ROWS_COUNT, rows)
-                        .set(EXPIRES_AT, ZonedDateTime.ofInstant(segmentHandle.expirationTime(), clientZoneId).toLocalDateTime().toString())
-                        .build();
-                spooledEncodedBytes.addAndGet(attributes.get(SEGMENT_SIZE, Integer.class));
-                // This page is small (hundreds of bytes) so there is no point in tracking its memory usage
-                return SpooledMetadataBlock.forSpooledLocation(spoolingManager.location(segmentHandle), attributes).serialize();
+            for (int i = 0; i < partitions.size(); i++) {
+                List<Page> partition = partitions.get(i);
+                long rows = reduce(partition, Page::getPositionCount);
+                long size = reduce(partition, Page::getSizeInBytes);
+
+                if (i == partitions.size() - 1 && size < SPOOLING_THRESHOLD) {
+                    // If the last partition is small enough, inline it to save the overhead of spooling
+                    spooledMetadataBuilder.addAll(inline(partition));
+                    continue;
+                }
+
+                SpooledSegmentHandle segmentHandle = spoolingManager.create(new SpoolingContext(
+                        queryDataEncoder.encoding(),
+                        operatorContext.getDriverContext().getSession().getQueryId(),
+                        rows,
+                        size));
+
+                OperationTimer overallTimer = new OperationTimer(false);
+                try (OutputStream output = spoolingManager.createOutputStream(segmentHandle)) {
+                    spooledSegmentsCount.incrementAndGet();
+                    DataAttributes attributes = queryDataEncoder.encodeTo(output, partition)
+                            .toBuilder()
+                            .set(ROWS_COUNT, rows)
+                            .set(EXPIRES_AT, ZonedDateTime.ofInstant(segmentHandle.expirationTime(), clientZoneId).toLocalDateTime().toString())
+                            .build();
+                    spooledEncodedBytes.addAndGet(attributes.get(SEGMENT_SIZE, Integer.class));
+                    // This page is small (hundreds of bytes) so there is no point in tracking its memory usage
+                    spooledMetadataBuilder.add(SpooledMetadataBlock.forSpooledLocation(spoolingManager.location(segmentHandle), attributes));
+                }
+                catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
+                finally {
+                    overallTimer.end(spoolingTiming);
+                }
             }
-            catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
-            finally {
-                overallTimer.end(spoolingTiming);
-            }
+
+            return spooledMetadataBuilder.build();
         }
 
-        private Page inline(List<Page> pages)
+        private List<SpooledMetadataBlock> inline(List<Page> pages)
         {
+            inlinedSegmentsCount.incrementAndGet();
             OperationTimer overallTimer = new OperationTimer(false);
             try (ByteArrayOutputStream output = new ByteArrayOutputStream()) {
                 DataAttributes attributes = queryDataEncoder.encodeTo(output, pages)
@@ -312,7 +335,7 @@ public class OutputSpoolingOperatorFactory
                         .set(ROWS_COUNT, reduce(pages, Page::getPositionCount))
                         .build();
                 inlinedEncodedBytes.addAndGet(attributes.get(SEGMENT_SIZE, Integer.class));
-                return SpooledMetadataBlock.forInlineData(attributes, output.toByteArray()).serialize();
+                return ImmutableList.of(SpooledMetadataBlock.forInlineData(attributes, output.toByteArray()));
             }
             catch (IOException e) {
                 throw new UncheckedIOException(e);
@@ -387,7 +410,9 @@ public class OutputSpoolingOperatorFactory
             OperationTiming spoolingTiming,
             SpoolingController controller,
             AtomicLong inlinedEncodedBytes,
-            AtomicLong spooledEncodedBytes)
+            AtomicLong spooledEncodedBytes,
+            AtomicLong inlinedSegmentsCount,
+            AtomicLong spooledSegmentsCount)
             implements Supplier<OutputSpoolingInfo>
     {
         private OutputSpoolingInfoSupplier
@@ -396,6 +421,8 @@ public class OutputSpoolingOperatorFactory
             requireNonNull(controller, "controller is null");
             requireNonNull(inlinedEncodedBytes, "inlinedEncodedBytes is null");
             requireNonNull(spooledEncodedBytes, "spooledEncodedBytes is null");
+            requireNonNull(inlinedSegmentsCount, "inlinedSegmentsCount is null");
+            requireNonNull(spooledSegmentsCount, "spooledSegmentsCount is null");
         }
 
         @Override
@@ -408,10 +435,12 @@ public class OutputSpoolingOperatorFactory
                     succinctDuration(spoolingTiming.getWallNanos(), NANOSECONDS),
                     succinctDuration(spoolingTiming.getCpuNanos(), NANOSECONDS),
                     inlined.pages(),
+                    inlinedSegmentsCount.get(),
                     inlined.positions(),
                     inlined.size(),
                     inlinedEncodedBytes.get(),
                     spooled.pages(),
+                    spooledSegmentsCount.get(),
                     spooled.positions(),
                     spooled.size(),
                     spooledEncodedBytes.get());
@@ -422,10 +451,12 @@ public class OutputSpoolingOperatorFactory
             Duration spoolingWallTime,
             Duration spoolingCpuTime,
             long inlinedPages,
+            long inlinedSegments,
             long inlinedPositions,
             long inlinedRawBytes,
             long inlinedEncodedBytes,
             long spooledPages,
+            long spooledSegments,
             long spooledPositions,
             long spooledRawBytes,
             long spooledEncodedBytes)
@@ -444,10 +475,12 @@ public class OutputSpoolingOperatorFactory
                     succinctDuration(spoolingWallTime.toMillis() + other.spoolingWallTime().toMillis(), MILLISECONDS),
                     succinctDuration(spoolingCpuTime.toMillis() + other.spoolingCpuTime().toMillis(), MILLISECONDS),
                     inlinedPages + other.inlinedPages(),
+                    inlinedSegments + other.inlinedSegments,
                     inlinedPositions + other.inlinedPositions,
                     inlinedRawBytes + other.inlinedRawBytes,
                     inlinedEncodedBytes + other.inlinedEncodedBytes,
                     spooledPages + other.spooledPages,
+                    spooledSegments + other.spooledSegments,
                     spooledPositions + other.spooledPositions,
                     spooledRawBytes + other.spooledRawBytes,
                     spooledEncodedBytes + other.spooledEncodedBytes);
@@ -472,10 +505,12 @@ public class OutputSpoolingOperatorFactory
                     .add("spoolingWallTime", spoolingWallTime)
                     .add("spoolingCpuTime", spoolingCpuTime)
                     .add("inlinedPages", inlinedPages)
+                    .add("inlinedSegments", inlinedSegments)
                     .add("inlinedPositions", inlinedPositions)
                     .add("inlinedRawBytes", inlinedRawBytes)
                     .add("inlinedEncodedBytes", inlinedEncodedBytes)
                     .add("spooledPages", spooledPages)
+                    .add("spooledSegments", spooledSegments)
                     .add("spooledPositions", spooledPositions)
                     .add("spooledRawBytes", spooledRawBytes)
                     .add("spooledEncodedBytes", spooledEncodedBytes)

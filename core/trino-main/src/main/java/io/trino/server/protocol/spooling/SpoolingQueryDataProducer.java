@@ -55,19 +55,21 @@ public class SpoolingQueryDataProducer
         EncodedQueryData.Builder builder = EncodedQueryData.builder(encoding);
         UriBuilder uriBuilder = spooledSegmentUriBuilder(uriInfo);
         for (Page page : rows.getPages()) {
-            SpooledMetadataBlock metadataBlock = SpooledMetadataBlockSerde.deserialize(page);
-            DataAttributes attributes = metadataBlock.attributes().toBuilder()
-                    .set(ROW_OFFSET, currentOffset)
-                    .build();
-            switch (metadataBlock) {
-                case SpooledMetadataBlock.Spooled spooled -> builder.withSegment(spooled(
-                        spooled.directUri().orElseGet(() -> buildSegmentDownloadURI(uriBuilder, spooled.identifier())),
-                        buildSegmentAckURI(uriBuilder, spooled.identifier()),
-                        attributes,
-                        spooled.headers()));
-                case SpooledMetadataBlock.Inlined inlined -> builder.withSegment(inlined(inlined.data().byteArray(), attributes));
+            for (SpooledMetadataBlock metadataBlock : SpooledMetadataBlockSerde.deserialize(page)) {
+                DataAttributes attributes = metadataBlock.attributes().toBuilder()
+                        .set(ROW_OFFSET, currentOffset)
+                        .build();
+                switch (metadataBlock) {
+                    case SpooledMetadataBlock.Spooled spooled -> builder.withSegment(spooled(
+                            spooled.directUri().orElseGet(() -> buildSegmentDownloadURI(uriBuilder, spooled.identifier())),
+                            buildSegmentAckURI(uriBuilder, spooled.identifier()),
+                            attributes,
+                            spooled.headers()));
+                    case SpooledMetadataBlock.Inlined inlined ->
+                            builder.withSegment(inlined(inlined.data().byteArray(), attributes));
+                }
+                currentOffset += attributes.get(ROWS_COUNT, Long.class);
             }
-            currentOffset += attributes.get(ROWS_COUNT, Long.class);
         }
         return builder.build();
     }
