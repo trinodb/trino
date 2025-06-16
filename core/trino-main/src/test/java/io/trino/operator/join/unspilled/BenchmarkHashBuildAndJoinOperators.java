@@ -102,9 +102,6 @@ public class BenchmarkHashBuildAndJoinOperators
         @Param({"varchar", "bigint", "all"})
         protected String hashColumns = "bigint";
 
-        @Param({"false", "true"})
-        protected boolean buildHashEnabled;
-
         @Param({"1", "5"})
         protected int buildRowsRepetition = 1;
 
@@ -166,7 +163,7 @@ public class BenchmarkHashBuildAndJoinOperators
 
         protected void initializeBuildPages()
         {
-            RowPagesBuilder buildPagesBuilder = rowPagesBuilder(buildHashEnabled, hashChannels, ImmutableList.of(VARCHAR, BIGINT, BIGINT));
+            RowPagesBuilder buildPagesBuilder = rowPagesBuilder(hashChannels, ImmutableList.of(VARCHAR, BIGINT, BIGINT));
 
             int maxValue = buildRowsNumber / buildRowsRepetition + 40;
             int rows = 0;
@@ -248,7 +245,7 @@ public class BenchmarkHashBuildAndJoinOperators
 
         protected void initializeProbePages()
         {
-            RowPagesBuilder probePagesBuilder = rowPagesBuilder(buildHashEnabled, hashChannels, ImmutableList.of(VARCHAR, BIGINT, BIGINT));
+            RowPagesBuilder probePagesBuilder = rowPagesBuilder(hashChannels, ImmutableList.of(VARCHAR, BIGINT, BIGINT));
 
             Random random = new Random(42);
             int remainingRows = PROBE_ROWS_NUMBER;

@@ -42,7 +42,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.operator.GroupByHashYieldAssertion.createPagesWithDistinctHashKeys;
+import static io.trino.operator.GroupByHashYieldAssertion.createPages;
 import static io.trino.operator.GroupByHashYieldAssertion.finishOperatorWithYieldingGroupByHash;
 import static io.trino.operator.OperatorAssertion.toMaterializedResult;
 import static io.trino.operator.OperatorAssertion.toPages;
@@ -142,7 +142,7 @@ public class TestRowNumberOperator
     public void testMemoryReservationYield()
     {
         for (Type type : Arrays.asList(VARCHAR, BIGINT)) {
-            List<Page> input = createPagesWithDistinctHashKeys(type, 6_000, 600);
+            List<Page> input = createPages(type, 6_000, 600);
 
             OperatorFactory operatorFactory = new RowNumberOperator.RowNumberOperatorFactory(
                     0,
@@ -176,7 +176,7 @@ public class TestRowNumberOperator
     public void testRowNumberPartitioned()
     {
         DriverContext driverContext = getDriverContext();
-        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(false, Ints.asList(0), BIGINT, DOUBLE);
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(Ints.asList(0), BIGINT, DOUBLE);
         List<Page> input = rowPagesBuilder
                 .row(1L, 0.3)
                 .row(2L, 0.2)
@@ -241,7 +241,7 @@ public class TestRowNumberOperator
     public void testRowNumberPartitionedLimit()
     {
         DriverContext driverContext = getDriverContext();
-        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(false, Ints.asList(0), BIGINT, DOUBLE);
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(Ints.asList(0), BIGINT, DOUBLE);
         List<Page> input = rowPagesBuilder
                 .row(1L, 0.3)
                 .row(2L, 0.2)

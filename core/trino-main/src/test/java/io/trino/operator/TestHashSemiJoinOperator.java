@@ -82,7 +82,7 @@ public class TestHashSemiJoinOperator
 
         // build
         OperatorContext operatorContext = driverContext.addOperatorContext(0, new PlanNodeId("test"), ValuesOperator.class.getSimpleName());
-        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(false, Ints.asList(0), BIGINT);
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(Ints.asList(0), BIGINT);
         Operator buildOperator = new ValuesOperator(operatorContext, rowPagesBuilder
                 .row(10L)
                 .row(30L)
@@ -109,7 +109,7 @@ public class TestHashSemiJoinOperator
 
         // probe
         List<Type> probeTypes = ImmutableList.of(BIGINT, BIGINT);
-        RowPagesBuilder rowPagesBuilderProbe = rowPagesBuilder(false, Ints.asList(0), BIGINT, BIGINT);
+        RowPagesBuilder rowPagesBuilderProbe = rowPagesBuilder(Ints.asList(0), BIGINT, BIGINT);
         List<Page> probeInput = rowPagesBuilderProbe
                 .addSequencePage(10, 30, 0)
                 .build();
@@ -134,7 +134,7 @@ public class TestHashSemiJoinOperator
                 .row(39L, 9L, false)
                 .build();
 
-        OperatorAssertion.assertOperatorEquals(joinOperatorFactory, driverContext, probeInput, expected, false, ImmutableList.of(probeTypes.size()));
+        OperatorAssertion.assertOperatorEquals(joinOperatorFactory, driverContext, probeInput, expected);
     }
 
     @Test
@@ -144,7 +144,7 @@ public class TestHashSemiJoinOperator
 
         // build
         OperatorContext operatorContext = driverContext.addOperatorContext(0, new PlanNodeId("test"), ValuesOperator.class.getSimpleName());
-        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(false, Ints.asList(0), VARCHAR);
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(Ints.asList(0), VARCHAR);
         Operator buildOperator = new ValuesOperator(operatorContext, rowPagesBuilder
                 .row("10")
                 .row("30")
@@ -171,7 +171,7 @@ public class TestHashSemiJoinOperator
 
         // probe
         List<Type> probeTypes = ImmutableList.of(VARCHAR, BIGINT);
-        RowPagesBuilder rowPagesBuilderProbe = rowPagesBuilder(false, Ints.asList(0), VARCHAR, BIGINT);
+        RowPagesBuilder rowPagesBuilderProbe = rowPagesBuilder(Ints.asList(0), VARCHAR, BIGINT);
         List<Page> probeInput = rowPagesBuilderProbe
                 .addSequencePage(10, 30, 0)
                 .build();
@@ -196,7 +196,7 @@ public class TestHashSemiJoinOperator
                 .row("39", 9L, false)
                 .build();
 
-        OperatorAssertion.assertOperatorEquals(joinOperatorFactory, driverContext, probeInput, expected, false, ImmutableList.of(probeTypes.size()));
+        OperatorAssertion.assertOperatorEquals(joinOperatorFactory, driverContext, probeInput, expected);
     }
 
     @Test
@@ -207,7 +207,7 @@ public class TestHashSemiJoinOperator
         // build
         OperatorContext operatorContext = driverContext.addOperatorContext(0, new PlanNodeId("test"), ValuesOperator.class.getSimpleName());
         List<Type> buildTypes = ImmutableList.of(BIGINT);
-        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(false, Ints.asList(0), buildTypes);
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(Ints.asList(0), buildTypes);
         Operator buildOperator = new ValuesOperator(operatorContext, rowPagesBuilder
                 .row(0L)
                 .row(1L)
@@ -233,7 +233,7 @@ public class TestHashSemiJoinOperator
 
         // probe
         List<Type> probeTypes = ImmutableList.of(BIGINT);
-        RowPagesBuilder rowPagesBuilderProbe = rowPagesBuilder(false, Ints.asList(0), probeTypes);
+        RowPagesBuilder rowPagesBuilderProbe = rowPagesBuilder(Ints.asList(0), probeTypes);
         List<Page> probeInput = rowPagesBuilderProbe
                 .addSequencePage(4, 1)
                 .build();
@@ -252,7 +252,7 @@ public class TestHashSemiJoinOperator
                 .row(4L, null)
                 .build();
 
-        OperatorAssertion.assertOperatorEquals(joinOperatorFactory, driverContext, probeInput, expected, false, ImmutableList.of(probeTypes.size()));
+        OperatorAssertion.assertOperatorEquals(joinOperatorFactory, driverContext, probeInput, expected);
     }
 
     @Test
@@ -263,7 +263,7 @@ public class TestHashSemiJoinOperator
         // build
         OperatorContext operatorContext = driverContext.addOperatorContext(0, new PlanNodeId("test"), ValuesOperator.class.getSimpleName());
         List<Type> buildTypes = ImmutableList.of(BIGINT);
-        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(false, Ints.asList(0), buildTypes);
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(Ints.asList(0), buildTypes);
         Operator buildOperator = new ValuesOperator(operatorContext, rowPagesBuilder
                 .row(0L)
                 .row(1L)
@@ -286,7 +286,7 @@ public class TestHashSemiJoinOperator
 
         // probe
         List<Type> probeTypes = ImmutableList.of(BIGINT);
-        RowPagesBuilder rowPagesBuilderProbe = rowPagesBuilder(false, Ints.asList(0), probeTypes);
+        RowPagesBuilder rowPagesBuilderProbe = rowPagesBuilder(Ints.asList(0), probeTypes);
         List<Page> probeInput = rowPagesBuilderProbe
                 .row(0L)
                 .row((Object) null)
@@ -308,7 +308,7 @@ public class TestHashSemiJoinOperator
                 .row(2L, false)
                 .build();
 
-        OperatorAssertion.assertOperatorEquals(joinOperatorFactory, driverContext, probeInput, expected, false, ImmutableList.of(probeTypes.size()));
+        OperatorAssertion.assertOperatorEquals(joinOperatorFactory, driverContext, probeInput, expected);
     }
 
     @Test
@@ -319,7 +319,7 @@ public class TestHashSemiJoinOperator
         // build
         OperatorContext operatorContext = driverContext.addOperatorContext(0, new PlanNodeId("test"), ValuesOperator.class.getSimpleName());
         List<Type> buildTypes = ImmutableList.of(BIGINT);
-        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(false, Ints.asList(0), buildTypes);
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(Ints.asList(0), buildTypes);
         Operator buildOperator = new ValuesOperator(operatorContext, rowPagesBuilder
                 .row(0L)
                 .row(1L)
@@ -343,7 +343,7 @@ public class TestHashSemiJoinOperator
 
         // probe
         List<Type> probeTypes = ImmutableList.of(BIGINT);
-        RowPagesBuilder rowPagesBuilderProbe = rowPagesBuilder(false, Ints.asList(0), probeTypes);
+        RowPagesBuilder rowPagesBuilderProbe = rowPagesBuilder(Ints.asList(0), probeTypes);
         List<Page> probeInput = rowPagesBuilderProbe
                 .row(0L)
                 .row((Object) null)
@@ -365,7 +365,7 @@ public class TestHashSemiJoinOperator
                 .row(2L, null)
                 .build();
 
-        OperatorAssertion.assertOperatorEquals(joinOperatorFactory, driverContext, probeInput, expected, false, ImmutableList.of(probeTypes.size()));
+        OperatorAssertion.assertOperatorEquals(joinOperatorFactory, driverContext, probeInput, expected);
     }
 
     @Test
@@ -378,7 +378,7 @@ public class TestHashSemiJoinOperator
 
             OperatorContext operatorContext = driverContext.addOperatorContext(0, new PlanNodeId("test"), ValuesOperator.class.getSimpleName());
             List<Type> buildTypes = ImmutableList.of(BIGINT);
-            RowPagesBuilder rowPagesBuilder = rowPagesBuilder(false, Ints.asList(0), buildTypes);
+            RowPagesBuilder rowPagesBuilder = rowPagesBuilder(Ints.asList(0), buildTypes);
             Operator buildOperator = new ValuesOperator(operatorContext, rowPagesBuilder
                     .addSequencePage(10000, 20)
                     .build());

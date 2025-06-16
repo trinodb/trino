@@ -30,7 +30,6 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -38,7 +37,7 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.operator.GroupByHashYieldAssertion.createPagesWithDistinctHashKeys;
+import static io.trino.operator.GroupByHashYieldAssertion.createPages;
 import static io.trino.operator.GroupByHashYieldAssertion.finishOperatorWithYieldingGroupByHash;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -70,13 +69,8 @@ public class TestMarkDistinctOperator
     @Test
     public void testMarkDistinct()
     {
-        testMarkDistinct(true, newDriverContext());
-        testMarkDistinct(false, newDriverContext());
-    }
-
-    private void testMarkDistinct(boolean hashEnabled, DriverContext driverContext)
-    {
-        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), BIGINT);
+        DriverContext driverContext = newDriverContext();
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(Ints.asList(0), BIGINT);
         List<Page> input = rowPagesBuilder
                 .addSequencePage(100, 0)
                 .addSequencePage(100, 0)
@@ -95,19 +89,14 @@ public class TestMarkDistinctOperator
             expected.row(i, false);
         }
 
-        OperatorAssertion.assertOperatorEqualsIgnoreOrder(operatorFactory, driverContext, input, expected.build(), hashEnabled, Optional.of(1));
+        OperatorAssertion.assertOperatorEqualsIgnoreOrder(operatorFactory, driverContext, input, expected.build());
     }
 
     @Test
     public void testRleDistinctMask()
     {
-        testRleDistinctMask(true, newDriverContext());
-        testRleDistinctMask(false, newDriverContext());
-    }
-
-    private void testRleDistinctMask(boolean hashEnabled, DriverContext driverContext)
-    {
-        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), BIGINT);
+        DriverContext driverContext = newDriverContext();
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(Ints.asList(0), BIGINT);
         List<Page> inputs = rowPagesBuilder
                 .addSequencePage(100, 0)
                 .addSequencePage(100, 50)
@@ -176,7 +165,7 @@ public class TestMarkDistinctOperator
 
     private void testMemoryReservationYield(Type type)
     {
-        List<Page> input = createPagesWithDistinctHashKeys(type, 6_000, 600);
+        List<Page> input = createPages(type, 6_000, 600);
 
         OperatorFactory operatorFactory = new MarkDistinctOperatorFactory(0, new PlanNodeId("test"), ImmutableList.of(type), ImmutableList.of(0), hashStrategyCompiler);
 
@@ -187,9 +176,9 @@ public class TestMarkDistinctOperator
 
         int count = 0;
         for (Page page : result.getOutput()) {
-            assertThat(page.getChannelCount()).isEqualTo(3);
+            assertThat(page.getChannelCount()).isEqualTo(2);
             for (int i = 0; i < page.getPositionCount(); i++) {
-                assertThat(BOOLEAN.getBoolean(page.getBlock(2), i)).isTrue();
+                assertThat(BOOLEAN.getBoolean(page.getBlock(1), i)).isTrue();
                 count++;
             }
         }

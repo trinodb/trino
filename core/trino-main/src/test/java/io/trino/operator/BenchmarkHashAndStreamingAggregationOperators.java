@@ -141,7 +141,6 @@ public class BenchmarkHashAndStreamingAggregationOperators
             }
 
             RowPagesBuilder pagesBuilder = RowPagesBuilder.rowPagesBuilder(
-                    hashAggregation,
                     hashChannels,
                     ImmutableList.<Type>builder()
                             .addAll(hashTypes)
