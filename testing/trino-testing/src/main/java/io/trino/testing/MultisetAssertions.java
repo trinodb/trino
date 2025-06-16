@@ -13,6 +13,7 @@
  */
 package io.trino.testing;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.Sets;
 
@@ -22,7 +23,7 @@ import java.util.stream.Stream;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.lang.String.join;
-import static org.assertj.core.api.Fail.fail;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public final class MultisetAssertions
 {
@@ -30,11 +31,17 @@ public final class MultisetAssertions
 
     public static void assertMultisetsEqual(Multiset<?> actual, Multiset<?> expected)
     {
+        List<String> mismatchReport = mismatchMultisets(actual, expected);
+        assertThat(mismatchReport).as("Expected: \n\t\t" + join(",\n\t\t", mismatchReport)).isEmpty();
+    }
+
+    public static List<String> mismatchMultisets(Multiset<?> actual, Multiset<?> expected)
+    {
         if (expected.equals(actual)) {
-            return;
+            return ImmutableList.of();
         }
 
-        List<String> mismatchReport = Sets.union(expected.elementSet(), actual.elementSet()).stream()
+        return Sets.union(expected.elementSet(), actual.elementSet()).stream()
                 .filter(key -> expected.count(key) != actual.count(key))
                 .flatMap(key -> {
                     int expectedCount = expected.count(key);
@@ -48,7 +55,5 @@ public final class MultisetAssertions
                     return Stream.of();
                 })
                 .collect(toImmutableList());
-
-        fail("Expected: \n\t\t" + join(",\n\t\t", mismatchReport));
     }
 }
