@@ -18,7 +18,6 @@ import org.junit.jupiter.api.Test;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.Locale;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -28,10 +27,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestApacheDataType
 {
     private final String line = "64.242.88.10 - - [07/Mar/2004:16:45:56 -0800] \"GET /twiki/bin/attach/Main/PostfixCommands HTTP/1.1\" 401 12846";
-
-    static {
-        Locale.setDefault(Locale.ENGLISH);
-    }
 
     @Test
     public void test002_httpd_access_semi()

@@ -28,9 +28,13 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import static io.trino.hive.formats.line.grok.GrokNamedGroupExtractor.GROK_PATTERN_NAMED_GROUPS;
+import static java.util.Objects.requireNonNull;
 
 /**
  * {@code Grok} parse arbitrary text and structure it.<br>
@@ -72,6 +76,9 @@ public class Grok
      * Pattern of the namedRegex.
      */
     private Pattern compiledNamedRegex;
+
+    public Set<String> namedGroups;
+
     /**
      * {@code Grok} patterns definition.
      */
@@ -91,6 +98,9 @@ public class Grok
      * {@code Grok} date formats.
      */
     private Map<String, ArrayList<String>> grokDateFormats;
+
+    private static final Pattern DEFAULT_PATTERN = Pattern.compile("^([A-z0-9_]+)\\s+(.*)$");
+    private static final Pattern RENAMED_CAPTURE_GROUP_PATTERN = Pattern.compile("\\(\\?<([^>]+)>");
 
     private static final ImmutableSortedMap<String, String> DEFAULT_PATTERNS;
     private static final ImmutableMap<String, String> DEFAULT_DATA_TYPES;
@@ -156,10 +166,9 @@ public class Grok
     {
         try (BufferedReader br = new BufferedReader(reader)) {
             String line;
-            Pattern pattern = Pattern.compile("^([A-z0-9_]+)\\s+(.*)$");
             while ((line = br.readLine()) != null) {
                 // We dont want \n and commented line
-                Matcher m = pattern.matcher(line);
+                Matcher m = DEFAULT_PATTERN.matcher(line);
                 if (m.matches()) {
                     loadDefaultPatterns(m.group(1), m.group(2), defaultConfig);
                 }
@@ -239,13 +248,8 @@ public class Grok
      * @throws GrokException runtime expt
      */
     static Reader getFileFromResources(String filePath)
-            throws GrokException
     {
-        Reader reader = new InputStreamReader(Grok.class.getClassLoader().getResourceAsStream(filePath), StandardCharsets.UTF_8);
-        if (reader == null) {
-            throw new GrokException("File <" + filePath + "> not found.");
-        }
-        return reader;
+        return new InputStreamReader(requireNonNull(Grok.class.getClassLoader().getResourceAsStream(filePath)), StandardCharsets.UTF_8);
     }
 
     public void addPatternFromReader(Reader reader)
@@ -253,10 +257,9 @@ public class Grok
     {
         try (BufferedReader br = new BufferedReader(reader)) {
             String line;
-            Pattern pattern = Pattern.compile("^([A-z0-9_]+)\\s+(.*)$");
             while ((line = br.readLine()) != null) {
                 // We don't want \n and commented line
-                Matcher m = pattern.matcher(line);
+                Matcher m = DEFAULT_PATTERN.matcher(line);
                 if (m.matches()) {
                     addPattern(m.group(1), m.group(2));
                 }
@@ -279,22 +282,6 @@ public class Grok
         grokPatternDefinition.put(name, conf);
     }
 
-    // match log with regex and capture results
-    /**
-     * Match the given <var>log</var> with the named regex.
-     * And return the json representation of the matched element
-     *
-     * @param log : log to match
-     * @return json representation og the log
-     */
-    public String capture(String log)
-            throws GrokException
-    {
-        Match match = match(log);
-        match.captures();
-        return match.toJson();
-    }
-
     /**
      * Match the given <var>text</var> with the named regex
      * {@code Grok} will extract data from the string and get an extence of {@link Match}.
@@ -304,7 +291,7 @@ public class Grok
      */
     public Match match(String text)
     {
-        if (compiledNamedRegex == null || text == null || text.isBlank()) {
+        if (text == null || text.isBlank()) {
             return Match.EMPTY;
         }
 
@@ -363,12 +350,12 @@ public class Grok
             }
             iterationLeft--;
 
-            Matcher m = GrokUtils.GROK_PATTERN.matcher(namedRegex);
+            Matcher m = GrokNamedGroupExtractor.GROK_PATTERN.matcher(namedRegex);
             // Match %{Foo:bar} -> pattern name and subname
             // Match %{Foo=regex} -> add new regex definition
             if (m.find()) {
                 continueIteration = true;
-                Map<String, String> group = GrokUtils.namedGroups(m, m.group());
+                Map<String, String> group = GrokNamedGroupExtractor.namedGroups(m, GROK_PATTERN_NAMED_GROUPS);
                 if (group.get("definition") != null) {
                     try {
                         addPattern(group.get("pattern"), group.get("definition"));
@@ -400,13 +387,13 @@ public class Grok
         }
         // Compile the regex
         compiledNamedRegex = Pattern.compile(namedRegex);
+        namedGroups = GrokNamedGroupExtractor.getNameGroups(namedRegex);
     }
 
     private static String renameNamedCaptureGroups(String namedRegex)
     {
         // Pattern.compile() does not support underscores in named regex groups so need to remove all of them
-        Pattern groupPattern = Pattern.compile("\\(\\?<([^>]+)>");
-        Matcher groupMatcher = groupPattern.matcher(namedRegex);
+        Matcher groupMatcher = RENAMED_CAPTURE_GROUP_PATTERN.matcher(namedRegex);
         StringBuilder result = new StringBuilder();
         int i = 0;
         while (groupMatcher.find()) {

@@ -39,7 +39,7 @@ import static io.trino.hive.formats.HiveFormatUtils.parseHiveDate;
 import static io.trino.hive.formats.HiveFormatUtils.parseHiveTimestamp;
 import static io.trino.hive.formats.line.regex.RegexDeserializer.serializeDecimal;
 import static io.trino.plugin.base.type.TrinoTimestampEncoderFactory.createTimestampEncoder;
-import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -129,11 +129,11 @@ public class GrokDeserializer
                 blockBuilder.appendNull();
                 continue;
             }
-            serializeValue(value, column, blockBuilder, this.grokNullOnParseError);
+            serializeNonNullValue(value, column, blockBuilder, this.grokNullOnParseError);
         }
     }
 
-    private static void serializeValue(String value, Column column, BlockBuilder builder, boolean grokNullOnParseError)
+    private static void serializeNonNullValue(String value, Column column, BlockBuilder builder, boolean grokNullOnParseError)
     {
         try {
             Type type = column.type();
@@ -186,7 +186,7 @@ public class GrokDeserializer
                 builder.appendNull();
             }
             else {
-                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Error Parsing a column in the table: " + e.getMessage(), e);
+                throw new TrinoException(GENERIC_USER_ERROR, "Error Parsing a column in the table: " + e.getMessage(), e);
             }
         }
     }

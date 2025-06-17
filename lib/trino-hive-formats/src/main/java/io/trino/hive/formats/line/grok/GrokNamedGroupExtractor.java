@@ -28,14 +28,15 @@ import java.util.regex.Pattern;
  */
 // Note: this code is forked from oi.thekraken.grok.api
 // Copyright 2014 Anthony Corbacho, and contributors.
-public class GrokUtils
+public class GrokNamedGroupExtractor
 {
-    private GrokUtils() {}
+    private GrokNamedGroupExtractor()
+    {
+    }
 
     /**
-     * Extract Grok patter like %{FOO} to FOO, Also Grok pattern with semantic.
+     * Extract Grok pattern like %{FOO} to FOO, Also Grok pattern with semantic.
      */
-
     public static final Pattern GROK_PATTERN = Pattern.compile(
             "%\\{" +
                     "(?<name>" +
@@ -50,30 +51,26 @@ public class GrokUtils
                     ")?" +
                     "\\}");
 
-    public static final Pattern NAMED_REGEX = Pattern
-            .compile("\\(\\?<([a-zA-Z][a-zA-Z0-9]*)>");
+    public static final Set<String> GROK_PATTERN_NAMED_GROUPS = Set.of("name", "pattern", "subname", "definition");
 
-    private static Set<String> getNameGroups(String regex)
+    public static final Pattern NAMED_REGEX = Pattern.compile("\\(\\?<([a-zA-Z][a-zA-Z0-9]*)>");
+
+    public static Set<String> getNameGroups(String regex)
     {
-        Set<String> namedGroups = new LinkedHashSet<String>();
-        Matcher m = NAMED_REGEX.matcher(regex);
-        while (m.find()) {
-            namedGroups.add(m.group(1));
+        Set<String> namedGroups = new LinkedHashSet<>();
+        Matcher matcher = NAMED_REGEX.matcher(regex);
+        while (matcher.find()) {
+            namedGroups.add(matcher.group(1));
         }
         return namedGroups;
     }
 
-    public static Map<String, String> namedGroups(Matcher matcher,
-                                                  String namedRegex)
+    public static Map<String, String> namedGroups(Matcher matcher, Set<String> groupNames)
     {
-        Set<String> groupNames = getNameGroups(matcher.pattern().pattern());
-        Matcher localMatcher = matcher.pattern().matcher(namedRegex);
-        Map<String, String> namedGroups = new LinkedHashMap<String, String>();
-        if (localMatcher.find()) {
-            for (String groupName : groupNames) {
-                String groupValue = localMatcher.group(groupName);
-                namedGroups.put(groupName, groupValue);
-            }
+        Map<String, String> namedGroups = new LinkedHashMap<>();
+        for (String groupName : groupNames) {
+            String groupValue = matcher.group(groupName);
+            namedGroups.put(groupName, groupValue);
         }
         return namedGroups;
     }
