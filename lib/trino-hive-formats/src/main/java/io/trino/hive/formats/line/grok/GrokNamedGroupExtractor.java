@@ -17,6 +17,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -28,14 +29,18 @@ import java.util.regex.Pattern;
  */
 // Note: this code is forked from oi.thekraken.grok.api
 // Copyright 2014 Anthony Corbacho, and contributors.
-public class GrokUtils
+public class GrokNamedGroupExtractor
 {
-    private GrokUtils() {}
+    private final Map<Pattern, Set<String>> namedGroupsCache;
+
+    public GrokNamedGroupExtractor()
+    {
+        namedGroupsCache = new ConcurrentHashMap<>();
+    }
 
     /**
-     * Extract Grok patter like %{FOO} to FOO, Also Grok pattern with semantic.
+     * Extract Grok pattern like %{FOO} to FOO, Also Grok pattern with semantic.
      */
-
     public static final Pattern GROK_PATTERN = Pattern.compile(
             "%\\{" +
                     "(?<name>" +
@@ -50,8 +55,23 @@ public class GrokUtils
                     ")?" +
                     "\\}");
 
-    public static final Pattern NAMED_REGEX = Pattern
-            .compile("\\(\\?<([a-zA-Z][a-zA-Z0-9]*)>");
+    public static final Pattern NAMED_REGEX = Pattern.compile("\\(\\?<([a-zA-Z][a-zA-Z0-9]*)>");
+
+    public Map<String, String> namedGroups(Matcher matcher)
+    {
+        Pattern parentPattern = matcher.pattern();
+        // Get named groups from cache or compute if not present
+        Set<String> groupNames = namedGroupsCache.computeIfAbsent(parentPattern, p -> getNameGroups(p.pattern()));
+
+        Map<String, String> namedGroups = new LinkedHashMap<>();
+        if (matcher.find(0)) {
+            for (String groupName : groupNames) {
+                String groupValue = matcher.group(groupName);
+                namedGroups.put(groupName, groupValue);
+            }
+        }
+        return namedGroups;
+    }
 
     private static Set<String> getNameGroups(String regex)
     {
@@ -59,21 +79,6 @@ public class GrokUtils
         Matcher m = NAMED_REGEX.matcher(regex);
         while (m.find()) {
             namedGroups.add(m.group(1));
-        }
-        return namedGroups;
-    }
-
-    public static Map<String, String> namedGroups(Matcher matcher,
-                                                  String namedRegex)
-    {
-        Set<String> groupNames = getNameGroups(matcher.pattern().pattern());
-        Matcher localMatcher = matcher.pattern().matcher(namedRegex);
-        Map<String, String> namedGroups = new LinkedHashMap<String, String>();
-        if (localMatcher.find()) {
-            for (String groupName : groupNames) {
-                String groupValue = localMatcher.group(groupName);
-                namedGroups.put(groupName, groupValue);
-            }
         }
         return namedGroups;
     }

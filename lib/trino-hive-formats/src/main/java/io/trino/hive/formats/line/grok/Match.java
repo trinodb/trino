@@ -162,7 +162,8 @@ public class Match
         }
         capture.clear();
 
-        Map<String, String> mappedw = GrokUtils.namedGroups(this.match, this.subject);
+        GrokNamedGroupExtractor grokNamedGroupExtractor = new GrokNamedGroupExtractor();
+        Map<String, String> mappedw = grokNamedGroupExtractor.namedGroups(this.match);
         Iterator<Entry<String, String>> it = mappedw.entrySet().iterator();
         while (it.hasNext()) {
             @SuppressWarnings("rawtypes")
@@ -232,9 +233,6 @@ public class Match
      */
     public String toJson(Boolean pretty)
     {
-        if (capture == null) {
-            return "{}";
-        }
         if (capture.isEmpty()) {
             return "{}";
         }
