@@ -14,7 +14,6 @@
 package io.trino.hive.formats.line.grok;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -54,22 +53,22 @@ public class Garbage
     {
         int item = 0;
 
-        if (map == null) {
+        if (map == null || map.isEmpty()) {
             return item;
         }
 
-        if (map.isEmpty()) {
-            return item;
-        }
-
-        for (Iterator<Map.Entry<String, Object>> it = map.entrySet().iterator(); it.hasNext(); ) {
-            Map.Entry<String, Object> entry = it.next();
-            for (int i = 0; i < toRemove.size(); i++) {
-                if (entry.getKey().equals(toRemove.get(i))) {
-                    it.remove();
+        List<String> keysToRemove = new ArrayList<>();
+        for (Map.Entry<String, Object> entry : map.entrySet()) {
+            for (String s : toRemove) {
+                if (entry.getKey().equals(s)) {
+                    keysToRemove.add(entry.getKey());
                     item++;
                 }
             }
+        }
+
+        for (String s : keysToRemove) {
+            map.remove(s);
         }
         return item;
     }
@@ -84,22 +83,18 @@ public class Garbage
     {
         int item = 0;
 
-        if (map == null) {
+        if (map == null || map.isEmpty() || toRename.isEmpty()) {
             return item;
         }
 
-        if (map.isEmpty() || toRename.isEmpty()) {
-            return item;
-        }
-
-        for (Iterator<Map.Entry<String, Object>> it = toRename.entrySet().iterator(); it.hasNext(); ) {
-            Map.Entry<String, Object> entry = it.next();
+        for (Map.Entry<String, Object> entry : toRename.entrySet()) {
             if (map.containsKey(entry.getKey())) {
                 Object obj = map.remove(entry.getKey());
                 map.put(entry.getValue().toString(), obj);
                 item++;
             }
         }
+
         return item;
     }
 }
