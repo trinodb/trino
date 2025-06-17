@@ -30,6 +30,7 @@ import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.Session;
+import io.trino.cache.NonEvictableCache;
 import io.trino.cache.NonEvictableLoadingCache;
 import io.trino.connector.ConnectorServicesProvider;
 import io.trino.event.SplitMonitor;
@@ -82,6 +83,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -109,6 +111,8 @@ import static java.util.stream.Collectors.joining;
 public class SqlTaskManager
         implements Closeable
 {
+    private static final Object TOMBSTONE = new Object();
+    private static final java.time.Duration TOMBSTONE_CLEANUP_INTERVAL = java.time.Duration.ofMinutes(5);
     private static final Logger log = Logger.get(SqlTaskManager.class);
     private static final Set<String> JONI_REGEXP_FUNCTION_CLASS_NAMES = ImmutableSet.of(
             JoniRegexpFunctions.class.getName(),
@@ -130,6 +134,7 @@ public class SqlTaskManager
 
     private final NonEvictableLoadingCache<QueryId, QueryContext> queryContexts;
     private final NonEvictableLoadingCache<TaskId, SqlTask> tasks;
+    private final NonEvictableCache<TaskId, Object> taskTombstones;
 
     private final SqlTaskIoStats cachedStats = new SqlTaskIoStats();
     private final SqlTaskIoStats finishedTaskStats = new SqlTaskIoStats();
@@ -230,8 +235,14 @@ public class SqlTaskManager
         queryContexts = buildNonEvictableCache(CacheBuilder.newBuilder().weakValues(), CacheLoader.from(
                 queryId -> createQueryContext(queryId, localMemoryManager, localSpillManager, gcMonitor, maxQueryMemoryPerNode, maxQuerySpillPerNode)));
 
+        taskTombstones = buildNonEvictableCache(CacheBuilder.newBuilder()
+                .expireAfterWrite(TOMBSTONE_CLEANUP_INTERVAL));
+
         tasks = buildNonEvictableCache(CacheBuilder.newBuilder(), CacheLoader.from(
                 taskId -> {
+                    if (taskTombstones.asMap().containsKey(taskId)) {
+                        throw new TrinoException(GENERIC_USER_ERROR, "Task is already destroyed");
+                    }
                     createdTasks.update(1);
                     return createSqlTask(
                             taskId,
@@ -654,6 +665,20 @@ public class SqlTaskManager
         requireNonNull(failure, "failure is null");
 
         return tasks.getUnchecked(taskId).failed(failure);
+    }
+
+    public void cleanupTask(TaskId taskId)
+    {
+        requireNonNull(taskId, "taskId is null");
+        SqlTask sqlTask = tasks.getIfPresent(taskId);
+        if (sqlTask == null) {
+            return;
+        }
+        checkState(sqlTask.getTaskState() == TaskState.FINISHED, "cleanup called for task %s which is in state %s", taskId, sqlTask.getTaskState());
+        taskTombstones.put(taskId, TOMBSTONE); // prevent task reincarnation in tasks cache in case of race.
+                                               // Races are possible as e.g. do to aborted network requests from workers/coordinators
+                                               // which got delivered after task was already completed.
+        tasks.unsafeInvalidate(taskId);
     }
 
     @VisibleForTesting
