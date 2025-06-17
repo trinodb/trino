@@ -18,7 +18,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import io.trino.hive.formats.line.grok.exception.GrokException;
 
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -162,21 +161,18 @@ public class Match
         }
         capture.clear();
 
-        Map<String, String> mappedw = GrokUtils.namedGroups(this.match, this.subject);
-        Iterator<Entry<String, String>> it = mappedw.entrySet().iterator();
-        while (it.hasNext()) {
-            @SuppressWarnings("rawtypes")
-            Map.Entry pairs = (Map.Entry) it.next();
-            String key = null;
+        Map<String, String> mappedw = GrokNamedGroupExtractor.namedGroups(this.match, true);
+        for (Entry<String, String> entry : mappedw.entrySet()) {
+            String key;
             Object value = null;
-            if (this.grok.getNamedRegexCollectionById(pairs.getKey().toString()) == null) {
-                key = pairs.getKey().toString();
+            if (this.grok.getNamedRegexCollectionById(entry.getKey()) == null) {
+                key = entry.getKey();
             }
-            else if (!this.grok.getNamedRegexCollectionById(pairs.getKey().toString()).isEmpty()) {
-                key = this.grok.getNamedRegexCollectionById(pairs.getKey().toString());
+            else {
+                key = this.grok.getNamedRegexCollectionById(entry.getKey());
             }
-            if (pairs.getValue() != null) {
-                value = pairs.getValue();
+            if (entry.getValue() != null) {
+                value = entry.getValue();
 
                 ImmutableMap<String, Object> keyValue = ConverterFactory.convert(key, value, grok);
                 key = keyValue.keySet().iterator().next();
@@ -192,7 +188,6 @@ public class Match
             if (value != null) {
                 capture.put(key, value);
             }
-            it.remove(); // avoids a ConcurrentModificationException
         }
     }
 
@@ -232,9 +227,6 @@ public class Match
      */
     public String toJson(Boolean pretty)
     {
-        if (capture == null) {
-            return "{}";
-        }
         if (capture.isEmpty()) {
             return "{}";
         }
