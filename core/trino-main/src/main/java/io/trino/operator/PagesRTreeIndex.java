@@ -153,7 +153,7 @@ public class PagesRTreeIndex
             return EMPTY_ADDRESSES;
         }
 
-        int probePartition = probePartitionChannel.map(channel -> INTEGER.getInt(probe.getBlock(channel), probePosition)).orElse(-1);
+        int probePartition = probePartitionChannel.map(channel -> INTEGER.getInt(probe.getBlock(channel), position)).orElse(-1);
 
         Slice slice = probeGeometryBlock.getSlice(probePosition);
         OGCGeometry probeGeometry = deserialize(slice);
