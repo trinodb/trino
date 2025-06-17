@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.Unstable;
 
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -45,5 +46,20 @@ public class ColumnInfo
     public Optional<String> getMask()
     {
         return mask;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (!(o instanceof ColumnInfo that)) {
+            return false;
+        }
+        return Objects.equals(column, that.column) && Objects.equals(mask, that.mask);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(column, mask);
     }
 }
