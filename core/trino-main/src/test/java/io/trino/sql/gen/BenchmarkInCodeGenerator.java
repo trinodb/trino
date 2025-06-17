@@ -193,6 +193,7 @@ public class BenchmarkInCodeGenerator
                     new ColumnarFilterCompiler(functionManager, 0))
                     .compilePageProcessor(
                             columnarEvaluationEnabled,
+                            true,
                             Optional.of(filter),
                             Optional.empty(),
                             ImmutableList.of(project),

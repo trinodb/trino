@@ -2129,6 +2129,7 @@ public class LocalExecutionPlanner
                 }
                 Function<DynamicFilter, PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(
                         columnarFilterEvaluationEnabled,
+                        true,
                         translatedFilter,
                         dynamicPageFilterFactory,
                         translatedProjections,
