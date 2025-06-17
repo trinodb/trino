@@ -83,6 +83,7 @@ public class OperatorContext
     private final OperationTiming getOutputTiming = new OperationTiming();
     private final CounterStat outputDataSize = new CounterStat();
     private final CounterStat outputPositions = new CounterStat();
+    private final CounterStat updatedPositions = new CounterStat();
 
     private final AtomicLong dynamicFilterSplitsProcessed = new AtomicLong();
     private final AtomicReference<Metrics> metrics = new AtomicReference<>(Metrics.EMPTY);  // this is not incremental, but gets overwritten by the latest value.
@@ -227,6 +228,12 @@ public class OperatorContext
     public void recordDynamicFilterSplitProcessed(long dynamicFilterSplits)
     {
         dynamicFilterSplitsProcessed.getAndAdd(dynamicFilterSplits);
+    }
+
+    public void recordUpdatedPositions(long updatedPositions)
+    {
+        checkArgument(updatedPositions >= 0, "updatedPositions is negative (%s)", updatedPositions);
+        this.updatedPositions.update(updatedPositions);
     }
 
     /**
@@ -493,6 +500,11 @@ public class OperatorContext
         return outputPositions;
     }
 
+    public CounterStat getUpdatedPositions()
+    {
+        return updatedPositions;
+    }
+
     public long getWriterInputDataSize()
     {
         return writerInputDataSize.get();
@@ -549,6 +561,7 @@ public class OperatorContext
                 new Duration(getOutputTiming.getCpuNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 DataSize.ofBytes(outputDataSize.getTotalCount()),
                 outputPositions.getTotalCount(),
+                updatedPositions.getTotalCount(),
 
                 dynamicFilterSplitsProcessed.get(),
                 getOperatorMetrics(
