@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.pinot;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -24,6 +25,7 @@ import io.trino.cache.NonEvictableLoadingCache;
 import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
+import io.trino.plugin.base.expression.ConnectorExpressions;
 import io.trino.plugin.pinot.client.PinotClient;
 import io.trino.plugin.pinot.query.AggregateExpression;
 import io.trino.plugin.pinot.query.DynamicTable;
@@ -34,6 +36,15 @@ import io.trino.plugin.pinot.query.aggregation.ImplementCountAll;
 import io.trino.plugin.pinot.query.aggregation.ImplementCountDistinct;
 import io.trino.plugin.pinot.query.aggregation.ImplementMinMax;
 import io.trino.plugin.pinot.query.aggregation.ImplementSum;
+import io.trino.plugin.pinot.query.predicate.PinotEqualityPredicate;
+import io.trino.plugin.pinot.query.predicate.PinotJsonArrayContainsEqualsPredicate;
+import io.trino.plugin.pinot.query.predicate.PinotJsonArrayContainsPredicate;
+import io.trino.plugin.pinot.query.predicate.PinotJsonContainsEqualsPredicate;
+import io.trino.plugin.pinot.query.predicate.PinotJsonContainsPredicate;
+import io.trino.plugin.pinot.query.predicate.PinotJsonExtractScalarIsNullPredicate;
+import io.trino.plugin.pinot.query.predicate.PinotNotJsonArrayContainsPredicate;
+import io.trino.plugin.pinot.query.predicate.PinotNotJsonContainsPredicate;
+import io.trino.plugin.pinot.query.predicate.PinotPredicate;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
@@ -51,6 +62,7 @@ import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.Domain;
@@ -60,6 +72,7 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import org.apache.pinot.spi.data.Schema;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -81,6 +94,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.pinot.PinotSessionProperties.isAggregationPushdownEnabled;
+import static io.trino.plugin.pinot.PinotSessionProperties.isJsonPredicatePushdownEnabled;
 import static io.trino.plugin.pinot.query.AggregateExpression.replaceIdentifier;
 import static io.trino.plugin.pinot.query.DynamicTablePqlExtractor.quoteIdentifier;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -162,7 +176,7 @@ public class PinotMetadata
 
         if (tableName.getTableName().trim().contains("select ")) {
             DynamicTable dynamicTable = DynamicTableBuilder.buildFromPql(this, tableName, pinotClient, typeConverter);
-            return new PinotTableHandle(tableName.getSchemaName(), dynamicTable.tableName(), false, TupleDomain.all(), OptionalLong.empty(), Optional.of(dynamicTable));
+            return new PinotTableHandle(tableName.getSchemaName(), dynamicTable.tableName(), false, TupleDomain.all(), OptionalLong.empty(), Optional.of(dynamicTable), Optional.empty());
         }
         String pinotTableName = pinotClient.getPinotTableNameFromTrinoTableNameIfExists(tableName.getTableName());
         if (pinotTableName == null) {
@@ -174,6 +188,7 @@ public class PinotMetadata
                 getFromCache(pinotTableSchemaCache, pinotTableName).isEnableColumnBasedNullHandling(),
                 TupleDomain.all(),
                 OptionalLong.empty(),
+                Optional.empty(),
                 Optional.empty());
     }
 
@@ -288,7 +303,8 @@ public class PinotMetadata
                 handle.enableNullHandling(),
                 handle.constraint(),
                 OptionalLong.of(limit),
-                dynamicTable);
+                dynamicTable,
+                handle.constraintPql());
         boolean singleSplit = dynamicTable.isPresent();
         return Optional.of(new LimitApplicationResult<>(handle, singleSplit, false));
     }
@@ -330,7 +346,25 @@ public class PinotMetadata
             remainingFilter = TupleDomain.withColumnDomains(unsupported);
         }
 
-        if (oldDomain.equals(newDomain)) {
+        ConnectorExpression constraintExpression = constraint.getExpression();
+        List<ConnectorExpression> notHandledExpressions = new ArrayList<>();
+        Optional<String> constraintPql = Optional.empty();
+        if (isJsonPredicatePushdownEnabled(session) && constraintExpression instanceof Call call) {
+            StringBuilder pqlBuilder = new StringBuilder();
+            try {
+                buildConstraintPql(call, pqlBuilder);
+                constraintPql = Optional.of(pqlBuilder.toString());
+            }
+            catch (UnsupportedOperationException e) {
+                notHandledExpressions.add(constraintExpression);
+            }
+        }
+        else {
+            notHandledExpressions.add(constraintExpression);
+        }
+        ConnectorExpression newExpression = ConnectorExpressions.and(notHandledExpressions);
+
+        if (oldDomain.equals(newDomain) && constraintExpression.equals(newExpression)) {
             return Optional.empty();
         }
 
@@ -340,8 +374,86 @@ public class PinotMetadata
                 handle.enableNullHandling(),
                 newDomain,
                 handle.limit(),
-                handle.query());
-        return Optional.of(new ConstraintApplicationResult<>(handle, remainingFilter, constraint.getExpression(), false));
+                handle.query(),
+                constraintPql);
+
+        return Optional.of(new ConstraintApplicationResult<>(handle, remainingFilter, newExpression, false));
+    }
+
+    @VisibleForTesting
+    public static void buildConstraintPql(Call call, StringBuilder pqlBuilder)
+    {
+        Optional<PinotPredicate> pinotPredicate = getPinotPredicate(call);
+
+        if (pinotPredicate.isPresent()) {
+            // base case: no more nested calls to be examined
+            pinotPredicate.map(PinotPredicate::toPql).ifPresent(pqlBuilder::append);
+        }
+        else {
+            // recursive case
+            String functionName = call.getFunctionName().getName();
+            if (functionName.equals("$and") || functionName.equals("$or")) {
+                String combiner = functionName.equals("$and") ? " AND " : " OR ";
+                pqlBuilder.append("(");
+
+                List<ConnectorExpression> arguments = call.getArguments();
+                boolean first = true;
+                for (ConnectorExpression argument : arguments) {
+                    if (!(argument instanceof Call innerCall)) {
+                        throw new UnsupportedOperationException("Unsupported expression: '%s'".formatted(argument));
+                    }
+                    if (!first) {
+                        pqlBuilder.append(combiner);
+                    }
+                    buildConstraintPql(innerCall, pqlBuilder);
+                    first = false;
+                }
+
+                pqlBuilder.append(")");
+            }
+            else if (functionName.equals("$not")) {
+                List<ConnectorExpression> arguments = call.getArguments();
+                if (!(arguments.getFirst() instanceof Call innerCall)) {
+                    throw new UnsupportedOperationException("Unsupported expression: '%s'".formatted(arguments.getFirst()));
+                }
+
+                pqlBuilder.append("NOT(");
+                buildConstraintPql(innerCall, pqlBuilder);
+                pqlBuilder.append(")");
+            }
+            else {
+                throw new UnsupportedOperationException("Unsupported function: '%s'".formatted(call));
+            }
+        }
+    }
+
+    private static Optional<PinotPredicate> getPinotPredicate(Call call)
+    {
+        if (PinotEqualityPredicate.supportsCall(call)) {
+            return Optional.of(new PinotEqualityPredicate(call));
+        }
+        if (PinotJsonExtractScalarIsNullPredicate.supportsCall(call)) {
+            return Optional.of(new PinotJsonExtractScalarIsNullPredicate(call));
+        }
+        if (PinotJsonContainsPredicate.supportsCall(call)) {
+            return Optional.of(new PinotJsonContainsPredicate(call));
+        }
+        if (PinotJsonArrayContainsPredicate.supportsCall(call)) {
+            return Optional.of(new PinotJsonArrayContainsPredicate(call));
+        }
+        if (PinotJsonArrayContainsEqualsPredicate.supportsCall(call)) {
+            return Optional.of(new PinotJsonArrayContainsEqualsPredicate(call));
+        }
+        if (PinotNotJsonArrayContainsPredicate.supportsCall(call)) {
+            return Optional.of(new PinotNotJsonArrayContainsPredicate(call));
+        }
+        if (PinotJsonContainsEqualsPredicate.supportsCall(call)) {
+            return Optional.of(new PinotJsonContainsEqualsPredicate(call));
+        }
+        if (PinotNotJsonContainsPredicate.supportsCall(call)) {
+            return Optional.of(new PinotNotJsonContainsPredicate(call));
+        }
+        return Optional.empty();
     }
 
     // IS NULL and IS NOT NULL are handled differently in Pinot, pushing down would lead to inconsistent results.
@@ -472,7 +584,8 @@ public class PinotMetadata
                 tableHandle.enableNullHandling(),
                 tableHandle.constraint(),
                 tableHandle.limit(),
-                Optional.of(dynamicTable));
+                Optional.of(dynamicTable),
+                tableHandle.constraintPql());
 
         return Optional.of(new AggregationApplicationResult<>(tableHandle, projections.build(), resultAssignments.build(), ImmutableMap.of(), false));
     }
