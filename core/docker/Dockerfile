@@ -67,6 +67,12 @@ COPY --chown=trino:trino trino-server/bin/linux-${ARCH} /usr/lib/trino/bin/linux
 COPY --chown=trino:trino default/etc /etc/trino
 COPY --chown=trino:trino --from=jvmkill /libjvmkill.so /usr/lib/trino/bin
 
+RUN mkdir -p /usr/lib/trino/web/assets/fonts && \
+    curl -L "https://fonts.gstatic.com/s/roboto/v30/KFOmCnqEu92Fr1Mu4mxKKTU1Kg.woff2" -o /usr/lib/trino/web/assets/fonts/Roboto-Regular.woff2 && \
+    curl -L "https://fonts.gstatic.com/s/roboto/v30/KFOlCnqEu92Fr1MmEU9fBBc4AMP6lQ.woff2" -o /usr/lib/trino/web/assets/fonts/Roboto-Medium.woff2 && \
+    curl -L "https://fonts.gstatic.com/s/roboto/v30/KFOlCnqEu92Fr1MmWUlfBBc4AMP6lQ.woff2" -o /usr/lib/trino/web/assets/fonts/Roboto-Bold.woff2 && \
+    chown -R trino:trino /usr/lib/trino/web/assets/fonts
+
 EXPOSE 8080
 USER trino:trino
 CMD ["/usr/lib/trino/bin/run-trino"]
