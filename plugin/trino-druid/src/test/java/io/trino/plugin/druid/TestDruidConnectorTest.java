@@ -77,7 +77,6 @@ public class TestDruidConnectorTest
     {
         druidServer = closeAfterClass(new TestingDruidServer());
         return DruidQueryRunner.builder(druidServer)
-                .addConnectorProperty("druid.count-distinct-strategy", "EXACT")
                 .setInitialTables(ImmutableList.of(ORDERS, LINE_ITEM, NATION, REGION, PART, CUSTOMER))
                 .build();
     }
@@ -163,13 +162,13 @@ public class TestDruidConnectorTest
                         "   __time timestamp(3) NOT NULL,\n" +
                         "   clerk varchar,\n" +
                         "   comment varchar,\n" +
-                        "   custkey bigint NOT NULL,\n" +
+                        "   custkey bigint,\n" +
                         "   orderdate varchar,\n" +
-                        "   orderkey bigint NOT NULL,\n" +
+                        "   orderkey bigint,\n" +
                         "   orderpriority varchar,\n" +
                         "   orderstatus varchar,\n" +
-                        "   shippriority bigint NOT NULL,\n" +
-                        "   totalprice double NOT NULL\n" +
+                        "   shippriority bigint,\n" +
+                        "   totalprice double\n" +
                         ")");
     }
 

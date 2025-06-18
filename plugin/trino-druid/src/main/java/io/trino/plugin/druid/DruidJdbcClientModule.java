@@ -32,7 +32,6 @@ import org.apache.calcite.avatica.remote.Driver;
 import java.util.Properties;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
-import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class DruidJdbcClientModule
         implements Module
@@ -42,32 +41,18 @@ public class DruidJdbcClientModule
     {
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(DruidJdbcClient.class).in(Scopes.SINGLETON);
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
-
-        configBinder(binder).bindConfig(DruidConfig.class);
     }
 
     @Provides
     @Singleton
     @ForBaseJdbc
-    public static ConnectionFactory createConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider, DruidConfig druidConfig, OpenTelemetry openTelemetry)
-    {
-        return DriverConnectionFactory.builder(new Driver(), config.getConnectionUrl(), credentialProvider)
-                .setOpenTelemetry(openTelemetry)
-                .setConnectionProperties(getConnectionProperties(druidConfig))
-                .build();
-    }
-
-    private static Properties getConnectionProperties(DruidConfig druidConfig)
+    public static ConnectionFactory createConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider, OpenTelemetry openTelemetry)
     {
         Properties connectionProperties = new Properties();
-
-        if (druidConfig.getCountDistinctStrategy() == DruidConfig.CountDistinctStrategy.EXACT) {
-            connectionProperties.setProperty("useApproximateCountDistinct", "false");
-        }
-        else if (druidConfig.getCountDistinctStrategy() == DruidConfig.CountDistinctStrategy.APPROXIMATE) {
-            connectionProperties.setProperty("useApproximateCountDistinct", "true");
-        }
-
-        return connectionProperties;
+        connectionProperties.setProperty("useApproximateCountDistinct", "false");
+        return DriverConnectionFactory.builder(new Driver(), config.getConnectionUrl(), credentialProvider)
+                .setOpenTelemetry(openTelemetry)
+                .setConnectionProperties(connectionProperties)
+                .build();
     }
 }

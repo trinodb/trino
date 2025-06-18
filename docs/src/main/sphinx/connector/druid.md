@@ -68,21 +68,6 @@ properties files.
 ```{include} jdbc-case-insensitive-matching.fragment
 ```
 
-### Approximate `count distinct` configuration
-Druid has the ability to use [an "approximate cardinality algorithm"](https://druid.apache.org/docs/latest/querying/sql-query-context/#sql-query-context-parameters) when calling `COUNT(DISTINCT <col>)`, similar to Trino's {func}`approx_distinct` function. However, when Druid uses this approximation algorithm it cannot accept some [aggregations pushed down](druid-pushdown) from Trino that contain a `DISTINCT`.
-
-:::{list-table}
-:widths: 30, 58, 12
-:header-rows: 1
-
-* - Property name
-  - Description
-  - Default value
-* - ``druid.count-distinct-strategy``
-  - Defines Druid behavior for pushed-down ``DISTINCT`` aggregations by setting (or leaving unset) ``useApproximateCountDistinct``. Must be one of ``DEFAULT``, ``APPROXIMATE``, or ``EXACT``. When ``DEFAULT`` is set, the behavior is left up to the Druid cluster. ``APPROXIMATE`` sets ``useApproximateCountDistinct`` explicitly to ``true``, while ``EXACT`` sets it to ``false``. Note that Druid will reject pushed-down ``DISTINCT`` aggregations unless ``useApproximateCountDistinct=false``. This can either be done on the Trino side by setting this property to ``EXACT``, or it can be done on the Druid cluster. 
-  - ``DEFAULT``
-:::
-
 (druid-type-mapping)=
 ## Type mapping
 
