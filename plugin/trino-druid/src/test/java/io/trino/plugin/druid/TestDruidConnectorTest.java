@@ -660,6 +660,11 @@ public class TestDruidConnectorTest
                                                 node(ExchangeNode.class,
                                                         node(AggregationNode.class, node(ValuesNode.class)),
                                                         node(AggregationNode.class, node(ValuesNode.class)))))));
+
+        // test aggregation on empty results
+        assertThat(query("SELECT count(*), count(nationkey), sum(nationkey), min(nationkey), max(nationkey), avg(nationkey) FROM nation WHERE name = 'ATLANTIS'"))
+                .isFullyPushedDown()
+                .matches("VALUES (BIGINT '0', BIGINT '0', cast(NULL AS BIGINT), cast(NULL AS BIGINT), cast(NULL AS BIGINT), cast(NULL AS DOUBLE))");
     }
 
     @Test

@@ -17,7 +17,7 @@ database from Trino.
 
 To connect to Druid, you need:
 
-- Druid version 0.19.0 or higher.
+- Druid version 0.22.0 or higher.
 - Network access from the Trino coordinator and workers to your Druid broker.
   Port 8082 is the default port.
 
