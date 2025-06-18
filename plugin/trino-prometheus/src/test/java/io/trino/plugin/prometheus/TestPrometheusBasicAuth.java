@@ -19,7 +19,7 @@ import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.prometheus.MetadataUtil.METRIC_CODEC;
-import static io.trino.plugin.prometheus.PrometheusServer.LATEST_VERSION;
+import static io.trino.plugin.prometheus.PrometheusServer.LATEST_PROMETHEUS_VERSION;
 import static io.trino.plugin.prometheus.PrometheusServer.PASSWORD;
 import static io.trino.plugin.prometheus.PrometheusServer.USER;
 import static io.trino.testing.assertions.Assert.assertEventually;
@@ -37,7 +37,7 @@ public class TestPrometheusBasicAuth
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        server = closeAfterClass(new PrometheusServer(LATEST_VERSION, true));
+        server = closeAfterClass(new PrometheusServer(LATEST_PROMETHEUS_VERSION, true, false));
         return PrometheusQueryRunner.builder(server)
                 .addConnectorProperty("prometheus.auth.user", USER)
                 .addConnectorProperty("prometheus.auth.password", PASSWORD)

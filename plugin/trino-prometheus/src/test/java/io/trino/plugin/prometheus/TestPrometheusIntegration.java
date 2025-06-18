@@ -22,7 +22,9 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorSession;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.concurrent.TimeUnit;
 
@@ -31,8 +33,10 @@ import static io.trino.plugin.prometheus.TestPrometheusTableHandle.newTableHandl
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-public class TestPrometheusIntegration
+@Execution(SAME_THREAD)
+class TestPrometheusIntegration
         extends AbstractTestQueryFramework
 {
     private static final int NUMBER_MORE_THAN_EXPECTED_NUMBER_SPLITS = 100;
@@ -44,7 +48,7 @@ public class TestPrometheusIntegration
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this.server = closeAfterClass(new PrometheusServer());
+        this.server = closeAfterClass(new PrometheusServer(PrometheusServer.DEFAULT_PROMETHEUS_VERSION, false, true));
         this.client = createPrometheusClient(server);
         return PrometheusQueryRunner.builder(server).build();
     }
@@ -64,11 +68,141 @@ public class TestPrometheusIntegration
     }
 
     @Test
-    public void testPushDown()
+    public void testTimestampPushDown()
     {
         // default interval on the `up` metric that Prometheus records on itself is about 15 seconds, so this should only yield one or two row
         MaterializedResult results = computeActual("SELECT * FROM prometheus.default.up WHERE timestamp > (NOW() - INTERVAL '15' SECOND)");
         assertThat(results).hasSizeBetween(1, 2);
+    }
+
+    @Test
+    public void testLabelEqPushDown()
+    {
+        RequestsRecorder recorder = new RequestsRecorder();
+        MaterializedResult results = server.recordRequestsFor(recorder, () ->
+                getQueryRunner().execute("SELECT * FROM prometheus.default.up WHERE labels['job'] = 'prometheus'"));
+
+        assertThat(recorder.getRequestsWithoutDiscovery()).hasSizeGreaterThan(0);
+        recorder.getRequestsWithoutDiscovery().forEach(request -> {
+            assertThat(request.method).isEqualTo("GET");
+            assertThat(request.extractPromQL()).isEqualTo("up{job=\"prometheus\"}[1d]");
+        });
+
+        assertThat(results).hasSizeBetween(1, 2);
+    }
+
+    @Test
+    public void testLabelEqTimestampPushDown()
+    {
+        RequestsRecorder recorder = new RequestsRecorder();
+        MaterializedResult results = server.recordRequestsFor(recorder, () ->
+                getQueryRunner().execute("SELECT * FROM prometheus.default.up WHERE labels['job'] = 'prometheus' AND timestamp > (NOW() - INTERVAL '15' SECOND)"));
+
+        assertThat(recorder.getRequestsWithoutDiscovery()).hasSizeGreaterThan(0);
+        recorder.getRequestsWithoutDiscovery().forEach(request -> {
+            assertThat(request.method).isEqualTo("GET");
+            assertThat(request.extractPromQL()).isEqualTo("up{job=\"prometheus\"}[1d]");
+        });
+
+        assertThat(results).hasSizeBetween(1, 2);
+    }
+
+    @Test
+    public void testLabelInPushDown()
+    {
+        RequestsRecorder recorder = new RequestsRecorder();
+        MaterializedResult results = server.recordRequestsFor(recorder, () ->
+                getQueryRunner().execute("SELECT * FROM prometheus.default.up WHERE labels['job'] IN ('prometheus','victoriametrics')"));
+
+        assertThat(recorder.getRequestsWithoutDiscovery()).hasSizeGreaterThan(0);
+        recorder.getRequestsWithoutDiscovery().forEach(request -> {
+            assertThat(request.method).isEqualTo("GET");
+            assertThat(request.extractPromQL()).isEqualTo("up{job=~\"(prometheus|victoriametrics)\"}[1d]");
+        });
+
+        assertThat(results).hasSizeBetween(1, 2);
+    }
+
+    @Test
+    public void testLabelLikePushDown()
+    {
+        RequestsRecorder recorder = new RequestsRecorder();
+        MaterializedResult results = server.recordRequestsFor(recorder, () ->
+                getQueryRunner().execute("SELECT * FROM prometheus.default.up WHERE labels['job'] LIKE 'pr_m%'"));
+
+        assertThat(recorder.getRequestsWithoutDiscovery()).hasSizeGreaterThan(0);
+        recorder.getRequestsWithoutDiscovery().forEach(request -> {
+            assertThat(request.method).isEqualTo("GET");
+            assertThat(request.extractPromQL()).isEqualTo("up{job=~\"pr.m.*\"}[1d]");
+        });
+
+        assertThat(results).hasSizeBetween(1, 2);
+    }
+
+    @Test
+    @Disabled // Not implemented yet
+    public void testLabelNotLikePushDown()
+    {
+        RequestsRecorder recorder = new RequestsRecorder();
+        MaterializedResult results = server.recordRequestsFor(recorder, () ->
+                getQueryRunner().execute("SELECT * FROM prometheus.default.up WHERE labels['job'] NOT LIKE 'vict_ria%'"));
+
+        assertThat(recorder.getRequestsWithoutDiscovery()).hasSizeGreaterThan(0);
+        recorder.getRequestsWithoutDiscovery().forEach(request -> {
+            assertThat(request.method).isEqualTo("GET");
+            assertThat(request.extractPromQL()).isEqualTo("up{job!~\"vict.ria.*\"}[1d]");
+        });
+
+        assertThat(results).hasSizeBetween(1, 2);
+    }
+
+    @Test
+    public void testLabelLikeEscapePushDown()
+    {
+        RequestsRecorder recorder = new RequestsRecorder();
+        MaterializedResult results = server.recordRequestsFor(recorder, () ->
+                getQueryRunner().execute("SELECT * FROM prometheus.default.up WHERE labels['job'] LIKE '%pr_m\\%' ESCAPE '\\'"));
+
+        assertThat(recorder.getRequestsWithoutDiscovery()).hasSizeGreaterThan(0);
+        recorder.getRequestsWithoutDiscovery().forEach(request -> {
+            assertThat(request.method).isEqualTo("GET");
+            assertThat(request.extractPromQL()).isEqualTo("up{job=~\".*pr.m%\"}[1d]");
+        });
+
+        assertThat(results).hasSize(0);
+    }
+
+    @Test
+    public void testLabelLikeAndEqAndNeqPushDown()
+    {
+        RequestsRecorder recorder = new RequestsRecorder();
+        MaterializedResult results = server.recordRequestsFor(recorder, () ->
+                getQueryRunner().execute("SELECT * FROM prometheus.default.up WHERE labels['job'] LIKE 'prom%' AND labels['instance'] = 'localhost:9090' AND labels['instance'] != 'localhost:8080'"));
+
+        assertThat(recorder.getRequestsWithoutDiscovery()).hasSizeGreaterThan(0);
+        recorder.getRequestsWithoutDiscovery().forEach(request -> {
+            assertThat(request.method).isEqualTo("GET");
+            assertThat(request.extractPromQL()).isEqualTo("up{job=~\"prom.*\",instance=\"localhost:9090\",instance!=\"localhost:8080\"}[1d]");
+        });
+
+        assertThat(results).hasSizeBetween(1, 2);
+    }
+
+    @Test
+    public void testLabelLikeAndEqAndNeqNegatedPushDown()
+    {
+        // This test deliberately uses a negated query to check that we don't push down the label filters in case there is a NOT modifier for AND-ed predicates.
+        RequestsRecorder recorder = new RequestsRecorder();
+        MaterializedResult results = server.recordRequestsFor(recorder, () ->
+                getQueryRunner().execute("SELECT * FROM prometheus.default.up WHERE NOT (labels['job'] LIKE 'prom%' AND labels['instance'] = 'localhost:9090' AND labels['__name__'] != 'down')"));
+
+        assertThat(recorder.getRequestsWithoutDiscovery()).hasSizeGreaterThan(0);
+        recorder.getRequestsWithoutDiscovery().forEach(request -> {
+            assertThat(request.method).isEqualTo("GET");
+            assertThat(request.extractPromQL()).isEqualTo("up[1d]");
+        });
+
+        assertThat(results).hasSize(0);
     }
 
     @Test
