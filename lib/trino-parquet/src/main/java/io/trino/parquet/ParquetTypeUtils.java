@@ -300,8 +300,15 @@ public final class ParquetTypeUtils
                 throw new IllegalStateException("Expected columnIO to be GroupColumnIO but got %s".formatted(columnIO.getClass().getSimpleName()));
             }
             Field valueField = constructField(VARBINARY, groupColumnIo.getChild(0), false).orElseThrow();
-            Field metadataField = constructField(VARBINARY, groupColumnIo.getChild(1), false).orElseThrow();
-            return Optional.of(new VariantField(type, repetitionLevel, definitionLevel, required, valueField, metadataField));
+            PrimitiveField metadataField = (PrimitiveField) constructField(VARBINARY, groupColumnIo.getChild(1), false).orElseThrow();
+            return Optional.of(new VariantField(
+                    type,
+                    repetitionLevel,
+                    definitionLevel,
+                    required,
+                    valueField,
+                    // Mark the metadata field as optional, this is because the metadata field is not present when the actual Variant value is null
+                    new PrimitiveField(metadataField.getType(), false, metadataField.getDescriptor(), metadataField.getId())));
         }
         if (type instanceof RowType rowType) {
             GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
