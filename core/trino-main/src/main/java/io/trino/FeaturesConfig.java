@@ -123,6 +123,8 @@ public class FeaturesConfig
 
     private boolean faultTolerantExecutionExchangeEncryptionEnabled = true;
 
+    private boolean functionAccessControlEnabled;
+
     public enum DataIntegrityVerification
     {
         NONE,
@@ -518,5 +520,18 @@ public class FeaturesConfig
     public void applyFaultTolerantExecutionDefaults()
     {
         exchangeCompressionCodec = LZ4;
+    }
+
+    @Config("inline-function-access-control.enabled")
+    @ConfigDescription("Enable access control on all functions")
+    public FeaturesConfig setFunctionAccessControlEnabled(boolean enabled)
+    {
+        this.functionAccessControlEnabled = enabled;
+        return this;
+    }
+
+    public boolean isFunctionAccessControlEnabled()
+    {
+        return functionAccessControlEnabled;
     }
 }

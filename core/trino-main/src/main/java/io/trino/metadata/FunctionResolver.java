@@ -50,6 +50,8 @@ import java.util.function.Function;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.metadata.FunctionBinder.functionNotFound;
+import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
+import static io.trino.metadata.LanguageFunctionManager.isInlineFunction;
 import static io.trino.metadata.LanguageFunctionManager.isTrinoSqlLanguageFunction;
 import static io.trino.metadata.SignatureBinder.applyBoundVariables;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
@@ -68,18 +70,21 @@ public class FunctionResolver
     private final LanguageFunctionManager languageFunctionManager;
     private final WarningCollector warningCollector;
     private final FunctionBinder functionBinder;
+    private final boolean functionAccessControlEnabled;
 
     public FunctionResolver(
             Metadata metadata,
             TypeManager typeManager,
             LanguageFunctionManager languageFunctionManager,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            boolean functionAccessControlEnabled)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.languageFunctionManager = requireNonNull(languageFunctionManager, "languageFunctionManager is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         this.functionBinder = new FunctionBinder(metadata, typeManager);
+        this.functionAccessControlEnabled = functionAccessControlEnabled;
     }
 
     /**
@@ -288,8 +293,11 @@ public class FunctionResolver
         return names.build();
     }
 
-    private static boolean canExecuteFunction(Session session, AccessControl accessControl, CatalogSchemaFunctionName functionName)
+    private boolean canExecuteFunction(Session session, AccessControl accessControl, CatalogSchemaFunctionName functionName)
     {
+        if (!functionAccessControlEnabled && (isInlineFunction(functionName) || isBuiltinFunctionName(functionName))) {
+            return true;
+        }
         return accessControl.canExecuteFunction(
                 SecurityContext.of(session),
                 new QualifiedObjectName(functionName.getCatalogName(), functionName.getSchemaName(), functionName.getFunctionName()));

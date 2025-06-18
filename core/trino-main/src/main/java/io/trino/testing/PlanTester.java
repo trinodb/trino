@@ -423,7 +423,7 @@ public class PlanTester
                 new JsonValueFunction(functionManager, metadata, typeManager),
                 new JsonQueryFunction(functionManager, metadata, typeManager)));
 
-        this.plannerContext = new PlannerContext(metadata, typeOperators, blockEncodingSerde, typeManager, functionManager, languageFunctionManager, tracer);
+        this.plannerContext = new PlannerContext(metadata, typeOperators, blockEncodingSerde, typeManager, functionManager, languageFunctionManager, tracer, new FeaturesConfig().setFunctionAccessControlEnabled(true));
         this.pageFunctionCompiler = new PageFunctionCompiler(functionManager, 0);
         this.filterCompiler = new ColumnarFilterCompiler(functionManager, 0);
         this.expressionCompiler = new ExpressionCompiler(new CursorProcessorCompiler(functionManager), pageFunctionCompiler, filterCompiler);
