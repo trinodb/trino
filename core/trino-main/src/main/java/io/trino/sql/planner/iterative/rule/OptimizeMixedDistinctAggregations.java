@@ -336,7 +336,6 @@ public class OptimizeMixedDistinctAggregations
                 singleGroupingSet(ImmutableList.copyOf(innerAggregationGropingKeys)),
                 ImmutableList.of(),
                 SINGLE,
-                node.getHashSymbol(),
                 Optional.empty());
 
         // 3. Add a new project node with FILTER expressions
@@ -352,7 +351,6 @@ public class OptimizeMixedDistinctAggregations
                 node.getGroupingSets(),
                 ImmutableList.of(),
                 node.getStep(),
-                Optional.empty(),
                 node.getGroupIdSymbol());
 
         Map<Symbol, Symbol> coalesceSymbols = coalesceSymbolsBuilder.buildOrThrow();

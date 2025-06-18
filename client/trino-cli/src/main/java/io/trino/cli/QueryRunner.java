@@ -24,11 +24,14 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static io.trino.client.ClientSession.stripTransactionId;
 import static io.trino.client.StatementClientFactory.newStatementClient;
+import static io.trino.client.UserAgentBuilder.createUserAgent;
 import static java.util.Objects.requireNonNull;
 
 public class QueryRunner
         implements Closeable
 {
+    private static final String USER_AGENT = createUserAgent("trino-cli");
+
     private final AtomicReference<ClientSession> session;
     private final boolean debug;
     private final OkHttpClient httpClient;
@@ -37,9 +40,9 @@ public class QueryRunner
     public QueryRunner(TrinoUri uri, ClientSession session, boolean debug)
     {
         this.session = new AtomicReference<>(requireNonNull(session, "session is null"));
-        this.httpClient = HttpClientFactory.toHttpClientBuilder(uri, session.getSource()).build();
+        this.httpClient = HttpClientFactory.toHttpClientBuilder(uri, USER_AGENT).build();
         this.segmentHttpClient = HttpClientFactory
-                .unauthenticatedClientBuilder(uri, session.getSource())
+                .unauthenticatedClientBuilder(uri, USER_AGENT)
                 .build();
         this.debug = debug;
     }

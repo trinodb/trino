@@ -15,6 +15,7 @@ package io.trino.parquet.reader;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.airlift.units.DataSize;
 import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetDataSourceId;
@@ -50,7 +51,19 @@ public final class MetadataReader
 
     private MetadataReader() {}
 
-    public static ParquetMetadata readFooter(ParquetDataSource dataSource, Optional<ParquetWriteValidation> parquetWriteValidation)
+    public static ParquetMetadata readFooter(ParquetDataSource dataSource)
+            throws IOException
+    {
+        return readFooter(dataSource, Optional.empty(), Optional.empty());
+    }
+
+    public static ParquetMetadata readFooter(ParquetDataSource dataSource, DataSize maxFooterReadSize)
+            throws IOException
+    {
+        return readFooter(dataSource, Optional.of(maxFooterReadSize), Optional.empty());
+    }
+
+    public static ParquetMetadata readFooter(ParquetDataSource dataSource, Optional<DataSize> maxFooterReadSize, Optional<ParquetWriteValidation> parquetWriteValidation)
             throws IOException
     {
         // Parquet File Layout:
@@ -80,6 +93,13 @@ public final class MetadataReader
                 metadataIndex);
 
         int completeFooterSize = metadataLength + POST_SCRIPT_SIZE;
+        if (maxFooterReadSize.isPresent() && completeFooterSize > maxFooterReadSize.get().toBytes()) {
+            throw new ParquetCorruptionException(
+                    dataSource.getId(),
+                    "Parquet footer size %s exceeds maximum allowed size %s",
+                    DataSize.ofBytes(completeFooterSize).succinct(),
+                    maxFooterReadSize.get().succinct());
+        }
         if (completeFooterSize > buffer.length()) {
             // initial read was not large enough, so just read again with the correct size
             buffer = dataSource.readTail(completeFooterSize);

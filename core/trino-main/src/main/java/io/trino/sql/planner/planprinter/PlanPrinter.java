@@ -581,18 +581,15 @@ public class PlanPrinter
                 })
                 .collect(toImmutableList());
         builder.append(indentString(1));
-        String hashColumn = partitioningScheme.getHashColumn().map(anonymizer::anonymize).map(column -> "[" + column + "]").orElse("");
         if (replicateNullsAndAny) {
-            builder.append(format("Output partitioning: %s (replicate nulls and any) [%s]%s",
+            builder.append(format("Output partitioning: %s (replicate nulls and any) [%s]",
                     anonymizer.anonymize(partitioningScheme.getPartitioning().getHandle()),
-                    Joiner.on(", ").join(arguments),
-                    hashColumn));
+                    Joiner.on(", ").join(arguments)));
         }
         else {
-            builder.append(format("Output partitioning: %s [%s]%s\n",
+            builder.append(format("Output partitioning: %s [%s]\n",
                     anonymizer.anonymize(partitioningScheme.getPartitioning().getHandle()),
-                    Joiner.on(", ").join(arguments),
-                    hashColumn));
+                    Joiner.on(", ").join(arguments)));
         }
         partitioningScheme.getPartitionCount().ifPresent(partitionCount -> builder.append(format("%sOutput partition count: %s\n", indentString(1), partitionCount)));
         fragment.getPartitionCount().ifPresent(partitionCount -> builder.append(format("%sInput partition count: %s\n", indentString(1), partitionCount)));
@@ -694,7 +691,6 @@ public class PlanPrinter
                 ImmutableMap.Builder<String, String> descriptor = ImmutableMap.<String, String>builder()
                         .put("criteria", Joiner.on(" AND ").join(anonymizeExpressions(criteriaExpressions)));
                 node.getFilter().ifPresent(filter -> descriptor.put("filter", formatFilter(filter)));
-                descriptor.put("hash", formatHash(node.getLeftHashSymbol(), node.getRightHashSymbol()));
                 node.getDistributionType().ifPresent(distribution -> descriptor.put("distribution", distribution.name()));
                 nodeOutput = addNode(
                         node,
@@ -738,8 +734,7 @@ public class PlanPrinter
             NodeRepresentation nodeOutput = addNode(node,
                     "SemiJoin",
                     ImmutableMap.of(
-                            "criteria", anonymizer.anonymize(node.getSourceJoinSymbol()) + " = " + anonymizer.anonymize(node.getFilteringSourceJoinSymbol()),
-                            "hash", formatHash(node.getSourceHashSymbol(), node.getFilteringSourceHashSymbol())),
+                            "criteria", anonymizer.anonymize(node.getSourceJoinSymbol()) + " = " + anonymizer.anonymize(node.getFilteringSourceJoinSymbol())),
                     context);
             node.getDistributionType().ifPresent(distributionType -> nodeOutput.appendDetails("Distribution: %s", distributionType));
             node.getDynamicFilterId().ifPresent(dynamicFilterId -> nodeOutput.appendDetails("dynamicFilterId: %s", dynamicFilterId));
@@ -792,8 +787,7 @@ public class PlanPrinter
             addNode(node,
                     format("%sIndexJoin", node.getType().getJoinLabel()),
                     ImmutableMap.of(
-                            "criteria", Joiner.on(" AND ").join(anonymizeExpressions(joinExpressions)),
-                            "hash", formatHash(node.getProbeHashSymbol(), node.getIndexHashSymbol())),
+                            "criteria", Joiner.on(" AND ").join(anonymizeExpressions(joinExpressions))),
                     context);
             node.getProbeSource().accept(this, new Context(context.isInitialPlan()));
             node.getIndexSource().accept(this, new Context(context.isInitialPlan()));
@@ -830,8 +824,7 @@ public class PlanPrinter
             addNode(node,
                     format("DistinctLimit%s", node.isPartial() ? "Partial" : ""),
                     ImmutableMap.of(
-                            "limit", String.valueOf(node.getLimit()),
-                            "hash", formatHash(node.getHashSymbol())),
+                            "limit", String.valueOf(node.getLimit())),
                     context);
             return processChildren(node, new Context(context.isInitialPlan()));
         }
@@ -854,7 +847,7 @@ public class PlanPrinter
             NodeRepresentation nodeOutput = addNode(
                     node,
                     "Aggregate",
-                    ImmutableMap.of("type", type, "keys", keys, "hash", formatHash(node.getHashSymbol())),
+                    ImmutableMap.of("type", type, "keys", keys),
                     context);
 
             node.getAggregations().forEach((symbol, aggregation) ->
@@ -894,8 +887,7 @@ public class PlanPrinter
                     "MarkDistinct",
                     ImmutableMap.of(
                             "distinct", formatOutputs(node.getDistinctSymbols()),
-                            "marker", anonymizer.anonymize(node.getMarkerSymbol()),
-                            "hash", formatHash(node.getHashSymbol())),
+                            "marker", anonymizer.anonymize(node.getMarkerSymbol())),
                     context);
 
             return processChildren(node, new Context(context.isInitialPlan()));
@@ -935,7 +927,7 @@ public class PlanPrinter
             NodeRepresentation nodeOutput = addNode(
                     node,
                     "Window",
-                    descriptor.put("hash", formatHash(node.getHashSymbol())).buildOrThrow(),
+                    descriptor.buildOrThrow(),
                     context);
 
             for (Entry<Symbol, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {
@@ -988,7 +980,7 @@ public class PlanPrinter
             NodeRepresentation nodeOutput = addNode(
                     node,
                     "PatternRecognition",
-                    descriptor.put("hash", formatHash(node.getHashSymbol())).buildOrThrow(),
+                    descriptor.buildOrThrow(),
                     context);
 
             if (node.getCommonBaseFrame().isPresent()) {
@@ -1125,7 +1117,6 @@ public class PlanPrinter
                     "TopNRanking",
                     descriptor
                             .put("limit", String.valueOf(node.getMaxRankingPerPartition()))
-                            .put("hash", formatHash(node.getHashSymbol()))
                             .buildOrThrow(),
                     context);
 
@@ -1149,7 +1140,7 @@ public class PlanPrinter
             NodeRepresentation nodeOutput = addNode(
                     node,
                     "RowNumber",
-                    descriptor.put("hash", formatHash(node.getHashSymbol())).buildOrThrow(),
+                    descriptor.buildOrThrow(),
                     context);
             nodeOutput.appendDetails("%s := %s", anonymizer.anonymize(node.getRowNumberSymbol()), "row_number()");
 
@@ -1679,7 +1670,6 @@ public class PlanPrinter
                         ImmutableMap.of(
                                 "partitioning", anonymizer.anonymize(node.getPartitioningScheme().getPartitioning().getHandle()),
                                 "isReplicateNullsAndAny", formatBoolean(node.getPartitioningScheme().isReplicateNullsAndAny()),
-                                "hashColumn", formatHash(node.getPartitioningScheme().getHashColumn()),
                                 "arguments", formatCollection(node.getPartitioningScheme().getPartitioning().getArguments(), anonymizer::anonymize)),
                         context);
             }
@@ -1690,8 +1680,7 @@ public class PlanPrinter
                                 "partitionCount", node.getPartitioningScheme().getPartitionCount().map(String::valueOf).orElse(""),
                                 "scaleWriters", formatBoolean(node.getPartitioningScheme().getPartitioning().getHandle().isScaleWriters()),
                                 "type", node.getType().name(),
-                                "isReplicateNullsAndAny", formatBoolean(node.getPartitioningScheme().isReplicateNullsAndAny()),
-                                "hashColumn", formatHash(node.getPartitioningScheme().getHashColumn())),
+                                "isReplicateNullsAndAny", formatBoolean(node.getPartitioningScheme().isReplicateNullsAndAny())),
                         context);
             }
             return processChildren(node, new Context(context.isInitialPlan()));
@@ -1973,7 +1962,7 @@ public class PlanPrinter
                 specification.orderingScheme().ifPresent(orderingScheme -> descriptor.put("orderBy", formatOrderingScheme(orderingScheme, node.getPreSorted())));
             });
 
-            addNode(node, "TableFunctionProcessor", descriptor.put("hash", formatHash(node.getHashSymbol())).buildOrThrow(), context);
+            addNode(node, "TableFunctionProcessor", descriptor.buildOrThrow(), context);
 
             return processChildren(node, new Context(context.isInitialPlan()));
         }

@@ -353,8 +353,7 @@ public class AddLocalExchanges
                                 idAllocator.getNextId(),
                                 LOCAL,
                                 child.getNode(),
-                                groupingKeys,
-                                Optional.empty()),
+                                groupingKeys),
                         child.getProperties());
                 return rebaseAndDeriveProperties(node, ImmutableList.of(exchange));
             }
@@ -418,7 +417,6 @@ public class AddLocalExchanges
                     child.getNode(),
                     node.getSpecification(),
                     node.getWindowFunctions(),
-                    node.getHashSymbol(),
                     prePartitionedInputs,
                     preSortedOrderPrefix);
 
@@ -462,7 +460,6 @@ public class AddLocalExchanges
                     node.getId(),
                     child.getNode(),
                     node.getSpecification(),
-                    node.getHashSymbol(),
                     prePartitionedInputs,
                     preSortedOrderPrefix,
                     node.getWindowFunctions(),
@@ -548,7 +545,6 @@ public class AddLocalExchanges
                     node.getSpecification(),
                     prePartitionedInputs,
                     preSortedOrderPrefix,
-                    node.getHashSymbol(),
                     node.getHandle());
 
             return deriveProperties(result, child.getProperties());
@@ -569,8 +565,7 @@ public class AddLocalExchanges
                     node.getId(),
                     child.getNode(),
                     node.getMarkerSymbol(),
-                    pruneMarkDistinctSymbols(node, child.getProperties().getLocalProperties()),
-                    node.getHashSymbol());
+                    pruneMarkDistinctSymbols(node, child.getProperties().getLocalProperties()));
 
             return deriveProperties(result, child.getProperties());
         }
@@ -876,8 +871,7 @@ public class AddLocalExchanges
                         LOCAL,
                         new PartitioningScheme(
                                 Partitioning.create(FIXED_HASH_DISTRIBUTION, preferredPartitionColumns.get()),
-                                node.getOutputSymbols(),
-                                Optional.empty()),
+                                node.getOutputSymbols()),
                         sources,
                         inputLayouts,
                         Optional.empty());
@@ -1043,8 +1037,7 @@ public class AddLocalExchanges
                         idAllocator.getNextId(),
                         LOCAL,
                         planWithProperties.getNode(),
-                        requiredPartitionColumns.get(),
-                        Optional.empty());
+                        requiredPartitionColumns.get());
                 return deriveProperties(exchangeNode, planWithProperties.getProperties());
             }
 

@@ -250,7 +250,7 @@ public class OpenSearchClient
 
     private static AwsCredentialsProvider getAwsCredentialsProvider(AwsSecurityConfig config)
     {
-        AwsCredentialsProvider credentialsProvider = DefaultCredentialsProvider.create();
+        AwsCredentialsProvider credentialsProvider = DefaultCredentialsProvider.builder().build();
 
         if (config.getAccessKey().isPresent() && config.getSecretKey().isPresent()) {
             credentialsProvider = StaticCredentialsProvider.create(AwsBasicCredentials.create(

@@ -22,7 +22,6 @@ import io.trino.sql.planner.plan.DistinctLimitNode;
 import io.trino.sql.planner.plan.PlanNode;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
@@ -35,13 +34,11 @@ public class DistinctLimitMatcher
 {
     private final long limit;
     private final List<PlanTestSymbol> distinctSymbols;
-    private final Optional<PlanTestSymbol> hashSymbol;
 
-    public DistinctLimitMatcher(long limit, List<PlanTestSymbol> distinctSymbols, Optional<PlanTestSymbol> hashSymbol)
+    public DistinctLimitMatcher(long limit, List<PlanTestSymbol> distinctSymbols)
     {
         this.limit = limit;
         this.distinctSymbols = ImmutableList.copyOf(requireNonNull(distinctSymbols, "distinctSymbols is null"));
-        this.hashSymbol = requireNonNull(hashSymbol, "hashSymbol is null");
     }
 
     @Override
@@ -60,10 +57,6 @@ public class DistinctLimitMatcher
             return NO_MATCH;
         }
 
-        if (!distinctLimitNode.getHashSymbol().equals(hashSymbol.map(alias -> alias.toSymbol(symbolAliases)))) {
-            return NO_MATCH;
-        }
-
         return new MatchResult(ImmutableSet.copyOf(distinctLimitNode.getDistinctSymbols())
                 .equals(distinctSymbols.stream().map(alias -> alias.toSymbol(symbolAliases)).collect(toImmutableSet())));
     }
@@ -74,7 +67,6 @@ public class DistinctLimitMatcher
         return toStringHelper(this)
                 .add("limit", limit)
                 .add("distinctSymbols", distinctSymbols)
-                .add("hashSymbol", hashSymbol)
                 .toString();
     }
 }

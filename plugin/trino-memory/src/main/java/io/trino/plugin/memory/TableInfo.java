@@ -69,8 +69,9 @@ public record TableInfo(
     @JsonIgnore
     public ColumnInfo getColumn(ColumnHandle handle)
     {
+        int columnIndex = ((MemoryColumnHandle) handle).columnIndex();
         return columns.stream()
-                .filter(column -> column.handle().equals(handle))
+                .filter(column -> column.handle().columnIndex() == columnIndex)
                 .collect(onlyElement());
     }
 }

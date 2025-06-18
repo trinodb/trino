@@ -43,8 +43,6 @@ public class RemoveEmptyGlobalAggregation
     @Override
     public Result apply(AggregationNode node, Captures captures, Context context)
     {
-        // There should be no hash symbol in a global aggregation
-        checkArgument(node.getHashSymbol().isEmpty(), "Unexpected hash symbol: %s", node.getHashSymbol());
         // There should be no output symbols, since there is no information the aggregation could return
         checkArgument(node.getOutputSymbols().isEmpty(), "Unexpected output symbols: %s", node.getOutputSymbols());
 

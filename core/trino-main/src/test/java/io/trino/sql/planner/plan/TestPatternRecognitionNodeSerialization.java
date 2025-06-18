@@ -200,7 +200,6 @@ public class TestPatternRecognitionNodeSerialization
                 new PlanNodeId("0"),
                 new ValuesNode(new PlanNodeId("1"), 1),
                 new DataOrganizationSpecification(ImmutableList.of(), Optional.empty()),
-                Optional.empty(),
                 ImmutableSet.of(),
                 0,
                 ImmutableMap.of(

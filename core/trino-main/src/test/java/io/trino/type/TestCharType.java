@@ -27,7 +27,6 @@ import org.junit.jupiter.api.Test;
 import static io.airlift.slice.SliceUtf8.codePointToUtf8;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.trino.spi.type.CharType.createCharType;
-import static io.trino.testing.TestingConnectorSession.SESSION;
 import static java.lang.Character.MAX_CODE_POINT;
 import static java.lang.Character.MIN_CODE_POINT;
 import static java.lang.Character.MIN_SUPPLEMENTARY_CODE_POINT;
@@ -79,7 +78,7 @@ public class TestCharType
             Block block = blockBuilder.build();
             int codePointLengthInUtf16 = isSupplementaryCodePoint(codePoint) ? 2 : 1;
 
-            String objectValue = (String) charType.getObjectValue(SESSION, block, 0);
+            String objectValue = (String) charType.getObjectValue(block, 0);
             assertThat(objectValue).isNotNull();
             assertThat(objectValue.codePointAt(0))
                     .describedAs("first code point")

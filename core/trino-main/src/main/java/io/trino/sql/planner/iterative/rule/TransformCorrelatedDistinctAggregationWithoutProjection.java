@@ -124,8 +124,6 @@ public class TransformCorrelatedDistinctAggregationWithoutProjection
                 decorrelatedSource.get().getCorrelatedPredicates(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
                 ImmutableMap.of(),
                 Optional.empty());
 
@@ -140,8 +138,6 @@ public class TransformCorrelatedDistinctAggregationWithoutProjection
                                 .build()))
                 .setPreGroupedSymbols(
                         ImmutableList.of())
-                .setHashSymbol(
-                        Optional.empty())
                 .setGroupIdSymbol(Optional.empty())
                 .build();
 

@@ -322,6 +322,13 @@ public class InjectedConnectorAccessControl
     }
 
     @Override
+    public void checkCanSetMaterializedViewAuthorization(ConnectorSecurityContext context, SchemaTableName viewName, TrinoPrincipal principal)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.checkCanSetEntityAuthorization(securityContext, new EntityKindAndName("MATERIALIZED VIEW", getQualifiedObjectNameParts(viewName)), principal);
+    }
+
+    @Override
     public void checkCanSetMaterializedViewProperties(ConnectorSecurityContext context, SchemaTableName materializedViewName, Map<String, Optional<Object>> properties)
     {
         checkArgument(context == null, "context must be null");

@@ -76,7 +76,7 @@ public class FlatGroupByHash
 
         checkArgument(expectedSize > 0, "expectedSize must be greater than zero");
 
-        int totalChannels = hashTypes.size() + (hashMode.isHashPrecomputed() ? 1 : 0);
+        int totalChannels = hashTypes.size();
         this.currentBlocks = new Block[totalChannels];
         this.currentBlockBuilders = new BlockBuilder[totalChannels];
 
@@ -230,17 +230,7 @@ public class FlatGroupByHash
 
     private boolean canProcessDictionary(Block[] blocks)
     {
-        if (!processDictionary || !(blocks[0] instanceof DictionaryBlock inputDictionary)) {
-            return false;
-        }
-
-        if (!hashMode.isHashPrecomputed()) {
-            return true;
-        }
-
-        // dictionarySourceIds of data block and hash block must match
-        return blocks[1] instanceof DictionaryBlock hashDictionary &&
-                hashDictionary.getDictionarySourceId().equals(inputDictionary.getDictionarySourceId());
+        return processDictionary && blocks[0] instanceof DictionaryBlock;
     }
 
     private boolean canProcessLowCardinalityDictionary(Block[] blocks)

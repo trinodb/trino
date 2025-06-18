@@ -23,12 +23,12 @@ import io.trino.execution.TaskInfo;
 import io.trino.execution.TaskState;
 import io.trino.metadata.NodeState;
 import io.trino.operator.TaskStats;
-import org.joda.time.DateTime;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -159,7 +159,7 @@ class TestNodeStateManager
                 "1",
                 false,
                 Optional.empty(),
-                new TaskStats(DateTime.now(), null));
+                new TaskStats(Instant.now(), null));
         taskInfos.add(task);
         tasks.set(taskInfos);
 
@@ -193,7 +193,7 @@ class TestNodeStateManager
                 "1",
                 false,
                 Optional.empty(),
-                new TaskStats(DateTime.now(), null));
+                new TaskStats(Instant.now(), null));
         taskInfos.add(task);
         tasks.set(taskInfos);
 
@@ -238,7 +238,7 @@ class TestNodeStateManager
                 "1",
                 false,
                 Optional.empty(),
-                new TaskStats(DateTime.now(), null));
+                new TaskStats(Instant.now(), null));
         taskInfos.add(task);
         tasks.set(taskInfos);
 

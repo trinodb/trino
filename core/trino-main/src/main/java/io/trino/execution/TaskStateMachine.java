@@ -20,8 +20,8 @@ import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.log.Logger;
 import io.trino.execution.StateMachine.StateChangeListener;
-import org.joda.time.DateTime;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -50,7 +50,7 @@ public class TaskStateMachine
 {
     private static final Logger log = Logger.get(TaskStateMachine.class);
 
-    private final DateTime createdTime = DateTime.now();
+    private final Instant createdTime = Instant.now();
 
     private final TaskId taskId;
     private final Executor executor;
@@ -70,7 +70,7 @@ public class TaskStateMachine
         taskState.addStateChangeListener(newState -> log.debug("Task %s is %s", taskId, newState));
     }
 
-    public DateTime getCreatedTime()
+    public Instant getCreatedTime()
     {
         return createdTime;
     }

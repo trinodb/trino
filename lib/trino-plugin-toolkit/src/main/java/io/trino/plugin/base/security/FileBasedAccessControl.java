@@ -22,6 +22,7 @@ import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSecurityContext;
+import io.trino.spi.connector.EntityKindAndName;
 import io.trino.spi.connector.SchemaRoutineName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.SchemaFunctionName;
@@ -87,6 +88,7 @@ import static io.trino.spi.security.AccessDeniedException.denyRevokeSchemaPrivil
 import static io.trino.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static io.trino.spi.security.AccessDeniedException.denySelectTable;
 import static io.trino.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
+import static io.trino.spi.security.AccessDeniedException.denySetEntityAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denySetMaterializedViewProperties;
 import static io.trino.spi.security.AccessDeniedException.denySetRole;
 import static io.trino.spi.security.AccessDeniedException.denySetSchemaAuthorization;
@@ -513,6 +515,17 @@ public class FileBasedAccessControl
         // check if user owns the existing materialized view, and if they will be an owner of the materialized view after the rename
         if (!checkTablePermission(context, viewName, OWNERSHIP) || !checkTablePermission(context, newViewName, OWNERSHIP)) {
             denyRenameMaterializedView(viewName.toString(), newViewName.toString());
+        }
+    }
+
+    @Override
+    public void checkCanSetMaterializedViewAuthorization(ConnectorSecurityContext context, SchemaTableName viewName, TrinoPrincipal principal)
+    {
+        if (!checkTablePermission(context, viewName, OWNERSHIP)) {
+            denySetEntityAuthorization(new EntityKindAndName("MATERIALIZED VIEW", List.of(viewName.getSchemaName(), viewName.getTableName())), principal);
+        }
+        if (!checkCanSetAuthorization(context, principal)) {
+            denySetEntityAuthorization(new EntityKindAndName("MATERIALIZED VIEW", List.of(viewName.getSchemaName(), viewName.getTableName())), principal);
         }
     }
 

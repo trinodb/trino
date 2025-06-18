@@ -130,8 +130,6 @@ public class TestTopologicalOrderSubPlanVisitor
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
                 ImmutableMap.of(),
                 Optional.empty());
     }
@@ -146,8 +144,6 @@ public class TestTopologicalOrderSubPlanVisitor
                 right.getOutputSymbols().get(0),
                 new Symbol(UNKNOWN, id),
                 Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
                 Optional.empty());
     }
 
@@ -158,9 +154,7 @@ public class TestTopologicalOrderSubPlanVisitor
                 IndexJoinNode.Type.INNER,
                 left,
                 right,
-                ImmutableList.of(),
-                Optional.empty(),
-                Optional.empty());
+                ImmutableList.of());
     }
 
     private static SpatialJoinNode spatialJoin(String id, PlanNode left, PlanNode right)

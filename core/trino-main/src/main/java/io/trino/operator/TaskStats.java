@@ -20,8 +20,8 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import jakarta.annotation.Nullable;
-import org.joda.time.DateTime;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -33,12 +33,12 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class TaskStats
 {
-    private final DateTime createTime;
-    private final DateTime firstStartTime;
-    private final DateTime lastStartTime;
-    private final DateTime terminatingStartTime;
-    private final DateTime lastEndTime;
-    private final DateTime endTime;
+    private final Instant createTime;
+    private final Instant firstStartTime;
+    private final Instant lastStartTime;
+    private final Instant terminatingStartTime;
+    private final Instant lastEndTime;
+    private final Instant endTime;
 
     private final Duration elapsedTime;
     private final Duration queuedTime;
@@ -57,6 +57,8 @@ public class TaskStats
     private final DataSize userMemoryReservation;
     private final DataSize peakUserMemoryReservation;
     private final DataSize revocableMemoryReservation;
+
+    private final DataSize spilledDataSize;
 
     private final Duration totalScheduledTime;
     private final Duration totalCpuTime;
@@ -93,7 +95,7 @@ public class TaskStats
 
     private final List<PipelineStats> pipelines;
 
-    public TaskStats(DateTime createTime, DateTime endTime)
+    public TaskStats(Instant createTime, Instant endTime)
     {
         this(createTime,
                 null,
@@ -113,6 +115,7 @@ public class TaskStats
                 0,
                 0,
                 0.0,
+                DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
@@ -144,12 +147,12 @@ public class TaskStats
 
     @JsonCreator
     public TaskStats(
-            @JsonProperty("createTime") DateTime createTime,
-            @JsonProperty("firstStartTime") DateTime firstStartTime,
-            @JsonProperty("lastStartTime") DateTime lastStartTime,
-            @JsonProperty("terminatingStartTime") DateTime terminatingStartTime,
-            @JsonProperty("lastEndTime") DateTime lastEndTime,
-            @JsonProperty("endTime") DateTime endTime,
+            @JsonProperty("createTime") Instant createTime,
+            @JsonProperty("firstStartTime") Instant firstStartTime,
+            @JsonProperty("lastStartTime") Instant lastStartTime,
+            @JsonProperty("terminatingStartTime") Instant terminatingStartTime,
+            @JsonProperty("lastEndTime") Instant lastEndTime,
+            @JsonProperty("endTime") Instant endTime,
             @JsonProperty("elapsedTime") Duration elapsedTime,
             @JsonProperty("queuedTime") Duration queuedTime,
 
@@ -167,6 +170,8 @@ public class TaskStats
             @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
             @JsonProperty("peakUserMemoryReservation") DataSize peakUserMemoryReservation,
             @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
+
+            @JsonProperty("spilledDataSize") DataSize spilledDataSize,
 
             @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
             @JsonProperty("totalCpuTime") Duration totalCpuTime,
@@ -239,6 +244,8 @@ public class TaskStats
         this.peakUserMemoryReservation = requireNonNull(peakUserMemoryReservation, "peakUserMemoryReservation is null");
         this.revocableMemoryReservation = requireNonNull(revocableMemoryReservation, "revocableMemoryReservation is null");
 
+        this.spilledDataSize = requireNonNull(spilledDataSize, "spilledDataSize is null");
+
         this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
         this.totalCpuTime = requireNonNull(totalCpuTime, "totalCpuTime is null");
         this.totalBlockedTime = requireNonNull(totalBlockedTime, "totalBlockedTime is null");
@@ -282,42 +289,42 @@ public class TaskStats
     }
 
     @JsonProperty
-    public DateTime getCreateTime()
+    public Instant getCreateTime()
     {
         return createTime;
     }
 
     @Nullable
     @JsonProperty
-    public DateTime getFirstStartTime()
+    public Instant getFirstStartTime()
     {
         return firstStartTime;
     }
 
     @Nullable
     @JsonProperty
-    public DateTime getLastStartTime()
+    public Instant getLastStartTime()
     {
         return lastStartTime;
     }
 
     @Nullable
     @JsonProperty
-    public DateTime getTerminatingStartTime()
+    public Instant getTerminatingStartTime()
     {
         return terminatingStartTime;
     }
 
     @Nullable
     @JsonProperty
-    public DateTime getLastEndTime()
+    public Instant getLastEndTime()
     {
         return lastEndTime;
     }
 
     @Nullable
     @JsonProperty
-    public DateTime getEndTime()
+    public Instant getEndTime()
     {
         return endTime;
     }
@@ -386,6 +393,12 @@ public class TaskStats
     public DataSize getRevocableMemoryReservation()
     {
         return revocableMemoryReservation;
+    }
+
+    @JsonProperty
+    public DataSize getSpilledDataSize()
+    {
+        return spilledDataSize;
     }
 
     @JsonProperty
@@ -580,6 +593,7 @@ public class TaskStats
                 userMemoryReservation,
                 peakUserMemoryReservation,
                 revocableMemoryReservation,
+                spilledDataSize,
                 totalScheduledTime,
                 totalCpuTime,
                 totalBlockedTime,
@@ -630,6 +644,7 @@ public class TaskStats
                 userMemoryReservation,
                 peakUserMemoryReservation,
                 revocableMemoryReservation,
+                spilledDataSize,
                 totalScheduledTime,
                 totalCpuTime,
                 totalBlockedTime,
@@ -680,6 +695,7 @@ public class TaskStats
                 userMemoryReservation,
                 peakUserMemoryReservation,
                 revocableMemoryReservation,
+                spilledDataSize,
                 totalScheduledTime,
                 totalCpuTime,
                 totalBlockedTime,

@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>476</version>
+        <version>477-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -14,7 +14,7 @@
 
     <properties>
         <!-- Version needs to be hardcoded for the release plugin to work. It will be updated by the release plugin. -->
-        <dep.presto-jdbc-under-test>476</dep.presto-jdbc-under-test>
+        <dep.presto-jdbc-under-test>477-SNAPSHOT</dep.presto-jdbc-under-test>
     </properties>
 
     <dependencies>

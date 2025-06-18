@@ -17,6 +17,7 @@ package io.trino.plugin.faker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
+import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -69,7 +70,6 @@ import io.trino.spi.type.VarcharType;
 import io.trino.type.IpAddressType;
 import io.trino.type.JsonType;
 import io.trino.type.TDigestType;
-import jakarta.inject.Inject;
 import net.datafaker.Faker;
 
 import java.util.ArrayList;

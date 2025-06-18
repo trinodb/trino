@@ -37,20 +37,17 @@ public class RowNumberMatcher
     private final Optional<List<SymbolAlias>> partitionBy;
     private final Optional<Optional<Integer>> maxRowCountPerPartition;
     private final Optional<SymbolAlias> rowNumberSymbol;
-    private final Optional<Optional<SymbolAlias>> hashSymbol;
     private final Optional<Boolean> orderSensitive;
 
     private RowNumberMatcher(
             Optional<List<SymbolAlias>> partitionBy,
             Optional<Optional<Integer>> maxRowCountPerPartition,
             Optional<SymbolAlias> rowNumberSymbol,
-            Optional<Optional<SymbolAlias>> hashSymbol,
             Optional<Boolean> orderSensitive)
     {
         this.partitionBy = requireNonNull(partitionBy, "partitionBy is null");
         this.maxRowCountPerPartition = requireNonNull(maxRowCountPerPartition, "maxRowCountPerPartition is null");
         this.rowNumberSymbol = requireNonNull(rowNumberSymbol, "rowNumberSymbol is null");
-        this.hashSymbol = requireNonNull(hashSymbol, "hashSymbol is null");
         this.orderSensitive = requireNonNull(orderSensitive, "orderSensitive is null");
     }
 
@@ -90,13 +87,6 @@ public class RowNumberMatcher
             }
         }
 
-        if (hashSymbol.isPresent()) {
-            Optional<Symbol> expected = hashSymbol.get().map(alias -> alias.toSymbol(symbolAliases));
-            if (!expected.equals(rowNumberNode.getHashSymbol())) {
-                return NO_MATCH;
-            }
-        }
-
         if (orderSensitive.isPresent()) {
             if (!orderSensitive.get().equals(rowNumberNode.isOrderSensitive())) {
                 return NO_MATCH;
@@ -113,7 +103,6 @@ public class RowNumberMatcher
                 .add("partitionBy", partitionBy)
                 .add("maxRowCountPerPartition", maxRowCountPerPartition)
                 .add("rowNumberSymbol", rowNumberSymbol)
-                .add("hashSymbol", hashSymbol)
                 .add("orderSensitive", orderSensitive)
                 .toString();
     }
@@ -129,7 +118,6 @@ public class RowNumberMatcher
         private Optional<List<SymbolAlias>> partitionBy = Optional.empty();
         private Optional<Optional<Integer>> maxRowCountPerPartition = Optional.empty();
         private Optional<SymbolAlias> rowNumberSymbol = Optional.empty();
-        private Optional<Optional<SymbolAlias>> hashSymbol = Optional.empty();
         private Optional<Boolean> orderSensitive = Optional.empty();
 
         Builder(PlanMatchPattern source)
@@ -158,13 +146,6 @@ public class RowNumberMatcher
             return this;
         }
 
-        public Builder hashSymbol(Optional<String> hashSymbol)
-        {
-            requireNonNull(hashSymbol, "hashSymbol is null");
-            this.hashSymbol = Optional.of(hashSymbol.map(SymbolAlias::new));
-            return this;
-        }
-
         public Builder orderSensitive(boolean isOrderSensitive)
         {
             this.orderSensitive = Optional.of(isOrderSensitive);
@@ -178,7 +159,6 @@ public class RowNumberMatcher
                             partitionBy,
                             maxRowCountPerPartition,
                             rowNumberSymbol,
-                            hashSymbol,
                             orderSensitive));
         }
     }

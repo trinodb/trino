@@ -54,7 +54,6 @@ public class TestPruneTopNRankingColumns
                                     ROW_NUMBER,
                                     5,
                                     ranking,
-                                    Optional.empty(),
                                     p.values(a, b)));
                 })
                 .doesNotFire();
@@ -76,7 +75,6 @@ public class TestPruneTopNRankingColumns
                                     ROW_NUMBER,
                                     5,
                                     ranking,
-                                    Optional.empty(),
                                     p.values(a)));
                 })
                 .doesNotFire();
@@ -88,7 +86,6 @@ public class TestPruneTopNRankingColumns
         tester().assertThat(new PruneTopNRankingColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
-                    Symbol hash = p.symbol("hash");
                     Symbol ranking = p.symbol("ranking");
                     return p.project(
                             Assignments.identity(a, ranking),
@@ -99,8 +96,7 @@ public class TestPruneTopNRankingColumns
                                     ROW_NUMBER,
                                     5,
                                     ranking,
-                                    Optional.of(hash),
-                                    p.values(a, hash)));
+                                    p.values(a)));
                 })
                 .doesNotFire();
     }
@@ -122,7 +118,6 @@ public class TestPruneTopNRankingColumns
                                     ROW_NUMBER,
                                     5,
                                     ranking,
-                                    Optional.empty(),
                                     p.values(a, b)));
                 })
                 .matches(
@@ -159,7 +154,6 @@ public class TestPruneTopNRankingColumns
                                     ROW_NUMBER,
                                     5,
                                     ranking,
-                                    Optional.empty(),
                                     p.values(a, b)));
                 })
                 .doesNotFire();
@@ -181,7 +175,6 @@ public class TestPruneTopNRankingColumns
                                     ROW_NUMBER,
                                     5,
                                     ranking,
-                                    Optional.empty(),
                                     p.values(a)));
                 })
                 .doesNotFire();

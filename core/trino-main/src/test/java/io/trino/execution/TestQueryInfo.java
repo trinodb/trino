@@ -51,10 +51,10 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.transaction.TransactionId;
 import io.trino.type.TypeSignatureDeserializer;
 import io.trino.type.TypeSignatureKeyDeserializer;
-import org.joda.time.DateTime;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
+import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
 
@@ -188,6 +188,7 @@ public class TestQueryInfo
         assertThat(queryStats.getTotalMemoryReservation()).isEqualTo(basicQueryStats.getTotalMemoryReservation());
         assertThat(queryStats.getPeakUserMemoryReservation()).isEqualTo(basicQueryStats.getPeakUserMemoryReservation());
         assertThat(queryStats.getPeakTotalMemoryReservation()).isEqualTo(basicQueryStats.getPeakTotalMemoryReservation());
+        assertThat(queryStats.getSpilledDataSize()).isEqualTo(basicQueryStats.getSpilledDataSize());
         assertThat(queryStats.getTotalCpuTime()).isEqualTo(basicQueryStats.getTotalCpuTime());
         assertThat(queryStats.isFullyBlocked()).isEqualTo(basicQueryStats.isFullyBlocked());
         assertThat(queryStats.getTotalCpuTime()).isEqualTo(basicQueryStats.getTotalCpuTime());
@@ -269,7 +270,7 @@ public class TestQueryInfo
     private static StageStats createStageStats(int value)
     {
         return new StageStats(
-                new DateTime(value),
+                Instant.ofEpochMilli(value),
                 ImmutableMap.of(new PlanNodeId(Integer.toString(value)), new Distribution.DistributionSnapshot(value, value, value, value, value, value, value, value, value, value, value, value, value, value)),
                 ImmutableMap.of(new PlanNodeId(Integer.toString(value)), new Metrics(ImmutableMap.of("abc", new LongCount(value)))),
                 value,
@@ -283,6 +284,7 @@ public class TestQueryInfo
                 value,
                 value,
                 value,
+                succinctBytes(value),
                 succinctBytes(value),
                 succinctBytes(value),
                 succinctBytes(value),

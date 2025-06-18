@@ -1333,6 +1333,15 @@ public class TracingConnectorMetadata
     }
 
     @Override
+    public void setMaterializedViewAuthorization(ConnectorSession session, SchemaTableName viewName, TrinoPrincipal principal)
+    {
+        Span span = startSpan("setMaterializedViewAuthorization", viewName);
+        try (var _ = scopedSpan(span)) {
+            delegate.setMaterializedViewAuthorization(session, viewName, principal);
+        }
+    }
+
+    @Override
     public void setMaterializedViewProperties(ConnectorSession session, SchemaTableName viewName, Map<String, Optional<Object>> properties)
     {
         Span span = startSpan("setMaterializedViewProperties", viewName);

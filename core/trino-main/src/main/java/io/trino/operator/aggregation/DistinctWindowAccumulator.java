@@ -62,7 +62,6 @@ public class DistinctWindowAccumulator
         this.hash = new MarkDistinctHash(
                 session,
                 argumentTypes,
-                false,
                 hashStrategyCompiler,
                 UpdateMemory.NOOP);
 

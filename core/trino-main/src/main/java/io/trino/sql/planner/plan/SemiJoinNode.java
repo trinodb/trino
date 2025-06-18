@@ -34,8 +34,6 @@ public class SemiJoinNode
     private final Symbol sourceJoinSymbol;
     private final Symbol filteringSourceJoinSymbol;
     private final Symbol semiJoinOutput;
-    private final Optional<Symbol> sourceHashSymbol;
-    private final Optional<Symbol> filteringSourceHashSymbol;
     private final Optional<DistributionType> distributionType;
     private final Optional<DynamicFilterId> dynamicFilterId;
 
@@ -46,8 +44,6 @@ public class SemiJoinNode
             @JsonProperty("sourceJoinSymbol") Symbol sourceJoinSymbol,
             @JsonProperty("filteringSourceJoinSymbol") Symbol filteringSourceJoinSymbol,
             @JsonProperty("semiJoinOutput") Symbol semiJoinOutput,
-            @JsonProperty("sourceHashSymbol") Optional<Symbol> sourceHashSymbol,
-            @JsonProperty("filteringSourceHashSymbol") Optional<Symbol> filteringSourceHashSymbol,
             @JsonProperty("distributionType") Optional<DistributionType> distributionType,
             @JsonProperty("dynamicFilterId") Optional<DynamicFilterId> dynamicFilterId)
     {
@@ -57,8 +53,6 @@ public class SemiJoinNode
         this.sourceJoinSymbol = requireNonNull(sourceJoinSymbol, "sourceJoinSymbol is null");
         this.filteringSourceJoinSymbol = requireNonNull(filteringSourceJoinSymbol, "filteringSourceJoinSymbol is null");
         this.semiJoinOutput = requireNonNull(semiJoinOutput, "semiJoinOutput is null");
-        this.sourceHashSymbol = requireNonNull(sourceHashSymbol, "sourceHashSymbol is null");
-        this.filteringSourceHashSymbol = requireNonNull(filteringSourceHashSymbol, "filteringSourceHashSymbol is null");
         this.distributionType = requireNonNull(distributionType, "distributionType is null");
         this.dynamicFilterId = requireNonNull(dynamicFilterId, "dynamicFilterId is null");
 
@@ -100,18 +94,6 @@ public class SemiJoinNode
     public Symbol getSemiJoinOutput()
     {
         return semiJoinOutput;
-    }
-
-    @JsonProperty("sourceHashSymbol")
-    public Optional<Symbol> getSourceHashSymbol()
-    {
-        return sourceHashSymbol;
-    }
-
-    @JsonProperty("filteringSourceHashSymbol")
-    public Optional<Symbol> getFilteringSourceHashSymbol()
-    {
-        return filteringSourceHashSymbol;
     }
 
     @JsonProperty("distributionType")
@@ -158,8 +140,6 @@ public class SemiJoinNode
                 sourceJoinSymbol,
                 filteringSourceJoinSymbol,
                 semiJoinOutput,
-                sourceHashSymbol,
-                filteringSourceHashSymbol,
                 distributionType,
                 dynamicFilterId);
     }
@@ -173,8 +153,6 @@ public class SemiJoinNode
                 sourceJoinSymbol,
                 filteringSourceJoinSymbol,
                 semiJoinOutput,
-                sourceHashSymbol,
-                filteringSourceHashSymbol,
                 Optional.of(distributionType),
                 dynamicFilterId);
     }
@@ -188,8 +166,6 @@ public class SemiJoinNode
                 sourceJoinSymbol,
                 filteringSourceJoinSymbol,
                 semiJoinOutput,
-                sourceHashSymbol,
-                filteringSourceHashSymbol,
                 distributionType,
                 Optional.empty());
     }

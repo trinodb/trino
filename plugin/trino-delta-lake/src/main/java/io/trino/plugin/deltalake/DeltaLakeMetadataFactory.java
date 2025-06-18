@@ -25,6 +25,7 @@ import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess;
 import io.trino.plugin.deltalake.statistics.FileBasedTableStatisticsProvider;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointWriterManager;
+import io.trino.plugin.deltalake.transactionlog.reader.TransactionLogReaderFactory;
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogWriterFactory;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.TrinoViewHiveMetastore;
@@ -64,6 +65,7 @@ public class DeltaLakeMetadataFactory
     private final boolean allowManagedTableRename;
     private final boolean usingSystemSecurity;
     private final String trinoVersion;
+    private final TransactionLogReaderFactory transactionLogReaderFactory;
 
     @Inject
     public DeltaLakeMetadataFactory(
@@ -82,7 +84,8 @@ public class DeltaLakeMetadataFactory
             @UsingSystemSecurity boolean useSystemSecurity,
             NodeVersion nodeVersion,
             DeltaLakeTableMetadataScheduler metadataScheduler,
-            @ForDeltaLakeMetadata ExecutorService executorService)
+            @ForDeltaLakeMetadata ExecutorService executorService,
+            TransactionLogReaderFactory transactionLogReaderFactory)
     {
         this.hiveMetastoreFactory = requireNonNull(hiveMetastoreFactory, "hiveMetastore is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
@@ -110,6 +113,7 @@ public class DeltaLakeMetadataFactory
         else {
             this.metadataFetchingExecutor = new BoundedExecutor(executorService, deltaLakeConfig.getMetadataParallelism());
         }
+        this.transactionLogReaderFactory = requireNonNull(transactionLogReaderFactory, "transactionLogLoaderFactory is null");
     }
 
     public DeltaLakeMetadata create(ConnectorIdentity identity)
@@ -147,6 +151,7 @@ public class DeltaLakeMetadataFactory
                 metadataScheduler,
                 useUniqueTableLocation,
                 allowManagedTableRename,
-                metadataFetchingExecutor);
+                metadataFetchingExecutor,
+                transactionLogReaderFactory);
     }
 }

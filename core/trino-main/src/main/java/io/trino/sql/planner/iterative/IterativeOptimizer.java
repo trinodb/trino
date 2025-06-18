@@ -168,9 +168,7 @@ public class IterativeOptimizer
             context.checkTimeoutNotExhausted();
 
             done = true;
-            Iterator<Rule<?>> possiblyMatchingRules = ruleIndex.getCandidates(node).iterator();
-            while (possiblyMatchingRules.hasNext()) {
-                Rule<?> rule = possiblyMatchingRules.next();
+            for (Rule<?> rule : ruleIndex.getCandidates(node)) {
                 long timeStart = nanoTime();
                 long timeEnd;
                 boolean invoked = false;

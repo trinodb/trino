@@ -138,8 +138,7 @@ public class TestJsonRepresentation
                         "Aggregate",
                         ImmutableMap.of(
                                 "type", "FINAL",
-                                "keys", "[y, z]",
-                                "hash", "[]"),
+                                "keys", "[y, z]"),
                         ImmutableList.of(
                                 new Symbol(BIGINT, "y"),
                                 new Symbol(BIGINT, "z"),
@@ -163,13 +162,11 @@ public class TestJsonRepresentation
                         ImmutableList.of(pb.symbol("b", BIGINT)),
                         ImmutableList.of(),
                         Optional.of(new Comparison(LESS_THAN, new Reference(BIGINT, "a"), new Reference(BIGINT, "c"))),
-                        Optional.empty(),
-                        Optional.empty(),
                         ImmutableMap.of(new DynamicFilterId("DF"), pb.symbol("d", BIGINT))),
                 new JsonRenderedNode(
                         "2",
                         "InnerJoin",
-                        ImmutableMap.of("criteria", "(a = d)", "filter", "(a < c)", "hash", "[]"),
+                        ImmutableMap.of("criteria", "(a = d)", "filter", "(a < c)"),
                         ImmutableList.of(new Symbol(BIGINT, "b")),
                         ImmutableList.of("dynamicFilterAssignments = {d -> #DF}"),
                         ImmutableList.of(),

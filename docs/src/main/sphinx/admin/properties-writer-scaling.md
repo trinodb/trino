@@ -37,7 +37,7 @@ and query is bottlenecked on writing.
 ## `writer-scaling-min-data-processed`
 
 - **Type:** {ref}`prop-type-data-size`
-- **Default value:** `100MB`
+- **Default value:** `120MB`
 - **Session property:** `writer_scaling_min_data_processed`
 
 The minimum amount of uncompressed data that must be processed by a writer

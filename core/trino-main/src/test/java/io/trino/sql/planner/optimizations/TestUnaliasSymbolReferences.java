@@ -99,8 +99,6 @@ public class TestUnaliasSymbolReferences
                             ImmutableList.of(),
                             ImmutableList.of(buildAlias1, buildAlias2),
                             Optional.empty(),
-                            Optional.empty(),
-                            Optional.empty(),
                             ImmutableMap.of(dynamicFilterId1, buildAlias1, dynamicFilterId2, buildAlias2));
                 },
                 join(INNER, builder -> builder

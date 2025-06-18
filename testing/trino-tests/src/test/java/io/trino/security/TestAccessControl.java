@@ -1204,6 +1204,13 @@ public class TestAccessControl
     }
 
     @Test
+    public void testSetMaterializedViewAuthorization()
+    {
+        reset();
+        assertQuerySucceeds("ALTER MATERIALIZED VIEW mock.default.test_materialized_view SET AUTHORIZATION some_other_user");
+    }
+
+    @Test
     public void testSetViewAuthorizationWithSecurityInvoker()
     {
         reset();

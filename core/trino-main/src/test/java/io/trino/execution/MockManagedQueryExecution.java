@@ -26,9 +26,9 @@ import io.trino.server.BasicQueryInfo;
 import io.trino.server.BasicQueryStats;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.QueryId;
-import org.joda.time.DateTime;
 
 import java.net.URI;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -120,8 +120,8 @@ public class MockManagedQueryExecution
                 Optional.empty(),
                 Optional.empty(),
                 new BasicQueryStats(
-                        new DateTime(1),
-                        new DateTime(2),
+                        Instant.ofEpochMilli(1),
+                        Instant.ofEpochMilli(2),
                         new Duration(3, NANOSECONDS),
                         new Duration(4, NANOSECONDS),
                         new Duration(5, NANOSECONDS),
@@ -173,10 +173,10 @@ public class MockManagedQueryExecution
                 "SELECT 1",
                 Optional.empty(),
                 new QueryStats(
-                        new DateTime(1),
-                        new DateTime(2),
-                        new DateTime(3),
-                        new DateTime(4),
+                        Instant.ofEpochMilli(1),
+                        Instant.ofEpochMilli(2),
+                        Instant.ofEpochMilli(3),
+                        Instant.ofEpochMilli(4),
                         new Duration(6, NANOSECONDS),
                         new Duration(5, NANOSECONDS),
                         new Duration(31, NANOSECONDS),
@@ -211,6 +211,8 @@ public class MockManagedQueryExecution
                         DataSize.ofBytes(24),
                         DataSize.ofBytes(25),
                         DataSize.ofBytes(26),
+
+                        DataSize.ofBytes(27),
 
                         !state.isDone(),
                         state.isDone() ? OptionalDouble.empty() : OptionalDouble.of(8.88),
