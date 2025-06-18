@@ -115,7 +115,7 @@ public class TestingDruidServer
                     .waitingFor(Wait.forHttp("/status/selfDiscovered"));
             coordinator.start();
 
-            this.broker = new GenericContainer<>(DRUID_DOCKER_IMAGE)
+            this.broker = new GenericContainer<>(dockerImageName)
                     .withExposedPorts(DRUID_BROKER_PORT)
                     .withNetwork(network)
                     .withCommand("broker")
@@ -135,7 +135,7 @@ public class TestingDruidServer
                     .waitingFor(Wait.forHttp("/status/selfDiscovered"));
             broker.start();
 
-            this.historical = new GenericContainer<>(DRUID_DOCKER_IMAGE)
+            this.historical = new GenericContainer<>(dockerImageName)
                     .withExposedPorts(DRUID_HISTORICAL_PORT)
                     .withNetwork(network)
                     .withCommand("historical")
@@ -155,7 +155,7 @@ public class TestingDruidServer
                     .waitingFor(Wait.forHttp("/status/selfDiscovered"));
             historical.start();
 
-            this.middleManager = new GenericContainer<>(DRUID_DOCKER_IMAGE)
+            this.middleManager = new GenericContainer<>(dockerImageName)
                     .withExposedPorts(DRUID_MIDDLE_MANAGER_PORT)
                     .withNetwork(network)
                     .withCommand("middleManager")
