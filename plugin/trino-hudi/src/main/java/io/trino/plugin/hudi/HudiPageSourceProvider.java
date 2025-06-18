@@ -214,7 +214,7 @@ public class HudiPageSourceProvider
         try {
             dataSchema = new TableSchemaResolver(metaClient).getTableAvroSchema(latestCommitTime);
         }
-        catch (Exception e) {
+        catch (Throwable e) {
             // Unable to find table schema
             throw new TrinoException(HUDI_FILESYSTEM_ERROR, e);
         }

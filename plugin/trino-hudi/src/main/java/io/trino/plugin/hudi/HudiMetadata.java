@@ -481,7 +481,7 @@ public class HudiMetadata
                     log.info("Async table statistics calculation finished in %s ms for table: %s, commit: %s",
                             refreshTimer.endTimer(), tableHandle.getSchemaTableName(), latestCommit);
                 }
-                catch (Exception e) {
+                catch (Throwable e) {
                     log.error(e, "Error calculating table statistics asynchronously for table %s", tableHandle.getSchemaTableName());
                 }
                 finally {

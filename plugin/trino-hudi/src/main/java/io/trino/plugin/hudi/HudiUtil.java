@@ -57,6 +57,7 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.plugin.hive.util.HiveUtil.checkCondition;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_BAD_DATA;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_FILESYSTEM_ERROR;
+import static io.trino.plugin.hudi.HudiErrorCode.HUDI_META_CLIENT_ERROR;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_UNSUPPORTED_FILE_FORMAT;
 import static org.apache.hudi.common.model.HoodieRecord.HOODIE_META_COLUMNS;
 
@@ -158,6 +159,10 @@ public final class HudiUtil
         catch (TableNotFoundException e) {
             throw new TrinoException(HUDI_BAD_DATA,
                     "Location of table %s does not contain Hudi table metadata: %s".formatted(tableName, basePath));
+        }
+        catch (Throwable e) {
+            throw new TrinoException(HUDI_META_CLIENT_ERROR,
+                    "Unable to load Hudi meta client for table %s (%s)".formatted(tableName, basePath));
         }
     }
 

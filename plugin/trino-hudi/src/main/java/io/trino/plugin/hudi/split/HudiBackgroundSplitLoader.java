@@ -109,21 +109,21 @@ public class HudiBackgroundSplitLoader
     @Override
     public void run()
     {
-        if (enableMetadataTable) {
-            // Wrap entire logic so that ANY error will be thrown out and not cause program to get stuck
-            try {
+        // Wrap entire logic so that ANY error will be thrown out and not cause program to get stuck
+        try {
+            if (enableMetadataTable) {
                 if (indexSupportOpt.isPresent()) {
                     indexEnabledSplitGenerator(indexSupportOpt.get());
                     return;
                 }
             }
-            catch (Exception e) {
-                errorListener.accept(e);
-            }
-        }
 
-        // Fallback to partition pruning generator
-        partitionPruningSplitGenerator();
+            // Fallback to partition pruning generator
+            partitionPruningSplitGenerator();
+        }
+        catch (Throwable e) {
+            errorListener.accept(e);
+        }
     }
 
     private void indexEnabledSplitGenerator(HudiIndexSupport hudiIndexSupport)
