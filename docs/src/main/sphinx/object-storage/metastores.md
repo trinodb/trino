@@ -515,6 +515,12 @@ following properties:
 * - `iceberg.rest-catalog.nested-namespace-enabled`
   - Support querying objects under nested namespace.
     Defaults to `false`.
+* - `iceberg.rest-catalog.view-endpoints-enabled`
+  - Enable view endpoints. Defaults to `true`.
+* - `iceberg.rest-catalog.sigv4-enabled`
+  - Enable AWS Signature version 4 (SigV4). Defaults to `false`.
+* - `iceberg.rest-catalog.signing-name`
+  - AWS SigV4 signing service name. Defaults to `execute-api`.
 * - `iceberg.rest-catalog.case-insensitive-name-matching`
   - Match namespace, table, and view names case insensitively. Defaults to `false`.
 * - `iceberg.rest-catalog.case-insensitive-name-matching.cache-ttl`
