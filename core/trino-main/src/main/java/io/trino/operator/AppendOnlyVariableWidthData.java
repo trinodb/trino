@@ -138,6 +138,27 @@ public final class AppendOnlyVariableWidthData
         return chunks.get(chunkIndex);
     }
 
+    public void freeChunksBefore(byte[] pointer, int pointerOffset)
+    {
+        int chunkIndex = getChunkIndex(pointer, pointerOffset);
+        if (chunks.isEmpty()) {
+            verify(chunkIndex == 0);
+            return;
+        }
+        checkIndex(chunkIndex, chunks.size());
+        // Release any previous chunks until a null chunk is encountered, which means it and any previous
+        // batches have already been released
+        int releaseIndex = chunkIndex - 1;
+        while (releaseIndex >= 0) {
+            byte[] releaseChunk = chunks.set(releaseIndex, null);
+            if (releaseChunk == null) {
+                break;
+            }
+            chunksRetainedSizeInBytes -= sizeOf(releaseChunk);
+            releaseIndex--;
+        }
+    }
+
     // growth factor for each chunk doubles up to 512KB, then increases by 1.5x for each chunk after that
     private static long nextChunkSize(long previousChunkSize)
     {

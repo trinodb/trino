@@ -45,6 +45,7 @@ import static io.trino.operator.UpdateMemory.NOOP;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestGroupByHash
 {
@@ -312,6 +313,60 @@ public class TestGroupByHash
 
         // assert we call update memory twice every time we rehash; the rehash count = log2(length / FILL_RATIO)
         assertThat(rehashCount.get()).isEqualTo(2 * BIGINT_EXPECTED_REHASH);
+    }
+
+    @Test
+    public void testReleaseMemoryOnOutput()
+    {
+        Type type = VARCHAR;
+        // values expands into multiple FlatGroupByHash fixed record groups
+        Block valuesBlock = createStringSequenceBlock(0, 1_000_000);
+
+        GroupByHash groupByHash = createGroupByHash(ImmutableList.of(type), selectGroupByHashMode(false, ImmutableList.of(type)), 10_000, false, new FlatHashStrategyCompiler(new TypeOperators()), () -> true);
+        assertThat(groupByHash.addPage(new Page(valuesBlock)).process()).isTrue();
+        assertThat(groupByHash.getGroupCount()).isEqualTo(valuesBlock.getPositionCount());
+
+        long memoryUsageAfterInput = groupByHash.getEstimatedSize();
+        groupByHash.startReleasingOutput();
+        // memory usage should have decreased from dropping the hash table
+        long memoryUsageAfterReleasingOutput = groupByHash.getEstimatedSize();
+        // single immediate release of memory for the control and groupId by hash values
+        assertThat(memoryUsageAfterReleasingOutput).isLessThan(memoryUsageAfterInput);
+
+        // no more inputs accepted after switching to releasing output
+        assertThatThrownBy(() -> groupByHash.addPage(new Page(valuesBlock)).process())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("already releasing output");
+        assertThatThrownBy(() -> groupByHash.startReleasingOutput())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("already releasing output");
+
+        PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(type));
+        int groupId = 0;
+        // FlatGroupByHash first 1024 records are within the first record group
+        for (; groupId < 1024; groupId++) {
+            groupByHash.appendValuesTo(groupId, pageBuilder);
+            pageBuilder.declarePosition();
+        }
+        pageBuilder.build();
+        // No memory released yet after completing the first group
+        assertThat(groupByHash.getEstimatedSize()).isEqualTo(memoryUsageAfterReleasingOutput);
+
+        groupByHash.appendValuesTo(groupId++, pageBuilder);
+        pageBuilder.declarePosition();
+        // Memory released
+        long memoryUsageAfterFirstRelease = groupByHash.getEstimatedSize();
+        assertThat(memoryUsageAfterFirstRelease).isLessThan(memoryUsageAfterReleasingOutput);
+        assertThatThrownBy(() -> groupByHash.getRawHash(0))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("groupId already released");
+
+        for (; groupId < valuesBlock.getPositionCount(); groupId++) {
+            groupByHash.appendValuesTo(groupId, pageBuilder);
+            pageBuilder.declarePosition();
+        }
+        // More memory released
+        assertThat(groupByHash.getEstimatedSize()).isLessThan(memoryUsageAfterFirstRelease);
     }
 
     @Test

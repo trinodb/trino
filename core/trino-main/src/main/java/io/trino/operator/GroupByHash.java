@@ -105,6 +105,14 @@ public interface GroupByHash
 
     void appendValuesTo(int groupId, PageBuilder pageBuilder);
 
+    /**
+     * Signals that no more entries will be inserted, and that only calls to {@link GroupByHash#appendValuesTo(int, PageBuilder)}
+     * with sequential groupId values will be observed after this point, allowing the implementation to potentially
+     * release memory associated with structures required for inserts or associated with values that have already been
+     * output.
+     */
+    void startReleasingOutput();
+
     Work<?> addPage(Page page);
 
     /**
