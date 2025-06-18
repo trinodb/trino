@@ -1544,6 +1544,23 @@ public class TestDeltaLakeBasic
         assertQueryFails("INSERT INTO variant VALUES (2, null, null, null, null, 'new data')", "Unsupported writer features: .*");
     }
 
+    @Test
+    public void testVariantReadNull()
+            throws Exception
+    {
+        String tableName = "test_variant_null_" + randomNameSuffix();
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource("databricks154/test_variant_null").toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+        assertThat(query("SELECT * FROM " + tableName + " WHERE id = 3"))
+                .matches("VALUES (3, CAST(NULL AS JSON))");
+        assertThat(query("SELECT * FROM " + tableName + " WHERE id = 4"))
+                .matches("VALUES (4, CAST(NULL AS JSON))");
+        assertThat(query("SELECT id FROM " + tableName + " WHERE x IS NULL"))
+                .matches("VALUES 3, 4");
+    }
+
     /**
      * @see databricks154.variant_read_after_optimization
      */
