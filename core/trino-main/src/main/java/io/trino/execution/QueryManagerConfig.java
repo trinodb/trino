@@ -96,6 +96,7 @@ public class QueryManagerConfig
     private Duration queryMaxPlanningTime = new Duration(10, TimeUnit.MINUTES);
     private Duration queryMaxCpuTime = new Duration(1_000_000_000, TimeUnit.DAYS);
     private Optional<DataSize> queryMaxScanPhysicalBytes = Optional.empty();
+    private Optional<DataSize> queryMaxWritePhysicalBytes = Optional.empty();
     private int queryReportedRuleStatsLimit = 10;
     private int dispatcherQueryPoolSize = DISPATCHER_THREADPOOL_MAX_SIZE;
 
@@ -503,6 +504,19 @@ public class QueryManagerConfig
     public QueryManagerConfig setQueryMaxScanPhysicalBytes(DataSize queryMaxScanPhysicalBytes)
     {
         this.queryMaxScanPhysicalBytes = Optional.ofNullable(queryMaxScanPhysicalBytes);
+        return this;
+    }
+
+    @NotNull
+    public Optional<DataSize> getQueryMaxWritePhysicalBytes()
+    {
+        return queryMaxWritePhysicalBytes;
+    }
+
+    @Config("query.max-write-physical-bytes")
+    public QueryManagerConfig setQueryMaxWritePhysicalBytes(DataSize queryMaxWritePhysicalBytes)
+    {
+        this.queryMaxWritePhysicalBytes = Optional.ofNullable(queryMaxWritePhysicalBytes);
         return this;
     }
 
