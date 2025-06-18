@@ -29,9 +29,9 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.Response;
 
+import java.time.Duration;
 import java.util.Optional;
 
-import static io.airlift.units.Duration.nanosSince;
 import static io.trino.server.security.ResourceSecurity.AccessType.MANAGEMENT_WRITE;
 import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
@@ -67,7 +67,7 @@ public class ServerInfoResource
     public ServerInfo getInfo()
     {
         boolean starting = !startupStatus.isStartupComplete();
-        return new ServerInfo(version, environment, coordinator, starting, Optional.of(nanosSince(startTime)));
+        return new ServerInfo(version, environment, coordinator, starting, Optional.of(Duration.ofNanos(System.nanoTime() - startTime)));
     }
 
     @ResourceSecurity(MANAGEMENT_WRITE)

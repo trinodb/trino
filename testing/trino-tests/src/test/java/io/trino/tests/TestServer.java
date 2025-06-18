@@ -27,7 +27,6 @@ import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
-import io.airlift.units.Duration;
 import io.trino.client.ClientSession;
 import io.trino.client.QueryDataJacksonModule;
 import io.trino.client.QueryError;
@@ -52,12 +51,12 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import java.net.URI;
+import java.time.Duration;
 import java.time.ZoneId;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
@@ -351,7 +350,7 @@ public class TestServer
                 .source("test")
                 .timeZone(ZoneId.of("UTC"))
                 .user(Optional.of("user"))
-                .heartbeatInterval(new Duration(1, TimeUnit.SECONDS))
+                .heartbeatInterval(Duration.ofSeconds(1))
                 .build();
 
         try (StatementClient client = StatementClientFactory.newStatementClient(httpClient, session, "SELECT * FROM tpch.sf1.nation")) {

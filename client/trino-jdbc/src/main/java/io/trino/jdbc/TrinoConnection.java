@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.primitives.Ints;
-import io.airlift.units.Duration;
 import io.trino.client.ClientSelectedRole;
 import io.trino.client.ClientSession;
 import io.trino.client.StatementClient;
@@ -53,7 +52,9 @@ import java.sql.SQLXML;
 import java.sql.Savepoint;
 import java.sql.Statement;
 import java.sql.Struct;
+import java.time.Duration;
 import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -63,7 +64,6 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -76,7 +76,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Throwables.getCausalChain;
 import static com.google.common.collect.Maps.fromProperties;
-import static io.airlift.units.Duration.nanosSince;
 import static io.trino.client.StatementClientFactory.newStatementClient;
 import static io.trino.jdbc.ClientInfoProperty.APPLICATION_NAME;
 import static io.trino.jdbc.ClientInfoProperty.CLIENT_INFO;
@@ -87,9 +86,9 @@ import static java.net.HttpURLConnection.HTTP_BAD_METHOD;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
 import static java.nio.charset.StandardCharsets.US_ASCII;
+import static java.time.Duration.ofNanos;
 import static java.util.Collections.newSetFromMap;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
@@ -202,10 +201,10 @@ public class TrinoConnection
                 .build();
 
         Exception lastException = null;
-        Duration timeoutDuration = new Duration(timeout, TimeUnit.SECONDS);
+        Duration timeoutDuration = Duration.of(timeout, ChronoUnit.SECONDS);
         long start = System.nanoTime();
 
-        while (timeoutDuration.compareTo(nanosSince(start)) > 0) {
+        while (timeoutDuration.compareTo(ofNanos(System.nanoTime() - start)) > 0) {
             try (Response response = httpCallFactory.newCall(headRequest).execute()) {
                 switch (response.code()) {
                     case HTTP_OK:
@@ -850,7 +849,7 @@ public class TrinoConnection
 
         // zero means no timeout, so use a huge value that is effectively unlimited
         int millis = networkTimeoutMillis.get();
-        Duration timeout = (millis > 0) ? new Duration(millis, MILLISECONDS) : new Duration(999, DAYS);
+        Duration timeout = (millis > 0) ? Duration.ofMillis(millis) : Duration.ofNanos(Long.MAX_VALUE);
 
         ClientSession session = ClientSession.builder()
                 .server(httpUri)

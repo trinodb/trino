@@ -14,7 +14,6 @@
 package io.trino.cli;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.units.Duration;
 import io.trino.client.ClientSession;
 import io.trino.client.ClientTypeSignature;
 import io.trino.client.Column;
@@ -33,6 +32,7 @@ import org.junit.jupiter.api.TestInstance;
 
 import java.io.IOException;
 import java.io.PrintStream;
+import java.time.Duration;
 import java.time.ZoneId;
 import java.util.Locale;
 import java.util.Optional;
@@ -49,7 +49,6 @@ import static io.trino.cli.TerminalUtils.getTerminal;
 import static io.trino.client.ClientStandardTypes.BIGINT;
 import static io.trino.client.TrinoJsonCodec.jsonCodec;
 import static io.trino.client.auth.external.ExternalRedirectStrategy.PRINT;
-import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 
@@ -124,7 +123,7 @@ public class TestQueryRunner
                 .timeZone(ZoneId.of("America/Los_Angeles"))
                 .locale(Locale.ENGLISH)
                 .transactionId(null)
-                .clientRequestTimeout(new Duration(2, MINUTES))
+                .clientRequestTimeout(Duration.ofMinutes(2))
                 .compressionDisabled(true)
                 .build();
     }

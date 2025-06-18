@@ -15,11 +15,11 @@ package io.trino.client.uri;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
-import io.airlift.units.Duration;
 import io.trino.client.ClientSelectedRole;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
+import java.time.Duration;
 import java.time.ZoneId;
 import java.util.Locale;
 import java.util.Optional;
@@ -69,7 +69,9 @@ public class TestTrinoUriBuilder
         assertRoundTrip(ASSUME_LITERAL_NAMES_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS, true, "true");
         assertRoundTrip(ASSUME_LITERAL_UNDERSCORE_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS, true, "true");
         assertRoundTrip(SSL, true, "true");
-        assertRoundTrip(TIMEOUT, Duration.valueOf("30s"), "30.00s");
+        assertRoundTrip(TIMEOUT, Duration.ofSeconds(30), "30.00s");
+        assertRoundTrip(TIMEOUT, Duration.ofMillis(1500), "1.50s");
+        assertRoundTrip(TIMEOUT, Duration.ofSeconds(2), "2.00s");
         assertRoundTrip(HTTP_LOGGING_LEVEL, HEADERS, "HEADERS");
         assertRoundTrip(LOCALE, Locale.ENGLISH, "en");
         assertRoundTrip(TIMEZONE, ZoneId.of("Europe/Warsaw"), "Europe/Warsaw");

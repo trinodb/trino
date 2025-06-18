@@ -57,13 +57,6 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>units</artifactId>
-            <!-- JDK11 support dropped by version 1.9+ -->
-            <version>1.8</version>
-        </dependency>
-
-        <dependency>
             <groupId>io.opentelemetry.instrumentation</groupId>
             <artifactId>opentelemetry-okhttp-3.0</artifactId>
             <exclusions>
@@ -394,11 +387,6 @@
                     <artifactId>maven-enforcer-plugin</artifactId>
                     <configuration>
                         <rules>
-                            <requireUpperBoundDeps>
-                                <excludes combine.children="append">
-                                    <exclude>io.airlift:units</exclude>
-                                </excludes>
-                            </requireUpperBoundDeps>
                             <enforceBytecodeVersion>
                                 <excludes combine.children="append">
                                     <!-- Used reflectively on JDK22+ for native decompression -->
@@ -502,12 +490,6 @@
                                 </relocation>
                             </relocations>
                             <filters>
-                                <filter>
-                                    <artifact>io.airlift:units</artifact>
-                                    <excludes>
-                                        <exclude>ValidationMessages.properties</exclude>
-                                    </excludes>
-                                </filter>
                                 <filter>
                                     <artifact>*:*</artifact>
                                     <excludes>

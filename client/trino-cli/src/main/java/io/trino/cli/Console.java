@@ -17,7 +17,6 @@ import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
-import io.airlift.units.Duration;
 import io.trino.cli.ClientOptions.OutputFormat;
 import io.trino.cli.ClientOptions.PropertyMapping;
 import io.trino.cli.Trino.VersionProvider;
@@ -43,6 +42,7 @@ import java.io.PrintStream;
 import java.lang.reflect.Field;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Duration;
 import java.util.AbstractMap;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -73,7 +73,6 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.jline.utils.AttributedStyle.CYAN;
 import static org.jline.utils.AttributedStyle.DEFAULT;
 
@@ -90,7 +89,7 @@ public class Console
     public static final Set<String> STATEMENT_DELIMITERS = ImmutableSet.of(";", "\\G");
 
     private static final String PROMPT_NAME = "trino";
-    private static final Duration EXIT_DELAY = new Duration(3, SECONDS);
+    private static final Duration EXIT_DELAY = Duration.ofSeconds(3);
 
     @CommandLine.Spec
     CommandLine.Model.CommandSpec spec;
