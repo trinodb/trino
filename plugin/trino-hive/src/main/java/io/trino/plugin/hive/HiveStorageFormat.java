@@ -61,57 +61,70 @@ public enum HiveStorageFormat
     ORC(
             ORC_SERDE_CLASS,
             ORC_INPUT_FORMAT_CLASS,
-            ORC_OUTPUT_FORMAT_CLASS),
+            ORC_OUTPUT_FORMAT_CLASS,
+            ".orc"),
     PARQUET(
             PARQUET_HIVE_SERDE_CLASS,
             MAPRED_PARQUET_INPUT_FORMAT_CLASS,
-            MAPRED_PARQUET_OUTPUT_FORMAT_CLASS),
+            MAPRED_PARQUET_OUTPUT_FORMAT_CLASS,
+            ".parquet"),
     AVRO(
             AVRO_SERDE_CLASS,
             AVRO_CONTAINER_INPUT_FORMAT_CLASS,
-            AVRO_CONTAINER_OUTPUT_FORMAT_CLASS),
+            AVRO_CONTAINER_OUTPUT_FORMAT_CLASS,
+            ".avro"),
     RCBINARY(
             LAZY_BINARY_COLUMNAR_SERDE_CLASS,
             RCFILE_INPUT_FORMAT_CLASS,
-            RCFILE_OUTPUT_FORMAT_CLASS),
+            RCFILE_OUTPUT_FORMAT_CLASS,
+            ".rc"),
     RCTEXT(
             COLUMNAR_SERDE_CLASS,
             RCFILE_INPUT_FORMAT_CLASS,
-            RCFILE_OUTPUT_FORMAT_CLASS),
+            RCFILE_OUTPUT_FORMAT_CLASS,
+            ".rc"),
     SEQUENCEFILE(
             LAZY_SIMPLE_SERDE_CLASS,
             SEQUENCEFILE_INPUT_FORMAT_CLASS,
-            HIVE_SEQUENCEFILE_OUTPUT_FORMAT_CLASS),
+            HIVE_SEQUENCEFILE_OUTPUT_FORMAT_CLASS,
+            ".seq"),
     JSON(
             JSON_SERDE_CLASS,
             TEXT_INPUT_FORMAT_CLASS,
-            HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS),
+            HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS,
+            ".json"),
     OPENX_JSON(
             OPENX_JSON_SERDE_CLASS,
             TEXT_INPUT_FORMAT_CLASS,
-            HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS),
+            HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS,
+            ".json"),
     TEXTFILE(
             LAZY_SIMPLE_SERDE_CLASS,
             TEXT_INPUT_FORMAT_CLASS,
-            HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS),
+            HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS,
+            ".txt"),
     CSV(
             OPENCSV_SERDE_CLASS,
             TEXT_INPUT_FORMAT_CLASS,
-            HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS),
+            HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS,
+            ".csv"),
     REGEX(
             REGEX_SERDE_CLASS,
             TEXT_INPUT_FORMAT_CLASS,
-            HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS);
+            HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS,
+            "");
 
     private final String serde;
     private final String inputFormat;
     private final String outputFormat;
+    private final String fileExtension;
 
-    HiveStorageFormat(String serde, String inputFormat, String outputFormat)
+    HiveStorageFormat(String serde, String inputFormat, String outputFormat, String fileExtension)
     {
         this.serde = requireNonNull(serde, "serde is null");
         this.inputFormat = requireNonNull(inputFormat, "inputFormat is null");
         this.outputFormat = requireNonNull(outputFormat, "outputFormat is null");
+        this.fileExtension = requireNonNull(fileExtension, "fileExtension is null");
     }
 
     public String getSerde()
@@ -140,7 +153,7 @@ public enum HiveStorageFormat
 
     public StorageFormat toStorageFormat()
     {
-        return StorageFormat.create(serde, inputFormat, outputFormat);
+        return StorageFormat.create(serde, inputFormat, outputFormat, fileExtension);
     }
 
     public void validateColumns(List<HiveColumnHandle> handles)
