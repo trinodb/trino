@@ -26,6 +26,7 @@ import io.trino.plugin.hive.HiveSplit.BucketValidation;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.coercions.CoercionUtils.CoercionContext;
 import io.trino.plugin.hive.coercions.TypeCoercer;
+import io.trino.plugin.hive.projection.PartitionProjection;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
@@ -132,7 +133,8 @@ public class HivePageSourceProvider
                 hiveSplit.getPath(),
                 hiveSplit.getTableBucketNumber(),
                 hiveSplit.getEstimatedFileSize(),
-                hiveSplit.getFileModifiedTime());
+                hiveSplit.getFileModifiedTime(),
+                hiveTable.getPartitionProjection());
 
         // Perform dynamic partition pruning in case coordinator didn't prune split.
         // This can happen when dynamic filters are collected after partition splits were listed.
@@ -465,7 +467,8 @@ public class HivePageSourceProvider
                 String path,
                 OptionalInt bucketNumber,
                 long estimatedFileSize,
-                long fileModifiedTime)
+                long fileModifiedTime,
+                Optional<PartitionProjection> partitionProjection)
         {
             Map<String, HivePartitionKey> partitionKeysByName = uniqueIndex(partitionKeys, HivePartitionKey::name);
 
@@ -515,7 +518,7 @@ public class HivePageSourceProvider
                 else {
                     columnMappings.add(prefilled(
                             column,
-                            getPrefilledColumnValue(column, partitionKeysByName.get(column.getName()), path, bucketNumber, estimatedFileSize, fileModifiedTime, partitionName),
+                            getPrefilledColumnValue(column, partitionKeysByName.get(column.getName()), path, bucketNumber, estimatedFileSize, fileModifiedTime, partitionName, partitionProjection),
                             baseTypeCoercionFrom));
                 }
             }
