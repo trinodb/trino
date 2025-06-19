@@ -1387,7 +1387,10 @@ public class QueryStateMachine
     {
         QueryInfo queryInfo = getQueryInfo(stageInfo);
         if (queryInfo.isFinalQueryInfo()) {
-            finalQueryInfo.compareAndSet(Optional.empty(), Optional.of(queryInfo));
+            if (!finalQueryInfo.compareAndSet(Optional.empty(), Optional.of(queryInfo))) {
+                // use the final query info if it is already set
+                queryInfo = finalQueryInfo.get().orElseThrow();
+            }
         }
         return queryInfo;
     }
