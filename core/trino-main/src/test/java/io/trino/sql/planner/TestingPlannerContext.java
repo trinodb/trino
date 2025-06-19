@@ -160,7 +160,8 @@ public final class TestingPlannerContext
                     typeManager,
                     functionManager,
                     languageFunctionManager,
-                    noopTracer());
+                    noopTracer(),
+                    new FeaturesConfig().setFunctionAccessControlEnabled(true)));
         }
     }
 }

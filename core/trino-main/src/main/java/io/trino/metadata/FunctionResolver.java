@@ -70,18 +70,21 @@ public class FunctionResolver
     private final LanguageFunctionManager languageFunctionManager;
     private final WarningCollector warningCollector;
     private final FunctionBinder functionBinder;
+    private final boolean functionAccessControlEnabled;
 
     public FunctionResolver(
             Metadata metadata,
             TypeManager typeManager,
             LanguageFunctionManager languageFunctionManager,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            boolean functionAccessControlEnabled)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.languageFunctionManager = requireNonNull(languageFunctionManager, "languageFunctionManager is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         this.functionBinder = new FunctionBinder(metadata, typeManager);
+        this.functionAccessControlEnabled = functionAccessControlEnabled;
     }
 
     /**
@@ -290,9 +293,9 @@ public class FunctionResolver
         return names.build();
     }
 
-    private static boolean canExecuteFunction(Session session, AccessControl accessControl, CatalogSchemaFunctionName functionName)
+    private boolean canExecuteFunction(Session session, AccessControl accessControl, CatalogSchemaFunctionName functionName)
     {
-        if (isInlineFunction(functionName) || isBuiltinFunctionName(functionName)) {
+        if (!functionAccessControlEnabled && (isInlineFunction(functionName) || isBuiltinFunctionName(functionName))) {
             return true;
         }
         return accessControl.canExecuteFunction(
