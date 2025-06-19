@@ -48,6 +48,7 @@ public class ViewMaterializationCache
     public static final String TEMP_TABLE_PREFIX = "_pbc_";
 
     private final NonEvictableCache<String, TableInfo> destinationTableCache;
+    private final Duration viewExpiration;
     private final Optional<String> viewMaterializationProject;
     private final Optional<String> viewMaterializationDataset;
 
@@ -58,13 +59,19 @@ public class ViewMaterializationCache
                 CacheBuilder.newBuilder()
                         .expireAfterWrite(config.getViewsCacheTtl().toMillis(), MILLISECONDS)
                         .maximumSize(1000));
+        this.viewExpiration = config.getViewExpireDuration();
         this.viewMaterializationProject = config.getViewMaterializationProject();
         this.viewMaterializationDataset = config.getViewMaterializationDataset();
     }
 
-    public TableInfo getCachedTable(BigQueryClient client, String query, Duration viewExpiration, TableInfo remoteTableId)
+    public TableInfo getCachedTable(BigQueryClient client, String query, TableInfo remoteTableId)
     {
-        return uncheckedCacheGet(destinationTableCache, query, new DestinationTableBuilder(client, viewExpiration, query, buildDestinationTable(remoteTableId.getTableId())));
+        return getCachedTable(client, query, buildDestinationTable(remoteTableId.getTableId()));
+    }
+
+    public TableInfo getCachedTable(BigQueryClient client, String query, TableId tableId)
+    {
+        return uncheckedCacheGet(destinationTableCache, query, new DestinationTableBuilder(client, viewExpiration, query, tableId));
     }
 
     private TableId buildDestinationTable(TableId remoteTableId)

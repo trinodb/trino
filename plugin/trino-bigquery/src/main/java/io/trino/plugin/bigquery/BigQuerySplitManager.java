@@ -15,7 +15,6 @@ package io.trino.plugin.bigquery;
 
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
-import io.airlift.units.Duration;
 import io.trino.spi.NodeManager;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
@@ -34,9 +33,9 @@ public class BigQuerySplitManager
 
     private final BigQueryClientFactory bigQueryClientFactory;
     private final BigQueryReadClientFactory bigQueryReadClientFactory;
+    private final ViewMaterializationCache viewMaterializationCache;
     private final boolean viewEnabled;
     private final boolean arrowSerializationEnabled;
-    private final Duration viewExpiration;
     private final NodeManager nodeManager;
     private final int maxReadRowsRetries;
 
@@ -45,13 +44,14 @@ public class BigQuerySplitManager
             BigQueryConfig config,
             BigQueryClientFactory bigQueryClientFactory,
             BigQueryReadClientFactory bigQueryReadClientFactory,
+            ViewMaterializationCache viewMaterializationCache,
             NodeManager nodeManager)
     {
         this.bigQueryClientFactory = requireNonNull(bigQueryClientFactory, "bigQueryClientFactory cannot be null");
         this.bigQueryReadClientFactory = requireNonNull(bigQueryReadClientFactory, "bigQueryReadClientFactory cannot be null");
+        this.viewMaterializationCache = requireNonNull(viewMaterializationCache, "viewMaterializationCache is null");
         this.viewEnabled = config.isViewsEnabled();
         this.arrowSerializationEnabled = config.isArrowSerializationEnabled();
-        this.viewExpiration = config.getViewExpireDuration();
         this.nodeManager = requireNonNull(nodeManager, "nodeManager cannot be null");
         this.maxReadRowsRetries = config.getMaxReadRowsRetries();
     }
@@ -70,9 +70,9 @@ public class BigQuerySplitManager
                 (BigQueryTableHandle) table,
                 bigQueryClientFactory,
                 bigQueryReadClientFactory,
+                viewMaterializationCache,
                 viewEnabled,
                 arrowSerializationEnabled,
-                viewExpiration,
                 nodeManager,
                 maxReadRowsRetries);
     }

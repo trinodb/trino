@@ -25,7 +25,6 @@ import com.google.cloud.bigquery.storage.v1.ReadSession;
 import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
 import io.airlift.log.Logger;
-import io.airlift.units.Duration;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
@@ -57,7 +56,6 @@ public class ReadSessionCreator
     private final BigQueryReadClientFactory bigQueryReadClientFactory;
     private final boolean viewEnabled;
     private final boolean arrowSerializationEnabled;
-    private final Duration viewExpiration;
     private final int maxCreateReadSessionRetries;
     private final Optional<Integer> maxParallelism;
 
@@ -66,7 +64,6 @@ public class ReadSessionCreator
             BigQueryReadClientFactory bigQueryReadClientFactory,
             boolean viewEnabled,
             boolean arrowSerializationEnabled,
-            Duration viewExpiration,
             int maxCreateReadSessionRetries,
             Optional<Integer> maxParallelism)
     {
@@ -74,7 +71,6 @@ public class ReadSessionCreator
         this.bigQueryReadClientFactory = bigQueryReadClientFactory;
         this.viewEnabled = viewEnabled;
         this.arrowSerializationEnabled = arrowSerializationEnabled;
-        this.viewExpiration = viewExpiration;
         this.maxCreateReadSessionRetries = maxCreateReadSessionRetries;
         this.maxParallelism = maxParallelism;
     }
@@ -159,7 +155,7 @@ public class ReadSessionCreator
                         BigQueryConfig.VIEWS_ENABLED));
             }
             // get it from the view
-            return client.getCachedTable(viewExpiration, remoteTable, requiredColumns, filter);
+            return client.getCachedTable(remoteTable, requiredColumns, filter);
         }
         // Storage API doesn't support reading other table types (materialized views, non-biglake external tables)
         throw new TrinoException(NOT_SUPPORTED, format("Table type '%s' of table '%s.%s' is not supported",

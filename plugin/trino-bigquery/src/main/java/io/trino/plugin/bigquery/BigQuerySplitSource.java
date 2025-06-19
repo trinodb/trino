@@ -23,7 +23,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.ByteString;
 import io.airlift.log.Logger;
-import io.airlift.units.Duration;
 import io.trino.spi.NodeManager;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
@@ -67,9 +66,9 @@ public class BigQuerySplitSource
     private final BigQueryTableHandle table;
     private final BigQueryClientFactory bigQueryClientFactory;
     private final BigQueryReadClientFactory bigQueryReadClientFactory;
+    private final ViewMaterializationCache viewMaterializationCache;
     private final boolean viewEnabled;
     private final boolean arrowSerializationEnabled;
-    private final Duration viewExpiration;
     private final NodeManager nodeManager;
     private final int maxReadRowsRetries;
 
@@ -81,9 +80,9 @@ public class BigQuerySplitSource
             BigQueryTableHandle table,
             BigQueryClientFactory bigQueryClientFactory,
             BigQueryReadClientFactory bigQueryReadClientFactory,
+            ViewMaterializationCache viewMaterializationCache,
             boolean viewEnabled,
             boolean arrowSerializationEnabled,
-            Duration viewExpiration,
             NodeManager nodeManager,
             int maxReadRowsRetries)
     {
@@ -91,9 +90,9 @@ public class BigQuerySplitSource
         this.table = requireNonNull(table, "table is null");
         this.bigQueryClientFactory = requireNonNull(bigQueryClientFactory, "bigQueryClientFactory cannot be null");
         this.bigQueryReadClientFactory = requireNonNull(bigQueryReadClientFactory, "bigQueryReadClientFactory cannot be null");
+        this.viewMaterializationCache = requireNonNull(viewMaterializationCache, "viewMaterializationCache is null");
         this.viewEnabled = viewEnabled;
         this.arrowSerializationEnabled = arrowSerializationEnabled;
-        this.viewExpiration = requireNonNull(viewExpiration, "viewExpiration is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager cannot be null");
         this.maxReadRowsRetries = maxReadRowsRetries;
     }
@@ -155,7 +154,7 @@ public class BigQuerySplitSource
             String query = buildNativeQuery(bigQueryQueryRelationHandle.getQuery(), filter, limit);
 
             TableId destinationTable = bigQueryQueryRelationHandle.getDestinationTableName().toTableId();
-            TableInfo tableInfo = new ViewMaterializationCache.DestinationTableBuilder(bigQueryClientFactory.create(session), viewExpiration, query, destinationTable).get();
+            TableInfo tableInfo = viewMaterializationCache.getCachedTable(bigQueryClientFactory.create(session), query, destinationTable);
 
             log.debug("Using Storage API for running query: %s", query);
             remoteTableId = tableInfo.getTableId();
@@ -215,7 +214,7 @@ public class BigQuerySplitSource
     @VisibleForTesting
     ReadSession createReadSession(ConnectorSession session, TableId remoteTableId, List<BigQueryColumnHandle> columns, Optional<String> filter)
     {
-        ReadSessionCreator readSessionCreator = new ReadSessionCreator(bigQueryClientFactory, bigQueryReadClientFactory, viewEnabled, arrowSerializationEnabled, viewExpiration, maxReadRowsRetries, getMaxParallelism(session));
+        ReadSessionCreator readSessionCreator = new ReadSessionCreator(bigQueryClientFactory, bigQueryReadClientFactory, viewEnabled, arrowSerializationEnabled, maxReadRowsRetries, getMaxParallelism(session));
         return readSessionCreator.create(session, remoteTableId, columns, filter, nodeManager.getRequiredWorkerNodes().size());
     }
 
