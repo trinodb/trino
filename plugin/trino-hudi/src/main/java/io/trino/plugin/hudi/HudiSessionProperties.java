@@ -47,6 +47,11 @@ public class HudiSessionProperties
     static final String TABLE_STATISTICS_ENABLED = "table_statistics_enabled";
     static final String METADATA_TABLE_ENABLED = "metadata_enabled";
     private static final String USE_PARQUET_COLUMN_NAMES = "use_parquet_column_names";
+    private static final String PARQUET_IGNORE_STATISTICS = "parquet_ignore_statistics";
+    private static final String PARQUET_USE_COLUMN_INDEX = "parquet_use_column_index";
+    private static final String PARQUET_USE_BLOOM_FILTER = "parquet_use_bloom_filter";
+    private static final String PARQUET_MAX_READ_BLOCK_SIZE = "parquet_max_read_block_size";
+    private static final String PARQUET_MAX_READ_BLOCK_ROW_COUNT = "parquet_max_read_block_row_count";
     private static final String PARQUET_SMALL_FILE_THRESHOLD = "parquet_small_file_threshold";
     private static final String PARQUET_VECTORIZED_DECODING_ENABLED = "parquet_vectorized_decoding_enabled";
     private static final String SIZE_BASED_SPLIT_WEIGHTS_ENABLED = "size_based_split_weights_enabled";
@@ -96,6 +101,38 @@ public class HudiSessionProperties
                         USE_PARQUET_COLUMN_NAMES,
                         "Access parquet columns using names from the file. If disabled, then columns are accessed using index.",
                         hudiConfig.getUseParquetColumnNames(),
+                        false),
+                booleanProperty(
+                        PARQUET_IGNORE_STATISTICS,
+                        "Ignore statistics from Parquet to allow querying files with corrupted or incorrect statistics",
+                        parquetReaderConfig.isIgnoreStatistics(),
+                        false),
+                booleanProperty(
+                        PARQUET_USE_COLUMN_INDEX,
+                        "Use Parquet column index",
+                        hudiConfig.isUseParquetColumnIndex(),
+                        false),
+                booleanProperty(
+                        PARQUET_USE_BLOOM_FILTER,
+                        "Use Parquet Bloom filters",
+                        parquetReaderConfig.isUseBloomFilter(),
+                        false),
+                dataSizeProperty(
+                        PARQUET_MAX_READ_BLOCK_SIZE,
+                        "Parquet: Maximum size of a block to read",
+                        parquetReaderConfig.getMaxReadBlockSize(),
+                        false),
+                integerProperty(
+                        PARQUET_MAX_READ_BLOCK_ROW_COUNT,
+                        "Parquet: Maximum number of rows read in a batch",
+                        parquetReaderConfig.getMaxReadBlockRowCount(),
+                        value -> {
+                            if (value < 128 || value > 65536) {
+                                throw new TrinoException(
+                                        INVALID_SESSION_PROPERTY,
+                                        format("%s must be between 128 and 65536: %s", PARQUET_MAX_READ_BLOCK_ROW_COUNT, value));
+                            }
+                        },
                         false),
                 dataSizeProperty(
                         PARQUET_SMALL_FILE_THRESHOLD,
@@ -205,6 +242,31 @@ public class HudiSessionProperties
     public static boolean shouldUseParquetColumnNames(ConnectorSession session)
     {
         return session.getProperty(USE_PARQUET_COLUMN_NAMES, Boolean.class);
+    }
+
+    public static boolean isParquetIgnoreStatistics(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_IGNORE_STATISTICS, Boolean.class);
+    }
+
+    public static boolean isParquetUseColumnIndex(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_USE_COLUMN_INDEX, Boolean.class);
+    }
+
+    public static boolean useParquetBloomFilter(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_USE_BLOOM_FILTER, Boolean.class);
+    }
+
+    public static DataSize getParquetMaxReadBlockSize(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_MAX_READ_BLOCK_SIZE, DataSize.class);
+    }
+
+    public static int getParquetMaxReadBlockRowCount(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_MAX_READ_BLOCK_ROW_COUNT, Integer.class);
     }
 
     public static DataSize getParquetSmallFileThreshold(ConnectorSession session)

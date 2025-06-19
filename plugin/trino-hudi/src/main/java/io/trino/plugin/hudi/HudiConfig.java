@@ -42,6 +42,7 @@ public class HudiConfig
     private int tableStatisticsExecutorParallelism = 4;
     private boolean metadataEnabled;
     private boolean shouldUseParquetColumnNames = true;
+    private boolean shouldUseParquetColumnIndex;
     private boolean sizeBasedSplitWeightsEnabled = true;
     private DataSize standardSplitWeightSize = DataSize.of(128, MEGABYTE);
     private double minimumAssignedSplitWeight = 0.05;
@@ -128,6 +129,19 @@ public class HudiConfig
     public boolean getUseParquetColumnNames()
     {
         return this.shouldUseParquetColumnNames;
+    }
+
+    @Config("hudi.parquet.use-column-index")
+    @ConfigDescription("Enable using Parquet column indexes")
+    public HudiConfig setUseParquetColumnIndex(boolean shouldUseParquetColumnIndex)
+    {
+        this.shouldUseParquetColumnIndex = shouldUseParquetColumnIndex;
+        return this;
+    }
+
+    public boolean isUseParquetColumnIndex()
+    {
+        return this.shouldUseParquetColumnIndex;
     }
 
     @Config("hudi.size-based-split-weights-enabled")

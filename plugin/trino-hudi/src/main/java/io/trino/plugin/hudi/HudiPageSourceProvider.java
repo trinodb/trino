@@ -94,9 +94,14 @@ import static io.trino.plugin.hudi.HudiErrorCode.HUDI_BAD_DATA;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_CANNOT_OPEN_SPLIT;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_CURSOR_ERROR;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_FILESYSTEM_ERROR;
+import static io.trino.plugin.hudi.HudiSessionProperties.getParquetMaxReadBlockRowCount;
+import static io.trino.plugin.hudi.HudiSessionProperties.getParquetMaxReadBlockSize;
 import static io.trino.plugin.hudi.HudiSessionProperties.getParquetSmallFileThreshold;
+import static io.trino.plugin.hudi.HudiSessionProperties.isParquetIgnoreStatistics;
+import static io.trino.plugin.hudi.HudiSessionProperties.isParquetUseColumnIndex;
 import static io.trino.plugin.hudi.HudiSessionProperties.isParquetVectorizedDecodingEnabled;
 import static io.trino.plugin.hudi.HudiSessionProperties.shouldUseParquetColumnNames;
+import static io.trino.plugin.hudi.HudiSessionProperties.useParquetBloomFilter;
 import static io.trino.plugin.hudi.HudiUtil.buildTableMetaClient;
 import static io.trino.plugin.hudi.HudiUtil.constructSchema;
 import static io.trino.plugin.hudi.HudiUtil.convertToFileSlice;
@@ -189,7 +194,13 @@ public class HudiPageSourceProvider
                 hudiSplit,
                 fileSystem.newInputFile(Location.of(hudiBaseFileOpt.get().getPath()), hudiBaseFileOpt.get().getFileSize()),
                 dataSourceStats,
-                options.withSmallFileThreshold(getParquetSmallFileThreshold(session))
+                options
+                        .withIgnoreStatistics(isParquetIgnoreStatistics(session))
+                        .withMaxReadBlockSize(getParquetMaxReadBlockSize(session))
+                        .withMaxReadBlockRowCount(getParquetMaxReadBlockRowCount(session))
+                        .withSmallFileThreshold(getParquetSmallFileThreshold(session))
+                        .withUseColumnIndex(isParquetUseColumnIndex(session))
+                        .withBloomFilter(useParquetBloomFilter(session))
                         .withVectorizedDecodingEnabled(isParquetVectorizedDecodingEnabled(session)),
                 timeZone, dynamicFilter, isBaseFileOnly);
 
