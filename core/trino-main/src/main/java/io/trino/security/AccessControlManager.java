@@ -798,6 +798,12 @@ public class AccessControlManager
     }
 
     @Override
+    public void checkCanRefreshView(SecurityContext context, QualifiedObjectName viewName)
+    {
+        //
+    }
+
+    @Override
     public void checkCanDropView(SecurityContext securityContext, QualifiedObjectName viewName)
     {
         requireNonNull(securityContext, "securityContext is null");

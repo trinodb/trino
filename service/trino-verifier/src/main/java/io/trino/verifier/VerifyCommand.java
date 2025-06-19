@@ -48,6 +48,7 @@ import io.trino.sql.tree.Explain;
 import io.trino.sql.tree.ExplainAnalyze;
 import io.trino.sql.tree.Insert;
 import io.trino.sql.tree.RefreshMaterializedView;
+import io.trino.sql.tree.RefreshView;
 import io.trino.sql.tree.RenameColumn;
 import io.trino.sql.tree.RenameMaterializedView;
 import io.trino.sql.tree.RenameTable;
@@ -388,6 +389,9 @@ public class VerifyCommand
             return CREATE;
         }
         if (statement instanceof RefreshMaterializedView) {
+            return MODIFY;
+        }
+        if (statement instanceof RefreshView) {
             return MODIFY;
         }
         if (statement instanceof DropMaterializedView) {
