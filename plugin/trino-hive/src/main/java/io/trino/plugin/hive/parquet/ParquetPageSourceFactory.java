@@ -526,7 +526,7 @@ public class ParquetPageSourceFactory
                         coercer.map(Function.identity()));
             }
         }
-        ParquetReader parquetReader = parquetReaderProvider.createParquetReader(parquetColumnFieldsBuilder, appendRowNumberColumn);
+        ParquetReader parquetReader = parquetReaderProvider.createParquetReader(ImmutableList.copyOf(parquetColumnFieldsBuilder), appendRowNumberColumn);
         ConnectorPageSource pageSource = new ParquetPageSource(parquetReader);
         return transforms.build(pageSource);
     }
