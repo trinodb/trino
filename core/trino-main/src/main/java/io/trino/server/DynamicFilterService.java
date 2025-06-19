@@ -29,7 +29,6 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.execution.DynamicFilterConfig;
-import io.trino.execution.SqlQueryExecution;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.metadata.FunctionManager;
@@ -120,9 +119,8 @@ public class DynamicFilterService
         this.smallMaxSizePerFilter = dynamicFilterConfig.getSmallMaxSizePerFilter();
     }
 
-    public void registerQuery(SqlQueryExecution sqlQueryExecution, SubPlan fragmentedPlan)
+    public void registerQuery(Session session, PlanNode queryPlan, SubPlan fragmentedPlan)
     {
-        PlanNode queryPlan = sqlQueryExecution.getQueryPlan().orElseThrow().getRoot();
         Set<DynamicFilterId> dynamicFilters = getProducedDynamicFilters(queryPlan);
         Set<DynamicFilterId> replicatedDynamicFilters = getReplicatedDynamicFilters(queryPlan);
 
@@ -133,8 +131,8 @@ public class DynamicFilterService
         // register query only if it contains dynamic filters
         if (!dynamicFilters.isEmpty()) {
             registerQuery(
-                    sqlQueryExecution.getQueryId(),
-                    sqlQueryExecution.getSession(),
+                    session.getQueryId(),
+                    session,
                     dynamicFilters,
                     lazyDynamicFilters,
                     replicatedDynamicFilters);
