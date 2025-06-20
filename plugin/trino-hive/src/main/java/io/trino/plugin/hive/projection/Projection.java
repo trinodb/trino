@@ -22,4 +22,9 @@ sealed interface Projection
         permits DateProjection, EnumProjection, InjectedProjection, IntegerProjection
 {
     List<String> getProjectedValues(Optional<Domain> partitionValueFilter);
+
+    default String transformValue(String value)
+    {
+        return value;
+    }
 }
