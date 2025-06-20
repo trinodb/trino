@@ -72,7 +72,6 @@ public class IcebergFunctionProvider
     public static final List<FunctionMetadata> FUNCTIONS = ImmutableList.<FunctionMetadata>builder()
             .add(FunctionMetadata.scalarBuilder("bucket")
                     .functionId(new FunctionId("bucket"))
-                    .nondeterministic()
                     .description("Perform Iceberg bucket transform")
                     .signature(Signature.builder()
                             .typeVariable("T")
