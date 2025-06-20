@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.projection;
 
 import com.google.common.base.VerifyException;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.metastore.Column;
 import io.trino.metastore.Partition;
@@ -52,6 +53,26 @@ public final class PartitionProjection
         this.columnProjections = ImmutableMap.copyOf(requireNonNull(columnProjections, "columnProjections is null"));
     }
 
+    // TODO: support writing partition projection
+    public boolean allowWrite()
+    {
+        if (storageLocationTemplate.isPresent()) {
+            return false;
+        }
+
+        for (Projection projection : columnProjections.values()) {
+            // DateProjection may contain a user-defined format that is incompatible with Hive.
+            // Currently, we only support writing partitions in Hive's default date format.
+            // Allowing custom date formats in partition projection can lead to inconsistencies
+            // between reading and writing of the projection partition.
+            // To ensure compatibility and avoid incorrect query results, disable writing for now.
+            if (projection instanceof DateProjection dateProjection && !dateProjection.allowWrite()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     public Optional<List<String>> getProjectedPartitionNamesByFilter(List<String> columnNames, TupleDomain<String> partitionKeysFilter)
     {
         if (partitionKeysFilter.isNone()) {
@@ -87,7 +108,19 @@ public final class PartitionProjection
 
     private Partition buildPartitionObject(Table table, String partitionName)
     {
+        List<String> partitionColumns = table.getPartitionColumns().stream()
+                .map(Column::getName)
+                .collect(toImmutableList());
+
         List<String> partitionValues = toPartitionValues(partitionName);
+        ImmutableList.Builder<String> partitionTemplateValues = ImmutableList.builderWithExpectedSize(partitionValues.size());
+        for (int i = 0; i < partitionColumns.size(); i++) {
+            String partitionColumn = partitionColumns.get(i);
+            String partitionValue = columnProjections.get(partitionColumn).toPartitionLocationTemplateValue(partitionValues.get(i));
+            // Don't escape partition value if storage location template is defined
+            partitionTemplateValues.add(storageLocationTemplate.isPresent() ? partitionValue : escapePathName(partitionValue));
+        }
+
         return Partition.builder()
                 .setDatabaseName(table.getDatabaseName())
                 .setTableName(table.getTableName())
@@ -96,24 +129,21 @@ public final class PartitionProjection
                 .setParameters(Map.of())
                 .withStorage(storage -> storage
                         .setStorageFormat(table.getStorage().getStorageFormat())
-                        .setLocation(storageLocationTemplate
-                                .map(template -> expandStorageLocationTemplate(
-                                        template,
-                                        table.getPartitionColumns().stream()
-                                                .map(Column::getName).collect(Collectors.toList()),
-                                        partitionValues))
-                                .orElseGet(() -> getPartitionLocation(table.getStorage().getLocation(), partitionName)))
+                        .setLocation(expandStorageLocationTemplate(
+                                storageLocationTemplate.orElseGet(() -> getPartitionLocation(table.getStorage().getLocation(), partitionColumns)),
+                                partitionColumns,
+                                partitionTemplateValues.build()))
                         .setBucketProperty(table.getStorage().getBucketProperty())
                         .setSerdeParameters(table.getStorage().getSerdeParameters()))
                 .build();
     }
 
-    private static String getPartitionLocation(String tableLocation, String partitionName)
+    private static String getPartitionLocation(String tableLocation, List<String> partitionColumns)
     {
         if (tableLocation.endsWith("/")) {
-            return format("%s%s/", tableLocation, partitionName);
+            return format("%s%s/", tableLocation, toPartitionLocationTemplate(partitionColumns));
         }
-        return format("%s/%s/", tableLocation, partitionName);
+        return format("%s/%s/", tableLocation, toPartitionLocationTemplate(partitionColumns));
     }
 
     private static String expandStorageLocationTemplate(String template, List<String> partitionColumns, List<String> partitionValues)
@@ -127,5 +157,12 @@ public final class PartitionProjection
         }
         matcher.appendTail(location);
         return location.toString();
+    }
+
+    private static String toPartitionLocationTemplate(List<String> partitionColumns)
+    {
+        return partitionColumns.stream()
+                .map(column -> column + "=${" + column + "}")
+                .collect(Collectors.joining("/"));
     }
 }

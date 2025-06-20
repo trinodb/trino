@@ -84,8 +84,8 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class HiveWriteUtils
 {
-    private static final DateTimeFormatter HIVE_DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-    private static final DateTimeFormatter HIVE_TIMESTAMP_FORMATTER = new DateTimeFormatterBuilder()
+    public static final DateTimeFormatter HIVE_DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    public static final DateTimeFormatter HIVE_TIMESTAMP_FORMATTER = new DateTimeFormatterBuilder()
             .append(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
             .optionalStart().appendFraction(ChronoField.NANO_OF_SECOND, 0, 9, true).optionalEnd()
             .toFormatter();
