@@ -3040,7 +3040,8 @@ class AstBuilder
     @Override
     public Node visitColumnDefinition(SqlBaseParser.ColumnDefinitionContext context)
     {
-        Optional<Expression> defaultValue = visitIfPresent(context.literal(), Expression.class);
+        // TODO: Converting to String so ShowQueriesRewrite can pass the default value as-is
+        Optional<String> defaultValue = visitIfPresent(context.literal(), Expression.class).map(Expression::toString);
 
         Optional<String> comment = Optional.empty();
         if (context.COMMENT() != null) {
