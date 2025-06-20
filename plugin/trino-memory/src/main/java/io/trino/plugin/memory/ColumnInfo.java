@@ -15,14 +15,13 @@ package io.trino.plugin.memory;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.trino.spi.connector.ColumnMetadata;
-import io.trino.spi.expression.ConnectorExpression;
 
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public record ColumnInfo(MemoryColumnHandle handle, Optional<ConnectorExpression> defaultValue, boolean nullable, Optional<String> comment)
+public record ColumnInfo(MemoryColumnHandle handle, Optional<String> defaultValue, boolean nullable, Optional<String> comment)
 {
     public ColumnInfo
     {
