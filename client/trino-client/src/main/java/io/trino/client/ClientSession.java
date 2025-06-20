@@ -60,6 +60,7 @@ public class ClientSession
     private final boolean compressionDisabled;
     private final Optional<String> encoding;
     private final Duration heartbeatInterval;
+    private final boolean segmentLoggingEnabled;
 
     public static Builder builder()
     {
@@ -102,7 +103,8 @@ public class ClientSession
             Duration clientRequestTimeout,
             boolean compressionDisabled,
             Optional<String> encoding,
-            Duration heartbeatInterval)
+            Duration heartbeatInterval,
+            boolean segmentLoggingEnabled)
     {
         this.server = requireNonNull(server, "server is null");
         this.user = requireNonNull(user, "user is null");
@@ -128,6 +130,7 @@ public class ClientSession
         this.compressionDisabled = compressionDisabled;
         this.encoding = requireNonNull(encoding, "encoding is null");
         this.heartbeatInterval = requireNonNull(heartbeatInterval, "heartbeatInterval is null");
+        this.segmentLoggingEnabled = segmentLoggingEnabled;
 
         for (String clientTag : clientTags) {
             checkArgument(!clientTag.contains(","), "client tag cannot contain ','");
@@ -286,6 +289,11 @@ public class ClientSession
         return heartbeatInterval;
     }
 
+    public boolean isSegmentLoggingEnabled()
+    {
+        return segmentLoggingEnabled;
+    }
+
     @Override
     public String toString()
     {
@@ -310,6 +318,7 @@ public class ClientSession
                 .add("compressionDisabled", compressionDisabled)
                 .add("encoding", encoding)
                 .add("heartbeatInterval", heartbeatInterval)
+                .add("segmentLoggingEnabled", segmentLoggingEnabled)
                 .omitNullValues()
                 .toString();
     }
@@ -340,6 +349,7 @@ public class ClientSession
         private boolean compressionDisabled;
         private Optional<String> encoding = Optional.empty();
         private Duration heartbeatInterval = new Duration(30, SECONDS);
+        private boolean segmentLoggingEnabled;
 
         private Builder() {}
 
@@ -369,6 +379,7 @@ public class ClientSession
             clientRequestTimeout = clientSession.getClientRequestTimeout();
             compressionDisabled = clientSession.isCompressionDisabled();
             encoding = clientSession.getEncoding();
+            segmentLoggingEnabled = clientSession.isSegmentLoggingEnabled();
         }
 
         public Builder server(URI server)
@@ -515,6 +526,12 @@ public class ClientSession
             return this;
         }
 
+        public Builder segmentLoggingEnabled(boolean segmentLoggingEnabled)
+        {
+            this.segmentLoggingEnabled = segmentLoggingEnabled;
+            return this;
+        }
+
         public ClientSession build()
         {
             return new ClientSession(
@@ -541,7 +558,8 @@ public class ClientSession
                     clientRequestTimeout,
                     compressionDisabled,
                     encoding,
-                    heartbeatInterval);
+                    heartbeatInterval,
+                    segmentLoggingEnabled);
         }
     }
 }

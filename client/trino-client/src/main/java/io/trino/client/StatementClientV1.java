@@ -35,7 +35,6 @@ import okhttp3.Response;
 
 import java.io.IOException;
 import java.io.InterruptedIOException;
-import java.io.UncheckedIOException;
 import java.net.ProtocolException;
 import java.net.SocketTimeoutException;
 import java.net.URI;
@@ -137,7 +136,7 @@ class StatementClientV1
         this.compressionDisabled = session.isCompressionDisabled();
         this.heartbeatInterval = session.getHeartbeatInterval().toMillis() * 1_000_000;
 
-        this.resultRowsDecoder = new ResultRowsDecoder(new OkHttpSegmentLoader(requireNonNull(segmentHttpCallFactory, "segmentHttpCallFactory is null")));
+        this.resultRowsDecoder = createResultRowsDecoder(segmentHttpCallFactory, session.isSegmentLoggingEnabled());
 
         Request request = buildQueryRequest(session, query, session.getEncoding());
         // Pass empty as materializedJsonSizeLimit to always materialize the first response
@@ -639,9 +638,10 @@ class StatementClientV1
         // releasing all resources and pruning remote segments
         try {
             Closeables.close(currentRows.get(), false);
+            resultRowsDecoder.close();
         }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
+        catch (Exception e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -728,5 +728,14 @@ class StatementClientV1
                 }
             };
         }
+    }
+
+    private static ResultRowsDecoder createResultRowsDecoder(Call.Factory segmentHttpCallFactory, boolean segmentLoggingEnabled)
+    {
+        ResultRowsDecoder decoder = new ResultRowsDecoder(new OkHttpSegmentLoader(requireNonNull(segmentHttpCallFactory, "segmentHttpCallFactory is null")));
+        if (segmentLoggingEnabled) {
+            return new LoggingResultRowsDecoder(decoder);
+        }
+        return decoder;
     }
 }
