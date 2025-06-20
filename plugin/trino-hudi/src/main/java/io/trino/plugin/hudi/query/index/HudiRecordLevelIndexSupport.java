@@ -15,8 +15,11 @@ package io.trino.plugin.hudi.query.index;
 
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.airlift.units.Duration;
+import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hudi.util.TupleDomainUtils;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
@@ -35,11 +38,17 @@ import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_BAD_DATA;
+import static io.trino.plugin.hudi.HudiSessionProperties.getRecordIndexWaitTimeout;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class HudiRecordLevelIndexSupport
         extends HudiBaseIndexSupport
@@ -48,81 +57,87 @@ public class HudiRecordLevelIndexSupport
 
     public static final String DEFAULT_COLUMN_VALUE_SEPARATOR = ":";
     public static final String DEFAULT_RECORD_KEY_PARTS_SEPARATOR = ",";
+    private final CompletableFuture<Optional<Set<String>>> relevantFileIdsFuture;
+    private final Duration recordIndexWaitTimeout;
+    private final long futureStartTimeMs;
 
-    public HudiRecordLevelIndexSupport(SchemaTableName schemaTableName, Lazy<HoodieTableMetaClient> lazyMetaClient)
+    public HudiRecordLevelIndexSupport(ConnectorSession session, SchemaTableName schemaTableName, Lazy<HoodieTableMetaClient> lazyMetaClient, Lazy<HoodieTableMetadata> lazyTableMetadata, TupleDomain<HiveColumnHandle> regularColumnPredicates)
     {
         super(log, schemaTableName, lazyMetaClient);
+        this.recordIndexWaitTimeout = getRecordIndexWaitTimeout(session);
+        if (regularColumnPredicates.isAll()) {
+            log.debug("Predicates cover all data, skipping record level index lookup.");
+            this.relevantFileIdsFuture = CompletableFuture.completedFuture(Optional.empty());
+        }
+        else {
+            this.relevantFileIdsFuture = CompletableFuture.supplyAsync(() -> {
+                HoodieTimer timer = HoodieTimer.start();
+                Option<String[]> recordKeyFieldsOpt = lazyMetaClient.get().getTableConfig().getRecordKeyFields();
+                if (recordKeyFieldsOpt.isEmpty() || recordKeyFieldsOpt.get().length == 0) {
+                    // Should not happen since canApply checks for this, include for safety
+                    throw new TrinoException(HUDI_BAD_DATA, "Record key fields must be defined to use Record Level Index.");
+                }
+                List<String> recordKeyFields = Arrays.asList(recordKeyFieldsOpt.get());
+
+                TupleDomain<String> regularPredicatesTransformed = regularColumnPredicates.transformKeys(HiveColumnHandle::getName);
+                // Only extract the predicates relevant to the record key fields
+                TupleDomain<String> filteredDomains = extractPredicatesForColumns(regularPredicatesTransformed, recordKeyFields);
+
+                // Construct the actual record keys based on the filtered predicates using Hudi's encoding scheme
+                List<String> recordKeys = constructRecordKeys(filteredDomains, recordKeyFields);
+
+                if (recordKeys.isEmpty()) {
+                    // If key construction fails (e.g., incompatible predicates not caught by canApply, or placeholder issue)
+                    log.warn("Took %s ms, but could not construct record keys from predicates. Skipping record index pruning for table %s",
+                            timer.endTimer(), schemaTableName);
+                    return Optional.empty();
+                }
+                log.debug(String.format("Constructed %d record keys for index lookup.", recordKeys.size()));
+
+                // Perform index lookup in metadataTable
+                // TODO: document here what this map is keyed by
+                Map<String, HoodieRecordGlobalLocation> recordIndex = lazyTableMetadata.get().readRecordIndex(recordKeys);
+                if (recordIndex.isEmpty()) {
+                    log.debug("Record level index lookup took %s ms but returned no locations for the given keys %s for table %s",
+                            timer.endTimer(), recordKeys, schemaTableName);
+                    // Return all original fileSlices
+                    return Optional.empty();
+                }
+
+                // Collect fileIds for pruning
+                Set<String> relevantFiles = recordIndex.values().stream()
+                        .map(HoodieRecordGlobalLocation::getFileId)
+                        .collect(Collectors.toSet());
+                log.debug("Record level index lookup took %s ms and identified %d relevant file IDs.", timer.endTimer(), relevantFiles.size());
+
+                return Optional.of(relevantFiles);
+            });
+        }
+        this.futureStartTimeMs = System.currentTimeMillis();
     }
 
     @Override
-    public Map<String, List<FileSlice>> lookupCandidateFilesInMetadataTable(
-            HoodieTableMetadata metadataTable,
-            Map<String, List<FileSlice>> inputFileSlices,
-            TupleDomain<String> regularColumnPredicates)
+    public boolean shouldSkipFileSlice(FileSlice slice)
     {
-        // Should not happen since canApply checks for this, include for safety
-        if (regularColumnPredicates.isAll()) {
-            log.debug("Predicates cover all data, skipping record level index lookup.");
-            return inputFileSlices;
+        try {
+            if (relevantFileIdsFuture.isDone()) {
+                Optional<Set<String>> relevantFileIds = relevantFileIdsFuture.get();
+                return relevantFileIds.map(fileIds -> !fileIds.contains(slice.getFileId())).orElse(false);
+            }
+
+            long elapsedMs = System.currentTimeMillis() - futureStartTimeMs;
+            if (elapsedMs > recordIndexWaitTimeout.toMillis()) {
+                // Took too long; skip decision
+                return false;
+            }
+
+            long remainingMs = Math.max(0, recordIndexWaitTimeout.toMillis() - elapsedMs);
+            Optional<Set<String>> relevantFileIds = relevantFileIdsFuture.get(remainingMs, MILLISECONDS);
+            return relevantFileIds.map(fileIds -> !fileIds.contains(slice.getFileId())).orElse(false);
         }
-
-        HoodieTimer timer = HoodieTimer.start();
-
-        Option<String[]> recordKeyFieldsOpt = lazyMetaClient.get().getTableConfig().getRecordKeyFields();
-        if (recordKeyFieldsOpt.isEmpty() || recordKeyFieldsOpt.get().length == 0) {
-            timer.endTimer();
-            // Should not happen since canApply checks for this, include for safety
-            throw new TrinoException(HUDI_BAD_DATA, "Record key fields must be defined to use Record Level Index.");
+        catch (TimeoutException | InterruptedException | ExecutionException e) {
+            return false;
         }
-        List<String> recordKeyFields = Arrays.asList(recordKeyFieldsOpt.get());
-
-        // Only extract the predicates relevant to the record key fields
-        TupleDomain<String> filteredDomains = extractPredicatesForColumns(regularColumnPredicates, recordKeyFields);
-
-        // Construct the actual record keys based on the filtered predicates using Hudi's encoding scheme
-        List<String> recordKeys = constructRecordKeys(filteredDomains, recordKeyFields);
-
-        if (recordKeys.isEmpty()) {
-            // If key construction fails (e.g., incompatible predicates not caught by canApply, or placeholder issue)
-            log.warn("Took %s ms, but could not construct record keys from predicates. Skipping record index pruning for table %s",
-                    timer.endTimer(), schemaTableName);
-            return inputFileSlices;
-        }
-        log.debug(String.format("Constructed %d record keys for index lookup.", recordKeys.size()));
-
-        // Perform index lookup in metadataTable
-        // TODO: document here what this map is keyed by
-        Map<String, HoodieRecordGlobalLocation> recordIndex = metadataTable.readRecordIndex(recordKeys);
-        if (recordIndex.isEmpty()) {
-            log.debug("Record level index lookup took %s ms but returned no locations for the given keys %s for table %s",
-                    timer.endTimer(), recordKeys, schemaTableName);
-            // Return all original fileSlices
-            return inputFileSlices;
-        }
-
-        // Collect fileIds for pruning
-        Set<String> relevantFileIds = recordIndex.values().stream()
-                .map(HoodieRecordGlobalLocation::getFileId)
-                .collect(Collectors.toSet());
-        log.debug(String.format("Record level index lookup identified %d relevant file IDs.", relevantFileIds.size()));
-
-        // Prune fileSlices: Loop through each partition and filter for fileSlices that are in relevantFileIds
-        // Note: This may return partitions with empty list of fileSlices
-        Map<String, List<FileSlice>> candidateFileSlices = inputFileSlices
-                .entrySet()
-                .stream()
-                .collect(Collectors.toMap(
-                        Map.Entry::getKey,
-                        entry -> entry.getValue()
-                                .stream()
-                                .filter(fileSlice -> relevantFileIds.contains(fileSlice.getFileId()))
-                                .collect(Collectors.toList())));
-
-        // Remove partitions where no files remain after filtering
-        candidateFileSlices.entrySet().removeIf(entry -> entry.getValue().isEmpty());
-
-        printDebugMessage(candidateFileSlices, inputFileSlices, timer.endTimer());
-        return candidateFileSlices;
     }
 
     /**

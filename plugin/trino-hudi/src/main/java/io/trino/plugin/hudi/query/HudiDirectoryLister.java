@@ -23,7 +23,7 @@ import java.util.Optional;
 public interface HudiDirectoryLister
         extends Closeable
 {
-    List<FileSlice> listStatus(HudiPartitionInfo partitionInfo);
+    List<FileSlice> listStatus(HudiPartitionInfo partitionInfo, boolean useIndex);
 
     Optional<HudiPartitionInfo> getPartitionInfo(String partition);
 }

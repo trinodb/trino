@@ -20,22 +20,25 @@ import io.trino.metastore.Partition;
 import io.trino.plugin.hudi.HudiTableHandle;
 import io.trino.plugin.hudi.partition.HiveHudiPartitionInfo;
 import io.trino.plugin.hudi.partition.HudiPartitionInfo;
-import io.trino.plugin.hudi.storage.TrinoStorageConfiguration;
+import io.trino.plugin.hudi.query.index.HudiIndexSupport;
+import io.trino.plugin.hudi.query.index.IndexSupportFactory;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
-import org.apache.hudi.common.config.HoodieMetadataConfig;
-import org.apache.hudi.common.engine.HoodieLocalEngineContext;
 import org.apache.hudi.common.model.FileSlice;
-import org.apache.hudi.common.table.view.FileSystemViewManager;
+import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.common.table.view.HoodieTableFileSystemView;
 import org.apache.hudi.common.util.HoodieTimer;
+import org.apache.hudi.metadata.HoodieTableMetadata;
 import org.apache.hudi.util.Lazy;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.hudi.HudiUtil.getFileSystemView;
 
 public class HudiSnapshotDirectoryLister
         implements HudiDirectoryLister
@@ -44,27 +47,28 @@ public class HudiSnapshotDirectoryLister
     private final HudiTableHandle tableHandle;
     private final Lazy<HoodieTableFileSystemView> lazyFileSystemView;
     private final Lazy<Map<String, HudiPartitionInfo>> lazyAllPartitionInfoMap;
+    private final Optional<HudiIndexSupport> indexSupportOpt;
 
     public HudiSnapshotDirectoryLister(
+            ConnectorSession session,
             HudiTableHandle tableHandle,
             boolean enableMetadataTable,
+            Lazy<HoodieTableMetadata> lazyTableMetadata,
             Lazy<Map<String, Partition>> lazyAllPartitions)
     {
         this.tableHandle = tableHandle;
-        HoodieMetadataConfig metadataConfig = HoodieMetadataConfig.newBuilder()
-                .enable(enableMetadataTable)
-                .build();
         SchemaTableName schemaTableName = tableHandle.getSchemaTableName();
         this.lazyFileSystemView = Lazy.lazily(() -> {
             HoodieTimer timer = HoodieTimer.start();
-            HoodieTableFileSystemView fileSystemView = FileSystemViewManager.createInMemoryFileSystemView(
-                    new HoodieLocalEngineContext(new TrinoStorageConfiguration()), tableHandle.getMetaClient(), metadataConfig);
+            HoodieTableMetaClient metaClient = tableHandle.getMetaClient();
+            HoodieTableFileSystemView fileSystemView = getFileSystemView(lazyTableMetadata.get(), metaClient);
             if (enableMetadataTable) {
                 fileSystemView.loadAllPartitions();
             }
             log.info("Created file system view of table %s in %s ms", schemaTableName, timer.endTimer());
             return fileSystemView;
         });
+
         this.lazyAllPartitionInfoMap = Lazy.lazily(() -> lazyAllPartitions.get().entrySet().stream()
                 .collect(Collectors.toMap(
                         Map.Entry::getKey,
@@ -75,14 +79,28 @@ public class HudiSnapshotDirectoryLister
                                 e.getValue(),
                                 tableHandle.getPartitionColumns(),
                                 tableHandle.getPartitionPredicates()))));
+        Lazy<HoodieTableMetaClient> lazyMetaClient = Lazy.lazily(tableHandle::getMetaClient);
+        this.indexSupportOpt = enableMetadataTable ?
+                IndexSupportFactory.createIndexSupport(schemaTableName, lazyMetaClient, lazyTableMetadata, tableHandle.getRegularPredicates(), session) : Optional.empty();
     }
 
     @Override
-    public List<FileSlice> listStatus(HudiPartitionInfo partitionInfo)
+    public List<FileSlice> listStatus(HudiPartitionInfo partitionInfo, boolean useIndex)
     {
         HoodieTimer timer = HoodieTimer.start();
-        ImmutableList<FileSlice> collect = lazyFileSystemView.get()
-                .getLatestFileSlicesBeforeOrOn(partitionInfo.getRelativePartitionPath(), tableHandle.getLatestCommitTime(), false)
+        Stream<FileSlice> slices = lazyFileSystemView.get().getLatestFileSlicesBeforeOrOn(
+                partitionInfo.getRelativePartitionPath(),
+                tableHandle.getLatestCommitTime(),
+                false);
+
+        if (!useIndex) {
+            return slices.collect(toImmutableList());
+        }
+
+        ImmutableList<FileSlice> collect = slices
+                .filter(slice -> indexSupportOpt
+                        .map(indexSupport -> !indexSupport.shouldSkipFileSlice(slice))
+                        .orElse(true))
                 .collect(toImmutableList());
         log.info("Listed partition [%s] on table %s.%s in %s ms",
                 partitionInfo, tableHandle.getSchemaName(), tableHandle.getTableName(), timer.endTimer());

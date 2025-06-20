@@ -16,13 +16,8 @@ package io.trino.plugin.hudi.query.index;
 import io.airlift.log.Logger;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
-import org.apache.hudi.common.model.FileSlice;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
-import org.apache.hudi.metadata.HoodieTableMetadata;
 import org.apache.hudi.util.Lazy;
-
-import java.util.List;
-import java.util.Map;
 
 /**
  * Noop index support to ensure that MDT enabled split generation is entered.
@@ -35,16 +30,6 @@ public class HudiNoOpIndexSupport
     public HudiNoOpIndexSupport(SchemaTableName schemaTableName, Lazy<HoodieTableMetaClient> lazyMetaClient)
     {
         super(log, schemaTableName, lazyMetaClient);
-    }
-
-    @Override
-    public Map<String, List<FileSlice>> lookupCandidateFilesInMetadataTable(
-            HoodieTableMetadata metadataTable,
-            Map<String, List<FileSlice>> inputFileSlices,
-            TupleDomain<String> regularColumnPredicates)
-    {
-        // No-op function, returns the provided fileSlices intact
-        return inputFileSlices;
     }
 
     @Override

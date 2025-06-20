@@ -41,7 +41,9 @@ import org.apache.hudi.common.model.HoodieFileFormat;
 import org.apache.hudi.common.model.HoodieFileGroupId;
 import org.apache.hudi.common.model.HoodieLogFile;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
+import org.apache.hudi.common.table.view.HoodieTableFileSystemView;
 import org.apache.hudi.exception.TableNotFoundException;
+import org.apache.hudi.metadata.HoodieTableMetadata;
 import org.apache.hudi.storage.StoragePath;
 
 import java.io.IOException;
@@ -260,5 +262,13 @@ public final class HudiUtil
                 split.getCommitTime(),
                 baseFile,
                 split.getLogFiles().stream().map(lf -> new HoodieLogFile(lf.getPath())).toList());
+    }
+
+    public static HoodieTableFileSystemView getFileSystemView(
+            HoodieTableMetadata tableMetadata,
+            HoodieTableMetaClient metaClient)
+    {
+        return new HoodieTableFileSystemView(
+                tableMetadata, metaClient, metaClient.getActiveTimeline().getCommitsTimeline().filterCompletedInstants());
     }
 }

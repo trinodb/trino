@@ -33,6 +33,8 @@ import org.apache.hudi.common.util.collection.Pair;
 import java.util.List;
 import java.util.Map;
 
+import static io.trino.plugin.hudi.HudiUtil.getFileSystemView;
+
 /**
  * Reads table statistics of a Hudi table from the metadata table files and column stats partitions.
  */
@@ -50,8 +52,7 @@ public class TableStatisticsReader
         HoodieMetadataConfig metadataConfig = HoodieMetadataConfig.newBuilder().enable(true).build();
         this.tableMetadata = new TableMetadataReader(
                 engineContext, metaClient.getStorage(), metadataConfig, metaClient.getBasePath().toString(), true);
-        this.fileSystemView = new HoodieTableFileSystemView(tableMetadata, metaClient,
-                metaClient.getActiveTimeline().getCommitsTimeline().filterCompletedInstants());
+        this.fileSystemView = getFileSystemView(tableMetadata, metaClient);
     }
 
     public static TableStatisticsReader create(HoodieTableMetaClient metaClient)

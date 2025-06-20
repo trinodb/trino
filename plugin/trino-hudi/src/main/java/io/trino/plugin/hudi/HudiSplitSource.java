@@ -38,6 +38,11 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
+import org.apache.hudi.common.config.HoodieMetadataConfig;
+import org.apache.hudi.common.engine.HoodieEngineContext;
+import org.apache.hudi.common.engine.HoodieLocalEngineContext;
+import org.apache.hudi.common.table.HoodieTableMetaClient;
+import org.apache.hudi.metadata.HoodieTableMetadata;
 import org.apache.hudi.util.Lazy;
 
 import java.util.HashMap;
@@ -87,9 +92,22 @@ public class HudiSplitSource
             Duration dynamicFilteringWaitTimeoutMillis)
     {
         boolean enableMetadataTable = isHudiMetadataTableEnabled(session);
+        Lazy<HoodieTableMetadata> lazyTableMetadata = Lazy.lazily(() -> {
+            HoodieMetadataConfig metadataConfig = HoodieMetadataConfig.newBuilder()
+                    .enable(enableMetadataTable)
+                    .build();
+            HoodieTableMetaClient metaClient = tableHandle.getMetaClient();
+            HoodieEngineContext engineContext = new HoodieLocalEngineContext(metaClient.getStorage().getConf());
+            return HoodieTableMetadata.create(
+                    engineContext,
+                    tableHandle.getMetaClient().getStorage(), metadataConfig, metaClient.getBasePath().toString(), true);
+        });
+
         HudiDirectoryLister hudiDirectoryLister = new HudiSnapshotDirectoryLister(
+                session,
                 tableHandle,
                 enableMetadataTable,
+                lazyTableMetadata,
                 lazyPartitions);
 
         this.queue = new ThrottledAsyncQueue<>(maxSplitsPerSecond, maxOutstandingSplits, executor);
@@ -102,6 +120,7 @@ public class HudiSplitSource
                 createSplitWeightProvider(session),
                 lazyPartitions,
                 enableMetadataTable,
+                lazyTableMetadata,
                 throwable -> {
                     trinoException.compareAndSet(null, new TrinoException(HUDI_CANNOT_OPEN_SPLIT,
                             "Failed to generate splits for " + tableHandle.getSchemaTableName(), throwable));

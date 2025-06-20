@@ -640,6 +640,7 @@ public class TestHudiSmokeTest
         Session session = SessionBuilder.from(getSession())
                 .withMdtEnabled(true)
                 .withColStatsIndexEnabled(true)
+                .withColumnStatsTimeout("1s")
                 .withRecordLevelIndexEnabled(false)
                 .withSecondaryIndexEnabled(false)
                 .withPartitionStatsIndexEnabled(false)
@@ -665,6 +666,7 @@ public class TestHudiSmokeTest
                 .withRecordLevelIndexEnabled(true)
                 .withSecondaryIndexEnabled(false)
                 .withPartitionStatsIndexEnabled(false)
+                .withColumnStatsTimeout("1s")
                 .build();
         MaterializedResult totalRes = getQueryRunner().execute(session, "SELECT * FROM " + table);
         MaterializedResult prunedRes = getQueryRunner().execute(session, "SELECT * FROM " + table
@@ -688,6 +690,7 @@ public class TestHudiSmokeTest
                 .withRecordLevelIndexEnabled(false)
                 .withSecondaryIndexEnabled(true)
                 .withPartitionStatsIndexEnabled(false)
+                .withSecondaryIndexTimeout("10s")
                 .build();
         MaterializedResult totalRes = getQueryRunner().execute(session, "SELECT * FROM " + table);
         MaterializedResult prunedRes = getQueryRunner().execute(session, "SELECT * FROM " + table
