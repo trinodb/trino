@@ -166,6 +166,7 @@ public class TestAccessControl
         queryRunner.createCatalog("blackhole", "blackhole");
         queryRunner.installPlugin(new MemoryPlugin());
         queryRunner.createCatalog("memory", "memory", Map.of());
+        queryRunner.createCatalog("memory_test", "memory", Map.of());
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
         queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
@@ -507,6 +508,9 @@ public class TestAccessControl
 
         systemSecurityMetadata.revokeRoles(getSession(), Set.of("view_owner_role_without_access"), Set.of(viewOwnerPrincipal), false, Optional.empty());
         getQueryRunner().execute(viewOwnerSession, "SELECT * FROM " + viewName);
+        assertQuery(
+                "SELECT * FROM system.metadata.tables_authorization",
+                "VALUES('blackhole', 'default', '%s', 'USER', '%s')".formatted(viewName, viewOwner));
 
         assertAccessAllowed(viewOwnerSession, "DROP VIEW " + viewName);
     }
@@ -1477,6 +1481,165 @@ public class TestAccessControl
                 ViewExpression.builder().expression("nationkey % 2 = 0").build());
 
         assertAccessAllowed(session, "SELECT nationkey FROM nation");
+    }
+
+
+    @Test
+    public void testSchemasAuthorization()
+    {
+        reset();
+
+        String schema1 = "schema_" + randomNameSuffix();
+        String schema2 = "schema_2_" + randomNameSuffix();
+        String schemaOwnerName1 = "schema_owner_1_" + randomNameSuffix();
+        String schemaOwnerName2 = "schema_owner_2_" + randomNameSuffix();
+
+        Session schemaOwner1 = TestingSession.testSessionBuilder()
+                .setIdentity(Identity.ofUser(schemaOwnerName1))
+                .setCatalog(getSession().getCatalog())
+                .setSchema(getSession().getSchema())
+                .build();
+
+        Session schemaOwner2 = TestingSession.testSessionBuilder()
+                .setIdentity(Identity.ofUser(schemaOwnerName2))
+                .setCatalog(getSession().getCatalog())
+                .setSchema(getSession().getSchema())
+                .build();
+
+        getQueryRunner().execute(
+                schemaOwner1,
+                "CREATE SCHEMA memory.%s".formatted(schema1));
+        assertQuery(
+                "SELECT * FROM system.metadata.schemas_authorization",
+                "VALUES('memory', '%s', 'USER', '%s')".formatted(schema1, schemaOwnerName1));
+
+        getQueryRunner().execute(schemaOwner1, "ALTER SCHEMA memory.%s SET AUTHORIZATION %s".formatted(schema1, schemaOwnerName2));
+        assertQuery(
+                "SELECT * FROM system.metadata.schemas_authorization",
+                "VALUES('memory', '%s', 'USER', '%s')".formatted(schema1, schemaOwnerName2));
+
+        getQueryRunner().execute(
+                schemaOwner1,
+                "CREATE SCHEMA memory_test.%s".formatted(schema2));
+        assertQuery(
+                "SELECT * FROM system.metadata.schemas_authorization",
+                "VALUES('memory', '%s', 'USER', '%s'), ('memory_test', '%s', 'USER', '%s')".formatted(schema1, schemaOwnerName2, schema2, schemaOwnerName1));
+        assertQuery(
+                "SELECT * FROM system.metadata.schemas_authorization WHERE catalog = 'memory'",
+                "VALUES('memory', '%s', 'USER', '%s')".formatted(schema1, schemaOwnerName2));
+        assertQuery(
+                "SELECT * FROM system.metadata.schemas_authorization WHERE catalog = 'memory_test'",
+                "VALUES('memory_test', '%s', 'USER', '%s')".formatted(schema2, schemaOwnerName1));
+
+        getQueryRunner().execute(schemaOwner2, "DROP SCHEMA memory.%s".formatted(schema1));
+        getQueryRunner().execute(schemaOwner1, "DROP SCHEMA memory_test.%s".formatted(schema2));
+        assertQueryReturnsEmptyResult("SELECT * FROM system.metadata.schemas_authorization");
+    }
+
+    @Test
+    public void testTablesAuthorization()
+    {
+        reset();
+
+        String table1 = "table_name_" + randomNameSuffix();
+        String table2 = "table_name_2_" + randomNameSuffix();
+        String view = "view_name_" + randomNameSuffix();
+        String tableOwnerName1 = "table_owner_1_" + randomNameSuffix();
+        String tableOwnerName2 = "table_owner_2_" + randomNameSuffix();
+
+        Session tableOwner1 = TestingSession.testSessionBuilder()
+                .setIdentity(Identity.ofUser(tableOwnerName1))
+                .setCatalog(getSession().getCatalog())
+                .setSchema(getSession().getSchema())
+                .build();
+
+        Session tableOwner2 = TestingSession.testSessionBuilder()
+                .setIdentity(Identity.ofUser(tableOwnerName2))
+                .setCatalog(getSession().getCatalog())
+                .setSchema(getSession().getSchema())
+                .build();
+
+        getQueryRunner().execute(tableOwner1, "CREATE TABLE memory.default.%s (id INT)".formatted(table1));
+        assertQuery(
+                "SELECT * FROM system.metadata.tables_authorization",
+                "VALUES('memory', 'default', '%s', 'USER', '%s')".formatted(table1, tableOwnerName1));
+
+        getQueryRunner().execute(tableOwner1, "ALTER TABLE memory.default.%s SET AUTHORIZATION %s".formatted(table1, tableOwnerName2));
+        assertQuery(
+                "SELECT * FROM system.metadata.tables_authorization",
+                "VALUES('memory', 'default', '%s', 'USER', '%s')".formatted(table1, tableOwnerName2));
+
+        getQueryRunner().execute(tableOwner1, "CREATE VIEW memory.default.%s AS SELECT * FROM memory.default.%s".formatted(view, table1));
+        assertQuery(
+                "SELECT * FROM system.metadata.tables_authorization",
+                "VALUES('memory', 'default', '%s', 'USER', '%s'), ('memory', 'default', '%s', 'USER', '%s')".formatted(table1, tableOwnerName2, view, tableOwnerName1));
+
+        getQueryRunner().execute(tableOwner1, "CREATE TABLE memory_test.default.%s (id INT)".formatted(table2));
+        assertQuery(
+                "SELECT * FROM system.metadata.tables_authorization WHERE catalog = 'memory'",
+                "VALUES('memory', 'default', '%s', 'USER', '%s'), ('memory', 'default', '%s', 'USER', '%s')".formatted(table1, tableOwnerName2, view, tableOwnerName1));
+        assertQuery(
+                "SELECT * FROM system.metadata.tables_authorization",
+                "VALUES('memory', 'default', '%s', 'USER', '%s'), ('memory', 'default', '%s', 'USER', '%s'), ('memory_test', 'default', '%s', 'USER', '%s')".formatted(table1, tableOwnerName2, view, tableOwnerName1, table2, tableOwnerName1));
+        assertQuery(
+                "SELECT * FROM system.metadata.tables_authorization WHERE catalog = 'memory_test'",
+                "VALUES('memory_test', 'default', '%s', 'USER', '%s')".formatted(table2, tableOwnerName1));
+
+        getQueryRunner().execute(tableOwner2, "DROP TABLE memory.default." + table1);
+        getQueryRunner().execute(tableOwner1, "DROP TABLE memory_test.default." + table2);
+        getQueryRunner().execute(tableOwner1, "DROP VIEW memory.default." + view);
+        assertQueryReturnsEmptyResult("SELECT * FROM system.metadata.tables_authorization");
+    }
+
+    @Test
+    public void testFunctionsAuthorization()
+    {
+        reset();
+
+        String function = "function_" + randomNameSuffix();
+        String functionOwnerName1 = "function_owner_1_" + randomNameSuffix();
+        String functionOwnerName2 = "function_owner_2_" + randomNameSuffix();
+
+        Session functionOwner1 = TestingSession.testSessionBuilder()
+                .setIdentity(Identity.ofUser(functionOwnerName1))
+                .setCatalog(getSession().getCatalog())
+                .setSchema(getSession().getSchema())
+                .build();
+
+        Session functionOwner2 = TestingSession.testSessionBuilder()
+                .setIdentity(Identity.ofUser(functionOwnerName2))
+                .setCatalog(getSession().getCatalog())
+                .setSchema(getSession().getSchema())
+                .build();
+
+        getQueryRunner().execute(
+                functionOwner1,
+                "CREATE FUNCTION memory.default.%s (x integer) RETURNS bigint RETURN x + 42".formatted(function));
+        assertQuery(
+                "SELECT * FROM system.metadata.functions_authorization",
+                "VALUES('memory', 'default', '%s', 'USER', '%s')".formatted(function, functionOwnerName1));
+
+        getQueryRunner().execute(functionOwner1, "ALTER FUNCTION memory.default.%s SET AUTHORIZATION %s".formatted(function, functionOwnerName2));
+        assertQuery(
+                "SELECT * FROM system.metadata.functions_authorization",
+                "VALUES('memory', 'default', '%s', 'USER', '%s')".formatted(function, functionOwnerName2));
+
+        getQueryRunner().execute(
+                functionOwner1,
+                "CREATE FUNCTION memory_test.default.%s (x integer) RETURNS bigint RETURN x + 42".formatted(function));
+        assertQuery(
+                "SELECT * FROM system.metadata.functions_authorization",
+                "VALUES('memory', 'default', '%s', 'USER', '%s'), ('memory_test', 'default', '%s', 'USER', '%s')".formatted(function, functionOwnerName2, function, functionOwnerName1));
+        assertQuery(
+                "SELECT * FROM system.metadata.functions_authorization WHERE catalog = 'memory'",
+                "VALUES('memory', 'default', '%s', 'USER', '%s')".formatted(function, functionOwnerName2));
+        assertQuery(
+                "SELECT * FROM system.metadata.functions_authorization WHERE catalog = 'memory_test'",
+                "VALUES('memory_test', 'default', '%s', 'USER', '%s')".formatted(function, functionOwnerName1));
+
+        getQueryRunner().execute(functionOwner2, "DROP FUNCTION memory.default.%s(integer)".formatted(function));
+        getQueryRunner().execute(functionOwner1, "DROP FUNCTION memory_test.default.%s(integer)".formatted(function));
+        assertQueryReturnsEmptyResult("SELECT * FROM system.metadata.functions_authorization");
     }
 
     private static final class DenySetPropertiesSystemAccessControl
