@@ -237,6 +237,8 @@ public class Analysis
     private final Multiset<ColumnMaskScopeEntry> columnMaskScopes = HashMultiset.create();
     private final Map<NodeRef<Table>, Map<Field, Expression>> columnMasks = new LinkedHashMap<>();
 
+    private final Map<NodeRef<Table>, Map<ColumnHandle, Expression>> defaultColumnValues = new LinkedHashMap<>();
+
     private final Map<NodeRef<Unnest>, UnnestAnalysis> unnestAnalysis = new LinkedHashMap<>();
     private Optional<Create> create = Optional.empty();
     private Optional<Insert> insert = Optional.empty();
@@ -1187,6 +1189,19 @@ public class Analysis
         return unmodifiableMap(columnMasks.getOrDefault(NodeRef.of(table), ImmutableMap.of()));
     }
 
+    public void addDefaultColumnValue(Table table, ColumnHandle column, Expression defaultValue)
+    {
+        Map<ColumnHandle, Expression> defaultValues = defaultColumnValues.computeIfAbsent(NodeRef.of(table), _ -> new LinkedHashMap<>());
+        checkArgument(!defaultValues.containsKey(column), "Default column value already exists for column");
+
+        defaultValues.put(column, defaultValue);
+    }
+
+    public Map<ColumnHandle, Expression> getDefaultColumnValue(Table table)
+    {
+        return unmodifiableMap(defaultColumnValues.getOrDefault(NodeRef.of(table), ImmutableMap.of()));
+    }
+
     public List<TableInfo> getReferencedTables()
     {
         return tables.entrySet().stream()
@@ -1874,7 +1889,7 @@ public class Analysis
         private final List<List<ColumnHandle>> mergeCaseColumnHandles;
         // Case number map to columns
         private final Multimap<Integer, ColumnHandle> updateCaseColumnHandles;
-        private final Map<ColumnHandle, io.trino.sql.ir.Expression> defaultColumnValues;
+        private final Map<ColumnHandle, Expression> defaultColumnValues;
         private final Set<ColumnHandle> nonNullableColumnHandles;
         private final Map<ColumnHandle, Integer> columnHandleFieldNumbers;
         private final RowType mergeRowType;
@@ -1891,7 +1906,7 @@ public class Analysis
                 List<ColumnHandle> redistributionColumnHandles,
                 List<List<ColumnHandle>> mergeCaseColumnHandles,
                 Multimap<Integer, ColumnHandle> updateCaseColumnHandles,
-                Map<ColumnHandle, io.trino.sql.ir.Expression> defaultColumnValues,
+                Map<ColumnHandle, Expression> defaultColumnValues,
                 Set<ColumnHandle> nonNullableColumnHandles,
                 Map<ColumnHandle, Integer> columnHandleFieldNumbers,
                 RowType mergeRowType,
@@ -1948,7 +1963,7 @@ public class Analysis
             return updateCaseColumnHandles;
         }
 
-        public Map<ColumnHandle, io.trino.sql.ir.Expression> getDefaultColumnValues()
+        public Map<ColumnHandle, Expression> getDefaultColumnValues()
         {
             return defaultColumnValues;
         }

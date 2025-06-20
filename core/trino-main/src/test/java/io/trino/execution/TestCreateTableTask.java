@@ -30,7 +30,6 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.expression.Constant;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
@@ -61,7 +60,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
-import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
@@ -223,7 +221,7 @@ class TestCreateTableTask
     {
         List<TableElement> inputColumns = ImmutableList.<TableElement>builder()
                 .add(new ColumnDefinition(QualifiedName.of("a"), toSqlType(DATE), true, emptyList(), Optional.empty()))
-                .add(new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.of("b"), toSqlType(VARCHAR), Optional.of(new StringLiteral(new NodeLocation(1, 1), "test default")), true, emptyList(), Optional.empty()))
+                .add(new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.of("b"), toSqlType(VARCHAR), Optional.of(new StringLiteral(new NodeLocation(1, 1), "test default").toString()), true, emptyList(), Optional.empty()))
                 .build();
         CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("test_table_default_columns"), inputColumns, IGNORE, ImmutableList.of(), Optional.empty());
 
@@ -237,7 +235,7 @@ class TestCreateTableTask
             assertThat(columns.get(0).getDefaultValue()).isEmpty();
 
             assertThat(columns.get(1).getName()).isEqualTo("b");
-            assertThat(columns.get(1).getDefaultValue()).contains(new Constant(utf8Slice("test default"), VARCHAR));
+            assertThat(columns.get(1).getDefaultValue()).contains("test default");
             return null;
         });
     }
@@ -246,7 +244,7 @@ class TestCreateTableTask
     void testCreateWithDefaultColumnTypeCoercion()
     {
         List<TableElement> varcharColumn = ImmutableList.<TableElement>builder()
-                .add(new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.of("double_col"), toSqlType(DOUBLE), Optional.of(new LongLiteral(new NodeLocation(1, 1), "123")), true, emptyList(), Optional.empty()))
+                .add(new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.of("double_col"), toSqlType(DOUBLE), Optional.of(new LongLiteral(new NodeLocation(1, 1), "123").toString()), true, emptyList(), Optional.empty()))
                 .build();
 
         CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("test_table_default_columns"), varcharColumn, IGNORE, ImmutableList.of(), Optional.empty());
@@ -258,7 +256,7 @@ class TestCreateTableTask
             assertThat(columns).hasSize(1);
 
             assertThat(columns.get(0).getName()).isEqualTo("double_col");
-            assertThat(columns.get(0).getDefaultValue()).contains(new Constant(123.0, DOUBLE));
+            assertThat(columns.get(0).getDefaultValue()).contains("1.23E2");
             return null;
         });
     }
@@ -267,7 +265,7 @@ class TestCreateTableTask
     void testCreateWithDefaultColumnSupportedTypeCoercion()
     {
         List<TableElement> varcharColumn = ImmutableList.<TableElement>builder()
-                .add(new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.of("varchar_col"), toSqlType(createVarcharType(4)), Optional.of(new StringLiteral(new NodeLocation(1, 1), "abcde")), true, emptyList(), Optional.empty()))
+                .add(new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.of("varchar_col"), toSqlType(createVarcharType(4)), Optional.of(new StringLiteral(new NodeLocation(1, 1), "abcde").toString()), true, emptyList(), Optional.empty()))
                 .build();
 
         CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("test_table_default_columns"), varcharColumn, IGNORE, ImmutableList.of(), Optional.empty());
@@ -282,7 +280,7 @@ class TestCreateTableTask
 
             assertThat(columns.getFirst().getName()).isEqualTo("varchar_col");
             assertThat(columns.getFirst().getType()).isEqualTo(VARCHAR);
-            assertThat(columns.getFirst().getDefaultValue()).contains(new Constant(utf8Slice("abcde"), VARCHAR));
+            assertThat(columns.getFirst().getDefaultValue()).contains("abcde");
             return null;
         });
     }
@@ -291,7 +289,7 @@ class TestCreateTableTask
     void testCreateWithDefaultColumnUnsupportedTypeCoercion()
     {
         List<TableElement> varcharColumn = ImmutableList.<TableElement>builder()
-                .add(new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.of("char_col"), toSqlType(createCharType(4)), Optional.of(new StringLiteral(new NodeLocation(1, 1), "abcde")), true, emptyList(), Optional.empty()))
+                .add(new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.of("char_col"), toSqlType(createCharType(4)), Optional.of(new StringLiteral(new NodeLocation(1, 1), "abcde").toString()), true, emptyList(), Optional.empty()))
                 .build();
 
         CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("test_table_default_columns"), varcharColumn, IGNORE, ImmutableList.of(), Optional.empty());
@@ -310,7 +308,7 @@ class TestCreateTableTask
     {
         List<TableElement> inputColumns = ImmutableList.<TableElement>builder()
                 .add(new ColumnDefinition(QualifiedName.of("a"), toSqlType(DATE), true, emptyList(), Optional.empty()))
-                .add(new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.of("b"), toSqlType(BIGINT), Optional.of(new StringLiteral(new NodeLocation(1, 1), "invalid")), true, emptyList(), Optional.empty()))
+                .add(new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.of("b"), toSqlType(BIGINT), Optional.of(new StringLiteral(new NodeLocation(1, 1), "invalid").toString()), true, emptyList(), Optional.empty()))
                 .build();
         CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("test_table_default_columns"), inputColumns, IGNORE, ImmutableList.of(), Optional.empty());
 
@@ -328,7 +326,7 @@ class TestCreateTableTask
     {
         List<TableElement> inputColumns = ImmutableList.<TableElement>builder()
                 .add(new ColumnDefinition(QualifiedName.of("a"), toSqlType(DATE), true, emptyList(), Optional.empty()))
-                .add(new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.of("b"), toSqlType(VARCHAR), Optional.of(new StringLiteral(new NodeLocation(1, 1), "test default")), true, emptyList(), Optional.empty()))
+                .add(new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.of("b"), toSqlType(VARCHAR), Optional.of(new StringLiteral(new NodeLocation(1, 1), "test default").toString()), true, emptyList(), Optional.empty()))
                 .build();
         CreateTable statement = new CreateTable(
                 new NodeLocation(1, 1),

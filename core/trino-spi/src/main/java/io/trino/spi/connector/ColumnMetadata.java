@@ -13,7 +13,6 @@
  */
 package io.trino.spi.connector;
 
-import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
 
@@ -32,7 +31,7 @@ public class ColumnMetadata
 {
     private final String name;
     private final Type type;
-    private final Optional<ConnectorExpression> defaultValue;
+    private final Optional<String> defaultValue;
     private final boolean nullable;
     private final String comment;
     private final String extraInfo;
@@ -47,7 +46,7 @@ public class ColumnMetadata
     private ColumnMetadata(
             String name,
             Type type,
-            Optional<ConnectorExpression> defaultValue,
+            Optional<String> defaultValue,
             boolean nullable,
             String comment,
             String extraInfo,
@@ -58,9 +57,6 @@ public class ColumnMetadata
         requireNonNull(type, "type is null");
         requireNonNull(defaultValue, "defaultValue is null");
         requireNonNull(properties, "properties is null");
-        if (defaultValue.isPresent() && !defaultValue.get().getType().equals(type)) {
-            throw new IllegalArgumentException("Default value type '%s' does not match column type '%s'".formatted(defaultValue.get().getType(), type));
-        }
 
         this.name = name.toLowerCase(ENGLISH);
         this.type = type;
@@ -82,7 +78,7 @@ public class ColumnMetadata
         return type;
     }
 
-    public Optional<ConnectorExpression> getDefaultValue()
+    public Optional<String> getDefaultValue()
     {
         return defaultValue;
     }
@@ -181,7 +177,7 @@ public class ColumnMetadata
     {
         private String name;
         private Type type;
-        private Optional<ConnectorExpression> defaultValue = Optional.empty();
+        private Optional<String> defaultValue = Optional.empty();
         private boolean nullable = true;
         private Optional<String> comment = Optional.empty();
         private Optional<String> extraInfo = Optional.empty();
@@ -213,7 +209,7 @@ public class ColumnMetadata
             return this;
         }
 
-        public Builder setDefaultValue(Optional<ConnectorExpression> defaultValue)
+        public Builder setDefaultValue(Optional<String> defaultValue)
         {
             this.defaultValue = requireNonNull(defaultValue, "defaultValue is null");
             return this;

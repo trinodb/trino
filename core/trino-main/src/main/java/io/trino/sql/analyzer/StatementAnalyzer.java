@@ -72,8 +72,6 @@ import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.PointerType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableProcedureMetadata;
-import io.trino.spi.expression.ConnectorExpression;
-import io.trino.spi.expression.Constant;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.FunctionKind;
 import io.trino.spi.function.OperatorType;
@@ -331,6 +329,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_CHECK_CONSTRAINT;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_MASK;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
 import static io.trino.spi.StandardErrorCode.INVALID_COPARTITIONING;
+import static io.trino.spi.StandardErrorCode.INVALID_DEFAULT_COLUMN_VALUE;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_LIMIT_CLAUSE;
 import static io.trino.spi.StandardErrorCode.INVALID_ORDER_BY;
@@ -407,7 +406,6 @@ import static io.trino.sql.analyzer.ScopeReferenceExtractor.getReferencesToScope
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
-import static io.trino.sql.planner.ConnectorExpressionTranslator.translate;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.DereferenceExpression.getQualifiedName;
 import static io.trino.sql.tree.Join.Type.FULL;
@@ -612,6 +610,7 @@ class StatementAnalyzer
                     .build();
             analyzeFiltersAndMasks(insert.getTable(), targetTable, new RelationType(tableFields), accessControlScope);
             analyzeCheckConstraints(insert.getTable(), targetTable, accessControlScope, checkConstraints);
+            analyzeDefaultColumnValues(insert.getTable(), targetTableHandle.get(), columnHandles.values(), queryScope);
             analysis.registerTable(insert.getTable(), targetTableHandle, targetTable, session.getIdentity().getUser(), accessControlScope, Optional.empty());
 
             List<String> tableColumns = columns.stream()
@@ -2411,6 +2410,26 @@ class StatementAnalyzer
             }
         }
 
+        private void analyzeDefaultColumnValues(Table table, TableHandle tableHandle, Collection<ColumnHandle> tableFields, Scope scope)
+        {
+            for (ColumnHandle columnHandle : tableFields) {
+                ColumnMetadata columnMetadata = metadata.getColumnMetadata(session, tableHandle, columnHandle);
+                columnMetadata.getDefaultValue().ifPresent(defaultValue -> {
+                    Expression expression;
+                    try {
+                        expression = sqlParser.createExpression(defaultValue);
+                    }
+                    catch (ParsingException e) {
+                        throw new TrinoException(INVALID_DEFAULT_COLUMN_VALUE, extractLocation(table), format("Invalid default column value for '%s': %s", columnMetadata.getName(), e.getErrorMessage()), e);
+                    }
+
+                    analyzeExpression(expression, scope);
+                    analysis.addCoercion(expression, columnMetadata.getType());
+                    analysis.addDefaultColumnValue(table, columnHandle, expression);
+                });
+            }
+        }
+
         private boolean checkCanSelectFromColumn(QualifiedObjectName name, String column)
         {
             try {
@@ -3615,6 +3634,7 @@ class StatementAnalyzer
             }
 
             Map<String, ColumnHandle> allColumnHandles = metadata.getColumnHandles(session, targetTableHandle);
+            analyzeDefaultColumnValues(table, targetTableHandle, allColumnHandles.values(), targetTableScope);
 
             Map<String, Type> dataColumnTypes = dataColumnSchemas.stream().collect(toImmutableMap(ColumnSchema::getName, ColumnSchema::getType));
 
@@ -3773,16 +3793,13 @@ class StatementAnalyzer
                     .map(fieldIndexes::get)
                     .collect(toImmutableList());
 
+            Map<ColumnHandle, Expression> allDefaultColumnValues = analysis.getDefaultColumnValue(table);
             ImmutableSet.Builder<ColumnHandle> nonNullableColumnHandles = ImmutableSet.builder();
-            ImmutableMap.Builder<ColumnHandle, io.trino.sql.ir.Expression> defaultColumnValues = ImmutableMap.builder();
+            ImmutableMap.Builder<ColumnHandle, Expression> defaultColumnValues = ImmutableMap.builder();
             for (ColumnMetadata column : metadata.getTableMetadata(session, handle).columns()) {
                 ColumnHandle columnHandle = allColumnHandles.get(column.getName());
                 if (column.getDefaultValue().isPresent()) {
-                    ConnectorExpression defaultExpression = column.getDefaultValue().get();
-                    if (!(defaultExpression instanceof Constant)) {
-                        throw semanticException(NOT_SUPPORTED, table, "Unsupported default expression: %s", defaultExpression);
-                    }
-                    defaultColumnValues.put(columnHandle, translate(session, defaultExpression, plannerContext, Map.of()));
+                    defaultColumnValues.put(columnHandle, allDefaultColumnValues.get(columnHandle));
                 }
                 if (!column.isNullable()) {
                     nonNullableColumnHandles.add(columnHandle);

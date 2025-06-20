@@ -27,7 +27,6 @@ import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorCapabilities;
 import io.trino.spi.connector.ConnectorTableMetadata;
-import io.trino.spi.expression.Constant;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
@@ -54,7 +53,6 @@ import java.util.Set;
 
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
-import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.StandardErrorCode.AMBIGUOUS_NAME;
 import static io.trino.spi.StandardErrorCode.COLUMN_ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
@@ -166,7 +164,7 @@ public class TestAddColumnTask
                 new NodeLocation(1, 1),
                 QualifiedName.of("new_col"),
                 toSqlType(INTEGER),
-                Optional.of(new LongLiteral(new NodeLocation(1, 1), "123")),
+                Optional.of(new LongLiteral(new NodeLocation(1, 1), "123").toString()),
                 true,
                 ImmutableList.of(),
                 Optional.empty());
@@ -179,7 +177,7 @@ public class TestAddColumnTask
         assertThat(columns.get(0).getName()).isEqualTo("test");
 
         assertThat(columns.get(1).getName()).isEqualTo("new_col");
-        assertThat(columns.get(1).getDefaultValue()).contains(new Constant(123L, INTEGER));
+        assertThat(columns.get(1).getDefaultValue()).contains("123");
     }
 
     @Test
@@ -195,7 +193,7 @@ public class TestAddColumnTask
                 new NodeLocation(1, 1),
                 QualifiedName.of("new_col"),
                 toSqlType(DOUBLE),
-                Optional.of(new LongLiteral(new NodeLocation(1, 1), "123")),
+                Optional.of(new LongLiteral(new NodeLocation(1, 1), "123").toString()),
                 true,
                 ImmutableList.of(),
                 Optional.empty());
@@ -208,7 +206,7 @@ public class TestAddColumnTask
         assertThat(columns.get(0).getName()).isEqualTo("test");
 
         assertThat(columns.get(1).getName()).isEqualTo("new_col");
-        assertThat(columns.get(1).getDefaultValue()).contains(new Constant(123.0, DOUBLE));
+        assertThat(columns.get(1).getDefaultValue()).contains("1.23E2");
     }
 
     @Test
@@ -224,7 +222,7 @@ public class TestAddColumnTask
                 new NodeLocation(1, 1),
                 QualifiedName.of("new_varchar_col"),
                 toSqlType(createVarcharType(4)),
-                Optional.of(new StringLiteral(new NodeLocation(1, 1), "abcde")),
+                Optional.of(new StringLiteral(new NodeLocation(1, 1), "abcde").toString()),
                 true,
                 ImmutableList.of(),
                 Optional.empty());
@@ -239,7 +237,7 @@ public class TestAddColumnTask
 
         assertThat(columns.get(1).getName()).isEqualTo("new_varchar_col");
         assertThat(columns.get(1).getType()).isEqualTo(VARCHAR);
-        assertThat(columns.get(1).getDefaultValue()).contains(new Constant(utf8Slice("abcde"), VARCHAR));
+        assertThat(columns.get(1).getDefaultValue()).contains("abcde");
     }
 
     @Test
@@ -255,7 +253,7 @@ public class TestAddColumnTask
                 new NodeLocation(1, 1),
                 QualifiedName.of("new_char_col"),
                 toSqlType(createCharType(4)),
-                Optional.of(new StringLiteral(new NodeLocation(1, 1), "abcde")),
+                Optional.of(new StringLiteral(new NodeLocation(1, 1), "abcde").toString()),
                 true,
                 ImmutableList.of(),
                 Optional.empty());
@@ -279,7 +277,7 @@ public class TestAddColumnTask
                 new NodeLocation(1, 1),
                 QualifiedName.of("new_col"),
                 toSqlType(INTEGER),
-                Optional.of(new NullLiteral(new NodeLocation(1, 1))),
+                Optional.of(new NullLiteral(new NodeLocation(1, 1)).toString()),
                 false,
                 ImmutableList.of(),
                 Optional.empty());
@@ -292,7 +290,7 @@ public class TestAddColumnTask
         assertThat(columns.get(0).getName()).isEqualTo("test");
 
         assertThat(columns.get(1).getName()).isEqualTo("new_col");
-        assertThat(columns.get(1).getDefaultValue()).contains(new Constant(null, INTEGER));
+        assertThat(columns.get(1).getDefaultValue()).isEmpty();
     }
 
     @Test
@@ -308,7 +306,7 @@ public class TestAddColumnTask
                 new NodeLocation(1, 1),
                 QualifiedName.of("new_col"),
                 toSqlType(BIGINT),
-                Optional.of(new StringLiteral(new NodeLocation(1, 1), "invalid")),
+                Optional.of(new StringLiteral(new NodeLocation(1, 1), "invalid").toString()),
                 true,
                 ImmutableList.of(),
                 Optional.empty());
@@ -335,7 +333,7 @@ public class TestAddColumnTask
                 new NodeLocation(1, 1),
                 QualifiedName.of("new_col"),
                 toSqlType(INTEGER),
-                Optional.of(new LongLiteral(new NodeLocation(1, 1), "123")),
+                Optional.of(new LongLiteral(new NodeLocation(1, 1), "123").toString()),
                 true,
                 ImmutableList.of(),
                 Optional.empty());

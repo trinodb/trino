@@ -50,7 +50,6 @@ import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
-import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.statistics.TableStatistics;
@@ -150,7 +149,6 @@ import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
-import static io.trino.sql.planner.ConnectorExpressionTranslator.translate;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.sql.planner.PlanBuilder.newPlanBuilder;
@@ -520,7 +518,10 @@ public class LogicalPlanner
 
         List<Symbol> visibleFieldMappings = visibleFields(plan);
 
+        PlanBuilder planBuilder = newPlanBuilder(plan, analysis, ImmutableMap.of(), ImmutableMap.of(), session, plannerContext);
+
         Map<String, ColumnHandle> columns = metadata.getColumnHandles(session, tableHandle);
+        Map<ColumnHandle, io.trino.sql.tree.Expression> defaultColumnValues = analysis.getDefaultColumnValue(table);
         Assignments.Builder assignments = Assignments.builder();
         boolean supportsMissingColumnsOnInsert = metadata.supportsMissingColumnsOnInsert(session, tableHandle);
         ImmutableList.Builder<ColumnMetadata> insertedColumnsBuilder = ImmutableList.builder();
@@ -532,17 +533,16 @@ public class LogicalPlanner
             Symbol output = symbolAllocator.newSymbol(column.getName(), column.getType());
             Expression expression;
             Type tableType = column.getType();
-            int index = insertColumns.indexOf(columns.get(column.getName()));
+            ColumnHandle columnHandle = columns.get(column.getName());
+            int index = insertColumns.indexOf(columnHandle);
             if (index < 0) {
                 if (supportsMissingColumnsOnInsert) {
                     continue;
                 }
                 if (column.getDefaultValue().isPresent()) {
-                    ConnectorExpression defaultExpression = column.getDefaultValue().get();
-                    if (!(defaultExpression instanceof io.trino.spi.expression.Constant)) {
-                        throw semanticException(NOT_SUPPORTED, table, "Unsupported default expression: %s", defaultExpression);
-                    }
-                    expression = translate(session, defaultExpression, plannerContext, Map.of());
+                    io.trino.sql.tree.Expression defaultExpression = defaultColumnValues.get(columnHandle);
+                    expression = planBuilder.rewrite(defaultExpression);
+                    expression = noTruncationCast(metadata, expression, expression.type(), tableType);
                 }
                 else {
                     expression = new Constant(column.getType(), null);

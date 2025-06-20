@@ -786,7 +786,7 @@ class QueryPlanner
         Metadata metadata = plannerContext.getMetadata();
         List<ColumnSchema> dataColumnSchemas = mergeAnalysis.getDataColumnSchemas();
         ImmutableList.Builder<WhenClause> whenClauses = ImmutableList.builder();
-        Map<ColumnHandle, Expression> defaultColumnValues = mergeAnalysis.getDefaultColumnValues();
+        Map<ColumnHandle, io.trino.sql.tree.Expression> defaultColumnValues = mergeAnalysis.getDefaultColumnValues();
         Set<ColumnHandle> nonNullableColumnHandles = mergeAnalysis.getNonNullableColumnHandles();
         for (int caseNumber = 0; caseNumber < merge.getMergeCases().size(); caseNumber++) {
             MergeCase mergeCase = merge.getMergeCases().get(caseNumber);
@@ -823,7 +823,8 @@ class QueryPlanner
                     if (mergeCase instanceof MergeInsert) {
                         ColumnSchema columnSchema = dataColumnSchemas.get(fieldNumber);
                         if (defaultColumnValues.containsKey(dataColumnHandle)) {
-                            expression = defaultColumnValues.get(dataColumnHandle);
+                            io.trino.sql.tree.Expression defaultExpression = defaultColumnValues.get(dataColumnHandle);
+                            expression = subPlan.rewrite(defaultExpression);
                         }
                         if (nonNullableColumnHandles.contains(dataColumnHandle)) {
                             String columnName = columnSchema.getName();
