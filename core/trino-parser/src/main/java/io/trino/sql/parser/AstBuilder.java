@@ -3046,6 +3046,9 @@ class AstBuilder
     @Override
     public Node visitColumnDefinition(SqlBaseParser.ColumnDefinitionContext context)
     {
+        // TODO: Converting to String so ShowQueriesRewrite can pass the default value as-is
+        Optional<String> defaultValue = visitIfPresent(context.literal(), Expression.class).map(Expression::toString);
+
         Optional<String> comment = Optional.empty();
         if (context.COMMENT() != null) {
             comment = Optional.of(visitString(context.string()).getValue());
@@ -3062,6 +3065,7 @@ class AstBuilder
                 getLocation(context),
                 getQualifiedName(context.qualifiedName()),
                 (DataType) visit(context.type()),
+                defaultValue,
                 nullable,
                 properties,
                 comment);

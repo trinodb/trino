@@ -977,7 +977,7 @@ public class PlanTester
                         new DescribeOutputRewrite(sqlParser),
                         new ShowQueriesRewrite(
                                 new SqlEnvironmentConfig(),
-                                plannerContext.getMetadata(),
+                                plannerContext,
                                 sqlParser,
                                 accessControl,
                                 sessionPropertyManager,

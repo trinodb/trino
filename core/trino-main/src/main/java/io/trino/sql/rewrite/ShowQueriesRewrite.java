@@ -51,6 +51,7 @@ import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.Type;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.SqlEnvironmentConfig;
 import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.parser.ParsingException;
@@ -167,6 +168,7 @@ import static java.util.stream.Collectors.toList;
 public final class ShowQueriesRewrite
         implements StatementRewrite.Rewrite
 {
+    private final PlannerContext plannerContext;
     private final Metadata metadata;
     private final SqlParser parser;
     private final AccessControl accessControl;
@@ -181,7 +183,7 @@ public final class ShowQueriesRewrite
     @Inject
     public ShowQueriesRewrite(
             SqlEnvironmentConfig sqlEnvironmentConfig,
-            Metadata metadata,
+            PlannerContext plannerContext,
             SqlParser parser,
             AccessControl accessControl,
             SessionPropertyManager sessionPropertyManager,
@@ -191,7 +193,8 @@ public final class ShowQueriesRewrite
             ViewPropertyManager viewPropertyManager,
             MaterializedViewPropertyManager materializedViewPropertyManager)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+        this.metadata = requireNonNull(plannerContext.getMetadata(), "metadata is null");
         this.parser = requireNonNull(parser, "parser is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
@@ -639,6 +642,7 @@ public final class ShowQueriesRewrite
                         return new ColumnDefinition(
                                 QualifiedName.of(column.getName()),
                                 toSqlType(column.getType()),
+                                column.getDefaultValue(),
                                 column.isNullable(),
                                 propertyNodes,
                                 Optional.ofNullable(column.getComment()));
