@@ -56,6 +56,7 @@ import java.util.stream.Collectors;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.trino.metastore.Partitions.makePartName;
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getHiveBasicStatistics;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -915,6 +916,231 @@ abstract class BaseTestHiveOnDataLake
         assertQuery(
                 format("SELECT name FROM %s", fullyQualifiedTestTableName),
                 "VALUES ('POLAND_1'), ('POLAND_2'), ('CZECH_1'), ('CZECH_2')");
+    }
+
+    @Test
+    void testReadDatePartitionProjectionWithFormat()
+    {
+        String tableName = "partition_projection_read_custom_date" + randomNameSuffix();
+        String fullyQualifiedTestTableName = getFullyQualifiedTestTableName(tableName);
+        String tablePath = format("%s/%s/", HIVE_TEST_SCHEMA, tableName);
+
+        computeActual(
+                "CREATE TABLE " + fullyQualifiedTestTableName + " ( " +
+                        "  name varchar(25), " +
+                        "  comment varchar(152), " +
+                        "  dt DATE WITH (" +
+                        "    partition_projection_format='yyyy/MM/dd',\n" +
+                        "    partition_projection_interval=1,\n" +
+                        "    partition_projection_interval_unit='DAYS', \n" +
+                        "    partition_projection_range=ARRAY['2025/01/01', '2025/01/30'], \n" +
+                        "    partition_projection_type='date'" +
+                        "  ), " +
+                        "  ts timestamp WITH (" +
+                        "    partition_projection_type='date', " +
+                        "    partition_projection_format='yyyy/M/dd HH@mm@ss', " +
+                        "    partition_projection_range=ARRAY['2025/1/20 00@00@00', '2025/1/21 00@00@00'], " +
+                        "    partition_projection_interval=1, " +
+                        "    partition_projection_interval_unit='HOURS'" +
+                        "  )" +
+                        ") WITH ( " +
+                        "  partitioned_by=ARRAY['dt','ts'], " +
+                        "  partition_projection_enabled=true, " +
+                        "  format='TEXTFILE')");
+
+        assertThat(
+                hiveMinioDataLake
+                        .runOnHive("SHOW TBLPROPERTIES " + getHiveTestTableName(tableName)))
+                .containsPattern("[ |]+projection\\.enabled[ |]+true[ |]+")
+                .containsPattern("[ |]+projection\\.dt\\.type[ |]+date[ |]+")
+                .containsPattern("[ |]+projection\\.dt\\.format[ |]+yyyy/MM/dd[ |]+")
+                .containsPattern("[ |]+projection\\.dt\\.interval.unit[ |]+days[ |]+")
+                .containsPattern("[ |]+projection\\.dt\\.range[ |]+2025/01/01,2025/01/30[ |]+")
+                .containsPattern("[ |]+projection\\.ts\\.type[ |]+date[ |]+")
+                .containsPattern("[ |]+projection\\.ts\\.format[ |]+yyyy/M/dd HH@mm@ss[ |]+")
+                .containsPattern("[ |]+projection\\.ts\\.interval.unit[ |]+hours[ |]+")
+                .containsPattern("[ |]+projection\\.ts\\.range[ |]+2025/1/20 00@00@00,2025/1/21 00@00@00[ |]+");
+
+        byte[] row1 = "POLAND_1\u0001Comment".getBytes(UTF_8);
+        byte[] row2 = "POLAND_2\u0001Comment".getBytes(UTF_8);
+        byte[] row3 = "CZECH_2\u0001Comment".getBytes(UTF_8);
+        List<String> columns = ImmutableList.of("dt", "ts");
+        // row : ("'POLAND_1'", "'Comment'", "DATE '2025-1-23'", "TIMESTAMP '2025-1-20 01:00:00'")
+        hiveMinioDataLake.getMinioClient().putObject(bucketName, row1, tablePath + makePartName(columns, ImmutableList.of("2025/01/23", "2025/1/20 01@00@00")) + "/data.txt");
+        // row : ("'POLAND_2'", "'Comment'", "DATE '2025-1-23'", "TIMESTAMP '2025-1-20 02:00:00'")
+        hiveMinioDataLake.getMinioClient().putObject(bucketName, row2, tablePath + makePartName(columns, ImmutableList.of("2025/01/23", "2025/1/20 02@00@00")) + "/data.txt");
+        // row: ("'CZECH_2'", "'Comment'", "DATE '2025-1-24'", "TIMESTAMP '2025-1-20 10:00:00'")
+        hiveMinioDataLake.getMinioClient().putObject(bucketName, row3, tablePath + makePartName(columns, ImmutableList.of("2025/01/24", "2025/1/20 10@00@00")) + "/data.txt");
+
+        assertQuery("SELECT * FROM " + fullyQualifiedTestTableName + " WHERE name = 'POLAND_1'", "VALUES ('POLAND_1', 'Comment', DATE '2025-01-23', TIMESTAMP '2025-01-20 01:00:00')");
+
+        assertQuery("SELECT * FROM " + fullyQualifiedTestTableName + " WHERE dt = DATE '2025-01-23'",
+                "VALUES ('POLAND_1', 'Comment', DATE '2025-01-23', TIMESTAMP '2025-01-20 01:00:00')," +
+                        "('POLAND_2', 'Comment', DATE '2025-01-23', TIMESTAMP '2025-01-20 02:00:00')");
+        assertQuery("SELECT * FROM " + fullyQualifiedTestTableName + " WHERE dt = DATE '2025-01-23' AND ts > TIMESTAMP '2025-1-20 01:00:00'",
+                "VALUES ('POLAND_2', 'Comment', DATE '2025-01-23', TIMESTAMP '2025-01-20 02:00:00')");
+        assertQuery("SELECT * FROM " + fullyQualifiedTestTableName + " WHERE dt IN (DATE '2025-01-23', DATE '2025-01-24', DATE '2025-01-25') AND ts > TIMESTAMP '2025-1-20 01:00:00'",
+                "VALUES ('POLAND_2', 'Comment', DATE '2025-01-23', TIMESTAMP '2025-01-20 02:00:00')," +
+                        "('CZECH_2', 'Comment', DATE '2025-1-24', TIMESTAMP '2025-1-20 10:00:00')");
+    }
+
+    @Test
+    void testReadDatePartitionProjectionWithFormatAndLocationTemplate()
+    {
+        String tableName = "partition_projection_read_custom_date" + randomNameSuffix();
+        String fullyQualifiedTestTableName = getFullyQualifiedTestTableName(tableName);
+        String tablePath = format("%s/%s", HIVE_TEST_SCHEMA, tableName);
+        String projectionLocationTemplate = format("s3://%s/%s/xxx/${dt}/${ts}-xyz", bucketName, tablePath);
+        String projectionLocationValueFormat = tablePath + "/xxx/%s/%s-xyz";
+
+        computeActual(
+                "CREATE TABLE " + fullyQualifiedTestTableName + " ( " +
+                        "  name varchar(25), " +
+                        "  comment varchar(152), " +
+                        "  dt DATE WITH (" +
+                        "    partition_projection_format='yyyy/MM/dd',\n" +
+                        "    partition_projection_interval=1,\n" +
+                        "    partition_projection_interval_unit='DAYS', \n" +
+                        "    partition_projection_range=ARRAY['2025/01/01', '2025/01/30'], \n" +
+                        "    partition_projection_type='date'" +
+                        "  ), " +
+                        "  ts timestamp WITH (" +
+                        "    partition_projection_type='date', " +
+                        "    partition_projection_format='yyyy/M/dd HH@mm@ss', " +
+                        "    partition_projection_range=ARRAY['2025/1/20 00@00@00', '2025/1/21 00@00@00'], " +
+                        "    partition_projection_interval=1, " +
+                        "    partition_projection_interval_unit='HOURS'" +
+                        "  )" +
+                        ") WITH ( " +
+                        "  partitioned_by=ARRAY['dt','ts'], " +
+                        "  partition_projection_enabled=true, " +
+                        "  partition_projection_location_template='%s',".formatted(projectionLocationTemplate) +
+                        "  format='TEXTFILE')");
+
+        assertThat(
+                hiveMinioDataLake
+                        .runOnHive("SHOW TBLPROPERTIES " + getHiveTestTableName(tableName)))
+                .containsPattern("[ |]+projection\\.enabled[ |]+true[ |]+")
+                .containsPattern("[ |]+projection\\.dt\\.type[ |]+date[ |]+")
+                .containsPattern("[ |]+projection\\.dt\\.format[ |]+yyyy/MM/dd[ |]+")
+                .containsPattern("[ |]+projection\\.dt\\.interval.unit[ |]+days[ |]+")
+                .containsPattern("[ |]+projection\\.dt\\.range[ |]+2025/01/01,2025/01/30[ |]+")
+                .containsPattern("[ |]+projection\\.ts\\.type[ |]+date[ |]+")
+                .containsPattern("[ |]+projection\\.ts\\.format[ |]+yyyy/M/dd HH@mm@ss[ |]+")
+                .containsPattern("[ |]+projection\\.ts\\.interval.unit[ |]+hours[ |]+")
+                .containsPattern("[ |]+projection\\.ts\\.range[ |]+2025/1/20 00@00@00,2025/1/21 00@00@00[ |]+");
+
+        byte[] row1 = "POLAND_1\u0001Comment".getBytes(UTF_8);
+        byte[] row2 = "POLAND_2\u0001Comment".getBytes(UTF_8);
+        byte[] row3 = "CZECH_2\u0001Comment".getBytes(UTF_8);
+        // row : ("'POLAND_1'", "'Comment'", "DATE '2025-1-23'", "TIMESTAMP '2025-1-20 01:00:00'")
+        hiveMinioDataLake.getMinioClient().putObject(bucketName, row1, projectionLocationValueFormat.formatted("2025/01/23", "2025/1/20 01@00@00") + "/data.txt");
+        // row : ("'POLAND_2'", "'Comment'", "DATE '2025-1-23'", "TIMESTAMP '2025-1-20 02:00:00'")
+        hiveMinioDataLake.getMinioClient().putObject(bucketName, row2, projectionLocationValueFormat.formatted("2025/01/23", "2025/1/20 02@00@00") + "/data.txt");
+        // row: ("'CZECH_2'", "'Comment'", "DATE '2025-1-24'", "TIMESTAMP '2025-1-20 10:00:00'")
+        hiveMinioDataLake.getMinioClient().putObject(bucketName, row3, projectionLocationValueFormat.formatted("2025/01/24", "2025/1/20 10@00@00") + "/data.txt");
+
+        assertQuery("SELECT * FROM " + fullyQualifiedTestTableName + " WHERE name = 'POLAND_1'", "VALUES ('POLAND_1', 'Comment', DATE '2025-01-23', TIMESTAMP '2025-01-20 01:00:00')");
+
+        assertQuery("SELECT * FROM " + fullyQualifiedTestTableName + " WHERE dt = DATE '2025-01-23'",
+                "VALUES ('POLAND_1', 'Comment', DATE '2025-01-23', TIMESTAMP '2025-01-20 01:00:00')," +
+                        "('POLAND_2', 'Comment', DATE '2025-01-23', TIMESTAMP '2025-01-20 02:00:00')");
+        assertQuery("SELECT * FROM " + fullyQualifiedTestTableName + " WHERE dt = DATE '2025-01-23' AND ts > TIMESTAMP '2025-1-20 01:00:00'",
+                "VALUES ('POLAND_2', 'Comment', DATE '2025-01-23', TIMESTAMP '2025-01-20 02:00:00')");
+        assertQuery("SELECT * FROM " + fullyQualifiedTestTableName + " WHERE dt IN (DATE '2025-01-23', DATE '2025-01-24', DATE '2025-01-25') AND ts > TIMESTAMP '2025-1-20 01:00:00'",
+                "VALUES ('POLAND_2', 'Comment', DATE '2025-01-23', TIMESTAMP '2025-01-20 02:00:00')," +
+                        "('CZECH_2', 'Comment', DATE '2025-1-24', TIMESTAMP '2025-1-20 10:00:00')");
+    }
+
+    @Test
+    void testWriteNotSupportedWithCustomProjection()
+    {
+        String tableName = "partition_write_not_support_custom_" + randomNameSuffix();
+        String fullyQualifiedTestTableName = getFullyQualifiedTestTableName(tableName);
+        String tablePath = format("%s/%s", HIVE_TEST_SCHEMA, tableName);
+        String projectionLocationPrefix = format("s3://%s/%s/", bucketName, tablePath);
+
+        computeActual(
+                "CREATE TABLE " + fullyQualifiedTestTableName + " ( " +
+                        "  name varchar(25), " +
+                        "  comment varchar(152), " +
+                        "  dt DATE WITH (" +
+                        "    partition_projection_format='yyyy/MM/dd',\n" +
+                        "    partition_projection_interval=1,\n" +
+                        "    partition_projection_interval_unit='DAYS', \n" +
+                        "    partition_projection_range=ARRAY['2025/01/01', '2025/01/30'], \n" +
+                        "    partition_projection_type='date'" +
+                        "  )" +
+                        ") WITH ( " +
+                        "  partitioned_by=ARRAY['dt'], " +
+                        "  partition_projection_enabled=true)");
+        assertThat(query(createInsertStatement(
+                fullyQualifiedTestTableName,
+                ImmutableList.of(ImmutableList.of("'POLAND_1'", "'Comment'", "DATE '2025-1-23'")))))
+                .failure()
+                .hasMessage("Writing to date partition projection column 'dt' with format 'yyyy/MM/dd' is not supported");
+
+        tableName = "partition_write_not_support_custom_" + randomNameSuffix();
+        fullyQualifiedTestTableName = getFullyQualifiedTestTableName(tableName);
+        computeActual(
+                "CREATE TABLE " + fullyQualifiedTestTableName + " ( " +
+                        "  name varchar(25), " +
+                        "  comment varchar(152), " +
+                        "  dt DATE WITH (" +
+                        "    partition_projection_format='yyyy-MM-dd',\n" +
+                        "    partition_projection_interval=1,\n" +
+                        "    partition_projection_interval_unit='DAYS', \n" +
+                        "    partition_projection_range=ARRAY['2025-01-01', '2025-01-30'], \n" +
+                        "    partition_projection_type='date'" +
+                        "  ), " +
+                        "  ts timestamp WITH (" +
+                        "    partition_projection_type='date', " +
+                        "    partition_projection_format='yyyy-M-dd HH:mm:ss', " +
+                        "    partition_projection_range=ARRAY['2025-1-20 00:00:00', '2025-1-21 00:00:00'], " +
+                        "    partition_projection_interval=1, " +
+                        "    partition_projection_interval_unit='HOURS'" +
+                        "  )" +
+                        ") WITH ( " +
+                        "  partitioned_by=ARRAY['dt','ts'], " +
+                        "  partition_projection_enabled=true, " +
+                        // wrong pattern
+                        "  partition_projection_location_template='%s')".formatted(projectionLocationPrefix + "${dt}/${ts}"));
+        assertThat(query(createInsertStatement(
+                fullyQualifiedTestTableName,
+                ImmutableList.of(ImmutableList.of("'POLAND_1'", "'Comment'", "DATE '2025-1-23'", "TIMESTAMP '2025-01-20 10:10:10'")))))
+                .failure()
+                .hasMessage("Partition projection with storage location template is not compatible with Hive");
+
+        tableName = "partition_write_not_support_custom_" + randomNameSuffix();
+        fullyQualifiedTestTableName = getFullyQualifiedTestTableName(tableName);
+        computeActual(
+                "CREATE TABLE " + fullyQualifiedTestTableName + " ( " +
+                        "  name varchar(25), " +
+                        "  comment varchar(152), " +
+                        "  dt DATE WITH (" +
+                        "    partition_projection_format='yyyy-MM-dd',\n" +
+                        "    partition_projection_interval=1,\n" +
+                        "    partition_projection_interval_unit='DAYS', \n" +
+                        "    partition_projection_range=ARRAY['2025-01-01', '2025-01-30'], \n" +
+                        "    partition_projection_type='date'" +
+                        "  ), " +
+                        "  ts timestamp WITH (" +
+                        "    partition_projection_type='date', " +
+                        "    partition_projection_format='yyyy-M-dd HH:mm:ss', " +
+                        "    partition_projection_range=ARRAY['2025-1-20 00:00:00', '2025-1-21 00:00:00'], " +
+                        "    partition_projection_interval=1, " +
+                        "    partition_projection_interval_unit='HOURS'" +
+                        "  )" +
+                        ") WITH ( " +
+                        "  partitioned_by=ARRAY['dt','ts'], " +
+                        "  partition_projection_enabled=true, " +
+                        // wrong order
+                        "  partition_projection_location_template='%s')".formatted(projectionLocationPrefix + "ts=${ts}/dt=${dt}"));
+        assertThat(query(createInsertStatement(
+                fullyQualifiedTestTableName,
+                ImmutableList.of(ImmutableList.of("'POLAND_1'", "'Comment'", "DATE '2025-1-23'", "TIMESTAMP '2025-01-20 10:10:10'")))))
+                .failure()
+                .hasMessage("Partition projection with storage location template is not compatible with Hive");
     }
 
     @Test

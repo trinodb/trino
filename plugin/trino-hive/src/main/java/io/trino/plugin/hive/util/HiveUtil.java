@@ -150,8 +150,8 @@ public final class HiveUtil
     public static final String ICEBERG_TABLE_TYPE_VALUE = "iceberg";
 
     private static final LocalDateTime EPOCH_DAY = new LocalDateTime(1970, 1, 1, 0, 0);
-    private static final DateTimeFormatter HIVE_DATE_PARSER;
-    private static final DateTimeFormatter HIVE_TIMESTAMP_PARSER;
+    public static final DateTimeFormatter HIVE_DATE_PARSER;
+    public static final DateTimeFormatter HIVE_TIMESTAMP_PARSER;
 
     private static final String BIG_DECIMAL_POSTFIX = "BD";
 
@@ -185,7 +185,7 @@ public final class HiveUtil
         return Optional.ofNullable(schema.get(FILE_INPUT_FORMAT));
     }
 
-    private static long parseHiveDate(String value)
+    public static long parseHiveDate(String value)
     {
         LocalDateTime date = HIVE_DATE_PARSER.parseLocalDateTime(value);
         if (!date.toLocalTime().equals(LocalTime.MIDNIGHT)) {
