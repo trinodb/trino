@@ -15,6 +15,7 @@ package io.trino.sql;
 
 import com.google.inject.Inject;
 import io.opentelemetry.api.trace.Tracer;
+import io.trino.FeaturesConfig;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.FunctionResolver;
@@ -44,6 +45,7 @@ public class PlannerContext
     private final FunctionManager functionManager;
     private final LanguageFunctionManager languageFunctionManager;
     private final Tracer tracer;
+    private final boolean functionAccessControlEnabled;
 
     @Inject
     public PlannerContext(Metadata metadata,
@@ -52,7 +54,8 @@ public class PlannerContext
             TypeManager typeManager,
             FunctionManager functionManager,
             LanguageFunctionManager languageFunctionManager,
-            Tracer tracer)
+            Tracer tracer,
+            FeaturesConfig featuresConfig)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
@@ -61,6 +64,7 @@ public class PlannerContext
         this.functionManager = requireNonNull(functionManager, "functionManager is null");
         this.languageFunctionManager = requireNonNull(languageFunctionManager, "languageFunctionManager is null");
         this.tracer = requireNonNull(tracer, "tracer is null");
+        this.functionAccessControlEnabled = requireNonNull(featuresConfig, "featuresConfig is null").isFunctionAccessControlEnabled();
     }
 
     public Metadata getMetadata()
@@ -95,7 +99,7 @@ public class PlannerContext
 
     public FunctionResolver getFunctionResolver(WarningCollector warningCollector)
     {
-        return new FunctionResolver(metadata, typeManager, languageFunctionManager, warningCollector);
+        return new FunctionResolver(metadata, typeManager, languageFunctionManager, warningCollector, functionAccessControlEnabled);
     }
 
     public LanguageFunctionManager getLanguageFunctionManager()

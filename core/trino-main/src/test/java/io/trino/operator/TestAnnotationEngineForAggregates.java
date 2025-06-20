@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
+import io.trino.Session;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionManager;
@@ -67,6 +68,8 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.tree.QualifiedName;
+import io.trino.transaction.TestingTransactionManager;
+import io.trino.transaction.TransactionId;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -75,7 +78,6 @@ import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.metadata.GlobalFunctionCatalog.BUILTIN_SCHEMA;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
@@ -97,6 +99,7 @@ import static io.trino.spi.type.TypeSignatureParameter.typeVariable;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.invoke.MethodType.methodType;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -1174,14 +1177,39 @@ public class TestAnnotationEngineForAggregates
 
     private static ResolvedFunction resolveDependency(FunctionDependencyDeclaration.OperatorDependency dependency)
     {
-        QualifiedName name = QualifiedName.of(GlobalSystemConnector.NAME, BUILTIN_SCHEMA, mangleOperatorName(dependency.getOperatorType()));
-        return PLANNER_CONTEXT.getFunctionResolver().resolveFunction(TEST_SESSION, name, fromTypeSignatures(dependency.getArgumentTypes()), new AllowAllAccessControl());
+        TestingTransactionManager transactionManager = new TestingTransactionManager();
+        TransactionId transactionId = transactionManager.beginTransaction(false);
+        Session session = testSessionBuilder()
+                .setTransactionId(transactionId)
+                .build();
+        PLANNER_CONTEXT.getMetadata().beginQuery(session);
+        try {
+            QualifiedName name = QualifiedName.of(GlobalSystemConnector.NAME, BUILTIN_SCHEMA, mangleOperatorName(dependency.getOperatorType()));
+            return PLANNER_CONTEXT.getFunctionResolver()
+                    .resolveFunction(session, name, fromTypeSignatures(dependency.getArgumentTypes()), new AllowAllAccessControl());
+        }
+        finally {
+            PLANNER_CONTEXT.getMetadata().cleanupQuery(session);
+        }
     }
 
     private static ResolvedFunction resolveDependency(FunctionDependencyDeclaration.FunctionDependency dependency)
     {
-        QualifiedName name = QualifiedName.of(dependency.getName().getCatalogName(), dependency.getName().getSchemaName(), dependency.getName().getFunctionName());
-        return PLANNER_CONTEXT.getFunctionResolver().resolveFunction(TEST_SESSION, name, fromTypeSignatures(dependency.getArgumentTypes()), new AllowAllAccessControl());
+        TestingTransactionManager transactionManager = new TestingTransactionManager();
+        TransactionId transactionId = transactionManager.beginTransaction(false);
+        Session session = testSessionBuilder()
+                .setTransactionId(transactionId)
+                .build();
+        PLANNER_CONTEXT.getMetadata().beginQuery(session);
+
+        try {
+            QualifiedName name = QualifiedName.of(dependency.getName().getCatalogName(), dependency.getName().getSchemaName(), dependency.getName().getFunctionName());
+            return PLANNER_CONTEXT.getFunctionResolver()
+                    .resolveFunction(session, name, fromTypeSignatures(dependency.getArgumentTypes()), new AllowAllAccessControl());
+        }
+        finally {
+            PLANNER_CONTEXT.getMetadata().cleanupQuery(session);
+        }
     }
 
     private static BoundSignature builtinFunction(String name, Type returnType, List<Type> argumentTypes)
