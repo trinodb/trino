@@ -58,7 +58,7 @@ public class TrinoEventData
         queryContext = new QueryContext(
                 "user",
                 "originalUser",
-                Set.of(),
+                Set.of(), // originalRoles
                 Optional.of("principal"),
                 Set.of(), // enabledRoles
                 Set.of(), // groups
