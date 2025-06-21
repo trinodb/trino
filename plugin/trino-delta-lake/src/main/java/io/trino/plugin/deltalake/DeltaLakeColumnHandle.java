@@ -92,7 +92,7 @@ public record DeltaLakeColumnHandle(
     @JsonIgnore
     public String qualifiedPhysicalName()
     {
-        return projectionInfo.map(projectionInfo -> basePhysicalColumnName + "#" + projectionInfo.getPartialName())
+        return projectionInfo.map(projectionInfo -> basePhysicalColumnName + "#" + projectionInfo.partialName())
                 .orElse(basePhysicalColumnName);
     }
 
@@ -115,7 +115,7 @@ public record DeltaLakeColumnHandle(
     @JsonIgnore
     public Type type()
     {
-        return projectionInfo.map(DeltaLakeColumnProjectionInfo::getType)
+        return projectionInfo.map(DeltaLakeColumnProjectionInfo::type)
                 .orElse(baseType);
     }
 
@@ -123,7 +123,7 @@ public record DeltaLakeColumnHandle(
     public String toString()
     {
         return qualifiedPhysicalName() +
-                ":" + projectionInfo.map(DeltaLakeColumnProjectionInfo::getType).orElse(baseType).getDisplayName() +
+                ":" + projectionInfo.map(DeltaLakeColumnProjectionInfo::type).orElse(baseType).getDisplayName() +
                 ":" + columnType;
     }
 
