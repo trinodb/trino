@@ -20,8 +20,6 @@ import io.trino.spi.type.ArrayType;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
@@ -61,10 +59,5 @@ public class HudiTableProperties
     public List<PropertyMetadata<?>> getTableProperties()
     {
         return tableProperties;
-    }
-
-    public static Optional<String> getTableLocation(Map<String, Object> tableProperties)
-    {
-        return Optional.ofNullable((String) tableProperties.get(LOCATION_PROPERTY));
     }
 }
