@@ -23,6 +23,7 @@ import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
+import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -30,6 +31,7 @@ import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.MountableFile;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -38,7 +40,9 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Arrays;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static io.airlift.http.client.StringResponseHandler.createStringResponseHandler;
@@ -114,34 +118,28 @@ public class UnityCatalogContainer
 
     private void createCatalog()
     {
-        @Language("JSON")
-        String body = "{\"name\": \"" + catalogName + "\"}";
-        Request request = Request.Builder.preparePost()
-                .setUri(URI.create(uri() + "/catalogs"))
-                .setHeader("Content-Type", "application/json")
-                .setBodyGenerator(createStaticBodyGenerator(body, UTF_8))
-                .build();
-        execute(request);
+        execInContainer("bin/uc", "catalog", "create", "--name", catalogName);
     }
 
     public void createSchema(String schemaName)
     {
-        @Language("JSON")
-        String body = "{\"name\": \"" + schemaName + "\", \"catalog_name\": \"" + catalogName + "\"}";
-        Request request = Request.Builder.preparePost()
-                .setUri(URI.create(uri() + "/schemas"))
-                .setHeader("Content-Type", "application/json")
-                .setBodyGenerator(createStaticBodyGenerator(body, UTF_8))
-                .build();
-        execute(request);
+        execInContainer("bin/uc", "schema", "create", "--catalog", catalogName, "--name", schemaName);
     }
 
     public void dropSchema(String schema)
     {
-        Request request = Request.Builder.prepareDelete()
-                .setUri(URI.create(uri() + "/schemas/%s.%s?catalog_name=%s".formatted(catalogName, schema, schema)))
-                .build();
-        execute(request);
+        execInContainer("bin/uc", "schema", "delete", "--full_name", "%s.%s".formatted(catalogName, schema));
+    }
+
+    private void execInContainer(String... command)
+    {
+        try {
+            Container.ExecResult result = unityCatalog.execInContainer(command);
+            checkState(result.getExitCode() == 0, "Command %s failed: %s", Arrays.toString(command), result.getStdout());
+        }
+        catch (IOException | InterruptedException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public void copyTpchTables(Iterable<TpchTable<?>> tpchTables)
