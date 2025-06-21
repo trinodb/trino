@@ -35,14 +35,12 @@ import jakarta.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.Iterator;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.ObjLongConsumer;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.instanceSize;
@@ -412,56 +410,8 @@ public class OrcDeletedRows
         return directory.appendPath(fileName);
     }
 
-    private static class RowId
+    private record RowId(long originalTransaction, int bucket, int statementId, long rowId)
     {
         public static final int INSTANCE_SIZE = instanceSize(RowId.class);
-
-        private final long originalTransaction;
-        private final int bucket;
-        private final int statementId;
-        private final long rowId;
-
-        public RowId(long originalTransaction, int bucket, int statementId, long rowId)
-        {
-            this.originalTransaction = originalTransaction;
-            this.bucket = bucket;
-            this.statementId = statementId;
-            this.rowId = rowId;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-
-            RowId other = (RowId) o;
-            return originalTransaction == other.originalTransaction &&
-                    bucket == other.bucket &&
-                    statementId == other.statementId &&
-                    rowId == other.rowId;
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(originalTransaction, bucket, statementId, rowId);
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("originalTransaction", originalTransaction)
-                    .add("bucket", bucket)
-                    .add("statementId", statementId)
-                    .add("rowId", rowId)
-                    .toString();
-        }
     }
 }
