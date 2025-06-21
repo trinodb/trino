@@ -615,7 +615,6 @@
                                 <exclude>**/TestFullParquetReader.java</exclude>
                                 <exclude>**/TestParquetReader.java</exclude>
                                 <exclude>**/Test*FailureRecoveryTest.java</exclude>
-                                <exclude>**/TestUnityMetastore.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
