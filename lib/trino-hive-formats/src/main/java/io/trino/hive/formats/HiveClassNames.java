@@ -18,6 +18,7 @@ public final class HiveClassNames
     public static final String AVRO_CONTAINER_INPUT_FORMAT_CLASS = "org.apache.hadoop.hive.ql.io.avro.AvroContainerInputFormat";
     public static final String AVRO_CONTAINER_OUTPUT_FORMAT_CLASS = "org.apache.hadoop.hive.ql.io.avro.AvroContainerOutputFormat";
     public static final String AVRO_SERDE_CLASS = "org.apache.hadoop.hive.serde2.avro.AvroSerDe";
+    public static final String CLOUDTRAIL_INPUT_FORMAT = "com.amazon.emr.cloudtrail.CloudTrailInputFormat";
     public static final String COLUMNAR_SERDE_CLASS = "org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe";
     public static final String FILE_INPUT_FORMAT_CLASS = "org.apache.hadoop.mapred.FileInputFormat";
     public static final String FILE_OUTPUT_FORMAT_CLASS = "org.apache.hadoop.mapred.FileOutputFormat";
