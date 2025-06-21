@@ -18,6 +18,7 @@ import io.trino.plugin.iceberg.BaseIcebergConnectorSmokeTest;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergConnector;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
+import io.trino.plugin.iceberg.SchemaInitializer;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import io.trino.spi.connector.SchemaTableName;
@@ -29,10 +30,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Isolated;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -75,7 +78,15 @@ final class TestIcebergPolarisCatalogConnectorSmokeTest
             throws Exception
     {
         warehouseLocation = Files.createTempDirectory(null);
+        File warehouseDir = warehouseLocation.toFile();
+        warehouseDir.mkdirs();
+        warehouseDir.setReadable(true, false);
+        warehouseDir.setWritable(true, false);
+        warehouseDir.setExecutable(true, false);
         polarisCatalog = closeAfterClass(new TestingPolarisCatalog(warehouseLocation.toString()));
+
+        Path tpchLocation = warehouseLocation.resolve("tpch");
+        tpchLocation.toFile().mkdirs();
 
         return IcebergQueryRunner.builder()
                 .setBaseDataDir(Optional.of(warehouseLocation))
@@ -90,7 +101,12 @@ final class TestIcebergPolarisCatalogConnectorSmokeTest
                 .addIcebergProperty("iceberg.rest-catalog.security", "OAUTH2")
                 .addIcebergProperty("iceberg.rest-catalog.oauth2.credential", TestingPolarisCatalog.CREDENTIAL)
                 .addIcebergProperty("iceberg.rest-catalog.oauth2.scope", "PRINCIPAL_ROLE:ALL")
-                .setInitialTables(REQUIRED_TPCH_TABLES)
+                .setSchemaInitializer(
+                        SchemaInitializer.builder()
+                                .withSchemaName("tpch")
+                                .withClonedTpchTables(REQUIRED_TPCH_TABLES)
+                                .withSchemaProperties(Map.of("location", "'file://%s'".formatted(tpchLocation)))
+                                .build())
                 .build();
     }
 

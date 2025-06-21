@@ -235,7 +235,11 @@ public final class IcebergQueryRunner
                 throws Exception
         {
             Path warehouseLocation = Files.createTempDirectory(null);
-            warehouseLocation.toFile().deleteOnExit();
+            File warehouseDir = warehouseLocation.toFile();
+            warehouseDir.deleteOnExit();
+            warehouseDir.setReadable(true, false);
+            warehouseDir.setWritable(true, false);
+            warehouseDir.setExecutable(true, false);
 
             @SuppressWarnings("resource")
             TestingPolarisCatalog polarisCatalog = new TestingPolarisCatalog(warehouseLocation.toString());
