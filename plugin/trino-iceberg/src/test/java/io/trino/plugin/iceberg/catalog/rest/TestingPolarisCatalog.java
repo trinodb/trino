@@ -35,7 +35,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static io.airlift.http.client.StringResponseHandler.createStringResponseHandler;
-import static io.trino.testing.TestingProperties.getDockerImagesVersion;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
@@ -57,9 +56,9 @@ public final class TestingPolarisCatalog
     {
         this.warehouseLocation = requireNonNull(warehouseLocation, "warehouseLocation is null");
 
-        // TODO: Use the official docker image once Polaris community provides it
-        polarisCatalog = new GenericContainer<>("ghcr.io/trinodb/testing/polaris-catalog:" + getDockerImagesVersion());
+        polarisCatalog = new GenericContainer<>("apache/polaris:1.0.0-incubating");
         polarisCatalog.addExposedPort(POLARIS_PORT);
+        polarisCatalog.withEnv("USER", System.getProperty("user.name"));
         polarisCatalog.withFileSystemBind(warehouseLocation, warehouseLocation, BindMode.READ_WRITE);
         polarisCatalog.waitingFor(new LogMessageWaitStrategy().withRegEx(".*Apache Polaris Server.* started.*"));
         polarisCatalog.withEnv("POLARIS_BOOTSTRAP_CREDENTIALS", "default-realm,root,s3cr3t");
