@@ -312,7 +312,7 @@ public class OrcDeletedRows
             long initialMemorySize = retainedMemorySize(deletedRowsBuilderSize, currentPage);
 
             if (deleteDeltaDirectories == null) {
-                deleteDeltaDirectories = acidInfo.getDeleteDeltaDirectories().iterator();
+                deleteDeltaDirectories = acidInfo.deleteDeltaDirectories().iterator();
             }
 
             while (deleteDeltaDirectories.hasNext() || currentPageSource != null) {
@@ -397,7 +397,7 @@ public class OrcDeletedRows
 
     private static Location createPath(AcidInfo acidInfo, String deleteDeltaDirectory, String fileName)
     {
-        Location directory = Location.of(acidInfo.getPartitionLocation()).appendPath(deleteDeltaDirectory);
+        Location directory = Location.of(acidInfo.partitionLocation()).appendPath(deleteDeltaDirectory);
 
         // When direct insert is enabled base and delta directories contain bucket_[id]_[attemptId] files
         // but delete delta directories contain bucket files without attemptId so we have to remove it from filename.
@@ -405,9 +405,9 @@ public class OrcDeletedRows
             return directory.appendPath(fileName.substring(0, fileName.lastIndexOf('_')));
         }
 
-        if (!acidInfo.getOriginalFiles().isEmpty()) {
+        if (!acidInfo.originalFiles().isEmpty()) {
             // Original file format is different from delete delta, construct delete delta file path from bucket ID of original file.
-            return bucketFileName(directory, acidInfo.getBucketId());
+            return bucketFileName(directory, acidInfo.bucketId());
         }
         return directory.appendPath(fileName);
     }
