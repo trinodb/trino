@@ -42,7 +42,6 @@ import java.sql.Statement;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static io.airlift.http.client.StringResponseHandler.createStringResponseHandler;
-import static io.trino.testing.TestingProperties.getDockerImagesVersion;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.createTempDirectory;
@@ -89,10 +88,10 @@ public class UnityCatalogContainer
         Files.writeString(hibernateProperties.toPath(), hibernate);
 
         //noinspection resource
-        unityCatalog = new GenericContainer<>(DockerImageName.parse("ghcr.io/trinodb/testing/unity-catalog:" + getDockerImagesVersion()))
+        unityCatalog = new GenericContainer<>(DockerImageName.parse("unitycatalog/unitycatalog:v0.3.0"))
                 .withExposedPorts(8080)
                 .withNetwork(network)
-                .withCopyFileToContainer(MountableFile.forHostPath(hibernateProperties.toPath()), "/unity/etc/conf/hibernate.properties");
+                .withCopyFileToContainer(MountableFile.forHostPath(hibernateProperties.toPath(), 0744), "/home/unitycatalog/etc/conf/hibernate.properties");
         unityCatalog.start();
         closer.register(unityCatalog);
 
