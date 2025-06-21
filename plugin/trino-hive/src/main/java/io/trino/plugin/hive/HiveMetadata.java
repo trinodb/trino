@@ -3931,7 +3931,7 @@ public class HiveMetadata
         }
         // we need to chop off any "$partitions" and similar suffixes from table name while querying the metastore for the Table object
         TableNameSplitResult tableNameSplit = splitTableName(tableName.getTableName());
-        Optional<Table> table = metastore.getTable(tableName.getSchemaName(), tableNameSplit.getBaseTableName());
+        Optional<Table> table = metastore.getTable(tableName.getSchemaName(), tableNameSplit.baseTableName());
         if (table.isEmpty() || isSomeKindOfAView(table.get())) {
             return Optional.empty();
         }
@@ -3946,7 +3946,7 @@ public class HiveMetadata
                 name.getCatalogName(),
                 new SchemaTableName(
                         name.getSchemaTableName().getSchemaName(),
-                        name.getSchemaTableName().getTableName() + tableNameSplit.getSuffix().orElse(""))));
+                        name.getSchemaTableName().getTableName() + tableNameSplit.suffix().orElse(""))));
     }
 
     private static Optional<CatalogSchemaTableName> redirectTableToIceberg(Optional<String> targetCatalogName, Table table)
@@ -4020,25 +4020,12 @@ public class HiveMetadata
                 new TableNameSplitResult(tableName.substring(0, metadataMarkerIndex), Optional.of(tableName.substring(metadataMarkerIndex)));
     }
 
-    private static class TableNameSplitResult
+    private record TableNameSplitResult(String baseTableName, Optional<String> suffix)
     {
-        private final String baseTableName;
-        private final Optional<String> suffix;
-
-        public TableNameSplitResult(String baseTableName, Optional<String> suffix)
+        private TableNameSplitResult
         {
-            this.baseTableName = requireNonNull(baseTableName, "baseTableName is null");
-            this.suffix = requireNonNull(suffix, "suffix is null");
-        }
-
-        public String getBaseTableName()
-        {
-            return baseTableName;
-        }
-
-        public Optional<String> getSuffix()
-        {
-            return suffix;
+            requireNonNull(baseTableName, "baseTableName is null");
+            requireNonNull(suffix, "suffix is null");
         }
     }
 
