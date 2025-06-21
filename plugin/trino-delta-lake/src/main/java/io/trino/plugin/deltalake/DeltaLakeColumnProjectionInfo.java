@@ -13,16 +13,13 @@
  */
 package io.trino.plugin.deltalake;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.SizeOf;
 import io.trino.plugin.hive.HiveColumnProjectionInfo;
 import io.trino.spi.type.Type;
 
 import java.util.List;
-import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
@@ -30,50 +27,24 @@ import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.deltalake.DeltaHiveTypeTranslator.toHiveType;
 import static java.util.Objects.requireNonNull;
 
-public class DeltaLakeColumnProjectionInfo
+public record DeltaLakeColumnProjectionInfo(Type type, List<Integer> dereferenceIndices, List<String> dereferencePhysicalNames)
 {
     private static final int INSTANCE_SIZE = instanceSize(DeltaLakeColumnProjectionInfo.class);
 
-    private final Type type;
-    private final List<Integer> dereferenceIndices;
-    private final List<String> dereferencePhysicalNames;
-
-    @JsonCreator
-    public DeltaLakeColumnProjectionInfo(
-            @JsonProperty("type") Type type,
-            @JsonProperty("dereferenceIndices") List<Integer> dereferenceIndices,
-            @JsonProperty("dereferencePhysicalNames") List<String> dereferencePhysicalNames)
+    public DeltaLakeColumnProjectionInfo
     {
-        this.type = requireNonNull(type, "type is null");
+        requireNonNull(type, "type is null");
         requireNonNull(dereferenceIndices, "dereferenceIndices is null");
         requireNonNull(dereferencePhysicalNames, "dereferencePhysicalNames is null");
-        checkArgument(dereferenceIndices.size() > 0, "dereferenceIndices should not be empty");
-        checkArgument(dereferencePhysicalNames.size() > 0, "dereferencePhysicalNames should not be empty");
+        checkArgument(!dereferenceIndices.isEmpty(), "dereferenceIndices should not be empty");
+        checkArgument(!dereferencePhysicalNames.isEmpty(), "dereferencePhysicalNames should not be empty");
         checkArgument(dereferenceIndices.size() == dereferencePhysicalNames.size(), "dereferenceIndices and dereferencePhysicalNames should have the same sizes");
-        this.dereferenceIndices = ImmutableList.copyOf(dereferenceIndices);
-        this.dereferencePhysicalNames = ImmutableList.copyOf(dereferencePhysicalNames);
-    }
-
-    @JsonProperty
-    public Type getType()
-    {
-        return type;
-    }
-
-    @JsonProperty
-    public List<Integer> getDereferenceIndices()
-    {
-        return dereferenceIndices;
-    }
-
-    @JsonProperty
-    public List<String> getDereferencePhysicalNames()
-    {
-        return dereferencePhysicalNames;
+        dereferenceIndices = ImmutableList.copyOf(dereferenceIndices);
+        dereferencePhysicalNames = ImmutableList.copyOf(dereferencePhysicalNames);
     }
 
     @JsonIgnore
-    public String getPartialName()
+    public String partialName()
     {
         return String.join("#", dereferencePhysicalNames);
     }
@@ -93,29 +64,8 @@ public class DeltaLakeColumnProjectionInfo
     }
 
     @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        DeltaLakeColumnProjectionInfo that = (DeltaLakeColumnProjectionInfo) o;
-        return Objects.equals(this.type, that.type)
-                && Objects.equals(this.dereferenceIndices, that.dereferenceIndices)
-                && Objects.equals(this.dereferencePhysicalNames, that.dereferencePhysicalNames);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(type, dereferenceIndices, dereferencePhysicalNames);
-    }
-
-    @Override
     public String toString()
     {
-        return getPartialName() + ":" + type.getDisplayName();
+        return partialName() + ":" + type.getDisplayName();
     }
 }
