@@ -134,61 +134,13 @@ public class AcidInfo
                 + estimatedSizeOf(originalFiles, OriginalFileInfo::getRetainedSizeInBytes);
     }
 
-    public static class OriginalFileInfo
+    public record OriginalFileInfo(String name, long fileSize)
     {
         private static final int INSTANCE_SIZE = instanceSize(OriginalFileInfo.class);
 
-        private final String name;
-        private final long fileSize;
-
-        @JsonCreator
-        public OriginalFileInfo(
-                @JsonProperty("name") String name,
-                @JsonProperty("fileSize") long fileSize)
+        public OriginalFileInfo
         {
-            this.name = requireNonNull(name, "name is null");
-            this.fileSize = fileSize;
-        }
-
-        @JsonProperty
-        public String getName()
-        {
-            return name;
-        }
-
-        @JsonProperty
-        public long getFileSize()
-        {
-            return fileSize;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            OriginalFileInfo that = (OriginalFileInfo) o;
-            return fileSize == that.fileSize &&
-                    name.equals(that.name);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(name, fileSize);
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("name", name)
-                    .add("fileSize", fileSize)
-                    .toString();
+            requireNonNull(name, "name is null");
         }
 
         public long getRetainedSizeInBytes()
