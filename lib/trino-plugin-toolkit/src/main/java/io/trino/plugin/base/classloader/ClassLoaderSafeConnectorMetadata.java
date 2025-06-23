@@ -1278,4 +1278,43 @@ public class ClassLoaderSafeConnectorMetadata
             return delegate.getInsertWriterScalingOptions(session, tableHandle);
         }
     }
+
+    @Override
+    public void createTag(
+            ConnectorSession session,
+            ConnectorTableHandle tableHandle,
+            String tagName,
+            boolean replace,
+            boolean ifNotExists,
+            Optional<Long> snapshotId,
+            Optional<java.time.Duration> retention)
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            delegate.createTag(session, tableHandle, tagName, replace, ifNotExists, snapshotId, retention);
+        }
+    }
+
+    @Override
+    public void replaceTag(
+            ConnectorSession session,
+            ConnectorTableHandle tableHandle,
+            String tagName,
+            Optional<Long> snapshotId,
+            Optional<java.time.Duration> retention)
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            delegate.replaceTag(session, tableHandle, tagName, snapshotId, retention);
+        }
+    }
+
+    @Override
+    public void dropTag(
+            ConnectorSession session,
+            ConnectorTableHandle tableHandle,
+            String tagName)
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            delegate.dropTag(session, tableHandle, tagName);
+        }
+    }
 }

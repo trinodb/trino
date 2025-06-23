@@ -259,6 +259,36 @@ public abstract class BaseDataDefinitionTaskTest
         private final Map<SchemaTableName, ViewDefinition> views = new ConcurrentHashMap<>();
         private final Map<SchemaTableName, MaterializedViewDefinition> materializedViews = new ConcurrentHashMap<>();
         private final Map<SchemaTableName, Map<String, Object>> materializedViewProperties = new ConcurrentHashMap<>();
+        private final Map<SchemaTableName, Map<String, TagInfo>> tableTags = new ConcurrentHashMap<>();
+
+        private static class TagInfo
+        {
+            private final String tagName;
+            private final Optional<Long> snapshotId;
+            private final Optional<java.time.Duration> retention;
+
+            public TagInfo(String tagName, Optional<Long> snapshotId, Optional<java.time.Duration> retention)
+            {
+                this.tagName = requireNonNull(tagName, "tagName is null");
+                this.snapshotId = requireNonNull(snapshotId, "snapshotId is null");
+                this.retention = requireNonNull(retention, "retention is null");
+            }
+
+            public String getTagName()
+            {
+                return tagName;
+            }
+
+            public Optional<Long> getSnapshotId()
+            {
+                return snapshotId;
+            }
+
+            public Optional<java.time.Duration> getRetention()
+            {
+                return retention;
+            }
+        }
 
         public MockMetadata(String catalogName)
         {
@@ -665,6 +695,43 @@ public abstract class BaseDataDefinitionTaskTest
         public ResolvedFunction getCoercion(OperatorType operatorType, Type fromType, Type toType)
         {
             return delegate.getCoercion(operatorType, fromType, toType);
+        }
+
+        @Override
+        public void createTag(Session session, TableHandle tableHandle, String tagName, boolean replace, boolean ifNotExists, Optional<Long> snapshotId, Optional<java.time.Duration> retention)
+        {
+            SchemaTableName tableName = getTableName(tableHandle);
+            Map<String, TagInfo> tags = tableTags.computeIfAbsent(tableName, k -> new ConcurrentHashMap<>());
+
+            if (tags.containsKey(tagName)) {
+                if (replace) {
+                    tags.put(tagName, new TagInfo(tagName, snapshotId, retention));
+                }
+                else if (!ifNotExists) {
+                    throw new TrinoException(ALREADY_EXISTS, "Tag already exists: " + tagName);
+                }
+            }
+            else {
+                tags.put(tagName, new TagInfo(tagName, snapshotId, retention));
+            }
+        }
+
+        @Override
+        public void replaceTag(Session session, TableHandle tableHandle, String tagName, Optional<Long> snapshotId, Optional<java.time.Duration> retention)
+        {
+            SchemaTableName tableName = getTableName(tableHandle);
+            Map<String, TagInfo> tags = tableTags.computeIfAbsent(tableName, k -> new ConcurrentHashMap<>());
+            tags.put(tagName, new TagInfo(tagName, snapshotId, retention));
+        }
+
+        @Override
+        public void dropTag(Session session, TableHandle tableHandle, String tagName)
+        {
+            SchemaTableName tableName = getTableName(tableHandle);
+            Map<String, TagInfo> tags = tableTags.get(tableName);
+            if (tags != null) {
+                tags.remove(tagName);
+            }
         }
 
         private static ColumnMetadata withComment(ColumnMetadata tableColumn, Optional<String> comment)

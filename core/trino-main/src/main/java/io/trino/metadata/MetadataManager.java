@@ -1029,6 +1029,30 @@ public final class MetadataManager
     }
 
     @Override
+    public void createTag(Session session, TableHandle tableHandle, String tagName, boolean replace, boolean ifNotExists, Optional<Long> snapshotId, Optional<java.time.Duration> retention)
+    {
+        CatalogHandle catalogHandle = tableHandle.catalogHandle();
+        ConnectorMetadata metadata = getMetadataForWrite(session, catalogHandle);
+        metadata.createTag(session.toConnectorSession(catalogHandle), tableHandle.connectorHandle(), tagName, replace, ifNotExists, snapshotId, retention);
+    }
+
+    @Override
+    public void replaceTag(Session session, TableHandle tableHandle, String tagName, Optional<Long> snapshotId, Optional<java.time.Duration> retention)
+    {
+        CatalogHandle catalogHandle = tableHandle.catalogHandle();
+        ConnectorMetadata metadata = getMetadataForWrite(session, catalogHandle);
+        metadata.replaceTag(session.toConnectorSession(catalogHandle), tableHandle.connectorHandle(), tagName, snapshotId, retention);
+    }
+
+    @Override
+    public void dropTag(Session session, TableHandle tableHandle, String tagName)
+    {
+        CatalogHandle catalogHandle = tableHandle.catalogHandle();
+        ConnectorMetadata metadata = getMetadataForWrite(session, catalogHandle);
+        metadata.dropTag(session.toConnectorSession(catalogHandle), tableHandle.connectorHandle(), tagName);
+    }
+
+    @Override
     public void dropTable(Session session, TableHandle tableHandle, CatalogSchemaTableName tableName)
     {
         CatalogHandle catalogHandle = tableHandle.catalogHandle();

@@ -608,6 +608,30 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Create a tag on the specified table.
+     */
+    default void createTag(ConnectorSession session, ConnectorTableHandle tableHandle, String tagName, boolean replace, boolean ifNotExists, Optional<Long> snapshotId, Optional<java.time.Duration> retention)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tags");
+    }
+
+    /**
+     * Replace a tag on the specified table.
+     */
+    default void replaceTag(ConnectorSession session, ConnectorTableHandle tableHandle, String tagName, Optional<Long> snapshotId, Optional<java.time.Duration> retention)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support replacing tags");
+    }
+
+    /**
+     * Drop a tag from the specified table.
+     */
+    default void dropTag(ConnectorSession session, ConnectorTableHandle tableHandle, String tagName)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping tags");
+    }
+
+    /**
      * Sets the user/role on the specified table.
      */
     default void setTableAuthorization(ConnectorSession session, SchemaTableName tableName, TrinoPrincipal principal)

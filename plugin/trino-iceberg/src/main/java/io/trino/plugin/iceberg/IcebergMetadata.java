@@ -146,6 +146,7 @@ import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.FileMetadata;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.IsolationLevel;
+import org.apache.iceberg.ManageSnapshots;
 import org.apache.iceberg.ManifestFile;
 import org.apache.iceberg.ManifestFiles;
 import org.apache.iceberg.ManifestReader;
@@ -347,11 +348,13 @@ import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.REMOVE_O
 import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.ROLLBACK_TO_SNAPSHOT;
 import static io.trino.plugin.iceberg.procedure.MigrationUtils.addFiles;
 import static io.trino.plugin.iceberg.procedure.MigrationUtils.addFilesFromTable;
+import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.COLUMN_ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.INVALID_ANALYZE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
+import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
 import static io.trino.spi.StandardErrorCode.QUERY_REJECTED;
@@ -2849,6 +2852,94 @@ public class IcebergMetadata
         }
         catch (RuntimeException e) {
             throw new TrinoException(ICEBERG_COMMIT_ERROR, "Failed to drop a not null constraint: " + firstNonNull(e.getMessage(), e), e);
+        }
+    }
+
+    @Override
+    public void createTag(ConnectorSession session, ConnectorTableHandle tableHandle, String tagName, boolean replace, boolean ifNotExists, Optional<Long> snapshotId, Optional<java.time.Duration> retention)
+    {
+        IcebergTableHandle handle = checkValidTableHandle(tableHandle);
+        Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
+
+        try {
+            if (icebergTable.refs().containsKey(tagName)) {
+                if (ifNotExists) {
+                    return;
+                }
+                if (!replace) {
+                    throw new TrinoException(ALREADY_EXISTS, format("Tag '%s' already exists", tagName));
+                }
+            }
+
+            long targetSnapshotId = snapshotId.orElse(icebergTable.currentSnapshot().snapshotId());
+            ManageSnapshots manageSnapshots = icebergTable.manageSnapshots();
+            if (icebergTable.refs().containsKey(tagName) && replace) {
+                manageSnapshots = manageSnapshots.replaceTag(tagName, targetSnapshotId);
+            }
+            else {
+                manageSnapshots = manageSnapshots.createTag(tagName, targetSnapshotId);
+            }
+
+            if (retention.isPresent()) {
+                manageSnapshots = manageSnapshots.setMaxRefAgeMs(tagName, retention.get().toMillis());
+            }
+
+            manageSnapshots.commit();
+
+            log.info("Created tag '%s' on table '%s' at snapshot %d", tagName, handle.getSchemaTableName(), targetSnapshotId);
+        }
+        catch (RuntimeException e) {
+            throw new TrinoException(ICEBERG_COMMIT_ERROR, format("Failed to create tag '%s' on table '%s'", tagName, handle.getSchemaTableName()), e);
+        }
+    }
+
+    @Override
+    public void replaceTag(ConnectorSession session, ConnectorTableHandle tableHandle, String tagName, Optional<Long> snapshotId, Optional<java.time.Duration> retention)
+    {
+        IcebergTableHandle handle = checkValidTableHandle(tableHandle);
+        Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
+
+        try {
+            if (!icebergTable.refs().containsKey(tagName)) {
+                throw new TrinoException(NOT_FOUND, format("Tag '%s' does not exist", tagName));
+            }
+
+            long targetSnapshotId = snapshotId.orElse(icebergTable.currentSnapshot().snapshotId());
+            ManageSnapshots manageSnapshots = icebergTable.manageSnapshots()
+                    .replaceTag(tagName, targetSnapshotId);
+
+            if (retention.isPresent()) {
+                manageSnapshots = manageSnapshots.setMaxRefAgeMs(tagName, retention.get().toMillis());
+            }
+
+            manageSnapshots.commit();
+
+            log.info("Replaced tag '%s' on table '%s' to snapshot %d", tagName, handle.getSchemaTableName(), targetSnapshotId);
+        }
+        catch (RuntimeException e) {
+            throw new TrinoException(ICEBERG_COMMIT_ERROR, format("Failed to replace tag '%s' on table '%s'", tagName, handle.getSchemaTableName()), e);
+        }
+    }
+
+    @Override
+    public void dropTag(ConnectorSession session, ConnectorTableHandle tableHandle, String tagName)
+    {
+        IcebergTableHandle handle = checkValidTableHandle(tableHandle);
+        Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
+
+        try {
+            if (!icebergTable.refs().containsKey(tagName)) {
+                throw new TrinoException(NOT_FOUND, format("Tag '%s' does not exist", tagName));
+            }
+
+            icebergTable.manageSnapshots()
+                    .removeTag(tagName)
+                    .commit();
+
+            log.info("Dropped tag '%s' from table '%s'", tagName, handle.getSchemaTableName());
+        }
+        catch (RuntimeException e) {
+            throw new TrinoException(ICEBERG_COMMIT_ERROR, format("Failed to drop tag '%s' from table '%s'", tagName, handle.getSchemaTableName()), e);
         }
     }
 

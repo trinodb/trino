@@ -60,6 +60,7 @@ import io.trino.sql.tree.CreateRole;
 import io.trino.sql.tree.CreateSchema;
 import io.trino.sql.tree.CreateTable;
 import io.trino.sql.tree.CreateTableAsSelect;
+import io.trino.sql.tree.CreateTag;
 import io.trino.sql.tree.CreateView;
 import io.trino.sql.tree.CurrentCatalog;
 import io.trino.sql.tree.CurrentDate;
@@ -90,6 +91,7 @@ import io.trino.sql.tree.DropNotNullConstraint;
 import io.trino.sql.tree.DropRole;
 import io.trino.sql.tree.DropSchema;
 import io.trino.sql.tree.DropTable;
+import io.trino.sql.tree.DropTag;
 import io.trino.sql.tree.DropView;
 import io.trino.sql.tree.ElseClause;
 import io.trino.sql.tree.ElseIfClause;
@@ -227,6 +229,7 @@ import io.trino.sql.tree.RenameSchema;
 import io.trino.sql.tree.RenameTable;
 import io.trino.sql.tree.RenameView;
 import io.trino.sql.tree.RepeatStatement;
+import io.trino.sql.tree.ReplaceTag;
 import io.trino.sql.tree.ResetSession;
 import io.trino.sql.tree.ResetSessionAuthorization;
 import io.trino.sql.tree.ReturnStatement;
@@ -973,6 +976,39 @@ class AstBuilder
                 getQualifiedName(context.functionDeclaration().qualifiedName()),
                 visit(context.functionDeclaration().parameterDeclaration(), ParameterDeclaration.class),
                 context.EXISTS() != null);
+    }
+
+    @Override
+    public Node visitCreateTag(SqlBaseParser.CreateTagContext context)
+    {
+        return new CreateTag(
+                getLocation(context),
+                getQualifiedName(context.tableName),
+                (Identifier) visit(context.tagName),
+                context.REPLACE() != null,
+                context.EXISTS() != null,
+                visitIfPresent(context.snapshotId, Expression.class),
+                visitIfPresent(context.retentionDays, Expression.class));
+    }
+
+    @Override
+    public Node visitReplaceTag(SqlBaseParser.ReplaceTagContext context)
+    {
+        return new ReplaceTag(
+                getLocation(context),
+                getQualifiedName(context.tableName),
+                (Identifier) visit(context.tagName),
+                visitIfPresent(context.snapshotId, Expression.class),
+                visitIfPresent(context.retentionDays, Expression.class));
+    }
+
+    @Override
+    public Node visitDropTag(SqlBaseParser.DropTagContext context)
+    {
+        return new DropTag(
+                getLocation(context),
+                getQualifiedName(context.tableName),
+                (Identifier) visit(context.tagName));
     }
 
     @Override
