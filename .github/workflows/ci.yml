@@ -365,6 +365,7 @@ jobs:
             !:trino-redis,
             !:trino-redshift,
             !:trino-resource-group-managers,
+            !:trino-scylladb,
             !:trino-server-core,
             !:trino-server,
             !:trino-singlestore,
@@ -483,6 +484,7 @@ jobs:
             - { modules: plugin/trino-redshift, profile: cloud-tests }
             - { modules: plugin/trino-redshift, profile: fte-tests }
             - { modules: plugin/trino-resource-group-managers }
+            - { modules: plugin/trino-scylladb }
             - { modules: plugin/trino-singlestore }
             - { modules: plugin/trino-snowflake }
             - { modules: plugin/trino-snowflake, profile: cloud-tests }
@@ -896,6 +898,7 @@ jobs:
             - suite-delta-lake-oss
             - suite-kafka
             - suite-cassandra
+            - suite-scylladb
             - suite-clickhouse
             - suite-mysql
             - suite-iceberg

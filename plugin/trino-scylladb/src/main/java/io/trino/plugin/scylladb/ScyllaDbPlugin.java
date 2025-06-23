@@ -11,19 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.cassandra;
+package io.trino.plugin.scylladb;
 
-import java.io.Closeable;
+import com.google.common.collect.ImmutableList;
+import io.trino.spi.Plugin;
+import io.trino.spi.connector.ConnectorFactory;
 
-public interface CassandraServer
-        extends Closeable
+public class ScyllaDbPlugin
+        implements Plugin
 {
-    CassandraSession getSession();
-
-    String getHost();
-
-    int getPort();
-
-    void refreshSizeEstimates(String keyspace, String table)
-            throws Exception;
+    @Override
+    public Iterable<ConnectorFactory> getConnectorFactories()
+    {
+        return ImmutableList.of(new ScyllaDbConnectorFactory());
+    }
 }

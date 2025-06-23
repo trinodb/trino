@@ -114,7 +114,7 @@ public final class CassandraQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        QueryRunner queryRunner = builder(new CassandraServer())
+        QueryRunner queryRunner = builder(new TestingCassandraServer())
                 .addCoordinatorProperty("http-server.http.port", "8080")
                 .setInitialTables(TpchTable.getTables())
                 .build();
