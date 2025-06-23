@@ -549,7 +549,7 @@ public class TestCostCalculator
             Map<String, PlanCostEstimate> costs,
             Map<String, PlanNodeStatsEstimate> stats)
     {
-        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator(stats), session, new CachingTableStatsProvider(planTester.getPlannerContext().getMetadata(), session));
+        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator(stats), session, new CachingTableStatsProvider(planTester.getPlannerContext().getMetadata(), session, () -> false));
         CostProvider costProvider = new TestingCostProvider(costs, costCalculatorUsingExchanges, statsProvider, session);
         SubPlan subPlan = fragment(new Plan(node, StatsAndCosts.create(node, statsProvider, costProvider)));
         return new CostAssertionBuilder(subPlan.getFragment().getStatsAndCosts().getCosts().getOrDefault(node.getId(), PlanCostEstimate.unknown()));
@@ -658,14 +658,14 @@ public class TestCostCalculator
 
     private PlanCostEstimate calculateCost(PlanNode node, CostCalculator costCalculator, StatsCalculator statsCalculator)
     {
-        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, new CachingTableStatsProvider(planTester.getPlannerContext().getMetadata(), session));
+        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, new CachingTableStatsProvider(planTester.getPlannerContext().getMetadata(), session, () -> false));
         CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.empty(), session);
         return costProvider.getCost(node);
     }
 
     private PlanCostEstimate calculateCostFragmentedPlan(PlanNode node, StatsCalculator statsCalculator)
     {
-        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, new CachingTableStatsProvider(planTester.getPlannerContext().getMetadata(), session));
+        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, new CachingTableStatsProvider(planTester.getPlannerContext().getMetadata(), session, () -> false));
         CostProvider costProvider = new CachingCostProvider(costCalculatorUsingExchanges, statsProvider, Optional.empty(), session);
         SubPlan subPlan = fragment(new Plan(node, StatsAndCosts.create(node, statsProvider, costProvider)));
         return subPlan.getFragment().getStatsAndCosts().getCosts().getOrDefault(node.getId(), PlanCostEstimate.unknown());

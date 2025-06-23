@@ -477,7 +477,7 @@ public class TestRemoveUnsupportedDynamicFilters
                             new PlanNodeIdAllocator(),
                             WarningCollector.NOOP,
                             createPlanOptimizersStatsCollector(),
-                            new CachingTableStatsProvider(metadata, session),
+                            new CachingTableStatsProvider(metadata, session, () -> false),
                             RuntimeInfoProvider.noImplementation()));
             new DynamicFiltersChecker().validate(rewrittenPlan,
                     session,

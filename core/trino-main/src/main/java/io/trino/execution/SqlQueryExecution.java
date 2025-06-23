@@ -410,7 +410,7 @@ public class SqlQueryExecution
                 }, directExecutor());
 
                 try {
-                    CachingTableStatsProvider tableStatsProvider = new CachingTableStatsProvider(plannerContext.getMetadata(), getSession());
+                    CachingTableStatsProvider tableStatsProvider = new CachingTableStatsProvider(plannerContext.getMetadata(), getSession(), stateMachine::isDone);
                     PlanRoot plan = planQuery(tableStatsProvider);
                     // DynamicFilterService needs plan for query to be registered.
                     // Query should be registered before dynamic filter suppliers are requested in distribution planning.
