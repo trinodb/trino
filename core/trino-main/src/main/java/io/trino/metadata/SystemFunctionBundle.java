@@ -564,8 +564,6 @@ public final class SystemFunctionBundle
                 .functions(VARCHAR_CONCAT, VARBINARY_CONCAT)
                 .function(CONCAT_WS)
                 .function(DECIMAL_TO_DECIMAL_CAST)
-                .function(castVarcharToRe2JRegexp(featuresConfig.getRe2JDfaStatesLimit(), featuresConfig.getRe2JDfaRetries()))
-                .function(castCharToRe2JRegexp(featuresConfig.getRe2JDfaStatesLimit(), featuresConfig.getRe2JDfaRetries()))
                 .aggregates(DecimalAverageAggregation.class)
                 .aggregates(DecimalSumAggregation.class)
                 .function(DECIMAL_MOD_FUNCTION)
@@ -715,14 +713,16 @@ public final class SystemFunctionBundle
                 .scalar(CurrentTime.class);
 
         switch (featuresConfig.getRegexLibrary()) {
-            case JONI:
+            case JONI -> {
                 builder.scalars(JoniRegexpFunctions.class);
                 builder.scalar(JoniRegexpReplaceLambdaFunction.class);
-                break;
-            case RE2J:
+            }
+            case RE2J -> {
                 builder.scalars(Re2JRegexpFunctions.class);
                 builder.scalar(Re2JRegexpReplaceLambdaFunction.class);
-                break;
+                builder.function(castVarcharToRe2JRegexp(featuresConfig.getRe2JDfaStatesLimit(), featuresConfig.getRe2JDfaRetries()));
+                builder.function(castCharToRe2JRegexp(featuresConfig.getRe2JDfaStatesLimit(), featuresConfig.getRe2JDfaRetries()));
+            }
         }
 
         return builder.build();
