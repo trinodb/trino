@@ -380,8 +380,7 @@ public class PlanTester
                 globalFunctionCatalog,
                 languageFunctionManager,
                 tableFunctionRegistry,
-                typeManager,
-                new NotImplementedQueryManager());
+                typeManager);
         typeRegistry.addType(new JsonPath2016Type(new TypeDeserializer(typeManager), blockEncodingSerde));
         this.joinCompiler = new JoinCompiler(typeOperators);
         this.hashStrategyCompiler = new FlatHashStrategyCompiler(typeOperators);
@@ -914,7 +913,7 @@ public class PlanTester
                 costCalculator,
                 warningCollector,
                 planOptimizersStatsCollector,
-                new CachingTableStatsProvider(getPlannerContext().getMetadata(), session));
+                new CachingTableStatsProvider(getPlannerContext().getMetadata(), session, () -> false));
 
         Analysis analysis = analyzer.analyze(preparedQuery.getStatement());
         // make PlanTester always compute plan statistics for test purposes
@@ -931,7 +930,7 @@ public class PlanTester
                 new PlanSanityChecker(false),
                 warningCollector,
                 planOptimizersStatsCollector,
-                new CachingTableStatsProvider(getPlannerContext().getMetadata(), session));
+                new CachingTableStatsProvider(getPlannerContext().getMetadata(), session, () -> false));
         return adaptivePlanner.optimize(subPlan, runtimeInfoProvider);
     }
 
