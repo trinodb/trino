@@ -45,6 +45,7 @@ public class ServerInfoResource
 {
     private static final Logger log = Logger.get(ServerInfoResource.class);
 
+    private final String nodeId;
     private final NodeVersion version;
     private final String environment;
     private final boolean coordinator;
@@ -62,6 +63,7 @@ public class ServerInfoResource
             StartupStatus startupStatus,
             Optional<QueryIdGenerator> queryIdGenerator)
     {
+        this.nodeId = nodeInfo.getNodeId();
         this.version = requireNonNull(nodeVersion, "nodeVersion is null");
         this.environment = nodeInfo.getEnvironment();
         this.coordinator = serverConfig.isCoordinator();
@@ -76,7 +78,14 @@ public class ServerInfoResource
     public ServerInfo getInfo()
     {
         boolean starting = !startupStatus.isStartupComplete();
-        return new ServerInfo(version, environment, coordinator, starting, Optional.of(nanosSince(startTime)), queryIdGenerator.map(QueryIdGenerator::getCoordinatorId));
+        return new ServerInfo(
+                version,
+                environment,
+                coordinator,
+                starting,
+                Optional.of(nanosSince(startTime)),
+                queryIdGenerator.map(QueryIdGenerator::getCoordinatorId),
+                Optional.of(nodeId));
     }
 
     @ResourceSecurity(MANAGEMENT_WRITE)
