@@ -16,7 +16,6 @@ package io.trino.metadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.discovery.client.ServiceDescriptor;
@@ -103,7 +102,6 @@ class TestDiscoveryNodeManager
                 httpClient,
                 internalCommunicationConfig);
         try {
-            manager.refreshNodes();
             AllNodes allNodes = manager.getAllNodes();
 
             Set<InternalNode> connectorNodes = manager.getNodes(ACTIVE);
@@ -170,7 +168,6 @@ class TestDiscoveryNodeManager
                 httpClient,
                 internalCommunicationConfig);
         try {
-            manager.refreshNodes();
             assertThat(manager.getCoordinators()).isEqualTo(ImmutableSet.of(coordinator));
         }
         finally {
@@ -211,9 +208,6 @@ class TestDiscoveryNodeManager
                 internalCommunicationConfig,
                 testingTicker);
         try {
-            testingTicker.increment(5, SECONDS);
-            manager.refreshNodes();
-
             BlockingQueue<AllNodes> notifications = new ArrayBlockingQueue<>(100);
             manager.addNodeChangeListener(notifications::add);
             AllNodes allNodes = notifications.take();
@@ -224,20 +218,6 @@ class TestDiscoveryNodeManager
             // announce all nodes
             testingTicker.increment(5, SECONDS);
             selector.announceNodes(activeNodes, inactiveNodes);
-
-            // current implementation requires two updates
-            // all announced nodes start inactive
-            manager.refreshNodes();
-            allNodes = notifications.take();
-            assertThat(allNodes.getActiveNodes()).containsExactly(currentNode);
-            assertThat(allNodes.getInactiveNodes())
-                    .hasSize(5)
-                    .doesNotContain(currentNode)
-                    .containsAll(inactiveNodes)
-                    .containsAll(Sets.difference(activeNodes, ImmutableSet.of(currentNode)));
-
-            // second update makes updates active nodes
-            testingTicker.increment(5, SECONDS);
             manager.refreshNodes();
             allNodes = notifications.take();
             assertThat(manager.getAllNodes()).isSameAs(allNodes);
@@ -245,7 +225,8 @@ class TestDiscoveryNodeManager
             assertThat(allNodes.getActiveCoordinators()).isEqualTo(ImmutableSet.of(coordinator));
 
             // only announce current node and inactive nodes
-            testingTicker.increment(5, SECONDS);
+            // node manager tracks all nodes until they have not been seen for a while
+            testingTicker.increment(30, SECONDS);
             selector.announceNodes(ImmutableSet.of(currentNode), inactiveNodes);
             manager.refreshNodes();
             allNodes = notifications.take();
@@ -269,6 +250,7 @@ class TestDiscoveryNodeManager
             announceNodes(activeNodes, inactiveNodes);
         }
 
+        @SafeVarargs
         private synchronized void announceNodes(Set<InternalNode>... nodeSets)
         {
             ImmutableList.Builder<ServiceDescriptor> descriptors = ImmutableList.builder();
