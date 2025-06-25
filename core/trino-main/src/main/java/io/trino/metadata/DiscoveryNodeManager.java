@@ -213,23 +213,11 @@ public final class DiscoveryNodeManager
                 NodeState nodeState = getNodeState(node);
 
                 switch (nodeState) {
-                    case ACTIVE:
-                        activeNodesBuilder.add(node);
-                        break;
-                    case INACTIVE:
-                        inactiveNodesBuilder.add(node);
-                        break;
-                    case DRAINING:
-                        drainingNodesBuilder.add(node);
-                        break;
-                    case DRAINED:
-                        drainedNodesBuilder.add(node);
-                        break;
-                    case SHUTTING_DOWN:
-                        shuttingDownNodesBuilder.add(node);
-                        break;
-                    default:
-                        log.error("Unknown state %s for node %s", nodeState, node);
+                    case ACTIVE -> activeNodesBuilder.add(node);
+                    case INACTIVE -> inactiveNodesBuilder.add(node);
+                    case DRAINING -> drainingNodesBuilder.add(node);
+                    case DRAINED -> drainedNodesBuilder.add(node);
+                    case SHUTTING_DOWN -> shuttingDownNodesBuilder.add(node);
                 }
             }
         }
