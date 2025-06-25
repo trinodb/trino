@@ -16,10 +16,8 @@ package io.trino.metadata;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.ThreadSafe;
 import io.trino.client.NodeVersion;
-import io.trino.spi.connector.CatalogHandle;
 
 import java.net.URI;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
@@ -66,15 +64,9 @@ public class InMemoryNodeManager
     }
 
     @Override
-    public Set<InternalNode> getActiveCatalogNodes(CatalogHandle catalogHandle)
-    {
-        return ImmutableSet.copyOf(allNodes);
-    }
-
-    @Override
     public NodesSnapshot getActiveNodesSnapshot()
     {
-        return new NodesSnapshot(ImmutableSet.copyOf(allNodes), Optional.empty());
+        return new NodesSnapshot(ImmutableSet.copyOf(allNodes));
     }
 
     @Override

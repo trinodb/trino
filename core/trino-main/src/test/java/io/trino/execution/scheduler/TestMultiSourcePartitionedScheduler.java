@@ -41,7 +41,6 @@ import io.trino.metadata.TableHandle;
 import io.trino.operator.RetryPolicy;
 import io.trino.server.DynamicFilterService;
 import io.trino.spi.QueryId;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.DynamicFilter;
@@ -80,13 +79,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.BooleanSupplier;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -597,18 +594,13 @@ public class TestMultiSourcePartitionedScheduler
 
     private SplitPlacementPolicy createSplitPlacementPolicies(Session session, StageExecution stage, NodeTaskMap nodeTaskMap, InternalNodeManager nodeManager)
     {
-        return createSplitPlacementPolicies(session, stage, nodeTaskMap, nodeManager, TEST_CATALOG_HANDLE);
-    }
-
-    private SplitPlacementPolicy createSplitPlacementPolicies(Session session, StageExecution stage, NodeTaskMap nodeTaskMap, InternalNodeManager nodeManager, CatalogHandle catalog)
-    {
         NodeSchedulerConfig nodeSchedulerConfig = new NodeSchedulerConfig()
                 .setIncludeCoordinator(false)
                 .setMaxSplitsPerNode(100)
                 .setMinPendingSplitsPerTask(0)
                 .setSplitsBalancingPolicy(STAGE);
         NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(nodeManager, nodeSchedulerConfig, nodeTaskMap, new Duration(0, SECONDS)));
-        return new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(session, Optional.of(catalog)), stage::getAllTasks);
+        return new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(session), stage::getAllTasks);
     }
 
     private StageExecution createStageExecution(PlanFragment fragment, NodeTaskMap nodeTaskMap)
@@ -641,24 +633,6 @@ public class TestMultiSourcePartitionedScheduler
                 queryExecutor,
                 Optional.of(new int[] {0}),
                 0);
-    }
-
-    private static class InMemoryNodeManagerByCatalog
-            extends InMemoryNodeManager
-    {
-        private final Function<CatalogHandle, Set<InternalNode>> nodesByCatalogs;
-
-        public InMemoryNodeManagerByCatalog(Set<InternalNode> nodes, Function<CatalogHandle, Set<InternalNode>> nodesByCatalogs)
-        {
-            super(nodes);
-            this.nodesByCatalogs = nodesByCatalogs;
-        }
-
-        @Override
-        public Set<InternalNode> getActiveCatalogNodes(CatalogHandle catalogHandle)
-        {
-            return nodesByCatalogs.apply(catalogHandle);
-        }
     }
 
     private static class QueuedSplitSource

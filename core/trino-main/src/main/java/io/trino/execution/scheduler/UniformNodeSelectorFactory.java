@@ -28,11 +28,9 @@ import io.trino.metadata.InternalNode;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
-import io.trino.spi.connector.CatalogHandle;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
@@ -101,20 +99,18 @@ public class UniformNodeSelectorFactory
     }
 
     @Override
-    public NodeSelector createNodeSelector(Session session, Optional<CatalogHandle> catalogHandle)
+    public NodeSelector createNodeSelector(Session session)
     {
-        requireNonNull(catalogHandle, "catalogHandle is null");
-
         // this supplier is thread-safe. TODO: this logic should probably move to the scheduler since the choice of which node to run in should be
         // done as close to when the split is about to be scheduled
         Supplier<NodeMap> nodeMap;
         if (nodeMapMemoizationDuration.toMillis() > 0) {
             nodeMap = Suppliers.memoizeWithExpiration(
-                    () -> createNodeMap(catalogHandle),
+                    this::createNodeMap,
                     nodeMapMemoizationDuration.toMillis(), MILLISECONDS);
         }
         else {
-            nodeMap = () -> createNodeMap(catalogHandle);
+            nodeMap = this::createNodeMap;
         }
 
         return new UniformNodeSelector(
@@ -131,11 +127,9 @@ public class UniformNodeSelectorFactory
                 optimizedLocalScheduling);
     }
 
-    private NodeMap createNodeMap(Optional<CatalogHandle> catalogHandle)
+    private NodeMap createNodeMap()
     {
-        Set<InternalNode> nodes = catalogHandle
-                .map(nodeManager::getActiveCatalogNodes)
-                .orElseGet(() -> nodeManager.getNodes(ACTIVE));
+        Set<InternalNode> nodes = nodeManager.getNodes(ACTIVE);
 
         Set<String> coordinatorNodeIds = nodeManager.getCoordinators().stream()
                 .map(InternalNode::getNodeIdentifier)

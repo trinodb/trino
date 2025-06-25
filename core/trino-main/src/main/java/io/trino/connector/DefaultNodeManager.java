@@ -17,25 +17,23 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.spi.Node;
 import io.trino.spi.NodeManager;
-import io.trino.spi.connector.CatalogHandle;
 
 import java.util.Set;
 
+import static io.trino.metadata.NodeState.ACTIVE;
 import static java.util.Objects.requireNonNull;
 
-public class ConnectorAwareNodeManager
+public class DefaultNodeManager
         implements NodeManager
 {
     private final InternalNodeManager nodeManager;
     private final String environment;
-    private final CatalogHandle catalogHandle;
     private final boolean schedulerIncludeCoordinator;
 
-    public ConnectorAwareNodeManager(InternalNodeManager nodeManager, String environment, CatalogHandle catalogHandle, boolean schedulerIncludeCoordinator)
+    public DefaultNodeManager(InternalNodeManager nodeManager, String environment, boolean schedulerIncludeCoordinator)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.environment = requireNonNull(environment, "environment is null");
-        this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
         this.schedulerIncludeCoordinator = schedulerIncludeCoordinator;
     }
 
@@ -43,7 +41,7 @@ public class ConnectorAwareNodeManager
     public Set<Node> getAllNodes()
     {
         return ImmutableSet.<Node>builder()
-                .addAll(nodeManager.getActiveCatalogNodes(catalogHandle))
+                .addAll(nodeManager.getNodes(ACTIVE))
                 // append current node (before connector is registered with the node
                 // in the discovery service) since current node should have connector always loaded
                 .add(nodeManager.getCurrentNode())
@@ -56,7 +54,7 @@ public class ConnectorAwareNodeManager
         ImmutableSet.Builder<Node> nodes = ImmutableSet.builder();
         // getActiveConnectorNodes returns all nodes (including coordinators)
         // that have connector registered
-        nodeManager.getActiveCatalogNodes(catalogHandle).stream()
+        nodeManager.getNodes(ACTIVE).stream()
                 .filter(node -> !node.isCoordinator() || schedulerIncludeCoordinator)
                 .forEach(nodes::add);
         if (!nodeManager.getCurrentNode().isCoordinator() || schedulerIncludeCoordinator) {

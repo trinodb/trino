@@ -62,7 +62,6 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
@@ -172,7 +171,7 @@ public class BenchmarkNodeScheduler
             Session session = TestingSession.testSessionBuilder()
                     .setSystemProperty(MAX_UNACKNOWLEDGED_SPLITS_PER_TASK, Integer.toString(Integer.MAX_VALUE))
                     .build();
-            nodeSelector = nodeScheduler.createNodeSelector(session, Optional.of(TEST_CATALOG_HANDLE));
+            nodeSelector = nodeScheduler.createNodeSelector(session);
         }
 
         @TearDown
