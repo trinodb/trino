@@ -5445,7 +5445,7 @@ public abstract class BaseIcebergConnectorTest
         }
     }
 
-    @Test()
+    @Test
     public void testOptimizeTimePartitionedTable()
     {
         testOptimizeTimePartitionedTable("date", "%s", 15);
