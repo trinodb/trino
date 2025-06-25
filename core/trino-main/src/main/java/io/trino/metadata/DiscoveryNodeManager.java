@@ -25,6 +25,7 @@ import io.airlift.discovery.client.ServiceSelector;
 import io.airlift.discovery.client.ServiceType;
 import io.airlift.http.client.HttpClient;
 import io.airlift.log.Logger;
+import io.airlift.node.NodeInfo;
 import io.trino.client.NodeVersion;
 import io.trino.failuredetector.FailureDetector;
 import io.trino.server.InternalCommunicationConfig;
@@ -59,6 +60,7 @@ public final class DiscoveryNodeManager
     private final Supplier<NodeState> currentNodeState;
     private final ServiceSelector serviceSelector;
     private final FailureDetector failureDetector;
+    private final String expectedNodeEnvironment;
     private final NodeVersion expectedNodeVersion;
     private final ConcurrentHashMap<URI, RemoteNodeState> nodeStates = new ConcurrentHashMap<>();
     private final HttpClient httpClient;
@@ -80,6 +82,7 @@ public final class DiscoveryNodeManager
     @Inject
     public DiscoveryNodeManager(
             @ServiceType("trino") ServiceSelector serviceSelector,
+            NodeInfo nodeInfo,
             InternalNode currentNode,
             CurrentNodeState currentNodeState,
             FailureDetector failureDetector,
@@ -91,6 +94,7 @@ public final class DiscoveryNodeManager
                 currentNode,
                 currentNodeState,
                 failureDetector,
+                nodeInfo.getEnvironment(),
                 httpClient,
                 internalCommunicationConfig.isHttpsRequired(),
                 Ticker.systemTicker());
@@ -102,6 +106,7 @@ public final class DiscoveryNodeManager
             InternalNode currentNode,
             Supplier<NodeState> currentNodeState,
             FailureDetector failureDetector,
+            String expectedNodeEnvironment,
             HttpClient httpClient,
             boolean httpsRequired,
             Ticker ticker)
@@ -111,6 +116,7 @@ public final class DiscoveryNodeManager
         this.currentNodeState = requireNonNull(currentNodeState, "currentNodeState is null");
         this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
         this.expectedNodeVersion = currentNode.getNodeVersion();
+        this.expectedNodeEnvironment = requireNonNull(expectedNodeEnvironment, "expectedNodeEnvironment is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.nodeStateUpdateExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("node-state-poller-%s"));
         this.nodeStateEventExecutor = newCachedThreadPool(daemonThreadsNamed("node-state-events-%s"));
@@ -156,10 +162,8 @@ public final class DiscoveryNodeManager
             if (uri == null) {
                 continue;
             }
-            NodeVersion nodeVersion = getNodeVersion(service);
-            if (!expectedNodeVersion.equals(nodeVersion)) {
-                // version is currently invalid, so remove this node if it had been previously tracked
-                nodeStates.remove(uri);
+            if (uri.equals(currentNode.getInternalUri())) {
+                // Skip the current node
                 continue;
             }
 
@@ -167,7 +171,9 @@ public final class DiscoveryNodeManager
             RemoteNodeState remoteNodeState = nodeStates.computeIfAbsent(
                     uri,
                     _ -> new RemoteNodeState(
-                            new InternalNode(service.getNodeId(), uri, nodeVersion, isCoordinator(service)),
+                            uri,
+                            expectedNodeEnvironment,
+                            expectedNodeVersion,
                             httpClient,
                             ticker));
             remoteNodeState.setSeen();
@@ -177,9 +183,8 @@ public final class DiscoveryNodeManager
         for (var entry : nodeStates.entrySet()) {
             RemoteNodeState remoteNodeState = entry.getValue();
             if (remoteNodeState.isMissing()) {
-                if (remoteNodeState.hasBeenActive() && remoteNodeState.getNodeState() != NodeState.SHUTTING_DOWN) {
-                    InternalNode node = remoteNodeState.getNode();
-                    log.info("Previously active node is missing: %s (last seen at %s)", node.getNodeIdentifier(), node.getHost());
+                if (remoteNodeState.hasBeenActive() && remoteNodeState.getState() != NodeState.SHUTTING_DOWN) {
+                    log.info("Previously active node is missing: %s", entry.getKey());
                 }
                 nodeStates.remove(entry.getKey());
             }
@@ -209,9 +214,11 @@ public final class DiscoveryNodeManager
         }
 
         for (RemoteNodeState remoteNodeState : nodeStates.values()) {
-            InternalNode node = remoteNodeState.getNode();
-            NodeState nodeState = remoteNodeState.getNodeState();
-            switch (nodeState) {
+            InternalNode node = remoteNodeState.getInternalNode().orElse(null);
+            if (node == null) {
+                continue;
+            }
+            switch (remoteNodeState.getState()) {
                 case ACTIVE -> activeNodesBuilder.add(node);
                 case INACTIVE -> inactiveNodesBuilder.add(node);
                 case DRAINING -> drainingNodesBuilder.add(node);
@@ -330,16 +337,5 @@ public final class DiscoveryNodeManager
             return URI.create(url);
         }
         return null;
-    }
-
-    private static NodeVersion getNodeVersion(ServiceDescriptor descriptor)
-    {
-        String nodeVersion = descriptor.getProperties().get("node_version");
-        return nodeVersion == null ? null : new NodeVersion(nodeVersion);
-    }
-
-    private static boolean isCoordinator(ServiceDescriptor service)
-    {
-        return Boolean.parseBoolean(service.getProperties().get("coordinator"));
     }
 }
