@@ -13,6 +13,8 @@
  */
 package io.trino.metadata;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets.SetView;
@@ -68,6 +70,7 @@ public final class DiscoveryNodeManager
     private final ExecutorService nodeStateEventExecutor;
     private final boolean httpsRequired;
     private final InternalNode currentNode;
+    private final Ticker ticker;
 
     @GuardedBy("this")
     private AllNodes allNodes;
@@ -87,6 +90,26 @@ public final class DiscoveryNodeManager
             @ForNodeManager HttpClient httpClient,
             InternalCommunicationConfig internalCommunicationConfig)
     {
+        this(
+                serviceSelector,
+                nodeInfo,
+                failureDetector,
+                expectedNodeVersion,
+                httpClient,
+                internalCommunicationConfig,
+                Ticker.systemTicker());
+    }
+
+    @VisibleForTesting
+    DiscoveryNodeManager(
+            ServiceSelector serviceSelector,
+            NodeInfo nodeInfo,
+            FailureDetector failureDetector,
+            NodeVersion expectedNodeVersion,
+            HttpClient httpClient,
+            InternalCommunicationConfig internalCommunicationConfig,
+            Ticker ticker)
+    {
         this.serviceSelector = requireNonNull(serviceSelector, "serviceSelector is null");
         this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
         this.expectedNodeVersion = requireNonNull(expectedNodeVersion, "expectedNodeVersion is null");
@@ -94,6 +117,7 @@ public final class DiscoveryNodeManager
         this.nodeStateUpdateExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("node-state-poller-%s"));
         this.nodeStateEventExecutor = newCachedThreadPool(daemonThreadsNamed("node-state-events-%s"));
         this.httpsRequired = internalCommunicationConfig.isHttpsRequired();
+        this.ticker = requireNonNull(ticker, "ticker is null");
 
         this.currentNode = findCurrentNode(
                 serviceSelector.selectAllServices(),
@@ -146,7 +170,8 @@ public final class DiscoveryNodeManager
         nodeStateEventExecutor.shutdown();
     }
 
-    private void pollWorkers()
+    @VisibleForTesting
+    void pollWorkers()
     {
         AllNodes allNodes = getAllNodes();
         Set<InternalNode> aliveNodes = ImmutableSet.<InternalNode>builder()
@@ -167,8 +192,8 @@ public final class DiscoveryNodeManager
 
         // Add new nodes
         for (InternalNode node : aliveNodes) {
-            nodeStates.putIfAbsent(node.getNodeIdentifier(),
-                    new RemoteNodeState(httpClient, uriBuilderFrom(node.getInternalUri()).appendPath("/v1/info/state").build()));
+            URI uri = uriBuilderFrom(node.getInternalUri()).appendPath("/v1/info/state").build();
+            nodeStates.putIfAbsent(node.getNodeIdentifier(), new RemoteNodeState(httpClient, uri, ticker));
         }
 
         // Schedule refresh
