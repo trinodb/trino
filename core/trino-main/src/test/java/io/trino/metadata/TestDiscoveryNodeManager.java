@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.discovery.client.ServiceDescriptor;
@@ -95,8 +96,8 @@ class TestDiscoveryNodeManager
                 .map(InternalNode::getHost)
                 .collect(toImmutableSet());
         inactiveNodes = ImmutableSet.of(
-                new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.3.9"), NodeVersion.UNKNOWN, false),
-                new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.4.9"), new NodeVersion("2"), false));
+                new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.3.9"), expectedVersion, false),
+                new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.4.9"), expectedVersion, false));
 
         selector.announceNodes(activeNodes, inactiveNodes);
     }
@@ -119,6 +120,7 @@ class TestDiscoveryNodeManager
                 testHttpClient,
                 internalCommunicationConfig);
         try {
+            manager.pollWorkers();
             AllNodes allNodes = manager.getAllNodes();
 
             Set<InternalNode> connectorNodes = manager.getNodes(ACTIVE);
@@ -185,6 +187,7 @@ class TestDiscoveryNodeManager
                 testHttpClient,
                 internalCommunicationConfig);
         try {
+            manager.pollWorkers();
             assertThat(manager.getCoordinators()).isEqualTo(ImmutableSet.of(coordinator));
         }
         finally {
@@ -212,6 +215,8 @@ class TestDiscoveryNodeManager
     void testNodeChangeListener()
             throws Exception
     {
+        // initially only the current node is announced
+        selector.announceNodes(ImmutableSet.of(currentNode), ImmutableSet.of());
         TestingTicker testingTicker = new TestingTicker();
         DiscoveryNodeManager manager = new DiscoveryNodeManager(
                 selector,
@@ -222,24 +227,46 @@ class TestDiscoveryNodeManager
                 internalCommunicationConfig,
                 testingTicker);
         try {
+            testingTicker.increment(5, SECONDS);
+            manager.pollWorkers();
+
             BlockingQueue<AllNodes> notifications = new ArrayBlockingQueue<>(100);
             manager.addNodeChangeListener(notifications::add);
             AllNodes allNodes = notifications.take();
-            assertThat(allNodes.getActiveNodes()).isEqualTo(activeNodes);
-            assertThat(allNodes.getInactiveNodes()).isEqualTo(inactiveNodes);
+            assertThat(manager.getAllNodes()).isSameAs(allNodes);
+            assertThat(allNodes.getActiveNodes()).containsExactly(currentNode);
+            assertThat(allNodes.getInactiveNodes()).isEmpty();
 
-            selector.announceNodes(ImmutableSet.of(currentNode), ImmutableSet.of(coordinator));
+            // announce all nodes
+            testingTicker.increment(5, SECONDS);
+            selector.announceNodes(activeNodes, inactiveNodes);
+
+            // current implementation requires two updates
+            // all announced nodes start inactive
+            manager.pollWorkers();
+            allNodes = notifications.take();
+            assertThat(allNodes.getActiveNodes()).containsExactly(currentNode);
+            assertThat(allNodes.getInactiveNodes())
+                    .hasSize(5)
+                    .doesNotContain(currentNode)
+                    .containsAll(inactiveNodes)
+                    .containsAll(Sets.difference(activeNodes, ImmutableSet.of(currentNode)));
+
+            // second update makes updates active nodes
             testingTicker.increment(5, SECONDS);
             manager.pollWorkers();
             allNodes = notifications.take();
-            assertThat(allNodes.getActiveNodes()).isEqualTo(ImmutableSet.of(currentNode, coordinator));
+            assertThat(manager.getAllNodes()).isSameAs(allNodes);
+            assertThat(allNodes.getActiveNodes()).isEqualTo(activeNodes);
             assertThat(allNodes.getActiveCoordinators()).isEqualTo(ImmutableSet.of(coordinator));
 
-            selector.announceNodes(activeNodes, inactiveNodes);
+            // only announce current node and inactive nodes
             testingTicker.increment(5, SECONDS);
+            selector.announceNodes(ImmutableSet.of(currentNode), inactiveNodes);
             manager.pollWorkers();
             allNodes = notifications.take();
-            assertThat(allNodes.getActiveNodes()).isEqualTo(activeNodes);
+            assertThat(manager.getAllNodes()).isSameAs(allNodes);
+            assertThat(allNodes.getActiveNodes()).containsExactly(currentNode);
             assertThat(allNodes.getInactiveNodes()).isEqualTo(inactiveNodes);
         }
         finally {
@@ -264,6 +291,20 @@ class TestDiscoveryNodeManager
                         .addProperty("coordinator", String.valueOf(node.isCoordinator()))
                         .build());
             }
+
+            // Also add some nodes with bad versions
+            descriptors.add(serviceDescriptor("trino")
+                    .setNodeId("bad_version_unknown")
+                    .addProperty("http", "https://192.0.7.1")
+                    .addProperty("node_version", NodeVersion.UNKNOWN.toString())
+                    .addProperty("coordinator", "false")
+                    .build());
+            descriptors.add(serviceDescriptor("trino")
+                    .setNodeId("bad_version_2")
+                    .addProperty("http", "https://192.0.7.2")
+                    .addProperty("node_version", "2")
+                    .addProperty("coordinator", "false")
+                    .build());
 
             this.descriptors = descriptors.build();
         }
