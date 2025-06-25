@@ -179,8 +179,7 @@ public class NodePartitioningManager
                 verify(bucketToNode.size() == connectorBucketNodeMap.getBucketCount(), "Fixed mapping size does not match bucket count");
             }
             else {
-                CatalogHandle catalogHandle = requiredCatalogHandle(partitioningHandle);
-                List<InternalNode> allNodes = getAllNodes(session, catalogHandle);
+                List<InternalNode> allNodes = getAllNodes(session);
                 bucketToNode = bucketToNodeCache.computeIfAbsent(
                         connectorBucketNodeMap.getBucketCount(),
                         bucketCount -> createArbitraryBucketToNode(connectorBucketNodeMap.getCacheKeyHint(), allNodes.subList(0, Math.min(allNodes.size(), partitionCount)), bucketCount));
@@ -212,7 +211,7 @@ public class NodePartitioningManager
     {
         SystemPartitioning partitioning = ((SystemPartitioningHandle) partitioningHandle.getConnectorHandle()).getPartitioning();
 
-        NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, Optional.empty());
+        NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session);
 
         List<InternalNode> nodes = switch (partitioning) {
             case COORDINATOR_ONLY -> ImmutableList.of(nodeSelector.selectCurrentNode());
@@ -240,7 +239,7 @@ public class NodePartitioningManager
     public BucketNodeMap getBucketNodeMap(Session session, PartitioningHandle partitioningHandle, int partitionCount)
     {
         Optional<ConnectorBucketNodeMap> bucketNodeMap = getConnectorBucketNodeMap(session, partitioningHandle);
-        int bucketCount = bucketNodeMap.map(ConnectorBucketNodeMap::getBucketCount).orElseGet(() -> getDefaultBucketCount(session, partitioningHandle));
+        int bucketCount = bucketNodeMap.map(ConnectorBucketNodeMap::getBucketCount).orElseGet(() -> getDefaultBucketCount(session));
         ToIntFunction<Split> splitToBucket = getSplitToBucket(session, partitioningHandle, bucketCount);
 
         if (bucketNodeMap.map(ConnectorBucketNodeMap::hasFixedMapping).orElse(false)) {
@@ -248,7 +247,7 @@ public class NodePartitioningManager
         }
 
         long seed = bucketNodeMap.map(ConnectorBucketNodeMap::getCacheKeyHint).orElse(ThreadLocalRandom.current().nextLong());
-        List<InternalNode> nodes = getAllNodes(session, requiredCatalogHandle(partitioningHandle));
+        List<InternalNode> nodes = getAllNodes(session);
         nodes = nodes.subList(0, Math.min(nodes.size(), partitionCount));
         return new BucketNodeMap(splitToBucket, createArbitraryBucketToNode(seed, nodes, bucketCount));
     }
@@ -259,7 +258,7 @@ public class NodePartitioningManager
      *
      * @return The default bucket count to use when the connector doesn't provide a number.
      */
-    private int getDefaultBucketCount(Session session, PartitioningHandle partitioningHandle)
+    private int getDefaultBucketCount(Session session)
     {
         // The default bucket count is used by both remote and local exchanges to assign buckets to nodes and drivers. The goal is to have enough
         // buckets to evenly distribute them across tasks or drivers. If number of buckets is too low, then some tasks or drivers will be idle.
@@ -271,7 +270,7 @@ public class NodePartitioningManager
         int remoteBucketCount;
         if (getRetryPolicy(session) != RetryPolicy.TASK) {
             // Pipeline schedulers typically create as many tasks as there are nodes.
-            remoteBucketCount = getNodeCount(session, partitioningHandle) * 3;
+            remoteBucketCount = getNodeCount(session) * 3;
         }
         else {
             // The FTE scheduler usually creates as many tasks as there are partitions.
@@ -286,14 +285,14 @@ public class NodePartitioningManager
         return max(remoteBucketCount, localBucketCount);
     }
 
-    public int getNodeCount(Session session, PartitioningHandle partitioningHandle)
+    public int getNodeCount(Session session)
     {
-        return getAllNodes(session, requiredCatalogHandle(partitioningHandle)).size();
+        return getAllNodes(session).size();
     }
 
-    private List<InternalNode> getAllNodes(Session session, CatalogHandle catalogHandle)
+    private List<InternalNode> getAllNodes(Session session)
     {
-        return nodeScheduler.createNodeSelector(session, Optional.of(catalogHandle)).allNodes();
+        return nodeScheduler.createNodeSelector(session).allNodes();
     }
 
     private static List<InternalNode> getFixedMapping(ConnectorBucketNodeMap connectorBucketNodeMap)

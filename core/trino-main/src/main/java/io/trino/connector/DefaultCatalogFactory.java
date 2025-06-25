@@ -197,7 +197,7 @@ public class DefaultCatalogFactory
                 catalogHandle,
                 openTelemetry,
                 createTracer(catalogHandle),
-                new ConnectorAwareNodeManager(nodeManager, nodeInfo.getEnvironment(), catalogHandle, schedulerIncludeCoordinator),
+                new DefaultNodeManager(nodeManager, nodeInfo.getEnvironment(), schedulerIncludeCoordinator),
                 versionEmbedder,
                 typeManager,
                 new InternalMetadataProvider(metadata, typeManager),

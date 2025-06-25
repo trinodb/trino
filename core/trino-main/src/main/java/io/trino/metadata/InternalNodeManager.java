@@ -14,11 +14,7 @@
 package io.trino.metadata;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSetMultimap;
-import com.google.common.collect.SetMultimap;
-import io.trino.spi.connector.CatalogHandle;
 
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 
@@ -28,8 +24,6 @@ import static java.util.Objects.requireNonNull;
 public interface InternalNodeManager
 {
     Set<InternalNode> getNodes(NodeState state);
-
-    Set<InternalNode> getActiveCatalogNodes(CatalogHandle catalogHandle);
 
     NodesSnapshot getActiveNodesSnapshot();
 
@@ -48,14 +42,11 @@ public interface InternalNodeManager
     class NodesSnapshot
     {
         private final Set<InternalNode> allNodes;
-        private final Optional<SetMultimap<CatalogHandle, InternalNode>> connectorNodes;
 
-        public NodesSnapshot(Set<InternalNode> allActiveNodes, Optional<SetMultimap<CatalogHandle, InternalNode>> activeNodesByCatalogName)
+        public NodesSnapshot(Set<InternalNode> allActiveNodes)
         {
             requireNonNull(allActiveNodes, "allActiveNodes is null");
-            requireNonNull(activeNodesByCatalogName, "activeNodesByCatalogName is null");
             this.allNodes = ImmutableSet.copyOf(allActiveNodes);
-            this.connectorNodes = activeNodesByCatalogName.map(ImmutableSetMultimap::copyOf);
         }
 
         public Set<InternalNode> getAllNodes()
@@ -63,19 +54,11 @@ public interface InternalNodeManager
             return allNodes;
         }
 
-        public Set<InternalNode> getConnectorNodes(CatalogHandle catalogHandle)
-        {
-            return connectorNodes
-                    .map(map -> map.get(catalogHandle))
-                    .orElse(allNodes);
-        }
-
         @Override
         public String toString()
         {
             return toStringHelper(this)
                     .add("allNodes", allNodes)
-                    .add("connectorNodes", connectorNodes.orElse(null))
                     .toString();
         }
     }
