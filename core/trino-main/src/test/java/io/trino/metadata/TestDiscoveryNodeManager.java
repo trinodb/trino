@@ -13,8 +13,8 @@
  */
 package io.trino.metadata;
 
-import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -43,6 +43,9 @@ import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
+import static com.google.common.net.MediaType.JSON_UTF_8;
 import static io.airlift.discovery.client.ServiceDescriptor.serviceDescriptor;
 import static io.airlift.discovery.client.ServiceSelectorConfig.DEFAULT_POOL;
 import static io.airlift.http.client.HttpStatus.OK;
@@ -57,10 +60,14 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 @TestInstance(PER_METHOD)
 class TestDiscoveryNodeManager
 {
+    private static final byte[] ACTIVE_JSON = ("\"" + ACTIVE + "\"").getBytes(UTF_8);
+    private static final byte[] INACTIVE_JSON = ("\"" + INACTIVE + "\"").getBytes(UTF_8);
+
     private final NodeInfo nodeInfo = new NodeInfo("test");
     private final InternalCommunicationConfig internalCommunicationConfig = new InternalCommunicationConfig();
     private NodeVersion expectedVersion;
     private Set<InternalNode> activeNodes;
+    private Set<String> activeHosts;
     private Set<InternalNode> inactiveNodes;
     private InternalNode coordinator;
     private InternalNode currentNode;
@@ -70,7 +77,10 @@ class TestDiscoveryNodeManager
     @BeforeEach
     void setup()
     {
-        testHttpClient = new TestingHttpClient(input -> new TestingResponse(OK, ArrayListMultimap.create(), ACTIVE.name().getBytes(UTF_8)));
+        testHttpClient = new TestingHttpClient(input -> new TestingResponse(
+                OK,
+                ImmutableListMultimap.of(CONTENT_TYPE, JSON_UTF_8.toString()),
+                activeHosts.contains(input.getUri().getHost()) ? ACTIVE_JSON : INACTIVE_JSON));
 
         expectedVersion = new NodeVersion("1");
         coordinator = new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.2.8"), expectedVersion, true);
@@ -81,6 +91,9 @@ class TestDiscoveryNodeManager
                 new InternalNode(UUID.randomUUID().toString(), URI.create("http://192.0.2.1:8080"), expectedVersion, false),
                 new InternalNode(UUID.randomUUID().toString(), URI.create("http://192.0.2.3"), expectedVersion, false),
                 coordinator);
+        activeHosts = activeNodes.stream()
+                .map(InternalNode::getHost)
+                .collect(toImmutableSet());
         inactiveNodes = ImmutableSet.of(
                 new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.3.9"), NodeVersion.UNKNOWN, false),
                 new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.4.9"), new NodeVersion("2"), false));
