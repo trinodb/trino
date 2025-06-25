@@ -203,7 +203,6 @@ public final class DiscoveryNodeManager
         ImmutableSet.Builder<InternalNode> drainingNodesBuilder = ImmutableSet.builder();
         ImmutableSet.Builder<InternalNode> drainedNodesBuilder = ImmutableSet.builder();
         ImmutableSet.Builder<InternalNode> shuttingDownNodesBuilder = ImmutableSet.builder();
-        ImmutableSet.Builder<InternalNode> coordinatorsBuilder = ImmutableSet.builder();
 
         for (ServiceDescriptor service : services) {
             URI uri = getHttpUri(service, httpsRequired);
@@ -216,9 +215,6 @@ public final class DiscoveryNodeManager
                 switch (nodeState) {
                     case ACTIVE:
                         activeNodesBuilder.add(node);
-                        if (coordinator) {
-                            coordinatorsBuilder.add(node);
-                        }
                         break;
                     case INACTIVE:
                         inactiveNodesBuilder.add(node);
@@ -242,8 +238,12 @@ public final class DiscoveryNodeManager
         Set<InternalNode> drainingNodes = drainingNodesBuilder.build();
         Set<InternalNode> drainedNodes = drainedNodesBuilder.build();
         Set<InternalNode> inactiveNodes = inactiveNodesBuilder.build();
-        Set<InternalNode> coordinators = coordinatorsBuilder.build();
         Set<InternalNode> shuttingDownNodes = shuttingDownNodesBuilder.build();
+
+        Set<InternalNode> coordinators = activeNodes.stream()
+                .filter(InternalNode::isCoordinator)
+                .collect(toImmutableSet());
+
         if (allNodes != null) {
             // log nodes that are no longer active (but not shutting down)
             Set<InternalNode> aliveNodes = ImmutableSet.<InternalNode>builder()
