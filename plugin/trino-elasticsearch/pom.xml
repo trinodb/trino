@@ -14,7 +14,7 @@
     <description>Trino - Elasticsearch connector</description>
 
     <properties>
-        <dep.elasticsearch.version>7.17.28</dep.elasticsearch.version>
+        <dep.elasticsearch.version>7.17.29</dep.elasticsearch.version>
     </properties>
 
     <dependencies>
