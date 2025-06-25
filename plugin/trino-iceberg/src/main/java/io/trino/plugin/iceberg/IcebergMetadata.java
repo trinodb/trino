@@ -2506,9 +2506,9 @@ public class IcebergMetadata
         }
 
         if (properties.containsKey(MAX_COMMIT_RETRY)) {
-            int formatVersion = (int) properties.get(MAX_COMMIT_RETRY)
+            int maxCommitRetry = (int) properties.get(MAX_COMMIT_RETRY)
                     .orElseThrow(() -> new IllegalArgumentException("The max_commit_retry property cannot be empty"));
-            updateProperties.set(COMMIT_NUM_RETRIES, Integer.toString(formatVersion));
+            updateProperties.set(COMMIT_NUM_RETRIES, Integer.toString(maxCommitRetry));
         }
 
         if (properties.containsKey(OBJECT_STORE_LAYOUT_ENABLED_PROPERTY)) {
