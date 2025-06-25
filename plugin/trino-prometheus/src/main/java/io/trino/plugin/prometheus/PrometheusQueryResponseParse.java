@@ -53,17 +53,15 @@ public class PrometheusQueryResponseParse
                         this.status = true;
                         while (!parser.isClosed()) {
                             parser.nextToken();
-                            if (JsonToken.FIELD_NAME.equals(jsonToken)) {
-                                if (parser.currentName().equals("resultType")) {
-                                    parser.nextToken();
-                                    resultType = parser.getValueAsString();
-                                }
-                                if (parser.currentName().equals("result")) {
-                                    parser.nextToken();
-                                    ArrayNode node = mapper.readTree(parser);
-                                    result = node.toString();
-                                    break;
-                                }
+                            if (parser.currentName().equals("resultType")) {
+                                parser.nextToken();
+                                resultType = parser.getValueAsString();
+                            }
+                            if (parser.currentName().equals("result")) {
+                                parser.nextToken();
+                                ArrayNode node = mapper.readTree(parser);
+                                result = node.toString();
+                                break;
                             }
                         }
                     }
@@ -85,19 +83,17 @@ public class PrometheusQueryResponseParse
             }
         }
         if (result != null && resultType != null) {
-            switch (resultType) {
-                case "matrix":
-                case "vector":
-                    results = mapper.readValue(result, new TypeReference<List<PrometheusMetricResult>>() {});
-                    break;
-                case "scalar":
-                case "string":
+            results = switch (resultType) {
+                case "matrix", "vector" -> mapper.readValue(result, new TypeReference<List<PrometheusMetricResult>>() {});
+                case "scalar", "string" -> {
                     PrometheusTimeSeriesValue stringOrScalarResult = mapper.readValue(result, new TypeReference<PrometheusTimeSeriesValue>() {});
                     Map<String, String> madeUpMetricHeader = new HashMap<>();
                     madeUpMetricHeader.put("__name__", resultType);
                     PrometheusTimeSeriesValueArray timeSeriesValues = new PrometheusTimeSeriesValueArray(singletonList(stringOrScalarResult));
-                    results = singletonList(new PrometheusMetricResult(madeUpMetricHeader, timeSeriesValues));
-            }
+                    yield singletonList(new PrometheusMetricResult(madeUpMetricHeader, timeSeriesValues));
+                }
+                default -> null;
+            };
         }
     }
 
