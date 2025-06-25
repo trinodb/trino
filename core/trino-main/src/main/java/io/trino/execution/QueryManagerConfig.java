@@ -28,6 +28,7 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -99,6 +100,8 @@ public class QueryManagerConfig
     private Optional<DataSize> queryMaxWritePhysicalSize = Optional.empty();
     private int queryReportedRuleStatsLimit = 10;
     private int dispatcherQueryPoolSize = DISPATCHER_THREADPOOL_MAX_SIZE;
+    @Min(0)
+    private Long queryMaxSelectRows;
 
     private int requiredWorkers = 1;
     private Duration requiredWorkersMaxWait = new Duration(5, TimeUnit.MINUTES);
@@ -1226,6 +1229,19 @@ public class QueryManagerConfig
     public QueryManagerConfig setFaultTolerantExecutionAdaptiveJoinReorderingMinSizeThreshold(DataSize faultTolerantExecutionAdaptiveJoinReorderingMinSizeThreshold)
     {
         this.faultTolerantExecutionAdaptiveJoinReorderingMinSizeThreshold = faultTolerantExecutionAdaptiveJoinReorderingMinSizeThreshold;
+        return this;
+    }
+
+    public OptionalLong getQueryMaxSelectRows()
+    {
+        return queryMaxSelectRows == null ? OptionalLong.empty() : OptionalLong.of(queryMaxSelectRows);
+    }
+
+    @Config("query.max-select-rows")
+    @ConfigDescription("Maximum rows returned by a top-level SELECT query")
+    public QueryManagerConfig setQueryMaxSelectRows(Long queryMaxSelectRows)
+    {
+        this.queryMaxSelectRows = queryMaxSelectRows;
         return this;
     }
 }

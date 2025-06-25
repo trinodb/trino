@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import io.trino.Session;
+import io.trino.SystemSessionProperties;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableHandle;
@@ -29,6 +30,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SortOrder;
+import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.RowType;
@@ -110,6 +112,7 @@ import io.trino.sql.tree.VariableDefinition;
 import io.trino.sql.tree.WindowFrame;
 import io.trino.sql.tree.WindowOperation;
 import io.trino.type.Reals;
+import io.trino.util.StatementUtils;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -121,6 +124,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -239,7 +243,12 @@ class QueryPlanner
         Optional<OrderingScheme> orderingScheme = orderingScheme(builder, query.getOrderBy(), analysis.getOrderByExpressions(query));
         builder = sort(builder, orderingScheme);
         builder = offset(builder, query.getOffset());
-        builder = limit(builder, query.getLimit(), orderingScheme);
+        if (analysis.getStatement() == query) {
+            builder = limitWithTopLevelSelectCheck(builder, query, orderingScheme);
+        }
+        else {
+            builder = limit(builder, query.getLimit(), orderingScheme);
+        }
         builder = builder.appendProjections(outputs, symbolAllocator, idAllocator);
 
         return new RelationPlan(
@@ -2245,6 +2254,41 @@ class QueryPlanner
                         idAllocator.getNextId(),
                         subPlan.getRoot(),
                         analysis.getOffset(offset.get())));
+    }
+
+    private PlanBuilder limitWithTopLevelSelectCheck(PlanBuilder subPlan, Query query, Optional<OrderingScheme> orderingScheme)
+    {
+        Optional<Node> limit = query.getLimit();
+        if (limit.isPresent() && analysis.getLimit(limit.get()).isPresent()) {
+            Optional<OrderingScheme> tiesResolvingScheme = Optional.empty();
+            if (limit.get() instanceof FetchFirst fetchFirst && fetchFirst.isWithTies()) {
+                tiesResolvingScheme = orderingScheme;
+            }
+            return subPlan.withNewRoot(
+                    new LimitNode(
+                            idAllocator.getNextId(),
+                            subPlan.getRoot(),
+                            analysis.getLimit(limit.get()).getAsLong(),
+                            tiesResolvingScheme,
+                            false,
+                            ImmutableList.of()));
+        }
+
+        OptionalLong sessionLimit = SystemSessionProperties.getQueryMaxSelectRows(session);
+        if (sessionLimit.isPresent() && !analysis.isDescribe() &&
+                StatementUtils.getQueryType(analysis.getStatement())
+                        .map(type -> type == QueryType.SELECT)
+                        .orElse(false)) {
+            return subPlan.withNewRoot(
+                    new LimitNode(
+                            idAllocator.getNextId(),
+                            subPlan.getRoot(),
+                            sessionLimit.getAsLong(),
+                            Optional.empty(),
+                            false,
+                            ImmutableList.of()));
+        }
+        return subPlan;
     }
 
     private PlanBuilder limit(PlanBuilder subPlan, Optional<Node> limit, Optional<OrderingScheme> orderingScheme)

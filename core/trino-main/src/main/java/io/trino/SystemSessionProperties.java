@@ -36,6 +36,7 @@ import io.trino.sql.planner.OptimizerConfig.MarkDistinctStrategy;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.OptionalLong;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -220,6 +221,7 @@ public final class SystemSessionProperties
     public static final String CLOSE_IDLE_WRITERS_TRIGGER_DURATION = "close_idle_writers_trigger_duration";
     public static final String COLUMNAR_FILTER_EVALUATION_ENABLED = "columnar_filter_evaluation_enabled";
     public static final String SPOOLING_ENABLED = "spooling_enabled";
+    public static final String QUERY_MAX_SELECT_ROWS = "query_max_select_rows";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -419,6 +421,12 @@ public final class SystemSessionProperties
                         "Temporary: Maximum number of stages a query can have",
                         queryManagerConfig.getMaxStageCount(),
                         true),
+                longProperty(
+                        QUERY_MAX_SELECT_ROWS,
+                        "Maximum rows returned by a top-level SELECT query",
+                        queryManagerConfig.getQueryMaxSelectRows().isPresent() ? queryManagerConfig.getQueryMaxSelectRows().getAsLong() : null,
+                        value -> validateNonNegativeLongValue(value, QUERY_MAX_SELECT_ROWS),
+                        false),
                 booleanProperty(
                         DICTIONARY_AGGREGATION,
                         "Enable optimization for aggregations on dictionaries",
@@ -1296,6 +1304,12 @@ public final class SystemSessionProperties
     public static int getQueryMaxStageCount(Session session)
     {
         return session.getSystemProperty(QUERY_MAX_STAGE_COUNT, Integer.class);
+    }
+
+    public static OptionalLong getQueryMaxSelectRows(Session session)
+    {
+        Long value = session.getSystemProperty(QUERY_MAX_SELECT_ROWS, Long.class);
+        return value == null ? OptionalLong.empty() : OptionalLong.of(value);
     }
 
     public static boolean isUseTableScanNodePartitioning(Session session)

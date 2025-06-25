@@ -283,3 +283,12 @@ The {ref}`retry policy <fte-retry-policy>` to use for
 - `TASK` - Retry individual tasks within a query in the event of failure.
   Requires configuration of an {ref}`exchange manager <fte-exchange-manager>`.
 - `QUERY` - Retry the whole query in the event of failure.
+
+## `query.max-select-rows`
+
+- **Type:** {ref}`prop-type-long`
+- **Session property:** `query_max_select_rows`
+
+The maximum number of rows that can be returned for a top-level `SELECT` query.
+If this property is set and a query also includes an explicit `LIMIT` clause, the more restrictive
+(the minimum) of the two limits is enforced.
