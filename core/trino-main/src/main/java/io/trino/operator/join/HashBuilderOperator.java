@@ -388,10 +388,10 @@ public class HashBuilderOperator
                 lookupSourceFactory.setPartitionSpilledLookupSourceHandle(partitionIndex, spilledLookupSourceHandle);
                 lookupSourceNotNeeded = Optional.empty();
                 index.clear();
-                localUserMemoryContext.setBytes(index.getEstimatedSize().toBytes());
-                localRevocableMemoryContext.setBytes(0);
                 lookupSourceChecksum = OptionalLong.of(lookupSourceSupplier.checksum());
                 lookupSourceSupplier = null;
+                localUserMemoryContext.setBytes(index.getEstimatedSize().toBytes());
+                localRevocableMemoryContext.setBytes(0);
                 state = State.INPUT_SPILLED;
             });
             return spillIndex();
