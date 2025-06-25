@@ -17,7 +17,6 @@ import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import io.trino.client.NodeVersion;
-import io.trino.client.ServerInfo;
 import io.trino.execution.QueryIdGenerator;
 import io.trino.metadata.NodeState;
 import io.trino.server.security.ResourceSecurity;
@@ -79,13 +78,14 @@ public class ServerInfoResource
     {
         boolean starting = !startupStatus.isStartupComplete();
         return new ServerInfo(
+                nodeId,
+                nodeStateManager.getServerState(),
                 version,
                 environment,
                 coordinator,
-                starting,
-                Optional.of(nanosSince(startTime)),
                 queryIdGenerator.map(QueryIdGenerator::getCoordinatorId),
-                Optional.of(nodeId));
+                starting,
+                nanosSince(startTime));
     }
 
     @ResourceSecurity(MANAGEMENT_WRITE)
