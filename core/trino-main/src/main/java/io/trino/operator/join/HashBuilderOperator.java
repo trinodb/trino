@@ -506,7 +506,7 @@ public class HashBuilderOperator
             reserved = localUserMemoryContext.setBytes(memoryRequired);
         }
 
-        if (!reserved.isDone()) {
+        if (!reserved.isDone() || !operatorContext.isWaitingForMemory().isDone() || !operatorContext.isWaitingForRevocableMemory().isDone()) {
             // wait for memory
             return;
         }
@@ -561,7 +561,8 @@ public class HashBuilderOperator
         verify(unspillInProgress.isEmpty());
 
         long spilledPagesInMemorySize = getSpiller().getSpilledPagesInMemorySize();
-        if (!localUserMemoryContext.setBytes(spilledPagesInMemorySize + index.getEstimatedSize().toBytes()).isDone()) {
+        ListenableFuture<Void> reserved = localUserMemoryContext.setBytes(spilledPagesInMemorySize + index.getEstimatedSize().toBytes());
+        if (!reserved.isDone() || !operatorContext.isWaitingForMemory().isDone()) {
             // wait for memory
             return;
         }
@@ -617,7 +618,7 @@ public class HashBuilderOperator
                 hashArraySizeSupplier,
                 sortChannel,
                 hashChannels));
-        if (!reserved.isDone()) {
+        if (!reserved.isDone() || !operatorContext.isWaitingForMemory().isDone()) {
             // Wait for memory
             return;
         }
