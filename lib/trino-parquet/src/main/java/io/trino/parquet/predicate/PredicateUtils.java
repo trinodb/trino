@@ -195,28 +195,24 @@ public final class PredicateUtils
     {
         ImmutableList.Builder<RowGroupInfo> rowGroupInfoBuilder = ImmutableList.builder();
         for (BlockMetadata block : parquetMetadata.getBlocks(splitStart, splitLength)) {
-            long blockStart = block.getStartingPos();
-            boolean splitContainsBlock = splitStart <= blockStart && blockStart < splitStart + splitLength;
-            if (splitContainsBlock) {
-                for (int i = 0; i < parquetTupleDomains.size(); i++) {
-                    TupleDomain<ColumnDescriptor> parquetTupleDomain = parquetTupleDomains.get(i);
-                    TupleDomainParquetPredicate parquetPredicate = parquetPredicates.get(i);
-                    Optional<ColumnIndexStore> columnIndex = getColumnIndexStore(dataSource, block, descriptorsByPath, parquetTupleDomain, options);
-                    Optional<BloomFilterStore> bloomFilterStore = getBloomFilterStore(dataSource, block, parquetTupleDomain, options);
-                    PrunedBlockMetadata columnsMetadata = createPrunedColumnsMetadata(block, dataSource.getId(), descriptorsByPath);
-                    if (predicateMatches(
-                            parquetPredicate,
-                            columnsMetadata,
-                            dataSource,
-                            descriptorsByPath,
-                            parquetTupleDomain,
-                            columnIndex,
-                            bloomFilterStore,
-                            timeZone,
-                            domainCompactionThreshold)) {
-                        rowGroupInfoBuilder.add(new RowGroupInfo(columnsMetadata, block.fileRowCountOffset(), columnIndex));
-                        break;
-                    }
+            for (int i = 0; i < parquetTupleDomains.size(); i++) {
+                TupleDomain<ColumnDescriptor> parquetTupleDomain = parquetTupleDomains.get(i);
+                TupleDomainParquetPredicate parquetPredicate = parquetPredicates.get(i);
+                Optional<ColumnIndexStore> columnIndex = getColumnIndexStore(dataSource, block, descriptorsByPath, parquetTupleDomain, options);
+                Optional<BloomFilterStore> bloomFilterStore = getBloomFilterStore(dataSource, block, parquetTupleDomain, options);
+                PrunedBlockMetadata columnsMetadata = createPrunedColumnsMetadata(block, dataSource.getId(), descriptorsByPath);
+                if (predicateMatches(
+                        parquetPredicate,
+                        columnsMetadata,
+                        dataSource,
+                        descriptorsByPath,
+                        parquetTupleDomain,
+                        columnIndex,
+                        bloomFilterStore,
+                        timeZone,
+                        domainCompactionThreshold)) {
+                    rowGroupInfoBuilder.add(new RowGroupInfo(columnsMetadata, block.fileRowCountOffset(), columnIndex));
+                    break;
                 }
             }
         }

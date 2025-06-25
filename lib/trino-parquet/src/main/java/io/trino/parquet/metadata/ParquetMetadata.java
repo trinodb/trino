@@ -111,17 +111,15 @@ public class ParquetMetadata
                 long fileRowCountOffset = fileRowCount;
                 fileRowCount += rowGroup.getNum_rows(); // Update fileRowCount for all row groups
 
-                if (rowGroup.isSetFile_offset()) {
-                    long rowGroupStart = rowGroup.getFile_offset();
-                    boolean splitContainsRowGroup = splitStart <= rowGroupStart && rowGroupStart < splitStart + splitLength;
-                    if (!splitContainsRowGroup) {
-                        continue;
-                    }
-                }
-
                 List<ColumnChunk> columns = rowGroup.getColumns();
                 validateParquet(!columns.isEmpty(), dataSourceId, "No columns in row group: %s", rowGroup);
                 String filePath = columns.get(0).getFile_path();
+                long rowGroupStart = getRowGroupStart(columns, messageType);
+                boolean splitContainsRowGroup = splitStart <= rowGroupStart && rowGroupStart < splitStart + splitLength;
+                if (!splitContainsRowGroup) {
+                    continue;
+                }
+
                 ImmutableList.Builder<ColumnChunkMetadata> columnMetadataBuilder = ImmutableList.builderWithExpectedSize(columns.size());
                 for (ColumnChunk columnChunk : columns) {
                     validateParquet(
@@ -143,6 +141,14 @@ public class ParquetMetadata
     public FileMetaData getParquetMetadata()
     {
         return parquetMetadata;
+    }
+
+    private static long getRowGroupStart(List<ColumnChunk> columns, MessageType messageType)
+    {
+        // Note: Do not rely on org.apache.parquet.format.RowGroup.getFile_offset or org.apache.parquet.format.ColumnChunk.getFile_offset
+        // because some versions of parquet-cpp-arrow (and potentially other writers) set it incorrectly
+        ColumnChunkMetadata columnChunkMetadata = toColumnChunkMetadata(columns.getFirst(), null, messageType);
+        return columnChunkMetadata.getStartingPos();
     }
 
     private static ColumnChunkMetadata toColumnChunkMetadata(ColumnChunk columnChunk, String createdBy, MessageType messageType)
