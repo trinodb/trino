@@ -53,6 +53,7 @@ In the case of serializable formats, only specific
 - OPENX_JSON - OpenX JSON SerDe from `org.openx.data.jsonserde.JsonSerDe`. Find
   more [details about the Trino implementation in the source repository](https://github.com/trinodb/trino/tree/master/lib/trino-hive-formats/src/main/java/io/trino/hive/formats/line/openxjson/README.md).
 - TextFile
+- ESRI - using `com.esri.hadoop.hive.serde.EsriJsonSerDe`
 
 (hive-configuration)=
 ## General configuration
