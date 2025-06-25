@@ -17,7 +17,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets.SetView;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
@@ -37,7 +36,6 @@ import org.weakref.jmx.Managed;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -47,10 +45,7 @@ import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Sets.difference;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
-import static io.trino.metadata.NodeState.INACTIVE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
@@ -64,7 +59,7 @@ public final class DiscoveryNodeManager
     private final ServiceSelector serviceSelector;
     private final FailureDetector failureDetector;
     private final NodeVersion expectedNodeVersion;
-    private final ConcurrentHashMap<String, RemoteNodeState> nodeStates = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<URI, RemoteNodeState> nodeStates = new ConcurrentHashMap<>();
     private final HttpClient httpClient;
     private final ScheduledExecutorService nodeStateUpdateExecutor;
     private final ExecutorService nodeStateEventExecutor;
@@ -125,7 +120,7 @@ public final class DiscoveryNodeManager
                 expectedNodeVersion,
                 httpsRequired);
 
-        refreshNodesInternal();
+        refreshNodes();
     }
 
     private static InternalNode findCurrentNode(List<ServiceDescriptor> allServices, String currentNodeId, NodeVersion expectedNodeVersion, boolean httpsRequired)
@@ -173,28 +168,45 @@ public final class DiscoveryNodeManager
     @Override
     public void refreshNodes()
     {
-        AllNodes allNodes = getAllNodes();
-        Set<InternalNode> trackedNodes = ImmutableSet.<InternalNode>builder()
-                .addAll(allNodes.getActiveNodes())
-                .addAll(allNodes.getInactiveNodes())
-                .addAll(allNodes.getDrainingNodes())
-                .addAll(allNodes.getDrainedNodes())
-                .addAll(allNodes.getShuttingDownNodes())
-                .build();
-
-        Set<String> trackedNodeIds = trackedNodes.stream()
-                .map(InternalNode::getNodeIdentifier)
+        // This is a deny-list.
+        Set<ServiceDescriptor> failed = failureDetector.getFailed();
+        Set<ServiceDescriptor> services = serviceSelector.selectAllServices().stream()
+                .filter(service -> !failed.contains(service))
                 .collect(toImmutableSet());
 
-        // Remove nodes that don't exist anymore
-        // Make a copy to materialize the set difference
-        Set<String> deadNodes = difference(nodeStates.keySet(), trackedNodeIds).immutableCopy();
-        nodeStates.keySet().removeAll(deadNodes);
-
         // Add new nodes
-        for (InternalNode node : trackedNodes) {
-            URI uri = uriBuilderFrom(node.getInternalUri()).appendPath("/v1/info/state").build();
-            nodeStates.putIfAbsent(node.getNodeIdentifier(), new RemoteNodeState(httpClient, uri, ticker));
+        for (ServiceDescriptor service : services) {
+            URI uri = getHttpUri(service, httpsRequired);
+            if (uri == null) {
+                continue;
+            }
+            NodeVersion nodeVersion = getNodeVersion(service);
+            if (!expectedNodeVersion.equals(nodeVersion)) {
+                // version is currently invalid, so remove this node if it had been previously tracked
+                nodeStates.remove(uri);
+                continue;
+            }
+
+            // Mark the node as seen, and get the current state
+            RemoteNodeState remoteNodeState = nodeStates.computeIfAbsent(
+                    uri,
+                    _ -> new RemoteNodeState(
+                            new InternalNode(service.getNodeId(), uri, nodeVersion, isCoordinator(service)),
+                            httpClient,
+                            ticker));
+            remoteNodeState.setSeen();
+        }
+
+        // Remove nodes that are no longer present
+        for (var entry : nodeStates.entrySet()) {
+            RemoteNodeState remoteNodeState = entry.getValue();
+            if (remoteNodeState.isMissing()) {
+                if (remoteNodeState.hasBeenActive() && remoteNodeState.getNodeState() != NodeState.SHUTTING_DOWN) {
+                    InternalNode node = remoteNodeState.getNode();
+                    log.info("Previously active node is missing: %s (last seen at %s)", node.getNodeIdentifier(), node.getHost());
+                }
+                nodeStates.remove(entry.getKey());
+            }
         }
 
         // Schedule refresh
@@ -206,32 +218,15 @@ public final class DiscoveryNodeManager
 
     private synchronized void refreshNodesInternal()
     {
-        // This is a deny-list.
-        Set<ServiceDescriptor> failed = failureDetector.getFailed();
-        Set<ServiceDescriptor> services = serviceSelector.selectAllServices().stream()
-                .filter(service -> !failed.contains(service))
-                .collect(toImmutableSet());
-
         ImmutableSet.Builder<InternalNode> activeNodesBuilder = ImmutableSet.builder();
         ImmutableSet.Builder<InternalNode> inactiveNodesBuilder = ImmutableSet.builder();
         ImmutableSet.Builder<InternalNode> drainingNodesBuilder = ImmutableSet.builder();
         ImmutableSet.Builder<InternalNode> drainedNodesBuilder = ImmutableSet.builder();
         ImmutableSet.Builder<InternalNode> shuttingDownNodesBuilder = ImmutableSet.builder();
 
-        for (ServiceDescriptor service : services) {
-            URI uri = getHttpUri(service, httpsRequired);
-            if (uri == null) {
-                continue;
-            }
-            NodeVersion nodeVersion = getNodeVersion(service);
-            if (!expectedNodeVersion.equals(nodeVersion)) {
-                continue;
-            }
-
-            boolean coordinator = isCoordinator(service);
-            InternalNode node = new InternalNode(service.getNodeId(), uri, nodeVersion, coordinator);
-            NodeState nodeState = getNodeState(node);
-
+        for (RemoteNodeState remoteNodeState : nodeStates.values()) {
+            InternalNode node = remoteNodeState.getNode();
+            NodeState nodeState = remoteNodeState.getNodeState();
             switch (nodeState) {
                 case ACTIVE -> activeNodesBuilder.add(node);
                 case INACTIVE -> inactiveNodesBuilder.add(node);
@@ -251,20 +246,6 @@ public final class DiscoveryNodeManager
                 .filter(InternalNode::isCoordinator)
                 .collect(toImmutableSet());
 
-        if (allNodes != null) {
-            // log nodes that are no longer active (but not shutting down)
-            Set<InternalNode> aliveNodes = ImmutableSet.<InternalNode>builder()
-                    .addAll(activeNodes)
-                    .addAll(drainingNodes)
-                    .addAll(drainedNodes)
-                    .addAll(shuttingDownNodes)
-                    .build();
-            SetView<InternalNode> missingNodes = difference(allNodes.getActiveNodes(), aliveNodes);
-            for (InternalNode missingNode : missingNodes) {
-                log.info("Previously active node is missing: %s (last seen at %s)", missingNode.getNodeIdentifier(), missingNode.getHost());
-            }
-        }
-
         AllNodes allNodes = new AllNodes(activeNodes, inactiveNodes, drainingNodes, drainedNodes, shuttingDownNodes, coordinators);
         // only update if all nodes actually changed (note: this does not include the connectors registered with the nodes)
         if (!allNodes.equals(this.allNodes)) {
@@ -276,20 +257,6 @@ public final class DiscoveryNodeManager
             List<Consumer<AllNodes>> listeners = ImmutableList.copyOf(this.listeners);
             nodeStateEventExecutor.submit(() -> listeners.forEach(listener -> listener.accept(allNodes)));
         }
-    }
-
-    private NodeState getNodeState(InternalNode node)
-    {
-        if (expectedNodeVersion.equals(node.getNodeVersion())) {
-            String nodeId = node.getNodeIdentifier();
-            // The empty case that is being set to a default value of ACTIVE is limited to the case where a node
-            // has announced itself, but no state has yet been successfully retrieved. RemoteNodeState will retain
-            // the previously known state if any has been reported.
-            return Optional.ofNullable(nodeStates.get(nodeId))
-                    .flatMap(RemoteNodeState::getNodeState)
-                    .orElse(INACTIVE);
-        }
-        return INACTIVE;
     }
 
     @Override

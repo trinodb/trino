@@ -27,8 +27,8 @@ import io.airlift.log.Logger;
 import jakarta.annotation.Nullable;
 
 import java.net.URI;
-import java.util.Optional;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -36,8 +36,11 @@ import static com.google.common.net.MediaType.JSON_UTF_8;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.HttpStatus.OK;
+import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.json.JsonCodec.jsonCodec;
+import static io.trino.metadata.NodeState.ACTIVE;
+import static io.trino.metadata.NodeState.INACTIVE;
 import static jakarta.ws.rs.core.HttpHeaders.CONTENT_TYPE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -49,27 +52,53 @@ public class RemoteNodeState
     private static final Logger log = Logger.get(RemoteNodeState.class);
     private static final JsonCodec<NodeState> NODE_STATE_CODEC = jsonCodec(NodeState.class);
 
+    private final InternalNode node;
     private final HttpClient httpClient;
     private final URI stateInfoUri;
     private final Ticker ticker;
-    private final AtomicReference<Optional<NodeState>> nodeState = new AtomicReference<>(Optional.empty());
+    private final AtomicReference<NodeState> nodeState = new AtomicReference<>(INACTIVE);
+    private final AtomicBoolean hasBeenActive = new AtomicBoolean(false);
     private final AtomicReference<Future<?>> future = new AtomicReference<>();
+    private final AtomicLong lastSeenNanos;
     private final AtomicLong lastUpdateNanos;
     private final AtomicLong lastWarningLogged;
 
-    public RemoteNodeState(HttpClient httpClient, URI stateInfoUri, Ticker ticker)
+    public RemoteNodeState(InternalNode node, HttpClient httpClient, Ticker ticker)
     {
+        this.node = requireNonNull(node, "node is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
-        this.stateInfoUri = requireNonNull(stateInfoUri, "stateInfoUri is null");
+        this.stateInfoUri = uriBuilderFrom(node.getInternalUri()).appendPath("/v1/info/state").build();
         this.ticker = requireNonNull(ticker, "ticker is null");
+        this.lastSeenNanos = new AtomicLong(ticker.read());
         // Initialize to 30 seconds in the past to force immediate refresh
         this.lastUpdateNanos = new AtomicLong(ticker.read() - SECONDS.toNanos(30));
         this.lastWarningLogged = new AtomicLong(ticker.read() - SECONDS.toNanos(30));
     }
 
-    public Optional<NodeState> getNodeState()
+    public InternalNode getNode()
+    {
+        return node;
+    }
+
+    public NodeState getNodeState()
     {
         return nodeState.get();
+    }
+
+    public boolean hasBeenActive()
+    {
+        return hasBeenActive.get();
+    }
+
+    public void setSeen()
+    {
+        lastSeenNanos.set(ticker.read());
+    }
+
+    public boolean isMissing()
+    {
+        // If the node has not been seen for 30 seconds, it is considered missing.
+        return lastSeenNanos.get() + SECONDS.toNanos(30) <= ticker.read();
     }
 
     public synchronized void asyncRefresh()
@@ -94,8 +123,13 @@ public class RemoteNodeState
                     lastUpdateNanos.set(ticker.read());
                     future.compareAndSet(responseFuture, null);
                     if (result != null) {
-                        if (result.hasValue()) {
-                            nodeState.set(Optional.ofNullable(result.getValue()));
+                        NodeState state = INACTIVE;
+                        if (result.hasValue() && result.getValue() != null) {
+                            state = result.getValue();
+                        }
+                        nodeState.set(state);
+                        if (state == ACTIVE) {
+                            hasBeenActive.set(true);
                         }
                         if (result.getStatusCode() != OK.code()) {
                             logWarning("Error fetching node state from %s returned status %d", stateInfoUri, result.getStatusCode());
@@ -106,6 +140,7 @@ public class RemoteNodeState
                 @Override
                 public void onFailure(Throwable t)
                 {
+                    nodeState.set(INACTIVE);
                     logWarning("Error fetching node state from %s: %s", stateInfoUri, t.getMessage());
                     lastUpdateNanos.set(ticker.read());
                     future.compareAndSet(responseFuture, null);
