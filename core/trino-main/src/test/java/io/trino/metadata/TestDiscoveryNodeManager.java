@@ -15,6 +15,7 @@ package io.trino.metadata;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
@@ -22,21 +23,25 @@ import io.airlift.discovery.client.ServiceDescriptor;
 import io.airlift.discovery.client.ServiceSelector;
 import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.http.client.testing.TestingResponse;
+import io.airlift.json.JsonCodec;
 import io.airlift.testing.TestingTicker;
+import io.airlift.units.Duration;
 import io.trino.client.NodeVersion;
 import io.trino.failuredetector.NoOpFailureDetector;
+import io.trino.server.ServerInfo;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.stream.Stream;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.net.MediaType.JSON_UTF_8;
 import static io.airlift.discovery.client.ServiceDescriptor.serviceDescriptor;
@@ -44,21 +49,19 @@ import static io.airlift.discovery.client.ServiceSelectorConfig.DEFAULT_POOL;
 import static io.airlift.http.client.HttpStatus.OK;
 import static io.trino.metadata.NodeState.ACTIVE;
 import static io.trino.metadata.NodeState.INACTIVE;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class TestDiscoveryNodeManager
 {
-    private static final byte[] ACTIVE_JSON = ("\"" + ACTIVE + "\"").getBytes(UTF_8);
-    private static final byte[] INACTIVE_JSON = ("\"" + INACTIVE + "\"").getBytes(UTF_8);
+    private static final JsonCodec<ServerInfo> SERVER_INFO_JSON_CODEC = JsonCodec.jsonCodec(ServerInfo.class);
+    private static final String EXPECTED_ENVIRONMENT = "test_1";
 
     private final Set<InternalNode> activeNodes;
-    private final Set<String> activeHosts;
     private final Set<InternalNode> inactiveNodes;
     private final InternalNode coordinator;
     private final InternalNode currentNode;
-    private final TestingHttpClient httpClient;
+    private final TestingHttpClient testHttpClient;
 
     TestDiscoveryNodeManager()
     {
@@ -67,21 +70,27 @@ class TestDiscoveryNodeManager
         currentNode = new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.1.1"), expectedVersion, false);
 
         activeNodes = ImmutableSet.of(
-                currentNode,
+                copy(currentNode),
                 new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.2.1:8080"), expectedVersion, false),
                 new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.2.3"), expectedVersion, false),
                 coordinator);
-        activeHosts = activeNodes.stream()
-                .map(InternalNode::getHost)
-                .collect(toImmutableSet());
         inactiveNodes = ImmutableSet.of(
                 new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.3.9"), expectedVersion, false),
                 new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.4.9"), expectedVersion, false));
 
-        httpClient = new TestingHttpClient(input -> new TestingResponse(
+        ImmutableMap.Builder<String, ServerInfo> hostsBuilder = ImmutableMap.builder();
+        for (InternalNode activeNode : activeNodes) {
+            hostsBuilder.put(activeNode.getInternalUri().getHost(), toServerInfo(activeNode, ACTIVE));
+        }
+        for (InternalNode inactiveNode : inactiveNodes) {
+            hostsBuilder.put(inactiveNode.getInternalUri().getHost(), toServerInfo(inactiveNode, INACTIVE));
+        }
+        Map<String, ServerInfo> hosts = hostsBuilder.build();
+
+        testHttpClient = new TestingHttpClient(input -> new TestingResponse(
                 OK,
                 ImmutableListMultimap.of(CONTENT_TYPE, JSON_UTF_8.toString()),
-                activeHosts.contains(input.getUri().getHost()) ? ACTIVE_JSON : INACTIVE_JSON));
+                SERVER_INFO_JSON_CODEC.toJsonBytes(hosts.get(input.getUri().getHost()))));
     }
 
     @Test
@@ -92,7 +101,8 @@ class TestDiscoveryNodeManager
                 copy(currentNode),
                 () -> ACTIVE,
                 new NoOpFailureDetector(),
-                httpClient,
+                EXPECTED_ENVIRONMENT,
+                testHttpClient,
                 true,
                 new TestingTicker());
         try {
@@ -137,7 +147,8 @@ class TestDiscoveryNodeManager
                 copy(currentNode),
                 () -> ACTIVE,
                 new NoOpFailureDetector(),
-                httpClient,
+                EXPECTED_ENVIRONMENT,
+                testHttpClient,
                 true,
                 new TestingTicker());
         try {
@@ -156,7 +167,8 @@ class TestDiscoveryNodeManager
                 copy(currentNode),
                 () -> ACTIVE,
                 new NoOpFailureDetector(),
-                httpClient,
+                EXPECTED_ENVIRONMENT,
+                testHttpClient,
                 true,
                 new TestingTicker());
         try {
@@ -181,7 +193,8 @@ class TestDiscoveryNodeManager
                 copy(currentNode),
                 () -> ACTIVE,
                 new NoOpFailureDetector(),
-                httpClient,
+                EXPECTED_ENVIRONMENT,
+                testHttpClient,
                 true,
                 testingTicker);
         try {
@@ -290,5 +303,18 @@ class TestDiscoveryNodeManager
                 node.getInternalUri(),
                 node.getNodeVersion(),
                 node.isCoordinator());
+    }
+
+    private static ServerInfo toServerInfo(InternalNode inactiveNode, NodeState nodeState)
+    {
+        return new ServerInfo(
+                inactiveNode.getNodeIdentifier(),
+                nodeState,
+                inactiveNode.getNodeVersion(),
+                EXPECTED_ENVIRONMENT,
+                inactiveNode.isCoordinator(),
+                Optional.empty(),
+                false,
+                Duration.ZERO);
     }
 }
