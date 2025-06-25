@@ -174,24 +174,25 @@ public final class DiscoveryNodeManager
     void pollWorkers()
     {
         AllNodes allNodes = getAllNodes();
-        Set<InternalNode> aliveNodes = ImmutableSet.<InternalNode>builder()
+        Set<InternalNode> trackedNodes = ImmutableSet.<InternalNode>builder()
                 .addAll(allNodes.getActiveNodes())
+                .addAll(allNodes.getInactiveNodes())
                 .addAll(allNodes.getDrainingNodes())
                 .addAll(allNodes.getDrainedNodes())
                 .addAll(allNodes.getShuttingDownNodes())
                 .build();
 
-        Set<String> aliveNodeIds = aliveNodes.stream()
+        Set<String> trackedNodeIds = trackedNodes.stream()
                 .map(InternalNode::getNodeIdentifier)
                 .collect(toImmutableSet());
 
         // Remove nodes that don't exist anymore
         // Make a copy to materialize the set difference
-        Set<String> deadNodes = difference(nodeStates.keySet(), aliveNodeIds).immutableCopy();
+        Set<String> deadNodes = difference(nodeStates.keySet(), trackedNodeIds).immutableCopy();
         nodeStates.keySet().removeAll(deadNodes);
 
         // Add new nodes
-        for (InternalNode node : aliveNodes) {
+        for (InternalNode node : trackedNodes) {
             URI uri = uriBuilderFrom(node.getInternalUri()).appendPath("/v1/info/state").build();
             nodeStates.putIfAbsent(node.getNodeIdentifier(), new RemoteNodeState(httpClient, uri, ticker));
         }
@@ -231,19 +232,24 @@ public final class DiscoveryNodeManager
 
         for (ServiceDescriptor service : services) {
             URI uri = getHttpUri(service, httpsRequired);
+            if (uri == null) {
+                continue;
+            }
             NodeVersion nodeVersion = getNodeVersion(service);
-            boolean coordinator = isCoordinator(service);
-            if (uri != null && nodeVersion != null) {
-                InternalNode node = new InternalNode(service.getNodeId(), uri, nodeVersion, coordinator);
-                NodeState nodeState = getNodeState(node);
+            if (!expectedNodeVersion.equals(nodeVersion)) {
+                continue;
+            }
 
-                switch (nodeState) {
-                    case ACTIVE -> activeNodesBuilder.add(node);
-                    case INACTIVE -> inactiveNodesBuilder.add(node);
-                    case DRAINING -> drainingNodesBuilder.add(node);
-                    case DRAINED -> drainedNodesBuilder.add(node);
-                    case SHUTTING_DOWN -> shuttingDownNodesBuilder.add(node);
-                }
+            boolean coordinator = isCoordinator(service);
+            InternalNode node = new InternalNode(service.getNodeId(), uri, nodeVersion, coordinator);
+            NodeState nodeState = getNodeState(node);
+
+            switch (nodeState) {
+                case ACTIVE -> activeNodesBuilder.add(node);
+                case INACTIVE -> inactiveNodesBuilder.add(node);
+                case DRAINING -> drainingNodesBuilder.add(node);
+                case DRAINED -> drainedNodesBuilder.add(node);
+                case SHUTTING_DOWN -> shuttingDownNodesBuilder.add(node);
             }
         }
 
@@ -293,7 +299,7 @@ public final class DiscoveryNodeManager
             // the previously known state if any has been reported.
             return Optional.ofNullable(nodeStates.get(nodeId))
                     .flatMap(RemoteNodeState::getNodeState)
-                    .orElse(NodeState.ACTIVE);
+                    .orElse(INACTIVE);
         }
         return INACTIVE;
     }
