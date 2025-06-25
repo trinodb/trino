@@ -245,7 +245,7 @@ public final class DiscoveryNodeManager
         Set<InternalNode> coordinators = coordinatorsBuilder.build();
         Set<InternalNode> shuttingDownNodes = shuttingDownNodesBuilder.build();
         if (allNodes != null) {
-            // log node that are no longer active (but not shutting down)
+            // log nodes that are no longer active (but not shutting down)
             Set<InternalNode> aliveNodes = ImmutableSet.<InternalNode>builder()
                     .addAll(activeNodes)
                     .addAll(drainingNodes)
@@ -276,7 +276,7 @@ public final class DiscoveryNodeManager
         if (expectedNodeVersion.equals(node.getNodeVersion())) {
             String nodeId = node.getNodeIdentifier();
             // The empty case that is being set to a default value of ACTIVE is limited to the case where a node
-            // has announced itself but no state has yet been successfully retrieved. RemoteNodeState will retain
+            // has announced itself, but no state has yet been successfully retrieved. RemoteNodeState will retain
             // the previously known state if any has been reported.
             return Optional.ofNullable(nodeStates.get(nodeId))
                     .flatMap(RemoteNodeState::getNodeState)

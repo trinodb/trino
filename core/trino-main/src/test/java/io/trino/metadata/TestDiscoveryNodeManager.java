@@ -53,7 +53,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 
 @TestInstance(PER_METHOD)
-public class TestDiscoveryNodeManager
+class TestDiscoveryNodeManager
 {
     private final NodeInfo nodeInfo = new NodeInfo("test");
     private final InternalCommunicationConfig internalCommunicationConfig = new InternalCommunicationConfig();
@@ -66,7 +66,7 @@ public class TestDiscoveryNodeManager
     private HttpClient testHttpClient;
 
     @BeforeEach
-    public void setup()
+    void setup()
     {
         testHttpClient = new TestingHttpClient(input -> new TestingResponse(OK, ArrayListMultimap.create(), ACTIVE.name().getBytes(UTF_8)));
 
@@ -87,14 +87,14 @@ public class TestDiscoveryNodeManager
     }
 
     @AfterEach
-    public void tearDown()
+    void tearDown()
     {
         testHttpClient.close();
         testHttpClient = null;
     }
 
     @Test
-    public void testGetAllNodes()
+    void testGetAllNodes()
     {
         DiscoveryNodeManager manager = new DiscoveryNodeManager(
                 selector,
@@ -138,7 +138,7 @@ public class TestDiscoveryNodeManager
     }
 
     @Test
-    public void testGetCurrentNode()
+    void testGetCurrentNode()
     {
         NodeInfo nodeInfo = new NodeInfo(new NodeConfig()
                 .setEnvironment("test")
@@ -160,7 +160,7 @@ public class TestDiscoveryNodeManager
     }
 
     @Test
-    public void testGetCoordinators()
+    void testGetCoordinators()
     {
         DiscoveryNodeManager manager = new DiscoveryNodeManager(
                 selector,
@@ -179,7 +179,7 @@ public class TestDiscoveryNodeManager
 
     @SuppressWarnings("ResultOfObjectAllocationIgnored")
     @Test
-    public void testGetCurrentNodeRequired()
+    void testGetCurrentNodeRequired()
     {
         assertThatThrownBy(() -> new DiscoveryNodeManager(
                 selector,
@@ -194,7 +194,7 @@ public class TestDiscoveryNodeManager
 
     @Test
     @Timeout(60)
-    public void testNodeChangeListener()
+    void testNodeChangeListener()
             throws Exception
     {
         DiscoveryNodeManager manager = new DiscoveryNodeManager(
