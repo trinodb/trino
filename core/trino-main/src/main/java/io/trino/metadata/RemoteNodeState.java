@@ -13,8 +13,10 @@
  */
 package io.trino.metadata;
 
+import com.google.common.base.Ticker;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
+import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
 import io.airlift.http.client.HttpClient;
@@ -22,7 +24,6 @@ import io.airlift.http.client.HttpClient.HttpResponseFuture;
 import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
-import io.airlift.units.Duration;
 import jakarta.annotation.Nullable;
 
 import java.net.URI;
@@ -37,7 +38,6 @@ import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonRespo
 import static io.airlift.http.client.HttpStatus.OK;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.json.JsonCodec.jsonCodec;
-import static io.airlift.units.Duration.nanosSince;
 import static jakarta.ws.rs.core.HttpHeaders.CONTENT_TYPE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -50,15 +50,20 @@ public class RemoteNodeState
 
     private final HttpClient httpClient;
     private final URI stateInfoUri;
+    private final Ticker ticker;
     private final AtomicReference<Optional<NodeState>> nodeState = new AtomicReference<>(Optional.empty());
     private final AtomicReference<Future<?>> future = new AtomicReference<>();
-    private final AtomicLong lastUpdateNanos = new AtomicLong();
-    private final AtomicLong lastWarningLogged = new AtomicLong();
+    private final AtomicLong lastUpdateNanos;
+    private final AtomicLong lastWarningLogged;
 
-    public RemoteNodeState(HttpClient httpClient, URI stateInfoUri)
+    public RemoteNodeState(HttpClient httpClient, URI stateInfoUri, Ticker ticker)
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.stateInfoUri = requireNonNull(stateInfoUri, "stateInfoUri is null");
+        this.ticker = requireNonNull(ticker, "ticker is null");
+        // Initialize to 30 in the past to force immediate refresh
+        this.lastUpdateNanos = new AtomicLong(ticker.read() - SECONDS.toNanos(30));
+        this.lastWarningLogged = new AtomicLong(ticker.read() - SECONDS.toNanos(30));
     }
 
     public Optional<NodeState> getNodeState()
@@ -68,14 +73,11 @@ public class RemoteNodeState
 
     public synchronized void asyncRefresh()
     {
-        Duration sinceUpdate = nanosSince(lastUpdateNanos.get());
-        if (nanosSince(lastWarningLogged.get()).toMillis() > 1_000 &&
-                sinceUpdate.toMillis() > 10_000 &&
-                future.get() != null) {
-            log.warn("Node state update request to %s has not returned in %s", stateInfoUri, sinceUpdate.toString(SECONDS));
-            lastWarningLogged.set(System.nanoTime());
+        long millisSinceUpdate = millisSince(lastUpdateNanos.get());
+        if (millisSinceUpdate > 10_000 && future.get() != null) {
+            logWarning("Node state update request to %s has not returned in %sms", stateInfoUri, millisSinceUpdate);
         }
-        if (sinceUpdate.toMillis() > 1_000 && future.get() == null) {
+        if (millisSinceUpdate >= 1_000 && future.get() == null) {
             Request request = prepareGet()
                     .setUri(stateInfoUri)
                     .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
@@ -88,14 +90,14 @@ public class RemoteNodeState
                 @Override
                 public void onSuccess(@Nullable JsonResponse<NodeState> result)
                 {
-                    lastUpdateNanos.set(System.nanoTime());
+                    lastUpdateNanos.set(ticker.read());
                     future.compareAndSet(responseFuture, null);
                     if (result != null) {
                         if (result.hasValue()) {
                             nodeState.set(Optional.ofNullable(result.getValue()));
                         }
                         if (result.getStatusCode() != OK.code()) {
-                            log.warn("Error fetching node state from %s returned status %d", stateInfoUri, result.getStatusCode());
+                            logWarning("Error fetching node state from %s returned status %d", stateInfoUri, result.getStatusCode());
                         }
                     }
                 }
@@ -103,11 +105,26 @@ public class RemoteNodeState
                 @Override
                 public void onFailure(Throwable t)
                 {
-                    log.warn("Error fetching node state from %s: %s", stateInfoUri, t.getMessage());
-                    lastUpdateNanos.set(System.nanoTime());
+                    logWarning("Error fetching node state from %s: %s", stateInfoUri, t.getMessage());
+                    lastUpdateNanos.set(ticker.read());
                     future.compareAndSet(responseFuture, null);
                 }
             }, directExecutor());
+        }
+    }
+
+    private long millisSince(long startNanos)
+    {
+        return (ticker.read() - startNanos) / 1_000_000;
+    }
+
+    @FormatMethod
+    private void logWarning(String format, Object... args)
+    {
+        // log at most once per second per node
+        if (ticker.read() - lastWarningLogged.get() >= 1_000_000_000) {
+            log.warn(format, args);
+            lastWarningLogged.set(ticker.read());
         }
     }
 }

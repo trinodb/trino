@@ -26,6 +26,7 @@ import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.http.client.testing.TestingResponse;
 import io.airlift.node.NodeConfig;
 import io.airlift.node.NodeInfo;
+import io.airlift.testing.TestingTicker;
 import io.trino.client.NodeVersion;
 import io.trino.failuredetector.NoOpFailureDetector;
 import io.trino.server.InternalCommunicationConfig;
@@ -48,6 +49,7 @@ import static io.airlift.http.client.HttpStatus.OK;
 import static io.trino.metadata.NodeState.ACTIVE;
 import static io.trino.metadata.NodeState.INACTIVE;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
@@ -197,16 +199,16 @@ class TestDiscoveryNodeManager
     void testNodeChangeListener()
             throws Exception
     {
+        TestingTicker testingTicker = new TestingTicker();
         DiscoveryNodeManager manager = new DiscoveryNodeManager(
                 selector,
                 nodeInfo,
                 new NoOpFailureDetector(),
                 expectedVersion,
                 testHttpClient,
-                internalCommunicationConfig);
+                internalCommunicationConfig,
+                testingTicker);
         try {
-            manager.startPollingNodeStates();
-
             BlockingQueue<AllNodes> notifications = new ArrayBlockingQueue<>(100);
             manager.addNodeChangeListener(notifications::add);
             AllNodes allNodes = notifications.take();
@@ -214,11 +216,15 @@ class TestDiscoveryNodeManager
             assertThat(allNodes.getInactiveNodes()).isEqualTo(inactiveNodes);
 
             selector.announceNodes(ImmutableSet.of(currentNode), ImmutableSet.of(coordinator));
+            testingTicker.increment(5, SECONDS);
+            manager.pollWorkers();
             allNodes = notifications.take();
             assertThat(allNodes.getActiveNodes()).isEqualTo(ImmutableSet.of(currentNode, coordinator));
             assertThat(allNodes.getActiveCoordinators()).isEqualTo(ImmutableSet.of(coordinator));
 
             selector.announceNodes(activeNodes, inactiveNodes);
+            testingTicker.increment(5, SECONDS);
+            manager.pollWorkers();
             allNodes = notifications.take();
             assertThat(allNodes.getActiveNodes()).isEqualTo(activeNodes);
             assertThat(allNodes.getInactiveNodes()).isEqualTo(inactiveNodes);
