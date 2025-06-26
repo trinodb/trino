@@ -13,27 +13,21 @@
  */
 package io.trino.metadata;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
-import io.airlift.discovery.client.ServiceDescriptor;
-import io.airlift.discovery.client.ServiceSelector;
 import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.http.client.testing.TestingResponse;
 import io.airlift.json.JsonCodec;
 import io.airlift.testing.TestingTicker;
 import io.airlift.units.Duration;
 import io.trino.client.NodeVersion;
-import io.trino.failuredetector.NoOpFailureDetector;
 import io.trino.server.ServerInfo;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
 import java.net.URI;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -44,8 +38,6 @@ import java.util.stream.Stream;
 
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.net.MediaType.JSON_UTF_8;
-import static io.airlift.discovery.client.ServiceDescriptor.serviceDescriptor;
-import static io.airlift.discovery.client.ServiceSelectorConfig.DEFAULT_POOL;
 import static io.airlift.http.client.HttpStatus.OK;
 import static io.trino.metadata.NodeState.ACTIVE;
 import static io.trino.metadata.NodeState.INACTIVE;
@@ -113,13 +105,11 @@ class TestDiscoveryNodeManager
     void testGetAllNodes()
     {
         DiscoveryNodeManager manager = new DiscoveryNodeManager(
-                new TrinoNodeServiceSelector(),
+                new TestingNodeInventory(),
                 copy(currentNode),
                 () -> ACTIVE,
-                new NoOpFailureDetector(),
                 EXPECTED_ENVIRONMENT,
                 testHttpClient,
-                true,
                 new TestingTicker());
         try {
             AllNodes allNodes = manager.getAllNodes();
@@ -161,13 +151,11 @@ class TestDiscoveryNodeManager
     void testGetCurrentNode()
     {
         DiscoveryNodeManager manager = new DiscoveryNodeManager(
-                new TrinoNodeServiceSelector(),
+                new TestingNodeInventory(),
                 copy(currentNode),
                 () -> ACTIVE,
-                new NoOpFailureDetector(),
                 EXPECTED_ENVIRONMENT,
                 testHttpClient,
-                true,
                 new TestingTicker());
         try {
             assertThat(manager.getCurrentNode()).isEqualTo(currentNode);
@@ -181,13 +169,11 @@ class TestDiscoveryNodeManager
     void testGetCoordinators()
     {
         DiscoveryNodeManager manager = new DiscoveryNodeManager(
-                new TrinoNodeServiceSelector(),
+                new TestingNodeInventory(),
                 copy(currentNode),
                 () -> ACTIVE,
-                new NoOpFailureDetector(),
                 EXPECTED_ENVIRONMENT,
                 testHttpClient,
-                true,
                 new TestingTicker());
         try {
             assertThat(manager.getCoordinators()).isEqualTo(ImmutableSet.of(coordinator));
@@ -203,17 +189,15 @@ class TestDiscoveryNodeManager
             throws Exception
     {
         // initially only the current node is announced
-        TrinoNodeServiceSelector selector = new TrinoNodeServiceSelector();
+        TestingNodeInventory selector = new TestingNodeInventory();
         selector.announceNodes(ImmutableSet.of(currentNode));
         TestingTicker testingTicker = new TestingTicker();
         DiscoveryNodeManager manager = new DiscoveryNodeManager(
                 selector,
                 copy(currentNode),
                 () -> ACTIVE,
-                new NoOpFailureDetector(),
                 EXPECTED_ENVIRONMENT,
                 testHttpClient,
-                true,
                 testingTicker);
         try {
             BlockingQueue<AllNodes> notifications = new ArrayBlockingQueue<>(100);
@@ -247,13 +231,13 @@ class TestDiscoveryNodeManager
         }
     }
 
-    private final class TrinoNodeServiceSelector
-            implements ServiceSelector
+    private final class TestingNodeInventory
+            implements NodeInventory
     {
         @GuardedBy("this")
-        private List<ServiceDescriptor> descriptors = ImmutableList.of();
+        private Set<URI> nodes = ImmutableSet.of();
 
-        public TrinoNodeServiceSelector()
+        public TestingNodeInventory()
         {
             announceNodes(activeNodes, inactiveNodes);
         }
@@ -261,48 +245,24 @@ class TestDiscoveryNodeManager
         @SafeVarargs
         private synchronized void announceNodes(Set<InternalNode>... nodeSets)
         {
-            ImmutableList.Builder<ServiceDescriptor> descriptors = ImmutableList.builder();
+            ImmutableSet.Builder<URI> descriptors = ImmutableSet.builder();
             Stream.of(nodeSets)
                     .flatMap(Set::stream)
-                    .map(node -> serviceDescriptor("trino")
-                            .setNodeId(node.getNodeIdentifier())
-                            .addProperty("https", node.getInternalUri().toString())
-                            .build())
+                    .map(InternalNode::getInternalUri)
                     .forEach(descriptors::add);
 
             // Add the invalid nodes
-            for (InternalNode invalidNode : invalidNodes) {
-                descriptors.add(serviceDescriptor("trino")
-                        .setNodeId(invalidNode.getNodeIdentifier())
-                        .addProperty("https", invalidNode.getInternalUri().toString())
-                        .build());
-            }
+            invalidNodes.stream()
+                    .map(InternalNode::getInternalUri)
+                    .forEach(descriptors::add);
 
-            this.descriptors = descriptors.build();
+            this.nodes = descriptors.build();
         }
 
         @Override
-        public String getType()
+        public synchronized Set<URI> getNodes()
         {
-            return "trino";
-        }
-
-        @Override
-        public String getPool()
-        {
-            return DEFAULT_POOL;
-        }
-
-        @Override
-        public synchronized List<ServiceDescriptor> selectAllServices()
-        {
-            return descriptors;
-        }
-
-        @Override
-        public ListenableFuture<List<ServiceDescriptor>> refresh()
-        {
-            throw new UnsupportedOperationException();
+            return nodes;
         }
     }
 

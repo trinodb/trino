@@ -66,6 +66,7 @@ import io.trino.memory.MemoryInfo;
 import io.trino.memory.MemoryManagerConfig;
 import io.trino.memory.MemoryResource;
 import io.trino.memory.NodeMemoryConfig;
+import io.trino.metadata.AirliftNodeInventory;
 import io.trino.metadata.BlockEncodingManager;
 import io.trino.metadata.DisabledSystemSecurityMetadata;
 import io.trino.metadata.DiscoveryNodeManager;
@@ -82,6 +83,7 @@ import io.trino.metadata.LanguageFunctionEngineManager;
 import io.trino.metadata.LanguageFunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.MetadataManager;
+import io.trino.metadata.NodeInventory;
 import io.trino.metadata.ProcedureRegistry;
 import io.trino.metadata.SystemFunctionBundle;
 import io.trino.metadata.SystemSecurityMetadata;
@@ -264,6 +266,7 @@ public class ServerMainModule
                     config.setIdleTimeout(new Duration(30, SECONDS));
                     config.setRequestTimeout(new Duration(10, SECONDS));
                 }).build());
+        binder.bind(NodeInventory.class).to(AirliftNodeInventory.class).in(Scopes.SINGLETON);
 
         // node scheduler
         // TODO: remove from NodePartitioningManager and move to CoordinatorModule
