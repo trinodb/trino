@@ -1452,11 +1452,16 @@ public abstract class AbstractTestTrinoFileSystem
         }
 
         // Try to read it without a key
-        assertThatThrownBy(() -> encryptionEnforcingFileSystem.getDelegate().newInputFile(location).newStream().readAllBytes())
-                .isInstanceOf(IOException.class);
+        assertThatThrownBy(() -> {
+            try (InputStream stream = encryptionEnforcingFileSystem.getDelegate().newInputFile(location).newStream()) {
+                stream.readAllBytes();
+            }
+        }).isInstanceOf(IOException.class);
 
-        assertThat(getFileSystem().newInputFile(location).newStream().readAllBytes())
-                .isEqualTo(data);
+        try (InputStream stream = getFileSystem().newInputFile(location).newStream()) {
+            assertThat(stream.readAllBytes())
+                    .isEqualTo(data);
+        }
 
         getFileSystem().deleteFile(location);
     }
