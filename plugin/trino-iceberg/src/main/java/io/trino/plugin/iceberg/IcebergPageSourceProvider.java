@@ -783,7 +783,7 @@ public class IcebergPageSourceProvider
     private static Integer getIcebergFieldId(OrcColumn column)
     {
         String icebergId = column.getAttributes().get(ORC_ICEBERG_ID_KEY);
-        verify(icebergId != null, format("column %s does not have %s property", column, ORC_ICEBERG_ID_KEY));
+        verify(icebergId != null, "column %s does not have %s property", column, ORC_ICEBERG_ID_KEY);
         return Integer.valueOf(icebergId);
     }
 
