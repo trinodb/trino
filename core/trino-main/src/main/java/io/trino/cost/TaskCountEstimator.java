@@ -16,8 +16,8 @@ package io.trino.cost;
 import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
-import io.trino.metadata.InternalNode;
-import io.trino.metadata.InternalNodeManager;
+import io.trino.node.InternalNode;
+import io.trino.node.InternalNodeManager;
 import io.trino.operator.RetryPolicy;
 
 import java.util.Set;

@@ -23,8 +23,8 @@ import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.execution.NodeTaskMap;
 import io.trino.execution.RemoteTask;
-import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
+import io.trino.node.InternalNode;
 import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
 
