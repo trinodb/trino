@@ -16,13 +16,11 @@ package io.trino.metadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.discovery.client.ServiceDescriptor;
 import io.airlift.discovery.client.ServiceSelector;
-import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.http.client.testing.TestingResponse;
 import io.airlift.node.NodeConfig;
@@ -31,10 +29,7 @@ import io.airlift.testing.TestingTicker;
 import io.trino.client.NodeVersion;
 import io.trino.failuredetector.NoOpFailureDetector;
 import io.trino.server.InternalCommunicationConfig;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
 
 import java.net.URI;
@@ -43,6 +38,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
@@ -56,9 +52,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 
-@TestInstance(PER_METHOD)
 class TestDiscoveryNodeManager
 {
     private static final byte[] ACTIVE_JSON = ("\"" + ACTIVE + "\"").getBytes(UTF_8);
@@ -66,23 +60,16 @@ class TestDiscoveryNodeManager
 
     private final NodeInfo nodeInfo = new NodeInfo("test");
     private final InternalCommunicationConfig internalCommunicationConfig = new InternalCommunicationConfig();
-    private NodeVersion expectedVersion;
-    private Set<InternalNode> activeNodes;
-    private Set<String> activeHosts;
-    private Set<InternalNode> inactiveNodes;
-    private InternalNode coordinator;
-    private InternalNode currentNode;
-    private final TrinoNodeServiceSelector selector = new TrinoNodeServiceSelector();
-    private HttpClient testHttpClient;
+    private final NodeVersion expectedVersion;
+    private final Set<InternalNode> activeNodes;
+    private final Set<String> activeHosts;
+    private final Set<InternalNode> inactiveNodes;
+    private final InternalNode coordinator;
+    private final InternalNode currentNode;
+    private final TestingHttpClient httpClient;
 
-    @BeforeEach
-    void setup()
+    TestDiscoveryNodeManager()
     {
-        testHttpClient = new TestingHttpClient(input -> new TestingResponse(
-                OK,
-                ImmutableListMultimap.of(CONTENT_TYPE, JSON_UTF_8.toString()),
-                activeHosts.contains(input.getUri().getHost()) ? ACTIVE_JSON : INACTIVE_JSON));
-
         expectedVersion = new NodeVersion("1");
         coordinator = new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.2.8"), expectedVersion, true);
         currentNode = new InternalNode(nodeInfo.getNodeId(), URI.create("http://192.0.1.1"), expectedVersion, false);
@@ -99,25 +86,21 @@ class TestDiscoveryNodeManager
                 new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.3.9"), expectedVersion, false),
                 new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.4.9"), expectedVersion, false));
 
-        selector.announceNodes(activeNodes, inactiveNodes);
-    }
-
-    @AfterEach
-    void tearDown()
-    {
-        testHttpClient.close();
-        testHttpClient = null;
+        httpClient = new TestingHttpClient(input -> new TestingResponse(
+                OK,
+                ImmutableListMultimap.of(CONTENT_TYPE, JSON_UTF_8.toString()),
+                activeHosts.contains(input.getUri().getHost()) ? ACTIVE_JSON : INACTIVE_JSON));
     }
 
     @Test
     void testGetAllNodes()
     {
         DiscoveryNodeManager manager = new DiscoveryNodeManager(
-                selector,
+                new TrinoNodeServiceSelector(),
                 nodeInfo,
                 new NoOpFailureDetector(),
                 expectedVersion,
-                testHttpClient,
+                httpClient,
                 internalCommunicationConfig);
         try {
             manager.refreshNodes();
@@ -162,11 +145,11 @@ class TestDiscoveryNodeManager
                 .setNodeId(currentNode.getNodeIdentifier()));
 
         DiscoveryNodeManager manager = new DiscoveryNodeManager(
-                selector,
+                new TrinoNodeServiceSelector(),
                 nodeInfo,
                 new NoOpFailureDetector(),
                 expectedVersion,
-                testHttpClient,
+                httpClient,
                 internalCommunicationConfig);
         try {
             assertThat(manager.getCurrentNode()).isEqualTo(currentNode);
@@ -180,11 +163,11 @@ class TestDiscoveryNodeManager
     void testGetCoordinators()
     {
         DiscoveryNodeManager manager = new DiscoveryNodeManager(
-                selector,
+                new TrinoNodeServiceSelector(),
                 nodeInfo,
                 new NoOpFailureDetector(),
                 expectedVersion,
-                testHttpClient,
+                httpClient,
                 internalCommunicationConfig);
         try {
             manager.refreshNodes();
@@ -200,11 +183,11 @@ class TestDiscoveryNodeManager
     void testGetCurrentNodeRequired()
     {
         assertThatThrownBy(() -> new DiscoveryNodeManager(
-                selector,
+                new TrinoNodeServiceSelector(),
                 new NodeInfo("test"),
                 new NoOpFailureDetector(),
                 expectedVersion,
-                testHttpClient,
+                httpClient,
                 internalCommunicationConfig))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("current node not returned");
@@ -216,6 +199,7 @@ class TestDiscoveryNodeManager
             throws Exception
     {
         // initially only the current node is announced
+        TrinoNodeServiceSelector selector = new TrinoNodeServiceSelector();
         selector.announceNodes(ImmutableSet.of(currentNode), ImmutableSet.of());
         TestingTicker testingTicker = new TestingTicker();
         DiscoveryNodeManager manager = new DiscoveryNodeManager(
@@ -223,7 +207,7 @@ class TestDiscoveryNodeManager
                 nodeInfo,
                 new NoOpFailureDetector(),
                 expectedVersion,
-                testHttpClient,
+                httpClient,
                 internalCommunicationConfig,
                 testingTicker);
         try {
@@ -274,23 +258,29 @@ class TestDiscoveryNodeManager
         }
     }
 
-    public static class TrinoNodeServiceSelector
+    private final class TrinoNodeServiceSelector
             implements ServiceSelector
     {
         @GuardedBy("this")
         private List<ServiceDescriptor> descriptors = ImmutableList.of();
 
-        private synchronized void announceNodes(Set<InternalNode> activeNodes, Set<InternalNode> inactiveNodes)
+        public TrinoNodeServiceSelector()
+        {
+            announceNodes(activeNodes, inactiveNodes);
+        }
+
+        private synchronized void announceNodes(Set<InternalNode>... nodeSets)
         {
             ImmutableList.Builder<ServiceDescriptor> descriptors = ImmutableList.builder();
-            for (InternalNode node : Iterables.concat(activeNodes, inactiveNodes)) {
-                descriptors.add(serviceDescriptor("trino")
-                        .setNodeId(node.getNodeIdentifier())
-                        .addProperty("http", node.getInternalUri().toString())
-                        .addProperty("node_version", node.getNodeVersion().toString())
-                        .addProperty("coordinator", String.valueOf(node.isCoordinator()))
-                        .build());
-            }
+            Stream.of(nodeSets)
+                    .flatMap(Set::stream)
+                    .map(node -> serviceDescriptor("trino")
+                            .setNodeId(node.getNodeIdentifier())
+                            .addProperty("http", node.getInternalUri().toString())
+                            .addProperty("node_version", node.getNodeVersion().toString())
+                            .addProperty("coordinator", String.valueOf(node.isCoordinator()))
+                            .build())
+                    .forEach(descriptors::add);
 
             // Also add some nodes with bad versions
             descriptors.add(serviceDescriptor("trino")
