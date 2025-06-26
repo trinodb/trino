@@ -136,6 +136,27 @@ public class OpenLineageListener
         queryContext.getQueryType().ifPresent(queryType ->
                 properties.put("query_type", queryType.toString()));
 
+        properties.put("user", queryContext.getUser());
+        properties.put("original_user", queryContext.getOriginalUser());
+
+        queryContext.getPrincipal().ifPresent(principal ->
+                properties.put("principal", principal));
+
+        queryContext.getSource().ifPresent(source ->
+                properties.put("source", source));
+
+        queryContext.getClientInfo().ifPresent(clientInfo ->
+                properties.put("client_info", clientInfo));
+
+        queryContext.getRemoteClientAddress().ifPresent(remoteClientAddress ->
+                properties.put("remote_client_address", remoteClientAddress));
+
+        queryContext.getUserAgent().ifPresent(userAgent ->
+                properties.put("user_agent", userAgent));
+
+        queryContext.getTraceToken().ifPresent(traceToken ->
+                properties.put("trace_token", traceToken));
+
         queryContextFacet
                 .getAdditionalProperties()
                 .putAll(properties.buildOrThrow());
