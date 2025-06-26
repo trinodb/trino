@@ -34,8 +34,6 @@ import java.util.List;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 public class TestHudiSplitFactory
 {
@@ -175,10 +173,14 @@ public class TestHudiSplitFactory
 
     private static HudiTableHandle createTableHandle()
     {
-        HudiTableHandle tableHandle = mock(HudiTableHandle.class);
-        when(tableHandle.getTableType()).thenReturn(HoodieTableType.MERGE_ON_READ);
-        when(tableHandle.getRegularPredicates()).thenReturn(TupleDomain.all());
-        return tableHandle;
+        return new HudiTableHandle(
+            "test_schema",
+            "test_table",
+            "/test/path",
+            HoodieTableType.MERGE_ON_READ,
+            ImmutableList.of(),
+            TupleDomain.all(),
+            TupleDomain.all());
     }
 
     private static FileSlice createFileSlice(DataSize baseFileSize, Option<DataSize> logFileSize)
