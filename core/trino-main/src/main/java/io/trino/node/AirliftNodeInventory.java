@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.metadata;
+package io.trino.node;
 
 import com.google.inject.Inject;
 import io.airlift.discovery.client.ServiceDescriptor;

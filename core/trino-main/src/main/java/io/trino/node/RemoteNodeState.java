@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.metadata;
+package io.trino.node;
 
 import com.google.common.base.Ticker;
 import com.google.common.util.concurrent.FutureCallback;
@@ -42,9 +42,9 @@ import static io.airlift.http.client.HttpStatus.OK;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.json.JsonCodec.jsonCodec;
-import static io.trino.metadata.NodeState.ACTIVE;
-import static io.trino.metadata.NodeState.INACTIVE;
-import static io.trino.metadata.NodeState.INVALID;
+import static io.trino.node.NodeState.ACTIVE;
+import static io.trino.node.NodeState.INACTIVE;
+import static io.trino.node.NodeState.INVALID;
 import static jakarta.ws.rs.core.HttpHeaders.CONTENT_TYPE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
