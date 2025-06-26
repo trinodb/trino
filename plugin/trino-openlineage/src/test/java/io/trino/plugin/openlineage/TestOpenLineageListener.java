@@ -63,6 +63,20 @@ final class TestOpenLineageListener
                 .extracting(Job::getNamespace)
                 .isEqualTo("trino://testhost");
 
+        Map<String, Object> trinoQueryMetadata =
+                result
+                .getRun()
+                .getFacets()
+                .getAdditionalProperties()
+                .get("trino_metadata")
+                .getAdditionalProperties();
+
+        assertThat(trinoQueryMetadata)
+                .containsOnly(
+                        entry("query_id", "queryId"),
+                        entry("transaction_id", "transactionId"),
+                        entry("query_plan", "queryPlan"));
+
         Map<String, Object> trinoQueryContext =
                 result
                 .getRun()
@@ -114,6 +128,20 @@ final class TestOpenLineageListener
                 .extracting(RunEvent::getJob)
                 .extracting(Job::getNamespace)
                 .isEqualTo("trino://testhost:8080");
+
+        Map<String, Object> trinoQueryMetadata =
+                result
+                .getRun()
+                .getFacets()
+                .getAdditionalProperties()
+                .get("trino_metadata")
+                .getAdditionalProperties();
+
+        assertThat(trinoQueryMetadata)
+                .containsOnly(
+                        entry("query_id", "queryId"),
+                        entry("transaction_id", "transactionId"),
+                        entry("query_plan", "queryPlan"));
 
         Map<String, Object> trinoQueryContext =
                 result

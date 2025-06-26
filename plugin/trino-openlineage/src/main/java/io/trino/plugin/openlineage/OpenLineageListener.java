@@ -168,6 +168,8 @@ public class OpenLineageListener
 
         ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
 
+        properties.put("query_id", queryMetadata.getQueryId());
+
         queryMetadata.getPlan().ifPresent(
                 queryPlan -> properties.put("query_plan", queryPlan));
 

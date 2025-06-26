@@ -81,18 +81,18 @@ public class TrinoEventData
 
         queryMetadata = new QueryMetadata(
                 "queryId",
-                Optional.empty(),
-                Optional.empty(),
+                Optional.of("transactionId"),
+                Optional.empty(), // encoding
                 "create table b.c as select * from y.z",
                 Optional.of("updateType"),
                 Optional.of("preparedQuery"),
                 "COMPLETED",
-                List.of(),
-                List.of(),
+                List.of(), // tables
+                List.of(), // routines
                 URI.create("http://localhost"),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty());
+                Optional.of("queryPlan"),
+                Optional.empty(), // jsonPlan
+                Optional.empty()); // payload
 
         queryStatistics = new QueryStatistics(
                 ofSeconds(1),
