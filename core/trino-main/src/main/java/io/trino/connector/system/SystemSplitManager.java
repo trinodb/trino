@@ -15,8 +15,8 @@ package io.trino.connector.system;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.trino.metadata.InternalNode;
-import io.trino.metadata.InternalNodeManager;
+import io.trino.node.InternalNode;
+import io.trino.node.InternalNodeManager;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
@@ -36,7 +36,7 @@ import io.trino.spi.predicate.TupleDomain;
 import java.util.Optional;
 import java.util.Set;
 
-import static io.trino.metadata.NodeState.ACTIVE;
+import static io.trino.node.NodeState.ACTIVE;
 import static io.trino.spi.connector.SystemTable.Distribution.ALL_COORDINATORS;
 import static io.trino.spi.connector.SystemTable.Distribution.ALL_NODES;
 import static io.trino.spi.connector.SystemTable.Distribution.SINGLE_COORDINATOR;

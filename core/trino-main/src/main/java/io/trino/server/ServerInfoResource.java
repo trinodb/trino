@@ -18,7 +18,7 @@ import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import io.trino.client.NodeVersion;
 import io.trino.execution.QueryIdGenerator;
-import io.trino.metadata.NodeState;
+import io.trino.node.NodeState;
 import io.trino.server.security.ResourceSecurity;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;

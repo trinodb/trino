@@ -13,8 +13,8 @@
  */
 package io.trino.connector.informationschema;
 
-import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.Metadata;
+import io.trino.node.InternalNodeManager;
 import io.trino.security.AccessControl;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorPageSourceProvider;

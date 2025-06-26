@@ -14,13 +14,13 @@
 package io.trino.connector;
 
 import com.google.common.collect.ImmutableSet;
-import io.trino.metadata.InternalNodeManager;
+import io.trino.node.InternalNodeManager;
 import io.trino.spi.Node;
 import io.trino.spi.NodeManager;
 
 import java.util.Set;
 
-import static io.trino.metadata.NodeState.ACTIVE;
+import static io.trino.node.NodeState.ACTIVE;
 import static java.util.Objects.requireNonNull;
 
 public class DefaultNodeManager

@@ -19,8 +19,8 @@ import io.airlift.node.NodeInfo;
 import io.trino.client.NodeVersion;
 import io.trino.execution.SqlTaskManager;
 import io.trino.metadata.CatalogManager;
-import io.trino.metadata.InMemoryNodeManager;
-import io.trino.metadata.InternalNode;
+import io.trino.node.InMemoryNodeManager;
+import io.trino.node.InternalNode;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.transaction.TransactionManager;
 

@@ -20,7 +20,7 @@ import io.airlift.units.DataSize;
 import io.trino.execution.RemoteTask;
 import io.trino.execution.TaskStatus;
 import io.trino.execution.buffer.OutputBufferStatus;
-import io.trino.metadata.InternalNode;
+import io.trino.node.InternalNode;
 
 import java.util.Collection;
 import java.util.HashSet;

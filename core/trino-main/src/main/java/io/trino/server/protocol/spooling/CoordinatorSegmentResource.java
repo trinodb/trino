@@ -14,8 +14,8 @@
 package io.trino.server.protocol.spooling;
 
 import com.google.inject.Inject;
-import io.trino.metadata.InternalNode;
-import io.trino.metadata.InternalNodeManager;
+import io.trino.node.InternalNode;
+import io.trino.node.InternalNodeManager;
 import io.trino.server.ExternalUriInfo;
 import io.trino.server.protocol.spooling.SpoolingConfig.SegmentRetrievalMode;
 import io.trino.server.security.ResourceSecurity;
