@@ -65,15 +65,16 @@ public class OpenLineageListener
     private static final Logger logger = Logger.get(OpenLineageListener.class);
     private static final ObjectMapper QUERY_STATISTICS_MAPPER = new ObjectMapperProvider().get();
 
-    private final OpenLineage openLineage = new OpenLineage(URI.create("https://github.com/trinodb/trino/plugin/trino-openlineage"));
+    private final OpenLineage openLineage;
     private final OpenLineageClient client;
     private final String jobNamespace;
     private final String datasetNamespace;
     private final Set<QueryType> includeQueryTypes;
 
     @Inject
-    public OpenLineageListener(OpenLineageClient client, OpenLineageListenerConfig listenerConfig)
+    public OpenLineageListener(OpenLineage openLineage, OpenLineageClient client, OpenLineageListenerConfig listenerConfig)
     {
+        this.openLineage = requireNonNull(openLineage, "openLineage is null");
         this.client = requireNonNull(client, "client is null");
         requireNonNull(listenerConfig, "listenerConfig is null");
         this.jobNamespace = listenerConfig.getNamespace().orElse(defaultNamespace(listenerConfig.getTrinoURI()));
