@@ -44,6 +44,7 @@ import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.metadata.NodeState.ACTIVE;
 import static io.trino.metadata.NodeState.INACTIVE;
+import static io.trino.metadata.NodeState.INVALID;
 import static jakarta.ws.rs.core.HttpHeaders.CONTENT_TYPE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -136,15 +137,15 @@ public class RemoteNodeState
                         else {
                             ServerInfo serverInfo = result.getValue();
 
-                            // set state to INACTIVE if the node is not in the expected environment or version
-                            // TODO consider adding an INVALID state
+                            // Set state to INVALID if the node is not in the expected environment or version
+                            // This prevents the node from being visible outside the node manager
                             if (!serverInfo.environment().equals(expectedNodeEnvironment)) {
                                 logWarning("Node environment mismatch: expected %s, got %s", expectedNodeEnvironment, serverInfo.environment());
-                                nodeState = ACTIVE;
+                                nodeState = INVALID;
                             }
                             else if (!serverInfo.nodeVersion().equals(expectedNodeVersion)) {
                                 logWarning("Node version mismatch: expected %s, got %s", expectedNodeVersion, serverInfo.nodeVersion());
-                                nodeState = ACTIVE;
+                                nodeState = INVALID;
                             }
                             else {
                                 nodeState = serverInfo.state();
