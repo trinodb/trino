@@ -34,7 +34,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.Math.max;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -173,7 +172,7 @@ public final class TestingUnnesterUtil
         PageBuilder pageBuilder = new PageBuilder(types);
         int totalPositionCount = 0;
         for (Page page : pages) {
-            verify(page.getChannelCount() == types.size(), format("Number of channels in page %d is not equal to number of types %d", page.getChannelCount(), types.size()));
+            verify(page.getChannelCount() == types.size(), "Number of channels in page %s is not equal to number of types %s", page.getChannelCount(), types.size());
 
             for (int i = 0; i < types.size(); i++) {
                 BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(i);

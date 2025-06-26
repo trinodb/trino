@@ -206,7 +206,7 @@ public final class DeltaLakeParquetSchemas
         Type trinoType;
         if (primitiveType.startsWith(StandardTypes.DECIMAL)) {
             trinoType = typeManager.fromSqlType(primitiveType);
-            verify(trinoType instanceof DecimalType, "type %s does not map to Trino decimal".formatted(primitiveType));
+            verify(trinoType instanceof DecimalType, "type %s does not map to Trino decimal", primitiveType);
             DecimalType trinoDecimalType = (DecimalType) trinoType;
             if (trinoDecimalType.getPrecision() <= 9) {
                 typeBuilder = Types.primitive(PrimitiveType.PrimitiveTypeName.INT32, repetition);
