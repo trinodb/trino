@@ -58,17 +58,17 @@ public class TrinoEventData
         queryContext = new QueryContext(
                 "user",
                 "originalUser",
-                Set.of(),
+                Set.of(), // originalRoles
                 Optional.of("principal"),
                 Set.of(), // enabledRoles
                 Set.of(), // groups
-                Optional.empty(), // traceToken
-                Optional.empty(), // remoteClientAddress
-                Optional.empty(), // userAgent
-                Optional.empty(), // clientInfo
+                Optional.of("traceToken"),
+                Optional.of("127.0.0.1"),
+                Optional.of("Some-User-Agent"),
+                Optional.of("Some client info"),
                 new HashSet<>(), // clientTags
                 new HashSet<>(), // clientCapabilities
-                Optional.of("source"),
+                Optional.of("some-trino-client"),
                 UTC_KEY.getId(),
                 Optional.of("catalog"),
                 Optional.of("schema"),

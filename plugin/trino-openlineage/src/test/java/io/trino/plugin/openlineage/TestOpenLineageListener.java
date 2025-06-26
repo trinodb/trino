@@ -28,6 +28,7 @@ import java.util.UUID;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.entry;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 
 @TestInstance(PER_METHOD)
@@ -61,6 +62,28 @@ final class TestOpenLineageListener
                 .extracting(RunEvent::getJob)
                 .extracting(Job::getNamespace)
                 .isEqualTo("trino://testhost");
+
+        Map<String, Object> trinoQueryContext =
+                result
+                .getRun()
+                .getFacets()
+                .getAdditionalProperties()
+                .get("trino_query_context")
+                .getAdditionalProperties();
+
+        assertThat(trinoQueryContext)
+                .containsOnly(
+                        entry("server_address", "serverAddress"),
+                        entry("environment", "environment"),
+                        entry("query_type", "INSERT"),
+                        entry("user", "user"),
+                        entry("original_user", "originalUser"),
+                        entry("principal", "principal"),
+                        entry("source", "some-trino-client"),
+                        entry("client_info", "Some client info"),
+                        entry("remote_client_address", "127.0.0.1"),
+                        entry("user_agent", "Some-User-Agent"),
+                        entry("trace_token", "traceToken"));
     }
 
     @Test
@@ -91,6 +114,28 @@ final class TestOpenLineageListener
                 .extracting(RunEvent::getJob)
                 .extracting(Job::getNamespace)
                 .isEqualTo("trino://testhost:8080");
+
+        Map<String, Object> trinoQueryContext =
+                result
+                .getRun()
+                .getFacets()
+                .getAdditionalProperties()
+                .get("trino_query_context")
+                .getAdditionalProperties();
+
+        assertThat(trinoQueryContext)
+                .containsOnly(
+                        entry("server_address", "serverAddress"),
+                        entry("environment", "environment"),
+                        entry("query_type", "INSERT"),
+                        entry("user", "user"),
+                        entry("original_user", "originalUser"),
+                        entry("principal", "principal"),
+                        entry("source", "some-trino-client"),
+                        entry("client_info", "Some client info"),
+                        entry("remote_client_address", "127.0.0.1"),
+                        entry("user_agent", "Some-User-Agent"),
+                        entry("trace_token", "traceToken"));
     }
 
     private static EventListener createEventListener(Map<String, String> config)
