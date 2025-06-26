@@ -232,6 +232,11 @@ import static io.trino.plugin.hive.HiveTableProperties.CSV_ESCAPE;
 import static io.trino.plugin.hive.HiveTableProperties.CSV_QUOTE;
 import static io.trino.plugin.hive.HiveTableProperties.CSV_SEPARATOR;
 import static io.trino.plugin.hive.HiveTableProperties.EXTERNAL_LOCATION_PROPERTY;
+import static io.trino.plugin.hive.HiveTableProperties.GROK_CUSTOM_PATTERNS;
+import static io.trino.plugin.hive.HiveTableProperties.GROK_INPUT_FORMAT;
+import static io.trino.plugin.hive.HiveTableProperties.GROK_NAMED_ONLY_MODE;
+import static io.trino.plugin.hive.HiveTableProperties.GROK_NULL_ON_PARSE_ERROR;
+import static io.trino.plugin.hive.HiveTableProperties.GROK_STRICT_MODE;
 import static io.trino.plugin.hive.HiveTableProperties.NULL_FORMAT_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.ORC_BLOOM_FILTER_COLUMNS;
 import static io.trino.plugin.hive.HiveTableProperties.ORC_BLOOM_FILTER_FPP;
@@ -251,6 +256,8 @@ import static io.trino.plugin.hive.HiveTableProperties.getBucketInfo;
 import static io.trino.plugin.hive.HiveTableProperties.getExternalLocation;
 import static io.trino.plugin.hive.HiveTableProperties.getExtraProperties;
 import static io.trino.plugin.hive.HiveTableProperties.getFooterSkipCount;
+import static io.trino.plugin.hive.HiveTableProperties.getGrokCustomPatterns;
+import static io.trino.plugin.hive.HiveTableProperties.getGrokInputFormat;
 import static io.trino.plugin.hive.HiveTableProperties.getHeaderSkipCount;
 import static io.trino.plugin.hive.HiveTableProperties.getHiveStorageFormat;
 import static io.trino.plugin.hive.HiveTableProperties.getNullFormat;
@@ -260,6 +267,9 @@ import static io.trino.plugin.hive.HiveTableProperties.getParquetBloomFilterColu
 import static io.trino.plugin.hive.HiveTableProperties.getPartitionedBy;
 import static io.trino.plugin.hive.HiveTableProperties.getRegexPattern;
 import static io.trino.plugin.hive.HiveTableProperties.getSingleCharacterProperty;
+import static io.trino.plugin.hive.HiveTableProperties.isGrokNamedOnlyMode;
+import static io.trino.plugin.hive.HiveTableProperties.isGrokNullOnParseError;
+import static io.trino.plugin.hive.HiveTableProperties.isGrokStrictMode;
 import static io.trino.plugin.hive.HiveTableProperties.isRegexCaseInsensitive;
 import static io.trino.plugin.hive.HiveTableProperties.isTransactional;
 import static io.trino.plugin.hive.HiveTimestampPrecision.NANOSECONDS;
@@ -386,6 +396,12 @@ public class HiveMetadata
 
     private static final String REGEX_KEY = "input.regex";
     private static final String REGEX_CASE_SENSITIVE_KEY = "input.regex.case.insensitive";
+
+    private static final String GROK_INPUT_FORMAT_KEY = "input.format";
+    private static final String GROK_CUSTOM_PATTERNS_KEY = "input.grokCustomPatterns";
+    private static final String GROK_STRICT_MODE_KEY = "grok.strictMode";
+    private static final String GROK_NAMED_ONLY_MODE_KEY = "grok.namedOnlyMode";
+    private static final String GROK_NULL_ON_PARSE_ERROR_KEY = "grok.nullOnParseError";
 
     private static final String AUTO_PURGE_KEY = "auto.purge";
 
@@ -775,6 +791,18 @@ public class HiveMetadata
                 .ifPresent(regex -> properties.put(REGEX_PATTERN, regex));
         getSerdeProperty(table, REGEX_CASE_SENSITIVE_KEY)
                 .ifPresent(regexCaseInsensitive -> properties.put(REGEX_CASE_INSENSITIVE, parseBoolean(regexCaseInsensitive)));
+
+        // GROK specific properties
+        getSerdeProperty(table, GROK_INPUT_FORMAT_KEY)
+                .ifPresent(inputFormat -> properties.put(GROK_INPUT_FORMAT_KEY, inputFormat));
+        getSerdeProperty(table, GROK_CUSTOM_PATTERNS_KEY)
+                .ifPresent(grokCustomPattern -> properties.put(GROK_CUSTOM_PATTERNS_KEY, grokCustomPattern));
+        getSerdeProperty(table, GROK_STRICT_MODE_KEY)
+                .ifPresent(strictMode -> properties.put(GROK_STRICT_MODE_KEY, parseBoolean(strictMode)));
+        getSerdeProperty(table, GROK_NAMED_ONLY_MODE_KEY)
+                .ifPresent(namedOnlyMode -> properties.put(GROK_NAMED_ONLY_MODE_KEY, parseBoolean(namedOnlyMode)));
+        getSerdeProperty(table, GROK_NULL_ON_PARSE_ERROR_KEY)
+                .ifPresent(nullOnParseError -> properties.put(GROK_NULL_ON_PARSE_ERROR_KEY, parseBoolean(nullOnParseError)));
 
         Optional<String> comment = Optional.ofNullable(table.getParameters().get(Table.TABLE_COMMENT));
 
@@ -1263,6 +1291,41 @@ public class HiveMetadata
                 .ifPresent(regexCaseInsensitive -> {
                     checkFormatForProperty(hiveStorageFormat, HiveStorageFormat.REGEX, REGEX_CASE_INSENSITIVE);
                     tableProperties.put(REGEX_CASE_SENSITIVE_KEY, String.valueOf(regexCaseInsensitive));
+                });
+
+        // GROK specific properties
+        getGrokInputFormat(tableMetadata.getProperties())
+                .ifPresentOrElse(
+                        inputFormat -> {
+                            checkFormatForProperty(hiveStorageFormat, HiveStorageFormat.GROK, GROK_INPUT_FORMAT);
+                            // Pattern.compile() isn't a valid check b/c it will fail when input.format = "%{"(?<name_underscore>\\S+)"
+                            // java.util.pattern doesn't support underscores in named regex group
+                            tableProperties.put(GROK_INPUT_FORMAT_KEY, inputFormat);
+                        },
+                        () -> {
+                            if (hiveStorageFormat == HiveStorageFormat.GROK) {
+                                throw new TrinoException(INVALID_TABLE_PROPERTY, format("GROK format requires the '%s' table property", GROK_INPUT_FORMAT));
+                            }
+                        });
+        getGrokCustomPatterns(tableMetadata.getProperties())
+                .ifPresent(grokCustomPatterns -> {
+                    checkFormatForProperty(hiveStorageFormat, HiveStorageFormat.GROK, GROK_CUSTOM_PATTERNS);
+                    tableProperties.put(GROK_CUSTOM_PATTERNS_KEY, grokCustomPatterns);
+                });
+        isGrokStrictMode(tableMetadata.getProperties())
+                .ifPresent(strictMode -> {
+                    checkFormatForProperty(hiveStorageFormat, HiveStorageFormat.GROK, GROK_STRICT_MODE);
+                    tableProperties.put(GROK_STRICT_MODE_KEY, String.valueOf(strictMode));
+                });
+        isGrokNamedOnlyMode(tableMetadata.getProperties())
+                .ifPresent(namedOnlyMode -> {
+                    checkFormatForProperty(hiveStorageFormat, HiveStorageFormat.GROK, GROK_NAMED_ONLY_MODE);
+                    tableProperties.put(GROK_NAMED_ONLY_MODE_KEY, String.valueOf(namedOnlyMode));
+                });
+        isGrokNullOnParseError(tableMetadata.getProperties())
+                .ifPresent(nullOnParseError -> {
+                    checkFormatForProperty(hiveStorageFormat, HiveStorageFormat.GROK, GROK_NULL_ON_PARSE_ERROR);
+                    tableProperties.put(GROK_NULL_ON_PARSE_ERROR_KEY, String.valueOf(nullOnParseError));
                 });
 
         // Set bogus table stats to prevent Hive 2.x from gathering these stats at table creation.
