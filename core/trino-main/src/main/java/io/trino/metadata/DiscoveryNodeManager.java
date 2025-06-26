@@ -20,15 +20,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
-import io.airlift.discovery.client.ServiceDescriptor;
-import io.airlift.discovery.client.ServiceSelector;
-import io.airlift.discovery.client.ServiceType;
 import io.airlift.http.client.HttpClient;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
-import io.trino.client.NodeVersion;
-import io.trino.failuredetector.FailureDetector;
-import io.trino.server.InternalCommunicationConfig;
 import io.trino.server.NodeStateManager.CurrentNodeState;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
@@ -58,15 +52,12 @@ public final class DiscoveryNodeManager
     private static final Logger log = Logger.get(DiscoveryNodeManager.class);
 
     private final Supplier<NodeState> currentNodeState;
-    private final ServiceSelector serviceSelector;
-    private final FailureDetector failureDetector;
+    private final NodeInventory nodeInventory;
     private final String expectedNodeEnvironment;
-    private final NodeVersion expectedNodeVersion;
     private final ConcurrentHashMap<URI, RemoteNodeState> nodeStates = new ConcurrentHashMap<>();
     private final HttpClient httpClient;
     private final ScheduledExecutorService nodeStateUpdateExecutor;
     private final ExecutorService nodeStateEventExecutor;
-    private final boolean httpsRequired;
     private final InternalNode currentNode;
     private final Ticker ticker;
 
@@ -84,46 +75,37 @@ public final class DiscoveryNodeManager
 
     @Inject
     public DiscoveryNodeManager(
-            @ServiceType("trino") ServiceSelector serviceSelector,
+            NodeInventory nodeInventory,
             NodeInfo nodeInfo,
             InternalNode currentNode,
             CurrentNodeState currentNodeState,
-            FailureDetector failureDetector,
-            @ForNodeManager HttpClient httpClient,
-            InternalCommunicationConfig internalCommunicationConfig)
+            @ForNodeManager HttpClient httpClient)
     {
         this(
-                serviceSelector,
+                nodeInventory,
                 currentNode,
                 currentNodeState,
-                failureDetector,
                 nodeInfo.getEnvironment(),
                 httpClient,
-                internalCommunicationConfig.isHttpsRequired(),
                 Ticker.systemTicker());
     }
 
     @VisibleForTesting
     DiscoveryNodeManager(
-            ServiceSelector serviceSelector,
+            NodeInventory nodeInventory,
             InternalNode currentNode,
             Supplier<NodeState> currentNodeState,
-            FailureDetector failureDetector,
             String expectedNodeEnvironment,
             HttpClient httpClient,
-            boolean httpsRequired,
             Ticker ticker)
     {
-        this.serviceSelector = requireNonNull(serviceSelector, "serviceSelector is null");
+        this.nodeInventory = requireNonNull(nodeInventory, "nodeInventory is null");
         this.currentNode = requireNonNull(currentNode, "currentNode is null");
         this.currentNodeState = requireNonNull(currentNodeState, "currentNodeState is null");
-        this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
-        this.expectedNodeVersion = currentNode.getNodeVersion();
         this.expectedNodeEnvironment = requireNonNull(expectedNodeEnvironment, "expectedNodeEnvironment is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.nodeStateUpdateExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("node-state-poller-%s"));
         this.nodeStateEventExecutor = newCachedThreadPool(daemonThreadsNamed("node-state-events-%s"));
-        this.httpsRequired = httpsRequired;
         this.ticker = requireNonNull(ticker, "ticker is null");
 
         refreshNodes();
@@ -153,18 +135,8 @@ public final class DiscoveryNodeManager
     @Override
     public void refreshNodes()
     {
-        // This is a deny-list.
-        Set<ServiceDescriptor> failed = failureDetector.getFailed();
-        Set<ServiceDescriptor> services = serviceSelector.selectAllServices().stream()
-                .filter(service -> !failed.contains(service))
-                .collect(toImmutableSet());
-
         // Add new nodes
-        for (ServiceDescriptor service : services) {
-            URI uri = getHttpUri(service, httpsRequired);
-            if (uri == null) {
-                continue;
-            }
+        for (URI uri : nodeInventory.getNodes()) {
             if (uri.equals(currentNode.getInternalUri())) {
                 // Skip the current node
                 continue;
@@ -176,7 +148,7 @@ public final class DiscoveryNodeManager
                     _ -> new RemoteNodeState(
                             uri,
                             expectedNodeEnvironment,
-                            expectedNodeVersion,
+                            currentNode.getNodeVersion(),
                             httpClient,
                             ticker));
             remoteNodeState.setSeen();
@@ -343,14 +315,5 @@ public final class DiscoveryNodeManager
     public synchronized void removeNodeChangeListener(Consumer<AllNodes> listener)
     {
         listeners.remove(requireNonNull(listener, "listener is null"));
-    }
-
-    private static URI getHttpUri(ServiceDescriptor descriptor, boolean httpsRequired)
-    {
-        String url = descriptor.getProperties().get(httpsRequired ? "https" : "http");
-        if (url != null) {
-            return URI.create(url);
-        }
-        return null;
     }
 }
