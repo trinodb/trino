@@ -30,7 +30,6 @@ import java.util.Collections;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_FILESYSTEM_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -38,25 +37,33 @@ import static java.util.Objects.requireNonNull;
 public class HudiSplitFactory
 {
     private static final double SPLIT_SLOP = 1.1;   // 10% slop/overflow allowed in bytes per split while generating splits
-    private static final long MIN_BLOCK_SIZE = DataSize.of(32, MEGABYTE).toBytes();
 
     private final HudiTableHandle hudiTableHandle;
     private final HudiSplitWeightProvider hudiSplitWeightProvider;
+    private final DataSize targetSplitSize;
 
     public HudiSplitFactory(
             HudiTableHandle hudiTableHandle,
-            HudiSplitWeightProvider hudiSplitWeightProvider)
+            HudiSplitWeightProvider hudiSplitWeightProvider,
+            DataSize targetSplitSize)
     {
         this.hudiTableHandle = requireNonNull(hudiTableHandle, "hudiTableHandle is null");
         this.hudiSplitWeightProvider = requireNonNull(hudiSplitWeightProvider, "hudiSplitWeightProvider is null");
+        this.targetSplitSize = requireNonNull(targetSplitSize, "targetSplitSize is null");
     }
 
     public List<HudiSplit> createSplits(List<HivePartitionKey> partitionKeys, FileSlice fileSlice, String commitTime)
     {
-        return createHudiSplits(hudiTableHandle, partitionKeys, fileSlice, commitTime, hudiSplitWeightProvider);
+        return createHudiSplits(hudiTableHandle, partitionKeys, fileSlice, commitTime, hudiSplitWeightProvider, targetSplitSize);
     }
 
-    public static List<HudiSplit> createHudiSplits(HudiTableHandle hudiTableHandle, List<HivePartitionKey> partitionKeys, FileSlice fileSlice, String commitTime, HudiSplitWeightProvider hudiSplitWeightProvider)
+    public static List<HudiSplit> createHudiSplits(
+            HudiTableHandle hudiTableHandle,
+            List<HivePartitionKey> partitionKeys,
+            FileSlice fileSlice,
+            String commitTime,
+            HudiSplitWeightProvider hudiSplitWeightProvider,
+            DataSize targetSplitSize)
     {
         if (fileSlice.isEmpty()) {
             throw new TrinoException(HUDI_FILESYSTEM_ERROR, format("Not a valid file slice: %s", fileSlice.toString()));
@@ -83,18 +90,18 @@ public class HudiSplitFactory
             }
 
             ImmutableList.Builder<HudiSplit> splits = ImmutableList.builder();
-            long splitSize = Math.max(MIN_BLOCK_SIZE, baseFile.getPathInfo().getBlockSize());
+            long targetSplitSizeInBytes = Math.max(targetSplitSize.toBytes(), baseFile.getPathInfo().getBlockSize());
 
             long bytesRemaining = fileSize;
-            while (((double) bytesRemaining) / splitSize > SPLIT_SLOP) {
+            while (((double) bytesRemaining) / targetSplitSizeInBytes > SPLIT_SLOP) {
                 splits.add(new HudiSplit(
-                        HudiBaseFile.of(baseFile, fileSize - bytesRemaining, splitSize),
+                        HudiBaseFile.of(baseFile, fileSize - bytesRemaining, targetSplitSizeInBytes),
                         Collections.emptyList(),
                         commitTime,
                         hudiTableHandle.getRegularPredicates(),
                         partitionKeys,
-                        hudiSplitWeightProvider.calculateSplitWeight(splitSize)));
-                bytesRemaining -= splitSize;
+                        hudiSplitWeightProvider.calculateSplitWeight(targetSplitSizeInBytes)));
+                bytesRemaining -= targetSplitSizeInBytes;
             }
             if (bytesRemaining > 0) {
                 splits.add(new HudiSplit(

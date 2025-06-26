@@ -17,6 +17,7 @@
         <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <dep.hudi.version>1.0.2</dep.hudi.version>
+        <dep.mockito.version>3.12.4</dep.mockito.version>
     </properties>
 
     <dependencies>
@@ -412,6 +413,13 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-params</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <version>${dep.mockito.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

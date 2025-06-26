@@ -57,6 +57,7 @@ public class HudiSessionProperties
     private static final String SIZE_BASED_SPLIT_WEIGHTS_ENABLED = "size_based_split_weights_enabled";
     private static final String STANDARD_SPLIT_WEIGHT_SIZE = "standard_split_weight_size";
     private static final String MINIMUM_ASSIGNED_SPLIT_WEIGHT = "minimum_assigned_split_weight";
+    private static final String TARGET_SPLIT_SIZE = "target_split_size";
     private static final String MAX_SPLITS_PER_SECOND = "max_splits_per_second";
     private static final String MAX_OUTSTANDING_SPLITS = "max_outstanding_splits";
     private static final String SPLIT_GENERATOR_PARALLELISM = "split_generator_parallelism";
@@ -167,6 +168,11 @@ public class HudiSessionProperties
                                 throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be > 0 and <= 1.0: %s", MINIMUM_ASSIGNED_SPLIT_WEIGHT, value));
                             }
                         },
+                        false),
+                dataSizeProperty(
+                        TARGET_SPLIT_SIZE,
+                        "The target split size",
+                        hudiConfig.getTargetSplitSize(),
                         false),
                 integerProperty(
                         MAX_SPLITS_PER_SECOND,
@@ -310,6 +316,11 @@ public class HudiSessionProperties
     public static double getMinimumAssignedSplitWeight(ConnectorSession session)
     {
         return session.getProperty(MINIMUM_ASSIGNED_SPLIT_WEIGHT, Double.class);
+    }
+
+    public static DataSize getTargetSplitSize(ConnectorSession session)
+    {
+        return session.getProperty(TARGET_SPLIT_SIZE, DataSize.class);
     }
 
     public static int getMaxSplitsPerSecond(ConnectorSession session)

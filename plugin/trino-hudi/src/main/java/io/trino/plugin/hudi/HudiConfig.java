@@ -46,6 +46,7 @@ public class HudiConfig
     private boolean sizeBasedSplitWeightsEnabled = true;
     private DataSize standardSplitWeightSize = DataSize.of(128, MEGABYTE);
     private double minimumAssignedSplitWeight = 0.05;
+    private DataSize targetSplitSize = DataSize.of(128, MEGABYTE);
     private int maxSplitsPerSecond = Integer.MAX_VALUE;
     private int maxOutstandingSplits = 1000;
     private int splitLoaderParallelism = 4;
@@ -189,6 +190,20 @@ public class HudiConfig
     public double getMinimumAssignedSplitWeight()
     {
         return minimumAssignedSplitWeight;
+    }
+
+    @Config("hudi.target-split-size")
+    @ConfigDescription("The target split size")
+    public HudiConfig setTargetSplitSize(DataSize targetSplitSize)
+    {
+        this.targetSplitSize = targetSplitSize;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getTargetSplitSize()
+    {
+        return targetSplitSize;
     }
 
     @Min(1)
