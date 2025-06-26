@@ -14,7 +14,7 @@
 package io.trino.connector.informationschema;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.metadata.InternalNodeManager;
+import io.trino.node.InternalNodeManager;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;

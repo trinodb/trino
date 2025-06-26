@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.metadata;
+package io.trino.node;
 
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -39,8 +39,8 @@ import java.util.stream.Stream;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.net.MediaType.JSON_UTF_8;
 import static io.airlift.http.client.HttpStatus.OK;
-import static io.trino.metadata.NodeState.ACTIVE;
-import static io.trino.metadata.NodeState.INACTIVE;
+import static io.trino.node.NodeState.ACTIVE;
+import static io.trino.node.NodeState.INACTIVE;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 
