@@ -30,9 +30,53 @@ final class TestOpenLineagePlugin
         EventListenerFactory factory = getOnlyElement(plugin.getEventListenerFactories());
         factory.create(
                 ImmutableMap.<String, String>builder()
-                        .put("openlineage-event-listener.trino.uri", "http://localhost:8080")
                         .put("bootstrap.quiet", "true")
                         .buildOrThrow(), new TestingEventListenerContext())
+                .shutdown();
+    }
+
+    @Test
+    void testCreateNoopEventListener()
+    {
+        OpenLineagePlugin plugin = new OpenLineagePlugin();
+
+        EventListenerFactory factory = getOnlyElement(plugin.getEventListenerFactories());
+        factory.create(
+                        ImmutableMap.<String, String>builder()
+                                .put("openlineage-event-listener.transport.type", "noop")
+                                .put("bootstrap.quiet", "true")
+                                .buildOrThrow(), new TestingEventListenerContext())
+                .shutdown();
+    }
+
+    @Test
+    void testCreateConsoleEventListener()
+    {
+        OpenLineagePlugin plugin = new OpenLineagePlugin();
+
+        EventListenerFactory factory = getOnlyElement(plugin.getEventListenerFactories());
+        factory.create(
+                        ImmutableMap.<String, String>builder()
+                                .put("openlineage-event-listener.trino.uri", "http://localhost:8080")
+                                .put("openlineage-event-listener.transport.type", "console")
+                                .put("bootstrap.quiet", "true")
+                                .buildOrThrow(), new TestingEventListenerContext())
+                .shutdown();
+    }
+
+    @Test
+    void testCreateHttpEventListener()
+    {
+        OpenLineagePlugin plugin = new OpenLineagePlugin();
+
+        EventListenerFactory factory = getOnlyElement(plugin.getEventListenerFactories());
+        factory.create(
+                        ImmutableMap.<String, String>builder()
+                                .put("openlineage-event-listener.trino.uri", "http://localhost:8080")
+                                .put("openlineage-event-listener.transport.type", "http")
+                                .put("openlineage-event-listener.transport.url", "http://testurl")
+                                .put("bootstrap.quiet", "true")
+                                .buildOrThrow(), new TestingEventListenerContext())
                 .shutdown();
     }
 }

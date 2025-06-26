@@ -13,9 +13,15 @@
  */
 package io.trino.plugin.openlineage.transport;
 
+import io.openlineage.client.transports.NoopTransport;
 import io.openlineage.client.transports.Transport;
 
-public interface OpenLineageTransport
+public class OpenLineageNoopTransport
+        implements OpenLineageTransportCreator
 {
-    Transport buildTransport();
+    @Override
+    public Transport buildTransport()
+    {
+        return new NoopTransport();
+    }
 }

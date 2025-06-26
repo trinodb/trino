@@ -11,12 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.openlineage;
+package io.trino.plugin.openlineage.transport;
 
-public enum OpenLineageTransport
+import io.openlineage.client.transports.Transport;
+
+public interface OpenLineageTransportCreator
 {
-    NOOP,
-    CONSOLE,
-    HTTP,
-    /**/
+    Transport buildTransport();
 }

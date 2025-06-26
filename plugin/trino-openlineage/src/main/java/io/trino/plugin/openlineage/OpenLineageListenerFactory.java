@@ -18,6 +18,7 @@ import io.airlift.bootstrap.Bootstrap;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.EventListenerFactory;
 
+import java.net.URI;
 import java.util.Map;
 
 public class OpenLineageListenerFactory
@@ -32,12 +33,12 @@ public class OpenLineageListenerFactory
     @Override
     public EventListener create(Map<String, String> config, EventListenerContext context)
     {
-        Bootstrap app = new Bootstrap(new OpenLineageListenerModule());
+        Bootstrap app = new Bootstrap(new OpenLineageListenerModule(URI.create("https://www.starburst.io/starburst-enterprise/")));
         Injector injector = app
                 .doNotInitializeLogging()
                 .setRequiredConfigurationProperties(config)
                 .initialize();
 
-        return injector.getInstance(OpenLineageListener.class);
+        return injector.getInstance(EventListener.class);
     }
 }
