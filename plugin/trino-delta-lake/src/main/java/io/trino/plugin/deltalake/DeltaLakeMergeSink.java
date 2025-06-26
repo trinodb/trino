@@ -709,6 +709,9 @@ public class DeltaLakeMergeSink
         if (cdfPageSink != null) {
             cdfPageSink.abort();
         }
+        if (insertPageSink != null) {
+            insertPageSink.abort();
+        }
     }
 
     private static class FileDeletion
