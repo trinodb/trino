@@ -59,6 +59,7 @@ class TestDiscoveryNodeManager
 
     private final Set<InternalNode> activeNodes;
     private final Set<InternalNode> inactiveNodes;
+    private final Set<InternalNode> invalidNodes;
     private final InternalNode coordinator;
     private final InternalNode currentNode;
     private final TestingHttpClient testHttpClient;
@@ -77,20 +78,35 @@ class TestDiscoveryNodeManager
         inactiveNodes = ImmutableSet.of(
                 new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.3.9"), expectedVersion, false),
                 new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.4.9"), expectedVersion, false));
+        invalidNodes = ImmutableSet.of(
+                new InternalNode("bad_version_unknown", URI.create("https://192.0.7.1"), NodeVersion.UNKNOWN, false),
+                new InternalNode("bad_version_2", URI.create("https://192.0.7.2"), new NodeVersion("2"), false),
+                new InternalNode("bad_environment", URI.create("https://192.0.7.3"), expectedVersion, false));
 
         ImmutableMap.Builder<String, ServerInfo> hostsBuilder = ImmutableMap.builder();
         for (InternalNode activeNode : activeNodes) {
-            hostsBuilder.put(activeNode.getInternalUri().getHost(), toServerInfo(activeNode, ACTIVE));
+            hostsBuilder.put(activeNode.getInternalUri().getHost(), toServerInfo(activeNode, ACTIVE, EXPECTED_ENVIRONMENT));
         }
         for (InternalNode inactiveNode : inactiveNodes) {
-            hostsBuilder.put(inactiveNode.getInternalUri().getHost(), toServerInfo(inactiveNode, INACTIVE));
+            hostsBuilder.put(inactiveNode.getInternalUri().getHost(), toServerInfo(inactiveNode, INACTIVE, EXPECTED_ENVIRONMENT));
         }
-        Map<String, ServerInfo> hosts = hostsBuilder.build();
+        for (InternalNode invalidNode : invalidNodes) {
+            hostsBuilder.put(
+                    invalidNode.getInternalUri().getHost(),
+                    toServerInfo(invalidNode, INACTIVE, invalidNode.getNodeVersion().equals(expectedVersion) ? "bad_environment" : EXPECTED_ENVIRONMENT));
+        }
+        Map<String, ServerInfo> allHosts = hostsBuilder.buildOrThrow();
 
-        testHttpClient = new TestingHttpClient(input -> new TestingResponse(
-                OK,
-                ImmutableListMultimap.of(CONTENT_TYPE, JSON_UTF_8.toString()),
-                SERVER_INFO_JSON_CODEC.toJsonBytes(hosts.get(input.getUri().getHost()))));
+        testHttpClient = new TestingHttpClient(input -> {
+            ServerInfo serverInfo = allHosts.get(input.getUri().getHost());
+            if (serverInfo == null) {
+                throw new IllegalArgumentException("Unknown host: " + input.getUri().getHost());
+            }
+            return new TestingResponse(
+                    OK,
+                    ImmutableListMultimap.of(CONTENT_TYPE, JSON_UTF_8.toString()),
+                    SERVER_INFO_JSON_CODEC.toJsonBytes(serverInfo));
+        });
     }
 
     @Test
@@ -133,6 +149,8 @@ class TestDiscoveryNodeManager
             }
 
             assertThat(inactiveNodes).containsExactlyInAnyOrderElementsOf(manager.getNodes(INACTIVE));
+
+            assertThat(manager.getInvalidNodes()).containsExactlyInAnyOrderElementsOf(invalidNodes);
         }
         finally {
             manager.stop();
@@ -249,24 +267,16 @@ class TestDiscoveryNodeManager
                     .map(node -> serviceDescriptor("trino")
                             .setNodeId(node.getNodeIdentifier())
                             .addProperty("https", node.getInternalUri().toString())
-                            .addProperty("node_version", node.getNodeVersion().toString())
-                            .addProperty("coordinator", String.valueOf(node.isCoordinator()))
                             .build())
                     .forEach(descriptors::add);
 
-            // Also add some nodes with bad versions
-            descriptors.add(serviceDescriptor("trino")
-                    .setNodeId("bad_version_unknown")
-                    .addProperty("https", "https://192.0.7.1")
-                    .addProperty("node_version", NodeVersion.UNKNOWN.toString())
-                    .addProperty("coordinator", "false")
-                    .build());
-            descriptors.add(serviceDescriptor("trino")
-                    .setNodeId("bad_version_2")
-                    .addProperty("https", "https://192.0.7.2")
-                    .addProperty("node_version", "2")
-                    .addProperty("coordinator", "false")
-                    .build());
+            // Add the invalid nodes
+            for (InternalNode invalidNode : invalidNodes) {
+                descriptors.add(serviceDescriptor("trino")
+                        .setNodeId(invalidNode.getNodeIdentifier())
+                        .addProperty("https", invalidNode.getInternalUri().toString())
+                        .build());
+            }
 
             this.descriptors = descriptors.build();
         }
@@ -305,13 +315,13 @@ class TestDiscoveryNodeManager
                 node.isCoordinator());
     }
 
-    private static ServerInfo toServerInfo(InternalNode inactiveNode, NodeState nodeState)
+    private static ServerInfo toServerInfo(InternalNode inactiveNode, NodeState nodeState, String environment)
     {
         return new ServerInfo(
                 inactiveNode.getNodeIdentifier(),
                 nodeState,
                 inactiveNode.getNodeVersion(),
-                EXPECTED_ENVIRONMENT,
+                environment,
                 inactiveNode.isCoordinator(),
                 Optional.empty(),
                 false,

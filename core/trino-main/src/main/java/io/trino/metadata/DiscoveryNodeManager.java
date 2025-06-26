@@ -77,6 +77,9 @@ public final class DiscoveryNodeManager
     private Set<InternalNode> coordinators;
 
     @GuardedBy("this")
+    private Set<InternalNode> invalidNodes;
+
+    @GuardedBy("this")
     private final List<Consumer<AllNodes>> listeners = new ArrayList<>();
 
     @Inject
@@ -204,10 +207,12 @@ public final class DiscoveryNodeManager
         ImmutableSet.Builder<InternalNode> drainingNodesBuilder = ImmutableSet.builder();
         ImmutableSet.Builder<InternalNode> drainedNodesBuilder = ImmutableSet.builder();
         ImmutableSet.Builder<InternalNode> shuttingDownNodesBuilder = ImmutableSet.builder();
+        ImmutableSet.Builder<InternalNode> invalidNodesBuilder = ImmutableSet.builder();
 
         switch (currentNodeState.get()) {
             case ACTIVE -> activeNodesBuilder.add(currentNode);
-            case INACTIVE -> inactiveNodesBuilder.add(currentNode);
+            // INVALID should never happen, but if it does, treat as INACTIVE to avoid exceptions
+            case INACTIVE, INVALID -> inactiveNodesBuilder.add(currentNode);
             case DRAINING -> drainingNodesBuilder.add(currentNode);
             case DRAINED -> drainedNodesBuilder.add(currentNode);
             case SHUTTING_DOWN -> shuttingDownNodesBuilder.add(currentNode);
@@ -224,8 +229,11 @@ public final class DiscoveryNodeManager
                 case DRAINING -> drainingNodesBuilder.add(node);
                 case DRAINED -> drainedNodesBuilder.add(node);
                 case SHUTTING_DOWN -> shuttingDownNodesBuilder.add(node);
+                case INVALID -> invalidNodesBuilder.add(node);
             }
         }
+
+        this.invalidNodes = invalidNodesBuilder.build();
 
         Set<InternalNode> activeNodes = activeNodesBuilder.build();
         Set<InternalNode> drainingNodes = drainingNodesBuilder.build();
@@ -295,6 +303,7 @@ public final class DiscoveryNodeManager
             case DRAINING -> getAllNodes().getDrainingNodes();
             case DRAINED -> getAllNodes().getDrainedNodes();
             case SHUTTING_DOWN -> getAllNodes().getShuttingDownNodes();
+            case INVALID -> ImmutableSet.of();
         };
     }
 
@@ -314,6 +323,12 @@ public final class DiscoveryNodeManager
     public synchronized Set<InternalNode> getCoordinators()
     {
         return coordinators;
+    }
+
+    @VisibleForTesting
+    synchronized Set<InternalNode> getInvalidNodes()
+    {
+        return invalidNodes;
     }
 
     @Override
