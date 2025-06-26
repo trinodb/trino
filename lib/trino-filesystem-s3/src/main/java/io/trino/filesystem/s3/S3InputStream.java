@@ -13,6 +13,7 @@
  */
 package io.trino.filesystem.s3;
 
+import com.google.common.base.Joiner;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemException;
 import io.trino.filesystem.TrinoInputStream;
@@ -28,7 +29,10 @@ import java.io.EOFException;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InterruptedIOException;
+import java.lang.ref.Cleaner;
+import java.util.Arrays;
 
+import static io.airlift.concurrent.Threads.virtualThreadsNamed;
 import static java.lang.Math.clamp;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
@@ -37,6 +41,8 @@ import static software.amazon.awssdk.utils.IoUtils.drainInputStream;
 final class S3InputStream
         extends TrinoInputStream
 {
+    private static final Cleaner CLEANER = Cleaner.create(virtualThreadsNamed("s3-input-stream-cleaner"));
+
     private static final long DEFAULT_TCP_BUFFER_SIZE = 1024 * 8;
     private static final int MAX_SKIP_BYTES = 1024 * 1024;
 
@@ -44,6 +50,7 @@ final class S3InputStream
     private final S3Client client;
     private final GetObjectRequest request;
     private final Long length;
+    private final StreamState state;
 
     private boolean closed;
     private ResponseInputStream<GetObjectResponse> in;
@@ -56,6 +63,9 @@ final class S3InputStream
         this.client = requireNonNull(client, "client is null");
         this.request = requireNonNull(request, "request is null");
         this.length = length;
+        this.state = new StreamState();
+
+        CLEANER.register(this, state);
     }
 
     @Override
@@ -158,6 +168,7 @@ final class S3InputStream
         if (closed) {
             return;
         }
+        state.closed = true;
         closed = true;
 
         closeStream();
@@ -303,6 +314,28 @@ final class S3InputStream
         }
         catch (AbortedException e) {
             throw new InterruptedIOException();
+        }
+    }
+
+    private static class StreamState
+            implements Runnable
+    {
+        private final StackTraceElement[] createdBy;
+        private boolean closed;
+
+        private StreamState()
+        {
+            this.createdBy = Thread.currentThread().getStackTrace();
+        }
+
+        @Override
+        public void run()
+        {
+            if (!closed) {
+                closed = true;
+                System.err.printf("S3InputStream was not closed properly. Created by: " + Joiner.on("\n").join(Arrays.copyOfRange(createdBy, 1, createdBy.length)));
+                System.exit(1);
+            }
         }
     }
 }

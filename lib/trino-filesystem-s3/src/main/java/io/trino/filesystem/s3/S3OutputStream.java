@@ -13,6 +13,7 @@
  */
 package io.trino.filesystem.s3;
 
+import com.google.common.base.Joiner;
 import io.trino.filesystem.encryption.EncryptionKey;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
@@ -34,6 +35,7 @@ import software.amazon.awssdk.services.s3.model.UploadPartResponse;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.io.OutputStream;
+import java.lang.ref.Cleaner;
 import java.nio.ByteBuffer;
 import java.nio.file.FileAlreadyExistsException;
 import java.util.ArrayList;
@@ -45,6 +47,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
 
 import static com.google.common.base.Verify.verify;
+import static io.airlift.concurrent.Threads.virtualThreadsNamed;
 import static io.trino.filesystem.s3.S3FileSystemConfig.ObjectCannedAcl.getCannedAcl;
 import static io.trino.filesystem.s3.S3FileSystemConfig.S3SseType.NONE;
 import static io.trino.filesystem.s3.S3FileSystemConfig.StorageClassType.toStorageClass;
@@ -62,6 +65,9 @@ import static java.util.concurrent.CompletableFuture.supplyAsync;
 final class S3OutputStream
         extends OutputStream
 {
+    private static final Cleaner CLEANER = Cleaner.create(virtualThreadsNamed("s3-output-stream-cleaner"));
+
+    private final StreamState state;
     private final List<CompletedPart> parts = new ArrayList<>();
     private final LocalMemoryContext memoryContext;
     private final Executor uploadExecutor;
@@ -92,6 +98,7 @@ final class S3OutputStream
 
     public S3OutputStream(AggregatedMemoryContext memoryContext, Executor uploadExecutor, S3Client client, S3Context context, S3Location location, boolean exclusiveCreate, Optional<EncryptionKey> key)
     {
+        this.state = new StreamState();
         this.memoryContext = memoryContext.newLocalMemoryContext(S3OutputStream.class.getSimpleName());
         this.uploadExecutor = requireNonNull(uploadExecutor, "uploadExecutor is null");
         this.client = requireNonNull(client, "client is null");
@@ -105,6 +112,8 @@ final class S3OutputStream
         this.key = requireNonNull(key, "key is null");
 
         verify(key.isEmpty() || context.s3SseContext().sseType() == NONE, "Encryption key cannot be used with SSE configuration");
+
+        CLEANER.register(this, state);
     }
 
     @SuppressWarnings("NumericCastThatLosesPrecision")
@@ -154,6 +163,7 @@ final class S3OutputStream
         if (closed) {
             return;
         }
+        state.closed = true;
         closed = true;
 
         if (failed) {
@@ -399,6 +409,28 @@ final class S3OutputStream
         catch (Throwable t) {
             if (throwable != t) {
                 throwable.addSuppressed(t);
+            }
+        }
+    }
+
+    private static class StreamState
+            implements Runnable
+    {
+        private final StackTraceElement[] createdBy;
+        private boolean closed;
+
+        private StreamState()
+        {
+            this.createdBy = Thread.currentThread().getStackTrace();
+        }
+
+        @Override
+        public void run()
+        {
+            if (!closed) {
+                closed = true;
+                System.err.printf("S3OutputStream was not closed properly. Created by: " + Joiner.on("\n").join(Arrays.copyOfRange(createdBy, 1, createdBy.length)));
+                System.exit(1);
             }
         }
     }
