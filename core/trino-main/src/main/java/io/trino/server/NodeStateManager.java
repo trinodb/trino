@@ -173,9 +173,9 @@ public class NodeStateManager
                     return;
                 }
             }
-            case DRAINED -> throw new IllegalStateException(format("Invalid state transition from %s to %s, transition to DRAINED is internal only", currState, state));
 
-            case INACTIVE -> throw new IllegalStateException(format("Invalid state transition from %s to %s, INACTIVE is not a valid internal state", currState, state));
+            case INACTIVE, DRAINED, INVALID ->
+                    throw new IllegalStateException(format("Invalid state transition from %s to %s, %s is not a valid internal state", currState, state, state));
         }
 
         throw new IllegalStateException(format("Invalid state transition from %s to %s", currState, state));
