@@ -16,18 +16,24 @@ package io.trino.plugin.openlineage;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.trino.plugin.openlineage.job.OpenLineageJobInterpolatedValues;
 import io.trino.spi.resourcegroups.QueryType;
+import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 
 import java.net.URI;
 import java.util.Optional;
 import java.util.Set;
 
+import static io.trino.plugin.base.logging.FormatInterpolator.hasValidPlaceholders;
+
 public class OpenLineageListenerConfig
 {
     private URI trinoURI;
     private Set<OpenLineageTrinoFacet> disabledFacets = ImmutableSet.of();
     private Optional<String> namespace = Optional.empty();
+    private String jobNameFormat = "$QUERY_ID";
 
     private Set<QueryType> includeQueryTypes = ImmutableSet.<QueryType>builder()
             .add(QueryType.ALTER_TABLE_EXECUTE)
@@ -90,5 +96,25 @@ public class OpenLineageListenerConfig
     {
         this.namespace = Optional.ofNullable(namespace);
         return this;
+    }
+
+    @NotEmpty
+    public String getJobNameFormat()
+    {
+        return jobNameFormat;
+    }
+
+    @Config("openlineage-event-listener.job.name-format")
+    @ConfigDescription("Set name format for OpenLineage job")
+    public OpenLineageListenerConfig setJobNameFormat(String jobNameFormat)
+    {
+        this.jobNameFormat = jobNameFormat;
+        return this;
+    }
+
+    @AssertTrue(message = "Correct job name format may consist of only letters, digits, underscores, commas, spaces, equal signs and predefined values")
+    public boolean isJobNameFormatValid()
+    {
+        return hasValidPlaceholders(jobNameFormat, OpenLineageJobInterpolatedValues.values());
     }
 }
