@@ -2587,19 +2587,21 @@ public class DeltaLakeMetadata
                 return Optional.empty();
             }
 
-            Optional<CommitInfoEntry> cloneCommit = transactions.getFirst().transactionEntries().getEntries(fileSystem)
-                    .map(DeltaLakeTransactionLogEntry::getCommitInfo)
-                    .filter(Objects::nonNull)
-                    .filter(commitInfoEntry -> commitInfoEntry.operation().equals("CLONE"))
-                    .findFirst();
-            if (cloneCommit.isEmpty()) {
-                return Optional.empty();
-            }
+            try (Stream<DeltaLakeTransactionLogEntry> logEntries = transactions.getFirst().transactionEntries().getEntries(fileSystem)) {
+                Optional<CommitInfoEntry> cloneCommit = logEntries
+                        .map(DeltaLakeTransactionLogEntry::getCommitInfo)
+                        .filter(Objects::nonNull)
+                        .filter(commitInfoEntry -> commitInfoEntry.operation().equals("CLONE"))
+                        .findFirst();
+                if (cloneCommit.isEmpty()) {
+                    return Optional.empty();
+                }
 
-            // It's the cloned table
-            sourceTableName = cloneCommit.get().operationParameters().get("source");
-            if (sourceTableName == null) {
-                throw new TrinoException(NOT_SUPPORTED, "Not support reading source table for cloned table with null source table name");
+                // It's the cloned table
+                sourceTableName = cloneCommit.get().operationParameters().get("source");
+                if (sourceTableName == null) {
+                    throw new TrinoException(NOT_SUPPORTED, "Not support reading source table for cloned table with null source table name");
+                }
             }
         }
         catch (IOException e) {
