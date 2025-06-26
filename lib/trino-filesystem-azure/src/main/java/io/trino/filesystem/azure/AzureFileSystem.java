@@ -592,8 +592,13 @@ public class AzureFileSystem
             throws IOException
     {
         try {
+            String rootPath = "/";
+            if (location.endpoint().equals("fabric.microsoft.com")) {
+                // For OneLake, users do not have access to the root directory, so we need to check the path
+                rootPath += location.path();
+            }
             BlockBlobClient blockBlobClient = createBlobContainerClient(location, Optional.empty())
-                    .getBlobClient("/")
+                    .getBlobClient(rootPath)
                     .getBlockBlobClient();
             return blockBlobClient.exists();
         }
