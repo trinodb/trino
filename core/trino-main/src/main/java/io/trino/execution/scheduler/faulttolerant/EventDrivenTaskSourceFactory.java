@@ -22,7 +22,7 @@ import io.trino.execution.ForQueryExecution;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.TableExecuteContextManager;
 import io.trino.execution.scheduler.OutputDataSizeEstimate;
-import io.trino.metadata.InternalNodeManager;
+import io.trino.node.InternalNodeManager;
 import io.trino.spi.HostAddress;
 import io.trino.spi.Node;
 import io.trino.spi.exchange.Exchange;

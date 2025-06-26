@@ -17,7 +17,7 @@ import com.google.common.collect.Sets;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
-import io.trino.metadata.InternalNode;
+import io.trino.node.InternalNode;
 import io.trino.util.FinalizerService;
 
 import java.util.Set;
