@@ -30,7 +30,7 @@ not limited to) Spark, Airflow, Flink.
     - Run Event Time
 *
     - Query Id
-    - Job Facet Name
+    - Job Facet Name (default, can be overriden)
 *
     - `trino:// + {openlineage-event-listener.trino.uri.getHost()} + ":" + {openlineage-event-listener.trino.uri.getPort()}`
     - Job Facet Namespace (default, can be overridden)
@@ -157,6 +157,13 @@ event-listener.config-files=etc/openlineage-event-listener.properties,...
     - Custom namespace to be used for Job `namespace` attribute. If blank will
       default to Dataset Namespace.
     - None.
+*
+    - openlineage-event-listener.job.name-format
+    - Custom namespace to use for the job `name` attribute.
+      Use any string with, with optional substitution
+      variables: `$QUERY_ID`, `$USER`, `$SOURCE`, `$CLIENT_IP`.
+      For example: `As $USER from $CLIENT_IP via $SOURCE`.
+    - `$QUERY_ID`.
 
 :::
 
