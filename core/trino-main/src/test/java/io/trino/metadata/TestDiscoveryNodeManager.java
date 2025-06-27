@@ -22,12 +22,9 @@ import io.airlift.discovery.client.ServiceDescriptor;
 import io.airlift.discovery.client.ServiceSelector;
 import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.http.client.testing.TestingResponse;
-import io.airlift.node.NodeConfig;
-import io.airlift.node.NodeInfo;
 import io.airlift.testing.TestingTicker;
 import io.trino.client.NodeVersion;
 import io.trino.failuredetector.NoOpFailureDetector;
-import io.trino.server.InternalCommunicationConfig;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
@@ -50,15 +47,12 @@ import static io.trino.metadata.NodeState.INACTIVE;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class TestDiscoveryNodeManager
 {
     private static final byte[] ACTIVE_JSON = ("\"" + ACTIVE + "\"").getBytes(UTF_8);
     private static final byte[] INACTIVE_JSON = ("\"" + INACTIVE + "\"").getBytes(UTF_8);
 
-    private final NodeInfo nodeInfo = new NodeInfo("test");
-    private final InternalCommunicationConfig internalCommunicationConfig = new InternalCommunicationConfig();
     private final NodeVersion expectedVersion;
     private final Set<InternalNode> activeNodes;
     private final Set<String> activeHosts;
@@ -71,12 +65,12 @@ class TestDiscoveryNodeManager
     {
         expectedVersion = new NodeVersion("1");
         coordinator = new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.2.8"), expectedVersion, true);
-        currentNode = new InternalNode(nodeInfo.getNodeId(), URI.create("http://192.0.1.1"), expectedVersion, false);
+        currentNode = new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.1.1"), expectedVersion, false);
 
         activeNodes = ImmutableSet.of(
                 currentNode,
-                new InternalNode(UUID.randomUUID().toString(), URI.create("http://192.0.2.1:8080"), expectedVersion, false),
-                new InternalNode(UUID.randomUUID().toString(), URI.create("http://192.0.2.3"), expectedVersion, false),
+                new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.2.1:8080"), expectedVersion, false),
+                new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.2.3"), expectedVersion, false),
                 coordinator);
         activeHosts = activeNodes.stream()
                 .map(InternalNode::getHost)
@@ -96,11 +90,13 @@ class TestDiscoveryNodeManager
     {
         DiscoveryNodeManager manager = new DiscoveryNodeManager(
                 new TrinoNodeServiceSelector(),
-                nodeInfo,
+                copy(currentNode),
+                () -> ACTIVE,
                 new NoOpFailureDetector(),
                 expectedVersion,
                 httpClient,
-                internalCommunicationConfig);
+                true,
+                new TestingTicker());
         try {
             AllNodes allNodes = manager.getAllNodes();
 
@@ -138,17 +134,15 @@ class TestDiscoveryNodeManager
     @Test
     void testGetCurrentNode()
     {
-        NodeInfo nodeInfo = new NodeInfo(new NodeConfig()
-                .setEnvironment("test")
-                .setNodeId(currentNode.getNodeIdentifier()));
-
         DiscoveryNodeManager manager = new DiscoveryNodeManager(
                 new TrinoNodeServiceSelector(),
-                nodeInfo,
+                copy(currentNode),
+                () -> ACTIVE,
                 new NoOpFailureDetector(),
                 expectedVersion,
                 httpClient,
-                internalCommunicationConfig);
+                true,
+                new TestingTicker());
         try {
             assertThat(manager.getCurrentNode()).isEqualTo(currentNode);
         }
@@ -162,32 +156,19 @@ class TestDiscoveryNodeManager
     {
         DiscoveryNodeManager manager = new DiscoveryNodeManager(
                 new TrinoNodeServiceSelector(),
-                nodeInfo,
+                copy(currentNode),
+                () -> ACTIVE,
                 new NoOpFailureDetector(),
                 expectedVersion,
                 httpClient,
-                internalCommunicationConfig);
+                true,
+                new TestingTicker());
         try {
             assertThat(manager.getCoordinators()).isEqualTo(ImmutableSet.of(coordinator));
         }
         finally {
             manager.stop();
         }
-    }
-
-    @SuppressWarnings("ResultOfObjectAllocationIgnored")
-    @Test
-    void testGetCurrentNodeRequired()
-    {
-        assertThatThrownBy(() -> new DiscoveryNodeManager(
-                new TrinoNodeServiceSelector(),
-                new NodeInfo("test"),
-                new NoOpFailureDetector(),
-                expectedVersion,
-                httpClient,
-                internalCommunicationConfig))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("current node not returned");
     }
 
     @Test
@@ -197,15 +178,16 @@ class TestDiscoveryNodeManager
     {
         // initially only the current node is announced
         TrinoNodeServiceSelector selector = new TrinoNodeServiceSelector();
-        selector.announceNodes(ImmutableSet.of(currentNode), ImmutableSet.of());
+        selector.announceNodes(ImmutableSet.of(currentNode));
         TestingTicker testingTicker = new TestingTicker();
         DiscoveryNodeManager manager = new DiscoveryNodeManager(
                 selector,
-                nodeInfo,
+                copy(currentNode),
+                () -> ACTIVE,
                 new NoOpFailureDetector(),
                 expectedVersion,
                 httpClient,
-                internalCommunicationConfig,
+                true,
                 testingTicker);
         try {
             BlockingQueue<AllNodes> notifications = new ArrayBlockingQueue<>(100);
@@ -258,7 +240,7 @@ class TestDiscoveryNodeManager
                     .flatMap(Set::stream)
                     .map(node -> serviceDescriptor("trino")
                             .setNodeId(node.getNodeIdentifier())
-                            .addProperty("http", node.getInternalUri().toString())
+                            .addProperty("https", node.getInternalUri().toString())
                             .addProperty("node_version", node.getNodeVersion().toString())
                             .addProperty("coordinator", String.valueOf(node.isCoordinator()))
                             .build())
@@ -267,13 +249,13 @@ class TestDiscoveryNodeManager
             // Also add some nodes with bad versions
             descriptors.add(serviceDescriptor("trino")
                     .setNodeId("bad_version_unknown")
-                    .addProperty("http", "https://192.0.7.1")
+                    .addProperty("https", "https://192.0.7.1")
                     .addProperty("node_version", NodeVersion.UNKNOWN.toString())
                     .addProperty("coordinator", "false")
                     .build());
             descriptors.add(serviceDescriptor("trino")
                     .setNodeId("bad_version_2")
-                    .addProperty("http", "https://192.0.7.2")
+                    .addProperty("https", "https://192.0.7.2")
                     .addProperty("node_version", "2")
                     .addProperty("coordinator", "false")
                     .build());
@@ -304,5 +286,14 @@ class TestDiscoveryNodeManager
         {
             throw new UnsupportedOperationException();
         }
+    }
+
+    private static InternalNode copy(InternalNode node)
+    {
+        return new InternalNode(
+                node.getNodeIdentifier(),
+                node.getInternalUri(),
+                node.getNodeVersion(),
+                node.isCoordinator());
     }
 }
