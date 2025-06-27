@@ -89,8 +89,8 @@ import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.airlift.log.Level.DEBUG;
 import static io.airlift.log.Level.ERROR;
@@ -103,6 +103,8 @@ import static java.lang.Boolean.parseBoolean;
 import static java.lang.System.getenv;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class DistributedQueryRunner
@@ -388,10 +390,19 @@ public class DistributedQueryRunner
 
     private void ensureNodesGloballyVisible()
     {
-        for (TestingTrinoServer server : servers) {
-            AllNodes nodes = server.refreshNodes();
-            verify(nodes.getInactiveNodes().isEmpty(), "Node manager has inactive nodes");
-            verify(nodes.getActiveNodes().size() == servers.size(), "Node manager has wrong active node count");
+        long start = System.nanoTime();
+        while (true) {
+            for (TestingTrinoServer server : servers) {
+                AllNodes nodes = server.refreshNodes();
+                if (nodes.getInactiveNodes().isEmpty() && nodes.getActiveNodes().size() == servers.size()) {
+                    return;
+                }
+
+                if (start + SECONDS.toNanos(10) < System.nanoTime()) {
+                    throw new IllegalStateException("Not all nodes are visible after 10 seconds: " + nodes);
+                }
+                sleepUninterruptibly(5, MILLISECONDS);
+            }
         }
     }
 
