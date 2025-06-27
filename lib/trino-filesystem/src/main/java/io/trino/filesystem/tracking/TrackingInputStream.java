@@ -27,12 +27,13 @@ public class TrackingInputStream
 {
     private final TrinoInputStream delegate;
     private final TrackingState state;
+    private final Cleaner.Cleanable cleanable;
 
     public TrackingInputStream(TrinoInputStream delegate, Location location, Cleaner cleaner)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.state = new TrackingState(delegate, location);
-        cleaner.register(this, state);
+        this.cleanable = cleaner.register(this, state);
     }
 
     @Override
@@ -116,8 +117,8 @@ public class TrackingInputStream
     public void close()
             throws IOException
     {
-        state.markClosed();
-        delegate.close();
+        state.close();
+        cleanable.clean(); // Unregister the cleanable and run cleanup action
     }
 
     @Override
