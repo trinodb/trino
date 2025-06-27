@@ -24,14 +24,11 @@ import io.airlift.discovery.client.ServiceDescriptor;
 import io.airlift.discovery.client.ServiceSelector;
 import io.airlift.discovery.client.ServiceType;
 import io.airlift.http.client.HttpClient;
-import io.airlift.http.server.HttpServerInfo;
 import io.airlift.log.Logger;
-import io.airlift.node.NodeInfo;
 import io.trino.client.NodeVersion;
 import io.trino.failuredetector.FailureDetector;
 import io.trino.server.InternalCommunicationConfig;
 import io.trino.server.NodeStateManager.CurrentNodeState;
-import io.trino.server.ServerConfig;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Managed;
@@ -83,25 +80,17 @@ public final class DiscoveryNodeManager
     @Inject
     public DiscoveryNodeManager(
             @ServiceType("trino") ServiceSelector serviceSelector,
-            NodeInfo nodeInfo,
-            HttpServerInfo httpServerInfo,
+            InternalNode currentNode,
             CurrentNodeState currentNodeState,
             FailureDetector failureDetector,
-            NodeVersion expectedNodeVersion,
             @ForNodeManager HttpClient httpClient,
-            ServerConfig serverConfig,
             InternalCommunicationConfig internalCommunicationConfig)
     {
         this(
                 serviceSelector,
-                new InternalNode(
-                                nodeInfo.getNodeId(),
-                                internalCommunicationConfig.isHttpsRequired() ? httpServerInfo.getHttpsUri() : httpServerInfo.getHttpUri(),
-                                expectedNodeVersion,
-                                serverConfig.isCoordinator()),
+                currentNode,
                 currentNodeState,
                 failureDetector,
-                expectedNodeVersion,
                 httpClient,
                 internalCommunicationConfig.isHttpsRequired(),
                 Ticker.systemTicker());
@@ -113,7 +102,6 @@ public final class DiscoveryNodeManager
             InternalNode currentNode,
             Supplier<NodeState> currentNodeState,
             FailureDetector failureDetector,
-            NodeVersion expectedNodeVersion,
             HttpClient httpClient,
             boolean httpsRequired,
             Ticker ticker)
@@ -122,7 +110,7 @@ public final class DiscoveryNodeManager
         this.currentNode = requireNonNull(currentNode, "currentNode is null");
         this.currentNodeState = requireNonNull(currentNodeState, "currentNodeState is null");
         this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
-        this.expectedNodeVersion = requireNonNull(expectedNodeVersion, "expectedNodeVersion is null");
+        this.expectedNodeVersion = currentNode.getNodeVersion();
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.nodeStateUpdateExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("node-state-poller-%s"));
         this.nodeStateEventExecutor = newCachedThreadPool(daemonThreadsNamed("node-state-events-%s"));
