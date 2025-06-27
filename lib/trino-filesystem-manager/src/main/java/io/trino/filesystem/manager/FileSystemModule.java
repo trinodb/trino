@@ -45,6 +45,7 @@ import io.trino.filesystem.s3.FileSystemS3;
 import io.trino.filesystem.s3.S3FileSystemModule;
 import io.trino.filesystem.switching.SwitchingFileSystemFactory;
 import io.trino.filesystem.tracing.TracingFileSystemFactory;
+import io.trino.filesystem.tracking.TrackingFileSystemFactory;
 import io.trino.spi.NodeManager;
 
 import java.util.Map;
@@ -54,6 +55,7 @@ import java.util.function.Function;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static java.lang.System.getenv;
 import static java.util.Objects.requireNonNull;
 
 public class FileSystemModule
@@ -146,6 +148,7 @@ public class FileSystemModule
     @Provides
     @Singleton
     static TrinoFileSystemFactory createFileSystemFactory(
+            FileSystemConfig config,
             Optional<HdfsFileSystemLoader> hdfsFileSystemLoader,
             Map<String, TrinoFileSystemFactory> factories,
             Optional<TrinoFileSystemCache> fileSystemCache,
@@ -162,6 +165,13 @@ public class FileSystemModule
 
         TrinoFileSystemFactory delegate = new SwitchingFileSystemFactory(loader);
         delegate = new TracingFileSystemFactory(tracer, delegate);
+
+        // Enable leak detection if configured or if running in a CI environment
+        boolean trackingDetectionEnabled = getenv("CONTINUOUS_INTEGRATION") != null;
+        if (config.isTrackingEnabled() || trackingDetectionEnabled) {
+            delegate = new TrackingFileSystemFactory(delegate);
+        }
+
         if (fileSystemCache.isPresent()) {
             return new CacheFileSystemFactory(tracer, delegate, fileSystemCache.orElseThrow(), keyProvider.orElseThrow());
         }
