@@ -16,6 +16,7 @@ package io.trino.server;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.server.NodeStateManager.CurrentNodeState;
 
 public class NodeStateManagerModule
         extends AbstractConfigurationAwareModule
@@ -24,6 +25,7 @@ public class NodeStateManagerModule
     protected void setup(Binder binder)
     {
         binder.bind(ShutdownAction.class).to(DefaultShutdownAction.class).in(Scopes.SINGLETON);
+        binder.bind(CurrentNodeState.class).in(Scopes.SINGLETON);
         binder.bind(NodeStateManager.class).in(Scopes.SINGLETON);
     }
 }
