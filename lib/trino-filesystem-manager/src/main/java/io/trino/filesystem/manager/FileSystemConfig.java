@@ -16,6 +16,8 @@ package io.trino.filesystem.manager;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 
+import static java.lang.System.getenv;
+
 public class FileSystemConfig
 {
     private boolean hadoopEnabled;
@@ -25,7 +27,9 @@ public class FileSystemConfig
     private boolean nativeGcsEnabled;
     private boolean nativeLocalEnabled;
     private boolean cacheEnabled;
-    private boolean trackingEnabled;
+
+    // Enable leak detection if configured or if running in a CI environment
+    private boolean trackingEnabled = getenv("CONTINUOUS_INTEGRATION") != null;
 
     public boolean isHadoopEnabled()
     {
