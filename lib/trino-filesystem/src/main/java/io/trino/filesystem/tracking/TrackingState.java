@@ -46,25 +46,32 @@ public class TrackingState
                 .collect(toImmutableList());
     }
 
-    public void markClosed()
+    public void close()
+            throws IOException
     {
+        if (closed) {
+            return;
+        }
         this.closed = true;
+        closeable.close();
     }
 
     @Override
     public void run()
     {
-        // This is invoked by cleaner when associated closeable is phantom reachable.
-        // If markClosed was not called prior to the invocation, resource is considered leaked.
-        if (!closed) {
-            LOG.error("%s with location '%s' was not closed properly and leaked. Created by: %s", closeable.getClass().getSimpleName(), location, JOINER.join(stacktrace));
+        if (closed) {
+            return;
+        }
 
-            try {
-                closeable.close();
-            }
-            catch (IOException e) {
-                LOG.error(e, "Failed to close %s with location '%s'", closeable.getClass().getSimpleName(), location);
-            }
+        // This is invoked by cleaner when associated closeable is phantom reachable.
+        // If close was not called prior to the invocation, resource is considered leaked.
+        LOG.error("%s with location '%s' was not closed properly and leaked. Created by: %s", closeable.getClass().getSimpleName(), location, JOINER.join(stacktrace));
+
+        try {
+            closeable.close();
+        }
+        catch (IOException e) {
+            LOG.error(e, "Failed to close %s with location '%s'", closeable.getClass().getSimpleName(), location);
         }
     }
 

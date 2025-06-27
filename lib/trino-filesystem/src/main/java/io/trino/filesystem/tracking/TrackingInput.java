@@ -27,12 +27,13 @@ public class TrackingInput
 {
     private final TrinoInput delegate;
     private final TrackingState state;
+    private final Cleaner.Cleanable cleanable;
 
     public TrackingInput(TrinoInput delegate, Location location, Cleaner cleaner)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.state = new TrackingState(delegate, location);
-        cleaner.register(this, state);
+        this.cleanable = cleaner.register(this, state);
     }
 
     @Override
@@ -67,7 +68,7 @@ public class TrackingInput
     public void close()
             throws IOException
     {
-        state.markClosed();
-        delegate.close();
+        state.close();
+        cleanable.clean(); // Unregister the cleanable and run cleanup action
     }
 }

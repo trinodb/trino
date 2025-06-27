@@ -26,12 +26,13 @@ public class TrackingOutputStream
 {
     private final OutputStream delegate;
     private final TrackingState state;
+    private final Cleaner.Cleanable cleanable;
 
     public TrackingOutputStream(OutputStream delegate, Location location, Cleaner cleaner)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.state = new TrackingState(delegate, location);
-        cleaner.register(this, state);
+        this.cleanable = cleaner.register(this, state);
     }
 
     @Override
@@ -59,8 +60,8 @@ public class TrackingOutputStream
     public void close()
             throws IOException
     {
-        state.markClosed();
-        delegate.close();
+        state.close();
+        cleanable.clean(); // Unregister the cleanable and run cleanup action
     }
 
     @Override
