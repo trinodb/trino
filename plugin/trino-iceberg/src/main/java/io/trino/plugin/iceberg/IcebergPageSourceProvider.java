@@ -756,6 +756,9 @@ public class IcebergPageSourceProvider
                 throw new TrinoException(ICEBERG_BAD_DATA, e);
             }
             String message = "Error opening Iceberg split %s (offset=%s, length=%s): %s".formatted(inputFile.location(), start, length, e.getMessage());
+            if (e.getCause() != null) {
+                message += " " + e.getCause().getMessage();
+            }
             throw new TrinoException(ICEBERG_CANNOT_OPEN_SPLIT, message, e);
         }
     }
@@ -1047,6 +1050,9 @@ public class IcebergPageSourceProvider
                 throw new TrinoException(ICEBERG_BAD_DATA, e);
             }
             String message = "Error opening Iceberg split %s (offset=%s, length=%s): %s".formatted(inputFile.location(), start, length, e.getMessage());
+            if (e.getCause() != null) {
+                message += " " + e.getCause().getMessage();
+            }
             throw new TrinoException(ICEBERG_CANNOT_OPEN_SPLIT, message, e);
         }
     }
