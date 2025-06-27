@@ -53,7 +53,6 @@ class TestDiscoveryNodeManager
     private static final byte[] ACTIVE_JSON = ("\"" + ACTIVE + "\"").getBytes(UTF_8);
     private static final byte[] INACTIVE_JSON = ("\"" + INACTIVE + "\"").getBytes(UTF_8);
 
-    private final NodeVersion expectedVersion;
     private final Set<InternalNode> activeNodes;
     private final Set<String> activeHosts;
     private final Set<InternalNode> inactiveNodes;
@@ -63,7 +62,7 @@ class TestDiscoveryNodeManager
 
     TestDiscoveryNodeManager()
     {
-        expectedVersion = new NodeVersion("1");
+        NodeVersion expectedVersion = new NodeVersion("1");
         coordinator = new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.2.8"), expectedVersion, true);
         currentNode = new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.1.1"), expectedVersion, false);
 
@@ -93,7 +92,6 @@ class TestDiscoveryNodeManager
                 copy(currentNode),
                 () -> ACTIVE,
                 new NoOpFailureDetector(),
-                expectedVersion,
                 httpClient,
                 true,
                 new TestingTicker());
@@ -139,7 +137,6 @@ class TestDiscoveryNodeManager
                 copy(currentNode),
                 () -> ACTIVE,
                 new NoOpFailureDetector(),
-                expectedVersion,
                 httpClient,
                 true,
                 new TestingTicker());
@@ -159,7 +156,6 @@ class TestDiscoveryNodeManager
                 copy(currentNode),
                 () -> ACTIVE,
                 new NoOpFailureDetector(),
-                expectedVersion,
                 httpClient,
                 true,
                 new TestingTicker());
@@ -185,7 +181,6 @@ class TestDiscoveryNodeManager
                 copy(currentNode),
                 () -> ACTIVE,
                 new NoOpFailureDetector(),
-                expectedVersion,
                 httpClient,
                 true,
                 testingTicker);
