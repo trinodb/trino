@@ -15,6 +15,8 @@ package io.trino.spi.function.table;
 
 import io.trino.spi.Experimental;
 
+import java.io.IOException;
+
 /**
  * Processes table functions splits, as returned from {@link io.trino.spi.connector.ConnectorSplitManager}
  * for a {@link ConnectorTableFunctionHandle}.
@@ -32,4 +34,9 @@ public interface TableFunctionSplitProcessor
      * After the returned state is {@code FINISHED}, the method will not be called again.
      */
     TableFunctionProcessorState process();
+
+    default void close()
+            throws IOException
+    {
+    }
 }
