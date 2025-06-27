@@ -120,7 +120,7 @@ class TestDiscoveryNodeManager
                 testHttpClient,
                 internalCommunicationConfig);
         try {
-            manager.pollWorkers();
+            manager.refreshNodes();
             AllNodes allNodes = manager.getAllNodes();
 
             Set<InternalNode> connectorNodes = manager.getNodes(ACTIVE);
@@ -187,7 +187,7 @@ class TestDiscoveryNodeManager
                 testHttpClient,
                 internalCommunicationConfig);
         try {
-            manager.pollWorkers();
+            manager.refreshNodes();
             assertThat(manager.getCoordinators()).isEqualTo(ImmutableSet.of(coordinator));
         }
         finally {
@@ -228,7 +228,7 @@ class TestDiscoveryNodeManager
                 testingTicker);
         try {
             testingTicker.increment(5, SECONDS);
-            manager.pollWorkers();
+            manager.refreshNodes();
 
             BlockingQueue<AllNodes> notifications = new ArrayBlockingQueue<>(100);
             manager.addNodeChangeListener(notifications::add);
@@ -243,7 +243,7 @@ class TestDiscoveryNodeManager
 
             // current implementation requires two updates
             // all announced nodes start inactive
-            manager.pollWorkers();
+            manager.refreshNodes();
             allNodes = notifications.take();
             assertThat(allNodes.getActiveNodes()).containsExactly(currentNode);
             assertThat(allNodes.getInactiveNodes())
@@ -254,7 +254,7 @@ class TestDiscoveryNodeManager
 
             // second update makes updates active nodes
             testingTicker.increment(5, SECONDS);
-            manager.pollWorkers();
+            manager.refreshNodes();
             allNodes = notifications.take();
             assertThat(manager.getAllNodes()).isSameAs(allNodes);
             assertThat(allNodes.getActiveNodes()).isEqualTo(activeNodes);
@@ -263,7 +263,7 @@ class TestDiscoveryNodeManager
             // only announce current node and inactive nodes
             testingTicker.increment(5, SECONDS);
             selector.announceNodes(ImmutableSet.of(currentNode), inactiveNodes);
-            manager.pollWorkers();
+            manager.refreshNodes();
             allNodes = notifications.take();
             assertThat(manager.getAllNodes()).isSameAs(allNodes);
             assertThat(allNodes.getActiveNodes()).containsExactly(currentNode);

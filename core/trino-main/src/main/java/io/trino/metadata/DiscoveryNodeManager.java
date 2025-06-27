@@ -154,13 +154,13 @@ public final class DiscoveryNodeManager
     {
         nodeStateUpdateExecutor.scheduleWithFixedDelay(() -> {
             try {
-                pollWorkers();
+                refreshNodes();
             }
             catch (Exception e) {
                 log.error(e, "Error polling state of nodes");
             }
         }, 5, 5, TimeUnit.SECONDS);
-        pollWorkers();
+        refreshNodes();
     }
 
     @PreDestroy
@@ -170,8 +170,14 @@ public final class DiscoveryNodeManager
         nodeStateEventExecutor.shutdown();
     }
 
-    @VisibleForTesting
-    void pollWorkers()
+    @PreDestroy
+    public void stop()
+    {
+        nodeStateUpdateExecutor.shutdownNow();
+    }
+
+    @Override
+    public void refreshNodes()
     {
         AllNodes allNodes = getAllNodes();
         Set<InternalNode> trackedNodes = ImmutableSet.<InternalNode>builder()
@@ -204,18 +210,6 @@ public final class DiscoveryNodeManager
         nodeStates.values().forEach(RemoteNodeState::asyncRefresh);
 
         // update indexes
-        refreshNodesInternal();
-    }
-
-    @PreDestroy
-    public void stop()
-    {
-        nodeStateUpdateExecutor.shutdownNow();
-    }
-
-    @Override
-    public void refreshNodes()
-    {
         refreshNodesInternal();
     }
 
