@@ -42,6 +42,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS_DETAILED;
+import static io.trino.tests.product.utils.JdbcDriverUtils.resetSessionProperty;
 import static io.trino.tests.product.utils.JdbcDriverUtils.setSessionProperty;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
@@ -186,6 +187,7 @@ public class TestHiveCompatibility
             }
             finally {
                 onHive().executeQuery("RESET");
+                resetSessionProperty(onTrino().getConnection(), "hive.timestamp_precision");
             }
         }
         onTrino().executeQuery(format("DROP TABLE %s", tableName));

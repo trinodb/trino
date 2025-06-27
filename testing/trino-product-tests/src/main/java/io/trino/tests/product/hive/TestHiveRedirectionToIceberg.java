@@ -93,6 +93,7 @@ public class TestHiveRedirectionToIceberg
         assertQueryFailure(() -> onTrino().executeQuery("TABLE " + hiveTableName))
                 .hasMessageMatching(".*Table 'hive.default.redirect_to_nonexistent_iceberg_.*' redirected to 'someweirdcatalog.default.redirect_to_nonexistent_iceberg_.*', but the target catalog 'someweirdcatalog' does not exist");
 
+        onTrino().executeQuery("RESET SESSION hive.iceberg_catalog_name");
         onTrino().executeQuery("DROP TABLE " + icebergTableName);
     }
 
