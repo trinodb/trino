@@ -1553,12 +1553,15 @@ public class TestDeltaLakeBasic
         copyDirectoryContents(new File(Resources.getResource("databricks154/test_variant_null").toURI()).toPath(), tableLocation);
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
 
+        assertThat(query("SELECT id FROM " + tableName + " WHERE x = JSON 'null'"))
+                .matches("VALUES 3");
+
         assertThat(query("SELECT * FROM " + tableName + " WHERE id = 3"))
-                .matches("VALUES (3, CAST(NULL AS JSON))");
+                .matches("VALUES (3, JSON 'null')");
         assertThat(query("SELECT * FROM " + tableName + " WHERE id = 4"))
                 .matches("VALUES (4, CAST(NULL AS JSON))");
         assertThat(query("SELECT id FROM " + tableName + " WHERE x IS NULL"))
-                .matches("VALUES 3, 4");
+                .matches("VALUES 4");
     }
 
     /**
