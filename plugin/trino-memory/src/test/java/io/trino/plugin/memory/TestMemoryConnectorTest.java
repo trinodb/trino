@@ -33,6 +33,7 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
+import java.util.Comparator;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -496,8 +497,14 @@ public class TestMemoryConnectorTest
         QueryStats stats = runner.getCoordinator().getQueryManager().getFullQueryInfo(queryId).getQueryStats();
         return stats.getOperatorSummaries()
                 .stream()
+                .sorted(getOperatorStatsComparator())
                 .filter(summary -> summary.getOperatorType().contains("Scan"))
                 .collect(toImmutableList());
+    }
+
+    private static Comparator<OperatorStats> getOperatorStatsComparator()
+    {
+        return Comparator.comparing(s -> s.getStageId() + "/" + s.getPipelineId() + "/" + s.getOperatorId());
     }
 
     @Test

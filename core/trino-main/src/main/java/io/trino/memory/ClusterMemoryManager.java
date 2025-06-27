@@ -30,7 +30,6 @@ import io.airlift.units.DataSize;
 import io.trino.execution.LocationFactory;
 import io.trino.execution.QueryExecution;
 import io.trino.execution.QueryInfo;
-import io.trino.execution.StageInfo;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskInfo;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
@@ -88,6 +87,7 @@ import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
+import static java.util.function.Function.identity;
 
 public class ClusterMemoryManager
 {
@@ -405,23 +405,19 @@ public class ClusterMemoryManager
     private RunningQueryInfo createQueryMemoryInfo(QueryExecution query)
     {
         QueryInfo queryInfo = query.getQueryInfo();
-        ImmutableMap.Builder<TaskId, TaskInfo> taskInfosBuilder = ImmutableMap.builder();
-        queryInfo.getOutputStage().ifPresent(stage -> getTaskInfos(stage, taskInfosBuilder));
+
+        Map<TaskId, TaskInfo> taskInfos = queryInfo.getStages().map(stagesInfo ->
+                stagesInfo.getStages().stream().flatMap(stageInfo -> stageInfo.getTasks().stream())
+                        .collect(toImmutableMap(
+                                taskInfo -> taskInfo.taskStatus().getTaskId(),
+                                identity())))
+                .orElse(ImmutableMap.of());
+
         return new RunningQueryInfo(
                 query.getQueryId(),
                 query.getTotalMemoryReservation().toBytes(),
-                taskInfosBuilder.buildOrThrow(),
+                taskInfos,
                 getRetryPolicy(query.getSession()));
-    }
-
-    private void getTaskInfos(StageInfo stageInfo, ImmutableMap.Builder<TaskId, TaskInfo> taskInfosBuilder)
-    {
-        for (TaskInfo taskInfo : stageInfo.getTasks()) {
-            taskInfosBuilder.put(taskInfo.taskStatus().getTaskId(), taskInfo);
-        }
-        for (StageInfo subStage : stageInfo.getSubStages()) {
-            getTaskInfos(subStage, taskInfosBuilder);
-        }
     }
 
     private long getQueryMemoryReservation(QueryExecution query)

@@ -35,6 +35,7 @@ import io.trino.execution.DistributionSnapshot;
 import io.trino.execution.QueryStats;
 import io.trino.execution.StageInfo;
 import io.trino.execution.StageStats;
+import io.trino.execution.StagesInfo;
 import io.trino.execution.TableInfo;
 import io.trino.execution.TaskInfo;
 import io.trino.metadata.FunctionManager;
@@ -157,7 +158,6 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.json.JsonCodec.mapJsonCodec;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.succinctNanos;
-import static io.trino.execution.StageInfo.getAllStages;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
 import static io.trino.metadata.LanguageFunctionManager.isInlineFunction;
@@ -302,21 +302,20 @@ public class PlanPrinter
     }
 
     public static String jsonDistributedPlan(
-            StageInfo outputStageInfo,
+            StagesInfo stages,
             Session session,
             Metadata metadata,
             FunctionManager functionManager,
             Anonymizer anonymizer)
     {
-        List<StageInfo> allStages = getAllStages(Optional.of(outputStageInfo));
-        Map<PlanNodeId, TableInfo> tableInfos = allStages.stream()
+        Map<PlanNodeId, TableInfo> tableInfos = stages.getStages().stream()
                 .map(StageInfo::getTables)
                 .map(Map::entrySet)
                 .flatMap(Collection::stream)
                 .collect(toImmutableMap(Entry::getKey, Entry::getValue));
 
         ValuePrinter valuePrinter = new ValuePrinter(metadata, functionManager, session);
-        List<PlanFragment> planFragments = allStages.stream()
+        List<PlanFragment> planFragments = stages.getStages().stream()
                 .map(StageInfo::getPlan)
                 .filter(Objects::nonNull)
                 .collect(toImmutableList());
@@ -403,7 +402,7 @@ public class PlanPrinter
     }
 
     public static String textDistributedPlan(
-            StageInfo outputStageInfo,
+            StagesInfo stages,
             QueryStats queryStats,
             Metadata metadata,
             FunctionManager functionManager,
@@ -412,7 +411,7 @@ public class PlanPrinter
             NodeVersion version)
     {
         return textDistributedPlan(
-                outputStageInfo,
+                stages,
                 queryStats,
                 new ValuePrinter(metadata, functionManager, session),
                 verbose,
@@ -421,22 +420,44 @@ public class PlanPrinter
     }
 
     public static String textDistributedPlan(
-            StageInfo outputStageInfo,
+            StagesInfo stages,
             QueryStats queryStats,
             ValuePrinter valuePrinter,
             boolean verbose,
             Anonymizer anonymizer,
             NodeVersion version)
     {
-        List<StageInfo> allStages = getAllStages(Optional.of(outputStageInfo));
-        Map<PlanNodeId, TableInfo> tableInfos = allStages.stream()
+        return textDistributedPlan(stages.getStages(), queryStats, valuePrinter, verbose, anonymizer, version);
+    }
+
+    public static String textDistributedPlan(
+            List<StageInfo> stages,
+            QueryStats queryStats,
+            Metadata metadata,
+            FunctionManager functionManager,
+            Session session,
+            boolean verbose,
+            NodeVersion version)
+    {
+        return textDistributedPlan(
+                stages,
+                queryStats,
+                new ValuePrinter(metadata, functionManager, session),
+                verbose,
+                new NoOpAnonymizer(),
+                version);
+    }
+
+    public static String textDistributedPlan(List<StageInfo> stages, QueryStats queryStats, ValuePrinter valuePrinter, boolean verbose, Anonymizer anonymizer, NodeVersion version)
+    {
+        Map<PlanNodeId, TableInfo> tableInfos = stages.stream()
                 .map(StageInfo::getTables)
                 .map(Map::entrySet)
                 .flatMap(Collection::stream)
                 .collect(toImmutableMap(Entry::getKey, Entry::getValue));
 
         StringBuilder builder = new StringBuilder();
-        Map<PlanNodeId, PlanNodeStats> aggregatedStats = aggregateStageStats(allStages);
+        Map<PlanNodeId, PlanNodeStats> aggregatedStats = aggregateStageStats(stages);
 
         Map<DynamicFilterId, DynamicFilterDomainStats> dynamicFilterDomainStats = queryStats.getDynamicFiltersStats()
                 .getDynamicFilterDomainStats().stream()
@@ -449,7 +470,7 @@ public class PlanPrinter
                 queryStats.getPlanningTime().convertToMostSuccinctTimeUnit(),
                 queryStats.getExecutionTime().convertToMostSuccinctTimeUnit()));
 
-        for (StageInfo stageInfo : allStages) {
+        for (StageInfo stageInfo : stages) {
             if (stageInfo.getPlan() == null) {
                 continue;
             }

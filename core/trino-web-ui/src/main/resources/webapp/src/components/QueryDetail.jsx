@@ -760,16 +760,15 @@ class StageSummary extends React.Component {
 }
 
 class StageList extends React.Component {
-    getStages(stage) {
-        if (stage === undefined || !stage.hasOwnProperty('subStages')) {
+    getStages(stagesInfo) {
+        if (stagesInfo === undefined) {
             return []
         }
-
-        return [].concat.apply(stage, stage.subStages.map(this.getStages, this))
+        return stagesInfo.stages
     }
 
     render() {
-        const stages = this.getStages(this.props.outputStage)
+        const stages = this.getStages(this.props.stages)
         const taskRetriesEnabled = this.props.taskRetriesEnabled
 
         if (stages === undefined || stages.length === 0) {
@@ -930,13 +929,13 @@ export class QueryDetail extends React.Component {
         $.get(
             '/ui/api/query/' + queryId,
             function (query) {
-                let lastSnapshotStages = this.state.lastSnapshotStage
+                let lastSnapshotStages = this.state.lastSnapshotStages
                 if (this.state.stageRefresh) {
-                    lastSnapshotStages = query.outputStage
+                    lastSnapshotStages = query.stages
                 }
                 let lastSnapshotTasks = this.state.lastSnapshotTasks
                 if (this.state.taskRefresh) {
-                    lastSnapshotTasks = query.outputStage
+                    lastSnapshotTasks = query.stages
                 }
 
                 let lastRefresh = this.state.lastRefresh
@@ -1134,7 +1133,7 @@ export class QueryDetail extends React.Component {
                     <div className="col-xs-12">
                         <StageList
                             key={this.state.query.queryId}
-                            outputStage={this.state.lastSnapshotStage}
+                            stages={this.state.lastSnapshotStage}
                             taskRetriesEnabled={taskRetriesEnabled}
                         />
                     </div>
