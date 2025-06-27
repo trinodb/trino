@@ -24,11 +24,14 @@ import io.airlift.discovery.client.ServiceDescriptor;
 import io.airlift.discovery.client.ServiceSelector;
 import io.airlift.discovery.client.ServiceType;
 import io.airlift.http.client.HttpClient;
+import io.airlift.http.server.HttpServerInfo;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import io.trino.client.NodeVersion;
 import io.trino.failuredetector.FailureDetector;
 import io.trino.server.InternalCommunicationConfig;
+import io.trino.server.NodeStateManager.CurrentNodeState;
+import io.trino.server.ServerConfig;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Managed;
@@ -42,8 +45,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Objects.requireNonNull;
@@ -56,6 +59,7 @@ public final class DiscoveryNodeManager
 {
     private static final Logger log = Logger.get(DiscoveryNodeManager.class);
 
+    private final Supplier<NodeState> currentNodeState;
     private final ServiceSelector serviceSelector;
     private final FailureDetector failureDetector;
     private final NodeVersion expectedNodeVersion;
@@ -80,68 +84,52 @@ public final class DiscoveryNodeManager
     public DiscoveryNodeManager(
             @ServiceType("trino") ServiceSelector serviceSelector,
             NodeInfo nodeInfo,
+            HttpServerInfo httpServerInfo,
+            CurrentNodeState currentNodeState,
             FailureDetector failureDetector,
             NodeVersion expectedNodeVersion,
             @ForNodeManager HttpClient httpClient,
+            ServerConfig serverConfig,
             InternalCommunicationConfig internalCommunicationConfig)
     {
         this(
                 serviceSelector,
-                nodeInfo,
+                new InternalNode(
+                                nodeInfo.getNodeId(),
+                                internalCommunicationConfig.isHttpsRequired() ? httpServerInfo.getHttpsUri() : httpServerInfo.getHttpUri(),
+                                expectedNodeVersion,
+                                serverConfig.isCoordinator()),
+                currentNodeState,
                 failureDetector,
                 expectedNodeVersion,
                 httpClient,
-                internalCommunicationConfig,
+                internalCommunicationConfig.isHttpsRequired(),
                 Ticker.systemTicker());
     }
 
     @VisibleForTesting
     DiscoveryNodeManager(
             ServiceSelector serviceSelector,
-            NodeInfo nodeInfo,
+            InternalNode currentNode,
+            Supplier<NodeState> currentNodeState,
             FailureDetector failureDetector,
             NodeVersion expectedNodeVersion,
             HttpClient httpClient,
-            InternalCommunicationConfig internalCommunicationConfig,
+            boolean httpsRequired,
             Ticker ticker)
     {
         this.serviceSelector = requireNonNull(serviceSelector, "serviceSelector is null");
+        this.currentNode = requireNonNull(currentNode, "currentNode is null");
+        this.currentNodeState = requireNonNull(currentNodeState, "currentNodeState is null");
         this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
         this.expectedNodeVersion = requireNonNull(expectedNodeVersion, "expectedNodeVersion is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.nodeStateUpdateExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("node-state-poller-%s"));
         this.nodeStateEventExecutor = newCachedThreadPool(daemonThreadsNamed("node-state-events-%s"));
-        this.httpsRequired = internalCommunicationConfig.isHttpsRequired();
+        this.httpsRequired = httpsRequired;
         this.ticker = requireNonNull(ticker, "ticker is null");
 
-        this.currentNode = findCurrentNode(
-                serviceSelector.selectAllServices(),
-                nodeInfo.getNodeId(),
-                expectedNodeVersion,
-                httpsRequired);
-
         refreshNodes();
-    }
-
-    private static InternalNode findCurrentNode(List<ServiceDescriptor> allServices, String currentNodeId, NodeVersion expectedNodeVersion, boolean httpsRequired)
-    {
-        for (ServiceDescriptor service : allServices) {
-            URI uri = getHttpUri(service, httpsRequired);
-            NodeVersion nodeVersion = getNodeVersion(service);
-            if (uri != null && nodeVersion != null) {
-                InternalNode node = new InternalNode(service.getNodeId(), uri, nodeVersion, isCoordinator(service));
-
-                if (node.getNodeIdentifier().equals(currentNodeId)) {
-                    checkState(
-                            node.getNodeVersion().equals(expectedNodeVersion),
-                            "INVARIANT: current node version (%s) should be equal to %s",
-                            node.getNodeVersion(),
-                            expectedNodeVersion);
-                    return node;
-                }
-            }
-        }
-        throw new IllegalStateException("INVARIANT: current node not returned from service selector");
     }
 
     @PostConstruct
@@ -223,6 +211,14 @@ public final class DiscoveryNodeManager
         ImmutableSet.Builder<InternalNode> drainingNodesBuilder = ImmutableSet.builder();
         ImmutableSet.Builder<InternalNode> drainedNodesBuilder = ImmutableSet.builder();
         ImmutableSet.Builder<InternalNode> shuttingDownNodesBuilder = ImmutableSet.builder();
+
+        switch (currentNodeState.get()) {
+            case ACTIVE -> activeNodesBuilder.add(currentNode);
+            case INACTIVE -> inactiveNodesBuilder.add(currentNode);
+            case DRAINING -> drainingNodesBuilder.add(currentNode);
+            case DRAINED -> drainedNodesBuilder.add(currentNode);
+            case SHUTTING_DOWN -> shuttingDownNodesBuilder.add(currentNode);
+        }
 
         for (RemoteNodeState remoteNodeState : nodeStates.values()) {
             InternalNode node = remoteNodeState.getNode();
