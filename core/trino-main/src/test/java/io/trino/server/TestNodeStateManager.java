@@ -23,6 +23,7 @@ import io.trino.execution.TaskInfo;
 import io.trino.execution.TaskState;
 import io.trino.metadata.NodeState;
 import io.trino.operator.TaskStats;
+import io.trino.server.NodeStateManager.CurrentNodeState;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -280,6 +281,7 @@ class TestNodeStateManager
 
         Supplier<List<TaskInfo>> taskInfoSupplier = () -> tasks.get();
         return new NodeStateManager(
+                new CurrentNodeState(),
                 sqlTasksObservable,
                 taskInfoSupplier,
                 serverConfig,
