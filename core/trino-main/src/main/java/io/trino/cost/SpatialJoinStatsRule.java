@@ -44,7 +44,7 @@ public class SpatialJoinStatsRule
 
         return switch (node.getType()) {
             case INNER -> Optional.of(statsCalculator.filterStats(crossJoinStats, node.getFilter(), context.session()));
-            case LEFT -> Optional.of(PlanNodeStatsEstimate.unknown());
+            case LEFT, ASOF -> Optional.of(PlanNodeStatsEstimate.unknown());
         };
     }
 

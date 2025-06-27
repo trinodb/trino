@@ -567,7 +567,7 @@ public final class PropertyDerivations
                             .unordered(unordered)
                             .build();
                 }
-                case LEFT -> ActualProperties.builderFrom(probeProperties.translate(column -> filterIfMissing(node.getOutputSymbols(), column)))
+                case LEFT, ASOF -> ActualProperties.builderFrom(probeProperties.translate(column -> filterIfMissing(node.getOutputSymbols(), column)))
                         .unordered(unordered)
                         .build();
                 case RIGHT -> ActualProperties.builderFrom(buildProperties.translate(column -> filterIfMissing(node.getOutputSymbols(), column)))
@@ -608,7 +608,7 @@ public final class PropertyDerivations
                             .constants(constants)
                             .build();
                 }
-                case LEFT -> ActualProperties.builderFrom(probeProperties.translate(column -> filterIfMissing(node.getOutputSymbols(), column)))
+                case LEFT, ASOF -> ActualProperties.builderFrom(probeProperties.translate(column -> filterIfMissing(node.getOutputSymbols(), column)))
                         .build();
             };
         }
@@ -843,7 +843,7 @@ public final class PropertyDerivations
             });
 
             return switch (node.getJoinType()) {
-                case INNER, LEFT -> translatedProperties;
+                case INNER, LEFT, ASOF -> translatedProperties;
                 case RIGHT, FULL -> ActualProperties.builderFrom(translatedProperties)
                         .local(ImmutableList.of())
                         .build();
@@ -926,7 +926,7 @@ public final class PropertyDerivations
             return false;
         }
         return switch (joinType) {
-            case INNER, LEFT -> true;
+            case INNER, LEFT, ASOF -> true;
             // Even though join might not have "spillable" property set yet
             // it might still be set as spillable later on by AddLocalExchanges.
             case RIGHT, FULL -> false; // Currently there is no spill support for outer on the build side.

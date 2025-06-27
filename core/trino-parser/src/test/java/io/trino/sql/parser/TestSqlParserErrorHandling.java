@@ -50,7 +50,7 @@ public class TestSqlParserErrorHandling
                 Arguments.of("select * from 'oops",
                         "line 1:15: mismatched input '''. Expecting: '(', 'JSON_TABLE', 'LATERAL', 'TABLE', 'UNNEST', <identifier>"),
                 Arguments.of("select *\nfrom x\nfrom",
-                        "line 3:1: mismatched input 'from'. Expecting: ',', '.', 'AS', 'CROSS', 'EXCEPT', 'FETCH', 'FOR', 'FULL', 'GROUP', 'HAVING', 'INNER', 'INTERSECT', 'JOIN', 'LEFT', " +
+                        "line 3:1: mismatched input 'from'. Expecting: ',', '.', 'AS', 'ASOF', 'CROSS', 'EXCEPT', 'FETCH', 'FOR', 'FULL', 'GROUP', 'HAVING', 'INNER', 'INTERSECT', 'JOIN', 'LEFT', " +
                                 "'LIMIT', 'MATCH_RECOGNIZE', 'NATURAL', 'OFFSET', 'ORDER', 'RIGHT', 'TABLESAMPLE', 'UNION', 'WHERE', 'WINDOW', <EOF>, <identifier>"),
                 Arguments.of("select *\nfrom x\nwhere from",
                         "line 3:7: mismatched input 'from'. Expecting: <expression>"),
@@ -121,7 +121,7 @@ public class TestSqlParserErrorHandling
                 Arguments.of("SELECT foo(*) filter (",
                         "line 1:23: mismatched input '<EOF>'. Expecting: 'WHERE'"),
                 Arguments.of("SELECT * FROM t t x",
-                        "line 1:19: mismatched input 'x'. Expecting: '(', ',', 'CROSS', 'EXCEPT', 'FETCH', 'FULL', 'GROUP', 'HAVING', 'INNER', 'INTERSECT', 'JOIN', 'LEFT', 'LIMIT', " +
+                        "line 1:19: mismatched input 'x'. Expecting: '(', ',', 'ASOF', 'CROSS', 'EXCEPT', 'FETCH', 'FULL', 'GROUP', 'HAVING', 'INNER', 'INTERSECT', 'JOIN', 'LEFT', 'LIMIT', " +
                                 "'MATCH_RECOGNIZE', 'NATURAL', 'OFFSET', 'ORDER', 'RIGHT', 'TABLESAMPLE', 'UNION', 'WHERE', 'WINDOW', <EOF>"),
                 Arguments.of("SELECT * FROM t WHERE EXISTS (",
                         "line 1:31: mismatched input '<EOF>'. Expecting: <query>"),

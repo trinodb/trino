@@ -160,7 +160,7 @@ public class IndexJoinOptimizer
                         }
                         break;
 
-                    case LEFT:
+                    case LEFT, ASOF:
                         // We cannot use indices for outer joins until index join supports in-line filtering
                         if (node.getFilter().isEmpty() && rightIndexCandidate.isPresent()) {
                             return createIndexJoinWithExpectedOutputs(node.getOutputSymbols(), IndexJoinNode.Type.SOURCE_OUTER, leftRewritten, rightIndexCandidate.get(), createEquiJoinClause(leftJoinSymbols, rightJoinSymbols), idAllocator);

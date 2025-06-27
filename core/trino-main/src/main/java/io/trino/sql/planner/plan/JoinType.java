@@ -18,7 +18,8 @@ public enum JoinType
     INNER("InnerJoin"),
     LEFT("LeftJoin"),
     RIGHT("RightJoin"),
-    FULL("FullJoin");
+    FULL("FullJoin"),
+    ASOF("AsofJoin");
 
     private final String joinLabel;
 

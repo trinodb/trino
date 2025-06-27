@@ -365,6 +365,7 @@ selectItem
 relation
     : left=relation
       ( CROSS JOIN right=sampledRelation
+      | ASOF JOIN rightRelation=relation joinCriteria
       | joinType JOIN rightRelation=relation joinCriteria
       | NATURAL joinType JOIN right=sampledRelation
       )                                                     #joinRelation
@@ -1070,6 +1071,7 @@ AND: 'AND';
 ANY: 'ANY';
 ARRAY: 'ARRAY';
 AS: 'AS';
+ASOF: 'ASOF';
 ASC: 'ASC';
 AT: 'AT';
 AUTHORIZATION: 'AUTHORIZATION';

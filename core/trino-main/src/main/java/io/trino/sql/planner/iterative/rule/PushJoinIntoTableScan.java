@@ -253,6 +253,7 @@ public class PushJoinIntoTableScan
         return switch (joinNode.getType()) {
             case INNER -> JoinType.INNER;
             case LEFT -> JoinType.LEFT_OUTER;
+            case ASOF -> JoinType.ASOF;
             case RIGHT -> JoinType.RIGHT_OUTER;
             case FULL -> JoinType.FULL_OUTER;
         };

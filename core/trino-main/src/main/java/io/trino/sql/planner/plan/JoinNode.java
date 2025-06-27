@@ -35,6 +35,7 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
+import static io.trino.sql.planner.plan.JoinType.ASOF;
 import static io.trino.sql.planner.plan.JoinType.FULL;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.JoinType.LEFT;
@@ -165,6 +166,7 @@ public class JoinNode
         return switch (type) {
             case INNER -> INNER;
             case FULL -> FULL;
+            case ASOF -> ASOF;
             case LEFT -> RIGHT;
             case RIGHT -> LEFT;
         };

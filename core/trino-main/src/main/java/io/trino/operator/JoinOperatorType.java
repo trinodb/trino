@@ -32,7 +32,7 @@ public class JoinOperatorType
     {
         return switch (joinNodeType) {
             case INNER -> innerJoin(outputSingleMatch, waitForBuild);
-            case LEFT -> probeOuterJoin(outputSingleMatch);
+            case LEFT, ASOF -> probeOuterJoin(outputSingleMatch);
             case RIGHT -> lookupOuterJoin(waitForBuild);
             case FULL -> fullOuterJoin();
         };

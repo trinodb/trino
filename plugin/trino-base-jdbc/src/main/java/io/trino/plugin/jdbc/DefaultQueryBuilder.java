@@ -375,6 +375,7 @@ public class DefaultQueryBuilder
         return switch (joinType) {
             case INNER -> "INNER JOIN";
             case LEFT_OUTER -> "LEFT JOIN";
+            case ASOF -> "ASOF JOIN";
             case RIGHT_OUTER -> "RIGHT JOIN";
             case FULL_OUTER -> "FULL JOIN";
         };

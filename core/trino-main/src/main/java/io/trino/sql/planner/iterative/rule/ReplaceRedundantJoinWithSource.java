@@ -89,7 +89,7 @@ public class ReplaceRedundantJoinWithSource
                 }
                 yield Result.ofPlanNode(restrictOutputs(context.getIdAllocator(), source, ImmutableSet.copyOf(sourceOutputs)).orElse(source));
             }
-            case LEFT -> rightSourceScalarWithNoOutputs ?
+            case LEFT, ASOF -> rightSourceScalarWithNoOutputs ?
                     Result.ofPlanNode(restrictOutputs(context.getIdAllocator(), node.getLeft(), ImmutableSet.copyOf(node.getLeftOutputSymbols()))
                             .orElse(node.getLeft())) :
                     Result.empty();

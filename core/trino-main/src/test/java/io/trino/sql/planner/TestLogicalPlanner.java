@@ -104,6 +104,7 @@ import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.trino.spi.predicate.Domain.multipleValues;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
@@ -177,6 +178,7 @@ import static io.trino.sql.planner.plan.FrameBoundType.CURRENT_ROW;
 import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
+import static io.trino.sql.planner.plan.JoinType.ASOF;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.JoinType.LEFT;
 import static io.trino.sql.planner.plan.RowsPerMatch.WINDOW;
@@ -191,6 +193,7 @@ import static io.trino.tests.QueryTemplate.queryTemplate;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestLogicalPlanner
         extends BasePlanTest
@@ -613,6 +616,95 @@ public class TestLogicalPlanner
                                 .right(
                                         anyTree(
                                                 tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))))));
+    }
+
+    @Test
+    public void testAsofJoin()
+    {
+        assertPlan("SELECT o.orderkey, l.extendedprice FROM orders o ASOF JOIN lineitem l ON l.orderkey = o.orderkey AND l.shipdate <= o.orderdate",
+                CREATED,
+                anyTree(
+                        join(ASOF, builder -> builder
+                                .equiCriteria("ORDERS_OK", "LINEITEM_OK")
+                                .filter(new Comparison(Comparison.Operator.LESS_THAN_OR_EQUAL, new Reference(DATE, "LINEITEM_DATE"), new Reference(DATE, "ORDERS_DATE")))
+                                .left(
+                                        anyTree(
+                                                tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey", "ORDERS_DATE", "orderdate"))))
+                                .right(
+                                        anyTree(
+                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey", "LINEITEM_EP", "extendedprice", "LINEITEM_DATE", "shipdate")))))));
+    }
+
+    @Test
+    public void testAsofJoinOptimizedPlan()
+    {
+        assertPlan(
+                "SELECT o.orderkey, l.extendedprice FROM orders o ASOF JOIN lineitem l ON l.orderkey = o.orderkey AND l.shipdate <= o.orderdate",
+                anyTree(
+                        node(FilterNode.class,
+                                project(
+                                        node(WindowNode.class,
+                                                anyTree(
+                                                        join(LEFT, builder -> builder
+                                                                .equiCriteria("ORDERS_OK", "LINEITEM_OK")
+                                                                .filter(new Comparison(Comparison.Operator.LESS_THAN_OR_EQUAL, new Reference(DATE, "LINEITEM_DATE"), new Reference(DATE, "ORDERS_DATE")))
+                                                                .left(
+                                                                        anyTree(
+                                                                                tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey", "ORDERS_DATE", "orderdate"))))
+                                                                .right(
+                                                                        anyTree(
+                                                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey", "LINEITEM_EP", "extendedprice", "LINEITEM_DATE", "shipdate")))))))))));
+    }
+
+    @Test
+    public void testAsofJoinUsingOptimizedPlan()
+    {
+        assertPlan("""
+                   WITH orders_norm AS (
+                       SELECT orderkey, orderdate as date FROM orders
+                   ), lineitem_norm AS (
+                       SELECT orderkey, extendedprice, shipdate as date FROM lineitem
+                   )
+                   SELECT orderkey, extendedprice FROM orders_norm ASOF JOIN lineitem_norm USING (orderkey, date)
+                   """,
+                anyTree(
+                        node(FilterNode.class,
+                                project(
+                                        node(WindowNode.class,
+                                                anyTree(
+                                                        join(LEFT, builder -> builder
+                                                                .equiCriteria("ORDERS_OK", "LINEITEM_OK")
+                                                                .filter(new Comparison(Comparison.Operator.LESS_THAN_OR_EQUAL, new Reference(DATE, "LINEITEM_DATE"), new Reference(DATE, "ORDERS_DATE")))
+                                                                .left(
+                                                                        anyTree(
+                                                                                tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey", "ORDERS_DATE", "orderdate"))))
+                                                                .right(
+                                                                        anyTree(
+                                                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey", "LINEITEM_EP", "extendedprice", "LINEITEM_DATE", "shipdate"))))
+                                                        )
+                                                )
+                                        )
+                                )
+                        )
+                ));
+    }
+
+    @Test
+    public void testAsofJoinNegativeNoEquiCriteria()
+    {
+        assertThatThrownBy(() -> assertPlan(
+                "SELECT o.orderkey FROM orders o ASOF JOIN lineitem l ON l.shipdate <= o.orderdate",
+                anyTree(any())))
+                .hasMessageContaining("ASOF join requires at least one equi-join criterion");
+    }
+
+    @Test
+    public void testAsofJoinNegativeMultipleInequalities()
+    {
+        assertThatThrownBy(() -> assertPlan(
+                "SELECT o.orderkey, l.extendedprice FROM orders o ASOF JOIN lineitem l ON l.orderkey = o.orderkey AND l.shipdate <= o.orderdate AND l.linenumber < o.custkey",
+                anyTree(any())))
+                .hasMessageContaining("ASOF join requires a single supported inequality predicate");
     }
 
     @Test
@@ -1325,14 +1417,14 @@ public class TestLogicalPlanner
     {
         assertThat(countOfMatchingNodes(
                 plan("""
-                    SELECT *
-                    FROM (
-                           SELECT n.name, CAST(null AS varchar) AS comment FROM nation n WHERE n.nationkey <= 3
-                           UNION ALL
-                           SELECT r.name, r.comment FROM region r
-                    )
-                    WHERE comment IN (SELECT r.comment FROM region r)
-                """),
+                         SELECT *
+                         FROM (
+                                SELECT n.name, CAST(null AS varchar) AS comment FROM nation n WHERE n.nationkey <= 3
+                                UNION ALL
+                                SELECT r.name, r.comment FROM region r
+                         )
+                         WHERE comment IN (SELECT r.comment FROM region r)
+                     """),
                 ValuesNode.class::isInstance)).isEqualTo(0);
     }
 

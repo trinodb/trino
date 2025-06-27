@@ -36,7 +36,8 @@ public class SpatialJoinNode
     public enum Type
     {
         INNER("SpatialInnerJoin"),
-        LEFT("SpatialLeftJoin");
+        LEFT("SpatialLeftJoin"),
+        ASOF("SpatialAsofJoin");
 
         private final String joinLabel;
 
@@ -55,6 +56,7 @@ public class SpatialJoinNode
             return switch (joinNodeType) {
                 case INNER -> Type.INNER;
                 case LEFT -> Type.LEFT;
+                case ASOF -> Type.ASOF;
                 default -> throw new IllegalArgumentException("Unsupported spatial join type: " + joinNodeType);
             };
         }

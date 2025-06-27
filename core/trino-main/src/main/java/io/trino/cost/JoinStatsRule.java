@@ -85,7 +85,7 @@ public class JoinStatsRule
 
         return switch (node.getType()) {
             case INNER -> Optional.of(computeInnerJoinStats(node, crossJoinStats, context.session()));
-            case LEFT -> Optional.of(computeLeftJoinStats(node, leftStats, rightStats, crossJoinStats, context.session()));
+            case LEFT, ASOF -> Optional.of(computeLeftJoinStats(node, leftStats, rightStats, crossJoinStats, context.session()));
             case RIGHT -> Optional.of(computeRightJoinStats(node, leftStats, rightStats, crossJoinStats, context.session()));
             case FULL -> Optional.of(computeFullJoinStats(node, leftStats, rightStats, crossJoinStats, context.session()));
         };
