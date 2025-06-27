@@ -34,7 +34,8 @@ public class TestFileSystemConfig
                 .setNativeS3Enabled(false)
                 .setNativeGcsEnabled(false)
                 .setNativeLocalEnabled(false)
-                .setCacheEnabled(false));
+                .setCacheEnabled(false)
+                .setTrackingEnabled(false));
     }
 
     @Test
@@ -48,6 +49,7 @@ public class TestFileSystemConfig
                 .put("fs.native-gcs.enabled", "true")
                 .put("fs.native-local.enabled", "true")
                 .put("fs.cache.enabled", "true")
+                .put("fs.tracking.enabled", "true")
                 .buildOrThrow();
 
         FileSystemConfig expected = new FileSystemConfig()
@@ -57,7 +59,8 @@ public class TestFileSystemConfig
                 .setNativeS3Enabled(true)
                 .setNativeGcsEnabled(true)
                 .setNativeLocalEnabled(true)
-                .setCacheEnabled(true);
+                .setCacheEnabled(true)
+                .setTrackingEnabled(true);
 
         assertFullMapping(properties, expected);
     }
