@@ -77,8 +77,8 @@ import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.tree.ExplainAnalyze;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.Statement;
-import org.joda.time.DateTime;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -225,7 +225,7 @@ public class SqlQueryExecution
                     return;
                 }
                 unregisterDynamicFilteringQuery(
-                        dynamicFilterService.getDynamicFilteringStats(stateMachine.getQueryId(), stateMachine.getSession()));
+                        dynamicFilterService.getDynamicFilteringStats(stateMachine.getQueryId()));
 
                 tableExecuteContextManager.unregisterTableExecuteContextForQuery(stateMachine.getQueryId());
             });
@@ -250,11 +250,9 @@ public class SqlQueryExecution
             return;
         }
 
-        dynamicFilterService.registerQuery(this, plan.getRoot());
+        dynamicFilterService.registerQuery(getSession(), getQueryPlan().orElseThrow().getRoot(), plan.getRoot());
         stateMachine.setDynamicFiltersStatsSupplier(
-                () -> dynamicFilterService.getDynamicFilteringStats(
-                        stateMachine.getQueryId(),
-                        stateMachine.getSession()));
+                () -> dynamicFilterService.getDynamicFilteringStats(stateMachine.getQueryId()));
     }
 
     private synchronized void unregisterDynamicFilteringQuery(DynamicFiltersStats finalDynamicFiltersStats)
@@ -338,13 +336,13 @@ public class SqlQueryExecution
     }
 
     @Override
-    public DateTime getCreateTime()
+    public Instant getCreateTime()
     {
         return stateMachine.getCreateTime();
     }
 
     @Override
-    public Optional<DateTime> getExecutionStartTime()
+    public Optional<Instant> getExecutionStartTime()
     {
         return stateMachine.getExecutionStartTime();
     }
@@ -356,13 +354,13 @@ public class SqlQueryExecution
     }
 
     @Override
-    public DateTime getLastHeartbeat()
+    public Instant getLastHeartbeat()
     {
         return stateMachine.getLastHeartbeat();
     }
 
     @Override
-    public Optional<DateTime> getEndTime()
+    public Optional<Instant> getEndTime()
     {
         return stateMachine.getEndTime();
     }
@@ -412,7 +410,7 @@ public class SqlQueryExecution
                 }, directExecutor());
 
                 try {
-                    CachingTableStatsProvider tableStatsProvider = new CachingTableStatsProvider(plannerContext.getMetadata(), getSession());
+                    CachingTableStatsProvider tableStatsProvider = new CachingTableStatsProvider(plannerContext.getMetadata(), getSession(), stateMachine::isDone);
                     PlanRoot plan = planQuery(tableStatsProvider);
                     // DynamicFilterService needs plan for query to be registered.
                     // Query should be registered before dynamic filter suppliers are requested in distribution planning.

@@ -21,7 +21,6 @@ import io.trino.sql.planner.plan.IndexJoinNode;
 import io.trino.sql.planner.plan.PlanNode;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -35,19 +34,13 @@ final class IndexJoinMatcher
 {
     private final IndexJoinNode.Type type;
     private final List<ExpectedValueProvider<IndexJoinNode.EquiJoinClause>> criteria;
-    private final Optional<PlanTestSymbol> probeHashSymbol;
-    private final Optional<PlanTestSymbol> indexHashSymbol;
 
     IndexJoinMatcher(
             IndexJoinNode.Type type,
-            List<ExpectedValueProvider<IndexJoinNode.EquiJoinClause>> criteria,
-            Optional<PlanTestSymbol> probeHashSymbol,
-            Optional<PlanTestSymbol> indexHashSymbol)
+            List<ExpectedValueProvider<IndexJoinNode.EquiJoinClause>> criteria)
     {
         this.type = requireNonNull(type, "type is null");
         this.criteria = requireNonNull(criteria, "criteria is null");
-        this.probeHashSymbol = requireNonNull(probeHashSymbol, "probeHashSymbol is null");
-        this.indexHashSymbol = requireNonNull(indexHashSymbol, "indexHashSymbol is null");
     }
 
     @Override
@@ -77,14 +70,6 @@ final class IndexJoinMatcher
             return NO_MATCH;
         }
 
-        if (!indexJoinNode.getProbeHashSymbol().equals(probeHashSymbol.map(alias -> alias.toSymbol(symbolAliases)))) {
-            return NO_MATCH;
-        }
-
-        if (!indexJoinNode.getIndexHashSymbol().equals(indexHashSymbol.map(alias -> alias.toSymbol(symbolAliases)))) {
-            return NO_MATCH;
-        }
-
         return MatchResult.match();
     }
 
@@ -95,8 +80,6 @@ final class IndexJoinMatcher
                 .omitNullValues()
                 .add("type", type)
                 .add("criteria", criteria)
-                .add("probeHashSymbol", probeHashSymbol.orElse(null))
-                .add("indexHashSymbol", indexHashSymbol.orElse(null))
                 .toString();
     }
 }

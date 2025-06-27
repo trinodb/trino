@@ -21,7 +21,6 @@ import io.trino.sql.planner.Symbol;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
@@ -35,8 +34,6 @@ public class IndexJoinNode
     private final PlanNode probeSource;
     private final PlanNode indexSource;
     private final List<EquiJoinClause> criteria;
-    private final Optional<Symbol> probeHashSymbol;
-    private final Optional<Symbol> indexHashSymbol;
 
     @JsonCreator
     public IndexJoinNode(
@@ -44,17 +41,13 @@ public class IndexJoinNode
             @JsonProperty("type") Type type,
             @JsonProperty("probeSource") PlanNode probeSource,
             @JsonProperty("indexSource") PlanNode indexSource,
-            @JsonProperty("criteria") List<EquiJoinClause> criteria,
-            @JsonProperty("probeHashSymbol") Optional<Symbol> probeHashSymbol,
-            @JsonProperty("indexHashSymbol") Optional<Symbol> indexHashSymbol)
+            @JsonProperty("criteria") List<EquiJoinClause> criteria)
     {
         super(id);
         this.type = requireNonNull(type, "type is null");
         this.probeSource = requireNonNull(probeSource, "probeSource is null");
         this.indexSource = requireNonNull(indexSource, "indexSource is null");
         this.criteria = ImmutableList.copyOf(requireNonNull(criteria, "criteria is null"));
-        this.probeHashSymbol = requireNonNull(probeHashSymbol, "probeHashSymbol is null");
-        this.indexHashSymbol = requireNonNull(indexHashSymbol, "indexHashSymbol is null");
     }
 
     public enum Type
@@ -99,18 +92,6 @@ public class IndexJoinNode
         return criteria;
     }
 
-    @JsonProperty("probeHashSymbol")
-    public Optional<Symbol> getProbeHashSymbol()
-    {
-        return probeHashSymbol;
-    }
-
-    @JsonProperty("indexHashSymbol")
-    public Optional<Symbol> getIndexHashSymbol()
-    {
-        return indexHashSymbol;
-    }
-
     @Override
     public List<PlanNode> getSources()
     {
@@ -136,7 +117,7 @@ public class IndexJoinNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 2, "expected newChildren to contain 2 nodes");
-        return new IndexJoinNode(getId(), type, newChildren.get(0), newChildren.get(1), criteria, probeHashSymbol, indexHashSymbol);
+        return new IndexJoinNode(getId(), type, newChildren.get(0), newChildren.get(1), criteria);
     }
 
     public static class EquiJoinClause

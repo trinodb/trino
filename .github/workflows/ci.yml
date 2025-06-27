@@ -154,6 +154,7 @@ jobs:
   check-commit:
     needs: check-commits-dispatcher
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     if: github.event_name == 'pull_request' && needs.check-commits-dispatcher.outputs.matrix != ''
     strategy:
       fail-fast: false
@@ -188,7 +189,7 @@ jobs:
         timeout-minutes: 10
         with:
           cache: restore
-          java-version: '23'
+          java-version: '24'
       - name: Maven Install
         run: |
           # build everything to make sure dependencies of impacted modules are present
@@ -349,6 +350,7 @@ jobs:
             !:trino-ignite,
             !:trino-jdbc,
             !:trino-kafka,
+            !:trino-lakehouse,
             !:trino-main,
             !:trino-mariadb,
             !:trino-memory,
@@ -469,6 +471,7 @@ jobs:
             - { modules: plugin/trino-iceberg, profile: minio-and-avro }
             - { modules: plugin/trino-ignite }
             - { modules: plugin/trino-kafka }
+            - { modules: plugin/trino-lakehouse }
             - { modules: plugin/trino-mariadb }
             - { modules: plugin/trino-mongodb }
             - { modules: plugin/trino-mysql }
@@ -879,6 +882,7 @@ jobs:
             - suite-delta-lake-databricks133
             - suite-delta-lake-databricks143
             - suite-delta-lake-databricks154
+            - suite-delta-lake-databricks164
             - suite-ranger
             - suite-gcs
             - suite-clients
@@ -925,6 +929,9 @@ jobs:
               ignore exclusion if: >-
                 ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.DATABRICKS_TOKEN != '' }}
             - suite: suite-delta-lake-databricks154
+              ignore exclusion if: >-
+                ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.DATABRICKS_TOKEN != '' }}
+            - suite: suite-delta-lake-databricks164
               ignore exclusion if: >-
                 ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.DATABRICKS_TOKEN != '' }}
             - suite: suite-snowflake
@@ -976,6 +983,7 @@ jobs:
           DATABRICKS_133_JDBC_URL: ""
           DATABRICKS_143_JDBC_URL: ""
           DATABRICKS_154_JDBC_URL: ""
+          DATABRICKS_164_JDBC_URL: ""
           DATABRICKS_LOGIN: ""
           DATABRICKS_TOKEN: ""
           GCP_CREDENTIALS_KEY: ""
@@ -1048,6 +1056,7 @@ jobs:
           DATABRICKS_133_JDBC_URL: ${{ vars.DATABRICKS_133_JDBC_URL }}
           DATABRICKS_143_JDBC_URL: ${{ vars.DATABRICKS_143_JDBC_URL }}
           DATABRICKS_154_JDBC_URL: ${{ vars.DATABRICKS_154_JDBC_URL }}
+          DATABRICKS_164_JDBC_URL: ${{ vars.DATABRICKS_164_JDBC_URL }}
           DATABRICKS_LOGIN: token
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
           GCP_CREDENTIALS_KEY: ${{ secrets.GCP_CREDENTIALS_KEY }}

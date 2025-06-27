@@ -690,6 +690,9 @@ public class MockConnector
         public void setViewAuthorization(ConnectorSession session, SchemaTableName viewName, TrinoPrincipal principal) {}
 
         @Override
+        public void setMaterializedViewAuthorization(ConnectorSession session, SchemaTableName viewName, TrinoPrincipal principal) {}
+
+        @Override
         public void dropView(ConnectorSession session, SchemaTableName viewName) {}
 
         @Override
@@ -1104,12 +1107,6 @@ public class MockConnector
             implements ConnectorSplit
     {
         MOCK_CONNECTOR_SPLIT;
-
-        @Override
-        public Map<String, String> getSplitInfo()
-        {
-            return ImmutableMap.of("info", "mock connector split");
-        }
 
         @Override
         public long getRetainedSizeInBytes()

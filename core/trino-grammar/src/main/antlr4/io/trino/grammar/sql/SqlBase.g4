@@ -251,11 +251,15 @@ propertyValue
 
 queryNoWith
     : queryTerm
-      (ORDER BY sortItem (',' sortItem)*)?
+      orderBy?
       (OFFSET offset=rowCount (ROW | ROWS)?)?
       ( (LIMIT limit=limitRowCount)
       | (FETCH (FIRST | NEXT) (fetchFirst=rowCount)? (ROW | ROWS) (ONLY | WITH TIES))
       )?
+    ;
+
+orderBy
+    : ORDER BY sortItem (',' sortItem)*
     ;
 
 limitRowCount
@@ -269,9 +273,9 @@ rowCount
     ;
 
 queryTerm
-    : queryPrimary                                                             #queryTermDefault
-    | left=queryTerm operator=INTERSECT setQuantifier? right=queryTerm         #setOperation
-    | left=queryTerm operator=(UNION | EXCEPT) setQuantifier? right=queryTerm  #setOperation
+    : queryPrimary                                                                                #queryTermDefault
+    | left=queryTerm operator=INTERSECT setQuantifier? corresponding? right=queryTerm             #setOperation
+    | left=queryTerm operator=(UNION | EXCEPT) setQuantifier? corresponding? right=queryTerm      #setOperation
     ;
 
 queryPrimary
@@ -279,6 +283,10 @@ queryPrimary
     | TABLE qualifiedName                  #table
     | VALUES expression (',' expression)*  #inlineTable
     | '(' queryNoWith ')'                  #subquery
+    ;
+
+corresponding
+    : CORRESPONDING (BY columnAliases)?
     ;
 
 sortItem
@@ -300,6 +308,7 @@ groupBy
 
 groupingElement
     : groupingSet                                            #singleGroupingSet
+    | AUTO                                                   #auto
     | ROLLUP '(' (groupingSet (',' groupingSet)*)? ')'       #rollup
     | CUBE '(' (groupingSet (',' groupingSet)*)? ')'         #cube
     | GROUPING SETS '(' groupingSet (',' groupingSet)* ')'   #multipleGroupingSets
@@ -317,7 +326,7 @@ windowDefinition
 windowSpecification
     : (existingWindowName=identifier)?
       (PARTITION BY partition+=expression (',' partition+=expression)*)?
-      (ORDER BY sortItem (',' sortItem)*)?
+      orderBy?
       windowFrame?
     ;
 
@@ -388,7 +397,7 @@ patternRecognition
     : aliasedRelation (
         MATCH_RECOGNIZE '('
           (PARTITION BY partition+=expression (',' partition+=expression)*)?
-          (ORDER BY sortItem (',' sortItem)*)?
+          orderBy?
           (MEASURES measureDefinition (',' measureDefinition)*)?
           rowsPerMatch?
           (AFTER MATCH skipTo)?
@@ -575,12 +584,12 @@ primaryExpression
     | ROW '(' expression (',' expression)* ')'                                            #rowConstructor
     | name=LISTAGG '(' setQuantifier? expression (',' string)?
         (ON OVERFLOW listAggOverflowBehavior)? ')'
-        (WITHIN GROUP '(' ORDER BY sortItem (',' sortItem)* ')')
+        (WITHIN GROUP '(' orderBy ')')
         filter? over?                                                                     #listagg
     | processingMode? qualifiedName '(' (label=identifier '.')? ASTERISK ')'
         filter? over?                                                                     #functionCall
     | processingMode? qualifiedName '(' (setQuantifier? expression (',' expression)*)?
-        (ORDER BY sortItem (',' sortItem)*)? ')' filter? (nullTreatment? over)?           #functionCall
+        orderBy? ')' filter? (nullTreatment? over)?                                       #functionCall
     | identifier over                                                                     #measure
     | identifier '->' expression                                                          #lambda
     | '(' (identifier (',' identifier)*)? ')' '->' expression                             #lambda
@@ -944,7 +953,7 @@ grantObject
     ;
 
 ownedEntityKind
-    : TABLE | SCHEMA | VIEW | identifier
+    : TABLE | SCHEMA | VIEW | MATERIALIZED VIEW | identifier
     ;
 
 qualifiedName
@@ -970,10 +979,6 @@ principal
     : identifier            #unspecifiedPrincipal
     | USER identifier       #userPrincipal
     | ROLE identifier       #rolePrincipal
-    ;
-
-roles
-    : identifier (',' identifier)*
     ;
 
 privilegeOrRole
@@ -1003,7 +1008,7 @@ nonReserved
     // IMPORTANT: this rule must only contain tokens. Nested rules are not supported. See SqlParser.exitNonReserved
     : ABSENT | ADD | ADMIN | AFTER | ALL | ANALYZE | ANY | ARRAY | ASC | AT | AUTHORIZATION
     | BEGIN | BERNOULLI | BOTH
-    | CALL | CALLED | CASCADE | CATALOG | CATALOGS | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | CONDITIONAL | COPARTITION | COUNT | CURRENT
+    | CALL | CALLED | CASCADE | CATALOG | CATALOGS | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | CONDITIONAL | COPARTITION | CORRESPONDING | COUNT | CURRENT
     | DATA | DATE | DAY | DECLARE | DEFAULT | DEFINE | DEFINER | DENY | DESC | DESCRIPTOR | DETERMINISTIC | DISTRIBUTED | DO | DOUBLE
     | ELSEIF | EMPTY | ENCODING | ERROR | EXCLUDING | EXECUTE | EXPLAIN
     | FETCH | FILTER | FINAL | FIRST | FOLLOWING | FORMAT | FUNCTION | FUNCTIONS
@@ -1043,6 +1048,7 @@ AS: 'AS';
 ASC: 'ASC';
 AT: 'AT';
 AUTHORIZATION: 'AUTHORIZATION';
+AUTO: 'AUTO';
 BEGIN: 'BEGIN';
 BERNOULLI: 'BERNOULLI';
 BETWEEN: 'BETWEEN';
@@ -1064,6 +1070,7 @@ CONDITIONAL: 'CONDITIONAL';
 CONSTRAINT: 'CONSTRAINT';
 COUNT: 'COUNT';
 COPARTITION: 'COPARTITION';
+CORRESPONDING: 'CORRESPONDING';
 CREATE: 'CREATE';
 CROSS: 'CROSS';
 CUBE: 'CUBE';

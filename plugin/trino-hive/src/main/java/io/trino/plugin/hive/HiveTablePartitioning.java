@@ -22,7 +22,6 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -42,7 +41,7 @@ public record HiveTablePartitioning(
     public HiveTablePartitioning
     {
         columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
-        columns.forEach(column -> checkArgument(column.isBaseColumn(), format("projected column %s is not allowed for bucketing", column)));
+        columns.forEach(column -> checkArgument(column.isBaseColumn(), "projected column %s is not allowed for bucketing", column));
         checkArgument(columns.stream().map(HiveColumnHandle::getHiveType).toList().equals(partitioningHandle.getHiveTypes()), "columns do not match partitioning handle");
         checkArgument(tableBucketCount > 0, "tableBucketCount must be greater than zero");
         checkArgument(tableBucketCount >= partitioningHandle.getBucketCount(), "tableBucketCount must be greater than or equal to partitioningHandle.bucketCount");

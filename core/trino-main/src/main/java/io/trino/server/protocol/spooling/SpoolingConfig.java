@@ -20,32 +20,31 @@ import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
-import io.trino.util.Ciphers;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 
-import java.util.Optional;
-
-import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.trino.util.Ciphers.is256BitSecretKeySpec;
 import static java.util.Base64.getDecoder;
 
 public class SpoolingConfig
 {
-    private Optional<SecretKey> sharedSecretKey = Optional.empty();
+    private SecretKey sharedSecretKey;
     private SegmentRetrievalMode retrievalMode = SegmentRetrievalMode.STORAGE;
 
     private boolean inliningEnabled = true;
-    private long inliningMaxRows = 1000;
-    private DataSize inliningMaxSize = DataSize.of(128, KILOBYTE);
+    private long inliningMaxRows = 50_000;
+    private DataSize inliningMaxSize = DataSize.of(3, MEGABYTE);
     private DataSize initialSegmentSize = DataSize.of(8, MEGABYTE);
     private DataSize maximumSegmentSize = DataSize.of(16, MEGABYTE);
 
-    public Optional<SecretKey> getSharedSecretKey()
+    @NotNull
+    public SecretKey getSharedSecretKey()
     {
         return sharedSecretKey;
     }
@@ -55,8 +54,7 @@ public class SpoolingConfig
     @ConfigSecuritySensitive
     public SpoolingConfig setSharedSecretKey(String sharedEncryptionKey)
     {
-        this.sharedSecretKey = Optional.ofNullable(sharedEncryptionKey)
-                .map(value -> new SecretKeySpec(getDecoder().decode(value), "AES"));
+        this.sharedSecretKey = sharedEncryptionKey != null ? new SecretKeySpec(getDecoder().decode(sharedEncryptionKey), "AES") : null;
         return this;
     }
 
@@ -133,7 +131,7 @@ public class SpoolingConfig
     }
 
     @MinDataSize("1kB")
-    @MaxDataSize("1MB")
+    @MaxDataSize("3MB")
     public DataSize getInliningMaxSize()
     {
         return inliningMaxSize;
@@ -150,21 +148,13 @@ public class SpoolingConfig
     @AssertTrue(message = "protocol.spooling.shared-secret-key must be 256 bits long")
     public boolean isSharedEncryptionKeyAes256()
     {
-        return sharedSecretKey
-                .map(Ciphers::is256BitSecretKeySpec)
-                .orElse(true);
+        return sharedSecretKey != null && is256BitSecretKeySpec(sharedSecretKey);
     }
 
     @AssertTrue(message = "protocol.spooling.initial-segment-size must be smaller than protocol.spooling.maximum-segment-size")
     public boolean areSegmentSizesCorrect()
     {
         return getInitialSegmentSize().compareTo(getMaximumSegmentSize()) < 0;
-    }
-
-    @AssertTrue(message = "protocol.spooling.shared-secret-key must be set")
-    public boolean isSharedEncryptionKeySet()
-    {
-        return sharedSecretKey.isPresent();
     }
 
     public enum SegmentRetrievalMode

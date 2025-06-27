@@ -20,6 +20,7 @@ import io.trino.tpch.TpchColumn;
 import io.trino.tpch.TpchEntity;
 import io.trino.tpch.TpchTable;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
@@ -38,7 +39,7 @@ import static java.lang.String.format;
  */
 public class TpchStatisticsRecorder
 {
-    private static final ImmutableList<String> SUPPORTED_SCHEMAS = ImmutableList.of("sf0.01", "sf1.0");
+    private static final List<String> SUPPORTED_SCHEMAS = ImmutableList.of("sf0.01", "sf1.0");
 
     public static void main(String[] args)
     {

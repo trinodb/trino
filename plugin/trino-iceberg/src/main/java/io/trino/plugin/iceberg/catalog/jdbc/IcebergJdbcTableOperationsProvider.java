@@ -23,6 +23,7 @@ import io.trino.spi.connector.ConnectorSession;
 
 import java.util.Optional;
 
+import static io.trino.plugin.iceberg.IcebergSessionProperties.isUseFileSizeFromMetadata;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergJdbcTableOperationsProvider
@@ -48,7 +49,7 @@ public class IcebergJdbcTableOperationsProvider
             Optional<String> location)
     {
         return new IcebergJdbcTableOperations(
-                new ForwardingFileIo(fileSystemFactory.create(session)),
+                new ForwardingFileIo(fileSystemFactory.create(session), isUseFileSizeFromMetadata(session)),
                 jdbcClient,
                 session,
                 database,

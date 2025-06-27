@@ -21,11 +21,15 @@ import java.util.Arrays;
 import java.util.function.ObjLongConsumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 public class TestingSourcePage
         implements SourcePage
 {
+    private static final long INSTANCE_SIZE = instanceSize(TestingSourcePage.class);
+
     private final int positionCount;
     private final Block[] blocks;
     private final boolean[] loaded;
@@ -59,7 +63,9 @@ public class TestingSourcePage
     @Override
     public long getRetainedSizeInBytes()
     {
-        long retainedSizeInBytes = 0;
+        long retainedSizeInBytes = INSTANCE_SIZE +
+                sizeOf(blocks) +
+                sizeOf(loaded);
         for (Block block : blocks) {
             if (block != null) {
                 retainedSizeInBytes += block.getRetainedSizeInBytes();
@@ -71,6 +77,9 @@ public class TestingSourcePage
     @Override
     public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
+        consumer.accept(this, INSTANCE_SIZE);
+        consumer.accept(blocks, sizeOf(blocks));
+        consumer.accept(loaded, sizeOf(loaded));
         for (Block block : blocks) {
             if (block != null) {
                 block.retainedBytesForEachPart(consumer);

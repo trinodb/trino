@@ -32,7 +32,6 @@ import io.trino.metadata.InMemoryNodeManager;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
 import io.trino.spi.HostAddress;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.TestingSession;
 import io.trino.testing.TestingSplit;
@@ -49,7 +48,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -57,6 +55,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.trino.metadata.NodeState.ACTIVE;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -100,7 +99,7 @@ public class TestUniformNodeSelector
         // contents of taskMap indicate the node-task map for the current stage
         nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(nodeManager, nodeSchedulerConfig, nodeTaskMap));
         taskMap = new HashMap<>();
-        nodeSelector = nodeScheduler.createNodeSelector(session, Optional.of(TEST_CATALOG_HANDLE));
+        nodeSelector = nodeScheduler.createNodeSelector(session);
         remoteTaskExecutor = newCachedThreadPool(daemonThreadsNamed("remoteTaskExecutor-%s"));
         remoteTaskScheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("remoteTaskScheduledExecutor-%s"));
 
@@ -131,7 +130,7 @@ public class TestUniformNodeSelector
                 nodeManager,
                 nodeTaskMap,
                 false,
-                () -> createNodeMap(TEST_CATALOG_HANDLE),
+                () -> createNodeMap(),
                 10,
                 100,
                 10,
@@ -303,7 +302,7 @@ public class TestUniformNodeSelector
                 nodeManager,
                 nodeTaskMap,
                 false,
-                () -> createNodeMap(TEST_CATALOG_HANDLE),
+                () -> createNodeMap(),
                 10,
                 2000,
                 1000,
@@ -333,9 +332,9 @@ public class TestUniformNodeSelector
         org.assertj.guava.api.Assertions.assertThat(assignmentsNode1Dead).hasSameEntriesAs(expected);
     }
 
-    private NodeMap createNodeMap(CatalogHandle catalogHandle)
+    private NodeMap createNodeMap()
     {
-        Set<InternalNode> nodes = nodeManager.getActiveCatalogNodes(catalogHandle);
+        Set<InternalNode> nodes = nodeManager.getNodes(ACTIVE);
 
         Set<String> coordinatorNodeIds = nodeManager.getCoordinators().stream()
                 .map(InternalNode::getNodeIdentifier)

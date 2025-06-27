@@ -160,7 +160,7 @@ public final class NullableValue
     {
         StringBuilder sb = new StringBuilder("NullableValue{");
         sb.append("type=").append(type);
-        sb.append(", value=").append(type.getObjectValue(ToStringSession.INSTANCE, nativeValueToBlock(type, value), 0));
+        sb.append(", value=").append(type.getObjectValue(nativeValueToBlock(type, value), 0));
         sb.append('}');
         return sb.toString();
     }

@@ -176,7 +176,7 @@ public class TestPagePartitioner
 
         PagePartitioner pagePartitioner = pagePartitioner(outputBuffer, BIGINT)
                 .withPartitionFunction(new BucketPartitionFunction(
-                        ROUND_ROBIN.createBucketFunction(null, false, PARTITION_COUNT, null),
+                        ROUND_ROBIN.createBucketFunction(null, PARTITION_COUNT, null),
                         IntStream.range(0, PARTITION_COUNT).toArray()))
                 .withPartitionChannels(ImmutableList.of())
                 .build();
@@ -642,7 +642,7 @@ public class TestPagePartitioner
                     result.add(null);
                 }
                 else {
-                    result.add(type.getObjectValue(null, block, i));
+                    result.add(type.getObjectValue(block, i));
                 }
             }
         });
@@ -690,7 +690,7 @@ public class TestPagePartitioner
         private final OutputBuffer outputBuffer;
         private final DriverContextBuilder driverContextBuilder;
 
-        private ImmutableList<Integer> partitionChannels = ImmutableList.of(0);
+        private List<Integer> partitionChannels = ImmutableList.of(0);
         private List<Optional<NullableValue>> partitionConstants = ImmutableList.of();
         private PartitionFunction partitionFunction = new SumModuloPartitionFunction(PARTITION_COUNT, 0);
         private boolean shouldReplicate;
@@ -709,7 +709,7 @@ public class TestPagePartitioner
             return withPartitionChannels(ImmutableList.copyOf(partitionChannels));
         }
 
-        public PagePartitionerBuilder withPartitionChannels(ImmutableList<Integer> partitionChannels)
+        public PagePartitionerBuilder withPartitionChannels(List<Integer> partitionChannels)
         {
             this.partitionChannels = partitionChannels;
             return this;

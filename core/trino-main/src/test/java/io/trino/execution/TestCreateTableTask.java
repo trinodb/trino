@@ -1,4 +1,3 @@
-
 /*
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,6 +35,7 @@ import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.CreateTable;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.LikeClause;
+import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.Property;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Statement;
@@ -143,7 +143,7 @@ class TestCreateTableTask
     @Test
     void testCreateTableNotExistsTrue()
     {
-        CreateTable statement = new CreateTable(QualifiedName.of("test_table_if_not_exists"),
+        CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("test_table_if_not_exists"),
                 ImmutableList.of(new ColumnDefinition(QualifiedName.of("a"), toSqlType(BIGINT), true, emptyList(), Optional.empty())),
                 IGNORE,
                 ImmutableList.of(),
@@ -158,7 +158,7 @@ class TestCreateTableTask
     @Test
     void testCreateTableNotExistsFalse()
     {
-        CreateTable statement = new CreateTable(QualifiedName.of("test_table_fail_if_exists"),
+        CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("test_table_fail_if_exists"),
                 ImmutableList.of(new ColumnDefinition(QualifiedName.of("a"), toSqlType(BIGINT), true, emptyList(), Optional.empty())),
                 FAIL,
                 ImmutableList.of(),
@@ -176,7 +176,7 @@ class TestCreateTableTask
     @Test
     void testReplaceTable()
     {
-        CreateTable statement = new CreateTable(QualifiedName.of("test_table_replace"),
+        CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("test_table_replace"),
                 ImmutableList.of(new ColumnDefinition(QualifiedName.of("a"), toSqlType(BIGINT), true, emptyList(), Optional.empty())),
                 REPLACE,
                 ImmutableList.of(),
@@ -194,7 +194,7 @@ class TestCreateTableTask
     @Test
     void testCreateTableWithMaterializedViewPropertyFails()
     {
-        CreateTable statement = new CreateTable(QualifiedName.of("test_table_with_materialized_view_property"),
+        CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("test_table_with_materialized_view_property"),
                 ImmutableList.of(new ColumnDefinition(QualifiedName.of("a"), toSqlType(BIGINT), true, emptyList(), Optional.empty())),
                 FAIL,
                 ImmutableList.of(new Property(new Identifier("foo"), new StringLiteral("bar"))),
@@ -216,7 +216,7 @@ class TestCreateTableTask
                 new ColumnDefinition(QualifiedName.of("a"), toSqlType(DATE), true, emptyList(), Optional.empty()),
                 new ColumnDefinition(QualifiedName.of("b"), toSqlType(VARCHAR), false, emptyList(), Optional.empty()),
                 new ColumnDefinition(QualifiedName.of("c"), toSqlType(VARBINARY), false, emptyList(), Optional.empty()));
-        CreateTable statement = new CreateTable(QualifiedName.of("test_table_not_null_columns"), inputColumns, IGNORE, ImmutableList.of(), Optional.empty());
+        CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("test_table_not_null_columns"), inputColumns, IGNORE, ImmutableList.of(), Optional.empty());
 
         queryRunner.inTransaction(transactionSession -> {
             getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), output -> {}));
@@ -247,6 +247,7 @@ class TestCreateTableTask
                 new ColumnDefinition(QualifiedName.of("b"), toSqlType(VARCHAR), false, emptyList(), Optional.empty()),
                 new ColumnDefinition(QualifiedName.of("c"), toSqlType(VARBINARY), false, emptyList(), Optional.empty()));
         CreateTable statement = new CreateTable(
+                new NodeLocation(1, 1),
                 QualifiedName.of(OTHER_CATALOG_NAME, "other_schema", "test_table_unsupported_connector"),
                 inputColumns,
                 IGNORE,
@@ -356,6 +357,7 @@ class TestCreateTableTask
     void testUnsupportedCreateTableWithField()
     {
         CreateTable statement = new CreateTable(
+                new NodeLocation(1, 1),
                 QualifiedName.of("test_table_unsupported_field_123"),
                 ImmutableList.of(new ColumnDefinition(QualifiedName.of("a", "b"), toSqlType(DATE), true, emptyList(), Optional.empty())),
                 FAIL,
@@ -366,7 +368,7 @@ class TestCreateTableTask
             assertTrinoExceptionThrownBy(() ->
                     getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), output -> {})))
                     .hasErrorCode(NOT_SUPPORTED)
-                    .hasMessage("Column name 'a.b' must not be qualified");
+                    .hasMessage("line 1:1: Column name 'a.b' must not be qualified");
             return null;
         });
     }
@@ -374,7 +376,7 @@ class TestCreateTableTask
     @Test
     void testCreateTableWithCoercedType()
     {
-        CreateTable statement = new CreateTable(QualifiedName.of("test_table_coerced_type"),
+        CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("test_table_coerced_type"),
                 ImmutableList.of(
                         new ColumnDefinition(
                                 QualifiedName.of("a"),
@@ -396,6 +398,7 @@ class TestCreateTableTask
     void testCreateTableLikeWithCoercedType()
     {
         CreateTable statement = new CreateTable(
+                new NodeLocation(1, 1),
                 QualifiedName.of("test_table_like_coerced_type"),
                 List.of(
                         new LikeClause(
@@ -424,6 +427,7 @@ class TestCreateTableTask
     private static CreateTable getCreateLikeStatement(QualifiedName name, boolean includingProperties)
     {
         return new CreateTable(
+                new NodeLocation(1, 1),
                 name,
                 List.of(new LikeClause(QualifiedName.of(PARENT_TABLE.getTable().getTableName()), includingProperties ? Optional.of(INCLUDING) : Optional.empty())),
                 IGNORE,

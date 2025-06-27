@@ -525,7 +525,7 @@ public class BackgroundHiveSplitLoader
     {
         TrinoFileSystem trinoFileSystem = fileSystemFactory.create(session);
         // Check if location is cached BEFORE using the directoryLister
-        boolean isCached = directoryLister.isCached(location);
+        boolean isCached = directoryLister.isCached(location, table.getSchemaTableName());
 
         Map<String, TrinoFileStatus> fileStatuses = new HashMap<>();
         Iterator<TrinoFileStatus> fileStatusIterator = new HiveFileIterator(table, location, trinoFileSystem, directoryLister, RECURSE);
@@ -540,7 +540,7 @@ public class BackgroundHiveSplitLoader
                     .anyMatch(path -> !fileStatuses.containsKey(path.path()));
             // Invalidate the cache and reload
             if (missing) {
-                directoryLister.invalidate(location);
+                directoryLister.invalidate(location, table.getSchemaTableName());
 
                 fileStatuses.clear();
                 fileStatusIterator = new HiveFileIterator(table, location, trinoFileSystem, directoryLister, RECURSE);
@@ -916,7 +916,7 @@ public class BackgroundHiveSplitLoader
 
             List<HiveColumnHandle> bucketColumns = tablePartitioning.get().columns();
             IntPredicate predicate = bucketFilter
-                    .<IntPredicate>map(filter -> filter.getBucketsToKeep()::contains)
+                    .<IntPredicate>map(filter -> filter.bucketsToKeep()::contains)
                     .orElse(bucket -> true);
             return Optional.of(new BucketSplitInfo(bucketingVersion, bucketColumns, tableBucketCount, readBucketCount, predicate));
         }

@@ -479,7 +479,7 @@ public final class CachingHiveMetastore
         return delegate.useSparkTableStatistics();
     }
 
-    private static ImmutableMap<String, HiveColumnStatistics> removeEmptyColumnStatistics(Set<String> columnNames, Map<String, HiveColumnStatistics> columnStatistics)
+    private static Map<String, HiveColumnStatistics> removeEmptyColumnStatistics(Set<String> columnNames, Map<String, HiveColumnStatistics> columnStatistics)
     {
         return columnStatistics.entrySet().stream()
                 .filter(entry -> columnNames.contains(entry.getKey()) && !entry.getValue().equals(HiveColumnStatistics.empty()))
@@ -566,7 +566,7 @@ public final class CachingHiveMetastore
     }
 
     @Override
-    public List<String> getTableNamesWithParameters(String databaseName, String parameterKey, ImmutableSet<String> parameterValues)
+    public List<String> getTableNamesWithParameters(String databaseName, String parameterKey, Set<String> parameterValues)
     {
         TablesWithParameterCacheKey key = new TablesWithParameterCacheKey(databaseName, parameterKey, parameterValues);
         return get(tableNamesWithParametersCache, key);
@@ -1166,7 +1166,7 @@ public final class CachingHiveMetastore
         return cacheBuilder.build();
     }
 
-    record TablesWithParameterCacheKey(String databaseName, String parameterKey, ImmutableSet<String> parameterValues)
+    record TablesWithParameterCacheKey(String databaseName, String parameterKey, Set<String> parameterValues)
     {
         TablesWithParameterCacheKey
         {

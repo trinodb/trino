@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public record IndexMetadata(ObjectType schema)
@@ -34,8 +33,10 @@ public record IndexMetadata(ObjectType schema)
     {
         public Field
         {
-            checkArgument(!asRawJson || !isArray,
-                    format("A column, (%s) cannot be declared as a Trino array and also be rendered as json.", name));
+            checkArgument(
+                    !asRawJson || !isArray,
+                    "A column, (%s) cannot be declared as a Trino array and also be rendered as json.",
+                    name);
             requireNonNull(name, "name is null");
             requireNonNull(type, "type is null");
         }

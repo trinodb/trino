@@ -53,7 +53,6 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -103,9 +102,6 @@ public class BenchmarkHashBuildAndJoinOperators
         @Param({"varchar", "bigint", "all"})
         protected String hashColumns = "bigint";
 
-        @Param({"false", "true"})
-        protected boolean buildHashEnabled;
-
         @Param({"1", "5"})
         protected int buildRowsRepetition = 1;
 
@@ -115,7 +111,6 @@ public class BenchmarkHashBuildAndJoinOperators
         protected ExecutorService executor;
         protected ScheduledExecutorService scheduledExecutor;
         protected List<Page> buildPages;
-        protected OptionalInt hashChannel;
         protected List<Type> types;
         protected List<Integer> hashChannels;
 
@@ -151,11 +146,6 @@ public class BenchmarkHashBuildAndJoinOperators
             return TestingTaskContext.createTaskContext(executor, scheduledExecutor, getSession(), DataSize.of(2, GIGABYTE));
         }
 
-        public OptionalInt getHashChannel()
-        {
-            return hashChannel;
-        }
-
         public List<Integer> getHashChannels()
         {
             return hashChannels;
@@ -173,7 +163,7 @@ public class BenchmarkHashBuildAndJoinOperators
 
         protected void initializeBuildPages()
         {
-            RowPagesBuilder buildPagesBuilder = rowPagesBuilder(buildHashEnabled, hashChannels, ImmutableList.of(VARCHAR, BIGINT, BIGINT));
+            RowPagesBuilder buildPagesBuilder = rowPagesBuilder(hashChannels, ImmutableList.of(VARCHAR, BIGINT, BIGINT));
 
             int maxValue = buildRowsNumber / buildRowsRepetition + 40;
             int rows = 0;
@@ -186,8 +176,6 @@ public class BenchmarkHashBuildAndJoinOperators
 
             types = buildPagesBuilder.getTypes();
             buildPages = buildPagesBuilder.build();
-            hashChannel = buildPagesBuilder.getHashChannel()
-                    .map(OptionalInt::of).orElse(OptionalInt.empty());
         }
     }
 
@@ -240,9 +228,7 @@ public class BenchmarkHashBuildAndJoinOperators
                     false,
                     types,
                     hashChannels,
-                    hashChannel,
-                    Optional.of(outputChannels),
-                    TYPE_OPERATORS);
+                    Optional.of(outputChannels));
             buildHash(this, lookupSourceFactory, outputChannels, partitionCount);
             initializeProbePages();
         }
@@ -259,7 +245,7 @@ public class BenchmarkHashBuildAndJoinOperators
 
         protected void initializeProbePages()
         {
-            RowPagesBuilder probePagesBuilder = rowPagesBuilder(buildHashEnabled, hashChannels, ImmutableList.of(VARCHAR, BIGINT, BIGINT));
+            RowPagesBuilder probePagesBuilder = rowPagesBuilder(hashChannels, ImmutableList.of(VARCHAR, BIGINT, BIGINT));
 
             Random random = new Random(42);
             int remainingRows = PROBE_ROWS_NUMBER;
@@ -341,7 +327,6 @@ public class BenchmarkHashBuildAndJoinOperators
                 lookupSourceFactoryManager,
                 outputChannels,
                 buildContext.getHashChannels(),
-                buildContext.getHashChannel(),
                 Optional.empty(),
                 Optional.empty(),
                 ImmutableList.of(),

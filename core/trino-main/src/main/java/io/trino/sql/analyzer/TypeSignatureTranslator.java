@@ -13,7 +13,11 @@
  */
 package io.trino.sql.analyzer;
 
+import com.google.common.base.CharMatcher;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheLoader;
 import com.google.common.collect.ImmutableList;
+import io.trino.cache.EvictableCacheBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.NamedTypeSignature;
 import io.trino.spi.type.RowFieldName;
@@ -36,15 +40,14 @@ import org.assertj.core.util.VisibleForTesting;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.type.StandardTypes.INTERVAL_DAY_TO_SECOND;
 import static io.trino.spi.type.StandardTypes.INTERVAL_YEAR_TO_MONTH;
 import static io.trino.spi.type.StandardTypes.ROW;
@@ -58,14 +61,33 @@ import static io.trino.spi.type.TypeSignatureParameter.numericParameter;
 import static io.trino.spi.type.TypeSignatureParameter.typeParameter;
 import static io.trino.spi.type.TypeSignatureParameter.typeVariable;
 import static io.trino.spi.type.VarcharType.UNBOUNDED_LENGTH;
-import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 
 public final class TypeSignatureTranslator
 {
     private static final SqlParser SQL_PARSER = new SqlParser();
+
+    private static final Cache<String, DataType> DATA_TYPE_CACHE = EvictableCacheBuilder.newBuilder()
+            .maximumSize(4096)
+            .build(new CacheLoader<>() {
+                @Override
+                public DataType load(String signature)
+                {
+                    return parseDataType(signature);
+                }
+            });
+
+    private static final CharMatcher IS_DIGIT = CharMatcher.inRange('0', '9')
+            .precomputed();
+
+    private static final CharMatcher IS_VALID_IDENTIFIER_CHAR = CharMatcher.inRange('a', 'z')
+            .or(CharMatcher.inRange('A', 'Z'))
+            .or(CharMatcher.is('_'))
+            .or(CharMatcher.inRange('0', '9'))
+            .precomputed();
 
     private TypeSignatureTranslator() {}
 
@@ -93,7 +115,16 @@ public final class TypeSignatureTranslator
     {
         Set<String> variables = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
         variables.addAll(typeVariables);
-        return toTypeSignature(SQL_PARSER.createType(signature), variables);
+        try {
+            return toTypeSignature(DATA_TYPE_CACHE.get(signature.toLowerCase(ENGLISH), () -> parseDataType(signature)), variables);
+        }
+        catch (Exception e) {
+            if (e.getCause() != null) {
+                throwIfUnchecked(e.getCause());
+            }
+            throwIfUnchecked(e);
+            throw new RuntimeException(e);
+        }
     }
 
     private static TypeSignature toTypeSignature(GenericDataType type, Set<String> typeVariables)
@@ -111,13 +142,7 @@ public final class TypeSignatureTranslator
         for (DataTypeParameter parameter : type.getArguments()) {
             switch (parameter) {
                 case NumericParameter numericParameter -> {
-                    String value = numericParameter.getValue();
-                    try {
-                        parameters.add(numericParameter(Long.parseLong(value)));
-                    }
-                    catch (NumberFormatException e) {
-                        throw semanticException(TYPE_MISMATCH, parameter, "Invalid type parameter: %s", value);
-                    }
+                    parameters.add(numericParameter(numericParameter.getParsedValue()));
                 }
                 case TypeParameter typeParameter -> {
                     DataType value = typeParameter.getValue();
@@ -182,7 +207,7 @@ public final class TypeSignatureTranslator
         if (type.getPrecision().isPresent()) {
             DataTypeParameter precision = type.getPrecision().get();
             if (precision instanceof NumericParameter numericParameter) {
-                parameters.add(numericParameter(Long.parseLong(numericParameter.getValue())));
+                parameters.add(numericParameter(numericParameter.getParsedValue()));
             }
             else if (precision instanceof TypeParameter typeParameter) {
                 DataType typeVariable = typeParameter.getValue();
@@ -203,7 +228,7 @@ public final class TypeSignatureTranslator
             return identifier.getValue();
         }
 
-        return identifier.getValue().toLowerCase(Locale.ENGLISH); // TODO: make this toUpperCase to match standard SQL semantics
+        return identifier.getValue().toLowerCase(ENGLISH); // TODO: make this toUpperCase to match standard SQL semantics
     }
 
     @VisibleForTesting
@@ -253,7 +278,7 @@ public final class TypeSignatureTranslator
                     new Identifier(typeSignature.getBase(), false),
                     typeSignature.getParameters().stream()
                             .filter(parameter -> parameter.getLongLiteral() != UNBOUNDED_LENGTH)
-                            .map(parameter -> new NumericParameter(Optional.empty(), String.valueOf(parameter)))
+                            .map(parameter -> new NumericParameter(Optional.empty(), parameter.toString()))
                             .collect(toImmutableList()));
             default -> new GenericDataType(
                     Optional.empty(),
@@ -266,19 +291,35 @@ public final class TypeSignatureTranslator
 
     private static boolean requiresDelimiting(String identifier)
     {
-        if (!identifier.matches("[a-zA-Z][a-zA-Z0-9_]*")) {
+        if (!isValidIdentifier(identifier)) {
             return true;
         }
 
         return ReservedIdentifiers.reserved(identifier);
     }
 
+    private static boolean isValidIdentifier(String identifier)
+    {
+        if (IS_DIGIT.matches(identifier.charAt(0))) {
+            return false;
+        }
+
+        // We've already checked that first char does not contain digits,
+        // so to avoid copying we are checking whole string.
+        return IS_VALID_IDENTIFIER_CHAR.matchesAllOf(identifier);
+    }
+
     private static DataTypeParameter toTypeParameter(TypeSignatureParameter parameter)
     {
         return switch (parameter.getKind()) {
-            case LONG -> new NumericParameter(Optional.empty(), String.valueOf(parameter.getLongLiteral()));
+            case LONG -> new NumericParameter(Optional.empty(), parameter.toString());
             case TYPE -> new TypeParameter(toDataType(parameter.getTypeSignature()));
             default -> throw new UnsupportedOperationException("Unsupported parameter kind");
         };
+    }
+
+    private static DataType parseDataType(String signature)
+    {
+        return SQL_PARSER.createType(signature);
     }
 }

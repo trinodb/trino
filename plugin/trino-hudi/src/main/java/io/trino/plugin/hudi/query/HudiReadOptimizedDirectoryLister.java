@@ -24,6 +24,7 @@ import io.trino.plugin.hudi.HudiFileStatus;
 import io.trino.plugin.hudi.HudiTableHandle;
 import io.trino.plugin.hudi.partition.HiveHudiPartitionInfo;
 import io.trino.plugin.hudi.partition.HudiPartitionInfo;
+import org.apache.hudi.common.engine.HoodieLocalEngineContext;
 import org.apache.hudi.common.model.HoodieBaseFile;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.common.table.view.HoodieTableFileSystemView;
@@ -39,6 +40,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static org.apache.hudi.common.table.view.HoodieTableFileSystemView.fileListingBasedFileSystemView;
 
 public class HudiReadOptimizedDirectoryLister
         implements HudiDirectoryLister
@@ -59,10 +61,10 @@ public class HudiReadOptimizedDirectoryLister
             List<String> hivePartitionNames,
             boolean ignoreAbsentPartitions)
     {
-        this.fileSystemView = new HoodieTableFileSystemView(
+        this.fileSystemView = fileListingBasedFileSystemView(
+                new HoodieLocalEngineContext(metaClient.getStorageConf()),
                 metaClient,
-                metaClient.getActiveTimeline().getCommitsTimeline().filterCompletedInstants(),
-                ignoreAbsentPartitions);
+                metaClient.getActiveTimeline().getCommitsTimeline().filterCompletedInstants());
         this.partitionColumns = hiveTable.getPartitionColumns();
         this.allPartitionInfoMap = hivePartitionNames.stream()
                 .collect(Collectors.toMap(

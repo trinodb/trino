@@ -27,9 +27,9 @@ import io.trino.execution.executor.timesharing.SplitGenerators.L4LeafSplitGenera
 import io.trino.execution.executor.timesharing.SplitGenerators.QuantaExceedingSplitGenerator;
 import io.trino.execution.executor.timesharing.SplitGenerators.SimpleLeafSplitGenerator;
 import io.trino.execution.executor.timesharing.SplitGenerators.SlowLeafSplitGenerator;
-import org.joda.time.DateTime;
 
 import java.io.Closeable;
+import java.time.Instant;
 import java.util.List;
 import java.util.LongSummaryStatistics;
 import java.util.Map;
@@ -114,7 +114,7 @@ public class TimeSharingTaskExecutorSimulation
         SECONDS.sleep(5);
 
         System.out.println();
-        System.out.println("Simulation finished at " + DateTime.now() + ". Runtime: " + nanosSince(start));
+        System.out.println("Simulation finished at " + Instant.now() + ". Runtime: " + nanosSince(start));
         System.out.println();
 
         printSummaryStats(controller, taskExecutor);

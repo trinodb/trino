@@ -53,7 +53,7 @@ public class ResourceGroupSpec
     @JsonCreator
     public ResourceGroupSpec(
             @JsonProperty("name") ResourceGroupNameTemplate name,
-            @JsonProperty("softMemoryLimit") String softMemoryLimit,
+            @JsonProperty("softMemoryLimit") Optional<String> softMemoryLimit,
             @JsonProperty("maxQueued") int maxQueued,
             @JsonProperty("softConcurrencyLimit") Optional<Integer> softConcurrencyLimit,
             @JsonProperty("hardConcurrencyLimit") Optional<Integer> hardConcurrencyLimit,
@@ -83,15 +83,21 @@ public class ResourceGroupSpec
         this.schedulingWeight = requireNonNull(schedulingWeight, "schedulingWeight is null");
 
         requireNonNull(softMemoryLimit, "softMemoryLimit is null");
-        Matcher matcher = PERCENT_PATTERN.matcher(softMemoryLimit);
-        if (matcher.matches()) {
+        if (softMemoryLimit.isEmpty()) {
             this.softMemoryLimit = Optional.empty();
-            this.softMemoryLimitFraction = Optional.of(Double.parseDouble(matcher.group(1)) / 100.0);
-            checkArgument(softMemoryLimitFraction.get() <= 1.0, "softMemoryLimit percentage is over 100%");
+            this.softMemoryLimitFraction = Optional.of(1.0);
         }
         else {
-            this.softMemoryLimit = Optional.of(DataSize.valueOf(softMemoryLimit));
-            this.softMemoryLimitFraction = Optional.empty();
+            Matcher matcher = PERCENT_PATTERN.matcher(softMemoryLimit.get());
+            if (matcher.matches()) {
+                this.softMemoryLimit = Optional.empty();
+                this.softMemoryLimitFraction = Optional.of(Double.parseDouble(matcher.group(1)) / 100.0);
+                checkArgument(softMemoryLimitFraction.get() <= 1.0, "softMemoryLimit percentage is over 100%");
+            }
+            else {
+                this.softMemoryLimit = Optional.of(DataSize.valueOf(softMemoryLimit.get()));
+                this.softMemoryLimitFraction = Optional.empty();
+            }
         }
 
         this.subGroups = ImmutableList.copyOf(subGroups.orElse(ImmutableList.of()));
@@ -172,6 +178,7 @@ public class ResourceGroupSpec
         }
         return (name.equals(that.name) &&
                 softMemoryLimit.equals(that.softMemoryLimit) &&
+                softMemoryLimitFraction.equals(that.softMemoryLimitFraction) &&
                 maxQueued == that.maxQueued &&
                 softConcurrencyLimit.equals(that.softConcurrencyLimit) &&
                 hardConcurrencyLimit == that.hardConcurrencyLimit &&

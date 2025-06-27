@@ -14,7 +14,6 @@
 package io.trino.server.protocol.spooling;
 
 import io.airlift.slice.Slice;
-import io.trino.Session;
 import io.trino.client.QueryData;
 import io.trino.client.spooling.DataAttributes;
 import io.trino.client.spooling.EncodedQueryData;
@@ -33,19 +32,27 @@ import static io.trino.client.spooling.DataAttribute.ROW_OFFSET;
 import static io.trino.client.spooling.Segment.inlined;
 import static io.trino.client.spooling.Segment.spooled;
 import static io.trino.server.protocol.spooling.CoordinatorSegmentResource.spooledSegmentUriBuilder;
+import static java.util.Objects.requireNonNull;
 
 public class SpoolingQueryDataProducer
         implements QueryDataProducer
 {
+    private final String encoding;
+
     private long currentOffset;
 
+    public SpoolingQueryDataProducer(String encoding)
+    {
+        this.encoding = requireNonNull(encoding, "encoding is null");
+    }
+
     @Override
-    public QueryData produce(ExternalUriInfo uriInfo, Session session, QueryResultRows rows, Consumer<TrinoException> throwableConsumer)
+    public QueryData produce(ExternalUriInfo uriInfo, QueryResultRows rows, Consumer<TrinoException> throwableConsumer)
     {
         if (rows.isEmpty()) {
             return null;
         }
-        EncodedQueryData.Builder builder = EncodedQueryData.builder(session.getQueryDataEncoding().orElseThrow());
+        EncodedQueryData.Builder builder = EncodedQueryData.builder(encoding);
         UriBuilder uriBuilder = spooledSegmentUriBuilder(uriInfo);
         for (Page page : rows.getPages()) {
             SpooledMetadataBlock metadataBlock = SpooledMetadataBlockSerde.deserialize(page);
@@ -63,11 +70,6 @@ public class SpoolingQueryDataProducer
             currentOffset += attributes.get(ROWS_COUNT, Long.class);
         }
         return builder.build();
-    }
-
-    @Override
-    public void close()
-    {
     }
 
     private URI buildSegmentDownloadURI(UriBuilder builder, Slice identifier)

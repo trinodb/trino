@@ -263,14 +263,6 @@ final class TestIcebergUnityRestCatalogConnectorSmokeTest
 
     @Test
     @Override
-    public void testDeleteWithV3Format()
-    {
-        assertThatThrownBy(super::testDeleteWithV3Format)
-                .hasMessageContaining("Access Denied");
-    }
-
-    @Test
-    @Override
     public void testCreateOrReplaceTable()
     {
         assertThatThrownBy(super::testCreateOrReplaceTable)

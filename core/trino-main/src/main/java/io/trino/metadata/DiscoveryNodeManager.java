@@ -13,11 +13,8 @@
  */
 package io.trino.metadata;
 
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSetMultimap;
-import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets.SetView;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
@@ -29,11 +26,8 @@ import io.airlift.http.client.HttpClient;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import io.trino.client.NodeVersion;
-import io.trino.connector.CatalogManagerConfig;
-import io.trino.connector.CatalogManagerConfig.CatalogMangerKind;
 import io.trino.failuredetector.FailureDetector;
 import io.trino.server.InternalCommunicationConfig;
-import io.trino.spi.connector.CatalogHandle;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Managed;
@@ -54,9 +48,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.difference;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
-import static io.trino.connector.system.GlobalSystemConnector.CATALOG_HANDLE;
 import static io.trino.metadata.NodeState.INACTIVE;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
@@ -67,7 +59,6 @@ public final class DiscoveryNodeManager
 {
     private static final Logger log = Logger.get(DiscoveryNodeManager.class);
 
-    private static final Splitter CATALOG_HANDLE_ID_SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
     private final ServiceSelector serviceSelector;
     private final FailureDetector failureDetector;
     private final NodeVersion expectedNodeVersion;
@@ -77,10 +68,6 @@ public final class DiscoveryNodeManager
     private final ExecutorService nodeStateEventExecutor;
     private final boolean httpsRequired;
     private final InternalNode currentNode;
-    private final boolean allCatalogsOnAllNodes;
-
-    @GuardedBy("this")
-    private Optional<SetMultimap<CatalogHandle, InternalNode>> activeNodesByCatalogHandle = Optional.empty();
 
     @GuardedBy("this")
     private AllNodes allNodes;
@@ -98,8 +85,7 @@ public final class DiscoveryNodeManager
             FailureDetector failureDetector,
             NodeVersion expectedNodeVersion,
             @ForNodeManager HttpClient httpClient,
-            InternalCommunicationConfig internalCommunicationConfig,
-            CatalogManagerConfig catalogManagerConfig)
+            InternalCommunicationConfig internalCommunicationConfig)
     {
         this.serviceSelector = requireNonNull(serviceSelector, "serviceSelector is null");
         this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
@@ -108,7 +94,6 @@ public final class DiscoveryNodeManager
         this.nodeStateUpdateExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("node-state-poller-%s"));
         this.nodeStateEventExecutor = newCachedThreadPool(daemonThreadsNamed("node-state-events-%s"));
         this.httpsRequired = internalCommunicationConfig.isHttpsRequired();
-        this.allCatalogsOnAllNodes = catalogManagerConfig.getCatalogMangerKind() != CatalogMangerKind.STATIC;
 
         this.currentNode = findCurrentNode(
                 serviceSelector.selectAllServices(),
@@ -219,7 +204,6 @@ public final class DiscoveryNodeManager
         ImmutableSet.Builder<InternalNode> drainedNodesBuilder = ImmutableSet.builder();
         ImmutableSet.Builder<InternalNode> shuttingDownNodesBuilder = ImmutableSet.builder();
         ImmutableSet.Builder<InternalNode> coordinatorsBuilder = ImmutableSet.builder();
-        ImmutableSetMultimap.Builder<CatalogHandle, InternalNode> byCatalogHandleBuilder = ImmutableSetMultimap.builder();
 
         for (ServiceDescriptor service : services) {
             URI uri = getHttpUri(service, httpsRequired);
@@ -235,18 +219,6 @@ public final class DiscoveryNodeManager
                         if (coordinator) {
                             coordinatorsBuilder.add(node);
                         }
-
-                        // record available active nodes organized by catalog handle
-                        String catalogHandleIds = service.getProperties().get("catalogHandleIds");
-                        if (catalogHandleIds != null) {
-                            catalogHandleIds = catalogHandleIds.toLowerCase(ENGLISH);
-                            for (String catalogHandleId : CATALOG_HANDLE_ID_SPLITTER.split(catalogHandleIds)) {
-                                byCatalogHandleBuilder.put(CatalogHandle.fromId(catalogHandleId), node);
-                            }
-                        }
-
-                        // always add system connector
-                        byCatalogHandleBuilder.put(CATALOG_HANDLE, node);
                         break;
                     case INACTIVE:
                         inactiveNodesBuilder.add(node);
@@ -284,11 +256,6 @@ public final class DiscoveryNodeManager
             for (InternalNode missingNode : missingNodes) {
                 log.info("Previously active node is missing: %s (last seen at %s)", missingNode.getNodeIdentifier(), missingNode.getHost());
             }
-        }
-
-        // nodes by catalog handle changes anytime a node adds or removes a catalog (note: this is not part of the listener system)
-        if (!allCatalogsOnAllNodes) {
-            activeNodesByCatalogHandle = Optional.of(byCatalogHandleBuilder.build());
         }
 
         AllNodes allNodes = new AllNodes(activeNodes, inactiveNodes, drainingNodes, drainedNodes, shuttingDownNodes, coordinators);
@@ -367,18 +334,9 @@ public final class DiscoveryNodeManager
     }
 
     @Override
-    public synchronized Set<InternalNode> getActiveCatalogNodes(CatalogHandle catalogHandle)
-    {
-        // activeNodesByCatalogName is immutable
-        return activeNodesByCatalogHandle
-                .map(map -> map.get(catalogHandle))
-                .orElseGet(() -> allNodes.getActiveNodes());
-    }
-
-    @Override
     public synchronized NodesSnapshot getActiveNodesSnapshot()
     {
-        return new NodesSnapshot(allNodes.getActiveNodes(), activeNodesByCatalogHandle);
+        return new NodesSnapshot(allNodes.getActiveNodes());
     }
 
     @Override

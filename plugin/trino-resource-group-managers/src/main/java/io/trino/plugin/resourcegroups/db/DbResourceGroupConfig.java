@@ -31,6 +31,7 @@ public class DbResourceGroupConfig
     private boolean exactMatchSelectorEnabled;
     private Duration maxRefreshInterval = new Duration(1, HOURS);
     private Duration refreshInterval = new Duration(1, SECONDS);
+    private boolean runMigrationsEnabled = true;
 
     public String getConfigDbUrl()
     {
@@ -109,6 +110,19 @@ public class DbResourceGroupConfig
     {
         this.exactMatchSelectorEnabled = exactMatchSelectorEnabled;
         return this;
+    }
+
+    @Config("resource-groups.db-migrations-enabled")
+    @ConfigDescription("Whether to run migrations on startup")
+    public DbResourceGroupConfig setRunMigrationsEnabled(boolean runMigrationsEnabled)
+    {
+        this.runMigrationsEnabled = runMigrationsEnabled;
+        return this;
+    }
+
+    public boolean isRunMigrationsEnabled()
+    {
+        return runMigrationsEnabled;
     }
 
     @AssertTrue(message = "maxRefreshInterval must be greater than refreshInterval")

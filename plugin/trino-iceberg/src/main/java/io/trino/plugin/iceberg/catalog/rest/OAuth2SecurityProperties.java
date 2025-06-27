@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg.catalog.rest;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
+import org.apache.iceberg.rest.auth.AuthProperties;
 import org.apache.iceberg.rest.auth.OAuth2Properties;
 
 import java.util.Map;
@@ -32,6 +33,7 @@ public class OAuth2SecurityProperties
         requireNonNull(securityConfig, "securityConfig is null");
 
         ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builder();
+        propertiesBuilder.put(AuthProperties.AUTH_TYPE, AuthProperties.AUTH_TYPE_OAUTH2);
         securityConfig.getCredential().ifPresent(
                 credential -> {
                     propertiesBuilder.put(OAuth2Properties.CREDENTIAL, credential);

@@ -111,17 +111,15 @@ public class ParquetMetadata
                 long fileRowCountOffset = fileRowCount;
                 fileRowCount += rowGroup.getNum_rows(); // Update fileRowCount for all row groups
 
-                if (rowGroup.isSetFile_offset()) {
-                    long rowGroupStart = rowGroup.getFile_offset();
-                    boolean splitContainsRowGroup = splitStart <= rowGroupStart && rowGroupStart < splitStart + splitLength;
-                    if (!splitContainsRowGroup) {
-                        continue;
-                    }
-                }
-
                 List<ColumnChunk> columns = rowGroup.getColumns();
                 validateParquet(!columns.isEmpty(), dataSourceId, "No columns in row group: %s", rowGroup);
                 String filePath = columns.get(0).getFile_path();
+                long rowGroupStart = getRowGroupStart(columns, messageType);
+                boolean splitContainsRowGroup = splitStart <= rowGroupStart && rowGroupStart < splitStart + splitLength;
+                if (!splitContainsRowGroup) {
+                    continue;
+                }
+
                 ImmutableList.Builder<ColumnChunkMetadata> columnMetadataBuilder = ImmutableList.builderWithExpectedSize(columns.size());
                 for (ColumnChunk columnChunk : columns) {
                     validateParquet(
@@ -129,27 +127,7 @@ public class ParquetMetadata
                                     || (filePath != null && filePath.equals(columnChunk.getFile_path())),
                             dataSourceId,
                             "all column chunks of the same row group must be in the same file");
-                    ColumnMetaData metaData = columnChunk.meta_data;
-                    String[] path = metaData.path_in_schema.stream()
-                            .map(value -> value.toLowerCase(Locale.ENGLISH))
-                            .toArray(String[]::new);
-                    ColumnPath columnPath = ColumnPath.get(path);
-                    PrimitiveType primitiveType = messageType.getType(columnPath.toArray()).asPrimitiveType();
-                    ColumnChunkMetadata column = ColumnChunkMetadata.get(
-                            columnPath,
-                            primitiveType,
-                            CompressionCodecName.fromParquet(metaData.codec),
-                            convertEncodingStats(metaData.encoding_stats),
-                            readEncodings(metaData.encodings),
-                            MetadataReader.readStats(Optional.ofNullable(parquetMetadata.getCreated_by()), Optional.ofNullable(metaData.statistics), primitiveType),
-                            metaData.data_page_offset,
-                            metaData.dictionary_page_offset,
-                            metaData.num_values,
-                            metaData.total_compressed_size,
-                            metaData.total_uncompressed_size);
-                    column.setColumnIndexReference(toColumnIndexReference(columnChunk));
-                    column.setOffsetIndexReference(toOffsetIndexReference(columnChunk));
-                    column.setBloomFilterOffset(metaData.bloom_filter_offset);
+                    ColumnChunkMetadata column = toColumnChunkMetadata(columnChunk, parquetMetadata.getCreated_by(), messageType);
                     columnMetadataBuilder.add(column);
                 }
                 blocks.add(new BlockMetadata(fileRowCountOffset, rowGroup.getNum_rows(), columnMetadataBuilder.build()));
@@ -163,6 +141,40 @@ public class ParquetMetadata
     public FileMetaData getParquetMetadata()
     {
         return parquetMetadata;
+    }
+
+    private static long getRowGroupStart(List<ColumnChunk> columns, MessageType messageType)
+    {
+        // Note: Do not rely on org.apache.parquet.format.RowGroup.getFile_offset or org.apache.parquet.format.ColumnChunk.getFile_offset
+        // because some versions of parquet-cpp-arrow (and potentially other writers) set it incorrectly
+        ColumnChunkMetadata columnChunkMetadata = toColumnChunkMetadata(columns.getFirst(), null, messageType);
+        return columnChunkMetadata.getStartingPos();
+    }
+
+    private static ColumnChunkMetadata toColumnChunkMetadata(ColumnChunk columnChunk, String createdBy, MessageType messageType)
+    {
+        ColumnMetaData metaData = columnChunk.meta_data;
+        String[] path = metaData.path_in_schema.stream()
+                .map(value -> value.toLowerCase(Locale.ENGLISH))
+                .toArray(String[]::new);
+        ColumnPath columnPath = ColumnPath.get(path);
+        PrimitiveType primitiveType = messageType.getType(columnPath.toArray()).asPrimitiveType();
+        ColumnChunkMetadata column = ColumnChunkMetadata.get(
+                columnPath,
+                primitiveType,
+                CompressionCodecName.fromParquet(metaData.codec),
+                convertEncodingStats(metaData.encoding_stats),
+                readEncodings(metaData.encodings),
+                MetadataReader.readStats(Optional.ofNullable(createdBy), Optional.ofNullable(metaData.statistics), primitiveType),
+                metaData.data_page_offset,
+                metaData.dictionary_page_offset,
+                metaData.num_values,
+                metaData.total_compressed_size,
+                metaData.total_uncompressed_size);
+        column.setColumnIndexReference(toColumnIndexReference(columnChunk));
+        column.setOffsetIndexReference(toOffsetIndexReference(columnChunk));
+        column.setBloomFilterOffset(metaData.bloom_filter_offset);
+        return column;
     }
 
     private static MessageType readParquetSchema(List<SchemaElement> schema)

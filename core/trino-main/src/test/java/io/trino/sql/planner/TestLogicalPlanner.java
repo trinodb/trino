@@ -1555,7 +1555,7 @@ public class TestLogicalPlanner
     @Test
     public void testDistributedSort()
     {
-        ImmutableList<PlanMatchPattern.Ordering> orderBy = ImmutableList.of(sort("ORDERKEY", DESCENDING, LAST));
+        List<PlanMatchPattern.Ordering> orderBy = ImmutableList.of(sort("ORDERKEY", DESCENDING, LAST));
         assertDistributedPlan(
                 "SELECT orderkey FROM orders ORDER BY orderkey DESC",
                 output(

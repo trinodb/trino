@@ -416,7 +416,7 @@ public class TestDirectExchangeClient
         }
         exchangeClient.close();
 
-        ImmutableMap<URI, PageBufferClientStatus> statuses = uniqueIndex(exchangeClient.getStatus().getPageBufferClientStatuses(), PageBufferClientStatus::getUri);
+        Map<URI, PageBufferClientStatus> statuses = uniqueIndex(exchangeClient.getStatus().getPageBufferClientStatuses(), PageBufferClientStatus::getUri);
         assertStatus(statuses.get(location1), location1, "closed", 3, 3, 3, "not scheduled");
         assertStatus(statuses.get(location2), location2, "closed", 3, 3, 3, "not scheduled");
     }

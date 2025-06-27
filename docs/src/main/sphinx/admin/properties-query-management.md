@@ -20,7 +20,7 @@ stages of a query. You can use the following execution policies:
 - `phased` schedules stages in a sequence to avoid blockages because of
   inter-stage dependencies. This policy maximizes cluster resource utilization
   and provides the lowest query wall time.
-- `all-at-once` schedules all of the stages of a query at one time. As a
+- `all-at-once` schedules all the stages of a query at one time. As a
   result, cluster resource utilization is initially high, but inter-stage
   dependencies typically prevent full processing and cause longer queue times
   which increases the query wall time overall.
@@ -156,6 +156,15 @@ query to exist since creation.
 - **Session property:** `query_max_scan_physical_bytes`
 
 The maximum number of bytes that can be scanned by a query during its execution.
+When this limit is reached, query processing is terminated to prevent excessive
+resource usage.
+
+## `query.max-write-physical-size`
+
+- **Type:** {ref}`prop-type-data-size`
+- **Session property:** `query_max_write_physical_size`
+
+The maximum physical size of data that can be written by a query during its execution.
 When this limit is reached, query processing is terminated to prevent excessive
 resource usage.
 

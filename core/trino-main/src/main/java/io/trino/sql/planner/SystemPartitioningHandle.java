@@ -17,7 +17,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.operator.BucketPartitionFunction;
 import io.trino.operator.PartitionFunction;
-import io.trino.operator.PrecomputedHashGenerator;
 import io.trino.spi.Page;
 import io.trino.spi.connector.BucketFunction;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
@@ -136,12 +135,12 @@ public final class SystemPartitioningHandle
         return partitioning.toString();
     }
 
-    public PartitionFunction getPartitionFunction(List<Type> partitionChannelTypes, boolean isHashPrecomputed, int[] bucketToPartition, TypeOperators typeOperators)
+    public PartitionFunction getPartitionFunction(List<Type> partitionChannelTypes, int[] bucketToPartition, TypeOperators typeOperators)
     {
         requireNonNull(partitionChannelTypes, "partitionChannelTypes is null");
         requireNonNull(bucketToPartition, "bucketToPartition is null");
 
-        BucketFunction bucketFunction = function.createBucketFunction(partitionChannelTypes, isHashPrecomputed, bucketToPartition.length, typeOperators);
+        BucketFunction bucketFunction = function.createBucketFunction(partitionChannelTypes, bucketToPartition.length, typeOperators);
         return new BucketPartitionFunction(bucketFunction, bucketToPartition);
     }
 
@@ -149,7 +148,7 @@ public final class SystemPartitioningHandle
     {
         SINGLE {
             @Override
-            public BucketFunction createBucketFunction(List<Type> partitionChannelTypes, boolean isHashPrecomputed, int bucketCount, TypeOperators typeOperators)
+            public BucketFunction createBucketFunction(List<Type> partitionChannelTypes, int bucketCount, TypeOperators typeOperators)
             {
                 checkArgument(bucketCount == 1, "Single partition can only have one bucket");
                 return new SingleBucketFunction();
@@ -157,39 +156,34 @@ public final class SystemPartitioningHandle
         },
         HASH {
             @Override
-            public BucketFunction createBucketFunction(List<Type> partitionChannelTypes, boolean isHashPrecomputed, int bucketCount, TypeOperators typeOperators)
+            public BucketFunction createBucketFunction(List<Type> partitionChannelTypes, int bucketCount, TypeOperators typeOperators)
             {
-                if (isHashPrecomputed) {
-                    return new HashBucketFunction(new PrecomputedHashGenerator(0), bucketCount);
-                }
-
                 return new HashBucketFunction(createPagePrefixHashGenerator(partitionChannelTypes, typeOperators), bucketCount);
             }
         },
         ROUND_ROBIN {
             @Override
-            public BucketFunction createBucketFunction(List<Type> partitionChannelTypes, boolean isHashPrecomputed, int bucketCount, TypeOperators typeOperators)
+            public BucketFunction createBucketFunction(List<Type> partitionChannelTypes, int bucketCount, TypeOperators typeOperators)
             {
                 return new RoundRobinBucketFunction(bucketCount);
             }
         },
         BROADCAST {
             @Override
-            public BucketFunction createBucketFunction(List<Type> partitionChannelTypes, boolean isHashPrecomputed, int bucketCount, TypeOperators typeOperators)
+            public BucketFunction createBucketFunction(List<Type> partitionChannelTypes, int bucketCount, TypeOperators typeOperators)
             {
                 throw new UnsupportedOperationException();
             }
         },
         UNKNOWN {
             @Override
-            public BucketFunction createBucketFunction(List<Type> partitionChannelTypes, boolean isHashPrecomputed, int bucketCount, TypeOperators typeOperators)
+            public BucketFunction createBucketFunction(List<Type> partitionChannelTypes, int bucketCount, TypeOperators typeOperators)
             {
                 throw new UnsupportedOperationException();
             }
         };
 
         public abstract BucketFunction createBucketFunction(List<Type> partitionChannelTypes,
-                boolean isHashPrecomputed,
                 int bucketCount,
                 TypeOperators typeOperators);
 

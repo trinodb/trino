@@ -19,7 +19,6 @@ import io.opentelemetry.sdk.trace.data.SpanData;
 
 import java.util.List;
 import java.util.function.Predicate;
-import java.util.regex.Pattern;
 
 import static io.trino.filesystem.tracing.FileSystemAttributes.FILE_LOCATION;
 import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.DATA;
@@ -30,8 +29,6 @@ import static java.util.stream.Collectors.toCollection;
 
 public final class FileOperationUtils
 {
-    private static final Pattern MANIFEST_PATTERN = Pattern.compile(".*-m[0-9]*.avro");
-
     private FileOperationUtils() {}
 
     public static Multiset<FileOperation> getOperations(List<SpanData> spans)
@@ -76,7 +73,6 @@ public final class FileOperationUtils
         SNAPSHOT,
         MANIFEST,
         STATS,
-        PUFFIN,
         DATA,
         DELETE,
         METASTORE,
@@ -90,14 +86,11 @@ public final class FileOperationUtils
             if (path.contains("/snap-")) {
                 return SNAPSHOT;
             }
-            if (MANIFEST_PATTERN.matcher(path).matches()) {
+            if (path.endsWith("-m0.avro")) {
                 return MANIFEST;
             }
             if (path.endsWith(".stats")) {
                 return STATS;
-            }
-            if (path.endsWith(".puffin")) {
-                return PUFFIN;
             }
             if (path.contains("/data/") && (path.endsWith(".orc") || path.endsWith(".parquet"))) {
                 return DATA;

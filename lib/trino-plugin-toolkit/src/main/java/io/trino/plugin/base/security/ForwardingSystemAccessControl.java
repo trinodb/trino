@@ -372,6 +372,12 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanSetMaterializedViewAuthorization(SystemSecurityContext context, CatalogSchemaTableName view, TrinoPrincipal principal)
+    {
+        delegate().checkCanSetMaterializedViewAuthorization(context, view, principal);
+    }
+
+    @Override
     public void checkCanSetMaterializedViewProperties(SystemSecurityContext context, CatalogSchemaTableName materializedView, Map<String, Optional<Object>> properties)
     {
         delegate().checkCanSetMaterializedViewProperties(context, materializedView, properties);

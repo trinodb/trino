@@ -74,7 +74,7 @@ public record FileSystemSpooledSegmentHandle(
 
     private static byte[] entropy(Random random)
     {
-        byte[] entropy = new byte[16];
+        byte[] entropy = new byte[10];
         random.nextBytes(entropy);
         return entropy;
     }
@@ -86,7 +86,6 @@ public record FileSystemSpooledSegmentHandle(
                 .add("encoding", encoding)
                 .add("expires", Instant.ofEpochMilli(ULID.getTimestampBinary(uuid)))
                 .add("identifier", identifier())
-                .add("encoding", encoding)
                 .add("encryptionKey", encryptionKey.map(_ -> "[redacted]").orElse("[none"))
                 .toString();
     }

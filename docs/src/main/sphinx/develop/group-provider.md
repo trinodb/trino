@@ -1,6 +1,6 @@
 # Group provider
 
-Trino can map user names onto groups for easier access control management.
+Trino can map usernames onto groups for easier access control management.
 This mapping is performed by a `GroupProvider` implementation.
 
 ## Implementation
@@ -20,7 +20,7 @@ must be wrapped as a Trino plugin and installed on the cluster.
 
 After a plugin that implements `GroupProviderFactory` has been installed on the coordinator,
 it is configured using an `etc/group-provider.properties` file.
-All of the properties other than `group-provider.name` are specific to
+All the properties other than `group-provider.name` are specific to
 the `GroupProviderFactory` implementation.
 
 The `group-provider.name` property is used by Trino to find a registered

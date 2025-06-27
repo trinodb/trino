@@ -25,9 +25,9 @@ import io.trino.spi.eventlistener.QueryPlanOptimizerStatistics;
 import io.trino.spi.eventlistener.StageGcStatistics;
 import io.trino.spi.metrics.Metrics;
 import io.trino.sql.planner.plan.PlanNodeId;
-import org.joda.time.DateTime;
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalDouble;
@@ -37,7 +37,6 @@ import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.joda.time.DateTimeZone.UTC;
 
 public class TestQueryStats
 {
@@ -47,6 +46,7 @@ public class TestQueryStats
                     11,
                     12,
                     new PlanNodeId("13"),
+                    Optional.of(new PlanNodeId("131")),
                     TableWriterOperator.class.getSimpleName(),
                     14L,
                     15L,
@@ -88,6 +88,7 @@ public class TestQueryStats
                     21,
                     22,
                     new PlanNodeId("23"),
+                    Optional.of(new PlanNodeId("231")),
                     FilterAndProjectOperator.class.getSimpleName(),
                     24L,
                     25L,
@@ -129,6 +130,7 @@ public class TestQueryStats
                     31,
                     32,
                     new PlanNodeId("33"),
+                    Optional.of(new PlanNodeId("331")),
                     TableWriterOperator.class.getSimpleName(),
                     34L,
                     35L,
@@ -179,10 +181,10 @@ public class TestQueryStats
                     0));
 
     public static final QueryStats EXPECTED = new QueryStats(
-            new DateTime(1),
-            new DateTime(2),
-            new DateTime(3),
-            new DateTime(4),
+            Instant.ofEpochMilli(1),
+            Instant.ofEpochMilli(2),
+            Instant.ofEpochMilli(3),
+            Instant.ofEpochMilli(4),
             new Duration(6, NANOSECONDS),
             new Duration(5, NANOSECONDS),
             new Duration(31, NANOSECONDS),
@@ -217,6 +219,7 @@ public class TestQueryStats
             DataSize.ofBytes(25),
             DataSize.ofBytes(26),
             DataSize.ofBytes(27),
+            DataSize.ofBytes(28),
 
             true,
             OptionalDouble.of(8.88),
@@ -292,10 +295,10 @@ public class TestQueryStats
 
     public static void assertExpectedQueryStats(QueryStats actual)
     {
-        assertThat(actual.getCreateTime()).isEqualTo(new DateTime(1, UTC));
-        assertThat(actual.getExecutionStartTime()).isEqualTo(new DateTime(2, UTC));
-        assertThat(actual.getLastHeartbeat()).isEqualTo(new DateTime(3, UTC));
-        assertThat(actual.getEndTime()).isEqualTo(new DateTime(4, UTC));
+        assertThat(actual.getCreateTime()).isEqualTo(Instant.ofEpochMilli(1));
+        assertThat(actual.getExecutionStartTime()).isEqualTo(Instant.ofEpochMilli(2));
+        assertThat(actual.getLastHeartbeat()).isEqualTo(Instant.ofEpochMilli(3));
+        assertThat(actual.getEndTime()).isEqualTo(Instant.ofEpochMilli(4));
 
         assertThat(actual.getElapsedTime()).isEqualTo(new Duration(6, NANOSECONDS));
         assertThat(actual.getQueuedTime()).isEqualTo(new Duration(5, NANOSECONDS));
@@ -331,7 +334,7 @@ public class TestQueryStats
         assertThat(actual.getPeakTaskUserMemory()).isEqualTo(DataSize.ofBytes(25));
         assertThat(actual.getPeakTaskRevocableMemory()).isEqualTo(DataSize.ofBytes(26));
         assertThat(actual.getPeakTaskTotalMemory()).isEqualTo(DataSize.ofBytes(27));
-        assertThat(actual.getSpilledDataSize()).isEqualTo(DataSize.ofBytes(693));
+        assertThat(actual.getSpilledDataSize()).isEqualTo(DataSize.ofBytes(28));
 
         assertThat(actual.getTotalScheduledTime()).isEqualTo(new Duration(28, NANOSECONDS));
         assertThat(actual.getFailedScheduledTime()).isEqualTo(new Duration(29, NANOSECONDS));

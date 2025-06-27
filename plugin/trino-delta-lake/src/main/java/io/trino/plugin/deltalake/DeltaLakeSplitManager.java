@@ -14,7 +14,6 @@
 package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.Location;
@@ -157,14 +156,8 @@ public class DeltaLakeSplitManager
             Constraint constraint)
     {
         TableSnapshot tableSnapshot = deltaLakeTransactionManager.get(transaction, session.getIdentity())
-                .getSnapshot(session, tableHandle.getSchemaTableName(), tableHandle.getLocation(), Optional.of(tableHandle.getReadVersion()));
-        Stream<AddFileEntry> validDataFiles = transactionLogAccess.getActiveFiles(
-                session,
-                tableSnapshot,
-                tableHandle.getMetadataEntry(),
-                tableHandle.getProtocolEntry(),
-                tableHandle.getEnforcedPartitionConstraint(),
-                tableHandle.getProjectedColumns().orElse(ImmutableSet.of()));
+                .getSnapshot(session, tableHandle, Optional.of(tableHandle.getReadVersion()));
+        Stream<AddFileEntry> validDataFiles = transactionLogAccess.getActiveFiles(session, tableHandle, tableSnapshot);
         TupleDomain<DeltaLakeColumnHandle> enforcedPartitionConstraint = tableHandle.getEnforcedPartitionConstraint();
         TupleDomain<DeltaLakeColumnHandle> nonPartitionConstraint = tableHandle.getNonPartitionConstraint();
         Domain pathDomain = getPathDomain(nonPartitionConstraint);

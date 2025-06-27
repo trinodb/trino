@@ -31,6 +31,7 @@ import software.amazon.awssdk.http.apache.ApacheHttpClient;
 import software.amazon.awssdk.http.apache.ProxyConfiguration;
 import software.amazon.awssdk.metrics.MetricPublisher;
 import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.LegacyMd5Plugin;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3ClientBuilder;
 import software.amazon.awssdk.services.s3.S3Configuration;
@@ -54,6 +55,7 @@ import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static software.amazon.awssdk.core.checksums.ResponseChecksumValidation.WHEN_REQUIRED;
+import static software.amazon.awssdk.core.client.config.SdkAdvancedClientOption.SIGNER;
 
 final class S3FileSystemLoader
         implements Function<Location, TrinoFileSystemFactory>
@@ -182,6 +184,7 @@ final class S3FileSystemLoader
             s3.httpClient(httpClient);
             s3.responseChecksumValidation(WHEN_REQUIRED);
             s3.requestChecksumCalculation(RequestChecksumCalculation.WHEN_REQUIRED);
+            s3.addPlugin(LegacyMd5Plugin.create());
 
             region.map(Region::of).ifPresent(s3::region);
             endpoint.map(URI::create).ifPresent(s3::endpointOverride);
@@ -275,7 +278,7 @@ final class S3FileSystemLoader
 
     private static ClientOverrideConfiguration createOverrideConfiguration(OpenTelemetry openTelemetry, S3FileSystemConfig config, MetricPublisher metricPublisher)
     {
-        return ClientOverrideConfiguration.builder()
+        ClientOverrideConfiguration.Builder builder = ClientOverrideConfiguration.builder()
                 .addExecutionInterceptor(AwsSdkTelemetry.builder(openTelemetry)
                         .setCaptureExperimentalSpanAttributes(true)
                         .setRecordIndividualHttpError(true)
@@ -284,8 +287,9 @@ final class S3FileSystemLoader
                         .maxAttempts(config.getMaxErrorRetries())
                         .build())
                 .appId(config.getApplicationId())
-                .addMetricPublisher(metricPublisher)
-                .build();
+                .addMetricPublisher(metricPublisher);
+        config.getSignerType().ifPresent(signer -> builder.putAdvancedOption(SIGNER, signer.create()));
+        return builder.build();
     }
 
     private static SdkHttpClient createHttpClient(S3FileSystemConfig config)

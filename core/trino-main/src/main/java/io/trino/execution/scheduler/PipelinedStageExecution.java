@@ -39,6 +39,7 @@ import io.trino.failuredetector.FailureDetector;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
 import io.trino.spi.TrinoException;
+import io.trino.spi.metrics.Metrics;
 import io.trino.split.RemoteSplit;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.PlanFragmentId;
@@ -310,10 +311,10 @@ public class PipelinedStageExecution
         tasks.put(partition, task);
 
         ImmutableMultimap.Builder<PlanNodeId, Split> exchangeSplits = ImmutableMultimap.builder();
-        sourceTasks.forEach((fragmentId, sourceTask) -> {
+        sourceTasks.forEach((sourceFragmentId, sourceTask) -> {
             TaskStatus status = sourceTask.getTaskStatus();
             if (status.getState() != TaskState.FINISHED) {
-                PlanNodeId planNodeId = exchangeSources.get(fragmentId).getId();
+                PlanNodeId planNodeId = exchangeSources.get(sourceFragmentId).getId();
                 exchangeSplits.put(planNodeId, createExchangeSplit(sourceTask, task));
             }
         });
@@ -536,9 +537,9 @@ public class PipelinedStageExecution
     }
 
     @Override
-    public void recordGetSplitTime(long start)
+    public void recordSplitSourceMetrics(PlanNodeId nodeId, Metrics metrics, long start)
     {
-        stage.recordGetSplitTime(start);
+        stage.recordSplitSourceMetrics(nodeId, metrics, start);
     }
 
     @Override

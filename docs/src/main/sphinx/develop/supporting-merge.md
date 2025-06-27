@@ -176,7 +176,7 @@ To start `MERGE` processing, the Trino engine calls:
   `ConnectorMergeTableHandle` object contains whatever information the
   connector needs to specify the `MERGE` operation.
 - `ConnectorMetadata.getInsertLayout(...)`, from which it extracts the
-  the list of partition or table columns that impact write redistribution.
+  list of partition or table columns that impact write redistribution.
 - `ConnectorMetadata.getUpdateLayout(...)`. If that layout is non-empty,
   it is used to distribute updated rows resulting from the `MERGE`
   operation.

@@ -18,7 +18,6 @@ import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.Type;
-import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.avro.Avro;
 import org.apache.iceberg.data.Record;
@@ -28,6 +27,7 @@ import org.apache.iceberg.io.OutputFile;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Optional;
 
@@ -37,7 +37,6 @@ import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_WRITER_CLOSE_ERRO
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_WRITER_OPEN_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
-import static org.apache.iceberg.FileFormat.AVRO;
 import static org.apache.iceberg.TableProperties.AVRO_COMPRESSION;
 
 public final class IcebergAvroFileWriter
@@ -48,7 +47,6 @@ public final class IcebergAvroFileWriter
     // Use static table name instead of the actual name because it becomes outdated once the table is renamed
     public static final String AVRO_TABLE_NAME = "table";
 
-    private final String location;
     private final Schema icebergSchema;
     private final List<Type> types;
     private final FileAppender<Record> avroWriter;
@@ -61,7 +59,6 @@ public final class IcebergAvroFileWriter
             List<Type> types,
             HiveCompressionCodec hiveCompressionCodec)
     {
-        this.location = requireNonNull(file.location(), "location is null");
         this.rollbackAction = requireNonNull(rollbackAction, "rollbackAction null");
         this.icebergSchema = requireNonNull(icebergSchema, "icebergSchema is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
@@ -74,21 +71,9 @@ public final class IcebergAvroFileWriter
                     .set(AVRO_COMPRESSION, toIcebergAvroCompressionName(hiveCompressionCodec))
                     .build();
         }
-        catch (IOException e) {
-            throw new TrinoException(ICEBERG_WRITER_OPEN_ERROR, "Error creating Avro file: " + location, e);
+        catch (IOException | UncheckedIOException e) {
+            throw new TrinoException(ICEBERG_WRITER_OPEN_ERROR, "Error creating Avro file: " + file.location(), e);
         }
-    }
-
-    @Override
-    public FileFormat fileFormat()
-    {
-        return AVRO;
-    }
-
-    @Override
-    public String location()
-    {
-        return location;
     }
 
     @Override

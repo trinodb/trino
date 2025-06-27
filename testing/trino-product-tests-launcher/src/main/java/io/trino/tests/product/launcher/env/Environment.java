@@ -181,7 +181,7 @@ public final class Environment
             log.info("Started environment %s with containers:\n%s", name, table.render());
 
             // After deepStart all containers should be running and healthy
-            checkState(allContainersHealthy(containers), format("The containers %s are not running or healthy", unhealthyContainers(containers)));
+            checkState(allContainersHealthy(containers), "The containers %s are not running or healthy", unhealthyContainers(containers));
 
             listener.environmentStarted(this);
             return this;

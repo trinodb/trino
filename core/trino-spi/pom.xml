@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>475-SNAPSHOT</version>
+        <version>477-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -172,7 +172,7 @@
             <plugin>
                 <groupId>org.revapi</groupId>
                 <artifactId>revapi-maven-plugin</artifactId>
-                <version>0.15.0</version>
+                <version>0.15.1</version>
                 <configuration>
                     <skip>${trino.check.skip-revapi}</skip>
                     <ignoreSuggestionsFormat>xml</ignoreSuggestionsFormat>
@@ -218,144 +218,6 @@
                                 </item>
                                 <!-- Backwards incompatible changes since the previous release -->
                                 <!-- Any exclusions below can be deleted after each release -->
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.removed</code>
-                                    <old>method java.lang.String io.trino.spi.block.ArrayBlock::getEncodingName()</old>
-                                    <justification>Removal of bidrectional coupling of Blocks and BlockEncodings</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.removed</code>
-                                    <old>method java.lang.String io.trino.spi.block.Block::getEncodingName()</old>
-                                    <justification>Removal of bidrectional coupling of Blocks and BlockEncodings</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.addedToInterface</code>
-                                    <new>method java.lang.Class&lt;? extends io.trino.spi.block.Block&gt; io.trino.spi.block.BlockEncoding::getBlockClass()</new>
-                                    <justification>Removal of bidrectional coupling of Blocks and BlockEncodings</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.removed</code>
-                                    <old>method java.lang.String io.trino.spi.block.ByteArrayBlock::getEncodingName()</old>
-                                    <justification>Removal of bidrectional coupling of Blocks and BlockEncodings</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.removed</code>
-                                    <old>method java.lang.String io.trino.spi.block.DictionaryBlock::getEncodingName()</old>
-                                    <justification>Removal of bidrectional coupling of Blocks and BlockEncodings</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.removed</code>
-                                    <old>method java.lang.String io.trino.spi.block.Fixed12Block::getEncodingName()</old>
-                                    <justification>Removal of bidrectional coupling of Blocks and BlockEncodings</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.removed</code>
-                                    <old>method java.lang.String io.trino.spi.block.Int128ArrayBlock::getEncodingName()</old>
-                                    <justification>Removal of bidrectional coupling of Blocks and BlockEncodings</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.removed</code>
-                                    <old>method java.lang.String io.trino.spi.block.IntArrayBlock::getEncodingName()</old>
-                                    <justification>Removal of bidrectional coupling of Blocks and BlockEncodings</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.removed</code>
-                                    <old>method java.lang.String io.trino.spi.block.LazyBlock::getEncodingName()</old>
-                                    <justification>Removal of bidrectional coupling of Blocks and BlockEncodings</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.removed</code>
-                                    <old>method java.lang.String io.trino.spi.block.LongArrayBlock::getEncodingName()</old>
-                                    <justification>Removal of bidrectional coupling of Blocks and BlockEncodings</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.removed</code>
-                                    <old>method java.lang.String io.trino.spi.block.MapBlock::getEncodingName()</old>
-                                    <justification>Removal of bidrectional coupling of Blocks and BlockEncodings</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.removed</code>
-                                    <old>method java.lang.String io.trino.spi.block.RowBlock::getEncodingName()</old>
-                                    <justification>Removal of bidrectional coupling of Blocks and BlockEncodings</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.removed</code>
-                                    <old>method java.lang.String io.trino.spi.block.RunLengthEncodedBlock::getEncodingName()</old>
-                                    <justification>Removal of bidrectional coupling of Blocks and BlockEncodings</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.removed</code>
-                                    <old>method java.lang.String io.trino.spi.block.ShortArrayBlock::getEncodingName()</old>
-                                    <justification>Removal of bidrectional coupling of Blocks and BlockEncodings</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.removed</code>
-                                    <old>method java.lang.String io.trino.spi.block.VariableWidthBlock::getEncodingName()</old>
-                                    <justification>Removal of bidrectional coupling of Blocks and BlockEncodings</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.removed</code>
-                                    <old>method long io.trino.spi.connector.Connector::getInitialMemoryRequirement()</old>
-                                    <justification>Remove unused connector method</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.addedToInterface</code>
-                                    <new>method int io.trino.spi.type.Type::getFlatVariableWidthLength(byte[], int)</new>
-                                    <justification>New interface method required for new flat variable width data layouts</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.removed</code>
-                                    <old>method int io.trino.spi.type.Type::relocateFlatVariableWidthOffsets(byte[], int, byte[], int)</old>
-                                    <justification>Remove flat offsets relocation method since offsets are no longer stored in flat representations</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.removed</code>
-                                    <old>method int io.trino.spi.type.AbstractVariableWidthType::relocateFlatVariableWidthOffsets(byte[], int, byte[], int)</old>
-                                    <justification>Remove flat offsets relocation method since offsets are no longer stored in flat representations</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.removed</code>
-                                    <old>method int io.trino.spi.type.ArrayType::relocateFlatVariableWidthOffsets(byte[], int, byte[], int)</old>
-                                    <justification>Remove flat offsets relocation method since offsets are no longer stored in flat representations</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.removed</code>
-                                    <old>method int io.trino.spi.type.FixedWidthType::relocateFlatVariableWidthOffsets(byte[], int, byte[], int)</old>
-                                    <justification>Remove flat offsets relocation method since offsets are no longer stored in flat representations</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.removed</code>
-                                    <old>method int io.trino.spi.type.MapType::relocateFlatVariableWidthOffsets(byte[], int, byte[], int)</old>
-                                    <justification>Remove flat offsets relocation method since offsets are no longer stored in flat representations</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.removed</code>
-                                    <old>method int io.trino.spi.type.RowType::relocateFlatVariableWidthOffsets(byte[], int, byte[], int)</old>
-                                    <justification>Remove flat offsets relocation method since offsets are no longer stored in flat representations</justification>
-                                </item>
                                 <item>
                                     <code>java.method.removed</code>
                                     <old>method io.trino.spi.Page io.trino.spi.Page::getLoadedPage(int[], int[])</old>
@@ -451,6 +313,342 @@
                                     <ignore>true</ignore>
                                     <code>java.method.numberOfParametersChanged</code>
                                     <old>method void io.trino.spi.eventlistener.QueryStatistics::&lt;init&gt;(java.time.Duration, java.time.Duration, java.time.Duration, java.time.Duration, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, double, double, java.util.List&lt;io.trino.spi.eventlistener.StageGcStatistics&gt;, int, boolean, java.util.List&lt;io.trino.spi.eventlistener.StageCpuDistribution&gt;, java.util.List&lt;io.trino.spi.eventlistener.StageOutputBufferUtilization&gt;, java.util.List&lt;io.trino.spi.eventlistener.StageOutputBufferMetrics&gt;, java.util.List&lt;io.trino.spi.eventlistener.StageTaskStatistics&gt;, java.util.function.Supplier&lt;java.util.List&lt;java.lang.String&gt;&gt;, java.util.List&lt;io.trino.spi.eventlistener.QueryPlanOptimizerStatistics&gt;, java.util.Optional&lt;java.lang.String&gt;)</old>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.returnTypeChanged</code>
+                                    <old>method io.trino.spi.eventlistener.DoubleSymmetricDistribution io.trino.spi.eventlistener.StageTaskStatistics::getGetSplitDistribution()</old>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeChanged</code>
+                                    <old>method void io.trino.spi.eventlistener.StageTaskStatistics::&lt;init&gt;(int, int, io.trino.spi.eventlistener.LongDistribution, io.trino.spi.eventlistener.LongDistribution, io.trino.spi.eventlistener.LongDistribution, io.trino.spi.eventlistener.LongDistribution, io.trino.spi.eventlistener.LongDistribution, io.trino.spi.eventlistener.LongDistribution, io.trino.spi.eventlistener.LongDistribution, io.trino.spi.eventlistener.LongDistribution, io.trino.spi.eventlistener.LongDistribution, io.trino.spi.eventlistener.LongDistribution, io.trino.spi.eventlistener.LongDistribution, io.trino.spi.eventlistener.LongSymmetricDistribution, io.trino.spi.eventlistener.LongSymmetricDistribution, io.trino.spi.eventlistener.LongSymmetricDistribution, io.trino.spi.eventlistener.LongSymmetricDistribution, io.trino.spi.eventlistener.LongSymmetricDistribution, io.trino.spi.eventlistener.LongSymmetricDistribution, io.trino.spi.eventlistener.DoubleSymmetricDistribution, io.trino.spi.eventlistener.DoubleSymmetricDistribution, io.trino.spi.eventlistener.DoubleSymmetricDistribution, io.trino.spi.eventlistener.DoubleSymmetricDistribution, io.trino.spi.eventlistener.DoubleSymmetricDistribution, io.trino.spi.eventlistener.DoubleSymmetricDistribution, io.trino.spi.eventlistener.DoubleSymmetricDistribution)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.OptionalInt io.trino.spi.block.ArrayBlock::fixedSizeInBytesPerPosition()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.block.ArrayBlock::getPositionsSizeInBytes(boolean[], int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.OptionalInt io.trino.spi.block.Block::fixedSizeInBytesPerPosition()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.block.Block::getPositionsSizeInBytes(boolean[], int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.OptionalInt io.trino.spi.block.ByteArrayBlock::fixedSizeInBytesPerPosition()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.block.ByteArrayBlock::getPositionsSizeInBytes(boolean[], int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.OptionalInt io.trino.spi.block.DictionaryBlock::fixedSizeInBytesPerPosition()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.block.DictionaryBlock::getPositionsSizeInBytes(boolean[], int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.OptionalInt io.trino.spi.block.Fixed12Block::fixedSizeInBytesPerPosition()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.block.Fixed12Block::getPositionsSizeInBytes(boolean[], int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.OptionalInt io.trino.spi.block.Int128ArrayBlock::fixedSizeInBytesPerPosition()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.block.Int128ArrayBlock::getPositionsSizeInBytes(boolean[], int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.OptionalInt io.trino.spi.block.IntArrayBlock::fixedSizeInBytesPerPosition()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.block.IntArrayBlock::getPositionsSizeInBytes(boolean[], int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.OptionalInt io.trino.spi.block.LongArrayBlock::fixedSizeInBytesPerPosition()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.block.LongArrayBlock::getPositionsSizeInBytes(boolean[], int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.OptionalInt io.trino.spi.block.MapBlock::fixedSizeInBytesPerPosition()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.block.MapBlock::getPositionsSizeInBytes(boolean[], int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.OptionalInt io.trino.spi.block.RowBlock::fixedSizeInBytesPerPosition()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.block.RowBlock::getPositionsSizeInBytes(boolean[], int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.OptionalInt io.trino.spi.block.RunLengthEncodedBlock::fixedSizeInBytesPerPosition()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.block.RunLengthEncodedBlock::getPositionsSizeInBytes(boolean[], int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.OptionalInt io.trino.spi.block.ShortArrayBlock::fixedSizeInBytesPerPosition()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.block.ShortArrayBlock::getPositionsSizeInBytes(boolean[], int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.OptionalInt io.trino.spi.block.VariableWidthBlock::fixedSizeInBytesPerPosition()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.block.VariableWidthBlock::getPositionsSizeInBytes(boolean[], int)</old>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method java.lang.Object io.trino.spi.type.ArrayType::getObjectValue(io.trino.spi.connector.ConnectorSession, io.trino.spi.block.Block, int)</old>
+                                    <new>method java.lang.Object io.trino.spi.type.ArrayType::getObjectValue(io.trino.spi.block.Block, int)</new>
+                                    <justification>Type cleanup</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method java.lang.Object io.trino.spi.type.BigintType::getObjectValue(io.trino.spi.connector.ConnectorSession, io.trino.spi.block.Block, int)</old>
+                                    <new>method java.lang.Object io.trino.spi.type.BigintType::getObjectValue(io.trino.spi.block.Block, int)</new>
+                                    <justification>Type cleanup</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method java.lang.Object io.trino.spi.type.BooleanType::getObjectValue(io.trino.spi.connector.ConnectorSession, io.trino.spi.block.Block, int)</old>
+                                    <new>method java.lang.Object io.trino.spi.type.BooleanType::getObjectValue(io.trino.spi.block.Block, int)</new>
+                                    <justification>Type cleanup</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method java.lang.Object io.trino.spi.type.CharType::getObjectValue(io.trino.spi.connector.ConnectorSession, io.trino.spi.block.Block, int)</old>
+                                    <new>method java.lang.Object io.trino.spi.type.CharType::getObjectValue(io.trino.spi.block.Block, int)</new>
+                                    <justification>Type cleanup</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method java.lang.Object io.trino.spi.type.DateType::getObjectValue(io.trino.spi.connector.ConnectorSession, io.trino.spi.block.Block, int)</old>
+                                    <new>method java.lang.Object io.trino.spi.type.DateType::getObjectValue(io.trino.spi.block.Block, int)</new>
+                                    <justification>Type cleanup</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method java.lang.Object io.trino.spi.type.DoubleType::getObjectValue(io.trino.spi.connector.ConnectorSession, io.trino.spi.block.Block, int)</old>
+                                    <new>method java.lang.Object io.trino.spi.type.DoubleType::getObjectValue(io.trino.spi.block.Block, int)</new>
+                                    <justification>Type cleanup</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method java.lang.Object io.trino.spi.type.HyperLogLogType::getObjectValue(io.trino.spi.connector.ConnectorSession, io.trino.spi.block.Block, int)</old>
+                                    <new>method java.lang.Object io.trino.spi.type.HyperLogLogType::getObjectValue(io.trino.spi.block.Block, int)</new>
+                                    <justification>Type cleanup</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method java.lang.Object io.trino.spi.type.IntegerType::getObjectValue(io.trino.spi.connector.ConnectorSession, io.trino.spi.block.Block, int)</old>
+                                    <new>method java.lang.Object io.trino.spi.type.IntegerType::getObjectValue(io.trino.spi.block.Block, int)</new>
+                                    <justification>Type cleanup</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method java.lang.Object io.trino.spi.type.MapType::getObjectValue(io.trino.spi.connector.ConnectorSession, io.trino.spi.block.Block, int)</old>
+                                    <new>method java.lang.Object io.trino.spi.type.MapType::getObjectValue(io.trino.spi.block.Block, int)</new>
+                                    <justification>Type cleanup</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method java.lang.Object io.trino.spi.type.P4HyperLogLogType::getObjectValue(io.trino.spi.connector.ConnectorSession, io.trino.spi.block.Block, int)</old>
+                                    <new>method java.lang.Object io.trino.spi.type.P4HyperLogLogType::getObjectValue(io.trino.spi.block.Block, int)</new>
+                                    <justification>Type cleanup</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method java.lang.Object io.trino.spi.type.QuantileDigestType::getObjectValue(io.trino.spi.connector.ConnectorSession, io.trino.spi.block.Block, int)</old>
+                                    <new>method java.lang.Object io.trino.spi.type.QuantileDigestType::getObjectValue(io.trino.spi.block.Block, int)</new>
+                                    <justification>Type cleanup</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method java.lang.Object io.trino.spi.type.RealType::getObjectValue(io.trino.spi.connector.ConnectorSession, io.trino.spi.block.Block, int)</old>
+                                    <new>method java.lang.Object io.trino.spi.type.RealType::getObjectValue(io.trino.spi.block.Block, int)</new>
+                                    <justification>Type cleanup</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method java.lang.Object io.trino.spi.type.RowType::getObjectValue(io.trino.spi.connector.ConnectorSession, io.trino.spi.block.Block, int)</old>
+                                    <new>method java.lang.Object io.trino.spi.type.RowType::getObjectValue(io.trino.spi.block.Block, int)</new>
+                                    <justification>Type cleanup</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method java.lang.Object io.trino.spi.type.SmallintType::getObjectValue(io.trino.spi.connector.ConnectorSession, io.trino.spi.block.Block, int)</old>
+                                    <new>method java.lang.Object io.trino.spi.type.SmallintType::getObjectValue(io.trino.spi.block.Block, int)</new>
+                                    <justification>Type cleanup</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method java.lang.Object io.trino.spi.type.TimeType::getObjectValue(io.trino.spi.connector.ConnectorSession, io.trino.spi.block.Block, int)</old>
+                                    <new>method java.lang.Object io.trino.spi.type.TimeType::getObjectValue(io.trino.spi.block.Block, int)</new>
+                                    <justification>Type cleanup</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method java.lang.Object io.trino.spi.type.TinyintType::getObjectValue(io.trino.spi.connector.ConnectorSession, io.trino.spi.block.Block, int)</old>
+                                    <new>method java.lang.Object io.trino.spi.type.TinyintType::getObjectValue(io.trino.spi.block.Block, int)</new>
+                                    <justification>Type cleanup</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method java.lang.Object io.trino.spi.type.Type::getObjectValue(io.trino.spi.connector.ConnectorSession, io.trino.spi.block.Block, int)</old>
+                                    <new>method java.lang.Object io.trino.spi.type.Type::getObjectValue(io.trino.spi.block.Block, int)</new>
+                                    <justification>Type cleanup</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method java.lang.Object io.trino.spi.type.UuidType::getObjectValue(io.trino.spi.connector.ConnectorSession, io.trino.spi.block.Block, int)</old>
+                                    <new>method java.lang.Object io.trino.spi.type.UuidType::getObjectValue(io.trino.spi.block.Block, int)</new>
+                                    <justification>Type cleanup</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method java.lang.Object io.trino.spi.type.VarbinaryType::getObjectValue(io.trino.spi.connector.ConnectorSession, io.trino.spi.block.Block, int)</old>
+                                    <new>method java.lang.Object io.trino.spi.type.VarbinaryType::getObjectValue(io.trino.spi.block.Block, int)</new>
+                                    <justification>Type cleanup</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method java.lang.Object io.trino.spi.type.VarcharType::getObjectValue(io.trino.spi.connector.ConnectorSession, io.trino.spi.block.Block, int)</old>
+                                    <new>method java.lang.Object io.trino.spi.type.VarcharType::getObjectValue(io.trino.spi.block.Block, int)</new>
+                                    <justification>Type cleanup</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeChanged</code>
+                                    <old>parameter java.lang.String io.trino.spi.predicate.AllOrNoneValueSet::toString(===io.trino.spi.connector.ConnectorSession===)</old>
+                                    <new>parameter java.lang.String io.trino.spi.predicate.AllOrNoneValueSet::toString(===int===)</new>
+                                    <parameterIndex>0</parameterIndex>
+                                    <justification>Type cleanup</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.String io.trino.spi.predicate.AllOrNoneValueSet::toString(io.trino.spi.connector.ConnectorSession, int)</old>
+                                    <justification>Type cleanup</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeChanged</code>
+                                    <old>parameter java.lang.String io.trino.spi.predicate.Domain::toString(===io.trino.spi.connector.ConnectorSession===)</old>
+                                    <new>parameter java.lang.String io.trino.spi.predicate.Domain::toString(===int===)</new>
+                                    <parameterIndex>0</parameterIndex>
+                                    <justification>Type cleanup</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.String io.trino.spi.predicate.Domain::toString(io.trino.spi.connector.ConnectorSession, int)</old>
+                                    <justification>Type cleanup</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeChanged</code>
+                                    <old>parameter java.lang.String io.trino.spi.predicate.EquatableValueSet::toString(===io.trino.spi.connector.ConnectorSession===)</old>
+                                    <new>parameter java.lang.String io.trino.spi.predicate.EquatableValueSet::toString(===int===)</new>
+                                    <parameterIndex>0</parameterIndex>
+                                    <justification>Type cleanup</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.String io.trino.spi.predicate.EquatableValueSet::toString(io.trino.spi.connector.ConnectorSession, int)</old>
+                                    <justification>Type cleanup</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.String io.trino.spi.predicate.Range::toString(io.trino.spi.connector.ConnectorSession)</old>
+                                    <justification>Type cleanup</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeChanged</code>
+                                    <old>parameter java.lang.String io.trino.spi.predicate.SortedRangeSet::toString(===io.trino.spi.connector.ConnectorSession===)</old>
+                                    <new>parameter java.lang.String io.trino.spi.predicate.SortedRangeSet::toString(===int===)</new>
+                                    <parameterIndex>0</parameterIndex>
+                                    <justification>Type cleanup</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.String io.trino.spi.predicate.SortedRangeSet::toString(io.trino.spi.connector.ConnectorSession, int)</old>
+                                    <justification>Type cleanup</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.String io.trino.spi.predicate.TupleDomain&lt;T&gt;::toString(io.trino.spi.connector.ConnectorSession)</old>
+                                    <justification>Type cleanup</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeChanged</code>
+                                    <old>parameter java.lang.String io.trino.spi.predicate.ValueSet::toString(===io.trino.spi.connector.ConnectorSession===)</old>
+                                    <new>parameter java.lang.String io.trino.spi.predicate.ValueSet::toString(===int===)</new>
+                                    <parameterIndex>0</parameterIndex>
+                                    <justification>Type cleanup</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.String io.trino.spi.predicate.ValueSet::toString(io.trino.spi.connector.ConnectorSession, int)</old>
+                                    <justification>Type cleanup</justification>
                                 </item>
                             </differences>
                         </revapi.differences>

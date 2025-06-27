@@ -105,6 +105,7 @@ import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.encodeMa
 import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.fromConnectorMaterializedViewDefinition;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewProperties.STORAGE_SCHEMA;
 import static io.trino.plugin.iceberg.IcebergSchemaProperties.LOCATION_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.isUseFileSizeFromMetadata;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableWithMetadata;
 import static io.trino.plugin.iceberg.IcebergUtil.loadIcebergTable;
 import static io.trino.plugin.iceberg.IcebergUtil.quotedTableName;
@@ -608,7 +609,7 @@ public class TrinoHiveCatalog
             }
             catch (RuntimeException e) {
                 try {
-                    dropMaterializedViewStorage(fileSystemFactory.create(session), storageMetadataLocation.toString());
+                    dropMaterializedViewStorage(session, fileSystemFactory.create(session), storageMetadataLocation.toString());
                 }
                 catch (Exception suppressed) {
                     log.warn(suppressed, "Failed to clean up metadata '%s' for materialized view '%s'", storageMetadataLocation, viewName);
@@ -743,7 +744,7 @@ public class TrinoHiveCatalog
             String storageMetadataLocation = view.getParameters().get(METADATA_LOCATION_PROP);
             checkState(storageMetadataLocation != null, "Storage location missing in definition of materialized view " + viewName);
             try {
-                dropMaterializedViewStorage(fileSystemFactory.create(session), storageMetadataLocation);
+                dropMaterializedViewStorage(session, fileSystemFactory.create(session), storageMetadataLocation);
             }
             catch (IOException e) {
                 log.warn(e, "Failed to delete storage table metadata '%s' for materialized view '%s'", storageMetadataLocation, viewName);
@@ -830,7 +831,7 @@ public class TrinoHiveCatalog
             String storageMetadataLocation = materializedView.getParameters().get(METADATA_LOCATION_PROP);
             checkState(storageMetadataLocation != null, "Storage location missing in definition of materialized view " + materializedView.getTableName());
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-            return TableMetadataParser.read(new ForwardingFileIo(fileSystem), storageMetadataLocation);
+            return TableMetadataParser.read(new ForwardingFileIo(fileSystem, isUseFileSizeFromMetadata(session)), storageMetadataLocation);
         });
     }
 

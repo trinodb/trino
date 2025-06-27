@@ -115,8 +115,7 @@ public class TestAnonymizeJsonRepresentation
                         "Aggregate",
                         ImmutableMap.of(
                                 "type", "FINAL",
-                                "keys", "[symbol_1, symbol_2]",
-                                "hash", "[]"),
+                                "keys", "[symbol_1, symbol_2]"),
                         ImmutableList.of(
                                 new Symbol(BIGINT, "symbol_1"),
                                 new Symbol(BIGINT, "symbol_2"),
@@ -143,15 +142,12 @@ public class TestAnonymizeJsonRepresentation
                         ImmutableList.of(pb.symbol("b", BIGINT)),
                         ImmutableList.of(),
                         Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
                         ImmutableMap.of(new DynamicFilterId("DF"), pb.symbol("d", BIGINT))),
                 new JsonRenderedNode(
                         "2",
                         "InnerJoin",
                         ImmutableMap.of(
-                                "criteria", "(\"symbol_1\" = \"symbol_2\")",
-                                "hash", "[]"),
+                                "criteria", "(\"symbol_1\" = \"symbol_2\")"),
                         ImmutableList.of(new Symbol(BIGINT, "symbol_3")),
                         ImmutableList.of("dynamicFilterAssignments = {symbol_2 -> #DF}"),
                         ImmutableList.of(),
@@ -248,6 +244,8 @@ public class TestAnonymizeJsonRepresentation
                     valuePrinter,
                     StatsAndCosts.empty(),
                     Optional.empty(),
+                    ImmutableMap.of(),
+                    ImmutableMap.of(),
                     new CounterBasedAnonymizer())
                     .toJson();
             assertThat(jsonRenderedNode).isEqualTo(JSON_RENDERED_NODE_CODEC.toJson(expectedRepresentation));

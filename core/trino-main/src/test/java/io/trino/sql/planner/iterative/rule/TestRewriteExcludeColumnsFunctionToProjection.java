@@ -13,6 +13,7 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.operator.table.ExcludeColumnsFunction.ExcludeColumnsFunctionHandle;
 import io.trino.sql.ir.Reference;
@@ -20,7 +21,6 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.junit.jupiter.api.Test;
-import org.testcontainers.shaded.com.google.common.collect.ImmutableList;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;

@@ -73,9 +73,9 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.tracing.TrinoAttributes;
 import jakarta.ws.rs.ServiceUnavailableException;
-import org.joda.time.DateTime;
 
 import java.net.URI;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -320,7 +320,7 @@ public final class HttpRemoteTask
                                 .collect(toImmutableList()));
             }
 
-            TaskInfo initialTask = createInitialTask(taskId, location, nodeId, this.speculative.get(), pipelinedBufferStates, new TaskStats(DateTime.now(), null));
+            TaskInfo initialTask = createInitialTask(taskId, location, nodeId, this.speculative.get(), pipelinedBufferStates, new TaskStats(Instant.now(), null));
 
             this.dynamicFiltersFetcher = new DynamicFiltersFetcher(
                     this::fatalUnacknowledgedFailure,

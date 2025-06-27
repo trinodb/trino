@@ -639,7 +639,7 @@ public abstract class BaseJdbcClient
     public Connection getConnection(ConnectorSession session, JdbcSplit split, JdbcTableHandle tableHandle)
             throws SQLException
     {
-        verify(tableHandle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s".formatted(tableHandle));
+        verify(tableHandle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s", tableHandle);
         return getConnection(session);
     }
 
@@ -673,7 +673,7 @@ public abstract class BaseJdbcClient
             List<JdbcColumnHandle> columns,
             Map<String, ParameterizedExpression> columnExpressions)
     {
-        verify(table.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s".formatted(table));
+        verify(table.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s", table);
         try (Connection connection = connectionFactory.openConnection(session)) {
             return prepareQuery(session, connection, table, groupingSets, columns, columnExpressions, Optional.empty());
         }
@@ -965,7 +965,7 @@ public abstract class BaseJdbcClient
         SchemaTableName schemaTableName = tableHandle.asPlainTable().getSchemaTableName();
         ConnectorIdentity identity = session.getIdentity();
 
-        verify(tableHandle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s".formatted(tableHandle));
+        verify(tableHandle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s", tableHandle);
         try (Connection connection = connectionFactory.openConnection(session)) {
             verify(connection.getAutoCommit());
             RemoteIdentifiers remoteIdentifiers = getRemoteIdentifiers(connection);
@@ -1075,7 +1075,7 @@ public abstract class BaseJdbcClient
     @Override
     public void renameTable(ConnectorSession session, JdbcTableHandle handle, SchemaTableName newTableName)
     {
-        verify(handle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s".formatted(handle));
+        verify(handle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s", handle);
         RemoteTableName remoteTableName = handle.asPlainTable().getRemoteTableName();
         renameTable(session, remoteTableName.getCatalogName().orElse(null), remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName(), newTableName);
     }
@@ -1324,7 +1324,7 @@ public abstract class BaseJdbcClient
     @Override
     public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column, ColumnPosition position)
     {
-        verify(handle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s".formatted(handle));
+        verify(handle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s", handle);
 
         switch (position) {
             case ColumnPosition.First _ -> throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with FIRST clause");
@@ -1364,7 +1364,7 @@ public abstract class BaseJdbcClient
     @Override
     public void renameColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
     {
-        verify(handle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s".formatted(handle));
+        verify(handle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s", handle);
         try (Connection connection = connectionFactory.openConnection(session)) {
             verify(connection.getAutoCommit());
             String newRemoteColumnName = identifierMapping.toRemoteColumnName(getRemoteIdentifiers(connection), newColumnName);
@@ -1389,7 +1389,7 @@ public abstract class BaseJdbcClient
     @Override
     public void dropColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column)
     {
-        verify(handle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s".formatted(handle));
+        verify(handle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s", handle);
         try (Connection connection = connectionFactory.openConnection(session)) {
             verify(connection.getAutoCommit());
             String remoteColumnName = identifierMapping.toRemoteColumnName(getRemoteIdentifiers(connection), column.getColumnName());
@@ -1442,7 +1442,7 @@ public abstract class BaseJdbcClient
     @Override
     public void dropTable(ConnectorSession session, JdbcTableHandle handle)
     {
-        verify(handle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s".formatted(handle));
+        verify(handle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s", handle);
         dropTable(session, handle.asPlainTable().getRemoteTableName(), false);
     }
 
@@ -1537,7 +1537,7 @@ public abstract class BaseJdbcClient
     @Override
     public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle)
     {
-        verify(handle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s".formatted(handle));
+        verify(handle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s", handle);
         return TableStatistics.empty();
     }
 
@@ -1728,7 +1728,7 @@ public abstract class BaseJdbcClient
     @Override
     public Map<String, Object> getTableProperties(ConnectorSession session, JdbcTableHandle tableHandle)
     {
-        verify(tableHandle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s".formatted(tableHandle));
+        verify(tableHandle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s", tableHandle);
         return emptyMap();
     }
 
@@ -1739,7 +1739,7 @@ public abstract class BaseJdbcClient
         checkArgument(handle.getLimit().isEmpty(), "Unable to delete when limit is set: %s", handle);
         checkArgument(handle.getSortOrder().isEmpty(), "Unable to delete when sort order is set: %s", handle);
         checkArgument(handle.getUpdateAssignments().isEmpty(), "Unable to delete when update assignments are set: %s", handle);
-        verify(handle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s".formatted(handle));
+        verify(handle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s", handle);
         try (Connection connection = connectionFactory.openConnection(session)) {
             verify(connection.getAutoCommit());
             PreparedQuery preparedQuery = queryBuilder.prepareDeleteQuery(
@@ -1765,7 +1765,7 @@ public abstract class BaseJdbcClient
         checkArgument(handle.getLimit().isEmpty(), "Unable to update when limit is set: %s", handle);
         checkArgument(handle.getSortOrder().isEmpty(), "Unable to update when sort order is set: %s", handle);
         checkArgument(!handle.getUpdateAssignments().isEmpty(), "Unable to update when update assignments are not set: %s", handle);
-        verify(handle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s".formatted(handle));
+        verify(handle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s", handle);
         try (Connection connection = connectionFactory.openConnection(session)) {
             verify(connection.getAutoCommit());
             PreparedQuery preparedQuery = queryBuilder.prepareUpdateQuery(
@@ -1788,7 +1788,7 @@ public abstract class BaseJdbcClient
     @Override
     public void truncateTable(ConnectorSession session, JdbcTableHandle handle)
     {
-        verify(handle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s".formatted(handle));
+        verify(handle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s", handle);
         String sql = "TRUNCATE TABLE " + quoted(handle.asPlainTable().getRemoteTableName());
         execute(session, sql);
     }

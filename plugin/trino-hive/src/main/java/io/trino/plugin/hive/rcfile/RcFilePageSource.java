@@ -35,6 +35,8 @@ import java.util.function.ObjLongConsumer;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
@@ -170,6 +172,8 @@ public class RcFilePageSource
     private final class RcFileSourcePage
             implements SourcePage
     {
+        private static final long INSTANCE_SIZE = instanceSize(RcFileSourcePage.class);
+
         private final int expectedBatchId = pageId;
         private final Block[] blocks = new Block[hiveColumnIndexes.length];
         private SelectedPositions selectedPositions;
@@ -180,6 +184,7 @@ public class RcFilePageSource
         public RcFileSourcePage(int positionCount)
         {
             selectedPositions = new SelectedPositions(positionCount, null);
+            retainedSizeInBytes = shallowRetainedSizeInBytes();
         }
 
         @Override
@@ -200,9 +205,19 @@ public class RcFilePageSource
             return retainedSizeInBytes;
         }
 
+        private long shallowRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE +
+                    sizeOf(blocks) +
+                    selectedPositions.retainedSizeInBytes();
+        }
+
         @Override
         public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
         {
+            consumer.accept(this, INSTANCE_SIZE);
+            consumer.accept(blocks, sizeOf(blocks));
+            consumer.accept(selectedPositions, selectedPositions.retainedSizeInBytes());
             for (Block block : blocks) {
                 if (block != null) {
                     block.retainedBytesForEachPart(consumer);
@@ -259,7 +274,7 @@ public class RcFilePageSource
         public void selectPositions(int[] positions, int offset, int size)
         {
             selectedPositions = selectedPositions.selectPositions(positions, offset, size);
-            retainedSizeInBytes = 0;
+            retainedSizeInBytes = shallowRetainedSizeInBytes();
             for (int i = 0; i < blocks.length; i++) {
                 Block block = blocks[i];
                 if (block != null) {
@@ -273,6 +288,13 @@ public class RcFilePageSource
 
     private record SelectedPositions(int positionCount, @Nullable int[] positions)
     {
+        private static final long INSTANCE_SIZE = instanceSize(SelectedPositions.class);
+
+        public long retainedSizeInBytes()
+        {
+            return INSTANCE_SIZE + sizeOf(positions);
+        }
+
         @CheckReturnValue
         public Block apply(Block block)
         {

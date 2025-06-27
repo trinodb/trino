@@ -67,12 +67,6 @@
         </artifact>
     </artifactSet>
 
-    <artifactSet to="plugin/example-http">
-        <artifact id="${project.groupId}:trino-example-http:zip:${project.version}">
-            <unpack />
-        </artifact>
-    </artifactSet>
-
     <artifactSet to="plugin/exasol">
         <artifact id="${project.groupId}:trino-exasol:zip:${project.version}">
             <unpack />
@@ -108,12 +102,6 @@
 
     <artifactSet to="plugin/http-event-listener">
         <artifact id="${project.groupId}:trino-http-event-listener:zip:${project.version}">
-            <unpack />
-        </artifact>
-    </artifactSet>
-
-    <artifactSet to="plugin/http-server-event-listener">
-        <artifact id="${project.groupId}:trino-http-server-event-listener:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>
@@ -157,6 +145,15 @@
     <artifactSet to="plugin/kafka-event-listener">
         <artifact id="${project.groupId}:trino-kafka-event-listener:zip:${project.version}">
             <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/lakehouse">
+        <artifact id="${project.groupId}:trino-lakehouse:zip:${project.version}">
+            <unpack />
+        </artifact>
+        <artifact id="${project.groupId}:trino-hdfs:zip:${project.version}">
+            <unpack useRoot="true" />
         </artifact>
     </artifactSet>
 

@@ -57,6 +57,7 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.connector.FixedPageSource;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.Utils;
@@ -75,6 +76,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -137,7 +139,7 @@ public class DeltaLakePageSourceProvider
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
-        this.parquetReaderOptions = parquetReaderConfig.toParquetReaderOptions().withBloomFilter(false);
+        this.parquetReaderOptions = ParquetReaderOptions.builder(parquetReaderConfig.toParquetReaderOptions()).withBloomFilter(false).build();
         this.domainCompactionThreshold = deltaLakeConfig.getDomainCompactionThreshold();
         this.parquetDateTimeZone = deltaLakeConfig.getParquetDateTimeZone();
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -221,12 +223,14 @@ public class DeltaLakePageSourceProvider
         Location location = Location.of(split.getPath());
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         TrinoInputFile inputFile = fileSystem.newInputFile(location, split.getFileSize());
-        ParquetReaderOptions options = parquetReaderOptions.withMaxReadBlockSize(getParquetMaxReadBlockSize(session))
+        ParquetReaderOptions options = ParquetReaderOptions.builder(parquetReaderOptions)
+                .withMaxReadBlockSize(getParquetMaxReadBlockSize(session))
                 .withMaxReadBlockRowCount(getParquetMaxReadBlockRowCount(session))
                 .withSmallFileThreshold(getParquetSmallFileThreshold(session))
                 .withUseColumnIndex(split.getDeletionVector().isEmpty() && isParquetUseColumnIndex(session))
                 .withIgnoreStatistics(isParquetIgnoreStatistics(session))
-                .withVectorizedDecodingEnabled(isParquetVectorizedDecodingEnabled(session));
+                .withVectorizedDecodingEnabled(isParquetVectorizedDecodingEnabled(session))
+                .build();
 
         Map<Integer, String> parquetFieldIdToName = columnMappingMode == ColumnMappingMode.ID ? loadParquetIdAndNameMapping(inputFile, options) : ImmutableMap.of();
 
@@ -272,7 +276,10 @@ public class DeltaLakePageSourceProvider
                 PositionDeleteFilter deleteFilter = readDeletes(fileSystem, Location.of(table.location()), split.getDeletionVector().get());
                 return deleteFilter.createPredicate(requiredColumns);
             });
-            delegate = TransformConnectorPageSource.create(delegate, page -> pageFilterSupplier.get().apply(page));
+
+            // trim output columns list so we do not expose PARQUET_ROW_INDEX_COLUMN added for internal purposes
+            int[] retainedColumns = IntStream.range(0, regularColumns.size()).toArray();
+            delegate = TransformConnectorPageSource.create(delegate, page -> SourcePage.create(pageFilterSupplier.get().apply(page).getColumns(retainedColumns)));
         }
 
         return projectColumns(
@@ -356,7 +363,7 @@ public class DeltaLakePageSourceProvider
     private Map<Integer, String> loadParquetIdAndNameMapping(TrinoInputFile inputFile, ParquetReaderOptions options)
     {
         try (ParquetDataSource dataSource = new TrinoParquetDataSource(inputFile, options, fileFormatDataSourceStats)) {
-            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, options.getMaxFooterReadSize());
             FileMetadata fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();
 

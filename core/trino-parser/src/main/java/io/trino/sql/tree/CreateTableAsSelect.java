@@ -33,19 +33,6 @@ public class CreateTableAsSelect
     private final Optional<List<Identifier>> columnAliases;
     private final Optional<String> comment;
 
-    @Deprecated
-    public CreateTableAsSelect(QualifiedName name, Query query, SaveMode saveMode, List<Property> properties, boolean withData, Optional<List<Identifier>> columnAliases, Optional<String> comment)
-    {
-        super(Optional.empty());
-        this.name = requireNonNull(name, "name is null");
-        this.query = requireNonNull(query, "query is null");
-        this.saveMode = requireNonNull(saveMode, "saveMode is null");
-        this.properties = ImmutableList.copyOf(requireNonNull(properties, "properties is null"));
-        this.withData = withData;
-        this.columnAliases = columnAliases;
-        this.comment = requireNonNull(comment, "comment is null");
-    }
-
     public CreateTableAsSelect(NodeLocation location, QualifiedName name, Query query, SaveMode saveMode, List<Property> properties, boolean withData, Optional<List<Identifier>> columnAliases, Optional<String> comment)
     {
         super(location);

@@ -171,7 +171,7 @@ public class TestMergeOperator
     public void testMergeDifferentTypes()
             throws Exception
     {
-        ImmutableList<Type> types = ImmutableList.of(BIGINT, INTEGER);
+        List<Type> types = ImmutableList.of(BIGINT, INTEGER);
         MergeOperator operator = createMergeOperator(types, ImmutableList.of(1, 0), ImmutableList.of(1, 0), ImmutableList.of(DESC_NULLS_FIRST, ASC_NULLS_FIRST));
         operator.addSplit(createRemoteSplit(TASK_1_ID));
         operator.addSplit(createRemoteSplit(TASK_2_ID));
@@ -201,7 +201,7 @@ public class TestMergeOperator
         taskBuffers.getUnchecked(TASK_2_ID).addPages(task2Pages, true);
         assertOperatorIsUnblocked(operator);
 
-        ImmutableList<Type> outputTypes = ImmutableList.of(INTEGER, BIGINT);
+        List<Type> outputTypes = ImmutableList.of(INTEGER, BIGINT);
         Page expected = rowPagesBuilder(outputTypes)
                 .row(null, 0)
                 .row(5, null)

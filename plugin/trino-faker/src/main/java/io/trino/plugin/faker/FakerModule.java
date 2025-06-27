@@ -15,11 +15,11 @@
 package io.trino.plugin.faker;
 
 import com.google.inject.Binder;
+import com.google.inject.Inject;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import io.trino.spi.NodeManager;
 import io.trino.spi.type.TypeManager;
-import jakarta.inject.Inject;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;

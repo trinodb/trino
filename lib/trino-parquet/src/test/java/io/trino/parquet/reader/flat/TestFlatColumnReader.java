@@ -64,7 +64,7 @@ public class TestFlatColumnReader
     @Override
     protected ColumnReader createColumnReader(PrimitiveField field)
     {
-        ColumnReaderFactory columnReaderFactory = new ColumnReaderFactory(UTC, new ParquetReaderOptions());
+        ColumnReaderFactory columnReaderFactory = new ColumnReaderFactory(UTC, ParquetReaderOptions.defaultOptions());
         ColumnReader columnReader = columnReaderFactory.create(field, newSimpleAggregatedMemoryContext());
         assertThat(columnReader).isInstanceOf(FlatColumnReader.class);
         return columnReader;

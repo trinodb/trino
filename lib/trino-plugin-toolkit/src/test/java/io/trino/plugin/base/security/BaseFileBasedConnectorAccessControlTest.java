@@ -570,7 +570,7 @@ public abstract class BaseFileBasedConnectorAccessControlTest
 
     private static void assertFilterSchemas(ConnectorAccessControl accessControl)
     {
-        ImmutableSet<String> allSchemas = ImmutableSet.of("specific-schema", "alice-schema", "bob-schema", "unknown", "ptf_schema", "procedure-schema");
+        Set<String> allSchemas = ImmutableSet.of("specific-schema", "alice-schema", "bob-schema", "unknown", "ptf_schema", "procedure-schema");
         assertThat(accessControl.filterSchemas(ADMIN, allSchemas)).isEqualTo(allSchemas);
         assertThat(accessControl.filterSchemas(ALICE, allSchemas)).isEqualTo(ImmutableSet.of("specific-schema", "alice-schema", "ptf_schema"));
         assertThat(accessControl.filterSchemas(BOB, allSchemas)).isEqualTo(ImmutableSet.of("specific-schema", "bob-schema", "procedure-schema"));
@@ -762,6 +762,31 @@ public abstract class BaseFileBasedConnectorAccessControlTest
         assertDenied(() -> accessControl.checkCanSetViewAuthorization(user("DENY_authorized", "owner"), ownedByGroup, new TrinoPrincipal(USER, "new_user")));
         assertDenied(() -> accessControl.checkCanSetViewAuthorization(user("user", "owner"), ownedByGroup, new TrinoPrincipal(USER, "new_user")));
         assertDenied(() -> accessControl.checkCanSetViewAuthorization(user("authorized", "owner"), ownedByGroup, new TrinoPrincipal(ROLE, "new_role")));
+    }
+
+    @Test
+    public void testMaterializedViewAuthorization()
+            throws Exception
+    {
+        ConnectorAccessControl accessControl = createAccessControl("authorization-no-roles.json");
+
+        SchemaTableName table = new SchemaTableName("test", "table");
+        SchemaTableName ownedByUser = new SchemaTableName("test", "owned_by_user");
+        SchemaTableName ownedByGroup = new SchemaTableName("test", "owned_by_group");
+
+        assertDenied(() -> accessControl.checkCanSetMaterializedViewAuthorization(user("user", "group"), table, new TrinoPrincipal(ROLE, "new_role")));
+
+        // access to schema granted to user
+        accessControl.checkCanSetMaterializedViewAuthorization(user("owner_authorized", "group"), ownedByUser, new TrinoPrincipal(USER, "new_user"));
+        assertDenied(() -> accessControl.checkCanSetMaterializedViewAuthorization(user("owner_DENY_authorized", "group"), ownedByUser, new TrinoPrincipal(USER, "new_user")));
+        assertDenied(() -> accessControl.checkCanSetMaterializedViewAuthorization(user("owner", "group"), ownedByUser, new TrinoPrincipal(USER, "new_user")));
+        assertDenied(() -> accessControl.checkCanSetMaterializedViewAuthorization(user("owner_authorized", "group"), ownedByUser, new TrinoPrincipal(ROLE, "new_role")));
+
+        // access to schema granted to group
+        accessControl.checkCanSetMaterializedViewAuthorization(user("authorized", "owner"), ownedByGroup, new TrinoPrincipal(USER, "new_user"));
+        assertDenied(() -> accessControl.checkCanSetMaterializedViewAuthorization(user("DENY_authorized", "owner"), ownedByGroup, new TrinoPrincipal(USER, "new_user")));
+        assertDenied(() -> accessControl.checkCanSetMaterializedViewAuthorization(user("user", "owner"), ownedByGroup, new TrinoPrincipal(USER, "new_user")));
+        assertDenied(() -> accessControl.checkCanSetMaterializedViewAuthorization(user("authorized", "owner"), ownedByGroup, new TrinoPrincipal(ROLE, "new_role")));
     }
 
     @Test

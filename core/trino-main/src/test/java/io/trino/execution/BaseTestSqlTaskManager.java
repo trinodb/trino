@@ -267,7 +267,7 @@ public abstract class BaseTestSqlTaskManager
     public void testSessionPropertyMemoryLimitOverride()
     {
         NodeMemoryConfig memoryConfig = new NodeMemoryConfig()
-                .setMaxQueryMemoryPerNode(DataSize.ofBytes(3));
+                .setMaxQueryMemoryPerNode("3B");
 
         try (SqlTaskManager sqlTaskManager = createSqlTaskManager(new TaskManagerConfig(), memoryConfig)) {
             TaskId reduceLimitsId = new TaskId(new StageId("q1", 0), 1, 0);
@@ -342,7 +342,7 @@ public abstract class BaseTestSqlTaskManager
                 new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of())));
     }
 
-    private TaskInfo createTask(SqlTaskManager sqlTaskManager, TaskId taskId, ImmutableSet<ScheduledSplit> splits, OutputBuffers outputBuffers)
+    private TaskInfo createTask(SqlTaskManager sqlTaskManager, TaskId taskId, Set<ScheduledSplit> splits, OutputBuffers outputBuffers)
     {
         return sqlTaskManager.updateTask(TEST_SESSION,
                 taskId,

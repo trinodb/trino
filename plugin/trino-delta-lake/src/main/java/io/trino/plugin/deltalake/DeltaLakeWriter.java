@@ -97,8 +97,9 @@ public final class DeltaLakeWriter
         this.fileWriter = requireNonNull(fileWriter, "fileWriter is null");
         this.rootTableLocation = requireNonNull(rootTableLocation, "rootTableLocation is null");
         this.relativeFilePath = requireNonNull(relativeFilePath, "relativeFilePath is null");
-        this.partitionValues = partitionValues;
-        this.stats = stats;
+        // Avoid ImmutableList.copyOf because partitionValues may have nulls
+        this.partitionValues = requireNonNull(partitionValues, "partitionValues is null");
+        this.stats = requireNonNull(stats, "stats is null");
         this.creationTime = Instant.now().toEpochMilli();
         this.columnHandles = requireNonNull(columnHandles, "columnHandles is null");
 

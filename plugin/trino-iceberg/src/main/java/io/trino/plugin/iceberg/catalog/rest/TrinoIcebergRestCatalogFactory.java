@@ -35,6 +35,7 @@ import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.rest.HTTPClient;
 import org.apache.iceberg.rest.RESTSessionCatalog;
+import org.apache.iceberg.rest.RESTUtil;
 
 import java.net.URI;
 import java.util.Map;
@@ -132,12 +133,15 @@ public class TrinoIcebergRestCatalogFactory
             }
 
             RESTSessionCatalog icebergCatalogInstance = new RESTSessionCatalog(
-                    config -> HTTPClient.builder(config).uri(config.get(CatalogProperties.URI)).build(),
+                    config -> HTTPClient.builder(config)
+                            .uri(config.get(CatalogProperties.URI))
+                            .withHeaders(RESTUtil.configHeaders(config))
+                            .build(),
                     (context, config) -> {
                         ConnectorIdentity currentIdentity = (context.wrappedIdentity() != null)
                                 ? ((ConnectorIdentity) context.wrappedIdentity())
                                 : ConnectorIdentity.ofUser("fake");
-                        return new ForwardingFileIo(fileSystemFactory.create(currentIdentity, config), config);
+                        return new ForwardingFileIo(fileSystemFactory.create(currentIdentity, config), config, true);
                     });
             icebergCatalogInstance.initialize(catalogName.toString(), properties.buildOrThrow());
 

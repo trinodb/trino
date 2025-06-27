@@ -116,12 +116,12 @@ public class ExchangeNode
         this.orderingScheme = orderingScheme;
     }
 
-    public static ExchangeNode partitionedExchange(PlanNodeId id, Scope scope, PlanNode child, List<Symbol> partitioningColumns, Optional<Symbol> hashColumns)
+    public static ExchangeNode partitionedExchange(PlanNodeId id, Scope scope, PlanNode child, List<Symbol> partitioningColumns)
     {
-        return partitionedExchange(id, scope, child, partitioningColumns, hashColumns, false);
+        return partitionedExchange(id, scope, child, partitioningColumns, false);
     }
 
-    public static ExchangeNode partitionedExchange(PlanNodeId id, Scope scope, PlanNode child, List<Symbol> partitioningColumns, Optional<Symbol> hashColumns, boolean replicateNullsAndAny)
+    public static ExchangeNode partitionedExchange(PlanNodeId id, Scope scope, PlanNode child, List<Symbol> partitioningColumns, boolean replicateNullsAndAny)
     {
         return partitionedExchange(
                 id,
@@ -130,7 +130,6 @@ public class ExchangeNode
                 new PartitioningScheme(
                         Partitioning.create(FIXED_HASH_DISTRIBUTION, partitioningColumns),
                         child.getOutputSymbols(),
-                        hashColumns,
                         replicateNullsAndAny,
                         Optional.empty(),
                         Optional.empty()));

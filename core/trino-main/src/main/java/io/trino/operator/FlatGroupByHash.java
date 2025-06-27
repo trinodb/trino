@@ -76,7 +76,7 @@ public class FlatGroupByHash
 
         checkArgument(expectedSize > 0, "expectedSize must be greater than zero");
 
-        int totalChannels = hashTypes.size() + (hashMode.isHashPrecomputed() ? 1 : 0);
+        int totalChannels = hashTypes.size();
         this.currentBlocks = new Block[totalChannels];
         this.currentBlockBuilders = new BlockBuilder[totalChannels];
 
@@ -127,6 +127,16 @@ public class FlatGroupByHash
     public int getGroupCount()
     {
         return flatHash.size();
+    }
+
+    @Override
+    public void startReleasingOutput()
+    {
+        currentHashes = null;
+        dictionaryLookBack = null;
+        Arrays.fill(currentBlocks, null);
+        currentPageSizeInBytes = 0;
+        flatHash.startReleasingOutput();
     }
 
     @Override
@@ -230,17 +240,7 @@ public class FlatGroupByHash
 
     private boolean canProcessDictionary(Block[] blocks)
     {
-        if (!processDictionary || !(blocks[0] instanceof DictionaryBlock inputDictionary)) {
-            return false;
-        }
-
-        if (!hashMode.isHashPrecomputed()) {
-            return true;
-        }
-
-        // dictionarySourceIds of data block and hash block must match
-        return blocks[1] instanceof DictionaryBlock hashDictionary &&
-                hashDictionary.getDictionarySourceId().equals(inputDictionary.getDictionarySourceId());
+        return processDictionary && blocks[0] instanceof DictionaryBlock;
     }
 
     private boolean canProcessLowCardinalityDictionary(Block[] blocks)
@@ -393,11 +393,10 @@ public class FlatGroupByHash
         {
             verify(canProcessDictionary(blocks), "invalid call to addDictionaryPage");
             this.dictionaryBlock = (DictionaryBlock) blocks[0];
-
-            this.dictionaries = Arrays.stream(blocks)
-                    .map(block -> (DictionaryBlock) block)
-                    .map(DictionaryBlock::getDictionary)
-                    .toArray(Block[]::new);
+            this.dictionaries = blocks;
+            for (int i = 0; i < dictionaries.length; i++) {
+                dictionaries[i] = ((DictionaryBlock) dictionaries[i]).getDictionary();
+            }
             updateDictionaryLookBack(dictionaries[0]);
         }
 
@@ -510,7 +509,7 @@ public class FlatGroupByHash
         public GetNonDictionaryGroupIdsWork(Block[] blocks)
         {
             this.blocks = blocks;
-            this.groupIds = new int[currentBlocks[0].getPositionCount()];
+            this.groupIds = new int[blocks[0].getPositionCount()];
         }
 
         @Override
@@ -620,13 +619,12 @@ public class FlatGroupByHash
             verify(canProcessDictionary(blocks), "invalid call to processDictionary");
 
             this.dictionaryBlock = (DictionaryBlock) blocks[0];
-            this.groupIds = new int[dictionaryBlock.getPositionCount()];
-
-            this.dictionaries = Arrays.stream(blocks)
-                    .map(block -> (DictionaryBlock) block)
-                    .map(DictionaryBlock::getDictionary)
-                    .toArray(Block[]::new);
+            this.dictionaries = blocks;
+            for (int i = 0; i < dictionaries.length; i++) {
+                dictionaries[i] = ((DictionaryBlock) dictionaries[i]).getDictionary();
+            }
             updateDictionaryLookBack(dictionaries[0]);
+            this.groupIds = new int[dictionaryBlock.getPositionCount()];
         }
 
         @Override

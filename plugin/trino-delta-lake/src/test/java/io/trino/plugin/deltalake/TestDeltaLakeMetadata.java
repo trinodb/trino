@@ -535,7 +535,7 @@ public class TestDeltaLakeMetadata
         return assignments.entrySet().stream()
                 .map(assignment -> {
                     DeltaLakeColumnHandle column = ((DeltaLakeColumnHandle) assignment.getValue());
-                    Type type = column.projectionInfo().map(DeltaLakeColumnProjectionInfo::getType).orElse(column.baseType());
+                    Type type = column.projectionInfo().map(DeltaLakeColumnProjectionInfo::type).orElse(column.baseType());
                     return new Assignment(
                             assignment.getKey(),
                             assignment.getValue(),

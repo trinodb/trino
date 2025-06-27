@@ -13,11 +13,11 @@
  */
 package io.trino.plugin.loki;
 
+import com.google.common.collect.ImmutableMap;
 import io.github.jeschkies.loki.client.LokiClient;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
-import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
 
 import java.time.Duration;
 import java.time.Instant;

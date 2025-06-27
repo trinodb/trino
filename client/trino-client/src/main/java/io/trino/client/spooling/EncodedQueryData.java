@@ -22,6 +22,7 @@ import io.trino.client.QueryData;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -84,6 +85,24 @@ public class EncodedQueryData
                 .toString();
     }
 
+    @Override
+    public boolean equals(Object o)
+    {
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        EncodedQueryData that = (EncodedQueryData) o;
+        return Objects.equals(encoding, that.encoding)
+                && Objects.equals(metadata, that.metadata)
+                && Objects.equals(segments, that.segments);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(encoding, metadata, segments);
+    }
+
     public static Builder builder(String encoding)
     {
         return new Builder(encoding);
@@ -93,6 +112,14 @@ public class EncodedQueryData
     public boolean isNull()
     {
         return segments.isEmpty();
+    }
+
+    @Override
+    public long getRowsCount()
+    {
+        return segments.stream()
+                .mapToLong(Segment::getRowsCount)
+                .sum();
     }
 
     public static class Builder

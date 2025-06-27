@@ -575,8 +575,6 @@ public class PredicatePushDown
                         rightSource.getOutputSymbols(),
                         node.isMaySkipOutputDuplicates(),
                         newJoinFilter,
-                        node.getLeftHashSymbol(),
-                        node.getRightHashSymbol(),
                         node.getDistributionType(),
                         node.isSpillable(),
                         dynamicFilters,
@@ -1023,8 +1021,8 @@ public class PredicatePushDown
                     .filter(conjunct -> !isInferenceCandidate(conjunct))
                     .toList();
 
-            ImmutableSet<Symbol> leftScope = ImmutableSet.copyOf(leftSymbols);
-            ImmutableSet<Symbol> rightScope = ImmutableSet.copyOf(rightSymbols);
+            Set<Symbol> leftScope = ImmutableSet.copyOf(leftSymbols);
+            Set<Symbol> rightScope = ImmutableSet.copyOf(rightSymbols);
 
             EqualityInference allInference = new EqualityInference(
                     ImmutableList.<Expression>builder()
@@ -1180,8 +1178,6 @@ public class PredicatePushDown
                             node.getRightOutputSymbols(),
                             node.isMaySkipOutputDuplicates(),
                             node.getFilter(),
-                            node.getLeftHashSymbol(),
-                            node.getRightHashSymbol(),
                             node.getDistributionType(),
                             node.isSpillable(),
                             node.getDynamicFilters(),
@@ -1197,8 +1193,6 @@ public class PredicatePushDown
                         node.getRightOutputSymbols(),
                         node.isMaySkipOutputDuplicates(),
                         node.getFilter(),
-                        node.getLeftHashSymbol(),
-                        node.getRightHashSymbol(),
                         node.getDistributionType(),
                         node.isSpillable(),
                         node.getDynamicFilters(),
@@ -1219,8 +1213,6 @@ public class PredicatePushDown
                     node.getRightOutputSymbols(),
                     node.isMaySkipOutputDuplicates(),
                     node.getFilter(),
-                    node.getLeftHashSymbol(),
-                    node.getRightHashSymbol(),
                     node.getDistributionType(),
                     node.isSpillable(),
                     node.getDynamicFilters(),
@@ -1332,7 +1324,7 @@ public class PredicatePushDown
             PlanNode rewrittenFilteringSource = context.defaultRewrite(node.getFilteringSource(), TRUE);
 
             // Push inheritedPredicates down to the source if they don't involve the semi join output
-            ImmutableSet<Symbol> sourceScope = ImmutableSet.copyOf(node.getSource().getOutputSymbols());
+            Set<Symbol> sourceScope = ImmutableSet.copyOf(node.getSource().getOutputSymbols());
             EqualityInference inheritedInference = new EqualityInference(inheritedPredicate);
             EqualityInference.nonInferrableConjuncts(inheritedPredicate).forEach(conjunct -> {
                 Expression rewrittenConjunct = inheritedInference.rewrite(conjunct, sourceScope);
@@ -1362,8 +1354,6 @@ public class PredicatePushDown
                         node.getSourceJoinSymbol(),
                         node.getFilteringSourceJoinSymbol(),
                         node.getSemiJoinOutput(),
-                        node.getSourceHashSymbol(),
-                        node.getFilteringSourceHashSymbol(),
                         node.getDistributionType(),
                         Optional.empty());
             }
@@ -1462,8 +1452,6 @@ public class PredicatePushDown
                         node.getSourceJoinSymbol(),
                         node.getFilteringSourceJoinSymbol(),
                         node.getSemiJoinOutput(),
-                        node.getSourceHashSymbol(),
-                        node.getFilteringSourceHashSymbol(),
                         node.getDistributionType(),
                         dynamicFilterId);
             }

@@ -15,7 +15,6 @@ package io.trino.plugin.hive.metastore.thrift;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.trino.hive.thrift.metastore.FieldSchema;
 import io.trino.metastore.AcidOperation;
 import io.trino.metastore.AcidTransactionOwner;
@@ -154,7 +153,7 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public List<String> getTableNamesWithParameters(String databaseName, String parameterKey, ImmutableSet<String> parameterValues)
+    public List<String> getTableNamesWithParameters(String databaseName, String parameterKey, Set<String> parameterValues)
     {
         return delegate.getTableNamesWithParameters(databaseName, parameterKey, parameterValues);
     }

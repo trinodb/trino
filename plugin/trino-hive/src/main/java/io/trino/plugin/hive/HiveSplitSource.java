@@ -263,7 +263,7 @@ class HiveSplitSource
                 throw new UnsupportedOperationException();
         }
 
-        ListenableFuture<ImmutableList<HiveSplit>> future = queues.borrowBatchAsync(maxSize, internalSplits -> {
+        ListenableFuture<List<HiveSplit>> future = queues.borrowBatchAsync(maxSize, internalSplits -> {
             ImmutableList.Builder<InternalHiveSplit> splitsToInsertBuilder = ImmutableList.builder();
             ImmutableList.Builder<HiveSplit> resultBuilder = ImmutableList.builder();
             int removedEstimatedSizeInBytes = 0;
@@ -286,7 +286,7 @@ class HiveSplitSource
                 InternalHiveBlock block = internalSplit.currentBlock();
                 long splitBytes;
                 if (internalSplit.isSplittable()) {
-                    long remainingBlockBytes = block.getEnd() - internalSplit.getStart();
+                    long remainingBlockBytes = block.end() - internalSplit.getStart();
                     if (remainingBlockBytes <= maxSplitBytes) {
                         splitBytes = remainingBlockBytes;
                     }
@@ -311,7 +311,7 @@ class HiveSplitSource
                         internalSplit.getFileModifiedTime(),
                         internalSplit.getSchema(),
                         internalSplit.getPartitionKeys(),
-                        cachingHostAddressProvider.getHosts(internalSplit.getPath(), block.getAddresses()),
+                        cachingHostAddressProvider.getHosts(internalSplit.getPath(), block.addresses()),
                         internalSplit.getReadBucketNumber(),
                         internalSplit.getTableBucketNumber(),
                         internalSplit.isForceLocalScheduling(),

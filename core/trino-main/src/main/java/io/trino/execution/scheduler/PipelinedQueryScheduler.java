@@ -70,9 +70,7 @@ import io.trino.sql.planner.SplitSourceFactory;
 import io.trino.sql.planner.SubPlan;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.PlanFragmentId;
-import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
-import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.tracing.TrinoAttributes;
@@ -123,6 +121,8 @@ import static io.trino.SystemSessionProperties.getRetryMaxDelay;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.getWriterScalingMinDataProcessed;
 import static io.trino.execution.QueryState.STARTING;
+import static io.trino.execution.scheduler.PipelinedQueryScheduler.ConstantKey.EMPTY;
+import static io.trino.execution.scheduler.PipelinedQueryScheduler.ConstantKey.ONE;
 import static io.trino.execution.scheduler.PipelinedStageExecution.createPipelinedStageExecution;
 import static io.trino.execution.scheduler.SourcePartitionedScheduler.newSourcePartitionedSchedulerAsStageScheduler;
 import static io.trino.execution.scheduler.StageExecution.State.ABORTED;
@@ -748,7 +748,7 @@ public class PipelinedQueryScheduler
             TaskFailureReporter failureReporter = new TaskFailureReporter(distributedStagesScheduler);
             queryStateMachine.addOutputTaskFailureListener(failureReporter);
 
-            InternalNode coordinator = nodeScheduler.createNodeSelector(queryStateMachine.getSession(), Optional.empty()).selectCurrentNode();
+            InternalNode coordinator = nodeScheduler.createNodeSelector(queryStateMachine.getSession()).selectCurrentNode();
             for (StageExecution stageExecution : stageExecutions) {
                 Optional<RemoteTask> remoteTask = stageExecution.scheduleTask(
                         coordinator,
@@ -970,12 +970,8 @@ public class PipelinedQueryScheduler
             result.putAll(bucketToPartitionForStagesConsumedByCoordinator);
             for (SqlStage stage : stageManager.getDistributedStagesInTopologicalOrder()) {
                 PlanFragment fragment = stage.getFragment();
-                Optional<int[]> bucketToPartition = getBucketToPartition(
-                        fragment.getPartitioning(),
-                        partitioningCache,
-                        fragment.getRoot(),
-                        fragment.getRemoteSourceNodes(),
-                        getFragmentMaxPartitionCount(session, fragment));
+                BucketToPartitionKey bucketToPartitionKey = getKeyForFragment(fragment, session);
+                Optional<int[]> bucketToPartition = getBucketToPartition(bucketToPartitionKey, partitioningCache);
                 for (SqlStage childStage : stageManager.getChildren(stage.getStageId())) {
                     result.put(childStage.getFragment().getId(), bucketToPartition);
                 }
@@ -983,29 +979,34 @@ public class PipelinedQueryScheduler
             return result.buildOrThrow();
         }
 
-        private static Optional<int[]> getBucketToPartition(
-                PartitioningHandle partitioningHandle,
-                Function<PartitioningKey, NodePartitionMap> partitioningCache,
-                PlanNode fragmentRoot,
-                List<RemoteSourceNode> remoteSourceNodes,
-                int partitionCount)
+        private static BucketToPartitionKey getKeyForFragment(PlanFragment fragment, Session session)
         {
+            PartitioningHandle partitioningHandle = fragment.getPartitioning();
+            int partitionCount = getFragmentMaxPartitionCount(session, fragment);
+
             if (partitioningHandle.equals(SOURCE_DISTRIBUTION) || partitioningHandle.equals(SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION)) {
-                return Optional.of(new int[1]);
+                return ONE;
             }
-            if (searchFrom(fragmentRoot).where(node -> node instanceof TableScanNode).findFirst().isPresent()) {
-                if (remoteSourceNodes.stream().allMatch(node -> node.getExchangeType() == REPLICATE)) {
-                    return Optional.empty();
+            if (searchFrom(fragment.getRoot()).where(node -> node instanceof TableScanNode).findFirst().isPresent() &&
+                    fragment.getRemoteSourceNodes().stream().allMatch(node -> node.getExchangeType() == REPLICATE)) {
+                return EMPTY;
+            }
+            return new PartitioningKey(partitioningHandle, partitionCount);
+        }
+
+        private static Optional<int[]> getBucketToPartition(BucketToPartitionKey bucketToPartitionKey, Function<PartitioningKey, NodePartitionMap> partitioningCache)
+        {
+            return switch (bucketToPartitionKey) {
+                case ONE -> Optional.of(new int[1]);
+                case EMPTY -> Optional.empty();
+                case PartitioningKey key -> {
+                    NodePartitionMap nodePartitionMap = partitioningCache.apply(key);
+                    List<InternalNode> partitionToNode = nodePartitionMap.getPartitionToNode();
+                    // todo this should asynchronously wait a standard timeout period before failing
+                    checkCondition(!partitionToNode.isEmpty(), NO_NODES_AVAILABLE, "No worker nodes available");
+                    yield Optional.of(nodePartitionMap.getBucketToPartition());
                 }
-                // remote source requires nodePartitionMap
-                NodePartitionMap nodePartitionMap = partitioningCache.apply(new PartitioningKey(partitioningHandle, partitionCount));
-                return Optional.of(nodePartitionMap.getBucketToPartition());
-            }
-            NodePartitionMap nodePartitionMap = partitioningCache.apply(new PartitioningKey(partitioningHandle, partitionCount));
-            List<InternalNode> partitionToNode = nodePartitionMap.getPartitionToNode();
-            // todo this should asynchronously wait a standard timeout period before failing
-            checkCondition(!partitionToNode.isEmpty(), NO_NODES_AVAILABLE, "No worker nodes available");
-            return Optional.of(nodePartitionMap.getBucketToPartition());
+            };
         }
 
         private static Map<PlanFragmentId, PipelinedOutputBufferManager> createOutputBufferManagers(
@@ -1083,9 +1084,7 @@ public class PipelinedQueryScheduler
                     Entry<PlanNodeId, SplitSource> entry = getOnlyElement(splitSources.entrySet());
                     PlanNodeId planNodeId = entry.getKey();
                     SplitSource splitSource = entry.getValue();
-                    Optional<CatalogHandle> catalogHandle = Optional.of(splitSource.getCatalogHandle())
-                            .filter(catalog -> !catalog.getType().isInternal());
-                    NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, catalogHandle);
+                    NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session);
                     SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeSelector, stageExecution::getAllTasks);
 
                     return newSourcePartitionedSchedulerAsStageScheduler(
@@ -1105,9 +1104,7 @@ public class PipelinedQueryScheduler
                         .collect(toImmutableSet());
                 checkState(allCatalogHandles.size() <= 1, "table scans that are within one stage should read from same catalog");
 
-                Optional<CatalogHandle> catalogHandle = allCatalogHandles.size() == 1 ? Optional.of(getOnlyElement(allCatalogHandles)) : Optional.empty();
-
-                NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, catalogHandle);
+                NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session);
                 return new MultiSourcePartitionedScheduler(
                         stageExecution,
                         splitSources,
@@ -1129,7 +1126,7 @@ public class PipelinedQueryScheduler
                         stageExecution,
                         sourceTasksProvider,
                         writerTasksProvider,
-                        nodeScheduler.createNodeSelector(session, Optional.empty()),
+                        nodeScheduler.createNodeSelector(session),
                         executor,
                         getWriterScalingMinDataProcessed(session),
                         partitionCount);
@@ -1151,15 +1148,13 @@ public class PipelinedQueryScheduler
 
             // contains local source
             List<PlanNodeId> schedulingOrder = fragment.getPartitionedSources();
-            Optional<CatalogHandle> catalogHandle = partitioningHandle.getCatalogHandle();
-            checkArgument(catalogHandle.isPresent(), "No catalog handle for partitioning handle: %s", partitioningHandle);
 
             BucketNodeMap bucketNodeMap;
             List<InternalNode> stageNodeList;
             if (fragment.getRemoteSourceNodes().stream().allMatch(node -> node.getExchangeType() == REPLICATE)) {
                 // no remote source
                 bucketNodeMap = nodePartitioningManager.getBucketNodeMap(session, partitioningHandle, partitionCount);
-                stageNodeList = new ArrayList<>(nodeScheduler.createNodeSelector(session, catalogHandle).allNodes());
+                stageNodeList = new ArrayList<>(nodeScheduler.createNodeSelector(session).allNodes());
                 Collections.shuffle(stageNodeList);
             }
             else {
@@ -1176,7 +1171,7 @@ public class PipelinedQueryScheduler
                     stageNodeList,
                     bucketNodeMap,
                     splitBatchSize,
-                    nodeScheduler.createNodeSelector(session, catalogHandle),
+                    nodeScheduler.createNodeSelector(session),
                     dynamicFilterService,
                     tableExecuteContextManager);
         }
@@ -1588,7 +1583,19 @@ public class PipelinedQueryScheduler
         }
     }
 
+    private sealed interface BucketToPartitionKey
+            permits ConstantKey, PartitioningKey
+    {}
+
+    enum ConstantKey
+            implements BucketToPartitionKey
+    {
+        ONE,
+        EMPTY,
+    }
+
     private record PartitioningKey(PartitioningHandle handle, int partitionCount)
+            implements BucketToPartitionKey
     {
         public PartitioningKey(PartitioningHandle handle, int partitionCount)
         {

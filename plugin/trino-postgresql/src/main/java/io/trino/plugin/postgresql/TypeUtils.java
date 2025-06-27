@@ -59,6 +59,8 @@ import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
+import static io.trino.spi.type.UuidType.UUID;
+import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
@@ -111,14 +113,14 @@ final class TypeUtils
         return client.toWriteMapping(session, elementType).getDataType();
     }
 
-    static Object[] getJdbcObjectArray(ConnectorSession session, Type elementType, Block block)
+    static Object[] getJdbcObjectArray(Type elementType, Block block)
             throws SQLException
     {
         int positionCount = block.getPositionCount();
         Object[] valuesArray = new Object[positionCount];
         int subArrayLength = 1;
         for (int i = 0; i < positionCount; i++) {
-            Object objectValue = trinoNativeToJdbcObject(session, elementType, readNativeValue(elementType, block, i));
+            Object objectValue = trinoNativeToJdbcObject(elementType, readNativeValue(elementType, block, i));
             valuesArray[i] = objectValue;
             if (objectValue != null && objectValue.getClass().isArray()) {
                 subArrayLength = Math.max(subArrayLength, Array.getLength(objectValue));
@@ -154,7 +156,7 @@ final class TypeUtils
         }
     }
 
-    private static Object trinoNativeToJdbcObject(ConnectorSession session, Type trinoType, Object trinoNative)
+    private static Object trinoNativeToJdbcObject(Type trinoType, Object trinoNative)
             throws SQLException
     {
         if (trinoNative == null) {
@@ -220,7 +222,11 @@ final class TypeUtils
 
         if (trinoType instanceof ArrayType arrayType) {
             // process subarray of multi-dimensional array
-            return getJdbcObjectArray(session, arrayType.getElementType(), (Block) trinoNative);
+            return getJdbcObjectArray(arrayType.getElementType(), (Block) trinoNative);
+        }
+
+        if (UUID.equals(trinoType)) {
+            return trinoUuidToJavaUuid((Slice) trinoNative);
         }
 
         throw new TrinoException(NOT_SUPPORTED, "Unsupported type: " + trinoType);

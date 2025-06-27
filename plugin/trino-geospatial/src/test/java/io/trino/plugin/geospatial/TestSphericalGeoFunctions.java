@@ -89,7 +89,7 @@ public class TestSphericalGeoFunctions
         }
         Block block = builder.build();
         for (int i = 0; i < wktList.size(); i++) {
-            assertThat(wktList.get(i)).isEqualTo(SPHERICAL_GEOGRAPHY.getObjectValue(null, block, i));
+            assertThat(wktList.get(i)).isEqualTo(SPHERICAL_GEOGRAPHY.getObjectValue(block, i));
         }
     }
 

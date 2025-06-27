@@ -36,6 +36,7 @@ import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterators.transform;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static io.airlift.concurrent.MoreFutures.asVoid;
 import static io.airlift.concurrent.MoreFutures.checkSuccess;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.util.MergeSortedPages.mergeSortedPages;
@@ -315,7 +316,7 @@ public class OrderByOperator
         }
 
         pageIndex.sort(sortChannels, sortOrder);
-        spillInProgress = spiller.get().spill(pageIndex.getSortedPages());
+        spillInProgress = asVoid(spiller.get().spill(pageIndex.getSortedPages()));
         finishMemoryRevoke = Optional.of(() -> {
             pageIndex.clear();
             updateMemoryUsage();

@@ -19,7 +19,6 @@ import com.google.errorprone.annotations.FormatMethod;
 import com.sun.management.UnixOperatingSystemMXBean;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import org.joda.time.DateTime;
 
 import java.lang.Runtime.Version;
 import java.lang.management.GarbageCollectorMXBean;
@@ -27,6 +26,7 @@ import java.lang.management.ManagementFactory;
 import java.nio.ByteOrder;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.time.Year;
 import java.util.List;
 import java.util.Locale;
 import java.util.OptionalLong;
@@ -100,7 +100,7 @@ final class TrinoSystemRequirements
 
     private static void verifyJavaVersion()
     {
-        Version required = Version.parse("23");
+        Version required = Version.parse("24.0.1");
         if (Runtime.version().compareTo(required) < 0) {
             failRequirement("Trino requires Java %s at minimum (found %s)", required, Runtime.version());
         }
@@ -173,8 +173,8 @@ final class TrinoSystemRequirements
      */
     private static void verifySystemTimeIsReasonable()
     {
-        int currentYear = DateTime.now().year().get();
-        if (currentYear < 2024) {
+        Year currentYear = Year.now();
+        if (currentYear.isBefore(Year.of(2025))) {
             failRequirement("Trino requires the system time to be current (found year %s)", currentYear);
         }
     }

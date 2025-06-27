@@ -37,8 +37,8 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.tracing.TrinoAttributes;
 import io.trino.util.Failures;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
-import org.joda.time.DateTime;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -46,6 +46,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -56,6 +57,7 @@ import java.util.function.Supplier;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.succinctDuration;
 import static io.trino.execution.StageState.ABORTED;
@@ -88,8 +90,9 @@ public class StageStateMachine
     private final Span stageSpan;
     private final AtomicReference<ExecutionFailureInfo> failureCause = new AtomicReference<>();
 
-    private final AtomicReference<DateTime> schedulingComplete = new AtomicReference<>();
-    private final Distribution getSplitDistribution = new Distribution();
+    private final AtomicReference<Instant> schedulingComplete = new AtomicReference<>();
+    private final Map<PlanNodeId, Distribution> getSplitDistribution = new ConcurrentHashMap<>();
+    private final Map<PlanNodeId, Metrics> splitSourceMetrics = new ConcurrentHashMap<>();
 
     private final AtomicLong peakUserMemory = new AtomicLong();
     private final AtomicLong peakRevocableMemory = new AtomicLong();
@@ -168,7 +171,7 @@ public class StageStateMachine
 
     public boolean transitionToRunning()
     {
-        schedulingComplete.compareAndSet(null, DateTime.now());
+        schedulingComplete.compareAndSet(null, Instant.now());
         return stageState.setIf(RUNNING, currentState -> currentState != RUNNING && !currentState.isDone());
     }
 
@@ -348,10 +351,7 @@ public class StageStateMachine
                 rawInputPositions += taskStats.getRawInputPositions();
             }
 
-            spilledDataSize += taskStats.getPipelines().stream()
-                    .flatMap(pipeline -> pipeline.getOperatorSummaries().stream())
-                    .mapToLong(summary -> summary.getSpilledDataSize().toBytes())
-                    .sum();
+            spilledDataSize += taskStats.getSpilledDataSize().toBytes();
         }
 
         OptionalDouble progressPercentage = OptionalDouble.empty();
@@ -437,6 +437,8 @@ public class StageStateMachine
         long peakUserMemoryReservation = peakUserMemory.get();
         long peakRevocableMemoryReservation = peakRevocableMemory.get();
 
+        long spilledDataSize = 0;
+
         long totalScheduledTime = 0;
         long failedScheduledTime = 0;
         long totalCpuTime = 0;
@@ -518,6 +520,8 @@ public class StageStateMachine
             if (taskFailedOrFailing) {
                 failedCumulativeUserMemory += taskStats.getCumulativeUserMemory();
             }
+
+            spilledDataSize += taskStats.getSpilledDataSize().toBytes();
 
             totalScheduledTime += taskStats.getTotalScheduledTime().roundTo(NANOSECONDS);
             totalCpuTime += taskStats.getTotalCpuTime().roundTo(NANOSECONDS);
@@ -604,7 +608,8 @@ public class StageStateMachine
 
         StageStats stageStats = new StageStats(
                 schedulingComplete.get(),
-                getSplitDistribution.snapshot(),
+                getSplitDistributionSnapshot(),
+                splitSourceMetrics,
 
                 totalTasks,
                 runningTasks,
@@ -624,6 +629,7 @@ public class StageStateMachine
                 succinctBytes(totalMemoryReservation),
                 succinctBytes(peakUserMemoryReservation),
                 succinctBytes(peakRevocableMemoryReservation),
+                succinctBytes(spilledDataSize),
                 succinctDuration(totalScheduledTime, NANOSECONDS),
                 succinctDuration(failedScheduledTime, NANOSECONDS),
                 succinctDuration(totalCpuTime, NANOSECONDS),
@@ -741,11 +747,12 @@ public class StageStateMachine
         return operatorStatsBuilder.build();
     }
 
-    public void recordGetSplitTime(long startNanos)
+    public void recordSplitSourceMetrics(PlanNodeId nodeId, Metrics metrics, long startNanos)
     {
         long elapsedNanos = System.nanoTime() - startNanos;
-        getSplitDistribution.add(elapsedNanos);
+        getSplitDistribution.computeIfAbsent(nodeId, (_) -> new Distribution()).add(elapsedNanos);
         scheduledStats.getGetSplitTime().add(elapsedNanos, NANOSECONDS);
+        splitSourceMetrics.put(nodeId, metrics);
     }
 
     @Override
@@ -755,5 +762,12 @@ public class StageStateMachine
                 .add("stageId", stageId)
                 .add("stageState", stageState)
                 .toString();
+    }
+
+    private Map<PlanNodeId, Distribution.DistributionSnapshot> getSplitDistributionSnapshot()
+    {
+        return getSplitDistribution.entrySet()
+                .stream()
+                .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().snapshot()));
     }
 }

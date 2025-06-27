@@ -95,7 +95,7 @@ public class DetermineTableScanNodePartitioning
         }
 
         int numberOfBuckets = bucketNodeMap.map(ConnectorBucketNodeMap::getBucketCount)
-                .orElseGet(() -> nodePartitioningManager.getNodeCount(session, partitioning.partitioningHandle()));
+                .orElseGet(() -> nodePartitioningManager.getNodeCount(session));
         int numberOfTasks = max(taskCountEstimator.estimateSourceDistributedTaskCount(session), 1);
 
         return node.withUseConnectorNodePartitioning((double) numberOfBuckets / numberOfTasks >= getTableScanNodePartitioningMinBucketToTaskRatio(session));

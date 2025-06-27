@@ -16,7 +16,6 @@ package io.trino.plugin.hive.parquet;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
-import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
@@ -29,13 +28,14 @@ import jakarta.validation.constraints.NotNull;
         "hive.parquet.fail-on-corrupted-statistics",
         "parquet.fail-on-corrupted-statistics",
         "parquet.optimized-reader.enabled",
-        "parquet.optimized-nested-reader.enabled"
+        "parquet.optimized-nested-reader.enabled",
+        "hive.parquet.max-read-block-size",
 })
 public class ParquetReaderConfig
 {
     public static final String PARQUET_READER_MAX_SMALL_FILE_THRESHOLD = "15MB";
 
-    private ParquetReaderOptions options = new ParquetReaderOptions();
+    private ParquetReaderOptions options = ParquetReaderOptions.defaultOptions();
 
     public boolean isIgnoreStatistics()
     {
@@ -46,7 +46,9 @@ public class ParquetReaderConfig
     @ConfigDescription("Ignore statistics from Parquet to allow querying files with corrupted or incorrect statistics")
     public ParquetReaderConfig setIgnoreStatistics(boolean ignoreStatistics)
     {
-        options = options.withIgnoreStatistics(ignoreStatistics);
+        options = ParquetReaderOptions.builder(options)
+                .withIgnoreStatistics(ignoreStatistics)
+                .build();
         return this;
     }
 
@@ -57,10 +59,11 @@ public class ParquetReaderConfig
     }
 
     @Config("parquet.max-read-block-size")
-    @LegacyConfig("hive.parquet.max-read-block-size")
     public ParquetReaderConfig setMaxReadBlockSize(DataSize maxReadBlockSize)
     {
-        options = options.withMaxReadBlockSize(maxReadBlockSize);
+        options = ParquetReaderOptions.builder(options)
+                .withMaxReadBlockSize(maxReadBlockSize)
+                .build();
         return this;
     }
 
@@ -75,7 +78,7 @@ public class ParquetReaderConfig
     @ConfigDescription("Maximum number of rows read in a batch")
     public ParquetReaderConfig setMaxReadBlockRowCount(int length)
     {
-        options = options.withMaxReadBlockRowCount(length);
+        options = ParquetReaderOptions.builder(options).withMaxReadBlockRowCount(length).build();
         return this;
     }
 
@@ -88,7 +91,9 @@ public class ParquetReaderConfig
     @Config("parquet.max-merge-distance")
     public ParquetReaderConfig setMaxMergeDistance(DataSize distance)
     {
-        options = options.withMaxMergeDistance(distance);
+        options = ParquetReaderOptions.builder(options)
+                .withMaxMergeDistance(distance)
+                .build();
         return this;
     }
 
@@ -102,7 +107,9 @@ public class ParquetReaderConfig
     @Config("parquet.max-buffer-size")
     public ParquetReaderConfig setMaxBufferSize(DataSize size)
     {
-        options = options.withMaxBufferSize(size);
+        options = ParquetReaderOptions.builder(options)
+                .withMaxBufferSize(size)
+                .build();
         return this;
     }
 
@@ -110,7 +117,9 @@ public class ParquetReaderConfig
     @ConfigDescription("Enable using Parquet column indexes")
     public ParquetReaderConfig setUseColumnIndex(boolean useColumnIndex)
     {
-        options = options.withUseColumnIndex(useColumnIndex);
+        options = ParquetReaderOptions.builder(options)
+                .withUseColumnIndex(useColumnIndex)
+                .build();
         return this;
     }
 
@@ -123,7 +132,9 @@ public class ParquetReaderConfig
     @ConfigDescription("Use Parquet Bloom filters")
     public ParquetReaderConfig setUseBloomFilter(boolean useBloomFilter)
     {
-        options = options.withBloomFilter(useBloomFilter);
+        options = ParquetReaderOptions.builder(options)
+                .withBloomFilter(useBloomFilter)
+                .build();
         return this;
     }
 
@@ -136,7 +147,9 @@ public class ParquetReaderConfig
     @ConfigDescription("Size below which a parquet file will be read entirely")
     public ParquetReaderConfig setSmallFileThreshold(DataSize smallFileThreshold)
     {
-        options = options.withSmallFileThreshold(smallFileThreshold);
+        options = ParquetReaderOptions.builder(options)
+                .withSmallFileThreshold(smallFileThreshold)
+                .build();
         return this;
     }
 
@@ -151,13 +164,31 @@ public class ParquetReaderConfig
     @ConfigDescription("Enable using Java Vector API for faster decoding of parquet files")
     public ParquetReaderConfig setVectorizedDecodingEnabled(boolean vectorizedDecodingEnabled)
     {
-        options = options.withVectorizedDecodingEnabled(vectorizedDecodingEnabled);
+        options = ParquetReaderOptions.builder(options)
+                .withVectorizedDecodingEnabled(vectorizedDecodingEnabled)
+                .build();
         return this;
     }
 
     public boolean isVectorizedDecodingEnabled()
     {
         return options.isVectorizedDecodingEnabled();
+    }
+
+    @Config("parquet.max-footer-read-size")
+    @ConfigDescription("Maximum allowed size of the parquet footer. Files with footers larger than this will generate an exception on read")
+    public ParquetReaderConfig setMaxFooterReadSize(DataSize maxFooterReadSize)
+    {
+        options = ParquetReaderOptions.builder(options)
+                .withMaxFooterReadSize(maxFooterReadSize)
+                .build();
+        return this;
+    }
+
+    @NotNull
+    public DataSize getMaxFooterReadSize()
+    {
+        return options.getMaxFooterReadSize();
     }
 
     public ParquetReaderOptions toParquetReaderOptions()

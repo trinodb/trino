@@ -148,7 +148,7 @@ public class ShowStatsRewrite
         {
             Query query = getRelation(node);
             Plan plan = queryExplainer.getLogicalPlan(session, query, parameters, warningCollector, planOptimizersStatsCollector);
-            CachingStatsProvider cachingStatsProvider = new CachingStatsProvider(statsCalculator, session, new CachingTableStatsProvider(metadata, session));
+            CachingStatsProvider cachingStatsProvider = new CachingStatsProvider(statsCalculator, session, new CachingTableStatsProvider(metadata, session, () -> false));
             PlanNodeStatsEstimate stats = cachingStatsProvider.getStats(plan.getRoot());
             return rewriteShowStats(plan, stats);
         }

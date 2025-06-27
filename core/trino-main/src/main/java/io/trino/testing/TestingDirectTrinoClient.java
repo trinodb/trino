@@ -28,7 +28,6 @@ import io.trino.spi.Page;
 import io.trino.spi.QueryId;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockEncodingSerde;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 import org.intellij.lang.annotations.Language;
 
@@ -70,7 +69,6 @@ public class TestingDirectTrinoClient
     private static MaterializedResult toMaterializedRows(DispatchQuery dispatchQuery, List<Type> columnTypes, List<String> columnNames, List<Page> pages)
     {
         QueryInfo queryInfo = dispatchQuery.getFullQueryInfo();
-        ConnectorSession session = dispatchQuery.getSession().toConnectorSession();
 
         if (queryInfo.getState() != FINISHED) {
             if (queryInfo.getFailureInfo() == null) {
@@ -96,7 +94,7 @@ public class TestingDirectTrinoClient
                     Optional.of(ProtocolUtil.toStatementStats(new ResultQueryInfo(queryInfo))));
         }
 
-        List<MaterializedRow> materializedRows = toMaterializedRows(session, columnTypes, pages);
+        List<MaterializedRow> materializedRows = toMaterializedRows(columnTypes, pages);
 
         OptionalLong updateCount = OptionalLong.empty();
         if (queryInfo.getUpdateType() != null && materializedRows.size() == 1 && columnTypes.size() == 1 && columnTypes.get(0).equals(BIGINT)) {
@@ -120,7 +118,7 @@ public class TestingDirectTrinoClient
                 Optional.of(ProtocolUtil.toStatementStats(new ResultQueryInfo(queryInfo))));
     }
 
-    private static List<MaterializedRow> toMaterializedRows(ConnectorSession session, List<Type> types, List<Page> pages)
+    public static List<MaterializedRow> toMaterializedRows(List<Type> types, List<Page> pages)
     {
         ImmutableList.Builder<MaterializedRow> rows = ImmutableList.builder();
         for (Page page : pages) {
@@ -130,7 +128,7 @@ public class TestingDirectTrinoClient
                 for (int channel = 0; channel < page.getChannelCount(); channel++) {
                     Type type = types.get(channel);
                     Block block = page.getBlock(channel);
-                    values.add(type.getObjectValue(session, block, position));
+                    values.add(type.getObjectValue(block, position));
                 }
                 values = Collections.unmodifiableList(values);
 

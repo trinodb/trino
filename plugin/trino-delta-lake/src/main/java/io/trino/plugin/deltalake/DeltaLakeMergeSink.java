@@ -386,7 +386,7 @@ public class DeltaLakeMergeSink
         }
         TrinoInputFile inputFile = fileSystem.newInputFile(Location.of(path.toStringUtf8()));
         try (ParquetDataSource dataSource = new TrinoParquetDataSource(inputFile, parquetReaderOptions, fileFormatDataSourceStats)) {
-            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource);
             long rowCount = parquetMetadata.getBlocks().stream().map(BlockMetadata::rowCount).mapToLong(Long::longValue).sum();
             RoaringBitmapArray rowsRetained = new RoaringBitmapArray();
             rowsRetained.addRange(0, rowCount - 1);
@@ -687,7 +687,7 @@ public class DeltaLakeMergeSink
                 true,
                 parquetDateTimeZone,
                 new FileFormatDataSourceStats(),
-                new ParquetReaderOptions().withBloomFilter(false),
+                ParquetReaderOptions.builder().withBloomFilter(false).build(),
                 Optional.empty(),
                 domainCompactionThreshold,
                 OptionalLong.of(fileSize));

@@ -144,7 +144,6 @@ public class PushDownDereferencesThroughWindow
                                                             oldFunction.isIgnoreNulls(),
                                                             oldFunction.isDistinct());
                                                 })),
-                                windowNode.getHashSymbol(),
                                 windowNode.getPrePartitionedInputs(),
                                 windowNode.getPreSortedOrderPrefix()),
                         newAssignments));

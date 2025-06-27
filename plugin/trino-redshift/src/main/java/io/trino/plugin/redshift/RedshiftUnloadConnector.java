@@ -65,7 +65,7 @@ public class RedshiftUnloadConnector
     public RedshiftUnloadConnector(
             LifeCycleManager lifeCycleManager,
             ConnectorSplitManager jdbcSplitManager,
-            ConnectorRecordSetProvider jdbcRecordSetProvider,
+            ConnectorPageSourceProvider jdbcPageSourceProvider,
             ConnectorPageSinkProvider jdbcPageSinkProvider,
             Optional<ConnectorAccessControl> accessControl,
             Set<Procedure> procedures,
@@ -89,7 +89,7 @@ public class RedshiftUnloadConnector
                 .flatMap(tablePropertiesProvider -> tablePropertiesProvider.getTableProperties().stream())
                 .collect(toImmutableList());
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
-        this.pageSourceProvider = new RedshiftPageSourceProvider(jdbcRecordSetProvider, fileSystemFactory, fileFormatDataSourceStats);
+        this.pageSourceProvider = new RedshiftPageSourceProvider(jdbcPageSourceProvider, fileSystemFactory, fileFormatDataSourceStats);
     }
 
     @Override

@@ -279,7 +279,7 @@ public class ClusterMemoryManager
                         }
                     }
                     // only record tasks actually killed
-                    ImmutableSet<TaskId> killedTasks = killedTasksBuilder.build();
+                    Set<TaskId> killedTasks = killedTasksBuilder.build();
                     if (!killedTasks.isEmpty()) {
                         lastKillTarget = Optional.of(KillTarget.selectedTasks(killedTasks));
                         logTasksKill(killedTasks, nodeMemoryInfosByNode);
@@ -332,7 +332,7 @@ public class ClusterMemoryManager
         return tasks.stream().noneMatch(runningTasks::contains);
     }
 
-    private ImmutableSet<TaskId> getRunningTasks()
+    private Set<TaskId> getRunningTasks()
     {
         return nodes.values().stream()
                 .map(RemoteNodeMemory::getInfo)
@@ -439,7 +439,7 @@ public class ClusterMemoryManager
                 .addAll(nodeManager.getNodes(DRAINED))
                 .build();
 
-        ImmutableSet<String> aliveNodeIds = aliveNodes.stream()
+        Set<String> aliveNodeIds = aliveNodes.stream()
                 .map(InternalNode::getNodeIdentifier)
                 .collect(toImmutableSet());
 

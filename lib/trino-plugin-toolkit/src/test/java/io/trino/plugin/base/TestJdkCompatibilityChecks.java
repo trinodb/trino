@@ -74,6 +74,27 @@ public class TestJdkCompatibilityChecks
         assertThat(errorSink.getThrowable()).isNull();
     }
 
+    @Test
+    public void shouldThrowWhenUnsafeIsNotAllowed()
+    {
+        ThrowableSettableMock errorSink = new ThrowableSettableMock();
+        new JdkCompatibilityChecks(List.of()).verifyUnsafeAllowed(errorSink, "Connector 'bigquery'");
+
+        assertThat(errorSink.getThrowable())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Connector 'bigquery' requires additional JVM argument(s). Please add the following to the JVM configuration: '--sun-misc-unsafe-memory-access=allow'");
+    }
+
+    @Test
+    public void shouldNotThrowWhenUnsafeIsAllowed()
+    {
+        ThrowableSettableMock errorSink = new ThrowableSettableMock();
+        new JdkCompatibilityChecks(List.of("--sun-misc-unsafe-memory-access=allow")).verifyUnsafeAllowed(errorSink, "Connector 'bigquery'");
+
+        assertThat(errorSink.getThrowable())
+                .isNull();
+    }
+
     private static class TestingModule
             implements Module
     {

@@ -17,7 +17,7 @@ import io.airlift.tracing.Tracing;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.FeaturesConfig;
-import io.trino.connector.ConnectorAwareNodeManager;
+import io.trino.connector.DefaultNodeManager;
 import io.trino.metadata.InMemoryNodeManager;
 import io.trino.metadata.TypeRegistry;
 import io.trino.operator.FlatHashStrategyCompiler;
@@ -52,7 +52,7 @@ public class TestingPostgreSqlConnectorContext
     public TestingPostgreSqlConnectorContext()
     {
         pageIndexerFactory = new GroupByHashPageIndexerFactory(new FlatHashStrategyCompiler(new TypeOperators()));
-        nodeManager = new ConnectorAwareNodeManager(new InMemoryNodeManager(), "testenv", TEST_CATALOG_HANDLE, true);
+        nodeManager = new DefaultNodeManager(new InMemoryNodeManager(), "testenv", true);
         TypeRegistry typeRegistry = new TypeRegistry(new TypeOperators(), new FeaturesConfig());
         typeRegistry.addType(GeometryType.GEOMETRY);
         typeManager = new InternalTypeManager(typeRegistry);

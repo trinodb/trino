@@ -296,7 +296,7 @@ public final class FunctionsParserHelper
     {
         Map<String, Class<?>> specializedTypeParameters = new HashMap<>();
         TypeParameterSpecialization[] typeParameterSpecializations = method.getAnnotationsByType(TypeParameterSpecialization.class);
-        ImmutableSet<String> typeParameterNames = typeParameters.stream()
+        Set<String> typeParameterNames = typeParameters.stream()
                 .map(TypeParameter::value)
                 .collect(toImmutableSet());
         for (TypeParameterSpecialization specialization : typeParameterSpecializations) {

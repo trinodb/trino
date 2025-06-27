@@ -600,7 +600,7 @@ The following table shows the differences between the two modes.
   - ERROR
   - The array is automatically unnested, and the operation is performed on
     each array element.
-* - Performing an operation which requires an array on an non-array, e.g.:
+* - Performing an operation which requires an array on a non-array, e.g.:
 
     `$[0]`, `$[*]`, `$.size()`
   - ERROR

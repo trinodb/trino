@@ -121,7 +121,7 @@ public class QueryRewriter
             throws SQLException, QueryRewriteException
     {
         QualifiedName temporaryTableName = generateTemporaryTableName(statement.getName());
-        Statement rewritten = new CreateTableAsSelect(temporaryTableName, statement.getQuery(), statement.getSaveMode(), statement.getProperties(), statement.isWithData(), statement.getColumnAliases(), Optional.empty());
+        Statement rewritten = new CreateTableAsSelect(new NodeLocation(1, 1), temporaryTableName, statement.getQuery(), statement.getSaveMode(), statement.getProperties(), statement.isWithData(), statement.getColumnAliases(), Optional.empty());
         String createTableAsSql = formatSql(rewritten);
         String checksumSql = checksumSql(getColumns(connection, statement), temporaryTableName);
         String dropTableSql = dropTableSql(temporaryTableName);
@@ -132,9 +132,9 @@ public class QueryRewriter
             throws SQLException, QueryRewriteException
     {
         QualifiedName temporaryTableName = generateTemporaryTableName(statement.getTarget());
-        Statement createTemporaryTable = new CreateTable(temporaryTableName, ImmutableList.of(new LikeClause(statement.getTarget(), Optional.of(INCLUDING))), IGNORE, ImmutableList.of(), Optional.empty());
+        Statement createTemporaryTable = new CreateTable(new NodeLocation(1, 1), temporaryTableName, ImmutableList.of(new LikeClause(statement.getTarget(), Optional.of(INCLUDING))), IGNORE, ImmutableList.of(), Optional.empty());
         String createTemporaryTableSql = formatSql(createTemporaryTable);
-        String insertSql = formatSql(new Insert(new Table(temporaryTableName), statement.getColumns(), statement.getQuery()));
+        String insertSql = formatSql(new Insert(new NodeLocation(1, 1), new Table(temporaryTableName), statement.getColumns(), statement.getQuery()));
         String checksumSql = checksumSql(getColumnsForTable(connection, query.getCatalog(), query.getSchema(), statement.getTarget().toString()), temporaryTableName);
         String dropTableSql = dropTableSql(temporaryTableName);
         return new Query(query.getCatalog(), query.getSchema(), ImmutableList.of(createTemporaryTableSql, insertSql), checksumSql, ImmutableList.of(dropTableSql), query.getUsername(), query.getPassword(), query.getSessionProperties());

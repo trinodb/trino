@@ -136,7 +136,7 @@ public class ParquetFileWriterFactory
                 validationInputFactory = Optional.of(() -> {
                     try {
                         TrinoInputFile inputFile = fileSystem.newInputFile(location);
-                        return new TrinoParquetDataSource(inputFile, new ParquetReaderOptions(), readStats);
+                        return new TrinoParquetDataSource(inputFile, ParquetReaderOptions.defaultOptions(), readStats);
                     }
                     catch (IOException e) {
                         throw new TrinoException(HIVE_WRITE_VALIDATION_FAILED, e);

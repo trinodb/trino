@@ -13,7 +13,7 @@ data.
 To connect to Databricks Delta Lake, you need:
 
 - Tables written by Databricks Runtime 7.3 LTS, 9.1 LTS, 10.4 LTS, 11.3 LTS,
-  12.2 LTS, 13.3 LTS, 14.3 LTS and 15.4 LTS are supported.
+  12.2 LTS, 13.3 LTS, 14.3 LTS, 15.4 LTS and 16.4 LTS are supported.
 - Deployments using AWS, HDFS, Azure Storage, and Google Cloud Storage (GCS) are
   fully supported.
 - Network access from the coordinator and workers to the Delta Lake storage.
@@ -203,6 +203,10 @@ values. Typical usage does not require you to configure them.
   - Number of threads used for retrieving metadata. Currently, only table loading 
     is parallelized.
   - `8`
+* - `delta.checkpoint-processing.parallelism`
+  - Number of threads used for retrieving checkpoint files of each table. Currently, only 
+    retrievals of V2 Checkpoint's sidecar files are parallelized.
+  - `4`
 :::
 
 ### Catalog session properties
@@ -456,6 +460,42 @@ SELECT *
 FROM example.testdb.customer_orders FOR VERSION AS OF 3
 ```
 
+A different approach of retrieving historical data is to specify a point in time
+in the past, such as a day or week ago. The latest snapshot of the table taken
+before or at the specified timestamp in the query is internally used for
+providing the previous state of the table:
+
+```sql
+SELECT *
+FROM example.testdb.customer_orders FOR TIMESTAMP AS OF TIMESTAMP '2022-03-23 09:59:29.803 America/Los_Angeles';
+```
+
+The connector allows to create a new snapshot through Delta Lake's [replace table](delta-lake-create-or-replace).
+
+```sql
+CREATE OR REPLACE TABLE example.testdb.customer_orders AS
+SELECT *
+FROM example.testdb.customer_orders FOR TIMESTAMP AS OF TIMESTAMP '2022-03-23 09:59:29.803 America/Los_Angeles';
+```
+
+You can use a date to specify a point a time in the past for using a snapshot of a table in a query.
+Assuming that the session time zone is `America/Los_Angeles` the following queries are equivalent:
+
+```sql
+SELECT *
+FROM example.testdb.customer_orders FOR TIMESTAMP AS OF DATE '2022-03-23';
+```
+
+```sql
+SELECT *
+FROM example.testdb.customer_orders FOR TIMESTAMP AS OF TIMESTAMP '2022-03-23 00:00:00';
+```
+
+```sql
+SELECT *
+FROM example.testdb.customer_orders FOR TIMESTAMP AS OF TIMESTAMP '2022-03-23 00:00:00.000 America/Los_Angeles';
+```
+
 Use the `$history` metadata table to determine the snapshot ID of the
 table like in the following query:
 
@@ -630,6 +670,11 @@ CREATE TABLE example.default.new_table (id BIGINT, address VARCHAR);
 
 The Delta Lake connector also supports creating tables using the {doc}`CREATE
 TABLE AS </sql/create-table-as>` syntax.
+
+#### Schema evolution
+
+The Delta Lake connector supports schema evolution, with safe column add, drop,
+and rename operations for non nested structures.
 
 (delta-lake-alter-table)=
 The connector supports the following [](/sql/alter-table) statements.
@@ -1234,7 +1279,7 @@ keep a backup of the original values if you change them.
     assigned to a worker after `max-initial-splits` have been processed. You can
     also use the corresponding catalog session property
     `<catalog-name>.max_split_size`.
-  - `64MB`
+  - `128MB`
 * - `delta.minimum-assigned-split-weight`
   - A decimal value in the range (0, 1] used as a minimum for weights assigned
     to each split. A low value might improve performance on tables with small

@@ -91,5 +91,5 @@ is collected </admin/properties-query-management>` for display in the Web UI:
 - `query.max-history`
 
 Unrelated to the storage of queries and query history in memory, you can use an
-[an event listener](admin-event-listeners) to publish query events, such as
+[event listener](admin-event-listeners) to publish query events, such as
 query started or query finished, to an external system.

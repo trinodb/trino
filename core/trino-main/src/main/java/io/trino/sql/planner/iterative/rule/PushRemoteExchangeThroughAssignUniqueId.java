@@ -78,7 +78,6 @@ public final class PushRemoteExchangeThroughAssignUniqueId
                         new PartitioningScheme(
                                 partitioningScheme.getPartitioning(),
                                 removeSymbol(partitioningScheme.getOutputLayout(), assignUniqueId.getIdColumn()),
-                                partitioningScheme.getHashColumn(),
                                 partitioningScheme.isReplicateNullsAndAny(),
                                 partitioningScheme.getBucketToPartition(),
                                 partitioningScheme.getPartitionCount()),

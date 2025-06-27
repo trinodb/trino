@@ -152,7 +152,7 @@ The cache code uses [OpenTelemetry tracing](/admin/opentelemetry).
 ## Recommendations
 
 The speed of the local cache storage is crucial to the performance of the cache.
-The most common and cost efficient approach is to attach high performance SSD
+The most common and cost-efficient approach is to attach high performance SSD
 disk or equivalents. Fast cache performance can be also be achieved with a RAM
 disk used as in-memory cache.
 

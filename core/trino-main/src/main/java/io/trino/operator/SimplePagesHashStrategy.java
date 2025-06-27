@@ -27,13 +27,11 @@ import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
 
 public class SimplePagesHashStrategy
@@ -45,7 +43,6 @@ public class SimplePagesHashStrategy
     private final List<Integer> outputChannels;
     private final List<ObjectArrayList<Block>> channels;
     private final List<Integer> hashChannels;
-    private final List<Block> precomputedHashChannel;
     private final Optional<Integer> sortChannel;
     private final List<BlockPositionEqual> equalOperators;
     private final List<BlockPositionHashCode> hashCodeOperators;
@@ -56,7 +53,6 @@ public class SimplePagesHashStrategy
             List<Integer> outputChannels,
             List<ObjectArrayList<Block>> channels,
             List<Integer> hashChannels,
-            OptionalInt precomputedHashChannel,
             Optional<Integer> sortChannel,
             BlockTypeOperators blockTypeOperators)
     {
@@ -69,12 +65,6 @@ public class SimplePagesHashStrategy
 
         checkArgument(types.size() == channels.size(), "Expected types and channels to be the same length");
         this.hashChannels = ImmutableList.copyOf(requireNonNull(hashChannels, "hashChannels is null"));
-        if (precomputedHashChannel.isPresent()) {
-            this.precomputedHashChannel = channels.get(precomputedHashChannel.getAsInt());
-        }
-        else {
-            this.precomputedHashChannel = null;
-        }
         this.sortChannel = requireNonNull(sortChannel, "sortChannel is null");
 
         this.equalOperators = hashChannels.stream()
@@ -123,9 +113,6 @@ public class SimplePagesHashStrategy
     @Override
     public long hashPosition(int blockIndex, int position)
     {
-        if (precomputedHashChannel != null) {
-            return BIGINT.getLong(precomputedHashChannel.get(blockIndex), position);
-        }
         long result = 0;
         for (int i = 0; i < hashChannels.size(); i++) {
             Block block = channels.get(hashChannels.get(i)).get(blockIndex);

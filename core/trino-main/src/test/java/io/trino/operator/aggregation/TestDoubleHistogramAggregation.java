@@ -125,7 +125,7 @@ public class TestDoubleHistogramAggregation
     private static Map<Double, Double> extractSingleValue(Block block)
     {
         MapType mapType = mapType(DOUBLE, DOUBLE);
-        return (Map<Double, Double>) mapType.getObjectValue(null, block, 0);
+        return (Map<Double, Double>) mapType.getObjectValue(block, 0);
     }
 
     private static Page makeInput(int numberOfBuckets)

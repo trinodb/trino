@@ -26,6 +26,7 @@ import io.trino.metastore.SortingColumn;
 import io.trino.metastore.Storage;
 import io.trino.metastore.StorageFormat;
 import io.trino.metastore.Table;
+import io.trino.spi.connector.SchemaTableName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 
@@ -35,6 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -93,7 +95,7 @@ public class TestTransactionScopeCachingDirectoryLister
         assertThat(countingLister.getListCount()).isEqualTo(1);
 
         // listing path2 again shouldn't increase listing count
-        assertThat(cachingLister.isCached(path2)).isTrue();
+        assertThat(cachingLister.isCached(path2, TABLE.getSchemaTableName())).isTrue();
         assertFiles(new DirectoryListingFilter(path2, cachingLister.listFilesRecursively(null, TABLE, path2), true), ImmutableList.of(thirdFile));
         assertThat(countingLister.getListCount()).isEqualTo(1);
 
@@ -112,7 +114,7 @@ public class TestTransactionScopeCachingDirectoryLister
         assertThat(countingLister.getListCount()).isEqualTo(2);
 
         // listing path2 again should increase listing count because 2 files were cached for path1
-        assertThat(cachingLister.isCached(path2)).isFalse();
+        assertThat(cachingLister.isCached(path2, TABLE.getSchemaTableName())).isFalse();
         assertFiles(new DirectoryListingFilter(path2, cachingLister.listFilesRecursively(null, TABLE, path2), true), ImmutableList.of(thirdFile));
         assertThat(countingLister.getListCount()).isEqualTo(3);
     }
@@ -125,7 +127,8 @@ public class TestTransactionScopeCachingDirectoryLister
         Location path = Location.of("file:/x");
 
         CountingDirectoryLister countingLister = new CountingDirectoryLister(ImmutableMap.of(path, ImmutableList.of(file)));
-        DirectoryLister cachingLister = new TransactionScopeCachingDirectoryListerFactory(DataSize.ofBytes(600), Optional.empty()).get(countingLister);
+        // Set concurrencyLevel to 1 to ensure deterministic behavior
+        DirectoryLister cachingLister = new TransactionScopeCachingDirectoryListerFactory(DataSize.ofBytes(600), Optional.of(1)).get(countingLister);
 
         // start listing path concurrently
         countingLister.setThrowException(true);
@@ -159,8 +162,8 @@ public class TestTransactionScopeCachingDirectoryLister
             implements DirectoryLister
     {
         private final Map<Location, List<TrinoFileStatus>> fileStatuses;
-        private int listCount;
-        private boolean throwException;
+        private final AtomicInteger listCount = new AtomicInteger();
+        private volatile boolean throwException;
 
         public CountingDirectoryLister(Map<Location, List<TrinoFileStatus>> fileStatuses)
         {
@@ -171,7 +174,7 @@ public class TestTransactionScopeCachingDirectoryLister
         public RemoteIterator<TrinoFileStatus> listFilesRecursively(TrinoFileSystem fs, Table table, Location location)
         {
             // No specific recursive files-only listing implementation
-            listCount++;
+            listCount.incrementAndGet();
             return throwingRemoteIterator(requireNonNull(fileStatuses.get(location)), throwException);
         }
 
@@ -182,14 +185,20 @@ public class TestTransactionScopeCachingDirectoryLister
 
         public int getListCount()
         {
-            return listCount;
+            return listCount.get();
         }
+
+        @Override
+        public void invalidate(Location location, SchemaTableName schemaTableName) {}
 
         @Override
         public void invalidate(Partition partition) {}
 
         @Override
         public void invalidate(Table table) {}
+
+        @Override
+        public void invalidateAll() {}
     }
 
     static RemoteIterator<TrinoFileStatus> throwingRemoteIterator(List<TrinoFileStatus> files, boolean throwException)

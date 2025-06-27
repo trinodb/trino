@@ -27,8 +27,6 @@ import io.airlift.http.client.testing.TestingResponse;
 import io.airlift.node.NodeConfig;
 import io.airlift.node.NodeInfo;
 import io.trino.client.NodeVersion;
-import io.trino.connector.CatalogManagerConfig;
-import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.failuredetector.NoOpFailureDetector;
 import io.trino.server.InternalCommunicationConfig;
 import org.junit.jupiter.api.AfterEach;
@@ -104,12 +102,11 @@ public class TestDiscoveryNodeManager
                 new NoOpFailureDetector(),
                 expectedVersion,
                 testHttpClient,
-                internalCommunicationConfig,
-                new CatalogManagerConfig());
+                internalCommunicationConfig);
         try {
             AllNodes allNodes = manager.getAllNodes();
 
-            Set<InternalNode> connectorNodes = manager.getActiveCatalogNodes(GlobalSystemConnector.CATALOG_HANDLE);
+            Set<InternalNode> connectorNodes = manager.getNodes(ACTIVE);
             assertThat(connectorNodes).hasSize(4);
             assertThat(connectorNodes.stream().anyMatch(InternalNode::isCoordinator)).isTrue();
 
@@ -153,8 +150,7 @@ public class TestDiscoveryNodeManager
                 new NoOpFailureDetector(),
                 expectedVersion,
                 testHttpClient,
-                internalCommunicationConfig,
-                new CatalogManagerConfig());
+                internalCommunicationConfig);
         try {
             assertThat(manager.getCurrentNode()).isEqualTo(currentNode);
         }
@@ -172,8 +168,7 @@ public class TestDiscoveryNodeManager
                 new NoOpFailureDetector(),
                 expectedVersion,
                 testHttpClient,
-                internalCommunicationConfig,
-                new CatalogManagerConfig());
+                internalCommunicationConfig);
         try {
             assertThat(manager.getCoordinators()).isEqualTo(ImmutableSet.of(coordinator));
         }
@@ -192,8 +187,7 @@ public class TestDiscoveryNodeManager
                 new NoOpFailureDetector(),
                 expectedVersion,
                 testHttpClient,
-                internalCommunicationConfig,
-                new CatalogManagerConfig()))
+                internalCommunicationConfig))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("current node not returned");
     }
@@ -209,8 +203,7 @@ public class TestDiscoveryNodeManager
                 new NoOpFailureDetector(),
                 expectedVersion,
                 testHttpClient,
-                internalCommunicationConfig,
-                new CatalogManagerConfig());
+                internalCommunicationConfig);
         try {
             manager.startPollingNodeStates();
 

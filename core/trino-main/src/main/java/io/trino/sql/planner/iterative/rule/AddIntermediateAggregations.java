@@ -116,7 +116,6 @@ public class AddIntermediateAggregations
                     aggregation.getGroupingSets(),
                     aggregation.getPreGroupedSymbols(),
                     AggregationNode.Step.INTERMEDIATE,
-                    aggregation.getHashSymbol(),
                     aggregation.getGroupIdSymbol());
             source = ExchangeNode.gatheringExchange(idAllocator.getNextId(), ExchangeNode.Scope.LOCAL, source);
         }

@@ -5,12 +5,12 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>251</version>
+        <version>270</version>
     </parent>
 
     <groupId>io.trino</groupId>
     <artifactId>trino-root</artifactId>
-    <version>475-SNAPSHOT</version>
+    <version>477-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>${project.artifactId}</name>
@@ -87,6 +87,7 @@
         <module>plugin/trino-jmx</module>
         <module>plugin/trino-kafka</module>
         <module>plugin/trino-kafka-event-listener</module>
+        <module>plugin/trino-lakehouse</module>
         <module>plugin/trino-ldap-group-provider</module>
         <module>plugin/trino-loki</module>
         <module>plugin/trino-mariadb</module>
@@ -142,21 +143,21 @@
     <scm child.scm.connection.inherit.append.path="false" child.scm.developerConnection.inherit.append.path="false" child.scm.url.inherit.append.path="false">
         <connection>scm:git:git://github.com/trinodb/trino.git</connection>
         <developerConnection>scm:git:git@github.com:trinodb/trino.git</developerConnection>
-        <tag>HEAD</tag>
+        <tag>476</tag>
         <url>https://github.com/trinodb/trino</url>
     </scm>
 
     <properties>
-        <project.build.targetJdk>23</project.build.targetJdk>
+        <project.build.targetJdk>24</project.build.targetJdk>
         <!-- for reproducible build support, updated by release plugin -->
-        <project.build.outputTimestamp>2025-03-22T03:10:43Z</project.build.outputTimestamp>
+        <project.build.outputTimestamp>2025-06-06T03:29:47Z</project.build.outputTimestamp>
         <!-- TODO remove this property when no module overrides it -->
         <trino.error-prone.guarded-by>ERROR</trino.error-prone.guarded-by>
 
         <air.check.skip-spotbugs>true</air.check.skip-spotbugs>
         <air.check.skip-pmd>true</air.check.skip-pmd>
         <air.check.skip-jacoco>true</air.check.skip-jacoco>
-        <air.java.version>23</air.java.version>
+        <air.java.version>24.0.1</air.java.version>
         <air.javadoc.lint>syntax,reference,html,-missing</air.javadoc.lint>
         <air.modernizer.java-version>8</air.modernizer.java-version>
         <air.release.preparation-goals>clean verify -DskipTests</air.release.preparation-goals>
@@ -180,35 +181,35 @@
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}</air.test.jvm.additional-arguments>
 
         <!-- keep dependency properties sorted -->
-        <dep.airlift.version>331</dep.airlift.version>
+        <dep.airlift.version>338</dep.airlift.version>
         <dep.alluxio.version>2.9.6</dep.alluxio.version>
         <dep.antlr.version>4.13.2</dep.antlr.version>
         <dep.avro.version>1.12.0</dep.avro.version>
-        <dep.aws-sdk.version>1.12.782</dep.aws-sdk.version>
+        <dep.aws-sdk.version>1.12.787</dep.aws-sdk.version>
         <dep.cassandra.version>4.17.0</dep.cassandra.version>
         <dep.confluent.version>7.8.0</dep.confluent.version>
-        <dep.docker.images.version>110</dep.docker.images.version>
-        <dep.drift.version>1.22</dep.drift.version>
-        <dep.flyway.version>11.7.0</dep.flyway.version>
+        <dep.checkstyle.version>10.23.1</dep.checkstyle.version>
+        <dep.docker.images.version>116</dep.docker.images.version>
+        <dep.drift.version>1.23</dep.drift.version>
+        <dep.flyway.version>11.9.2</dep.flyway.version>
         <dep.frontend-maven-plugin.version>1.15.1</dep.frontend-maven-plugin.version>
         <dep.frontend-node.version>v22.14.0</dep.frontend-node.version>
         <dep.frontend-npm.version>11.2.0</dep.frontend-npm.version>
         <dep.gib.version>4.5.4</dep.gib.version>
-        <dep.google.http.client.version>1.46.3</dep.google.http.client.version>
         <dep.httpcore5.version>5.3.4</dep.httpcore5.version>
-        <dep.iceberg.version>1.8.1</dep.iceberg.version>
+        <dep.iceberg.version>1.9.1</dep.iceberg.version>
         <dep.jna.version>5.17.0</dep.jna.version>
         <dep.jsonwebtoken.version>0.12.6</dep.jsonwebtoken.version>
         <dep.jts.version>1.20.0</dep.jts.version>
         <dep.kafka-clients.version>4.0.0</dep.kafka-clients.version>
-        <dep.okio.version>3.11.0</dep.okio.version>
-        <dep.parquet.version>1.15.1</dep.parquet.version>
+        <dep.okio.version>3.13.0</dep.okio.version>
+        <dep.parquet.version>1.15.2</dep.parquet.version>
         <dep.plugin.failsafe.version>${dep.plugin.surefire.version}</dep.plugin.failsafe.version>
-        <dep.protobuf.version>3.25.6</dep.protobuf.version>
-        <dep.snowflake.version>3.23.2</dep.snowflake.version>
-        <dep.swagger.version>2.2.30</dep.swagger.version>
-        <dep.takari.version>2.2.0</dep.takari.version>
-        <dep.tcnative.version>2.0.70.Final</dep.tcnative.version>
+        <dep.protobuf.version>3.25.8</dep.protobuf.version>
+        <dep.snowflake.version>3.24.2</dep.snowflake.version>
+        <dep.swagger.version>2.2.34</dep.swagger.version>
+        <dep.takari.version>2.3.0</dep.takari.version>
+        <dep.tcnative.version>2.0.72.Final</dep.tcnative.version>
         <dep.tempto.version>202</dep.tempto.version>
         <dep.wire.version>5.2.1</dep.wire.version>
         <dep.zookeeper.version>3.9.3</dep.zookeeper.version>
@@ -226,7 +227,7 @@
             <dependency>
                 <groupId>com.azure</groupId>
                 <artifactId>azure-sdk-bom</artifactId>
-                <version>1.2.33</version>
+                <version>1.2.35</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -234,7 +235,7 @@
             <dependency>
                 <groupId>com.google.cloud</groupId>
                 <artifactId>libraries-bom</artifactId>
-                <version>26.59.0</version>
+                <version>26.62.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -242,7 +243,7 @@
             <dependency>
                 <groupId>com.oracle.database.jdbc</groupId>
                 <artifactId>ojdbc11-production</artifactId>
-                <version>23.3.0.23.09</version>
+                <version>23.8.0.25.04</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -266,7 +267,7 @@
             <dependency>
                 <groupId>io.netty</groupId>
                 <artifactId>netty-bom</artifactId>
-                <version>4.1.119.Final</version>
+                <version>4.2.2.Final</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -274,7 +275,7 @@
             <dependency>
                 <groupId>org.apache.arrow</groupId>
                 <artifactId>arrow-bom</artifactId>
-                <version>18.2.0</version>
+                <version>18.3.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -282,7 +283,7 @@
             <dependency>
                 <groupId>org.jdbi</groupId>
                 <artifactId>jdbi3-bom</artifactId>
-                <version>3.49.0</version>
+                <version>3.49.5</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -298,7 +299,7 @@
             <dependency>
                 <groupId>org.testcontainers</groupId>
                 <artifactId>testcontainers-bom</artifactId>
-                <version>1.20.6</version>
+                <version>1.21.2</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -306,7 +307,7 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.31.21</version>
+                <version>2.31.71</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -314,7 +315,7 @@
             <dependency>
                 <groupId>com.adobe.testing</groupId>
                 <artifactId>s3mock-testcontainers</artifactId>
-                <version>4.0.0</version>
+                <version>4.5.0</version>
             </dependency>
 
             <dependency>
@@ -427,7 +428,7 @@
             <dependency>
                 <groupId>com.exasol</groupId>
                 <artifactId>exasol-jdbc</artifactId>
-                <version>25.2.3</version>
+                <version>25.2.4</version>
             </dependency>
 
             <dependency>
@@ -437,27 +438,33 @@
             </dependency>
 
             <dependency>
+                <groupId>com.fasterxml.woodstox</groupId>
+                <artifactId>woodstox-core</artifactId>
+                <version>7.1.1</version>
+            </dependency>
+
+            <dependency>
                 <groupId>com.github.ben-manes.caffeine</groupId>
                 <artifactId>caffeine</artifactId>
-                <version>3.2.0</version>
+                <version>3.2.1</version>
             </dependency>
 
             <dependency>
                 <groupId>com.github.docker-java</groupId>
                 <artifactId>docker-java-api</artifactId>
-                <version>3.5.0</version>
+                <version>3.5.2</version>
             </dependency>
 
             <dependency>
                 <groupId>com.github.luben</groupId>
                 <artifactId>zstd-jni</artifactId>
-                <version>1.5.7-2</version>
+                <version>1.5.7-3</version>
             </dependency>
 
             <dependency>
                 <groupId>com.github.oshi</groupId>
                 <artifactId>oshi-core</artifactId>
-                <version>6.8.0</version>
+                <version>6.8.2</version>
             </dependency>
 
             <dependency>
@@ -469,7 +476,7 @@
             <dependency>
                 <groupId>com.google.cloud.bigdataoss</groupId>
                 <artifactId>gcs-connector</artifactId>
-                <version>3.1.1</version>
+                <version>3.1.3</version>
                 <classifier>shaded</classifier>
                 <exclusions>
                     <exclusion>
@@ -483,7 +490,7 @@
             <dependency>
                 <groupId>com.google.code.gson</groupId>
                 <artifactId>gson</artifactId>
-                <version>2.13.0</version>
+                <version>2.13.1</version>
             </dependency>
 
             <dependency>
@@ -496,18 +503,6 @@
                 <groupId>com.google.guava</groupId>
                 <artifactId>failureaccess</artifactId>
                 <version>1.0.3</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.google.http-client</groupId>
-                <artifactId>google-http-client</artifactId>
-                <version>${dep.google.http.client.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.google.http-client</groupId>
-                <artifactId>google-http-client-gson</artifactId>
-                <version>${dep.google.http.client.version}</version>
             </dependency>
 
             <dependency>
@@ -537,7 +532,7 @@
             <dependency>
                 <groupId>com.microsoft.sqlserver</groupId>
                 <artifactId>mssql-jdbc</artifactId>
-                <version>12.10.0.jre11</version>
+                <version>12.10.1.jre11</version>
             </dependency>
 
             <dependency>
@@ -555,20 +550,20 @@
             <dependency>
                 <groupId>com.nimbusds</groupId>
                 <artifactId>nimbus-jose-jwt</artifactId>
-                <version>10.2</version>
+                <version>10.3</version>
             </dependency>
 
             <dependency>
                 <groupId>com.nimbusds</groupId>
                 <artifactId>oauth2-oidc-sdk</artifactId>
-                <version>11.23.1</version>
+                <version>11.26</version>
                 <classifier>jdk11</classifier>
             </dependency>
 
             <dependency>
                 <groupId>com.opencsv</groupId>
                 <artifactId>opencsv</artifactId>
-                <version>5.10</version>
+                <version>5.11.2</version>
             </dependency>
 
             <dependency>
@@ -593,6 +588,12 @@
                 <groupId>com.squareup.wire</groupId>
                 <artifactId>wire-schema-jvm</artifactId>
                 <version>${dep.wire.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>commons-beanutils</groupId>
+                <artifactId>commons-beanutils</artifactId>
+                <version>1.11.0</version>
             </dependency>
 
             <dependency>
@@ -622,7 +623,7 @@
             <dependency>
                 <groupId>info.picocli</groupId>
                 <artifactId>picocli</artifactId>
-                <version>4.7.6</version>
+                <version>4.7.7</version>
             </dependency>
 
             <!-- previous aircompressor used by tests and Iceberg puffin -->
@@ -635,7 +636,7 @@
             <dependency>
                 <groupId>io.airlift</groupId>
                 <artifactId>aircompressor-v3</artifactId>
-                <version>3.2</version>
+                <version>3.3</version>
             </dependency>
 
             <dependency>
@@ -737,7 +738,7 @@
             <dependency>
                 <groupId>io.azam.ulidj</groupId>
                 <artifactId>ulidj</artifactId>
-                <version>1.0.4</version>
+                <version>2.0.0</version>
             </dependency>
 
             <dependency>
@@ -790,7 +791,7 @@
             <dependency>
                 <groupId>io.dropwizard.metrics</groupId>
                 <artifactId>metrics-core</artifactId>
-                <version>4.2.30</version>
+                <version>4.2.33</version>
             </dependency>
 
             <dependency>
@@ -905,13 +906,13 @@
             <dependency>
                 <groupId>io.projectreactor</groupId>
                 <artifactId>reactor-core</artifactId>
-                <version>3.7.4</version>
+                <version>3.7.7</version>
             </dependency>
 
             <dependency>
                 <groupId>io.projectreactor.netty</groupId>
                 <artifactId>reactor-netty-core</artifactId>
-                <version>1.1.28</version>
+                <version>1.1.31</version>
             </dependency>
 
             <!-- io.confluent:kafka-avro-serializer uses multiple versions of this transitive dependency -->
@@ -1682,7 +1683,7 @@
             <dependency>
                 <groupId>it.unimi.dsi</groupId>
                 <artifactId>fastutil</artifactId>
-                <version>8.5.15</version>
+                <version>8.5.16</version>
             </dependency>
 
             <dependency>
@@ -1923,7 +1924,7 @@
             <dependency>
                 <groupId>org.apache.httpcomponents.client5</groupId>
                 <artifactId>httpclient5</artifactId>
-                <version>5.4.3</version>
+                <version>5.5</version>
             </dependency>
 
             <dependency>
@@ -2032,19 +2033,19 @@
             <dependency>
                 <groupId>org.apache.logging.log4j</groupId>
                 <artifactId>log4j-api</artifactId>
-                <version>2.24.3</version>
+                <version>2.25.0</version>
             </dependency>
 
             <dependency>
                 <groupId>org.apache.maven</groupId>
                 <artifactId>maven-model</artifactId>
-                <version>3.9.9</version>
+                <version>3.9.10</version>
             </dependency>
 
             <dependency>
                 <groupId>org.apache.orc</groupId>
                 <artifactId>orc-format</artifactId>
-                <version>1.0.0</version>
+                <version>1.1.0</version>
                 <classifier>shaded-protobuf</classifier>
             </dependency>
 
@@ -2129,7 +2130,7 @@
             <dependency>
                 <groupId>org.apache.thrift</groupId>
                 <artifactId>libthrift</artifactId>
-                <version>0.21.0</version>
+                <version>0.22.0</version>
             </dependency>
 
             <dependency>
@@ -2199,7 +2200,7 @@
             <dependency>
                 <groupId>org.checkerframework</groupId>
                 <artifactId>checker-qual</artifactId>
-                <version>3.49.2</version>
+                <version>3.49.4</version>
             </dependency>
 
             <dependency>
@@ -2286,7 +2287,7 @@
             <dependency>
                 <groupId>org.mariadb.jdbc</groupId>
                 <artifactId>mariadb-java-client</artifactId>
-                <version>3.3.3</version>
+                <version>3.3.4</version>
             </dependency>
 
             <dependency>
@@ -2304,7 +2305,7 @@
             <dependency>
                 <groupId>org.postgresql</groupId>
                 <artifactId>postgresql</artifactId>
-                <version>42.7.4</version>
+                <version>42.7.7</version>
             </dependency>
 
             <dependency>
@@ -2469,7 +2470,7 @@
                 <plugin>
                     <groupId>org.codehaus.mojo</groupId>
                     <artifactId>exec-maven-plugin</artifactId>
-                    <version>3.5.0</version>
+                    <version>3.5.1</version>
                 </plugin>
 
                 <plugin>
@@ -2571,6 +2572,12 @@
                                 <bannedImports>
                                     <bannedImport>com.google.api.client.util.Preconditions</bannedImport>
                                     <bannedImport>com.google.api.client.util.Preconditions.*</bannedImport>
+                                </bannedImports>
+                            </RestrictImports>
+                            <RestrictImports>
+                                <reason>Use non-shaded Guava classes</reason>
+                                <bannedImports>
+                                    <bannedImport>org.testcontainers.shaded.com.google.common.**</bannedImport>
                                 </bannedImports>
                             </RestrictImports>
                             <requireProfileIdsExist />
@@ -2711,21 +2718,6 @@
                                 </conflictingDependencies>
                                 <packages>
                                     <package>shaded.parquet.it.unimi.dsi.fastutil</package>
-                                </packages>
-                            </exception>
-                            <exception>
-                                <conflictingDependencies>
-                                    <dependency>
-                                        <groupId>org.apache.orc</groupId>
-                                        <artifactId>orc-core</artifactId>
-                                    </dependency>
-                                    <dependency>
-                                        <groupId>org.apache.orc</groupId>
-                                        <artifactId>orc-format</artifactId>
-                                    </dependency>
-                                </conflictingDependencies>
-                                <packages>
-                                    <package>org.apache.orc</package>
                                 </packages>
                             </exception>
                             <exception>
@@ -2953,6 +2945,7 @@
                                     -Xep:OrphanedFormatString:ERROR \
                                     -Xep:Overrides:ERROR \
                                     -Xep:PatternMatchingInstanceof:ERROR \
+                                    -Xep:PreconditionsExpensiveString:ERROR \
                                     <!-- flags List fields even if initialized with ImmutableList -->
                                     -Xep:PreferredInterfaceType:OFF \
                                     -Xep:PrimitiveArrayPassedToVarargsMethod:ERROR \

@@ -30,7 +30,6 @@ import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.types.Type;
-import org.apache.iceberg.util.DeleteFileSet;
 import org.roaringbitmap.longlong.ImmutableLongBitmapDataProvider;
 import org.roaringbitmap.longlong.LongBitmapDataProvider;
 import org.roaringbitmap.longlong.Roaring64Bitmap;
@@ -56,10 +55,8 @@ public class IcebergMergeSink
     private final LocationProvider locationProvider;
     private final IcebergFileWriterFactory fileWriterFactory;
     private final TrinoFileSystem fileSystem;
-    private final Map<String, DeleteFileSet> previousDeleteFiles;
     private final JsonCodec<CommitTaskData> jsonCodec;
     private final ConnectorSession session;
-    private final int formatVersion;
     private final IcebergFileFormat fileFormat;
     private final Map<String, String> storageProperties;
     private final Schema schema;
@@ -72,10 +69,8 @@ public class IcebergMergeSink
             LocationProvider locationProvider,
             IcebergFileWriterFactory fileWriterFactory,
             TrinoFileSystem fileSystem,
-            Map<String, DeleteFileSet> previousDeleteFiles,
             JsonCodec<CommitTaskData> jsonCodec,
             ConnectorSession session,
-            int formatVersion,
             IcebergFileFormat fileFormat,
             Map<String, String> storageProperties,
             Schema schema,
@@ -86,10 +81,8 @@ public class IcebergMergeSink
         this.locationProvider = requireNonNull(locationProvider, "locationProvider is null");
         this.fileWriterFactory = requireNonNull(fileWriterFactory, "fileWriterFactory is null");
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
-        this.previousDeleteFiles = ImmutableMap.copyOf(previousDeleteFiles);
         this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
         this.session = requireNonNull(session, "session is null");
-        this.formatVersion = formatVersion;
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
         this.storageProperties = ImmutableMap.copyOf(requireNonNull(storageProperties, "storageProperties is null"));
         this.schema = requireNonNull(schema, "schema is null");
@@ -169,10 +162,8 @@ public class IcebergMergeSink
                 fileSystem,
                 jsonCodec,
                 session,
-                formatVersion,
                 fileFormat,
-                storageProperties,
-                previousDeleteFiles);
+                storageProperties);
     }
 
     private static Collection<Slice> writePositionDeletes(PositionDeleteWriter writer, ImmutableLongBitmapDataProvider rowsToDelete)

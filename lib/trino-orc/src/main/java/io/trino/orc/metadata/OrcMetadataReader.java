@@ -163,7 +163,7 @@ public class OrcMetadataReader
     private static StripeInformation toStripeInformation(OrcProto.StripeInformation stripeInformation)
     {
         return new StripeInformation(
-                toIntExact(stripeInformation.getNumberOfRows()),
+                stripeInformation.getNumberOfRows(),
                 stripeInformation.getOffset(),
                 stripeInformation.getIndexLength(),
                 stripeInformation.getDataLength(),
@@ -576,6 +576,7 @@ public class OrcMetadataReader
             case DATE -> OrcTypeKind.DATE;
             case VARCHAR -> OrcTypeKind.VARCHAR;
             case CHAR -> OrcTypeKind.CHAR;
+            case GEOMETRY, GEOGRAPHY -> throw new UnsupportedOperationException("ORC type " + typeKind + " is not supported");
         };
     }
 

@@ -27,7 +27,6 @@ import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.connector.system.GlobalSystemConnector;
-import io.trino.execution.QueryManager;
 import io.trino.metadata.LanguageFunctionManager.RunAsIdentityLoader;
 import io.trino.security.AccessControl;
 import io.trino.security.InjectedConnectorAccessControl;
@@ -129,7 +128,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
@@ -180,7 +178,7 @@ import static java.util.Objects.requireNonNull;
 public final class MetadataManager
         implements Metadata
 {
-    private static final Set<String> ENTITY_KINDS_WITH_CATALOG = ImmutableSet.of("SCHEMA", "TABLE", "VIEW");
+    private static final Set<String> ENTITY_KINDS_WITH_CATALOG = ImmutableSet.of("SCHEMA", "TABLE", "VIEW", "MATERIALIZED VIEW");
     private static final Logger log = Logger.get(MetadataManager.class);
 
     @VisibleForTesting
@@ -195,7 +193,6 @@ public final class MetadataManager
     private final TableFunctionRegistry tableFunctionRegistry;
     private final TypeManager typeManager;
     private final TypeCoercion typeCoercion;
-    private final QueryManager queryManager;
 
     private final ConcurrentMap<QueryId, QueryCatalogs> catalogsByQueryId = new ConcurrentHashMap<>();
 
@@ -207,15 +204,13 @@ public final class MetadataManager
             GlobalFunctionCatalog globalFunctionCatalog,
             LanguageFunctionManager languageFunctionManager,
             TableFunctionRegistry tableFunctionRegistry,
-            TypeManager typeManager,
-            QueryManager queryManager)
+            TypeManager typeManager)
     {
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         functions = requireNonNull(globalFunctionCatalog, "globalFunctionCatalog is null");
         functionResolver = new BuiltinFunctionResolver(this, typeManager, globalFunctionCatalog);
         this.typeCoercion = new TypeCoercion(typeManager::getType);
-        this.queryManager = requireNonNull(queryManager, "queryManager is null");
 
         this.systemSecurityMetadata = requireNonNull(systemSecurityMetadata, "systemSecurityMetadata is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
@@ -489,33 +484,11 @@ public final class MetadataManager
     @Override
     public TableStatistics getTableStatistics(Session session, TableHandle tableHandle)
     {
-        try {
-            CatalogHandle catalogHandle = tableHandle.catalogHandle();
-            ConnectorMetadata metadata = getMetadata(session, catalogHandle);
-            TableStatistics tableStatistics = metadata.getTableStatistics(session.toConnectorSession(catalogHandle), tableHandle.connectorHandle());
-            verifyNotNull(tableStatistics, "%s returned null tableStatistics for %s", metadata, tableHandle);
-            return tableStatistics;
-        }
-        catch (RuntimeException e) {
-            if (isQueryDone(session)) {
-                // getting statistics for finished query may result in many different execeptions being thrown.
-                // As we do not care about the result anyway mask it by returning empty statistics.
-                return TableStatistics.empty();
-            }
-            throw e;
-        }
-    }
-
-    private boolean isQueryDone(Session session)
-    {
-        boolean done;
-        try {
-            done = queryManager.getQueryState(session.getQueryId()).isDone();
-        }
-        catch (NoSuchElementException ex) {
-            done = true;
-        }
-        return done;
+        CatalogHandle catalogHandle = tableHandle.catalogHandle();
+        ConnectorMetadata metadata = getMetadata(session, catalogHandle);
+        TableStatistics tableStatistics = metadata.getTableStatistics(session.toConnectorSession(catalogHandle), tableHandle.connectorHandle());
+        verifyNotNull(tableStatistics, "%s returned null tableStatistics for %s", metadata, tableHandle);
+        return tableStatistics;
     }
 
     @Override
@@ -2861,6 +2834,7 @@ public final class MetadataManager
                 switch (ownedKind) {
                     case "TABLE" -> metadata.setTableAuthorization(session.toConnectorSession(catalogHandle), new SchemaTableName(name.get(1), name.get(2)), principal);
                     case "VIEW" -> metadata.setViewAuthorization(session.toConnectorSession(catalogHandle), new SchemaTableName(name.get(1), name.get(2)), principal);
+                    case "MATERIALIZED VIEW" -> metadata.setMaterializedViewAuthorization(session.toConnectorSession(catalogHandle), new SchemaTableName(name.get(1), name.get(2)), principal);
                     case "SCHEMA" -> metadata.setSchemaAuthorization(session.toConnectorSession(catalogHandle), name.get(1), principal);
                     default -> throw new IllegalArgumentException("Unsupported owned kind: " + ownedKind);
                 }

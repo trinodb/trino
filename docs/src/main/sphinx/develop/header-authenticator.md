@@ -21,7 +21,7 @@ as a plugin and installed on the Trino cluster.
 
 After a plugin that implements `HeaderAuthenticatorFactory` has been
 installed on the coordinator, it is configured using an
-`etc/header-authenticator.properties` file. All of the
+`etc/header-authenticator.properties` file. All the
 properties other than `header-authenticator.name` are specific to the
 `HeaderAuthenticatorFactory` implementation.
 

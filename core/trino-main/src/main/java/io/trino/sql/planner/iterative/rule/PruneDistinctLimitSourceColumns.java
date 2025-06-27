@@ -39,7 +39,6 @@ public class PruneDistinctLimitSourceColumns
     {
         ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.builder();
         expectedInputs.addAll(distinctLimit.getOutputSymbols());
-        distinctLimit.getHashSymbol().ifPresent(expectedInputs::add);
 
         return restrictChildOutputs(context.getIdAllocator(), distinctLimit, expectedInputs.build())
                 .map(Result::ofPlanNode)

@@ -49,6 +49,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.eventlistener.RoutineInfo;
 import io.trino.spi.eventlistener.StageGcStatistics;
 import io.trino.spi.eventlistener.TableInfo;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.security.SelectedRole;
@@ -56,14 +57,15 @@ import io.trino.spi.type.Type;
 import io.trino.sql.SessionPropertyResolver.SessionPropertiesApplier;
 import io.trino.sql.analyzer.Output;
 import io.trino.sql.planner.PlanFragment;
+import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.tracing.TrinoAttributes;
 import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionInfo;
 import io.trino.transaction.TransactionManager;
 import jakarta.annotation.Nullable;
-import org.joda.time.DateTime;
 
 import java.net.URI;
+import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -664,6 +666,8 @@ public class QueryStateMachine
         long revocableMemoryReservation = 0;
         long totalMemoryReservation = 0;
 
+        long spilledDataSize = 0;
+
         long totalScheduledTime = 0;
         long failedScheduledTime = 0;
         long totalCpuTime = 0;
@@ -730,6 +734,7 @@ public class QueryStateMachine
             userMemoryReservation += stageStats.getUserMemoryReservation().toBytes();
             revocableMemoryReservation += stageStats.getRevocableMemoryReservation().toBytes();
             totalMemoryReservation += stageStats.getTotalMemoryReservation().toBytes();
+            spilledDataSize += stageStats.getSpilledDataSize().toBytes();
             totalScheduledTime += stageStats.getTotalScheduledTime().roundTo(MILLISECONDS);
             failedScheduledTime += stageStats.getFailedScheduledTime().roundTo(MILLISECONDS);
             totalCpuTime += stageStats.getTotalCpuTime().roundTo(MILLISECONDS);
@@ -776,7 +781,17 @@ public class QueryStateMachine
 
             stageGcStatistics.add(stageStats.getGcInfo());
 
-            operatorStatsSummary.addAll(stageInfo.getStageStats().getOperatorSummaries());
+            List<OperatorStats> operatorStats = stageInfo.getStageStats().getOperatorSummaries();
+            Map<PlanNodeId, Metrics> splitSourceMetrics = stageInfo.getStageStats().getSplitSourceMetrics();
+            for (OperatorStats stats : operatorStats) {
+                if (stats.getSourceId().isPresent()) {
+                    Metrics metrics = splitSourceMetrics.get(stats.getSourceId().get());
+                    if (metrics != null && metrics != Metrics.EMPTY) {
+                        stats = stats.withConnectorSplitSourceMetrics(metrics);
+                    }
+                }
+                operatorStatsSummary.add(stats);
+            }
         }
 
         if (rootStage.isPresent()) {
@@ -873,6 +888,8 @@ public class QueryStateMachine
                 succinctBytes(getPeakTaskUserMemory()),
                 succinctBytes(getPeakTaskRevocableMemory()),
                 succinctBytes(getPeakTaskTotalMemory()),
+
+                succinctBytes(spilledDataSize),
 
                 scheduled,
                 progressPercentage,
@@ -1326,12 +1343,12 @@ public class QueryStateMachine
         queryStateTimer.endAnalysis();
     }
 
-    public DateTime getCreateTime()
+    public Instant getCreateTime()
     {
         return queryStateTimer.getCreateTime();
     }
 
-    public Optional<DateTime> getExecutionStartTime()
+    public Optional<Instant> getExecutionStartTime()
     {
         return queryStateTimer.getExecutionStartTime();
     }
@@ -1343,12 +1360,12 @@ public class QueryStateMachine
                 .map(_ -> queryStateTimer.getPlanningTime());
     }
 
-    public DateTime getLastHeartbeat()
+    public Instant getLastHeartbeat()
     {
         return queryStateTimer.getLastHeartbeat();
     }
 
-    public Optional<DateTime> getEndTime()
+    public Optional<Instant> getEndTime()
     {
         return queryStateTimer.getEndTime();
     }
@@ -1370,7 +1387,10 @@ public class QueryStateMachine
     {
         QueryInfo queryInfo = getQueryInfo(stageInfo);
         if (queryInfo.isFinalQueryInfo()) {
-            finalQueryInfo.compareAndSet(Optional.empty(), Optional.of(queryInfo));
+            if (!finalQueryInfo.compareAndSet(Optional.empty(), Optional.of(queryInfo))) {
+                // use the final query info if it is already set
+                queryInfo = finalQueryInfo.get().orElseThrow();
+            }
         }
         return queryInfo;
     }
@@ -1487,6 +1507,7 @@ public class QueryStateMachine
                 queryStats.getPeakTaskUserMemory(),
                 queryStats.getPeakTaskRevocableMemory(),
                 queryStats.getPeakTaskTotalMemory(),
+                queryStats.getSpilledDataSize(),
                 queryStats.isScheduled(),
                 queryStats.getProgressPercentage(),
                 queryStats.getRunningPercentage(),

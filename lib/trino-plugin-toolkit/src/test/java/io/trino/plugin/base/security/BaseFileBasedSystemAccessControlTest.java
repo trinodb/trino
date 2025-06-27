@@ -45,6 +45,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -203,6 +204,12 @@ public abstract class BaseFileBasedSystemAccessControlTest
         assertAccessDenied(
                 () -> accessControl.checkCanSetEntityAuthorization(UNKNOWN, new EntityKindAndName("VIEW", List.of("some-catalog", "unknown", "unknown")), new TrinoPrincipal(ROLE, "some_role")),
                 "Cannot set authorization for view some-catalog.unknown.unknown to ROLE some_role");
+        assertAccessDenied(
+                () -> accessControl.checkCanSetMaterializedViewAuthorization(UNKNOWN, new CatalogSchemaTableName("some-catalog", new SchemaTableName("unknown", "unknown")), new TrinoPrincipal(ROLE, "some_role")),
+                "Cannot set authorization for materialized view some-catalog.unknown.unknown to ROLE some_role");
+        assertAccessDenied(
+                () -> accessControl.checkCanSetEntityAuthorization(UNKNOWN, new EntityKindAndName("MATERIALIZED VIEW", List.of("some-catalog", "unknown", "unknown")), new TrinoPrincipal(ROLE, "some_role")),
+                "Cannot set authorization for materialized view some-catalog.unknown.unknown to ROLE some_role");
 
         accessControl.checkCanCreateMaterializedView(UNKNOWN, new CatalogSchemaTableName("some-catalog", "unknown", "unknown"), Map.of());
         accessControl.checkCanDropMaterializedView(UNKNOWN, new CatalogSchemaTableName("some-catalog", "unknown", "unknown"));
@@ -1415,7 +1422,7 @@ public abstract class BaseFileBasedSystemAccessControlTest
             throws Exception
     {
         SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
-        ImmutableList<ColumnSchema> columns = Stream.of("private", "restricted", "masked", "masked_with_user")
+        List<ColumnSchema> columns = Stream.of("private", "restricted", "masked", "masked_with_user")
                 .map(BaseFileBasedSystemAccessControlTest::createColumnSchema)
                 .collect(toImmutableList());
 
@@ -1702,6 +1709,19 @@ public abstract class BaseFileBasedSystemAccessControlTest
     public void testViewAuthorization()
             throws Exception
     {
+        assertViewSetEntityAuthorization("VIEW");
+    }
+
+    @Test
+    public void testMaterializedViewAuthorization()
+            throws Exception
+    {
+        assertViewSetEntityAuthorization("MATERIALIZED VIEW");
+    }
+
+    private void assertViewSetEntityAuthorization(String entityKind)
+            throws URISyntaxException
+    {
         SystemAccessControl accessControl = newFileBasedSystemAccessControl("authorization.json");
 
         List<String> table = List.of("some-catalog", "test", "table");
@@ -1710,59 +1730,59 @@ public abstract class BaseFileBasedSystemAccessControlTest
         List<String> ownedByRole = List.of("some-catalog", "test", "owned_by_role");
 
         assertAccessDenied(
-                () -> accessControl.checkCanSetEntityAuthorization(user("user", "group", "role"), new EntityKindAndName("VIEW", table), new TrinoPrincipal(ROLE, "new_role")),
-                "Cannot set authorization for view some-catalog.test.table to ROLE new_role");
+                () -> accessControl.checkCanSetEntityAuthorization(user("user", "group", "role"), new EntityKindAndName(entityKind, table), new TrinoPrincipal(ROLE, "new_role")),
+                "Cannot set authorization for %s some-catalog.test.table to ROLE new_role".formatted(entityKind.toLowerCase(Locale.ROOT)));
 
         // access to table granted to user
-        EntityKindAndName viewOwnedByUser = new EntityKindAndName("VIEW", ownedByUser);
+        EntityKindAndName viewOwnedByUser = new EntityKindAndName(entityKind, ownedByUser);
         accessControl.checkCanSetEntityAuthorization(user("owner_authorized", "group", "role"), viewOwnedByUser, new TrinoPrincipal(USER, "new_user"));
         accessControl.checkCanSetEntityAuthorization(user("owner", "group", "authorized"), viewOwnedByUser, new TrinoPrincipal(ROLE, "new_role"));
         assertAccessDenied(
                 () -> accessControl.checkCanSetEntityAuthorization(user("owner_without_authorization_access", "group", "role"), viewOwnedByUser, new TrinoPrincipal(ROLE, "new_role")),
-                "Cannot set authorization for view some-catalog.test.owned_by_user to ROLE new_role");
+                "Cannot set authorization for %s some-catalog.test.owned_by_user to ROLE new_role".formatted(entityKind.toLowerCase(Locale.ROOT)));
         assertAccessDenied(
                 () -> accessControl.checkCanSetEntityAuthorization(user("owner_DENY_authorized", "group", "role"), viewOwnedByUser, new TrinoPrincipal(USER, "new_user")),
-                "Cannot set authorization for view some-catalog.test.owned_by_user to USER new_user");
+                "Cannot set authorization for %s some-catalog.test.owned_by_user to USER new_user".formatted(entityKind.toLowerCase(Locale.ROOT)));
         assertAccessDenied(
                 () -> accessControl.checkCanSetEntityAuthorization(user("owner", "group", "DENY_authorized"), viewOwnedByUser, new TrinoPrincipal(ROLE, "new_role")),
-                "Cannot set authorization for view some-catalog.test.owned_by_user to ROLE new_role");
+                "Cannot set authorization for %s some-catalog.test.owned_by_user to ROLE new_role".formatted(entityKind.toLowerCase(Locale.ROOT)));
         assertAccessDenied(
                 () -> accessControl.checkCanSetEntityAuthorization(user("owner", "group", "authorized"), viewOwnedByUser, new TrinoPrincipal(USER, "new_user")),
-                "Cannot set authorization for view some-catalog.test.owned_by_user to USER new_user");
+                "Cannot set authorization for %s some-catalog.test.owned_by_user to USER new_user".formatted(entityKind.toLowerCase(Locale.ROOT)));
 
         // access to table granted to group
-        EntityKindAndName viewOwnedByGroup = new EntityKindAndName("VIEW", ownedByGroup);
+        EntityKindAndName viewOwnedByGroup = new EntityKindAndName(entityKind, ownedByGroup);
         accessControl.checkCanSetEntityAuthorization(user("authorized", "owner", "role"), viewOwnedByGroup, new TrinoPrincipal(USER, "new_user"));
         accessControl.checkCanSetEntityAuthorization(user("user", "owner", "authorized"), viewOwnedByGroup, new TrinoPrincipal(ROLE, "new_role"));
         assertAccessDenied(
                 () -> accessControl.checkCanSetEntityAuthorization(user("user", "owner", "role"), viewOwnedByGroup, new TrinoPrincipal(ROLE, "new_role")),
-                "Cannot set authorization for view some-catalog.test.owned_by_group to ROLE new_role");
+                "Cannot set authorization for %s some-catalog.test.owned_by_group to ROLE new_role".formatted(entityKind.toLowerCase(Locale.ROOT)));
         assertAccessDenied(
                 () -> accessControl.checkCanSetEntityAuthorization(user("DENY_authorized", "owner", "role"), viewOwnedByGroup, new TrinoPrincipal(USER, "new_user")),
-                "Cannot set authorization for view some-catalog.test.owned_by_group to USER new_user");
+                "Cannot set authorization for %s some-catalog.test.owned_by_group to USER new_user".formatted(entityKind.toLowerCase(Locale.ROOT)));
         assertAccessDenied(
                 () -> accessControl.checkCanSetEntityAuthorization(user("user", "owner", "DENY_authorized"), viewOwnedByGroup, new TrinoPrincipal(ROLE, "new_role")),
-                "Cannot set authorization for view some-catalog.test.owned_by_group to ROLE new_role");
+                "Cannot set authorization for %s some-catalog.test.owned_by_group to ROLE new_role".formatted(entityKind.toLowerCase(Locale.ROOT)));
         assertAccessDenied(
                 () -> accessControl.checkCanSetEntityAuthorization(user("user", "owner", "authorized"), viewOwnedByGroup, new TrinoPrincipal(USER, "new_user")),
-                "Cannot set authorization for view some-catalog.test.owned_by_group to USER new_user");
+                "Cannot set authorization for %s some-catalog.test.owned_by_group to USER new_user".formatted(entityKind.toLowerCase(Locale.ROOT)));
 
         // access to table granted to role
-        EntityKindAndName viewOwnedByRole = new EntityKindAndName("VIEW", ownedByRole);
+        EntityKindAndName viewOwnedByRole = new EntityKindAndName(entityKind, ownedByRole);
         accessControl.checkCanSetEntityAuthorization(user("authorized", "group", "owner"), viewOwnedByRole, new TrinoPrincipal(USER, "new_user"));
         accessControl.checkCanSetEntityAuthorization(user("user", "group", "owner_authorized"), viewOwnedByRole, new TrinoPrincipal(ROLE, "new_role"));
         assertAccessDenied(
                 () -> accessControl.checkCanSetEntityAuthorization(user("user", "group", "owner"), viewOwnedByRole, new TrinoPrincipal(ROLE, "new_role")),
-                "Cannot set authorization for view some-catalog.test.owned_by_role to ROLE new_role");
+                "Cannot set authorization for %s some-catalog.test.owned_by_role to ROLE new_role".formatted(entityKind.toLowerCase(Locale.ROOT)));
         assertAccessDenied(
                 () -> accessControl.checkCanSetEntityAuthorization(user("DENY_authorized", "group", "owner"), viewOwnedByRole, new TrinoPrincipal(USER, "new_user")),
-                "Cannot set authorization for view some-catalog.test.owned_by_role to USER new_user");
+                "Cannot set authorization for %s some-catalog.test.owned_by_role to USER new_user".formatted(entityKind.toLowerCase(Locale.ROOT)));
         assertAccessDenied(
                 () -> accessControl.checkCanSetEntityAuthorization(user("user", "group", "owner_DENY_authorized"), viewOwnedByRole, new TrinoPrincipal(ROLE, "new_role")),
-                "Cannot set authorization for view some-catalog.test.owned_by_role to ROLE new_role");
+                "Cannot set authorization for %s some-catalog.test.owned_by_role to ROLE new_role".formatted(entityKind.toLowerCase(Locale.ROOT)));
         assertAccessDenied(
                 () -> accessControl.checkCanSetEntityAuthorization(user("user", "group", "owner_authorized"), viewOwnedByRole, new TrinoPrincipal(USER, "new_user")),
-                "Cannot set authorization for view some-catalog.test.owned_by_role to USER new_user");
+                "Cannot set authorization for %s some-catalog.test.owned_by_role to USER new_user".formatted(entityKind.toLowerCase(Locale.ROOT)));
     }
 
     @Test

@@ -175,8 +175,7 @@ public class ParquetWriter
 
         checkArgument(page.getChannelCount() == columnWriters.size());
 
-        Page validationPage = page;
-        recordValidation(validation -> validation.addPage(validationPage));
+        recordValidation(validation -> validation.addPage(page));
 
         int writeOffset = 0;
         while (writeOffset < page.getPositionCount()) {
@@ -238,7 +237,7 @@ public class ParquetWriter
         checkState(validationBuilder.isPresent(), "validation is not enabled");
         ParquetWriteValidation writeValidation = validationBuilder.get().build();
         try {
-            ParquetMetadata parquetMetadata = MetadataReader.readFooter(input, Optional.of(writeValidation));
+            ParquetMetadata parquetMetadata = MetadataReader.readFooter(input, Optional.empty(), Optional.of(writeValidation));
             try (ParquetReader parquetReader = createParquetReader(input, parquetMetadata, writeValidation)) {
                 for (SourcePage page = parquetReader.nextPage(); page != null; page = parquetReader.nextPage()) {
                     // fully load the page
@@ -289,7 +288,7 @@ public class ParquetWriter
                 input,
                 parquetTimeZone.orElseThrow(),
                 newSimpleAggregatedMemoryContext(),
-                new ParquetReaderOptions(),
+                ParquetReaderOptions.defaultOptions(),
                 exception -> {
                     throwIfUnchecked(exception);
                     return new RuntimeException(exception);
@@ -412,7 +411,7 @@ public class ParquetWriter
     {
         long totalCompressedBytes = columnMetaData.stream().mapToLong(ColumnMetaData::getTotal_compressed_size).sum();
         long totalBytes = columnMetaData.stream().mapToLong(ColumnMetaData::getTotal_uncompressed_size).sum();
-        ImmutableList<org.apache.parquet.format.ColumnChunk> columnChunks = columnMetaData.stream().map(ParquetWriter::toColumnChunk).collect(toImmutableList());
+        List<org.apache.parquet.format.ColumnChunk> columnChunks = columnMetaData.stream().map(ParquetWriter::toColumnChunk).collect(toImmutableList());
         fileFooter.addRowGroup(new RowGroup(columnChunks, totalBytes, rows)
                 .setTotal_compressed_size(totalCompressedBytes)
                 .setFile_offset(fileOffset));

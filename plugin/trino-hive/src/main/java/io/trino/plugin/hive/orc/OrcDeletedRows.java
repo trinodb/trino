@@ -35,14 +35,12 @@ import jakarta.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.Iterator;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.ObjLongConsumer;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.instanceSize;
@@ -110,6 +108,8 @@ public class OrcDeletedRows
     private class OrcAcidMaskedSourcePage
             implements SourcePage
     {
+        private static final long INSTANCE_SIZE = instanceSize(OrcAcidMaskedSourcePage.class);
+
         private final OptionalLong startRowId;
         private final SourcePage sourcePage;
         private boolean deleteMaskApplied;
@@ -139,12 +139,13 @@ public class OrcDeletedRows
         @Override
         public long getRetainedSizeInBytes()
         {
-            return sourcePage.getRetainedSizeInBytes();
+            return INSTANCE_SIZE + sourcePage.getRetainedSizeInBytes();
         }
 
         @Override
         public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
         {
+            consumer.accept(this, INSTANCE_SIZE);
             sourcePage.retainedBytesForEachPart(consumer);
         }
 
@@ -309,7 +310,7 @@ public class OrcDeletedRows
             long initialMemorySize = retainedMemorySize(deletedRowsBuilderSize, currentPage);
 
             if (deleteDeltaDirectories == null) {
-                deleteDeltaDirectories = acidInfo.getDeleteDeltaDirectories().iterator();
+                deleteDeltaDirectories = acidInfo.deleteDeltaDirectories().iterator();
             }
 
             while (deleteDeltaDirectories.hasNext() || currentPageSource != null) {
@@ -394,7 +395,7 @@ public class OrcDeletedRows
 
     private static Location createPath(AcidInfo acidInfo, String deleteDeltaDirectory, String fileName)
     {
-        Location directory = Location.of(acidInfo.getPartitionLocation()).appendPath(deleteDeltaDirectory);
+        Location directory = Location.of(acidInfo.partitionLocation()).appendPath(deleteDeltaDirectory);
 
         // When direct insert is enabled base and delta directories contain bucket_[id]_[attemptId] files
         // but delete delta directories contain bucket files without attemptId so we have to remove it from filename.
@@ -402,63 +403,15 @@ public class OrcDeletedRows
             return directory.appendPath(fileName.substring(0, fileName.lastIndexOf('_')));
         }
 
-        if (!acidInfo.getOriginalFiles().isEmpty()) {
+        if (!acidInfo.originalFiles().isEmpty()) {
             // Original file format is different from delete delta, construct delete delta file path from bucket ID of original file.
-            return bucketFileName(directory, acidInfo.getBucketId());
+            return bucketFileName(directory, acidInfo.bucketId());
         }
         return directory.appendPath(fileName);
     }
 
-    private static class RowId
+    private record RowId(long originalTransaction, int bucket, int statementId, long rowId)
     {
         public static final int INSTANCE_SIZE = instanceSize(RowId.class);
-
-        private final long originalTransaction;
-        private final int bucket;
-        private final int statementId;
-        private final long rowId;
-
-        public RowId(long originalTransaction, int bucket, int statementId, long rowId)
-        {
-            this.originalTransaction = originalTransaction;
-            this.bucket = bucket;
-            this.statementId = statementId;
-            this.rowId = rowId;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-
-            RowId other = (RowId) o;
-            return originalTransaction == other.originalTransaction &&
-                    bucket == other.bucket &&
-                    statementId == other.statementId &&
-                    rowId == other.rowId;
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(originalTransaction, bucket, statementId, rowId);
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("originalTransaction", originalTransaction)
-                    .add("bucket", bucket)
-                    .add("statementId", statementId)
-                    .add("rowId", rowId)
-                    .toString();
-        }
     }
 }

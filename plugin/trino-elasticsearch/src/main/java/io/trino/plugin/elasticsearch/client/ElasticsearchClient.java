@@ -13,12 +13,6 @@
  */
 package io.trino.plugin.elasticsearch.client;
 
-import com.amazonaws.auth.AWSCredentialsProvider;
-import com.amazonaws.auth.AWSStaticCredentialsProvider;
-import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
-import com.amazonaws.auth.STSAssumeRoleSessionCredentialsProvider;
-import com.amazonaws.services.securitytoken.AWSSecurityTokenServiceClientBuilder;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.NullNode;
@@ -67,6 +61,13 @@ import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.sts.StsClient;
+import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
 
 import javax.net.ssl.SSLContext;
 
@@ -246,23 +247,28 @@ public class ElasticsearchClient
         return new BackpressureRestHighLevelClient(builder, config, backpressureStats);
     }
 
-    private static AWSCredentialsProvider getAwsCredentialsProvider(AwsSecurityConfig config)
+    private static AwsCredentialsProvider getAwsCredentialsProvider(AwsSecurityConfig config)
     {
-        AWSCredentialsProvider credentialsProvider = DefaultAWSCredentialsProviderChain.getInstance();
+        AwsCredentialsProvider credentialsProvider = DefaultCredentialsProvider.create();
 
         if (config.getAccessKey().isPresent() && config.getSecretKey().isPresent()) {
-            credentialsProvider = new AWSStaticCredentialsProvider(new BasicAWSCredentials(
+            credentialsProvider = StaticCredentialsProvider.create(AwsBasicCredentials.create(
                     config.getAccessKey().get(),
                     config.getSecretKey().get()));
         }
 
         if (config.getIamRole().isPresent()) {
-            STSAssumeRoleSessionCredentialsProvider.Builder credentialsProviderBuilder = new STSAssumeRoleSessionCredentialsProvider.Builder(config.getIamRole().get(), "trino-session")
-                    .withStsClient(AWSSecurityTokenServiceClientBuilder.standard()
-                            .withRegion(config.getRegion())
-                            .withCredentials(credentialsProvider)
-                            .build());
-            config.getExternalId().ifPresent(credentialsProviderBuilder::withExternalId);
+            StsAssumeRoleCredentialsProvider.Builder credentialsProviderBuilder = StsAssumeRoleCredentialsProvider.builder()
+                    .stsClient(StsClient.builder()
+                            .region(Region.of(config.getRegion()))
+                            .credentialsProvider(credentialsProvider)
+                            .build())
+                    .refreshRequest(request -> {
+                        request
+                                .roleArn(config.getIamRole().get())
+                                .roleSessionName("trino-session");
+                        config.getExternalId().ifPresent(request::externalId);
+                    });
             credentialsProvider = credentialsProviderBuilder.build();
         }
 
@@ -423,9 +429,7 @@ public class ElasticsearchClient
                 ImmutableMap.Builder<String, List<String>> result = ImmutableMap.builder();
                 JsonNode root = OBJECT_MAPPER.readTree(body);
 
-                Iterator<Map.Entry<String, JsonNode>> elements = root.fields();
-                while (elements.hasNext()) {
-                    Map.Entry<String, JsonNode> element = elements.next();
+                for (Map.Entry<String, JsonNode> element : root.properties()) {
                     JsonNode aliases = element.getValue().get("aliases");
                     Iterator<String> aliasNames = aliases.fieldNames();
                     if (aliasNames.hasNext()) {
@@ -483,12 +487,8 @@ public class ElasticsearchClient
 
     private IndexMetadata.ObjectType parseType(JsonNode properties, JsonNode metaProperties)
     {
-        Iterator<Map.Entry<String, JsonNode>> entries = properties.fields();
-
         ImmutableList.Builder<IndexMetadata.Field> result = ImmutableList.builder();
-        while (entries.hasNext()) {
-            Map.Entry<String, JsonNode> field = entries.next();
-
+        for (Map.Entry<String, JsonNode> field : properties.properties()) {
             String name = field.getKey();
             JsonNode value = field.getValue();
 

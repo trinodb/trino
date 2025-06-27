@@ -21,7 +21,6 @@ import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.block.SqlRow;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.OperatorMethodHandle;
 
@@ -190,11 +189,6 @@ public class RowType
 
     private static TypeSignature makeSignature(List<Field> fields)
     {
-        int size = fields.size();
-        if (size == 0) {
-            throw new IllegalArgumentException("Row type must have at least 1 field");
-        }
-
         List<TypeSignatureParameter> parameters = fields.stream()
                 .map(field -> new NamedTypeSignature(field.getName().map(RowFieldName::new), field.getType().getTypeSignature()))
                 .map(TypeSignatureParameter::namedTypeParameter)
@@ -238,7 +232,7 @@ public class RowType
     }
 
     @Override
-    public Object getObjectValue(ConnectorSession session, Block block, int position)
+    public Object getObjectValue(Block block, int position)
     {
         if (block.isNull(position)) {
             return null;
@@ -249,7 +243,7 @@ public class RowType
 
         int rawIndex = sqlRow.getRawIndex();
         for (int i = 0; i < sqlRow.getFieldCount(); i++) {
-            values.add(fields.get(i).getType().getObjectValue(session, sqlRow.getRawFieldBlock(i), rawIndex));
+            values.add(fields.get(i).getType().getObjectValue(sqlRow.getRawFieldBlock(i), rawIndex));
         }
 
         return Collections.unmodifiableList(values);

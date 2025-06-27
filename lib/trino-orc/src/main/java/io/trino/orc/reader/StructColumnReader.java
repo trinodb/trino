@@ -63,7 +63,7 @@ public class StructColumnReader
 
     private final Map<String, ColumnReader> structFields;
     private final RowType type;
-    private final ImmutableList<String> fieldNames;
+    private final List<String> fieldNames;
 
     private int readOffset;
     private int nextBatchSize;

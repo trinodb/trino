@@ -34,6 +34,7 @@ import io.trino.execution.buffer.OutputBufferStatus;
 import io.trino.metadata.InMemoryNodeManager;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningScheme;
@@ -206,7 +207,7 @@ public class TestScaledWriterScheduler
                 new UniformNodeSelectorFactory(
                         new InMemoryNodeManager(NODE_1, NODE_2, NODE_3),
                         new NodeSchedulerConfig().setIncludeCoordinator(true),
-                        new NodeTaskMap(new FinalizerService())).createNodeSelector(testSessionBuilder().build(), Optional.empty()),
+                        new NodeTaskMap(new FinalizerService())).createNodeSelector(testSessionBuilder().build()),
                 newScheduledThreadPool(10, threadsNamed("task-notification-%s")),
                 DataSize.of(32, DataSize.Unit.MEGABYTE),
                 maxWritersNodesCount);
@@ -345,7 +346,7 @@ public class TestScaledWriterScheduler
         }
 
         @Override
-        public void recordGetSplitTime(long start)
+        public void recordSplitSourceMetrics(PlanNodeId nodeId, Metrics metrics, long start)
         {
             throw new UnsupportedOperationException();
         }

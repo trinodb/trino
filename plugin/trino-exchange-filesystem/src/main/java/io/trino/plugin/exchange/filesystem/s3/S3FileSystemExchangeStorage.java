@@ -21,6 +21,8 @@ import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageBatch;
 import com.google.cloud.storage.StorageOptions;
 import com.google.common.base.Stopwatch;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Lists;
@@ -39,6 +41,7 @@ import io.airlift.slice.SliceInput;
 import io.airlift.slice.Slices;
 import io.airlift.units.Duration;
 import io.trino.annotation.NotThreadSafe;
+import io.trino.cache.NonEvictableLoadingCache;
 import io.trino.plugin.exchange.filesystem.ExchangeSourceFile;
 import io.trino.plugin.exchange.filesystem.ExchangeStorageReader;
 import io.trino.plugin.exchange.filesystem.ExchangeStorageWriter;
@@ -63,6 +66,7 @@ import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.core.internal.retry.SdkDefaultRetryStrategy;
 import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient;
 import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.LegacyMd5Plugin;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.S3AsyncClientBuilder;
 import software.amazon.awssdk.services.s3.S3Configuration;
@@ -106,6 +110,7 @@ import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -120,6 +125,7 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.slice.SizeOf.instanceSize;
+import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.exchange.filesystem.FileSystemExchangeFutures.translateFailures;
 import static io.trino.plugin.exchange.filesystem.FileSystemExchangeManager.PATH_SEPARATOR;
 import static io.trino.plugin.exchange.filesystem.MetricsBuilder.SOURCE_FILES_PROCESSED;
@@ -152,7 +158,7 @@ public class S3FileSystemExchangeStorage
     private final Optional<Region> region;
     private final Optional<String> endpoint;
     private final int multiUploadPartSize;
-    private final S3AsyncClient s3AsyncClient;
+    private final NonEvictableLoadingCache<String, S3AsyncClient> s3Clients;
     private final StorageClass storageClass;
     private final CompatibilityMode compatibilityMode;
     private final S3SseContext s3SseContext;
@@ -173,35 +179,44 @@ public class S3FileSystemExchangeStorage
         this.compatibilityMode = requireNonNull(compatibilityMode, "compatibilityMode is null");
         this.s3SseContext = new S3SseContext(config.getSseType(), config.getSseKmsKeyId());
 
-        AwsCredentialsProvider credentialsProvider = createAwsCredentialsProvider(config);
-        ClientOverrideConfiguration overrideConfig = ClientOverrideConfiguration.builder()
-                .retryStrategy(SdkDefaultRetryStrategy.forRetryMode(config.getRetryMode()).toBuilder()
-                        .maxAttempts(config.getS3MaxErrorRetries())
-                        .build())
-                .putAdvancedOption(USER_AGENT_PREFIX, "")
-                .putAdvancedOption(USER_AGENT_SUFFIX, "Trino-exchange")
-                .build();
-        S3AsyncClient client = createS3AsyncClient(
-                credentialsProvider,
-                overrideConfig,
-                config.isS3PathStyleAccess(),
-                config.getAsyncClientConcurrency(),
-                config.getAsyncClientMaxPendingConnectionAcquires(),
-                config.getConnectionAcquisitionTimeout());
-        this.s3AsyncClient = new S3AsyncClientWrapper(client)
-        {
-            @Override
-            protected void handle(RequestType requestType, CompletableFuture<?> responseFuture)
-            {
-                stats.requestStarted(requestType);
-                responseFuture.whenComplete((result, failure) -> {
-                    if (failure != null && failure.getMessage() != null && failure.getMessage().contains("Maximum pending connection acquisitions exceeded")) {
-                        log.error(failure, "Encountered 'Maximum pending connection acquisitions exceeded' error. Active requests: %s", stats.getActiveRequestsSummary());
+        s3Clients = buildNonEvictableCache(
+                CacheBuilder.newBuilder(),
+                new CacheLoader<>()
+                {
+                    @Override
+                    public S3AsyncClient load(String bucketName)
+                    {
+                        AwsCredentialsProvider credentialsProvider = createAwsCredentialsProvider(config);
+                        ClientOverrideConfiguration overrideConfig = ClientOverrideConfiguration.builder()
+                                .retryStrategy(SdkDefaultRetryStrategy.forRetryMode(config.getRetryMode()).toBuilder()
+                                        .maxAttempts(config.getS3MaxErrorRetries())
+                                        .build())
+                                .putAdvancedOption(USER_AGENT_PREFIX, "")
+                                .putAdvancedOption(USER_AGENT_SUFFIX, "Trino-exchange")
+                                .build();
+                        S3AsyncClient client = createS3AsyncClient(
+                                credentialsProvider,
+                                overrideConfig,
+                                config.isS3PathStyleAccess(),
+                                config.getAsyncClientConcurrency(),
+                                config.getAsyncClientMaxPendingConnectionAcquires(),
+                                config.getConnectionAcquisitionTimeout());
+                        return new S3AsyncClientWrapper(client)
+                        {
+                            @Override
+                            protected void handle(RequestType requestType, CompletableFuture<?> responseFuture)
+                            {
+                                stats.requestStarted(requestType);
+                                responseFuture.whenComplete((result, failure) -> {
+                                    if (failure != null && failure.getMessage() != null && failure.getMessage().contains("Maximum pending connection acquisitions exceeded")) {
+                                        log.error(failure, "Encountered 'Maximum pending connection acquisitions exceeded' error. Active requests: %s", stats.getActiveRequestsSummary());
+                                    }
+                                    stats.requestCompleted(requestType);
+                                });
+                            }
+                        };
                     }
-                    stats.requestCompleted(requestType);
                 });
-            }
-        };
 
         if (compatibilityMode == GCP) {
             Optional<String> gcsJsonKeyFilePath = config.getGcsJsonKeyFilePath();
@@ -244,7 +259,7 @@ public class S3FileSystemExchangeStorage
     @Override
     public ExchangeStorageReader createExchangeStorageReader(List<ExchangeSourceFile> sourceFiles, int maxPageStorageSize, MetricsBuilder metricsBuilder)
     {
-        return new S3ExchangeStorageReader(stats, s3AsyncClient, multiUploadPartSize, sourceFiles, metricsBuilder, maxPageStorageSize);
+        return new S3ExchangeStorageReader(stats, s3Clients, multiUploadPartSize, sourceFiles, metricsBuilder, maxPageStorageSize);
     }
 
     @Override
@@ -253,18 +268,19 @@ public class S3FileSystemExchangeStorage
         String bucketName = getBucketName(file);
         String key = keyFromUri(file);
 
-        return new S3ExchangeStorageWriter(stats, s3AsyncClient, bucketName, key, multiUploadPartSize, storageClass, s3SseContext);
+        return new S3ExchangeStorageWriter(stats, s3Clients.getUnchecked(bucketName), bucketName, key, multiUploadPartSize, storageClass, s3SseContext);
     }
 
     @Override
     public ListenableFuture<Void> createEmptyFile(URI file)
     {
+        String bucketName = getBucketName(file);
         PutObjectRequest request = PutObjectRequest.builder()
-                .bucket(getBucketName(file))
+                .bucket(bucketName)
                 .key(keyFromUri(file))
                 .build();
 
-        return stats.getCreateEmptyFile().record(translateFailures(toListenableFuture(s3AsyncClient.putObject(request, AsyncRequestBody.empty()))));
+        return stats.getCreateEmptyFile().record(translateFailures(toListenableFuture(s3Clients.getUnchecked(bucketName).putObject(request, AsyncRequestBody.empty()))));
     }
 
     @Override
@@ -353,7 +369,7 @@ public class S3FileSystemExchangeStorage
             throws IOException
     {
         try (Closer closer = Closer.create()) {
-            closer.register(s3AsyncClient::close);
+            s3Clients.asMap().values().forEach(client -> closer.register(client::close));
             gcsDeleteExecutor.ifPresent(listeningExecutorService -> closer.register(listeningExecutorService::shutdown));
         }
     }
@@ -362,12 +378,13 @@ public class S3FileSystemExchangeStorage
     {
         checkArgument(isDirectory(dir), "listObjectsRecursively called on file uri %s", dir);
 
+        String bucketName = getBucketName(dir);
         ListObjectsV2Request request = ListObjectsV2Request.builder()
-                .bucket(getBucketName(dir))
+                .bucket(bucketName)
                 .prefix(keyFromUri(dir) + PATH_SEPARATOR)
                 .build();
 
-        return s3AsyncClient.listObjectsV2Paginator(request);
+        return s3Clients.getUnchecked(bucketName).listObjectsV2Paginator(request);
     }
 
     private ListenableFuture<List<DeleteObjectsResponse>> deleteObjects(String bucketName, List<String> keys)
@@ -380,7 +397,7 @@ public class S3FileSystemExchangeStorage
                     .delete(Delete.builder().objects(list.stream().map(key -> ObjectIdentifier.builder().key(key).build()).collect(toImmutableList())).build())
                     .overrideConfiguration(disableStrongIntegrityChecksums())
                     .build();
-            return toListenableFuture(s3AsyncClient.deleteObjects(request));
+            return toListenableFuture(s3Clients.getUnchecked(bucketName).deleteObjects(request));
         }).collect(toImmutableList())));
     }
 
@@ -468,7 +485,7 @@ public class S3FileSystemExchangeStorage
                     .build();
         }
 
-        return DefaultCredentialsProvider.create();
+        return DefaultCredentialsProvider.builder().build();
     }
 
     private S3AsyncClient createS3AsyncClient(
@@ -487,6 +504,7 @@ public class S3FileSystemExchangeStorage
                         .build())
                 .requestChecksumCalculation(RequestChecksumCalculation.WHEN_REQUIRED)
                 .responseChecksumValidation(ResponseChecksumValidation.WHEN_REQUIRED)
+                .addPlugin(LegacyMd5Plugin.create())
                 .httpClientBuilder(NettyNioAsyncHttpClient.builder()
                         .maxConcurrency(maxConcurrency)
                         .maxPendingConnectionAcquires(maxPendingConnectionAcquires)
@@ -519,7 +537,7 @@ public class S3FileSystemExchangeStorage
         private static final int INSTANCE_SIZE = instanceSize(S3ExchangeStorageReader.class);
 
         private final S3FileSystemExchangeStorageStats stats;
-        private final S3AsyncClient s3AsyncClient;
+        private final Function<String, S3AsyncClient> s3AsyncClientProvider;
         CounterMetricBuilder sourceFilesProcessedMetric;
         DistributionMetricBuilder s3GetObjectRequestsSuccessMetric;
         DistributionMetricBuilder s3GetObjectRequestsFailedMetric;
@@ -542,14 +560,14 @@ public class S3FileSystemExchangeStorage
 
         public S3ExchangeStorageReader(
                 S3FileSystemExchangeStorageStats stats,
-                S3AsyncClient s3AsyncClient,
+                Function<String, S3AsyncClient> s3AsyncClientProvider,
                 int partSize,
                 List<ExchangeSourceFile> sourceFiles,
                 MetricsBuilder metricsBuilder,
                 int maxPageStorageSize)
         {
             this.stats = requireNonNull(stats, "stats is null");
-            this.s3AsyncClient = requireNonNull(s3AsyncClient, "s3AsyncClient is null");
+            this.s3AsyncClientProvider = requireNonNull(s3AsyncClientProvider, "s3AsyncClientProvider is null");
             this.partSize = partSize;
             this.sourceFiles = new ArrayDeque<>(requireNonNull(sourceFiles, "sourceFiles is null"));
             requireNonNull(metricsBuilder, "metricsBuilder is null");
@@ -675,7 +693,7 @@ public class S3FileSystemExchangeStorage
                             .bucket(bucketName)
                             .range("bytes=" + fileOffset + "-" + (fileOffset + length - 1));
 
-                    ListenableFuture<GetObjectResponse> getObjectFuture = toListenableFuture(s3AsyncClient.getObject(getObjectRequestBuilder.build(),
+                    ListenableFuture<GetObjectResponse> getObjectFuture = toListenableFuture(s3AsyncClientProvider.apply(bucketName).getObject(getObjectRequestBuilder.build(),
                             BufferWriteAsyncResponseTransformer.toBufferWrite(buffer, bufferFill)));
                     stats.getGetObject().record(getObjectFuture);
                     stats.getGetObjectDataSizeInBytes().add(length);

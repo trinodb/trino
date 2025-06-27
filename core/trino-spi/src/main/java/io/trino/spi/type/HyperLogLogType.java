@@ -19,7 +19,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
-import io.trino.spi.connector.ConnectorSession;
 
 // Layout is <size>:<hll>, where
 //   size: is a short describing the length of the hll bytes
@@ -56,7 +55,7 @@ public class HyperLogLogType
     }
 
     @Override
-    public Object getObjectValue(ConnectorSession session, Block block, int position)
+    public Object getObjectValue(Block block, int position)
     {
         if (block.isNull(position)) {
             return null;

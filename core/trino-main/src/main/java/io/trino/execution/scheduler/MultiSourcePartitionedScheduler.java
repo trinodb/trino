@@ -48,7 +48,7 @@ public class MultiSourcePartitionedScheduler
     private static final Logger log = Logger.get(MultiSourcePartitionedScheduler.class);
 
     private final StageExecution stageExecution;
-    private final Queue<SourceScheduler> sourceSchedulers;
+    private final Queue<SourceScheduler> partitionedSourceSchedulers;
     private final Map<InternalNode, RemoteTask> scheduledTasks = new HashMap<>();
     private final DynamicFilterService dynamicFilterService;
     private final SplitPlacementPolicy splitPlacementPolicy;
@@ -56,19 +56,19 @@ public class MultiSourcePartitionedScheduler
 
     public MultiSourcePartitionedScheduler(
             StageExecution stageExecution,
-            Map<PlanNodeId, SplitSource> splitSources,
+            Map<PlanNodeId, SplitSource> partitionedSplitSources,
             SplitPlacementPolicy splitPlacementPolicy,
             int splitBatchSize,
             DynamicFilterService dynamicFilterService,
             TableExecuteContextManager tableExecuteContextManager,
             BooleanSupplier anySourceTaskBlocked)
     {
-        requireNonNull(splitSources, "splitSources is null");
-        checkArgument(splitSources.size() > 1, "It is expected that there will be more than one split sources");
+        requireNonNull(partitionedSplitSources, "partitionedSplitSources is null");
+        checkArgument(partitionedSplitSources.size() > 1, "It is expected that there will be more than one split sources");
 
         ImmutableList.Builder<SourceScheduler> sourceSchedulers = ImmutableList.builder();
-        for (PlanNodeId planNodeId : splitSources.keySet()) {
-            SplitSource splitSource = splitSources.get(planNodeId);
+        for (PlanNodeId planNodeId : partitionedSplitSources.keySet()) {
+            SplitSource splitSource = partitionedSplitSources.get(planNodeId);
             SourceScheduler sourceScheduler = newSourcePartitionedSchedulerAsSourceScheduler(
                     stageExecution,
                     planNodeId,
@@ -83,7 +83,7 @@ public class MultiSourcePartitionedScheduler
             sourceSchedulers.add(sourceScheduler);
         }
         this.stageExecution = requireNonNull(stageExecution, "stageExecution is null");
-        this.sourceSchedulers = new ArrayDeque<>(sourceSchedulers.build());
+        this.partitionedSourceSchedulers = new ArrayDeque<>(sourceSchedulers.build());
         this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
         this.splitPlacementPolicy = requireNonNull(splitPlacementPolicy, "splitPlacementPolicy is null");
     }
@@ -114,8 +114,8 @@ public class MultiSourcePartitionedScheduler
         Optional<ScheduleResult.BlockedReason> blockedReason = Optional.empty();
         int splitsScheduled = 0;
 
-        while (!sourceSchedulers.isEmpty()) {
-            SourceScheduler scheduler = sourceSchedulers.peek();
+        while (!partitionedSourceSchedulers.isEmpty()) {
+            SourceScheduler scheduler = partitionedSourceSchedulers.peek();
             ScheduleResult scheduleResult = scheduler.schedule();
 
             splitsScheduled += scheduleResult.getSplitsScheduled();
@@ -129,18 +129,18 @@ public class MultiSourcePartitionedScheduler
             }
 
             stageExecution.schedulingComplete(scheduler.getPlanNodeId());
-            sourceSchedulers.remove().close();
+            partitionedSourceSchedulers.remove().close();
         }
         if (blockedReason.isPresent()) {
-            return new ScheduleResult(sourceSchedulers.isEmpty(), newScheduledTasks.build(), blocked, blockedReason.get(), splitsScheduled);
+            return new ScheduleResult(partitionedSourceSchedulers.isEmpty(), newScheduledTasks.build(), blocked, blockedReason.get(), splitsScheduled);
         }
-        return new ScheduleResult(sourceSchedulers.isEmpty(), newScheduledTasks.build(), splitsScheduled);
+        return new ScheduleResult(partitionedSourceSchedulers.isEmpty(), newScheduledTasks.build(), splitsScheduled);
     }
 
     @Override
     public void close()
     {
-        for (SourceScheduler sourceScheduler : sourceSchedulers) {
+        for (SourceScheduler sourceScheduler : partitionedSourceSchedulers) {
             try {
                 sourceScheduler.close();
             }
@@ -148,7 +148,7 @@ public class MultiSourcePartitionedScheduler
                 log.warn(t, "Error closing split source");
             }
         }
-        sourceSchedulers.clear();
+        partitionedSourceSchedulers.clear();
     }
 
     private void scheduleTaskOnRandomNode()

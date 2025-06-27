@@ -29,7 +29,7 @@ public class TestingSingleStoreServer
     public static final String DEFAULT_VERSION = "7.8";
     public static final String LATEST_TESTED_VERSION = "8.9";
 
-    public static final String DEFAULT_TAG = "ghcr.io/singlestore-labs/singlestoredb-dev:latest";
+    public static final String DEFAULT_TAG = "ghcr.io/singlestore-labs/singlestoredb-dev:0.2.51";
 
     public static final Integer SINGLESTORE_PORT = 3306;
 

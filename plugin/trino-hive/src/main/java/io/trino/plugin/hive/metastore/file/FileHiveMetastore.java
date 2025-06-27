@@ -516,7 +516,7 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized List<String> getTableNamesWithParameters(String databaseName, String parameterKey, ImmutableSet<String> parameterValues)
+    public synchronized List<String> getTableNamesWithParameters(String databaseName, String parameterKey, Set<String> parameterValues)
     {
         requireNonNull(parameterKey, "parameterKey is null");
         return doListAllTables(databaseName, table -> parameterValues.contains(table.getParameters().get(parameterKey))).stream()

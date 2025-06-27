@@ -38,7 +38,7 @@ connection-password=secret
 
 The `connection-url` defines the connection information and parameters to pass
 to the MySQL JDBC driver. The supported parameters for the URL are
-available in the [MySQL Developer Guide](https://dev.mysql.com/doc/connector-j/8.0/en/connector-j-reference-configuration-properties.html).
+available in the [MySQL Developer Guide](https://dev.mysql.com/doc/connector-j/en/connector-j-reference-configuration-properties.html).
 
 For example, the following `connection-url` allows you to require encrypted
 connections to the MySQL server:
@@ -475,7 +475,7 @@ ANALYZE TABLE table_name;
 :::{note}
 MySQL and Trino may use statistics information in different ways. For this
 reason, the accuracy of table and column statistics returned by the MySQL
-connector might be lower than than that of others connectors.
+connector might be lower than that of others connectors.
 :::
 
 **Improving statistics accuracy**

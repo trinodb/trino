@@ -102,7 +102,7 @@ are reflected automatically for incoming queries.
 
 - `hardConcurrencyLimit` (required): maximum number of running queries.
 
-- `softMemoryLimit` (required): maximum amount of distributed memory this
+- `softMemoryLimit` (optional): maximum amount of distributed memory this
   group may use, before new queries become queued. May be specified as
   an absolute value (i.e. `1GB`) or as a percentage (i.e. `10%`) of the cluster's memory.
 
@@ -162,15 +162,15 @@ evenly and each receive 50% of the queries in a given timeframe.
 The selector rules for pattern matching use Java's regular expression
 capabilities. Java implements regular expressions through the `java.util.regex`
 package. For more information, see the [Java
-documentation](https://docs.oracle.com/en/java/javase/23/docs/api/java.base/java/util/regex/Pattern.html).
+documentation](https://docs.oracle.com/en/java/javase/24/docs/api/java.base/java/util/regex/Pattern.html).
 
-- `user` (optional): Java regex to match against user name.
+- `user` (optional): Java regex to match against username.
 
-- `originalUser` (optional): Java regex to match against the _original_ user name,
+- `originalUser` (optional): Java regex to match against the _original_ username,
   i.e. before any changes to the session user. For example, if user "foo" runs
   `SET SESSION AUTHORIZATION 'bar'`, `originalUser` is "foo", while `user` is "bar".
 
-- `authenticatedUser` (optional): Java regex to match against the _authenticated_ user name,
+- `authenticatedUser` (optional): Java regex to match against the _authenticated_ username,
   which will always refer to the user that authenticated with the system, regardless of any
   changes made to the session user.
 

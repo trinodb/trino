@@ -15,13 +15,10 @@ package io.trino.plugin.iceberg;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
-import io.trino.filesystem.FileEntry;
-import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
@@ -54,7 +51,6 @@ import org.apache.iceberg.TableMetadataParser;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-import java.io.IOException;
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
@@ -1112,99 +1108,6 @@ public abstract class BaseIcebergMaterializedViewTest
         assertUpdate("DROP TABLE %s".formatted(sourceTableName));
     }
 
-    @Test
-    void testPreviousSnapshotCleanupDuringRefresh()
-            throws IOException
-    {
-        String sourceTableName = "source_table" + randomNameSuffix();
-        String materializedViewName = "test_materialized_view" + randomNameSuffix();
-
-        // create source table and an MV
-        assertUpdate("CREATE TABLE " + sourceTableName + " (a int, b varchar)");
-        assertUpdate("INSERT INTO " + sourceTableName + " VALUES (1, 'abc'), (2, 'def')", 2);
-        assertUpdate("CREATE MATERIALIZED VIEW " + materializedViewName + " AS SELECT a, b FROM " + sourceTableName + " WHERE a < 3 OR a > 5");
-        // Until first MV refresh no data files are created hence perform first MV refresh to get data files created for the MV
-        assertUpdate("REFRESH MATERIALIZED VIEW " + materializedViewName, 2);
-
-        TrinoFileSystem fileSystemFactory = getFileSystemFactory(getQueryRunner()).create(ConnectorIdentity.ofUser("test"));
-
-        // Identify different types of files containing in an MV
-        Location metadataLocation = Location.of(getStorageMetadataLocation(materializedViewName));
-        FileIterator tableFiles = fileSystemFactory.listFiles(Location.of(metadataLocation.toString().substring(0, metadataLocation.toString().indexOf("/metadata"))));
-        ImmutableSet.Builder<FileEntry> previousDataFiles = ImmutableSet.builder();
-        ImmutableSet.Builder<FileEntry> previousMetadataFiles = ImmutableSet.builder();
-        ImmutableSet.Builder<FileEntry> previousManifestsFiles = ImmutableSet.builder();
-        while (tableFiles.hasNext()) {
-            FileEntry file = tableFiles.next();
-            String location = file.location().toString();
-            if (location.contains("/data/")) {
-                previousDataFiles.add(file);
-            }
-            else if (location.contains("/metadata/") && location.endsWith(".json")) {
-                previousMetadataFiles.add(file);
-            }
-            else if (location.contains("/metadata") && !location.contains("snap-") && location.endsWith(".avro")) {
-                previousManifestsFiles.add(file);
-            }
-        }
-
-        // Execute MV refresh after deleting existing records and inserting new records in source table 
-        assertUpdate("DELETE FROM " + sourceTableName + " WHERE a = 1 OR a = 2", 2);
-        assertQueryReturnsEmptyResult("SELECT * FROM " + sourceTableName);
-        assertUpdate("INSERT INTO " + sourceTableName + " VALUES (7, 'pqr'), (8, 'xyz')", 2);
-        assertUpdate("REFRESH MATERIALIZED VIEW " + materializedViewName, 2);
-        assertThat(query("SELECT * FROM " + materializedViewName))
-                .matches("VALUES (7, VARCHAR 'pqr'), (8, VARCHAR 'xyz')");
-
-        // Identify different types of files containing in an MV after MV refresh
-        Location latestMetadataLocation = Location.of(getStorageMetadataLocation(materializedViewName));
-        FileIterator latestTableFiles = fileSystemFactory.listFiles(Location.of(latestMetadataLocation.toString().substring(0, latestMetadataLocation.toString().indexOf("/metadata"))));
-        ImmutableSet.Builder<FileEntry> currentDataFiles = ImmutableSet.builder();
-        ImmutableSet.Builder<FileEntry> currentMetadataFiles = ImmutableSet.builder();
-        ImmutableSet.Builder<FileEntry> currentManifestsFiles = ImmutableSet.builder();
-        while (latestTableFiles.hasNext()) {
-            FileEntry file = latestTableFiles.next();
-            String location = file.location().toString();
-            if (location.contains("/data/")) {
-                currentDataFiles.add(file);
-            }
-            else if (location.contains("/metadata/") && location.endsWith(".json")) {
-                currentMetadataFiles.add(file);
-            }
-            else if (location.contains("/metadata") && !location.contains("snap-") && location.endsWith(".avro")) {
-                currentManifestsFiles.add(file);
-            }
-        }
-
-        // data files from previous snapshot are absent in latest MV snapshot as those are cleaned up after MV refresh
-        assertThat(previousDataFiles.build())
-                .isNotEmpty()
-                .satisfies(dataFilesBeforeMvRefresh -> 
-                        assertThat(currentDataFiles.build())
-                                .isNotEmpty()
-                                .doesNotContainAnyElementsOf(dataFilesBeforeMvRefresh));
-
-        // metadata files from previous snapshot are still present in latest MV snapshot as those are not cleaned up after MV refresh
-        assertThat(previousMetadataFiles.build())
-                .isNotEmpty()
-                .satisfies(metadataFilesBeforeMvRefresh -> 
-                        assertThat(currentMetadataFiles.build())
-                                .isNotEmpty()
-                                .containsAll(metadataFilesBeforeMvRefresh));
-
-        // manifests files from previous snapshot are absent in latest MV snapshot as those are cleaned up after MV refresh
-        assertThat(previousManifestsFiles.build())
-                .isNotEmpty()
-                .satisfies(manifestsBeforeMvRefresh -> 
-                        assertThat(currentManifestsFiles.build())
-                                .isNotEmpty()
-                                .doesNotContainAnyElementsOf(manifestsBeforeMvRefresh));
-
-        // cleanup
-        assertUpdate("DROP MATERIALIZED VIEW " + materializedViewName);
-        assertUpdate("DROP TABLE " + sourceTableName);
-    }
-
     protected String getColumnComment(String tableName, String columnName)
     {
         return (String) computeScalar("SELECT comment FROM information_schema.columns WHERE table_schema = '" + getSession().getSchema().orElseThrow() + "' AND table_name = '" + tableName + "' AND column_name = '" + columnName + "'");
@@ -1290,12 +1193,6 @@ public abstract class BaseIcebergMaterializedViewTest
             implements ConnectorSplit
     {
         private static final int INSTANCE_SIZE = instanceSize(SequenceConnectorSplit.class);
-
-        @Override
-        public Map<String, String> getSplitInfo()
-        {
-            return ImmutableMap.of();
-        }
 
         @JsonIgnore
         @Override

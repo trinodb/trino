@@ -73,7 +73,7 @@ public final class ViewReaderUtil
 
     public interface ViewReader
     {
-        ConnectorViewDefinition decodeViewData(String viewData, Table table, CatalogName catalogName);
+        ConnectorViewDefinition decodeViewData(Optional<String> viewData, Table table, CatalogName catalogName);
     }
 
     public static ViewReader createViewReader(
@@ -202,9 +202,9 @@ public final class ViewReaderUtil
             implements ViewReader
     {
         @Override
-        public ConnectorViewDefinition decodeViewData(String viewData, Table table, CatalogName catalogName)
+        public ConnectorViewDefinition decodeViewData(Optional<String> viewData, Table table, CatalogName catalogName)
         {
-            return decodeViewData(viewData);
+            return decodeViewData(viewData.orElseThrow(() -> new TrinoException(HIVE_VIEW_TRANSLATION_ERROR, "Cannot decode view data, view original sql is empty")));
         }
 
         public static ConnectorViewDefinition decodeViewData(String viewData)
@@ -238,7 +238,7 @@ public final class ViewReaderUtil
         }
 
         @Override
-        public ConnectorViewDefinition decodeViewData(String viewSql, Table table, CatalogName catalogName)
+        public ConnectorViewDefinition decodeViewData(Optional<String> viewSql, Table table, CatalogName catalogName)
         {
             try {
                 HiveToRelConverter hiveToRelConverter = new HiveToRelConverter(metastoreClient);

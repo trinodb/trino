@@ -110,7 +110,7 @@ public final class ExpressionTreeRewriter<C>
             List<Expression> items = rewrite(node.items(), context);
 
             if (!sameElements(node.items(), items)) {
-                return new Row(items);
+                return new Row(items, node.type());
             }
 
             return node;

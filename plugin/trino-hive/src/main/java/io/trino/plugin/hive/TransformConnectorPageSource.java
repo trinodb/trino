@@ -33,6 +33,8 @@ import java.util.function.Function;
 import java.util.function.ObjLongConsumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.spi.block.RowBlock.getRowFieldsFromBlock;
 import static java.util.Objects.requireNonNull;
@@ -279,9 +281,14 @@ public final class TransformConnectorPageSource
         }
     }
 
-    private record TransformSourcePage(SourcePage sourcePage, List<Function<SourcePage, Block>> transforms, Block[] blocks)
+    private record TransformSourcePage(
+            SourcePage sourcePage,
+            List<Function<SourcePage, Block>> transforms, // not considered "retained" since the same list is shared between instances
+            Block[] blocks)
             implements SourcePage
     {
+        private static final long INSTANCE_SIZE = instanceSize(TransformSourcePage.class);
+
         private TransformSourcePage(SourcePage sourcePage, List<Function<SourcePage, Block>> transforms)
         {
             this(sourcePage, transforms, new Block[transforms.size()]);
@@ -310,17 +317,22 @@ public final class TransformConnectorPageSource
         @Override
         public long getRetainedSizeInBytes()
         {
-            return sourcePage.getRetainedSizeInBytes();
+            return INSTANCE_SIZE +
+                    sizeOf(blocks) +
+                    sourcePage.getRetainedSizeInBytes();
         }
 
         @Override
         public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
         {
+            consumer.accept(this, INSTANCE_SIZE);
+            consumer.accept(blocks, sizeOf(blocks));
             for (Block block : blocks) {
                 if (block != null) {
                     block.retainedBytesForEachPart(consumer);
                 }
             }
+            sourcePage.retainedBytesForEachPart(consumer);
         }
 
         @Override
