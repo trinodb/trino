@@ -46,8 +46,8 @@ import io.trino.cost.RuntimeInfoProvider;
 import io.trino.cost.StaticRuntimeInfoProvider;
 import io.trino.exchange.ExchangeContextInstance;
 import io.trino.exchange.SpoolingExchangeInput;
-import io.trino.execution.BasicStageInfo;
 import io.trino.execution.BasicStageStats;
+import io.trino.execution.BasicStagesInfo;
 import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.NodeTaskMap;
 import io.trino.execution.QueryState;
@@ -59,6 +59,7 @@ import io.trino.execution.SqlStage.LocalExchangeBucketCountProvider;
 import io.trino.execution.StageId;
 import io.trino.execution.StageInfo;
 import io.trino.execution.StageState;
+import io.trino.execution.StagesInfo;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.TableInfo;
 import io.trino.execution.TaskId;
@@ -152,6 +153,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMaxPartitionCount;
 import static io.trino.SystemSessionProperties.getMaxTasksWaitingForExecutionPerQuery;
 import static io.trino.SystemSessionProperties.getMaxTasksWaitingForNodePerQuery;
@@ -326,7 +328,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             if (scheduler != null) {
                 scheduler.abort();
             }
-            queryStateMachine.updateQueryInfo(Optional.ofNullable(stageRegistry.getStageInfo()));
+            queryStateMachine.updateQueryInfo(Optional.ofNullable(stageRegistry.getStages()));
         });
 
         Session session = queryStateMachine.getSession();
@@ -407,15 +409,15 @@ public class EventDrivenFaultTolerantQueryScheduler
     }
 
     @Override
-    public BasicStageInfo getBasicStageInfo()
+    public BasicStagesInfo getBasicStagesInfo()
     {
-        return new BasicStageInfo(stageRegistry.getStageInfo());
+        return new BasicStagesInfo(stageRegistry.getStages());
     }
 
     @Override
-    public StageInfo getStageInfo()
+    public StagesInfo getStagesInfo()
     {
-        return stageRegistry.getStageInfo();
+        return stageRegistry.getStages();
     }
 
     @Override
@@ -459,31 +461,71 @@ public class EventDrivenFaultTolerantQueryScheduler
             this.plan.set(requireNonNull(plan, "plan is null"));
         }
 
-        public StageInfo getStageInfo()
+        public StagesInfo getStages()
         {
             Map<PlanFragmentId, StageInfo> stageInfos = stages.values().stream()
                     .collect(toImmutableMap(stage -> stage.getFragment().getId(), SqlStage::getStageInfo));
             // make sure that plan is not staler than stageInfos since `getStageInfo` is called asynchronously
             SubPlan plan = requireNonNull(this.plan.get(), "plan is null");
-            Set<PlanFragmentId> reportedFragments = new HashSet<>();
-            return getStageInfo(plan, stageInfos, reportedFragments);
+            return getStages(plan, stageInfos);
         }
 
-        private StageInfo getStageInfo(SubPlan plan, Map<PlanFragmentId, StageInfo> infos, Set<PlanFragmentId> reportedFragments)
+        private StagesInfo getStages(SubPlan plan, Map<PlanFragmentId, StageInfo> infos)
         {
-            PlanFragmentId fragmentId = plan.getFragment().getId();
-            reportedFragments.add(fragmentId);
-            StageInfo info = infos.get(fragmentId);
-            if (info == null) {
-                info = StageInfo.createInitial(
-                        queryStateMachine.getQueryId(),
-                        queryStateMachine.getQueryState().isDone() ? ABORTED : PLANNED,
-                        plan.getFragment());
+            Map<PlanFragmentId, PlanFragment> fragments = new HashMap<>();
+            collectFragments(plan, fragments);
+
+            // Can not use MultiMap as we need to be able to represent empty set as value
+            Map<PlanFragmentId, Set<PlanFragmentId>> fragmentsToChildrenMap = new HashMap<>();
+            collectFragmentsToChildrenMap(plan, fragmentsToChildrenMap);
+
+            Map<PlanFragmentId, StageInfo> reportedStageInfos = new HashMap<>();
+
+            // collect all stages referenced in the plan
+            fragmentsToChildrenMap.keySet().forEach(fragmentId -> {
+                StageInfo stageInfo = infos.get(fragmentId);
+                if (stageInfo == null) {
+                    stageInfo = StageInfo.createInitial(
+                            queryStateMachine.getQueryId(),
+                            queryStateMachine.getQueryState().isDone() ? ABORTED : PLANNED,
+                            fragments.get(fragmentId));
+                }
+                reportedStageInfos.put(fragmentId, stageInfo);
+            });
+
+            fragmentsToChildrenMap.forEach((fragment, sourceFragments) -> {
+                reportedStageInfos.compute(
+                        fragment,
+                        (_, stageInfo) -> stageInfo.withSubStages(
+                                sourceFragments.stream()
+                                        .map(sourceFragment -> {
+                                            StageInfo stageInfo1 = reportedStageInfos.get(sourceFragment);
+                                            return stageInfo1.getStageId(); })
+                                        .collect(toImmutableList())));
+            });
+
+            // todo: handle stages which are no longer part of the plan
+
+            return new StagesInfo(reportedStageInfos.get(plan.getFragment().getId()).getStageId(), ImmutableList.copyOf(reportedStageInfos.values()));
+        }
+
+        private void collectFragments(SubPlan plan, Map<PlanFragmentId, PlanFragment> fragments)
+        {
+            fragments.put(plan.getFragment().getId(), plan.getFragment());
+            for (SubPlan child : plan.getChildren()) {
+                collectFragments(child, fragments);
             }
-            List<StageInfo> sourceStages = plan.getChildren().stream()
-                    .map(source -> getStageInfo(source, infos, reportedFragments))
-                    .collect(toImmutableList());
-            return info.withSubStages(sourceStages);
+        }
+
+        private void collectFragmentsToChildrenMap(SubPlan plan, Map<PlanFragmentId, Set<PlanFragmentId>> reportedFragments)
+        {
+            if (reportedFragments.containsKey(plan.getFragment().getId())) {
+                return;
+            }
+
+            reportedFragments.put(plan.getFragment().getId(), plan.getChildren().stream().map(source -> source.getFragment().getId()).collect(toImmutableSet()));
+            plan.getChildren().stream()
+                    .forEach(source -> collectFragmentsToChildrenMap(source, reportedFragments));
         }
 
         public BasicStageStats getBasicStageStats()
@@ -1409,7 +1451,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                         bucketCountProvider);
                 closer.register(stage::abort);
                 stageRegistry.add(stage);
-                stage.addFinalStageInfoListener(_ -> queryStateMachine.updateQueryInfo(Optional.ofNullable(stageRegistry.getStageInfo())));
+                stage.addFinalStageInfoListener(_ -> queryStateMachine.updateQueryInfo(Optional.ofNullable(stageRegistry.getStages())));
 
                 ImmutableMap.Builder<PlanFragmentId, Exchange> sourceExchangesBuilder = ImmutableMap.builder();
                 Map<PlanFragmentId, OutputDataSizeEstimate> sourceOutputEstimatesByFragmentId = new HashMap<>();

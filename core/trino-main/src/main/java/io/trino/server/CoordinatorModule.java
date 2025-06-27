@@ -62,6 +62,7 @@ import io.trino.execution.RemoteTaskFactory;
 import io.trino.execution.SessionPropertyEvaluator;
 import io.trino.execution.SqlQueryManager;
 import io.trino.execution.StageInfo;
+import io.trino.execution.StagesInfo;
 import io.trino.execution.TaskInfo;
 import io.trino.execution.TaskManagerConfig;
 import io.trino.execution.TaskStatus;
@@ -192,6 +193,7 @@ public class CoordinatorModule
         jsonCodecBinder(binder).bindJsonCodec(ExecutionFailureInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(OperatorStats.class);
         jsonCodecBinder(binder).bindJsonCodec(StageInfo.class);
+        jsonCodecBinder(binder).bindJsonCodec(StagesInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(StatsAndCosts.class);
         configBinder(binder).bindConfig(QueryMonitorConfig.class);
         binder.bind(QueryMonitor.class).in(Scopes.SINGLETON);

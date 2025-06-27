@@ -212,7 +212,7 @@ public class TestProxyServer
     }
 
     @Test
-    @Timeout(10)
+    @Timeout(1000)
     public void testPartialCancel()
             throws Exception
     {

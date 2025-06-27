@@ -18,7 +18,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.graph.Traverser;
-import io.trino.execution.StageInfo;
+import io.trino.execution.StagesInfo;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -90,26 +90,18 @@ public class StatsAndCosts
         return new StatsAndCosts(stats.buildOrThrow(), costs.buildOrThrow());
     }
 
-    public static StatsAndCosts create(StageInfo stageInfo)
+    public static StatsAndCosts create(StagesInfo stages)
     {
         ImmutableMap.Builder<PlanNodeId, PlanNodeStatsEstimate> planNodeStats = ImmutableMap.builder();
         ImmutableMap.Builder<PlanNodeId, PlanCostEstimate> planNodeCosts = ImmutableMap.builder();
-        reconstructStatsAndCosts(stageInfo, planNodeStats, planNodeCosts);
-        return new StatsAndCosts(planNodeStats.buildOrThrow(), planNodeCosts.buildOrThrow());
-    }
 
-    private static void reconstructStatsAndCosts(
-            StageInfo stage,
-            ImmutableMap.Builder<PlanNodeId, PlanNodeStatsEstimate> planNodeStats,
-            ImmutableMap.Builder<PlanNodeId, PlanCostEstimate> planNodeCosts)
-    {
-        PlanFragment planFragment = stage.getPlan();
-        if (planFragment != null) {
-            planNodeStats.putAll(planFragment.getStatsAndCosts().getStats());
-            planNodeCosts.putAll(planFragment.getStatsAndCosts().getCosts());
-        }
-        for (StageInfo subStage : stage.getSubStages()) {
-            reconstructStatsAndCosts(subStage, planNodeStats, planNodeCosts);
-        }
+        stages.getStages().stream().forEach(stage -> {
+            PlanFragment planFragment = stage.getPlan();
+            if (planFragment != null) {
+                planNodeStats.putAll(planFragment.getStatsAndCosts().getStats());
+                planNodeCosts.putAll(planFragment.getStatsAndCosts().getCosts());
+            }
+        });
+        return new StatsAndCosts(planNodeStats.buildOrThrow(), planNodeCosts.buildOrThrow());
     }
 }
