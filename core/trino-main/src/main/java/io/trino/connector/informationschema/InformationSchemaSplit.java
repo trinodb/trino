@@ -13,30 +13,18 @@
  */
 package io.trino.connector.informationschema;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
 
 import java.util.List;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.instanceSize;
-import static java.util.Objects.requireNonNull;
 
-public class InformationSchemaSplit
+public record InformationSchemaSplit(HostAddress address)
         implements ConnectorSplit
 {
     private static final int INSTANCE_SIZE = instanceSize(InformationSchemaSplit.class);
-
-    private final HostAddress address;
-
-    @JsonCreator
-    public InformationSchemaSplit(@JsonProperty("address") HostAddress address)
-    {
-        this.address = requireNonNull(address, "address is null");
-    }
 
     @Override
     public boolean isRemotelyAccessible()
@@ -45,18 +33,9 @@ public class InformationSchemaSplit
     }
 
     @Override
-    @JsonProperty
     public List<HostAddress> getAddresses()
     {
         return ImmutableList.of(address);
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("address", address)
-                .toString();
     }
 
     @Override
