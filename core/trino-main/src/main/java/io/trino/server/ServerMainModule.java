@@ -45,7 +45,6 @@ import io.trino.execution.FailureInjector;
 import io.trino.execution.LocationFactory;
 import io.trino.execution.MemoryRevokingScheduler;
 import io.trino.execution.NoOpFailureInjector;
-import io.trino.execution.NodeTaskMap;
 import io.trino.execution.QueryIdGenerator;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.SqlTaskManager;
@@ -56,10 +55,7 @@ import io.trino.execution.executor.TaskExecutor;
 import io.trino.execution.executor.dedicated.ThreadPerDriverTaskExecutor;
 import io.trino.execution.executor.timesharing.MultilevelSplitQueue;
 import io.trino.execution.executor.timesharing.TimeSharingTaskExecutor;
-import io.trino.execution.scheduler.NodeScheduler;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
-import io.trino.execution.scheduler.TopologyAwareNodeSelectorModule;
-import io.trino.execution.scheduler.UniformNodeSelectorModule;
 import io.trino.memory.LocalMemoryManager;
 import io.trino.memory.LocalMemoryManagerExporter;
 import io.trino.memory.MemoryInfo;
@@ -84,12 +80,7 @@ import io.trino.metadata.SystemSecurityMetadata;
 import io.trino.metadata.TableFunctionRegistry;
 import io.trino.metadata.TableProceduresRegistry;
 import io.trino.metadata.TypeRegistry;
-import io.trino.node.AirliftNodeInventory;
-import io.trino.node.DiscoveryNodeManager;
-import io.trino.node.ForNodeManager;
 import io.trino.node.InternalNode;
-import io.trino.node.InternalNodeManager;
-import io.trino.node.NodeInventory;
 import io.trino.operator.DirectExchangeClientConfig;
 import io.trino.operator.DirectExchangeClientFactory;
 import io.trino.operator.DirectExchangeClientSupplier;
@@ -173,15 +164,12 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.trino.execution.scheduler.NodeSchedulerConfig.NodeSchedulerPolicy.TOPOLOGY;
-import static io.trino.execution.scheduler.NodeSchedulerConfig.NodeSchedulerPolicy.UNIFORM;
 import static io.trino.operator.RetryPolicy.TASK;
 import static io.trino.plugin.base.ClosingBinder.closingBinder;
 import static io.trino.server.InternalCommunicationHttpClientModule.internalHttpClientModule;
@@ -256,35 +244,8 @@ public class ServerMainModule
         binder.bind(SystemSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(SessionPropertyDefaults.class).in(Scopes.SINGLETON);
 
-        // node manager
-        discoveryBinder(binder).bindSelector("trino");
-        binder.bind(DiscoveryNodeManager.class).in(Scopes.SINGLETON);
-        binder.bind(InternalNodeManager.class).to(DiscoveryNodeManager.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(DiscoveryNodeManager.class).withGeneratedName();
-        install(internalHttpClientModule("node-manager", ForNodeManager.class)
-                .withConfigDefaults(config -> {
-                    config.setIdleTimeout(new Duration(30, SECONDS));
-                    config.setRequestTimeout(new Duration(10, SECONDS));
-                }).build());
-        binder.bind(NodeInventory.class).to(AirliftNodeInventory.class).in(Scopes.SINGLETON);
-
-        // node scheduler
-        // TODO: remove from NodePartitioningManager and move to CoordinatorModule
+        // TODO: move to CoordinatorModule when SystemSessionProperties and DefaultCatalogFactory are moved
         configBinder(binder).bindConfig(NodeSchedulerConfig.class);
-        binder.bind(NodeScheduler.class).in(Scopes.SINGLETON);
-        binder.bind(NodeTaskMap.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(NodeScheduler.class).withGeneratedName();
-
-        // network topology
-        // TODO: move to CoordinatorModule when NodeScheduler is moved
-        install(conditionalModule(
-                NodeSchedulerConfig.class,
-                config -> UNIFORM == config.getNodeSchedulerPolicy(),
-                new UniformNodeSelectorModule()));
-        install(conditionalModule(
-                NodeSchedulerConfig.class,
-                config -> TOPOLOGY == config.getNodeSchedulerPolicy(),
-                new TopologyAwareNodeSelectorModule()));
 
         // task execution
         newOptionalBinder(binder, FailureInjector.class).setDefault().to(NoOpFailureInjector.class).in(Scopes.SINGLETON);

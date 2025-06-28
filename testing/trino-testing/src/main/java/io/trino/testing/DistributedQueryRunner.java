@@ -317,7 +317,6 @@ public class DistributedQueryRunner
                 // Use few threads in tests to preserve resources on CI
                 .put("discovery.http-client.min-threads", "1") // default 8
                 .put("exchange.http-client.min-threads", "1") // default 8
-                .put("node-manager.http-client.min-threads", "1") // default 8
                 .put("exchange.page-buffer-client.max-callback-threads", "5") // default 25
                 .put("exchange.http-client.idle-timeout", "1h")
                 .put("task.max-index-memory", "16kB"); // causes index joins to fault load
@@ -326,6 +325,7 @@ public class DistributedQueryRunner
             propertiesBuilder.put("join-distribution-type", "PARTITIONED");
 
             // Use few threads in tests to preserve resources on CI
+            propertiesBuilder.put("node-manager.http-client.min-threads", "1"); // default 8
             propertiesBuilder.put("failure-detector.http-client.min-threads", "1"); // default 8
             propertiesBuilder.put("memory-manager.http-client.min-threads", "1"); // default 8
             propertiesBuilder.put("scheduler.http-client.min-threads", "1"); // default 8
@@ -392,17 +392,15 @@ public class DistributedQueryRunner
     {
         long start = System.nanoTime();
         while (true) {
-            for (TestingTrinoServer server : servers) {
-                AllNodes nodes = server.refreshNodes();
-                if (nodes.getInactiveNodes().isEmpty() && nodes.getActiveNodes().size() == servers.size()) {
-                    return;
-                }
-
-                if (start + SECONDS.toNanos(10) < System.nanoTime()) {
-                    throw new IllegalStateException("Not all nodes are visible after 10 seconds: " + nodes);
-                }
-                sleepUninterruptibly(5, MILLISECONDS);
+            AllNodes nodes = coordinator.refreshNodes();
+            if (nodes.getInactiveNodes().isEmpty() && nodes.getActiveNodes().size() == servers.size()) {
+                return;
             }
+
+            if (start + SECONDS.toNanos(10) < System.nanoTime()) {
+                throw new IllegalStateException("Not all nodes are visible after 10 seconds: " + nodes);
+            }
+            sleepUninterruptibly(5, MILLISECONDS);
         }
     }
 

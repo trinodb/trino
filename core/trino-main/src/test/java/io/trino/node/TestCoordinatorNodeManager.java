@@ -44,7 +44,7 @@ import static io.trino.node.NodeState.INACTIVE;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 
-class TestDiscoveryNodeManager
+class TestCoordinatorNodeManager
 {
     private static final JsonCodec<ServerInfo> SERVER_INFO_JSON_CODEC = JsonCodec.jsonCodec(ServerInfo.class);
     private static final String EXPECTED_ENVIRONMENT = "test_1";
@@ -56,7 +56,7 @@ class TestDiscoveryNodeManager
     private final InternalNode currentNode;
     private final TestingHttpClient testHttpClient;
 
-    TestDiscoveryNodeManager()
+    TestCoordinatorNodeManager()
     {
         NodeVersion expectedVersion = new NodeVersion("1");
         coordinator = new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.2.8"), expectedVersion, true);
@@ -104,7 +104,7 @@ class TestDiscoveryNodeManager
     @Test
     void testGetAllNodes()
     {
-        DiscoveryNodeManager manager = new DiscoveryNodeManager(
+        CoordinatorNodeManager manager = new CoordinatorNodeManager(
                 new TestingNodeInventory(),
                 copy(currentNode),
                 () -> ACTIVE,
@@ -150,7 +150,7 @@ class TestDiscoveryNodeManager
     @Test
     void testGetCoordinators()
     {
-        DiscoveryNodeManager manager = new DiscoveryNodeManager(
+        CoordinatorNodeManager manager = new CoordinatorNodeManager(
                 new TestingNodeInventory(),
                 copy(currentNode),
                 () -> ACTIVE,
@@ -174,7 +174,7 @@ class TestDiscoveryNodeManager
         TestingNodeInventory selector = new TestingNodeInventory();
         selector.announceNodes(ImmutableSet.of(currentNode));
         TestingTicker testingTicker = new TestingTicker();
-        DiscoveryNodeManager manager = new DiscoveryNodeManager(
+        CoordinatorNodeManager manager = new CoordinatorNodeManager(
                 selector,
                 copy(currentNode),
                 () -> ACTIVE,
