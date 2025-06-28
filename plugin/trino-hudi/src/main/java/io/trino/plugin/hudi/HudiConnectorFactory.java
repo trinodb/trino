@@ -30,6 +30,7 @@ import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.metastore.HiveMetastoreModule;
+import io.trino.spi.Node;
 import io.trino.spi.NodeManager;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.classloader.ThreadContextClassLoader;
@@ -78,13 +79,14 @@ public class HudiConnectorFactory
                     new JsonModule(),
                     new HudiModule(),
                     new HiveMetastoreModule(Optional.empty()),
-                    new FileSystemModule(catalogName, context.getNodeManager(), context.getOpenTelemetry(), false),
+                    new FileSystemModule(catalogName, context.getCurrentNode().isCoordinator(), context.getOpenTelemetry(), false),
                     new MBeanServerModule(),
                     module.orElse(EMPTY_MODULE),
                     binder -> {
                         binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry());
                         binder.bind(Tracer.class).toInstance(context.getTracer());
-                        binder.bind(NodeVersion.class).toInstance(new NodeVersion(context.getNodeManager().getCurrentNode().getVersion()));
+                        binder.bind(NodeVersion.class).toInstance(new NodeVersion(context.getCurrentNode().getVersion()));
+                        binder.bind(Node.class).toInstance(context.getCurrentNode());
                         binder.bind(NodeManager.class).toInstance(context.getNodeManager());
                         binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                         binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));

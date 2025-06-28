@@ -32,7 +32,7 @@ import io.trino.metastore.RawHiveMetastoreFactory;
 import io.trino.metastore.cache.CachingHiveMetastoreConfig;
 import io.trino.plugin.hive.AllowHiveTableRename;
 import io.trino.plugin.hive.HideDeltaLakeTables;
-import io.trino.spi.NodeManager;
+import io.trino.spi.Node;
 import io.trino.spi.catalog.CatalogName;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
@@ -115,7 +115,7 @@ public final class GlueMetastoreModule
 
     @Provides
     @Singleton
-    public static GlueCache createGlueCache(CachingHiveMetastoreConfig config, CatalogName catalogName, NodeManager nodeManager)
+    public static GlueCache createGlueCache(CachingHiveMetastoreConfig config, CatalogName catalogName, Node currentNode)
     {
         Duration metadataCacheTtl = config.getMetastoreCacheTtl();
         Duration statsCacheTtl = config.getStatsCacheTtl();
@@ -123,7 +123,7 @@ public final class GlueMetastoreModule
         // Disable caching on workers, because there currently is no way to invalidate such a cache.
         // Note: while we could skip CachingHiveMetastoreModule altogether on workers, we retain it so that catalog
         // configuration can remain identical for all nodes, making cluster configuration easier.
-        boolean enabled = nodeManager.getCurrentNode().isCoordinator() &&
+        boolean enabled = currentNode.isCoordinator() &&
                           (metadataCacheTtl.toMillis() > 0 || statsCacheTtl.toMillis() > 0);
 
         checkState(config.isPartitionCacheEnabled(), "Disabling partitions cache is not supported with Glue v2");

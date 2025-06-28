@@ -32,6 +32,7 @@ public class TestingNodeManager
         implements NodeManager
 {
     private static final String TEST_ENVIRONMENT = "testenv";
+    public static final InternalNode DEFAULT_CURRENT_NODE = new InternalNode("local", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true);
 
     private final String environment;
     private final Node localNode;
@@ -55,7 +56,7 @@ public class TestingNodeManager
 
     public TestingNodeManager(String environment, boolean scheduleOnCoordinator)
     {
-        this(environment, new InternalNode("local", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true), ImmutableSet.of(), scheduleOnCoordinator);
+        this(environment, DEFAULT_CURRENT_NODE, ImmutableSet.of(), scheduleOnCoordinator);
     }
 
     public TestingNodeManager(Node localNode)

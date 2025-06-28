@@ -18,7 +18,6 @@ import com.google.inject.Binder;
 import com.google.inject.Inject;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
-import io.trino.spi.NodeManager;
 import io.trino.spi.type.TypeManager;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -27,20 +26,17 @@ import static java.util.Objects.requireNonNull;
 public class FakerModule
         implements Module
 {
-    private final NodeManager nodeManager;
     private final TypeManager typeManager;
 
     @Inject
-    public FakerModule(NodeManager nodeManager, TypeManager typeManager)
+    public FakerModule(TypeManager typeManager)
     {
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(NodeManager.class).toInstance(nodeManager);
         binder.bind(TypeManager.class).toInstance(typeManager);
 
         binder.bind(FakerConnector.class).in(Scopes.SINGLETON);

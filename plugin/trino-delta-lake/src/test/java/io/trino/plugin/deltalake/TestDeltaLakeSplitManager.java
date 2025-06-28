@@ -56,7 +56,6 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeManager;
 import io.trino.testing.TestingConnectorContext;
 import io.trino.testing.TestingConnectorSession;
-import io.trino.testing.TestingNodeManager;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -70,6 +69,7 @@ import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
+import static io.trino.testing.TestingNodeManager.DEFAULT_CURRENT_NODE;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.Math.clamp;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -229,13 +229,13 @@ public class TestDeltaLakeSplitManager
                 JsonCodec.jsonCodec(DataFileInfo.class),
                 JsonCodec.jsonCodec(DeltaLakeMergeResult.class),
                 new FileSystemTransactionLogWriterFactory(new TransactionLogSynchronizerManager(ImmutableMap.of(), new NoIsolationSynchronizer(hdfsFileSystemFactory))),
-                new TestingNodeManager(),
+                DEFAULT_CURRENT_NODE,
                 checkpointWriterManager,
                 new CachingExtendedStatisticsAccess(new MetaDirStatisticsAccess(HDFS_FILE_SYSTEM_FACTORY, new JsonCodecFactory().jsonCodec(ExtendedStatistics.class))),
                 true,
                 false,
                 new NodeVersion("test_version"),
-                new DeltaLakeTableMetadataScheduler(new TestingNodeManager(), TESTING_TYPE_MANAGER, new DeltaLakeFileMetastoreTableOperationsProvider(hiveMetastoreFactory), Integer.MAX_VALUE, new DeltaLakeConfig()),
+                new DeltaLakeTableMetadataScheduler(DEFAULT_CURRENT_NODE, TESTING_TYPE_MANAGER, new DeltaLakeFileMetastoreTableOperationsProvider(hiveMetastoreFactory), Integer.MAX_VALUE, new DeltaLakeConfig()),
                 newDirectExecutorService(),
                 transactionLogReaderFactory);
 
