@@ -413,6 +413,8 @@ public class TestingTrinoServer
             clusterMemoryManager = injector.getInstance(ClusterMemoryManager.class);
             statsCalculator = injector.getInstance(StatsCalculator.class);
             injector.getInstance(CertificateAuthenticatorManager.class).useDefaultAuthenticator();
+            nodeManager = injector.getInstance(InternalNodeManager.class);
+            serviceSelectorManager = injector.getInstance(ServiceSelectorManager.class);
         }
         else {
             dispatchManager = null;
@@ -423,10 +425,10 @@ public class TestingTrinoServer
             nodePartitioningManager = null;
             clusterMemoryManager = null;
             statsCalculator = null;
+            nodeManager = null;
+            serviceSelectorManager = null;
         }
         localMemoryManager = injector.getInstance(LocalMemoryManager.class);
-        nodeManager = injector.getInstance(InternalNodeManager.class);
-        serviceSelectorManager = injector.getInstance(ServiceSelectorManager.class);
         nodeStateManager = injector.getInstance(NodeStateManager.class);
         taskManager = injector.getInstance(SqlTaskManager.class);
         shutdownAction = injector.getInstance(ShutdownAction.class);
@@ -454,7 +456,9 @@ public class TestingTrinoServer
         additionalConfiguration.accept(this);
         injector.getInstance(StartupStatus.class).startupComplete();
 
-        refreshNodes();
+        if (coordinator) {
+            refreshNodes();
+        }
     }
 
     @Override

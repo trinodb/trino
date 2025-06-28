@@ -85,11 +85,12 @@ import io.trino.metadata.TableFunctionRegistry;
 import io.trino.metadata.TableProceduresRegistry;
 import io.trino.metadata.TypeRegistry;
 import io.trino.node.AirliftNodeInventory;
-import io.trino.node.DiscoveryNodeManager;
+import io.trino.node.CoordinatorNodeManager;
 import io.trino.node.ForNodeManager;
 import io.trino.node.InternalNode;
 import io.trino.node.InternalNodeManager;
 import io.trino.node.NodeInventory;
+import io.trino.node.WorkerInternalNodeManager;
 import io.trino.operator.DirectExchangeClientConfig;
 import io.trino.operator.DirectExchangeClientFactory;
 import io.trino.operator.DirectExchangeClientSupplier;
@@ -257,16 +258,21 @@ public class ServerMainModule
         binder.bind(SessionPropertyDefaults.class).in(Scopes.SINGLETON);
 
         // node manager
-        discoveryBinder(binder).bindSelector("trino");
-        binder.bind(DiscoveryNodeManager.class).in(Scopes.SINGLETON);
-        binder.bind(InternalNodeManager.class).to(DiscoveryNodeManager.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(DiscoveryNodeManager.class).withGeneratedName();
-        install(internalHttpClientModule("node-manager", ForNodeManager.class)
-                .withConfigDefaults(config -> {
-                    config.setIdleTimeout(new Duration(30, SECONDS));
-                    config.setRequestTimeout(new Duration(10, SECONDS));
-                }).build());
-        binder.bind(NodeInventory.class).to(AirliftNodeInventory.class).in(Scopes.SINGLETON);
+        if (serverConfig.isCoordinator()) {
+            discoveryBinder(binder).bindSelector("trino");
+            binder.bind(CoordinatorNodeManager.class).in(Scopes.SINGLETON);
+            binder.bind(InternalNodeManager.class).to(CoordinatorNodeManager.class).in(Scopes.SINGLETON);
+            newExporter(binder).export(CoordinatorNodeManager.class).withGeneratedName();
+            install(internalHttpClientModule("node-manager", ForNodeManager.class)
+                    .withConfigDefaults(config -> {
+                        config.setIdleTimeout(new Duration(30, SECONDS));
+                        config.setRequestTimeout(new Duration(10, SECONDS));
+                    }).build());
+            binder.bind(NodeInventory.class).to(AirliftNodeInventory.class).in(Scopes.SINGLETON);
+        }
+        else {
+            binder.bind(InternalNodeManager.class).to(WorkerInternalNodeManager.class).in(Scopes.SINGLETON);
+        }
 
         // node scheduler
         // TODO: remove from NodePartitioningManager and move to CoordinatorModule
