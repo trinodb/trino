@@ -73,7 +73,10 @@ public class TestJmxSplitManager
     private static final String CONNECTOR_ID = "test-id";
     private final Node localNode = createTestingNode("host1");
     private final Set<Node> nodes = ImmutableSet.of(localNode, createTestingNode("host2"), createTestingNode("host3"));
-    private final NodeManager nodeManager = new TestingNodeManager(localNode, nodes);
+    private final NodeManager nodeManager = TestingNodeManager.builder()
+            .localNode(localNode)
+            .addNodes(nodes)
+            .build();
 
     private final JmxConnector jmxConnector =
             (JmxConnector) new JmxConnectorFactory()

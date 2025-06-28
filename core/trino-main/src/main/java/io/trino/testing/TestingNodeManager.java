@@ -13,7 +13,6 @@
  */
 package io.trino.testing;
 
-import com.google.common.collect.ImmutableSet;
 import io.trino.client.NodeVersion;
 import io.trino.metadata.InternalNode;
 import io.trino.spi.Node;
@@ -21,7 +20,7 @@ import io.trino.spi.NodeManager;
 
 import java.net.URI;
 import java.util.Collection;
-import java.util.List;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 
@@ -37,32 +36,7 @@ public class TestingNodeManager
     private final Set<Node> nodes = new CopyOnWriteArraySet<>();
     private final boolean scheduleOnCoordinator;
 
-    public TestingNodeManager()
-    {
-        this(true);
-    }
-
-    public TestingNodeManager(boolean scheduleOnCoordinator)
-    {
-        this(DEFAULT_CURRENT_NODE, ImmutableSet.of(), scheduleOnCoordinator);
-    }
-
-    public TestingNodeManager(Node localNode)
-    {
-        this(localNode, ImmutableSet.of());
-    }
-
-    public TestingNodeManager(List<Node> allNodes)
-    {
-        this(allNodes.iterator().next(), allNodes);
-    }
-
-    public TestingNodeManager(Node localNode, Collection<Node> otherNodes)
-    {
-        this(localNode, otherNodes, true);
-    }
-
-    public TestingNodeManager(Node localNode, Collection<Node> otherNodes, boolean scheduleOnCoordinator)
+    private TestingNodeManager(Node localNode, Collection<Node> otherNodes, boolean scheduleOnCoordinator)
     {
         this.localNode = requireNonNull(localNode, "localNode is null");
         this.scheduleOnCoordinator = scheduleOnCoordinator;
@@ -101,5 +75,51 @@ public class TestingNodeManager
     public Node getCurrentNode()
     {
         return localNode;
+    }
+
+    public static TestingNodeManager create()
+    {
+        return builder().build();
+    }
+
+    public static Builder builder()
+    {
+        return new Builder();
+    }
+
+    public static class Builder
+    {
+        private Node localNode = DEFAULT_CURRENT_NODE;
+        private final Set<Node> otherNodes = new HashSet<>();
+        private boolean scheduleOnCoordinator = true;
+
+        public Builder localNode(Node localNode)
+        {
+            this.localNode = requireNonNull(localNode, "localNode is null");
+            return this;
+        }
+
+        public Builder addNode(Node node)
+        {
+            otherNodes.add(requireNonNull(node, "node is null"));
+            return this;
+        }
+
+        public Builder addNodes(Collection<Node> nodes)
+        {
+            otherNodes.addAll(requireNonNull(nodes, "nodes is null"));
+            return this;
+        }
+
+        public Builder doNotScheduleOnCoordinator()
+        {
+            this.scheduleOnCoordinator = false;
+            return this;
+        }
+
+        public TestingNodeManager build()
+        {
+            return new TestingNodeManager(localNode, otherNodes, scheduleOnCoordinator);
+        }
     }
 }
