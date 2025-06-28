@@ -52,7 +52,7 @@ public class TestingPostgreSqlConnectorContext
     public TestingPostgreSqlConnectorContext()
     {
         pageIndexerFactory = new GroupByHashPageIndexerFactory(new FlatHashStrategyCompiler(new TypeOperators()));
-        nodeManager = new DefaultNodeManager(new InMemoryNodeManager(), "testenv", true);
+        nodeManager = new DefaultNodeManager(new InMemoryNodeManager(), true);
         TypeRegistry typeRegistry = new TypeRegistry(new TypeOperators(), new FeaturesConfig());
         typeRegistry.addType(GeometryType.GEOMETRY);
         typeManager = new InternalTypeManager(typeRegistry);

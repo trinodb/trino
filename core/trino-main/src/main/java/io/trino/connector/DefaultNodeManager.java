@@ -27,13 +27,11 @@ public class DefaultNodeManager
         implements NodeManager
 {
     private final InternalNodeManager nodeManager;
-    private final String environment;
     private final boolean schedulerIncludeCoordinator;
 
-    public DefaultNodeManager(InternalNodeManager nodeManager, String environment, boolean schedulerIncludeCoordinator)
+    public DefaultNodeManager(InternalNodeManager nodeManager, boolean schedulerIncludeCoordinator)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
-        this.environment = requireNonNull(environment, "environment is null");
         this.schedulerIncludeCoordinator = schedulerIncludeCoordinator;
     }
 
@@ -69,11 +67,5 @@ public class DefaultNodeManager
     public Node getCurrentNode()
     {
         return nodeManager.getCurrentNode();
-    }
-
-    @Override
-    public String getEnvironment()
-    {
-        return environment;
     }
 }

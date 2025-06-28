@@ -31,32 +31,20 @@ import static java.util.Objects.requireNonNull;
 public class TestingNodeManager
         implements NodeManager
 {
-    private static final String TEST_ENVIRONMENT = "testenv";
     public static final InternalNode DEFAULT_CURRENT_NODE = new InternalNode("local", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true);
 
-    private final String environment;
     private final Node localNode;
     private final Set<Node> nodes = new CopyOnWriteArraySet<>();
     private final boolean scheduleOnCoordinator;
 
     public TestingNodeManager()
     {
-        this(TEST_ENVIRONMENT);
+        this(true);
     }
 
     public TestingNodeManager(boolean scheduleOnCoordinator)
     {
-        this(TEST_ENVIRONMENT, scheduleOnCoordinator);
-    }
-
-    public TestingNodeManager(String environment)
-    {
-        this(environment, true);
-    }
-
-    public TestingNodeManager(String environment, boolean scheduleOnCoordinator)
-    {
-        this(environment, DEFAULT_CURRENT_NODE, ImmutableSet.of(), scheduleOnCoordinator);
+        this(DEFAULT_CURRENT_NODE, ImmutableSet.of(), scheduleOnCoordinator);
     }
 
     public TestingNodeManager(Node localNode)
@@ -71,12 +59,11 @@ public class TestingNodeManager
 
     public TestingNodeManager(Node localNode, Collection<Node> otherNodes)
     {
-        this(TEST_ENVIRONMENT, localNode, otherNodes, true);
+        this(localNode, otherNodes, true);
     }
 
-    public TestingNodeManager(String environment, Node localNode, Collection<Node> otherNodes, boolean scheduleOnCoordinator)
+    public TestingNodeManager(Node localNode, Collection<Node> otherNodes, boolean scheduleOnCoordinator)
     {
-        this.environment = environment;
         this.localNode = requireNonNull(localNode, "localNode is null");
         this.scheduleOnCoordinator = scheduleOnCoordinator;
         nodes.add(localNode);
@@ -114,11 +101,5 @@ public class TestingNodeManager
     public Node getCurrentNode()
     {
         return localNode;
-    }
-
-    @Override
-    public String getEnvironment()
-    {
-        return environment;
     }
 }

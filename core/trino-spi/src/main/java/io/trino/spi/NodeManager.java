@@ -31,8 +31,6 @@ public interface NodeManager
     @Deprecated
     Node getCurrentNode();
 
-    String getEnvironment();
-
     default Set<Node> getRequiredWorkerNodes()
     {
         Set<Node> nodes = getWorkerNodes();
