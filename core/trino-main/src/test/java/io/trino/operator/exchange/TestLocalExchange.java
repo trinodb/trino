@@ -23,7 +23,6 @@ import io.trino.execution.NodeTaskMap;
 import io.trino.execution.scheduler.NodeScheduler;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.execution.scheduler.UniformNodeSelectorFactory;
-import io.trino.node.InMemoryNodeManager;
 import io.trino.operator.PageAssertions;
 import io.trino.operator.exchange.LocalExchange.LocalExchangeSinkFactory;
 import io.trino.spi.Page;
@@ -39,6 +38,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.PartitioningHandle;
+import io.trino.testing.TestingInternalNodeManager;
 import io.trino.testing.TestingTransactionHandle;
 import io.trino.util.FinalizerService;
 import org.junit.jupiter.api.BeforeEach;
@@ -98,7 +98,7 @@ public class TestLocalExchange
     public void setUp()
     {
         NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(
-                new InMemoryNodeManager(),
+                new TestingInternalNodeManager(),
                 new NodeSchedulerConfig().setIncludeCoordinator(true),
                 new NodeTaskMap(new FinalizerService())));
         nodePartitioningManager = new NodePartitioningManager(

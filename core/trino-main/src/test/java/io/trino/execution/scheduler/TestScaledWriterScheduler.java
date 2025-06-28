@@ -32,7 +32,6 @@ import io.trino.execution.TaskState;
 import io.trino.execution.TaskStatus;
 import io.trino.execution.buffer.OutputBufferStatus;
 import io.trino.metadata.Split;
-import io.trino.node.InMemoryNodeManager;
 import io.trino.node.InternalNode;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.TupleDomain;
@@ -43,6 +42,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.testing.TestingInternalNodeManager;
 import io.trino.testing.TestingMetadata;
 import io.trino.util.FinalizerService;
 import org.junit.jupiter.api.Test;
@@ -205,7 +205,7 @@ public class TestScaledWriterScheduler
                 taskStatusProvider::get,
                 taskStatusProvider::get,
                 new UniformNodeSelectorFactory(
-                        new InMemoryNodeManager(NODE_1, NODE_2, NODE_3),
+                        new TestingInternalNodeManager(NODE_1, NODE_2, NODE_3),
                         new NodeSchedulerConfig().setIncludeCoordinator(true),
                         new NodeTaskMap(new FinalizerService())).createNodeSelector(testSessionBuilder().build()),
                 newScheduledThreadPool(10, threadsNamed("task-notification-%s")),

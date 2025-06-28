@@ -32,7 +32,6 @@ import io.trino.execution.scheduler.NodeScheduler;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.execution.scheduler.UniformNodeSelectorFactory;
 import io.trino.memory.context.LocalMemoryContext;
-import io.trino.node.InMemoryNodeManager;
 import io.trino.operator.Driver;
 import io.trino.operator.DriverContext;
 import io.trino.operator.Operator;
@@ -60,6 +59,7 @@ import io.trino.spiller.SingleStreamSpillerFactory;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.MaterializedResult;
+import io.trino.testing.TestingInternalNodeManager;
 import io.trino.testing.TestingTaskContext;
 import io.trino.util.FinalizerService;
 import org.junit.jupiter.api.AfterAll;
@@ -129,7 +129,7 @@ public class TestHashJoinOperator
     private final ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
     private final NodePartitioningManager nodePartitioningManager = new NodePartitioningManager(
             new NodeScheduler(new UniformNodeSelectorFactory(
-                    new InMemoryNodeManager(),
+                    new TestingInternalNodeManager(),
                     new NodeSchedulerConfig().setIncludeCoordinator(true),
                     new NodeTaskMap(new FinalizerService()))),
             TYPE_OPERATORS,
