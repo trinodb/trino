@@ -36,7 +36,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.node.InternalNode;
-import io.trino.node.InternalNodeManager;
+import io.trino.node.TestingInternalNodeManager;
 import io.trino.operator.RetryPolicy;
 import io.trino.server.DynamicFilterService;
 import io.trino.spi.QueryId;
@@ -63,7 +63,6 @@ import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.TableScanNode;
-import io.trino.testing.TestingInternalNodeManager;
 import io.trino.testing.TestingMetadata.TestingColumnHandle;
 import io.trino.testing.TestingSession;
 import io.trino.testing.TestingSplit;
@@ -100,6 +99,7 @@ import static io.trino.execution.scheduler.StageExecution.State.PLANNED;
 import static io.trino.execution.scheduler.StageExecution.State.SCHEDULING;
 import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.metadata.TestMetadataManager.createTestMetadataManager;
+import static io.trino.node.TestingInternalNodeManager.CURRENT_NODE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.DynamicFilters.createDynamicFilterExpression;
@@ -594,14 +594,18 @@ public class TestMultiSourcePartitionedScheduler
         return new FixedSplitSource(IntStream.range(0, splitCount).mapToObj(ix -> new TestingSplit(true, ImmutableList.of())).toList());
     }
 
-    private SplitPlacementPolicy createSplitPlacementPolicies(Session session, StageExecution stage, NodeTaskMap nodeTaskMap, InternalNodeManager nodeManager)
+    private SplitPlacementPolicy createSplitPlacementPolicies(
+            Session session,
+            StageExecution stage,
+            NodeTaskMap nodeTaskMap,
+            TestingInternalNodeManager nodeManager)
     {
         NodeSchedulerConfig nodeSchedulerConfig = new NodeSchedulerConfig()
                 .setIncludeCoordinator(false)
                 .setMaxSplitsPerNode(100)
                 .setMinPendingSplitsPerTask(0)
                 .setSplitsBalancingPolicy(STAGE);
-        NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(nodeManager, nodeSchedulerConfig, nodeTaskMap, new Duration(0, SECONDS)));
+        NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(CURRENT_NODE, nodeManager, nodeSchedulerConfig, nodeTaskMap, new Duration(0, SECONDS)));
         return new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(session), stage::getAllTasks);
     }
 

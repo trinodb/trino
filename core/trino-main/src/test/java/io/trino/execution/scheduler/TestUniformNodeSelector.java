@@ -30,9 +30,9 @@ import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.metadata.Split;
 import io.trino.node.InternalNode;
+import io.trino.node.TestingInternalNodeManager;
 import io.trino.spi.HostAddress;
 import io.trino.sql.planner.plan.PlanNodeId;
-import io.trino.testing.TestingInternalNodeManager;
 import io.trino.testing.TestingSession;
 import io.trino.testing.TestingSplit;
 import io.trino.util.FinalizerService;
@@ -56,6 +56,7 @@ import java.util.concurrent.TimeUnit;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.node.NodeState.ACTIVE;
+import static io.trino.node.TestingInternalNodeManager.CURRENT_NODE;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -97,7 +98,7 @@ public class TestUniformNodeSelector
                 .setIncludeCoordinator(false);
 
         // contents of taskMap indicate the node-task map for the current stage
-        nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(nodeManager, nodeSchedulerConfig, nodeTaskMap));
+        nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(CURRENT_NODE, nodeManager, nodeSchedulerConfig, nodeTaskMap));
         taskMap = new HashMap<>();
         nodeSelector = nodeScheduler.createNodeSelector(session);
         remoteTaskExecutor = newCachedThreadPool(daemonThreadsNamed("remoteTaskExecutor-%s"));
@@ -127,7 +128,7 @@ public class TestUniformNodeSelector
         UniformNodeSelector.QueueSizeAdjuster queueSizeAdjuster = new UniformNodeSelector.QueueSizeAdjuster(10, 100, ticker);
 
         nodeSelector = new UniformNodeSelector(
-                nodeManager,
+                CURRENT_NODE,
                 nodeTaskMap,
                 false,
                 () -> createNodeMap(),
@@ -299,7 +300,7 @@ public class TestUniformNodeSelector
     {
         // Node selector without nodeMap memoization, so removing nodes takes effect immediately:
         nodeSelector = new UniformNodeSelector(
-                nodeManager,
+                CURRENT_NODE,
                 nodeTaskMap,
                 false,
                 () -> createNodeMap(),

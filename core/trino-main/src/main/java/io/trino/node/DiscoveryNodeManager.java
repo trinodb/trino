@@ -292,12 +292,6 @@ public final class DiscoveryNodeManager
     }
 
     @Override
-    public InternalNode getCurrentNode()
-    {
-        return currentNode;
-    }
-
-    @Override
     public synchronized Set<InternalNode> getCoordinators()
     {
         return coordinators;

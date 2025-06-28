@@ -65,11 +65,11 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
+import static io.trino.node.TestingInternalNodeManager.CURRENT_NODE;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
-import static io.trino.testing.TestingInternalNodeManager.CURRENT_NODE;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.Math.clamp;
 import static org.assertj.core.api.Assertions.assertThat;
