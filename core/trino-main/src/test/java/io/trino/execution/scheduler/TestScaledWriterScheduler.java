@@ -33,6 +33,7 @@ import io.trino.execution.TaskStatus;
 import io.trino.execution.buffer.OutputBufferStatus;
 import io.trino.metadata.Split;
 import io.trino.node.InternalNode;
+import io.trino.node.TestingInternalNodeManager;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.Partitioning;
@@ -42,7 +43,6 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.TableScanNode;
-import io.trino.testing.TestingInternalNodeManager;
 import io.trino.testing.TestingMetadata;
 import io.trino.util.FinalizerService;
 import org.junit.jupiter.api.Test;
@@ -56,6 +56,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.trino.execution.TestingRemoteTaskFactory.TestingRemoteTask;
+import static io.trino.node.TestingInternalNodeManager.CURRENT_NODE;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
@@ -206,6 +207,7 @@ public class TestScaledWriterScheduler
                 taskStatusProvider::get,
                 taskStatusProvider::get,
                 new UniformNodeSelectorFactory(
+                        CURRENT_NODE,
                         new TestingInternalNodeManager(NODE_1, NODE_2, NODE_3),
                         new NodeSchedulerConfig().setIncludeCoordinator(true),
                         new NodeTaskMap(new FinalizerService())).createNodeSelector(testSessionBuilder().build()),

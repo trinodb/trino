@@ -19,7 +19,6 @@ import io.trino.Session;
 import io.trino.connector.MockConnectorColumnHandle;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorTableHandle;
-import io.trino.node.InternalNodeManager;
 import io.trino.spi.connector.BucketFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -35,7 +34,6 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.testing.PlanTester;
-import io.trino.testing.TestingInternalNodeManager;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -44,6 +42,7 @@ import java.util.function.ToIntFunction;
 
 import static io.trino.SystemSessionProperties.TASK_CONCURRENCY;
 import static io.trino.SystemSessionProperties.USE_TABLE_SCAN_NODE_PARTITIONING;
+import static io.trino.node.TestingInternalNodeManager.CURRENT_NODE;
 import static io.trino.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -61,7 +60,6 @@ import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTableScanNodePartitioning
@@ -174,7 +172,7 @@ public class TestTableScanNodePartitioning
     public static MockConnectorFactory createMockFactory()
     {
         return MockConnectorFactory.builder()
-                .withPartitionProvider(new TestPartitioningProvider(new TestingInternalNodeManager()))
+                .withPartitionProvider(new TestPartitioningProvider())
                 .withGetColumns(schemaTableName -> ImmutableList.of(
                         new ColumnMetadata(COLUMN_A, BIGINT),
                         new ColumnMetadata(COLUMN_B, VARCHAR)))
@@ -209,13 +207,6 @@ public class TestTableScanNodePartitioning
     public static class TestPartitioningProvider
             implements ConnectorNodePartitioningProvider
     {
-        private final InternalNodeManager nodeManager;
-
-        public TestPartitioningProvider(InternalNodeManager nodeManager)
-        {
-            this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
-        }
-
         @Override
         public Optional<ConnectorBucketNodeMap> getBucketNodeMapping(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
         {
@@ -226,7 +217,7 @@ public class TestTableScanNodePartitioning
                 return Optional.of(createBucketNodeMap(1));
             }
             if (partitioningHandle.equals(FIXED_PARTITIONING_HANDLE)) {
-                return Optional.of(createBucketNodeMap(ImmutableList.of(nodeManager.getCurrentNode())));
+                return Optional.of(createBucketNodeMap(ImmutableList.of(CURRENT_NODE)));
             }
             throw new IllegalArgumentException();
         }

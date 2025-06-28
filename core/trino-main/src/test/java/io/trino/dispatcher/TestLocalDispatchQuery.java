@@ -48,6 +48,7 @@ import io.trino.metadata.LanguageFunctionProvider;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.node.InternalNodeManager;
+import io.trino.node.TestingInternalNodeManager;
 import io.trino.operator.OperatorStats;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.plugin.base.security.DefaultSystemAccessControl;
@@ -63,7 +64,6 @@ import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Statement;
-import io.trino.testing.TestingInternalNodeManager;
 import io.trino.transaction.TransactionManager;
 import org.junit.jupiter.api.Test;
 

@@ -11,15 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.testing;
+package io.trino.node;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.ThreadSafe;
 import io.trino.client.NodeVersion;
-import io.trino.node.AllNodes;
-import io.trino.node.InternalNode;
-import io.trino.node.InternalNodeManager;
-import io.trino.node.NodeState;
 
 import java.net.URI;
 import java.util.Set;
@@ -83,12 +79,6 @@ public class TestingInternalNodeManager
                 ImmutableSet.of(),
                 ImmutableSet.of(),
                 ImmutableSet.of(CURRENT_NODE));
-    }
-
-    @Override
-    public InternalNode getCurrentNode()
-    {
-        return CURRENT_NODE;
     }
 
     @Override

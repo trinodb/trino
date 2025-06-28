@@ -27,7 +27,6 @@ import io.trino.execution.RemoteTask;
 import io.trino.execution.scheduler.NodeSchedulerConfig.SplitsBalancingPolicy;
 import io.trino.metadata.Split;
 import io.trino.node.InternalNode;
-import io.trino.node.InternalNodeManager;
 import io.trino.spi.TrinoException;
 import jakarta.annotation.Nullable;
 
@@ -58,7 +57,7 @@ public class UniformNodeSelector
 {
     private static final Logger log = Logger.get(UniformNodeSelector.class);
 
-    private final InternalNodeManager nodeManager;
+    private final InternalNode currentNode;
     private final NodeTaskMap nodeTaskMap;
     private final boolean includeCoordinator;
     private final AtomicReference<Supplier<NodeMap>> nodeMap;
@@ -71,7 +70,7 @@ public class UniformNodeSelector
     private final QueueSizeAdjuster queueSizeAdjuster;
 
     public UniformNodeSelector(
-            InternalNodeManager nodeManager,
+            InternalNode currentNode,
             NodeTaskMap nodeTaskMap,
             boolean includeCoordinator,
             Supplier<NodeMap> nodeMap,
@@ -83,7 +82,7 @@ public class UniformNodeSelector
             SplitsBalancingPolicy splitsBalancingPolicy,
             boolean optimizedLocalScheduling)
     {
-        this(nodeManager,
+        this(currentNode,
                 nodeTaskMap,
                 includeCoordinator,
                 nodeMap,
@@ -98,7 +97,7 @@ public class UniformNodeSelector
 
     @VisibleForTesting
     UniformNodeSelector(
-            InternalNodeManager nodeManager,
+            InternalNode currentNode,
             NodeTaskMap nodeTaskMap,
             boolean includeCoordinator,
             Supplier<NodeMap> nodeMap,
@@ -110,7 +109,7 @@ public class UniformNodeSelector
             boolean optimizedLocalScheduling,
             QueueSizeAdjuster queueSizeAdjuster)
     {
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.currentNode = requireNonNull(currentNode, "currentNode is null");
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
         this.includeCoordinator = includeCoordinator;
         this.nodeMap = new AtomicReference<>(nodeMap);
@@ -140,7 +139,7 @@ public class UniformNodeSelector
     public InternalNode selectCurrentNode()
     {
         // TODO: this is a hack to force scheduling on the coordinator
-        return nodeManager.getCurrentNode();
+        return currentNode;
     }
 
     @Override
