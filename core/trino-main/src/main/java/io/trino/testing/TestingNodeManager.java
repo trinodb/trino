@@ -13,25 +13,21 @@
  */
 package io.trino.testing;
 
-import io.trino.client.NodeVersion;
-import io.trino.node.InternalNode;
 import io.trino.spi.Node;
 import io.trino.spi.NodeManager;
 
-import java.net.URI;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.testing.TestingInternalNodeManager.CURRENT_NODE;
 import static java.util.Objects.requireNonNull;
 
 public class TestingNodeManager
         implements NodeManager
 {
-    public static final InternalNode DEFAULT_CURRENT_NODE = new InternalNode("local", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true);
-
     private final Node localNode;
     private final Set<Node> nodes = new CopyOnWriteArraySet<>();
     private final boolean scheduleOnCoordinator;
@@ -89,7 +85,7 @@ public class TestingNodeManager
 
     public static class Builder
     {
-        private Node localNode = DEFAULT_CURRENT_NODE;
+        private Node localNode = CURRENT_NODE;
         private final Set<Node> otherNodes = new HashSet<>();
         private boolean scheduleOnCoordinator = true;
 

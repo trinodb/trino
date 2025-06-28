@@ -32,7 +32,7 @@ import static java.util.Objects.requireNonNull;
 public class TestingInternalNodeManager
         implements InternalNodeManager
 {
-    private static final InternalNode CURRENT_NODE = new InternalNode("local", URI.create("local://127.0.0.1:8080"), NodeVersion.UNKNOWN, true);
+    public static final InternalNode CURRENT_NODE = new InternalNode("local", URI.create("local://127.0.0.1:8080"), NodeVersion.UNKNOWN, true);
     private final Set<InternalNode> allNodes = ConcurrentHashMap.newKeySet();
 
     public TestingInternalNodeManager(InternalNode... remoteNodes)
