@@ -11,11 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.node;
+package io.trino.testing;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.ThreadSafe;
 import io.trino.client.NodeVersion;
+import io.trino.node.AllNodes;
+import io.trino.node.InternalNode;
+import io.trino.node.InternalNodeManager;
+import io.trino.node.NodeState;
 
 import java.net.URI;
 import java.util.Set;
@@ -25,18 +29,18 @@ import java.util.function.Consumer;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
-public class InMemoryNodeManager
+public class TestingInternalNodeManager
         implements InternalNodeManager
 {
     private static final InternalNode CURRENT_NODE = new InternalNode("local", URI.create("local://127.0.0.1:8080"), NodeVersion.UNKNOWN, true);
     private final Set<InternalNode> allNodes = ConcurrentHashMap.newKeySet();
 
-    public InMemoryNodeManager(InternalNode... remoteNodes)
+    public TestingInternalNodeManager(InternalNode... remoteNodes)
     {
         this(ImmutableSet.copyOf(remoteNodes));
     }
 
-    public InMemoryNodeManager(Set<InternalNode> remoteNodes)
+    public TestingInternalNodeManager(Set<InternalNode> remoteNodes)
     {
         allNodes.add(CURRENT_NODE);
         allNodes.addAll(remoteNodes);

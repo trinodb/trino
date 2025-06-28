@@ -29,10 +29,10 @@ import io.trino.execution.RemoteTask;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.metadata.Split;
-import io.trino.node.InMemoryNodeManager;
 import io.trino.node.InternalNode;
 import io.trino.spi.HostAddress;
 import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.testing.TestingInternalNodeManager;
 import io.trino.testing.TestingSession;
 import io.trino.testing.TestingSplit;
 import io.trino.util.FinalizerService;
@@ -71,7 +71,7 @@ public class TestUniformNodeSelector
     private final Set<Split> splits = new LinkedHashSet<>();
     private FinalizerService finalizerService;
     private NodeTaskMap nodeTaskMap;
-    private InMemoryNodeManager nodeManager;
+    private TestingInternalNodeManager nodeManager;
     private NodeSchedulerConfig nodeSchedulerConfig;
     private NodeScheduler nodeScheduler;
     private NodeSelector nodeSelector;
@@ -86,7 +86,7 @@ public class TestUniformNodeSelector
         session = TestingSession.testSessionBuilder().build();
         finalizerService = new FinalizerService();
         nodeTaskMap = new NodeTaskMap(finalizerService);
-        nodeManager = new InMemoryNodeManager();
+        nodeManager = new TestingInternalNodeManager();
         nodeManager.addNodes(node1);
         nodeManager.addNodes(node2);
 

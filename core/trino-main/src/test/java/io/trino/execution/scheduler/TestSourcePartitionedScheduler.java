@@ -36,7 +36,6 @@ import io.trino.failuredetector.NoOpFailureDetector;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
-import io.trino.node.InMemoryNodeManager;
 import io.trino.node.InternalNode;
 import io.trino.node.InternalNodeManager;
 import io.trino.operator.RetryPolicy;
@@ -62,6 +61,7 @@ import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.testing.TestingInternalNodeManager;
 import io.trino.testing.TestingMetadata.TestingColumnHandle;
 import io.trino.testing.TestingSession;
 import io.trino.testing.TestingSplit;
@@ -126,7 +126,7 @@ public class TestSourcePartitionedScheduler
 
     private final ExecutorService queryExecutor = newCachedThreadPool(daemonThreadsNamed("stageExecutor-%s"));
     private final ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("stageScheduledExecutor-%s"));
-    private final InMemoryNodeManager nodeManager = new InMemoryNodeManager();
+    private final TestingInternalNodeManager nodeManager = new TestingInternalNodeManager();
     private final FinalizerService finalizerService = new FinalizerService();
     private final Metadata metadata = createTestMetadataManager();
     private final FunctionManager functionManager = createTestingFunctionManager();
@@ -363,7 +363,7 @@ public class TestSourcePartitionedScheduler
     {
         assertTrinoExceptionThrownBy(() -> {
             NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
-            InMemoryNodeManager nodeManager = new InMemoryNodeManager();
+            TestingInternalNodeManager nodeManager = new TestingInternalNodeManager();
             NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(nodeManager, new NodeSchedulerConfig().setIncludeCoordinator(false), nodeTaskMap));
 
             PlanFragment plan = createFragment();
@@ -386,7 +386,7 @@ public class TestSourcePartitionedScheduler
     public void testWorkerBalancedSplitAssignment()
     {
         // use private node manager so we can add a node later
-        InMemoryNodeManager nodeManager = new InMemoryNodeManager(
+        TestingInternalNodeManager nodeManager = new TestingInternalNodeManager(
                 new InternalNode("other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false),
                 new InternalNode("other2", URI.create("http://127.0.0.1:12"), NodeVersion.UNKNOWN, false),
                 new InternalNode("other3", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN, false));
@@ -432,7 +432,7 @@ public class TestSourcePartitionedScheduler
     public void testStageBalancedSplitAssignment()
     {
         // use private node manager so we can add a node later
-        InMemoryNodeManager nodeManager = new InMemoryNodeManager(
+        TestingInternalNodeManager nodeManager = new TestingInternalNodeManager(
                 new InternalNode("other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false),
                 new InternalNode("other2", URI.create("http://127.0.0.1:12"), NodeVersion.UNKNOWN, false),
                 new InternalNode("other3", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN, false));
@@ -497,7 +497,7 @@ public class TestSourcePartitionedScheduler
     {
         NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
         // use private node manager so we can add a node later
-        InMemoryNodeManager nodeManager = new InMemoryNodeManager(
+        TestingInternalNodeManager nodeManager = new TestingInternalNodeManager(
                 new InternalNode("other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false),
                 new InternalNode("other2", URI.create("http://127.0.0.1:12"), NodeVersion.UNKNOWN, false),
                 new InternalNode("other3", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN, false));
@@ -540,7 +540,7 @@ public class TestSourcePartitionedScheduler
     {
         NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
         // use private node manager so we can add a node later
-        InMemoryNodeManager nodeManager = new InMemoryNodeManager(
+        TestingInternalNodeManager nodeManager = new TestingInternalNodeManager(
                 new InternalNode("other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false),
                 new InternalNode("other2", URI.create("http://127.0.0.1:12"), NodeVersion.UNKNOWN, false),
                 new InternalNode("other3", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN, false));

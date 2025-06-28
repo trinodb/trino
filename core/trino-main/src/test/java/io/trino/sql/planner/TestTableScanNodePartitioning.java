@@ -19,7 +19,6 @@ import io.trino.Session;
 import io.trino.connector.MockConnectorColumnHandle;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorTableHandle;
-import io.trino.node.InMemoryNodeManager;
 import io.trino.node.InternalNodeManager;
 import io.trino.spi.connector.BucketFunction;
 import io.trino.spi.connector.ColumnHandle;
@@ -36,6 +35,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.testing.PlanTester;
+import io.trino.testing.TestingInternalNodeManager;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -174,7 +174,7 @@ public class TestTableScanNodePartitioning
     public static MockConnectorFactory createMockFactory()
     {
         return MockConnectorFactory.builder()
-                .withPartitionProvider(new TestPartitioningProvider(new InMemoryNodeManager()))
+                .withPartitionProvider(new TestPartitioningProvider(new TestingInternalNodeManager()))
                 .withGetColumns(schemaTableName -> ImmutableList.of(
                         new ColumnMetadata(COLUMN_A, BIGINT),
                         new ColumnMetadata(COLUMN_B, VARCHAR)))

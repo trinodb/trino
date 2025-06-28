@@ -22,12 +22,12 @@ import io.trino.client.NodeVersion;
 import io.trino.execution.TaskId;
 import io.trino.jmh.Benchmarks;
 import io.trino.memory.MemoryInfo;
-import io.trino.node.InMemoryNodeManager;
 import io.trino.node.InternalNode;
 import io.trino.spi.HostAddress;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.memory.MemoryPoolInfo;
+import io.trino.testing.TestingInternalNodeManager;
 import io.trino.testing.assertions.Assert;
 import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -116,7 +116,7 @@ public class BenchmarkBinPackingNodeAllocator
                 nodes.add(new InternalNode(nodeIdentifier, URI.create("local://127.0.0.1:" + (8000 + i)), NodeVersion.UNKNOWN, false));
                 workerMemoryInfos.put(nodeIdentifier, Optional.of(memoryInfo));
             }
-            InMemoryNodeManager nodeManager = new InMemoryNodeManager(ImmutableSet.copyOf(nodes));
+            TestingInternalNodeManager nodeManager = new TestingInternalNodeManager(ImmutableSet.copyOf(nodes));
 
             nodeAllocatorService = new BinPackingNodeAllocatorService(
                     nodeManager,

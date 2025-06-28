@@ -32,12 +32,12 @@ import io.trino.execution.scheduler.TopologyAwareNodeSelectorFactory;
 import io.trino.execution.scheduler.UniformNodeSelectorFactory;
 import io.trino.jmh.Benchmarks;
 import io.trino.metadata.Split;
-import io.trino.node.InMemoryNodeManager;
 import io.trino.node.InternalNode;
 import io.trino.node.InternalNodeManager;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.testing.TestingInternalNodeManager;
 import io.trino.testing.TestingSession;
 import io.trino.util.FinalizerService;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -167,7 +167,7 @@ public class BenchmarkNodeScheduler
                 splits.add(new Split(TEST_CATALOG_HANDLE, new TestSplitRemote(ThreadLocalRandom.current().nextInt(DATA_NODES))));
             }
 
-            NodeScheduler nodeScheduler = new NodeScheduler(getNodeSelectorFactory(new InMemoryNodeManager(), nodeTaskMap));
+            NodeScheduler nodeScheduler = new NodeScheduler(getNodeSelectorFactory(new TestingInternalNodeManager(), nodeTaskMap));
             Session session = TestingSession.testSessionBuilder()
                     .setSystemProperty(MAX_UNACKNOWLEDGED_SPLITS_PER_TASK, Integer.toString(Integer.MAX_VALUE))
                     .build();
