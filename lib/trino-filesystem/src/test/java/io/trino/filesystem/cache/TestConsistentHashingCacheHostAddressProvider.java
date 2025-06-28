@@ -36,10 +36,11 @@ public class TestConsistentHashingCacheHostAddressProvider
     @Test
     public void testConsistentHashing()
     {
-        TestingNodeManager nodeManager = new TestingNodeManager(true);
-        nodeManager.addNode(node("test-1"));
-        nodeManager.addNode(node("test-2"));
-        nodeManager.addNode(node("test-3"));
+        TestingNodeManager nodeManager = TestingNodeManager.builder()
+                .addNode(node("test-1"))
+                .addNode(node("test-2"))
+                .addNode(node("test-3"))
+                .build();
         ConsistentHashingHostAddressProvider provider = new ConsistentHashingHostAddressProvider(
                 nodeManager,
                 new ConsistentHashingHostAddressProviderConfig().setPreferredHostsCount(1));
@@ -57,10 +58,11 @@ public class TestConsistentHashingCacheHostAddressProvider
     @Test
     public void testConsistentHashingFairRedistribution()
     {
-        TestingNodeManager nodeManager = new TestingNodeManager(true);
-        nodeManager.addNode(node("test-1"));
-        nodeManager.addNode(node("test-2"));
-        nodeManager.addNode(node("test-3"));
+        TestingNodeManager nodeManager = TestingNodeManager.builder()
+                .addNode(node("test-1"))
+                .addNode(node("test-2"))
+                .addNode(node("test-3"))
+                .build();
         ConsistentHashingHostAddressProvider provider = new ConsistentHashingHostAddressProvider(
                 nodeManager,
                 new ConsistentHashingHostAddressProviderConfig().setPreferredHostsCount(1));
