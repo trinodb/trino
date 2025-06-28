@@ -34,13 +34,13 @@ import io.trino.execution.scheduler.TopologyAwareNodeSelectorConfig;
 import io.trino.execution.scheduler.TopologyAwareNodeSelectorFactory;
 import io.trino.execution.scheduler.UniformNodeSelectorFactory;
 import io.trino.metadata.Split;
-import io.trino.node.InMemoryNodeManager;
 import io.trino.node.InternalNode;
 import io.trino.node.InternalNodeManager;
 import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.testing.TestingInternalNodeManager;
 import io.trino.testing.TestingSession;
 import io.trino.util.FinalizerService;
 import org.junit.jupiter.api.AfterEach;
@@ -90,7 +90,7 @@ public class TestNodeScheduler
 {
     private FinalizerService finalizerService;
     private NodeTaskMap nodeTaskMap;
-    private InMemoryNodeManager nodeManager;
+    private TestingInternalNodeManager nodeManager;
     private NodeSchedulerConfig nodeSchedulerConfig;
     private NodeScheduler nodeScheduler;
     private NodeSelector nodeSelector;
@@ -105,7 +105,7 @@ public class TestNodeScheduler
         session = TestingSession.testSessionBuilder().build();
         finalizerService = new FinalizerService();
         nodeTaskMap = new NodeTaskMap(finalizerService);
-        nodeManager = new InMemoryNodeManager();
+        nodeManager = new TestingInternalNodeManager();
 
         nodeSchedulerConfig = new NodeSchedulerConfig()
                 .setMaxSplitsPerNode(20)
@@ -169,7 +169,7 @@ public class TestNodeScheduler
     public void testTopologyAwareScheduling()
     {
         NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
-        InternalNodeManager nodeManager = new InMemoryNodeManager(
+        InternalNodeManager nodeManager = new TestingInternalNodeManager(
                 new InternalNode("node1", URI.create("http://host1.rack1:11"), NodeVersion.UNKNOWN, false),
                 new InternalNode("node2", URI.create("http://host2.rack1:12"), NodeVersion.UNKNOWN, false),
                 new InternalNode("node3", URI.create("http://host3.rack2:13"), NodeVersion.UNKNOWN, false));
@@ -595,7 +595,7 @@ public class TestNodeScheduler
     @Timeout(60)
     public void testTopologyAwareFailover()
     {
-        nodeManager = new InMemoryNodeManager(
+        nodeManager = new TestingInternalNodeManager(
                 new InternalNode("node1", URI.create("http://host1.rack1:11"), NodeVersion.UNKNOWN, false),
                 new InternalNode("node2", URI.create("http://host2.rack1:12"), NodeVersion.UNKNOWN, false),
                 new InternalNode("node3", URI.create("http://host3.rack2:13"), NodeVersion.UNKNOWN, false));

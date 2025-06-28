@@ -19,9 +19,9 @@ import io.airlift.node.NodeInfo;
 import io.trino.client.NodeVersion;
 import io.trino.execution.SqlTaskManager;
 import io.trino.metadata.CatalogManager;
-import io.trino.node.InMemoryNodeManager;
 import io.trino.node.InternalNode;
 import io.trino.spi.connector.CatalogHandle;
+import io.trino.testing.TestingInternalNodeManager;
 import io.trino.transaction.TransactionManager;
 
 import java.net.URI;
@@ -48,7 +48,7 @@ public class TestingLocalCatalogPruneTask
                 catalogManager,
                 connectorServicesProvider,
                 new InternalNode(nodeInfo.getNodeId(), URI.create("https://example.com"), new NodeVersion("test"), false),
-                new InMemoryNodeManager(),
+                new TestingInternalNodeManager(),
                 new TestingHttpClient(request -> {
                     throw new UnsupportedOperationException("Testing Local Catalog Prune Task does not make http calls");
                 }),

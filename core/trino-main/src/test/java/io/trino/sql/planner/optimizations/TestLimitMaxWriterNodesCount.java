@@ -20,7 +20,6 @@ import io.trino.Session;
 import io.trino.connector.MockConnector;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorTableHandle;
-import io.trino.node.InMemoryNodeManager;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
@@ -34,6 +33,7 @@ import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.testing.PlanTester;
+import io.trino.testing.TestingInternalNodeManager;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
@@ -130,7 +130,7 @@ public class TestLimitMaxWriterNodesCount
                         "OPTIMIZE",
                         distributedWithFilteringAndRepartitioning(),
                         ImmutableList.of(PropertyMetadata.stringProperty("file_size_threshold", "file_size_threshold", "10GB", false)))))
-                .withPartitionProvider(new TestTableScanNodePartitioning.TestPartitioningProvider(new InMemoryNodeManager()))
+                .withPartitionProvider(new TestTableScanNodePartitioning.TestPartitioningProvider(new TestingInternalNodeManager()))
                 .withMaxWriterTasks(maxWriterTasks)
                 .withGetColumns(schemaTableName -> ImmutableList.of(
                         new ColumnMetadata("column_a", VARCHAR),
