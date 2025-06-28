@@ -46,10 +46,10 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 
 @ThreadSafe
-public final class DiscoveryNodeManager
+public final class CoordinatorNodeManager
         implements InternalNodeManager
 {
-    private static final Logger log = Logger.get(DiscoveryNodeManager.class);
+    private static final Logger log = Logger.get(CoordinatorNodeManager.class);
 
     private final Supplier<NodeState> currentNodeState;
     private final NodeInventory nodeInventory;
@@ -74,7 +74,7 @@ public final class DiscoveryNodeManager
     private final List<Consumer<AllNodes>> listeners = new ArrayList<>();
 
     @Inject
-    public DiscoveryNodeManager(
+    public CoordinatorNodeManager(
             NodeInventory nodeInventory,
             NodeInfo nodeInfo,
             InternalNode currentNode,
@@ -91,7 +91,7 @@ public final class DiscoveryNodeManager
     }
 
     @VisibleForTesting
-    DiscoveryNodeManager(
+    CoordinatorNodeManager(
             NodeInventory nodeInventory,
             InternalNode currentNode,
             Supplier<NodeState> currentNodeState,

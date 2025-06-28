@@ -71,6 +71,7 @@ import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.TablePropertyManager;
 import io.trino.node.AllNodes;
 import io.trino.node.InternalNodeManager;
+import io.trino.node.NodeManagerModule;
 import io.trino.security.AccessControl;
 import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
@@ -308,6 +309,7 @@ public class TestingTrinoServer
                 .add(new ServerSecurityModule())
                 .add(new CatalogManagerModule())
                 .add(new TransactionManagerModule())
+                .add(new NodeManagerModule())
                 .add(new ServerMainModule(VERSION))
                 .add(new TestingWarningCollectorModule())
                 .add(binder -> {
@@ -413,6 +415,8 @@ public class TestingTrinoServer
             clusterMemoryManager = injector.getInstance(ClusterMemoryManager.class);
             statsCalculator = injector.getInstance(StatsCalculator.class);
             injector.getInstance(CertificateAuthenticatorManager.class).useDefaultAuthenticator();
+            nodeManager = injector.getInstance(InternalNodeManager.class);
+            serviceSelectorManager = injector.getInstance(ServiceSelectorManager.class);
         }
         else {
             dispatchManager = null;
@@ -423,10 +427,10 @@ public class TestingTrinoServer
             nodePartitioningManager = null;
             clusterMemoryManager = null;
             statsCalculator = null;
+            nodeManager = null;
+            serviceSelectorManager = null;
         }
         localMemoryManager = injector.getInstance(LocalMemoryManager.class);
-        nodeManager = injector.getInstance(InternalNodeManager.class);
-        serviceSelectorManager = injector.getInstance(ServiceSelectorManager.class);
         nodeStateManager = injector.getInstance(NodeStateManager.class);
         taskManager = injector.getInstance(SqlTaskManager.class);
         shutdownAction = injector.getInstance(ShutdownAction.class);
@@ -454,7 +458,9 @@ public class TestingTrinoServer
         additionalConfiguration.accept(this);
         injector.getInstance(StartupStatus.class).startupComplete();
 
-        refreshNodes();
+        if (coordinator) {
+            refreshNodes();
+        }
     }
 
     @Override
