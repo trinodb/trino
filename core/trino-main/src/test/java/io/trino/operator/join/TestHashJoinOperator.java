@@ -102,6 +102,7 @@ import static io.trino.operator.join.JoinTestUtils.runDriverInThread;
 import static io.trino.operator.join.JoinTestUtils.setupBuildSide;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.TestingInternalNodeManager.CURRENT_NODE;
 import static java.util.Arrays.asList;
 import static java.util.Collections.nCopies;
 import static java.util.Collections.singletonList;
@@ -129,6 +130,7 @@ public class TestHashJoinOperator
     private final ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
     private final NodePartitioningManager nodePartitioningManager = new NodePartitioningManager(
             new NodeScheduler(new UniformNodeSelectorFactory(
+                    CURRENT_NODE,
                     new TestingInternalNodeManager(),
                     new NodeSchedulerConfig().setIncludeCoordinator(true),
                     new NodeTaskMap(new FinalizerService()))),

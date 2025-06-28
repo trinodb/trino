@@ -80,6 +80,7 @@ import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
+import static io.trino.testing.TestingInternalNodeManager.CURRENT_NODE;
 
 public final class TaskTestUtils
 {
@@ -153,6 +154,7 @@ public final class TaskTestUtils
 
         BlockTypeOperators blockTypeOperators = new BlockTypeOperators(PLANNER_CONTEXT.getTypeOperators());
         NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(
+                CURRENT_NODE,
                 new TestingInternalNodeManager(),
                 new NodeSchedulerConfig().setIncludeCoordinator(true),
                 new NodeTaskMap(finalizerService)));

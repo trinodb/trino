@@ -148,24 +148,6 @@ class TestDiscoveryNodeManager
     }
 
     @Test
-    void testGetCurrentNode()
-    {
-        DiscoveryNodeManager manager = new DiscoveryNodeManager(
-                new TestingNodeInventory(),
-                copy(currentNode),
-                () -> ACTIVE,
-                EXPECTED_ENVIRONMENT,
-                testHttpClient,
-                new TestingTicker());
-        try {
-            assertThat(manager.getCurrentNode()).isEqualTo(currentNode);
-        }
-        finally {
-            manager.stop();
-        }
-    }
-
-    @Test
     void testGetCoordinators()
     {
         DiscoveryNodeManager manager = new DiscoveryNodeManager(

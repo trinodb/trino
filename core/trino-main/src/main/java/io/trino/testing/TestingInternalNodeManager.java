@@ -86,12 +86,6 @@ public class TestingInternalNodeManager
     }
 
     @Override
-    public InternalNode getCurrentNode()
-    {
-        return CURRENT_NODE;
-    }
-
-    @Override
     public Set<InternalNode> getCoordinators()
     {
         // always use localNode as coordinator

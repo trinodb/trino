@@ -58,6 +58,7 @@ import static io.trino.execution.TestingRemoteTaskFactory.TestingRemoteTask;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
+import static io.trino.testing.TestingInternalNodeManager.CURRENT_NODE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.util.Objects.requireNonNull;
@@ -205,6 +206,7 @@ public class TestScaledWriterScheduler
                 taskStatusProvider::get,
                 taskStatusProvider::get,
                 new UniformNodeSelectorFactory(
+                        CURRENT_NODE,
                         new TestingInternalNodeManager(NODE_1, NODE_2, NODE_3),
                         new NodeSchedulerConfig().setIncludeCoordinator(true),
                         new NodeTaskMap(new FinalizerService())).createNodeSelector(testSessionBuilder().build()),

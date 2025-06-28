@@ -54,6 +54,7 @@ public class UniformNodeSelectorFactory
             CacheBuilder.newBuilder()
                     .expireAfterWrite(30, TimeUnit.SECONDS));
 
+    private final InternalNode currentNode;
     private final InternalNodeManager nodeManager;
     private final int minCandidates;
     private final boolean includeCoordinator;
@@ -67,20 +68,23 @@ public class UniformNodeSelectorFactory
 
     @Inject
     public UniformNodeSelectorFactory(
+            InternalNode currentNode,
             InternalNodeManager nodeManager,
             NodeSchedulerConfig config,
             NodeTaskMap nodeTaskMap)
     {
-        this(nodeManager, config, nodeTaskMap, new Duration(5, SECONDS));
+        this(currentNode, nodeManager, config, nodeTaskMap, new Duration(5, SECONDS));
     }
 
     @VisibleForTesting
     UniformNodeSelectorFactory(
+            InternalNode currentNode,
             InternalNodeManager nodeManager,
             NodeSchedulerConfig config,
             NodeTaskMap nodeTaskMap,
             Duration nodeMapMemoizationDuration)
     {
+        this.currentNode = requireNonNull(currentNode, "currentNode is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.minCandidates = config.getMinCandidates();
         this.includeCoordinator = config.isIncludeCoordinator();
@@ -114,7 +118,7 @@ public class UniformNodeSelectorFactory
         }
 
         return new UniformNodeSelector(
-                nodeManager,
+                currentNode,
                 nodeTaskMap,
                 includeCoordinator,
                 nodeMap,

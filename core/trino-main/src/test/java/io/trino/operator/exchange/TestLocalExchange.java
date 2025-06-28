@@ -71,6 +71,7 @@ import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_D
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
+import static io.trino.testing.TestingInternalNodeManager.CURRENT_NODE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -98,6 +99,7 @@ public class TestLocalExchange
     public void setUp()
     {
         NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(
+                CURRENT_NODE,
                 new TestingInternalNodeManager(),
                 new NodeSchedulerConfig().setIncludeCoordinator(true),
                 new NodeTaskMap(new FinalizerService())));

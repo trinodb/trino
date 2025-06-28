@@ -27,8 +27,6 @@ public interface InternalNodeManager
 
     NodesSnapshot getActiveNodesSnapshot();
 
-    InternalNode getCurrentNode();
-
     Set<InternalNode> getCoordinators();
 
     AllNodes getAllNodes();

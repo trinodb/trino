@@ -22,26 +22,20 @@ import io.trino.spi.connector.ConnectorSplit;
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.joining;
 
 public class InformationSchemaSplit
         implements ConnectorSplit
 {
     private static final int INSTANCE_SIZE = instanceSize(InformationSchemaSplit.class);
 
-    private final List<HostAddress> addresses;
+    private final HostAddress address;
 
     @JsonCreator
-    public InformationSchemaSplit(
-            @JsonProperty("addresses") List<HostAddress> addresses)
+    public InformationSchemaSplit(@JsonProperty("address") HostAddress address)
     {
-        requireNonNull(addresses, "addresses is null");
-        checkArgument(!addresses.isEmpty(), "addresses is empty");
-        this.addresses = ImmutableList.copyOf(addresses);
+        this.address = requireNonNull(address, "address is null");
     }
 
     @Override
@@ -54,21 +48,20 @@ public class InformationSchemaSplit
     @JsonProperty
     public List<HostAddress> getAddresses()
     {
-        return addresses;
+        return ImmutableList.of(address);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("addresses", addresses.stream().map(HostAddress::toString).collect(joining(",")))
+                .add("address", address)
                 .toString();
     }
 
     @Override
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE
-                + estimatedSizeOf(addresses, HostAddress::getRetainedSizeInBytes);
+        return INSTANCE_SIZE + address.getRetainedSizeInBytes();
     }
 }

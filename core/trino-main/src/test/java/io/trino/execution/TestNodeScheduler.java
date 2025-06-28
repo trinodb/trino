@@ -73,6 +73,7 @@ import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.node.NodeState.ACTIVE;
 import static io.trino.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
+import static io.trino.testing.TestingInternalNodeManager.CURRENT_NODE;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -113,7 +114,7 @@ public class TestNodeScheduler
                 .setMaxAdjustedPendingSplitsWeightPerTask(100)
                 .setIncludeCoordinator(false);
 
-        nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(nodeManager, nodeSchedulerConfig, nodeTaskMap));
+        nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(CURRENT_NODE, nodeManager, nodeSchedulerConfig, nodeTaskMap));
         // contents of taskMap indicate the node-task map for the current stage
         taskMap = new HashMap<>();
         nodeSelector = nodeScheduler.createNodeSelector(session);
@@ -182,7 +183,13 @@ public class TestNodeScheduler
                 .setMinPendingSplitsPerTask(20);
 
         TestNetworkTopology topology = new TestNetworkTopology();
-        NodeSelectorFactory nodeSelectorFactory = new TopologyAwareNodeSelectorFactory(topology, nodeManager, nodeSchedulerConfig, nodeTaskMap, getNetworkTopologyConfig());
+        NodeSelectorFactory nodeSelectorFactory = new TopologyAwareNodeSelectorFactory(
+                topology,
+                CURRENT_NODE,
+                nodeManager,
+                nodeSchedulerConfig,
+                nodeTaskMap,
+                getNetworkTopologyConfig());
         NodeScheduler nodeScheduler = new NodeScheduler(nodeSelectorFactory);
         NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session);
 
@@ -600,7 +607,12 @@ public class TestNodeScheduler
                 new InternalNode("node2", URI.create("http://host2.rack1:12"), NodeVersion.UNKNOWN, false),
                 new InternalNode("node3", URI.create("http://host3.rack2:13"), NodeVersion.UNKNOWN, false));
         NodeSelectorFactory nodeSelectorFactory = new TopologyAwareNodeSelectorFactory(
-                new TestNetworkTopology(), nodeManager, nodeSchedulerConfig, nodeTaskMap, getNetworkTopologyConfig());
+                new TestNetworkTopology(),
+                CURRENT_NODE,
+                nodeManager,
+                nodeSchedulerConfig,
+                nodeTaskMap,
+                getNetworkTopologyConfig());
         NodeScheduler nodeScheduler = new NodeScheduler(nodeSelectorFactory);
         NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session);
 

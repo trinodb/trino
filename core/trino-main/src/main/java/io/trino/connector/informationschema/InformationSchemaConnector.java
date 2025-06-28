@@ -14,7 +14,7 @@
 package io.trino.connector.informationschema;
 
 import io.trino.metadata.Metadata;
-import io.trino.node.InternalNodeManager;
+import io.trino.node.InternalNode;
 import io.trino.security.AccessControl;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
@@ -34,13 +34,13 @@ public class InformationSchemaConnector
     private final ConnectorSplitManager splitManager;
     private final ConnectorPageSourceProvider pageSourceProvider;
 
-    public InformationSchemaConnector(String catalogName, InternalNodeManager nodeManager, Metadata metadata, AccessControl accessControl, int maxPrefetchedInformationSchemaPrefixes)
+    public InformationSchemaConnector(String catalogName, InternalNode currentNode, Metadata metadata, AccessControl accessControl, int maxPrefetchedInformationSchemaPrefixes)
     {
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(metadata, "metadata is null");
 
         this.metadata = new InformationSchemaMetadata(catalogName, metadata, maxPrefetchedInformationSchemaPrefixes);
-        this.splitManager = new InformationSchemaSplitManager(nodeManager);
+        this.splitManager = new InformationSchemaSplitManager(currentNode.getHostAndPort());
         this.pageSourceProvider = new InformationSchemaPageSourceProvider(metadata, accessControl);
     }
 

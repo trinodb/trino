@@ -39,6 +39,7 @@ import io.trino.util.EmbedVersion;
 
 import static io.trino.spi.connector.MetadataProvider.NOOP_METADATA_PROVIDER;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
+import static io.trino.testing.TestingInternalNodeManager.CURRENT_NODE;
 
 public class TestingPostgreSqlConnectorContext
         implements ConnectorContext
@@ -52,7 +53,7 @@ public class TestingPostgreSqlConnectorContext
     public TestingPostgreSqlConnectorContext()
     {
         pageIndexerFactory = new GroupByHashPageIndexerFactory(new FlatHashStrategyCompiler(new TypeOperators()));
-        nodeManager = new DefaultNodeManager(new TestingInternalNodeManager(), true);
+        nodeManager = new DefaultNodeManager(CURRENT_NODE, new TestingInternalNodeManager(), true);
         TypeRegistry typeRegistry = new TypeRegistry(new TypeOperators(), new FeaturesConfig());
         typeRegistry.addType(GeometryType.GEOMETRY);
         typeManager = new InternalTypeManager(typeRegistry);

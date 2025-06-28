@@ -21,7 +21,7 @@ import io.trino.connector.system.SystemColumnHandle;
 import io.trino.connector.system.SystemSplit;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedTablePrefix;
-import io.trino.node.InternalNodeManager;
+import io.trino.node.InternalNode;
 import io.trino.security.AccessControl;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ColumnHandle;
@@ -76,14 +76,14 @@ public class TableJdbcTable
 
     private final Metadata metadata;
     private final AccessControl accessControl;
-    private final InternalNodeManager nodeManager;
+    private final InternalNode currentNode;
 
     @Inject
-    public TableJdbcTable(Metadata metadata, AccessControl accessControl, InternalNodeManager nodeManager)
+    public TableJdbcTable(Metadata metadata, AccessControl accessControl, InternalNode currentNode)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.currentNode = requireNonNull(currentNode, "currentNode is null");
     }
 
     @Override
@@ -143,7 +143,7 @@ public class TableJdbcTable
 
         Session session = ((FullConnectorSession) connectorSession).getSession();
         // This is an implementation of SINGLE_COORDINATOR distribution for this table.
-        HostAddress address = nodeManager.getCurrentNode().getHostAndPort();
+        HostAddress address = currentNode.getHostAndPort();
         List<SystemSplit> splits = listCatalogNames(session, metadata, accessControl, catalogDomain).stream()
                 .map(catalog -> new SystemSplit(address, constraint, Optional.of(catalog)))
                 .collect(toImmutableList());

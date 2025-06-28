@@ -45,11 +45,13 @@ import static java.util.Objects.requireNonNull;
 public class SystemSplitManager
         implements ConnectorSplitManager
 {
+    private final InternalNode currentNode;
     private final InternalNodeManager nodeManager;
     private final SystemTablesProvider tables;
 
-    public SystemSplitManager(InternalNodeManager nodeManager, SystemTablesProvider tables)
+    public SystemSplitManager(InternalNode currentNode, InternalNodeManager nodeManager, SystemTablesProvider tables)
     {
+        this.currentNode = requireNonNull(currentNode, "currentNode is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.tables = requireNonNull(tables, "tables is null");
     }
@@ -76,7 +78,7 @@ public class SystemSplitManager
 
         Distribution tableDistributionMode = systemTable.getDistribution();
         if (tableDistributionMode == SINGLE_COORDINATOR) {
-            HostAddress address = nodeManager.getCurrentNode().getHostAndPort();
+            HostAddress address = currentNode.getHostAndPort();
             ConnectorSplit split = new SystemSplit(address, tableConstraint, Optional.empty());
             return new FixedSplitSource(ImmutableList.of(split));
         }
