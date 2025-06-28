@@ -15,7 +15,6 @@ package io.trino.filesystem.manager;
 
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.spi.NodeManager;
 import io.trino.spi.Plugin;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import jakarta.annotation.PreDestroy;
@@ -46,7 +45,6 @@ final class HdfsFileSystemLoader
             boolean gcsEnabled,
             boolean s3Enabled,
             String catalogName,
-            NodeManager nodeManager,
             OpenTelemetry openTelemetry)
     {
         Class<?> clazz = tryLoadExistingHdfsManager();
@@ -75,8 +73,8 @@ final class HdfsFileSystemLoader
         }
 
         try (var _ = new ThreadContextClassLoader(classLoader)) {
-            manager = clazz.getConstructor(Map.class, boolean.class, boolean.class, boolean.class, String.class, NodeManager.class, OpenTelemetry.class)
-                    .newInstance(config, azureEnabled, gcsEnabled, s3Enabled, catalogName, nodeManager, openTelemetry);
+            manager = clazz.getConstructor(Map.class, boolean.class, boolean.class, boolean.class, String.class, OpenTelemetry.class)
+                    .newInstance(config, azureEnabled, gcsEnabled, s3Enabled, catalogName, openTelemetry);
         }
         catch (ReflectiveOperationException e) {
             throw new RuntimeException(e);

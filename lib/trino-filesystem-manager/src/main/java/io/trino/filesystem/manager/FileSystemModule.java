@@ -46,7 +46,6 @@ import io.trino.filesystem.s3.S3FileSystemModule;
 import io.trino.filesystem.switching.SwitchingFileSystemFactory;
 import io.trino.filesystem.tracing.TracingFileSystemFactory;
 import io.trino.filesystem.tracking.TrackingFileSystemFactory;
-import io.trino.spi.NodeManager;
 
 import java.util.Map;
 import java.util.Optional;
@@ -61,14 +60,14 @@ public class FileSystemModule
         extends AbstractConfigurationAwareModule
 {
     private final String catalogName;
-    private final NodeManager nodeManager;
+    private final boolean isCoordinator;
     private final OpenTelemetry openTelemetry;
     private final boolean coordinatorFileCaching;
 
-    public FileSystemModule(String catalogName, NodeManager nodeManager, OpenTelemetry openTelemetry, boolean coordinatorFileCaching)
+    public FileSystemModule(String catalogName, boolean isCoordinator, OpenTelemetry openTelemetry, boolean coordinatorFileCaching)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.isCoordinator = isCoordinator;
         this.openTelemetry = requireNonNull(openTelemetry, "openTelemetry is null");
         this.coordinatorFileCaching = coordinatorFileCaching;
     }
@@ -87,7 +86,6 @@ public class FileSystemModule
                     !config.isNativeGcsEnabled(),
                     !config.isNativeS3Enabled(),
                     catalogName,
-                    nodeManager,
                     openTelemetry);
 
             loader.configure().forEach((name, securitySensitive) ->
@@ -135,7 +133,6 @@ public class FileSystemModule
         newOptionalBinder(binder, TrinoFileSystemCache.class);
         newOptionalBinder(binder, MemoryFileSystemCache.class);
 
-        boolean isCoordinator = nodeManager.getCurrentNode().isCoordinator();
         if (config.isCacheEnabled()) {
             install(new AlluxioFileSystemCacheModule(isCoordinator));
         }

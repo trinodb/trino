@@ -38,6 +38,7 @@ import io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.hive.NodeVersion;
+import io.trino.spi.Node;
 import io.trino.spi.NodeManager;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.TrinoException;
@@ -193,7 +194,8 @@ public class TestDeltaLakeMetadata
                 new JsonModule(),
                 binder -> {
                     ConnectorContext context = new TestingConnectorContext();
-                    binder.bind(NodeVersion.class).toInstance(new NodeVersion(context.getNodeManager().getCurrentNode().getVersion()));
+                    binder.bind(NodeVersion.class).toInstance(new NodeVersion(context.getCurrentNode().getVersion()));
+                    binder.bind(Node.class).toInstance(context.getCurrentNode());
                     binder.bind(CatalogName.class).toInstance(new CatalogName("test"));
                     binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                     binder.bind(NodeManager.class).toInstance(context.getNodeManager());

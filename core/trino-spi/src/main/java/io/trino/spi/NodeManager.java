@@ -13,6 +13,8 @@
  */
 package io.trino.spi;
 
+import io.trino.spi.connector.ConnectorContext;
+
 import java.util.Set;
 
 import static io.trino.spi.StandardErrorCode.NO_NODES_AVAILABLE;
@@ -23,6 +25,10 @@ public interface NodeManager
 
     Set<Node> getWorkerNodes();
 
+    /**
+     * @deprecated Use {@link ConnectorContext#getCurrentNode()} instead.
+     */
+    @Deprecated
     Node getCurrentNode();
 
     String getEnvironment();

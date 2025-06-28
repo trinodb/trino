@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.airlift.slice.Slice;
-import io.trino.spi.NodeManager;
+import io.trino.spi.Node;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSession;
@@ -56,10 +56,10 @@ public class JmxRecordSetProvider
     private final JmxHistoricalData jmxHistoricalData;
 
     @Inject
-    public JmxRecordSetProvider(MBeanServer mbeanServer, NodeManager nodeManager, JmxHistoricalData jmxHistoricalData)
+    public JmxRecordSetProvider(MBeanServer mbeanServer, Node currentNode, JmxHistoricalData jmxHistoricalData)
     {
         this.mbeanServer = requireNonNull(mbeanServer, "mbeanServer is null");
-        this.nodeId = nodeManager.getCurrentNode().getNodeIdentifier();
+        this.nodeId = currentNode.getNodeIdentifier();
         this.jmxHistoricalData = requireNonNull(jmxHistoricalData, "jmxHistoricalData is null");
     }
 

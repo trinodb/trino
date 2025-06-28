@@ -18,8 +18,6 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.filesystem.manager.FileSystemModule;
 import io.trino.plugin.iceberg.IcebergConfig;
-import io.trino.spi.NodeManager;
-import io.trino.spi.connector.ConnectorContext;
 
 import static java.util.Objects.requireNonNull;
 
@@ -27,20 +25,20 @@ class LakehouseFileSystemModule
         extends AbstractConfigurationAwareModule
 {
     private final String catalogName;
-    private final NodeManager nodeManager;
+    private final boolean isCoordinator;
     private final OpenTelemetry openTelemetry;
 
-    public LakehouseFileSystemModule(String catalogName, ConnectorContext context)
+    public LakehouseFileSystemModule(String catalogName, boolean isCoordinator, OpenTelemetry openTelemetry)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
-        this.nodeManager = context.getNodeManager();
-        this.openTelemetry = context.getOpenTelemetry();
+        this.isCoordinator = isCoordinator;
+        this.openTelemetry = openTelemetry;
     }
 
     @Override
     protected void setup(Binder binder)
     {
         boolean metadataCacheEnabled = buildConfigObject(IcebergConfig.class).isMetadataCacheEnabled();
-        install(new FileSystemModule(catalogName, nodeManager, openTelemetry, metadataCacheEnabled));
+        install(new FileSystemModule(catalogName, isCoordinator, openTelemetry, metadataCacheEnabled));
     }
 }

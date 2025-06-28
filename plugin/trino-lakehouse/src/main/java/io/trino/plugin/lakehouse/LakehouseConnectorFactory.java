@@ -23,6 +23,7 @@ import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.security.HiveSecurityModule;
+import io.trino.spi.Node;
 import io.trino.spi.NodeManager;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
@@ -66,11 +67,12 @@ public class LakehouseConnectorFactory
                     new LakehouseDeltaModule(),
                     new LakehouseHudiModule(),
                     new HiveSecurityModule(),
-                    new LakehouseFileSystemModule(catalogName, context),
+                    new LakehouseFileSystemModule(catalogName, context.getCurrentNode().isCoordinator(), context.getOpenTelemetry()),
                     binder -> {
                         binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry());
                         binder.bind(Tracer.class).toInstance(context.getTracer());
-                        binder.bind(NodeVersion.class).toInstance(new NodeVersion(context.getNodeManager().getCurrentNode().getVersion()));
+                        binder.bind(NodeVersion.class).toInstance(new NodeVersion(context.getCurrentNode().getVersion()));
+                        binder.bind(Node.class).toInstance(context.getCurrentNode());
                         binder.bind(NodeManager.class).toInstance(context.getNodeManager());
                         binder.bind(VersionEmbedder.class).toInstance(context.getVersionEmbedder());
                         binder.bind(MetadataProvider.class).toInstance(context.getMetadataProvider());
