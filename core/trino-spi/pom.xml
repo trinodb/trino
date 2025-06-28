@@ -650,6 +650,12 @@
                                     <old>method java.lang.String io.trino.spi.predicate.ValueSet::toString(io.trino.spi.connector.ConnectorSession, int)</old>
                                     <justification>Type cleanup</justification>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.String io.trino.spi.NodeManager::getEnvironment()</old>
+                                    <justification>Unused</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

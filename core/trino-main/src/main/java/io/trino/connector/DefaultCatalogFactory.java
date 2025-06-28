@@ -16,7 +16,6 @@ package io.trino.connector;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.inject.Inject;
 import io.airlift.configuration.secrets.SecretsResolver;
-import io.airlift.node.NodeInfo;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.connector.informationschema.InformationSchemaConnector;
@@ -62,7 +61,6 @@ public class DefaultCatalogFactory
     private final InternalNodeManager nodeManager;
     private final PageSorter pageSorter;
     private final PageIndexerFactory pageIndexerFactory;
-    private final NodeInfo nodeInfo;
     private final VersionEmbedder versionEmbedder;
     private final OpenTelemetry openTelemetry;
     private final TransactionManager transactionManager;
@@ -81,7 +79,6 @@ public class DefaultCatalogFactory
             InternalNodeManager nodeManager,
             PageSorter pageSorter,
             PageIndexerFactory pageIndexerFactory,
-            NodeInfo nodeInfo,
             VersionEmbedder versionEmbedder,
             OpenTelemetry openTelemetry,
             TransactionManager transactionManager,
@@ -95,7 +92,6 @@ public class DefaultCatalogFactory
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
-        this.nodeInfo = requireNonNull(nodeInfo, "nodeInfo is null");
         this.versionEmbedder = requireNonNull(versionEmbedder, "versionEmbedder is null");
         this.openTelemetry = requireNonNull(openTelemetry, "openTelemetry is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
@@ -197,7 +193,7 @@ public class DefaultCatalogFactory
                 catalogHandle,
                 openTelemetry,
                 createTracer(catalogHandle),
-                new DefaultNodeManager(nodeManager, nodeInfo.getEnvironment(), schedulerIncludeCoordinator),
+                new DefaultNodeManager(nodeManager, schedulerIncludeCoordinator),
                 versionEmbedder,
                 typeManager,
                 new InternalMetadataProvider(metadata, typeManager),
