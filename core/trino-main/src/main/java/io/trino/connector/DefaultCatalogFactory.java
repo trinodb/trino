@@ -25,6 +25,7 @@ import io.trino.connector.system.SystemConnector;
 import io.trino.connector.system.SystemTablesProvider;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.metadata.Metadata;
+import io.trino.node.InternalNode;
 import io.trino.node.InternalNodeManager;
 import io.trino.security.AccessControl;
 import io.trino.spi.PageIndexerFactory;
@@ -58,6 +59,7 @@ public class DefaultCatalogFactory
     private final Metadata metadata;
     private final AccessControl accessControl;
 
+    private final InternalNode currentNode;
     private final InternalNodeManager nodeManager;
     private final PageSorter pageSorter;
     private final PageIndexerFactory pageIndexerFactory;
@@ -76,6 +78,7 @@ public class DefaultCatalogFactory
     public DefaultCatalogFactory(
             Metadata metadata,
             AccessControl accessControl,
+            InternalNode currentNode,
             InternalNodeManager nodeManager,
             PageSorter pageSorter,
             PageIndexerFactory pageIndexerFactory,
@@ -89,6 +92,7 @@ public class DefaultCatalogFactory
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
+        this.currentNode = requireNonNull(currentNode, "currentNode is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
@@ -147,13 +151,13 @@ public class DefaultCatalogFactory
                 createInformationSchemaCatalogHandle(catalogHandle),
                 new InformationSchemaConnector(
                         catalogHandle.getCatalogName().toString(),
-                        nodeManager,
+                        currentNode,
                         metadata,
                         accessControl,
                         maxPrefetchedInformationSchemaPrefixes));
 
         SystemTablesProvider systemTablesProvider;
-        if (nodeManager.getCurrentNode().isCoordinator()) {
+        if (currentNode.isCoordinator()) {
             systemTablesProvider = new CoordinatorSystemTablesProvider(
                     transactionManager,
                     metadata,
@@ -168,6 +172,7 @@ public class DefaultCatalogFactory
                 tracer,
                 createSystemTablesCatalogHandle(catalogHandle),
                 new SystemConnector(
+                        currentNode,
                         nodeManager,
                         systemTablesProvider,
                         transactionId -> transactionManager.getConnectorTransaction(transactionId, catalogHandle),
@@ -193,7 +198,7 @@ public class DefaultCatalogFactory
                 catalogHandle,
                 openTelemetry,
                 createTracer(catalogHandle),
-                new DefaultNodeManager(nodeManager, schedulerIncludeCoordinator),
+                new DefaultNodeManager(currentNode, nodeManager, schedulerIncludeCoordinator),
                 versionEmbedder,
                 typeManager,
                 new InternalMetadataProvider(metadata, typeManager),

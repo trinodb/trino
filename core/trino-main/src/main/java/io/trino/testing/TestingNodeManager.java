@@ -22,7 +22,7 @@ import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.testing.TestingInternalNodeManager.CURRENT_NODE;
+import static io.trino.node.TestingInternalNodeManager.CURRENT_NODE;
 import static java.util.Objects.requireNonNull;
 
 public class TestingNodeManager

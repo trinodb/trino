@@ -19,6 +19,7 @@ import io.opentelemetry.api.trace.Tracer;
 import io.trino.FeaturesConfig;
 import io.trino.connector.DefaultNodeManager;
 import io.trino.metadata.TypeRegistry;
+import io.trino.node.TestingInternalNodeManager;
 import io.trino.operator.FlatHashStrategyCompiler;
 import io.trino.operator.GroupByHashPageIndexerFactory;
 import io.trino.operator.PagesIndex;
@@ -33,10 +34,10 @@ import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.MetadataProvider;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
-import io.trino.testing.TestingInternalNodeManager;
 import io.trino.type.InternalTypeManager;
 import io.trino.util.EmbedVersion;
 
+import static io.trino.node.TestingInternalNodeManager.CURRENT_NODE;
 import static io.trino.spi.connector.MetadataProvider.NOOP_METADATA_PROVIDER;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 
@@ -52,7 +53,7 @@ public class TestingPostgreSqlConnectorContext
     public TestingPostgreSqlConnectorContext()
     {
         pageIndexerFactory = new GroupByHashPageIndexerFactory(new FlatHashStrategyCompiler(new TypeOperators()));
-        nodeManager = new DefaultNodeManager(new TestingInternalNodeManager(), true);
+        nodeManager = new DefaultNodeManager(CURRENT_NODE, new TestingInternalNodeManager(), true);
         TypeRegistry typeRegistry = new TypeRegistry(new TypeOperators(), new FeaturesConfig());
         typeRegistry.addType(GeometryType.GEOMETRY);
         typeManager = new InternalTypeManager(typeRegistry);

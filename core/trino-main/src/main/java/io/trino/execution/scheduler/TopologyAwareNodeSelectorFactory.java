@@ -56,6 +56,7 @@ public class TopologyAwareNodeSelectorFactory
                     .expireAfterWrite(30, TimeUnit.SECONDS));
 
     private final NetworkTopology networkTopology;
+    private final InternalNode currentNode;
     private final InternalNodeManager nodeManager;
     private final int minCandidates;
     private final boolean includeCoordinator;
@@ -69,16 +70,19 @@ public class TopologyAwareNodeSelectorFactory
     @Inject
     public TopologyAwareNodeSelectorFactory(
             NetworkTopology networkTopology,
+            InternalNode currentNode,
             InternalNodeManager nodeManager,
             NodeSchedulerConfig schedulerConfig,
             NodeTaskMap nodeTaskMap,
             TopologyAwareNodeSelectorConfig topologyConfig)
     {
         requireNonNull(networkTopology, "networkTopology is null");
+        requireNonNull(currentNode, "currentNode is null");
         requireNonNull(nodeManager, "nodeManager is null");
         requireNonNull(nodeTaskMap, "nodeTaskMap is null");
 
         this.networkTopology = networkTopology;
+        this.currentNode = currentNode;
         this.nodeManager = nodeManager;
         this.minCandidates = schedulerConfig.getMinCandidates();
         this.includeCoordinator = schedulerConfig.isIncludeCoordinator();
@@ -122,7 +126,7 @@ public class TopologyAwareNodeSelectorFactory
                 5, TimeUnit.SECONDS);
 
         return new TopologyAwareNodeSelector(
-                nodeManager,
+                currentNode,
                 nodeTaskMap,
                 includeCoordinator,
                 nodeMap,

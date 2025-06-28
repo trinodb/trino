@@ -18,7 +18,6 @@ import io.airlift.http.server.HttpServerInfo;
 import io.trino.execution.LocationFactory;
 import io.trino.execution.TaskId;
 import io.trino.node.InternalNode;
-import io.trino.node.InternalNodeManager;
 import io.trino.server.InternalCommunicationConfig;
 import io.trino.spi.QueryId;
 
@@ -30,18 +29,18 @@ import static java.util.Objects.requireNonNull;
 public class HttpLocationFactory
         implements LocationFactory
 {
-    private final InternalNodeManager nodeManager;
+    private final InternalNode currentNode;
     private final URI baseUri;
 
     @Inject
-    public HttpLocationFactory(InternalNodeManager nodeManager, HttpServerInfo httpServerInfo, InternalCommunicationConfig config)
+    public HttpLocationFactory(InternalNode currentNode, HttpServerInfo httpServerInfo, InternalCommunicationConfig config)
     {
-        this(nodeManager, config.isHttpsRequired() ? httpServerInfo.getHttpsUri() : httpServerInfo.getHttpUri());
+        this(currentNode, config.isHttpsRequired() ? httpServerInfo.getHttpsUri() : httpServerInfo.getHttpUri());
     }
 
-    public HttpLocationFactory(InternalNodeManager nodeManager, URI baseUri)
+    public HttpLocationFactory(InternalNode currentNode, URI baseUri)
     {
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.currentNode = currentNode;
         this.baseUri = requireNonNull(baseUri, "baseUri is null");
     }
 
@@ -58,7 +57,7 @@ public class HttpLocationFactory
     @Override
     public URI createLocalTaskLocation(TaskId taskId)
     {
-        return createTaskLocation(nodeManager.getCurrentNode(), taskId);
+        return createTaskLocation(currentNode, taskId);
     }
 
     @Override

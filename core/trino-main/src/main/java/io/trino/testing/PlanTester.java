@@ -107,6 +107,7 @@ import io.trino.metadata.TablePropertyManager;
 import io.trino.metadata.TypeRegistry;
 import io.trino.metadata.ViewPropertyManager;
 import io.trino.node.InternalNodeManager;
+import io.trino.node.TestingInternalNodeManager;
 import io.trino.operator.Driver;
 import io.trino.operator.DriverContext;
 import io.trino.operator.DriverFactory;
@@ -250,6 +251,7 @@ import static io.trino.connector.CatalogServiceProviderModule.createViewProperty
 import static io.trino.execution.ParameterExtractor.bindParameters;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.execution.warnings.WarningCollector.NOOP;
+import static io.trino.node.TestingInternalNodeManager.CURRENT_NODE;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.spi.connector.DynamicFilter.EMPTY;
 import static io.trino.spiller.PartitioningSpillerFactory.unsupportedPartitioningSpillerFactory;
@@ -365,7 +367,7 @@ public class PlanTester
                 () -> getPlannerContext().getMetadata(),
                 () -> getPlannerContext().getTypeManager(),
                 () -> getPlannerContext().getFunctionManager());
-        globalFunctionCatalog.addFunctions(SystemFunctionBundle.create(new FeaturesConfig(), typeOperators, blockTypeOperators, nodeManager.getCurrentNode().getNodeVersion()));
+        globalFunctionCatalog.addFunctions(SystemFunctionBundle.create(new FeaturesConfig(), typeOperators, blockTypeOperators, CURRENT_NODE.getNodeVersion()));
         TestingGroupProviderManager groupProvider = new TestingGroupProviderManager();
         LanguageFunctionManager languageFunctionManager = new LanguageFunctionManager(
                 sqlParser,
@@ -386,7 +388,7 @@ public class PlanTester
         this.joinCompiler = new JoinCompiler(typeOperators);
         this.hashStrategyCompiler = new FlatHashStrategyCompiler(typeOperators);
         PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(hashStrategyCompiler);
-        EventListenerManager eventListenerManager = new EventListenerManager(new EventListenerConfig(), secretsResolver, noop(), tracer, nodeManager.getCurrentNode().getNodeVersion());
+        EventListenerManager eventListenerManager = new EventListenerManager(new EventListenerConfig(), secretsResolver, noop(), tracer, CURRENT_NODE.getNodeVersion());
         this.accessControl = new TestingAccessControlManager(transactionManager, eventListenerManager, secretsResolver);
         accessControl.loadSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
 
@@ -394,6 +396,7 @@ public class PlanTester
         catalogFactory.setCatalogFactory(new DefaultCatalogFactory(
                 metadata,
                 accessControl,
+                CURRENT_NODE,
                 nodeManager,
                 pageSorter,
                 pageIndexerFactory,
@@ -408,7 +411,7 @@ public class PlanTester
         this.pageSourceManager = new PageSourceManager(createPageSourceProviderFactory(catalogManager));
         this.pageSinkManager = new PageSinkManager(createPageSinkProvider(catalogManager));
         this.indexManager = new IndexManager(createIndexProvider(catalogManager));
-        NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(nodeManager, nodeSchedulerConfig, new NodeTaskMap(finalizerService)));
+        NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(CURRENT_NODE, nodeManager, nodeSchedulerConfig, new NodeTaskMap(finalizerService)));
         this.sessionPropertyManager = createSessionPropertyManager(catalogManager, taskManagerConfig, optimizerConfig);
         this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler, createNodePartitioningProvider(catalogManager));
         this.partitionFunctionProvider = new PartitionFunctionProvider(typeOperators, createNodePartitioningProvider(catalogManager));
@@ -781,7 +784,7 @@ public class PlanTester
                 typeOperators,
                 tableExecuteContextManager,
                 exchangeManagerRegistry,
-                nodeManager.getCurrentNode().getNodeVersion(),
+                CURRENT_NODE.getNodeVersion(),
                 new CompilerConfig());
 
         // plan query
