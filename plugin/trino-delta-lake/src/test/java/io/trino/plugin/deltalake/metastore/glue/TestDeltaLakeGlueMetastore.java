@@ -38,7 +38,7 @@ import io.trino.plugin.deltalake.DeltaLakeModule;
 import io.trino.plugin.deltalake.DeltaLakeSecurityModule;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastoreModule;
 import io.trino.plugin.hive.NodeVersion;
-import io.trino.spi.NodeManager;
+import io.trino.spi.Node;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
@@ -121,7 +121,7 @@ public class TestDeltaLakeGlueMetastore
                 binder -> {
                     binder.bind(CatalogName.class).toInstance(new CatalogName("test"));
                     binder.bind(TypeManager.class).toInstance(context.getTypeManager());
-                    binder.bind(NodeManager.class).toInstance(context.getNodeManager());
+                    binder.bind(Node.class).toInstance(context.getCurrentNode());
                     binder.bind(PageIndexerFactory.class).toInstance(context.getPageIndexerFactory());
                     binder.bind(NodeVersion.class).toInstance(new NodeVersion("test_version"));
                     binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry());
