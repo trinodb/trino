@@ -127,6 +127,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Queue;
 import java.util.Set;
@@ -2308,6 +2309,8 @@ public class EventDrivenFaultTolerantQueryScheduler
                     partitionId,
                     attempt,
                     sinkPartitioningScheme.getBucketToPartitionMap(),
+                    // FTE does not support writer scaling
+                    OptionalInt.empty(),
                     outputBuffers,
                     splits,
                     noMoreSplits,

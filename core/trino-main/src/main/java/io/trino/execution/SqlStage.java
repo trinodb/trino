@@ -35,6 +35,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
@@ -243,6 +244,7 @@ public final class SqlStage
             int partition,
             int attempt,
             Optional<int[]> bucketToPartition,
+            OptionalInt skewedBucketCount,
             OutputBuffers outputBuffers,
             Multimap<PlanNodeId, Split> splits,
             Set<PlanNodeId> noMoreSplits,
@@ -263,7 +265,7 @@ public final class SqlStage
                 taskId,
                 node,
                 speculative,
-                stateMachine.getFragment().withBucketToPartition(bucketToPartition),
+                stateMachine.getFragment().withOutputPartitioning(bucketToPartition, skewedBucketCount),
                 splits,
                 outputBuffers,
                 nodeTaskMap.createPartitionedSplitCountTracker(node, taskId),

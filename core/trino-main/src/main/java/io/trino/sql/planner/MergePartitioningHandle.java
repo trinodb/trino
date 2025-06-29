@@ -109,7 +109,7 @@ public final class MergePartitioningHandle
             NodePartitionMap insertMap = optionalInsertMap.get();
             NodePartitionMap updateMap = optionalUpdateMap.get();
             if (!insertMap.getPartitionToNode().equals(updateMap.getPartitionToNode()) ||
-                    !Arrays.equals(insertMap.getBucketToPartition(), updateMap.getBucketToPartition())) {
+                    !Arrays.equals(insertMap.getBucketToPartition().bucketToPartition(), updateMap.getBucketToPartition().bucketToPartition())) {
                 throw new TrinoException(NOT_SUPPORTED, "Insert and update layout have mismatched BucketNodeMap");
             }
         }
