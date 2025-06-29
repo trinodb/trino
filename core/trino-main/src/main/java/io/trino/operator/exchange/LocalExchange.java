@@ -275,7 +275,7 @@ public class LocalExchange
     {
         if (partitioning.getConnectorHandle() instanceof MergePartitioningHandle) {
             // TODO: can we always use this code path?
-            return nodePartitioningManager.getNodePartitioningMap(session, partitioning, 1000).getBucketToPartition().length;
+            return nodePartitioningManager.getNodePartitioningMap(session, partitioning, 1000).getBucketToPartition().bucketToPartition().length;
         }
         return nodePartitioningManager.getBucketCount(session, partitioning);
     }

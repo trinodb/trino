@@ -37,6 +37,7 @@ import org.junit.jupiter.api.Test;
 
 import java.net.URI;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.function.Function;
 
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
@@ -267,6 +268,7 @@ public class TestExponentialGrowthPartitionMemoryEstimator
                 Optional.empty(),
                 ImmutableList.of(),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of()),
+                OptionalInt.empty(),
                 StatsAndCosts.empty(),
                 ImmutableList.of(),
                 ImmutableMap.of(),

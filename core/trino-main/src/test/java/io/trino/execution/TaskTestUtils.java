@@ -70,6 +70,7 @@ import io.trino.util.FinalizerService;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 
 import static io.airlift.tracing.Tracing.noopTracer;
@@ -112,6 +113,7 @@ public final class TaskTestUtils
             ImmutableList.of(TABLE_SCAN_NODE_ID),
             new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(SYMBOL))
                     .withBucketToPartition(Optional.of(new int[1])),
+            OptionalInt.empty(),
             StatsAndCosts.empty(),
             ImmutableList.of(),
             ImmutableMap.of(),
@@ -139,6 +141,7 @@ public final class TaskTestUtils
             ImmutableList.of(TABLE_SCAN_NODE_ID),
             new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(SYMBOL))
                     .withBucketToPartition(Optional.of(new int[1])),
+            OptionalInt.empty(),
             StatsAndCosts.empty(),
             ImmutableList.of(),
             ImmutableMap.of(),
