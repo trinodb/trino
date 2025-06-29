@@ -15,7 +15,7 @@ package io.trino.plugin.opa.schema;
 
 import static java.util.Objects.requireNonNull;
 
-public record OpaQueryContext(TrinoIdentity identity, OpaPluginContext softwareStack)
+public record OpaQueryContext(TrinoIdentity identity, OpaPluginContext softwareStack, String queryId)
 {
     public OpaQueryContext
     {
