@@ -230,10 +230,19 @@ public class NodePartitioningManager
         return nodes;
     }
 
-    public int getBucketCount(Session session, PartitioningHandle partitioningHandle)
+    public int getLocalExchangeBucketCount(Session session, PartitioningHandle partitioningHandle)
     {
-        // we don't care about partition count at all, just bucket count
-        return getBucketNodeMap(session, partitioningHandle, 1000).getBucketCount();
+        // workers do not know the worker count, so use a fixed number
+        return getConnectorBucketNodeMap(session, partitioningHandle)
+                .map(ConnectorBucketNodeMap::getBucketCount)
+                .orElse(MAX_WRITER_COUNT * SCALE_WRITERS_MAX_PARTITIONS_PER_WRITER);
+    }
+
+    public int getRemoteExchangeBucketCount(Session session, PartitioningHandle partitioningHandle)
+    {
+        return getConnectorBucketNodeMap(session, partitioningHandle)
+                .map(ConnectorBucketNodeMap::getBucketCount)
+                .orElseGet(() -> getDefaultBucketCount(session));
     }
 
     public BucketNodeMap getBucketNodeMap(Session session, PartitioningHandle partitioningHandle, int partitionCount)

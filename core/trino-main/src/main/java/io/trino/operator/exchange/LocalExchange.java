@@ -36,6 +36,7 @@ import io.trino.sql.planner.SystemPartitioningHandle;
 import java.io.Closeable;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -271,13 +272,19 @@ public class LocalExchange
                 bucketToPartition);
     }
 
-    public static int getBucketCount(Session session, NodePartitioningManager nodePartitioningManager, PartitioningHandle partitioning)
+    private static int getBucketCount(Session session, NodePartitioningManager nodePartitioningManager, PartitioningHandle partitioning)
     {
-        if (partitioning.getConnectorHandle() instanceof MergePartitioningHandle) {
-            // TODO: can we always use this code path?
-            return nodePartitioningManager.getNodePartitioningMap(session, partitioning, 1000).getBucketToPartition().length;
+        if (partitioning.getConnectorHandle() instanceof MergePartitioningHandle handle) {
+            Optional<Integer> insertBucketCount = handle.getInsertPartitioning()
+                    .map(insert -> getBucketCount(session, nodePartitioningManager, insert.getPartitioning().getHandle()));
+            Optional<Integer> updateBucketCount = handle.getUpdatePartitioning()
+                    .map(update -> getBucketCount(session, nodePartitioningManager, update.getPartitioning().getHandle()));
+            checkArgument(
+                    insertBucketCount.isEmpty() || updateBucketCount.isEmpty() || insertBucketCount.get().equals(updateBucketCount.get()),
+                    "Insert and update partitioning bucket counts must match");
+            return insertBucketCount.or(() -> updateBucketCount).orElseThrow();
         }
-        return nodePartitioningManager.getBucketCount(session, partitioning);
+        return nodePartitioningManager.getLocalExchangeBucketCount(session, partitioning);
     }
 
     private static boolean isSystemPartitioning(PartitioningHandle partitioning)
