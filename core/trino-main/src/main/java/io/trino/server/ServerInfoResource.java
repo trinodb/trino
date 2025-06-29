@@ -17,9 +17,8 @@ import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import io.trino.client.NodeVersion;
-import io.trino.client.ServerInfo;
 import io.trino.execution.QueryIdGenerator;
-import io.trino.metadata.NodeState;
+import io.trino.node.NodeState;
 import io.trino.server.security.ResourceSecurity;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
@@ -45,6 +44,7 @@ public class ServerInfoResource
 {
     private static final Logger log = Logger.get(ServerInfoResource.class);
 
+    private final String nodeId;
     private final NodeVersion version;
     private final String environment;
     private final boolean coordinator;
@@ -62,6 +62,7 @@ public class ServerInfoResource
             StartupStatus startupStatus,
             Optional<QueryIdGenerator> queryIdGenerator)
     {
+        this.nodeId = nodeInfo.getNodeId();
         this.version = requireNonNull(nodeVersion, "nodeVersion is null");
         this.environment = nodeInfo.getEnvironment();
         this.coordinator = serverConfig.isCoordinator();
@@ -76,7 +77,15 @@ public class ServerInfoResource
     public ServerInfo getInfo()
     {
         boolean starting = !startupStatus.isStartupComplete();
-        return new ServerInfo(version, environment, coordinator, starting, Optional.of(nanosSince(startTime)), queryIdGenerator.map(QueryIdGenerator::getCoordinatorId));
+        return new ServerInfo(
+                nodeId,
+                nodeStateManager.getServerState(),
+                version,
+                environment,
+                coordinator,
+                queryIdGenerator.map(QueryIdGenerator::getCoordinatorId),
+                starting,
+                nanosSince(startTime));
     }
 
     @ResourceSecurity(MANAGEMENT_WRITE)

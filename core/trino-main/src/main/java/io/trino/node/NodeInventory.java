@@ -11,20 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.execution;
-
-import io.trino.node.InternalNode;
-import io.trino.spi.QueryId;
+package io.trino.node;
 
 import java.net.URI;
+import java.util.Set;
 
-public interface LocationFactory
+public interface NodeInventory
 {
-    URI createQueryLocation(QueryId queryId);
-
-    URI createLocalTaskLocation(TaskId taskId);
-
-    URI createTaskLocation(InternalNode node, TaskId taskId);
-
-    URI createMemoryInfoLocation(InternalNode node);
+    Set<URI> getNodes();
 }

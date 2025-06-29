@@ -15,8 +15,8 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.execution.scheduler.BucketNodeMap;
-import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
+import io.trino.node.InternalNode;
 
 import java.util.List;
 import java.util.function.ToIntFunction;

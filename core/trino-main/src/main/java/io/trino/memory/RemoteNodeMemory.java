@@ -23,7 +23,7 @@ import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
-import io.trino.metadata.InternalNode;
+import io.trino.node.InternalNode;
 
 import java.net.URI;
 import java.util.Optional;

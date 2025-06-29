@@ -26,7 +26,7 @@ import io.trino.execution.NodeTaskMap;
 import io.trino.execution.scheduler.NodeScheduler;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.execution.scheduler.UniformNodeSelectorFactory;
-import io.trino.metadata.InMemoryNodeManager;
+import io.trino.node.InMemoryNodeManager;
 import io.trino.operator.DriverContext;
 import io.trino.operator.JoinOperatorType;
 import io.trino.operator.Operator;

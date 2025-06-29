@@ -23,6 +23,8 @@ import com.google.inject.multibindings.ProvidesIntoSet;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.http.server.HttpServerConfig;
+import io.airlift.http.server.HttpServerInfo;
+import io.airlift.node.NodeInfo;
 import io.airlift.slice.Slice;
 import io.airlift.stats.GcMonitor;
 import io.airlift.stats.JmxGcMonitor;
@@ -66,15 +68,12 @@ import io.trino.memory.MemoryResource;
 import io.trino.memory.NodeMemoryConfig;
 import io.trino.metadata.BlockEncodingManager;
 import io.trino.metadata.DisabledSystemSecurityMetadata;
-import io.trino.metadata.DiscoveryNodeManager;
-import io.trino.metadata.ForNodeManager;
 import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.GlobalFunctionCatalog;
 import io.trino.metadata.HandleJsonModule;
 import io.trino.metadata.InternalBlockEncodingSerde;
 import io.trino.metadata.InternalFunctionBundle;
-import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.LanguageFunctionEngineManager;
 import io.trino.metadata.LanguageFunctionManager;
 import io.trino.metadata.Metadata;
@@ -85,6 +84,12 @@ import io.trino.metadata.SystemSecurityMetadata;
 import io.trino.metadata.TableFunctionRegistry;
 import io.trino.metadata.TableProceduresRegistry;
 import io.trino.metadata.TypeRegistry;
+import io.trino.node.AirliftNodeInventory;
+import io.trino.node.DiscoveryNodeManager;
+import io.trino.node.ForNodeManager;
+import io.trino.node.InternalNode;
+import io.trino.node.InternalNodeManager;
+import io.trino.node.NodeInventory;
 import io.trino.operator.DirectExchangeClientConfig;
 import io.trino.operator.DirectExchangeClientFactory;
 import io.trino.operator.DirectExchangeClientSupplier;
@@ -261,6 +266,7 @@ public class ServerMainModule
                     config.setIdleTimeout(new Duration(30, SECONDS));
                     config.setRequestTimeout(new Duration(10, SECONDS));
                 }).build());
+        binder.bind(NodeInventory.class).to(AirliftNodeInventory.class).in(Scopes.SINGLETON);
 
         // node scheduler
         // TODO: remove from NodePartitioningManager and move to CoordinatorModule
@@ -512,6 +518,22 @@ public class ServerMainModule
         closingBinder(binder).registerExecutor(Key.get(ScheduledExecutorService.class, ForExchange.class));
         closingBinder(binder).registerExecutor(Key.get(ExecutorService.class, ForAsyncHttp.class));
         closingBinder(binder).registerExecutor(Key.get(ScheduledExecutorService.class, ForAsyncHttp.class));
+    }
+
+    @Provides
+    @Singleton
+    public static InternalNode currentInternalNode(
+            NodeInfo nodeInfo,
+            HttpServerInfo httpServerInfo,
+            NodeVersion nodeVersion,
+            ServerConfig serverConfig,
+            InternalCommunicationConfig internalCommunicationConfig)
+    {
+        return new InternalNode(
+                nodeInfo.getNodeId(),
+                internalCommunicationConfig.isHttpsRequired() ? httpServerInfo.getHttpsUri() : httpServerInfo.getHttpUri(),
+                nodeVersion,
+                serverConfig.isCoordinator());
     }
 
     private static class RegisterFunctionBundles

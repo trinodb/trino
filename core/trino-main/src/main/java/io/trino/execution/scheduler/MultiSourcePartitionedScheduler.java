@@ -21,7 +21,7 @@ import io.airlift.log.Logger;
 import io.trino.annotation.NotThreadSafe;
 import io.trino.execution.RemoteTask;
 import io.trino.execution.TableExecuteContextManager;
-import io.trino.metadata.InternalNode;
+import io.trino.node.InternalNode;
 import io.trino.server.DynamicFilterService;
 import io.trino.split.SplitSource;
 import io.trino.sql.planner.plan.PlanNodeId;

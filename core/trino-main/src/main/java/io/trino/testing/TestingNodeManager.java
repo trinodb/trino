@@ -14,7 +14,7 @@
 package io.trino.testing;
 
 import io.trino.client.NodeVersion;
-import io.trino.metadata.InternalNode;
+import io.trino.node.InternalNode;
 import io.trino.spi.Node;
 import io.trino.spi.NodeManager;
 

@@ -25,8 +25,8 @@ import io.airlift.stats.CounterStat;
 import io.trino.Session;
 import io.trino.cache.NonEvictableCache;
 import io.trino.execution.NodeTaskMap;
-import io.trino.metadata.InternalNode;
-import io.trino.metadata.InternalNodeManager;
+import io.trino.node.InternalNode;
+import io.trino.node.InternalNodeManager;
 import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
 
@@ -43,7 +43,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.SystemSessionProperties.getMaxUnacknowledgedSplitsPerTask;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
-import static io.trino.metadata.NodeState.ACTIVE;
+import static io.trino.node.NodeState.ACTIVE;
 import static java.util.Objects.requireNonNull;
 
 public class TopologyAwareNodeSelectorFactory

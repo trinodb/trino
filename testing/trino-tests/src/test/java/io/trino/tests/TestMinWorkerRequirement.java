@@ -26,6 +26,7 @@ import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.tests.tpch.TpchQueryRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.SystemSessionProperties.REQUIRED_WORKERS_COUNT;
@@ -107,6 +108,7 @@ public class TestMinWorkerRequirement
     }
 
     @Test
+    @Timeout(60)
     public void testInsufficientWorkerNodesAfterDrop()
             throws Exception
     {
@@ -121,7 +123,10 @@ public class TestMinWorkerRequirement
             assertThat(queryRunner.getCoordinator().refreshNodes().getActiveNodes()).hasSize(4);
 
             queryRunner.getServers().get(0).close();
-            assertThat(queryRunner.getCoordinator().refreshNodes().getActiveNodes()).hasSize(3);
+            while (queryRunner.getCoordinator().refreshNodes().getActiveNodes().size() > 3) {
+                // it takes some time to refresh the nodes
+                MILLISECONDS.sleep(100);
+            }
             assertThatThrownBy(() -> queryRunner.execute("SELECT COUNT(*) from lineitem"))
                     .isInstanceOf(RuntimeException.class)
                     .hasMessage("Insufficient active worker nodes. Waited 1.00ns for at least 4 workers, but only 3 workers are active");

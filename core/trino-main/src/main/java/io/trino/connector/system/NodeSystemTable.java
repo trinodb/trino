@@ -14,10 +14,10 @@
 package io.trino.connector.system;
 
 import com.google.inject.Inject;
-import io.trino.metadata.AllNodes;
-import io.trino.metadata.InternalNode;
-import io.trino.metadata.InternalNodeManager;
-import io.trino.metadata.NodeState;
+import io.trino.node.AllNodes;
+import io.trino.node.InternalNode;
+import io.trino.node.InternalNodeManager;
+import io.trino.node.NodeState;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
@@ -32,11 +32,11 @@ import java.util.Locale;
 import java.util.Set;
 
 import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
-import static io.trino.metadata.NodeState.ACTIVE;
-import static io.trino.metadata.NodeState.DRAINED;
-import static io.trino.metadata.NodeState.DRAINING;
-import static io.trino.metadata.NodeState.INACTIVE;
-import static io.trino.metadata.NodeState.SHUTTING_DOWN;
+import static io.trino.node.NodeState.ACTIVE;
+import static io.trino.node.NodeState.DRAINED;
+import static io.trino.node.NodeState.DRAINING;
+import static io.trino.node.NodeState.INACTIVE;
+import static io.trino.node.NodeState.SHUTTING_DOWN;
 import static io.trino.spi.connector.SystemTable.Distribution.SINGLE_COORDINATOR;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;

@@ -20,7 +20,7 @@ import io.trino.Session;
 import io.trino.connector.MockConnector;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorTableHandle;
-import io.trino.metadata.InMemoryNodeManager;
+import io.trino.node.InMemoryNodeManager;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
