@@ -52,6 +52,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
@@ -113,6 +114,7 @@ public class PipelinedStageExecution
     private final TaskLifecycleListener taskLifecycleListener;
     private final FailureDetector failureDetector;
     private final Optional<int[]> bucketToPartition;
+    private final OptionalInt skewedBucketCount;
     private final Map<PlanFragmentId, RemoteSourceNode> exchangeSources;
     private final int attempt;
 
@@ -139,6 +141,7 @@ public class PipelinedStageExecution
             FailureDetector failureDetector,
             Executor executor,
             Optional<int[]> bucketToPartition,
+            OptionalInt skewedBucketCount,
             int attempt)
     {
         PipelinedStageStateMachine stateMachine = new PipelinedStageStateMachine(stage.getStageId(), executor);
@@ -155,6 +158,7 @@ public class PipelinedStageExecution
                 taskLifecycleListener,
                 failureDetector,
                 bucketToPartition,
+                skewedBucketCount,
                 exchangeSources.buildOrThrow(),
                 attempt);
         execution.initialize();
@@ -168,6 +172,7 @@ public class PipelinedStageExecution
             TaskLifecycleListener taskLifecycleListener,
             FailureDetector failureDetector,
             Optional<int[]> bucketToPartition,
+            OptionalInt skewedBucketCount,
             Map<PlanFragmentId, RemoteSourceNode> exchangeSources,
             int attempt)
     {
@@ -177,6 +182,7 @@ public class PipelinedStageExecution
         this.taskLifecycleListener = requireNonNull(taskLifecycleListener, "taskLifecycleListener is null");
         this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
         this.bucketToPartition = requireNonNull(bucketToPartition, "bucketToPartition is null");
+        this.skewedBucketCount = requireNonNull(skewedBucketCount, "skewedBucketCount is null");
         this.exchangeSources = ImmutableMap.copyOf(requireNonNull(exchangeSources, "exchangeSources is null"));
         this.attempt = attempt;
     }
@@ -296,6 +302,7 @@ public class PipelinedStageExecution
                 partition,
                 attempt,
                 bucketToPartition,
+                skewedBucketCount,
                 outputBuffers,
                 initialSplits,
                 ImmutableSet.of(),

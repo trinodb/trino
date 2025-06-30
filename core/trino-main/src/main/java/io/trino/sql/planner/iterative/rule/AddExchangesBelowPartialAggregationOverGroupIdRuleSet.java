@@ -301,6 +301,7 @@ public class AddExchangesBelowPartialAggregationOverGroupIdRuleSet
                             source.getOutputSymbols(),
                             false,
                             Optional.empty(),
+                            Optional.empty(),
                             // It's fine to reuse partitionCount since that is computed by considering all the expanding nodes and table scans in a query
                             partitionCount));
 

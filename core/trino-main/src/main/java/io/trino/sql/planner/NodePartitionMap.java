@@ -34,21 +34,30 @@ import static java.util.Objects.requireNonNull;
 //
 public class NodePartitionMap
 {
+    // Skewed partition rebalancer must know if a bucket distribution is fixed by the connector or can be changed
+    public record BucketToPartition(int[] bucketToPartition, boolean hasFixedMapping)
+    {
+        public BucketToPartition
+        {
+            requireNonNull(bucketToPartition, "bucketToPartition is null");
+        }
+    }
+
     private final List<InternalNode> partitionToNode;
-    private final int[] bucketToPartition;
+    private final BucketToPartition bucketToPartition;
     private final ToIntFunction<Split> splitToBucket;
 
     public NodePartitionMap(List<InternalNode> partitionToNode, ToIntFunction<Split> splitToBucket)
     {
         this.partitionToNode = ImmutableList.copyOf(requireNonNull(partitionToNode, "partitionToNode is null"));
-        this.bucketToPartition = IntStream.range(0, partitionToNode.size()).toArray();
+        this.bucketToPartition = new BucketToPartition(IntStream.range(0, partitionToNode.size()).toArray(), false);
         this.splitToBucket = requireNonNull(splitToBucket, "splitToBucket is null");
     }
 
-    public NodePartitionMap(List<InternalNode> partitionToNode, int[] bucketToPartition, ToIntFunction<Split> splitToBucket)
+    public NodePartitionMap(List<InternalNode> partitionToNode, BucketToPartition bucketToPartition, ToIntFunction<Split> splitToBucket)
     {
-        this.bucketToPartition = requireNonNull(bucketToPartition, "bucketToPartition is null");
         this.partitionToNode = ImmutableList.copyOf(requireNonNull(partitionToNode, "partitionToNode is null"));
+        this.bucketToPartition = requireNonNull(bucketToPartition, "bucketToPartition is null");
         this.splitToBucket = requireNonNull(splitToBucket, "splitToBucket is null");
     }
 
@@ -57,7 +66,7 @@ public class NodePartitionMap
         return partitionToNode;
     }
 
-    public int[] getBucketToPartition()
+    public BucketToPartition getBucketToPartition()
     {
         return bucketToPartition;
     }
@@ -65,14 +74,14 @@ public class NodePartitionMap
     public InternalNode getNode(Split split)
     {
         int bucket = splitToBucket.applyAsInt(split);
-        int partition = bucketToPartition[bucket];
+        int partition = bucketToPartition.bucketToPartition()[bucket];
         return requireNonNull(partitionToNode.get(partition));
     }
 
     public BucketNodeMap asBucketNodeMap()
     {
         ImmutableList.Builder<InternalNode> bucketToNode = ImmutableList.builder();
-        for (int partition : bucketToPartition) {
+        for (int partition : bucketToPartition.bucketToPartition()) {
             bucketToNode.add(partitionToNode.get(partition));
         }
         return new BucketNodeMap(splitToBucket, bucketToNode.build());
