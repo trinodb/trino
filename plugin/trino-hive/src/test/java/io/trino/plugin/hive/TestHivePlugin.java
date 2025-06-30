@@ -102,6 +102,30 @@ public class TestHivePlugin
     }
 
     @Test
+    public void testPolarisMetastore()
+    {
+        ConnectorFactory factory = getHiveConnectorFactory();
+
+        factory.create(
+                        "test",
+                        ImmutableMap.of(
+                                "hive.metastore", "polaris",
+                                "hive.metastore.polaris.uri", "http://localhost:8181",
+                                "bootstrap.quiet", "true"),
+                        new TestingConnectorContext())
+                .shutdown();
+
+        assertThatThrownBy(() -> factory.create(
+                "test",
+                ImmutableMap.of(
+                        "hive.metastore", "polaris",
+                        "hive.metastore.uri", "thrift://foo:1234",
+                        "bootstrap.quiet", "true"),
+                new TestingConnectorContext()))
+                .hasMessageContaining("Error: Configuration property 'hive.metastore.uri' was not used");
+    }
+
+    @Test
     public void testImmutablePartitionsAndInsertOverwriteMutuallyExclusive()
     {
         ConnectorFactory connectorFactory = getHiveConnectorFactory();
