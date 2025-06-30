@@ -14,6 +14,7 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
@@ -40,7 +41,7 @@ public class SimplePagesHashStrategy
     private static final int INSTANCE_SIZE = instanceSize(SimplePagesHashStrategy.class);
     private final List<Type> types;
     private final List<Optional<BlockPositionComparison>> comparisonOperators;
-    private final List<Integer> outputChannels;
+    private final int[] outputChannels;
     private final List<ObjectArrayList<Block>> channels;
     private final List<Integer> hashChannels;
     private final Optional<Integer> sortChannel;
@@ -60,7 +61,7 @@ public class SimplePagesHashStrategy
         this.comparisonOperators = types.stream()
                 .map(type -> type.isOrderable() ? Optional.of(blockTypeOperators.getComparisonUnorderedLastOperator(type)) : Optional.<BlockPositionComparison>empty())
                 .collect(toImmutableList());
-        this.outputChannels = ImmutableList.copyOf(requireNonNull(outputChannels, "outputChannels is null"));
+        this.outputChannels = Ints.toArray(requireNonNull(outputChannels, "outputChannels is null"));
         this.channels = ImmutableList.copyOf(requireNonNull(channels, "channels is null"));
 
         checkArgument(types.size() == channels.size(), "Expected types and channels to be the same length");
@@ -84,7 +85,7 @@ public class SimplePagesHashStrategy
     @Override
     public int getChannelCount()
     {
-        return outputChannels.size();
+        return outputChannels.length;
     }
 
     @Override
