@@ -267,11 +267,11 @@ public final class MetadataManager
     @Override
     public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName table)
     {
-        return getTableHandle(session, table, Optional.empty(), Optional.empty());
+        return getTableHandle(session, table, Optional.empty(), Optional.empty(), Optional.empty());
     }
 
     @Override
-    public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName table, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion)
+    public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName table, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion, Optional<String> branch)
     {
         requireNonNull(table, "table is null");
         if (cannotExist(table)) {
@@ -291,7 +291,8 @@ public final class MetadataManager
                     connectorSession,
                     table.asSchemaTableName(),
                     startTableVersion,
-                    endTableVersion);
+                    endTableVersion,
+                    branch);
             return Optional.ofNullable(tableHandle)
                     .map(connectorTableHandle -> new TableHandle(
                             catalogHandle,
@@ -1903,18 +1904,23 @@ public final class MetadataManager
     @Override
     public RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName)
     {
-        return getRedirectionAwareTableHandle(session, tableName, Optional.empty(), Optional.empty());
+        return getRedirectionAwareTableHandle(session, tableName, Optional.empty(), Optional.empty(), Optional.empty());
     }
 
     @Override
-    public RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion)
+    public RedirectionAwareTableHandle getRedirectionAwareTableHandle(
+            Session session,
+            QualifiedObjectName tableName,
+            Optional<TableVersion> startVersion,
+            Optional<TableVersion> endVersion,
+            Optional<String> branch)
     {
         QualifiedObjectName targetTableName = getRedirectedTableName(session, tableName, startVersion, endVersion);
         if (targetTableName.equals(tableName)) {
-            return noRedirection(getTableHandle(session, tableName, startVersion, endVersion));
+            return noRedirection(getTableHandle(session, tableName, startVersion, endVersion, branch));
         }
 
-        Optional<TableHandle> tableHandle = getTableHandle(session, targetTableName, startVersion, endVersion);
+        Optional<TableHandle> tableHandle = getTableHandle(session, targetTableName, startVersion, endVersion, branch);
         if (tableHandle.isPresent()) {
             return withRedirectionTo(targetTableName, tableHandle.get());
         }
@@ -2363,6 +2369,48 @@ public final class MetadataManager
     }
 
     @Override
+    public void grantTableBranchPrivileges(Session session, QualifiedObjectName tableName, String branchName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
+    {
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, tableName.catalogName());
+        if (catalogMetadata.getSecurityManagement() == SYSTEM) {
+            systemSecurityMetadata.grantTableBranchPrivileges(session, tableName, branchName, privileges, grantee, grantOption);
+            return;
+        }
+        CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
+
+        metadata.grantTableBranchPrivileges(session.toConnectorSession(catalogHandle), tableName.asSchemaTableName(), branchName, privileges, grantee, grantOption);
+    }
+
+    @Override
+    public void denyTableBranchPrivileges(Session session, QualifiedObjectName tableName, String branchName, Set<Privilege> privileges, TrinoPrincipal grantee)
+    {
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, tableName.catalogName());
+        if (catalogMetadata.getSecurityManagement() == SYSTEM) {
+            systemSecurityMetadata.denyTableBranchPrivileges(session, tableName, branchName, privileges, grantee);
+            return;
+        }
+        CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
+
+        metadata.denyTableBranchPrivileges(session.toConnectorSession(catalogHandle), tableName.asSchemaTableName(), branchName, privileges, grantee);
+    }
+
+    @Override
+    public void revokeTableBranchPrivileges(Session session, QualifiedObjectName tableName, String branchName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
+    {
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, tableName.catalogName());
+        if (catalogMetadata.getSecurityManagement() == SYSTEM) {
+            systemSecurityMetadata.revokeTableBranchPrivileges(session, tableName, branchName, privileges, grantee, grantOption);
+            return;
+        }
+        CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
+
+        metadata.revokeTableBranchPrivileges(session.toConnectorSession(catalogHandle), tableName.asSchemaTableName(), branchName, privileges, grantee, grantOption);
+    }
+
+    @Override
     public void grantSchemaPrivileges(Session session, CatalogSchemaName schemaName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, schemaName.getCatalogName());
@@ -2678,6 +2726,56 @@ public final class MetadataManager
                 functionId,
                 functionSignature,
                 boundSignature);
+    }
+
+    @Override
+    public void createBranch(Session session, TableHandle tableHandle, String branch, Map<String, Object> properties)
+    {
+        CatalogHandle catalogHandle = tableHandle.catalogHandle();
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogHandle);
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
+
+        metadata.createBranch(session.toConnectorSession(catalogHandle), tableHandle.connectorHandle(), branch, properties);
+    }
+
+    @Override
+    public void dropBranch(Session session, TableHandle tableHandle, String branch)
+    {
+        CatalogHandle catalogHandle = tableHandle.catalogHandle();
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogHandle);
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
+
+        metadata.dropBranch(session.toConnectorSession(catalogHandle), tableHandle.connectorHandle(), branch);
+    }
+
+    @Override
+    public void fastForwardBranch(Session session, TableHandle tableHandle, String sourceBranch, String targetBranch)
+    {
+        CatalogHandle catalogHandle = tableHandle.catalogHandle();
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogHandle);
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
+
+        metadata.fastForwardBranch(session.toConnectorSession(catalogHandle), tableHandle.connectorHandle(), sourceBranch, targetBranch);
+    }
+
+    @Override
+    public Collection<String> listBranches(Session session, QualifiedObjectName tableName)
+    {
+        CatalogMetadata catalogMetadata = getRequiredCatalogMetadata(session, tableName.catalogName());
+        CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
+
+        return metadata.listBranches(session.toConnectorSession(catalogHandle), tableName.asSchemaTableName());
+    }
+
+    @Override
+    public boolean branchExists(Session session, QualifiedObjectName tableName, String branch)
+    {
+        CatalogMetadata catalogMetadata = getRequiredCatalogMetadata(session, tableName.catalogName());
+        CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
+
+        return metadata.branchExists(session.toConnectorSession(catalogHandle), tableName.asSchemaTableName(), branch);
     }
 
     //
