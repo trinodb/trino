@@ -50,6 +50,7 @@ public class SimplePagesHashStrategy
     private final BlockPositionEqual[] equalOperators;
     private final BlockPositionHashCode[] hashCodeOperators;
     private final BlockPositionIsIdentical[] identicalOperators;
+    private long channelsRetainedSize = -1;
 
     public SimplePagesHashStrategy(
             List<Type> types,
@@ -93,12 +94,17 @@ public class SimplePagesHashStrategy
     @Override
     public long getSizeInBytes()
     {
-        return INSTANCE_SIZE +
-                (channels.size() > 0 ? sizeOf(channels.get(0).elements()) * channels.size() : 0) +
-                channels.stream()
-                        .flatMap(List::stream)
-                        .mapToLong(Block::getRetainedSizeInBytes)
-                        .sum();
+        if (channelsRetainedSize < 0) {
+            // compute retained size on first access
+            channelsRetainedSize = 0;
+            for (ObjectArrayList<Block> blocks : channels) {
+                channelsRetainedSize += sizeOf(blocks.elements());
+                for (Block block : blocks) {
+                    channelsRetainedSize += block.getRetainedSizeInBytes();
+                }
+            }
+        }
+        return INSTANCE_SIZE + channelsRetainedSize;
     }
 
     @Override
