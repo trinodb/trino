@@ -140,6 +140,7 @@ public final class JoinTestUtils
                 taskContext.getSession(),
                 partitionCount,
                 FIXED_HASH_DISTRIBUTION,
+                Optional.empty(),
                 hashChannels,
                 hashChannelTypes,
                 DataSize.of(32, DataSize.Unit.MEGABYTE),

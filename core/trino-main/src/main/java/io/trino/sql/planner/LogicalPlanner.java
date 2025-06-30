@@ -724,6 +724,7 @@ public class LogicalPlanner
                         outputLayout,
                         false,
                         Optional.empty(),
+                        Optional.empty(),
                         maxWritersNodesCount));
             }
         }
@@ -1015,6 +1016,7 @@ public class LogicalPlanner
                         Partitioning.create(FIXED_HASH_DISTRIBUTION, partitionFunctionArguments),
                         outputLayout,
                         false,
+                        Optional.empty(),
                         Optional.empty(),
                         maxWritersNodesCount));
             }

@@ -126,7 +126,8 @@ public class TestSqlStage
                 executor,
                 noopTracer(),
                 Span.getInvalid(),
-                new SplitSchedulerStats());
+                new SplitSchedulerStats(),
+                (_, _) -> Optional.empty());
 
         // add listener that fetches stage info when the final status is available
         SettableFuture<StageInfo> finalStageInfo = SettableFuture.create();

@@ -26,6 +26,7 @@ import io.trino.execution.NodeTaskMap;
 import io.trino.execution.QueryStateMachine;
 import io.trino.execution.RemoteTaskFactory;
 import io.trino.execution.SqlStage;
+import io.trino.execution.SqlStage.LocalExchangeBucketCountProvider;
 import io.trino.execution.StageId;
 import io.trino.execution.StageInfo;
 import io.trino.execution.TableInfo;
@@ -72,7 +73,8 @@ class StageManager
             Span schedulerSpan,
             SplitSchedulerStats schedulerStats,
             SubPlan planTree,
-            boolean summarizeTaskInfo)
+            boolean summarizeTaskInfo,
+            LocalExchangeBucketCountProvider bucketCountProvider)
     {
         Session session = queryStateMachine.getSession();
         ImmutableMap.Builder<StageId, SqlStage> stages = ImmutableMap.builder();
@@ -95,7 +97,8 @@ class StageManager
                     queryStateMachine.getStateMachineExecutor(),
                     tracer,
                     schedulerSpan,
-                    schedulerStats);
+                    schedulerStats,
+                    bucketCountProvider);
             StageId stageId = stage.getStageId();
             stages.put(stageId, stage);
             stagesInTopologicalOrder.add(stage);
