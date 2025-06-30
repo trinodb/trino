@@ -77,6 +77,7 @@ public class LakehouseIcebergModule
             case THRIFT -> new IcebergHiveMetastoreCatalogModule();
             case FILE -> new IcebergFileMetastoreCatalogModule();
             case GLUE -> new IcebergGlueCatalogModule();
+            case POLARIS -> new IcebergHiveMetastoreCatalogModule();
         });
 
         binder.install(new IcebergExecutorModule());
