@@ -132,6 +132,7 @@ public class ExchangeNode
                         child.getOutputSymbols(),
                         replicateNullsAndAny,
                         Optional.empty(),
+                        Optional.empty(),
                         Optional.empty()));
     }
 

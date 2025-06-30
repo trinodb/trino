@@ -100,6 +100,22 @@ public final class MergePartitioningHandle
         return "MERGE " + parts;
     }
 
+    public Optional<Integer> getBucketCount(Function<PartitioningHandle, Optional<Integer>> getBucketCount)
+    {
+        Optional<Optional<Integer>> optionalInsertBucketCount = insertPartitioning.map(scheme -> scheme.getPartitioning().getHandle()).map(getBucketCount);
+        Optional<Optional<Integer>> optionalUpdateBucketCount = updatePartitioning.map(scheme -> scheme.getPartitioning().getHandle()).map(getBucketCount);
+
+        if (optionalInsertBucketCount.isPresent() && optionalUpdateBucketCount.isPresent()) {
+            Optional<Integer> insertBucketCount = optionalInsertBucketCount.get();
+            Optional<Integer> updateBucketCount = optionalUpdateBucketCount.get();
+            if (!insertBucketCount.equals(updateBucketCount)) {
+                throw new TrinoException(NOT_SUPPORTED, "Insert and update layout have mismatched bucket counts: " + insertBucketCount + " vs " + updateBucketCount);
+            }
+        }
+
+        return optionalInsertBucketCount.orElseGet(optionalUpdateBucketCount::orElseThrow);
+    }
+
     public NodePartitionMap getNodePartitioningMap(Function<PartitioningHandle, NodePartitionMap> getMap)
     {
         Optional<NodePartitionMap> optionalInsertMap = insertPartitioning.map(scheme -> scheme.getPartitioning().getHandle()).map(getMap);

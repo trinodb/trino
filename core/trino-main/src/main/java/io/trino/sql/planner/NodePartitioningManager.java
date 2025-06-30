@@ -32,6 +32,7 @@ import io.trino.spi.connector.BucketFunction;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorBucketNodeMap;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
+import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
@@ -235,10 +236,19 @@ public class NodePartitioningManager
         return nodes;
     }
 
-    public int getBucketCount(Session session, PartitioningHandle partitioningHandle)
+    public Optional<Integer> getBucketCount(Session session, PartitioningHandle partitioningHandle)
     {
+        if (partitioningHandle.getConnectorHandle() instanceof SystemPartitioningHandle) {
+            return Optional.empty();
+        }
+
+        ConnectorPartitioningHandle connectorHandle = partitioningHandle.getConnectorHandle();
+        if (connectorHandle instanceof MergePartitioningHandle mergeHandle) {
+            return mergeHandle.getBucketCount(handle -> getBucketCount(session, handle))
+                    .or(() -> Optional.of(getDefaultBucketCount(session)));
+        }
         Optional<ConnectorBucketNodeMap> bucketNodeMap = getConnectorBucketNodeMap(session, partitioningHandle);
-        return bucketNodeMap.map(ConnectorBucketNodeMap::getBucketCount).orElseGet(() -> getDefaultBucketCount(session));
+        return Optional.of(bucketNodeMap.map(ConnectorBucketNodeMap::getBucketCount).orElseGet(() -> getDefaultBucketCount(session)));
     }
 
     public BucketNodeMap getBucketNodeMap(Session session, PartitioningHandle partitioningHandle, int partitionCount)

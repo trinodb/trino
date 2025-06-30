@@ -104,6 +104,7 @@ public class PruneExchangeColumns
                 newOutputs.build(),
                 exchangeNode.getPartitioningScheme().isReplicateNullsAndAny(),
                 exchangeNode.getPartitioningScheme().getBucketToPartition(),
+                exchangeNode.getPartitioningScheme().getBucketCount(),
                 exchangeNode.getPartitioningScheme().getPartitionCount());
 
         return Optional.of(new ExchangeNode(

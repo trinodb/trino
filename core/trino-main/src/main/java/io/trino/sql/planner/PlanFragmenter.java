@@ -227,6 +227,7 @@ public class PlanFragmenter
                         outputPartitioningScheme.getOutputLayout(),
                         outputPartitioningScheme.isReplicateNullsAndAny(),
                         outputPartitioningScheme.getBucketToPartition(),
+                        outputPartitioningScheme.getBucketCount(),
                         outputPartitioningScheme.getPartitionCount()),
                 OptionalInt.empty(),
                 fragment.getStatsAndCosts(),

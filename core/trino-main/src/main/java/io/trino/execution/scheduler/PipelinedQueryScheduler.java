@@ -245,7 +245,8 @@ public class PipelinedQueryScheduler
                 schedulerSpan,
                 schedulerStats,
                 plan,
-                summarizeTaskInfo);
+                summarizeTaskInfo,
+                nodePartitioningManager::getBucketCount);
 
         coordinatorStagesScheduler = CoordinatorStagesScheduler.create(
                 queryStateMachine,

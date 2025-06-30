@@ -176,6 +176,7 @@ public class PushPartialAggregationThroughExchange
                 aggregation.getOutputSymbols(),
                 exchange.getPartitioningScheme().isReplicateNullsAndAny(),
                 exchange.getPartitioningScheme().getBucketToPartition(),
+                exchange.getPartitioningScheme().getBucketCount(),
                 exchange.getPartitioningScheme().getPartitionCount());
 
         return new ExchangeNode(
