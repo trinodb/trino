@@ -142,8 +142,8 @@ import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.CompilerConfig;
 import io.trino.sql.planner.LocalExecutionPlanner;
-import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.OptimizerConfig;
+import io.trino.sql.planner.PartitionFunctionProvider;
 import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolKeyDeserializer;
@@ -431,8 +431,8 @@ public class ServerMainModule
         // split manager
         binder.bind(SplitManager.class).in(Scopes.SINGLETON);
 
-        // node partitioning manager
-        binder.bind(NodePartitioningManager.class).in(Scopes.SINGLETON);
+        // partitioning function provider
+        binder.bind(PartitionFunctionProvider.class).in(Scopes.SINGLETON);
 
         // index manager
         binder.bind(IndexManager.class).in(Scopes.SINGLETON);
