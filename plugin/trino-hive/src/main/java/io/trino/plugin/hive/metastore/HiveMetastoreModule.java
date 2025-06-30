@@ -48,6 +48,7 @@ public class HiveMetastoreModule
                 case THRIFT -> new ThriftMetastoreModule();
                 case FILE -> new FileMetastoreModule();
                 case GLUE -> new GlueMetastoreModule();
+                case POLARIS -> new PolarisMetastoreModule();
             });
         }
 

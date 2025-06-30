@@ -2797,6 +2797,43 @@
                                     </dependency>
                                 </conflictingDependencies>
                             </exception>
+                            <exception>
+                                <conflictingDependencies>
+                                    <dependency>
+                                        <groupId>org.apache.iceberg</groupId>
+                                        <artifactId>iceberg-api</artifactId>
+                                    </dependency>
+                                    <dependency>
+                                        <groupId>org.apache.iceberg</groupId>
+                                        <artifactId>iceberg-common</artifactId>
+                                    </dependency>
+                                    <dependency>
+                                        <groupId>org.apache.iceberg</groupId>
+                                        <artifactId>iceberg-core</artifactId>
+                                    </dependency>
+                                </conflictingDependencies>
+                                <resources>
+                                    <resource>iceberg-build.properties</resource>
+                                </resources>
+                            </exception>
+                            <exception>
+                                <conflictingDependencies>
+                                    <dependency>
+                                        <groupId>org.apache.iceberg</groupId>
+                                        <artifactId>iceberg-bundled-guava</artifactId>
+                                    </dependency>
+                                    <dependency>
+                                        <groupId>org.jspecify</groupId>
+                                        <artifactId>jspecify</artifactId>
+                                    </dependency>
+                                </conflictingDependencies>
+                                <classes>
+                                    <class>org.jspecify.annotations.NonNull</class>
+                                    <class>org.jspecify.annotations.NullMarked</class>
+                                    <class>org.jspecify.annotations.NullUnmarked</class>
+                                    <class>org.jspecify.annotations.Nullable</class>
+                                </classes>
+                            </exception>
                         </exceptions>
                     </configuration>
                 </plugin>
