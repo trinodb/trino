@@ -601,6 +601,7 @@ public class SymbolMapper
                 mapAndDistinct(sourceLayout),
                 scheme.isReplicateNullsAndAny(),
                 scheme.getBucketToPartition(),
+                scheme.getBucketCount(),
                 scheme.getPartitionCount());
     }
 

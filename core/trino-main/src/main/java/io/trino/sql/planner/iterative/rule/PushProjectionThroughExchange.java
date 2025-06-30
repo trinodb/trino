@@ -160,6 +160,7 @@ public class PushProjectionThroughExchange
                 outputBuilder.build(),
                 exchange.getPartitioningScheme().isReplicateNullsAndAny(),
                 exchange.getPartitioningScheme().getBucketToPartition(),
+                exchange.getPartitioningScheme().getBucketCount(),
                 exchange.getPartitioningScheme().getPartitionCount());
 
         PlanNode result = new ExchangeNode(
