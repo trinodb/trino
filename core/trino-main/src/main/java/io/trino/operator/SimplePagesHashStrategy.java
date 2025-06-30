@@ -25,13 +25,13 @@ import io.trino.type.BlockTypeOperators.BlockPositionEqual;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
 import io.trino.type.BlockTypeOperators.BlockPositionIsIdentical;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import jakarta.annotation.Nullable;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
@@ -41,7 +41,8 @@ public class SimplePagesHashStrategy
 {
     private static final int INSTANCE_SIZE = instanceSize(SimplePagesHashStrategy.class);
     private final Type[] types;
-    private final List<Optional<BlockPositionComparison>> comparisonOperators;
+    @Nullable
+    private final BlockPositionComparison comparisonOperator; // null when sort channel is absent
     private final int[] outputChannels;
     private final List<ObjectArrayList<Block>> channels;
     private final int[] hashChannels;
@@ -59,15 +60,18 @@ public class SimplePagesHashStrategy
             BlockTypeOperators blockTypeOperators)
     {
         this.types = toTypesArray(requireNonNull(types, "types is null"));
-        this.comparisonOperators = types.stream()
-                .map(type -> type.isOrderable() ? Optional.of(blockTypeOperators.getComparisonUnorderedLastOperator(type)) : Optional.<BlockPositionComparison>empty())
-                .collect(toImmutableList());
         this.outputChannels = Ints.toArray(requireNonNull(outputChannels, "outputChannels is null"));
         this.channels = ImmutableList.copyOf(requireNonNull(channels, "channels is null"));
 
         checkArgument(types.size() == channels.size(), "Expected types and channels to be the same length");
         this.hashChannels = Ints.toArray(requireNonNull(hashChannels, "hashChannels is null"));
         this.sortChannel = requireNonNull(sortChannel, "sortChannel is null").isEmpty() ? OptionalInt.empty() : OptionalInt.of(sortChannel.get());
+        if (this.sortChannel.isPresent() && this.types[this.sortChannel.getAsInt()].isOrderable()) {
+            this.comparisonOperator = blockTypeOperators.getComparisonUnorderedLastOperator(this.types[this.sortChannel.getAsInt()]);
+        }
+        else {
+            this.comparisonOperator = null;
+        }
 
         this.equalOperators = new BlockPositionEqual[this.hashChannels.length];
         this.hashCodeOperators = new BlockPositionHashCode[this.hashChannels.length];
@@ -272,9 +276,10 @@ public class SimplePagesHashStrategy
         Block leftBlock = channels.get(channel).get(leftBlockIndex);
         Block rightBlock = channels.get(channel).get(rightBlockIndex);
 
-        return (int) comparisonOperators.get(channel)
-            .orElseThrow(() -> new IllegalArgumentException("type is not orderable"))
-            .compare(leftBlock, leftBlockPosition, rightBlock, rightBlockPosition);
+        if (comparisonOperator == null) {
+            throw new IllegalArgumentException("type is not orderable");
+        }
+        return (int) comparisonOperator.compare(leftBlock, leftBlockPosition, rightBlock, rightBlockPosition);
     }
 
     @Override
