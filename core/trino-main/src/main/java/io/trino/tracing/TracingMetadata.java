@@ -522,6 +522,33 @@ public class TracingMetadata
     }
 
     @Override
+    public void createTag(Session session, TableHandle tableHandle, String tagName, boolean replace, boolean ifNotExists, Optional<Long> snapshotId, Optional<java.time.Duration> retention)
+    {
+        Span span = startSpan("createTag", tableHandle);
+        try (var _ = scopedSpan(span)) {
+            delegate.createTag(session, tableHandle, tagName, replace, ifNotExists, snapshotId, retention);
+        }
+    }
+
+    @Override
+    public void replaceTag(Session session, TableHandle tableHandle, String tagName, Optional<Long> snapshotId, Optional<java.time.Duration> retention)
+    {
+        Span span = startSpan("replaceTag", tableHandle);
+        try (var _ = scopedSpan(span)) {
+            delegate.replaceTag(session, tableHandle, tagName, snapshotId, retention);
+        }
+    }
+
+    @Override
+    public void dropTag(Session session, TableHandle tableHandle, String tagName)
+    {
+        Span span = startSpan("dropTag", tableHandle);
+        try (var _ = scopedSpan(span)) {
+            delegate.dropTag(session, tableHandle, tagName);
+        }
+    }
+
+    @Override
     public void dropColumn(Session session, TableHandle tableHandle, CatalogSchemaTableName table, ColumnHandle column)
     {
         Span span = startSpan("dropColumn", table);

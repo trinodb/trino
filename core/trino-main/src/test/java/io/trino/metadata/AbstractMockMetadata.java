@@ -359,6 +359,24 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public void createTag(Session session, TableHandle tableHandle, String tagName, boolean replace, boolean ifNotExists, Optional<Long> snapshotId, Optional<java.time.Duration> retention)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void replaceTag(Session session, TableHandle tableHandle, String tagName, Optional<Long> snapshotId, Optional<java.time.Duration> retention)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void dropTag(Session session, TableHandle tableHandle, String tagName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void setColumnType(Session session, TableHandle tableHandle, ColumnHandle column, Type type)
     {
         throw new UnsupportedOperationException();

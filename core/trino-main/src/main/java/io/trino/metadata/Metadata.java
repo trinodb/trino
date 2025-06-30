@@ -305,6 +305,21 @@ public interface Metadata
     void dropField(Session session, TableHandle tableHandle, ColumnHandle column, List<String> fieldPath);
 
     /**
+     * Create a tag on the specified table.
+     */
+    void createTag(Session session, TableHandle tableHandle, String tagName, boolean replace, boolean ifNotExists, Optional<Long> snapshotId, Optional<java.time.Duration> retention);
+
+    /**
+     * Replace a tag on the specified table.
+     */
+    void replaceTag(Session session, TableHandle tableHandle, String tagName, Optional<Long> snapshotId, Optional<java.time.Duration> retention);
+
+    /**
+     * Drop a tag from the specified table.
+     */
+    void dropTag(Session session, TableHandle tableHandle, String tagName);
+
+    /**
      * Drops the specified table
      *
      * @throws RuntimeException if the table cannot be dropped or table handle is no longer valid

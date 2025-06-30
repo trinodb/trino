@@ -1404,6 +1404,35 @@ public class TracingConnectorMetadata
         }
     }
 
+    @Override
+    public void createTag(ConnectorSession session, ConnectorTableHandle tableHandle, String tagName,
+            boolean replace, boolean ifNotExists, Optional<Long> snapshotId, Optional<java.time.Duration> retention)
+    {
+        Span span = startSpan("createTag", tableHandle);
+        try (var _ = scopedSpan(span)) {
+            delegate.createTag(session, tableHandle, tagName, replace, ifNotExists, snapshotId, retention);
+        }
+    }
+
+    @Override
+    public void replaceTag(ConnectorSession session, ConnectorTableHandle tableHandle, String tagName,
+            Optional<Long> snapshotId, Optional<java.time.Duration> retention)
+    {
+        Span span = startSpan("replaceTag", tableHandle);
+        try (var _ = scopedSpan(span)) {
+            delegate.replaceTag(session, tableHandle, tagName, snapshotId, retention);
+        }
+    }
+
+    @Override
+    public void dropTag(ConnectorSession session, ConnectorTableHandle tableHandle, String tagName)
+    {
+        Span span = startSpan("dropTag", tableHandle);
+        try (var _ = scopedSpan(span)) {
+            delegate.dropTag(session, tableHandle, tagName);
+        }
+    }
+
     private Span startSpan(String methodName)
     {
         return tracer.spanBuilder("ConnectorMetadata." + methodName)

@@ -40,6 +40,7 @@ import io.trino.sql.tree.CreateRole;
 import io.trino.sql.tree.CreateSchema;
 import io.trino.sql.tree.CreateTable;
 import io.trino.sql.tree.CreateTableAsSelect;
+import io.trino.sql.tree.CreateTag;
 import io.trino.sql.tree.CreateView;
 import io.trino.sql.tree.Deallocate;
 import io.trino.sql.tree.Delete;
@@ -55,6 +56,7 @@ import io.trino.sql.tree.DropNotNullConstraint;
 import io.trino.sql.tree.DropRole;
 import io.trino.sql.tree.DropSchema;
 import io.trino.sql.tree.DropTable;
+import io.trino.sql.tree.DropTag;
 import io.trino.sql.tree.DropView;
 import io.trino.sql.tree.ElseClause;
 import io.trino.sql.tree.ElseIfClause;
@@ -126,6 +128,7 @@ import io.trino.sql.tree.RenameSchema;
 import io.trino.sql.tree.RenameTable;
 import io.trino.sql.tree.RenameView;
 import io.trino.sql.tree.RepeatStatement;
+import io.trino.sql.tree.ReplaceTag;
 import io.trino.sql.tree.ResetSession;
 import io.trino.sql.tree.ResetSessionAuthorization;
 import io.trino.sql.tree.ReturnStatement;
@@ -2298,6 +2301,51 @@ public final class SqlFormatter
             }
             builder.append(formatName(node.getName()));
             processParameters(node.getParameters(), indent);
+            return null;
+        }
+
+        @Override
+        protected Void visitCreateTag(CreateTag node, Integer indent)
+        {
+            builder.append("ALTER TABLE ")
+                    .append(formatName(node.getTable()))
+                    .append(" CREATE");
+            if (node.isReplace()) {
+                builder.append(" OR REPLACE");
+            }
+            builder.append(" TAG");
+            if (node.isNotExists()) {
+                builder.append(" IF NOT EXISTS");
+            }
+            builder.append(" ").append(formatName(node.getTagName()));
+            node.getSnapshotId().ifPresent(snapshotId ->
+                    builder.append(" FOR VERSION AS OF ").append(formatExpression(snapshotId)));
+            node.getRetentionDays().ifPresent(retentionDays ->
+                    builder.append(" RETAIN ").append(formatExpression(retentionDays)).append(" DAYS"));
+            return null;
+        }
+
+        @Override
+        protected Void visitReplaceTag(ReplaceTag node, Integer indent)
+        {
+            builder.append("ALTER TABLE ")
+                    .append(formatName(node.getTable()))
+                    .append(" REPLACE TAG ")
+                    .append(formatName(node.getTagName()));
+            node.getSnapshotId().ifPresent(snapshotId ->
+                    builder.append(" FOR VERSION AS OF ").append(formatExpression(snapshotId)));
+            node.getRetentionDays().ifPresent(retentionDays ->
+                    builder.append(" RETAIN ").append(formatExpression(retentionDays)).append(" DAYS"));
+            return null;
+        }
+
+        @Override
+        protected Void visitDropTag(DropTag node, Integer indent)
+        {
+            builder.append("ALTER TABLE ")
+                    .append(formatName(node.getTable()))
+                    .append(" DROP TAG ")
+                    .append(formatName(node.getTagName()));
             return null;
         }
 

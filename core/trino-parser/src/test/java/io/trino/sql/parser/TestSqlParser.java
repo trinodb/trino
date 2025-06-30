@@ -46,6 +46,7 @@ import io.trino.sql.tree.CreateRole;
 import io.trino.sql.tree.CreateSchema;
 import io.trino.sql.tree.CreateTable;
 import io.trino.sql.tree.CreateTableAsSelect;
+import io.trino.sql.tree.CreateTag;
 import io.trino.sql.tree.CreateView;
 import io.trino.sql.tree.CurrentTimestamp;
 import io.trino.sql.tree.Deallocate;
@@ -65,6 +66,7 @@ import io.trino.sql.tree.DropNotNullConstraint;
 import io.trino.sql.tree.DropRole;
 import io.trino.sql.tree.DropSchema;
 import io.trino.sql.tree.DropTable;
+import io.trino.sql.tree.DropTag;
 import io.trino.sql.tree.DropView;
 import io.trino.sql.tree.EmptyPattern;
 import io.trino.sql.tree.EmptyTableTreatment;
@@ -167,6 +169,7 @@ import io.trino.sql.tree.RenameMaterializedView;
 import io.trino.sql.tree.RenameSchema;
 import io.trino.sql.tree.RenameTable;
 import io.trino.sql.tree.RenameView;
+import io.trino.sql.tree.ReplaceTag;
 import io.trino.sql.tree.ResetSession;
 import io.trino.sql.tree.ResetSessionAuthorization;
 import io.trino.sql.tree.ReturnStatement;
@@ -3366,6 +3369,153 @@ public class TestSqlParser
                 .withMessage("line 1:30: mismatched input '('. Expecting: <identifier>");
         assertStatementIsInvalid("ALTER TABLE a SET PROPERTIES (foo='bar')")
                 .withMessage("line 1:30: mismatched input '('. Expecting: <identifier>");
+    }
+
+    @Test
+    public void testCreateTag()
+    {
+        assertThat(statement("ALTER TABLE a CREATE TAG v1"))
+                .isEqualTo(new CreateTag(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 13), "a", false))),
+                        new Identifier(location(1, 26), "v1", false),
+                        false,
+                        false,
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertThat(statement("ALTER TABLE a CREATE OR REPLACE TAG v1"))
+                .isEqualTo(new CreateTag(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 13), "a", false))),
+                        new Identifier(location(1, 37), "v1", false),
+                        true,
+                        false,
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertThat(statement("ALTER TABLE a CREATE TAG IF NOT EXISTS v1"))
+                .isEqualTo(new CreateTag(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 13), "a", false))),
+                        new Identifier(location(1, 40), "v1", false),
+                        false,
+                        true,
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertThat(statement("ALTER TABLE a CREATE TAG v1 FOR VERSION AS OF 456"))
+                .isEqualTo(new CreateTag(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 13), "a", false))),
+                        new Identifier(location(1, 26), "v1", false),
+                        false,
+                        false,
+                        Optional.of(new LongLiteral(location(1, 47), "456")),
+                        Optional.empty()));
+
+        assertThat(statement("ALTER TABLE a CREATE TAG v1 RETAIN 14 DAYS"))
+                .isEqualTo(new CreateTag(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 13), "a", false))),
+                        new Identifier(location(1, 26), "v1", false),
+                        false,
+                        false,
+                        Optional.empty(),
+                        Optional.of(new LongLiteral(location(1, 36), "14"))));
+
+        assertThat(statement("ALTER TABLE a CREATE OR REPLACE TAG IF NOT EXISTS v1 FOR VERSION AS OF 456 RETAIN 14 DAYS"))
+                .isEqualTo(new CreateTag(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 13), "a", false))),
+                        new Identifier(location(1, 51), "v1", false),
+                        true,
+                        true,
+                        Optional.of(new LongLiteral(location(1, 72), "456")),
+                        Optional.of(new LongLiteral(location(1, 83), "14"))));
+
+        assertThat(statement("ALTER TABLE catalog.schema.a CREATE TAG v1"))
+                .isEqualTo(new CreateTag(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(
+                                new Identifier(location(1, 13), "catalog", false),
+                                new Identifier(location(1, 21), "schema", false),
+                                new Identifier(location(1, 28), "a", false))),
+                        new Identifier(location(1, 41), "v1", false),
+                        false,
+                        false,
+                        Optional.empty(),
+                        Optional.empty()));
+    }
+
+    @Test
+    public void testReplaceTag()
+    {
+        assertThat(statement("ALTER TABLE a REPLACE TAG v1"))
+                .isEqualTo(new ReplaceTag(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 13), "a", false))),
+                        new Identifier(location(1, 27), "v1", false),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertThat(statement("ALTER TABLE a REPLACE TAG v1 FOR VERSION AS OF 456"))
+                .isEqualTo(new ReplaceTag(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 13), "a", false))),
+                        new Identifier(location(1, 27), "v1", false),
+                        Optional.of(new LongLiteral(location(1, 48), "456")),
+                        Optional.empty()));
+
+        assertThat(statement("ALTER TABLE a REPLACE TAG v1 RETAIN 14 DAYS"))
+                .isEqualTo(new ReplaceTag(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 13), "a", false))),
+                        new Identifier(location(1, 27), "v1", false),
+                        Optional.empty(),
+                        Optional.of(new LongLiteral(location(1, 37), "14"))));
+
+        assertThat(statement("ALTER TABLE a REPLACE TAG v1 FOR VERSION AS OF 456 RETAIN 14 DAYS"))
+                .isEqualTo(new ReplaceTag(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 13), "a", false))),
+                        new Identifier(location(1, 27), "v1", false),
+                        Optional.of(new LongLiteral(location(1, 48), "456")),
+                        Optional.of(new LongLiteral(location(1, 59), "14"))));
+
+        assertThat(statement("ALTER TABLE catalog.schema.a REPLACE TAG v1"))
+                .isEqualTo(new ReplaceTag(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(
+                                new Identifier(location(1, 13), "catalog", false),
+                                new Identifier(location(1, 21), "schema", false),
+                                new Identifier(location(1, 28), "a", false))),
+                        new Identifier(location(1, 42), "v1", false),
+                        Optional.empty(),
+                        Optional.empty()));
+    }
+
+    @Test
+    public void testDropTag()
+    {
+        assertThat(statement("ALTER TABLE a DROP TAG v1"))
+                .isEqualTo(new DropTag(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 13), "a", false))),
+                        new Identifier(location(1, 24), "v1", false)));
+        assertThat(statement("ALTER TABLE catalog.schema.a DROP TAG v1"))
+                .isEqualTo(new DropTag(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(
+                                new Identifier(location(1, 13), "catalog", false),
+                                new Identifier(location(1, 21), "schema", false),
+                                new Identifier(location(1, 28), "a", false))),
+                        new Identifier(location(1, 39), "v1", false)));
+        assertThat(statement("ALTER TABLE \"my-table\" DROP TAG \"my-tag\""))
+                .isEqualTo(new DropTag(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 13), "my-table", true))),
+                        new Identifier(location(1, 33), "my-tag", true)));
     }
 
     @Test
