@@ -25,17 +25,12 @@ import io.trino.execution.scheduler.NodeScheduler;
 import io.trino.execution.scheduler.NodeSelector;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
-import io.trino.operator.BucketPartitionFunction;
-import io.trino.operator.PartitionFunction;
 import io.trino.operator.RetryPolicy;
-import io.trino.spi.connector.BucketFunction;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorBucketNodeMap;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorSplit;
-import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
 import io.trino.split.EmptySplit;
 import io.trino.sql.planner.NodePartitionMap.BucketToPartition;
 import io.trino.sql.planner.SystemPartitioningHandle.SystemPartitioning;
@@ -65,74 +60,15 @@ import static java.util.Objects.requireNonNull;
 public class NodePartitioningManager
 {
     private final NodeScheduler nodeScheduler;
-    private final TypeOperators typeOperators;
     private final CatalogServiceProvider<ConnectorNodePartitioningProvider> partitioningProvider;
 
     @Inject
     public NodePartitioningManager(
             NodeScheduler nodeScheduler,
-            TypeOperators typeOperators,
             CatalogServiceProvider<ConnectorNodePartitioningProvider> partitioningProvider)
     {
         this.nodeScheduler = requireNonNull(nodeScheduler, "nodeScheduler is null");
-        this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.partitioningProvider = requireNonNull(partitioningProvider, "partitioningProvider is null");
-    }
-
-    public PartitionFunction getPartitionFunction(
-            Session session,
-            PartitioningScheme partitioningScheme,
-            List<Type> partitionChannelTypes)
-    {
-        int[] bucketToPartition = partitioningScheme.getBucketToPartition()
-                .orElseThrow(() -> new IllegalArgumentException("Bucket to partition must be set before a partition function can be created"));
-
-        PartitioningHandle partitioningHandle = partitioningScheme.getPartitioning().getHandle();
-        if (partitioningHandle.getConnectorHandle() instanceof SystemPartitioningHandle) {
-            return ((SystemPartitioningHandle) partitioningHandle.getConnectorHandle()).getPartitionFunction(
-                    partitionChannelTypes,
-                    bucketToPartition,
-                    typeOperators);
-        }
-
-        if (partitioningHandle.getConnectorHandle() instanceof MergePartitioningHandle handle) {
-            return handle.getPartitionFunction(
-                    (scheme, types) -> getPartitionFunction(session, scheme, types, bucketToPartition),
-                    partitionChannelTypes,
-                    bucketToPartition);
-        }
-
-        return getPartitionFunction(session, partitioningScheme, partitionChannelTypes, bucketToPartition);
-    }
-
-    public PartitionFunction getPartitionFunction(Session session, PartitioningScheme partitioningScheme, List<Type> partitionChannelTypes, int[] bucketToPartition)
-    {
-        PartitioningHandle partitioningHandle = partitioningScheme.getPartitioning().getHandle();
-
-        if (partitioningHandle.getConnectorHandle() instanceof SystemPartitioningHandle handle) {
-            return handle.getPartitionFunction(
-                    partitionChannelTypes,
-                    bucketToPartition,
-                    typeOperators);
-        }
-
-        BucketFunction bucketFunction = getBucketFunction(session, partitioningHandle, partitionChannelTypes, bucketToPartition.length);
-        return new BucketPartitionFunction(bucketFunction, bucketToPartition);
-    }
-
-    public BucketFunction getBucketFunction(Session session, PartitioningHandle partitioningHandle, List<Type> partitionChannelTypes, int bucketCount)
-    {
-        CatalogHandle catalogHandle = requiredCatalogHandle(partitioningHandle);
-        ConnectorNodePartitioningProvider partitioningProvider = getPartitioningProvider(catalogHandle);
-
-        BucketFunction bucketFunction = partitioningProvider.getBucketFunction(
-                partitioningHandle.getTransactionHandle().orElseThrow(),
-                session.toConnectorSession(),
-                partitioningHandle.getConnectorHandle(),
-                partitionChannelTypes,
-                bucketCount);
-        checkArgument(bucketFunction != null, "No bucket function for partitioning: %s", partitioningHandle);
-        return bucketFunction;
     }
 
     public NodePartitionMap getNodePartitioningMap(Session session, PartitioningHandle partitioningHandle, int partitionCount)

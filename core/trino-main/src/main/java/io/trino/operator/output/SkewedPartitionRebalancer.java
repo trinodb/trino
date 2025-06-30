@@ -25,6 +25,7 @@ import io.trino.operator.PartitionFunction;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.NodePartitionMap.BucketToPartition;
 import io.trino.sql.planner.NodePartitioningManager;
+import io.trino.sql.planner.PartitionFunctionProvider;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.SystemPartitioningHandle;
@@ -137,8 +138,8 @@ public class SkewedPartitionRebalancer
 
     public static PartitionFunction createPartitionFunction(
             Session session,
-            NodePartitioningManager nodePartitioningManager,
-            PartitioningScheme scheme,
+            PartitionFunctionProvider partitionFunctionProvider,
+            PartitioningHandle partitioningHandle,
             int bucketCount,
             List<Type> partitionChannelTypes)
     {
@@ -160,7 +161,7 @@ public class SkewedPartitionRebalancer
         // compared to only a single hive bucket reaching the min limit.
         int[] bucketToPartition = IntStream.range(0, bucketCount).toArray();
 
-        return nodePartitioningManager.getPartitionFunction(session, scheme, partitionChannelTypes, bucketToPartition);
+        return partitionFunctionProvider.getPartitionFunction(session, partitioningHandle, partitionChannelTypes, bucketToPartition);
     }
 
     public static int getMaxWritersBasedOnMemory(Session session)

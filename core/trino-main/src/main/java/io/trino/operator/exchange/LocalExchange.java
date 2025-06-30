@@ -21,7 +21,6 @@ import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.slice.XxHash64;
 import io.airlift.units.DataSize;
 import io.trino.Session;
-import io.trino.operator.BucketPartitionFunction;
 import io.trino.operator.HashGenerator;
 import io.trino.operator.PartitionFunction;
 import io.trino.operator.output.SkewedPartitionRebalancer;
@@ -29,7 +28,7 @@ import io.trino.spi.Page;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.MergePartitioningHandle;
-import io.trino.sql.planner.NodePartitioningManager;
+import io.trino.sql.planner.PartitionFunctionProvider;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.SystemPartitioningHandle;
 
@@ -87,7 +86,7 @@ public class LocalExchange
     private int nextSourceIndex;
 
     public LocalExchange(
-            NodePartitioningManager nodePartitioningManager,
+            PartitionFunctionProvider partitionFunctionProvider,
             Session session,
             int defaultConcurrency,
             PartitioningHandle partitioning,
@@ -152,7 +151,7 @@ public class LocalExchange
 
             exchangerSupplier = () -> {
                 PartitionFunction partitionFunction = createPartitionFunction(
-                        nodePartitioningManager,
+                        partitionFunctionProvider,
                         session,
                         typeOperators,
                         bucketCount,
@@ -180,7 +179,7 @@ public class LocalExchange
                     .collect(toImmutableList());
             exchangerSupplier = () -> {
                 PartitionFunction partitionFunction = createPartitionFunction(
-                        nodePartitioningManager,
+                        partitionFunctionProvider,
                         session,
                         typeOperators,
                         bucketCount,
@@ -235,18 +234,18 @@ public class LocalExchange
     }
 
     private static PartitionFunction createPartitionFunction(
-            NodePartitioningManager nodePartitioningManager,
+            PartitionFunctionProvider partitionFunctionProvider,
             Session session,
             TypeOperators typeOperators,
             Optional<Integer> optionalBucketCount,
-            PartitioningHandle partitioning,
+            PartitioningHandle partitioningHandle,
             int partitionCount,
             List<Integer> partitionChannels,
             List<Type> partitionChannelTypes)
     {
         checkArgument(Integer.bitCount(partitionCount) == 1, "partitionCount must be a power of 2");
 
-        if (isSystemPartitioning(partitioning)) {
+        if (partitioningHandle.getConnectorHandle() instanceof SystemPartitioningHandle) {
             HashGenerator hashGenerator = createChannelsHashGenerator(partitionChannelTypes, Ints.toArray(partitionChannels), typeOperators);
             return new LocalPartitionGenerator(hashGenerator, partitionCount);
         }
@@ -264,21 +263,7 @@ public class LocalExchange
             bucketToPartition[bucket] = hashedBucket & (partitionCount - 1);
         }
 
-        if (partitioning.getConnectorHandle() instanceof MergePartitioningHandle handle) {
-            return handle.getPartitionFunction(
-                    (scheme, types) -> nodePartitioningManager.getPartitionFunction(session, scheme, types, bucketToPartition),
-                    partitionChannelTypes,
-                    bucketToPartition);
-        }
-
-        return new BucketPartitionFunction(
-                nodePartitioningManager.getBucketFunction(session, partitioning, partitionChannelTypes, bucketCount),
-                bucketToPartition);
-    }
-
-    private static boolean isSystemPartitioning(PartitioningHandle partitioning)
-    {
-        return partitioning.getConnectorHandle() instanceof SystemPartitioningHandle;
+        return partitionFunctionProvider.getPartitionFunction(session, partitioningHandle, partitionChannelTypes, bucketToPartition);
     }
 
     private void checkAllSourcesFinished()
