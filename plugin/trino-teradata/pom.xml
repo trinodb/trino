@@ -22,7 +22,6 @@
             <groupId>io.airlift</groupId>
             <artifactId>configuration</artifactId>
         </dependency>
-
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-base-jdbc</artifactId>
@@ -129,6 +128,12 @@
             <artifactId>testing</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-base-jdbc</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
 
         <dependency>
             <groupId>io.trino</groupId>
@@ -152,6 +157,18 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-testing-services</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-tpch</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino.tpch</groupId>
+            <artifactId>tpch</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -184,6 +201,7 @@
             <artifactId>junit-jupiter-engine</artifactId>
             <scope>test</scope>
         </dependency>
+
     </dependencies>
 
     <build>
