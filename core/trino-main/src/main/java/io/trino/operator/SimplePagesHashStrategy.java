@@ -28,6 +28,7 @@ import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -44,7 +45,7 @@ public class SimplePagesHashStrategy
     private final int[] outputChannels;
     private final List<ObjectArrayList<Block>> channels;
     private final int[] hashChannels;
-    private final Optional<Integer> sortChannel;
+    private final OptionalInt sortChannel;
     private final List<BlockPositionEqual> equalOperators;
     private final List<BlockPositionHashCode> hashCodeOperators;
     private final List<BlockPositionIsIdentical> identicalOperators;
@@ -66,7 +67,7 @@ public class SimplePagesHashStrategy
 
         checkArgument(types.size() == channels.size(), "Expected types and channels to be the same length");
         this.hashChannels = Ints.toArray(requireNonNull(hashChannels, "hashChannels is null"));
-        this.sortChannel = requireNonNull(sortChannel, "sortChannel is null");
+        this.sortChannel = requireNonNull(sortChannel, "sortChannel is null").isEmpty() ? OptionalInt.empty() : OptionalInt.of(sortChannel.get());
 
         this.equalOperators = hashChannels.stream()
                 .map(types::get)
@@ -294,6 +295,6 @@ public class SimplePagesHashStrategy
 
     private int getSortChannel()
     {
-        return sortChannel.get();
+        return sortChannel.getAsInt();
     }
 }
