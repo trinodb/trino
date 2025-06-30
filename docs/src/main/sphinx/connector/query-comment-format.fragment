@@ -19,20 +19,20 @@ The following example sets a simple comment that identifies each query sent by
 Trino:
 
 ```text
-query.comment-format=Query sent by Trino.
+query.comment-format=Query sent by Trino
 ```
 
 With this configuration, a query such as `SELECT * FROM example_table;` is
 sent to the datasource with the comment appended:
 
 ```text
-SELECT * FROM example_table; /*Query sent by Trino.*/
+SELECT * FROM example_table; /*Query sent by Trino*/
 ```
 
 The following example improves on the preceding example by using metadata:
 
 ```text
-query.comment-format=Query $QUERY_ID sent by user $USER from Trino.
+query.comment-format=Query $QUERY_ID sent by user $USER from Trino
 ```
 
 If `Jane` sent the query with the query identifier
@@ -40,7 +40,7 @@ If `Jane` sent the query with the query identifier
 datasource:
 
 ```text
-SELECT * FROM example_table; /*Query 20230622_180528_00000_bkizg sent by user Jane from Trino.*/
+SELECT * FROM example_table; /*Query 20230622_180528_00000_bkizg sent by user Jane from Trino*/
 ```
 
 :::{note}
