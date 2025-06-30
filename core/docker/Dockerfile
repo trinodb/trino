@@ -27,7 +27,7 @@ RUN \
     mkdir -p "${JAVA_HOME}" && \
     curl -#LfS "${JDK_DOWNLOAD_LINK}" | tar -zx --strip 1 -C "${JAVA_HOME}"
 
-FROM registry.access.redhat.com/ubi9/ubi:latest AS packages
+FROM redhat/ubi10 AS packages
 
 RUN \
     set -xeuo pipefail && \
@@ -44,8 +44,8 @@ RUN \
       tar `# required to support kubectl cp` && \
       rm -rf /tmp/overlay/var/cache/*
 
-# Use ubi9 minimal as it's more secure
-FROM registry.access.redhat.com/ubi9/ubi-micro:latest
+# Use ubi10 micro as it's more secure
+FROM redhat/ubi10-micro:latest
 ARG JDK_VERSION
 ARG ARCH
 ENV JAVA_HOME="/usr/lib/jvm/${JDK_VERSION}"
