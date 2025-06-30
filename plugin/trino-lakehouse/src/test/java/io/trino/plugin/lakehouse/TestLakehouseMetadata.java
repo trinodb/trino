@@ -56,6 +56,11 @@ public class TestLakehouseMetadata
                     .add(ConnectorMetadata.class.getMethod("applyTableScanRedirect", ConnectorSession.class, ConnectorTableHandle.class))
                     .add(ConnectorMetadata.class.getMethod("redirectTable", ConnectorSession.class, SchemaTableName.class))
                     .add(ConnectorMetadata.class.getMethod("getMaxWriterTasks", ConnectorSession.class))
+                    .add(ConnectorMetadata.class.getMethod("createBranch", ConnectorSession.class, ConnectorTableHandle.class, String.class, Map.class))
+                    .add(ConnectorMetadata.class.getMethod("dropBranch", ConnectorSession.class, ConnectorTableHandle.class, String.class))
+                    .add(ConnectorMetadata.class.getMethod("fastForwardBranch", ConnectorSession.class, ConnectorTableHandle.class, String.class, String.class))
+                    .add(ConnectorMetadata.class.getMethod("listBranches", ConnectorSession.class, SchemaTableName.class))
+                    .add(ConnectorMetadata.class.getMethod("branchExists", ConnectorSession.class, SchemaTableName.class, String.class))
                     .build();
         }
         catch (NoSuchMethodException e) {
