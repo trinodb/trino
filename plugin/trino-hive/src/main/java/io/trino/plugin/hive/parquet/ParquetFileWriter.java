@@ -45,6 +45,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.parquet.ParquetWriteValidation.ParquetWriteValidationBuilder;
+import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
@@ -80,21 +81,28 @@ public final class ParquetFileWriter
             throws IOException
     {
         this.memoryContext = newSimpleAggregatedMemoryContext();
-        OutputStream outputStream = outputFile.create(memoryContext);
         requireNonNull(trinoVersion, "trinoVersion is null");
         this.validationInputFactory = requireNonNull(validationInputFactory, "validationInputFactory is null");
 
-        this.parquetWriter = new ParquetWriter(
-                outputStream,
-                messageType,
-                primitiveTypes,
-                parquetWriterOptions,
-                compressionCodec,
-                trinoVersion,
-                parquetTimeZone,
-                validationInputFactory.isPresent()
-                        ? Optional.of(new ParquetWriteValidationBuilder(fileColumnTypes, fileColumnNames))
-                        : Optional.empty());
+        OutputStream outputStream = null;
+        try {
+            outputStream = outputFile.create(memoryContext);
+            this.parquetWriter = new ParquetWriter(
+                    outputStream,
+                    messageType,
+                    primitiveTypes,
+                    parquetWriterOptions,
+                    compressionCodec,
+                    trinoVersion,
+                    parquetTimeZone,
+                    validationInputFactory.isPresent()
+                            ? Optional.of(new ParquetWriteValidationBuilder(fileColumnTypes, fileColumnNames))
+                            : Optional.empty());
+        }
+        catch (Exception e) {
+            closeAllSuppress(e, outputStream, rollbackAction);
+            throw e;
+        }
 
         this.rollbackAction = requireNonNull(rollbackAction, "rollbackAction is null");
         this.fileInputColumnIndexes = requireNonNull(fileInputColumnIndexes, "fileInputColumnIndexes is null");
