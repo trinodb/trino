@@ -48,7 +48,7 @@ public class TestingLocalCatalogPruneTask
                 catalogManager,
                 connectorServicesProvider,
                 new InternalNode(nodeInfo.getNodeId(), URI.create("https://example.com"), new NodeVersion("test"), false),
-                new TestingInternalNodeManager(),
+                TestingInternalNodeManager.createDefault(),
                 new TestingHttpClient(request -> {
                     throw new UnsupportedOperationException("Testing Local Catalog Prune Task does not make http calls");
                 }),

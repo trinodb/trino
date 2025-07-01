@@ -116,7 +116,7 @@ public class BenchmarkBinPackingNodeAllocator
                 nodes.add(new InternalNode(nodeIdentifier, URI.create("local://127.0.0.1:" + (8000 + i)), NodeVersion.UNKNOWN, false));
                 workerMemoryInfos.put(nodeIdentifier, Optional.of(memoryInfo));
             }
-            TestingInternalNodeManager nodeManager = new TestingInternalNodeManager(ImmutableSet.copyOf(nodes));
+            TestingInternalNodeManager nodeManager = TestingInternalNodeManager.createDefault(ImmutableSet.copyOf(nodes));
 
             nodeAllocatorService = new BinPackingNodeAllocatorService(
                     nodeManager,

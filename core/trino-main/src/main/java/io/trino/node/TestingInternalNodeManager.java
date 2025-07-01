@@ -13,80 +13,127 @@
  */
 package io.trino.node;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
+import com.google.inject.Inject;
 import io.trino.client.NodeVersion;
 import io.trino.spi.HostAddress;
 
 import java.net.URI;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newSingleThreadExecutor;
 
 @ThreadSafe
 public class TestingInternalNodeManager
         implements InternalNodeManager
 {
     public static final InternalNode CURRENT_NODE = new InternalNode("local", URI.create("local://127.0.0.1:8080"), NodeVersion.UNKNOWN, true);
-    private final Set<InternalNode> allNodes = ConcurrentHashMap.newKeySet();
 
-    public TestingInternalNodeManager(InternalNode... remoteNodes)
+    private final ExecutorService nodeStateEventExecutor;
+
+    @GuardedBy("this")
+    private AllNodes allNodes;
+
+    @GuardedBy("this")
+    private final List<Consumer<AllNodes>> listeners = new ArrayList<>();
+
+    @Inject
+    public TestingInternalNodeManager(InternalNode currentNode)
     {
-        this(ImmutableSet.copyOf(remoteNodes));
+        requireNonNull(currentNode, "currentNode is null");
+        checkArgument(currentNode.isCoordinator(), "currentNode must be a coordinator: %s", currentNode);
+        this.allNodes = new AllNodes(
+                ImmutableSet.of(currentNode),
+                ImmutableSet.of(),
+                ImmutableSet.of(),
+                ImmutableSet.of(),
+                ImmutableSet.of(),
+                ImmutableSet.of(currentNode));
+        this.nodeStateEventExecutor = newSingleThreadExecutor(daemonThreadsNamed("node-state-events-%s"));
     }
 
-    public TestingInternalNodeManager(Set<InternalNode> remoteNodes)
+    public static TestingInternalNodeManager createDefault(InternalNode... remoteNodes)
     {
-        allNodes.add(CURRENT_NODE);
-        allNodes.addAll(remoteNodes);
+        return createDefault(ImmutableSet.copyOf(remoteNodes));
+    }
+
+    public static TestingInternalNodeManager createDefault(Set<InternalNode> remoteNodes)
+    {
+        TestingInternalNodeManager nodeManager = new TestingInternalNodeManager(CURRENT_NODE);
+        nodeManager.addNodes(remoteNodes);
+        return nodeManager;
     }
 
     public void addNodes(InternalNode... internalNodes)
     {
+        addNodes(ImmutableSet.copyOf(internalNodes));
+    }
+
+    public synchronized void addNodes(Collection<InternalNode> internalNodes)
+    {
         for (InternalNode internalNode : internalNodes) {
-            allNodes.add(requireNonNull(internalNode, "internalNode is null"));
+            checkArgument(!internalNode.isCoordinator(), "Coordinator cannot be added: %s", internalNode);
         }
-    }
 
-    public void removeNode(InternalNode internalNode)
-    {
-        allNodes.remove(internalNode);
-    }
-
-    @Override
-    public Set<InternalNode> getNodes(NodeState state)
-    {
-        return switch (state) {
-            case ACTIVE -> ImmutableSet.copyOf(allNodes);
-            case DRAINING, DRAINED, INACTIVE, SHUTTING_DOWN, INVALID, GONE -> ImmutableSet.of();
-        };
-    }
-
-    @Override
-    public NodesSnapshot getActiveNodesSnapshot()
-    {
-        return new NodesSnapshot(ImmutableSet.copyOf(allNodes));
-    }
-
-    @Override
-    public AllNodes getAllNodes()
-    {
-        return new AllNodes(
-                ImmutableSet.copyOf(allNodes),
+        setAllNodes(new AllNodes(
+                ImmutableSet.<InternalNode>builder()
+                        .addAll(allNodes.getActiveNodes())
+                        .addAll(internalNodes)
+                        .build(),
                 ImmutableSet.of(),
                 ImmutableSet.of(),
                 ImmutableSet.of(),
                 ImmutableSet.of(),
-                ImmutableSet.of(CURRENT_NODE));
+                allNodes.getActiveCoordinators()));
+    }
+
+    public synchronized void removeNode(InternalNode internalNode)
+    {
+        requireNonNull(internalNode, "internalNode is null");
+        checkArgument(!internalNode.isCoordinator(), "Coordinator cannot be removed: %s", internalNode);
+
+        Set<InternalNode> newActiveNodes = new HashSet<>(allNodes.getActiveNodes());
+        newActiveNodes.remove(internalNode);
+
+        setAllNodes(new AllNodes(
+                newActiveNodes,
+                ImmutableSet.of(),
+                ImmutableSet.of(),
+                ImmutableSet.of(),
+                ImmutableSet.of(),
+                allNodes.getActiveCoordinators()));
+    }
+
+    @GuardedBy("this")
+    private void setAllNodes(AllNodes newAllNodes)
+    {
+        // did the node set change?
+        if (newAllNodes.equals(allNodes)) {
+            return;
+        }
+        allNodes = newAllNodes;
+
+        // notify listeners
+        List<Consumer<AllNodes>> listeners = ImmutableList.copyOf(this.listeners);
+        nodeStateEventExecutor.submit(() -> listeners.forEach(listener -> listener.accept(newAllNodes)));
     }
 
     @Override
-    public Set<InternalNode> getCoordinators()
+    public synchronized AllNodes getAllNodes()
     {
-        // always use localNode as coordinator
-        return ImmutableSet.of(CURRENT_NODE);
+        return allNodes;
     }
 
     @Override
@@ -99,8 +146,16 @@ public class TestingInternalNodeManager
     public void refreshNodes() {}
 
     @Override
-    public void addNodeChangeListener(Consumer<AllNodes> listener) {}
+    public synchronized void addNodeChangeListener(Consumer<AllNodes> listener)
+    {
+        listeners.add(requireNonNull(listener, "listener is null"));
+        AllNodes allNodes = this.allNodes;
+        nodeStateEventExecutor.submit(() -> listener.accept(allNodes));
+    }
 
     @Override
-    public void removeNodeChangeListener(Consumer<AllNodes> listener) {}
+    public synchronized void removeNodeChangeListener(Consumer<AllNodes> listener)
+    {
+        listeners.remove(requireNonNull(listener, "listener is null"));
+    }
 }

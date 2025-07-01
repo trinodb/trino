@@ -15,7 +15,6 @@ package io.trino.dispatcher;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.configuration.secrets.SecretsResolver;
@@ -158,7 +157,7 @@ public class TestLocalDispatchQuery
                 queryStateMachine,
                 Futures.immediateFuture(dataDefinitionExecution),
                 queryMonitor,
-                new TestClusterSizeMonitor(new TestingInternalNodeManager(ImmutableSet.of()), new NodeSchedulerConfig()),
+                new TestClusterSizeMonitor(TestingInternalNodeManager.createDefault(), new NodeSchedulerConfig()),
                 executor,
                 queryExecution -> dataDefinitionExecution.start());
         queryStateMachine.addStateChangeListener(state -> {
