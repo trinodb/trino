@@ -42,4 +42,9 @@ public enum NodeState
      * not valid for the cluster.
      */
     INVALID,
+    /**
+     * Connections to the node have been refused. Nodes in this state are not visible to the node manager.
+     * This is an internal state used to by execution engine to produce better error messages.
+     */
+    GONE,
 }

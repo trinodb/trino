@@ -174,7 +174,7 @@ public class NodeStateManager
                 }
             }
 
-            case INACTIVE, DRAINED, INVALID ->
+            case INACTIVE, DRAINED, INVALID, GONE ->
                     throw new IllegalArgumentException("Cannot transition state to internal state " + state);
         }
 
