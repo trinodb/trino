@@ -24,6 +24,7 @@ import io.airlift.http.client.HttpClient;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import io.trino.server.NodeStateManager.CurrentNodeState;
+import io.trino.spi.HostAddress;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Managed;
@@ -31,6 +32,7 @@ import org.weakref.jmx.Managed;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -39,11 +41,13 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+import static java.util.function.Function.identity;
 
 @ThreadSafe
 public final class CoordinatorNodeManager
@@ -69,6 +73,9 @@ public final class CoordinatorNodeManager
 
     @GuardedBy("this")
     private Set<InternalNode> invalidNodes;
+
+    @GuardedBy("this")
+    private Map<HostAddress, InternalNode> goneNodes;
 
     @GuardedBy("this")
     private final List<Consumer<AllNodes>> listeners = new ArrayList<>();
@@ -186,11 +193,12 @@ public final class CoordinatorNodeManager
         ImmutableSet.Builder<InternalNode> drainedNodesBuilder = ImmutableSet.builder();
         ImmutableSet.Builder<InternalNode> shuttingDownNodesBuilder = ImmutableSet.builder();
         ImmutableSet.Builder<InternalNode> invalidNodesBuilder = ImmutableSet.builder();
+        ImmutableSet.Builder<InternalNode> goneNodesBuilder = ImmutableSet.builder();
 
         switch (currentNodeState.get()) {
             case ACTIVE -> activeNodesBuilder.add(currentNode);
-            // INVALID should never happen, but if it does, treat as INACTIVE to avoid exceptions
-            case INACTIVE, INVALID -> inactiveNodesBuilder.add(currentNode);
+            // INVALID or GONE should never happen, but if it does, treat as INACTIVE to avoid exceptions
+            case INACTIVE, INVALID, GONE -> inactiveNodesBuilder.add(currentNode);
             case DRAINING -> drainingNodesBuilder.add(currentNode);
             case DRAINED -> drainedNodesBuilder.add(currentNode);
             case SHUTTING_DOWN -> shuttingDownNodesBuilder.add(currentNode);
@@ -208,10 +216,13 @@ public final class CoordinatorNodeManager
                 case DRAINED -> drainedNodesBuilder.add(node);
                 case SHUTTING_DOWN -> shuttingDownNodesBuilder.add(node);
                 case INVALID -> invalidNodesBuilder.add(node);
+                case GONE -> goneNodesBuilder.add(node);
             }
         }
 
         this.invalidNodes = invalidNodesBuilder.build();
+        this.goneNodes = goneNodesBuilder.build().stream()
+                .collect(toImmutableMap(InternalNode::getHostAndPort, identity()));
 
         Set<InternalNode> activeNodes = activeNodesBuilder.build();
         Set<InternalNode> drainingNodes = drainingNodesBuilder.build();
@@ -281,7 +292,7 @@ public final class CoordinatorNodeManager
             case DRAINING -> getAllNodes().getDrainingNodes();
             case DRAINED -> getAllNodes().getDrainedNodes();
             case SHUTTING_DOWN -> getAllNodes().getShuttingDownNodes();
-            case INVALID -> ImmutableSet.of();
+            case INVALID, GONE -> ImmutableSet.of();
         };
     }
 
@@ -301,6 +312,13 @@ public final class CoordinatorNodeManager
     synchronized Set<InternalNode> getInvalidNodes()
     {
         return invalidNodes;
+    }
+
+    @Override
+    public synchronized boolean isGone(HostAddress hostAddress)
+    {
+        requireNonNull(hostAddress, "hostAddress is null");
+        return goneNodes.containsKey(hostAddress);
     }
 
     @Override

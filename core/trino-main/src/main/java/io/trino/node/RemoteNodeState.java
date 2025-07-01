@@ -28,6 +28,7 @@ import io.trino.client.NodeVersion;
 import io.trino.server.ServerInfo;
 import jakarta.annotation.Nullable;
 
+import java.net.ConnectException;
 import java.net.URI;
 import java.util.Optional;
 import java.util.concurrent.Future;
@@ -43,6 +44,7 @@ import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.node.NodeState.ACTIVE;
+import static io.trino.node.NodeState.GONE;
 import static io.trino.node.NodeState.INACTIVE;
 import static io.trino.node.NodeState.INVALID;
 import static jakarta.ws.rs.core.HttpHeaders.CONTENT_TYPE;
@@ -181,8 +183,13 @@ public class RemoteNodeState
                 @Override
                 public void onFailure(Throwable t)
                 {
-                    // Any failure results in the node being marked as INACTIVE to prevent work from being scheduled on it
-                    nodeState.set(INACTIVE);
+                    // Any failure results in the node being marked a GONE or INACTIVE to prevent work from being scheduled on it
+                    if (t instanceof ConnectException) {
+                        nodeState.set(GONE);
+                    }
+                    else {
+                        nodeState.set(INACTIVE);
+                    }
                     logWarning("Error fetching node state from %s: %s", infoUri, t.getMessage());
                     lastUpdateNanos.set(ticker.read());
                     future.compareAndSet(responseFuture, null);

@@ -16,6 +16,7 @@ package io.trino.node;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.ThreadSafe;
 import io.trino.client.NodeVersion;
+import io.trino.spi.HostAddress;
 
 import java.net.URI;
 import java.util.Set;
@@ -59,7 +60,7 @@ public class TestingInternalNodeManager
     {
         return switch (state) {
             case ACTIVE -> ImmutableSet.copyOf(allNodes);
-            case DRAINING, DRAINED, INACTIVE, SHUTTING_DOWN, INVALID -> ImmutableSet.of();
+            case DRAINING, DRAINED, INACTIVE, SHUTTING_DOWN, INVALID, GONE -> ImmutableSet.of();
         };
     }
 
@@ -86,6 +87,12 @@ public class TestingInternalNodeManager
     {
         // always use localNode as coordinator
         return ImmutableSet.of(CURRENT_NODE);
+    }
+
+    @Override
+    public boolean isGone(HostAddress hostAddress)
+    {
+        return false;
     }
 
     @Override

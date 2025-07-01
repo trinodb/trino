@@ -78,10 +78,10 @@ import io.trino.execution.scheduler.faulttolerant.PartitionMemoryEstimator.Memor
 import io.trino.execution.scheduler.faulttolerant.SplitAssigner.AssignmentResult;
 import io.trino.execution.scheduler.faulttolerant.SplitAssigner.Partition;
 import io.trino.execution.scheduler.faulttolerant.SplitAssigner.PartitionUpdate;
-import io.trino.failuredetector.FailureDetector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.Split;
 import io.trino.node.InternalNode;
+import io.trino.node.InternalNodeManager;
 import io.trino.operator.RetryPolicy;
 import io.trino.server.DynamicFilterService;
 import io.trino.spi.ErrorCode;
@@ -172,7 +172,6 @@ import static io.trino.execution.scheduler.SchedulingUtils.canStream;
 import static io.trino.execution.scheduler.faulttolerant.TaskExecutionClass.EAGER_SPECULATIVE;
 import static io.trino.execution.scheduler.faulttolerant.TaskExecutionClass.SPECULATIVE;
 import static io.trino.execution.scheduler.faulttolerant.TaskExecutionClass.STANDARD;
-import static io.trino.failuredetector.FailureDetector.State.GONE;
 import static io.trino.operator.ExchangeOperator.REMOTE_CATALOG_HANDLE;
 import static io.trino.operator.RetryPolicy.TASK;
 import static io.trino.spi.ErrorType.EXTERNAL;
@@ -226,7 +225,7 @@ public class EventDrivenFaultTolerantQueryScheduler
     private final NodePartitioningManager nodePartitioningManager;
     private final ExchangeManager exchangeManager;
     private final NodeAllocatorService nodeAllocatorService;
-    private final FailureDetector failureDetector;
+    private final InternalNodeManager nodeManager;
     private final DynamicFilterService dynamicFilterService;
     private final TaskExecutionStats taskExecutionStats;
     private final Optional<AdaptivePlanner> adaptivePlanner;
@@ -258,7 +257,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             NodePartitioningManager nodePartitioningManager,
             ExchangeManager exchangeManager,
             NodeAllocatorService nodeAllocatorService,
-            FailureDetector failureDetector,
+            InternalNodeManager nodeManager,
             DynamicFilterService dynamicFilterService,
             TaskExecutionStats taskExecutionStats,
             AdaptivePlanner adaptivePlanner,
@@ -283,7 +282,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "partitioningSchemeFactory is null");
         this.exchangeManager = requireNonNull(exchangeManager, "exchangeManager is null");
         this.nodeAllocatorService = requireNonNull(nodeAllocatorService, "nodeAllocatorService is null");
-        this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
         this.taskExecutionStats = requireNonNull(taskExecutionStats, "taskExecutionStats is null");
         this.adaptivePlanner = isFaultTolerantExecutionAdaptiveQueryPlanningEnabled(queryStateMachine.getSession()) ?
@@ -359,7 +358,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                     getMaxTasksWaitingForNodePerQuery(session),
                     getMaxTasksWaitingForExecutionPerQuery(session),
                     nodeAllocator,
-                    failureDetector,
+                    nodeManager,
                     stageRegistry,
                     taskExecutionStats,
                     stageExecutionStats,
@@ -705,7 +704,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         private final int maxTasksWaitingForNode;
         private final int maxTasksWaitingForExecution;
         private final NodeAllocator nodeAllocator;
-        private final FailureDetector failureDetector;
+        private final InternalNodeManager nodeManager;
         private final StageRegistry stageRegistry;
         private final TaskExecutionStats taskExecutionStats;
         private final StageExecutionStats stageExecutionStats;
@@ -760,7 +759,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 int maxTasksWaitingForNode,
                 int maxTasksWaitingForExecution,
                 NodeAllocator nodeAllocator,
-                FailureDetector failureDetector,
+                InternalNodeManager nodeManager,
                 StageRegistry stageRegistry,
                 TaskExecutionStats taskExecutionStats,
                 StageExecutionStats stageExecutionStats,
@@ -792,7 +791,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             this.maxTasksWaitingForNode = maxTasksWaitingForNode;
             this.maxTasksWaitingForExecution = maxTasksWaitingForExecution;
             this.nodeAllocator = requireNonNull(nodeAllocator, "nodeAllocator is null");
-            this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
+            this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
             this.stageRegistry = requireNonNull(stageRegistry, "stageRegistry is null");
             this.taskExecutionStats = requireNonNull(taskExecutionStats, "taskExecutionStats is null");
             this.stageExecutionStats = requireNonNull(stageExecutionStats, "stageExecutionStats is null");
@@ -1887,7 +1886,7 @@ public class EventDrivenFaultTolerantQueryScheduler
 
         private ExecutionFailureInfo rewriteTransportFailure(ExecutionFailureInfo executionFailureInfo)
         {
-            if (executionFailureInfo.getRemoteHost() == null || failureDetector.getState(executionFailureInfo.getRemoteHost()) != GONE) {
+            if (executionFailureInfo.getRemoteHost() == null || !nodeManager.isGone(executionFailureInfo.getRemoteHost())) {
                 return executionFailureInfo;
             }
 
