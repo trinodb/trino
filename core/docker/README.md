@@ -7,6 +7,9 @@ This Docker image is designed to provide the following
 * An image that can be deployed as a full cluster by mounting in configuration
 * An image to be used as the basis for the Kubernetes Trino operator
 
+## requirements
+Docker 21.0.0 or higher.
+
 ## Quickstart
 
 ### Run the Trino server
