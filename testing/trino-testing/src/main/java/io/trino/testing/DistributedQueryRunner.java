@@ -327,6 +327,7 @@ public class DistributedQueryRunner
             // Use few threads in tests to preserve resources on CI
             propertiesBuilder.put("node-manager.http-client.min-threads", "1"); // default 8
             propertiesBuilder.put("failure-detector.http-client.min-threads", "1"); // default 8
+            propertiesBuilder.put("catalog-prune.http-client.min-threads", "1"); // default 8
             propertiesBuilder.put("memory-manager.http-client.min-threads", "1"); // default 8
             propertiesBuilder.put("scheduler.http-client.min-threads", "1"); // default 8
             propertiesBuilder.put("worker-info.http-client.min-threads", "1"); // default 8
