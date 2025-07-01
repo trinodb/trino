@@ -27,7 +27,6 @@ import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.metadata.CatalogManager;
 import io.trino.node.AllNodes;
-import io.trino.node.ForNodeManager;
 import io.trino.node.InternalNode;
 import io.trino.node.InternalNodeManager;
 import io.trino.spi.connector.CatalogHandle;
@@ -82,7 +81,7 @@ public class CatalogPruneTask
             ConnectorServicesProvider connectorServicesProvider,
             InternalNode currentNode,
             InternalNodeManager internalNodeManager,
-            @ForNodeManager HttpClient httpClient,
+            @ForCatalogPrune HttpClient httpClient,
             CatalogPruneTaskConfig catalogPruneTaskConfig)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
