@@ -87,7 +87,7 @@ public class TestUniformNodeSelector
         session = TestingSession.testSessionBuilder().build();
         finalizerService = new FinalizerService();
         nodeTaskMap = new NodeTaskMap(finalizerService);
-        nodeManager = new TestingInternalNodeManager();
+        nodeManager = TestingInternalNodeManager.createDefault();
         nodeManager.addNodes(node1);
         nodeManager.addNodes(node2);
 

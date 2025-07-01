@@ -106,7 +106,7 @@ public class TestNodeScheduler
         session = TestingSession.testSessionBuilder().build();
         finalizerService = new FinalizerService();
         nodeTaskMap = new NodeTaskMap(finalizerService);
-        nodeManager = new TestingInternalNodeManager();
+        nodeManager = TestingInternalNodeManager.createDefault();
 
         nodeSchedulerConfig = new NodeSchedulerConfig()
                 .setMaxSplitsPerNode(20)
@@ -170,7 +170,7 @@ public class TestNodeScheduler
     public void testTopologyAwareScheduling()
     {
         NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
-        InternalNodeManager nodeManager = new TestingInternalNodeManager(
+        InternalNodeManager nodeManager = TestingInternalNodeManager.createDefault(
                 new InternalNode("node1", URI.create("http://host1.rack1:11"), NodeVersion.UNKNOWN, false),
                 new InternalNode("node2", URI.create("http://host2.rack1:12"), NodeVersion.UNKNOWN, false),
                 new InternalNode("node3", URI.create("http://host3.rack2:13"), NodeVersion.UNKNOWN, false));
@@ -602,7 +602,7 @@ public class TestNodeScheduler
     @Timeout(60)
     public void testTopologyAwareFailover()
     {
-        nodeManager = new TestingInternalNodeManager(
+        nodeManager = TestingInternalNodeManager.createDefault(
                 new InternalNode("node1", URI.create("http://host1.rack1:11"), NodeVersion.UNKNOWN, false),
                 new InternalNode("node2", URI.create("http://host2.rack1:12"), NodeVersion.UNKNOWN, false),
                 new InternalNode("node3", URI.create("http://host3.rack2:13"), NodeVersion.UNKNOWN, false));
