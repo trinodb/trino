@@ -504,6 +504,9 @@ following properties:
 * - `iceberg.rest-catalog.oauth2.scope`
   - Scope to be used when communicating with the REST Catalog. Applicable only
     when using `credential`.
+* - `iceberg.rest-catalog.oauth2.client-id`
+  - OAuth2 client ID. This parameter is required by some OAuth2 providers such as
+    Microsoft Entra (Azure Active Directory).
 * - `iceberg.rest-catalog.oauth2.server-uri`
   - The endpoint to retrieve access token from OAuth2 Server.
 * - `iceberg.rest-catalog.oauth2.token-refresh-enabled`

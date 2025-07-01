@@ -25,6 +25,8 @@ import static java.util.Objects.requireNonNull;
 public class OAuth2SecurityProperties
         implements SecurityProperties
 {
+    private static final String CLIENT_ID = "client_id";
+    
     private final Map<String, String> securityProperties;
 
     @Inject
@@ -44,6 +46,8 @@ public class OAuth2SecurityProperties
                 value -> propertiesBuilder.put(OAuth2Properties.TOKEN, value));
         securityConfig.getServerUri().ifPresent(
                 value -> propertiesBuilder.put(OAuth2Properties.OAUTH2_SERVER_URI, value.toString()));
+        securityConfig.getClientId().ifPresent(
+                value -> propertiesBuilder.put(CLIENT_ID, value));
         propertiesBuilder.put(OAuth2Properties.TOKEN_REFRESH_ENABLED, String.valueOf(securityConfig.isTokenRefreshEnabled()));
 
         this.securityProperties = propertiesBuilder.buildOrThrow();

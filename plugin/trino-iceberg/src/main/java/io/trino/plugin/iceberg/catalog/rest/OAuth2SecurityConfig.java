@@ -28,6 +28,7 @@ public class OAuth2SecurityConfig
     private String scope;
     private String token;
     private URI serverUri;
+    private String clientId;
     private boolean tokenRefreshEnabled = OAuth2Properties.TOKEN_REFRESH_ENABLED_DEFAULT;
 
     public Optional<String> getCredential()
@@ -94,6 +95,19 @@ public class OAuth2SecurityConfig
     public OAuth2SecurityConfig setTokenRefreshEnabled(boolean tokenRefreshEnabled)
     {
         this.tokenRefreshEnabled = tokenRefreshEnabled;
+        return this;
+    }
+
+    public Optional<String> getClientId()
+    {
+        return Optional.ofNullable(clientId);
+    }
+
+    @Config("iceberg.rest-catalog.oauth2.client-id")
+    @ConfigDescription("OAuth2 client ID")
+    public OAuth2SecurityConfig setClientId(String clientId)
+    {
+        this.clientId = clientId;
         return this;
     }
 
