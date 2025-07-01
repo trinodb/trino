@@ -192,7 +192,7 @@ public class BenchmarkNodeScheduler
 
         private NodeSelectorFactory getNodeSelectorFactory(NodeTaskMap nodeTaskMap)
         {
-            InternalNodeManager nodeManager = new TestingInternalNodeManager();
+            InternalNodeManager nodeManager = TestingInternalNodeManager.createDefault();
             NodeSchedulerConfig nodeSchedulerConfig = getNodeSchedulerConfig();
             switch (policy) {
                 case "uniform":

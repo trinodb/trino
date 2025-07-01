@@ -208,7 +208,7 @@ public class TestScaledWriterScheduler
                 taskStatusProvider::get,
                 new UniformNodeSelectorFactory(
                         CURRENT_NODE,
-                        new TestingInternalNodeManager(NODE_1, NODE_2, NODE_3),
+                        TestingInternalNodeManager.createDefault(NODE_1, NODE_2, NODE_3),
                         new NodeSchedulerConfig().setIncludeCoordinator(true),
                         new NodeTaskMap(new FinalizerService())).createNodeSelector(testSessionBuilder().build()),
                 newScheduledThreadPool(10, threadsNamed("task-notification-%s")),

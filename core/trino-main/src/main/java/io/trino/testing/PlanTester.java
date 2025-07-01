@@ -344,7 +344,7 @@ public class PlanTester
         this.typeOperators = new TypeOperators();
         this.blockTypeOperators = new BlockTypeOperators(typeOperators);
         this.sqlParser = new SqlParser();
-        this.nodeManager = new TestingInternalNodeManager();
+        this.nodeManager = TestingInternalNodeManager.createDefault();
         PageSorter pageSorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
         NodeSchedulerConfig nodeSchedulerConfig = new NodeSchedulerConfig().setIncludeCoordinator(true);
         this.optimizerConfig = new OptimizerConfig();
