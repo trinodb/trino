@@ -31,6 +31,8 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.type.CharType;
+import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.TimeType;
@@ -38,6 +40,7 @@ import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.VarcharType;
 import org.weakref.jmx.$internal.guava.collect.ImmutableMap;
 
 import java.sql.Connection;
@@ -59,32 +62,52 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.function.BiFunction;
 
 import static io.trino.plugin.jdbc.CaseSensitivity.CASE_INSENSITIVE;
 import static io.trino.plugin.jdbc.CaseSensitivity.CASE_SENSITIVE;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.booleanWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.charColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.charWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.dateColumnMappingUsingLocalDate;
+import static io.trino.plugin.jdbc.StandardColumnMappings.dateWriteFunctionUsingLocalDate;
 import static io.trino.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.doubleWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.fromTrinoTime;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.longDecimalWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timestampColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateTimeEncoding.packTimeWithTimeZone;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateTimeEncoding.unpackZoneKey;
+import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
@@ -93,8 +116,11 @@ import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.round;
+import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.Math.floorDiv;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -205,17 +231,6 @@ public class TeradataClient
         return ColumnMapping.longMapping(createTimeWithTimeZoneType(precision), shortTimeWithTimeZoneReadFunction(), shortTimeWithTimeZoneWriteFunction(), DISABLE_PUSHDOWN);
     }
 
-    // TODO
-    // public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle)
-    // public Optional<PreparedQuery> implementJoin(
-    // public Optional<PreparedQuery> legacyImplementJoin(
-    // public Optional<JdbcExpression> implementAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
-    // public boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<AggregateFunction> aggregates, Map<String, ColumnHandle> assignments, List<List<ColumnHandle>> groupingSets)
-    // public boolean isLimitGuaranteed(ConnectorSession session)
-    // public boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<JdbcSortItem> sortOrder)
-    // public boolean isTopNGuaranteed(ConnectorSession session)
-    // public Optional<JdbcExpression> convertProjection(ConnectorSession session, JdbcTableHandle handle, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
-
     /**
      * Reads TIME WITH TIME ZONE values from JDBC ResultSet.
      *
@@ -234,6 +249,17 @@ public class TeradataClient
             return packTimeWithTimeZone(nanos, offsetMinutes);
         };
     }
+
+    // TODO
+    // public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle)
+    // public Optional<PreparedQuery> implementJoin(
+    // public Optional<PreparedQuery> legacyImplementJoin(
+    // public Optional<JdbcExpression> implementAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
+    // public boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<AggregateFunction> aggregates, Map<String, ColumnHandle> assignments, List<List<ColumnHandle>> groupingSets)
+    // public boolean isLimitGuaranteed(ConnectorSession session)
+    // public boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<JdbcSortItem> sortOrder)
+    // public boolean isTopNGuaranteed(ConnectorSession session)
+    // public Optional<JdbcExpression> convertProjection(ConnectorSession session, JdbcTableHandle handle, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
 
     /**
      * Writes TIME WITH TIME ZONE values to JDBC PreparedStatement.
@@ -278,8 +304,6 @@ public class TeradataClient
         };
     }
 
-    // --- Static utility methods for Teradata time and timestamp types ---
-
     /**
      * Writes TIMESTAMP WITH TIME ZONE values with short precision to JDBC PreparedStatement.
      *
@@ -293,6 +317,8 @@ public class TeradataClient
             statement.setObject(index, OffsetDateTime.ofInstant(Instant.ofEpochMilli(millisUtc), timeZoneKey.getZoneId()));
         };
     }
+
+    // --- Static utility methods for Teradata time and timestamp types ---
 
     /**
      * Reads TIMESTAMP WITH TIME ZONE values with long precision from JDBC ResultSet.
@@ -326,6 +352,18 @@ public class TeradataClient
             Instant instant = Instant.ofEpochSecond(epochSeconds);
             statement.setObject(index, OffsetDateTime.ofInstant(instant, zoneId));
         });
+    }
+
+    @Override
+    protected Optional<BiFunction<String, Long, String>> limitFunction()
+    {
+        return Optional.of((sql, limit) -> format("SELECT TOP %s * FROM (%s) o", limit, sql));
+    }
+
+    @Override
+    public boolean isLimitGuaranteed(ConnectorSession session)
+    {
+        return true;
     }
 
     /**
@@ -397,7 +435,7 @@ public class TeradataClient
         // try to use result set metadata from select * from table to populate the mapping
         try {
             HashMap<String, CaseSensitivity> caseMap = new HashMap<>();
-            String sql = String.format("select * from %s.%s where 0=1", schemaTableName.getSchemaName(), schemaTableName.getTableName());
+            String sql = format("select * from %s.%s where 0=1", schemaTableName.getSchemaName(), schemaTableName.getTableName());
             PreparedStatement pstmt = connection.prepareStatement(sql);
             ResultSetMetaData rsmd = pstmt.getMetaData();
             int columnCount = rsmd.getColumnCount();
@@ -531,7 +569,61 @@ public class TeradataClient
     @Override
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
-        // connector is read-only
+        if (type == BOOLEAN) {
+            return WriteMapping.booleanMapping("boolean", booleanWriteFunction());
+        }
+
+        if (type == TINYINT) {
+            // PostgreSQL has no type corresponding to tinyint
+            return WriteMapping.longMapping("tinyint", tinyintWriteFunction());
+        }
+        if (type == SMALLINT) {
+            return WriteMapping.longMapping("smallint", smallintWriteFunction());
+        }
+        if (type == INTEGER) {
+            return WriteMapping.longMapping("integer", integerWriteFunction());
+        }
+        if (type == BIGINT) {
+            return WriteMapping.longMapping("bigint", bigintWriteFunction());
+        }
+
+        if (type == REAL) {
+            return WriteMapping.doubleMapping("double precision", doubleWriteFunction());
+        }
+        if (type == DOUBLE) {
+            return WriteMapping.doubleMapping("double precision", doubleWriteFunction());
+        }
+
+        if (type instanceof DecimalType decimalType) {
+            String dataType = format("decimal(%s, %s)", decimalType.getPrecision(), decimalType.getScale());
+            if (decimalType.isShort()) {
+                return WriteMapping.longMapping(dataType, shortDecimalWriteFunction(decimalType));
+            }
+            return WriteMapping.objectMapping(dataType, longDecimalWriteFunction(decimalType));
+        }
+
+        if (type instanceof CharType charType) {
+            return WriteMapping.sliceMapping("char(" + charType.getLength() + ")", charWriteFunction());
+        }
+
+        if (type instanceof VarcharType varcharType) {
+            String dataType;
+            if (varcharType.isUnbounded()) {
+                dataType = "varchar";
+            }
+            else {
+                dataType = "varchar(" + varcharType.getBoundedLength() + ")";
+            }
+            return WriteMapping.sliceMapping(dataType, varcharWriteFunction());
+        }
+        if (VARBINARY.equals(type)) {
+            return WriteMapping.sliceMapping("bytea", varbinaryWriteFunction());
+        }
+
+        if (type == DATE) {
+            return WriteMapping.longMapping("date", dateWriteFunctionUsingLocalDate());
+        }
+
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
     }
 }
