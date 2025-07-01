@@ -14,6 +14,7 @@
 package io.trino.node;
 
 import com.google.common.collect.ImmutableSet;
+import io.trino.spi.HostAddress;
 
 import java.util.Set;
 import java.util.function.Consumer;
@@ -30,6 +31,8 @@ public interface InternalNodeManager
     Set<InternalNode> getCoordinators();
 
     AllNodes getAllNodes();
+
+    boolean isGone(HostAddress hostAddress);
 
     void refreshNodes();
 

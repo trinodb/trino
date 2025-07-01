@@ -13,6 +13,8 @@
  */
 package io.trino.node;
 
+import io.trino.spi.HostAddress;
+
 import java.util.Set;
 import java.util.function.Consumer;
 
@@ -39,6 +41,12 @@ public class WorkerInternalNodeManager
 
     @Override
     public AllNodes getAllNodes()
+    {
+        throw new UnsupportedOperationException("Nodes cannot be listed on a worker node");
+    }
+
+    @Override
+    public boolean isGone(HostAddress hostAddress)
     {
         throw new UnsupportedOperationException("Nodes cannot be listed on a worker node");
     }
