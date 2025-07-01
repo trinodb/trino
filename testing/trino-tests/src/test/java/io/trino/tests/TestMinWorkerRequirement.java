@@ -120,13 +120,10 @@ public class TestMinWorkerRequirement
                 .setWorkerCount(3)
                 .build()) {
             queryRunner.execute("SELECT COUNT(*) from lineitem");
-            assertThat(queryRunner.getCoordinator().refreshNodes().getActiveNodes()).hasSize(4);
+            assertThat(queryRunner.getCoordinator().getWorkerCount()).isEqualTo(3);
 
-            queryRunner.getServers().get(0).close();
-            while (queryRunner.getCoordinator().refreshNodes().getActiveNodes().size() > 3) {
-                // it takes some time to refresh the nodes
-                MILLISECONDS.sleep(100);
-            }
+            // Stop one worker
+            queryRunner.removeWorker();
             assertThatThrownBy(() -> queryRunner.execute("SELECT COUNT(*) from lineitem"))
                     .isInstanceOf(RuntimeException.class)
                     .hasMessage("Insufficient active worker nodes. Waited 1.00ns for at least 4 workers, but only 3 workers are active");
@@ -187,7 +184,7 @@ public class TestMinWorkerRequirement
 
             // After adding 2 nodes, query should run
             queryRunner.addServers(2);
-            assertThat(queryRunner.getCoordinator().refreshNodes().getActiveNodes()).hasSize(6);
+            assertThat(queryRunner.getCoordinator().getWorkerCount()).isEqualTo(5);
             queryRunner.execute(require6Workers, "SELECT COUNT(*) from lineitem");
         }
     }
@@ -220,7 +217,7 @@ public class TestMinWorkerRequirement
             assertThat(queryFuture3.isDone()).isFalse();
 
             queryRunner.addServers(1);
-            assertThat(queryRunner.getCoordinator().refreshNodes().getActiveNodes()).hasSize(2);
+            assertThat(queryRunner.getCoordinator().getWorkerCount()).isEqualTo(1);
             // After adding 1 node, only 1st query should run
             MILLISECONDS.sleep(1000);
             assertThat(queryFuture1.get().result().getRowCount() > 0).isTrue();
@@ -233,7 +230,7 @@ public class TestMinWorkerRequirement
 
             // After adding 2 nodes, 2nd and 3rd query should also run
             queryRunner.addServers(2);
-            assertThat(queryRunner.getCoordinator().refreshNodes().getActiveNodes()).hasSize(4);
+            assertThat(queryRunner.getCoordinator().getWorkerCount()).isEqualTo(3);
             assertThat(queryFuture2.get().result().getRowCount() > 0).isTrue();
             completedQueryInfo = queryManager.getFullQueryInfo(queryFuture2.get().queryId());
             assertThat(completedQueryInfo.getQueryStats().getResourceWaitingTime().roundTo(SECONDS) >= 2).isTrue();

@@ -31,6 +31,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
@@ -41,6 +42,7 @@ public class TestingInternalNodeManager
 {
     public static final InternalNode CURRENT_NODE = new InternalNode("local", URI.create("local://127.0.0.1:8080"), NodeVersion.UNKNOWN, true);
 
+    private final InternalNode currentNode;
     private final ExecutorService nodeStateEventExecutor;
 
     @GuardedBy("this")
@@ -52,8 +54,9 @@ public class TestingInternalNodeManager
     @Inject
     public TestingInternalNodeManager(InternalNode currentNode)
     {
-        requireNonNull(currentNode, "currentNode is null");
+        this.currentNode = requireNonNull(currentNode, "currentNode is null");
         checkArgument(currentNode.isCoordinator(), "currentNode must be a coordinator: %s", currentNode);
+
         this.allNodes = new AllNodes(
                 ImmutableSet.of(currentNode),
                 ImmutableSet.of(),
@@ -83,26 +86,27 @@ public class TestingInternalNodeManager
 
     public synchronized void addNodes(Collection<InternalNode> internalNodes)
     {
-        for (InternalNode internalNode : internalNodes) {
-            checkArgument(!internalNode.isCoordinator(), "Coordinator cannot be added: %s", internalNode);
-        }
+        checkArgument(internalNodes.stream().noneMatch(currentNode::equals), "Cannot add current node");
+        Set<InternalNode> newActiveNodes = ImmutableSet.<InternalNode>builder()
+                .addAll(allNodes.getActiveNodes())
+                .addAll(internalNodes)
+                .build();
 
         setAllNodes(new AllNodes(
-                ImmutableSet.<InternalNode>builder()
-                        .addAll(allNodes.getActiveNodes())
-                        .addAll(internalNodes)
-                        .build(),
+                newActiveNodes,
                 ImmutableSet.of(),
                 ImmutableSet.of(),
                 ImmutableSet.of(),
                 ImmutableSet.of(),
-                allNodes.getActiveCoordinators()));
+                newActiveNodes.stream()
+                        .filter(InternalNode::isCoordinator)
+                        .collect(toImmutableSet())));
     }
 
     public synchronized void removeNode(InternalNode internalNode)
     {
         requireNonNull(internalNode, "internalNode is null");
-        checkArgument(!internalNode.isCoordinator(), "Coordinator cannot be removed: %s", internalNode);
+        checkArgument(!currentNode.equals(internalNode), "Cannot remove current node");
 
         Set<InternalNode> newActiveNodes = new HashSet<>(allNodes.getActiveNodes());
         newActiveNodes.remove(internalNode);
@@ -113,7 +117,9 @@ public class TestingInternalNodeManager
                 ImmutableSet.of(),
                 ImmutableSet.of(),
                 ImmutableSet.of(),
-                allNodes.getActiveCoordinators()));
+                newActiveNodes.stream()
+                        .filter(InternalNode::isCoordinator)
+                        .collect(toImmutableSet())));
     }
 
     @GuardedBy("this")
