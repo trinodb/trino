@@ -31,7 +31,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Map;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
+import static io.trino.spi.StandardErrorCode.INVALID_DEFAULT_COLUMN_VALUE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.CharType.createCharType;
@@ -47,7 +47,7 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTim
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.sql.analyzer.ExpressionAnalyzer.checkDefaultColumnValue;
+import static io.trino.sql.analyzer.ExpressionAnalyzer.analyzeDefaultColumnValue;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 
@@ -65,7 +65,7 @@ final class TestColumnDefaultOptions
     @Test
     void testNull()
     {
-        assertDefaultColumnValue(BOOLEAN, new NullLiteral(LOCATION));
+        assertDefaultColumnValue(TINYINT, new NullLiteral(LOCATION));
     }
 
     @Test
@@ -73,6 +73,10 @@ final class TestColumnDefaultOptions
     {
         assertDefaultColumnValue(BOOLEAN, new BooleanLiteral(LOCATION, "true"));
         assertDefaultColumnValue(BOOLEAN, new BooleanLiteral(LOCATION, "false"));
+
+        assertInvalidDefaultColumnValue(BOOLEAN, new LongLiteral(LOCATION, "1"), "Value must be true or false '1'");
+        assertInvalidDefaultColumnValue(BOOLEAN, new LongLiteral(LOCATION, "0"), "Value must be true or false '0'");
+        assertInvalidDefaultColumnValue(BOOLEAN, new NullLiteral(LOCATION), "Value must be true or false 'null'");
     }
 
     @Test
@@ -173,9 +177,6 @@ final class TestColumnDefaultOptions
         assertDefaultColumnValue(createCharType(10), new StringLiteral(LOCATION, "test"));
         assertDefaultColumnValue(createCharType(5), new StringLiteral(LOCATION, "攻殻機動隊"));
         assertDefaultColumnValue(createCharType(1), new StringLiteral(LOCATION, "😂"));
-
-        // Trim trailing spaces
-        assertDefaultColumnValue(createCharType(4), new StringLiteral(LOCATION, "test "));
     }
 
     @Test
@@ -183,8 +184,12 @@ final class TestColumnDefaultOptions
     {
         assertInvalidDefaultColumnValue(
                 createCharType(4),
+                new StringLiteral(new NodeLocation(1, 1), "abcd "),
+                "''abcd '' is not a valid CHAR(4) literal");
+        assertInvalidDefaultColumnValue(
+                createCharType(4),
                 new StringLiteral(new NodeLocation(1, 1), " abcd"),
-                "Cannot truncate non-space characters when casting from varchar(5) to char(4) on INSERT");
+                "'' abcd'' is not a valid CHAR(4) literal");
     }
 
     @Test
@@ -195,9 +200,6 @@ final class TestColumnDefaultOptions
         assertDefaultColumnValue(VARCHAR, new StringLiteral(LOCATION, "test"));
         assertDefaultColumnValue(createVarcharType(5), new StringLiteral(LOCATION, "攻殻機動隊"));
         assertDefaultColumnValue(createVarcharType(1), new StringLiteral(LOCATION, "😂"));
-
-        // Trim trailing spaces
-        assertDefaultColumnValue(createVarcharType(4), new StringLiteral(LOCATION, "test "));
     }
 
     @Test
@@ -205,8 +207,12 @@ final class TestColumnDefaultOptions
     {
         assertInvalidDefaultColumnValue(
                 createVarcharType(4),
+                new StringLiteral(new NodeLocation(1, 1), "abcd "),
+                "''abcd '' is not a valid VARCHAR(4) literal");
+        assertInvalidDefaultColumnValue(
+                createVarcharType(4),
                 new StringLiteral(new NodeLocation(1, 1), " abcd"),
-                "Cannot truncate non-space characters when casting from varchar(5) to varchar(4) on INSERT");
+                "'' abcd'' is not a valid VARCHAR(4) literal");
     }
 
     @Test
@@ -254,12 +260,15 @@ final class TestColumnDefaultOptions
         assertDefaultColumnValue(createTimestampType(10), new GenericLiteral(LOCATION, "TIMESTAMP", "1970-01-01 00:00:00.9999999999"));
         assertDefaultColumnValue(createTimestampType(11), new GenericLiteral(LOCATION, "TIMESTAMP", "1970-01-01 00:00:00.99999999999"));
         assertDefaultColumnValue(createTimestampType(12), new GenericLiteral(LOCATION, "TIMESTAMP", "1970-01-01 00:00:00.999999999999"));
+    }
 
-        // Round fractional seconds
-        assertDefaultColumnValue(createTimestampType(0), new GenericLiteral(LOCATION, "TIMESTAMP", "1970-01-01 00:00:00.4"));
-        assertDefaultColumnValue(createTimestampType(0), new GenericLiteral(LOCATION, "TIMESTAMP", "1970-01-01 00:00:00.5"));
-        assertDefaultColumnValue(createTimestampType(9), new GenericLiteral(LOCATION, "TIMESTAMP", "1970-01-01 00:00:00.9999999994"));
-        assertDefaultColumnValue(createTimestampType(9), new GenericLiteral(LOCATION, "TIMESTAMP", "1970-01-01 00:00:00.9999999995"));
+    @Test
+    void testInvalidTimestamp()
+    {
+        assertInvalidDefaultColumnValue(createTimestampType(0), new GenericLiteral(LOCATION, "TIMESTAMP", "1970-01-01 00:00:00.4"), "Value too large");
+        assertInvalidDefaultColumnValue(createTimestampType(0), new GenericLiteral(LOCATION, "TIMESTAMP", "1970-01-01 00:00:00.5"), "Value too large");
+        assertInvalidDefaultColumnValue(createTimestampType(9), new GenericLiteral(LOCATION, "TIMESTAMP", "1970-01-01 00:00:00.9999999994"), "Value too large");
+        assertInvalidDefaultColumnValue(createTimestampType(9), new GenericLiteral(LOCATION, "TIMESTAMP", "1970-01-01 00:00:00.9999999995"), "Value too large");
     }
 
     @Test
@@ -278,23 +287,26 @@ final class TestColumnDefaultOptions
         assertDefaultColumnValue(createTimestampWithTimeZoneType(10), new GenericLiteral(LOCATION, "TIMESTAMP", "1970-01-01 00:00:00.9999999999 UTC"));
         assertDefaultColumnValue(createTimestampWithTimeZoneType(11), new GenericLiteral(LOCATION, "TIMESTAMP", "1970-01-01 00:00:00.99999999999 UTC"));
         assertDefaultColumnValue(createTimestampWithTimeZoneType(12), new GenericLiteral(LOCATION, "TIMESTAMP", "1970-01-01 00:00:00.999999999999 UTC"));
+    }
 
-        // Round fractional seconds
-        assertDefaultColumnValue(createTimestampWithTimeZoneType(0), new GenericLiteral(LOCATION, "TIMESTAMP", "1970-01-01 00:00:00.4 UTC"));
-        assertDefaultColumnValue(createTimestampWithTimeZoneType(0), new GenericLiteral(LOCATION, "TIMESTAMP", "1970-01-01 00:00:00.5 UTC"));
-        assertDefaultColumnValue(createTimestampWithTimeZoneType(9), new GenericLiteral(LOCATION, "TIMESTAMP", "1970-01-01 00:00:00.9999999994 UTC"));
-        assertDefaultColumnValue(createTimestampWithTimeZoneType(9), new GenericLiteral(LOCATION, "TIMESTAMP", "1970-01-01 00:00:00.9999999995 UTC"));
+    @Test
+    void testInvalidTimestampWithTimeZone()
+    {
+        assertInvalidDefaultColumnValue(createTimestampWithTimeZoneType(0), new GenericLiteral(LOCATION, "TIMESTAMP", "1970-01-01 00:00:00.4 UTC"), "Value too large");
+        assertInvalidDefaultColumnValue(createTimestampWithTimeZoneType(0), new GenericLiteral(LOCATION, "TIMESTAMP", "1970-01-01 00:00:00.5 UTC"), "Value too large");
+        assertInvalidDefaultColumnValue(createTimestampWithTimeZoneType(9), new GenericLiteral(LOCATION, "TIMESTAMP", "1970-01-01 00:00:00.9999999994 UTC"), "Value too large");
+        assertInvalidDefaultColumnValue(createTimestampWithTimeZoneType(9), new GenericLiteral(LOCATION, "TIMESTAMP", "1970-01-01 00:00:00.9999999995 UTC"), "Value too large");
     }
 
     private void assertDefaultColumnValue(Type columnType, Expression expression)
     {
-        checkDefaultColumnValue(TEST_SESSION, plannerContext, new AllowAllAccessControl(), Map.of(), WarningCollector.NOOP, columnType, expression);
+        analyzeDefaultColumnValue(TEST_SESSION, plannerContext, new AllowAllAccessControl(), Map.of(), WarningCollector.NOOP, columnType, expression);
     }
 
     private void assertInvalidDefaultColumnValue(Type type, Expression expression, String stackTrace)
     {
-        assertTrinoExceptionThrownBy(() -> checkDefaultColumnValue(TEST_SESSION, plannerContext, new AllowAllAccessControl(), Map.of(), WarningCollector.NOOP, type, expression))
-                .hasErrorCode(INVALID_LITERAL)
+        assertTrinoExceptionThrownBy(() -> analyzeDefaultColumnValue(TEST_SESSION, plannerContext, new AllowAllAccessControl(), Map.of(), WarningCollector.NOOP, type, expression))
+                .hasErrorCode(INVALID_DEFAULT_COLUMN_VALUE)
                 .hasMessageMatching("line 1:1: .* is not a valid .* literal")
                 .hasStackTraceContaining(stackTrace);
     }

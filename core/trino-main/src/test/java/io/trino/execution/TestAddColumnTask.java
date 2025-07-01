@@ -56,7 +56,7 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.spi.StandardErrorCode.AMBIGUOUS_NAME;
 import static io.trino.spi.StandardErrorCode.COLUMN_ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
-import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
+import static io.trino.spi.StandardErrorCode.INVALID_DEFAULT_COLUMN_VALUE;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.connector.ConnectorCapabilities.DEFAULT_COLUMN_VALUE;
@@ -206,6 +206,7 @@ public class TestAddColumnTask
         assertThat(columns.get(0).getName()).isEqualTo("test");
 
         assertThat(columns.get(1).getName()).isEqualTo("new_col");
+        assertThat(columns.get(1).getType()).isEqualTo(DOUBLE);
         assertThat(columns.get(1).getDefaultValue()).contains("123");
     }
 
@@ -260,7 +261,7 @@ public class TestAddColumnTask
 
         assertTrinoExceptionThrownBy(() ->
                 getFutureValue(executeAddColumn(asQualifiedName(tableName), charColumn, new ColumnPosition.Last(), false, false)))
-                .hasErrorCode(INVALID_LITERAL)
+                .hasErrorCode(INVALID_DEFAULT_COLUMN_VALUE)
                 .hasMessage("line 1:1: ''abcde'' is not a valid CHAR(4) literal");
     }
 
@@ -313,7 +314,7 @@ public class TestAddColumnTask
 
         assertTrinoExceptionThrownBy(() ->
                 getFutureValue(executeAddColumn(asQualifiedName(tableName), column, new ColumnPosition.Last(), false, false)))
-                .hasErrorCode(INVALID_LITERAL)
+                .hasErrorCode(INVALID_DEFAULT_COLUMN_VALUE)
                 .hasMessage("line 1:1: ''invalid'' is not a valid BIGINT literal");
     }
 

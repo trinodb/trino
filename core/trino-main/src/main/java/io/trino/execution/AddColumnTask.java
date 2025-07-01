@@ -59,7 +59,7 @@ import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TYPE_NOT_FOUND;
 import static io.trino.spi.connector.ConnectorCapabilities.DEFAULT_COLUMN_VALUE;
 import static io.trino.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
-import static io.trino.sql.analyzer.ExpressionAnalyzer.checkDefaultColumnValue;
+import static io.trino.sql.analyzer.ExpressionAnalyzer.analyzeDefaultColumnValue;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.trino.type.UnknownType.UNKNOWN;
@@ -158,7 +158,7 @@ public class AddColumnTask
                     true);
 
             Type supportedType = getSupportedType(session, catalogHandle, tableMetadata.metadata().getProperties(), type);
-            element.getDefaultValue().ifPresent(value -> checkDefaultColumnValue(session, plannerContext, accessControl, parameterLookup, warningCollector, supportedType, value));
+            element.getDefaultValue().ifPresent(value -> analyzeDefaultColumnValue(session, plannerContext, accessControl, parameterLookup, warningCollector, supportedType, value));
             ColumnMetadata column = ColumnMetadata.builder()
                     .setName(columnName.getValue())
                     .setType(supportedType)

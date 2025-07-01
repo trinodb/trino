@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Multimap;
+import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.FunctionResolver;
@@ -36,11 +37,14 @@ import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.OperatorType;
+import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalParseResult;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimeWithTimeZoneType;
@@ -178,6 +182,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.operator.scalar.json.JsonArrayFunction.JSON_ARRAY_FUNCTION_NAME;
@@ -201,6 +206,7 @@ import static io.trino.spi.StandardErrorCode.DUPLICATE_PARAMETER_NAME;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_CONSTANT;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_AGGREGATE;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
+import static io.trino.spi.StandardErrorCode.INVALID_DEFAULT_COLUMN_VALUE;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.trino.spi.StandardErrorCode.INVALID_NAVIGATION_NESTING;
@@ -227,6 +233,7 @@ import static io.trino.spi.function.OperatorType.SUBSCRIPT;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -236,10 +243,14 @@ import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.spi.type.TimeWithTimeZoneType.TIME_TZ_MILLIS;
 import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_PICOS;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_PICOS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -257,7 +268,6 @@ import static io.trino.sql.analyzer.SemanticExceptions.missingAttributeException
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
-import static io.trino.sql.planner.LogicalPlanner.noTruncationCast;
 import static io.trino.sql.tree.DereferenceExpression.isQualifiedAllFieldsReference;
 import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
 import static io.trino.sql.tree.FrameBound.Type.FOLLOWING;
@@ -286,6 +296,7 @@ import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static io.trino.type.Json2016Type.JSON_2016;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.type.UnknownType.UNKNOWN;
+import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableMap;
@@ -3891,7 +3902,7 @@ public class ExpressionAnalyzer
                 });
     }
 
-    public static void checkDefaultColumnValue(
+    public static void analyzeDefaultColumnValue(
             Session session,
             PlannerContext plannerContext,
             AccessControl accessControl,
@@ -3909,17 +3920,65 @@ public class ExpressionAnalyzer
             Type literalType = constantAnalyzer.analyze(literal, Scope.create());
             Object value = evaluateConstant(literal, literalType, plannerContext, session, accessControl);
 
-            IrExpressionEvaluator expressionEvaluator = new IrExpressionEvaluator(plannerContext);
             if (!literalType.equals(columnType)) {
-                expressionEvaluator.evaluate(
-                        noTruncationCast(plannerContext.getMetadata(), new io.trino.sql.ir.Constant(literalType, value), literalType, columnType),
-                        session,
-                        ImmutableMap.of());
+                checkDefaultColumnValue(session, plannerContext, value, columnType, literalType);
             }
         }
         catch (RuntimeException e) {
-            throw semanticException(INVALID_LITERAL, literal, e, "'%s' is not a valid %s literal", literal, columnType.getDisplayName().toUpperCase(ENGLISH));
+            throw semanticException(INVALID_DEFAULT_COLUMN_VALUE, literal, e, "'%s' is not a valid %s literal", literal, columnType.getDisplayName().toUpperCase(ENGLISH));
         }
+    }
+
+    private static void checkDefaultColumnValue(Session session, PlannerContext plannerContext, Object value, Type type, Type literalType)
+    {
+        if (type instanceof BooleanType) {
+            checkArgument(value instanceof Boolean, "Value must be true or false '%s'".formatted(value));
+        }
+        if (type instanceof CharType charType) {
+            int targetLength = charType.getLength();
+            Slice slice = (Slice) value;
+            long actualLength = countCodePoints(slice);
+            checkArgument(targetLength >= actualLength, "Cannot truncate characters when casting value '%s' to %s".formatted(slice.toStringUtf8(), type));
+        }
+        if (type instanceof VarcharType varcharType) {
+            if (varcharType.isUnbounded()) {
+                return;
+            }
+            int targetLength = varcharType.getBoundedLength();
+            Slice slice = (Slice) value;
+            long actualLength = countCodePoints(slice);
+            checkArgument(targetLength >= actualLength, "Cannot truncate characters when casting value '%s' to %s".formatted(slice.toStringUtf8(), type));
+        }
+        if (type instanceof TimestampType timestampType) {
+            if (timestampType.isShort()) {
+                Long epochMicros = (Long) value;
+                int microOfSecond = floorMod(epochMicros, MICROSECONDS_PER_SECOND);
+                checkArgument(microOfSecond % Math.pow(10, TIMESTAMP_MICROS.getPrecision() - timestampType.getPrecision()) == 0, "Value too large");
+            }
+            else {
+                LongTimestamp longTimestamp = (LongTimestamp) value;
+                int picosOfMicro = longTimestamp.getPicosOfMicro();
+                checkArgument(picosOfMicro % Math.pow(10, TIMESTAMP_PICOS.getPrecision() - timestampType.getPrecision()) == 0, "Value too large");
+            }
+        }
+        if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
+            int precision = timestampWithTimeZoneType.getPrecision();
+            if (timestampWithTimeZoneType.isShort()) {
+                long epochMillis = unpackMillisUtc((long) value);
+                checkArgument(epochMillis % Math.pow(10, TIMESTAMP_TZ_MILLIS.getPrecision() - precision) == 0, "Value too large");
+            }
+            else {
+                LongTimestampWithTimeZone timestamp = (LongTimestampWithTimeZone) value;
+                int picosOfMilli = timestamp.getPicosOfMilli();
+                checkArgument(picosOfMilli % Math.pow(10, TIMESTAMP_TZ_PICOS.getPrecision() - precision) == 0, "Value too large");
+            }
+        }
+
+        IrExpressionEvaluator expressionEvaluator = new IrExpressionEvaluator(plannerContext);
+        expressionEvaluator.evaluate(
+                new io.trino.sql.ir.Cast(new io.trino.sql.ir.Constant(literalType, value), type),
+                session,
+                ImmutableMap.of());
     }
 
     public static boolean isNumericType(Type type)

@@ -1197,7 +1197,7 @@ public class Analysis
         defaultValues.put(column, defaultValue);
     }
 
-    public Map<ColumnHandle, Expression> getDefaultColumnValue(Table table)
+    public Map<ColumnHandle, Expression> getDefaultColumnValues(Table table)
     {
         return unmodifiableMap(defaultColumnValues.getOrDefault(NodeRef.of(table), ImmutableMap.of()));
     }

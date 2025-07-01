@@ -61,7 +61,7 @@ import java.util.concurrent.ThreadLocalRandom;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
-import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
+import static io.trino.spi.StandardErrorCode.INVALID_DEFAULT_COLUMN_VALUE;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
@@ -255,8 +255,9 @@ class TestCreateTableTask
             List<ColumnMetadata> columns = metadata.getReceivedTableMetadata().getFirst().getColumns();
             assertThat(columns).hasSize(1);
 
-            assertThat(columns.get(0).getName()).isEqualTo("double_col");
-            assertThat(columns.get(0).getDefaultValue()).contains("123");
+            assertThat(columns.getFirst().getName()).isEqualTo("double_col");
+            assertThat(columns.getFirst().getType()).isEqualTo(DOUBLE);
+            assertThat(columns.getFirst().getDefaultValue()).contains("123");
             return null;
         });
     }
@@ -297,7 +298,7 @@ class TestCreateTableTask
         queryRunner.inTransaction(transactionSession -> {
             assertTrinoExceptionThrownBy(() ->
                     getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), _ -> {}, WarningCollector.NOOP)))
-                    .hasErrorCode(INVALID_LITERAL)
+                    .hasErrorCode(INVALID_DEFAULT_COLUMN_VALUE)
                     .hasMessage("line 1:1: ''abcde'' is not a valid CHAR(4) literal");
             return null;
         });
@@ -315,7 +316,7 @@ class TestCreateTableTask
         queryRunner.inTransaction(transactionSession -> {
             assertTrinoExceptionThrownBy(() ->
                     getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), _ -> {}, WarningCollector.NOOP)))
-                    .hasErrorCode(INVALID_LITERAL)
+                    .hasErrorCode(INVALID_DEFAULT_COLUMN_VALUE)
                     .hasMessage("line 1:1: ''invalid'' is not a valid BIGINT literal");
             return null;
         });

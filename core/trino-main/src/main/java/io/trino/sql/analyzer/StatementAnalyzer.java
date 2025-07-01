@@ -186,6 +186,7 @@ import io.trino.sql.tree.JsonTableColumnDefinition;
 import io.trino.sql.tree.JsonTableSpecificPlan;
 import io.trino.sql.tree.Lateral;
 import io.trino.sql.tree.Limit;
+import io.trino.sql.tree.Literal;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.MeasureDefinition;
 import io.trino.sql.tree.Merge;
@@ -2421,11 +2422,13 @@ class StatementAnalyzer
                         expression = sqlParser.createExpression(defaultValue);
                     }
                     catch (ParsingException e) {
-                        throw new TrinoException(INVALID_DEFAULT_COLUMN_VALUE, extractLocation(table), format("Invalid default column value for '%s': %s", columnMetadata.getName(), e.getErrorMessage()), e);
+                        throw new TrinoException(INVALID_DEFAULT_COLUMN_VALUE, extractLocation(table), format("Invalid default column value for '%s.%s': %s", table.getName(), columnMetadata.getName(), e.getErrorMessage()), e);
                     }
 
+                    if (!(expression instanceof Literal)) {
+                        throw new TrinoException(NOT_SUPPORTED, extractLocation(table), format("Default column value supports only literals '%s.%s': %s", table.getName(), columnMetadata.getName(), expression), null);
+                    }
                     analyzeExpression(expression, scope);
-                    analysis.addCoercion(expression, columnMetadata.getType());
                     analysis.addDefaultColumnValue(table, columnHandle, expression);
                 });
             }
@@ -3805,7 +3808,7 @@ class StatementAnalyzer
                     })
                     .collect(toImmutableList());
 
-            Map<ColumnHandle, Expression> allDefaultColumnValues = analysis.getDefaultColumnValue(table);
+            Map<ColumnHandle, Expression> allDefaultColumnValues = analysis.getDefaultColumnValues(table);
             ImmutableSet.Builder<ColumnHandle> nonNullableColumnHandles = ImmutableSet.builder();
             ImmutableMap.Builder<ColumnHandle, Expression> defaultColumnValues = ImmutableMap.builder();
             for (ColumnMetadata column : metadata.getTableMetadata(session, handle).columns()) {
