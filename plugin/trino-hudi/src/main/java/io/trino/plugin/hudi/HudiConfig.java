@@ -48,8 +48,8 @@ public class HudiConfig
     private double minimumAssignedSplitWeight = 0.05;
     private DataSize targetSplitSize = DataSize.of(128, MEGABYTE);
     private int maxSplitsPerSecond = Integer.MAX_VALUE;
-    private int maxOutstandingSplits = 1000;
-    private int splitLoaderParallelism = 4;
+    private int maxOutstandingSplits = 10000;
+    private int splitLoaderParallelism = 10;
     private int splitGeneratorParallelism = 4;
     private long perTransactionMetastoreCacheMaximumSize = 2000;
     private boolean queryPartitionFilterRequired;
