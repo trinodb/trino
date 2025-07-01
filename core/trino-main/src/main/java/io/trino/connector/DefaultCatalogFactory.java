@@ -19,8 +19,7 @@ import io.airlift.configuration.secrets.SecretsResolver;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.connector.informationschema.InformationSchemaConnector;
-import io.trino.connector.system.CoordinatorSystemTablesProvider;
-import io.trino.connector.system.StaticSystemTablesProvider;
+import io.trino.connector.system.DefaultSystemTablesProvider;
 import io.trino.connector.system.SystemConnector;
 import io.trino.connector.system.SystemTablesProvider;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
@@ -152,17 +151,12 @@ public class DefaultCatalogFactory
                         accessControl,
                         maxPrefetchedInformationSchemaPrefixes));
 
-        SystemTablesProvider systemTablesProvider;
-        if (nodeManager.getCurrentNode().isCoordinator()) {
-            systemTablesProvider = new CoordinatorSystemTablesProvider(
-                    transactionManager,
-                    metadata,
-                    catalogHandle.getCatalogName().toString(),
-                    new StaticSystemTablesProvider(catalogConnector.getSystemTables()));
-        }
-        else {
-            systemTablesProvider = new StaticSystemTablesProvider(catalogConnector.getSystemTables());
-        }
+        SystemTablesProvider systemTablesProvider = new DefaultSystemTablesProvider(
+                transactionManager,
+                metadata,
+                catalogHandle.getCatalogName().toString(),
+                catalogConnector.getSystemTables(),
+                nodeManager.getCurrentNode().isCoordinator());
 
         ConnectorServices systemConnector = new ConnectorServices(
                 tracer,
@@ -172,7 +166,7 @@ public class DefaultCatalogFactory
                         systemTablesProvider,
                         transactionId -> transactionManager.getConnectorTransaction(transactionId, catalogHandle),
                         accessControl,
-                        catalogHandle.getCatalogName().toString()));
+                        catalogHandle.getCatalogName().toString(), catalogConnector.getPageSourceProviderFactory()));
 
         return new CatalogConnector(
                 catalogHandle,
