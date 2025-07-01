@@ -26,10 +26,6 @@ import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
-import io.airlift.discovery.client.Announcer;
-import io.airlift.discovery.client.DiscoveryModule;
-import io.airlift.discovery.client.ServiceSelectorManager;
-import io.airlift.discovery.client.testing.TestingDiscoveryModule;
 import io.airlift.http.server.testing.TestingHttpServer;
 import io.airlift.http.server.testing.TestingHttpServerModule;
 import io.airlift.http.server.tracing.TracingServletFilter;
@@ -69,9 +65,9 @@ import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.GlobalFunctionCatalog;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.TablePropertyManager;
-import io.trino.node.AllNodes;
-import io.trino.node.InternalNodeManager;
-import io.trino.node.NodeManagerModule;
+import io.trino.node.InternalNode;
+import io.trino.node.TestingInternalNodeManager;
+import io.trino.node.TestingNodeManagerModule;
 import io.trino.security.AccessControl;
 import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
@@ -146,7 +142,6 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
-import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Integer.parseInt;
 import static java.nio.file.Files.createTempDirectory;
@@ -186,6 +181,7 @@ public class TestingTrinoServer
     private final boolean preserveData;
     private final LifeCycleManager lifeCycleManager;
     private final PluginInstaller pluginInstaller;
+    private final InternalNode currentNode;
     private final Optional<CatalogManager> catalogManager;
     private final TestingHttpServer server;
     private final TransactionManager transactionManager;
@@ -205,8 +201,7 @@ public class TestingTrinoServer
     private final NodePartitioningManager nodePartitioningManager;
     private final ClusterMemoryManager clusterMemoryManager;
     private final LocalMemoryManager localMemoryManager;
-    private final InternalNodeManager nodeManager;
-    private final ServiceSelectorManager serviceSelectorManager;
+    private final TestingInternalNodeManager nodeManager;
     private final DispatchManager dispatchManager;
     private final SqlQueryManager queryManager;
     private final SqlTaskManager taskManager;
@@ -249,7 +244,6 @@ public class TestingTrinoServer
             boolean coordinator,
             Map<String, String> properties,
             Optional<String> environment,
-            Optional<URI> discoveryUri,
             Module additionalModule,
             Optional<Path> baseDataDir,
             Optional<SpanProcessor> spanProcessor,
@@ -288,7 +282,6 @@ public class TestingTrinoServer
                     serverProperties.put("catalog.store", "memory");
                 }
             }
-            serverProperties.put("failure-detector.enabled", "false");
 
             // Reduce memory footprint in tests
             serverProperties.put("query.min-expire-age", "5s");
@@ -309,7 +302,7 @@ public class TestingTrinoServer
                 .add(new ServerSecurityModule())
                 .add(new CatalogManagerModule())
                 .add(new TransactionManagerModule())
-                .add(new NodeManagerModule(VERSION))
+                .add(new TestingNodeManagerModule())
                 .add(new ServerMainModule(VERSION))
                 .add(new TestingWarningCollectorModule())
                 .add(binder -> {
@@ -355,15 +348,6 @@ public class TestingTrinoServer
             modules.add(new TestingSessionTimeModule());
         }
 
-        if (discoveryUri.isPresent()) {
-            requireNonNull(environment, "environment required when discoveryUri is present");
-            serverProperties.put("discovery.uri", discoveryUri.get().toString());
-            modules.add(new DiscoveryModule());
-        }
-        else {
-            modules.add(new TestingDiscoveryModule());
-        }
-
         modules.add(additionalModule);
 
         Bootstrap app = new Bootstrap(modules.build());
@@ -378,11 +362,11 @@ public class TestingTrinoServer
                 .quiet()
                 .initialize();
 
-        injector.getInstance(Announcer.class).start();
-
         lifeCycleManager = injector.getInstance(LifeCycleManager.class);
 
         pluginInstaller = injector.getInstance(PluginInstaller.class);
+
+        currentNode = injector.getInstance(InternalNode.class);
 
         var catalogStoreManager = injector.getInstance(Key.get(new TypeLiteral<Optional<CatalogStoreManager>>() {}));
         catalogStoreManager.ifPresent(CatalogStoreManager::loadConfiguredCatalogStore);
@@ -415,8 +399,7 @@ public class TestingTrinoServer
             clusterMemoryManager = injector.getInstance(ClusterMemoryManager.class);
             statsCalculator = injector.getInstance(StatsCalculator.class);
             injector.getInstance(CertificateAuthenticatorManager.class).useDefaultAuthenticator();
-            nodeManager = injector.getInstance(InternalNodeManager.class);
-            serviceSelectorManager = injector.getInstance(ServiceSelectorManager.class);
+            nodeManager = injector.getInstance(TestingInternalNodeManager.class);
         }
         else {
             dispatchManager = null;
@@ -428,7 +411,6 @@ public class TestingTrinoServer
             clusterMemoryManager = null;
             statsCalculator = null;
             nodeManager = null;
-            serviceSelectorManager = null;
         }
         localMemoryManager = injector.getInstance(LocalMemoryManager.class);
         nodeStateManager = injector.getInstance(NodeStateManager.class);
@@ -452,15 +434,10 @@ public class TestingTrinoServer
         EventListenerManager eventListenerManager = injector.getInstance(EventListenerManager.class);
         eventListeners.forEach(eventListenerManager::addEventListener);
 
-        getFutureValue(injector.getInstance(Announcer.class).forceAnnounce());
         // Must be run before startup is considered complete and node will therefore accept tasks.
         // Technically `this` reference might escape here. However, the object is fully constructed.
         additionalConfiguration.accept(this);
         injector.getInstance(StartupStatus.class).startupComplete();
-
-        if (coordinator) {
-            refreshNodes();
-        }
     }
 
     @Override
@@ -485,6 +462,11 @@ public class TestingTrinoServer
     public void installPlugin(Plugin plugin)
     {
         pluginInstaller.installPlugin(plugin);
+    }
+
+    public InternalNode getCurrentNode()
+    {
+        return currentNode;
     }
 
     public DispatchManager getDispatchManager()
@@ -690,11 +672,25 @@ public class TestingTrinoServer
         return coordinator;
     }
 
-    public final AllNodes refreshNodes()
+    public void registerWorker(InternalNode worker)
     {
-        serviceSelectorManager.forceRefresh();
-        nodeManager.refreshNodes();
-        return nodeManager.getAllNodes();
+        checkState(coordinator, "Current server is not a coordinator");
+        checkArgument(!worker.isCoordinator(), "worker node cannot be a coordinator");
+        nodeManager.addNodes(worker);
+    }
+
+    public void unregisterWorker(InternalNode worker)
+    {
+        checkState(coordinator, "Current server is not a coordinator");
+        checkArgument(!worker.isCoordinator(), "worker node cannot be a coordinator");
+        nodeManager.removeNode(worker);
+    }
+
+    public int getWorkerCount()
+    {
+        return (int) nodeManager.getAllNodes().getActiveNodes().stream()
+                .filter(node -> !currentNode.equals(node))
+                .count();
     }
 
     public <T> T getInstance(Key<T> key)
@@ -734,7 +730,6 @@ public class TestingTrinoServer
         private boolean coordinator = true;
         private Map<String, String> properties = ImmutableMap.of();
         private Optional<String> environment = Optional.empty();
-        private Optional<URI> discoveryUri = Optional.empty();
         private Module additionalModule = EMPTY_MODULE;
         private Optional<Path> baseDataDir = Optional.empty();
         private Optional<SpanProcessor> spanProcessor = Optional.empty();
@@ -769,12 +764,6 @@ public class TestingTrinoServer
         public Builder setEnvironment(String environment)
         {
             this.environment = Optional.of(environment);
-            return this;
-        }
-
-        public Builder setDiscoveryUri(URI discoveryUri)
-        {
-            this.discoveryUri = Optional.of(discoveryUri);
             return this;
         }
 
@@ -837,7 +826,6 @@ public class TestingTrinoServer
                     coordinator,
                     properties,
                     environment,
-                    discoveryUri,
                     additionalModule,
                     baseDataDir,
                     spanProcessor,
