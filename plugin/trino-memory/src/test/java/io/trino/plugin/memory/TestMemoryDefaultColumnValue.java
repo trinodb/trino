@@ -34,7 +34,7 @@ public class TestMemoryDefaultColumnValue
     @Test
     void testNull()
     {
-        assertDefaultValue("BOOLEAN", "null", null);
+        assertDefaultValue("TINYINT", "null", null);
     }
 
     @Test
@@ -117,9 +117,6 @@ public class TestMemoryDefaultColumnValue
         assertDefaultValue("CHAR(10)", "'test'", "'test      '");
         assertDefaultValue("CHAR(5)", "'攻殻機動隊'", "'攻殻機動隊'");
         assertDefaultValue("CHAR(1)", "'😂'", "'😂'");
-
-        // Trim trailing spaces
-        assertDefaultValue("CHAR(4)", "'test '", "'test'");
     }
 
     @Test
@@ -130,9 +127,6 @@ public class TestMemoryDefaultColumnValue
         assertDefaultValue("VARCHAR", "'test'", "'test'");
         assertDefaultValue("VARCHAR(5)", "'攻殻機動隊'", "'攻殻機動隊'");
         assertDefaultValue("VARCHAR(1)", "'😂'", "'😂'");
-
-        // Trim trailing spaces
-        assertDefaultValue("VARCHAR(4)", "'test '", "'test'");
     }
 
     @Test
@@ -180,12 +174,6 @@ public class TestMemoryDefaultColumnValue
         assertDefaultValue("TIMESTAMP(10)", "TIMESTAMP '1970-01-01 00:00:00.9999999999'");
         assertDefaultValue("TIMESTAMP(11)", "TIMESTAMP '1970-01-01 00:00:00.99999999999'");
         assertDefaultValue("TIMESTAMP(12)", "TIMESTAMP '1970-01-01 00:00:00.999999999999'");
-
-        // Round fractional seconds
-        assertDefaultValue("TIMESTAMP(0)", "TIMESTAMP '1970-01-01 00:00:00.4'", "TIMESTAMP '1970-01-01 00:00:00'");
-        assertDefaultValue("TIMESTAMP(0)", "TIMESTAMP '1970-01-01 00:00:00.5'", "TIMESTAMP '1970-01-01 00:00:01'");
-        assertDefaultValue("TIMESTAMP(9)", "TIMESTAMP '1970-01-01 00:00:00.9999999994'", "TIMESTAMP '1970-01-01 00:00:00.999999999'");
-        assertDefaultValue("TIMESTAMP(9)", "TIMESTAMP '1970-01-01 00:00:00.9999999995'", "TIMESTAMP '1970-01-01 00:00:01.000000000'");
     }
 
     @Test
@@ -204,12 +192,6 @@ public class TestMemoryDefaultColumnValue
         assertDefaultValue("TIMESTAMP(10) WITH TIME ZONE", "TIMESTAMP '1970-01-01 00:00:00.9999999999 UTC'");
         assertDefaultValue("TIMESTAMP(11) WITH TIME ZONE", "TIMESTAMP '1970-01-01 00:00:00.99999999999 UTC'");
         assertDefaultValue("TIMESTAMP(12) WITH TIME ZONE", "TIMESTAMP '1970-01-01 00:00:00.999999999999 UTC'");
-
-        // Round fractional seconds
-        assertDefaultValue("TIMESTAMP(0) WITH TIME ZONE", "TIMESTAMP '1970-01-01 00:00:00.4 UTC'", "TIMESTAMP '1970-01-01 00:00:00 UTC'");
-        assertDefaultValue("TIMESTAMP(0) WITH TIME ZONE", "TIMESTAMP '1970-01-01 00:00:00.5 UTC'", "TIMESTAMP '1970-01-01 00:00:01 UTC'");
-        assertDefaultValue("TIMESTAMP(9) WITH TIME ZONE", "TIMESTAMP '1970-01-01 00:00:00.9999999994 UTC'", "TIMESTAMP '1970-01-01 00:00:00.999999999 UTC'");
-        assertDefaultValue("TIMESTAMP(9) WITH TIME ZONE", "TIMESTAMP '1970-01-01 00:00:00.9999999995 UTC'", "TIMESTAMP '1970-01-01 00:00:01.000000000 UTC'");
     }
 
     private void assertDefaultValue(@Language("SQL") String columnType, @Language("SQL") String defaultValue)

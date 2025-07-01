@@ -112,12 +112,12 @@ public class TestMemoryConnectorTest
         return newTrinoTable(
                 "test_default_columns",
                 """
-                        (col_required BIGINT NOT NULL,
-                        col_nullable BIGINT,
-                        col_default BIGINT DEFAULT 43,
-                        col_nonnull_default BIGINT DEFAULT 42 NOT NULL,
-                        col_required2 BIGINT NOT NULL)
-                        """);
+                (col_required BIGINT NOT NULL,
+                col_nullable BIGINT,
+                col_default BIGINT DEFAULT 43,
+                col_nonnull_default BIGINT DEFAULT 42 NOT NULL,
+                col_required2 BIGINT NOT NULL)
+                """);
     }
 
     @Test
