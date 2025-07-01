@@ -24,11 +24,27 @@ import static java.util.Objects.requireNonNull;
 
 public interface InternalNodeManager
 {
-    Set<InternalNode> getNodes(NodeState state);
+    default Set<InternalNode> getNodes(NodeState state)
+    {
+        return switch (state) {
+            case ACTIVE -> getAllNodes().getActiveNodes();
+            case INACTIVE -> getAllNodes().getInactiveNodes();
+            case DRAINING -> getAllNodes().getDrainingNodes();
+            case DRAINED -> getAllNodes().getDrainedNodes();
+            case SHUTTING_DOWN -> getAllNodes().getShuttingDownNodes();
+            case INVALID, GONE -> ImmutableSet.of();
+        };
+    }
 
-    NodesSnapshot getActiveNodesSnapshot();
+    default NodesSnapshot getActiveNodesSnapshot()
+    {
+        return new NodesSnapshot(getAllNodes().getActiveNodes());
+    }
 
-    Set<InternalNode> getCoordinators();
+    default Set<InternalNode> getCoordinators()
+    {
+        return getAllNodes().getActiveCoordinators();
+    }
 
     AllNodes getAllNodes();
 

@@ -15,30 +15,11 @@ package io.trino.node;
 
 import io.trino.spi.HostAddress;
 
-import java.util.Set;
 import java.util.function.Consumer;
 
 public class WorkerInternalNodeManager
         implements InternalNodeManager
 {
-    @Override
-    public Set<InternalNode> getNodes(NodeState state)
-    {
-        throw new UnsupportedOperationException("Nodes cannot be listed on a worker node");
-    }
-
-    @Override
-    public NodesSnapshot getActiveNodesSnapshot()
-    {
-        throw new UnsupportedOperationException("Nodes cannot be listed on a worker node");
-    }
-
-    @Override
-    public Set<InternalNode> getCoordinators()
-    {
-        throw new UnsupportedOperationException("Nodes cannot be listed on a worker node");
-    }
-
     @Override
     public AllNodes getAllNodes()
     {
