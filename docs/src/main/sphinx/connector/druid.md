@@ -17,7 +17,7 @@ database from Trino.
 
 To connect to Druid, you need:
 
-- Druid version 0.18.0 or higher.
+- Druid version 0.22.0 or higher.
 - Network access from the Trino coordinator and workers to your Druid broker.
   Port 8082 is the default port.
 
@@ -170,4 +170,20 @@ FROM
 ```
 
 ```{include} query-table-function-ordering.fragment
+```
+
+## Performance
+
+(druid-pushdown)=
+### Pushdown
+
+The connector supports {ref}`aggregate pushdown <aggregation-pushdown>` for the following functions:
+
+- {func}`avg`
+- {func}`count`
+- {func}`max`
+- {func}`min`
+- {func}`sum`
+
+```{include} pushdown-correctness-behavior.fragment
 ```
