@@ -11,21 +11,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.server;
+package io.trino.node;
 
-import com.google.inject.Binder;
-import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.airlift.discovery.server.EmbeddedDiscoveryModule;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 
-public class CoordinatorDiscoveryModule
-        extends AbstractConfigurationAwareModule
+public class TestingAnnouncer
+        implements Announcer
 {
     @Override
-    protected void setup(Binder binder)
+    public void start() {}
+
+    @Override
+    public ListenableFuture<?> forceAnnounce()
     {
-        if (buildConfigObject(ServerConfig.class).isCoordinator() &&
-                buildConfigObject(EmbeddedDiscoveryConfig.class).isEnabled()) {
-            install(new EmbeddedDiscoveryModule());
-        }
+        return Futures.immediateFuture(null);
     }
+
+    @Override
+    public void stop() {}
 }

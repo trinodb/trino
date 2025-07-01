@@ -165,7 +165,6 @@ import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
@@ -417,11 +416,8 @@ public class ServerMainModule
         // split monitor
         binder.bind(SplitMonitor.class).in(Scopes.SINGLETON);
 
-        // version and announcement
+        // node version
         binder.bind(NodeVersion.class).toInstance(new NodeVersion(nodeVersion));
-        discoveryBinder(binder).bindHttpAnnouncement("trino")
-                .addProperty("node_version", nodeVersion)
-                .addProperty("coordinator", String.valueOf(serverConfig.isCoordinator()));
 
         // server info resource
         jaxrsBinder(binder).bind(ServerInfoResource.class);

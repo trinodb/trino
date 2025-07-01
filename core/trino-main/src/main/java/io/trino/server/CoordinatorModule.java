@@ -93,7 +93,6 @@ import io.trino.execution.scheduler.faulttolerant.TaskDescriptorStorage;
 import io.trino.execution.scheduler.policy.AllAtOnceExecutionPolicy;
 import io.trino.execution.scheduler.policy.ExecutionPolicy;
 import io.trino.execution.scheduler.policy.PhasedExecutionPolicy;
-import io.trino.failuredetector.FailureDetectorModule;
 import io.trino.memory.ClusterMemoryManager;
 import io.trino.memory.ForMemoryManager;
 import io.trino.memory.LeastWastedEffortTaskLowMemoryKiller;
@@ -149,7 +148,6 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -172,9 +170,6 @@ public class CoordinatorModule
     {
         install(new WebUiModule());
 
-        // coordinator announcement
-        discoveryBinder(binder).bindHttpAnnouncement("trino-coordinator");
-
         // statement resource
         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
         jaxrsBinder(binder).bind(QueuedStatementResource.class);
@@ -189,9 +184,7 @@ public class CoordinatorModule
             config.setMaxResponseHeaderSize(DataSize.of(2, MEGABYTE));
         });
 
-        // failure detector
-        install(new FailureDetectorModule());
-        jaxrsBinder(binder).bind(NodeResource.class);
+        // worker resource
         jaxrsBinder(binder).bind(WorkerResource.class);
         install(internalHttpClientModule("worker-info", ForWorkerInfo.class).build());
 
