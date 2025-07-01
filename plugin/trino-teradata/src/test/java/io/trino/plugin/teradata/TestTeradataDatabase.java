@@ -5,6 +5,8 @@ import org.intellij.lang.annotations.Language;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.HashMap;
@@ -84,6 +86,39 @@ public class TestTeradataDatabase
     public String getJdbcURL()
     {
         return jdbcUrl;
+    }
+
+    public void createTestDatabaseIfAbsent()
+    {
+        if (!isSchemaExists(databaseName)) {
+            execute(String.format("CREATE DATABASE %s as perm=100e6;", databaseName));
+        }
+    }
+
+    public void dropTestDatabaseIfExists()
+    {
+        execute(String.format("DELETE DATABASE %s", databaseName));
+        execute(String.format("DROP DATABASE %s", databaseName));
+    }
+
+    /**
+     * Checks if a schema exists using a prepared statement.
+     *
+     * @param schemaName the schema to check
+     * @return true if exists; false otherwise
+     */
+    private boolean isSchemaExists(String schemaName)
+    {
+        String query = "SELECT COUNT(1) FROM DBC.DatabasesV WHERE DatabaseName = ?";
+        try (PreparedStatement stmt = connection.prepareStatement(query)) {
+            stmt.setString(1, schemaName);
+            try (ResultSet rs = stmt.executeQuery()) {
+                return rs.next() && rs.getInt(1) > 0;
+            }
+        }
+        catch (SQLException e) {
+            throw new RuntimeException("Failed to check schema existence: " + e.getMessage(), e);
+        }
     }
 
     public Connection getConnection()
