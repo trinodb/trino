@@ -16,16 +16,44 @@ package io.trino.node;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.failuredetector.FailureDetectorModule;
+import io.trino.server.NodeResource;
+import io.trino.server.ServerConfig;
 
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
+import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 
 public class AirliftNodeInventoryModule
         extends AbstractConfigurationAwareModule
 {
+    private final String nodeVersion;
+
+    public AirliftNodeInventoryModule(String nodeVersion)
+    {
+        this.nodeVersion = nodeVersion;
+    }
+
     @Override
     protected void setup(Binder binder)
     {
-        discoveryBinder(binder).bindSelector("trino");
-        binder.bind(NodeInventory.class).to(AirliftNodeInventory.class).in(Scopes.SINGLETON);
+        boolean coordinator = buildConfigObject(ServerConfig.class).isCoordinator();
+        if (coordinator) {
+            binder.bind(NodeInventory.class).to(AirliftNodeInventory.class).in(Scopes.SINGLETON);
+
+            // selector
+            discoveryBinder(binder).bindSelector("trino");
+
+            // coordinator announcement
+            discoveryBinder(binder).bindHttpAnnouncement("trino-coordinator");
+
+            // failure detector
+            install(new FailureDetectorModule());
+            jaxrsBinder(binder).bind(NodeResource.class);
+        }
+
+        // both coordinator and worker must announce
+        discoveryBinder(binder).bindHttpAnnouncement("trino")
+                .addProperty("node_version", nodeVersion)
+                .addProperty("coordinator", String.valueOf(coordinator));
     }
 }

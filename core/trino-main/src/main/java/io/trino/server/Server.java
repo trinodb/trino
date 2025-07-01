@@ -113,7 +113,7 @@ public class Server
                 new CoordinatorDiscoveryModule(),
                 new CatalogManagerModule(),
                 new TransactionManagerModule(),
-                new NodeManagerModule(),
+                new NodeManagerModule(trinoVersion),
                 new ServerMainModule(trinoVersion),
                 new NodeStateManagerModule(),
                 new WarningCollectorModule());

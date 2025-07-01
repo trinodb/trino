@@ -309,7 +309,7 @@ public class TestingTrinoServer
                 .add(new ServerSecurityModule())
                 .add(new CatalogManagerModule())
                 .add(new TransactionManagerModule())
-                .add(new NodeManagerModule())
+                .add(new NodeManagerModule(VERSION))
                 .add(new ServerMainModule(VERSION))
                 .add(new TestingWarningCollectorModule())
                 .add(binder -> {

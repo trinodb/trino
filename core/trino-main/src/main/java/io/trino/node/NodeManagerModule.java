@@ -26,6 +26,13 @@ import static org.weakref.jmx.guice.ExportBinder.newExporter;
 public class NodeManagerModule
         extends AbstractConfigurationAwareModule
 {
+    private final String nodeVersion;
+
+    public NodeManagerModule(String nodeVersion)
+    {
+        this.nodeVersion = nodeVersion;
+    }
+
     @Override
     protected void setup(Binder binder)
     {
@@ -39,11 +46,11 @@ public class NodeManagerModule
                         config.setIdleTimeout(new Duration(30, SECONDS));
                         config.setRequestTimeout(new Duration(10, SECONDS));
                     }).build());
-
-            install(new AirliftNodeInventoryModule());
         }
         else {
             binder.bind(InternalNodeManager.class).to(WorkerInternalNodeManager.class).in(Scopes.SINGLETON);
         }
+
+        install(new AirliftNodeInventoryModule(nodeVersion));
     }
 }
