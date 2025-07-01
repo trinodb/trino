@@ -21,10 +21,10 @@ import io.trino.spi.security.ConnectorIdentity;
 import jakarta.annotation.PreDestroy;
 
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.concurrent.Threads.virtualThreadsNamed;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newThreadPerTaskExecutor;
 
 public class GcsFileSystemFactory
         implements TrinoFileSystemFactory
@@ -44,7 +44,7 @@ public class GcsFileSystemFactory
         this.pageSize = config.getPageSize();
         this.batchSize = config.getBatchSize();
         this.storageFactory = requireNonNull(storageFactory, "storageFactory is null");
-        this.executorService = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("trino-filesystem-gcs-%S")));
+        this.executorService = listeningDecorator(newThreadPerTaskExecutor(virtualThreadsNamed("trino-filesystem-gcs-%s")));
     }
 
     @PreDestroy
