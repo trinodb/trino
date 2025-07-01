@@ -69,9 +69,6 @@ public final class CoordinatorNodeManager
     private AllNodes allNodes;
 
     @GuardedBy("this")
-    private Set<InternalNode> coordinators;
-
-    @GuardedBy("this")
     private Set<InternalNode> invalidNodes;
 
     @GuardedBy("this")
@@ -233,7 +230,6 @@ public final class CoordinatorNodeManager
         if (!allNodes.equals(this.allNodes)) {
             // assign allNodes to a local variable for use in the callback below
             this.allNodes = allNodes;
-            this.coordinators = coordinators;
 
             // notify listeners
             List<Consumer<AllNodes>> listeners = ImmutableList.copyOf(this.listeners);
@@ -275,31 +271,6 @@ public final class CoordinatorNodeManager
     public int getShuttingDownNodeCount()
     {
         return getAllNodes().getShuttingDownNodes().size();
-    }
-
-    @Override
-    public Set<InternalNode> getNodes(NodeState state)
-    {
-        return switch (state) {
-            case ACTIVE -> getAllNodes().getActiveNodes();
-            case INACTIVE -> getAllNodes().getInactiveNodes();
-            case DRAINING -> getAllNodes().getDrainingNodes();
-            case DRAINED -> getAllNodes().getDrainedNodes();
-            case SHUTTING_DOWN -> getAllNodes().getShuttingDownNodes();
-            case INVALID, GONE -> ImmutableSet.of();
-        };
-    }
-
-    @Override
-    public synchronized NodesSnapshot getActiveNodesSnapshot()
-    {
-        return new NodesSnapshot(allNodes.getActiveNodes());
-    }
-
-    @Override
-    public synchronized Set<InternalNode> getCoordinators()
-    {
-        return coordinators;
     }
 
     @VisibleForTesting
