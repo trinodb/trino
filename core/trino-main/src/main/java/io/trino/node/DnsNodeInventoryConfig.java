@@ -13,30 +13,28 @@
  */
 package io.trino.node;
 
+import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 import jakarta.validation.constraints.NotNull;
 
-public class NodeInventoryConfig
-{
-    public enum NodeInventoryType
-    {
-        ANNOUNCE,
-        DNS,
-        AIRLIFT_DISCOVERY,
-    }
+import java.util.Set;
 
-    private NodeInventoryType type = NodeInventoryType.ANNOUNCE;
+public class DnsNodeInventoryConfig
+{
+    private Set<String> hosts = ImmutableSet.of();
 
     @NotNull
-    public NodeInventoryType getType()
+    public Set<@NotNull String> getHosts()
     {
-        return type;
+        return hosts;
     }
 
-    @Config("discovery.type")
-    public NodeInventoryConfig setType(NodeInventoryType type)
+    @Config("cluster.hosts")
+    @ConfigDescription("List of host names to resolve for Trino nodes. All host addresses are used, including IPv4 and IPv6.")
+    public DnsNodeInventoryConfig setHosts(Set<String> hosts)
     {
-        this.type = type;
+        this.hosts = ImmutableSet.copyOf(hosts);
         return this;
     }
 }
