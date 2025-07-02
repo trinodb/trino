@@ -111,7 +111,7 @@ public final class DistributedQueryRunner
     private static final AtomicInteger unclosedInstances = new AtomicInteger();
 
     private TestingTrinoServer coordinator;
-    private Optional<TestingTrinoServer> backupCoordinator;
+    private Optional<TestingTrinoServer> backupCoordinator = Optional.empty();
     private Consumer<Map<String, String>> registerNewWorker;
     private final InMemorySpanExporter spanExporter = InMemorySpanExporter.create();
     private final List<TestingTrinoServer> servers = new CopyOnWriteArrayList<>();
@@ -253,7 +253,7 @@ public final class DistributedQueryRunner
 
     private TestingTrinoServer createServer(
             boolean coordinator,
-            Map<String, String> extraCoordinatorProperties,
+            Map<String, String> extraProperties,
             String environment,
             Module additionalModule,
             Optional<Path> baseDataDir,
@@ -261,9 +261,18 @@ public final class DistributedQueryRunner
             Optional<List<SystemAccessControl>> systemAccessControls,
             List<EventListener> eventListeners)
     {
+        if (this.coordinator != null) {
+            String discoveryUri = this.coordinator.getCurrentNode().getInternalUri() +
+                    backupCoordinator.map(backup -> "," + backup.getCurrentNode().getInternalUri()).orElse("");
+            extraProperties = ImmutableMap.<String, String>builder()
+                    .putAll(extraProperties)
+                    .put("discovery.uri", discoveryUri)
+                    .buildOrThrow();
+        }
+
         TestingTrinoServer server = closer.register(createTestingTrinoServer(
                 coordinator,
-                extraCoordinatorProperties,
+                extraProperties,
                 environment,
                 additionalModule,
                 baseDataDir,
@@ -276,7 +285,8 @@ public final class DistributedQueryRunner
                     plugins.forEach(newServer::installPlugin);
                 }));
         servers.add(server);
-        if (!coordinator) {
+
+        if (this.coordinator != null) {
             InternalNode currentNode = server.getCurrentNode();
             this.coordinator.registerServer(currentNode);
             this.backupCoordinator.ifPresent(backup -> backup.registerServer(currentNode));

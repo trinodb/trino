@@ -192,7 +192,7 @@ class TestCoordinatorNodeManager
             // announce all nodes
             testingTicker.increment(5, SECONDS);
             selector.announceNodes(activeNodes, inactiveNodes);
-            manager.refreshNodes();
+            manager.refreshNodes(true);
             allNodes = notifications.take();
             assertThat(manager.getAllNodes()).isSameAs(allNodes);
             assertThat(allNodes.activeNodes()).isEqualTo(activeNodes);
@@ -202,7 +202,7 @@ class TestCoordinatorNodeManager
             // node manager tracks all nodes until they have not been seen for a while
             testingTicker.increment(30, SECONDS);
             selector.announceNodes(ImmutableSet.of(currentNode), inactiveNodes);
-            manager.refreshNodes();
+            manager.refreshNodes(true);
             allNodes = notifications.take();
             assertThat(manager.getAllNodes()).isSameAs(allNodes);
             assertThat(allNodes.activeNodes()).containsExactly(currentNode);

@@ -15,6 +15,7 @@ package io.trino.node;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Inject;
+import jakarta.annotation.PreDestroy;
 
 public class AirliftAnnouncer
         implements Announcer
@@ -39,6 +40,7 @@ public class AirliftAnnouncer
         return airliftAnnouncer.forceAnnounce();
     }
 
+    @PreDestroy
     @Override
     public void stop()
     {
