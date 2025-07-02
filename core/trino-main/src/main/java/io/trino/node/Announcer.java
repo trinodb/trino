@@ -13,10 +13,26 @@
  */
 package io.trino.node;
 
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
 public interface Announcer
 {
+    Announcer NOOP = new Announcer()
+    {
+        @Override
+        public void start() {}
+
+        @Override
+        public ListenableFuture<?> forceAnnounce()
+        {
+            return Futures.immediateFuture(null);
+        }
+
+        @Override
+        public void stop() {}
+    };
+
     /**
      * Announce the existence of this node to the cluster.
      * This method should be called after the node is fully initialized.

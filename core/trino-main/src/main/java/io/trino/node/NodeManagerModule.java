@@ -58,6 +58,7 @@ public class NodeManagerModule
                 type -> switch (type) {
                     case AIRLIFT_DISCOVERY -> new AirliftNodeInventoryModule(nodeVersion);
                     case ANNOUNCE -> new AnnounceNodeInventoryModule();
+                    case DNS -> new DnsNodeInventoryModule();
                 }));
     }
 }

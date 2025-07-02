@@ -18,20 +18,25 @@ import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.server.ServerConfig;
 
-public class TestingNodeManagerModule
+import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
+
+public class DnsNodeInventoryModule
         extends AbstractConfigurationAwareModule
 {
     @Override
     protected void setup(Binder binder)
     {
-        ServerConfig serverConfig = buildConfigObject(ServerConfig.class);
-        if (serverConfig.isCoordinator()) {
-            binder.bind(TestingInternalNodeManager.class).in(Scopes.SINGLETON);
-            binder.bind(InternalNodeManager.class).to(TestingInternalNodeManager.class).in(Scopes.SINGLETON);
+        boolean coordinator = buildConfigObject(ServerConfig.class).isCoordinator();
+        if (coordinator) {
+            jaxrsBinder(binder).bind(AnnounceNodeResource.class);
+
+            configBinder(binder).bindConfig(DnsNodeInventoryConfig.class);
+            binder.bind(DnsNodeInventory.class).in(Scopes.SINGLETON);
+            binder.bind(NodeInventory.class).to(DnsNodeInventory.class).in(Scopes.SINGLETON);
         }
-        else {
-            binder.bind(InternalNodeManager.class).to(WorkerInternalNodeManager.class).in(Scopes.SINGLETON);
-        }
+
+        // DNS does not announce so bind a no-op announcer
         binder.bind(Announcer.class).toInstance(Announcer.NOOP);
     }
 }
