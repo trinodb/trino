@@ -105,6 +105,19 @@ public class TestMemoryFileSystemCache
         getFileSystem().deleteFile(location);
     }
 
+    @Test
+    public void testZeroSizedFile()
+            throws IOException
+    {
+        Location location = writeFile(0);
+        TrinoInputFile inputFile = getFileSystem().newInputFile(location);
+        try (TrinoInput input = inputFile.newInput()) {
+            input.readFully(0, 0);
+        }
+        assertThat(cache.isCached(cacheKeyProvider.getCacheKey(inputFile).orElseThrow())).isTrue();
+        getFileSystem().deleteFile(location);
+    }
+
     private Location writeFile(int fileSize)
             throws IOException
     {

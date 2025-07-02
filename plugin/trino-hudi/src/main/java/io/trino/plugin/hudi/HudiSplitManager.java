@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
+import io.trino.filesystem.cache.CachingHostAddressProvider;
 import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.Partition;
 import io.trino.metastore.StorageFormat;
@@ -60,16 +61,19 @@ public class HudiSplitManager
     private final BiFunction<ConnectorIdentity, HiveTransactionHandle, HiveMetastore> metastoreProvider;
     private final ExecutorService executor;
     private final ScheduledExecutorService splitLoaderExecutorService;
+    private final CachingHostAddressProvider cachingHostAddressProvider;
 
     @Inject
     public HudiSplitManager(
             BiFunction<ConnectorIdentity, HiveTransactionHandle, HiveMetastore> metastoreProvider,
             @ForHudiSplitManager ExecutorService executor,
-            @ForHudiSplitSource ScheduledExecutorService splitLoaderExecutorService)
+            @ForHudiSplitSource ScheduledExecutorService splitLoaderExecutorService,
+            CachingHostAddressProvider cachingHostAddressProvider)
     {
         this.metastoreProvider = requireNonNull(metastoreProvider, "metastoreProvider is null");
         this.executor = requireNonNull(executor, "executor is null");
         this.splitLoaderExecutorService = requireNonNull(splitLoaderExecutorService, "splitLoaderExecutorService is null");
+        this.cachingHostAddressProvider = requireNonNull(cachingHostAddressProvider, "cachingHostAddressProvider is null");
     }
 
     @Override
@@ -99,7 +103,8 @@ public class HudiSplitManager
                 getMaxOutstandingSplits(session),
                 lazyAllPartitions,
                 dynamicFilter,
-                getDynamicFilteringWaitTimeout(session));
+                getDynamicFilteringWaitTimeout(session),
+                cachingHostAddressProvider);
         return new ClassLoaderSafeConnectorSplitSource(splitSource, HudiSplitManager.class.getClassLoader());
     }
 

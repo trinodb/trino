@@ -14,11 +14,13 @@
 package io.trino.plugin.hudi;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.json.JsonModule;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
@@ -48,6 +50,7 @@ import java.util.Set;
 
 import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.trino.plugin.base.Versions.checkStrictSpiVersionMatch;
+import static java.util.Objects.requireNonNull;
 
 public class HudiConnectorFactory
         implements ConnectorFactory
@@ -78,7 +81,7 @@ public class HudiConnectorFactory
                     new JsonModule(),
                     new HudiModule(),
                     new HiveMetastoreModule(Optional.empty()),
-                    new FileSystemModule(catalogName, context.getNodeManager(), context.getOpenTelemetry(), false),
+                    new HudiFileSystemModule(catalogName, context),
                     new MBeanServerModule(),
                     module.orElse(EMPTY_MODULE),
                     binder -> {
@@ -113,6 +116,28 @@ public class HudiConnectorFactory
                     ImmutableSet.of(),
                     sessionPropertiesProviders,
                     hudiTableProperties.getTableProperties());
+        }
+    }
+
+    private static class HudiFileSystemModule
+            extends AbstractConfigurationAwareModule
+    {
+        private final String catalogName;
+        private final NodeManager nodeManager;
+        private final OpenTelemetry openTelemetry;
+
+        public HudiFileSystemModule(String catalogName, ConnectorContext context)
+        {
+            this.catalogName = requireNonNull(catalogName, "catalogName is null");
+            this.nodeManager = context.getNodeManager();
+            this.openTelemetry = context.getOpenTelemetry();
+        }
+
+        @Override
+        protected void setup(Binder binder)
+        {
+            boolean metadataCacheEnabled = buildConfigObject(HudiConfig.class).isMetadataCacheEnabled();
+            install(new FileSystemModule(catalogName, nodeManager, openTelemetry, metadataCacheEnabled));
         }
     }
 }

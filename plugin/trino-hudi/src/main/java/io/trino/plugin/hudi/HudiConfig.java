@@ -64,6 +64,7 @@ public class HudiConfig
     private Duration columnStatsWaitTimeout = new Duration(1, SECONDS);
     private Duration recordIndexWaitTimeout = new Duration(2, SECONDS);
     private Duration secondaryIndexWaitTimeout = new Duration(2, SECONDS);
+    private boolean metadataCacheEnabled = true;
 
     public List<String> getColumnsToHide()
     {
@@ -406,5 +407,18 @@ public class HudiConfig
     public Duration getSecondaryIndexWaitTimeout()
     {
         return secondaryIndexWaitTimeout;
+    }
+
+    public boolean isMetadataCacheEnabled()
+    {
+        return metadataCacheEnabled;
+    }
+
+    @Config("hudi.metadata.cache.enabled")
+    @ConfigDescription("Enables in-memory caching of Hudi metadata files on coordinator if fs.cache.enabled is set to false")
+    public HudiConfig setMetadataCacheEnabled(boolean metadataCacheEnabled)
+    {
+        this.metadataCacheEnabled = metadataCacheEnabled;
+        return this;
     }
 }

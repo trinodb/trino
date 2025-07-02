@@ -97,6 +97,13 @@ public final class HudiQueryRunner
             return this;
         }
 
+        @CanIgnoreReturnValue
+        public Builder addConnectorProperties(Map<String, String> properties)
+        {
+            this.connectorProperties.putAll(properties);
+            return this;
+        }
+
         @Override
         public DistributedQueryRunner build()
                 throws Exception

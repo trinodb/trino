@@ -14,6 +14,7 @@
 package io.trino.plugin.hudi;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -21,6 +22,7 @@ import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HivePartitionKey;
 import io.trino.plugin.hudi.file.HudiBaseFile;
 import io.trino.plugin.hudi.file.HudiLogFile;
+import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.predicate.TupleDomain;
@@ -46,6 +48,7 @@ public class HudiSplit
     private final TupleDomain<HiveColumnHandle> predicate;
     private final List<HivePartitionKey> partitionKeys;
     private final SplitWeight splitWeight;
+    private final List<HostAddress> cachingHostAddresses;
 
     @JsonCreator
     public HudiSplit(
@@ -56,12 +59,25 @@ public class HudiSplit
             @JsonProperty("partitionKeys") List<HivePartitionKey> partitionKeys,
             @JsonProperty("splitWeight") SplitWeight splitWeight)
     {
+        this(baseFile, logFiles, commitTime, predicate, partitionKeys, splitWeight, ImmutableList.of());
+    }
+
+    public HudiSplit(
+            HudiBaseFile baseFile,
+            List<HudiLogFile> logFiles,
+            String commitTime,
+            TupleDomain<HiveColumnHandle> predicate,
+            List<HivePartitionKey> partitionKeys,
+            SplitWeight splitWeight,
+            List<HostAddress> cachingHostAddresses)
+    {
         this.baseFile = Optional.ofNullable(baseFile);
         this.logFiles = requireNonNull(logFiles, "logFiles is null");
         this.commitTime = requireNonNull(commitTime, "commitTime is null");
         this.predicate = requireNonNull(predicate, "predicate is null");
         this.partitionKeys = ImmutableList.copyOf(requireNonNull(partitionKeys, "partitionKeys is null"));
         this.splitWeight = requireNonNull(splitWeight, "splitWeight is null");
+        this.cachingHostAddresses = requireNonNull(cachingHostAddresses, "cachingHostAddresses is null");
     }
 
     @Override
@@ -109,6 +125,13 @@ public class HudiSplit
     public List<HivePartitionKey> getPartitionKeys()
     {
         return partitionKeys;
+    }
+
+    @JsonIgnore
+    @Override
+    public List<HostAddress> getAddresses()
+    {
+        return cachingHostAddresses;
     }
 
     @Override

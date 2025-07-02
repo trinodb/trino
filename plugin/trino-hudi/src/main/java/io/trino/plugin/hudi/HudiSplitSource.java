@@ -19,6 +19,7 @@ import com.google.common.util.concurrent.Futures;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.filesystem.cache.CachingHostAddressProvider;
 import io.trino.metastore.Partition;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HivePartitionKey;
@@ -89,7 +90,8 @@ public class HudiSplitSource
             int maxOutstandingSplits,
             Lazy<Map<String, Partition>> lazyPartitions,
             DynamicFilter dynamicFilter,
-            Duration dynamicFilteringWaitTimeoutMillis)
+            Duration dynamicFilteringWaitTimeoutMillis,
+            CachingHostAddressProvider cachingHostAddressProvider)
     {
         boolean enableMetadataTable = isHudiMetadataTableEnabled(session);
         Lazy<HoodieTableMetadata> lazyTableMetadata = Lazy.lazily(() -> {
@@ -121,6 +123,7 @@ public class HudiSplitSource
                 lazyPartitions,
                 enableMetadataTable,
                 lazyTableMetadata,
+                cachingHostAddressProvider,
                 throwable -> {
                     trinoException.compareAndSet(null, new TrinoException(HUDI_CANNOT_OPEN_SPLIT,
                             "Failed to generate splits for " + tableHandle.getSchemaTableName(), throwable));

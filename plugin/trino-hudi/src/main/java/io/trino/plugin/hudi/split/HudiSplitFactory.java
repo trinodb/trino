@@ -15,11 +15,13 @@ package io.trino.plugin.hudi.split;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
+import io.trino.filesystem.cache.CachingHostAddressProvider;
 import io.trino.plugin.hive.HivePartitionKey;
 import io.trino.plugin.hudi.HudiSplit;
 import io.trino.plugin.hudi.HudiTableHandle;
 import io.trino.plugin.hudi.file.HudiBaseFile;
 import io.trino.plugin.hudi.file.HudiLogFile;
+import io.trino.spi.HostAddress;
 import io.trino.spi.TrinoException;
 import org.apache.hudi.common.model.FileSlice;
 import org.apache.hudi.common.model.HoodieBaseFile;
@@ -41,20 +43,23 @@ public class HudiSplitFactory
     private final HudiTableHandle hudiTableHandle;
     private final HudiSplitWeightProvider hudiSplitWeightProvider;
     private final DataSize targetSplitSize;
+    private final CachingHostAddressProvider cachingHostAddressProvider;
 
     public HudiSplitFactory(
             HudiTableHandle hudiTableHandle,
             HudiSplitWeightProvider hudiSplitWeightProvider,
-            DataSize targetSplitSize)
+            DataSize targetSplitSize,
+            CachingHostAddressProvider cachingHostAddressProvider)
     {
         this.hudiTableHandle = requireNonNull(hudiTableHandle, "hudiTableHandle is null");
         this.hudiSplitWeightProvider = requireNonNull(hudiSplitWeightProvider, "hudiSplitWeightProvider is null");
         this.targetSplitSize = requireNonNull(targetSplitSize, "targetSplitSize is null");
+        this.cachingHostAddressProvider = requireNonNull(cachingHostAddressProvider, "cachingHostAddressProvider is null");
     }
 
     public List<HudiSplit> createSplits(List<HivePartitionKey> partitionKeys, FileSlice fileSlice, String commitTime)
     {
-        return createHudiSplits(hudiTableHandle, partitionKeys, fileSlice, commitTime, hudiSplitWeightProvider, targetSplitSize);
+        return createHudiSplits(hudiTableHandle, partitionKeys, fileSlice, commitTime, hudiSplitWeightProvider, targetSplitSize, cachingHostAddressProvider);
     }
 
     public static List<HudiSplit> createHudiSplits(
@@ -63,7 +68,8 @@ public class HudiSplitFactory
             FileSlice fileSlice,
             String commitTime,
             HudiSplitWeightProvider hudiSplitWeightProvider,
-            DataSize targetSplitSize)
+            DataSize targetSplitSize,
+            CachingHostAddressProvider cachingHostAddressProvider)
     {
         if (fileSlice.isEmpty()) {
             throw new TrinoException(HUDI_FILESYSTEM_ERROR, format("Not a valid file slice: %s", fileSlice.toString()));
@@ -78,6 +84,8 @@ public class HudiSplitFactory
                     "Hudi base file must exist if there is no log file in the file slice");
             HoodieBaseFile baseFile = fileSlice.getBaseFile().get();
             long fileSize = baseFile.getFileSize();
+            List<HostAddress> addresses = cachingHostAddressProvider.getHosts(
+                    baseFile.getPath(), ImmutableList.of());
 
             if (fileSize == 0) {
                 return ImmutableList.of(new HudiSplit(
@@ -86,7 +94,8 @@ public class HudiSplitFactory
                         commitTime,
                         hudiTableHandle.getRegularPredicates(),
                         partitionKeys,
-                        hudiSplitWeightProvider.calculateSplitWeight(fileSize)));
+                        hudiSplitWeightProvider.calculateSplitWeight(fileSize),
+                        addresses));
             }
 
             ImmutableList.Builder<HudiSplit> splits = ImmutableList.builder();
@@ -100,7 +109,8 @@ public class HudiSplitFactory
                         commitTime,
                         hudiTableHandle.getRegularPredicates(),
                         partitionKeys,
-                        hudiSplitWeightProvider.calculateSplitWeight(targetSplitSizeInBytes)));
+                        hudiSplitWeightProvider.calculateSplitWeight(targetSplitSizeInBytes),
+                        addresses));
                 bytesRemaining -= targetSplitSizeInBytes;
             }
             if (bytesRemaining > 0) {
@@ -110,7 +120,8 @@ public class HudiSplitFactory
                         commitTime,
                         hudiTableHandle.getRegularPredicates(),
                         partitionKeys,
-                        hudiSplitWeightProvider.calculateSplitWeight(bytesRemaining)));
+                        hudiSplitWeightProvider.calculateSplitWeight(bytesRemaining),
+                        addresses));
             }
             return splits.build();
         }
@@ -123,6 +134,7 @@ public class HudiSplitFactory
                 commitTime,
                 hudiTableHandle.getRegularPredicates(),
                 partitionKeys,
-                hudiSplitWeightProvider.calculateSplitWeight(fileSlice.getTotalFileSize())));
+                hudiSplitWeightProvider.calculateSplitWeight(fileSlice.getTotalFileSize()),
+                ImmutableList.of()));
     }
 }

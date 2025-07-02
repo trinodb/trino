@@ -18,6 +18,7 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.Weigher;
 import com.google.inject.Inject;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.cache.EvictableCacheBuilder;
@@ -179,6 +180,9 @@ public final class MemoryFileSystemCache
         long fileSize = delegate.length();
         if (fileSize > maxContentLengthBytes) {
             return Optional.empty();
+        }
+        if (fileSize == 0) {
+            return Optional.of(Slices.wrappedBuffer(new byte[0], 0, 0));
         }
         try (TrinoInput trinoInput = delegate.newInput()) {
             return Optional.of(trinoInput.readTail(toIntExact(fileSize)));

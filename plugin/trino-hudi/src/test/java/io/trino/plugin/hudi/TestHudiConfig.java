@@ -56,7 +56,8 @@ public class TestHudiConfig
                 .setDynamicFilteringWaitTimeout(Duration.valueOf("1s"))
                 .setColumnStatsWaitTimeout(Duration.valueOf("1s"))
                 .setRecordIndexWaitTimeout(Duration.valueOf("2s"))
-                .setSecondaryIndexWaitTimeout(Duration.valueOf("2s")));
+                .setSecondaryIndexWaitTimeout(Duration.valueOf("2s"))
+                .setMetadataCacheEnabled(true));
     }
 
     @Test
@@ -88,6 +89,7 @@ public class TestHudiConfig
                 .put("hudi.index.column-stats.wait-timeout", "2s")
                 .put("hudi.index.record-index.wait-timeout", "1s")
                 .put("hudi.index.secondary-index.wait-timeout", "1s")
+                .put("hudi.metadata.cache.enabled", "false")
                 .buildOrThrow();
 
         HudiConfig expected = new HudiConfig()
@@ -115,7 +117,8 @@ public class TestHudiConfig
                 .setDynamicFilteringWaitTimeout(Duration.valueOf("2s"))
                 .setColumnStatsWaitTimeout(Duration.valueOf("2s"))
                 .setRecordIndexWaitTimeout(Duration.valueOf("1s"))
-                .setSecondaryIndexWaitTimeout(Duration.valueOf("1s"));
+                .setSecondaryIndexWaitTimeout(Duration.valueOf("1s"))
+                .setMetadataCacheEnabled(false);
 
         assertFullMapping(properties, expected);
     }
