@@ -27,23 +27,23 @@ public interface InternalNodeManager
     default Set<InternalNode> getNodes(NodeState state)
     {
         return switch (state) {
-            case ACTIVE -> getAllNodes().getActiveNodes();
-            case INACTIVE -> getAllNodes().getInactiveNodes();
-            case DRAINING -> getAllNodes().getDrainingNodes();
-            case DRAINED -> getAllNodes().getDrainedNodes();
-            case SHUTTING_DOWN -> getAllNodes().getShuttingDownNodes();
+            case ACTIVE -> getAllNodes().activeNodes();
+            case INACTIVE -> getAllNodes().inactiveNodes();
+            case DRAINING -> getAllNodes().drainingNodes();
+            case DRAINED -> getAllNodes().drainedNodes();
+            case SHUTTING_DOWN -> getAllNodes().shuttingDownNodes();
             case INVALID, GONE -> ImmutableSet.of();
         };
     }
 
     default NodesSnapshot getActiveNodesSnapshot()
     {
-        return new NodesSnapshot(getAllNodes().getActiveNodes());
+        return new NodesSnapshot(getAllNodes().activeNodes());
     }
 
     default Set<InternalNode> getCoordinators()
     {
-        return getAllNodes().getActiveCoordinators();
+        return getAllNodes().activeCoordinators();
     }
 
     AllNodes getAllNodes();

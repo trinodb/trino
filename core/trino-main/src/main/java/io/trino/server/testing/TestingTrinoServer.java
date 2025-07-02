@@ -691,7 +691,7 @@ public class TestingTrinoServer
 
     public int getWorkerCount()
     {
-        return (int) nodeManager.getAllNodes().getActiveNodes().stream()
+        return (int) nodeManager.getAllNodes().activeNodes().stream()
                 .filter(node -> !currentNode.equals(node))
                 .count();
     }

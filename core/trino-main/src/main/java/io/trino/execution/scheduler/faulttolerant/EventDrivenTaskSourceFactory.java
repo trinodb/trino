@@ -239,7 +239,7 @@ public class EventDrivenTaskSourceFactory
                     outputDataSizeEstimates,
                     fragment,
                     getFaultTolerantExecutionHashDistributionComputeTaskTargetSize(session).toBytes(),
-                    toIntExact(round(getFaultTolerantExecutionHashDistributionComputeTasksToNodesMinRatio(session) * nodeManager.getAllNodes().getActiveNodes().size())),
+                    toIntExact(round(getFaultTolerantExecutionHashDistributionComputeTasksToNodesMinRatio(session) * nodeManager.getAllNodes().activeNodes().size())),
                     Integer.MAX_VALUE); // compute tasks are bounded by the number of partitions anyways
         }
         if (partitioning.equals(SCALED_WRITER_HASH_DISTRIBUTION)
@@ -253,7 +253,7 @@ public class EventDrivenTaskSourceFactory
                     outputDataSizeEstimates,
                     fragment,
                     getFaultTolerantExecutionHashDistributionWriteTaskTargetSize(session).toBytes(),
-                    toIntExact(round(getFaultTolerantExecutionHashDistributionWriteTasksToNodesMinRatio(session) * nodeManager.getAllNodes().getActiveNodes().size())),
+                    toIntExact(round(getFaultTolerantExecutionHashDistributionWriteTasksToNodesMinRatio(session) * nodeManager.getAllNodes().activeNodes().size())),
                     getFaultTolerantExecutionHashDistributionWriteTaskTargetMaxCount(session));
         }
 

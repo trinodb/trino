@@ -88,7 +88,7 @@ public class TestingInternalNodeManager
     {
         checkArgument(internalNodes.stream().noneMatch(currentNode::equals), "Cannot add current node");
         Set<InternalNode> newActiveNodes = ImmutableSet.<InternalNode>builder()
-                .addAll(allNodes.getActiveNodes())
+                .addAll(allNodes.activeNodes())
                 .addAll(internalNodes)
                 .build();
 
@@ -108,7 +108,7 @@ public class TestingInternalNodeManager
         requireNonNull(internalNode, "internalNode is null");
         checkArgument(!currentNode.equals(internalNode), "Cannot remove current node");
 
-        Set<InternalNode> newActiveNodes = new HashSet<>(allNodes.getActiveNodes());
+        Set<InternalNode> newActiveNodes = new HashSet<>(allNodes.activeNodes());
         newActiveNodes.remove(internalNode);
 
         setAllNodes(new AllNodes(

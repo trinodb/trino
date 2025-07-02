@@ -128,7 +128,7 @@ public class CatalogPruneTask
     public void pruneWorkerCatalogs()
     {
         AllNodes allNodes = internalNodeManager.getAllNodes();
-        Set<URI> online = Stream.of(allNodes.getActiveNodes(), allNodes.getInactiveNodes(), allNodes.getDrainingNodes(), allNodes.getDrainedNodes(), allNodes.getShuttingDownNodes())
+        Set<URI> online = Stream.of(allNodes.activeNodes(), allNodes.inactiveNodes(), allNodes.drainingNodes(), allNodes.drainedNodes(), allNodes.shuttingDownNodes())
                 .flatMap(Set::stream)
                 .map(InternalNode::getInternalUri)
                 .filter(uri -> !uri.equals(currentNode.getInternalUri()))
