@@ -17,6 +17,7 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import jakarta.validation.constraints.NotNull;
 
+import java.net.URI;
 import java.util.Optional;
 
 public class StaticOAuth2ServerConfig
@@ -29,11 +30,11 @@ public class StaticOAuth2ServerConfig
     public static final String END_SESSION_URL = "http-server.authentication.oauth2.end-session-url";
 
     private Optional<String> accessTokenIssuer = Optional.empty();
-    private String authUrl;
-    private String tokenUrl;
-    private String jwksUrl;
-    private Optional<String> userinfoUrl = Optional.empty();
-    private Optional<String> endSessionUrl = Optional.empty();
+    private URI authUrl;
+    private URI tokenUrl;
+    private URI jwksUrl;
+    private Optional<URI> userinfoUrl = Optional.empty();
+    private Optional<URI> endSessionUrl = Optional.empty();
 
     @NotNull
     public Optional<String> getAccessTokenIssuer()
@@ -50,68 +51,68 @@ public class StaticOAuth2ServerConfig
     }
 
     @NotNull
-    public String getAuthUrl()
+    public URI getAuthUrl()
     {
         return authUrl;
     }
 
     @Config(AUTH_URL)
     @ConfigDescription("URL of the authorization server's authorization endpoint")
-    public StaticOAuth2ServerConfig setAuthUrl(String authUrl)
+    public StaticOAuth2ServerConfig setAuthUrl(URI authUrl)
     {
         this.authUrl = authUrl;
         return this;
     }
 
     @NotNull
-    public String getTokenUrl()
+    public URI getTokenUrl()
     {
         return tokenUrl;
     }
 
     @Config(TOKEN_URL)
     @ConfigDescription("URL of the authorization server's token endpoint")
-    public StaticOAuth2ServerConfig setTokenUrl(String tokenUrl)
+    public StaticOAuth2ServerConfig setTokenUrl(URI tokenUrl)
     {
         this.tokenUrl = tokenUrl;
         return this;
     }
 
     @NotNull
-    public String getJwksUrl()
+    public URI getJwksUrl()
     {
         return jwksUrl;
     }
 
     @Config(JWKS_URL)
     @ConfigDescription("URL of the authorization server's JWKS (JSON Web Key Set) endpoint")
-    public StaticOAuth2ServerConfig setJwksUrl(String jwksUrl)
+    public StaticOAuth2ServerConfig setJwksUrl(URI jwksUrl)
     {
         this.jwksUrl = jwksUrl;
         return this;
     }
 
-    public Optional<String> getUserinfoUrl()
+    public Optional<URI> getUserinfoUrl()
     {
         return userinfoUrl;
     }
 
     @Config(USERINFO_URL)
     @ConfigDescription("URL of the userinfo endpoint")
-    public StaticOAuth2ServerConfig setUserinfoUrl(String userinfoUrl)
+    public StaticOAuth2ServerConfig setUserinfoUrl(URI userinfoUrl)
     {
         this.userinfoUrl = Optional.ofNullable(userinfoUrl);
         return this;
     }
 
-    public Optional<String> getEndSessionUrl()
+    public Optional<URI> getEndSessionUrl()
     {
         return endSessionUrl;
     }
 
     @Config(END_SESSION_URL)
     @ConfigDescription("URL of the end session endpoint")
-    public StaticOAuth2ServerConfig setEndSessionUrl(String endSessionUrl)
+    public StaticOAuth2ServerConfig setEndSessionUrl(URI endSessionUrl)
     {
         this.endSessionUrl = Optional.ofNullable(endSessionUrl);
         return this;

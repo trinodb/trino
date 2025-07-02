@@ -49,7 +49,6 @@ import software.amazon.awssdk.services.sts.StsClientBuilder;
 import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
 import software.amazon.awssdk.services.sts.auth.StsWebIdentityTokenFileCredentialsProvider;
 
-import java.net.URI;
 import java.util.EnumSet;
 import java.util.Optional;
 import java.util.Set;
@@ -186,7 +185,7 @@ public final class GlueMetastoreModule
         if (config.getGlueEndpointUrl().isPresent()) {
             checkArgument(config.getGlueRegion().isPresent(), "Glue region must be set when Glue endpoint URL is set");
             glue.region(Region.of(config.getGlueRegion().get()));
-            glue.endpointOverride(URI.create(config.getGlueEndpointUrl().get()));
+            glue.endpointOverride(config.getGlueEndpointUrl().get());
         }
         else if (config.getGlueRegion().isPresent()) {
             glue.region(Region.of(config.getGlueRegion().get()));
@@ -215,7 +214,7 @@ public final class GlueMetastoreModule
         staticCredentialsProvider.ifPresent(sts::credentialsProvider);
 
         if (config.getGlueStsEndpointUrl().isPresent() && config.getGlueStsRegion().isPresent()) {
-            sts.endpointOverride(URI.create(config.getGlueStsEndpointUrl().get()))
+            sts.endpointOverride(config.getGlueStsEndpointUrl().get())
                     .region(Region.of(config.getGlueStsRegion().get()));
         }
         else if (config.getGlueStsRegion().isPresent()) {

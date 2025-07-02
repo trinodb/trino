@@ -16,6 +16,7 @@ package io.trino.plugin.hive.metastore.glue;
 import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.Test;
 
+import java.net.URI;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
@@ -74,9 +75,9 @@ class TestGlueHiveMetastoreConfig
 
         GlueHiveMetastoreConfig expected = new GlueHiveMetastoreConfig()
                 .setGlueRegion("us-east-1")
-                .setGlueEndpointUrl("http://foo.bar")
+                .setGlueEndpointUrl(URI.create("http://foo.bar"))
                 .setGlueStsRegion("us-east-3")
-                .setGlueStsEndpointUrl("http://sts.foo.bar")
+                .setGlueStsEndpointUrl(URI.create("http://sts.foo.bar"))
                 .setPinGlueClientToCurrentRegion(true)
                 .setMaxGlueConnections(10)
                 .setMaxGlueErrorRetries(20)
