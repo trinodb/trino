@@ -124,8 +124,8 @@ public class WorkerResource
     @GET
     public Response getWorkerList()
     {
-        Set<InternalNode> activeNodes = nodeManager.getAllNodes().getActiveNodes();
-        Set<InternalNode> inactiveNodes = nodeManager.getAllNodes().getInactiveNodes();
+        Set<InternalNode> activeNodes = nodeManager.getAllNodes().activeNodes();
+        Set<InternalNode> inactiveNodes = nodeManager.getAllNodes().inactiveNodes();
         Set<JsonNodeInfo> jsonNodes = new HashSet<>();
         for (Node node : activeNodes) {
             JsonNodeInfo jsonNode = new JsonNodeInfo(node.getNodeIdentifier(), node.getHostAndPort().getHostText(), node.getVersion(), node.isCoordinator(), ACTIVE.toString().toLowerCase(Locale.ENGLISH));

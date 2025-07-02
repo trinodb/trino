@@ -80,11 +80,11 @@ public class NodeSystemTable
     {
         Builder table = InMemoryRecordSet.builder(NODES_TABLE);
         AllNodes allNodes = nodeManager.getAllNodes();
-        addRows(table, allNodes.getActiveNodes(), ACTIVE);
-        addRows(table, allNodes.getInactiveNodes(), INACTIVE);
-        addRows(table, allNodes.getShuttingDownNodes(), SHUTTING_DOWN);
-        addRows(table, allNodes.getDrainingNodes(), DRAINING);
-        addRows(table, allNodes.getDrainedNodes(), DRAINED);
+        addRows(table, allNodes.activeNodes(), ACTIVE);
+        addRows(table, allNodes.inactiveNodes(), INACTIVE);
+        addRows(table, allNodes.shuttingDownNodes(), SHUTTING_DOWN);
+        addRows(table, allNodes.drainingNodes(), DRAINING);
+        addRows(table, allNodes.drainedNodes(), DRAINED);
 
         return table.build().cursor();
     }

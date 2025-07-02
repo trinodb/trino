@@ -246,31 +246,31 @@ public final class CoordinatorNodeManager
     @Managed
     public int getActiveNodeCount()
     {
-        return getAllNodes().getActiveNodes().size();
+        return getAllNodes().activeNodes().size();
     }
 
     @Managed
     public int getInactiveNodeCount()
     {
-        return getAllNodes().getInactiveNodes().size();
+        return getAllNodes().inactiveNodes().size();
     }
 
     @Managed
     public int getDrainingNodeCount()
     {
-        return getAllNodes().getDrainingNodes().size();
+        return getAllNodes().drainingNodes().size();
     }
 
     @Managed
     public int getDrainedNodeCount()
     {
-        return getAllNodes().getDrainedNodes().size();
+        return getAllNodes().drainedNodes().size();
     }
 
     @Managed
     public int getShuttingDownNodeCount()
     {
-        return getAllNodes().getShuttingDownNodes().size();
+        return getAllNodes().shuttingDownNodes().size();
     }
 
     @VisibleForTesting

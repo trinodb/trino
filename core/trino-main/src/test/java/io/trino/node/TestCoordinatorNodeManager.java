@@ -118,7 +118,7 @@ class TestCoordinatorNodeManager
             assertThat(connectorNodes).hasSize(4);
             assertThat(connectorNodes.stream().anyMatch(InternalNode::isCoordinator)).isTrue();
 
-            Set<InternalNode> activeNodes = allNodes.getActiveNodes();
+            Set<InternalNode> activeNodes = allNodes.activeNodes();
             assertThat(activeNodes).containsExactlyInAnyOrderElementsOf(this.activeNodes);
 
             for (InternalNode actual : activeNodes) {
@@ -129,7 +129,7 @@ class TestCoordinatorNodeManager
 
             assertThat(activeNodes).containsExactlyInAnyOrderElementsOf(manager.getNodes(ACTIVE));
 
-            Set<InternalNode> inactiveNodes = allNodes.getInactiveNodes();
+            Set<InternalNode> inactiveNodes = allNodes.inactiveNodes();
             assertThat(inactiveNodes).containsExactlyInAnyOrderElementsOf(this.inactiveNodes);
 
             for (InternalNode actual : inactiveNodes) {
@@ -186,8 +186,8 @@ class TestCoordinatorNodeManager
             manager.addNodeChangeListener(notifications::add);
             AllNodes allNodes = notifications.take();
             assertThat(manager.getAllNodes()).isSameAs(allNodes);
-            assertThat(allNodes.getActiveNodes()).containsExactly(currentNode);
-            assertThat(allNodes.getInactiveNodes()).isEmpty();
+            assertThat(allNodes.activeNodes()).containsExactly(currentNode);
+            assertThat(allNodes.inactiveNodes()).isEmpty();
 
             // announce all nodes
             testingTicker.increment(5, SECONDS);
@@ -195,8 +195,8 @@ class TestCoordinatorNodeManager
             manager.refreshNodes();
             allNodes = notifications.take();
             assertThat(manager.getAllNodes()).isSameAs(allNodes);
-            assertThat(allNodes.getActiveNodes()).isEqualTo(activeNodes);
-            assertThat(allNodes.getActiveCoordinators()).isEqualTo(ImmutableSet.of(coordinator));
+            assertThat(allNodes.activeNodes()).isEqualTo(activeNodes);
+            assertThat(allNodes.activeCoordinators()).isEqualTo(ImmutableSet.of(coordinator));
 
             // only announce current node and inactive nodes
             // node manager tracks all nodes until they have not been seen for a while
@@ -205,8 +205,8 @@ class TestCoordinatorNodeManager
             manager.refreshNodes();
             allNodes = notifications.take();
             assertThat(manager.getAllNodes()).isSameAs(allNodes);
-            assertThat(allNodes.getActiveNodes()).containsExactly(currentNode);
-            assertThat(allNodes.getInactiveNodes()).isEqualTo(inactiveNodes);
+            assertThat(allNodes.activeNodes()).containsExactly(currentNode);
+            assertThat(allNodes.inactiveNodes()).isEqualTo(inactiveNodes);
         }
         finally {
             manager.stop();

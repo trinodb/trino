@@ -15,86 +15,25 @@ package io.trino.node;
 
 import com.google.common.collect.ImmutableSet;
 
-import java.util.Objects;
 import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
-public class AllNodes
+public record AllNodes(
+        Set<InternalNode> activeNodes,
+        Set<InternalNode> inactiveNodes,
+        Set<InternalNode> drainingNodes,
+        Set<InternalNode> drainedNodes,
+        Set<InternalNode> shuttingDownNodes,
+        Set<InternalNode> activeCoordinators)
 {
-    private final Set<InternalNode> activeNodes;
-    private final Set<InternalNode> inactiveNodes;
-    private final Set<InternalNode> drainingNodes;
-    private final Set<InternalNode> drainedNodes;
-    private final Set<InternalNode> shuttingDownNodes;
-    private final Set<InternalNode> activeCoordinators;
-
-    public AllNodes(Set<InternalNode> activeNodes,
-            Set<InternalNode> inactiveNodes,
-            Set<InternalNode> drainingNodes,
-            Set<InternalNode> drainedNodes,
-            Set<InternalNode> shuttingDownNodes,
-            Set<InternalNode> activeCoordinators)
+    public AllNodes
     {
-        this.activeNodes = ImmutableSet.copyOf(requireNonNull(activeNodes, "activeNodes is null"));
-        this.inactiveNodes = ImmutableSet.copyOf(requireNonNull(inactiveNodes, "inactiveNodes is null"));
-        this.drainedNodes = ImmutableSet.copyOf(requireNonNull(drainedNodes, "drainedNodes is null"));
-        this.drainingNodes = ImmutableSet.copyOf(requireNonNull(drainingNodes, "drainingNodes is null"));
-        this.shuttingDownNodes = ImmutableSet.copyOf(requireNonNull(shuttingDownNodes, "shuttingDownNodes is null"));
-        this.activeCoordinators = ImmutableSet.copyOf(requireNonNull(activeCoordinators, "activeCoordinators is null"));
-    }
-
-    public Set<InternalNode> getActiveNodes()
-    {
-        return activeNodes;
-    }
-
-    public Set<InternalNode> getInactiveNodes()
-    {
-        return inactiveNodes;
-    }
-
-    public Set<InternalNode> getShuttingDownNodes()
-    {
-        return shuttingDownNodes;
-    }
-
-    public Set<InternalNode> getDrainedNodes()
-    {
-        return drainedNodes;
-    }
-
-    public Set<InternalNode> getDrainingNodes()
-    {
-        return drainingNodes;
-    }
-
-    public Set<InternalNode> getActiveCoordinators()
-    {
-        return activeCoordinators;
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        AllNodes allNodes = (AllNodes) o;
-        return Objects.equals(activeNodes, allNodes.activeNodes) &&
-                Objects.equals(inactiveNodes, allNodes.inactiveNodes) &&
-                Objects.equals(drainedNodes, allNodes.drainedNodes) &&
-                Objects.equals(drainingNodes, allNodes.drainingNodes) &&
-                Objects.equals(shuttingDownNodes, allNodes.shuttingDownNodes) &&
-                Objects.equals(activeCoordinators, allNodes.activeCoordinators);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(activeNodes, inactiveNodes, drainingNodes, drainedNodes, shuttingDownNodes, activeCoordinators);
+        activeNodes = ImmutableSet.copyOf(requireNonNull(activeNodes, "activeNodes is null"));
+        inactiveNodes = ImmutableSet.copyOf(requireNonNull(inactiveNodes, "inactiveNodes is null"));
+        drainedNodes = ImmutableSet.copyOf(requireNonNull(drainedNodes, "drainedNodes is null"));
+        drainingNodes = ImmutableSet.copyOf(requireNonNull(drainingNodes, "drainingNodes is null"));
+        shuttingDownNodes = ImmutableSet.copyOf(requireNonNull(shuttingDownNodes, "shuttingDownNodes is null"));
+        activeCoordinators = ImmutableSet.copyOf(requireNonNull(activeCoordinators, "activeCoordinators is null"));
     }
 }

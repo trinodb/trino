@@ -42,7 +42,7 @@ public class TaskCountEstimator
         boolean schedulerIncludeCoordinator = nodeSchedulerConfig.isIncludeCoordinator();
         requireNonNull(nodeManager, "nodeManager is null");
         this.numberOfNodes = () -> {
-            Set<InternalNode> activeNodes = nodeManager.getAllNodes().getActiveNodes();
+            Set<InternalNode> activeNodes = nodeManager.getAllNodes().activeNodes();
             int count;
             if (schedulerIncludeCoordinator) {
                 count = activeNodes.size();

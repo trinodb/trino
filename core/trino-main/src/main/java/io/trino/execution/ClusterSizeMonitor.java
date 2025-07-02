@@ -137,10 +137,10 @@ public class ClusterSizeMonitor
     private synchronized void updateAllNodes(AllNodes allNodes)
     {
         if (includeCoordinator) {
-            currentCount = allNodes.getActiveNodes().size();
+            currentCount = allNodes.activeNodes().size();
         }
         else {
-            currentCount = Sets.difference(allNodes.getActiveNodes(), allNodes.getActiveCoordinators()).size();
+            currentCount = Sets.difference(allNodes.activeNodes(), allNodes.activeCoordinators()).size();
         }
 
         ImmutableList.Builder<SettableFuture<Void>> listenersBuilder = ImmutableList.builder();
