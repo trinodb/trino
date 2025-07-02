@@ -149,7 +149,10 @@ public class TestingInternalNodeManager
     }
 
     @Override
-    public void refreshNodes() {}
+    public boolean refreshNodes(boolean forceAndWait)
+    {
+        return true;
+    }
 
     @Override
     public synchronized void addNodeChangeListener(Consumer<AllNodes> listener)

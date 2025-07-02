@@ -17,6 +17,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
@@ -43,6 +45,7 @@ import java.util.function.Supplier;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -112,7 +115,7 @@ public final class CoordinatorNodeManager
         this.nodeStateEventExecutor = newCachedThreadPool(daemonThreadsNamed("node-state-events-%s"));
         this.ticker = requireNonNull(ticker, "ticker is null");
 
-        refreshNodes();
+        refreshNodes(false);
     }
 
     @PostConstruct
@@ -120,13 +123,13 @@ public final class CoordinatorNodeManager
     {
         nodeStateUpdateExecutor.scheduleWithFixedDelay(() -> {
             try {
-                refreshNodes();
+                refreshNodes(false);
             }
             catch (Exception e) {
                 log.error(e, "Error polling state of nodes");
             }
         }, 5, 5, TimeUnit.SECONDS);
-        refreshNodes();
+        refreshNodes(false);
     }
 
     @PreDestroy
@@ -137,7 +140,7 @@ public final class CoordinatorNodeManager
     }
 
     @Override
-    public void refreshNodes()
+    public boolean refreshNodes(boolean forceAndWait)
     {
         // Add new nodes
         for (URI uri : nodeInventory.getNodes()) {
@@ -170,10 +173,18 @@ public final class CoordinatorNodeManager
         }
 
         // Schedule refresh
-        nodeStates.values().forEach(RemoteNodeState::asyncRefresh);
+        ListenableFuture<List<Boolean>> future = Futures.allAsList(nodeStates.values().stream()
+                .map(remoteNodeState -> remoteNodeState.asyncRefresh(forceAndWait))
+                .toList());
+        boolean result = true;
+        if (forceAndWait) {
+            result = getFutureValue(future).stream().allMatch(Boolean::booleanValue);
+        }
 
         // update indexes
         refreshNodesInternal();
+
+        return result;
     }
 
     private synchronized void refreshNodesInternal()

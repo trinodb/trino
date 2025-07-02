@@ -33,7 +33,7 @@ public class WorkerInternalNodeManager
     }
 
     @Override
-    public void refreshNodes()
+    public boolean refreshNodes(boolean forceAndWait)
     {
         throw new UnsupportedOperationException("Nodes cannot be listed on a worker node");
     }
