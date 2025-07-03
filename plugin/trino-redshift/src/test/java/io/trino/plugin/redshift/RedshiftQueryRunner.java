@@ -58,7 +58,7 @@ public final class RedshiftQueryRunner
     private static final String S3_TPCH_TABLES_ROOT = requiredNonEmptySystemProperty("test.redshift.s3.tpch.tables.root");
     public static final String IAM_ROLE = requiredNonEmptySystemProperty("test.redshift.iam.role");
 
-    private static final String TEST_CATALOG = "redshift";
+    public static final String TEST_CATALOG = "redshift";
     private static final String CONNECTOR_NAME = "redshift";
     private static final String TPCH_CATALOG = "tpch";
 
