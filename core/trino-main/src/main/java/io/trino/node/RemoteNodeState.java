@@ -14,7 +14,6 @@
 package io.trino.node;
 
 import com.google.common.base.Ticker;
-import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.FormatMethod;
@@ -37,6 +36,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.net.MediaType.JSON_UTF_8;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.HttpStatus.OK;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
@@ -185,26 +185,13 @@ public class RemoteNodeState
                     logWarning("Error fetching node state from %s: %s", infoUri, t.getMessage());
                     return false;
                 }, directExecutor());
-        future.compareAndSet(null, catching);
-        Futures.addCallback(
-                catching,
-                new FutureCallback<>()
-                {
-                    @Override
-                    public void onSuccess(Boolean result)
-                    {
-                        future.compareAndSet(catching, null);
-                        lastUpdateNanos.set(ticker.read());
-                    }
 
-                    @Override
-                    public void onFailure(Throwable t)
-                    {
-                        future.compareAndSet(catching, null);
-                        lastUpdateNanos.set(ticker.read());
-                    }
-                },
-                directExecutor());
+        future.compareAndSet(null, catching);
+        addSuccessCallback(catching, _ -> {
+            future.compareAndSet(catching, null);
+            lastUpdateNanos.set(ticker.read());
+        });
+
         return catching;
     }
 
