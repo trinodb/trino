@@ -137,7 +137,7 @@ Host and port for a SOCKS proxy.
 
 ## Request logging
 
-### `http-client.log.compression-enabled`
+### `http-client.log.compression.enabled`
 
 - **Type:** [](prop-type-boolean)
 - **Default value:** `true`

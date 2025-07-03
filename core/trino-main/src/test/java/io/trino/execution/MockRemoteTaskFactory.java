@@ -41,8 +41,8 @@ import io.trino.execution.buffer.SpoolingOutputStats;
 import io.trino.memory.MemoryPool;
 import io.trino.memory.QueryContext;
 import io.trino.memory.context.SimpleLocalMemoryContext;
-import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
+import io.trino.node.InternalNode;
 import io.trino.operator.TaskContext;
 import io.trino.operator.TaskStats;
 import io.trino.spi.predicate.TupleDomain;
@@ -67,6 +67,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
@@ -125,6 +126,7 @@ public class MockRemoteTaskFactory
                 Optional.empty(),
                 ImmutableList.of(sourceId),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)),
+                OptionalInt.empty(),
                 StatsAndCosts.empty(),
                 ImmutableList.of(),
                 ImmutableMap.of(),

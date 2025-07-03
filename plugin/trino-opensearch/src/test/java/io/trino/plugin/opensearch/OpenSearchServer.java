@@ -14,7 +14,7 @@
 package io.trino.plugin.opensearch;
 
 import com.google.common.net.HostAndPort;
-import org.opensearch.testcontainers.OpensearchContainer;
+import org.opensearch.testcontainers.OpenSearchContainer;
 import org.testcontainers.containers.Network;
 
 import java.io.Closeable;
@@ -35,7 +35,7 @@ public class OpenSearchServer
     public static final String OPENSEARCH_IMAGE = "opensearchproject/opensearch:2.11.0";
 
     private final Path configurationPath;
-    private final OpensearchContainer container;
+    private final OpenSearchContainer container;
 
     public OpenSearchServer(String image, boolean secured, Map<String, String> configurationFiles)
             throws IOException
@@ -46,7 +46,7 @@ public class OpenSearchServer
     public OpenSearchServer(Network network, String image, boolean secured, Map<String, String> configurationFiles)
             throws IOException
     {
-        container = new OpensearchContainer<>(image);
+        container = new OpenSearchContainer<>(image);
         container.withNetwork(network);
         if (secured) {
             container.withSecurityEnabled();

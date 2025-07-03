@@ -103,10 +103,13 @@ import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.function.Signature;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.security.FunctionAuthorization;
 import io.trino.spi.security.GrantInfo;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.RoleGrant;
+import io.trino.spi.security.SchemaAuthorization;
+import io.trino.spi.security.TableAuthorization;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
@@ -2863,5 +2866,41 @@ public final class MetadataManager
     private static boolean cannotExist(QualifiedObjectName name)
     {
         return name.catalogName().isEmpty() || name.schemaName().isEmpty() || name.objectName().isEmpty();
+    }
+
+    @Override
+    public Set<SchemaAuthorization> getSchemasAuthorizationInfo(Session session, QualifiedSchemaPrefix prefix)
+    {
+        requireNonNull(prefix, "prefix is null");
+
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, prefix.catalogName());
+        if (catalog.map(CatalogMetadata::getSecurityManagement).filter(SYSTEM::equals).isPresent()) {
+            return systemSecurityMetadata.getSchemasAuthorizationInfo(session, prefix);
+        }
+        return ImmutableSet.of();
+    }
+
+    @Override
+    public Set<TableAuthorization> getTablesAuthorizationInfo(Session session, QualifiedTablePrefix prefix)
+    {
+        requireNonNull(prefix, "prefix is null");
+
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, prefix.getCatalogName());
+        if (catalog.map(CatalogMetadata::getSecurityManagement).filter(SYSTEM::equals).isPresent()) {
+            return systemSecurityMetadata.getTablesAuthorizationInfo(session, prefix);
+        }
+        return ImmutableSet.of();
+    }
+
+    @Override
+    public Set<FunctionAuthorization> getFunctionsAuthorizationInfo(Session session, QualifiedObjectPrefix prefix)
+    {
+        requireNonNull(prefix, "prefix is null");
+
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, prefix.catalogName());
+        if (catalog.map(CatalogMetadata::getSecurityManagement).filter(SYSTEM::equals).isPresent()) {
+            return systemSecurityMetadata.getFunctionsAuthorizationInfo(session, prefix);
+        }
+        return ImmutableSet.of();
     }
 }

@@ -17,6 +17,7 @@ import com.google.inject.Injector;
 import com.google.inject.Scopes;
 import io.airlift.bootstrap.Bootstrap;
 import io.trino.plugin.base.jmx.MBeanServerModule;
+import io.trino.spi.Node;
 import io.trino.spi.NodeManager;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
@@ -45,6 +46,7 @@ public class JmxConnectorFactory
                 new MBeanServerModule(),
                 binder -> {
                     configBinder(binder).bindConfig(JmxConnectorConfig.class);
+                    binder.bind(Node.class).toInstance(context.getCurrentNode());
                     binder.bind(NodeManager.class).toInstance(context.getNodeManager());
                     binder.bind(JmxConnector.class).in(Scopes.SINGLETON);
                     binder.bind(JmxHistoricalData.class).in(Scopes.SINGLETON);

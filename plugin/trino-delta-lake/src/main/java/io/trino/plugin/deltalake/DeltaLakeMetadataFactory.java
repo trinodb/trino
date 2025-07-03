@@ -30,7 +30,7 @@ import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogWriterFacto
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.TrinoViewHiveMetastore;
 import io.trino.plugin.hive.security.UsingSystemSecurity;
-import io.trino.spi.NodeManager;
+import io.trino.spi.Node;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
 
@@ -51,7 +51,7 @@ public class DeltaLakeMetadataFactory
     private final JsonCodec<DataFileInfo> dataFileInfoCodec;
     private final JsonCodec<DeltaLakeMergeResult> mergeResultJsonCodec;
     private final TransactionLogWriterFactory transactionLogWriterFactory;
-    private final NodeManager nodeManager;
+    private final Node currentNode;
     private final CheckpointWriterManager checkpointWriterManager;
     private final CachingExtendedStatisticsAccess statisticsAccess;
     private final int domainCompactionThreshold;
@@ -77,7 +77,7 @@ public class DeltaLakeMetadataFactory
             JsonCodec<DataFileInfo> dataFileInfoCodec,
             JsonCodec<DeltaLakeMergeResult> mergeResultJsonCodec,
             TransactionLogWriterFactory transactionLogWriterFactory,
-            NodeManager nodeManager,
+            Node currentNode,
             CheckpointWriterManager checkpointWriterManager,
             CachingExtendedStatisticsAccess statisticsAccess,
             @AllowDeltaLakeManagedTableRename boolean allowManagedTableRename,
@@ -94,7 +94,7 @@ public class DeltaLakeMetadataFactory
         this.dataFileInfoCodec = requireNonNull(dataFileInfoCodec, "dataFileInfoCodec is null");
         this.mergeResultJsonCodec = requireNonNull(mergeResultJsonCodec, "mergeResultJsonCodec is null");
         this.transactionLogWriterFactory = requireNonNull(transactionLogWriterFactory, "transactionLogWriterFactory is null");
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.currentNode = requireNonNull(currentNode, "currentNode is null");
         this.checkpointWriterManager = requireNonNull(checkpointWriterManager, "checkpointWriterManager is null");
         this.statisticsAccess = requireNonNull(statisticsAccess, "statisticsAccess is null");
         this.domainCompactionThreshold = deltaLakeConfig.getDomainCompactionThreshold();
@@ -143,7 +143,7 @@ public class DeltaLakeMetadataFactory
                 dataFileInfoCodec,
                 mergeResultJsonCodec,
                 transactionLogWriterFactory,
-                nodeManager,
+                currentNode,
                 checkpointWriterManager,
                 checkpointWritingInterval,
                 deleteSchemaLocationsFallback,

@@ -25,7 +25,7 @@ import io.trino.plugin.deltalake.DeltaLakeColumnMetadata;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
 import io.trino.plugin.deltalake.MaxTableParameterLength;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
-import io.trino.spi.NodeManager;
+import io.trino.spi.Node;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
@@ -83,7 +83,7 @@ public class DeltaLakeTableMetadataScheduler
 
     @Inject
     public DeltaLakeTableMetadataScheduler(
-            NodeManager nodeManager,
+            Node currentNode,
             TypeManager typeManager,
             DeltaLakeTableOperationsProvider tableOperationsProvider,
             @MaxTableParameterLength int tableParameterLengthLimit,
@@ -93,8 +93,8 @@ public class DeltaLakeTableMetadataScheduler
         this.tableOperationsProvider = requireNonNull(tableOperationsProvider, "tableOperationsProvider is null");
         this.tableParameterLengthLimit = tableParameterLengthLimit;
         this.storeTableMetadataThreads = config.getStoreTableMetadataThreads();
-        requireNonNull(nodeManager, "nodeManager is null");
-        this.enabled = config.isStoreTableMetadataEnabled() && nodeManager.getCurrentNode().isCoordinator();
+        requireNonNull(currentNode, "currentNode is null");
+        this.enabled = config.isStoreTableMetadataEnabled() && currentNode.isCoordinator();
         this.scheduleInterval = config.getStoreTableMetadataInterval();
     }
 

@@ -22,9 +22,9 @@ import io.trino.execution.ForQueryExecution;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.TableExecuteContextManager;
 import io.trino.execution.scheduler.OutputDataSizeEstimate;
-import io.trino.metadata.InternalNodeManager;
+import io.trino.node.InternalNode;
+import io.trino.node.InternalNodeManager;
 import io.trino.spi.HostAddress;
-import io.trino.spi.Node;
 import io.trino.spi.exchange.Exchange;
 import io.trino.sql.planner.MergePartitioningHandle;
 import io.trino.sql.planner.PartitioningHandle;
@@ -75,6 +75,7 @@ public class EventDrivenTaskSourceFactory
 {
     private final SplitSourceFactory splitSourceFactory;
     private final Executor executor;
+    private final InternalNode currentNode;
     private final InternalNodeManager nodeManager;
     private final TableExecuteContextManager tableExecuteContextManager;
     private final int splitBatchSize;
@@ -83,6 +84,7 @@ public class EventDrivenTaskSourceFactory
     public EventDrivenTaskSourceFactory(
             SplitSourceFactory splitSourceFactory,
             @ForQueryExecution ExecutorService executor,
+            InternalNode currentNode,
             InternalNodeManager nodeManager,
             TableExecuteContextManager tableExecuteContextManager,
             QueryManagerConfig queryManagerConfig)
@@ -90,6 +92,7 @@ public class EventDrivenTaskSourceFactory
         this(
                 splitSourceFactory,
                 executor,
+                currentNode,
                 nodeManager,
                 tableExecuteContextManager,
                 requireNonNull(queryManagerConfig, "queryManagerConfig is null").getScheduleSplitBatchSize());
@@ -98,12 +101,14 @@ public class EventDrivenTaskSourceFactory
     public EventDrivenTaskSourceFactory(
             SplitSourceFactory splitSourceFactory,
             Executor executor,
+            InternalNode currentNode,
             InternalNodeManager nodeManager,
             TableExecuteContextManager tableExecuteContextManager,
             int splitBatchSize)
     {
         this.splitSourceFactory = requireNonNull(splitSourceFactory, "splitSourceFactory is null");
         this.executor = requireNonNull(executor, "executor is null");
+        this.currentNode = requireNonNull(currentNode, "currentNode is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.tableExecuteContextManager = requireNonNull(tableExecuteContextManager, "tableExecuteContextManager is null");
         this.splitBatchSize = splitBatchSize;
@@ -173,7 +178,6 @@ public class EventDrivenTaskSourceFactory
         if (partitioning.equals(SINGLE_DISTRIBUTION) || coordinatorOnly) {
             Optional<HostAddress> hostRequirement = Optional.empty();
             if (coordinatorOnly) {
-                Node currentNode = nodeManager.getCurrentNode();
                 verify(currentNode.isCoordinator(), "current node is expected to be a coordinator");
                 hostRequirement = Optional.of(currentNode.getHostAndPort());
             }
@@ -235,7 +239,7 @@ public class EventDrivenTaskSourceFactory
                     outputDataSizeEstimates,
                     fragment,
                     getFaultTolerantExecutionHashDistributionComputeTaskTargetSize(session).toBytes(),
-                    toIntExact(round(getFaultTolerantExecutionHashDistributionComputeTasksToNodesMinRatio(session) * nodeManager.getAllNodes().getActiveNodes().size())),
+                    toIntExact(round(getFaultTolerantExecutionHashDistributionComputeTasksToNodesMinRatio(session) * nodeManager.getAllNodes().activeNodes().size())),
                     Integer.MAX_VALUE); // compute tasks are bounded by the number of partitions anyways
         }
         if (partitioning.equals(SCALED_WRITER_HASH_DISTRIBUTION)
@@ -249,7 +253,7 @@ public class EventDrivenTaskSourceFactory
                     outputDataSizeEstimates,
                     fragment,
                     getFaultTolerantExecutionHashDistributionWriteTaskTargetSize(session).toBytes(),
-                    toIntExact(round(getFaultTolerantExecutionHashDistributionWriteTasksToNodesMinRatio(session) * nodeManager.getAllNodes().getActiveNodes().size())),
+                    toIntExact(round(getFaultTolerantExecutionHashDistributionWriteTasksToNodesMinRatio(session) * nodeManager.getAllNodes().activeNodes().size())),
                     getFaultTolerantExecutionHashDistributionWriteTaskTargetMaxCount(session));
         }
 

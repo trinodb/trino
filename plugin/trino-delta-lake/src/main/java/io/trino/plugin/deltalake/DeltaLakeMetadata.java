@@ -91,7 +91,7 @@ import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogWriter;
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogWriterFactory;
 import io.trino.plugin.hive.TrinoViewHiveMetastore;
 import io.trino.spi.ErrorCode;
-import io.trino.spi.NodeManager;
+import io.trino.spi.Node;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.Assignment;
@@ -492,7 +492,7 @@ public class DeltaLakeMetadata
             JsonCodec<DataFileInfo> dataFileInfoCodec,
             JsonCodec<DeltaLakeMergeResult> mergeResultJsonCodec,
             TransactionLogWriterFactory transactionLogWriterFactory,
-            NodeManager nodeManager,
+            Node currentNode,
             CheckpointWriterManager checkpointWriterManager,
             long defaultCheckpointInterval,
             boolean deleteSchemaLocationsFallback,
@@ -514,8 +514,8 @@ public class DeltaLakeMetadata
         this.dataFileInfoCodec = requireNonNull(dataFileInfoCodec, "dataFileInfoCodec is null");
         this.mergeResultJsonCodec = requireNonNull(mergeResultJsonCodec, "mergeResultJsonCodec is null");
         this.transactionLogWriterFactory = requireNonNull(transactionLogWriterFactory, "transactionLogWriterFactory is null");
-        this.nodeVersion = nodeManager.getCurrentNode().getVersion();
-        this.nodeId = nodeManager.getCurrentNode().getNodeIdentifier();
+        this.nodeVersion = currentNode.getVersion();
+        this.nodeId = currentNode.getNodeIdentifier();
         this.checkpointWriterManager = requireNonNull(checkpointWriterManager, "checkpointWriterManager is null");
         this.defaultCheckpointInterval = defaultCheckpointInterval;
         this.statisticsAccess = requireNonNull(statisticsAccess, "statisticsAccess is null");
@@ -2587,19 +2587,21 @@ public class DeltaLakeMetadata
                 return Optional.empty();
             }
 
-            Optional<CommitInfoEntry> cloneCommit = transactions.getFirst().transactionEntries().getEntries(fileSystem)
-                    .map(DeltaLakeTransactionLogEntry::getCommitInfo)
-                    .filter(Objects::nonNull)
-                    .filter(commitInfoEntry -> commitInfoEntry.operation().equals("CLONE"))
-                    .findFirst();
-            if (cloneCommit.isEmpty()) {
-                return Optional.empty();
-            }
+            try (Stream<DeltaLakeTransactionLogEntry> logEntries = transactions.getFirst().transactionEntries().getEntries(fileSystem)) {
+                Optional<CommitInfoEntry> cloneCommit = logEntries
+                        .map(DeltaLakeTransactionLogEntry::getCommitInfo)
+                        .filter(Objects::nonNull)
+                        .filter(commitInfoEntry -> commitInfoEntry.operation().equals("CLONE"))
+                        .findFirst();
+                if (cloneCommit.isEmpty()) {
+                    return Optional.empty();
+                }
 
-            // It's the cloned table
-            sourceTableName = cloneCommit.get().operationParameters().get("source");
-            if (sourceTableName == null) {
-                throw new TrinoException(NOT_SUPPORTED, "Not support reading source table for cloned table with null source table name");
+                // It's the cloned table
+                sourceTableName = cloneCommit.get().operationParameters().get("source");
+                if (sourceTableName == null) {
+                    throw new TrinoException(NOT_SUPPORTED, "Not support reading source table for cloned table with null source table name");
+                }
             }
         }
         catch (IOException e) {

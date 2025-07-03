@@ -35,6 +35,7 @@ import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryState;
 import io.trino.execution.QueryStats;
 import io.trino.execution.StageInfo;
+import io.trino.execution.StagesInfo;
 import io.trino.execution.TaskInfo;
 import io.trino.execution.TaskState;
 import io.trino.metadata.FunctionManager;
@@ -98,7 +99,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.execution.QueryState.QUEUED;
-import static io.trino.execution.StageInfo.getAllStages;
+import static io.trino.execution.StagesInfo.getAllStages;
 import static io.trino.sql.planner.planprinter.PlanPrinter.jsonDistributedPlan;
 import static io.trino.sql.planner.planprinter.PlanPrinter.textDistributedPlan;
 import static io.trino.util.MoreMath.firstNonNaN;
@@ -112,7 +113,7 @@ public class QueryMonitor
     private static final Logger log = Logger.get(QueryMonitor.class);
     private static final ZoneId ZONE_ID = ZoneId.systemDefault();
 
-    private final JsonCodec<StageInfo> stageInfoCodec;
+    private final JsonCodec<StagesInfo> stagesInfoCodec;
     private final JsonCodec<OperatorStats> operatorStatsCodec;
     private final JsonCodec<ExecutionFailureInfo> executionFailureInfoCodec;
     private final JsonCodec<StatsAndCosts> statsAndCostsCodec;
@@ -127,7 +128,7 @@ public class QueryMonitor
 
     @Inject
     public QueryMonitor(
-            JsonCodec<StageInfo> stageInfoCodec,
+            JsonCodec<StagesInfo> stagesInfoCodec,
             JsonCodec<OperatorStats> operatorStatsCodec,
             JsonCodec<ExecutionFailureInfo> executionFailureInfoCodec,
             JsonCodec<StatsAndCosts> statsAndCostsCodec,
@@ -140,7 +141,7 @@ public class QueryMonitor
             QueryMonitorConfig config)
     {
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
-        this.stageInfoCodec = requireNonNull(stageInfoCodec, "stageInfoCodec is null");
+        this.stagesInfoCodec = requireNonNull(stagesInfoCodec, "stagesInfoCodec is null");
         this.operatorStatsCodec = requireNonNull(operatorStatsCodec, "operatorStatsCodec is null");
         this.statsAndCostsCodec = requireNonNull(statsAndCostsCodec, "statsAndCostsCodec is null");
         this.executionFailureInfoCodec = requireNonNull(executionFailureInfoCodec, "executionFailureInfoCodec is null");
@@ -275,7 +276,7 @@ public class QueryMonitor
                                 queryInfo.getQueryType(),
                                 queryInfo.getRetryPolicy()),
                         getQueryIOMetadata(queryInfo),
-                        createQueryFailureInfo(queryInfo.getFailureInfo(), queryInfo.getOutputStage()),
+                        createQueryFailureInfo(queryInfo.getFailureInfo(), queryInfo.getStages()),
                         queryInfo.getWarnings(),
                         queryStats.getCreateTime(),
                         queryStats.getExecutionStartTime(),
@@ -303,14 +304,14 @@ public class QueryMonitor
                 queryInfo.getSelf(),
                 createTextQueryPlan(queryInfo, anonymizer),
                 createJsonQueryPlan(queryInfo, anonymizer),
-                memoize(() -> queryInfo.getOutputStage().flatMap(stage -> stageInfoCodec.toJsonWithLengthLimit(stage, maxJsonLimit))));
+                memoize(() -> queryInfo.getStages().flatMap(stages -> stagesInfoCodec.toJsonWithLengthLimit(stages, maxJsonLimit))));
     }
 
     private QueryStatistics createQueryStatistics(QueryInfo queryInfo)
     {
         List<OperatorStats> operatorStats = queryInfo.getQueryStats().getOperatorSummaries();
 
-        Optional<StatsAndCosts> planNodeStatsAndCosts = queryInfo.getOutputStage().map(StatsAndCosts::create);
+        Optional<StatsAndCosts> planNodeStatsAndCosts = queryInfo.getStages().map(StatsAndCosts::create);
         Optional<String> serializedPlanNodeStatsAndCosts = planNodeStatsAndCosts.map(statsAndCostsCodec::toJson);
 
         QueryStats queryStats = queryInfo.getQueryStats();
@@ -406,9 +407,9 @@ public class QueryMonitor
     private Optional<String> createTextQueryPlan(QueryInfo queryInfo, Anonymizer anonymizer)
     {
         try {
-            if (queryInfo.getOutputStage().isPresent()) {
+            if (queryInfo.getStages().isPresent()) {
                 return Optional.of(textDistributedPlan(
-                        queryInfo.getOutputStage().get(),
+                        queryInfo.getStages().get(),
                         queryInfo.getQueryStats(),
                         new ValuePrinter(metadata, functionManager, queryInfo.getSession().toSession(sessionPropertyManager)),
                         false,
@@ -427,9 +428,9 @@ public class QueryMonitor
     private Optional<String> createJsonQueryPlan(QueryInfo queryInfo, Anonymizer anonymizer)
     {
         try {
-            if (queryInfo.getOutputStage().isPresent()) {
+            if (queryInfo.getStages().isPresent()) {
                 return Optional.of(jsonDistributedPlan(
-                        queryInfo.getOutputStage().get(),
+                        queryInfo.getStages().orElseThrow(),
                         queryInfo.getSession().toSession(sessionPropertyManager),
                         metadata,
                         functionManager,
@@ -518,7 +519,7 @@ public class QueryMonitor
     {
         // Note: A plan may map a table scan to multiple operators.
         ImmutableMultimap.Builder<FragmentNode, OperatorStats> planNodeStats = ImmutableMultimap.builder();
-        getAllStages(queryInfo.getOutputStage())
+        getAllStages(queryInfo.getStages())
                 .forEach(stageInfo -> extractPlanNodeStats(stageInfo, planNodeStats));
         return planNodeStats.build();
     }
@@ -553,13 +554,13 @@ public class QueryMonitor
                 ImmutableList.of());
     }
 
-    private Optional<QueryFailureInfo> createQueryFailureInfo(ExecutionFailureInfo failureInfo, Optional<StageInfo> outputStage)
+    private Optional<QueryFailureInfo> createQueryFailureInfo(ExecutionFailureInfo failureInfo, Optional<StagesInfo> stages)
     {
         if (failureInfo == null) {
             return Optional.empty();
         }
 
-        Optional<TaskInfo> failedTask = outputStage.flatMap(QueryMonitor::findFailedTask);
+        Optional<TaskInfo> failedTask = stages.flatMap(QueryMonitor::findFailedTask);
 
         return Optional.of(new QueryFailureInfo(
                 failureInfo.getErrorCode(),
@@ -570,17 +571,17 @@ public class QueryMonitor
                 executionFailureInfoCodec.toJson(failureInfo)));
     }
 
-    private static Optional<TaskInfo> findFailedTask(StageInfo stageInfo)
+    private static Optional<TaskInfo> findFailedTask(StagesInfo stages)
     {
-        for (StageInfo subStage : stageInfo.getSubStages()) {
-            Optional<TaskInfo> task = findFailedTask(subStage);
-            if (task.isPresent()) {
-                return task;
+        for (StageInfo stageInfo : stages.getSubStagesDeepPostOrder(stages.getOutputStageId(), true)) {
+            Optional<TaskInfo> failedTaskInfo = stageInfo.getTasks().stream()
+                    .filter(taskInfo -> taskInfo.taskStatus().getState() == TaskState.FAILED)
+                    .findFirst();
+            if (failedTaskInfo.isPresent()) {
+                return failedTaskInfo;
             }
         }
-        return stageInfo.getTasks().stream()
-                .filter(taskInfo -> taskInfo.taskStatus().getState() == TaskState.FAILED)
-                .findFirst();
+        return Optional.empty();
     }
 
     private static Map<String, String> mergeSessionAndCatalogProperties(SessionRepresentation session)
@@ -613,7 +614,7 @@ public class QueryMonitor
             // Time spent waiting for required no. of worker nodes to be present
             long waiting = queryStats.getResourceWaitingTime().toMillis();
 
-            List<StageInfo> stages = getAllStages(queryInfo.getOutputStage());
+            List<StageInfo> stages = getAllStages(queryInfo.getStages());
             Instant firstTaskStartTime = queryEndTime;
             Instant lastTaskEndTime = queryStartTime.plusMillis(planning);
             for (StageInfo stage : stages) {
@@ -719,22 +720,9 @@ public class QueryMonitor
 
     private static List<StageCpuDistribution> getCpuDistributions(QueryInfo queryInfo)
     {
-        if (queryInfo.getOutputStage().isEmpty()) {
-            return ImmutableList.of();
-        }
-
-        ImmutableList.Builder<StageCpuDistribution> builder = ImmutableList.builder();
-        populateDistribution(queryInfo.getOutputStage().get(), builder);
-
-        return builder.build();
-    }
-
-    private static void populateDistribution(StageInfo stageInfo, ImmutableList.Builder<StageCpuDistribution> distributions)
-    {
-        distributions.add(computeCpuDistribution(stageInfo));
-        for (StageInfo subStage : stageInfo.getSubStages()) {
-            populateDistribution(subStage, distributions);
-        }
+        return getAllStages(queryInfo.getStages()).stream()
+                .map(QueryMonitor::computeCpuDistribution)
+                .collect(toImmutableList());
     }
 
     private static StageCpuDistribution computeCpuDistribution(StageInfo stageInfo)
@@ -764,21 +752,17 @@ public class QueryMonitor
 
     private static List<StageOutputBufferUtilization> getStageOutputBufferUtilizations(QueryInfo queryInfo)
     {
-        if (queryInfo.getOutputStage().isEmpty()) {
-            return ImmutableList.of();
-        }
-
-        ImmutableList.Builder<StageOutputBufferUtilization> builder = ImmutableList.builder();
-        populateStageOutputBufferUtilization(queryInfo.getOutputStage().get(), builder);
-
-        return builder.build();
+        return getAllStages(queryInfo.getStages()).stream()
+                .map(QueryMonitor::computeStageOutputBufferUtilization)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .collect(toImmutableList());
     }
 
-    private static void populateStageOutputBufferUtilization(StageInfo stageInfo, ImmutableList.Builder<StageOutputBufferUtilization> utilizations)
+    private static Optional<StageOutputBufferUtilization> computeStageOutputBufferUtilization(StageInfo stageInfo)
     {
-        stageInfo.getStageStats().getOutputBufferUtilization()
-                .ifPresent(utilization -> {
-                    utilizations.add(new StageOutputBufferUtilization(
+        return stageInfo.getStageStats().getOutputBufferUtilization()
+                .map(utilization -> new StageOutputBufferUtilization(
                             stageInfo.getStageId().getId(),
                             stageInfo.getTasks().size(),
                             // scale ratio to percentages
@@ -793,54 +777,32 @@ public class QueryMonitor
                             utilization.p99() * 100,
                             utilization.min() * 100,
                             utilization.max() * 100,
-                            Duration.ofNanos(utilization.total())));
-                });
-        for (StageInfo subStage : stageInfo.getSubStages()) {
-            populateStageOutputBufferUtilization(subStage, utilizations);
-        }
+                        Duration.ofNanos(utilization.total())));
     }
 
     private static List<StageOutputBufferMetrics> getStageOutputBufferMetrics(QueryInfo queryInfo)
     {
-        if (queryInfo.getOutputStage().isEmpty()) {
-            return ImmutableList.of();
-        }
-        ImmutableList.Builder<StageOutputBufferMetrics> builder = ImmutableList.builder();
-        populateStageOutputBufferMetrics(queryInfo.getOutputStage().get(), builder);
-
-        return builder.build();
+        return getAllStages(queryInfo.getStages()).stream()
+                .map(QueryMonitor::computeStageOutputBufferMetrics)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .collect(toImmutableList());
     }
 
-    private static void populateStageOutputBufferMetrics(StageInfo stageInfo, ImmutableList.Builder<StageOutputBufferMetrics> accumulator)
+    private static Optional<StageOutputBufferMetrics> computeStageOutputBufferMetrics(StageInfo stageInfo)
     {
         Metrics metrics = stageInfo.getStageStats().getOutputBufferMetrics();
-        if (!metrics.getMetrics().isEmpty()) {
-            accumulator.add(new StageOutputBufferMetrics(stageInfo.getStageId().getId(), metrics));
+        if (metrics.getMetrics().isEmpty()) {
+            return Optional.empty();
         }
-
-        for (StageInfo subStage : stageInfo.getSubStages()) {
-            populateStageOutputBufferMetrics(subStage, accumulator);
-        }
+        return Optional.of(new StageOutputBufferMetrics(stageInfo.getStageId().getId(), metrics));
     }
 
     private List<StageTaskStatistics> getStageTaskStatistics(QueryInfo queryInfo)
     {
-        if (queryInfo.getOutputStage().isEmpty()) {
-            return ImmutableList.of();
-        }
-
-        ImmutableList.Builder<StageTaskStatistics> builder = ImmutableList.builder();
-        populateStageTaskStatistics(queryInfo, queryInfo.getOutputStage().get(), builder);
-
-        return builder.build();
-    }
-
-    private void populateStageTaskStatistics(QueryInfo queryInfo, StageInfo stageInfo, ImmutableList.Builder<StageTaskStatistics> builder)
-    {
-        builder.add(computeStageTaskStatistics(queryInfo, stageInfo));
-        for (StageInfo subStage : stageInfo.getSubStages()) {
-            populateStageTaskStatistics(queryInfo, subStage, builder);
-        }
+        return getAllStages(queryInfo.getStages()).stream()
+                .map(stageInfo -> computeStageTaskStatistics(queryInfo, stageInfo))
+                .collect(toImmutableList());
     }
 
     private StageTaskStatistics computeStageTaskStatistics(QueryInfo queryInfo, StageInfo stageInfo)

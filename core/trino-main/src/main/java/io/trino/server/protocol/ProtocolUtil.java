@@ -28,8 +28,10 @@ import io.trino.client.StatementStats;
 import io.trino.client.Warning;
 import io.trino.execution.BasicStageInfo;
 import io.trino.execution.BasicStageStats;
+import io.trino.execution.BasicStagesInfo;
 import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.QueryState;
+import io.trino.execution.StageId;
 import io.trino.execution.TaskInfo;
 import io.trino.server.BasicQueryStats;
 import io.trino.server.ResultQueryInfo;
@@ -167,10 +169,10 @@ public final class ProtocolUtil
     public static StatementStats toStatementStats(ResultQueryInfo queryInfo)
     {
         BasicQueryStats queryStats = queryInfo.queryStats();
-        BasicStageInfo outputStage = queryInfo.outputStage().orElse(null);
+        BasicStagesInfo stages = queryInfo.stages().orElse(null);
 
         Set<String> globalUniqueNodes = new HashSet<>();
-        StageStats rootStageStats = toStageStats(outputStage, globalUniqueNodes);
+        StageStats rootStageStats = toStageStats(stages, globalUniqueNodes);
         return StatementStats.builder()
                 .setState(queryInfo.state().toString())
                 .setQueued(queryInfo.state() == QueryState.QUEUED)
@@ -201,12 +203,18 @@ public final class ProtocolUtil
                 .build();
     }
 
-    private static StageStats toStageStats(BasicStageInfo stageInfo, Set<String> globalUniqueNodes)
+    private static StageStats toStageStats(BasicStagesInfo stages, Set<String> globalUniqueNodes)
     {
-        if (stageInfo == null) {
+        if (stages == null) {
             return null;
         }
 
+        return toStageStats(stages.getOutputStageId(), stages, globalUniqueNodes);
+    }
+
+    private static StageStats toStageStats(StageId stageId, BasicStagesInfo stages, Set<String> globalUniqueNodes)
+    {
+        BasicStageInfo stageInfo = stages.getStagesById().get(stageId);
         BasicStageStats stageStats = stageInfo.getStageStats();
 
         // Store current stage details into a builder
@@ -228,14 +236,14 @@ public final class ProtocolUtil
                 .setNodes(countStageAndAddGlobalUniqueNodes(stageInfo, globalUniqueNodes));
 
         // Recurse into child stages to create their StageStats
-        List<BasicStageInfo> subStages = stageInfo.getSubStages();
+        List<StageId> subStages = stageInfo.getSubStages();
         if (subStages.isEmpty()) {
             builder.setSubStages(ImmutableList.of());
         }
         else {
             ImmutableList.Builder<StageStats> subStagesBuilder = ImmutableList.builderWithExpectedSize(subStages.size());
-            for (BasicStageInfo subStage : subStages) {
-                subStagesBuilder.add(toStageStats(subStage, globalUniqueNodes));
+            for (StageId subStage : subStages) {
+                subStagesBuilder.add(toStageStats(subStage, stages, globalUniqueNodes));
             }
             builder.setSubStages(subStagesBuilder.build());
         }

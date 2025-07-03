@@ -19,7 +19,6 @@ import com.google.common.io.Closer;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.inject.Key;
 import com.google.inject.Module;
-import io.airlift.discovery.server.testing.TestingDiscoveryServer;
 import io.airlift.http.server.HttpServer;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
@@ -36,10 +35,10 @@ import io.trino.cost.StatsCalculator;
 import io.trino.execution.FailureInjector.InjectedFailureType;
 import io.trino.execution.QueryManager;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.AllNodes;
 import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SessionPropertyManager;
+import io.trino.node.InternalNode;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.PluginManager;
 import io.trino.server.SessionPropertyDefaults;
@@ -89,7 +88,6 @@ import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.airlift.log.Level.DEBUG;
@@ -105,16 +103,15 @@ import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class DistributedQueryRunner
+public final class DistributedQueryRunner
         implements QueryRunner
 {
     private static final Logger log = Logger.get(DistributedQueryRunner.class);
     private static final String ENVIRONMENT = "testing";
     private static final AtomicInteger unclosedInstances = new AtomicInteger();
 
-    private TestingDiscoveryServer discoveryServer;
     private TestingTrinoServer coordinator;
-    private Optional<TestingTrinoServer> backupCoordinator;
+    private Optional<TestingTrinoServer> backupCoordinator = Optional.empty();
     private Consumer<Map<String, String>> registerNewWorker;
     private final InMemorySpanExporter spanExporter = InMemorySpanExporter.create();
     private final List<TestingTrinoServer> servers = new CopyOnWriteArrayList<>();
@@ -158,32 +155,6 @@ public class DistributedQueryRunner
         setupLogging();
 
         try {
-            long discoveryStart = System.nanoTime();
-            discoveryServer = new TestingDiscoveryServer(environment);
-            closer.register(() -> closeUnchecked(discoveryServer));
-            extraCloseables.forEach(closeable -> closer.register(() -> closeUnchecked(closeable)));
-            log.debug("Created TestingDiscoveryServer in %s", nanosSince(discoveryStart));
-
-            registerNewWorker = additionalWorkerProperties -> {
-                @SuppressWarnings("resource")
-                TestingTrinoServer ignored = createServer(
-                        false,
-                        ImmutableMap.<String, String>builder()
-                                .putAll(extraProperties)
-                                .putAll(additionalWorkerProperties)
-                                .buildOrThrow(),
-                        environment,
-                        additionalModule,
-                        baseDataDir,
-                        Optional.empty(),
-                        Optional.of(ImmutableList.of()),
-                        ImmutableList.of());
-            };
-
-            for (int i = 0; i < workerCount; i++) {
-                registerNewWorker.accept(Map.of());
-            }
-
             Map<String, String> extraCoordinatorProperties = new HashMap<>();
             extraCoordinatorProperties.putAll(extraProperties);
             extraCoordinatorProperties.putAll(coordinatorProperties);
@@ -217,6 +188,32 @@ public class DistributedQueryRunner
                     systemAccessControlConfiguration,
                     systemAccessControls,
                     eventListeners));
+            backupCoordinator.ifPresent(backup -> {
+                coordinator.registerServer(backup.getCurrentNode());
+                backup.registerServer(coordinator.getCurrentNode());
+            });
+
+            extraCloseables.forEach(closeable -> closer.register(() -> closeUnchecked(closeable)));
+
+            registerNewWorker = additionalWorkerProperties -> {
+                @SuppressWarnings("resource")
+                TestingTrinoServer ignored = createServer(
+                        false,
+                        ImmutableMap.<String, String>builder()
+                                .putAll(extraProperties)
+                                .putAll(additionalWorkerProperties)
+                                .buildOrThrow(),
+                        environment,
+                        additionalModule,
+                        baseDataDir,
+                        Optional.empty(),
+                        Optional.of(ImmutableList.of()),
+                        ImmutableList.of());
+            };
+
+            for (int i = 0; i < workerCount; i++) {
+                registerNewWorker.accept(Map.of());
+            }
         }
         catch (Exception e) {
             try {
@@ -235,7 +232,6 @@ public class DistributedQueryRunner
 
         this.trinoClient = closer.register(testingTrinoClientFactory.create(coordinator, defaultSession));
 
-        ensureNodesGloballyVisible();
         log.info("Created DistributedQueryRunner in %s (unclosed instances = %s)", nanosSince(start), unclosedInstances.incrementAndGet());
     }
 
@@ -257,7 +253,7 @@ public class DistributedQueryRunner
 
     private TestingTrinoServer createServer(
             boolean coordinator,
-            Map<String, String> extraCoordinatorProperties,
+            Map<String, String> extraProperties,
             String environment,
             Module additionalModule,
             Optional<Path> baseDataDir,
@@ -265,10 +261,18 @@ public class DistributedQueryRunner
             Optional<List<SystemAccessControl>> systemAccessControls,
             List<EventListener> eventListeners)
     {
+        if (this.coordinator != null) {
+            String discoveryUri = this.coordinator.getCurrentNode().getInternalUri() +
+                    backupCoordinator.map(backup -> "," + backup.getCurrentNode().getInternalUri()).orElse("");
+            extraProperties = ImmutableMap.<String, String>builder()
+                    .putAll(extraProperties)
+                    .put("discovery.uri", discoveryUri)
+                    .buildOrThrow();
+        }
+
         TestingTrinoServer server = closer.register(createTestingTrinoServer(
-                discoveryServer.getBaseUrl(),
                 coordinator,
-                extraCoordinatorProperties,
+                extraProperties,
                 environment,
                 additionalModule,
                 baseDataDir,
@@ -281,6 +285,12 @@ public class DistributedQueryRunner
                     plugins.forEach(newServer::installPlugin);
                 }));
         servers.add(server);
+
+        if (this.coordinator != null) {
+            InternalNode currentNode = server.getCurrentNode();
+            this.coordinator.registerServer(currentNode);
+            this.backupCoordinator.ifPresent(backup -> backup.registerServer(currentNode));
+        }
         return server;
     }
 
@@ -297,7 +307,6 @@ public class DistributedQueryRunner
     }
 
     private static TestingTrinoServer createTestingTrinoServer(
-            URI discoveryUri,
             boolean coordinator,
             Map<String, String> extraProperties,
             String environment,
@@ -313,9 +322,7 @@ public class DistributedQueryRunner
         ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.<String, String>builder()
                 .put("query.client.timeout", "10m")
                 // Use few threads in tests to preserve resources on CI
-                .put("discovery.http-client.min-threads", "1") // default 8
                 .put("exchange.http-client.min-threads", "1") // default 8
-                .put("node-manager.http-client.min-threads", "1") // default 8
                 .put("exchange.page-buffer-client.max-callback-threads", "5") // default 25
                 .put("exchange.http-client.idle-timeout", "1h")
                 .put("task.max-index-memory", "16kB"); // causes index joins to fault load
@@ -324,7 +331,7 @@ public class DistributedQueryRunner
             propertiesBuilder.put("join-distribution-type", "PARTITIONED");
 
             // Use few threads in tests to preserve resources on CI
-            propertiesBuilder.put("failure-detector.http-client.min-threads", "1"); // default 8
+            propertiesBuilder.put("catalog-prune.http-client.min-threads", "1"); // default 8
             propertiesBuilder.put("memory-manager.http-client.min-threads", "1"); // default 8
             propertiesBuilder.put("scheduler.http-client.min-threads", "1"); // default 8
             propertiesBuilder.put("worker-info.http-client.min-threads", "1"); // default 8
@@ -336,7 +343,6 @@ public class DistributedQueryRunner
                 .setCoordinator(coordinator)
                 .setProperties(properties)
                 .setEnvironment(environment)
-                .setDiscoveryUri(discoveryUri)
                 .setAdditionalModule(additionalModule)
                 .setBaseDataDir(baseDataDir)
                 .setSpanProcessor(spanProcessor)
@@ -357,7 +363,27 @@ public class DistributedQueryRunner
         for (int i = 0; i < nodeCount; i++) {
             registerNewWorker.accept(Map.of());
         }
-        ensureNodesGloballyVisible();
+    }
+
+    /**
+     * Shutdown and remove a worker
+     */
+    public void removeWorker()
+            throws Exception
+    {
+        TestingTrinoServer worker = null;
+        for (int i = 0; i < servers.size(); i++) {
+            if (!servers.get(i).isCoordinator()) {
+                worker = servers.get(i);
+                servers.remove(i);
+                break;
+            }
+        }
+        if (worker == null) {
+            throw new IllegalStateException("No workers");
+        }
+        worker.close();
+        coordinator.unregisterServer(worker.getCurrentNode());
     }
 
     /**
@@ -375,6 +401,10 @@ public class DistributedQueryRunner
         Connector httpConnector = getOnlyElement(asList(((Server) serverField.get(workerHttpServer)).getConnectors()));
         httpConnector.stop();
         server.close();
+        if (!server.isCoordinator()) {
+            coordinator.unregisterServer(server.getCurrentNode());
+            backupCoordinator.ifPresent(backup -> backup.unregisterServer(server.getCurrentNode()));
+        }
 
         Map<String, String> reusePort = Map.of("http-server.http.port", Integer.toString(baseUrl.getPort()));
         registerNewWorker.accept(reusePort);
@@ -384,15 +414,6 @@ public class DistributedQueryRunner
                 .filter(baseUrl::equals))
                 .hasSize(1);
         // Do not wait for new server to be fully registered with other servers
-    }
-
-    private void ensureNodesGloballyVisible()
-    {
-        for (TestingTrinoServer server : servers) {
-            AllNodes nodes = server.refreshNodes();
-            verify(nodes.getInactiveNodes().isEmpty(), "Node manager has inactive nodes");
-            verify(nodes.getActiveNodes().size() == servers.size(), "Node manager has wrong active node count");
-        }
     }
 
     public TestingTrinoClient getClient()
@@ -664,7 +685,6 @@ public class DistributedQueryRunner
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-        discoveryServer = null;
         coordinator = null;
         backupCoordinator = Optional.empty();
         registerNewWorker = _ -> {

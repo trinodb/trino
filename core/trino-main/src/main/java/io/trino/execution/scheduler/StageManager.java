@@ -22,12 +22,15 @@ import io.opentelemetry.api.trace.Tracer;
 import io.trino.Session;
 import io.trino.execution.BasicStageInfo;
 import io.trino.execution.BasicStageStats;
+import io.trino.execution.BasicStagesInfo;
 import io.trino.execution.NodeTaskMap;
 import io.trino.execution.QueryStateMachine;
 import io.trino.execution.RemoteTaskFactory;
 import io.trino.execution.SqlStage;
+import io.trino.execution.SqlStage.LocalExchangeBucketCountProvider;
 import io.trino.execution.StageId;
 import io.trino.execution.StageInfo;
+import io.trino.execution.StagesInfo;
 import io.trino.execution.TableInfo;
 import io.trino.execution.TaskId;
 import io.trino.metadata.Metadata;
@@ -41,16 +44,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.execution.BasicStageStats.aggregateBasicStageStats;
 import static io.trino.execution.SqlStage.createSqlStage;
 import static java.lang.Integer.parseInt;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.function.Function.identity;
 
 class StageManager
 {
@@ -72,7 +72,8 @@ class StageManager
             Span schedulerSpan,
             SplitSchedulerStats schedulerStats,
             SubPlan planTree,
-            boolean summarizeTaskInfo)
+            boolean summarizeTaskInfo,
+            LocalExchangeBucketCountProvider bucketCountProvider)
     {
         Session session = queryStateMachine.getSession();
         ImmutableMap.Builder<StageId, SqlStage> stages = ImmutableMap.builder();
@@ -95,7 +96,8 @@ class StageManager
                     queryStateMachine.getStateMachineExecutor(),
                     tracer,
                     schedulerSpan,
-                    schedulerStats);
+                    schedulerStats,
+                    bucketCountProvider);
             StageId stageId = stage.getStageId();
             stages.put(stageId, stage);
             stagesInTopologicalOrder.add(stage);
@@ -157,7 +159,7 @@ class StageManager
     private void initialize()
     {
         for (SqlStage stage : stages.values()) {
-            stage.addFinalStageInfoListener(status -> queryStateMachine.updateQueryInfo(Optional.ofNullable(getStageInfo())));
+            stage.addFinalStageInfoListener(_ -> queryStateMachine.updateQueryInfo(Optional.of(getStagesInfo())));
         }
     }
 
@@ -238,64 +240,34 @@ class StageManager
         return aggregateBasicStageStats(stageStats);
     }
 
-    public StageInfo getStageInfo()
+    public BasicStagesInfo getBasicStagesInfo()
     {
-        Map<StageId, StageInfo> stageInfos = stages.values().stream()
-                .map(SqlStage::getStageInfo)
-                .collect(toImmutableMap(StageInfo::getStageId, identity()));
-
-        return buildStageInfo(rootStageId, stageInfos);
+        return new BasicStagesInfo(
+                rootStageId,
+                stages.values().stream()
+                        .map(sqlStage -> {
+                            BasicStageInfo stageInfo = sqlStage.getBasicStageInfo();
+                            List<StageId> childStages = ImmutableList.copyOf(children.get(stageInfo.getStageId()));
+                            if (childStages.isEmpty()) {
+                                return stageInfo;
+                            }
+                            return stageInfo.withSubStages(childStages);
+                        })
+                        .collect(toImmutableList()));
     }
 
-    public BasicStageInfo getBasicStageInfo()
+    public StagesInfo getStagesInfo()
     {
-        Map<StageId, BasicStageInfo> stageInfos = stages.values().stream()
-                .map(SqlStage::getBasicStageInfo)
-                .collect(toImmutableMap(BasicStageInfo::getStageId, identity()));
-
-        return buildBasicStageInfo(rootStageId, stageInfos);
-    }
-
-    private StageInfo buildStageInfo(StageId stageId, Map<StageId, StageInfo> stageInfos)
-    {
-        StageInfo parent = stageInfos.get(stageId);
-        checkArgument(parent != null, "No stageInfo for %s", parent);
-        List<StageInfo> childStages = children.get(stageId).stream()
-                .map(childStageId -> buildStageInfo(childStageId, stageInfos))
-                .collect(toImmutableList());
-        if (childStages.isEmpty()) {
-            return parent;
-        }
-        return new StageInfo(
-                parent.getStageId(),
-                parent.getState(),
-                parent.getPlan(),
-                parent.isCoordinatorOnly(),
-                parent.getTypes(),
-                parent.getStageStats(),
-                parent.getTasks(),
-                childStages,
-                parent.getTables(),
-                parent.getFailureCause());
-    }
-
-    private BasicStageInfo buildBasicStageInfo(StageId stageId, Map<StageId, BasicStageInfo> stageInfos)
-    {
-        BasicStageInfo parent = stageInfos.get(stageId);
-        checkArgument(parent != null, "No stageInfo for %s", parent);
-        List<BasicStageInfo> childStages = children.get(stageId).stream()
-                .map(childStageId -> buildBasicStageInfo(childStageId, stageInfos))
-                .collect(toImmutableList());
-        if (childStages.isEmpty()) {
-            return parent;
-        }
-        return new BasicStageInfo(
-                parent.getStageId(),
-                parent.getState(),
-                parent.isCoordinatorOnly(),
-                parent.getStageStats(),
-                childStages,
-                parent.getTasks());
+        return new StagesInfo(
+                rootStageId,
+                stages.values().stream().map(sqlStage -> {
+                    StageInfo stageInfo = sqlStage.getStageInfo();
+                    List<StageId> childStages = ImmutableList.copyOf(children.get(stageInfo.getStageId()));
+                    if (childStages.isEmpty()) {
+                        return stageInfo;
+                    }
+                    return stageInfo.withSubStages(childStages);
+                }).collect(toImmutableList()));
     }
 
     public long getUserMemoryReservation()

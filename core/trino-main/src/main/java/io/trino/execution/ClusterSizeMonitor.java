@@ -21,8 +21,8 @@ import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
 import io.airlift.units.Duration;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
-import io.trino.metadata.AllNodes;
-import io.trino.metadata.InternalNodeManager;
+import io.trino.node.AllNodes;
+import io.trino.node.InternalNodeManager;
 import io.trino.spi.TrinoException;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
@@ -137,10 +137,10 @@ public class ClusterSizeMonitor
     private synchronized void updateAllNodes(AllNodes allNodes)
     {
         if (includeCoordinator) {
-            currentCount = allNodes.getActiveNodes().size();
+            currentCount = allNodes.activeNodes().size();
         }
         else {
-            currentCount = Sets.difference(allNodes.getActiveNodes(), allNodes.getActiveCoordinators()).size();
+            currentCount = Sets.difference(allNodes.activeNodes(), allNodes.activeCoordinators()).size();
         }
 
         ImmutableList.Builder<SettableFuture<Void>> listenersBuilder = ImmutableList.builder();

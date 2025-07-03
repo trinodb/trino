@@ -33,6 +33,7 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
+import java.util.Comparator;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -87,7 +88,8 @@ public class TestMemoryConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
-            case SUPPORTS_TRUNCATE -> true;
+            case SUPPORTS_CREATE_FUNCTION,
+                 SUPPORTS_TRUNCATE -> true;
             case SUPPORTS_ADD_COLUMN_WITH_POSITION,
                  SUPPORTS_ADD_FIELD,
                  SUPPORTS_AGGREGATION_PUSHDOWN,
@@ -102,7 +104,6 @@ public class TestMemoryConnectorTest
                  SUPPORTS_SET_COLUMN_TYPE,
                  SUPPORTS_TOPN_PUSHDOWN,
                  SUPPORTS_UPDATE -> false;
-            case SUPPORTS_CREATE_FUNCTION -> true;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
@@ -496,8 +497,14 @@ public class TestMemoryConnectorTest
         QueryStats stats = runner.getCoordinator().getQueryManager().getFullQueryInfo(queryId).getQueryStats();
         return stats.getOperatorSummaries()
                 .stream()
+                .sorted(getOperatorStatsComparator())
                 .filter(summary -> summary.getOperatorType().contains("Scan"))
                 .collect(toImmutableList());
+    }
+
+    private static Comparator<OperatorStats> getOperatorStatsComparator()
+    {
+        return Comparator.comparing(s -> s.getStageId() + "/" + s.getPipelineId() + "/" + s.getOperatorId());
     }
 
     @Test

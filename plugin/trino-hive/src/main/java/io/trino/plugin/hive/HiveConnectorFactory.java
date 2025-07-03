@@ -39,6 +39,7 @@ import io.trino.plugin.hive.metastore.HiveMetastoreModule;
 import io.trino.plugin.hive.procedure.HiveProcedureModule;
 import io.trino.plugin.hive.security.HiveSecurityModule;
 import io.trino.plugin.hive.security.SystemTableAwareAccessControl;
+import io.trino.spi.Node;
 import io.trino.spi.NodeManager;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
@@ -103,13 +104,14 @@ public class HiveConnectorFactory
                     new HiveSecurityModule(),
                     fileSystemFactory
                             .map(factory -> (Module) binder -> binder.bind(TrinoFileSystemFactory.class).toInstance(factory))
-                            .orElseGet(() -> new FileSystemModule(catalogName, context.getNodeManager(), context.getOpenTelemetry(), false)),
+                            .orElseGet(() -> new FileSystemModule(catalogName, context.getCurrentNode().isCoordinator(), context.getOpenTelemetry(), false)),
                     new HiveProcedureModule(),
                     new MBeanServerModule(),
                     binder -> {
                         binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry());
                         binder.bind(Tracer.class).toInstance(context.getTracer());
-                        binder.bind(NodeVersion.class).toInstance(new NodeVersion(context.getNodeManager().getCurrentNode().getVersion()));
+                        binder.bind(NodeVersion.class).toInstance(new NodeVersion(context.getCurrentNode().getVersion()));
+                        binder.bind(Node.class).toInstance(context.getCurrentNode());
                         binder.bind(NodeManager.class).toInstance(context.getNodeManager());
                         binder.bind(VersionEmbedder.class).toInstance(context.getVersionEmbedder());
                         binder.bind(MetadataProvider.class).toInstance(context.getMetadataProvider());

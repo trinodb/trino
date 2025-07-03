@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>270</version>
+        <version>272</version>
     </parent>
 
     <groupId>io.trino</groupId>
@@ -191,7 +191,7 @@
         <dep.checkstyle.version>10.23.1</dep.checkstyle.version>
         <dep.docker.images.version>116</dep.docker.images.version>
         <dep.drift.version>1.23</dep.drift.version>
-        <dep.flyway.version>11.9.2</dep.flyway.version>
+        <dep.flyway.version>11.10.0</dep.flyway.version>
         <dep.frontend-maven-plugin.version>1.15.1</dep.frontend-maven-plugin.version>
         <dep.frontend-node.version>v22.14.0</dep.frontend-node.version>
         <dep.frontend-npm.version>11.2.0</dep.frontend-npm.version>
@@ -202,13 +202,13 @@
         <dep.jsonwebtoken.version>0.12.6</dep.jsonwebtoken.version>
         <dep.jts.version>1.20.0</dep.jts.version>
         <dep.kafka-clients.version>4.0.0</dep.kafka-clients.version>
-        <dep.okio.version>3.13.0</dep.okio.version>
+        <dep.okio.version>3.15.0</dep.okio.version>
         <dep.parquet.version>1.15.2</dep.parquet.version>
         <dep.plugin.failsafe.version>${dep.plugin.surefire.version}</dep.plugin.failsafe.version>
         <dep.protobuf.version>3.25.8</dep.protobuf.version>
         <dep.snowflake.version>3.24.2</dep.snowflake.version>
         <dep.swagger.version>2.2.34</dep.swagger.version>
-        <dep.takari.version>2.3.0</dep.takari.version>
+        <dep.takari.version>2.3.1</dep.takari.version>
         <dep.tcnative.version>2.0.72.Final</dep.tcnative.version>
         <dep.tempto.version>202</dep.tempto.version>
         <dep.wire.version>5.2.1</dep.wire.version>
@@ -227,7 +227,7 @@
             <dependency>
                 <groupId>com.azure</groupId>
                 <artifactId>azure-sdk-bom</artifactId>
-                <version>1.2.35</version>
+                <version>1.2.36</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -235,7 +235,7 @@
             <dependency>
                 <groupId>com.google.cloud</groupId>
                 <artifactId>libraries-bom</artifactId>
-                <version>26.62.0</version>
+                <version>26.63.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -299,7 +299,7 @@
             <dependency>
                 <groupId>org.testcontainers</groupId>
                 <artifactId>testcontainers-bom</artifactId>
-                <version>1.21.2</version>
+                <version>1.21.3</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -307,7 +307,7 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.31.71</version>
+                <version>2.31.76</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -315,7 +315,7 @@
             <dependency>
                 <groupId>com.adobe.testing</groupId>
                 <artifactId>s3mock-testcontainers</artifactId>
-                <version>4.5.0</version>
+                <version>4.5.1</version>
             </dependency>
 
             <dependency>
@@ -458,7 +458,7 @@
             <dependency>
                 <groupId>com.github.luben</groupId>
                 <artifactId>zstd-jni</artifactId>
-                <version>1.5.7-3</version>
+                <version>1.5.7-4</version>
             </dependency>
 
             <dependency>
@@ -550,7 +550,7 @@
             <dependency>
                 <groupId>com.nimbusds</groupId>
                 <artifactId>nimbus-jose-jwt</artifactId>
-                <version>10.3</version>
+                <version>10.3.1</version>
             </dependency>
 
             <dependency>
@@ -2200,7 +2200,7 @@
             <dependency>
                 <groupId>org.checkerframework</groupId>
                 <artifactId>checker-qual</artifactId>
-                <version>3.49.4</version>
+                <version>3.49.5</version>
             </dependency>
 
             <dependency>

@@ -30,14 +30,13 @@ import io.trino.execution.SqlStage;
 import io.trino.execution.StageId;
 import io.trino.execution.TableExecuteContextManager;
 import io.trino.execution.TableInfo;
-import io.trino.failuredetector.NoOpFailureDetector;
 import io.trino.metadata.FunctionManager;
-import io.trino.metadata.InMemoryNodeManager;
-import io.trino.metadata.InternalNode;
-import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
+import io.trino.node.InternalNode;
+import io.trino.node.InternalNodeManager;
+import io.trino.node.TestingInternalNodeManager;
 import io.trino.operator.RetryPolicy;
 import io.trino.server.DynamicFilterService;
 import io.trino.spi.QueryId;
@@ -79,6 +78,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -99,6 +99,7 @@ import static io.trino.execution.scheduler.StageExecution.State.PLANNED;
 import static io.trino.execution.scheduler.StageExecution.State.SCHEDULING;
 import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.metadata.TestMetadataManager.createTestMetadataManager;
+import static io.trino.node.TestingInternalNodeManager.CURRENT_NODE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.DynamicFilters.createDynamicFilterExpression;
@@ -131,7 +132,7 @@ public class TestMultiSourcePartitionedScheduler
 
     private final ExecutorService queryExecutor = newCachedThreadPool(daemonThreadsNamed("stageExecutor-%s"));
     private final ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("stageScheduledExecutor-%s"));
-    private final InMemoryNodeManager nodeManager = new InMemoryNodeManager();
+    private final TestingInternalNodeManager nodeManager = TestingInternalNodeManager.createDefault();
     private final FinalizerService finalizerService = new FinalizerService();
     private final Metadata metadata = createTestMetadataManager();
     private final FunctionManager functionManager = createTestingFunctionManager();
@@ -274,7 +275,7 @@ public class TestMultiSourcePartitionedScheduler
     public void testBalancedSplitAssignment()
     {
         // use private node manager so we can add a node later
-        InMemoryNodeManager nodeManager = new InMemoryNodeManager(
+        TestingInternalNodeManager nodeManager = TestingInternalNodeManager.createDefault(
                 new InternalNode("other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false),
                 new InternalNode("other2", URI.create("http://127.0.0.1:12"), NodeVersion.UNKNOWN, false),
                 new InternalNode("other3", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN, false));
@@ -421,7 +422,7 @@ public class TestMultiSourcePartitionedScheduler
     public void testNoNewTaskScheduledWhenChildStageBufferIsOverUtilized()
     {
         NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
-        InMemoryNodeManager nodeManager = new InMemoryNodeManager(
+        TestingInternalNodeManager nodeManager = TestingInternalNodeManager.createDefault(
                 new InternalNode("other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false),
                 new InternalNode("other2", URI.create("http://127.0.0.1:12"), NodeVersion.UNKNOWN, false),
                 new InternalNode("other3", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN, false));
@@ -581,6 +582,7 @@ public class TestMultiSourcePartitionedScheduler
                 Optional.empty(),
                 ImmutableList.of(TABLE_SCAN_1_NODE_ID, TABLE_SCAN_2_NODE_ID),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)),
+                OptionalInt.empty(),
                 StatsAndCosts.empty(),
                 ImmutableList.of(),
                 ImmutableMap.of(),
@@ -599,7 +601,7 @@ public class TestMultiSourcePartitionedScheduler
                 .setMaxSplitsPerNode(100)
                 .setMinPendingSplitsPerTask(0)
                 .setSplitsBalancingPolicy(STAGE);
-        NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(nodeManager, nodeSchedulerConfig, nodeTaskMap, new Duration(0, SECONDS)));
+        NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(CURRENT_NODE, nodeManager, nodeSchedulerConfig, nodeTaskMap, new Duration(0, SECONDS)));
         return new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(session), stage::getAllTasks);
     }
 
@@ -619,7 +621,8 @@ public class TestMultiSourcePartitionedScheduler
                 queryExecutor,
                 noopTracer(),
                 Span.getInvalid(),
-                new SplitSchedulerStats());
+                new SplitSchedulerStats(),
+                (_, _) -> Optional.empty());
         ImmutableMap.Builder<PlanFragmentId, PipelinedOutputBufferManager> outputBuffers = ImmutableMap.builder();
         outputBuffers.put(fragment.getId(), new PartitionedPipelinedOutputBufferManager(FIXED_HASH_DISTRIBUTION, 1));
         fragment.getRemoteSourceNodes().stream()
@@ -629,9 +632,10 @@ public class TestMultiSourcePartitionedScheduler
                 stage,
                 outputBuffers.buildOrThrow(),
                 TaskLifecycleListener.NO_OP,
-                new NoOpFailureDetector(),
+                TestingInternalNodeManager.createDefault(),
                 queryExecutor,
                 Optional.of(new int[] {0}),
+                OptionalInt.empty(),
                 0);
     }
 

@@ -1401,7 +1401,7 @@ public class TestResourceSecurity
 
     private static String getManagementLocation(URI baseUri)
     {
-        return getLocation(baseUri, "/v1/node");
+        return getLocation(baseUri, "/v1/thread");
     }
 
     private static String getAuthorizedUserLocation(URI baseUri)

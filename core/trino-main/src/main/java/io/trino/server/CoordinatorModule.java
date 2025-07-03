@@ -49,6 +49,7 @@ import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.ExplainAnalyzeContext;
 import io.trino.execution.ForQueryExecution;
+import io.trino.execution.NodeTaskMap;
 import io.trino.execution.QueryExecution;
 import io.trino.execution.QueryExecutionMBean;
 import io.trino.execution.QueryExecutorInternal;
@@ -61,6 +62,7 @@ import io.trino.execution.RemoteTaskFactory;
 import io.trino.execution.SessionPropertyEvaluator;
 import io.trino.execution.SqlQueryManager;
 import io.trino.execution.StageInfo;
+import io.trino.execution.StagesInfo;
 import io.trino.execution.TaskInfo;
 import io.trino.execution.TaskManagerConfig;
 import io.trino.execution.TaskStatus;
@@ -68,8 +70,12 @@ import io.trino.execution.resourcegroups.InternalResourceGroupManager;
 import io.trino.execution.resourcegroups.LegacyResourceGroupConfigurationManager;
 import io.trino.execution.resourcegroups.ResourceGroupInfoProvider;
 import io.trino.execution.resourcegroups.ResourceGroupManager;
+import io.trino.execution.scheduler.NodeScheduler;
+import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.execution.scheduler.SplitSchedulerStats;
 import io.trino.execution.scheduler.TaskExecutionStats;
+import io.trino.execution.scheduler.TopologyAwareNodeSelectorModule;
+import io.trino.execution.scheduler.UniformNodeSelectorModule;
 import io.trino.execution.scheduler.faulttolerant.BinPackingNodeAllocatorService;
 import io.trino.execution.scheduler.faulttolerant.ByEagerParentOutputStatsEstimator;
 import io.trino.execution.scheduler.faulttolerant.BySmallStageOutputStatsEstimator;
@@ -88,7 +94,6 @@ import io.trino.execution.scheduler.faulttolerant.TaskDescriptorStorage;
 import io.trino.execution.scheduler.policy.AllAtOnceExecutionPolicy;
 import io.trino.execution.scheduler.policy.ExecutionPolicy;
 import io.trino.execution.scheduler.policy.PhasedExecutionPolicy;
-import io.trino.failuredetector.FailureDetectorModule;
 import io.trino.memory.ClusterMemoryManager;
 import io.trino.memory.ForMemoryManager;
 import io.trino.memory.LeastWastedEffortTaskLowMemoryKiller;
@@ -117,6 +122,7 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.SessionPropertyResolver;
 import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.analyzer.QueryExplainerFactory;
+import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.OptimizerStatsMBeanExporter;
 import io.trino.sql.planner.PlanFragmenter;
 import io.trino.sql.planner.PlanOptimizers;
@@ -143,10 +149,11 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.trino.execution.scheduler.NodeSchedulerConfig.NodeSchedulerPolicy.TOPOLOGY;
+import static io.trino.execution.scheduler.NodeSchedulerConfig.NodeSchedulerPolicy.UNIFORM;
 import static io.trino.plugin.base.ClosingBinder.closingBinder;
 import static io.trino.server.InternalCommunicationHttpClientModule.internalHttpClientModule;
 import static io.trino.util.Executors.decorateWithVersion;
@@ -164,9 +171,6 @@ public class CoordinatorModule
     {
         install(new WebUiModule());
 
-        // coordinator announcement
-        discoveryBinder(binder).bindHttpAnnouncement("trino-coordinator");
-
         // statement resource
         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
         jaxrsBinder(binder).bind(QueuedStatementResource.class);
@@ -181,9 +185,7 @@ public class CoordinatorModule
             config.setMaxResponseHeaderSize(DataSize.of(2, MEGABYTE));
         });
 
-        // failure detector
-        install(new FailureDetectorModule());
-        jaxrsBinder(binder).bind(NodeResource.class);
+        // worker resource
         jaxrsBinder(binder).bind(WorkerResource.class);
         install(internalHttpClientModule("worker-info", ForWorkerInfo.class).build());
 
@@ -191,6 +193,7 @@ public class CoordinatorModule
         jsonCodecBinder(binder).bindJsonCodec(ExecutionFailureInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(OperatorStats.class);
         jsonCodecBinder(binder).bindJsonCodec(StageInfo.class);
+        jsonCodecBinder(binder).bindJsonCodec(StagesInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(StatsAndCosts.class);
         configBinder(binder).bindConfig(QueryMonitorConfig.class);
         binder.bind(QueryMonitor.class).in(Scopes.SINGLETON);
@@ -239,6 +242,24 @@ public class CoordinatorModule
         bindLowMemoryQueryKiller(LowMemoryQueryKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES, TotalReservationOnBlockedNodesQueryLowMemoryKiller.class);
 
         newExporter(binder).export(ClusterMemoryManager.class).withGeneratedName();
+
+        // node partitioning manager
+        binder.bind(NodePartitioningManager.class).in(Scopes.SINGLETON);
+
+        // node scheduler
+        binder.bind(NodeScheduler.class).in(Scopes.SINGLETON);
+        binder.bind(NodeTaskMap.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(NodeScheduler.class).withGeneratedName();
+
+        // network topology
+        install(conditionalModule(
+                NodeSchedulerConfig.class,
+                config -> UNIFORM == config.getNodeSchedulerPolicy(),
+                new UniformNodeSelectorModule()));
+        install(conditionalModule(
+                NodeSchedulerConfig.class,
+                config -> TOPOLOGY == config.getNodeSchedulerPolicy(),
+                new TopologyAwareNodeSelectorModule()));
 
         // node allocator
         binder.bind(BinPackingNodeAllocatorService.class).in(Scopes.SINGLETON);

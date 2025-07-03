@@ -11,9 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.metadata;
+package io.trino.node;
 
 import com.google.common.collect.ImmutableSet;
+import io.trino.spi.HostAddress;
 
 import java.util.Set;
 import java.util.function.Consumer;
@@ -23,17 +24,33 @@ import static java.util.Objects.requireNonNull;
 
 public interface InternalNodeManager
 {
-    Set<InternalNode> getNodes(NodeState state);
+    default Set<InternalNode> getNodes(NodeState state)
+    {
+        return switch (state) {
+            case ACTIVE -> getAllNodes().activeNodes();
+            case INACTIVE -> getAllNodes().inactiveNodes();
+            case DRAINING -> getAllNodes().drainingNodes();
+            case DRAINED -> getAllNodes().drainedNodes();
+            case SHUTTING_DOWN -> getAllNodes().shuttingDownNodes();
+            case INVALID, GONE -> ImmutableSet.of();
+        };
+    }
 
-    NodesSnapshot getActiveNodesSnapshot();
+    default NodesSnapshot getActiveNodesSnapshot()
+    {
+        return new NodesSnapshot(getAllNodes().activeNodes());
+    }
 
-    InternalNode getCurrentNode();
-
-    Set<InternalNode> getCoordinators();
+    default Set<InternalNode> getCoordinators()
+    {
+        return getAllNodes().activeCoordinators();
+    }
 
     AllNodes getAllNodes();
 
-    void refreshNodes();
+    boolean isGone(HostAddress hostAddress);
+
+    boolean refreshNodes(boolean forceAndWait);
 
     void addNodeChangeListener(Consumer<AllNodes> listener);
 

@@ -14,26 +14,27 @@
 package io.trino.connector;
 
 import com.google.common.collect.ImmutableSet;
-import io.trino.metadata.InternalNodeManager;
+import io.trino.node.InternalNode;
+import io.trino.node.InternalNodeManager;
 import io.trino.spi.Node;
 import io.trino.spi.NodeManager;
 
 import java.util.Set;
 
-import static io.trino.metadata.NodeState.ACTIVE;
+import static io.trino.node.NodeState.ACTIVE;
 import static java.util.Objects.requireNonNull;
 
 public class DefaultNodeManager
         implements NodeManager
 {
+    private final InternalNode currentNode;
     private final InternalNodeManager nodeManager;
-    private final String environment;
     private final boolean schedulerIncludeCoordinator;
 
-    public DefaultNodeManager(InternalNodeManager nodeManager, String environment, boolean schedulerIncludeCoordinator)
+    public DefaultNodeManager(InternalNode currentNode, InternalNodeManager nodeManager, boolean schedulerIncludeCoordinator)
     {
+        this.currentNode = requireNonNull(currentNode, "currentNode is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
-        this.environment = requireNonNull(environment, "environment is null");
         this.schedulerIncludeCoordinator = schedulerIncludeCoordinator;
     }
 
@@ -44,7 +45,7 @@ public class DefaultNodeManager
                 .addAll(nodeManager.getNodes(ACTIVE))
                 // append current node (before connector is registered with the node
                 // in the discovery service) since current node should have connector always loaded
-                .add(nodeManager.getCurrentNode())
+                .add(currentNode)
                 .build();
     }
 
@@ -57,10 +58,10 @@ public class DefaultNodeManager
         nodeManager.getNodes(ACTIVE).stream()
                 .filter(node -> !node.isCoordinator() || schedulerIncludeCoordinator)
                 .forEach(nodes::add);
-        if (!nodeManager.getCurrentNode().isCoordinator() || schedulerIncludeCoordinator) {
+        if (!currentNode.isCoordinator() || schedulerIncludeCoordinator) {
             // append current node (before connector is registered with the node
             // in discovery service) since current node should have connector always loaded
-            nodes.add(getCurrentNode());
+            nodes.add(currentNode);
         }
         return nodes.build();
     }
@@ -68,12 +69,6 @@ public class DefaultNodeManager
     @Override
     public Node getCurrentNode()
     {
-        return nodeManager.getCurrentNode();
-    }
-
-    @Override
-    public String getEnvironment()
-    {
-        return environment;
+        return currentNode;
     }
 }

@@ -16,33 +16,32 @@ package io.trino.filesystem.alluxio;
 import alluxio.client.file.FileSystem;
 import alluxio.client.file.FileSystemContext;
 import alluxio.conf.AlluxioConfiguration;
-import alluxio.conf.Configuration;
 import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.spi.security.ConnectorIdentity;
 
+import static java.util.Objects.requireNonNull;
+
 public class AlluxioFileSystemFactory
         implements TrinoFileSystemFactory
 {
-    private final AlluxioConfiguration conf;
+    private final FileSystem client;
 
     @Inject
-    public AlluxioFileSystemFactory()
+    public AlluxioFileSystemFactory(FileSystem client)
     {
-        this(Configuration.global());
+        this.client = requireNonNull(client, "client is null");
     }
 
     public AlluxioFileSystemFactory(AlluxioConfiguration conf)
     {
-        this.conf = conf;
+        this(FileSystem.Factory.create(FileSystemContext.create(requireNonNull(conf, "conf is null"))));
     }
 
     @Override
     public TrinoFileSystem create(ConnectorIdentity identity)
     {
-        FileSystemContext fsContext = FileSystemContext.create(conf);
-        FileSystem alluxioClient = FileSystem.Factory.create(fsContext);
-        return new AlluxioFileSystem(alluxioClient);
+        return new AlluxioFileSystem(client);
     }
 }

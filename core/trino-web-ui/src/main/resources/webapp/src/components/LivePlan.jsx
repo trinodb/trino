@@ -45,30 +45,23 @@ type StageNodeInfo = {
 class StageStatistics extends React.Component<StageStatisticsProps, StageStatisticsState> {
     static getStages(queryInfo: any): Map<string, StageNodeInfo> {
         const stages: Map<string, StageNodeInfo> = new Map()
-        StageStatistics.flattenStage(queryInfo.outputStage, stages)
+        queryInfo.stages.stages.forEach(function (stageInfo) {
+            const nodes = new Map<any, PlanNodeProps>()
+            StageStatistics.flattenNode(stageInfo.plan.root, JSON.parse(stageInfo.plan.jsonRepresentation), nodes)
+            stages.set(stageInfo.plan.id, {
+                stageId: stageInfo.stageId,
+                id: stageInfo.plan.id,
+                root: stageInfo.plan.root.id,
+                distribution: stageInfo.plan.distribution,
+                stageStats: stageInfo.stageStats,
+                state: stageInfo.state,
+                nodes: nodes,
+            })
+        })
         return stages
     }
 
-    static flattenStage(stageInfo: any, result: any) {
-        stageInfo.subStages.forEach(function (stage) {
-            StageStatistics.flattenStage(stage, result)
-        })
-
-        const nodes = new Map<any, PlanNodeProps>()
-        StageStatistics.flattenNode(result, stageInfo.plan.root, JSON.parse(stageInfo.plan.jsonRepresentation), nodes)
-
-        result.set(stageInfo.plan.id, {
-            stageId: stageInfo.stageId,
-            id: stageInfo.plan.id,
-            root: stageInfo.plan.root.id,
-            distribution: stageInfo.plan.distribution,
-            stageStats: stageInfo.stageStats,
-            state: stageInfo.state,
-            nodes: nodes,
-        })
-    }
-
-    static flattenNode(stages: any, rootNodeInfo: any, node: any, result: Map<any, PlanNodeProps>) {
+    static flattenNode(rootNodeInfo: any, node: any, result: Map<any, PlanNodeProps>) {
         result.set(node.id, {
             id: node.id,
             name: node['name'],
@@ -78,7 +71,7 @@ class StageStatistics extends React.Component<StageStatisticsProps, StageStatist
         })
 
         node.children.forEach(function (child) {
-            StageStatistics.flattenNode(stages, rootNodeInfo, child, result)
+            StageStatistics.flattenNode(rootNodeInfo, child, result)
         })
     }
 
@@ -384,7 +377,7 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
         }
 
         let loadingMessage = null
-        if (query && !query.outputStage) {
+        if (query && !query.stages) {
             loadingMessage = (
                 <div className="row error-message">
                     <div className="col-xs-12">

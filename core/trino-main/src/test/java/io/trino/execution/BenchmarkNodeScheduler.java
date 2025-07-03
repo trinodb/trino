@@ -31,10 +31,10 @@ import io.trino.execution.scheduler.TopologyAwareNodeSelectorConfig;
 import io.trino.execution.scheduler.TopologyAwareNodeSelectorFactory;
 import io.trino.execution.scheduler.UniformNodeSelectorFactory;
 import io.trino.jmh.Benchmarks;
-import io.trino.metadata.InMemoryNodeManager;
-import io.trino.metadata.InternalNode;
-import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.Split;
+import io.trino.node.InternalNode;
+import io.trino.node.InternalNodeManager;
+import io.trino.node.TestingInternalNodeManager;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -70,6 +70,7 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.SystemSessionProperties.MAX_UNACKNOWLEDGED_SPLITS_PER_TASK;
+import static io.trino.node.TestingInternalNodeManager.CURRENT_NODE;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -167,7 +168,7 @@ public class BenchmarkNodeScheduler
                 splits.add(new Split(TEST_CATALOG_HANDLE, new TestSplitRemote(ThreadLocalRandom.current().nextInt(DATA_NODES))));
             }
 
-            NodeScheduler nodeScheduler = new NodeScheduler(getNodeSelectorFactory(new InMemoryNodeManager(), nodeTaskMap));
+            NodeScheduler nodeScheduler = new NodeScheduler(getNodeSelectorFactory(nodeTaskMap));
             Session session = TestingSession.testSessionBuilder()
                     .setSystemProperty(MAX_UNACKNOWLEDGED_SPLITS_PER_TASK, Integer.toString(Integer.MAX_VALUE))
                     .build();
@@ -189,16 +190,17 @@ public class BenchmarkNodeScheduler
                     .setMinPendingSplitsPerTask(MAX_PENDING_SPLITS_PER_TASK_PER_NODE);
         }
 
-        private NodeSelectorFactory getNodeSelectorFactory(InternalNodeManager nodeManager, NodeTaskMap nodeTaskMap)
+        private NodeSelectorFactory getNodeSelectorFactory(NodeTaskMap nodeTaskMap)
         {
+            InternalNodeManager nodeManager = TestingInternalNodeManager.createDefault();
             NodeSchedulerConfig nodeSchedulerConfig = getNodeSchedulerConfig();
             switch (policy) {
                 case "uniform":
-                    return new UniformNodeSelectorFactory(nodeManager, nodeSchedulerConfig, nodeTaskMap);
+                    return new UniformNodeSelectorFactory(CURRENT_NODE, nodeManager, nodeSchedulerConfig, nodeTaskMap);
                 case "topology":
-                    return new TopologyAwareNodeSelectorFactory(new FlatNetworkTopology(), nodeManager, nodeSchedulerConfig, nodeTaskMap, new TopologyAwareNodeSelectorConfig());
+                    return new TopologyAwareNodeSelectorFactory(new FlatNetworkTopology(), CURRENT_NODE, nodeManager, nodeSchedulerConfig, nodeTaskMap, new TopologyAwareNodeSelectorConfig());
                 case "benchmark":
-                    return new TopologyAwareNodeSelectorFactory(new BenchmarkNetworkTopology(), nodeManager, nodeSchedulerConfig, nodeTaskMap, getBenchmarkNetworkTopologyConfig());
+                    return new TopologyAwareNodeSelectorFactory(new BenchmarkNetworkTopology(), CURRENT_NODE, nodeManager, nodeSchedulerConfig, nodeTaskMap, getBenchmarkNetworkTopologyConfig());
                 default:
                     throw new IllegalStateException();
             }

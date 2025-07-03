@@ -22,7 +22,8 @@ import io.trino.execution.StateMachine;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskInfo;
 import io.trino.execution.TaskState;
-import io.trino.metadata.NodeState;
+import io.trino.node.NodeState;
+import io.trino.server.NodeStateManager.CurrentNodeState.VersionedState;
 import org.assertj.core.util.VisibleForTesting;
 
 import java.util.List;
@@ -32,7 +33,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -41,10 +41,10 @@ import java.util.function.Supplier;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static io.airlift.concurrent.Threads.threadsNamed;
-import static io.trino.metadata.NodeState.ACTIVE;
-import static io.trino.metadata.NodeState.DRAINED;
-import static io.trino.metadata.NodeState.DRAINING;
-import static io.trino.metadata.NodeState.SHUTTING_DOWN;
+import static io.trino.node.NodeState.ACTIVE;
+import static io.trino.node.NodeState.DRAINED;
+import static io.trino.node.NodeState.DRAINING;
+import static io.trino.node.NodeState.SHUTTING_DOWN;
 import static java.lang.String.format;
 import static java.lang.Thread.currentThread;
 import static java.util.Objects.requireNonNull;
@@ -68,89 +68,23 @@ public class NodeStateManager
     private final Duration gracePeriod;
 
     private final ScheduledExecutorService executor;
-    private final AtomicReference<VersionedState> nodeState = new AtomicReference<>(new VersionedState(ACTIVE, 0));
-    private final AtomicLong stateVersionProvider = new AtomicLong(0);
+    private final CurrentNodeState nodeState;
 
     public interface SqlTasksObservable
     {
         void addStateChangeListener(TaskId taskId, StateMachine.StateChangeListener<TaskState> stateChangeListener);
     }
 
-    private class VersionedState
-    {
-        private final NodeState state;
-        private final long version;
-
-        private VersionedState(NodeState state, long version)
-        {
-            this.state = requireNonNull(state, "state is null");
-            this.version = version;
-        }
-
-        public VersionedState toActive()
-        {
-            return new VersionedState(ACTIVE, nextStateVersion());
-        }
-
-        public VersionedState toDraining()
-        {
-            return new VersionedState(DRAINING, nextStateVersion());
-        }
-
-        public VersionedState toDrained()
-        {
-            return new VersionedState(DRAINED, nextStateVersion());
-        }
-
-        public VersionedState toShuttingDown()
-        {
-            return new VersionedState(SHUTTING_DOWN, nextStateVersion());
-        }
-
-        public NodeState state()
-        {
-            return state;
-        }
-
-        public long version()
-        {
-            return version;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            VersionedState that = (VersionedState) o;
-            return version == that.version && state == that.state;
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(state, version);
-        }
-
-        @Override
-        public String toString()
-        {
-            return String.format("%s-%s", state.toString(), version);
-        }
-    }
-
     @Inject
     public NodeStateManager(
+            CurrentNodeState nodeState,
             SqlTaskManager sqlTaskManager,
             ServerConfig serverConfig,
             ShutdownAction shutdownAction,
             LifeCycleManager lifeCycleManager)
     {
-        this(requireNonNull(sqlTaskManager, "sqlTaskManager is null")::addStateChangeListener,
+        this(nodeState,
+                requireNonNull(sqlTaskManager, "sqlTaskManager is null")::addStateChangeListener,
                 requireNonNull(sqlTaskManager, "sqlTaskManager is null")::getAllTaskInfo,
                 serverConfig,
                 shutdownAction,
@@ -160,6 +94,7 @@ public class NodeStateManager
 
     @VisibleForTesting
     public NodeStateManager(
+            CurrentNodeState nodeState,
             SqlTasksObservable sqlTasksObservable,
             Supplier<List<TaskInfo>> taskInfoSupplier,
             ServerConfig serverConfig,
@@ -167,6 +102,7 @@ public class NodeStateManager
             LifeCycleManager lifeCycleManager,
             ScheduledExecutorService executor)
     {
+        this.nodeState = requireNonNull(nodeState, "nodeState is null");
         this.sqlTasksObservable = requireNonNull(sqlTasksObservable, "sqlTasksObservable is null");
         this.taskInfoSupplier = requireNonNull(taskInfoSupplier, "taskInfoSupplier is null");
         this.shutdownAction = requireNonNull(shutdownAction, "shutdownAction is null");
@@ -178,7 +114,7 @@ public class NodeStateManager
 
     public NodeState getServerState()
     {
-        return nodeState.get().state();
+        return nodeState.getVersion().state();
     }
 
     /*
@@ -201,17 +137,17 @@ public class NodeStateManager
     */
     public synchronized void transitionState(NodeState state)
     {
-        VersionedState currState = nodeState.get();
+        VersionedState currState = nodeState.getVersion();
         if (currState.state() == state) {
             return;
         }
 
         switch (state) {
             case ACTIVE -> {
-                if (currState.state() == DRAINING && nodeState.compareAndSet(currState, currState.toActive())) {
+                if (currState.state() == DRAINING && nodeState.compareAndSetVersion(currState, currState.toActive())) {
                     return;
                 }
-                if (currState.state() == DRAINED && nodeState.compareAndSet(currState, currState.toActive())) {
+                if (currState.state() == DRAINED && nodeState.compareAndSetVersion(currState, currState.toActive())) {
                     return;
                 }
             }
@@ -220,11 +156,11 @@ public class NodeStateManager
                     throw new UnsupportedOperationException("Cannot shutdown coordinator");
                 }
                 VersionedState shuttingDown = currState.toShuttingDown();
-                if (currState.state() == DRAINED && nodeState.compareAndSet(currState, shuttingDown)) {
+                if (currState.state() == DRAINED && nodeState.compareAndSetVersion(currState, shuttingDown)) {
                     requestTerminate();
                     return;
                 }
-                nodeState.set(shuttingDown);
+                nodeState.setVersion(shuttingDown);
                 requestGracefulShutdown();
                 return;
             }
@@ -232,22 +168,17 @@ public class NodeStateManager
                 if (isCoordinator) {
                     throw new UnsupportedOperationException("Cannot drain coordinator");
                 }
-                if (currState.state() == ACTIVE && nodeState.compareAndSet(currState, currState.toDraining())) {
+                if (currState.state() == ACTIVE && nodeState.compareAndSetVersion(currState, currState.toDraining())) {
                     requestDrain();
                     return;
                 }
             }
-            case DRAINED -> throw new IllegalStateException(format("Invalid state transition from %s to %s, transition to DRAINED is internal only", currState, state));
 
-            case INACTIVE -> throw new IllegalStateException(format("Invalid state transition from %s to %s, INACTIVE is not a valid internal state", currState, state));
+            case INACTIVE, DRAINED, INVALID, GONE ->
+                    throw new IllegalArgumentException("Cannot transition state to internal state " + state);
         }
 
         throw new IllegalStateException(format("Invalid state transition from %s to %s", currState, state));
-    }
-
-    private long nextStateVersion()
-    {
-        return stateVersionProvider.incrementAndGet();
     }
 
     private synchronized void requestDrain()
@@ -256,7 +187,7 @@ public class NodeStateManager
 
         // wait for a grace period (so that draining state is observed by the coordinator) before starting draining
         // when coordinator observes draining no new tasks are assigned to this worker
-        VersionedState expectedState = nodeState.get();
+        VersionedState expectedState = nodeState.getVersion();
         executor.schedule(() -> drain(expectedState), gracePeriod.toMillis(), MILLISECONDS);
     }
 
@@ -271,7 +202,7 @@ public class NodeStateManager
     {
         log.info("Shutdown requested");
 
-        VersionedState expectedState = nodeState.get();
+        VersionedState expectedState = nodeState.getVersion();
         // wait for a grace period (so that shutting down state is observed by the coordinator) to start the shutdown sequence
         shutdownHandler.schedule(() -> shutdown(expectedState), gracePeriod.toMillis(), MILLISECONDS);
     }
@@ -308,7 +239,7 @@ public class NodeStateManager
 
     private void drain(VersionedState expectedState)
     {
-        if (nodeState.get() == expectedState) {
+        if (nodeState.getVersion() == expectedState) {
             waitActiveTasksToFinish(expectedState);
         }
         drainingComplete(expectedState);
@@ -317,12 +248,12 @@ public class NodeStateManager
     private synchronized void drainingComplete(VersionedState expectedState)
     {
         VersionedState drained = expectedState.toDrained();
-        boolean success = nodeState.compareAndSet(expectedState, drained);
+        boolean success = nodeState.compareAndSetVersion(expectedState, drained);
         if (success) {
             log.info("Worker State change: DRAINING -> DRAINED, server can be safely SHUT DOWN.");
         }
         else {
-            log.info("Worker State change: %s, expected: %s, will not transition to DRAINED", nodeState.get(), expectedState);
+            log.info("Worker State change: %s, expected: %s, will not transition to DRAINED", nodeState.getVersion(), expectedState);
         }
     }
 
@@ -330,7 +261,7 @@ public class NodeStateManager
     {
         // At this point no new tasks should be scheduled by coordinator on this worker node.
         // Wait for all remaining tasks to finish.
-        while (nodeState.get() == expectedState) {
+        while (nodeState.getVersion() == expectedState) {
             List<TaskInfo> activeTasks = getActiveTasks();
             log.info("Waiting for %s active tasks to finish", activeTasks.size());
             if (activeTasks.isEmpty()) {
@@ -341,7 +272,7 @@ public class NodeStateManager
         }
 
         // wait for another grace period for all task states to be observed by the coordinator
-        if (nodeState.get() == expectedState) {
+        if (nodeState.getVersion() == expectedState) {
             sleepUninterruptibly(gracePeriod.toMillis(), MILLISECONDS);
         }
     }
@@ -360,8 +291,8 @@ public class NodeStateManager
         }
 
         try {
-            while (!countDownLatch.await(1, TimeUnit.SECONDS)) {
-                if (nodeState.get() != expectedState) {
+            while (!countDownLatch.await(1, SECONDS)) {
+                if (nodeState.getVersion() != expectedState) {
                     log.info("Wait for tasks interrupted by state change, worker is no longer draining.");
 
                     break;
@@ -380,5 +311,105 @@ public class NodeStateManager
                 .stream()
                 .filter(taskInfo -> !taskInfo.taskStatus().getState().isDone())
                 .collect(toImmutableList());
+    }
+
+    public static class CurrentNodeState
+            implements Supplier<NodeState>
+    {
+        private final AtomicReference<VersionedState> nodeState = new AtomicReference<>(new VersionedState(ACTIVE, 0));
+        private final AtomicLong stateVersionProvider = new AtomicLong(0);
+
+        @Override
+        public NodeState get()
+        {
+            return getVersion().state();
+        }
+
+        private VersionedState getVersion()
+        {
+            return nodeState.get();
+        }
+
+        private void setVersion(VersionedState newValue)
+        {
+            nodeState.set(newValue);
+        }
+
+        private boolean compareAndSetVersion(VersionedState expectedValue, VersionedState newValue)
+        {
+            return nodeState.compareAndSet(expectedValue, newValue);
+        }
+
+        private long nextStateVersion()
+        {
+            return stateVersionProvider.incrementAndGet();
+        }
+
+        class VersionedState
+        {
+            private final NodeState state;
+            private final long version;
+
+            private VersionedState(NodeState state, long version)
+            {
+                this.state = requireNonNull(state, "state is null");
+                this.version = version;
+            }
+
+            public VersionedState toActive()
+            {
+                return new VersionedState(ACTIVE, nextStateVersion());
+            }
+
+            public VersionedState toDraining()
+            {
+                return new VersionedState(DRAINING, nextStateVersion());
+            }
+
+            public VersionedState toDrained()
+            {
+                return new VersionedState(DRAINED, nextStateVersion());
+            }
+
+            public VersionedState toShuttingDown()
+            {
+                return new VersionedState(SHUTTING_DOWN, nextStateVersion());
+            }
+
+            public NodeState state()
+            {
+                return state;
+            }
+
+            public long version()
+            {
+                return version;
+            }
+
+            @Override
+            public boolean equals(Object o)
+            {
+                if (this == o) {
+                    return true;
+                }
+                if (o == null || getClass() != o.getClass()) {
+                    return false;
+                }
+                VersionedState that = (VersionedState) o;
+                return version == that.version && state == that.state;
+            }
+
+            @Override
+            public int hashCode()
+            {
+                return Objects.hash(state, version);
+            }
+
+            @Override
+            public String toString()
+            {
+                return "%s-%s".formatted(state.toString(), version);
+            }
+        }
     }
 }

@@ -366,6 +366,6 @@ public class TestMemoryMetadata
 
     private static MemoryMetadata createMetadata()
     {
-        return new MemoryMetadata(new TestingNodeManager());
+        return new MemoryMetadata(TestingNodeManager.create());
     }
 }

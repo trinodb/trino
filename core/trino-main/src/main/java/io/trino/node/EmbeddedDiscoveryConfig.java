@@ -11,21 +11,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.server;
+package io.trino.node;
 
-import com.google.inject.Binder;
-import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.airlift.discovery.server.EmbeddedDiscoveryModule;
+import io.airlift.configuration.Config;
 
-public class CoordinatorDiscoveryModule
-        extends AbstractConfigurationAwareModule
+public class EmbeddedDiscoveryConfig
 {
-    @Override
-    protected void setup(Binder binder)
+    private boolean enabled = true;
+
+    @Deprecated
+    public boolean isEnabled()
     {
-        if (buildConfigObject(ServerConfig.class).isCoordinator() &&
-                buildConfigObject(EmbeddedDiscoveryConfig.class).isEnabled()) {
-            install(new EmbeddedDiscoveryModule());
-        }
+        return enabled;
+    }
+
+    @Deprecated
+    @Config("discovery-server.enabled")
+    public EmbeddedDiscoveryConfig setEnabled(boolean enabled)
+    {
+        this.enabled = enabled;
+        return this;
     }
 }

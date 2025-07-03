@@ -15,8 +15,8 @@ package io.trino.execution.scheduler;
 
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
+import io.trino.node.InternalNode;
 
 import static java.util.Objects.requireNonNull;
 

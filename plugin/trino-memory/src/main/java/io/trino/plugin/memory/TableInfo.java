@@ -24,10 +24,9 @@ import io.trino.spi.connector.SchemaTableName;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.onlyElement;
-import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 
 public record TableInfo(
@@ -61,8 +60,8 @@ public record TableInfo(
                 new SchemaTableName(schemaName, tableName),
                 columns.stream()
                         .map(ColumnInfo::getMetadata)
-                        .collect(Collectors.toList()),
-                emptyMap(),
+                        .collect(toImmutableList()),
+                ImmutableMap.of(),
                 comment);
     }
 

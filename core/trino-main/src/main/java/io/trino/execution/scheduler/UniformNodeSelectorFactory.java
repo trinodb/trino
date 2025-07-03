@@ -24,8 +24,8 @@ import io.trino.Session;
 import io.trino.cache.NonEvictableCache;
 import io.trino.execution.NodeTaskMap;
 import io.trino.execution.scheduler.NodeSchedulerConfig.SplitsBalancingPolicy;
-import io.trino.metadata.InternalNode;
-import io.trino.metadata.InternalNodeManager;
+import io.trino.node.InternalNode;
+import io.trino.node.InternalNodeManager;
 import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
 
@@ -40,7 +40,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.SystemSessionProperties.getMaxUnacknowledgedSplitsPerTask;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
-import static io.trino.metadata.NodeState.ACTIVE;
+import static io.trino.node.NodeState.ACTIVE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -54,6 +54,7 @@ public class UniformNodeSelectorFactory
             CacheBuilder.newBuilder()
                     .expireAfterWrite(30, TimeUnit.SECONDS));
 
+    private final InternalNode currentNode;
     private final InternalNodeManager nodeManager;
     private final int minCandidates;
     private final boolean includeCoordinator;
@@ -67,20 +68,23 @@ public class UniformNodeSelectorFactory
 
     @Inject
     public UniformNodeSelectorFactory(
+            InternalNode currentNode,
             InternalNodeManager nodeManager,
             NodeSchedulerConfig config,
             NodeTaskMap nodeTaskMap)
     {
-        this(nodeManager, config, nodeTaskMap, new Duration(5, SECONDS));
+        this(currentNode, nodeManager, config, nodeTaskMap, new Duration(5, SECONDS));
     }
 
     @VisibleForTesting
     UniformNodeSelectorFactory(
+            InternalNode currentNode,
             InternalNodeManager nodeManager,
             NodeSchedulerConfig config,
             NodeTaskMap nodeTaskMap,
             Duration nodeMapMemoizationDuration)
     {
+        this.currentNode = requireNonNull(currentNode, "currentNode is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.minCandidates = config.getMinCandidates();
         this.includeCoordinator = config.isIncludeCoordinator();
@@ -114,7 +118,7 @@ public class UniformNodeSelectorFactory
         }
 
         return new UniformNodeSelector(
-                nodeManager,
+                currentNode,
                 nodeTaskMap,
                 includeCoordinator,
                 nodeMap,

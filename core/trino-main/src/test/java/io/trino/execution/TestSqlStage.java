@@ -23,8 +23,8 @@ import io.trino.client.NodeVersion;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.buffer.PipelinedOutputBuffers;
 import io.trino.execution.scheduler.SplitSchedulerStats;
-import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
+import io.trino.node.InternalNode;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.QueryId;
 import io.trino.sql.planner.Partitioning;
@@ -49,6 +49,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -125,7 +126,8 @@ public class TestSqlStage
                 executor,
                 noopTracer(),
                 Span.getInvalid(),
-                new SplitSchedulerStats());
+                new SplitSchedulerStats(),
+                (_, _) -> Optional.empty());
 
         // add listener that fetches stage info when the final status is available
         SettableFuture<StageInfo> finalStageInfo = SettableFuture.create();
@@ -153,6 +155,7 @@ public class TestSqlStage
                             i,
                             0,
                             Optional.empty(),
+                            OptionalInt.empty(),
                             PipelinedOutputBuffers.createInitial(ARBITRARY),
                             initialSplits,
                             ImmutableSet.of(),
@@ -244,6 +247,7 @@ public class TestSqlStage
                 Optional.empty(),
                 ImmutableList.of(planNode.getId()),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), planNode.getOutputSymbols()),
+                OptionalInt.empty(),
                 StatsAndCosts.empty(),
                 ImmutableList.of(),
                 ImmutableMap.of(),

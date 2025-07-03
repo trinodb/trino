@@ -13,12 +13,11 @@
  */
 package io.trino.operator;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.client.NodeVersion;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryPerformanceFetcher;
-import io.trino.execution.StageId;
 import io.trino.execution.StageInfo;
+import io.trino.execution.StagesInfo;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.spi.Page;
@@ -29,6 +28,7 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.planprinter.PlanPrinter.textDistributedPlan;
 import static java.util.Objects.requireNonNull;
@@ -152,15 +152,19 @@ public class ExplainAnalyzeOperator
         }
 
         QueryInfo queryInfo = queryPerformanceFetcher.getQueryInfo(operatorContext.getDriverContext().getTaskId().getQueryId());
-        checkState(queryInfo.getOutputStage().isPresent(), "Output stage is missing");
-        checkState(queryInfo.getOutputStage().get().getSubStages().size() == 1, "Expected one sub stage of explain node");
+        checkState(queryInfo.getStages().isPresent(), "Stages informations is missing");
+        checkState(queryInfo.getStages().get().getOutputStage().getSubStages().size() == 1, "Expected one sub stage of explain node");
 
-        if (!hasFinalStageInfo(queryInfo.getOutputStage().get())) {
+        if (!hasFinalStageInfo(queryInfo.getStages().get())) {
             return null;
         }
 
+        List<StageInfo> stagesWithoutOutputStage = queryInfo.getStages().orElseThrow().getStages().stream()
+                .filter(stage -> !stage.getStageId().equals(queryInfo.getStages().orElseThrow().getOutputStageId()))
+                .collect(toImmutableList());
+
         String plan = textDistributedPlan(
-                queryInfo.getOutputStage().get().getSubStages().get(0),
+                stagesWithoutOutputStage,
                 queryInfo.getQueryStats(),
                 metadata,
                 functionManager,
@@ -174,9 +178,9 @@ public class ExplainAnalyzeOperator
         return new Page(builder.build());
     }
 
-    private boolean hasFinalStageInfo(StageInfo stageInfo)
+    private boolean hasFinalStageInfo(StagesInfo stages)
     {
-        boolean isFinalStageInfo = isFinalStageInfo(stageInfo);
+        boolean isFinalStageInfo = isFinalStageInfo(stages);
         if (!isFinalStageInfo) {
             try {
                 TimeUnit.MILLISECONDS.sleep(100);
@@ -185,34 +189,12 @@ public class ExplainAnalyzeOperator
                 throw new RuntimeException(e);
             }
         }
-        return isFinalStageInfo(stageInfo);
+        return isFinalStageInfo(stages);
     }
 
-    private boolean isFinalStageInfo(StageInfo stageInfo)
+    private boolean isFinalStageInfo(StagesInfo stages)
     {
-        List<StageInfo> subStages = getSubStagesOf(operatorContext.getDriverContext().getTaskId().getStageId(), stageInfo);
+        List<StageInfo> subStages = stages.getSubStagesDeepPreOrder(operatorContext.getDriverContext().getTaskId().getStageId());
         return subStages.stream().allMatch(StageInfo::isFinalStageInfo);
-    }
-
-    private static List<StageInfo> getSubStagesOf(StageId stageId, StageInfo rootStage)
-    {
-        ImmutableList.Builder<StageInfo> collector = ImmutableList.builder();
-        getSubStages(stageId, rootStage, collector, false);
-        return collector.build();
-    }
-
-    private static void getSubStages(StageId stageId, StageInfo rootStage, ImmutableList.Builder<StageInfo> collector, boolean add)
-    {
-        if (rootStage.getStageId().equals(stageId)) {
-            add = true;
-        }
-        List<StageInfo> subStages = rootStage.getSubStages();
-        for (StageInfo subStage : subStages) {
-            getSubStages(stageId, subStage, collector, add);
-        }
-
-        if (add && !rootStage.getStageId().equals(stageId)) {
-            collector.add(rootStage);
-        }
     }
 }

@@ -194,11 +194,11 @@ public class TestQueryResource
         assertThat(queryInfoPruned.getRoutines().get(0).getRoutine()).isEqualTo("now");
         assertThat(queryInfoNotPruned.getRoutines().get(0).getRoutine()).isEqualTo("now");
 
-        assertThat(queryInfoPruned.getOutputStage()).isPresent();
-        assertThat(queryInfoNotPruned.getOutputStage()).isPresent();
+        assertThat(queryInfoPruned.getStages()).isPresent();
+        assertThat(queryInfoNotPruned.getStages()).isPresent();
 
-        assertThat(queryInfoPruned.getOutputStage().get().getTasks()).isEmpty();
-        assertThat(queryInfoNotPruned.getOutputStage().get().getTasks()).isNotEmpty();
+        assertThat(queryInfoPruned.getStages().get().getOutputStage().getTasks()).isEmpty();
+        assertThat(queryInfoNotPruned.getStages().get().getOutputStage().getTasks()).isNotEmpty();
     }
 
     @Test

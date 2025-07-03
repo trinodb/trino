@@ -26,7 +26,7 @@ import io.airlift.units.Duration;
 import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.metastore.cache.CachingHiveMetastore.ObjectType;
-import io.trino.spi.NodeManager;
+import io.trino.spi.Node;
 import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.security.ConnectorIdentity;
@@ -71,12 +71,12 @@ public class SharedHiveMetastoreCache
     @Inject
     public SharedHiveMetastoreCache(
             CatalogName catalogName,
-            NodeManager nodeManager,
+            Node currentNode,
             CachingHiveMetastoreConfig config,
             ImpersonationCachingConfig impersonationCachingConfig)
     {
-        requireNonNull(nodeManager, "nodeManager is null");
         requireNonNull(catalogName, "catalogName is null");
+        requireNonNull(currentNode, "currentNode is null");
 
         this.catalogName = catalogName;
 
@@ -104,7 +104,7 @@ public class SharedHiveMetastoreCache
         // Disable caching on workers, because there currently is no way to invalidate such a cache.
         // Note: while we could skip CachingHiveMetastoreModule altogether on workers, we retain it so that catalog
         // configuration can remain identical for all nodes, making cluster configuration easier.
-        enabled = nodeManager.getCurrentNode().isCoordinator() &&
+        enabled = currentNode.isCoordinator() &&
                 (metadataCacheTtl.toMillis() > 0 || statsCacheTtl.toMillis() > 0);
     }
 

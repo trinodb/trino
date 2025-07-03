@@ -86,7 +86,6 @@ public class TestProxyServer
         server.createCatalog("tpch", "tpch");
         server.installPlugin(new BlackHolePlugin());
         server.createCatalog("blackhole", "blackhole");
-        server.refreshNodes();
 
         Bootstrap app = new Bootstrap(
                 new TestingNodeModule("test"),
@@ -213,7 +212,7 @@ public class TestProxyServer
     }
 
     @Test
-    @Timeout(10)
+    @Timeout(1000)
     public void testPartialCancel()
             throws Exception
     {

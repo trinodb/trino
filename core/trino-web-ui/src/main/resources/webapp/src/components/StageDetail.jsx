@@ -616,18 +616,14 @@ export class StageDetail extends React.Component {
         new window.ClipboardJS('.copy-button')
     }
 
-    findStage(stageId, currentStage) {
+    findStage(stageId, stagesInfo) {
         if (stageId === null) {
             return null
         }
 
-        if (currentStage.stageId === stageId) {
-            return currentStage
-        }
-
-        for (let i = 0; i < currentStage.subStages.length; i++) {
-            const stage = this.findStage(stageId, currentStage.subStages[i])
-            if (stage !== null) {
+        for (let i = 0; i < stagesInfo.stages.length; i++) {
+            const stage = stagesInfo.stages[i]
+            if (stage.stageId === stageId) {
                 return stage
             }
         }
@@ -635,11 +631,12 @@ export class StageDetail extends React.Component {
         return null
     }
 
-    getAllStageIds(result, currentStage) {
-        result.push(currentStage.plan.id)
-        currentStage.subStages.forEach((stage) => {
-            this.getAllStageIds(result, stage)
+    getAllStageIds(stagesInfo) {
+        const result = []
+        stagesInfo.stages.forEach((stage) => {
+            result.push(stage.plan.id)
         })
+        return result
     }
 
     render() {
@@ -657,7 +654,7 @@ export class StageDetail extends React.Component {
             )
         }
 
-        if (!this.state.query.outputStage) {
+        if (!this.state.query.stages) {
             return (
                 <div className="row error-message">
                     <div className="col-xs-12">
@@ -668,10 +665,9 @@ export class StageDetail extends React.Component {
         }
 
         const query = this.state.query
-        const allStages = []
-        this.getAllStageIds(allStages, query.outputStage)
+        const allStages = this.getAllStageIds(query.stages)
 
-        const stage = this.findStage(query.queryId + '.' + this.state.selectedStageId, query.outputStage)
+        const stage = this.findStage(query.queryId + '.' + this.state.selectedStageId, query.stages)
         if (stage === null) {
             return (
                 <div className="row error-message">

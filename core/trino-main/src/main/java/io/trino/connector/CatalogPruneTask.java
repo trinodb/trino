@@ -18,20 +18,17 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
-import io.airlift.discovery.client.ServiceDescriptor;
-import io.airlift.discovery.client.ServiceSelector;
-import io.airlift.discovery.client.ServiceType;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.Response;
 import io.airlift.http.client.ResponseHandler;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
-import io.airlift.node.NodeInfo;
 import io.airlift.units.Duration;
 import io.trino.metadata.CatalogManager;
-import io.trino.metadata.ForNodeManager;
-import io.trino.server.InternalCommunicationConfig;
+import io.trino.node.AllNodes;
+import io.trino.node.InternalNode;
+import io.trino.node.InternalNodeManager;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.transaction.TransactionManager;
 import jakarta.annotation.PostConstruct;
@@ -44,6 +41,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
@@ -64,8 +62,8 @@ public class CatalogPruneTask
     private final TransactionManager transactionManager;
     private final CatalogManager catalogManager;
     private final ConnectorServicesProvider connectorServicesProvider;
-    private final NodeInfo nodeInfo;
-    private final ServiceSelector selector;
+    private final InternalNode currentNode;
+    private final InternalNodeManager internalNodeManager;
     private final HttpClient httpClient;
 
     private final ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(1, daemonThreadsNamed("catalog-prune"));
@@ -73,7 +71,6 @@ public class CatalogPruneTask
 
     private final boolean enabled;
     private final Duration updateInterval;
-    private final boolean httpsRequired;
 
     private final AtomicBoolean started = new AtomicBoolean();
 
@@ -82,23 +79,20 @@ public class CatalogPruneTask
             TransactionManager transactionManager,
             CatalogManager catalogManager,
             ConnectorServicesProvider connectorServicesProvider,
-            NodeInfo nodeInfo,
-            @ServiceType("trino") ServiceSelector selector,
-            @ForNodeManager HttpClient httpClient,
-            CatalogPruneTaskConfig catalogPruneTaskConfig,
-            InternalCommunicationConfig internalCommunicationConfig)
+            InternalNode currentNode,
+            InternalNodeManager internalNodeManager,
+            @ForCatalogPrune HttpClient httpClient,
+            CatalogPruneTaskConfig catalogPruneTaskConfig)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.catalogManager = requireNonNull(catalogManager, "catalogManager is null");
         this.connectorServicesProvider = requireNonNull(connectorServicesProvider, "connectorServicesProvider is null");
-        this.nodeInfo = requireNonNull(nodeInfo, "nodeInfo is null");
-        this.selector = requireNonNull(selector, "selector is null");
+        this.currentNode = requireNonNull(currentNode, "currentNode is null");
+        this.internalNodeManager = requireNonNull(internalNodeManager, "internalNodeManager is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
 
         this.enabled = catalogPruneTaskConfig.isEnabled();
         updateInterval = catalogPruneTaskConfig.getUpdateInterval();
-
-        this.httpsRequired = internalCommunicationConfig.isHttpsRequired();
     }
 
     @PostConstruct
@@ -133,8 +127,11 @@ public class CatalogPruneTask
     @VisibleForTesting
     public void pruneWorkerCatalogs()
     {
-        Set<ServiceDescriptor> online = selector.selectAllServices().stream()
-                .filter(descriptor -> !nodeInfo.getNodeId().equals(descriptor.getNodeId()))
+        AllNodes allNodes = internalNodeManager.getAllNodes();
+        Set<URI> online = Stream.of(allNodes.activeNodes(), allNodes.inactiveNodes(), allNodes.drainingNodes(), allNodes.drainedNodes(), allNodes.shuttingDownNodes())
+                .flatMap(Set::stream)
+                .map(InternalNode::getInternalUri)
+                .filter(uri -> !uri.equals(currentNode.getInternalUri()))
                 .collect(toImmutableSet());
 
         // send message to workers to trigger prune
@@ -145,13 +142,9 @@ public class CatalogPruneTask
         connectorServicesProvider.pruneCatalogs(ImmutableSet.of());
     }
 
-    void pruneWorkerCatalogs(Set<ServiceDescriptor> online, List<CatalogHandle> activeCatalogs)
+    void pruneWorkerCatalogs(Set<URI> online, List<CatalogHandle> activeCatalogs)
     {
-        for (ServiceDescriptor service : online) {
-            URI uri = getHttpUri(service);
-            if (uri == null) {
-                continue;
-            }
+        for (URI uri : online) {
             uri = uriBuilderFrom(uri).appendPath("/v1/task/pruneCatalogs").build();
             Request request = preparePost()
                     .setUri(uri)
@@ -185,14 +178,5 @@ public class CatalogPruneTask
         // all catalogs currently associated with a name
         activeCatalogs.addAll(catalogManager.getActiveCatalogs());
         return ImmutableList.copyOf(activeCatalogs.build());
-    }
-
-    private URI getHttpUri(ServiceDescriptor descriptor)
-    {
-        String url = descriptor.getProperties().get(httpsRequired ? "https" : "http");
-        if (url != null) {
-            return URI.create(url);
-        }
-        return null;
     }
 }

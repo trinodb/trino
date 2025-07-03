@@ -19,10 +19,13 @@ import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.EntityKindAndName;
 import io.trino.spi.connector.EntityPrivilege;
 import io.trino.spi.function.CatalogSchemaFunctionName;
+import io.trino.spi.security.FunctionAuthorization;
 import io.trino.spi.security.GrantInfo;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.RoleGrant;
+import io.trino.spi.security.SchemaAuthorization;
+import io.trino.spi.security.TableAuthorization;
 import io.trino.spi.security.TrinoPrincipal;
 
 import java.util.Optional;
@@ -240,4 +243,10 @@ public interface SystemSecurityMetadata
      * to be fully qualified, i.e., if the entity is a table, the name is of size three.
      */
     void setEntityOwner(Session session, EntityKindAndName entityKindAndName, TrinoPrincipal principal);
+
+    Set<SchemaAuthorization> getSchemasAuthorizationInfo(Session session, QualifiedSchemaPrefix prefix);
+
+    Set<TableAuthorization> getTablesAuthorizationInfo(Session session, QualifiedTablePrefix prefix);
+
+    Set<FunctionAuthorization> getFunctionsAuthorizationInfo(Session session, QualifiedObjectPrefix prefix);
 }

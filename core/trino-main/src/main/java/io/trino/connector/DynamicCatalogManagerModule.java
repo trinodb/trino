@@ -17,12 +17,15 @@ import com.google.inject.Binder;
 import com.google.inject.Inject;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.airlift.units.Duration;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.CatalogManager;
 import io.trino.server.ServerConfig;
 import io.trino.spi.catalog.CatalogStore;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.trino.server.InternalCommunicationHttpClientModule.internalHttpClientModule;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class DynamicCatalogManagerModule
         extends AbstractConfigurationAwareModule
@@ -41,6 +44,11 @@ public class DynamicCatalogManagerModule
 
             configBinder(binder).bindConfig(CatalogPruneTaskConfig.class);
             binder.bind(CatalogPruneTask.class).in(Scopes.SINGLETON);
+            install(internalHttpClientModule("catalog-prune", ForCatalogPrune.class)
+                    .withConfigDefaults(config -> {
+                        config.setIdleTimeout(new Duration(30, SECONDS));
+                        config.setRequestTimeout(new Duration(10, SECONDS));
+                    }).build());
         }
         else {
             binder.bind(WorkerDynamicCatalogManager.class).in(Scopes.SINGLETON);
