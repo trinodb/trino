@@ -40,7 +40,7 @@ public class AnnounceNodeInventoryModule
 
         // both coordinator and worker can announce, although coordinator normally does not
         binder.bind(Announcer.class).to(AnnounceNodeAnnouncer.class).in(Scopes.SINGLETON);
-        configBinder(binder).bindConfig(AnnounceConfig.class);
+        configBinder(binder).bindConfig(AnnounceNodeAnnouncerConfig.class);
         install(internalHttpClientModule("announcer", ForAnnouncer.class)
                 .withConfigDefaults(config -> {
                     config.setIdleTimeout(new Duration(3, SECONDS));
