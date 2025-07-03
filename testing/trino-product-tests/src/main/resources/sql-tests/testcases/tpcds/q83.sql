@@ -72,11 +72,11 @@ WITH
 SELECT
   "sr_items"."item_id"
 , "sr_item_qty"
-, CAST(((("sr_item_qty" / ((CAST("sr_item_qty" AS DECIMAL(9,4)) + "cr_item_qty") + "wr_item_qty")) / DECIMAL '3.0') * 100) AS DECIMAL(7,2)) "sr_dev"
+, CAST(((("sr_item_qty" / ((CAST("sr_item_qty" AS DECIMAL(9,4)) + "cr_item_qty") + "wr_item_qty")) / DECIMAL '3.0') * 100) AS DECIMAL(38,6)) "sr_dev"
 , "cr_item_qty"
-, CAST(((("cr_item_qty" / ((CAST("sr_item_qty" AS DECIMAL(9,4)) + "cr_item_qty") + "wr_item_qty")) / DECIMAL '3.0') * 100) AS DECIMAL(7,2)) "cr_dev"
+, CAST(((("cr_item_qty" / ((CAST("sr_item_qty" AS DECIMAL(9,4)) + "cr_item_qty") + "wr_item_qty")) / DECIMAL '3.0') * 100) AS DECIMAL(38,6)) "cr_dev"
 , "wr_item_qty"
-, CAST(((("wr_item_qty" / ((CAST("sr_item_qty" AS DECIMAL(9,4)) + "cr_item_qty") + "wr_item_qty")) / DECIMAL '3.0') * 100) AS DECIMAL(7,2)) "wr_dev"
+, CAST(((("wr_item_qty" / ((CAST("sr_item_qty" AS DECIMAL(9,4)) + "cr_item_qty") + "wr_item_qty")) / DECIMAL '3.0') * 100) AS DECIMAL(38,6)) "wr_dev"
 , ((("sr_item_qty" + "cr_item_qty") + "wr_item_qty") / DECIMAL '3.00') "average"
 FROM
   sr_items
