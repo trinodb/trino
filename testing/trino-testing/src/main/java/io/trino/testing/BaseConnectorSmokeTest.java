@@ -325,11 +325,11 @@ public abstract class BaseConnectorSmokeTest
 
         try (TestTable table = createTestTableForWrites("test_update_")) {
             assertUpdate("INSERT INTO " + table.getName() + " (a, b) SELECT regionkey, regionkey * 2.5 FROM region", "SELECT count(*) FROM region");
-            assertThat(query("SELECT a, b FROM " + table.getName()))
+            assertThat(query("SELECT CAST(a AS bigint), b FROM " + table.getName()))
                     .matches(expectedValues("(0, 0.0), (1, 2.5), (2, 5.0), (3, 7.5), (4, 10.0)"));
 
             assertUpdate("UPDATE " + table.getName() + " SET b = b + 1.2 WHERE a % 2 = 0", 3);
-            assertThat(query("SELECT a, b FROM " + table.getName()))
+            assertThat(query("SELECT CAST(a AS bigint), b FROM " + table.getName()))
                     .matches(expectedValues("(0, 1.2), (1, 2.5), (2, 6.2), (3, 7.5), (4, 11.2)"));
         }
     }
@@ -351,7 +351,7 @@ public abstract class BaseConnectorSmokeTest
 
         try (TestTable table = createTestTableForWrites("test_merge_")) {
             assertUpdate("INSERT INTO " + table.getName() + " (a, b) SELECT regionkey, regionkey * 2.5 FROM region", "SELECT count(*) FROM region");
-            assertThat(query("SELECT a, b FROM " + table.getName()))
+            assertThat(query("SELECT CAST(a AS bigint), b FROM " + table.getName()))
                     .matches(expectedValues("(0, 0.0), (1, 2.5), (2, 5.0), (3, 7.5), (4, 10.0)"));
 
             assertUpdate("MERGE INTO " + table.getName() + " t " +
@@ -361,7 +361,7 @@ public abstract class BaseConnectorSmokeTest
                     "WHEN MATCHED AND s.b = 0 THEN DELETE " +
                     "WHEN NOT MATCHED THEN INSERT VALUES (s.a, s.b)",
                     4);
-            assertThat(query("SELECT a, b FROM " + table.getName()))
+            assertThat(query("SELECT CAST(a AS bigint), b FROM " + table.getName()))
                     .matches(expectedValues("(0, 1.3), (1, 2.5), (2, 7.9), (4, 10.0), (5, 5.7)"));
         }
     }
