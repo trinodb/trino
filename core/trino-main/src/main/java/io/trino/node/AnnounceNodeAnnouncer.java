@@ -15,7 +15,6 @@ package io.trino.node;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.net.HttpHeaders;
-import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.FormatMethod;
@@ -35,7 +34,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
+import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.preparePost;
@@ -127,24 +127,14 @@ public class AnnounceNodeAnnouncer
                 .setHeader(HttpHeaders.CONTENT_TYPE, TEXT_PLAIN)
                 .build();
         ListenableFuture<StatusResponse> responseFuture = httpClient.executeAsync(request, createStatusResponseHandler());
-        Futures.addCallback(
-                responseFuture, new FutureCallback<>()
-                {
-                    @Override
-                    public void onSuccess(StatusResponse response)
-                    {
-                        int statusCode = response.getStatusCode();
-                        if (statusCode < 200 || statusCode >= 300) {
-                            logWarning("Failed to announce node state to %s: %s", announceUri, statusCode);
-                        }
-                    }
 
-                    @Override
-                    public void onFailure(Throwable t)
-                    {
-                        logWarning("Error announcing node state to %s: %s", announceUri, t.getMessage());
-                    }
-                }, directExecutor());
+        addSuccessCallback(responseFuture, response -> {
+            int statusCode = response.getStatusCode();
+            if (statusCode < 200 || statusCode >= 300) {
+                logWarning("Failed to announce node state to %s: %s", announceUri, statusCode);
+            }
+        });
+        addExceptionCallback(responseFuture, t -> logWarning("Error announcing node state to %s: %s", announceUri, t.getMessage()));
         return Futures.nonCancellationPropagating(responseFuture);
     }
 
