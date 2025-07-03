@@ -117,6 +117,13 @@ statement
     | CALL qualifiedName '(' (callArgument (',' callArgument)*)? ')'   #call
     | CREATE (OR REPLACE)? functionSpecification                       #createFunction
     | DROP FUNCTION (IF EXISTS)? functionDeclaration                   #dropFunction
+    | CREATE (OR REPLACE)? BRANCH (IF NOT EXISTS)? identifier
+        (WITH properties)? IN TABLE qualifiedName                      #createBranch
+    | DROP BRANCH (IF EXISTS)? identifier
+        IN TABLE qualifiedName                                         #dropBranch
+    | ALTER BRANCH source=identifier IN TABLE qualifiedName
+        FAST FORWARD TO target=identifier                              #fastForwardBranch
+    | SHOW BRANCHES (FROM | IN) TABLE qualifiedName                    #showBranches
     | CREATE ROLE name=identifier
         (WITH ADMIN grantor)?
         (IN catalog=identifier)?                                       #createRole
@@ -1007,11 +1014,11 @@ authorizationUser
 nonReserved
     // IMPORTANT: this rule must only contain tokens. Nested rules are not supported. See SqlParser.exitNonReserved
     : ABSENT | ADD | ADMIN | AFTER | ALL | ANALYZE | ANY | ARRAY | ASC | AT | AUTHORIZATION
-    | BEGIN | BERNOULLI | BOTH
+    | BEGIN | BERNOULLI | BOTH | BRANCH | BRANCHES
     | CALL | CALLED | CASCADE | CATALOG | CATALOGS | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | CONDITIONAL | COPARTITION | CORRESPONDING | COUNT | CURRENT
     | DATA | DATE | DAY | DECLARE | DEFAULT | DEFINE | DEFINER | DENY | DESC | DESCRIPTOR | DETERMINISTIC | DISTRIBUTED | DO | DOUBLE
     | ELSEIF | EMPTY | ENCODING | ERROR | EXCLUDING | EXECUTE | EXPLAIN
-    | FETCH | FILTER | FINAL | FIRST | FOLLOWING | FORMAT | FUNCTION | FUNCTIONS
+    | FAST | FETCH | FILTER | FINAL | FIRST | FOLLOWING | FORMAT | FORWARD | FUNCTION | FUNCTIONS
     | GRACE | GRANT | GRANTED | GRANTS | GRAPHVIZ | GROUPS
     | HOUR
     | IF | IGNORE | IMMEDIATE | INCLUDING | INITIAL | INPUT | INTERVAL | INVOKER | IO | ITERATE | ISOLATION
@@ -1053,6 +1060,8 @@ BEGIN: 'BEGIN';
 BERNOULLI: 'BERNOULLI';
 BETWEEN: 'BETWEEN';
 BOTH: 'BOTH';
+BRANCH: 'BRANCH';
+BRANCHES: 'BRANCHES';
 BY: 'BY';
 CALL: 'CALL';
 CALLED: 'CALLED';
@@ -1116,6 +1125,7 @@ EXISTS: 'EXISTS';
 EXPLAIN: 'EXPLAIN';
 EXTRACT: 'EXTRACT';
 FALSE: 'FALSE';
+FAST: 'FAST';
 FETCH: 'FETCH';
 FILTER: 'FILTER';
 FINAL: 'FINAL';
@@ -1123,6 +1133,7 @@ FIRST: 'FIRST';
 FOLLOWING: 'FOLLOWING';
 FOR: 'FOR';
 FORMAT: 'FORMAT';
+FORWARD: 'FORWARD';
 FROM: 'FROM';
 FULL: 'FULL';
 FUNCTION: 'FUNCTION';
