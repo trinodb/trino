@@ -15,7 +15,6 @@ package io.trino.node;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
-import jakarta.validation.constraints.NotNull;
 
 import java.net.URI;
 import java.util.List;
@@ -24,8 +23,7 @@ public class AnnounceConfig
 {
     private List<URI> coordinatorUris = List.of();
 
-    @NotNull
-    public List<@NotNull URI> getCoordinatorUris()
+    public List<URI> getCoordinatorUris()
     {
         return coordinatorUris;
     }

@@ -16,7 +16,6 @@ package io.trino.node;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
-import jakarta.validation.constraints.NotNull;
 
 import java.util.Set;
 
@@ -24,8 +23,7 @@ public class DnsNodeInventoryConfig
 {
     private Set<String> hosts = ImmutableSet.of();
 
-    @NotNull
-    public Set<@NotNull String> getHosts()
+    public Set<String> getHosts()
     {
         return hosts;
     }
