@@ -43,6 +43,8 @@ public class KafkaEventListenerConfig
     private boolean publishCreatedEvent = true;
     private boolean publishCompletedEvent = true;
     private boolean publishSplitCompletedEvent;
+    private Long maxRequestSize = 5242880L;
+    private Long batchSize = 16384L;
     private Optional<String> completedTopicName = Optional.empty();
     private Optional<String> createdTopicName = Optional.empty();
     private Optional<String> splitCompletedTopicName = Optional.empty();
@@ -112,6 +114,30 @@ public class KafkaEventListenerConfig
     public KafkaEventListenerConfig setCreatedTopicName(String createdTopicName)
     {
         this.createdTopicName = Optional.ofNullable(createdTopicName);
+        return this;
+    }
+
+    public Long getMaxRequestSize()
+    {
+        return maxRequestSize;
+    }
+
+    @Config("kafka-event-listener.max-request-size")
+    public KafkaEventListenerConfig setMaxRequestSize(Long maxRequestSize)
+    {
+        Optional.ofNullable(maxRequestSize).ifPresent(value -> this.maxRequestSize = value);
+        return this;
+    }
+
+    public Long getBatchSize()
+    {
+        return batchSize;
+    }
+
+    @Config("kafka-event-listener.batch-size")
+    public KafkaEventListenerConfig setBatchSize(Long batchSize)
+    {
+        Optional.ofNullable(batchSize).ifPresent(value -> this.batchSize = value);
         return this;
     }
 
