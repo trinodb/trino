@@ -24,12 +24,12 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
-class TestAnnounceConfig
+class TestAnnounceNodeAnnouncerConfig
 {
     @Test
     void testDefaults()
     {
-        assertRecordedDefaults(recordDefaults(AnnounceConfig.class)
+        assertRecordedDefaults(recordDefaults(AnnounceNodeAnnouncerConfig.class)
                 .setCoordinatorUris(List.of()));
     }
 
@@ -40,7 +40,7 @@ class TestAnnounceConfig
                 .put("discovery.uri", "https://example.com:100,https://example.org:200")
                 .buildOrThrow();
 
-        AnnounceConfig expected = new AnnounceConfig()
+        AnnounceNodeAnnouncerConfig expected = new AnnounceNodeAnnouncerConfig()
                 .setCoordinatorUris(List.of(URI.create("https://example.com:100"), URI.create("https://example.org:200")));
 
         assertFullMapping(properties, expected);

@@ -64,7 +64,7 @@ public class AnnounceNodeAnnouncer
     private final boolean coordinator;
 
     @Inject
-    public AnnounceNodeAnnouncer(InternalNode currentNode, AnnounceConfig config, @ForAnnouncer HttpClient httpClient)
+    public AnnounceNodeAnnouncer(InternalNode currentNode, AnnounceNodeAnnouncerConfig config, @ForAnnouncer HttpClient httpClient)
     {
         this(currentNode.getInternalUri(), config.getCoordinatorUris(), currentNode.isCoordinator(), httpClient);
     }

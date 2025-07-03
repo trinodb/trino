@@ -19,7 +19,7 @@ import io.airlift.configuration.Config;
 import java.net.URI;
 import java.util.List;
 
-public class AnnounceConfig
+public class AnnounceNodeAnnouncerConfig
 {
     private List<URI> coordinatorUris = List.of();
 
@@ -29,7 +29,7 @@ public class AnnounceConfig
     }
 
     @Config("discovery.uri")
-    public AnnounceConfig setCoordinatorUris(List<URI> coordinatorUris)
+    public AnnounceNodeAnnouncerConfig setCoordinatorUris(List<URI> coordinatorUris)
     {
         this.coordinatorUris = ImmutableList.copyOf(coordinatorUris);
         return this;
