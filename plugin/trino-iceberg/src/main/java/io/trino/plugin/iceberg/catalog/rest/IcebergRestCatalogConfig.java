@@ -21,7 +21,12 @@ import io.airlift.units.MinDuration;
 import jakarta.validation.constraints.NotNull;
 import org.apache.iceberg.CatalogProperties;
 
+import com.google.common.collect.ImmutableMap;
+
 import java.net.URI;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -54,6 +59,29 @@ public class IcebergRestCatalogConfig
     private boolean sigV4Enabled;
     private boolean caseInsensitiveNameMatching;
     private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(1, MINUTES);
+    private Map<String, String> additionalProperties = Map.of();
+
+    public Map<String, String> getAdditionalProperties()
+    {
+        return additionalProperties;
+    }
+
+    @Config("iceberg.rest-catalog.additional-properties")
+    @ConfigDescription("Additional properties for the REST catalog")
+    public IcebergRestCatalogConfig setAdditionalProperties(List<String> additionalProperties)
+    {
+        Map<String, String> mapProperties = new HashMap<>();
+        for (String property : additionalProperties) {
+            int index = property.indexOf('=');
+            if (index == -1) {
+                throw new IllegalArgumentException("Invalid additional property: " + property);
+            }
+            mapProperties.put(property.substring(0, index), property.substring(index + 1));
+        }
+
+        this.additionalProperties = ImmutableMap.copyOf(mapProperties);
+        return this;
+    }
 
     @NotNull
     public URI getBaseUri()

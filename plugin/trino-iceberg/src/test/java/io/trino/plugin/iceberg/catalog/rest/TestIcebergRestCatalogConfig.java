@@ -62,6 +62,7 @@ public class TestIcebergRestCatalogConfig
                 .put("iceberg.rest-catalog.sigv4-enabled", "true")
                 .put("iceberg.rest-catalog.case-insensitive-name-matching", "true")
                 .put("iceberg.rest-catalog.case-insensitive-name-matching.cache-ttl", "3m")
+                .put("iceberg.rest-catalog.additional-properties", List.of("Authorization=TrustMe", "Cache-Control=no-cache"))
                 .buildOrThrow();
 
         IcebergRestCatalogConfig expected = new IcebergRestCatalogConfig()
@@ -77,6 +78,7 @@ public class TestIcebergRestCatalogConfig
                 .setSigV4Enabled(true)
                 .setCaseInsensitiveNameMatching(true)
                 .setCaseInsensitiveNameMatchingCacheTtl(new Duration(3, MINUTES));
+                .setAdditionalProperties(List.of("Authorization=TrustMe", "Cache-Control=no-cache"))
 
         assertFullMapping(properties, expected);
     }
