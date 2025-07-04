@@ -30,6 +30,7 @@ import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
@@ -93,16 +94,13 @@ public class TestMemoryConnectorTest
                  SUPPORTS_ADD_FIELD,
                  SUPPORTS_AGGREGATION_PUSHDOWN,
                  SUPPORTS_CREATE_MATERIALIZED_VIEW,
-                 SUPPORTS_DELETE,
                  SUPPORTS_DEREFERENCE_PUSHDOWN,
                  SUPPORTS_DROP_COLUMN,
                  SUPPORTS_LIMIT_PUSHDOWN,
-                 SUPPORTS_MERGE,
                  SUPPORTS_PREDICATE_PUSHDOWN,
                  SUPPORTS_RENAME_FIELD,
                  SUPPORTS_SET_COLUMN_TYPE,
-                 SUPPORTS_TOPN_PUSHDOWN,
-                 SUPPORTS_UPDATE -> false;
+                 SUPPORTS_TOPN_PUSHDOWN -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
@@ -119,6 +117,13 @@ public class TestMemoryConnectorTest
                 col_nonnull_default BIGINT DEFAULT 42 NOT NULL,
                 col_required2 BIGINT NOT NULL)
                 """);
+    }
+
+    @Test
+    @Override
+    @Disabled // TODO: support update row concurrently in Memory connector
+    public void testUpdateRowConcurrently()
+    {
     }
 
     @Test
