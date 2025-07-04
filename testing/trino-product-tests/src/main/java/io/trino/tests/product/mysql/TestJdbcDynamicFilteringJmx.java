@@ -47,12 +47,16 @@ public class TestJdbcDynamicFilteringJmx
         onTrino().executeQuery("SET SESSION mysql.dynamic_filtering_wait_timeout = '1h'");
         onTrino().executeQuery("SET SESSION join_reordering_strategy = 'NONE'");
         onTrino().executeQuery("SET SESSION join_distribution_type = 'BROADCAST'");
+
+        long initialCompletedDynamicFilters = (long) onTrino().executeQuery("SELECT \"completeddynamicfilters.totalcount\" FROM jmx.current.\"io.trino.plugin.jdbc:name=mysql,type=dynamicfilteringstats\" WHERE node = 'presto-master'").getOnlyValue();
+        long initialTotalDynamicFilters = (long) onTrino().executeQuery("SELECT \"totaldynamicfilters.totalcount\" FROM jmx.current.\"io.trino.plugin.jdbc:name=mysql,type=dynamicfilteringstats\" WHERE node = 'presto-master'").getOnlyValue();
+
         assertThat(onTrino().executeQuery(format("SELECT COUNT(*) FROM mysql.%s a JOIN tpch.tiny.nation b ON a.nationkey = b.nationkey AND b.name = 'INDIA'", TABLE_NAME)))
                 .containsOnly(row(1));
 
         assertThat(onTrino().executeQuery("SELECT \"completeddynamicfilters.totalcount\" FROM jmx.current.\"io.trino.plugin.jdbc:name=mysql,type=dynamicfilteringstats\" WHERE node = 'presto-master'"))
-                .containsOnly(row(1));
+                .containsOnly(row(initialCompletedDynamicFilters + 1));
         assertThat(onTrino().executeQuery("SELECT \"totaldynamicfilters.totalcount\" FROM jmx.current.\"io.trino.plugin.jdbc:name=mysql,type=dynamicfilteringstats\" WHERE node = 'presto-master'"))
-                .containsOnly(row(1));
+                .containsOnly(row(initialTotalDynamicFilters + 1));
     }
 }
