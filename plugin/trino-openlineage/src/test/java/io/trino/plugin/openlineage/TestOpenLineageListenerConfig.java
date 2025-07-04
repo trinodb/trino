@@ -32,6 +32,7 @@ import static io.trino.spi.resourcegroups.QueryType.INSERT;
 import static io.trino.spi.resourcegroups.QueryType.MERGE;
 import static io.trino.spi.resourcegroups.QueryType.SELECT;
 import static io.trino.spi.resourcegroups.QueryType.UPDATE;
+import static org.assertj.core.api.Assertions.assertThat;
 
 final class TestOpenLineageListenerConfig
 {
@@ -42,6 +43,7 @@ final class TestOpenLineageListenerConfig
                 .setTransport(OpenLineageTransport.CONSOLE)
                 .setTrinoURI(null)
                 .setNamespace(null)
+                .setJobNameFormat("$QUERY_ID")
                 .setDisabledFacets(ImmutableSet.of())
                 .setIncludeQueryTypes(ImmutableSet.of(
                         ALTER_TABLE_EXECUTE,
@@ -62,6 +64,7 @@ final class TestOpenLineageListenerConfig
                 .put("openlineage-event-listener.trino.include-query-types", "SELECT,DELETE")
                 .put("openlineage-event-listener.disabled-facets", "trino_metadata,trino_query_statistics")
                 .put("openlineage-event-listener.namespace", "testnamespace")
+                .put("openlineage-event-listener.job.name-format", "$QUERY_ID-$USER-$SOURCE-$CLIENT_IP-abc123")
                 .buildOrThrow();
 
         OpenLineageListenerConfig expected = new OpenLineageListenerConfig()
@@ -69,8 +72,32 @@ final class TestOpenLineageListenerConfig
                 .setTrinoURI(new URI("http://testtrino"))
                 .setIncludeQueryTypes(ImmutableSet.of(SELECT, DELETE))
                 .setDisabledFacets(ImmutableSet.of(TRINO_METADATA, TRINO_QUERY_STATISTICS))
-                .setNamespace("testnamespace");
+                .setNamespace("testnamespace")
+                .setJobNameFormat("$QUERY_ID-$USER-$SOURCE-$CLIENT_IP-abc123");
 
         assertFullMapping(properties, expected);
+    }
+
+    @Test
+    void testIsJobNameFormatValid()
+    {
+        assertThat(configWithFormat("abc123").isJobNameFormatValid()).isTrue();
+        assertThat(configWithFormat("$QUERY_ID").isJobNameFormatValid()).isTrue();
+        assertThat(configWithFormat("$USER").isJobNameFormatValid()).isTrue();
+        assertThat(configWithFormat("$SOURCE").isJobNameFormatValid()).isTrue();
+        assertThat(configWithFormat("$CLIENT_IP").isJobNameFormatValid()).isTrue();
+        assertThat(configWithFormat("$QUERY_ID-$USER-$SOURCE-$CLIENT_IP-abc123").isJobNameFormatValid()).isTrue();
+        assertThat(configWithFormat("$QUERY_ID $USER $SOURCE $CLIENT_IP abc123").isJobNameFormatValid()).isTrue();
+
+        assertThat(configWithFormat("$UNKNOWN").isJobNameFormatValid()).isFalse();
+        assertThat(configWithFormat("$QUERY_ID-$USER-$SOURCE-$CLIENT_IP-$UNKNOWN").isJobNameFormatValid()).isFalse();
+        assertThat(configWithFormat("${QUERY_ID}").isJobNameFormatValid()).isFalse();
+        assertThat(configWithFormat("$$QUERY_ID").isJobNameFormatValid()).isFalse();
+        assertThat(configWithFormat("\\$QUERY_ID").isJobNameFormatValid()).isFalse();
+    }
+
+    private static OpenLineageListenerConfig configWithFormat(String format)
+    {
+        return new OpenLineageListenerConfig().setJobNameFormat(format);
     }
 }
