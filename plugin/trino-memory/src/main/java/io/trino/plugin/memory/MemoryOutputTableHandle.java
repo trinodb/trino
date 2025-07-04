@@ -21,7 +21,8 @@ import static java.util.Objects.requireNonNull;
 
 public record MemoryOutputTableHandle(
         long table,
-        Set<Long> activeTableIds)
+        Set<Long> activeTableIds,
+        int rowIdIndex)
         implements ConnectorOutputTableHandle
 {
     public MemoryOutputTableHandle
