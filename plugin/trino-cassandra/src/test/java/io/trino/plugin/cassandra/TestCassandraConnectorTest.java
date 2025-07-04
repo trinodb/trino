@@ -77,9 +77,9 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 public class TestCassandraConnectorTest
         extends BaseConnectorTest
 {
-    private static final ZonedDateTime TIMESTAMP_VALUE = ZonedDateTime.of(1970, 1, 1, 3, 4, 5, 0, ZoneId.of("UTC"));
+    protected static final ZonedDateTime TIMESTAMP_VALUE = ZonedDateTime.of(1970, 1, 1, 3, 4, 5, 0, ZoneId.of("UTC"));
 
-    private CassandraSession session;
+    protected CassandraSession session;
 
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
@@ -111,7 +111,7 @@ public class TestCassandraConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        CassandraServer server = closeAfterClass(new CassandraServer());
+        CassandraServer server = closeAfterClass(new TestingCassandraServer());
         session = server.getSession();
         return CassandraQueryRunner.builder(server)
                 .setInitialTables(REQUIRED_TPCH_TABLES)
@@ -1245,7 +1245,7 @@ public class TestCassandraConnectorTest
     }
 
     @Test
-    void testSelectClusteringMaterializedView()
+    protected void testSelectClusteringMaterializedView()
     {
         try (TestCassandraTable table = testTable(
                 "test_clustering_materialized_view_base",

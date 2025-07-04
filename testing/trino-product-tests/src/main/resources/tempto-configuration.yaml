@@ -138,6 +138,17 @@ databases:
       request:
         timeout_seconds: 30
 
+  scylladb:
+    host: scylladb
+    port: 9042
+    local_datacenter: datacenter1
+    default_schema: test
+    skip_create_schema: false
+    table_manager_type: cassandra
+    basic:
+        request:
+            timeout_seconds: 30
+
   sqlserver:
     jdbc_driver_class: com.microsoft.sqlserver.jdbc.SQLServerDriver
     jdbc_url: jdbc:sqlserver://sqlserver;encrypt=false

@@ -70,6 +70,8 @@
 
 ## Redshift connector
 
+## ScyllaDB connector
+
 ## SingleStore connector
 
 ## Snowflake connector
