@@ -27,6 +27,7 @@ import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.onlyElement;
+import static io.trino.plugin.memory.MemoryMetadata.ROW_ID;
 import static java.util.Objects.requireNonNull;
 
 public record TableInfo(
@@ -59,6 +60,7 @@ public record TableInfo(
         return new ConnectorTableMetadata(
                 new SchemaTableName(schemaName, tableName),
                 columns.stream()
+                        .filter(columnInfo -> !columnInfo.handle().name().equals(ROW_ID))
                         .map(ColumnInfo::getMetadata)
                         .collect(toImmutableList()),
                 ImmutableMap.of(),

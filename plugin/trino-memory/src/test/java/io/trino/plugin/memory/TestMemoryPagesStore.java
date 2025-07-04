@@ -27,6 +27,7 @@ import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorPageSink;
+import io.trino.testing.TestingNodeManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -59,7 +60,7 @@ public class TestMemoryPagesStore
     @BeforeEach
     public void setUp()
     {
-        pagesStore = new MemoryPagesStore(new MemoryConfig().setMaxDataPerNode(DataSize.of(1, DataSize.Unit.MEGABYTE)));
+        pagesStore = new MemoryPagesStore(new MemoryConfig().setMaxDataPerNode(DataSize.of(1, DataSize.Unit.MEGABYTE)), TestingNodeManager.create());
         pageSinkProvider = new MemoryPageSinkProvider(pagesStore, HostAddress.fromString("localhost:8080"));
     }
 
@@ -112,7 +113,8 @@ public class TestMemoryPagesStore
         // insert single BIGINT column page
         insertToTable(0L, new Page(createLongSequenceBlock(0, positions)), 0L);
         // Read back as BIGINT, INTEGER, BOOLEAN expecting the INTEGER and BOOLEAN columns to be RLE encoded
-        List<Page> readBack = pagesStore.getPages(0L, 0, 1, new int[] {0, 1, 2}, List.of(BIGINT, INTEGER, BOOLEAN), positions, OptionalLong.empty(), OptionalDouble.empty());
+        // channel 1 is reserved by rowId column
+        List<Page> readBack = pagesStore.getPages(0L, 0, 1, new int[] {0, 2, 3}, List.of(BIGINT, INTEGER, BOOLEAN), positions, OptionalLong.empty(), OptionalDouble.empty());
         assertThat(readBack).hasSize(1);
         Page readPage = readBack.getFirst();
         assertThat(readPage.getChannelCount()).isEqualTo(3);
@@ -208,17 +210,17 @@ public class TestMemoryPagesStore
 
     private static ConnectorOutputTableHandle createMemoryOutputTableHandle(long tableId, Long... activeTableIds)
     {
-        return new MemoryOutputTableHandle(tableId, ImmutableSet.copyOf(activeTableIds));
+        return new MemoryOutputTableHandle(tableId, ImmutableSet.copyOf(activeTableIds), 1);
     }
 
     private static ConnectorInsertTableHandle createMemoryInsertTableHandle(long tableId, Long[] activeTableIds)
     {
-        return new MemoryInsertTableHandle(tableId, InsertMode.APPEND, ImmutableSet.copyOf(activeTableIds));
+        return new MemoryInsertTableHandle(tableId, InsertMode.APPEND, ImmutableSet.copyOf(activeTableIds), 1);
     }
 
     private static ConnectorInsertTableHandle createOverwriteMemoryInsertTableHandle(long tableId, Long[] activeTableIds)
     {
-        return new MemoryInsertTableHandle(tableId, InsertMode.OVERWRITE, ImmutableSet.copyOf(activeTableIds));
+        return new MemoryInsertTableHandle(tableId, InsertMode.OVERWRITE, ImmutableSet.copyOf(activeTableIds), 1);
     }
 
     private static Page createPage()

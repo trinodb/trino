@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.memory;
 
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -22,6 +24,7 @@ import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
 import io.airlift.slice.Slice;
+import io.trino.cache.EvictableCacheBuilder;
 import io.trino.plugin.memory.MemoryInsertTableHandle.InsertMode;
 import io.trino.spi.HostAddress;
 import io.trino.spi.Node;
@@ -31,9 +34,11 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
+import io.trino.spi.connector.ConnectorMergeTableHandle;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
+import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
@@ -44,6 +49,7 @@ import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.RetryMode;
+import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SampleApplicationResult;
 import io.trino.spi.connector.SampleType;
 import io.trino.spi.connector.SaveMode;
@@ -58,6 +64,7 @@ import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
+import io.trino.spi.type.RowType;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -79,13 +86,17 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.MoreCollectors.onlyElement;
+import static io.trino.plugin.memory.MemoryNodesUtil.getSortedWorkerNodes;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
+import static io.trino.spi.connector.RowChangeParadigm.CHANGE_ONLY_UPDATED_COLUMNS;
 import static io.trino.spi.connector.SampleType.SYSTEM;
 import static io.trino.spi.connector.SaveMode.REPLACE;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -95,6 +106,7 @@ public class MemoryMetadata
         implements ConnectorMetadata
 {
     public static final String SCHEMA_NAME = "default";
+    public static final String ROW_ID = "$row_id";
 
     private final NodeManager nodeManager;
     @GuardedBy("this")
@@ -107,6 +119,17 @@ public class MemoryMetadata
     @GuardedBy("this")
     private final Map<SchemaTableName, ConnectorViewDefinition> views = new HashMap<>();
     private final Map<SchemaFunctionName, Map<String, LanguageFunction>> functions = new HashMap<>();
+
+    private final LoadingCache<Long, Map<String, Integer>> nodesBucketMappings = EvictableCacheBuilder.newBuilder()
+            .maximumSize(1000)
+            .build(new CacheLoader<>()
+            {
+                @Override
+                public Map<String, Integer> load(Long key)
+                {
+                    return createNodeToBucketMap();
+                }
+            });
 
     @Inject
     public MemoryMetadata(NodeManager nodeManager)
@@ -212,7 +235,18 @@ public class MemoryMetadata
             return null;
         }
 
-        return new MemoryTableHandle(id, schemaTableName, OptionalLong.empty(), OptionalDouble.empty());
+        return new MemoryTableHandle(id, views.containsKey(schemaTableName) ? -1 : getRowIdIndex(id), schemaTableName, OptionalLong.empty(), OptionalDouble.empty());
+    }
+
+    private synchronized int getRowIdIndex(long tableId)
+    {
+        TableInfo tableInfo = tables.get(tableId);
+        checkArgument(tableInfo != null, "Table [%s] does not exist", tableId);
+        return tableInfo.columns().stream()
+                .map(ColumnInfo::handle)
+                .filter(memoryColumnHandle -> memoryColumnHandle.name().equals(ROW_ID))
+                .map(MemoryColumnHandle::columnIndex)
+                .collect(onlyElement());
     }
 
     @Override
@@ -244,6 +278,7 @@ public class MemoryMetadata
     {
         MemoryTableHandle handle = (MemoryTableHandle) tableHandle;
         return tables.get(handle.id()).columns().stream()
+                .filter(columnInfo -> !columnInfo.handle().name().equals(ROW_ID))
                 .collect(toImmutableMap(column -> column.handle().name(), ColumnInfo::handle));
     }
 
@@ -345,11 +380,14 @@ public class MemoryMetadata
         checkState(!nodes.isEmpty(), "No Memory nodes available");
 
         ImmutableList.Builder<ColumnInfo> columns = ImmutableList.builder();
-        for (int i = 0; i < tableMetadata.getColumns().size(); i++) {
+        int columnSize = tableMetadata.getColumns().size();
+        for (int i = 0; i < columnSize; i++) {
             ColumnMetadata column = tableMetadata.getColumns().get(i);
             MemoryColumnHandle handle = new MemoryColumnHandle(i, column.getName(), column.getType());
             columns.add(new ColumnInfo(handle, column.getDefaultValue(), column.isNullable(), Optional.ofNullable(column.getComment())));
         }
+
+        columns.add(new ColumnInfo(new MemoryColumnHandle(columnSize, ROW_ID, RowType.rowType(RowType.field(VARCHAR), RowType.field(VARCHAR))), Optional.empty(), false, Optional.empty()));
 
         tableIds.put(tableMetadata.getTable(), tableId);
         tables.put(tableId, new TableInfo(
@@ -361,7 +399,7 @@ public class MemoryMetadata
                 new HashMap<>(),
                 tableMetadata.getComment()));
 
-        return new MemoryOutputTableHandle(tableId, ImmutableSet.copyOf(tableIds.values()));
+        return new MemoryOutputTableHandle(tableId, ImmutableSet.copyOf(tableIds.values()), columnSize);
     }
 
     @GuardedBy("this")
@@ -400,7 +438,8 @@ public class MemoryMetadata
         TableInfo tableInfo = tables.get(memoryTableHandle.id());
         InsertMode mode = tableInfo.truncated() ? InsertMode.OVERWRITE : InsertMode.APPEND;
         tables.put(tableInfo.id(), new TableInfo(tableInfo.id(), tableInfo.schemaName(), tableInfo.tableName(), tableInfo.columns(), false, tableInfo.dataFragments(), tableInfo.comment()));
-        return new MemoryInsertTableHandle(memoryTableHandle.id(), mode, ImmutableSet.copyOf(tableIds.values()));
+        MemoryColumnHandle rowIdColumn = (MemoryColumnHandle) getMergeRowIdColumnHandle(session, tableHandle);
+        return new MemoryInsertTableHandle(memoryTableHandle.id(), mode, ImmutableSet.copyOf(tableIds.values()), rowIdColumn.columnIndex());
     }
 
     @Override
@@ -650,6 +689,63 @@ public class MemoryMetadata
     public boolean allowSplittingReadIntoMultipleSubQueries(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         return true;
+    }
+
+    @Override
+    public synchronized ColumnHandle getMergeRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        MemoryTableHandle table = (MemoryTableHandle) tableHandle;
+        return new MemoryColumnHandle(
+                table.rowIdIndex(),
+                ROW_ID,
+                RowType.rowType(RowType.field(VARCHAR), RowType.field(VARCHAR)));
+    }
+
+    @Override
+    public synchronized RowChangeParadigm getRowChangeParadigm(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return CHANGE_ONLY_UPDATED_COLUMNS;
+    }
+
+    @Override
+    public synchronized ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, Map<Integer, Collection<ColumnHandle>> updateCaseColumns, RetryMode retryMode)
+    {
+        MemoryTableHandle table = (MemoryTableHandle) tableHandle;
+        nodesBucketMappings.put(table.id(), createNodeToBucketMap());
+        return table;
+    }
+
+    @Override
+    public synchronized void finishMerge(
+            ConnectorSession session,
+            ConnectorMergeTableHandle mergeTableHandle,
+            List<ConnectorTableHandle> sourceTableHandles,
+            Collection<Slice> fragments,
+            Collection<ComputedStatistics> computedStatistics)
+    {
+        MemoryTableHandle tableHandle = (MemoryTableHandle) mergeTableHandle;
+        updateRowsOnHosts(tableHandle.id(), fragments);
+        nodesBucketMappings.invalidate(tableHandle.id());
+    }
+
+    @Override
+    public Optional<ConnectorPartitioningHandle> getUpdateLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        MemoryTableHandle table = (MemoryTableHandle) tableHandle;
+        Map<String, Integer> nodesMapping = createNodeToBucketMap();
+        Map<String, Integer> existingMapping = nodesBucketMappings.getIfPresent(table.id());
+        checkArgument(nodesMapping.equals(existingMapping), "The nodes have changed during the table data manipulation operation");
+        return Optional.of(new MemoryPartitioningHandle(nodesMapping));
+    }
+
+    private Map<String, Integer> createNodeToBucketMap()
+    {
+        List<Node> sortedNodes = getSortedWorkerNodes(nodeManager);
+        ImmutableMap.Builder<String, Integer> nodeToBucketBuilder = ImmutableMap.builder();
+        for (int i = 0; i < sortedNodes.size(); i++) {
+            nodeToBucketBuilder.put(sortedNodes.get(i).getHostAndPort().toString(), i);
+        }
+        return nodeToBucketBuilder.buildOrThrow();
     }
 
     @Override
