@@ -279,6 +279,7 @@ public class TestFileSingleStreamSpillerFactory
                 blockEncodingSerde,
                 new SpillerStats(),
                 paths,
+                1,
                 maxUsedSpaceThreshold,
                 NONE,
                 false);
