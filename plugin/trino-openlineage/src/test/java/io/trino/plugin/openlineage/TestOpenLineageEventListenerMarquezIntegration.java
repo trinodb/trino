@@ -14,34 +14,25 @@
 package io.trino.plugin.openlineage;
 
 import io.airlift.log.Logger;
-import io.airlift.units.Duration;
-import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
-import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Test;
 
-import java.io.IOException;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 
-import static io.trino.testing.assertions.Assert.assertEventually;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 
 final class TestOpenLineageEventListenerMarquezIntegration
-        extends AbstractTestQueryFramework
+        extends BaseTestOpenLineageQueries
 {
     private static final Logger logger = Logger.get(TestOpenLineageEventListenerMarquezIntegration.class);
 
     private static MarquezServer server;
     private static String marquezURI;
-    private static final String trinoURI = "http://trino-integration-test:1337";
     private static final HttpClient client = HttpClient.newHttpClient();
 
     @Override
@@ -54,80 +45,49 @@ final class TestOpenLineageEventListenerMarquezIntegration
         return OpenLineageListenerQueryRunner.builder()
                 .addListenerProperty("openlineage-event-listener.transport.type", "HTTP")
                 .addListenerProperty("openlineage-event-listener.transport.url", server.getMarquezUri().toString())
-                .addListenerProperty("openlineage-event-listener.trino.uri", trinoURI)
+                .addListenerProperty("openlineage-event-listener.trino.uri", TRINO_URI)
                 .build();
     }
 
-    @Test
-    void testCreateTableAsSelectFromTable()
-            throws Exception
+    @Override
+    public void assertCreateTableAsSelectFromTable(String queryId, String query)
     {
-        String outputTable = "test_create_table_as_select_from_table";
+        String expectedQueryId = URLEncoder.encode(queryId, UTF_8);
 
-        @Language("SQL") String createTableQuery = format(
-                "CREATE TABLE %s AS SELECT * FROM tpch.tiny.nation",
-                outputTable);
-
-        String queryId = this.getQueryRunner()
-                .executeWithPlan(this.getSession(), createTableQuery)
-                .queryId()
-                .toString();
-
-        assertEventually(Duration.valueOf("10s"), () -> {
-            URI trino = new URI(trinoURI);
-
-            String expectedNamespace = URLEncoder.encode(format("trino://%s:%s", trino.getHost(), trino.getPort()), UTF_8);
-            String expectedQueryId = URLEncoder.encode(queryId, UTF_8);
-
-            checkJobRegistration(client, expectedNamespace, expectedQueryId);
-        });
+        checkJobRegistration(client, expectedQueryId);
     }
 
-    @Test
-    void testCreateTableAsSelectFromView()
-            throws Exception
+    @Override
+    public void assertCreateTableAsSelectFromView(String createViewQueryId, String createViewQuery, String createTableQueryId, String createTableQuery)
     {
-        String viewName = "test_view";
-        String outputTable = "test_create_table_as_select_from_view";
-
-        @Language("SQL") String createViewQuery = format(
-                "CREATE VIEW %s AS SELECT * FROM tpch.tiny.nation",
-                viewName);
-
-        assertQuerySucceeds(createViewQuery);
-
-        @Language("SQL") String createTableQuery = format(
-                "CREATE TABLE %s AS SELECT * FROM %s",
-                outputTable, viewName);
-
-        String queryId = this.getQueryRunner()
-                .executeWithPlan(this.getSession(), createTableQuery)
-                .queryId()
-                .toString();
-
-        assertEventually(Duration.valueOf("10s"), () -> {
-            URI trino = new URI(trinoURI);
-
-            String expectedNamespace = URLEncoder.encode(format("trino://%s:%s", trino.getHost(), trino.getPort()), UTF_8);
-            String expectedQueryId = URLEncoder.encode(queryId, UTF_8);
-
-            checkJobRegistration(client, expectedNamespace, expectedQueryId);
-        });
+        {
+            String expectedQueryId = URLEncoder.encode(createViewQueryId, UTF_8);
+            checkJobRegistration(client, expectedQueryId);
+        }
+        {
+            String expectedQueryId = URLEncoder.encode(createTableQueryId, UTF_8);
+            checkJobRegistration(client, expectedQueryId);
+        }
     }
 
-    private void checkJobRegistration(HttpClient client, String expectedNamespace, String expectedQueryId)
-            throws URISyntaxException, IOException, InterruptedException
+    private void checkJobRegistration(HttpClient client, String expectedQueryId)
     {
-        HttpRequest requestJob = HttpRequest.newBuilder()
-                .uri(new URI(marquezURI + "/api/v1/namespaces/" + expectedNamespace + "/jobs/" + expectedQueryId))
-                .GET()
-                .build();
+        try {
+            String encodedNamespace = URLEncoder.encode(OPEN_LINEAGE_NAMESPACE, UTF_8);
+            HttpRequest requestJob = HttpRequest.newBuilder()
+                    .uri(new URI(marquezURI + "/api/v1/namespaces/" + encodedNamespace + "/jobs/" + expectedQueryId))
+                    .GET()
+                    .build();
 
-        HttpResponse<String> responseJob = client.send(requestJob, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> responseJob = client.send(requestJob, HttpResponse.BodyHandlers.ofString());
 
-        logger.info(responseJob.body());
+            logger.info(responseJob.body());
 
-        assertThat(responseJob.statusCode()).isEqualTo(200);
-        assertThat(responseJob.body().toLowerCase(ENGLISH)).contains("complete");
+            assertThat(responseJob.statusCode()).isEqualTo(200);
+            assertThat(responseJob.body().toLowerCase(ENGLISH)).contains("complete");
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 }
