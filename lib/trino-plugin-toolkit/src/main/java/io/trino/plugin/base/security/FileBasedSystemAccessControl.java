@@ -1120,6 +1120,24 @@ public class FileBasedSystemAccessControl
         }
     }
 
+    @Override
+    public void checkCanCreateBranch(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName tableName, String name)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void checkCanDropBranch(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName tableName, String name)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void checkCanAlterBranch(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName tableName, String name)
+    {
+        throw new UnsupportedOperationException();
+    }
+
     private boolean checkAnyCatalogAccess(SystemSecurityContext context, String catalogName)
     {
         if (canAccessCatalog(context, catalogName, OWNER)) {
