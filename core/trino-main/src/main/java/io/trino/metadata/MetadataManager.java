@@ -1586,6 +1586,15 @@ public final class MetadataManager
     }
 
     @Override
+    public void refreshView(Session session, QualifiedObjectName viewName, ViewDefinition definition)
+    {
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.catalogName());
+        CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
+        metadata.refreshView(session.toConnectorSession(catalogHandle), viewName.asSchemaTableName(), definition.toConnectorViewDefinition());
+    }
+
+    @Override
     public void dropView(Session session, QualifiedObjectName viewName)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.catalogName());
