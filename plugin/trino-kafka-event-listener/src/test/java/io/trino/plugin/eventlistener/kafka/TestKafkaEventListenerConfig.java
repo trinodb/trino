@@ -16,6 +16,8 @@ package io.trino.plugin.eventlistener.kafka;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.DataSize;
+import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 import org.junit.jupiter.api.Test;
 
@@ -46,6 +48,8 @@ final class TestKafkaEventListenerConfig
                 .setCreatedTopicName(null)
                 .setSplitCompletedTopicName(null)
                 .setBrokerEndpoints(null)
+                .setMaxRequestSize(DataSize.of(5, Unit.MEGABYTE))
+                .setBatchSize(DataSize.of(16384, Unit.BYTE))
                 .setClientId(null)
                 .setExcludedFields(Set.of())
                 .setRequestTimeout(new Duration(10, TimeUnit.SECONDS))
@@ -66,6 +70,8 @@ final class TestKafkaEventListenerConfig
                 .put("kafka-event-listener.publish-completed-event", "false")
                 .put("kafka-event-listener.publish-split-completed-event", "true")
                 .put("kafka-event-listener.broker-endpoints", "kafka-host-1:9093,kafka-host-2:9093")
+                .put("kafka-event-listener.max-request-size", "1048576B")
+                .put("kafka-event-listener.batch-size", "81920B")
                 .put("kafka-event-listener.created-event.topic", "query_created")
                 .put("kafka-event-listener.completed-event.topic", "query_completed")
                 .put("kafka-event-listener.split-completed-event.topic", "split_completed")
@@ -84,6 +90,8 @@ final class TestKafkaEventListenerConfig
                 .setPublishCompletedEvent(false)
                 .setPublishSplitCompletedEvent(true)
                 .setBrokerEndpoints("kafka-host-1:9093,kafka-host-2:9093")
+                .setMaxRequestSize(DataSize.of(1048576, Unit.BYTE))
+                .setBatchSize(DataSize.of(81920, Unit.BYTE))
                 .setCreatedTopicName("query_created")
                 .setCompletedTopicName("query_completed")
                 .setSplitCompletedTopicName("split_completed")

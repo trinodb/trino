@@ -96,6 +96,14 @@ Use the following properties for further configuration.
     distinction in Kafka, if multiple Trino clusters send events to the same
     Kafka system.
   - 
+* - `kafka-event-listener.max-request-size`
+  - [Size value](prop-type-data-size) that specifies the maximum size
+    of a request that the Kafka producer will send. Useful to control the size of log events being sent to Kafka.
+  - `5MB`
+* - `kafka-event-listener.batch-size`
+  - [Size value](prop-type-data-size) that specifies the size to batch before sending records to Kafka. 
+    Helps improve throughput by batching multiple events into fewer requests.
+  - `16384B`
 * - `kafka-event-listener.publish-created-event`
   - [Boolean](prop-type-boolean) switch to control publishing of query creation
     events.
