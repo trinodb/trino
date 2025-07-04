@@ -37,6 +37,8 @@ import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.ColumnPosition;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.NodeRef;
+import io.trino.sql.tree.Parameter;
 
 import java.util.List;
 import java.util.Map;
@@ -55,7 +57,9 @@ import static io.trino.spi.StandardErrorCode.COLUMN_TYPE_UNKNOWN;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TYPE_NOT_FOUND;
+import static io.trino.spi.connector.ConnectorCapabilities.DEFAULT_COLUMN_VALUE;
 import static io.trino.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
+import static io.trino.sql.analyzer.ExpressionAnalyzer.analyzeDefaultColumnValue;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.trino.type.UnknownType.UNKNOWN;
@@ -92,6 +96,7 @@ public class AddColumnTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
+        Map<NodeRef<Parameter>, Expression> parameterLookup = bindParameters(statement, parameters);
         QualifiedObjectName originalTableName = createQualifiedObjectName(session, statement, statement.getName());
         RedirectionAwareTableHandle redirectionAwareTableHandle = plannerContext.getMetadata().getRedirectionAwareTableHandle(session, originalTableName);
         if (redirectionAwareTableHandle.tableHandle().isEmpty()) {
@@ -132,6 +137,9 @@ public class AddColumnTask
                 }
                 return immediateVoidFuture();
             }
+            if (element.getDefaultValue().isPresent() && !plannerContext.getMetadata().getConnectorCapabilities(session, catalogHandle).contains(DEFAULT_COLUMN_VALUE)) {
+                throw semanticException(NOT_SUPPORTED, element, "Catalog '%s' does not support default value for column name '%s'", catalogHandle, columnName);
+            }
             if (!element.isNullable() && !plannerContext.getMetadata().getConnectorCapabilities(session, catalogHandle).contains(NOT_NULL_COLUMN_CONSTRAINT)) {
                 throw semanticException(NOT_SUPPORTED, element, "Catalog '%s' does not support NOT NULL for column '%s'", catalogHandle, columnName);
             }
@@ -146,12 +154,15 @@ public class AddColumnTask
                     session,
                     plannerContext,
                     accessControl,
-                    bindParameters(statement, parameters),
+                    parameterLookup,
                     true);
 
+            Type supportedType = getSupportedType(session, catalogHandle, tableMetadata.metadata().getProperties(), type);
+            element.getDefaultValue().ifPresent(value -> analyzeDefaultColumnValue(session, plannerContext, accessControl, parameterLookup, warningCollector, supportedType, value));
             ColumnMetadata column = ColumnMetadata.builder()
                     .setName(columnName.getValue())
-                    .setType(getSupportedType(session, catalogHandle, tableMetadata.metadata().getProperties(), type))
+                    .setType(supportedType)
+                    .setDefaultValue(element.getDefaultValue().map(Expression::toString))
                     .setNullable(element.isNullable())
                     .setComment(element.getComment())
                     .setProperties(columnProperties)
