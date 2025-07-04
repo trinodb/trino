@@ -39,7 +39,6 @@ final class TestOpenLineageListenerConfig
     void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(OpenLineageListenerConfig.class)
-                .setTransport(OpenLineageTransport.CONSOLE)
                 .setTrinoURI(null)
                 .setNamespace(null)
                 .setDisabledFacets(ImmutableSet.of())
@@ -57,7 +56,6 @@ final class TestOpenLineageListenerConfig
             throws Exception
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("openlineage-event-listener.transport.type", "HTTP")
                 .put("openlineage-event-listener.trino.uri", "http://testtrino")
                 .put("openlineage-event-listener.trino.include-query-types", "SELECT,DELETE")
                 .put("openlineage-event-listener.disabled-facets", "trino_metadata,trino_query_statistics")
@@ -65,7 +63,6 @@ final class TestOpenLineageListenerConfig
                 .buildOrThrow();
 
         OpenLineageListenerConfig expected = new OpenLineageListenerConfig()
-                .setTransport(OpenLineageTransport.HTTP)
                 .setTrinoURI(new URI("http://testtrino"))
                 .setIncludeQueryTypes(ImmutableSet.of(SELECT, DELETE))
                 .setDisabledFacets(ImmutableSet.of(TRINO_METADATA, TRINO_QUERY_STATISTICS))
