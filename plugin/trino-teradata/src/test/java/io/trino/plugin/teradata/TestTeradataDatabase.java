@@ -42,12 +42,40 @@ public class TestTeradataDatabase
         connectionProperties.put("connection-url", jdbcUrl);
         connectionProperties.put("connection-user", config.getUsername());
         connectionProperties.put("connection-password", config.getPassword());
+        connectionProperties.put("join-pushdown.enabled", "true");
         try {
             Class.forName("com.teradata.jdbc.TeraDriver");
             this.connection = DriverManager.getConnection(jdbcUrl, config.getUsername(), config.getPassword());
         }
         catch (SQLException | ClassNotFoundException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * Checks whether a table with the given name exists in the specified schema of the database.
+     * <p>
+     * This method queries the database to determine if a table exists in the specified schema. It
+     * returns a value greater than 0 if the table exists, and 0 if the table does not exist.
+     * <p>
+     * <p>
+     * schema is used.
+     *
+     * @param tableName The name of the table to check for. Must not be `null`.
+     * @return A positive integer if the table exists, otherwise 0 if the table does not exist.
+     */
+    public boolean isTableExists(String tableName)
+    {
+        @Language("SQL") String query = "SELECT count(1)  FROM DBC.TablesV WHERE DataBaseName = ? AND TableName = ?";
+        try (PreparedStatement stmt = connection.prepareStatement(query)) {
+            stmt.setString(1, "trino");
+            stmt.setString(2, tableName);
+            try (ResultSet rs = stmt.executeQuery()) {
+                return rs.next() && rs.getInt(1) > 0;
+            }
+        }
+        catch (SQLException e) {
+            throw new RuntimeException("Failed to check table existence: " + e.getMessage(), e);
         }
     }
 

@@ -14,6 +14,7 @@ import io.trino.testing.sql.SqlExecutor;
 import io.trino.tpch.TpchTable;
 import org.assertj.core.api.Assertions;
 import org.assertj.core.api.ObjectAssert;
+import org.intellij.lang.annotations.Language;
 
 import java.util.HashMap;
 import java.util.List;
@@ -88,7 +89,7 @@ public final class TeradataQueryRunner
         public static void copyTable(QueryRunner queryRunner, QualifiedObjectName table, Session session)
         {
             long start = System.nanoTime();
-            String sql = String.format("CREATE TABLE %s AS SELECT * FROM %s", table.objectName(), table);
+            @Language("SQL") String sql = String.format("CREATE TABLE %s AS SELECT * FROM %s", table.objectName(), table);
             long rows = (Long) queryRunner.execute(session, sql).getMaterializedRows().get(0).getField(0);
 
             ((ObjectAssert) Assertions.assertThat(queryRunner.execute(session, "SELECT count(*) FROM " + table.objectName()).getOnlyValue()).as("Table is not loaded properly: %s", new Object[] {
@@ -98,7 +99,9 @@ public final class TeradataQueryRunner
         public static void copyTable(QueryRunner queryRunner, String sourceCatalog, String sourceSchema, String sourceTable, Session session)
         {
             QualifiedObjectName table = new QualifiedObjectName(sourceCatalog, sourceSchema, sourceTable);
-            copyTable(queryRunner, table, session);
+            if (!database.isTableExists(sourceTable)) {
+                copyTable(queryRunner, table, session);
+            }
         }
 
         public static void copyTpchTables(QueryRunner queryRunner, String sourceCatalog, String sourceSchema, Session session, Iterable<TpchTable<?>> tables)
