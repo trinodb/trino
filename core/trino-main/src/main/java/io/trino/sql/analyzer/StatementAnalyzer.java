@@ -309,8 +309,10 @@ import static io.trino.metadata.FunctionResolver.toPath;
 import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
+import static io.trino.metadata.TableVersion.toTableVersion;
 import static io.trino.spi.StandardErrorCode.AMBIGUOUS_NAME;
 import static io.trino.spi.StandardErrorCode.AMBIGUOUS_RETURN_TYPE;
+import static io.trino.spi.StandardErrorCode.BRANCH_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.COLUMN_TYPE_UNKNOWN;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_COLUMN_NAME;
@@ -585,8 +587,16 @@ class StatementAnalyzer
             // analyze the query that creates the data
             Scope queryScope = analyze(insert.getQuery(), Optional.empty(), false);
 
+            Optional<TableVersion> startVersion = Optional.empty();
+            if (insert.getTable().getBranch().isPresent()) {
+                String branch = insert.getTable().getBranch().get().getValue();
+                if (!metadata.branchExists(session, targetTable, branch)) {
+                    throw semanticException(BRANCH_NOT_FOUND, insert, "Branch '%s' does not exist", branch);
+                }
+                startVersion = Optional.of(toTableVersion(branch));
+            }
             // verify the insert destination columns match the query
-            RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, targetTable);
+            RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, targetTable, startVersion, Optional.empty());
             Optional<TableHandle> targetTableHandle = redirection.tableHandle();
             targetTable = redirection.redirectedTableName().orElse(targetTable);
             if (targetTableHandle.isEmpty()) {
@@ -828,7 +838,15 @@ class StatementAnalyzer
                 throw semanticException(NOT_SUPPORTED, node, "Deleting from views is not supported");
             }
 
-            RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, originalName);
+            Optional<TableVersion> startVersion = Optional.empty();
+            if (table.getBranch().isPresent()) {
+                String branch = table.getBranch().get().getValue();
+                if (!metadata.branchExists(session, originalName, branch)) {
+                    throw semanticException(BRANCH_NOT_FOUND, node, "Branch '%s' does not exist", branch);
+                }
+                startVersion = Optional.of(toTableVersion(branch));
+            }
+            RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, originalName, startVersion, Optional.empty());
             QualifiedObjectName tableName = redirection.redirectedTableName().orElse(originalName);
             TableHandle handle = redirection.tableHandle()
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", tableName));
@@ -3456,7 +3474,15 @@ class StatementAnalyzer
 
             analysis.setUpdateType("UPDATE");
 
-            RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, originalName);
+            Optional<TableVersion> startVersion = Optional.empty();
+            if (update.getTable().getBranch().isPresent()) {
+                String branch = update.getTable().getBranch().get().getValue();
+                if (!metadata.branchExists(session, originalName, branch)) {
+                    throw semanticException(BRANCH_NOT_FOUND, update, "Branch '%s' does not exist", branch);
+                }
+                startVersion = Optional.of(toTableVersion(branch));
+            }
+            RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, originalName, startVersion, Optional.empty());
             QualifiedObjectName tableName = redirection.redirectedTableName().orElse(originalName);
             TableHandle handle = redirection.tableHandle()
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", tableName));
@@ -3584,9 +3610,18 @@ class StatementAnalyzer
                 throw semanticException(NOT_SUPPORTED, merge, "Merging into views is not supported");
             }
 
+            Optional<TableVersion> startVersion = Optional.empty();
+            if (table.getBranch().isPresent()) {
+                String branch = table.getBranch().get().getValue();
+                if (!metadata.branchExists(session, originalTableName, branch)) {
+                    throw semanticException(BRANCH_NOT_FOUND, merge, "Branch '%s' does not exist", branch);
+                }
+                startVersion = Optional.of(toTableVersion(branch));
+            }
+
             analysis.setUpdateType("MERGE");
 
-            RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, originalTableName);
+            RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, originalTableName, startVersion, Optional.empty());
             QualifiedObjectName tableName = redirection.redirectedTableName().orElse(originalTableName);
             TableHandle targetTableHandle = redirection.tableHandle()
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", tableName));
@@ -5983,11 +6018,18 @@ class StatementAnalyzer
         private RedirectionAwareTableHandle getTableHandle(Table table, QualifiedObjectName name, Optional<Scope> scope)
         {
             if (table.getQueryPeriod().isPresent()) {
+                verify(table.getBranch().isEmpty(), "branch must be empty");
                 Optional<TableVersion> startVersion = extractTableVersion(table, table.getQueryPeriod().get().getStart(), scope);
                 Optional<TableVersion> endVersion = extractTableVersion(table, table.getQueryPeriod().get().getEnd(), scope);
                 return metadata.getRedirectionAwareTableHandle(session, name, startVersion, endVersion);
             }
-            return metadata.getRedirectionAwareTableHandle(session, name);
+            if (table.getBranch().isPresent()) {
+                verify(table.getQueryPeriod().isEmpty(), "query period must be empty");
+                String branch = table.getBranch().get().getValue();
+                Optional<TableVersion> startVersion = Optional.of(toTableVersion(branch));
+                return metadata.getRedirectionAwareTableHandle(session, name, startVersion, Optional.empty());
+            }
+            return metadata.getRedirectionAwareTableHandle(session, name, Optional.empty(), Optional.empty());
         }
 
         /**
