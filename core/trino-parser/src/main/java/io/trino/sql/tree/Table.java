@@ -20,6 +20,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 public class Table
         extends QueryBody
@@ -45,8 +46,8 @@ public class Table
     private Table(Optional<NodeLocation> location, QualifiedName name, Optional<QueryPeriod> queryPeriod)
     {
         super(location);
-        this.name = name;
-        this.queryPeriod = queryPeriod;
+        this.name = requireNonNull(name, "name is null");
+        this.queryPeriod = requireNonNull(queryPeriod, "queryPeriod is null");
     }
 
     public QualifiedName getName()
