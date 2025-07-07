@@ -14,6 +14,8 @@ import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.CaseSensitivity;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
+import io.trino.plugin.jdbc.JdbcColumnHandle;
+import io.trino.plugin.jdbc.JdbcOutputTableHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.LongReadFunction;
@@ -65,6 +67,7 @@ import java.time.ZonedDateTime;
 import java.time.temporal.ChronoField;
 import java.util.Calendar;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -372,17 +375,21 @@ public class TeradataClient
         return true;
     }
 
-    /**
-     * Teradata does not support creating schemas through this connector.
-     *
-     * @param session connector session
-     * @param schemaName schema name to create
-     * @throws TrinoException always thrown with NOT_SUPPORTED error code
-     */
-    @Override
-    public void createSchema(ConnectorSession session, String schemaName)
+    protected void createSchema(ConnectorSession session, Connection connection, String remoteSchemaName)
+            throws SQLException
     {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating schemas");
+        execute(session, format(
+                "CREATE DATABASE %s AS PERMANENT = 60000000, SPOOL = 120000000",
+                quoted(remoteSchemaName)));
+    }
+
+    protected void dropSchema(ConnectorSession session, Connection connection, String remoteSchemaName, boolean cascade)
+            throws SQLException
+    {
+        String deleteSchema = "DELETE DATABASE " + quoted(remoteSchemaName);
+        execute(session, connection, deleteSchema);
+        String dropSchema = "DROP DATABASE " + quoted(remoteSchemaName);
+        execute(session, connection, dropSchema);
     }
 
     /**
@@ -399,6 +406,48 @@ public class TeradataClient
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support delete operations");
     }
 
+    @Override
+    public void dropTable(ConnectorSession session, JdbcTableHandle handle)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping tables");
+    }
+
+    @Override
+    public void truncateTable(ConnectorSession session, JdbcTableHandle handle)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support truncate operations");
+    }
+
+    @Override
+    public void dropColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping columns");
+    }
+
+    @Override
+    public void renameColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming columns");
+    }
+
+    @Override
+    public void renameTable(ConnectorSession session, JdbcTableHandle handle, SchemaTableName newTableName)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming tables");
+    }
+
+    @Override
+    public JdbcOutputTableHandle beginInsertTable(ConnectorSession session, JdbcTableHandle tableHandle, List<JdbcColumnHandle> columns)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support insert operations");
+    }
+
+    @Override
+    public void setColumnComment(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Optional<String> comment)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting column comments");
+    }
+
     /**
      * Builds the expression rewriter for translating connector expressions
      * into SQL fragments understood by Teradata.
@@ -406,7 +455,6 @@ public class TeradataClient
      */
     private void buildExpressionRewriter()
     {
-
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
                 .addStandardRules(this::quoted)
                 .add(new RewriteIn())

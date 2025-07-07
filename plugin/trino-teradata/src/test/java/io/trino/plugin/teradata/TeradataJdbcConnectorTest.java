@@ -19,7 +19,28 @@ public class TeradataJdbcConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
-            case SUPPORTS_CREATE_SCHEMA, SUPPORTS_DELETE -> false;
+            case SUPPORTS_CREATE_VIEW,
+                 SUPPORTS_CREATE_MATERIALIZED_VIEW,
+                 SUPPORTS_DELETE,
+                 SUPPORTS_INSERT,
+                 SUPPORTS_UPDATE,
+                 SUPPORTS_ADD_COLUMN,
+                 SUPPORTS_DROP_COLUMN,
+                 SUPPORTS_RENAME_COLUMN,
+                 SUPPORTS_RENAME_TABLE,
+                 SUPPORTS_TRUNCATE,
+                 SUPPORTS_MERGE,
+                 SUPPORTS_COMMENT_ON_TABLE,
+                 SUPPORTS_COMMENT_ON_COLUMN,
+                 SUPPORTS_RENAME_SCHEMA -> false;
+            case SUPPORTS_CREATE_SCHEMA,
+                 SUPPORTS_CREATE_TABLE,
+                 SUPPORTS_TOPN_PUSHDOWN,
+                 SUPPORTS_PREDICATE_PUSHDOWN,
+                 SUPPORTS_AGGREGATION_PUSHDOWN,
+                 SUPPORTS_JOIN_PUSHDOWN,
+                 SUPPORTS_LIMIT_PUSHDOWN,
+                 SUPPORTS_DROP_SCHEMA_CASCADE -> true;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
