@@ -217,11 +217,11 @@ public class OpenLineageListener
                 getTrinoQueryContextFacet(queryCreatedEvent.getContext()));
 
         return openLineage.newRunEventBuilder()
-                    .eventType(RunEvent.EventType.START)
-                    .eventTime(queryCreatedEvent.getCreateTime().atZone(UTC))
-                    .run(openLineage.newRunBuilder().runId(runID).facets(runFacetsBuilder.build()).build())
-                    .job(getBaseJobBuilder(queryCreatedEvent.getMetadata()).build())
-                    .build();
+                .eventType(RunEvent.EventType.START)
+                .eventTime(queryCreatedEvent.getCreateTime().atZone(UTC))
+                .run(openLineage.newRunBuilder().runId(runID).facets(runFacetsBuilder.build()).build())
+                .job(getBaseJobBuilder(queryCreatedEvent.getMetadata()).build())
+                .build();
     }
 
     public RunEvent getCompletedEvent(QueryCompletedEvent queryCompletedEvent)
@@ -296,15 +296,15 @@ public class OpenLineageListener
 
                     DatasetFacetsBuilder datasetFacetsBuilder = openLineage.newDatasetFacetsBuilder()
                             .schema(openLineage.newSchemaDatasetFacetBuilder()
-                            .fields(
-                                    table
-                                        .getColumns()
-                                        .stream()
-                                        .map(field -> openLineage.newSchemaDatasetFacetFieldsBuilder()
-                                                .name(field.getColumn())
-                                                .build()
-                                        ).toList())
-                            .build());
+                                    .fields(
+                                            table
+                                                    .getColumns()
+                                                    .stream()
+                                                    .map(field -> openLineage.newSchemaDatasetFacetFieldsBuilder()
+                                                            .name(field.getColumn())
+                                                            .build()
+                                                    ).toList())
+                                    .build());
 
                     return inputDatasetBuilder
                             .facets(datasetFacetsBuilder.build())
