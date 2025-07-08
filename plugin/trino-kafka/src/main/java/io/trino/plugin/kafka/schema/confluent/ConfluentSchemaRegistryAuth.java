@@ -11,23 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.kafka;
+package io.trino.plugin.kafka.schema.confluent;
 
-import io.trino.testing.AbstractTestQueries;
-import io.trino.testing.QueryRunner;
-import io.trino.testing.kafka.TestingKafka;
+import java.util.Map;
 
-public class TestKafkaDistributed
-        extends AbstractTestQueries
+public interface ConfluentSchemaRegistryAuth
 {
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
-    {
-        TestingKafka testingKafka = closeAfterClass(TestingKafka.create());
-        testingKafka.start();
-        return KafkaQueryRunner.builder(testingKafka)
-                .setTables(REQUIRED_TPCH_TABLES)
-                .build();
-    }
+    Map<String, Object> getClientProperties();
 }
