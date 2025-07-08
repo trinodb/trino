@@ -33,6 +33,9 @@ import io.trino.plugin.jdbc.expression.RewriteIn;
 import io.trino.plugin.jdbc.expression.RewriteLikeEscapeWithCaseSensitivity;
 import io.trino.plugin.jdbc.expression.RewriteLikeWithCaseSensitivity;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
+import io.trino.spi.ErrorCode;
+import io.trino.spi.ErrorCodeSupplier;
+import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
@@ -51,12 +54,7 @@ import io.trino.spi.type.VarcharType;
 import org.weakref.jmx.$internal.guava.collect.ImmutableMap;
 import org.weakref.jmx.$internal.guava.collect.ImmutableSet;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSetMetaData;
-import java.sql.SQLException;
-import java.sql.Timestamp;
-import java.sql.Types;
+import java.sql.*;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -103,6 +101,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.varcharColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
+import static io.trino.plugin.teradata.util.TeradataConstants.TERADATA_OBJECT_NAME_LIMIT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -154,8 +153,11 @@ import static java.util.Objects.requireNonNull;
 public class TeradataClient
         extends BaseJdbcClient
 {
+
     private final TeradataConfig.TeradataCaseSensitivity teradataJDBCCaseSensitivity;
     private ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
+
+
 
     /**
      * Constructs a new TeradataClient instance.
@@ -364,8 +366,7 @@ public class TeradataClient
     }
 
     @Override
-    protected Optional<BiFunction<String, Long, String>> limitFunction()
-    {
+    protected Optional<BiFunction<String, Long, String>> limitFunction() {
         return Optional.of((sql, limit) -> format("SELECT TOP %s * FROM (%s) o", limit, sql));
     }
 
@@ -378,9 +379,19 @@ public class TeradataClient
     protected void createSchema(ConnectorSession session, Connection connection, String remoteSchemaName)
             throws SQLException
     {
+
         execute(session, format(
                 "CREATE DATABASE %s AS PERMANENT = 60000000, SPOOL = 120000000",
                 quoted(remoteSchemaName)));
+    }
+    @Override
+    protected void verifySchemaName(DatabaseMetaData databaseMetadata, String schemaName)
+            throws SQLException
+    {
+        int schemaNameLimit = databaseMetadata.getMaxSchemaNameLength();
+        if (schemaName.length() > schemaNameLimit) {
+            throw new TrinoException(NOT_SUPPORTED, format("Schema name must be shorter than or equal to '%s' characters but got '%s'", schemaNameLimit, schemaName.length()));
+        }
     }
 
     protected void dropSchema(ConnectorSession session, Connection connection, String remoteSchemaName, boolean cascade)
@@ -406,11 +417,6 @@ public class TeradataClient
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support delete operations");
     }
 
-    @Override
-    public void dropTable(ConnectorSession session, JdbcTableHandle handle)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping tables");
-    }
 
     @Override
     public void truncateTable(ConnectorSession session, JdbcTableHandle handle)
