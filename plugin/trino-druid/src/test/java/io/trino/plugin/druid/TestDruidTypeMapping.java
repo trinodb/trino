@@ -70,7 +70,7 @@ public class TestDruidTypeMapping
     {
         SqlDataTypeTest.create()
                 .addRoundTrip("__time", "timestamp", "2020-01-01 00:00:00.000", TIMESTAMP_MILLIS, "TIMESTAMP '2020-01-01 00:00:00.000'")
-                .addRoundTrip("col_0", "long", "NULL", BIGINT, "BIGINT '0'")
+                .addRoundTrip("col_0", "long", "NULL", BIGINT, "cast(NULL AS BIGINT)")
                 .addRoundTrip("col_1", "long", "0", BIGINT, "BIGINT '0'")
                 .addRoundTrip("col_2", "long", "-9223372036854775808", BIGINT, "-9223372036854775808") // min value in Trino
                 .addRoundTrip("col_3", "long", "123456789012", BIGINT, "123456789012")
@@ -83,11 +83,11 @@ public class TestDruidTypeMapping
     {
         SqlDataTypeTest.create()
                 .addRoundTrip("__time", "timestamp", "2020-01-01 00:00:00.000", TIMESTAMP_MILLIS, "TIMESTAMP '2020-01-01 00:00:00.000'")
-                .addRoundTrip("col_0", "double", "NULL", DOUBLE, "DOUBLE '0.0'")
+                .addRoundTrip("col_0", "double", "NULL", DOUBLE, "cast(NULL AS DOUBLE)")
                 .addRoundTrip("col_1", "double", "0.0", DOUBLE, "DOUBLE '0.0'")
                 .addRoundTrip("col_2", "double", "1.0E100", DOUBLE, "1.0E100")
                 .addRoundTrip("col_3", "double", "123.456E10", DOUBLE, "123.456E10")
-                .addRoundTrip("col_4", "double", "Invalid String", DOUBLE, "DOUBLE '0.0'")
+                .addRoundTrip("col_4", "double", "Invalid String", DOUBLE, "cast(NULL AS DOUBLE)")
                 .execute(getQueryRunner(), druidCreateAndInsert("test_double"));
     }
 
@@ -129,11 +129,11 @@ public class TestDruidTypeMapping
     {
         SqlDataTypeTest.create()
                 .addRoundTrip("__time", "timestamp", "2020-01-01 00:00:00.000", TIMESTAMP_MILLIS, "TIMESTAMP '2020-01-01 00:00:00.000'")
-                .addRoundTrip("col_0", "float", "NULL", REAL, "REAL '0.0'")
+                .addRoundTrip("col_0", "float", "NULL", REAL, "cast(NULL AS REAL)")
                 .addRoundTrip("col_1", "float", "0.0", REAL, "REAL '0.0'")
                 .addRoundTrip("col_2", "float", "3.14", REAL, "REAL '3.14'")
                 .addRoundTrip("col_3", "float", "3.1415927", REAL, "REAL '3.1415927'")
-                .addRoundTrip("col_4", "float", "Invalid String", REAL, "REAL '0.0'")
+                .addRoundTrip("col_4", "float", "Invalid String", REAL, "cast(NULL AS REAL)")
                 .execute(getQueryRunner(), druidCreateAndInsert("test_float"));
     }
 

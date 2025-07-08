@@ -29,6 +29,8 @@ import io.trino.plugin.jdbc.ptf.Query;
 import io.trino.spi.function.table.ConnectorTableFunction;
 import org.apache.calcite.avatica.remote.Driver;
 
+import java.util.Properties;
+
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 
 public class DruidJdbcClientModule
@@ -46,8 +48,11 @@ public class DruidJdbcClientModule
     @ForBaseJdbc
     public static ConnectionFactory createConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider, OpenTelemetry openTelemetry)
     {
+        Properties connectionProperties = new Properties();
+        connectionProperties.setProperty("useApproximateCountDistinct", "false");
         return DriverConnectionFactory.builder(new Driver(), config.getConnectionUrl(), credentialProvider)
                 .setOpenTelemetry(openTelemetry)
+                .setConnectionProperties(connectionProperties)
                 .build();
     }
 }
