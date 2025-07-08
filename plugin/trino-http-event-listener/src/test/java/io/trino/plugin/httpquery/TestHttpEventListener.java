@@ -33,13 +33,13 @@ import io.trino.spi.eventlistener.StageOutputBufferUtilization;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.session.ResourceEstimates;
+import mockwebserver3.MockResponse;
+import mockwebserver3.MockWebServer;
+import mockwebserver3.RecordedRequest;
+import mockwebserver3.SocketEffect;
+import mockwebserver3.junit5.StartStop;
+import okhttp3.Handshake;
 import okhttp3.TlsVersion;
-import okhttp3.mockwebserver.MockResponse;
-import okhttp3.mockwebserver.MockWebServer;
-import okhttp3.mockwebserver.RecordedRequest;
-import okhttp3.mockwebserver.SocketPolicy;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
@@ -51,7 +51,6 @@ import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509TrustManager;
 
 import java.io.File;
-import java.io.IOException;
 import java.net.URI;
 import java.security.KeyStore;
 import java.time.Duration;
@@ -79,7 +78,8 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 @TestInstance(PER_METHOD)
 final class TestHttpEventListener
 {
-    private MockWebServer server;
+    @StartStop
+    private final MockWebServer server = new MockWebServer();
 
     private final EventListenerFactory factory = new HttpEventListenerFactory();
 
@@ -233,26 +233,6 @@ final class TestHttpEventListener
         splitCompleteEventJson = splitCompleteEventJsonCodec.toJson(splitCompleteEvent);
     }
 
-    @BeforeEach
-    void setup()
-            throws IOException
-    {
-        server = new MockWebServer();
-        server.start();
-    }
-
-    @AfterEach
-    void teardown()
-    {
-        try {
-            server.close();
-        }
-        catch (IOException _) {
-            // MockWebServer.close() method sometimes throws 'Gave up waiting for executor to shut down'
-        }
-        server = null;
-    }
-
     /**
      * Listener created without exceptions but not requests sent
      */
@@ -260,8 +240,9 @@ final class TestHttpEventListener
     void testAllLoggingDisabledShouldTimeout()
             throws Exception
     {
-        server.enqueue(new MockResponse()
-                .setResponseCode(200));
+        server.enqueue(new MockResponse.Builder()
+                .code(200)
+                .build());
 
         EventListener eventListener = createEventListener(Map.of(
                 "http-event-listener.connect-ingest-uri", server.url("/").toString()));
@@ -283,9 +264,9 @@ final class TestHttpEventListener
                 "http-event-listener.log-created", "true",
                 "http-event-listener.log-split", "true"));
 
-        server.enqueue(new MockResponse().setResponseCode(200));
-        server.enqueue(new MockResponse().setResponseCode(200));
-        server.enqueue(new MockResponse().setResponseCode(200));
+        server.enqueue(new MockResponse.Builder().code(200).build());
+        server.enqueue(new MockResponse.Builder().code(200).build());
+        server.enqueue(new MockResponse.Builder().code(200).build());
 
         eventListener.queryCreated(queryCreatedEvent);
         checkRequest(server.takeRequest(5, TimeUnit.SECONDS), queryCreatedEventJson);
@@ -305,12 +286,12 @@ final class TestHttpEventListener
                 "http-event-listener.connect-ingest-uri", server.url("/").toString(),
                 "http-event-listener.log-completed", "true"));
 
-        server.enqueue(new MockResponse().setResponseCode(200));
+        server.enqueue(new MockResponse.Builder().code(200).build());
 
         eventListener.queryCompleted(queryCompleteEvent);
 
         assertThat(server.takeRequest(5, TimeUnit.SECONDS))
-                .extracting(request -> request.getHeader("Content-Type"))
+                .extracting(request -> request.getHeaders().get("Content-Type"))
                 .isEqualTo("application/json; charset=utf-8");
     }
 
@@ -323,7 +304,7 @@ final class TestHttpEventListener
                 "http-event-listener.log-completed", "true",
                 "http-event-listener.connect-http-headers", "Authorization: Trust Me!, Cache-Control: no-cache"));
 
-        server.enqueue(new MockResponse().setResponseCode(200));
+        server.enqueue(new MockResponse.Builder().code(200).build());
 
         eventListener.queryCompleted(queryCompleteEvent);
 
@@ -337,7 +318,7 @@ final class TestHttpEventListener
             throws Exception
     {
         setupServerTLSCertificate();
-        server.enqueue(new MockResponse().setResponseCode(200));
+        server.enqueue(new MockResponse.Builder().code(200).build());
 
         EventListener eventListener = createEventListener(Map.of(
                 "http-event-listener.connect-ingest-uri", server.url("/").toString(),
@@ -350,7 +331,8 @@ final class TestHttpEventListener
 
         assertThat(recordedRequest)
                 .as("Handshake probably failed")
-                .extracting(RecordedRequest::getTlsVersion)
+                .extracting(RecordedRequest::getHandshake)
+                .extracting(Handshake::tlsVersion)
                 .extracting(TlsVersion::javaName)
                 .isEqualTo("TLSv1.3");
 
@@ -362,7 +344,7 @@ final class TestHttpEventListener
             throws Exception
     {
         setupServerTLSCertificate();
-        server.enqueue(new MockResponse().setResponseCode(200));
+        server.enqueue(new MockResponse.Builder().code(200).build());
 
         EventListener eventListener = createEventListener(Map.of(
                 "http-event-listener.connect-ingest-uri", server.url("/").toString(),
@@ -382,7 +364,7 @@ final class TestHttpEventListener
     void testNoServerCertificateShouldNotSendRequest()
             throws Exception
     {
-        server.enqueue(new MockResponse().setResponseCode(200));
+        server.enqueue(new MockResponse.Builder().code(200).build());
 
         EventListener eventListener = createEventListener(Map.of(
                 "http-event-listener.connect-ingest-uri", "https://%s:%s/".formatted(server.getHostName(), server.getPort()),
@@ -392,10 +374,11 @@ final class TestHttpEventListener
         eventListener.queryCompleted(queryCompleteEvent);
 
         RecordedRequest recordedRequest = server.takeRequest(5, TimeUnit.SECONDS);
-
         assertThat(recordedRequest)
                 .describedAs("Handshake should have failed")
-                .isNull();
+                .satisfiesAnyOf(
+                        request -> assertThat(request).isNull(),
+                        request -> assertThat(request.getHandshake()).isNull());
     }
 
     @Test
@@ -416,8 +399,8 @@ final class TestHttpEventListener
                 "http-event-listener.log-completed", "true",
                 "http-event-listener.connect-retry-count", "1"));
 
-        server.enqueue(new MockResponse().setResponseCode(responseCode));
-        server.enqueue(new MockResponse().setResponseCode(200));
+        server.enqueue(new MockResponse.Builder().code(responseCode).build());
+        server.enqueue(new MockResponse.Builder().code(200).build());
 
         eventListener.queryCompleted(queryCompleteEvent);
 
@@ -436,8 +419,8 @@ final class TestHttpEventListener
                 "http-event-listener.http-client.min-threads", "1",
                 "http-event-listener.http-client.max-threads", "4"));
 
-        server.enqueue(new MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_DURING_REQUEST_BODY));
-        server.enqueue(new MockResponse().setResponseCode(200));
+        server.enqueue(new MockResponse.Builder().onRequestBody(SocketEffect.ShutdownConnection.INSTANCE).build());
+        server.enqueue(new MockResponse.Builder().code(200).build());
 
         eventListener.queryCompleted(queryCompleteEvent);
 
@@ -453,7 +436,7 @@ final class TestHttpEventListener
                 "http-event-listener.connect-ingest-uri", server.url("/").toString(),
                 "http-event-listener.log-completed", "true"));
 
-        server.enqueue(new MockResponse().setResponseCode(200).setHeadersDelay(5, TimeUnit.SECONDS));
+        server.enqueue(new MockResponse.Builder().code(200).headersDelay(5, TimeUnit.SECONDS).build());
 
         long startTime = System.nanoTime();
         eventListener.queryCompleted(queryCompleteEvent);
@@ -479,14 +462,14 @@ final class TestHttpEventListener
                 .describedAs("No request sent when logging is enabled")
                 .isNotNull();
         customHeaders.forEach((key, value) -> {
-            assertThat(recordedRequest.getHeader(key))
+            assertThat(recordedRequest.getHeaders().get(key))
                     .describedAs(format("Custom header %s not present in request", key))
                     .isNotNull();
-            assertThat(recordedRequest.getHeader(key))
-                    .describedAs(format("Expected value %s for header %s but got %s", customHeaders.get(key), key, recordedRequest.getHeader(key)))
+            assertThat(recordedRequest.getHeaders().get(key))
+                    .describedAs(format("Expected value %s for header %s but got %s", customHeaders.get(key), key, recordedRequest.getHeaders().get(key)))
                     .isEqualTo(customHeaders.get(key));
         });
-        String body = recordedRequest.getBody().readUtf8();
+        String body = recordedRequest.getBody().utf8();
         assertThat(body.isEmpty())
                 .describedAs("Body is empty")
                 .isFalse();
@@ -516,7 +499,7 @@ final class TestHttpEventListener
         sslContext.init(keyManagerFactory.getKeyManagers(), new TrustManager[] {x509TrustManager}, null);
 
         SSLSocketFactory sslSocketFactory = sslContext.getSocketFactory();
-        server.useHttps(sslSocketFactory, false);
+        server.useHttps(sslSocketFactory);
     }
 
     private EventListener createEventListener(Map<String, String> config)

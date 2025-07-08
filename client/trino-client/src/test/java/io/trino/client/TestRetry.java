@@ -15,16 +15,14 @@ package io.trino.client;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
+import mockwebserver3.MockResponse;
+import mockwebserver3.MockWebServer;
+import mockwebserver3.SocketEffect;
+import mockwebserver3.junit5.StartStop;
 import okhttp3.OkHttpClient;
-import okhttp3.mockwebserver.MockResponse;
-import okhttp3.mockwebserver.MockWebServer;
-import okhttp3.mockwebserver.SocketPolicy;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
-import java.io.IOException;
 import java.net.URI;
 import java.time.ZoneId;
 import java.util.Optional;
@@ -48,24 +46,10 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 @TestInstance(PER_METHOD)
 public class TestRetry
 {
-    private MockWebServer server;
+    @StartStop
+    private final MockWebServer server = new MockWebServer();
+
     private static final TrinoJsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
-
-    @BeforeEach
-    public void setup()
-            throws Exception
-    {
-        server = new MockWebServer();
-        server.start();
-    }
-
-    @AfterEach
-    public void teardown()
-            throws IOException
-    {
-        server.close();
-        server = null;
-    }
 
     @Test
     public void testRetryOnInitial()
@@ -85,8 +69,9 @@ public class TestRetry
                 .build();
 
         server.enqueue(statusAndBody(HTTP_OK, newQueryResults("RUNNING"))
-                .setSocketPolicy(SocketPolicy.STALL_SOCKET_AT_START));
-        server.enqueue(statusAndBody(HTTP_OK, newQueryResults("FINISHED")));
+                        .onRequestStart(SocketEffect.Stall.INSTANCE)
+                        .build());
+        server.enqueue(statusAndBody(HTTP_OK, newQueryResults("FINISHED")).build());
 
         try (StatementClient client = newStatementClient(httpClient, session, "SELECT 1", Optional.empty())) {
             while (client.advance()) {
@@ -114,10 +99,11 @@ public class TestRetry
                 .clientRequestTimeout(Duration.valueOf("2s"))
                 .build();
 
-        server.enqueue(statusAndBody(HTTP_OK, newQueryResults("RUNNING")));
+        server.enqueue(statusAndBody(HTTP_OK, newQueryResults("RUNNING")).build());
         server.enqueue(statusAndBody(HTTP_OK, newQueryResults("FINISHED"))
-                .setSocketPolicy(SocketPolicy.DISCONNECT_DURING_RESPONSE_BODY));
-        server.enqueue(statusAndBody(HTTP_OK, newQueryResults("FINISHED")));
+                .onResponseBody(SocketEffect.Stall.INSTANCE)
+                .build());
+        server.enqueue(statusAndBody(HTTP_OK, newQueryResults("FINISHED")).build());
 
         try (StatementClient client = newStatementClient(httpClient, session, "SELECT 1", Optional.empty())) {
             while (client.advance()) {
@@ -153,11 +139,11 @@ public class TestRetry
         return QUERY_RESULTS_CODEC.toJson(queryResults);
     }
 
-    private static MockResponse statusAndBody(int status, String body)
+    private static MockResponse.Builder statusAndBody(int status, String body)
     {
-        return new MockResponse()
-                .setResponseCode(status)
+        return new MockResponse.Builder()
+                .code(status)
                 .addHeader(CONTENT_TYPE, JSON_UTF_8)
-                .setBody(body);
+                .body(body);
     }
 }
