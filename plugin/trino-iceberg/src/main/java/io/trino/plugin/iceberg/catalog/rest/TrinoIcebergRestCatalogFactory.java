@@ -57,6 +57,7 @@ public class TrinoIcebergRestCatalogFactory
     private final URI serverUri;
     private final Optional<String> prefix;
     private final Optional<String> warehouse;
+    private final Optional<Map<String, String>> authCustomHeaders;
     private final boolean nestedNamespaceEnabled;
     private final SessionType sessionType;
     private final Duration sessionTimeout;
@@ -91,6 +92,7 @@ public class TrinoIcebergRestCatalogFactory
         this.serverUri = restConfig.getBaseUri();
         this.prefix = restConfig.getPrefix();
         this.warehouse = restConfig.getWarehouse();
+        this.authCustomHeaders = restConfig.getAuthCustomHeaders();
         this.nestedNamespaceEnabled = restConfig.isNestedNamespaceEnabled();
         this.sessionType = restConfig.getSessionType();
         this.sessionTimeout = restConfig.getSessionTimeout();
@@ -127,6 +129,7 @@ public class TrinoIcebergRestCatalogFactory
             properties.put(AUTH_SESSION_TIMEOUT_MS, String.valueOf(sessionTimeout.toMillis()));
             properties.putAll(securityProperties.get());
             properties.putAll(awsProperties.get());
+            authCustomHeaders.ifPresent(properties::putAll);
 
             if (vendedCredentialsEnabled) {
                 properties.put("header.X-Iceberg-Access-Delegation", "vended-credentials");

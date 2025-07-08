@@ -18,10 +18,12 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
+import io.trino.plugin.iceberg.util.HeaderParser;
 import jakarta.validation.constraints.NotNull;
 import org.apache.iceberg.CatalogProperties;
 
 import java.net.URI;
+import java.util.Map;
 import java.util.Optional;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -45,6 +47,7 @@ public class IcebergRestCatalogConfig
     private URI restUri;
     private Optional<String> prefix = Optional.empty();
     private Optional<String> warehouse = Optional.empty();
+    private Optional<Map<String, String>> authCustomHeaders = Optional.empty();
     private boolean nestedNamespaceEnabled;
     private Security security = Security.NONE;
     private SessionType sessionType = SessionType.NONE;
@@ -217,6 +220,19 @@ public class IcebergRestCatalogConfig
     public IcebergRestCatalogConfig setCaseInsensitiveNameMatchingCacheTtl(Duration caseInsensitiveNameMatchingCacheTtl)
     {
         this.caseInsensitiveNameMatchingCacheTtl = caseInsensitiveNameMatchingCacheTtl;
+        return this;
+    }
+
+    public Optional<Map<String, String>> getAuthCustomHeaders()
+     {
+         return authCustomHeaders;
+     }
+
+    @Config("iceberg.rest-catalog.oauth2.custom-headers")
+    @ConfigDescription("Add comma seperated key=value string for passing custom headers for Authentication with Rest Server. Example: header1=value1,header2=value2")
+    public IcebergRestCatalogConfig setAuthCustomHeaders(String authCustomHeaders)
+    {
+        this.authCustomHeaders = Optional.of(HeaderParser.parseHeaders(authCustomHeaders));
         return this;
     }
 }
