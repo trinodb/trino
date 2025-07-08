@@ -87,6 +87,12 @@
             <groupId>io.trino.tempto</groupId>
             <artifactId>tempto-core</artifactId>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.google.inject</groupId>
+                    <artifactId>guice</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>

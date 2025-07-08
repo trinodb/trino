@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>276</version>
+        <version>277</version>
     </parent>
 
     <groupId>io.trino</groupId>
@@ -181,7 +181,7 @@
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}</air.test.jvm.additional-arguments>
 
         <!-- keep dependency properties sorted -->
-        <dep.airlift.version>338</dep.airlift.version>
+        <dep.airlift.version>339</dep.airlift.version>
         <dep.alluxio.version>2.9.6</dep.alluxio.version>
         <dep.antlr.version>4.13.2</dep.antlr.version>
         <dep.avro.version>1.12.0</dep.avro.version>
@@ -675,6 +675,11 @@
                 <artifactId>discovery-server</artifactId>
                 <version>1.37</version>
                 <exclusions>
+                    <!-- exclude shaded guice dependency as we bring classes only variant -->
+                    <exclusion>
+                        <groupId>com.google.inject</groupId>
+                        <artifactId>guice</artifactId>
+                    </exclusion>
                     <exclusion>
                         <groupId>io.airlift</groupId>
                         <artifactId>event-http</artifactId>
@@ -740,6 +745,13 @@
                 <groupId>io.airlift.resolver</groupId>
                 <artifactId>resolver</artifactId>
                 <version>1.6</version>
+                <exclusions>
+                    <!-- exclude shaded guice dependency as we bring classes only variant -->
+                    <exclusion>
+                        <groupId>com.google.inject</groupId>
+                        <artifactId>guice</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
