@@ -2966,6 +2966,7 @@
                                     -Xep:ThreeLetterTimeZoneID:ERROR \
                                     -Xep:TraditionalSwitchExpression:ERROR \
                                     -Xep:UnicodeEscape:ERROR \
+                                    -Xep:UnnecessaryCopy:ERROR \
                                     -Xep:UnnecessaryLongToIntConversion:ERROR \
                                     -Xep:UnnecessaryMethodReference:ERROR \
                                     -Xep:UnnecessaryOptionalGet:ERROR \
