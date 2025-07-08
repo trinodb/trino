@@ -376,9 +376,7 @@ public class TeradataClient
         return true;
     }
 
-    protected void createSchema(ConnectorSession session, Connection connection, String remoteSchemaName)
-            throws SQLException
-    {
+    protected void createSchema(ConnectorSession session, Connection connection, String remoteSchemaName) {
 
         execute(session, format(
                 "CREATE DATABASE %s AS PERMANENT = 60000000, SPOOL = 120000000",
@@ -397,8 +395,8 @@ public class TeradataClient
     protected void dropSchema(ConnectorSession session, Connection connection, String remoteSchemaName, boolean cascade)
             throws SQLException
     {
-        String deleteSchema = "DELETE DATABASE " + quoted(remoteSchemaName);
-        execute(session, connection, deleteSchema);
+//        String deleteSchema = "DELETE DATABASE " + quoted(remoteSchemaName);
+//        execute(session, connection, deleteSchema);
         String dropSchema = "DROP DATABASE " + quoted(remoteSchemaName);
         execute(session, connection, dropSchema);
     }
