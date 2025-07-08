@@ -268,6 +268,24 @@ public abstract class AbstractTestTrinoFileSystem
     }
 
     @Test
+    public void testReadingEmptyFile()
+            throws IOException
+    {
+        try (TempBlob tempBlob = randomBlobLocation("inputStream")) {
+            tempBlob.outputFile().createOrOverwrite(new byte[0]);
+
+            TrinoInputFile inputFile = getFileSystem().newInputFile(tempBlob.location());
+            try (TrinoInputStream inputStream = inputFile.newStream()) {
+                assertThat(inputStream.readAllBytes()).isEmpty();
+            }
+
+            try (TrinoInputStream inputStream = inputFile.newStream()) {
+                assertThat(inputStream.read()).isEqualTo(-1);
+            }
+        }
+    }
+
+    @Test
     public void testInputFile()
             throws IOException
     {
