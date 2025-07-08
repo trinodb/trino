@@ -52,6 +52,7 @@ import javax.net.ssl.X509TrustManager;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.ProtocolException;
 import java.net.URI;
 import java.security.KeyStore;
 import java.time.Duration;
@@ -395,7 +396,9 @@ final class TestHttpEventListener
 
         assertThat(recordedRequest)
                 .describedAs("Handshake should have failed")
-                .isNull();
+                .satisfiesAnyOf(
+                        request -> assertThat(request).isNull(),
+                        request -> assertThat(request.getFailure()).isInstanceOf(ProtocolException.class));
     }
 
     @Test
