@@ -2971,6 +2971,8 @@
                                     -Xep:UnnecessaryMethodReference:ERROR \
                                     -Xep:UnnecessaryOptionalGet:ERROR \
                                     -Xep:UnnecessaryParentheses:ERROR \
+                                    <!-- false positive from io.airlift.configuration.Config annotation -->
+                                    -Xep:UnnecessaryQualifier:OFF \
                                     -Xep:UnnecessaryStringBuilder:ERROR \
                                     -Xep:UnusedMethod:OFF \
                                     -Xep:UnusedVariable:ERROR \
