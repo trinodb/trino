@@ -10,8 +10,8 @@
     </parent>
 
     <artifactId>trino-ranger</artifactId>
-
     <packaging>trino-plugin</packaging>
+    <name>${project.artifactId}</name>
     <description>Trino - Apache Ranger access control</description>
 
     <properties>

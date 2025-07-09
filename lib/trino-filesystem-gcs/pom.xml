@@ -10,7 +10,7 @@
     </parent>
 
     <artifactId>trino-filesystem-gcs</artifactId>
-    <name>trino-filesystem-gcs</name>
+    <name>${project.artifactId}</name>
     <description>Trino - Google Cloud Storage file system support</description>
 
     <dependencies>

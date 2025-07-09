@@ -11,6 +11,7 @@
 
     <artifactId>trino-resource-group-managers</artifactId>
     <packaging>trino-plugin</packaging>
+    <name>${project.artifactId}</name>
     <description>Trino - Resource group configuration managers</description>
 
     <properties>

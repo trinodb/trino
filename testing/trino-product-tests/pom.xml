@@ -10,6 +10,7 @@
     </parent>
 
     <artifactId>trino-product-tests</artifactId>
+    <name>${project.artifactId}</name>
     <description>Trino - Product tests</description>
 
     <properties>

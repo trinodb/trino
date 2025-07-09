@@ -11,6 +11,7 @@
 
     <artifactId>trino-kafka-event-listener</artifactId>
     <packaging>trino-plugin</packaging>
+    <name>${project.artifactId}</name>
     <description>Trino - Kafka Event Listener</description>
 
     <properties>

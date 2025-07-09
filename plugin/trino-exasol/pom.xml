@@ -11,6 +11,7 @@
 
     <artifactId>trino-exasol</artifactId>
     <packaging>trino-plugin</packaging>
+    <name>${project.artifactId}</name>
     <description>Trino - Exasol Connector</description>
 
     <properties>

@@ -10,6 +10,7 @@
     </parent>
 
     <artifactId>trino-filesystem-cache-alluxio</artifactId>
+    <name>${project.artifactId}</name>
     <description>Trino Filesystem - Alluxio</description>
 
     <properties>

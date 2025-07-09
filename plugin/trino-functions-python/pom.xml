@@ -10,6 +10,7 @@
 
     <artifactId>trino-functions-python</artifactId>
     <packaging>trino-plugin</packaging>
+    <name>${project.artifactId}</name>
     <description>Trino - Python language functions</description>
 
     <dependencyManagement>

@@ -10,6 +10,7 @@
 
     <artifactId>trino-exchange-filesystem</artifactId>
     <packaging>trino-plugin</packaging>
+    <name>${project.artifactId}</name>
     <description>Trino - Exchange</description>
 
     <properties>

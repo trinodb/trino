@@ -10,6 +10,7 @@
 
     <artifactId>trino-tpch</artifactId>
     <packaging>trino-plugin</packaging>
+    <name>${project.artifactId}</name>
     <description>Trino - TPC-H connector</description>
 
     <dependencies>

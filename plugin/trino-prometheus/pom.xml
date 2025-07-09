@@ -10,6 +10,7 @@
 
     <artifactId>trino-prometheus</artifactId>
     <packaging>trino-plugin</packaging>
+    <name>${project.artifactId}</name>
     <description>Trino - Prometheus connector</description>
 
     <properties>

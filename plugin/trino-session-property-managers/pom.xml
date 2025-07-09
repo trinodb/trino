@@ -11,6 +11,7 @@
 
     <artifactId>trino-session-property-managers</artifactId>
     <packaging>trino-plugin</packaging>
+    <name>${project.artifactId}</name>
     <description>Trino - Session property managers</description>
 
     <properties>

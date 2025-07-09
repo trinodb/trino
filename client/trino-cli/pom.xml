@@ -10,6 +10,7 @@
     </parent>
 
     <artifactId>trino-cli</artifactId>
+    <name>${project.artifactId}</name>
     <description>Trino - CLI</description>
 
     <properties>

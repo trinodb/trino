@@ -10,6 +10,7 @@
     </parent>
 
     <artifactId>trino-server-dev</artifactId>
+    <name>${project.artifactId}</name>
     <description>Trino - Development server</description>
 
     <dependencies>

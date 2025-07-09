@@ -10,6 +10,7 @@
     </parent>
 
     <artifactId>trino-main</artifactId>
+    <name>${project.artifactId}</name>
     <description>Trino - Engine</description>
 
     <properties>

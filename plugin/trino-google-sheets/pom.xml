@@ -10,6 +10,7 @@
 
     <artifactId>trino-google-sheets</artifactId>
     <packaging>trino-plugin</packaging>
+    <name>${project.artifactId}</name>
     <description>Trino - Google Sheets connector</description>
 
     <dependencies>

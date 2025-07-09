@@ -10,6 +10,7 @@
 
     <artifactId>trino-geospatial</artifactId>
     <packaging>trino-plugin</packaging>
+    <name>${project.artifactId}</name>
     <description>Trino - Geospatial support</description>
 
     <properties>

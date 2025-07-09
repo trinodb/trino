@@ -11,6 +11,7 @@
 
     <artifactId>trino-snowflake</artifactId>
     <packaging>trino-plugin</packaging>
+    <name>${project.artifactId}</name>
     <description>Trino - Snowflake Connector</description>
 
     <properties>

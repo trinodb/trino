@@ -10,6 +10,7 @@
 
     <artifactId>trino-mongodb</artifactId>
     <packaging>trino-plugin</packaging>
+    <name>${project.artifactId}</name>
     <description>Trino - MongoDB connector</description>
 
     <properties>

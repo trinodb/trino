@@ -10,6 +10,7 @@
 
     <artifactId>trino-vertica</artifactId>
     <packaging>trino-plugin</packaging>
+    <name>${project.artifactId}</name>
     <description>Trino - Vertica Connector</description>
 
     <dependencies>

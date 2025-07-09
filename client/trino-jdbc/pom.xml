@@ -10,6 +10,7 @@
     </parent>
 
     <artifactId>trino-jdbc</artifactId>
+    <name>${project.artifactId}</name>
     <description>Trino - JDBC driver</description>
 
     <properties>

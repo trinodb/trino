@@ -11,6 +11,7 @@
 
     <artifactId>trino-openlineage</artifactId>
     <packaging>trino-plugin</packaging>
+    <name>${project.artifactId}</name>
     <description>Trino - OpenLineage event listener</description>
 
     <properties>
