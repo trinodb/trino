@@ -10,6 +10,7 @@
 
     <artifactId>trino-cassandra</artifactId>
     <packaging>trino-plugin</packaging>
+    <name>${project.artifactId}</name>
     <description>Trino - Cassandra connector</description>
 
     <properties>

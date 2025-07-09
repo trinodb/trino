@@ -11,6 +11,7 @@
 
     <artifactId>trino-postgresql</artifactId>
     <packaging>trino-plugin</packaging>
+    <name>${project.artifactId}</name>
     <description>Trino - PostgreSQL connector</description>
 
     <dependencies>

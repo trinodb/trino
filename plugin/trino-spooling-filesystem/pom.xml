@@ -10,6 +10,7 @@
 
     <artifactId>trino-spooling-filesystem</artifactId>
     <packaging>trino-plugin</packaging>
+    <name>${project.artifactId}</name>
     <description>Trino - Spooling filesystem</description>
 
     <properties>

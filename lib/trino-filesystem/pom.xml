@@ -10,6 +10,7 @@
     </parent>
 
     <artifactId>trino-filesystem</artifactId>
+    <name>${project.artifactId}</name>
     <description>Trino - Native file system support</description>
 
     <properties>

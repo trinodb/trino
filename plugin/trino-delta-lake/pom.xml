@@ -11,6 +11,7 @@
 
     <artifactId>trino-delta-lake</artifactId>
     <packaging>trino-plugin</packaging>
+    <name>${project.artifactId}</name>
     <description>Trino - Delta Lake connector</description>
 
     <dependencies>

@@ -10,6 +10,7 @@
     </parent>
 
     <artifactId>trino-filesystem-s3</artifactId>
+    <name>${project.artifactId}</name>
     <description>Trino - S3 file system support</description>
 
     <properties>

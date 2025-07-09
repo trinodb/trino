@@ -10,6 +10,7 @@
     </parent>
 
     <artifactId>trino-thrift-testing-server</artifactId>
+    <name>${project.artifactId}</name>
     <description>Trino - Thrift testing server</description>
 
     <properties>

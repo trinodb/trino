@@ -10,6 +10,7 @@
     </parent>
 
     <artifactId>trino-plugin-reader</artifactId>
+    <name>${project.artifactId}</name>
     <description>Trino - Plugin reader</description>
 
     <properties>

@@ -10,6 +10,7 @@
     </parent>
 
     <artifactId>trino-proxy</artifactId>
+    <name>${project.artifactId}</name>
     <description>Trino - Proxy service</description>
 
     <properties>

@@ -10,6 +10,7 @@
 
     <artifactId>trino-pinot</artifactId>
     <packaging>trino-plugin</packaging>
+    <name>${project.artifactId}</name>
     <description>Trino - Pinot connector</description>
 
     <properties>

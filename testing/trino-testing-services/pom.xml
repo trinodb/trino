@@ -10,6 +10,7 @@
     </parent>
 
     <artifactId>trino-testing-services</artifactId>
+    <name>${project.artifactId}</name>
     <description>Trino - Testing services</description>
 
     <dependencies>

@@ -10,6 +10,7 @@
     </parent>
 
     <artifactId>trino-hdfs</artifactId>
+    <name>${project.artifactId}</name>
     <description>Trino - Legacy HDFS file system support</description>
 
     <dependencies>

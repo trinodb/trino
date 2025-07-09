@@ -10,6 +10,7 @@
 
     <artifactId>trino-ldap-group-provider</artifactId>
     <packaging>trino-plugin</packaging>
+    <name>${project.artifactId}</name>
     <description>Trino - LDAP Group Provider</description>
 
     <properties>

@@ -9,6 +9,7 @@
     </parent>
 
     <artifactId>trino-geospatial-toolkit</artifactId>
+    <name>${project.artifactId}</name>
     <description>Trino - Geospatial utilities</description>
 
     <properties>

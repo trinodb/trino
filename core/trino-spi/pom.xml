@@ -10,6 +10,7 @@
     </parent>
 
     <artifactId>trino-spi</artifactId>
+    <name>${project.artifactId}</name>
     <description>Trino - Service Provider Interface (SPI)</description>
 
     <properties>

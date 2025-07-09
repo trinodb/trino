@@ -10,6 +10,7 @@
 
     <artifactId>trino-example-jdbc</artifactId>
     <packaging>trino-plugin</packaging>
+    <name>${project.artifactId}</name>
     <description>Trino - Example JDBC connector</description>
 
     <dependencies>
