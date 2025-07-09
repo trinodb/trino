@@ -2615,6 +2615,10 @@
                             <requirePropertyDiverges>
                                 <property>project.description</property>
                             </requirePropertyDiverges>
+                            <requireProperty>
+                                <property>project.name</property>
+                                <message>Project name must be set in the pom.xml</message>
+                            </requireProperty>
                             <requireJavaVendor>
                                 <message>Trino requires Temurin or Oracle JDK for development. Other vendors are not recommended due to lack of testing coverage.</message>
                                 <includes>
