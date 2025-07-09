@@ -38,6 +38,7 @@ public class TeradataJdbcConnectorTest
                  SUPPORTS_MERGE,
                  SUPPORTS_COMMENT_ON_TABLE,
                  SUPPORTS_COMMENT_ON_COLUMN,
+                 SUPPORTS_DROP_SCHEMA_CASCADE,
                  SUPPORTS_RENAME_SCHEMA -> false;
             case SUPPORTS_CREATE_SCHEMA,
                  SUPPORTS_CREATE_TABLE,
@@ -45,8 +46,8 @@ public class TeradataJdbcConnectorTest
                  SUPPORTS_PREDICATE_PUSHDOWN,
                  SUPPORTS_AGGREGATION_PUSHDOWN,
                  SUPPORTS_JOIN_PUSHDOWN,
-                 SUPPORTS_LIMIT_PUSHDOWN,
-                 SUPPORTS_DROP_SCHEMA_CASCADE -> true;
+                 SUPPORTS_LIMIT_PUSHDOWN -> true;
+//                 SUPPORTS_DROP_SCHEMA_CASCADE -> true;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
