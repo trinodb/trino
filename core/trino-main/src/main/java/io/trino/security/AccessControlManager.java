@@ -992,6 +992,53 @@ public class AccessControlManager
     }
 
     @Override
+    public void checkCanGrantTableBranchPrivilege(SecurityContext securityContext, Privilege privilege, QualifiedObjectName tableName, String branchName, TrinoPrincipal grantee, boolean grantOption)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(tableName, "tableName is null");
+        requireNonNull(branchName, "branchName is null");
+        requireNonNull(grantee, "grantee is null");
+        requireNonNull(privilege, "privilege is null");
+
+        checkCanAccessCatalog(securityContext, tableName.catalogName());
+
+        systemAuthorizationCheck(control -> control.checkCanGrantTableBranchPrivilege(securityContext.toSystemSecurityContext(), privilege, tableName.asCatalogSchemaTableName(), branchName, grantee, grantOption));
+
+        catalogAuthorizationCheck(tableName.catalogName(), securityContext, (control, context) -> control.checkCanGrantTableBranchPrivilege(context, privilege, tableName.asSchemaTableName(), branchName, grantee, grantOption));
+    }
+
+    @Override
+    public void checkCanDenyTableBranchPrivilege(SecurityContext securityContext, Privilege privilege, QualifiedObjectName tableName, String branchName, TrinoPrincipal grantee)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(tableName, "tableName is null");
+        requireNonNull(branchName, "branchName is null");
+        requireNonNull(privilege, "privilege is null");
+
+        checkCanAccessCatalog(securityContext, tableName.catalogName());
+
+        systemAuthorizationCheck(control -> control.checkCanDenyTableBranchPrivilege(securityContext.toSystemSecurityContext(), privilege, tableName.asCatalogSchemaTableName(), branchName, grantee));
+
+        catalogAuthorizationCheck(tableName.catalogName(), securityContext, (control, context) -> control.checkCanDenyTableBranchPrivilege(context, privilege, tableName.asSchemaTableName(), branchName, grantee));
+    }
+
+    @Override
+    public void checkCanRevokeTableBranchPrivilege(SecurityContext securityContext, Privilege privilege, QualifiedObjectName tableName, String branchName, TrinoPrincipal revokee, boolean grantOption)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(tableName, "tableName is null");
+        requireNonNull(branchName, "branchName is null");
+        requireNonNull(revokee, "revokee is null");
+        requireNonNull(privilege, "privilege is null");
+
+        checkCanAccessCatalog(securityContext, tableName.catalogName());
+
+        systemAuthorizationCheck(control -> control.checkCanRevokeTableBranchPrivilege(securityContext.toSystemSecurityContext(), privilege, tableName.asCatalogSchemaTableName(), branchName, revokee, grantOption));
+
+        catalogAuthorizationCheck(tableName.catalogName(), securityContext, (control, context) -> control.checkCanRevokeTableBranchPrivilege(context, privilege, tableName.asSchemaTableName(), branchName, revokee, grantOption));
+    }
+
+    @Override
     public void checkCanGrantEntityPrivilege(SecurityContext securityContext, EntityPrivilege privilege, EntityKindAndName entity, TrinoPrincipal grantee, boolean grantOption)
     {
         requireNonNull(securityContext, "securityContext is null");

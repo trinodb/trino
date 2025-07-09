@@ -43,6 +43,7 @@ import java.util.Set;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.trino.common.Randoms.randomUsername;
 import static io.trino.spi.security.PrincipalType.USER;
+import static io.trino.spi.security.Privilege.CREATE_BRANCH;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.Locale.ROOT;
@@ -115,6 +116,7 @@ public class TestDenyOnTable
         testValidDenyTable("INSERT");
         testValidDenyTable("UPDATE");
         testValidDenyTable("DELETE");
+        testValidDenyTable("CREATE BRANCH");
         testValidDenyTable("ALL PRIVILEGES");
     }
 
@@ -126,6 +128,9 @@ public class TestDenyOnTable
         expectedTableName = new QualifiedObjectName("local", "default", "table_one");
         if (privilege.equalsIgnoreCase("all privileges")) {
             expectedPrivileges = ImmutableSet.copyOf(Privilege.values());
+        }
+        else if (privilege.equalsIgnoreCase("create branch")) {
+            expectedPrivileges = ImmutableSet.of(CREATE_BRANCH);
         }
         else {
             expectedPrivileges = ImmutableSet.of(Privilege.valueOf(privilege.toUpperCase(ROOT)));

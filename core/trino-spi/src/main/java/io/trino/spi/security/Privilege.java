@@ -15,5 +15,23 @@ package io.trino.spi.security;
 
 public enum Privilege
 {
-    CREATE, SELECT, DELETE, INSERT, UPDATE
+    CREATE("CREATE"),
+    SELECT("SELECT"),
+    DELETE("DELETE"),
+    INSERT("INSERT"),
+    UPDATE("UPDATE"),
+    CREATE_BRANCH("CREATE BRANCH");
+
+    private final String name;
+
+    Privilege(String name)
+    {
+        this.name = name;
+    }
+
+    @Override
+    public String toString()
+    {
+        return name;
+    }
 }
