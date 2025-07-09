@@ -69,7 +69,7 @@ public final class PrivilegeUtilities
     private static Privilege parsePrivilege(Node statement, String privilegeString)
     {
         for (Privilege privilege : Privilege.values()) {
-            if (privilege.name().equalsIgnoreCase(privilegeString)) {
+            if (privilege.toString().equalsIgnoreCase(privilegeString)) {
                 return privilege;
             }
         }

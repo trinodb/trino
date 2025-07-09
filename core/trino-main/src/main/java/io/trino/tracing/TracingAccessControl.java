@@ -540,6 +540,33 @@ public class TracingAccessControl
     }
 
     @Override
+    public void checkCanGrantTableBranchPrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, String branchName, TrinoPrincipal grantee, boolean grantOption)
+    {
+        Span span = startSpan("checkCanGrantTableBranchPrivilege");
+        try (var _ = scopedSpan(span)) {
+            delegate.checkCanGrantTableBranchPrivilege(context, privilege, tableName, branchName, grantee, grantOption);
+        }
+    }
+
+    @Override
+    public void checkCanDenyTableBranchPrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, String branchName, TrinoPrincipal grantee)
+    {
+        Span span = startSpan("checkCanDenyTableBranchPrivilege");
+        try (var _ = scopedSpan(span)) {
+            delegate.checkCanDenyTableBranchPrivilege(context, privilege, tableName, branchName, grantee);
+        }
+    }
+
+    @Override
+    public void checkCanRevokeTableBranchPrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, String branchName, TrinoPrincipal revokee, boolean grantOption)
+    {
+        Span span = startSpan("checkCanRevokeTableBranchPrivilege");
+        try (var _ = scopedSpan(span)) {
+            delegate.checkCanRevokeTableBranchPrivilege(context, privilege, tableName, branchName, revokee, grantOption);
+        }
+    }
+
+    @Override
     public void checkCanGrantEntityPrivilege(SecurityContext context, EntityPrivilege privilege, EntityKindAndName entity, TrinoPrincipal grantee, boolean grantOption)
     {
         Span span = startSpan("checkCanGrantEntityPrivilege");

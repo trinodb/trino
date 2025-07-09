@@ -956,7 +956,7 @@ sqlStatementList
     ;
 
 privilege
-    : CREATE | SELECT | DELETE | INSERT | UPDATE | identifier
+    : CREATE | SELECT | DELETE | INSERT | UPDATE | identifier | CREATE BRANCH
     ;
 
 entityKind
@@ -964,7 +964,7 @@ entityKind
     ;
 
 grantObject
-    : entityKind? qualifiedName
+    : (BRANCH branch=identifier IN)? entityKind? qualifiedName
     ;
 
 ownedEntityKind
@@ -997,7 +997,7 @@ principal
     ;
 
 privilegeOrRole
-    : CREATE | SELECT | DELETE | INSERT | UPDATE | identifier
+    : CREATE | SELECT | DELETE | INSERT | UPDATE | identifier | CREATE BRANCH
     ;
 
 identifier
