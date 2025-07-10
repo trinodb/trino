@@ -419,6 +419,7 @@ public class TeradataClient
     }
 
 
+
     @Override
     public void truncateTable(ConnectorSession session, JdbcTableHandle handle)
     {
@@ -716,4 +717,5 @@ public class TeradataClient
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming schemas");
     }
+
 }

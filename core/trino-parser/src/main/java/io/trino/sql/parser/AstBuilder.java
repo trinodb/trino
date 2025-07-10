@@ -994,7 +994,7 @@ class AstBuilder
                 getQualifiedName(context.qualifiedName()),
                 (Identifier) visit(context.identifier()),
                 toSaveMode(context.REPLACE(), context.EXISTS()),
-                properties);
+                properties)
     }
 
     @Override
