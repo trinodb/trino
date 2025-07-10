@@ -267,7 +267,7 @@ public class OrcPageSourceFactory
                 return new EmptyPageSource();
             }
             OrcReader reader = optionalOrcReader.get();
-            if (!originalFile && acidInfo.isPresent() && !acidInfo.get().isOrcAcidVersionValidated()) {
+            if (!originalFile && acidInfo.isPresent() && !acidInfo.get().orcAcidVersionValidated()) {
                 validateOrcAcidVersion(path, reader);
             }
 
@@ -407,7 +407,7 @@ public class OrcPageSourceFactory
                     .filter(OrcPageSourceFactory::hasOriginalFiles)
                     // TODO reduce number of file footer accesses. Currently this is quadratic to the number of original files.
                     .map(_ -> OriginalFilesUtils.getPrecedingRowCount(
-                            acidInfo.get().getOriginalFiles(),
+                            acidInfo.get().originalFiles(),
                             path,
                             fileSystemFactory,
                             session.getIdentity(),
@@ -552,7 +552,7 @@ public class OrcPageSourceFactory
 
     private static boolean hasOriginalFiles(AcidInfo acidInfo)
     {
-        return !acidInfo.getOriginalFiles().isEmpty();
+        return !acidInfo.originalFiles().isEmpty();
     }
 
     private static void verifyFileHasColumnNames(List<OrcColumn> columns, Location path)

@@ -28,7 +28,6 @@ import io.trino.spi.type.Type;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -42,7 +41,6 @@ public class IndexSnapshotBuilder
     private final List<Type> outputTypes;
     private final List<Type> missingKeysTypes;
     private final List<Integer> keyOutputChannels;
-    private final OptionalInt keyOutputHashChannel;
     private final List<Integer> missingKeysChannels;
     private final PagesIndex.Factory pagesIndexFactory;
 
@@ -58,7 +56,6 @@ public class IndexSnapshotBuilder
 
     public IndexSnapshotBuilder(List<Type> outputTypes,
             List<Integer> keyOutputChannels,
-            OptionalInt keyOutputHashChannel,
             DriverContext driverContext,
             DataSize maxMemoryInBytes,
             int expectedPositions,
@@ -66,7 +63,6 @@ public class IndexSnapshotBuilder
     {
         requireNonNull(outputTypes, "outputTypes is null");
         requireNonNull(keyOutputChannels, "keyOutputChannels is null");
-        requireNonNull(keyOutputHashChannel, "keyOutputHashChannel is null");
         requireNonNull(driverContext, "driverContext is null");
         requireNonNull(maxMemoryInBytes, "maxMemoryInBytes is null");
         requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
@@ -77,7 +73,6 @@ public class IndexSnapshotBuilder
         this.outputTypes = ImmutableList.copyOf(outputTypes);
         this.expectedPositions = expectedPositions;
         this.keyOutputChannels = ImmutableList.copyOf(keyOutputChannels);
-        this.keyOutputHashChannel = keyOutputHashChannel;
         this.maxMemoryInBytes = maxMemoryInBytes.toBytes();
 
         ImmutableList.Builder<Type> missingKeysTypes = ImmutableList.builder();
@@ -131,7 +126,7 @@ public class IndexSnapshotBuilder
         }
         pages.clear();
 
-        LookupSource lookupSource = outputPagesIndex.createLookupSourceSupplier(session, keyOutputChannels, keyOutputHashChannel, Optional.empty(), Optional.empty(), ImmutableList.of()).get();
+        LookupSource lookupSource = outputPagesIndex.createLookupSourceSupplier(session, keyOutputChannels, Optional.empty(), Optional.empty(), ImmutableList.of()).get();
 
         // Build a page containing the keys that produced no output rows, so in future requests can skip these keys
         verify(missingKeysPageBuilder.isEmpty());

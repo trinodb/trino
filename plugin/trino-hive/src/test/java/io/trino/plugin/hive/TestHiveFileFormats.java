@@ -1110,7 +1110,7 @@ public final class TestHiveFileFormats
                     else {
                         BlockBuilder builder = type.createBlockBuilder(null, 1);
                         type.writeObject(builder, expectedValue);
-                        expectedValue = type.getObjectValue(SESSION, builder.build(), 0);
+                        expectedValue = type.getObjectValue(builder.build(), 0);
                         assertThat(actualValue)
                                 .describedAs("Wrong value for column " + testColumn.name())
                                 .isEqualTo(expectedValue);

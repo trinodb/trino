@@ -31,6 +31,7 @@ import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
+import io.trino.plugin.deltalake.transactionlog.reader.FileSystemTransactionLogReader;
 import io.trino.spi.TrinoException;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorAccessControl;
@@ -170,7 +171,7 @@ public class RegisterTableProcedure
             TableSnapshot tableSnapshot;
             MetadataEntry metadataEntry;
             try {
-                tableSnapshot = transactionLogAccess.loadSnapshot(session, schemaTableName, tableLocation, Optional.empty());
+                tableSnapshot = transactionLogAccess.loadSnapshot(session, new FileSystemTransactionLogReader(tableLocation, fileSystemFactory), schemaTableName, tableLocation, Optional.empty());
                 metadataEntry = transactionLogAccess.getMetadataEntry(session, tableSnapshot);
             }
             catch (TrinoException e) {

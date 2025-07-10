@@ -15,7 +15,7 @@ package io.trino.server;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.trino.execution.BasicStageInfo;
+import io.trino.execution.BasicStagesInfo;
 import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryState;
@@ -47,7 +47,7 @@ public record ResultQueryInfo(
         @JsonProperty
         ErrorCode errorCode,
         @JsonProperty
-        Optional<BasicStageInfo> outputStage,
+        Optional<BasicStagesInfo> stages,
         @JsonProperty
         boolean finalQueryInfo,
         @JsonProperty
@@ -89,7 +89,7 @@ public record ResultQueryInfo(
             @JsonProperty("updateType") String updateType,
             @JsonProperty("queryStats") BasicQueryStats queryStats,
             @JsonProperty("errorCode") ErrorCode errorCode,
-            @JsonProperty("outputStage") Optional<BasicStageInfo> outputStage,
+            @JsonProperty("stages") Optional<BasicStagesInfo> stages,
             @JsonProperty("finalQueryInfo") boolean finalQueryInfo,
             @JsonProperty("failureInfo") ExecutionFailureInfo failureInfo,
             @JsonProperty("setCatalog") Optional<String> setCatalog,
@@ -113,7 +113,7 @@ public record ResultQueryInfo(
         this.errorCode = errorCode;
         this.updateType = updateType;
         this.queryStats = requireNonNull(queryStats, "queryStats is null");
-        this.outputStage = requireNonNull(outputStage, "outputStage is null");
+        this.stages = requireNonNull(stages, "stages is null");
         this.finalQueryInfo = finalQueryInfo;
         this.failureInfo = failureInfo;
         this.setCatalog = requireNonNull(setCatalog, "setCatalog is null");
@@ -140,7 +140,7 @@ public record ResultQueryInfo(
                 queryInfo.getUpdateType(),
                 new BasicQueryStats(queryInfo.getQueryStats()),
                 queryInfo.getErrorCode(),
-                queryInfo.getOutputStage().map(BasicStageInfo::new),
+                queryInfo.getStages().map(BasicStagesInfo::new),
                 queryInfo.isFinalQueryInfo(),
                 queryInfo.getFailureInfo(),
                 queryInfo.getSetCatalog(),

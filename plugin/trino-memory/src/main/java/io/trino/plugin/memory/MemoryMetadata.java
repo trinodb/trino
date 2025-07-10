@@ -212,7 +212,7 @@ public class MemoryMetadata
             return null;
         }
 
-        return new MemoryTableHandle(id, OptionalLong.empty(), OptionalDouble.empty());
+        return new MemoryTableHandle(id, schemaTableName, OptionalLong.empty(), OptionalDouble.empty());
     }
 
     @Override
@@ -243,9 +243,8 @@ public class MemoryMetadata
     public synchronized Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         MemoryTableHandle handle = (MemoryTableHandle) tableHandle;
-        return tables.get(handle.id())
-                .columns().stream()
-                .collect(toImmutableMap(ColumnInfo::name, ColumnInfo::handle));
+        return tables.get(handle.id()).columns().stream()
+                .collect(toImmutableMap(column -> column.handle().name(), ColumnInfo::handle));
     }
 
     @Override
@@ -348,7 +347,8 @@ public class MemoryMetadata
         ImmutableList.Builder<ColumnInfo> columns = ImmutableList.builder();
         for (int i = 0; i < tableMetadata.getColumns().size(); i++) {
             ColumnMetadata column = tableMetadata.getColumns().get(i);
-            columns.add(new ColumnInfo(new MemoryColumnHandle(i, column.getType()), column.getName(), column.getType(), column.isNullable(), Optional.ofNullable(column.getComment())));
+            MemoryColumnHandle handle = new MemoryColumnHandle(i, column.getName(), column.getType());
+            columns.add(new ColumnInfo(handle, column.getDefaultValue(), column.isNullable(), Optional.ofNullable(column.getComment())));
         }
 
         tableIds.put(tableMetadata.getTable(), tableId);
@@ -446,9 +446,11 @@ public class MemoryMetadata
             throw new TrinoException(NOT_SUPPORTED, format("Unable to add NOT NULL column '%s' for non-empty table: %s", column.getName(), table.getSchemaTableName()));
         }
 
+        MemoryColumnHandle newColumn = new MemoryColumnHandle(table.columns().size(), column.getName(), column.getType());
+
         List<ColumnInfo> columns = ImmutableList.<ColumnInfo>builderWithExpectedSize(table.columns().size() + 1)
                 .addAll(table.columns())
-                .add(new ColumnInfo(new MemoryColumnHandle(table.columns().size(), column.getType()), column.getName(), column.getType(), column.isNullable(), Optional.ofNullable(column.getComment())))
+                .add(new ColumnInfo(newColumn, column.getDefaultValue(), column.isNullable(), Optional.ofNullable(column.getComment())))
                 .build();
 
         tables.put(tableId, new TableInfo(tableId, table.schemaName(), table.tableName(), columns, table.truncated(), table.dataFragments(), table.comment()));
@@ -462,9 +464,11 @@ public class MemoryMetadata
         long tableId = handle.id();
         TableInfo table = tables.get(handle.id());
 
+        MemoryColumnHandle newColumn = new MemoryColumnHandle(column.columnIndex(), target, column.type());
+
         List<ColumnInfo> columns = new ArrayList<>(table.columns());
         ColumnInfo columnInfo = columns.get(column.columnIndex());
-        columns.set(column.columnIndex(), new ColumnInfo(columnInfo.handle(), target, columnInfo.type(), columnInfo.nullable(), columnInfo.comment()));
+        columns.set(column.columnIndex(), new ColumnInfo(newColumn, columnInfo.defaultValue(), columnInfo.nullable(), columnInfo.comment()));
 
         tables.put(tableId, new TableInfo(tableId, table.schemaName(), table.tableName(), ImmutableList.copyOf(columns), table.truncated(), table.dataFragments(), table.comment()));
     }
@@ -479,7 +483,7 @@ public class MemoryMetadata
 
         List<ColumnInfo> columns = new ArrayList<>(table.columns());
         ColumnInfo columnInfo = columns.get(column.columnIndex());
-        columns.set(column.columnIndex(), new ColumnInfo(columnInfo.handle(), columnInfo.name(), columnInfo.type(), true, columnInfo.comment()));
+        columns.set(column.columnIndex(), new ColumnInfo(columnInfo.handle(), columnInfo.defaultValue(), true, columnInfo.comment()));
 
         tables.put(tableId, new TableInfo(tableId, table.schemaName(), table.tableName(), ImmutableList.copyOf(columns), table.truncated(), table.dataFragments(), table.comment()));
     }
@@ -626,10 +630,7 @@ public class MemoryMetadata
             return Optional.empty();
         }
 
-        return Optional.of(new LimitApplicationResult<>(
-                new MemoryTableHandle(table.id(), OptionalLong.of(limit), OptionalDouble.empty()),
-                true,
-                true));
+        return Optional.of(new LimitApplicationResult<>(table.withLimit(limit), true, true));
     }
 
     @Override
@@ -641,9 +642,8 @@ public class MemoryMetadata
             return Optional.empty();
         }
 
-        return Optional.of(new SampleApplicationResult<>(
-                new MemoryTableHandle(table.id(), table.limit(), OptionalDouble.of(table.sampleRatio().orElse(1) * sampleRatio)),
-                true));
+        double newRatio = table.sampleRatio().orElse(1) * sampleRatio;
+        return Optional.of(new SampleApplicationResult<>(table.withSampleRatio(newRatio), true));
     }
 
     @Override
@@ -667,18 +667,12 @@ public class MemoryMetadata
         MemoryTableHandle table = (MemoryTableHandle) tableHandle;
         TableInfo info = tables.get(table.id());
         checkArgument(info != null, "Table not found");
-        tables.put(
-                table.id(),
-                new TableInfo(
-                        table.id(),
-                        info.schemaName(),
-                        info.tableName(),
-                        info.columns().stream()
-                                .map(tableColumn -> Objects.equals(tableColumn.handle(), columnHandle) ? new ColumnInfo(tableColumn.handle(), tableColumn.name(), tableColumn.getMetadata().getType(), tableColumn.nullable(), comment) : tableColumn)
-                                .collect(toImmutableList()),
-                        info.truncated(),
-                        info.dataFragments(),
-                        info.comment()));
+        List<ColumnInfo> newColumns = info.columns().stream()
+                .map(column -> column.handle().equals(columnHandle)
+                        ? new ColumnInfo(column.handle(), column.defaultValue(), column.nullable(), comment)
+                        : column)
+                .collect(toImmutableList());
+        tables.put(table.id(), new TableInfo(table.id(), info.schemaName(), info.tableName(), newColumns, info.truncated(), info.dataFragments(), info.comment()));
     }
 
     @Override

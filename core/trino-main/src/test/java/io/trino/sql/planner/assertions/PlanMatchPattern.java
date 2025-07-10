@@ -248,13 +248,11 @@ public final class PlanMatchPattern
     public static PlanMatchPattern indexJoin(
             IndexJoinNode.Type type,
             List<ExpectedValueProvider<IndexJoinNode.EquiJoinClause>> criteria,
-            Optional<String> probeHashSymbol,
-            Optional<String> indexHashSymbol,
             PlanMatchPattern probeSource,
             PlanMatchPattern indexSource)
     {
         return node(IndexJoinNode.class, probeSource, indexSource)
-                .with(new IndexJoinMatcher(type, criteria, probeHashSymbol.map(SymbolAlias::new), indexHashSymbol.map(SymbolAlias::new)));
+                .with(new IndexJoinMatcher(type, criteria));
     }
 
     public static ExpectedValueProvider<IndexJoinNode.EquiJoinClause> indexJoinEquiClause(String probe, String index)
@@ -362,16 +360,7 @@ public final class PlanMatchPattern
     {
         return node(DistinctLimitNode.class, source).with(new DistinctLimitMatcher(
                 limit,
-                toSymbolAliases(distinctSymbols),
-                Optional.empty()));
-    }
-
-    public static PlanMatchPattern distinctLimit(long limit, List<String> distinctSymbols, String hashSymbol, PlanMatchPattern source)
-    {
-        return node(DistinctLimitNode.class, source).with(new DistinctLimitMatcher(
-                limit,
-                toSymbolAliases(distinctSymbols),
-                Optional.of(new SymbolAlias(hashSymbol))));
+                toSymbolAliases(distinctSymbols)));
     }
 
     public static PlanMatchPattern markDistinct(
@@ -381,20 +370,7 @@ public final class PlanMatchPattern
     {
         return node(MarkDistinctNode.class, source).with(new MarkDistinctMatcher(
                 new SymbolAlias(markerSymbol),
-                toSymbolAliases(distinctSymbols),
-                Optional.empty()));
-    }
-
-    public static PlanMatchPattern markDistinct(
-            String markerSymbol,
-            List<String> distinctSymbols,
-            String hashSymbol,
-            PlanMatchPattern source)
-    {
-        return node(MarkDistinctNode.class, source).with(new MarkDistinctMatcher(
-                new SymbolAlias(markerSymbol),
-                toSymbolAliases(distinctSymbols),
-                Optional.of(new SymbolAlias(hashSymbol))));
+                toSymbolAliases(distinctSymbols)));
     }
 
     public static PlanMatchPattern window(Consumer<WindowMatcher.Builder> handler, PlanMatchPattern source)

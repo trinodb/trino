@@ -62,7 +62,7 @@ public abstract class AbstractColumnReaderBenchmark<VALUES>
     private static final int DATA_GENERATION_BATCH_SIZE = 16384;
     private static final int READ_BATCH_SIZE = 4096;
 
-    private final ColumnReaderFactory columnReaderFactory = new ColumnReaderFactory(UTC, new ParquetReaderOptions());
+    private final ColumnReaderFactory columnReaderFactory = new ColumnReaderFactory(UTC, ParquetReaderOptions.defaultOptions());
     private final List<DataPage> dataPages = new ArrayList<>();
     private int dataPositions;
 

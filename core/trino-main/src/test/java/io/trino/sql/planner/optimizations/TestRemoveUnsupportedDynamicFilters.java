@@ -129,8 +129,6 @@ public class TestRemoveUnsupportedDynamicFilters
                 ImmutableList.of(ordersOrderKeySymbol),
                 ImmutableList.of(),
                 Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
                 ImmutableMap.of(new DynamicFilterId("DF"), lineitemOrderKeySymbol));
         assertPlan(
                 removeUnsupportedDynamicFilters(root),
@@ -160,8 +158,6 @@ public class TestRemoveUnsupportedDynamicFilters
                 ImmutableList.of(new JoinNode.EquiJoinClause(ordersOrderKeySymbol, lineitemOrderKeySymbol)),
                 ImmutableList.of(ordersOrderKeySymbol),
                 ImmutableList.of(),
-                Optional.empty(),
-                Optional.empty(),
                 Optional.empty(),
                 ImmutableMap.of(new DynamicFilterId("DF"), lineitemOrderKeySymbol));
         assertPlan(
@@ -196,8 +192,6 @@ public class TestRemoveUnsupportedDynamicFilters
                         ImmutableList.of(),
                         ImmutableList.of(),
                         Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
                         ImmutableMap.of()));
         assertPlan(
                 removeUnsupportedDynamicFilters(root),
@@ -229,8 +223,6 @@ public class TestRemoveUnsupportedDynamicFilters
                         ImmutableList.of(new JoinNode.EquiJoinClause(lineitemOrderKeySymbol, ordersOrderKeySymbol)),
                         ImmutableList.of(),
                         ImmutableList.of(),
-                        Optional.empty(),
-                        Optional.empty(),
                         Optional.empty(),
                         ImmutableMap.of(new DynamicFilterId("DF"), ordersOrderKeySymbol)));
         assertPlan(
@@ -268,8 +260,6 @@ public class TestRemoveUnsupportedDynamicFilters
                         ImmutableList.of(ordersOrderKeySymbol),
                         ImmutableList.of(),
                         Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
                         ImmutableMap.of()));
         assertPlan(
                 removeUnsupportedDynamicFilters(root),
@@ -301,8 +291,6 @@ public class TestRemoveUnsupportedDynamicFilters
                         ImmutableList.of(new JoinNode.EquiJoinClause(ordersOrderKeySymbol, lineitemOrderKeySymbol)),
                         ImmutableList.of(ordersOrderKeySymbol),
                         ImmutableList.of(),
-                        Optional.empty(),
-                        Optional.empty(),
                         Optional.empty(),
                         ImmutableMap.of()));
         assertPlan(
@@ -339,8 +327,6 @@ public class TestRemoveUnsupportedDynamicFilters
                         ImmutableList.of(new JoinNode.EquiJoinClause(lineitemDoubleOrderKeySymbol, ordersOrderKeySymbol)),
                         ImmutableList.of(lineitemDoubleOrderKeySymbol),
                         ImmutableList.of(ordersOrderKeySymbol),
-                        Optional.empty(),
-                        Optional.empty(),
                         Optional.empty(),
                         ImmutableMap.of(new DynamicFilterId("DF"), ordersOrderKeySymbol)));
         assertPlan(
@@ -389,8 +375,6 @@ public class TestRemoveUnsupportedDynamicFilters
                 lineitemOrderKeySymbol,
                 new Symbol(UNKNOWN, "SEMIJOIN_OUTPUT"),
                 Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
                 Optional.of(new DynamicFilterId("DF")));
         assertPlan(
                 removeUnsupportedDynamicFilters(root),
@@ -414,8 +398,6 @@ public class TestRemoveUnsupportedDynamicFilters
                 ordersOrderKeySymbol,
                 lineitemOrderKeySymbol,
                 new Symbol(UNKNOWN, "SEMIJOIN_OUTPUT"),
-                Optional.empty(),
-                Optional.empty(),
                 Optional.empty(),
                 Optional.of(new DynamicFilterId("DF")));
         assertPlan(
@@ -441,8 +423,6 @@ public class TestRemoveUnsupportedDynamicFilters
                 lineitemOrderKeySymbol,
                 new Symbol(UNKNOWN, "SEMIJOIN_OUTPUT"),
                 Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
                 Optional.empty());
         assertPlan(
                 removeUnsupportedDynamicFilters(root),
@@ -466,8 +446,6 @@ public class TestRemoveUnsupportedDynamicFilters
                 ordersOrderKeySymbol,
                 lineitemOrderKeySymbol,
                 new Symbol(UNKNOWN, "SEMIJOIN_OUTPUT"),
-                Optional.empty(),
-                Optional.empty(),
                 Optional.empty(),
                 Optional.of(new DynamicFilterId("DF")));
 
@@ -499,7 +477,7 @@ public class TestRemoveUnsupportedDynamicFilters
                             new PlanNodeIdAllocator(),
                             WarningCollector.NOOP,
                             createPlanOptimizersStatsCollector(),
-                            new CachingTableStatsProvider(metadata, session),
+                            new CachingTableStatsProvider(metadata, session, () -> false),
                             RuntimeInfoProvider.noImplementation()));
             new DynamicFiltersChecker().validate(rewrittenPlan,
                     session,

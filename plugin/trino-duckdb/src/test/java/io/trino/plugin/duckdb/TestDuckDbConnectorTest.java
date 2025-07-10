@@ -221,7 +221,7 @@ final class TestDuckDbConnectorTest
     {
         assertThat(getQueryRunner().tableExists(getSession(), "numbers")).isFalse();
         assertThat(query("SELECT * FROM TABLE(system.query(query => 'CREATE TABLE " + TPCH_SCHEMA + ".numbers(n INTEGER)'))"))
-                .failure().hasMessageContaining("java.sql.SQLException: Parser Error: syntax error at or near \"CREATE\"");
+                .failure().hasMessageContaining("Parser Error: syntax error at or near \"CREATE\"");
         assertThat(getQueryRunner().tableExists(getSession(), "numbers")).isFalse();
     }
 
@@ -232,7 +232,7 @@ final class TestDuckDbConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_NATIVE_QUERY));
         try (TestTable testTable = simpleTable()) {
             assertThat(query("SELECT * FROM TABLE(system.query(query => 'INSERT INTO %s VALUES (3)'))".formatted(testTable.getName())))
-                    .failure().hasMessageContaining("java.sql.SQLException: Parser Error: syntax error at or near \"INTO\"");
+                    .failure().hasMessageContaining("Parser Error: syntax error at or near \"INTO\"");
             assertQuery("SELECT * FROM " + testTable.getName(), "VALUES 1, 2");
         }
     }

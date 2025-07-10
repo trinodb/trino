@@ -31,6 +31,7 @@ public class SheetsConfig
 {
     private Optional<String> credentialsFilePath = Optional.empty();
     private Optional<String> credentialsKey = Optional.empty();
+    private String delegatedUserEmail;
     private Optional<String> metadataSheetId = Optional.empty();
     private int sheetsDataMaxCacheSize = 1000;
     private Duration sheetsDataExpireAfterWrite = new Duration(5, TimeUnit.MINUTES);
@@ -72,6 +73,20 @@ public class SheetsConfig
     public SheetsConfig setCredentialsKey(String credentialsKey)
     {
         this.credentialsKey = Optional.ofNullable(credentialsKey);
+        return this;
+    }
+
+    @NotNull
+    public Optional<String> getDelegatedUserEmail()
+    {
+        return Optional.ofNullable(delegatedUserEmail);
+    }
+
+    @Config("gsheets.delegated-user-email")
+    @ConfigDescription("Delegated user email to impersonate the service account")
+    public SheetsConfig setDelegatedUserEmail(String delegatedUserEmail)
+    {
+        this.delegatedUserEmail = delegatedUserEmail;
         return this;
     }
 

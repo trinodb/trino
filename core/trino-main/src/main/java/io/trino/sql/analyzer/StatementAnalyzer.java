@@ -186,6 +186,7 @@ import io.trino.sql.tree.JsonTableColumnDefinition;
 import io.trino.sql.tree.JsonTableSpecificPlan;
 import io.trino.sql.tree.Lateral;
 import io.trino.sql.tree.Limit;
+import io.trino.sql.tree.Literal;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.MeasureDefinition;
 import io.trino.sql.tree.Merge;
@@ -323,12 +324,14 @@ import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_IN_DISTINCT;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_WINDOW;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.INVALID_CATALOG_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_CHECK_CONSTRAINT;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_MASK;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
 import static io.trino.spi.StandardErrorCode.INVALID_COPARTITIONING;
+import static io.trino.spi.StandardErrorCode.INVALID_DEFAULT_COLUMN_VALUE;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_LIMIT_CLAUSE;
 import static io.trino.spi.StandardErrorCode.INVALID_ORDER_BY;
@@ -382,6 +385,7 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.sql.NodeUtils.getSortItemsFromOrderBy;
+import static io.trino.sql.analyzer.AggregationAnalyzer.containsAggregation;
 import static io.trino.sql.analyzer.AggregationAnalyzer.verifyOrderByAggregations;
 import static io.trino.sql.analyzer.AggregationAnalyzer.verifySourceAggregations;
 import static io.trino.sql.analyzer.Analyzer.verifyNoAggregateWindowOrGroupingFunctions;
@@ -608,6 +612,7 @@ class StatementAnalyzer
                     .build();
             analyzeFiltersAndMasks(insert.getTable(), targetTable, new RelationType(tableFields), accessControlScope);
             analyzeCheckConstraints(insert.getTable(), targetTable, accessControlScope, checkConstraints);
+            analyzeDefaultColumnValues(insert.getTable(), targetTableHandle.get(), columnHandles.values(), queryScope);
             analysis.registerTable(insert.getTable(), targetTableHandle, targetTable, session.getIdentity().getUser(), accessControlScope, Optional.empty());
 
             List<String> tableColumns = columns.stream()
@@ -2407,6 +2412,28 @@ class StatementAnalyzer
             }
         }
 
+        private void analyzeDefaultColumnValues(Table table, TableHandle tableHandle, Collection<ColumnHandle> tableFields, Scope scope)
+        {
+            for (ColumnHandle columnHandle : tableFields) {
+                ColumnMetadata columnMetadata = metadata.getColumnMetadata(session, tableHandle, columnHandle);
+                columnMetadata.getDefaultValue().ifPresent(defaultValue -> {
+                    Expression expression;
+                    try {
+                        expression = sqlParser.createExpression(defaultValue);
+                    }
+                    catch (ParsingException e) {
+                        throw new TrinoException(INVALID_DEFAULT_COLUMN_VALUE, extractLocation(table), format("Invalid default column value for '%s.%s': %s", table.getName(), columnMetadata.getName(), e.getErrorMessage()), e);
+                    }
+
+                    if (!(expression instanceof Literal)) {
+                        throw new TrinoException(NOT_SUPPORTED, extractLocation(table), format("Default column value supports only literals '%s.%s': %s", table.getName(), columnMetadata.getName(), expression), null);
+                    }
+                    analyzeExpression(expression, scope);
+                    analysis.addDefaultColumnValue(table, columnHandle, expression);
+                });
+            }
+        }
+
         private boolean checkCanSelectFromColumn(QualifiedObjectName name, String column)
         {
             try {
@@ -3611,6 +3638,7 @@ class StatementAnalyzer
             }
 
             Map<String, ColumnHandle> allColumnHandles = metadata.getColumnHandles(session, targetTableHandle);
+            analyzeDefaultColumnValues(table, targetTableHandle, allColumnHandles.values(), targetTableScope);
 
             Map<String, Type> dataColumnTypes = dataColumnSchemas.stream().collect(toImmutableMap(ColumnSchema::getName, ColumnSchema::getType));
 
@@ -3766,14 +3794,32 @@ class StatementAnalyzer
             List<ColumnHandle> redistributionColumnHandles = redistributionColumnHandlesBuilder.build();
 
             List<Integer> insertPartitioningArgumentIndexes = partitioningColumnNames.stream()
-                    .map(fieldIndexes::get)
+                    .map(partitioningColumnName -> {
+                        Integer value = fieldIndexes.get(partitioningColumnName);
+                        // This shouldn't happen, as the connector should only return partitioning columns that are present in the
+                        // table schema, but validation is performed here to avoid NPEs in case of a bug in the connector
+                        if (value == null) {
+                            throw new TrinoException(GENERIC_INTERNAL_ERROR, format(
+                                    "Unable to determine field index for partitioning column '%s' (available columns: [%s])",
+                                    partitioningColumnName,
+                                    fieldIndexes.keySet().stream().map(key -> format("'%s'", key)).collect(Collectors.joining(", "))));
+                        }
+                        return value;
+                    })
                     .collect(toImmutableList());
 
-            Set<ColumnHandle> nonNullableColumnHandles = metadata.getTableMetadata(session, handle).columns().stream()
-                    .filter(column -> !column.isNullable())
-                    .map(ColumnMetadata::getName)
-                    .map(allColumnHandles::get)
-                    .collect(toImmutableSet());
+            Map<ColumnHandle, Expression> allDefaultColumnValues = analysis.getDefaultColumnValues(table);
+            ImmutableSet.Builder<ColumnHandle> nonNullableColumnHandles = ImmutableSet.builder();
+            ImmutableMap.Builder<ColumnHandle, Expression> defaultColumnValues = ImmutableMap.builder();
+            for (ColumnMetadata column : metadata.getTableMetadata(session, handle).columns()) {
+                ColumnHandle columnHandle = allColumnHandles.get(column.getName());
+                if (column.getDefaultValue().isPresent() && allDefaultColumnValues.containsKey(columnHandle)) {
+                    defaultColumnValues.put(columnHandle, allDefaultColumnValues.get(columnHandle));
+                }
+                if (!column.isNullable()) {
+                    nonNullableColumnHandles.add(columnHandle);
+                }
+            }
 
             // create the RowType that holds all column values
             List<RowType.Field> fields = new ArrayList<>();
@@ -3792,7 +3838,8 @@ class StatementAnalyzer
                     redistributionColumnHandles,
                     mergeCaseColumns,
                     updateCaseColumns,
-                    nonNullableColumnHandles,
+                    defaultColumnValues.buildOrThrow(),
+                    nonNullableColumnHandles.build(),
                     columnHandleFieldNumbers,
                     mergeRowType,
                     insertPartitioningArgumentIndexes,
@@ -4557,16 +4604,11 @@ class StatementAnalyzer
                     else if (groupingElement instanceof AutoGroupBy) {
                         // Analyze non-aggregation outputs
                         for (Expression column : outputExpressions) {
-                            if (column instanceof FunctionCall functionCall) {
-                                ResolvedFunction function = getResolvedFunction(functionCall);
-                                if (function.functionKind() == AGGREGATE) {
-                                    continue;
-                                }
+                            if (containsAggregation(column, this::getResolvedFunction)) {
+                                continue;
                             }
-                            else {
-                                verifyNoAggregateWindowOrGroupingFunctions(session, functionResolver, accessControl, column, "GROUP BY clause");
-                                analyzeExpression(column, scope);
-                            }
+                            verifyNoAggregateWindowOrGroupingFunctions(session, functionResolver, accessControl, column, "GROUP BY clause");
+                            analyzeExpression(column, scope);
 
                             ResolvedField field = analysis.getColumnReferenceFields().get(NodeRef.of(column));
                             if (field != null) {

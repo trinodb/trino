@@ -15,12 +15,9 @@ package io.trino.execution;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.Immutable;
-import jakarta.annotation.Nullable;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -36,7 +33,7 @@ public class BasicStageInfo
     private final StageId stageId;
     private final StageState state;
     private final boolean coordinatorOnly;
-    private final List<BasicStageInfo> subStages;
+    private final List<StageId> subStages;
     private final BasicStageStats stageStats;
     private final List<TaskInfo> tasks;
 
@@ -46,7 +43,7 @@ public class BasicStageInfo
             @JsonProperty("state") StageState state,
             @JsonProperty("coordinatorOnly") boolean coordinatorOnly,
             @JsonProperty("stageStats") BasicStageStats stageStats,
-            @JsonProperty("subStages") List<BasicStageInfo> subStages,
+            @JsonProperty("subStages") List<StageId> subStages,
             @JsonProperty("tasks") List<TaskInfo> tasks)
     {
         this.stageId = requireNonNull(stageId, "stageId is null");
@@ -57,14 +54,14 @@ public class BasicStageInfo
         this.tasks = requireNonNull(tasks, "tasks is null");
     }
 
-    public BasicStageInfo(StageInfo stageInfo)
+    public BasicStageInfo(StageInfo fullStageInfo)
     {
-        this(stageInfo.getStageId(),
-                stageInfo.getState(),
-                stageInfo.isCoordinatorOnly(),
-                stageInfo.getStageStats().toBasicStageStats(stageInfo.getState()),
-                stageInfo.getSubStages().stream().map(BasicStageInfo::new).toList(),
-                stageInfo.getTasks());
+        this(fullStageInfo.getStageId(),
+                fullStageInfo.getState(),
+                fullStageInfo.isCoordinatorOnly(),
+                fullStageInfo.getStageStats().toBasicStageStats(fullStageInfo.getState()),
+                fullStageInfo.getSubStages(),
+                fullStageInfo.getTasks());
     }
 
     @JsonProperty
@@ -92,7 +89,7 @@ public class BasicStageInfo
     }
 
     @JsonProperty
-    public List<BasicStageInfo> getSubStages()
+    public List<StageId> getSubStages()
     {
         return subStages;
     }
@@ -117,25 +114,14 @@ public class BasicStageInfo
                 .toString();
     }
 
-    public static List<BasicStageInfo> getAllStages(Optional<BasicStageInfo> stageInfo)
+    public BasicStageInfo withSubStages(List<StageId> subStages)
     {
-        return stageInfo.map(BasicStageInfo::getAllStages).orElseGet(ImmutableList::of);
-    }
-
-    public static List<BasicStageInfo> getAllStages(BasicStageInfo stageInfo)
-    {
-        ImmutableList.Builder<BasicStageInfo> collector = ImmutableList.builder();
-        addAllStages(stageInfo, collector);
-        return collector.build();
-    }
-
-    private static void addAllStages(@Nullable BasicStageInfo stage, ImmutableList.Builder<BasicStageInfo> collector)
-    {
-        if (stage != null) {
-            collector.add(stage);
-            for (BasicStageInfo subStage : stage.getSubStages()) {
-                addAllStages(subStage, collector);
-            }
-        }
+        return new BasicStageInfo(
+                stageId,
+                state,
+                coordinatorOnly,
+                stageStats,
+                subStages,
+                tasks);
     }
 }

@@ -35,7 +35,6 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.ValuesNode;
-import org.joda.time.DateTime;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -44,8 +43,10 @@ import org.junit.jupiter.api.parallel.Execution;
 import java.io.IOException;
 import java.net.URI;
 import java.sql.SQLException;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -264,7 +265,7 @@ public class TestStageStateMachine
         assertThat(stats.getFailedScheduledTime()).isEqualTo(succinctDuration(1, MILLISECONDS));
         assertThat(stats.getRunningPercentage()).isEmpty();
         assertThat(stats.getProgressPercentage()).isEmpty();
-        assertThat(stats.getSpilledDataSize()).isEqualTo(succinctBytes(0));
+        assertThat(stats.getSpilledDataSize()).isEqualTo(succinctBytes(expectedStatsValue));
     }
 
     private static TaskStats taskStats(List<PipelineContext> pipelineContexts)
@@ -274,7 +275,7 @@ public class TestStageStateMachine
 
     private static TaskStats taskStats(List<PipelineContext> pipelineContexts, int baseValue)
     {
-        return new TaskStats(DateTime.now(),
+        return new TaskStats(Instant.now(),
                 null,
                 null,
                 null,
@@ -292,6 +293,7 @@ public class TestStageStateMachine
                 baseValue,
                 baseValue,
                 baseValue,
+                DataSize.ofBytes(baseValue),
                 DataSize.ofBytes(baseValue),
                 DataSize.ofBytes(baseValue),
                 DataSize.ofBytes(baseValue),
@@ -397,6 +399,7 @@ public class TestStageStateMachine
                 Optional.empty(),
                 ImmutableList.of(valuesNodeId),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)),
+                OptionalInt.empty(),
                 StatsAndCosts.empty(),
                 ImmutableList.of(),
                 ImmutableMap.of(),

@@ -13,7 +13,6 @@
  */
 package io.trino.spi.predicate;
 
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
@@ -383,20 +382,15 @@ public final class Range
     @Override
     public String toString()
     {
-        return toString(ToStringSession.INSTANCE);
-    }
-
-    public String toString(ConnectorSession session)
-    {
         Object lowObject = lowValue
-                .map(value -> type.getObjectValue(session, nativeValueToBlock(type, value), 0))
+                .map(value -> type.getObjectValue(nativeValueToBlock(type, value), 0))
                 .orElse("<min>");
 
         if (isSingleValue()) {
             return format("[%s]", lowObject);
         }
         Object highObject = highValue
-                .map(value -> type.getObjectValue(session, nativeValueToBlock(type, value), 0))
+                .map(value -> type.getObjectValue(nativeValueToBlock(type, value), 0))
                 .orElse("<max>");
         return format(
                 "%s%s, %s%s",

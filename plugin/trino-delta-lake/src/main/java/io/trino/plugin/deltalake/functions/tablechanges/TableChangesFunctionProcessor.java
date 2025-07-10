@@ -35,6 +35,7 @@ import io.trino.spi.function.table.TableFunctionSplitProcessor;
 import io.trino.spi.predicate.TupleDomain;
 import org.joda.time.DateTimeZone;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -173,11 +174,12 @@ public class TableChangesFunctionProcessor
         TrinoInputFile inputFile = fileSystem.newInputFile(Location.of(split.path()), split.fileSize());
         Map<String, Optional<String>> partitionKeys = split.partitionKeys();
 
-        parquetReaderOptions = parquetReaderOptions
+        parquetReaderOptions = ParquetReaderOptions.builder(parquetReaderOptions)
                 .withMaxReadBlockSize(getParquetMaxReadBlockSize(session))
                 .withMaxReadBlockRowCount(getParquetMaxReadBlockRowCount(session))
                 .withUseColumnIndex(isParquetUseColumnIndex(session))
-                .withIgnoreStatistics(isParquetIgnoreStatistics(session));
+                .withIgnoreStatistics(isParquetIgnoreStatistics(session))
+                .build();
 
         List<DeltaLakeColumnHandle> splitColumns = switch (split.fileType()) {
             case CDF_FILE -> ImmutableList.<DeltaLakeColumnHandle>builder().addAll(handle.columns())
@@ -216,5 +218,12 @@ public class TableChangesFunctionProcessor
                 split.path(),
                 split.fileSize(),
                 0);
+    }
+
+    @Override
+    public void close()
+            throws IOException
+    {
+        deltaLakePageSource.close();
     }
 }

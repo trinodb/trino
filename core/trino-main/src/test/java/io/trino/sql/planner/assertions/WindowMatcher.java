@@ -44,18 +44,15 @@ public final class WindowMatcher
     private final Optional<Set<SymbolAlias>> prePartitionedInputs;
     private final Optional<ExpectedValueProvider<DataOrganizationSpecification>> specification;
     private final Optional<Integer> preSortedOrderPrefix;
-    private final Optional<Optional<SymbolAlias>> hashSymbol;
 
     private WindowMatcher(
             Optional<Set<SymbolAlias>> prePartitionedInputs,
             Optional<ExpectedValueProvider<DataOrganizationSpecification>> specification,
-            Optional<Integer> preSortedOrderPrefix,
-            Optional<Optional<SymbolAlias>> hashSymbol)
+            Optional<Integer> preSortedOrderPrefix)
     {
         this.prePartitionedInputs = requireNonNull(prePartitionedInputs, "prePartitionedInputs is null");
         this.specification = requireNonNull(specification, "specification is null");
         this.preSortedOrderPrefix = requireNonNull(preSortedOrderPrefix, "preSortedOrderPrefix is null");
-        this.hashSymbol = requireNonNull(hashSymbol, "hashSymbol is null");
     }
 
     @Override
@@ -94,14 +91,6 @@ public final class WindowMatcher
             return NO_MATCH;
         }
 
-        if (!hashSymbol
-                .map(expectedHashSymbol -> expectedHashSymbol
-                        .map(alias -> alias.toSymbol(symbolAliases))
-                        .equals(windowNode.getHashSymbol()))
-                .orElse(true)) {
-            return NO_MATCH;
-        }
-
         /*
          * Window functions produce a symbol (the result of the function call) that we might
          * want to bind to an alias so we can reference it further up the tree. As such,
@@ -119,7 +108,6 @@ public final class WindowMatcher
                 .add("prePartitionedInputs", prePartitionedInputs.orElse(null))
                 .add("specification", specification.orElse(null))
                 .add("preSortedOrderPrefix", preSortedOrderPrefix.orElse(null))
-                .add("hashSymbol", hashSymbol.orElse(null))
                 .toString();
     }
 
@@ -135,7 +123,6 @@ public final class WindowMatcher
         private Optional<ExpectedValueProvider<DataOrganizationSpecification>> specification = Optional.empty();
         private Optional<Integer> preSortedOrderPrefix = Optional.empty();
         private final List<AliasMatcher> windowFunctionMatchers = new LinkedList<>();
-        private Optional<Optional<SymbolAlias>> hashSymbol = Optional.empty();
 
         Builder(PlanMatchPattern source)
         {
@@ -191,33 +178,13 @@ public final class WindowMatcher
             return this;
         }
 
-        /**
-         * Matches only if WindowNode.getHashSymbol() is an empty option.
-         */
-        public Builder hashSymbol()
-        {
-            this.hashSymbol = Optional.of(Optional.empty());
-            return this;
-        }
-
-        /**
-         * Matches only if WindowNode.getHashSymbol() is a non-empty option containing hashSymbol.
-         */
-        public Builder hashSymbol(String hashSymbol)
-        {
-            requireNonNull(hashSymbol, "hashSymbol is null");
-            this.hashSymbol = Optional.of(Optional.of(new SymbolAlias(hashSymbol)));
-            return this;
-        }
-
         PlanMatchPattern build()
         {
             PlanMatchPattern result = node(WindowNode.class, source).with(
                     new WindowMatcher(
                             prePartitionedInputs,
                             specification,
-                            preSortedOrderPrefix,
-                            hashSymbol));
+                            preSortedOrderPrefix));
             windowFunctionMatchers.forEach(result::with);
             return result;
         }

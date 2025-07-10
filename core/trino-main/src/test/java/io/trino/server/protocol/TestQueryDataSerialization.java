@@ -65,7 +65,7 @@ public class TestQueryDataSerialization
     public void testNullDataSerialization()
     {
         assertThat(serialize(null)).doesNotContain("data");
-        assertThat(serialize(TypedQueryData.of(null))).doesNotContain("data");
+        assertThat(serialize(QueryData.NULL)).doesNotContain("data");
     }
 
     @Test
@@ -81,7 +81,7 @@ public class TestQueryDataSerialization
     @Test
     public void testQueryDataSerialization()
     {
-        Iterable<List<Object>> values = ImmutableList.of(ImmutableList.of(1L), ImmutableList.of(5L));
+        List<List<Object>> values = ImmutableList.of(ImmutableList.of(1L), ImmutableList.of(5L));
         testRoundTrip(TypedQueryData.of(values), "[[1],[5]]");
     }
 

@@ -654,7 +654,7 @@ public class TestBackgroundHiveSplitLoader
         assertThat(drainSplits(hiveSplitSource)).extracting(HiveSplit::getAcidInfo)
                 .allMatch(Optional::isPresent)
                 .extracting(Optional::get)
-                .noneMatch(AcidInfo::isOrcAcidVersionValidated);
+                .noneMatch(AcidInfo::orcAcidVersionValidated);
     }
 
     @Test
@@ -697,7 +697,7 @@ public class TestBackgroundHiveSplitLoader
 
         // We should have it marked in all splits that NO further ORC ACID validation is required
         assertThat(drainSplits(hiveSplitSource)).extracting(HiveSplit::getAcidInfo)
-                .allMatch(acidInfo -> acidInfo.isEmpty() || acidInfo.get().isOrcAcidVersionValidated());
+                .allMatch(acidInfo -> acidInfo.isEmpty() || acidInfo.get().orcAcidVersionValidated());
     }
 
     @Test
@@ -743,7 +743,7 @@ public class TestBackgroundHiveSplitLoader
         assertThat(drainSplits(hiveSplitSource)).extracting(HiveSplit::getAcidInfo)
                 .allMatch(Optional::isPresent)
                 .extracting(Optional::get)
-                .noneMatch(AcidInfo::isOrcAcidVersionValidated);
+                .noneMatch(AcidInfo::orcAcidVersionValidated);
     }
 
     @Test

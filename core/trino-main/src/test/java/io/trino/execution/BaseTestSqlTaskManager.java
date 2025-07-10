@@ -39,9 +39,9 @@ import io.trino.memory.LocalMemoryManager;
 import io.trino.memory.NodeMemoryConfig;
 import io.trino.memory.QueryContext;
 import io.trino.memory.context.LocalMemoryContext;
-import io.trino.metadata.InternalNode;
 import io.trino.metadata.LanguageFunctionEngineManager;
 import io.trino.metadata.WorkerLanguageFunctionProvider;
+import io.trino.node.InternalNode;
 import io.trino.operator.DirectExchangeClient;
 import io.trino.operator.DirectExchangeClientSupplier;
 import io.trino.operator.RetryPolicy;
@@ -267,7 +267,7 @@ public abstract class BaseTestSqlTaskManager
     public void testSessionPropertyMemoryLimitOverride()
     {
         NodeMemoryConfig memoryConfig = new NodeMemoryConfig()
-                .setMaxQueryMemoryPerNode(DataSize.ofBytes(3));
+                .setMaxQueryMemoryPerNode("3B");
 
         try (SqlTaskManager sqlTaskManager = createSqlTaskManager(new TaskManagerConfig(), memoryConfig)) {
             TaskId reduceLimitsId = new TaskId(new StageId("q1", 0), 1, 0);

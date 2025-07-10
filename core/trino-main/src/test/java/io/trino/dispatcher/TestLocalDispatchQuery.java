@@ -15,7 +15,6 @@ package io.trino.dispatcher;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.configuration.secrets.SecretsResolver;
@@ -39,16 +38,16 @@ import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.QueryPreparer;
 import io.trino.execution.QueryState;
 import io.trino.execution.QueryStateMachine;
-import io.trino.execution.StageInfo;
+import io.trino.execution.StagesInfo;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.GlobalFunctionCatalog;
-import io.trino.metadata.InMemoryNodeManager;
-import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.LanguageFunctionProvider;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.SessionPropertyManager;
+import io.trino.node.InternalNodeManager;
+import io.trino.node.TestingInternalNodeManager;
 import io.trino.operator.OperatorStats;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.plugin.base.security.DefaultSystemAccessControl;
@@ -127,7 +126,7 @@ public class TestLocalDispatchQuery
                 Optional.empty(),
                 new NodeVersion("test"));
         QueryMonitor queryMonitor = new QueryMonitor(
-                JsonCodec.jsonCodec(StageInfo.class),
+                JsonCodec.jsonCodec(StagesInfo.class),
                 JsonCodec.jsonCodec(OperatorStats.class),
                 JsonCodec.jsonCodec(ExecutionFailureInfo.class),
                 JsonCodec.jsonCodec(StatsAndCosts.class),
@@ -158,7 +157,7 @@ public class TestLocalDispatchQuery
                 queryStateMachine,
                 Futures.immediateFuture(dataDefinitionExecution),
                 queryMonitor,
-                new TestClusterSizeMonitor(new InMemoryNodeManager(ImmutableSet.of()), new NodeSchedulerConfig()),
+                new TestClusterSizeMonitor(TestingInternalNodeManager.createDefault(), new NodeSchedulerConfig()),
                 executor,
                 queryExecution -> dataDefinitionExecution.start());
         queryStateMachine.addStateChangeListener(state -> {

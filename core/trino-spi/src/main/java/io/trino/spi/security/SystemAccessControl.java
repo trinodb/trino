@@ -41,6 +41,7 @@ import static io.trino.spi.security.AccessDeniedException.denyAlterColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentTable;
 import static io.trino.spi.security.AccessDeniedException.denyCommentView;
+import static io.trino.spi.security.AccessDeniedException.denyCreateBranch;
 import static io.trino.spi.security.AccessDeniedException.denyCreateCatalog;
 import static io.trino.spi.security.AccessDeniedException.denyCreateFunction;
 import static io.trino.spi.security.AccessDeniedException.denyCreateMaterializedView;
@@ -53,6 +54,7 @@ import static io.trino.spi.security.AccessDeniedException.denyDeleteTable;
 import static io.trino.spi.security.AccessDeniedException.denyDenyEntityPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyDenySchemaPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyDenyTablePrivilege;
+import static io.trino.spi.security.AccessDeniedException.denyDropBranch;
 import static io.trino.spi.security.AccessDeniedException.denyDropCatalog;
 import static io.trino.spi.security.AccessDeniedException.denyDropColumn;
 import static io.trino.spi.security.AccessDeniedException.denyDropFunction;
@@ -64,6 +66,7 @@ import static io.trino.spi.security.AccessDeniedException.denyDropView;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteProcedure;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteQuery;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteTableProcedure;
+import static io.trino.spi.security.AccessDeniedException.denyFastForwardBranch;
 import static io.trino.spi.security.AccessDeniedException.denyGrantEntityPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyGrantRoles;
 import static io.trino.spi.security.AccessDeniedException.denyGrantSchemaPrivilege;
@@ -88,6 +91,7 @@ import static io.trino.spi.security.AccessDeniedException.denySetMaterializedVie
 import static io.trino.spi.security.AccessDeniedException.denySetSystemSessionProperty;
 import static io.trino.spi.security.AccessDeniedException.denySetTableProperties;
 import static io.trino.spi.security.AccessDeniedException.denySetUser;
+import static io.trino.spi.security.AccessDeniedException.denyShowBranches;
 import static io.trino.spi.security.AccessDeniedException.denyShowColumns;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateFunction;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateSchema;
@@ -588,6 +592,19 @@ public interface SystemAccessControl
     }
 
     /**
+     * Check if identity is allowed to change the specified materialized view's user/role.
+     *
+     * @throws AccessDeniedException if not allowed
+     *
+     * @deprecated {Use {@link #checkCanSetEntityAuthorization}
+     */
+    @Deprecated(forRemoval = true)
+    default void checkCanSetMaterializedViewAuthorization(SystemSecurityContext context, CatalogSchemaTableName view, TrinoPrincipal principal)
+    {
+        denySetEntityAuthorization(new EntityKindAndName("MATERIALIZED VIEW", List.of(view.getCatalogName(), view.getSchemaTableName().getSchemaName(), view.getSchemaTableName().getTableName())), principal);
+    }
+
+    /**
      * Check if identity is allowed to drop the specified view in a catalog.
      *
      * @throws AccessDeniedException if not allowed
@@ -916,6 +933,46 @@ public interface SystemAccessControl
     }
 
     /**
+     * Check if identity is allowed to show branches of tables.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanShowBranches(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName tableName)
+    {
+        denyShowBranches(tableName.toString());
+    }
+
+    /**
+     * Check if identity is allowed to create the specified branch.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanCreateBranch(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName tableName, String branchName)
+    {
+        denyCreateBranch(tableName.toString());
+    }
+
+    /**
+     * Check if identity is allowed to drop the specified branch.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanDropBranch(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName tableName, String branchName)
+    {
+        denyDropBranch(tableName.toString());
+    }
+
+    /**
+     * Check if identity is allowed to fast-forward the specified branch.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanFastForwardBranch(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName tableName, String sourceBranchName, String targetBranchName)
+    {
+        denyFastForwardBranch(tableName.toString());
+    }
+
+    /**
      * Get row filters associated with the given table and identity.
      * <p>
      * Each filter must be a scalar SQL expression of boolean type over the columns in the table.
@@ -961,9 +1018,15 @@ public interface SystemAccessControl
                 break;
             case "VIEW":
                 if (name.size() != 3) {
-                    throw new TrinoException(StandardErrorCode.INVALID_ARGUMENTS, "The view name %s must have three elements".formatted(name));
+                    throw new TrinoException(StandardErrorCode.INVALID_ARGUMENTS, "The %s name %s must have three elements".formatted(kind.toLowerCase(Locale.ROOT), name));
                 }
                 checkCanSetViewAuthorization(context, new CatalogSchemaTableName(name.get(0), name.get(1), name.get(2)), principal);
+                break;
+            case "MATERIALIZED VIEW":
+                if (name.size() != 3) {
+                    throw new TrinoException(StandardErrorCode.INVALID_ARGUMENTS, "The %s name %s must have three elements".formatted(kind.toLowerCase(Locale.ROOT), name));
+                }
+                checkCanSetMaterializedViewAuthorization(context, new CatalogSchemaTableName(name.get(0), name.get(1), name.get(2)), principal);
                 break;
             default:
                 denySetEntityAuthorization(new EntityKindAndName(kind, name), principal);

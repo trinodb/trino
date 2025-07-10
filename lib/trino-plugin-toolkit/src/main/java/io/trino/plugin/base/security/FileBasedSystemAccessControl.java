@@ -793,6 +793,13 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
+    public void checkCanSetMaterializedViewAuthorization(SystemSecurityContext context, CatalogSchemaTableName view, TrinoPrincipal principal)
+    {
+        List<String> names = List.of(view.getCatalogName(), view.getSchemaTableName().getSchemaName(), view.getSchemaTableName().getTableName());
+        checkCanSetEntityAuthorization(context, new EntityKindAndName("MATERIALIZED VIEW", names), principal);
+    }
+
+    @Override
     public void checkCanSetMaterializedViewProperties(SystemSecurityContext context, CatalogSchemaTableName materializedView, Map<String, Optional<Object>> properties)
     {
         if (!checkTablePermission(context, materializedView, OWNERSHIP)) {
@@ -1015,6 +1022,30 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
+    public void checkCanShowBranches(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName tableName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void checkCanCreateBranch(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName tableName, String branchName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void checkCanDropBranch(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName tableName, String branchName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void checkCanFastForwardBranch(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName tableName, String sourceBranchName, String targetBranchName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Iterable<EventListener> getEventListeners()
     {
         return ImmutableSet.of();
@@ -1100,7 +1131,7 @@ public class FileBasedSystemAccessControl
                 CatalogSchemaName schema = new CatalogSchemaName(name.get(0), name.get(1));
                 denied = !isSchemaOwner(context, schema) || !checkCanSetAuthorization(context, principal);
                 break;
-            case "TABLE", "VIEW":
+            case "TABLE", "VIEW", "MATERIALIZED VIEW":
                 CatalogSchemaTableName table = new CatalogSchemaTableName(name.get(0), name.get(1), name.get(2));
                 denied = !checkTablePermission(context, table, OWNERSHIP) || !checkCanSetAuthorization(context, principal);
                 break;

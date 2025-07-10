@@ -183,7 +183,7 @@ public class InternalHiveSplitFactory
 
         if (!splittable) {
             // not splittable, use the hosts from the first block if it exists
-            blocks = ImmutableList.of(new InternalHiveBlock(start, start + length, blocks.get(0).getAddresses()));
+            blocks = ImmutableList.of(new InternalHiveBlock(start, start + length, blocks.get(0).addresses()));
         }
 
         return Optional.of(new InternalHiveSplit(
@@ -213,31 +213,31 @@ public class InternalHiveSplitFactory
         checkArgument(length >= 0, "Split (%s) has negative length (%s)", path, length);
         checkArgument(!blocks.isEmpty(), "Split (%s) has no blocks", path);
         checkArgument(
-                start == blocks.get(0).getStart(),
+                start == blocks.get(0).start(),
                 "Split (%s) start (%s) does not match first block start (%s)",
                 path,
                 start,
-                blocks.get(0).getStart());
+                blocks.get(0).start());
         checkArgument(
-                start + length == blocks.getLast().getEnd(),
+                start + length == blocks.getLast().end(),
                 "Split (%s) end (%s) does not match last block end (%s)",
                 path,
                 start + length,
-                blocks.getLast().getEnd());
+                blocks.getLast().end());
         for (int i = 1; i < blocks.size(); i++) {
             checkArgument(
-                    blocks.get(i - 1).getEnd() == blocks.get(i).getStart(),
+                    blocks.get(i - 1).end() == blocks.get(i).start(),
                     "Split (%s) block end (%s) does not match next block start (%s)",
                     path,
-                    blocks.get(i - 1).getEnd(),
-                    blocks.get(i).getStart());
+                    blocks.get(i - 1).end(),
+                    blocks.get(i).start());
         }
     }
 
     private static boolean allBlocksHaveAddress(Collection<InternalHiveBlock> blocks)
     {
         return blocks.stream()
-                .map(InternalHiveBlock::getAddresses)
+                .map(InternalHiveBlock::addresses)
                 .noneMatch(List::isEmpty);
     }
 

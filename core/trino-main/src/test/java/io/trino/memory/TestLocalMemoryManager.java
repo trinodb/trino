@@ -16,7 +16,7 @@ package io.trino.memory;
 import io.airlift.units.DataSize;
 import org.junit.jupiter.api.Test;
 
-import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestLocalMemoryManager
@@ -25,11 +25,11 @@ public class TestLocalMemoryManager
     public void testNotEnoughAvailableMemory()
     {
         NodeMemoryConfig config = new NodeMemoryConfig()
-                .setHeapHeadroom(DataSize.of(10, GIGABYTE))
-                .setMaxQueryMemoryPerNode(DataSize.of(20, GIGABYTE));
+                .setHeapHeadroom("1MB")
+                .setMaxQueryMemoryPerNode("4MB");
 
-        // 25 GB heap is not sufficient for 10 GB heap headroom and 20 GB query.max-memory-per-node
-        assertThatThrownBy(() -> new LocalMemoryManager(config, DataSize.of(25, GIGABYTE).toBytes()))
+        // 4 MB heap is not sufficient for 1 MB heap headroom and 4 MB query.max-memory-per-node
+        assertThatThrownBy(() -> new LocalMemoryManager(config, DataSize.of(4, MEGABYTE).toBytes()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageMatching("Invalid memory configuration\\. The sum of max query memory per node .* and heap headroom .*" +
                         "cannot be larger than the available heap memory .*");

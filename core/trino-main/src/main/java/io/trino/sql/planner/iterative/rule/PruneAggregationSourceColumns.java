@@ -43,7 +43,6 @@ public class PruneAggregationSourceColumns
     {
         Set<Symbol> requiredInputs = Streams.concat(
                 aggregationNode.getGroupingKeys().stream(),
-                aggregationNode.getHashSymbol().stream(),
                 aggregationNode.getAggregations().values().stream()
                         .flatMap(aggregation -> SymbolsExtractor.extractUnique(aggregation).stream()))
                 .collect(toImmutableSet());

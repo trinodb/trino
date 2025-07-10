@@ -133,7 +133,7 @@ public final class MetadataUtil
                         throw new TrinoException(GENERIC_USER_ERROR, "Invalid entity %s for entity kind %s".formatted(joinName(name), entityKind));
                 }
                 break;
-            case "TABLE", "VIEW":
+            case "TABLE", "VIEW", "MATERIALIZED VIEW":
                 switch (name.size()) {
                     case 1:
                         if (session.getCatalog().isPresent() && session.getSchema().isPresent()) {

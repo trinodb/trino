@@ -25,7 +25,7 @@ import java.util.Optional;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Verify.verify;
-import static io.trino.jdbc.CancellableLimitingIterator.limit;
+import static io.trino.client.CloseableLimitingIterator.limit;
 import static io.trino.jdbc.ResultUtils.resultsException;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;

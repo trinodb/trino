@@ -46,8 +46,8 @@ import io.trino.execution.scheduler.faulttolerant.StageExecutionStats;
 import io.trino.execution.scheduler.faulttolerant.TaskDescriptorStorage;
 import io.trino.execution.scheduler.policy.ExecutionPolicy;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.failuredetector.FailureDetector;
 import io.trino.metadata.TableHandle;
+import io.trino.node.InternalNodeManager;
 import io.trino.operator.ForScheduler;
 import io.trino.operator.RetryPolicy;
 import io.trino.server.BasicQueryInfo;
@@ -77,8 +77,8 @@ import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.tree.ExplainAnalyze;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.Statement;
-import org.joda.time.DateTime;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -129,7 +129,7 @@ public class SqlQueryExecution
     private final int scheduleSplitBatchSize;
     private final ExecutorService queryExecutor;
     private final ScheduledExecutorService schedulerExecutor;
-    private final FailureDetector failureDetector;
+    private final InternalNodeManager nodeManager;
 
     private final AtomicReference<QueryScheduler> queryScheduler = new AtomicReference<>();
     private final AtomicReference<Plan> queryPlan = new AtomicReference<>();
@@ -169,7 +169,7 @@ public class SqlQueryExecution
             int scheduleSplitBatchSize,
             ExecutorService queryExecutor,
             ScheduledExecutorService schedulerExecutor,
-            FailureDetector failureDetector,
+            InternalNodeManager nodeManager,
             NodeTaskMap nodeTaskMap,
             ExecutionPolicy executionPolicy,
             SplitSchedulerStats schedulerStats,
@@ -200,7 +200,7 @@ public class SqlQueryExecution
             this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
             this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
             this.schedulerExecutor = requireNonNull(schedulerExecutor, "schedulerExecutor is null");
-            this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
+            this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
             this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
             this.executionPolicy = requireNonNull(executionPolicy, "executionPolicy is null");
             this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
@@ -225,7 +225,7 @@ public class SqlQueryExecution
                     return;
                 }
                 unregisterDynamicFilteringQuery(
-                        dynamicFilterService.getDynamicFilteringStats(stateMachine.getQueryId(), stateMachine.getSession()));
+                        dynamicFilterService.getDynamicFilteringStats(stateMachine.getQueryId()));
 
                 tableExecuteContextManager.unregisterTableExecuteContextForQuery(stateMachine.getQueryId());
             });
@@ -250,11 +250,9 @@ public class SqlQueryExecution
             return;
         }
 
-        dynamicFilterService.registerQuery(this, plan.getRoot());
+        dynamicFilterService.registerQuery(getSession(), getQueryPlan().orElseThrow().getRoot(), plan.getRoot());
         stateMachine.setDynamicFiltersStatsSupplier(
-                () -> dynamicFilterService.getDynamicFilteringStats(
-                        stateMachine.getQueryId(),
-                        stateMachine.getSession()));
+                () -> dynamicFilterService.getDynamicFilteringStats(stateMachine.getQueryId()));
     }
 
     private synchronized void unregisterDynamicFilteringQuery(DynamicFiltersStats finalDynamicFiltersStats)
@@ -338,13 +336,13 @@ public class SqlQueryExecution
     }
 
     @Override
-    public DateTime getCreateTime()
+    public Instant getCreateTime()
     {
         return stateMachine.getCreateTime();
     }
 
     @Override
-    public Optional<DateTime> getExecutionStartTime()
+    public Optional<Instant> getExecutionStartTime()
     {
         return stateMachine.getExecutionStartTime();
     }
@@ -356,13 +354,13 @@ public class SqlQueryExecution
     }
 
     @Override
-    public DateTime getLastHeartbeat()
+    public Instant getLastHeartbeat()
     {
         return stateMachine.getLastHeartbeat();
     }
 
     @Override
-    public Optional<DateTime> getEndTime()
+    public Optional<Instant> getEndTime()
     {
         return stateMachine.getEndTime();
     }
@@ -412,7 +410,7 @@ public class SqlQueryExecution
                 }, directExecutor());
 
                 try {
-                    CachingTableStatsProvider tableStatsProvider = new CachingTableStatsProvider(plannerContext.getMetadata(), getSession());
+                    CachingTableStatsProvider tableStatsProvider = new CachingTableStatsProvider(plannerContext.getMetadata(), getSession(), stateMachine::isDone);
                     PlanRoot plan = planQuery(tableStatsProvider);
                     // DynamicFilterService needs plan for query to be registered.
                     // Query should be registered before dynamic filter suppliers are requested in distribution planning.
@@ -540,7 +538,7 @@ public class SqlQueryExecution
                     scheduleSplitBatchSize,
                     queryExecutor,
                     schedulerExecutor,
-                    failureDetector,
+                    nodeManager,
                     nodeTaskMap,
                     executionPolicy,
                     tracer,
@@ -567,7 +565,7 @@ public class SqlQueryExecution
                     nodePartitioningManager,
                     exchangeManagerRegistry.getExchangeManager(),
                     nodeAllocatorService,
-                    failureDetector,
+                    nodeManager,
                     dynamicFilterService,
                     taskExecutionStats,
                     new AdaptivePlanner(
@@ -705,8 +703,8 @@ public class SqlQueryExecution
         return stateMachine.getFinalQueryInfo()
                 .map(ResultQueryInfo::new)
                 .orElseGet(() -> stateMachine.updateResultQueryInfo(
-                        scheduler.map(QueryScheduler::getBasicStageInfo),
-                        () -> scheduler.map(QueryScheduler::getStageInfo)));
+                        scheduler.map(QueryScheduler::getBasicStagesInfo),
+                        () -> scheduler.map(QueryScheduler::getStagesInfo)));
     }
 
     @Override
@@ -723,11 +721,11 @@ public class SqlQueryExecution
 
     private QueryInfo buildQueryInfo(QueryScheduler scheduler)
     {
-        Optional<StageInfo> stageInfo = Optional.empty();
+        Optional<StagesInfo> stagesInfo = Optional.empty();
         if (scheduler != null) {
-            stageInfo = Optional.ofNullable(scheduler.getStageInfo());
+            stagesInfo = Optional.ofNullable(scheduler.getStagesInfo());
         }
-        return stateMachine.updateQueryInfo(stageInfo);
+        return stateMachine.updateQueryInfo(stagesInfo);
     }
 
     @Override
@@ -792,7 +790,7 @@ public class SqlQueryExecution
         private final RemoteTaskFactory remoteTaskFactory;
         private final ExecutorService queryExecutor;
         private final ScheduledExecutorService schedulerExecutor;
-        private final FailureDetector failureDetector;
+        private final InternalNodeManager nodeManager;
         private final NodeTaskMap nodeTaskMap;
         private final Map<String, ExecutionPolicy> executionPolicies;
         private final StatsCalculator statsCalculator;
@@ -823,7 +821,7 @@ public class SqlQueryExecution
                 RemoteTaskFactory remoteTaskFactory,
                 @ForQueryExecution ExecutorService queryExecutor,
                 @ForScheduler ScheduledExecutorService schedulerExecutor,
-                FailureDetector failureDetector,
+                InternalNodeManager nodeManager,
                 NodeTaskMap nodeTaskMap,
                 Map<String, ExecutionPolicy> executionPolicies,
                 SplitSchedulerStats schedulerStats,
@@ -853,7 +851,7 @@ public class SqlQueryExecution
             this.remoteTaskFactory = requireNonNull(remoteTaskFactory, "remoteTaskFactory is null");
             this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
             this.schedulerExecutor = requireNonNull(schedulerExecutor, "schedulerExecutor is null");
-            this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
+            this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
             this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
             this.executionPolicies = requireNonNull(executionPolicies, "executionPolicies is null");
             requireNonNull(planOptimizersFactory, "planOptimizersFactory is null");
@@ -903,7 +901,7 @@ public class SqlQueryExecution
                     scheduleSplitBatchSize,
                     queryExecutor,
                     schedulerExecutor,
-                    failureDetector,
+                    nodeManager,
                     nodeTaskMap,
                     executionPolicy,
                     schedulerStats,

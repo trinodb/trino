@@ -15,8 +15,8 @@ package io.trino.connector.system;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.trino.metadata.InternalNode;
-import io.trino.metadata.InternalNodeManager;
+import io.trino.node.InternalNode;
+import io.trino.node.InternalNodeManager;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
@@ -36,7 +36,7 @@ import io.trino.spi.predicate.TupleDomain;
 import java.util.Optional;
 import java.util.Set;
 
-import static io.trino.metadata.NodeState.ACTIVE;
+import static io.trino.node.NodeState.ACTIVE;
 import static io.trino.spi.connector.SystemTable.Distribution.ALL_COORDINATORS;
 import static io.trino.spi.connector.SystemTable.Distribution.ALL_NODES;
 import static io.trino.spi.connector.SystemTable.Distribution.SINGLE_COORDINATOR;
@@ -45,11 +45,13 @@ import static java.util.Objects.requireNonNull;
 public class SystemSplitManager
         implements ConnectorSplitManager
 {
+    private final InternalNode currentNode;
     private final InternalNodeManager nodeManager;
     private final SystemTablesProvider tables;
 
-    public SystemSplitManager(InternalNodeManager nodeManager, SystemTablesProvider tables)
+    public SystemSplitManager(InternalNode currentNode, InternalNodeManager nodeManager, SystemTablesProvider tables)
     {
+        this.currentNode = requireNonNull(currentNode, "currentNode is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.tables = requireNonNull(tables, "tables is null");
     }
@@ -76,7 +78,7 @@ public class SystemSplitManager
 
         Distribution tableDistributionMode = systemTable.getDistribution();
         if (tableDistributionMode == SINGLE_COORDINATOR) {
-            HostAddress address = nodeManager.getCurrentNode().getHostAndPort();
+            HostAddress address = currentNode.getHostAndPort();
             ConnectorSplit split = new SystemSplit(address, tableConstraint, Optional.empty());
             return new FixedSplitSource(ImmutableList.of(split));
         }

@@ -92,9 +92,7 @@ public class MultipleDistinctAggregationsToSubqueries
         return SingleDistinctAggregationToGroupBy.allDistinctAggregates(aggregationNode) &&
                OptimizeMixedDistinctAggregations.hasMultipleDistincts(aggregationNode) &&
                // if we have more than one grouping set, we can have duplicated grouping sets and handling this is complex
-               aggregationNode.getGroupingSetCount() == 1 &&
-               // hash symbol is added late in the planning, and handling it here would increase complexity
-               aggregationNode.getHashSymbol().isEmpty();
+               aggregationNode.getGroupingSetCount() == 1;
     }
 
     private final DistinctAggregationStrategyChooser distinctAggregationStrategyChooser;
@@ -197,8 +195,6 @@ public class MultipleDistinctAggregationsToSubqueries
                 left.getOutputSymbols(),
                 right.getOutputSymbols(),
                 false, // since we only work on global aggregation or grouped rows, there are no duplicates, so we don't have to skip it
-                Optional.empty(),
-                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),

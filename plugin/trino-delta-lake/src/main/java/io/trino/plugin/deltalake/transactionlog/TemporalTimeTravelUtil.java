@@ -30,6 +30,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.MoreCollectors.toOptional;
@@ -87,14 +88,16 @@ public final class TemporalTimeTravelUtil
         Optional<LastCheckpoint> lastCheckpoint = readLastCheckpoint(fileSystem, tableLocation);
         if (lastCheckpoint.isPresent()) {
             long entryNumber = lastCheckpoint.map(LastCheckpoint::version).orElseThrow();
-            Optional<CommitInfoEntry> commitInfo = getEntriesFromJson(entryNumber, transactionLogDir, fileSystem, DataSize.ofBytes(0))
+            Stream<DeltaLakeTransactionLogEntry> logEntries = getEntriesFromJson(entryNumber, transactionLogDir, fileSystem, DataSize.ofBytes(0))
                     .orElseThrow(() -> new MissingTransactionLogException(getTransactionLogJsonEntryPath(transactionLogDir, entryNumber).toString()))
-                    .getEntries(fileSystem)
-                    .map(DeltaLakeTransactionLogEntry::getCommitInfo)
-                    .filter(Objects::nonNull)
-                    .collect(toOptional());
-            if (commitInfo.isPresent()) {
-                return searchBasedOnLatestCheckPoint(fileSystem, transactionLogDir, epochMillis, commitInfo.orElseThrow(), executor, maxLinearSearchSize);
+                    .getEntries(fileSystem);
+            try (logEntries) {
+                Optional<CommitInfoEntry> commitInfo = logEntries.map(DeltaLakeTransactionLogEntry::getCommitInfo)
+                        .filter(Objects::nonNull)
+                        .collect(toOptional());
+                if (commitInfo.isPresent()) {
+                    return searchBasedOnLatestCheckPoint(fileSystem, transactionLogDir, epochMillis, commitInfo.orElseThrow(), executor, maxLinearSearchSize);
+                }
             }
         }
 
@@ -140,19 +143,21 @@ public final class TemporalTimeTravelUtil
         long entryNumber = end;
         Optional<TransactionLogEntries> entries = getEntriesFromJson(entryNumber, transactionLogDir, fileSystem, DataSize.ofBytes(0));
         while (start <= entryNumber && entries.isPresent()) {
-            Optional<CommitInfoEntry> commitInfo = entries.get().getEntries(fileSystem)
-                    .map(DeltaLakeTransactionLogEntry::getCommitInfo)
-                    .filter(Objects::nonNull)
-                    .findFirst();
-            if (commitInfo.isPresent() && commitInfo.get().timestamp() <= epochMillis) {
-                return commitInfo.get().version();
-            }
+            try (Stream<DeltaLakeTransactionLogEntry> logEntryStream = entries.get().getEntries(fileSystem)) {
+                Optional<CommitInfoEntry> commitInfo = logEntryStream
+                        .map(DeltaLakeTransactionLogEntry::getCommitInfo)
+                        .filter(Objects::nonNull)
+                        .findFirst();
+                if (commitInfo.isPresent() && commitInfo.get().timestamp() <= epochMillis) {
+                    return commitInfo.get().version();
+                }
 
-            entryNumber--;
-            if (entryNumber < 0) {
-                break;
+                entryNumber--;
+                if (entryNumber < 0) {
+                    break;
+                }
+                entries = getEntriesFromJson(entryNumber, transactionLogDir, fileSystem, DataSize.ofBytes(0));
             }
-            entries = getEntriesFromJson(entryNumber, transactionLogDir, fileSystem, DataSize.ofBytes(0));
         }
 
         return VERSION_NOT_FOUND;
@@ -183,25 +188,27 @@ public final class TemporalTimeTravelUtil
         long version = VERSION_NOT_FOUND;
         Optional<TransactionLogEntries> entries = getEntriesFromJson(entryNumber, transactionLogDir, fileSystem, DataSize.ofBytes(0));
         while (entries.isPresent()) {
-            Optional<CommitInfoEntry> commitInfo = entries.get().getEntries(fileSystem)
-                    .map(DeltaLakeTransactionLogEntry::getCommitInfo)
-                    .filter(Objects::nonNull)
-                    .findFirst();
+            try (Stream<DeltaLakeTransactionLogEntry> logEntryStream = entries.get().getEntries(fileSystem)) {
+                Optional<CommitInfoEntry> commitInfo = logEntryStream
+                        .map(DeltaLakeTransactionLogEntry::getCommitInfo)
+                        .filter(Objects::nonNull)
+                        .findFirst();
 
-            if (commitInfo.isEmpty()) {
+                if (commitInfo.isEmpty()) {
+                    entryNumber++;
+                    entries = getEntriesFromJson(entryNumber, transactionLogDir, fileSystem, DataSize.ofBytes(0));
+                    continue;
+                }
+
+                if (commitInfo.map(TemporalTimeTravelUtil::getCommitInfoTimestamp).orElseThrow() > epochMillis) {
+                    break;
+                }
+
+                version = entryNumber;
+
                 entryNumber++;
                 entries = getEntriesFromJson(entryNumber, transactionLogDir, fileSystem, DataSize.ofBytes(0));
-                continue;
             }
-
-            if (commitInfo.map(TemporalTimeTravelUtil::getCommitInfoTimestamp).orElseThrow() > epochMillis) {
-                break;
-            }
-
-            version = entryNumber;
-
-            entryNumber++;
-            entries = getEntriesFromJson(entryNumber, transactionLogDir, fileSystem, DataSize.ofBytes(0));
         }
 
         return version;
@@ -224,17 +231,21 @@ public final class TemporalTimeTravelUtil
                 continue;
             }
             long entryNumber = Long.parseLong(matcher.group(1));
-            Optional<CommitInfoEntry> commitInfo = getEntriesFromJson(entryNumber, fileSystem.newInputFile(location), DataSize.ofBytes(0))
+
+            Stream<DeltaLakeTransactionLogEntry> logEntryStream = getEntriesFromJson(entryNumber, transactionLogDir, fileSystem, DataSize.ofBytes(0))
                     .map(entry -> entry.getEntries(fileSystem))
-                    .orElseThrow()
-                    .map(DeltaLakeTransactionLogEntry::getCommitInfo)
-                    .filter(Objects::nonNull)
-                    .filter(commitInfoEntry -> getCommitInfoTimestamp(commitInfoEntry) <= epochMillis)
-                    .findFirst();
-            if (commitInfo.isEmpty()) {
-                continue;
+                    .orElseThrow();
+
+            try (logEntryStream) {
+                Optional<CommitInfoEntry> commitInfo = logEntryStream.map(DeltaLakeTransactionLogEntry::getCommitInfo)
+                        .filter(Objects::nonNull)
+                        .filter(commitInfoEntry -> getCommitInfoTimestamp(commitInfoEntry) <= epochMillis)
+                        .findFirst();
+                if (commitInfo.isEmpty()) {
+                    continue;
+                }
+                version = Math.max(version, commitInfo.get().version());
             }
-            version = Math.max(version, commitInfo.get().version());
         }
 
         return version;

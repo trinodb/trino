@@ -74,7 +74,7 @@ public record FileSystemSpooledSegmentHandle(
 
     private static byte[] entropy(Random random)
     {
-        byte[] entropy = new byte[16];
+        byte[] entropy = new byte[10];
         random.nextBytes(entropy);
         return entropy;
     }

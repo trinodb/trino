@@ -55,9 +55,9 @@ public final class GroupByHashYieldAssertion
 
     private GroupByHashYieldAssertion() {}
 
-    public static List<Page> createPagesWithDistinctHashKeys(Type type, int pageCount, int positionCountPerPage)
+    public static List<Page> createPages(Type type, int pageCount, int positionCountPerPage)
     {
-        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(true, ImmutableList.of(0), type);
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(ImmutableList.of(0), type);
         for (int i = 0; i < pageCount; i++) {
             rowPagesBuilder.addSequencePage(positionCountPerPage, positionCountPerPage * i);
         }

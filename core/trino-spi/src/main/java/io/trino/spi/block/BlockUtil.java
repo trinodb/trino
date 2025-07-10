@@ -58,13 +58,6 @@ final class BlockUtil
         }
     }
 
-    static void checkValidPositions(boolean[] positions, int positionCount)
-    {
-        if (positions.length != positionCount) {
-            throw new IllegalArgumentException(format("Invalid positions array size %d, actual position count is %d", positions.length, positionCount));
-        }
-    }
-
     static void checkValidPosition(int position, int positionCount)
     {
         if (position < 0 || position >= positionCount) {
@@ -103,16 +96,7 @@ final class BlockUtil
 
     static int calculateBlockResetSize(int currentSize)
     {
-        long newSize = (long) ceil(currentSize * BLOCK_RESET_SKEW);
-
-        // verify new size is within reasonable bounds
-        if (newSize < DEFAULT_CAPACITY) {
-            newSize = DEFAULT_CAPACITY;
-        }
-        else if (newSize > MAX_ARRAY_SIZE) {
-            newSize = MAX_ARRAY_SIZE;
-        }
-        return (int) newSize;
+        return clamp((long) ceil(currentSize * BLOCK_RESET_SKEW), DEFAULT_CAPACITY, MAX_ARRAY_SIZE);
     }
 
     static int calculateBlockResetBytes(int currentBytes)
@@ -199,33 +183,6 @@ final class BlockUtil
             return array;
         }
         return Arrays.copyOfRange(array, index, index + length);
-    }
-
-    static int countSelectedPositionsFromOffsets(boolean[] positions, int[] offsets, int offsetBase)
-    {
-        checkArrayRange(offsets, offsetBase, positions.length);
-        int used = 0;
-        for (int i = 0; i < positions.length; i++) {
-            int offsetStart = offsets[offsetBase + i];
-            int offsetEnd = offsets[offsetBase + i + 1];
-            used += ((positions[i] ? 1 : 0) * (offsetEnd - offsetStart));
-        }
-        return used;
-    }
-
-    static int countAndMarkSelectedPositionsFromOffsets(boolean[] positions, int[] offsets, int offsetBase, boolean[] elementPositions)
-    {
-        checkArrayRange(offsets, offsetBase, positions.length);
-        int used = 0;
-        for (int i = 0; i < positions.length; i++) {
-            int offsetStart = offsets[offsetBase + i];
-            int offsetEnd = offsets[offsetBase + i + 1];
-            if (positions[i]) {
-                used += (offsetEnd - offsetStart);
-                Arrays.fill(elementPositions, offsetStart, offsetEnd, true);
-            }
-        }
-        return used;
     }
 
     /**

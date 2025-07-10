@@ -53,6 +53,7 @@ In the case of serializable formats, only specific
 - OPENX_JSON - OpenX JSON SerDe from `org.openx.data.jsonserde.JsonSerDe`. Find
   more [details about the Trino implementation in the source repository](https://github.com/trinodb/trino/tree/master/lib/trino-hive-formats/src/main/java/io/trino/hive/formats/line/openxjson/README.md).
 - TextFile
+- ESRI - using `com.esri.hadoop.hive.serde.EsriJsonSerDe`
 
 (hive-configuration)=
 ## General configuration
@@ -302,6 +303,9 @@ Hive connector documentation.
 * - `hive.max-partition-drops-per-query`
   - Maximum number of partitions to drop in a single query.
   - 100,000
+* - `hive.metastore.partition-batch-size.max`
+  - Maximum number of partitions processed in a single batch.
+  - 100
 * - `hive.single-statement-writes`
   - Enables auto-commit for all writes. This can be used to disallow
     multi-statement write transactions.

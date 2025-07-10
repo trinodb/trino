@@ -79,8 +79,8 @@ public class TestHttpRequestSessionContextFactory
                 Optional.of("testRemote"),
                 Optional.empty());
         assertThat(context.getSource().orElse(null)).isEqualTo("testSource");
-        assertThat(context.getCatalog().orElse(null)).isEqualTo("testCatalog");
-        assertThat(context.getSchema().orElse(null)).isEqualTo("testSchema");
+        assertThat(context.getCatalog().orElse(null)).isEqualTo("testcatalog"); // lowercased
+        assertThat(context.getSchema().orElse(null)).isEqualTo("testschema"); // lowercased
         assertThat(context.getPath().orElse(null)).isEqualTo("testPath");
         assertThat(context.getIdentity()).isEqualTo(Identity.forUser("testUser")
                 .withGroups(ImmutableSet.of("testUser"))

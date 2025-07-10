@@ -258,7 +258,7 @@ public class BenchmarkGroupByHashOnSimulatedData
                     .map(channel -> channel.columnType.type)
                     .collect(toImmutableList());
             pages = createPages(query);
-            hashMode = GroupByHash.selectGroupByHashMode(false, false, types);
+            hashMode = GroupByHash.selectGroupByHashMode(false, types);
         }
 
         private List<Page> createPages(AggregationDefinition definition)

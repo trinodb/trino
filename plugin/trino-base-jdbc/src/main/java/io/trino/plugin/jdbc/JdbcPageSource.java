@@ -51,6 +51,7 @@ public final class JdbcPageSource
         implements ConnectorPageSource
 {
     private static final Logger log = Logger.get(JdbcPageSource.class);
+    private static final CompletableFuture<ResultSet> UNINITIALIZED_RESULT_SET_FUTURE = CompletableFuture.completedFuture(null);
 
     private final List<JdbcColumnHandle> columnHandles;
     private final ReadFunction[] readFunctions;
@@ -61,11 +62,12 @@ public final class JdbcPageSource
     private final ObjectReadFunction[] objectReadFunctions;
 
     private final JdbcClient jdbcClient;
+    private final ExecutorService executor;
     private final Connection connection;
     private final PreparedStatement statement;
     private final AtomicLong readTimeNanos = new AtomicLong(0);
     private final PageBuilder pageBuilder;
-    private final CompletableFuture<ResultSet> resultSetFuture;
+    private CompletableFuture<ResultSet> resultSetFuture;
     @Nullable
     private ResultSet resultSet;
     private boolean finished;
@@ -75,6 +77,7 @@ public final class JdbcPageSource
     public JdbcPageSource(JdbcClient jdbcClient, ExecutorService executor, ConnectorSession session, JdbcSplit split, BaseJdbcConnectorTableHandle table, List<JdbcColumnHandle> columnHandles)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
+        this.executor = requireNonNull(executor, "executor is null");
         this.columnHandles = ImmutableList.copyOf(columnHandles);
 
         readFunctions = new ReadFunction[columnHandles.size()];
@@ -130,19 +133,7 @@ public final class JdbcPageSource
             pageBuilder = new PageBuilder(columnHandles.stream()
                     .map(JdbcColumnHandle::getColumnType)
                     .collect(toImmutableList()));
-            resultSetFuture = supplyAsync(() -> {
-                long start = nanoTime();
-                try {
-                    log.debug("Executing: %s", statement);
-                    return statement.executeQuery();
-                }
-                catch (SQLException e) {
-                    throw handleSqlException(e);
-                }
-                finally {
-                    readTimeNanos.addAndGet(nanoTime() - start);
-                }
-            }, executor);
+            resultSetFuture = UNINITIALIZED_RESULT_SET_FUTURE;
         }
         catch (SQLException | RuntimeException e) {
             throw handleSqlException(e);
@@ -165,7 +156,26 @@ public final class JdbcPageSource
     public SourcePage getNextSourcePage()
     {
         verify(pageBuilder.isEmpty(), "Expected pageBuilder to be empty");
+        if (finished) {
+            return null;
+        }
         try {
+            if (resultSetFuture == UNINITIALIZED_RESULT_SET_FUTURE && resultSet == null) {
+                checkState(!closed, "page source is closed");
+                resultSetFuture = supplyAsync(() -> {
+                    long start = nanoTime();
+                    try {
+                        log.debug("Executing: %s", statement);
+                        return statement.executeQuery();
+                    }
+                    catch (SQLException e) {
+                        throw handleSqlException(e);
+                    }
+                    finally {
+                        readTimeNanos.addAndGet(nanoTime() - start);
+                    }
+                }, executor);
+            }
             if (resultSet == null) {
                 if (!resultSetFuture.isDone()) {
                     return null;

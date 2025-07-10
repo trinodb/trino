@@ -111,8 +111,8 @@ public class TestInt96Timestamp
         // ALl other known parquet writers don't violate the [0, NANOSECONDS_PER_DAY] range for timeOfDayNanos
         ParquetDataSource dataSource = new FileParquetDataSource(
                 new File(Resources.getResource("int96_timestamps_nanos_outside_day_range.parquet").toURI()),
-                new ParquetReaderOptions());
-        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+                ParquetReaderOptions.defaultOptions());
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource);
         ParquetReader reader = createParquetReader(dataSource, parquetMetadata, newSimpleAggregatedMemoryContext(), types, columnNames);
 
         SourcePage page = reader.nextPage();
@@ -168,7 +168,7 @@ public class TestInt96Timestamp
                 null,
                 false);
         // Read and assert
-        ColumnReaderFactory columnReaderFactory = new ColumnReaderFactory(DateTimeZone.UTC, new ParquetReaderOptions());
+        ColumnReaderFactory columnReaderFactory = new ColumnReaderFactory(DateTimeZone.UTC, ParquetReaderOptions.defaultOptions());
         ColumnReader reader = columnReaderFactory.create(field, newSimpleAggregatedMemoryContext());
         PageReader pageReader = new PageReader(new ParquetDataSourceId("test"), UNCOMPRESSED, List.of(dataPage).iterator(), false, false);
         reader.setPageReader(pageReader, Optional.empty());

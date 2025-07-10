@@ -23,6 +23,7 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
+import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
@@ -33,7 +34,6 @@ import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.RemoveFileEntry;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeParquetFileStatistics;
-import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
@@ -1018,10 +1018,10 @@ public class TestCheckpointEntryIterator
                 metadataEntry,
                 protocolEntry,
                 new FileFormatDataSourceStats(),
-                new ParquetReaderConfig()
-                        .setMaxBufferSize(DataSize.ofBytes(500))
-                        .setSmallFileThreshold(DataSize.of(1, KILOBYTE))
-                        .toParquetReaderOptions(),
+                ParquetReaderOptions.builder()
+                        .withMaxBufferSize(DataSize.ofBytes(500))
+                        .withSmallFileThreshold(DataSize.of(1, KILOBYTE))
+                        .build(),
                 true,
                 new DeltaLakeConfig().getDomainCompactionThreshold(),
                 partitionConstraint,

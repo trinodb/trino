@@ -46,6 +46,7 @@ public class TestSheetsConfig
         assertRecordedDefaults(recordDefaults(SheetsConfig.class)
                 .setCredentialsFilePath(null)
                 .setCredentialsKey(null)
+                .setDelegatedUserEmail(null)
                 .setMetadataSheetId(null)
                 .setSheetsDataMaxCacheSize(1000)
                 .setSheetsDataExpireAfterWrite(new Duration(5, TimeUnit.MINUTES))
@@ -62,6 +63,7 @@ public class TestSheetsConfig
 
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("gsheets.credentials-path", credentialsFile.toString())
+                .put("gsheets.delegated-user-email", "fooBar@gmail.com")
                 .put("gsheets.metadata-sheet-id", "foo_bar_sheet_id#Sheet1")
                 .put("gsheets.max-data-cache-size", "2000")
                 .put("gsheets.data-cache-ttl", "10m")
@@ -75,6 +77,7 @@ public class TestSheetsConfig
 
         assertThat(config.getCredentialsKey()).isEqualTo(Optional.empty());
         assertThat(config.getCredentialsFilePath()).isEqualTo(Optional.of(credentialsFile.toString()));
+        assertThat(config.getDelegatedUserEmail()).contains("fooBar@gmail.com");
         assertThat(config.getMetadataSheetId()).isEqualTo(Optional.of("foo_bar_sheet_id#Sheet1"));
         assertThat(config.getSheetsDataMaxCacheSize()).isEqualTo(2000);
         assertThat(config.getSheetsDataExpireAfterWrite()).isEqualTo(Duration.valueOf("10m"));
@@ -88,6 +91,7 @@ public class TestSheetsConfig
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("gsheets.credentials-key", BASE_64_ENCODED_TEST_KEY)
+                .put("gsheets.delegated-user-email", "fooBar@gmail.com")
                 .put("gsheets.metadata-sheet-id", "foo_bar_sheet_id#Sheet1")
                 .put("gsheets.max-data-cache-size", "2000")
                 .put("gsheets.data-cache-ttl", "10m")
@@ -99,6 +103,7 @@ public class TestSheetsConfig
 
         assertThat(config.getCredentialsKey()).isEqualTo(Optional.of(BASE_64_ENCODED_TEST_KEY));
         assertThat(config.getCredentialsFilePath()).isEqualTo(Optional.empty());
+        assertThat(config.getDelegatedUserEmail()).contains("fooBar@gmail.com");
         assertThat(config.getMetadataSheetId()).isEqualTo(Optional.of("foo_bar_sheet_id#Sheet1"));
         assertThat(config.getSheetsDataMaxCacheSize()).isEqualTo(2000);
         assertThat(config.getSheetsDataExpireAfterWrite()).isEqualTo(Duration.valueOf("10m"));

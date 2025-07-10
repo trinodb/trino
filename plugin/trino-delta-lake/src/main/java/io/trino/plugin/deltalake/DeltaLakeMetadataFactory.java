@@ -25,11 +25,12 @@ import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess;
 import io.trino.plugin.deltalake.statistics.FileBasedTableStatisticsProvider;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointWriterManager;
+import io.trino.plugin.deltalake.transactionlog.reader.TransactionLogReaderFactory;
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogWriterFactory;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.TrinoViewHiveMetastore;
 import io.trino.plugin.hive.security.UsingSystemSecurity;
-import io.trino.spi.NodeManager;
+import io.trino.spi.Node;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
 
@@ -50,7 +51,7 @@ public class DeltaLakeMetadataFactory
     private final JsonCodec<DataFileInfo> dataFileInfoCodec;
     private final JsonCodec<DeltaLakeMergeResult> mergeResultJsonCodec;
     private final TransactionLogWriterFactory transactionLogWriterFactory;
-    private final NodeManager nodeManager;
+    private final Node currentNode;
     private final CheckpointWriterManager checkpointWriterManager;
     private final CachingExtendedStatisticsAccess statisticsAccess;
     private final int domainCompactionThreshold;
@@ -64,6 +65,7 @@ public class DeltaLakeMetadataFactory
     private final boolean allowManagedTableRename;
     private final boolean usingSystemSecurity;
     private final String trinoVersion;
+    private final TransactionLogReaderFactory transactionLogReaderFactory;
 
     @Inject
     public DeltaLakeMetadataFactory(
@@ -75,14 +77,15 @@ public class DeltaLakeMetadataFactory
             JsonCodec<DataFileInfo> dataFileInfoCodec,
             JsonCodec<DeltaLakeMergeResult> mergeResultJsonCodec,
             TransactionLogWriterFactory transactionLogWriterFactory,
-            NodeManager nodeManager,
+            Node currentNode,
             CheckpointWriterManager checkpointWriterManager,
             CachingExtendedStatisticsAccess statisticsAccess,
             @AllowDeltaLakeManagedTableRename boolean allowManagedTableRename,
             @UsingSystemSecurity boolean useSystemSecurity,
             NodeVersion nodeVersion,
             DeltaLakeTableMetadataScheduler metadataScheduler,
-            @ForDeltaLakeMetadata ExecutorService executorService)
+            @ForDeltaLakeMetadata ExecutorService executorService,
+            TransactionLogReaderFactory transactionLogReaderFactory)
     {
         this.hiveMetastoreFactory = requireNonNull(hiveMetastoreFactory, "hiveMetastore is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
@@ -91,7 +94,7 @@ public class DeltaLakeMetadataFactory
         this.dataFileInfoCodec = requireNonNull(dataFileInfoCodec, "dataFileInfoCodec is null");
         this.mergeResultJsonCodec = requireNonNull(mergeResultJsonCodec, "mergeResultJsonCodec is null");
         this.transactionLogWriterFactory = requireNonNull(transactionLogWriterFactory, "transactionLogWriterFactory is null");
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.currentNode = requireNonNull(currentNode, "currentNode is null");
         this.checkpointWriterManager = requireNonNull(checkpointWriterManager, "checkpointWriterManager is null");
         this.statisticsAccess = requireNonNull(statisticsAccess, "statisticsAccess is null");
         this.domainCompactionThreshold = deltaLakeConfig.getDomainCompactionThreshold();
@@ -110,6 +113,7 @@ public class DeltaLakeMetadataFactory
         else {
             this.metadataFetchingExecutor = new BoundedExecutor(executorService, deltaLakeConfig.getMetadataParallelism());
         }
+        this.transactionLogReaderFactory = requireNonNull(transactionLogReaderFactory, "transactionLogLoaderFactory is null");
     }
 
     public DeltaLakeMetadata create(ConnectorIdentity identity)
@@ -139,7 +143,7 @@ public class DeltaLakeMetadataFactory
                 dataFileInfoCodec,
                 mergeResultJsonCodec,
                 transactionLogWriterFactory,
-                nodeManager,
+                currentNode,
                 checkpointWriterManager,
                 checkpointWritingInterval,
                 deleteSchemaLocationsFallback,
@@ -147,6 +151,7 @@ public class DeltaLakeMetadataFactory
                 metadataScheduler,
                 useUniqueTableLocation,
                 allowManagedTableRename,
-                metadataFetchingExecutor);
+                metadataFetchingExecutor,
+                transactionLogReaderFactory);
     }
 }

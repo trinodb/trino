@@ -21,6 +21,7 @@ import io.trino.spi.statistics.TableStatistics;
 
 import java.util.Map;
 import java.util.WeakHashMap;
+import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
 
@@ -29,24 +30,36 @@ public class CachingTableStatsProvider
 {
     private final Metadata metadata;
     private final Session session;
+    private final Supplier<Boolean> isQueryDone;
 
     private final Map<TableHandle, TableStatistics> cache = new WeakHashMap<>();
 
-    public CachingTableStatsProvider(Metadata metadata, Session session)
+    public CachingTableStatsProvider(Metadata metadata, Session session, Supplier<Boolean> isQueryDone)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.session = requireNonNull(session, "session is null");
+        this.isQueryDone = requireNonNull(isQueryDone, "isQueryDone is null");
     }
 
     @Override
     public TableStatistics getTableStatistics(TableHandle tableHandle)
     {
-        TableStatistics stats = cache.get(tableHandle);
-        if (stats == null) {
-            stats = metadata.getTableStatistics(session, tableHandle);
-            cache.put(tableHandle, stats);
+        return cache.computeIfAbsent(tableHandle, this::getTableStatisticsInternal);
+    }
+
+    private TableStatistics getTableStatisticsInternal(TableHandle tableHandle)
+    {
+        try {
+            return metadata.getTableStatistics(session, tableHandle);
         }
-        return stats;
+        catch (RuntimeException e) {
+            if (isQueryDone.get()) {
+                // getting statistics for finished query may result in many different exceptions being thrown.
+                // As we do not care about the result anyway mask it by returning empty statistics.
+                return TableStatistics.empty();
+            }
+            throw e;
+        }
     }
 
     public Map<TableHandle, TableStatistics> getCachedTableStatistics()

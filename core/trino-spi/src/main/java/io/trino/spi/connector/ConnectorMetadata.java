@@ -1130,6 +1130,51 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Creates the specified branch.
+     */
+    @Experimental(eta = "2025-12-31")
+    default void createBranch(ConnectorSession session, ConnectorTableHandle tableHandle, String branch, Map<String, Object> properties)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating branches");
+    }
+
+    /**
+     * Drops the specified branch.
+     */
+    @Experimental(eta = "2025-12-31")
+    default void dropBranch(ConnectorSession session, ConnectorTableHandle tableHandle, String branch)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping branches");
+    }
+
+    /**
+     * Fast-forwards the specified branch.
+     */
+    @Experimental(eta = "2025-12-31")
+    default void fastForwardBranch(ConnectorSession session, ConnectorTableHandle tableHandle, String sourceBranch, String targetBranch)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support fast-forwarding branches");
+    }
+
+    /**
+     * Get all branches.
+     */
+    @Experimental(eta = "2025-12-31")
+    default Collection<String> listBranches(ConnectorSession session, SchemaTableName tableName)
+    {
+        return List.of();
+    }
+
+    /**
+     * Does the specified branch exist.
+     */
+    @Experimental(eta = "2025-12-31")
+    default boolean branchExists(ConnectorSession session, SchemaTableName tableName, String branch)
+    {
+        return listBranches(session, tableName).contains(branch);
+    }
+
+    /**
      * Does the specified role exist.
      */
     default boolean roleExists(ConnectorSession session, String role)
@@ -1653,6 +1698,14 @@ public interface ConnectorMetadata
     default List<SchemaTableName> listMaterializedViews(ConnectorSession session, Optional<String> schemaName)
     {
         return List.of();
+    }
+
+    /**
+     * Sets the user/role on the specified materialized view.
+     */
+    default void setMaterializedViewAuthorization(ConnectorSession session, SchemaTableName viewName, TrinoPrincipal principal)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting an owner on a materialized view");
     }
 
     /**

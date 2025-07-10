@@ -41,7 +41,6 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkPositionIndex;
@@ -373,17 +372,17 @@ public class TableFunctionOperator
                 List<SortOrder> sortOrders,
                 int preSortedPrefix)
         {
-            this.prePartitionedStrategy = pagesIndex.createPagesHashStrategy(prePartitionedChannels, OptionalInt.empty());
+            this.prePartitionedStrategy = pagesIndex.createPagesHashStrategy(prePartitionedChannels);
 
             List<Integer> remainingPartitionChannels = partitionChannels.stream()
                     .filter(channel -> !prePartitionedChannels.contains(channel))
                     .collect(toImmutableList());
-            this.remainingPartitionStrategy = pagesIndex.createPagesHashStrategy(remainingPartitionChannels, OptionalInt.empty());
+            this.remainingPartitionStrategy = pagesIndex.createPagesHashStrategy(remainingPartitionChannels);
 
             List<Integer> preSortedChannels = sortChannels.stream()
                     .limit(preSortedPrefix)
                     .collect(toImmutableList());
-            this.preSortedStrategy = pagesIndex.createPagesHashStrategy(preSortedChannels, OptionalInt.empty());
+            this.preSortedStrategy = pagesIndex.createPagesHashStrategy(preSortedChannels);
 
             if (preSortedPrefix > 0) {
                 // preSortedPrefix > 0 implies that all partition channels are already pre-partitioned (enforced by check in the constructor), so we only need to do the remaining sort

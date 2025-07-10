@@ -33,6 +33,7 @@ import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.mapping.NameMappingParser;
 
+import java.io.IOException;
 import java.util.Optional;
 
 import static io.airlift.slice.Slices.utf8Slice;
@@ -177,5 +178,12 @@ public class TableChangesFunctionProcessor
                 blocks[columnChannel] = RunLengthEncodedBlock.create(changeOrdinalValue, dataPage.getPositionCount()));
 
         return produced(new Page(dataPage.getPositionCount(), blocks));
+    }
+
+    @Override
+    public void close()
+            throws IOException
+    {
+        pageSource.close();
     }
 }

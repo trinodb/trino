@@ -95,7 +95,6 @@ public class PushDownProjectionsFromPatternRecognition
                 node.getId(),
                 projectNode,
                 node.getSpecification(),
-                node.getHashSymbol(),
                 node.getPrePartitionedInputs(),
                 node.getPreSortedOrderPrefix(),
                 node.getWindowFunctions(),

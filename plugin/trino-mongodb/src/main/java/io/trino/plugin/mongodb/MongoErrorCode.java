@@ -23,6 +23,7 @@ public enum MongoErrorCode
         implements ErrorCodeSupplier
 {
     MONGODB_INVALID_TYPE(0, EXTERNAL),
+    MONGODB_CLUSTER_ERROR(1, EXTERNAL)
     /**/;
 
     private final ErrorCode errorCode;

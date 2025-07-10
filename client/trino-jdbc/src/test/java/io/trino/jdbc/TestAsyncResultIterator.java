@@ -50,7 +50,7 @@ class TestAsyncResultIterator
 {
     @Test
     @Timeout(10)
-    public void testIteratorCancelWhenQueueNotFull()
+    public void testIteratorCloseWhenQueueNotFull()
             throws Exception
     {
         AtomicReference<Thread> thread = new AtomicReference<>();
@@ -73,7 +73,7 @@ class TestAsyncResultIterator
         while (thread.get() == null || thread.get().getState() != Thread.State.TIMED_WAITING) {
             // wait for thread being waiting
         }
-        iterator.cancel();
+        iterator.close();
         while (!iterator.getFuture().isDone() || !iterator.isBackgroundThreadFinished()) {
             TimeUnit.MILLISECONDS.sleep(10);
         }
@@ -83,7 +83,7 @@ class TestAsyncResultIterator
 
     @Test
     @Timeout(10)
-    public void testIteratorCancelWhenQueueIsFull()
+    public void testIteratorCloseWhenQueueIsFull()
             throws Exception
     {
         BlockingQueue<List<Object>> queue = new ArrayBlockingQueue<>(1);
@@ -103,7 +103,7 @@ class TestAsyncResultIterator
             // wait for thread being waiting (for queue being not full)
             TimeUnit.MILLISECONDS.sleep(10);
         }
-        iterator.cancel();
+        iterator.close();
         while (!iterator.isBackgroundThreadFinished()) {
             TimeUnit.MILLISECONDS.sleep(10);
         }

@@ -658,7 +658,6 @@ class RelationPlanner
                 idAllocator.getNextId(),
                 planBuilder.getRoot(),
                 specification,
-                Optional.empty(),
                 ImmutableSet.of(),
                 0,
                 ImmutableMap.of(),
@@ -1011,8 +1010,6 @@ class RelationPlanner
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
                 ImmutableMap.of(),
                 Optional.empty());
 
@@ -1051,8 +1048,6 @@ class RelationPlanner
                     Optional.of(IrUtils.and(complexJoinExpressions.stream()
                             .map(e -> coerceIfNecessary(analysis, e, translationMap.rewrite(e)))
                             .collect(Collectors.toList()))),
-                    Optional.empty(),
-                    Optional.empty(),
                     Optional.empty(),
                     Optional.empty(),
                     ImmutableMap.of(),
@@ -1164,8 +1159,6 @@ class RelationPlanner
                 leftCoercion.getOutputSymbols(),
                 rightCoercion.getOutputSymbols(),
                 false,
-                Optional.empty(),
-                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),

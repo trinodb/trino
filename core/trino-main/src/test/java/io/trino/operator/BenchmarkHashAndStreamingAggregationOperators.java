@@ -141,7 +141,6 @@ public class BenchmarkHashAndStreamingAggregationOperators
             }
 
             RowPagesBuilder pagesBuilder = RowPagesBuilder.rowPagesBuilder(
-                    hashAggregation,
                     hashChannels,
                     ImmutableList.<Type>builder()
                             .addAll(hashTypes)
@@ -203,7 +202,7 @@ public class BenchmarkHashAndStreamingAggregationOperators
             pages = pagesBuilder.build();
 
             if (hashAggregation) {
-                operatorFactory = createHashAggregationOperatorFactory(pagesBuilder.getHashChannel(), hashTypes, hashChannels, sumChannel);
+                operatorFactory = createHashAggregationOperatorFactory(hashTypes, hashChannels, sumChannel);
             }
             else {
                 operatorFactory = createStreamingAggregationOperatorFactory(hashTypes, hashChannels, sumChannel);
@@ -235,7 +234,6 @@ public class BenchmarkHashAndStreamingAggregationOperators
         }
 
         private OperatorFactory createHashAggregationOperatorFactory(
-                Optional<Integer> hashChannel,
                 List<Type> hashTypes,
                 List<Integer> hashChannels,
                 int sumChannel)
@@ -253,7 +251,6 @@ public class BenchmarkHashAndStreamingAggregationOperators
                     ImmutableList.of(
                             COUNT.createAggregatorFactory(SINGLE, ImmutableList.of(0), OptionalInt.empty()),
                             LONG_SUM.createAggregatorFactory(SINGLE, ImmutableList.of(sumChannel), OptionalInt.empty())),
-                    hashChannel,
                     Optional.empty(),
                     100_000,
                     Optional.of(DataSize.of(16, MEGABYTE)),
@@ -262,7 +259,6 @@ public class BenchmarkHashAndStreamingAggregationOperators
                     succinctBytes(Integer.MAX_VALUE),
                     spillerFactory,
                     new FlatHashStrategyCompiler(TYPE_OPERATORS),
-                    TYPE_OPERATORS,
                     Optional.empty());
         }
 

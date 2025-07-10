@@ -114,6 +114,14 @@ public class EncodedQueryData
         return segments.isEmpty();
     }
 
+    @Override
+    public long getRowsCount()
+    {
+        return segments.stream()
+                .mapToLong(Segment::getRowsCount)
+                .sum();
+    }
+
     public static class Builder
     {
         private final String encoding;

@@ -198,7 +198,6 @@ public class SymbolMapper
                         node.getGlobalGroupingSets()),
                 ImmutableList.of(),
                 node.getStep(),
-                node.getHashSymbol().map(this::map),
                 node.getGroupIdSymbol().map(this::map));
     }
 
@@ -261,7 +260,6 @@ public class SymbolMapper
                 source,
                 newSpecification.specification(),
                 newFunctions.buildOrThrow(),
-                node.getHashSymbol().map(this::map),
                 node.getPrePartitionedInputs().stream()
                         .map(this::map)
                         .collect(toImmutableSet()),
@@ -327,7 +325,6 @@ public class SymbolMapper
                 node.getId(),
                 source,
                 newSpecification.specification(),
-                node.getHashSymbol().map(this::map),
                 node.getPrePartitionedInputs().stream()
                         .map(this::map)
                         .collect(toImmutableSet()),
@@ -439,7 +436,6 @@ public class SymbolMapper
                         .map(this::map)
                         .collect(toImmutableSet()),
                 newSpecification.map(SpecificationWithPreSortedPrefix::preSorted).orElse(node.getPreSorted()),
-                node.getHashSymbol().map(this::map),
                 node.getHandle());
     }
 
@@ -501,8 +497,7 @@ public class SymbolMapper
                 source,
                 node.getLimit(),
                 node.isPartial(),
-                mapAndDistinct(node.getDistinctSymbols()),
-                node.getHashSymbol().map(this::map));
+                mapAndDistinct(node.getDistinctSymbols()));
     }
 
     public StatisticsWriterNode map(StatisticsWriterNode node, PlanNode source)
@@ -604,9 +599,9 @@ public class SymbolMapper
         return new PartitioningScheme(
                 scheme.getPartitioning().translate(this::map),
                 mapAndDistinct(sourceLayout),
-                scheme.getHashColumn().map(this::map),
                 scheme.isReplicateNullsAndAny(),
                 scheme.getBucketToPartition(),
+                scheme.getBucketCount(),
                 scheme.getPartitionCount());
     }
 
@@ -636,8 +631,7 @@ public class SymbolMapper
                 mapAndDistinct(node.getPartitionBy()),
                 node.isOrderSensitive(),
                 map(node.getRowNumberSymbol()),
-                node.getMaxRowCountPerPartition(),
-                node.getHashSymbol().map(this::map));
+                node.getMaxRowCountPerPartition());
     }
 
     public TopNRankingNode map(TopNRankingNode node, PlanNode source)
@@ -649,8 +643,7 @@ public class SymbolMapper
                 node.getRankingType(),
                 map(node.getRankingSymbol()),
                 node.getMaxRankingPerPartition(),
-                node.isPartial(),
-                node.getHashSymbol().map(this::map));
+                node.isPartial());
     }
 
     public TopNNode map(TopNNode node, PlanNode source)

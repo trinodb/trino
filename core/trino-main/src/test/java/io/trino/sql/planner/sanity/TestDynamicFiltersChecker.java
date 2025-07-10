@@ -105,8 +105,6 @@ public class TestDynamicFiltersChecker
                 ImmutableList.of(ordersOrderKeySymbol),
                 ImmutableList.of(),
                 Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
                 ImmutableMap.of(new DynamicFilterId("DF"), lineitemOrderKeySymbol));
         assertThatThrownBy(() -> validatePlan(root))
                 .isInstanceOf(VerifyException.class)
@@ -127,8 +125,6 @@ public class TestDynamicFiltersChecker
                 ImmutableList.of(new JoinNode.EquiJoinClause(ordersOrderKeySymbol, lineitemOrderKeySymbol)),
                 ImmutableList.of(ordersOrderKeySymbol),
                 ImmutableList.of(),
-                Optional.empty(),
-                Optional.empty(),
                 Optional.empty(),
                 ImmutableMap.of(new DynamicFilterId("DF"), lineitemOrderKeySymbol));
         assertThatThrownBy(() -> validatePlan(root))
@@ -154,8 +150,6 @@ public class TestDynamicFiltersChecker
                         ImmutableList.of(ordersOrderKeySymbol),
                         ImmutableList.of(),
                         Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
                         ImmutableMap.of()));
         assertThatThrownBy(() -> validatePlan(root))
                 .isInstanceOf(VerifyException.class)
@@ -179,8 +173,6 @@ public class TestDynamicFiltersChecker
                         ImmutableList.of(new JoinNode.EquiJoinClause(lineitemOrderKeySymbol, ordersOrderKeySymbol)),
                         ImmutableList.of(),
                         ImmutableList.of(),
-                        Optional.empty(),
-                        Optional.empty(),
                         Optional.empty(),
                         ImmutableMap.of(new DynamicFilterId("DF"), ordersOrderKeySymbol)));
         assertThatThrownBy(() -> validatePlan(root))
@@ -210,8 +202,6 @@ public class TestDynamicFiltersChecker
                         ImmutableList.of(ordersOrderKeySymbol),
                         ImmutableList.of(),
                         Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
                         ImmutableMap.of()));
         assertThatThrownBy(() -> validatePlan(root))
                 .isInstanceOf(VerifyException.class)
@@ -231,8 +221,6 @@ public class TestDynamicFiltersChecker
                         ImmutableList.of(new JoinNode.EquiJoinClause(lineitemOrderKeySymbol, ordersOrderKeySymbol)),
                         ImmutableList.of(lineitemOrderKeySymbol),
                         ImmutableList.of(ordersOrderKeySymbol),
-                        Optional.empty(),
-                        Optional.empty(),
                         Optional.empty(),
                         ImmutableMap.of(new DynamicFilterId("DF"), ordersOrderKeySymbol)));
         assertThatThrownBy(() -> validatePlan(root))
@@ -254,8 +242,6 @@ public class TestDynamicFiltersChecker
                         ImmutableList.of(lineitemOrderKeySymbol),
                         ImmutableList.of(ordersOrderKeySymbol),
                         Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
                         ImmutableMap.of(new DynamicFilterId("DF"), ordersOrderKeySymbol)));
         assertThatThrownBy(() -> validatePlan(root)).isInstanceOf(VerifyException.class).hasMessageMatching("The expression CAST\\(LINEITEM_OK AS integer\\) within in a CAST in dynamic filter must be a SymbolReference.");
     }
@@ -269,8 +255,6 @@ public class TestDynamicFiltersChecker
                 ordersOrderKeySymbol,
                 lineitemOrderKeySymbol,
                 new Symbol(UNKNOWN, "SEMIJOIN_OUTPUT"),
-                Optional.empty(),
-                Optional.empty(),
                 Optional.empty(),
                 Optional.of(new DynamicFilterId("DF")));
         assertThatThrownBy(() -> validatePlan(root))
@@ -296,8 +280,6 @@ public class TestDynamicFiltersChecker
                 lineitemOrderKeySymbol,
                 new Symbol(UNKNOWN, "SEMIJOIN_OUTPUT"),
                 Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
                 Optional.of(new DynamicFilterId("DF")));
         assertThatThrownBy(() -> validatePlan(root))
                 .isInstanceOf(VerifyException.class)
@@ -321,8 +303,6 @@ public class TestDynamicFiltersChecker
                         lineitemOrderKeySymbol,
                         new Symbol(UNKNOWN, "SEMIJOIN_OUTPUT"),
                         Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
                         Optional.empty()));
         assertThatThrownBy(() -> validatePlan(root))
                 .isInstanceOf(VerifyException.class)
@@ -342,8 +322,6 @@ public class TestDynamicFiltersChecker
                 ordersOrderKeySymbol,
                 lineitemOrderKeySymbol,
                 new Symbol(UNKNOWN, "SEMIJOIN_OUTPUT"),
-                Optional.empty(),
-                Optional.empty(),
                 Optional.empty(),
                 Optional.of(new DynamicFilterId("DF")));
         assertThatThrownBy(() -> validatePlan(root))

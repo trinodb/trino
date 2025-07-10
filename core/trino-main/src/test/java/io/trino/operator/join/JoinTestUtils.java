@@ -39,7 +39,7 @@ import io.trino.spiller.PartitioningSpillerFactory;
 import io.trino.spiller.SingleStreamSpiller;
 import io.trino.spiller.SingleStreamSpillerFactory;
 import io.trino.sql.gen.JoinFilterFunctionCompiler;
-import io.trino.sql.planner.NodePartitioningManager;
+import io.trino.sql.planner.PartitionFunctionProvider;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.ArrayList;
@@ -58,7 +58,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterators.unmodifiableIterator;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.operator.HashArraySizeSupplier.incrementalLoadFactorHashArraySizeSupplier;
 import static io.trino.operator.JoinOperatorType.innerJoin;
@@ -95,7 +94,6 @@ public final class JoinTestUtils
                 lookupSourceFactoryManager,
                 probePages.getTypes(),
                 probePages.getHashChannels().orElseThrow(),
-                getHashChannelAsInt(probePages),
                 Optional.empty(),
                 OptionalInt.of(1),
                 partitioningSpillerFactory,
@@ -122,7 +120,7 @@ public final class JoinTestUtils
     }
 
     public static BuildSideSetup setupBuildSide(
-            NodePartitioningManager nodePartitioningManager,
+            PartitionFunctionProvider partitionFunctionProvider,
             boolean parallelBuild,
             TaskContext taskContext,
             RowPagesBuilder buildPages,
@@ -140,13 +138,13 @@ public final class JoinTestUtils
                 .map(types::get)
                 .collect(toImmutableList());
         LocalExchange localExchange = new LocalExchange(
-                nodePartitioningManager,
+                partitionFunctionProvider,
                 taskContext.getSession(),
                 partitionCount,
                 FIXED_HASH_DISTRIBUTION,
+                Optional.empty(),
                 hashChannels,
                 hashChannelTypes,
-                buildPages.getHashChannel(),
                 DataSize.of(32, DataSize.Unit.MEGABYTE),
                 TYPE_OPERATORS,
                 DataSize.of(32, DataSize.Unit.MEGABYTE),
@@ -187,8 +185,6 @@ public final class JoinTestUtils
                 lookupSourceFactoryManager,
                 rangeList(buildPages.getTypes().size()),
                 hashChannels,
-                buildPages.getHashChannel()
-                        .map(OptionalInt::of).orElse(OptionalInt.empty()),
                 filterFunctionFactory,
                 Optional.empty(),
                 ImmutableList.of(),
@@ -237,12 +233,6 @@ public final class JoinTestUtils
                 runDriverInThread(executor, driver);
             }
         });
-    }
-
-    public static OptionalInt getHashChannelAsInt(RowPagesBuilder probePages)
-    {
-        return probePages.getHashChannel()
-                .map(OptionalInt::of).orElse(OptionalInt.empty());
     }
 
     private static List<Integer> rangeList(int endExclusive)
@@ -336,14 +326,14 @@ public final class JoinTestUtils
                 private final List<Page> spills = new ArrayList<>();
 
                 @Override
-                public ListenableFuture<Void> spill(Iterator<Page> pageIterator)
+                public ListenableFuture<DataSize> spill(Iterator<Page> pageIterator)
                 {
                     checkState(writing, "writing already finished");
                     if (failSpill) {
                         return immediateFailedFuture(new TrinoException(GENERIC_INTERNAL_ERROR, "Spill failed"));
                     }
                     Iterators.addAll(spills, pageIterator);
-                    return immediateVoidFuture();
+                    return immediateFuture(DataSize.ofBytes(0L));
                 }
 
                 @Override

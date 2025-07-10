@@ -23,7 +23,9 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
+import io.trino.execution.StageId;
 import io.trino.execution.StageInfo;
+import io.trino.execution.StagesInfo;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
@@ -238,6 +240,7 @@ public abstract class BaseIcebergConnectorTest
             case SUPPORTS_CREATE_OR_REPLACE_TABLE,
                  SUPPORTS_REPORTING_WRITTEN_BYTES -> true;
             case SUPPORTS_ADD_COLUMN_NOT_NULL_CONSTRAINT,
+                 SUPPORTS_DEFAULT_COLUMN_VALUE,
                  SUPPORTS_RENAME_MATERIALIZED_VIEW_ACROSS_SCHEMAS,
                  SUPPORTS_TOPN_PUSHDOWN -> false;
             default -> super.hasBehavior(connectorBehavior);
@@ -5329,12 +5332,13 @@ public abstract class BaseIcebergConnectorTest
                         SELECT * FROM TABLE(sequence(start => 0, stop => 100, step => 1))
                         """)
                 .queryId();
-        StageInfo writerStage = getDistributedQueryRunner().getCoordinator()
+        StagesInfo stagesInfo = getDistributedQueryRunner()
+                .getCoordinator()
                 .getFullQueryInfo(id)
-                .getOutputStage()
-                .orElseThrow()
-                .getSubStages()
-                .getFirst();
+                .getStages()
+                .orElseThrow();
+        StageId outputStageId = stagesInfo.getOutputStageId();
+        StageInfo writerStage = stagesInfo.getSubStages(outputStageId).getFirst();
         assertThat(PlanNodeSearcher.searchFrom(writerStage.getPlan().getRoot()).whereIsInstanceOfAny(TableWriterNode.class).matches()).isTrue();
         assertThat(writerStage.getTasks().size()).isEqualTo(1);
 
@@ -5445,7 +5449,7 @@ public abstract class BaseIcebergConnectorTest
         }
     }
 
-    @Test()
+    @Test
     public void testOptimizeTimePartitionedTable()
     {
         testOptimizeTimePartitionedTable("date", "%s", 15);

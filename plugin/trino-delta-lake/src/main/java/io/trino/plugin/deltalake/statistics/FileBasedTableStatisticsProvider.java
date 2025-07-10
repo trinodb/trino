@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.deltalake.statistics;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.trino.filesystem.Location;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
@@ -125,13 +124,7 @@ public class FileBasedTableStatisticsProvider
         Domain pathDomain = getPathDomain(tableHandle.getNonPartitionConstraint());
         Domain fileModifiedDomain = getFileModifiedTimeDomain(tableHandle.getNonPartitionConstraint());
         Domain fileSizeDomain = getFileSizeDomain(tableHandle.getNonPartitionConstraint());
-        try (Stream<AddFileEntry> addEntries = transactionLogAccess.getActiveFiles(
-                session,
-                tableSnapshot,
-                tableHandle.getMetadataEntry(),
-                tableHandle.getProtocolEntry(),
-                tableHandle.getEnforcedPartitionConstraint(),
-                tableHandle.getProjectedColumns().orElse(ImmutableSet.of()))) {
+        try (Stream<AddFileEntry> addEntries = transactionLogAccess.getActiveFiles(session, tableHandle, tableSnapshot)) {
             Iterator<AddFileEntry> addEntryIterator = addEntries.iterator();
             while (addEntryIterator.hasNext()) {
                 AddFileEntry addEntry = addEntryIterator.next();

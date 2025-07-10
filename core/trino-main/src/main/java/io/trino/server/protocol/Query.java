@@ -36,6 +36,7 @@ import io.trino.exchange.ExchangeDataSource;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.exchange.LazyExchangeDataSource;
 import io.trino.execution.BasicStageInfo;
+import io.trino.execution.BasicStagesInfo;
 import io.trino.execution.QueryExecution;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryManager;
@@ -118,7 +119,7 @@ class Query
     private final ExchangeDataSource exchangeDataSource;
 
     @GuardedBy("this")
-    private final QueryDataProducer queryDataProducer;
+    private QueryDataProducer queryDataProducer = QueryDataProducer.THROWING;
 
     @GuardedBy("this")
     private ListenableFuture<Void> exchangeDataSourceBlocked;
@@ -196,7 +197,6 @@ class Query
             Session session,
             Slug slug,
             QueryManager queryManager,
-            QueryDataProducerFactory queryDataProducerFactory,
             Optional<URI> queryInfoUrl,
             DirectExchangeClientSupplier directExchangeClientSupplier,
             ExchangeManagerRegistry exchangeManagerRegistry,
@@ -214,7 +214,7 @@ class Query
                 getRetryPolicy(session),
                 exchangeManagerRegistry);
 
-        Query result = new Query(session, slug, queryManager, queryDataProducerFactory.create(session), queryInfoUrl, exchangeDataSource, dataProcessorExecutor, timeoutExecutor, blockEncodingSerde);
+        Query result = new Query(session, slug, queryManager, queryInfoUrl, exchangeDataSource, dataProcessorExecutor, timeoutExecutor, blockEncodingSerde);
 
         result.queryManager.setOutputInfoListener(result.getQueryId(), result::setQueryOutputInfo);
 
@@ -234,7 +234,6 @@ class Query
             Session session,
             Slug slug,
             QueryManager queryManager,
-            QueryDataProducer queryDataProducer,
             Optional<URI> queryInfoUrl,
             ExchangeDataSource exchangeDataSource,
             Executor resultsProcessorExecutor,
@@ -244,7 +243,6 @@ class Query
         requireNonNull(session, "session is null");
         requireNonNull(slug, "slug is null");
         requireNonNull(queryManager, "queryManager is null");
-        requireNonNull(queryDataProducer, "queryDataProducer is null");
         requireNonNull(queryInfoUrl, "queryInfoUrl is null");
         requireNonNull(exchangeDataSource, "exchangeDataSource is null");
         requireNonNull(resultsProcessorExecutor, "resultsProcessorExecutor is null");
@@ -252,7 +250,6 @@ class Query
         requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
 
         this.queryManager = queryManager;
-        this.queryDataProducer = queryDataProducer;
         this.queryId = session.getQueryId();
         this.session = session;
         this.slug = slug;
@@ -453,7 +450,7 @@ class Query
             resultRows = empty();
         }
 
-        QueryData queryData = queryDataProducer.produce(externalUriInfo, session, resultRows, this::handleSerializationException);
+        QueryData queryData = queryDataProducer.produce(externalUriInfo, resultRows, this::handleSerializationException);
         if (deserializer == null) {
             queryDataProducer.close(); // Close when there are no more pages
         }
@@ -463,7 +460,7 @@ class Query
             updateCount = resultRows.getUpdateCount();
         }
 
-        if (isStarted && (queryInfo.outputStage().isEmpty() || exchangeDataSource.isFinished())) {
+        if (isStarted && (queryInfo.stages().isEmpty() || exchangeDataSource.isFinished())) {
             queryManager.resultsConsumed(queryId);
             resultsConsumed = true;
             queryDataProducer.close();
@@ -478,7 +475,7 @@ class Query
         // (2) there is more data to send (due to buffering)
         //   OR
         // (3) cached query result needs client acknowledgement to discard
-        if (queryInfo.state() != FAILED && (!queryInfo.finalQueryInfo() || !exchangeDataSource.isFinished() || (queryInfo.outputStage().isPresent() && !resultRows.isEmpty()))) {
+        if (queryInfo.state() != FAILED && (!queryInfo.finalQueryInfo() || !exchangeDataSource.isFinished() || (queryInfo.stages().isPresent() && !resultRows.isEmpty()))) {
             nextToken = OptionalLong.of(token + 1);
         }
         else {
@@ -531,7 +528,7 @@ class Query
                 getQueryInfoUri(queryInfoUrl, queryId, externalUriInfo),
                 partialCancelUri,
                 nextResultsUri,
-                resultRows.getOptionalColumns(),
+                columns,
                 queryData,
                 toStatementStats(queryInfo),
                 toQueryError(queryInfo, typeSerializationException),
@@ -568,10 +565,12 @@ class Query
 
     private synchronized QueryResultRows removePagesFromExchange(ResultQueryInfo queryInfo)
     {
-        if (!resultsConsumed && queryInfo.outputStage().isEmpty()) {
-            return queryResultRowsBuilder()
-                    .withColumnsAndTypes(ImmutableList.of(), ImmutableList.of())
-                    .build();
+        if (!resultsConsumed && queryInfo.stages().isEmpty()) {
+            if (columns == null) {
+                columns = ImmutableList.of();
+                types = ImmutableList.of();
+            }
+            return QueryResultRows.empty();
         }
         // Remove as many pages as possible from the exchange until just greater than DESIRED_RESULT_BYTES
         // NOTE: it is critical that query results are created for the pages removed from the exchange
@@ -579,7 +578,7 @@ class Query
         // last page is removed.  If another thread observes this state before the response is cached
         // the pages will be lost.
         QueryResultRows.Builder resultBuilder = queryResultRowsBuilder()
-                .withColumnsAndTypes(columns, types);
+                .withTypes(types);
 
         long targetResultBytes = TARGET_RESULT_SIZE.toBytes();
         try {
@@ -640,7 +639,7 @@ class Query
 
     private void closeExchangeIfNecessary(ResultQueryInfo queryInfo)
     {
-        if (queryInfo.state() != FAILED && queryInfo.outputStage().isPresent()) {
+        if (queryInfo.state() != FAILED && queryInfo.stages().isPresent()) {
             return;
         }
         // Close the exchange client if the query has failed, or if the query
@@ -694,6 +693,7 @@ class Query
             }
             columns = list.build();
             types = outputInfo.getColumnTypes();
+            queryDataProducer = QueryDataProducerFactory.create(session, types);
         }
 
         outputInfo.drainInputs(exchangeDataSource::addInput);
@@ -734,11 +734,17 @@ class Query
     private static Optional<Integer> findCancelableLeafStage(ResultQueryInfo queryInfo)
     {
         // if query is running, find the leaf-most running stage
-        return queryInfo.outputStage().flatMap(Query::findCancelableLeafStage);
+        return queryInfo.stages().flatMap(Query::findCancelableLeafStage);
     }
 
-    private static Optional<Integer> findCancelableLeafStage(BasicStageInfo stage)
+    private static Optional<Integer> findCancelableLeafStage(BasicStagesInfo stages)
     {
+        return findCancelableLeafStage(stages.getOutputStageId(), stages);
+    }
+
+    private static Optional<Integer> findCancelableLeafStage(StageId stageId, BasicStagesInfo stages)
+    {
+        BasicStageInfo stage = stages.getStagesById().get(stageId);
         // if this stage is already done, we can't cancel it
         if (stage.getState().isDone()) {
             return Optional.empty();
@@ -746,8 +752,8 @@ class Query
 
         // attempt to find a cancelable sub stage
         // check in reverse order since build side of a join will be later in the list
-        for (BasicStageInfo subStage : stage.getSubStages().reversed()) {
-            Optional<Integer> leafStage = findCancelableLeafStage(subStage);
+        for (StageId subStageId : stage.getSubStages().reversed()) {
+            Optional<Integer> leafStage = findCancelableLeafStage(subStageId, stages);
             if (leafStage.isPresent()) {
                 return leafStage;
             }

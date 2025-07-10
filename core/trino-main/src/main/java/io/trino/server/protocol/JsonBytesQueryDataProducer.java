@@ -18,9 +18,11 @@ import io.trino.client.QueryData;
 import io.trino.server.ExternalUriInfo;
 import io.trino.server.protocol.JsonEncodingUtils.TypeEncoder;
 import io.trino.spi.TrinoException;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.stream.IntStream;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.server.protocol.JsonEncodingUtils.createTypeEncoders;
@@ -29,28 +31,28 @@ import static java.util.Objects.requireNonNull;
 public class JsonBytesQueryDataProducer
         implements QueryDataProducer
 {
-    private boolean closed;
     private TypeEncoder[] typeEncoders;
     private int[] sourcePageChannels;
+    private boolean closed;
+
+    public JsonBytesQueryDataProducer(Session session, List<Type> types)
+    {
+        requireNonNull(session, "session is null");
+        typeEncoders = createTypeEncoders(session, types);
+        sourcePageChannels = IntStream.range(0, typeEncoders.length)
+                .toArray();
+    }
 
     @Override
-    public QueryData produce(ExternalUriInfo uriInfo, Session session, QueryResultRows rows, Consumer<TrinoException> throwableConsumer)
+    public QueryData produce(ExternalUriInfo uriInfo, QueryResultRows rows, Consumer<TrinoException> throwableConsumer)
     {
         if (rows.isEmpty()) {
             return null;
         }
 
         verify(!closed, "JsonBytesQueryDataProducer is already closed");
-        List<OutputColumn> columns = rows.getOutputColumns();
-        if (typeEncoders == null) {
-            typeEncoders = createTypeEncoders(session, columns);
-            sourcePageChannels = requireNonNull(columns, "columns is null").stream()
-                    .mapToInt(OutputColumn::sourcePageChannel)
-                    .toArray();
-        }
-
         // Write to a buffer so we can capture and propagate the exception
-        return new JsonBytesQueryData(session.toConnectorSession(), throwableConsumer, typeEncoders, sourcePageChannels, rows.getPages());
+        return new JsonBytesQueryData(throwableConsumer, typeEncoders, sourcePageChannels, rows.getPages());
     }
 
     @Override
@@ -59,8 +61,8 @@ public class JsonBytesQueryDataProducer
         if (closed) {
             return;
         }
-        sourcePageChannels = null;
         typeEncoders = null;
+        sourcePageChannels = null;
         closed = true;
     }
 }
