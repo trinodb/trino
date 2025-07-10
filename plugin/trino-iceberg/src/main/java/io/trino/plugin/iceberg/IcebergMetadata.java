@@ -3589,13 +3589,10 @@ public class IcebergMetadata
             fullPath.add(projectedColumnIdentity.getId());
         }
 
-        return new IcebergColumnHandle(
-                column.getBaseColumnIdentity(),
-                column.getBaseType(),
-                fullPath.build(),
-                projectedColumnType,
-                true,
-                Optional.empty());
+        return IcebergColumnHandle.optional(column.getBaseColumnIdentity())
+                .fieldType(column.getBaseType(), projectedColumnType)
+                .path(fullPath.build())
+                .build();
     }
 
     @Override
