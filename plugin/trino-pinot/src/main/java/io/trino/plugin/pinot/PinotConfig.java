@@ -270,4 +270,10 @@ public class PinotConfig
                 .distinct()
                 .count() == 1;
     }
+
+    @AssertTrue(message = "Invalid configuration: pinot.broker-url and pinot.proxy.enabled cannot both be set.")
+    public boolean isValidBrokerProxyConfiguration()
+    {
+        return !(brokerUrl.isPresent() && proxyEnabled);
+    }
 }
