@@ -194,6 +194,15 @@ public class TestMemoryDefaultColumnValue
         assertDefaultValue("TIMESTAMP(12) WITH TIME ZONE", "TIMESTAMP '1970-01-01 00:00:00.999999999999 UTC'");
     }
 
+    @Test
+    void testInformationSchema()
+    {
+        try (TestTable table = newTrinoTable("test_default_value", "(id int, data int DEFAULT 123)")) {
+            assertThat((String) computeScalar("SELECT column_default FROM information_schema.columns WHERE table_name = '" + table.getName() + "' AND column_name = 'data'"))
+                    .isEqualTo("123");
+        }
+    }
+
     private void assertDefaultValue(@Language("SQL") String columnType, @Language("SQL") String defaultValue)
     {
         assertDefaultValue(columnType, defaultValue, defaultValue);
