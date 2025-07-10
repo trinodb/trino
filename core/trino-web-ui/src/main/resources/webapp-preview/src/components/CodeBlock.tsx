@@ -20,11 +20,12 @@ export interface ICodeBlockProps {
     code: string
     language: string
     height?: string
+    noBottomBorder?: boolean
 }
 
 export const CodeBlock = (props: ICodeBlockProps) => {
     const config = useConfigStore()
-    const { code, language, height } = props
+    const { code, language, height, noBottomBorder } = props
     const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)')
 
     const styleToUse = () => {
@@ -46,7 +47,7 @@ export const CodeBlock = (props: ICodeBlockProps) => {
                 padding: 0,
                 borderRadius: 0,
                 border: `1px solid ${theme.palette.mode === 'dark' ? '#3f3f3f' : '#ddd'}`,
-                borderBottom: 'none',
+                borderBottom: noBottomBorder ? 'none' : '',
                 width: '100%',
                 height: {
                     xs: '100%',
