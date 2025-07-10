@@ -10,6 +10,8 @@ ALTER TABLE [ IF EXISTS ] name ADD COLUMN [ IF NOT EXISTS ] column_name data_typ
   [ FIRST | LAST | AFTER after_column_name ]
 ALTER TABLE [ IF EXISTS ] name DROP COLUMN [ IF EXISTS ] column_name
 ALTER TABLE [ IF EXISTS ] name RENAME COLUMN [ IF EXISTS ] old_name TO new_name
+ALTER TABLE [ IF EXISTS ] name ALTER COLUMN column_name SET DEFAULT expression
+ALTER TABLE [ IF EXISTS ] name ALTER COLUMN column_name DROP DEFAULT
 ALTER TABLE [ IF EXISTS ] name ALTER COLUMN column_name SET DATA TYPE new_type
 ALTER TABLE [ IF EXISTS ] name ALTER COLUMN column_name DROP NOT NULL
 ALTER TABLE name SET AUTHORIZATION ( user | USER user | ROLE role )

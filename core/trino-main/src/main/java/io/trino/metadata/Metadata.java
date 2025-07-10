@@ -301,6 +301,16 @@ public interface Metadata
     void addField(Session session, TableHandle tableHandle, List<String> parentPath, String fieldName, Type type, boolean ignoreExisting);
 
     /**
+     * Set the specified default value to the column.
+     */
+    void setDefaultValue(Session session, TableHandle tableHandle, ColumnHandle column, String defaultValue);
+
+    /**
+     * Drop a default value on the specified column.
+     */
+    void dropDefaultValue(Session session, TableHandle tableHandle, ColumnHandle column);
+
+    /**
      * Set the specified type to the column.
      */
     void setColumnType(Session session, TableHandle tableHandle, ColumnHandle column, Type type);

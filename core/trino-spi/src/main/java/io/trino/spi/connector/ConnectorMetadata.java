@@ -591,6 +591,22 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Set the specified default value
+     */
+    default void setDefaultValue(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, String defaultValue)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting default values");
+    }
+
+    /**
+     * Drop a default value on the specified column
+     */
+    default void dropDefaultValue(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping default values");
+    }
+
+    /**
      * Set the specified column type
      */
     default void setColumnType(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, Type type)
