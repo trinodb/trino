@@ -436,13 +436,12 @@ public final class IcebergUtil
 
     private static IcebergColumnHandle createColumnHandle(NestedField baseColumn, NestedField childColumn, TypeManager typeManager, List<Integer> path)
     {
-        return new IcebergColumnHandle(
-                createColumnIdentity(baseColumn),
-                toTrinoType(baseColumn.type(), typeManager),
-                path,
-                toTrinoType(childColumn.type(), typeManager),
-                childColumn.isOptional(),
-                Optional.ofNullable(childColumn.doc()));
+        return IcebergColumnHandle.builder(createColumnIdentity(baseColumn))
+                .fieldType(toTrinoType(baseColumn.type(), typeManager), toTrinoType(childColumn.type(), typeManager))
+                .path(path)
+                .nullable(childColumn.isOptional())
+                .comment(childColumn.doc())
+                .build();
     }
 
     public static Schema schemaFromHandles(List<IcebergColumnHandle> columns)

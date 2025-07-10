@@ -970,7 +970,7 @@ public class TestIcebergV2
                     table,
                     snapshotId,
                     TupleDomain.withColumnDomains(ImmutableMap.of(
-                            new IcebergColumnHandle(ColumnIdentity.primitiveColumnIdentity(2, "b"), INTEGER, ImmutableList.of(), INTEGER, true, Optional.empty()),
+                            IcebergColumnHandle.optional(ColumnIdentity.primitiveColumnIdentity(2, "b")).columnType(INTEGER).build(),
                             Domain.singleValue(INTEGER, 10L))),
                     TupleDomain.all(),
                     ImmutableSet.of(),
@@ -979,7 +979,7 @@ public class TestIcebergV2
                     fileSystemFactory.create(SESSION));
             assertThat(withPartitionFilter.getRowCount().getValue()).isEqualTo(3.0);
 
-            IcebergColumnHandle column = new IcebergColumnHandle(ColumnIdentity.primitiveColumnIdentity(1, "a"), INTEGER, ImmutableList.of(), INTEGER, true, Optional.empty());
+            IcebergColumnHandle column = IcebergColumnHandle.optional(ColumnIdentity.primitiveColumnIdentity(1, "a")).columnType(INTEGER).build();
             TableStatistics withUnenforcedFilter = TableStatisticsReader.makeTableStatistics(
                     typeManager,
                     table,
@@ -1019,7 +1019,7 @@ public class TestIcebergV2
             assertThat(withNoProjectedColumns.getRowCount().getValue()).isEqualTo(4.0);
             assertThat(withNoProjectedColumns.getColumnStatistics()).isEmpty();
 
-            IcebergColumnHandle column = new IcebergColumnHandle(ColumnIdentity.primitiveColumnIdentity(1, "a"), INTEGER, ImmutableList.of(), INTEGER, true, Optional.empty());
+            IcebergColumnHandle column = IcebergColumnHandle.optional(ColumnIdentity.primitiveColumnIdentity(1, "a")).columnType(INTEGER).build();
             TableStatistics withProjectedColumns = TableStatisticsReader.makeTableStatistics(
                     typeManager,
                     table,
@@ -1045,7 +1045,7 @@ public class TestIcebergV2
                     snapshotId,
                     TupleDomain.all(),
                     TupleDomain.withColumnDomains(ImmutableMap.of(
-                            new IcebergColumnHandle(ColumnIdentity.primitiveColumnIdentity(2, "b"), INTEGER, ImmutableList.of(), INTEGER, true, Optional.empty()),
+                            IcebergColumnHandle.optional(ColumnIdentity.primitiveColumnIdentity(2, "b")).columnType(INTEGER).build(),
                             Domain.singleValue(INTEGER, 10L))),
                     ImmutableSet.of(column),
                     true,
