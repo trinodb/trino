@@ -148,6 +148,7 @@ import io.trino.sql.tree.Deny;
 import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.DropCatalog;
 import io.trino.sql.tree.DropColumn;
+import io.trino.sql.tree.DropDefaultValue;
 import io.trino.sql.tree.DropMaterializedView;
 import io.trino.sql.tree.DropNotNullConstraint;
 import io.trino.sql.tree.DropSchema;
@@ -234,6 +235,7 @@ import io.trino.sql.tree.Select;
 import io.trino.sql.tree.SelectItem;
 import io.trino.sql.tree.SetAuthorizationStatement;
 import io.trino.sql.tree.SetColumnType;
+import io.trino.sql.tree.SetDefaultValue;
 import io.trino.sql.tree.SetOperation;
 import io.trino.sql.tree.SetProperties;
 import io.trino.sql.tree.SetSession;
@@ -1122,6 +1124,18 @@ class StatementAnalyzer
                     throw semanticException(NOT_SUPPORTED, node, "Adding fields with COMMENT is unsupported");
                 }
             }
+            return createAndAssignScope(node, scope);
+        }
+
+        @Override
+        protected Scope visitSetDefaultValue(SetDefaultValue node, Optional<Scope> scope)
+        {
+            return createAndAssignScope(node, scope);
+        }
+
+        @Override
+        protected Scope visitDropDefaultValue(DropDefaultValue node, Optional<Scope> scope)
+        {
             return createAndAssignScope(node, scope);
         }
 
