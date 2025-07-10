@@ -20,6 +20,7 @@ import io.airlift.units.Duration;
 import io.trino.orc.OrcWriteValidation.OrcWriteValidationMode;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.hive.HiveCompressionOption;
+import io.trino.plugin.hive.SortingFileWriterConfig;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
@@ -106,6 +107,10 @@ public final class IcebergSessionProperties
     public static final String REMOVE_ORPHAN_FILES_MIN_RETENTION = "remove_orphan_files_min_retention";
     private static final String MERGE_MANIFESTS_ON_WRITE = "merge_manifests_on_write";
     private static final String SORTED_WRITING_ENABLED = "sorted_writing_enabled";
+    private static final String SORTED_WRITING_WRITER_BUFFER_SIZE = "sorted_writing_write_buffer_size";
+    private static final String SORTED_WRITING_WRITER_MAX_OPEN_FILES = "sorted_writing_writer_max_open_files";
+    private static final String SORTED_WRITING_TEMP_STAGING_DIR_ENABLED = "sorted_writing_temporary_staging_directory_enabled";
+    private static final String SORTED_WRITING_TEMP_STAGING_DIR_PATH = "sorted_writing_temporary_staging_directory_path";
     private static final String QUERY_PARTITION_FILTER_REQUIRED = "query_partition_filter_required";
     private static final String QUERY_PARTITION_FILTER_REQUIRED_SCHEMAS = "query_partition_filter_required_schemas";
     private static final String INCREMENTAL_REFRESH_ENABLED = "incremental_refresh_enabled";
@@ -121,7 +126,8 @@ public final class IcebergSessionProperties
             OrcReaderConfig orcReaderConfig,
             OrcWriterConfig orcWriterConfig,
             ParquetReaderConfig parquetReaderConfig,
-            ParquetWriterConfig parquetWriterConfig)
+            ParquetWriterConfig parquetWriterConfig,
+            SortingFileWriterConfig sortingFileWriterConfig)
     {
         sessionProperties = ImmutableList.<PropertyMetadata<?>>builder()
                 .add(dataSizeProperty(
@@ -367,6 +373,26 @@ public final class IcebergSessionProperties
                         SORTED_WRITING_ENABLED,
                         "Enable sorted writing to tables with a specified sort order",
                         icebergConfig.isSortedWritingEnabled(),
+                        false))
+                .add(dataSizeProperty(
+                        SORTED_WRITING_WRITER_BUFFER_SIZE,
+                        "Target size of buffer files used during sorting",
+                        sortingFileWriterConfig.getWriterSortBufferSize(),
+                        false))
+                .add(integerProperty(
+                        SORTED_WRITING_WRITER_MAX_OPEN_FILES,
+                        "Max number of concurrently open buffer files during sorting",
+                        sortingFileWriterConfig.getMaxOpenSortFiles(),
+                        false))
+                .add(booleanProperty(
+                        SORTED_WRITING_TEMP_STAGING_DIR_ENABLED,
+                        "Should use (if possible) temporary staging directory for write operations",
+                        icebergConfig.isTemporaryStagingDirectoryEnabled(),
+                        false))
+                .add(stringProperty(
+                        SORTED_WRITING_TEMP_STAGING_DIR_PATH,
+                        "Location of temporary staging directory for write operations. Use ${USER} placeholder to use different location for each user",
+                        icebergConfig.getTemporaryStagingDirectoryPath(),
                         false))
                 .add(booleanProperty(
                         QUERY_PARTITION_FILTER_REQUIRED,
@@ -641,6 +667,26 @@ public final class IcebergSessionProperties
     public static boolean isSortedWritingEnabled(ConnectorSession session)
     {
         return session.getProperty(SORTED_WRITING_ENABLED, Boolean.class);
+    }
+
+    public static DataSize getSortedWritingWriterBufferSize(ConnectorSession session)
+    {
+        return session.getProperty(SORTED_WRITING_WRITER_BUFFER_SIZE, DataSize.class);
+    }
+
+    public static Integer getSortedWritingWriterMaxOpenFiles(ConnectorSession session)
+    {
+        return session.getProperty(SORTED_WRITING_WRITER_MAX_OPEN_FILES, Integer.class);
+    }
+
+    public static boolean isSortedWritingTempStagingDirEnabled(ConnectorSession session)
+    {
+        return session.getProperty(SORTED_WRITING_TEMP_STAGING_DIR_ENABLED, Boolean.class);
+    }
+
+    public static String getSortedWritingTempStagingDirPath(ConnectorSession session)
+    {
+        return session.getProperty(SORTED_WRITING_TEMP_STAGING_DIR_PATH, String.class);
     }
 
     public static boolean isQueryPartitionFilterRequired(ConnectorSession session)

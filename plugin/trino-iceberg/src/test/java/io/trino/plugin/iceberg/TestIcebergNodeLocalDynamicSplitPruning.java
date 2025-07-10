@@ -30,6 +30,7 @@ import io.trino.orc.OrcWriterStats;
 import io.trino.orc.OutputStreamOrcDataSink;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveTransactionHandle;
+import io.trino.plugin.hive.SortingFileWriterConfig;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
@@ -91,6 +92,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
     private static final OrcWriterConfig ORC_WRITER_CONFIG = new OrcWriterConfig();
     private static final ParquetReaderConfig PARQUET_READER_CONFIG = new ParquetReaderConfig();
     private static final ParquetWriterConfig PARQUET_WRITER_CONFIG = new ParquetWriterConfig();
+    private static final SortingFileWriterConfig SORTING_FILE_WRITER_CONFIG = new SortingFileWriterConfig();
 
     @Test
     public void testDynamicSplitPruningOnUnpartitionedTable()
@@ -594,7 +596,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
     private static TestingConnectorSession getSession(IcebergConfig icebergConfig)
     {
         return TestingConnectorSession.builder()
-                .setPropertyMetadata(new IcebergSessionProperties(icebergConfig, ORC_READER_CONFIG, ORC_WRITER_CONFIG, PARQUET_READER_CONFIG, PARQUET_WRITER_CONFIG).getSessionProperties())
+                .setPropertyMetadata(new IcebergSessionProperties(icebergConfig, ORC_READER_CONFIG, ORC_WRITER_CONFIG, PARQUET_READER_CONFIG, PARQUET_WRITER_CONFIG, SORTING_FILE_WRITER_CONFIG).getSessionProperties())
                 .build();
     }
 
