@@ -406,11 +406,7 @@ public class TeradataClient
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support delete operations");
     }
 
-    @Override
-    public void dropTable(ConnectorSession session, JdbcTableHandle handle)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping tables");
-    }
+
 
     @Override
     public void truncateTable(ConnectorSession session, JdbcTableHandle handle)
@@ -704,4 +700,5 @@ public class TeradataClient
 
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
     }
+
 }

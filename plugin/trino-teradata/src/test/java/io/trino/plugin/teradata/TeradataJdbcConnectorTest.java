@@ -32,6 +32,9 @@ public class TeradataJdbcConnectorTest
                  SUPPORTS_MERGE,
                  SUPPORTS_COMMENT_ON_TABLE,
                  SUPPORTS_COMMENT_ON_COLUMN,
+                 SUPPORTS_CREATE_TABLE_WITH_DATA,
+                 SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT,
+                 SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
                  SUPPORTS_RENAME_SCHEMA -> false;
             case SUPPORTS_CREATE_SCHEMA,
                  SUPPORTS_CREATE_TABLE,
@@ -58,6 +61,7 @@ public class TeradataJdbcConnectorTest
         database.createTestDatabaseIfAbsent();
         return TeradataQueryRunner.builder().addCoordinatorProperty("http-server.http.port", "8080").setInitialTables(REQUIRED_TPCH_TABLES).build();
     }
+
 
     @AfterAll
     public void cleanupTestDatabase()
