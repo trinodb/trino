@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>277</version>
+        <version>278</version>
     </parent>
 
     <groupId>io.trino</groupId>
@@ -207,7 +207,7 @@
         <dep.parquet.version>1.15.2</dep.parquet.version>
         <dep.plugin.failsafe.version>${dep.plugin.surefire.version}</dep.plugin.failsafe.version>
         <dep.protobuf.version>3.25.8</dep.protobuf.version>
-        <dep.snowflake.version>3.24.2</dep.snowflake.version>
+        <dep.snowflake.version>3.25.0</dep.snowflake.version>
         <dep.swagger.version>2.2.34</dep.swagger.version>
         <dep.takari.version>2.3.2</dep.takari.version>
         <dep.tcnative.version>2.0.72.Final</dep.tcnative.version>
@@ -290,14 +290,6 @@
             </dependency>
 
             <dependency>
-                <groupId>org.ow2.asm</groupId>
-                <artifactId>asm-bom</artifactId>
-                <version>${dep.asm.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-
-            <dependency>
                 <groupId>org.testcontainers</groupId>
                 <artifactId>testcontainers-bom</artifactId>
                 <version>1.21.3</version>
@@ -308,7 +300,7 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.31.77</version>
+                <version>2.31.78</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -1919,7 +1911,7 @@
             <dependency>
                 <groupId>org.apache.commons</groupId>
                 <artifactId>commons-lang3</artifactId>
-                <version>3.17.0</version>
+                <version>3.18.0</version>
             </dependency>
 
             <dependency>
