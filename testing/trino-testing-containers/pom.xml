@@ -10,6 +10,7 @@
     </parent>
 
     <artifactId>trino-testing-containers</artifactId>
+    <name>${project.artifactId}</name>
     <description>Trino - Testing containers</description>
 
     <dependencies>
@@ -25,7 +26,7 @@
 
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
-            <artifactId>okhttp</artifactId>
+            <artifactId>okhttp-jvm</artifactId>
         </dependency>
 
         <dependency>

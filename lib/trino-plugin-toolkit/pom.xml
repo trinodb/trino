@@ -10,6 +10,7 @@
     </parent>
 
     <artifactId>trino-plugin-toolkit</artifactId>
+    <name>${project.artifactId}</name>
     <description>Trino - Plugin Toolkit</description>
 
     <dependencies>
@@ -41,6 +42,7 @@
         <dependency>
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>
+            <classifier>classes</classifier>
         </dependency>
 
         <dependency>

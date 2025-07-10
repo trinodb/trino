@@ -10,6 +10,7 @@
     </parent>
 
     <artifactId>trino-metastore</artifactId>
+    <name>${project.artifactId}</name>
     <description>Trino - Metastore</description>
 
     <properties>
@@ -36,6 +37,7 @@
         <dependency>
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>
+            <classifier>classes</classifier>
         </dependency>
 
         <dependency>

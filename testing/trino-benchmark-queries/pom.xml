@@ -9,6 +9,7 @@
     </parent>
 
     <artifactId>trino-benchmark-queries</artifactId>
+    <name>${project.artifactId}</name>
     <description>Trino - Benchmark queries</description>
 
     <dependencies>

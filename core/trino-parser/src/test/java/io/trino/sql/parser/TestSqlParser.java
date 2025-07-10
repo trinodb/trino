@@ -49,6 +49,7 @@ import io.trino.sql.tree.CreateTable;
 import io.trino.sql.tree.CreateTableAsSelect;
 import io.trino.sql.tree.CreateView;
 import io.trino.sql.tree.CurrentTimestamp;
+import io.trino.sql.tree.DataType;
 import io.trino.sql.tree.Deallocate;
 import io.trino.sql.tree.DecimalLiteral;
 import io.trino.sql.tree.Delete;
@@ -122,6 +123,7 @@ import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.Lateral;
 import io.trino.sql.tree.LikeClause;
 import io.trino.sql.tree.Limit;
+import io.trino.sql.tree.Literal;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.MeasureDefinition;
@@ -265,6 +267,7 @@ import static io.trino.sql.parser.ParserAssert.expression;
 import static io.trino.sql.parser.ParserAssert.rowPattern;
 import static io.trino.sql.parser.ParserAssert.statement;
 import static io.trino.sql.parser.TreeNodes.columnDefinition;
+import static io.trino.sql.parser.TreeNodes.columnDefinitionWithDefault;
 import static io.trino.sql.parser.TreeNodes.dateTimeType;
 import static io.trino.sql.parser.TreeNodes.field;
 import static io.trino.sql.parser.TreeNodes.location;
@@ -2397,6 +2400,60 @@ public class TestSqlParser
     }
 
     @Test
+    void testCreateTableWithDefault()
+    {
+        assertThat(statement("CREATE TABLE foo (a VARCHAR, b BIGINT DEFAULT 123, c IPADDRESS)"))
+                .isEqualTo(new CreateTable(
+                        location(1, 1),
+                        qualifiedName(location(1, 14), "foo"),
+                        ImmutableList.of(
+                                columnDefinition(location(1, 19), "a", simpleType(location(1, 21), "VARCHAR")),
+                                columnDefinitionWithDefault(location(1, 30), "b", simpleType(location(1, 32), "BIGINT"), new LongLiteral(location(1, 47), "123")),
+                                columnDefinition(location(1, 52), "c", simpleType(location(1, 54), "IPADDRESS"))),
+                        FAIL,
+                        ImmutableList.of(),
+                        Optional.empty()));
+
+        assertThat(statement("CREATE TABLE foo (a VARCHAR DEFAULT 'test default' COMMENT 'test comment')"))
+                .isEqualTo(new CreateTable(
+                        location(1, 1),
+                        qualifiedName(location(1, 14), "foo"),
+                        ImmutableList.of(
+                                columnDefinitionWithDefault(
+                                        location(1, 19),
+                                        "a",
+                                        simpleType(location(1, 21), "VARCHAR"),
+                                        new StringLiteral(location(1, 37), "test default"),
+                                        "test comment")),
+                        FAIL,
+                        ImmutableList.of(),
+                        Optional.empty()));
+
+        NodeLocation location = location(1, 19);
+        DataType type = simpleType(location(1, 21), "VARCHAR");
+        Literal defaultValue = new NullLiteral(location(1, 37));
+        assertThat(statement("CREATE TABLE foo (a VARCHAR DEFAULT NULL NOT NULL)"))
+                .isEqualTo(new CreateTable(
+                        location(1, 1),
+                        qualifiedName(location(1, 14), "foo"),
+                        ImmutableList.of(
+                                new ColumnDefinition(location,
+                                        qualifiedName(location, "a"),
+                                        type,
+                                        Optional.of(defaultValue),
+                                        false,
+                                        emptyList(),
+                                        Optional.empty())),
+                        FAIL,
+                        ImmutableList.of(),
+                        Optional.empty()));
+
+        assertThatThrownBy(() -> SQL_PARSER.createStatement("CREATE TABLE foo (a VARCHAR DEFAULT CURRENT_USER)"))
+                .isInstanceOf(ParsingException.class)
+                .hasMessageMatching("line 1:37: mismatched input 'CURRENT_USER'.*");
+    }
+
+    @Test
     public void testCreateTableWithNotNull()
     {
         assertThat(statement(
@@ -3771,6 +3828,60 @@ public class TestSqlParser
                         new NodeLocation(1, 1),
                         QualifiedName.of("foo", "t"),
                         new ColumnDefinition(QualifiedName.of("c"), simpleType(location(1, 31), "bigint"), true, emptyList(), Optional.empty()), Optional.empty(), false, false));
+
+        // default column values
+        assertThat(statement("ALTER TABLE foo.t ADD COLUMN c bigint DEFAULT 123"))
+                .ignoringLocation()
+                .isEqualTo(new AddColumn(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("foo", "t"),
+                        columnDefinitionWithDefault(
+                                location(1, 30),
+                                "c",
+                                simpleType(location(1, 31), "bigint"),
+                                new LongLiteral(location(1, 47), "123")),
+                        Optional.empty(),
+                        false,
+                        false));
+
+        assertThat(statement("ALTER TABLE foo.t ADD COLUMN c varchar DEFAULT 'test default' COMMENT 'test comment'"))
+                .ignoringLocation()
+                .isEqualTo(new AddColumn(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("foo", "t"),
+                        columnDefinitionWithDefault(
+                                location(1, 30),
+                                "c",
+                                simpleType(location(1, 31), "varchar"),
+                                new StringLiteral(location(1, 47), "test default"),
+                                "test comment"),
+                        Optional.empty(),
+                        false,
+                        false));
+
+        NodeLocation location = location(1, 30);
+        DataType type = simpleType(location(1, 31), "varchar");
+        Literal defaultValue = new NullLiteral(location(1, 47));
+        assertThat(statement("ALTER TABLE foo.t ADD COLUMN c varchar DEFAULT NULL NOT NULL"))
+                .ignoringLocation()
+                .isEqualTo(new AddColumn(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("foo", "t"),
+                        new ColumnDefinition(
+                                location,
+                                qualifiedName(location, "c"),
+                                type,
+                                Optional.of(defaultValue),
+                                false,
+                                emptyList(),
+                                Optional.empty()),
+                        Optional.empty(),
+                        false,
+                        false));
+
+        assertThatThrownBy(() -> SQL_PARSER.createStatement("ALTER TABLE foo.t ADD COLUMN c varchar DEFAULT CURRENT_USER"))
+                .isInstanceOf(ParsingException.class)
+                .hasMessageMatching("line 1:48: mismatched input 'CURRENT_USER'.*");
 
         assertThat(statement("ALTER TABLE foo.t ADD COLUMN d double NOT NULL"))
                 .ignoringLocation()

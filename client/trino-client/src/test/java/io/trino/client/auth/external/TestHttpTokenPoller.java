@@ -13,13 +13,12 @@
  */
 package io.trino.client.auth.external;
 
+import mockwebserver3.MockResponse;
+import mockwebserver3.MockWebServer;
+import mockwebserver3.RecordedRequest;
+import mockwebserver3.junit5.StartStop;
 import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
-import okhttp3.mockwebserver.MockResponse;
-import okhttp3.mockwebserver.MockWebServer;
-import okhttp3.mockwebserver.RecordedRequest;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
@@ -46,28 +45,12 @@ public class TestHttpTokenPoller
     private static final String TOKEN_PATH = "/v1/authentications/sso/test/token";
     private static final Duration ONE_SECOND = Duration.ofSeconds(1);
 
-    private TokenPoller tokenPoller;
-    private MockWebServer server;
-
-    @BeforeEach
-    public void setup()
-            throws Exception
-    {
-        server = new MockWebServer();
-        server.start();
-
-        tokenPoller = new HttpTokenPoller(new OkHttpClient.Builder()
+    private static final TokenPoller tokenPoller = new HttpTokenPoller(new OkHttpClient.Builder()
                 .callTimeout(Duration.ofMillis(500))
                 .build());
-    }
 
-    @AfterEach
-    public void teardown()
-            throws IOException
-    {
-        server.close();
-        server = null;
-    }
+    @StartStop
+    private final MockWebServer server = new MockWebServer();
 
     @Test
     public void testTokenReady()
@@ -105,7 +88,7 @@ public class TestHttpTokenPoller
     @Test
     public void testBadHttpStatus()
     {
-        server.enqueue(new MockResponse().setResponseCode(HTTP_GONE));
+        server.enqueue(new MockResponse.Builder().code(HTTP_GONE).build());
 
         TokenPollResult result = tokenPoller.pollForToken(tokenUri(), ONE_SECOND);
 
@@ -174,7 +157,7 @@ public class TestHttpTokenPoller
 
         RecordedRequest request = server.takeRequest(1, MILLISECONDS);
         assertThat(request.getMethod()).isEqualTo("DELETE");
-        assertThat(request.getRequestUrl()).isEqualTo(HttpUrl.get(tokenUri()));
+        assertThat(request.getUrl()).isEqualTo(HttpUrl.get(tokenUri()));
     }
 
     @Test
@@ -214,15 +197,17 @@ public class TestHttpTokenPoller
 
     private static MockResponse statusAndBody(int status, String body)
     {
-        return new MockResponse()
-                .setResponseCode(status)
+        return new MockResponse.Builder()
+                .code(status)
                 .addHeader(CONTENT_TYPE, JSON_UTF_8)
-                .setBody(body);
+                .body(body)
+                .build();
     }
 
     private static MockResponse status(int status)
     {
-        return new MockResponse()
-                .setResponseCode(status);
+        return new MockResponse.Builder()
+                .code(status)
+                .build();
     }
 }

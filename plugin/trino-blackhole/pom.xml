@@ -11,6 +11,7 @@
 
     <artifactId>trino-blackhole</artifactId>
     <packaging>trino-plugin</packaging>
+    <name>${project.artifactId}</name>
     <description>Trino - Black Hole connector</description>
 
     <dependencies>

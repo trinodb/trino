@@ -10,6 +10,7 @@
     </parent>
 
     <artifactId>trino-test-jdbc-compatibility-old-driver</artifactId>
+    <name>${project.artifactId}</name>
     <description>Trino - Old JDBC driver compatibility tests</description>
 
     <properties>

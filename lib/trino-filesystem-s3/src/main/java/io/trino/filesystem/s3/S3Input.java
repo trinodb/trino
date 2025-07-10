@@ -102,7 +102,7 @@ final class S3Input
     {
         try {
             return client.getObject(rangeRequest, (_, inputStream) -> {
-                try {
+                try (inputStream) {
                     return inputStream.readNBytes(buffer, offset, length);
                 }
                 catch (AbortedException _) {

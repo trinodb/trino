@@ -310,7 +310,6 @@ public class SpillableHashAggregationBuilder
             }
         });
 
-        spiller = Optional.empty();
         return mergeSortedPages(mergedSpilledPages, max(memoryLimitForMerge - memoryLimitForMergeWithMemory, 1L));
     }
 

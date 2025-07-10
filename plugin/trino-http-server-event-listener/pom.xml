@@ -11,6 +11,7 @@
 
     <artifactId>trino-http-server-event-listener</artifactId>
     <packaging>trino-plugin</packaging>
+    <name>${project.artifactId}</name>
     <description>Trino event listener exposing collected event via HTTP server</description>
 
     <properties>
@@ -26,6 +27,7 @@
         <dependency>
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>
+            <classifier>classes</classifier>
         </dependency>
 
         <dependency>

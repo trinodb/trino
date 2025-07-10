@@ -232,7 +232,7 @@ tableElement
     ;
 
 columnDefinition
-    : qualifiedName type (NOT NULL)? (COMMENT string)? (WITH properties)?
+    : qualifiedName type (DEFAULT literal)? (NOT NULL)? (COMMENT string)? (WITH properties)?
     ;
 
 likeClause
@@ -577,14 +577,7 @@ valueExpression
     ;
 
 primaryExpression
-    : NULL                                                                                #nullLiteral
-    | interval                                                                            #intervalLiteral
-    | identifier string                                                                   #typeConstructor
-    | DOUBLE PRECISION string                                                             #typeConstructor
-    | number                                                                              #numericLiteral
-    | booleanValue                                                                        #booleanLiteral
-    | string                                                                              #stringLiteral
-    | BINARY_LITERAL                                                                      #binaryLiteral
+    : literal                                                                             #literals
     | QUESTION_MARK                                                                       #parameter
     | POSITION '(' valueExpression IN valueExpression ')'                                 #position
     | '(' expression (',' expression)+ ')'                                                #rowConstructor
@@ -659,6 +652,17 @@ primaryExpression
         )?
         (RETURNING type (FORMAT jsonRepresentation)?)?
      ')'                                                                                  #jsonArray
+    ;
+
+literal
+    : interval                                                                            #intervalLiteral
+    | identifier string                                                                   #typeConstructor
+    | DOUBLE PRECISION string                                                             #typeConstructor
+    | number                                                                              #numericLiteral
+    | booleanValue                                                                        #booleanLiteral
+    | string                                                                              #stringLiteral
+    | BINARY_LITERAL                                                                      #binaryLiteral
+    | NULL                                                                                #nullLiteral
     ;
 
 jsonPathInvocation

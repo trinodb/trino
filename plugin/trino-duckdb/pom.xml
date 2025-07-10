@@ -11,6 +11,7 @@
 
     <artifactId>trino-duckdb</artifactId>
     <packaging>trino-plugin</packaging>
+    <name>${project.artifactId}</name>
     <description>Trino - DuckDB Connector</description>
 
     <properties>
@@ -26,6 +27,7 @@
         <dependency>
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>
+            <classifier>classes</classifier>
         </dependency>
 
         <dependency>

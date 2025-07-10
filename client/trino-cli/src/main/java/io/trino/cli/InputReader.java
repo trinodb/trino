@@ -14,10 +14,13 @@
 package io.trino.cli;
 
 import com.google.common.io.Closer;
+import org.jline.keymap.KeyMap;
+import org.jline.reader.Binding;
 import org.jline.reader.Completer;
 import org.jline.reader.History;
 import org.jline.reader.LineReader;
 import org.jline.reader.LineReaderBuilder;
+import org.jline.reader.Reference;
 import org.jline.reader.impl.completer.AggregateCompleter;
 import org.jline.terminal.Terminal;
 import org.jline.utils.AttributedString;
@@ -58,7 +61,7 @@ public class InputReader
         historyFile.ifPresent(path -> builder.variable(HISTORY_FILE, path));
         reader = builder.build();
 
-        reader.getKeyMaps().put(MAIN, reader.getKeyMaps().get(editingMode.getKeyMap()));
+        reader.getKeyMaps().put(MAIN, configureKeyMap(reader, editingMode));
         reader.unsetOpt(HISTORY_TIMESTAMPED);
         if (!disableAutoSuggestion) {
             AutosuggestionWidgets autosuggestionWidgets = new AutosuggestionWidgets(reader);
@@ -94,5 +97,13 @@ public class InputReader
     private static String colored(String value)
     {
         return new AttributedString(value, DEFAULT.foreground(BRIGHT)).toAnsi();
+    }
+
+    private static KeyMap<Binding> configureKeyMap(LineReader reader, ClientOptions.EditingMode editingMode)
+    {
+        KeyMap<Binding> bindingKeyMap = reader.getKeyMaps().get(editingMode.getKeyMap());
+        bindingKeyMap.bind(new Reference(LineReader.UP_HISTORY), "\u001b[1;3A"); // alt + up
+        bindingKeyMap.bind(new Reference(LineReader.DOWN_HISTORY), "\u001b[1;3B"); // alt + down
+        return bindingKeyMap;
     }
 }

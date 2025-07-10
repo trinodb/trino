@@ -10,6 +10,7 @@
     </parent>
 
     <artifactId>trino-base-jdbc</artifactId>
+    <name>${project.artifactId}</name>
     <description>Trino - Base JDBC connector library</description>
 
     <dependencies>
@@ -32,6 +33,7 @@
         <dependency>
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>
+            <classifier>classes</classifier>
         </dependency>
 
         <dependency>

@@ -139,6 +139,13 @@ public class TestHashBuilderOperator
             assertThat(whenBuildFinishes).isNotDone();
             assertThat(operatorContext.isWaitingForMemory()).isNotDone();
 
+            // still not enough memory to create lookup source
+            operator.finish();
+            assertThat(operator.getState()).isEqualTo(CONSUMING_INPUT);
+            assertThat(operator.isFinished()).isFalse();
+            assertThat(whenBuildFinishes).isNotDone();
+            assertThat(operatorContext.isWaitingForMemory()).isNotDone();
+
             anotherOperatorContext.getOperatorMemoryContext().localUserMemoryContext().setBytes(0);
 
             operator.finish();

@@ -10,6 +10,7 @@
 
     <artifactId>trino-teradata-functions</artifactId>
     <packaging>trino-plugin</packaging>
+    <name>${project.artifactId}</name>
     <description>Trino - Teradata functions</description>
 
     <properties>

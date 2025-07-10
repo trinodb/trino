@@ -11,6 +11,7 @@
 
     <artifactId>trino-password-authenticators</artifactId>
     <packaging>trino-plugin</packaging>
+    <name>${project.artifactId}</name>
     <description>Trino - Password authentication</description>
 
     <dependencies>
@@ -28,6 +29,7 @@
         <dependency>
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>
+            <classifier>classes</classifier>
         </dependency>
 
         <dependency>

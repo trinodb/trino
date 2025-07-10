@@ -10,6 +10,7 @@
     </parent>
 
     <artifactId>trino-filesystem-s3</artifactId>
+    <name>${project.artifactId}</name>
     <description>Trino - S3 file system support</description>
 
     <properties>
@@ -35,6 +36,7 @@
         <dependency>
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>
+            <classifier>classes</classifier>
         </dependency>
 
         <dependency>

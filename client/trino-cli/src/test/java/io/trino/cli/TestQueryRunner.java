@@ -24,14 +24,12 @@ import io.trino.client.TrinoJsonCodec;
 import io.trino.client.TypedQueryData;
 import io.trino.client.uri.PropertyName;
 import io.trino.client.uri.TrinoUri;
-import okhttp3.mockwebserver.MockResponse;
-import okhttp3.mockwebserver.MockWebServer;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
+import mockwebserver3.MockResponse;
+import mockwebserver3.MockWebServer;
+import mockwebserver3.junit5.StartStop;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
-import java.io.IOException;
 import java.io.PrintStream;
 import java.time.ZoneId;
 import java.util.Locale;
@@ -57,38 +55,27 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 public class TestQueryRunner
 {
     private static final TrinoJsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
-    private MockWebServer server;
 
-    @BeforeEach
-    public void setup()
-            throws IOException
-    {
-        server = new MockWebServer();
-        server.start();
-    }
-
-    @AfterEach
-    public void teardown()
-            throws IOException
-    {
-        server.close();
-        server = null;
-    }
+    @StartStop
+    private final MockWebServer server = new MockWebServer();
 
     @Test
     public void testCookie()
             throws Exception
     {
-        server.enqueue(new MockResponse()
-                .setResponseCode(307)
+        server.enqueue(new MockResponse.Builder()
+                .code(307)
                 .addHeader(LOCATION, server.url("/v1/statement"))
-                .addHeader(SET_COOKIE, "a=apple"));
-        server.enqueue(new MockResponse()
+                .addHeader(SET_COOKIE, "a=apple")
+                .build());
+        server.enqueue(new MockResponse.Builder()
                 .addHeader(CONTENT_TYPE, "application/json")
-                .setBody(createResults(server)));
-        server.enqueue(new MockResponse()
+                .body(createResults(server))
+                .build());
+        server.enqueue(new MockResponse.Builder()
                 .addHeader(CONTENT_TYPE, "application/json")
-                .setBody(createResults(server)));
+                .body(createResults(server))
+                .build());
 
         QueryRunner queryRunner = createQueryRunner(createTrinoUri(server, false), createClientSession(server));
 
@@ -99,9 +86,9 @@ public class TestQueryRunner
             query.renderOutput(getTerminal(), nullPrintStream(), nullPrintStream(), CSV, Optional.of(""), false, false);
         }
 
-        assertThat(server.takeRequest().getHeader("Cookie")).isNull();
-        assertThat(server.takeRequest().getHeader("Cookie")).isEqualTo("a=apple");
-        assertThat(server.takeRequest().getHeader("Cookie")).isEqualTo("a=apple");
+        assertThat(server.takeRequest().getHeaders().get("Cookie")).isNull();
+        assertThat(server.takeRequest().getHeaders().get("Cookie")).isEqualTo("a=apple");
+        assertThat(server.takeRequest().getHeaders().get("Cookie")).isEqualTo("a=apple");
     }
 
     static TrinoUri createTrinoUri(MockWebServer server, boolean insecureSsl)

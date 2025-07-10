@@ -10,6 +10,7 @@
 
     <artifactId>trino-example-http</artifactId>
     <packaging>trino-plugin</packaging>
+    <name>${project.artifactId}</name>
     <description>Trino - Example HTTP connector</description>
 
     <dependencies>
@@ -21,6 +22,7 @@
         <dependency>
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>
+            <classifier>classes</classifier>
         </dependency>
 
         <dependency>

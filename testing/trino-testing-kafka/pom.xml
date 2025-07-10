@@ -10,6 +10,7 @@
     </parent>
 
     <artifactId>trino-testing-kafka</artifactId>
+    <name>${project.artifactId}</name>
     <description>Trino - Testing Kafka</description>
 
     <dependencies>

@@ -11,6 +11,7 @@
 
     <artifactId>trino-server</artifactId>
     <packaging>provisio</packaging>
+    <name>${project.artifactId}</name>
     <description>Trino - Server package</description>
 
     <properties>

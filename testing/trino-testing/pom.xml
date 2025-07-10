@@ -10,6 +10,7 @@
     </parent>
 
     <artifactId>trino-testing</artifactId>
+    <name>${project.artifactId}</name>
     <description>Trino - Testing utilities</description>
 
     <dependencies>
@@ -31,11 +32,12 @@
         <dependency>
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>
+            <classifier>classes</classifier>
         </dependency>
 
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
-            <artifactId>okhttp</artifactId>
+            <artifactId>okhttp-jvm</artifactId>
         </dependency>
 
         <dependency>

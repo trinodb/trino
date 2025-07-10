@@ -10,6 +10,7 @@
     </parent>
 
     <artifactId>trino-web-ui</artifactId>
+    <name>${project.artifactId}</name>
     <description>Trino - Web UI</description>
 
     <properties>
