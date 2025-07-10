@@ -68,7 +68,6 @@ public class TeradataJdbcConnectorTest
         return TeradataQueryRunner.builder().addCoordinatorProperty("http-server.http.port", "8080").setInitialTables(REQUIRED_TPCH_TABLES).build();
     }
 
-
     @AfterAll
     public void cleanupTestDatabase()
     {
@@ -76,12 +75,9 @@ public class TeradataJdbcConnectorTest
     }
 
     @Override
-    protected OptionalInt maxSchemaNameLength() {
-        return OptionalInt.of(TERADATA_OBJECT_NAME_LIMIT);
-    }
-    protected void verifySchemaNameLengthFailurePermissible(Throwable e)
+    protected OptionalInt maxSchemaNameLength()
     {
-        assertThat(e).hasMessage(format("Schema name must be shorter than or equal to '%s' characters but got '%s'",TERADATA_OBJECT_NAME_LIMIT,TERADATA_OBJECT_NAME_LIMIT + 1));
+        return OptionalInt.of(TERADATA_OBJECT_NAME_LIMIT);
     }
 
     protected void verifySchemaNameLengthFailurePermissible(Throwable e)
