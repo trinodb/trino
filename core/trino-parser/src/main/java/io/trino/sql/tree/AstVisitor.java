@@ -692,6 +692,16 @@ public abstract class AstVisitor<R, C>
         return visitStatement(node, context);
     }
 
+    protected R visitSetDefaultValue(SetDefaultValue node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitDropDefaultValue(DropDefaultValue node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
     protected R visitSetColumnType(SetColumnType node, C context)
     {
         return visitStatement(node, context);
