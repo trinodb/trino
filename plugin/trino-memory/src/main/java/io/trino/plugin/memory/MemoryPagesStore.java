@@ -117,7 +117,7 @@ public class MemoryPagesStore
             }
             // Append missing columns with null values. This situation happens when a new column is added without additional insert.
             for (int j = page.getChannelCount(); j < columnIndexes.length; j++) {
-                page = page.appendColumn(RunLengthEncodedBlock.create(columnTypes.get(i), null, page.getPositionCount()));
+                page = page.appendColumn(RunLengthEncodedBlock.create(columnTypes.get(j), null, page.getPositionCount()));
             }
             partitionedPages.add(page.getColumns(columnIndexes));
         }
