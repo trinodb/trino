@@ -99,11 +99,11 @@ public class TestIcebergNodeLocalDynamicSplitPruning
         String tableName = "unpartitioned_table";
         String keyColumnName = "a_integer";
         ColumnIdentity keyColumnIdentity = new ColumnIdentity(1, keyColumnName, PRIMITIVE, ImmutableList.of());
-        IcebergColumnHandle keyColumnHandle = new IcebergColumnHandle(keyColumnIdentity, INTEGER, ImmutableList.of(), INTEGER, true, Optional.empty());
+        IcebergColumnHandle keyColumnHandle = IcebergColumnHandle.optional(keyColumnIdentity).columnType(INTEGER).build();
         int keyColumnValue = 42;
         String dataColumnName = "a_varchar";
         ColumnIdentity dataColumnIdentity = new ColumnIdentity(2, dataColumnName, PRIMITIVE, ImmutableList.of());
-        IcebergColumnHandle dataColumnHandle = new IcebergColumnHandle(dataColumnIdentity, VARCHAR, ImmutableList.of(), VARCHAR, true, Optional.empty());
+        IcebergColumnHandle dataColumnHandle = IcebergColumnHandle.optional(dataColumnIdentity).columnType(VARCHAR).build();
         String dataColumnValue = "hello world";
         Schema tableSchema = new Schema(
                 optional(keyColumnIdentity.getId(), keyColumnName, Types.IntegerType.get()),
@@ -261,16 +261,16 @@ public class TestIcebergNodeLocalDynamicSplitPruning
         String tableName = "sales_table";
         String dateColumnName = "date";
         ColumnIdentity dateColumnIdentity = new ColumnIdentity(1, dateColumnName, PRIMITIVE, ImmutableList.of());
-        IcebergColumnHandle dateColumnHandle = new IcebergColumnHandle(dateColumnIdentity, DATE, ImmutableList.of(), DATE, true, Optional.empty());
+        IcebergColumnHandle dateColumnHandle = IcebergColumnHandle.optional(dateColumnIdentity).columnType(DATE).build();
         long dateColumnValue = LocalDate.of(2023, 1, 10).toEpochDay();
         String receiptColumnName = "receipt";
         ColumnIdentity receiptColumnIdentity = new ColumnIdentity(2, receiptColumnName, PRIMITIVE, ImmutableList.of());
-        IcebergColumnHandle receiptColumnHandle = new IcebergColumnHandle(receiptColumnIdentity, VARCHAR, ImmutableList.of(), VARCHAR, true, Optional.empty());
+        IcebergColumnHandle receiptColumnHandle = IcebergColumnHandle.optional(receiptColumnIdentity).columnType(VARCHAR).build();
         String receiptColumnValue = "#12345";
         String amountColumnName = "amount";
         ColumnIdentity amountColumnIdentity = new ColumnIdentity(3, amountColumnName, PRIMITIVE, ImmutableList.of());
         DecimalType amountColumnType = DecimalType.createDecimalType(10, 2);
-        IcebergColumnHandle amountColumnHandle = new IcebergColumnHandle(amountColumnIdentity, amountColumnType, ImmutableList.of(), amountColumnType, true, Optional.empty());
+        IcebergColumnHandle amountColumnHandle = IcebergColumnHandle.optional(amountColumnIdentity).columnType(amountColumnType).build();
         BigDecimal amountColumnValue = new BigDecimal("1234567.65");
         Schema tableSchema = new Schema(
                 optional(dateColumnIdentity.getId(), dateColumnName, Types.DateType.get()),
@@ -408,20 +408,20 @@ public class TestIcebergNodeLocalDynamicSplitPruning
         String tableName = "sales_table";
         String yearColumnName = "year";
         ColumnIdentity yearColumnIdentity = new ColumnIdentity(1, yearColumnName, PRIMITIVE, ImmutableList.of());
-        IcebergColumnHandle yearColumnHandle = new IcebergColumnHandle(yearColumnIdentity, INTEGER, ImmutableList.of(), INTEGER, true, Optional.empty());
+        IcebergColumnHandle yearColumnHandle = IcebergColumnHandle.optional(yearColumnIdentity).columnType(INTEGER).build();
         long yearColumnValue = 2023L;
         String monthColumnName = "month";
         ColumnIdentity monthColumnIdentity = new ColumnIdentity(2, monthColumnName, PRIMITIVE, ImmutableList.of());
-        IcebergColumnHandle monthColumnHandle = new IcebergColumnHandle(monthColumnIdentity, INTEGER, ImmutableList.of(), INTEGER, true, Optional.empty());
+        IcebergColumnHandle monthColumnHandle = IcebergColumnHandle.optional(monthColumnIdentity).columnType(INTEGER).build();
         long monthColumnValue = 1L;
         String receiptColumnName = "receipt";
         ColumnIdentity receiptColumnIdentity = new ColumnIdentity(3, receiptColumnName, PRIMITIVE, ImmutableList.of());
-        IcebergColumnHandle receiptColumnHandle = new IcebergColumnHandle(receiptColumnIdentity, VARCHAR, ImmutableList.of(), VARCHAR, true, Optional.empty());
+        IcebergColumnHandle receiptColumnHandle = IcebergColumnHandle.optional(receiptColumnIdentity).columnType(VARCHAR).build();
         String receiptColumnValue = "#12345";
         String amountColumnName = "amount";
         ColumnIdentity amountColumnIdentity = new ColumnIdentity(4, amountColumnName, PRIMITIVE, ImmutableList.of());
         DecimalType amountColumnType = DecimalType.createDecimalType(10, 2);
-        IcebergColumnHandle amountColumnHandle = new IcebergColumnHandle(amountColumnIdentity, amountColumnType, ImmutableList.of(), amountColumnType, true, Optional.empty());
+        IcebergColumnHandle amountColumnHandle = IcebergColumnHandle.optional(amountColumnIdentity).columnType(amountColumnType).build();
         BigDecimal amountColumnValue = new BigDecimal("1234567.65");
         Schema tableSchema = new Schema(
                 optional(yearColumnIdentity.getId(), yearColumnName, Types.IntegerType.get()),

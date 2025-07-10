@@ -164,20 +164,14 @@ public class TestIcebergProjectionPushdownPlans
         IcebergColumnHandle column0Handle = (IcebergColumnHandle) columns.get("col0");
         IcebergColumnHandle column1Handle = (IcebergColumnHandle) columns.get("col1");
 
-        IcebergColumnHandle columnX = new IcebergColumnHandle(
-                column0Handle.getColumnIdentity(),
-                column0Handle.getType(),
-                ImmutableList.of(column0Handle.getColumnIdentity().getChildren().get(0).getId()),
-                BIGINT,
-                true,
-                Optional.empty());
-        IcebergColumnHandle columnY = new IcebergColumnHandle(
-                column0Handle.getColumnIdentity(),
-                column0Handle.getType(),
-                ImmutableList.of(column0Handle.getColumnIdentity().getChildren().get(1).getId()),
-                BIGINT,
-                true,
-                Optional.empty());
+        IcebergColumnHandle columnX = IcebergColumnHandle.optional(column0Handle.getColumnIdentity())
+                .fieldType(column0Handle.getType(), BIGINT)
+                .path(column0Handle.getColumnIdentity().getChildren().get(0).getId())
+                .build();
+        IcebergColumnHandle columnY = IcebergColumnHandle.optional(column0Handle.getColumnIdentity())
+                .fieldType(column0Handle.getType(), BIGINT)
+                .path(column0Handle.getColumnIdentity().getChildren().get(1).getId())
+                .build();
 
         // Simple Projection pushdown
         assertPlan(
