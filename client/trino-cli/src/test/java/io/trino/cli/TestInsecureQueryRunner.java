@@ -13,9 +13,9 @@
  */
 package io.trino.cli;
 
-import okhttp3.mockwebserver.MockResponse;
-import okhttp3.mockwebserver.MockWebServer;
-import org.junit.jupiter.api.AfterEach;
+import mockwebserver3.MockResponse;
+import mockwebserver3.MockWebServer;
+import mockwebserver3.junit5.StartStop;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -44,36 +44,29 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 @TestInstance(PER_METHOD)
 public class TestInsecureQueryRunner
 {
-    private MockWebServer server;
+    @StartStop
+    private final MockWebServer server = new MockWebServer();
 
     @BeforeEach
     public void setup()
             throws Exception
     {
-        server = new MockWebServer();
         SSLContext sslContext = buildTestSslContext();
-        server.useHttps(sslContext.getSocketFactory(), false);
-        server.start();
-    }
-
-    @AfterEach
-    public void teardown()
-            throws Exception
-    {
-        server.close();
-        server = null;
+        server.useHttps(sslContext.getSocketFactory());
     }
 
     @Test
     public void testInsecureConnection()
             throws Exception
     {
-        server.enqueue(new MockResponse()
+        server.enqueue(new MockResponse.Builder()
                 .addHeader(CONTENT_TYPE, "application/json")
-                .setBody(createResults(server)));
-        server.enqueue(new MockResponse()
+                .body(createResults(server))
+                .build());
+        server.enqueue(new MockResponse.Builder()
                 .addHeader(CONTENT_TYPE, "application/json")
-                .setBody(createResults(server)));
+                .body(createResults(server))
+                .build());
 
         QueryRunner queryRunner = createQueryRunner(createTrinoUri(server, true), createClientSession(server));
 
@@ -81,7 +74,7 @@ public class TestInsecureQueryRunner
             query.renderOutput(getTerminal(), nullPrintStream(), nullPrintStream(), CSV, Optional.of(""), false, false);
         }
 
-        assertThat(server.takeRequest().getPath()).isEqualTo("/v1/statement");
+        assertThat(server.takeRequest().getUrl().encodedPath()).isEqualTo("/v1/statement");
     }
 
     private SSLContext buildTestSslContext()

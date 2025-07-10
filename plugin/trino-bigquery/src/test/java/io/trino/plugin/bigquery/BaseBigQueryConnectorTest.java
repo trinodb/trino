@@ -102,6 +102,7 @@ public abstract class BaseBigQueryConnectorTest
             case SUPPORTS_ADD_COLUMN,
                     SUPPORTS_CREATE_MATERIALIZED_VIEW,
                     SUPPORTS_CREATE_VIEW,
+                    SUPPORTS_DEFAULT_COLUMN_VALUE,
                     SUPPORTS_MAP_TYPE,
                     SUPPORTS_MERGE,
                     SUPPORTS_NEGATIVE_DATE,

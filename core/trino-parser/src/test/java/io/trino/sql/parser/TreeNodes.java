@@ -22,6 +22,7 @@ import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.GenericDataType;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.IntervalDayTimeDataType;
+import io.trino.sql.tree.Literal;
 import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.NumericParameter;
 import io.trino.sql.tree.Property;
@@ -118,6 +119,16 @@ class TreeNodes
     public static ColumnDefinition columnDefinition(NodeLocation location, String name, DataType type)
     {
         return new ColumnDefinition(location, qualifiedName(location, name), type, true, emptyList(), Optional.empty());
+    }
+
+    public static ColumnDefinition columnDefinitionWithDefault(NodeLocation location, String name, DataType type, Literal defaultValue)
+    {
+        return new ColumnDefinition(location, qualifiedName(location, name), type, Optional.of(defaultValue), true, emptyList(), Optional.empty());
+    }
+
+    public static ColumnDefinition columnDefinitionWithDefault(NodeLocation location, String name, DataType type, Literal defaultValue, String comment)
+    {
+        return new ColumnDefinition(location, qualifiedName(location, name), type, Optional.of(defaultValue), true, emptyList(), Optional.of(comment));
     }
 
     public static ColumnDefinition columnDefinition(NodeLocation location, String name, DataType type, boolean nullable)

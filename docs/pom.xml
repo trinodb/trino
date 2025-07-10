@@ -10,6 +10,7 @@
 
     <artifactId>trino-docs</artifactId>
     <packaging>pom</packaging>
+    <name>${project.artifactId}</name>
     <description>Trino - Documentation</description>
 
     <build>

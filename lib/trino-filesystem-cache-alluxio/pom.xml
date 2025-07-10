@@ -10,6 +10,7 @@
     </parent>
 
     <artifactId>trino-filesystem-cache-alluxio</artifactId>
+    <name>${project.artifactId}</name>
     <description>Trino Filesystem - Alluxio</description>
 
     <properties>
@@ -36,6 +37,7 @@
         <dependency>
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>
+            <classifier>classes</classifier>
         </dependency>
 
         <dependency>
