@@ -15,8 +15,8 @@ package io.trino.execution.scheduler.faulttolerant;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
+import io.trino.node.InternalNode;
 
 import java.util.List;
 import java.util.Optional;

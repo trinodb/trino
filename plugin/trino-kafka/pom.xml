@@ -11,6 +11,7 @@
 
     <artifactId>trino-kafka</artifactId>
     <packaging>trino-plugin</packaging>
+    <name>${project.artifactId}</name>
     <description>Trino - Kafka connector</description>
 
     <properties>
@@ -36,6 +37,7 @@
         <dependency>
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>
+            <classifier>classes</classifier>
         </dependency>
 
         <dependency>

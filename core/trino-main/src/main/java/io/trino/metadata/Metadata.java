@@ -66,10 +66,13 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.security.FunctionAuthorization;
 import io.trino.spi.security.GrantInfo;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.RoleGrant;
+import io.trino.spi.security.SchemaAuthorization;
+import io.trino.spi.security.TableAuthorization;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
@@ -743,6 +746,16 @@ public interface Metadata
 
     void dropLanguageFunction(Session session, QualifiedObjectName name, String signatureToken);
 
+    void createBranch(Session session, TableHandle tableHandle, String branch, SaveMode saveMode, Map<String, Object> properties);
+
+    void dropBranch(Session session, TableHandle tableHandle, String branch);
+
+    void fastForwardBranch(Session session, TableHandle tableHandle, String sourceBranch, String targetBranch);
+
+    Collection<String> listBranches(Session session, QualifiedObjectName tableName);
+
+    boolean branchExists(Session session, QualifiedObjectName tableName, String branch);
+
     /**
      * Creates the specified materialized view with the specified view definition.
      */
@@ -853,4 +866,19 @@ public interface Metadata
     WriterScalingOptions getInsertWriterScalingOptions(Session session, TableHandle tableHandle);
 
     void setEntityAuthorization(Session session, EntityKindAndName entityKindAndName, TrinoPrincipal principal);
+
+    /**
+     * Returns list of schemas authorization info
+     */
+    Set<SchemaAuthorization> getSchemasAuthorizationInfo(Session session, QualifiedSchemaPrefix prefix);
+
+    /**
+     * Returns list of tables authorization info
+     */
+    Set<TableAuthorization> getTablesAuthorizationInfo(Session session, QualifiedTablePrefix prefix);
+
+    /**
+     * Returns list of functions authorization info
+     */
+    Set<FunctionAuthorization> getFunctionsAuthorizationInfo(Session session, QualifiedObjectPrefix prefix);
 }

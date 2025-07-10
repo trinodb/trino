@@ -21,6 +21,7 @@ import io.trino.security.AccessControl;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogHandle;
+import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.SchemaTableName;
@@ -83,6 +84,22 @@ public final class MetadataListing
         return catalogs.stream()
                 .filter(catalogInfo -> allowedCatalogs.contains(catalogInfo.catalogName()))
                 .collect(toImmutableList());
+    }
+
+    public static Set<CatalogSchemaName> listAllAvailableSchemas(
+            Session session,
+            Metadata metadata,
+            AccessControl accessControl,
+            Domain catalogDomain,
+            Domain schemaDomain)
+    {
+        Set<String> catalogNames = listCatalogNames(session, metadata, accessControl, catalogDomain);
+        Optional<String> schemaName = tryGetSingleVarcharValue(schemaDomain);
+        return catalogNames.stream()
+                .flatMap(catalogName ->
+                        listSchemas(session, metadata, accessControl, catalogName, schemaName).stream()
+                                .map(name -> new CatalogSchemaName(catalogName, name)))
+                .collect(toImmutableSet());
     }
 
     public static SortedSet<String> listSchemas(Session session, Metadata metadata, AccessControl accessControl, String catalogName)
@@ -347,7 +364,7 @@ public final class MetadataListing
         return result.buildOrThrow();
     }
 
-    private static TrinoException handleListingException(RuntimeException exception, String type, String catalogName)
+    public static TrinoException handleListingException(RuntimeException exception, String type, String catalogName)
     {
         ErrorCodeSupplier result = GENERIC_INTERNAL_ERROR;
         if (exception instanceof TrinoException trinoException) {

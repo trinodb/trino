@@ -13,6 +13,7 @@
  */
 package io.trino.server.protocol.spooling;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import io.trino.client.spooling.DataAttributes;
 import io.trino.spi.Page;
@@ -56,56 +57,70 @@ public class SpooledMetadataBlockSerde
 
     public static Page serialize(SpooledMetadataBlock block)
     {
-        RowBlockBuilder rowBlockBuilder = SPOOLING_METADATA_TYPE.createBlockBuilder(null, 1);
-        rowBlockBuilder.buildEntry(rowEntryBuilder -> {
-            VARCHAR.writeSlice(rowEntryBuilder.get(0), utf8Slice(ATTRIBUTES_CODEC.toJson(block.attributes())));
-            switch (block) {
-                case SpooledMetadataBlock.Inlined inlined -> {
-                    VARBINARY.writeSlice(rowEntryBuilder.get(1), inlined.data());
-                    rowEntryBuilder.get(2).appendNull();
-                    rowEntryBuilder.get(3).appendNull();
-                    rowEntryBuilder.get(4).appendNull();
-                }
-                case SpooledMetadataBlock.Spooled spooled -> {
-                    rowEntryBuilder.get(1).appendNull();
-                    VARCHAR.writeSlice(rowEntryBuilder.get(2), utf8Slice(spooled.identifier().toStringUtf8()));
-                    if (spooled.directUri().isPresent()) {
-                        VARCHAR.writeSlice(rowEntryBuilder.get(3), utf8Slice(spooled.directUri().orElseThrow().toString()));
-                    }
-                    else {
+        return serialize(List.of(block));
+    }
+
+    public static Page serialize(List<SpooledMetadataBlock> blocks)
+    {
+        RowBlockBuilder rowBlockBuilder = SPOOLING_METADATA_TYPE.createBlockBuilder(null, blocks.size());
+
+        for (SpooledMetadataBlock block : blocks) {
+            rowBlockBuilder.buildEntry(rowEntryBuilder -> {
+                VARCHAR.writeSlice(rowEntryBuilder.get(0), utf8Slice(ATTRIBUTES_CODEC.toJson(block.attributes())));
+                switch (block) {
+                    case SpooledMetadataBlock.Inlined inlined -> {
+                        VARBINARY.writeSlice(rowEntryBuilder.get(1), inlined.data());
+                        rowEntryBuilder.get(2).appendNull();
                         rowEntryBuilder.get(3).appendNull();
+                        rowEntryBuilder.get(4).appendNull();
                     }
-                    VARCHAR.writeSlice(rowEntryBuilder.get(4), utf8Slice(HEADERS_CODEC.toJson(spooled.headers())));
+                    case SpooledMetadataBlock.Spooled spooled -> {
+                        rowEntryBuilder.get(1).appendNull();
+                        VARCHAR.writeSlice(rowEntryBuilder.get(2), utf8Slice(spooled.identifier().toStringUtf8()));
+                        if (spooled.directUri().isPresent()) {
+                            VARCHAR.writeSlice(rowEntryBuilder.get(3), utf8Slice(spooled.directUri().orElseThrow().toString()));
+                        }
+                        else {
+                            rowEntryBuilder.get(3).appendNull();
+                        }
+                        VARCHAR.writeSlice(rowEntryBuilder.get(4), utf8Slice(HEADERS_CODEC.toJson(spooled.headers())));
+                    }
                 }
-            }
-        });
+            });
+        }
         return new Page(rowBlockBuilder.build());
     }
 
-    public static SpooledMetadataBlock deserialize(Page page)
+    public static List<SpooledMetadataBlock> deserialize(Page page)
     {
-        verify(page.getPositionCount() == 1, "Spooling metadata block must have a single position");
+        verify(page.getPositionCount() > 0, "Spooling metadata block must have at least single position");
         verify(page.getChannelCount() == 1, "Spooling metadata block must have a single channel");
 
-        SqlRow row = SPOOLING_METADATA_TYPE.getObject(page.getBlock(0), 0);
-        DataAttributes dataAttributes = ATTRIBUTES_CODEC.fromJson(VARCHAR.getSlice(row.getRawFieldBlock(0), 0).getInput());
+        ImmutableList.Builder<SpooledMetadataBlock> spooledMetadataBuilder = ImmutableList.builderWithExpectedSize(page.getPositionCount());
+        for (int position = 0; position < page.getPositionCount(); position++) {
+            SqlRow row = SPOOLING_METADATA_TYPE.getObject(page.getBlock(0), position);
+            DataAttributes dataAttributes = ATTRIBUTES_CODEC.fromJson(VARCHAR.getSlice(row.getRawFieldBlock(0), position).getInput());
 
-        if (row.getRawFieldBlock(1).isNull(0)) {
-            return new SpooledMetadataBlock.Spooled(
-                    dataAttributes,
-                    VARCHAR.getSlice(row.getRawFieldBlock(2), 0),
-                    extractDirectUri(row),
-                    HEADERS_CODEC.fromJson(VARCHAR.getSlice(row.getRawFieldBlock(4), 0).getInput()));
+            if (row.getRawFieldBlock(1).isNull(position)) {
+                spooledMetadataBuilder.add(new SpooledMetadataBlock.Spooled(
+                        dataAttributes,
+                        VARCHAR.getSlice(row.getRawFieldBlock(2), position),
+                        extractDirectUri(row, position),
+                        HEADERS_CODEC.fromJson(VARCHAR.getSlice(row.getRawFieldBlock(4), position).getInput())));
+                continue;
+            }
+
+            spooledMetadataBuilder.add(new SpooledMetadataBlock.Inlined(dataAttributes, VARBINARY.getSlice(row.getRawFieldBlock(1), position)));
         }
 
-        return new SpooledMetadataBlock.Inlined(dataAttributes, VARBINARY.getSlice(row.getRawFieldBlock(1), 0));
+        return spooledMetadataBuilder.build();
     }
 
-    private static Optional<URI> extractDirectUri(SqlRow row)
+    private static Optional<URI> extractDirectUri(SqlRow row, int position)
     {
-        if (row.getRawFieldBlock(3).isNull(0)) {
+        if (row.getRawFieldBlock(3).isNull(position)) {
             return Optional.empty();
         }
-        return Optional.of(URI.create(VARCHAR.getSlice(row.getRawFieldBlock(3), 0).toStringUtf8()));
+        return Optional.of(URI.create(VARCHAR.getSlice(row.getRawFieldBlock(3), position).toStringUtf8()));
     }
 }

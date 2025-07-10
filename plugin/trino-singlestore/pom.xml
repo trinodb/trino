@@ -11,6 +11,7 @@
 
     <artifactId>trino-singlestore</artifactId>
     <packaging>trino-plugin</packaging>
+    <name>${project.artifactId}</name>
     <description>Trino - SingleStore connector</description>
 
     <dependencies>
@@ -22,6 +23,7 @@
         <dependency>
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>
+            <classifier>classes</classifier>
         </dependency>
 
         <dependency>

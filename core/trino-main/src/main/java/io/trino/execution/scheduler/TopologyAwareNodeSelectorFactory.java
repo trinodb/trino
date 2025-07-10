@@ -25,8 +25,8 @@ import io.airlift.stats.CounterStat;
 import io.trino.Session;
 import io.trino.cache.NonEvictableCache;
 import io.trino.execution.NodeTaskMap;
-import io.trino.metadata.InternalNode;
-import io.trino.metadata.InternalNodeManager;
+import io.trino.node.InternalNode;
+import io.trino.node.InternalNodeManager;
 import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
 
@@ -43,7 +43,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.SystemSessionProperties.getMaxUnacknowledgedSplitsPerTask;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
-import static io.trino.metadata.NodeState.ACTIVE;
+import static io.trino.node.NodeState.ACTIVE;
 import static java.util.Objects.requireNonNull;
 
 public class TopologyAwareNodeSelectorFactory
@@ -56,6 +56,7 @@ public class TopologyAwareNodeSelectorFactory
                     .expireAfterWrite(30, TimeUnit.SECONDS));
 
     private final NetworkTopology networkTopology;
+    private final InternalNode currentNode;
     private final InternalNodeManager nodeManager;
     private final int minCandidates;
     private final boolean includeCoordinator;
@@ -69,16 +70,19 @@ public class TopologyAwareNodeSelectorFactory
     @Inject
     public TopologyAwareNodeSelectorFactory(
             NetworkTopology networkTopology,
+            InternalNode currentNode,
             InternalNodeManager nodeManager,
             NodeSchedulerConfig schedulerConfig,
             NodeTaskMap nodeTaskMap,
             TopologyAwareNodeSelectorConfig topologyConfig)
     {
         requireNonNull(networkTopology, "networkTopology is null");
+        requireNonNull(currentNode, "currentNode is null");
         requireNonNull(nodeManager, "nodeManager is null");
         requireNonNull(nodeTaskMap, "nodeTaskMap is null");
 
         this.networkTopology = networkTopology;
+        this.currentNode = currentNode;
         this.nodeManager = nodeManager;
         this.minCandidates = schedulerConfig.getMinCandidates();
         this.includeCoordinator = schedulerConfig.isIncludeCoordinator();
@@ -122,7 +126,7 @@ public class TopologyAwareNodeSelectorFactory
                 5, TimeUnit.SECONDS);
 
         return new TopologyAwareNodeSelector(
-                nodeManager,
+                currentNode,
                 nodeTaskMap,
                 includeCoordinator,
                 nodeMap,

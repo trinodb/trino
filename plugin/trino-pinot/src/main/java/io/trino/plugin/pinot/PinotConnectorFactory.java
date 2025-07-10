@@ -60,7 +60,7 @@ public class PinotConnectorFactory
                 .add(new MBeanModule())
                 .add(new MBeanServerModule())
                 .add(new TypeDeserializerModule(context.getTypeManager()))
-                .add(new PinotModule(catalogName, context.getNodeManager()))
+                .add(new PinotModule(catalogName))
                 .add(new PinotAuthenticationModule());
 
         extension.ifPresent(modulesBuilder::add);

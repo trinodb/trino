@@ -10,6 +10,7 @@
     </parent>
 
     <artifactId>trino-spi</artifactId>
+    <name>${project.artifactId}</name>
     <description>Trino - Service Provider Interface (SPI)</description>
 
     <properties>
@@ -85,6 +86,7 @@
         <dependency>
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>
+            <classifier>classes</classifier>
             <scope>test</scope>
         </dependency>
 
@@ -649,6 +651,12 @@
                                     <code>java.method.removed</code>
                                     <old>method java.lang.String io.trino.spi.predicate.ValueSet::toString(io.trino.spi.connector.ConnectorSession, int)</old>
                                     <justification>Type cleanup</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.String io.trino.spi.NodeManager::getEnvironment()</old>
+                                    <justification>Unused</justification>
                                 </item>
                             </differences>
                         </revapi.differences>

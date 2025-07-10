@@ -30,7 +30,7 @@ import io.trino.plugin.base.logging.SessionInterpolatedValues;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.bigquery.procedure.ExecuteProcedure;
 import io.trino.plugin.bigquery.ptf.Query;
-import io.trino.spi.NodeManager;
+import io.trino.spi.Node;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.function.table.ConnectorTableFunction;
 import io.trino.spi.procedure.Procedure;
@@ -114,9 +114,9 @@ public class BigQueryConnectorModule
 
         @Provides
         @Singleton
-        public static HeaderProvider createHeaderProvider(NodeManager nodeManager)
+        public static HeaderProvider createHeaderProvider(Node currentNode)
         {
-            return FixedHeaderProvider.create("user-agent", "Trino/" + nodeManager.getCurrentNode().getVersion());
+            return FixedHeaderProvider.create("user-agent", "Trino/" + currentNode.getVersion());
         }
 
         @Provides

@@ -31,8 +31,8 @@ import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
 import io.trino.Session;
 import io.trino.exchange.DirectExchangeInput;
-import io.trino.execution.BasicStageInfo;
 import io.trino.execution.BasicStageStats;
+import io.trino.execution.BasicStagesInfo;
 import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.NodeTaskMap;
 import io.trino.execution.QueryState;
@@ -42,7 +42,7 @@ import io.trino.execution.RemoteTaskFactory;
 import io.trino.execution.SqlStage;
 import io.trino.execution.SqlTaskManager;
 import io.trino.execution.StageId;
-import io.trino.execution.StageInfo;
+import io.trino.execution.StagesInfo;
 import io.trino.execution.StateMachine;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.TableExecuteContextManager;
@@ -52,9 +52,9 @@ import io.trino.execution.TaskStatus;
 import io.trino.execution.scheduler.policy.ExecutionPolicy;
 import io.trino.execution.scheduler.policy.ExecutionSchedule;
 import io.trino.execution.scheduler.policy.StagesScheduleResult;
-import io.trino.failuredetector.FailureDetector;
-import io.trino.metadata.InternalNode;
 import io.trino.metadata.Metadata;
+import io.trino.node.InternalNode;
+import io.trino.node.InternalNodeManager;
 import io.trino.operator.RetryPolicy;
 import io.trino.server.DynamicFilterService;
 import io.trino.spi.ErrorCode;
@@ -63,6 +63,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.split.SplitSource;
 import io.trino.sql.planner.NodePartitionMap;
+import io.trino.sql.planner.NodePartitionMap.BucketToPartition;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.PlanFragment;
@@ -86,6 +87,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
@@ -134,6 +136,7 @@ import static io.trino.execution.scheduler.StageExecution.State.RUNNING;
 import static io.trino.execution.scheduler.StageExecution.State.SCHEDULED;
 import static io.trino.operator.RetryPolicy.NONE;
 import static io.trino.operator.RetryPolicy.QUERY;
+import static io.trino.operator.output.SkewedPartitionRebalancer.getSkewedBucketCount;
 import static io.trino.spi.ErrorType.EXTERNAL;
 import static io.trino.spi.ErrorType.INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
@@ -169,7 +172,7 @@ public class PipelinedQueryScheduler
     private final int splitBatchSize;
     private final ExecutorService executor;
     private final ScheduledExecutorService schedulerExecutor;
-    private final FailureDetector failureDetector;
+    private final InternalNodeManager nodeManager;
     private final ExecutionPolicy executionPolicy;
     private final SplitSchedulerStats schedulerStats;
     private final DynamicFilterService dynamicFilterService;
@@ -205,7 +208,7 @@ public class PipelinedQueryScheduler
             int splitBatchSize,
             ExecutorService queryExecutor,
             ScheduledExecutorService schedulerExecutor,
-            FailureDetector failureDetector,
+            InternalNodeManager nodeManager,
             NodeTaskMap nodeTaskMap,
             ExecutionPolicy executionPolicy,
             Tracer tracer,
@@ -222,7 +225,7 @@ public class PipelinedQueryScheduler
         this.splitBatchSize = splitBatchSize;
         this.executor = requireNonNull(queryExecutor, "queryExecutor is null");
         this.schedulerExecutor = requireNonNull(schedulerExecutor, "schedulerExecutor is null");
-        this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.executionPolicy = requireNonNull(executionPolicy, "executionPolicy is null");
         this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
         this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
@@ -242,13 +245,14 @@ public class PipelinedQueryScheduler
                 schedulerSpan,
                 schedulerStats,
                 plan,
-                summarizeTaskInfo);
+                summarizeTaskInfo,
+                nodePartitioningManager::getBucketCount);
 
         coordinatorStagesScheduler = CoordinatorStagesScheduler.create(
                 queryStateMachine,
                 nodeScheduler,
                 stageManager,
-                failureDetector,
+                nodeManager,
                 schedulerExecutor,
                 distributedStagesScheduler,
                 coordinatorTaskManager);
@@ -301,7 +305,7 @@ public class PipelinedQueryScheduler
             }
             schedulerSpan.end();
 
-            queryStateMachine.updateQueryInfo(Optional.ofNullable(getStageInfo()));
+            queryStateMachine.updateQueryInfo(Optional.of(getStagesInfo()));
         });
 
         Optional<DistributedStagesScheduler> distributedStagesScheduler = createDistributedStagesScheduler(currentAttempt.get());
@@ -329,7 +333,7 @@ public class PipelinedQueryScheduler
                         stageManager,
                         coordinatorStagesScheduler,
                         executionPolicy,
-                        failureDetector,
+                        nodeManager,
                         schedulerExecutor,
                         splitSourceFactory,
                         splitBatchSize,
@@ -460,15 +464,15 @@ public class PipelinedQueryScheduler
     }
 
     @Override
-    public StageInfo getStageInfo()
+    public BasicStagesInfo getBasicStagesInfo()
     {
-        return stageManager.getStageInfo();
+        return stageManager.getBasicStagesInfo();
     }
 
     @Override
-    public BasicStageInfo getBasicStageInfo()
+    public StagesInfo getStagesInfo()
     {
-        return stageManager.getBasicStageInfo();
+        return stageManager.getStagesInfo();
     }
 
     @Override
@@ -530,12 +534,12 @@ public class PipelinedQueryScheduler
      */
     private static class CoordinatorStagesScheduler
     {
-        private static final int[] SINGLE_PARTITION = new int[] {0};
+        private static final BucketToPartition SINGLE_PARTITION = new BucketToPartition(new int[1], false);
 
         private final QueryStateMachine queryStateMachine;
         private final NodeScheduler nodeScheduler;
         private final Map<PlanFragmentId, PipelinedOutputBufferManager> outputBuffersForStagesConsumedByCoordinator;
-        private final Map<PlanFragmentId, Optional<int[]>> bucketToPartitionForStagesConsumedByCoordinator;
+        private final Map<PlanFragmentId, Optional<BucketToPartition>> bucketToPartitionForStagesConsumedByCoordinator;
         private final TaskLifecycleListener taskLifecycleListener;
         private final StageManager stageManager;
         private final List<StageExecution> stageExecutions;
@@ -548,13 +552,13 @@ public class PipelinedQueryScheduler
                 QueryStateMachine queryStateMachine,
                 NodeScheduler nodeScheduler,
                 StageManager stageManager,
-                FailureDetector failureDetector,
+                InternalNodeManager nodeManager,
                 Executor executor,
                 AtomicReference<DistributedStagesScheduler> distributedStagesScheduler,
                 SqlTaskManager coordinatorTaskManager)
         {
             Map<PlanFragmentId, PipelinedOutputBufferManager> outputBuffersForStagesConsumedByCoordinator = createOutputBuffersForStagesConsumedByCoordinator(stageManager);
-            Map<PlanFragmentId, Optional<int[]>> bucketToPartitionForStagesConsumedByCoordinator = createBucketToPartitionForStagesConsumedByCoordinator(stageManager);
+            Map<PlanFragmentId, Optional<BucketToPartition>> bucketToPartitionForStagesConsumedByCoordinator = createBucketToPartitionForStagesConsumedByCoordinator(stageManager);
 
             TaskLifecycleListener taskLifecycleListener = new QueryOutputTaskLifecycleListener(queryStateMachine);
             // create executions
@@ -564,9 +568,10 @@ public class PipelinedQueryScheduler
                         stage,
                         outputBuffersForStagesConsumedByCoordinator,
                         taskLifecycleListener,
-                        failureDetector,
+                        nodeManager,
                         executor,
-                        bucketToPartitionForStagesConsumedByCoordinator.get(stage.getFragment().getId()),
+                        bucketToPartitionForStagesConsumedByCoordinator.get(stage.getFragment().getId()).map(BucketToPartition::bucketToPartition),
+                        OptionalInt.empty(),
                         0);
                 stageExecutions.add(stageExecution);
                 taskLifecycleListener = stageExecution.getTaskLifecycleListener();
@@ -612,9 +617,9 @@ public class PipelinedQueryScheduler
             return new PartitionedPipelinedOutputBufferManager(partitioningHandle, 1);
         }
 
-        private static Map<PlanFragmentId, Optional<int[]>> createBucketToPartitionForStagesConsumedByCoordinator(StageManager stageManager)
+        private static Map<PlanFragmentId, Optional<BucketToPartition>> createBucketToPartitionForStagesConsumedByCoordinator(StageManager stageManager)
         {
-            ImmutableMap.Builder<PlanFragmentId, Optional<int[]>> result = ImmutableMap.builder();
+            ImmutableMap.Builder<PlanFragmentId, Optional<BucketToPartition>> result = ImmutableMap.builder();
 
             SqlStage outputStage = stageManager.getOutputStage();
             result.put(outputStage.getFragment().getId(), Optional.of(SINGLE_PARTITION));
@@ -632,7 +637,7 @@ public class PipelinedQueryScheduler
                 QueryStateMachine queryStateMachine,
                 NodeScheduler nodeScheduler,
                 Map<PlanFragmentId, PipelinedOutputBufferManager> outputBuffersForStagesConsumedByCoordinator,
-                Map<PlanFragmentId, Optional<int[]>> bucketToPartitionForStagesConsumedByCoordinator,
+                Map<PlanFragmentId, Optional<BucketToPartition>> bucketToPartitionForStagesConsumedByCoordinator,
                 TaskLifecycleListener taskLifecycleListener,
                 StageManager stageManager,
                 List<StageExecution> stageExecutions,
@@ -767,7 +772,7 @@ public class PipelinedQueryScheduler
             return outputBuffersForStagesConsumedByCoordinator;
         }
 
-        public Map<PlanFragmentId, Optional<int[]>> getBucketToPartitionForStagesConsumedByCoordinator()
+        public Map<PlanFragmentId, Optional<BucketToPartition>> getBucketToPartitionForStagesConsumedByCoordinator()
         {
             return bucketToPartitionForStagesConsumedByCoordinator;
         }
@@ -859,7 +864,7 @@ public class PipelinedQueryScheduler
                 StageManager stageManager,
                 CoordinatorStagesScheduler coordinatorStagesScheduler,
                 ExecutionPolicy executionPolicy,
-                FailureDetector failureDetector,
+                InternalNodeManager nodeManager,
                 ScheduledExecutorService executor,
                 SplitSourceFactory splitSourceFactory,
                 int splitBatchSize,
@@ -878,7 +883,7 @@ public class PipelinedQueryScheduler
                             partitioning.handle.equals(SCALED_WRITER_HASH_DISTRIBUTION) ? FIXED_HASH_DISTRIBUTION : partitioning.handle,
                             partitioning.partitionCount));
 
-            Map<PlanFragmentId, Optional<int[]>> bucketToPartitionMap = createBucketToPartitionMap(
+            Map<PlanFragmentId, Optional<BucketToPartition>> bucketToPartitionMap = createBucketToPartitionMap(
                     queryStateMachine.getSession(),
                     coordinatorStagesScheduler.getBucketToPartitionForStagesConsumedByCoordinator(),
                     stageManager,
@@ -916,13 +921,22 @@ public class PipelinedQueryScheduler
                 }
 
                 PlanFragment fragment = stage.getFragment();
+                // TODO partitioning should be locked down during the planning phase
+                // This is a compromise to compute output partitioning and skew handling in the
+                // coordinator without having to change the planner code.
+                Optional<BucketToPartition> bucketToPartition = bucketToPartitionMap.get(fragment.getId());
+                OptionalInt skewedBucketCount = OptionalInt.empty();
+                if (bucketToPartition.isPresent()) {
+                    skewedBucketCount = getSkewedBucketCount(queryStateMachine.getSession(), fragment.getOutputPartitioningScheme(), bucketToPartition.get(), nodePartitioningManager);
+                }
                 StageExecution stageExecution = createPipelinedStageExecution(
                         stageManager.get(fragment.getId()),
                         outputBufferManagers,
                         taskLifecycleListener,
-                        failureDetector,
+                        nodeManager,
                         executor,
-                        bucketToPartitionMap.get(fragment.getId()),
+                        bucketToPartition.map(BucketToPartition::bucketToPartition),
+                        skewedBucketCount,
                         attempt);
                 stageExecutions.put(stage.getStageId(), stageExecution);
             }
@@ -960,18 +974,18 @@ public class PipelinedQueryScheduler
             return distributedStagesScheduler;
         }
 
-        private static Map<PlanFragmentId, Optional<int[]>> createBucketToPartitionMap(
+        private static Map<PlanFragmentId, Optional<BucketToPartition>> createBucketToPartitionMap(
                 Session session,
-                Map<PlanFragmentId, Optional<int[]>> bucketToPartitionForStagesConsumedByCoordinator,
+                Map<PlanFragmentId, Optional<BucketToPartition>> bucketToPartitionForStagesConsumedByCoordinator,
                 StageManager stageManager,
                 Function<PartitioningKey, NodePartitionMap> partitioningCache)
         {
-            ImmutableMap.Builder<PlanFragmentId, Optional<int[]>> result = ImmutableMap.builder();
+            ImmutableMap.Builder<PlanFragmentId, Optional<BucketToPartition>> result = ImmutableMap.builder();
             result.putAll(bucketToPartitionForStagesConsumedByCoordinator);
             for (SqlStage stage : stageManager.getDistributedStagesInTopologicalOrder()) {
                 PlanFragment fragment = stage.getFragment();
                 BucketToPartitionKey bucketToPartitionKey = getKeyForFragment(fragment, session);
-                Optional<int[]> bucketToPartition = getBucketToPartition(bucketToPartitionKey, partitioningCache);
+                Optional<BucketToPartition> bucketToPartition = getBucketToPartition(bucketToPartitionKey, partitioningCache);
                 for (SqlStage childStage : stageManager.getChildren(stage.getStageId())) {
                     result.put(childStage.getFragment().getId(), bucketToPartition);
                 }
@@ -994,10 +1008,10 @@ public class PipelinedQueryScheduler
             return new PartitioningKey(partitioningHandle, partitionCount);
         }
 
-        private static Optional<int[]> getBucketToPartition(BucketToPartitionKey bucketToPartitionKey, Function<PartitioningKey, NodePartitionMap> partitioningCache)
+        private static Optional<BucketToPartition> getBucketToPartition(BucketToPartitionKey bucketToPartitionKey, Function<PartitioningKey, NodePartitionMap> partitioningCache)
         {
             return switch (bucketToPartitionKey) {
-                case ONE -> Optional.of(new int[1]);
+                case ONE -> Optional.of(new BucketToPartition(new int[1], false));
                 case EMPTY -> Optional.empty();
                 case PartitioningKey key -> {
                     NodePartitionMap nodePartitionMap = partitioningCache.apply(key);
@@ -1012,7 +1026,7 @@ public class PipelinedQueryScheduler
         private static Map<PlanFragmentId, PipelinedOutputBufferManager> createOutputBufferManagers(
                 Map<PlanFragmentId, PipelinedOutputBufferManager> outputBuffersForStagesConsumedByCoordinator,
                 StageManager stageManager,
-                Map<PlanFragmentId, Optional<int[]>> bucketToPartitionMap)
+                Map<PlanFragmentId, Optional<BucketToPartition>> bucketToPartitionMap)
         {
             ImmutableMap.Builder<PlanFragmentId, PipelinedOutputBufferManager> result = ImmutableMap.builder();
             result.putAll(outputBuffersForStagesConsumedByCoordinator);
@@ -1029,9 +1043,9 @@ public class PipelinedQueryScheduler
                         outputBufferManager = new ScaledPipelinedOutputBufferManager();
                     }
                     else {
-                        Optional<int[]> bucketToPartition = bucketToPartitionMap.get(fragmentId);
+                        Optional<BucketToPartition> bucketToPartition = bucketToPartitionMap.get(fragmentId);
                         checkArgument(bucketToPartition.isPresent(), "bucketToPartition is expected to be present for fragment: %s", fragmentId);
-                        int partitionCount = Ints.max(bucketToPartition.get()) + 1;
+                        int partitionCount = Ints.max(bucketToPartition.get().bucketToPartition()) + 1;
                         outputBufferManager = new PartitionedPipelinedOutputBufferManager(partitioningHandle, partitionCount);
                     }
                     result.put(fragmentId, outputBufferManager);

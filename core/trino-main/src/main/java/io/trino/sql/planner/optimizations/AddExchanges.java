@@ -793,10 +793,10 @@ public class AddExchanges
                         ? Optional.of(Math.min(maxWriterTasks, getMaxWriterTaskCount(session)))
                         : Optional.empty();
                 if (scaleWriters && scalingOptions.isWriterTasksScalingEnabled()) {
-                    partitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION, ImmutableList.of()), newSource.getNode().getOutputSymbols(), false, Optional.empty(), maxWritersNodesCount));
+                    partitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION, ImmutableList.of()), newSource.getNode().getOutputSymbols(), false, Optional.empty(), Optional.empty(), maxWritersNodesCount));
                 }
                 else if (redistributeWrites) {
-                    partitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), newSource.getNode().getOutputSymbols(), false, Optional.empty(), maxWritersNodesCount));
+                    partitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), newSource.getNode().getOutputSymbols(), false, Optional.empty(), Optional.empty(), maxWritersNodesCount));
                 }
             }
             else if (scaleWriters
@@ -1140,6 +1140,7 @@ public class AddExchanges
                                         filteringSource.getNode().getOutputSymbols(),
                                         true,
                                         Optional.empty(),
+                                        Optional.empty(),
                                         Optional.empty())),
                                 filteringSource.getProperties());
                     }
@@ -1173,6 +1174,7 @@ public class AddExchanges
                                     filteringPartitioning,
                                     filteringSource.getNode().getOutputSymbols(),
                                     true,
+                                    Optional.empty(),
                                     Optional.empty(),
                                     Optional.empty())),
                             filteringSource.getProperties());
@@ -1302,6 +1304,7 @@ public class AddExchanges
                                                 childPartitioning,
                                                 source.getNode().getOutputSymbols(),
                                                 nullsAndAnyReplicated,
+                                                Optional.empty(),
                                                 Optional.empty(),
                                                 Optional.empty())),
                                 source.getProperties());

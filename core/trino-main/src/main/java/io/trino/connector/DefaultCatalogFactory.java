@@ -16,7 +16,6 @@ package io.trino.connector;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.inject.Inject;
 import io.airlift.configuration.secrets.SecretsResolver;
-import io.airlift.node.NodeInfo;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.connector.informationschema.InformationSchemaConnector;
@@ -25,8 +24,9 @@ import io.trino.connector.system.StaticSystemTablesProvider;
 import io.trino.connector.system.SystemConnector;
 import io.trino.connector.system.SystemTablesProvider;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
-import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.Metadata;
+import io.trino.node.InternalNode;
+import io.trino.node.InternalNodeManager;
 import io.trino.security.AccessControl;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
@@ -59,10 +59,10 @@ public class DefaultCatalogFactory
     private final Metadata metadata;
     private final AccessControl accessControl;
 
+    private final InternalNode currentNode;
     private final InternalNodeManager nodeManager;
     private final PageSorter pageSorter;
     private final PageIndexerFactory pageIndexerFactory;
-    private final NodeInfo nodeInfo;
     private final VersionEmbedder versionEmbedder;
     private final OpenTelemetry openTelemetry;
     private final TransactionManager transactionManager;
@@ -78,10 +78,10 @@ public class DefaultCatalogFactory
     public DefaultCatalogFactory(
             Metadata metadata,
             AccessControl accessControl,
+            InternalNode currentNode,
             InternalNodeManager nodeManager,
             PageSorter pageSorter,
             PageIndexerFactory pageIndexerFactory,
-            NodeInfo nodeInfo,
             VersionEmbedder versionEmbedder,
             OpenTelemetry openTelemetry,
             TransactionManager transactionManager,
@@ -92,10 +92,10 @@ public class DefaultCatalogFactory
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
+        this.currentNode = requireNonNull(currentNode, "currentNode is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
-        this.nodeInfo = requireNonNull(nodeInfo, "nodeInfo is null");
         this.versionEmbedder = requireNonNull(versionEmbedder, "versionEmbedder is null");
         this.openTelemetry = requireNonNull(openTelemetry, "openTelemetry is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
@@ -151,13 +151,13 @@ public class DefaultCatalogFactory
                 createInformationSchemaCatalogHandle(catalogHandle),
                 new InformationSchemaConnector(
                         catalogHandle.getCatalogName().toString(),
-                        nodeManager,
+                        currentNode,
                         metadata,
                         accessControl,
                         maxPrefetchedInformationSchemaPrefixes));
 
         SystemTablesProvider systemTablesProvider;
-        if (nodeManager.getCurrentNode().isCoordinator()) {
+        if (currentNode.isCoordinator()) {
             systemTablesProvider = new CoordinatorSystemTablesProvider(
                     transactionManager,
                     metadata,
@@ -172,6 +172,7 @@ public class DefaultCatalogFactory
                 tracer,
                 createSystemTablesCatalogHandle(catalogHandle),
                 new SystemConnector(
+                        currentNode,
                         nodeManager,
                         systemTablesProvider,
                         transactionId -> transactionManager.getConnectorTransaction(transactionId, catalogHandle),
@@ -197,7 +198,7 @@ public class DefaultCatalogFactory
                 catalogHandle,
                 openTelemetry,
                 createTracer(catalogHandle),
-                new DefaultNodeManager(nodeManager, nodeInfo.getEnvironment(), schedulerIncludeCoordinator),
+                new DefaultNodeManager(currentNode, nodeManager, schedulerIncludeCoordinator),
                 versionEmbedder,
                 typeManager,
                 new InternalMetadataProvider(metadata, typeManager),

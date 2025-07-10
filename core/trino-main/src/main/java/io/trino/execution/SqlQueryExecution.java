@@ -46,8 +46,8 @@ import io.trino.execution.scheduler.faulttolerant.StageExecutionStats;
 import io.trino.execution.scheduler.faulttolerant.TaskDescriptorStorage;
 import io.trino.execution.scheduler.policy.ExecutionPolicy;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.failuredetector.FailureDetector;
 import io.trino.metadata.TableHandle;
+import io.trino.node.InternalNodeManager;
 import io.trino.operator.ForScheduler;
 import io.trino.operator.RetryPolicy;
 import io.trino.server.BasicQueryInfo;
@@ -129,7 +129,7 @@ public class SqlQueryExecution
     private final int scheduleSplitBatchSize;
     private final ExecutorService queryExecutor;
     private final ScheduledExecutorService schedulerExecutor;
-    private final FailureDetector failureDetector;
+    private final InternalNodeManager nodeManager;
 
     private final AtomicReference<QueryScheduler> queryScheduler = new AtomicReference<>();
     private final AtomicReference<Plan> queryPlan = new AtomicReference<>();
@@ -169,7 +169,7 @@ public class SqlQueryExecution
             int scheduleSplitBatchSize,
             ExecutorService queryExecutor,
             ScheduledExecutorService schedulerExecutor,
-            FailureDetector failureDetector,
+            InternalNodeManager nodeManager,
             NodeTaskMap nodeTaskMap,
             ExecutionPolicy executionPolicy,
             SplitSchedulerStats schedulerStats,
@@ -200,7 +200,7 @@ public class SqlQueryExecution
             this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
             this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
             this.schedulerExecutor = requireNonNull(schedulerExecutor, "schedulerExecutor is null");
-            this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
+            this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
             this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
             this.executionPolicy = requireNonNull(executionPolicy, "executionPolicy is null");
             this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
@@ -538,7 +538,7 @@ public class SqlQueryExecution
                     scheduleSplitBatchSize,
                     queryExecutor,
                     schedulerExecutor,
-                    failureDetector,
+                    nodeManager,
                     nodeTaskMap,
                     executionPolicy,
                     tracer,
@@ -565,7 +565,7 @@ public class SqlQueryExecution
                     nodePartitioningManager,
                     exchangeManagerRegistry.getExchangeManager(),
                     nodeAllocatorService,
-                    failureDetector,
+                    nodeManager,
                     dynamicFilterService,
                     taskExecutionStats,
                     new AdaptivePlanner(
@@ -703,8 +703,8 @@ public class SqlQueryExecution
         return stateMachine.getFinalQueryInfo()
                 .map(ResultQueryInfo::new)
                 .orElseGet(() -> stateMachine.updateResultQueryInfo(
-                        scheduler.map(QueryScheduler::getBasicStageInfo),
-                        () -> scheduler.map(QueryScheduler::getStageInfo)));
+                        scheduler.map(QueryScheduler::getBasicStagesInfo),
+                        () -> scheduler.map(QueryScheduler::getStagesInfo)));
     }
 
     @Override
@@ -721,11 +721,11 @@ public class SqlQueryExecution
 
     private QueryInfo buildQueryInfo(QueryScheduler scheduler)
     {
-        Optional<StageInfo> stageInfo = Optional.empty();
+        Optional<StagesInfo> stagesInfo = Optional.empty();
         if (scheduler != null) {
-            stageInfo = Optional.ofNullable(scheduler.getStageInfo());
+            stagesInfo = Optional.ofNullable(scheduler.getStagesInfo());
         }
-        return stateMachine.updateQueryInfo(stageInfo);
+        return stateMachine.updateQueryInfo(stagesInfo);
     }
 
     @Override
@@ -790,7 +790,7 @@ public class SqlQueryExecution
         private final RemoteTaskFactory remoteTaskFactory;
         private final ExecutorService queryExecutor;
         private final ScheduledExecutorService schedulerExecutor;
-        private final FailureDetector failureDetector;
+        private final InternalNodeManager nodeManager;
         private final NodeTaskMap nodeTaskMap;
         private final Map<String, ExecutionPolicy> executionPolicies;
         private final StatsCalculator statsCalculator;
@@ -821,7 +821,7 @@ public class SqlQueryExecution
                 RemoteTaskFactory remoteTaskFactory,
                 @ForQueryExecution ExecutorService queryExecutor,
                 @ForScheduler ScheduledExecutorService schedulerExecutor,
-                FailureDetector failureDetector,
+                InternalNodeManager nodeManager,
                 NodeTaskMap nodeTaskMap,
                 Map<String, ExecutionPolicy> executionPolicies,
                 SplitSchedulerStats schedulerStats,
@@ -851,7 +851,7 @@ public class SqlQueryExecution
             this.remoteTaskFactory = requireNonNull(remoteTaskFactory, "remoteTaskFactory is null");
             this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
             this.schedulerExecutor = requireNonNull(schedulerExecutor, "schedulerExecutor is null");
-            this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
+            this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
             this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
             this.executionPolicies = requireNonNull(executionPolicies, "executionPolicies is null");
             requireNonNull(planOptimizersFactory, "planOptimizersFactory is null");
@@ -901,7 +901,7 @@ public class SqlQueryExecution
                     scheduleSplitBatchSize,
                     queryExecutor,
                     schedulerExecutor,
-                    failureDetector,
+                    nodeManager,
                     nodeTaskMap,
                     executionPolicy,
                     schedulerStats,

@@ -11,25 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.server;
+package io.trino.node;
 
-import io.airlift.configuration.Config;
+import java.net.URI;
+import java.util.Set;
 
-public class EmbeddedDiscoveryConfig
+public interface NodeInventory
 {
-    private boolean enabled = true;
-
-    @Deprecated
-    public boolean isEnabled()
-    {
-        return enabled;
-    }
-
-    @Deprecated
-    @Config("discovery-server.enabled")
-    public EmbeddedDiscoveryConfig setEnabled(boolean enabled)
-    {
-        this.enabled = enabled;
-        return this;
-    }
+    Set<URI> getNodes();
 }

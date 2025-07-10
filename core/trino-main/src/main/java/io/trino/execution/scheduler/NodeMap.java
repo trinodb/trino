@@ -14,7 +14,7 @@
 package io.trino.execution.scheduler;
 
 import com.google.common.collect.SetMultimap;
-import io.trino.metadata.InternalNode;
+import io.trino.node.InternalNode;
 import io.trino.spi.HostAddress;
 
 import java.net.InetAddress;

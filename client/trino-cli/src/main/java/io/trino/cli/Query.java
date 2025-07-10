@@ -68,11 +68,15 @@ public class Query
     private final AtomicBoolean ignoreUserInterrupt = new AtomicBoolean();
     private final StatementClient client;
     private final boolean debug;
+    private final int maxQueuedRows;
+    private final int maxBufferedRows;
 
-    public Query(StatementClient client, boolean debug)
+    public Query(StatementClient client, boolean debug, int maxQueuedRows, int maxBufferedRows)
     {
         this.client = requireNonNull(client, "client is null");
         this.debug = debug;
+        this.maxQueuedRows = maxQueuedRows;
+        this.maxBufferedRows = maxBufferedRows;
     }
 
     public Optional<String> getSetCatalog()
@@ -263,7 +267,7 @@ public class Query
 
     private void discardResults()
     {
-        try (OutputHandler handler = new OutputHandler(new NullPrinter())) {
+        try (OutputHandler handler = new OutputHandler(new NullPrinter(), 100, 100)) {
             handler.processRows(client);
         }
         catch (IOException e) {
@@ -302,7 +306,7 @@ public class Query
         try (Pager pager = Pager.create(pagerName);
                 ThreadInterruptor clientThread = new ThreadInterruptor();
                 Writer writer = createWriter(pager);
-                OutputHandler handler = createOutputHandler(format, maxWidth, writer, columns)) {
+                OutputHandler handler = createOutputHandler(format, maxWidth, writer, columns, maxQueuedRows, maxBufferedRows)) {
             if (!pager.isNullPager()) {
                 // ignore the user pressing ctrl-C while in the pager
                 ignoreUserInterrupt.set(true);
@@ -325,14 +329,14 @@ public class Query
     private void sendOutput(PrintStream out, OutputFormat format, int maxWidth, List<Column> fieldNames)
             throws IOException
     {
-        try (OutputHandler handler = createOutputHandler(format, maxWidth, createWriter(out), fieldNames)) {
+        try (OutputHandler handler = createOutputHandler(format, maxWidth, createWriter(out), fieldNames, maxQueuedRows, maxBufferedRows)) {
             handler.processRows(client);
         }
     }
 
-    private static OutputHandler createOutputHandler(OutputFormat format, int maxWidth, Writer writer, List<Column> columns)
+    private static OutputHandler createOutputHandler(OutputFormat format, int maxWidth, Writer writer, List<Column> columns, int maxQueuedRows, int maxBufferedRows)
     {
-        return new OutputHandler(createOutputPrinter(format, maxWidth, writer, columns));
+        return new OutputHandler(createOutputPrinter(format, maxWidth, writer, columns), maxQueuedRows, maxBufferedRows);
     }
 
     private static OutputPrinter createOutputPrinter(OutputFormat format, int maxWidth, Writer writer, List<Column> columns)

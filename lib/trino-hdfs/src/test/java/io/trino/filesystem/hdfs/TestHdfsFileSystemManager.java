@@ -19,7 +19,6 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.spi.security.ConnectorIdentity;
-import io.trino.testing.TestingNodeManager;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -43,7 +42,6 @@ class TestHdfsFileSystemManager
                 true,
                 true,
                 "test",
-                new TestingNodeManager(),
                 OpenTelemetry.noop());
 
         assertThat(manager.configure().keySet()).containsExactly("hive.dfs.verify-checksum", "hive.s3.region");

@@ -518,7 +518,10 @@ public class LogicalPlanner
 
         List<Symbol> visibleFieldMappings = visibleFields(plan);
 
+        PlanBuilder planBuilder = newPlanBuilder(plan, analysis, ImmutableMap.of(), ImmutableMap.of(), session, plannerContext);
+
         Map<String, ColumnHandle> columns = metadata.getColumnHandles(session, tableHandle);
+        Map<ColumnHandle, io.trino.sql.tree.Expression> defaultColumnValues = analysis.getDefaultColumnValues(table);
         Assignments.Builder assignments = Assignments.builder();
         boolean supportsMissingColumnsOnInsert = metadata.supportsMissingColumnsOnInsert(session, tableHandle);
         ImmutableList.Builder<ColumnMetadata> insertedColumnsBuilder = ImmutableList.builder();
@@ -530,12 +533,20 @@ public class LogicalPlanner
             Symbol output = symbolAllocator.newSymbol(column.getName(), column.getType());
             Expression expression;
             Type tableType = column.getType();
-            int index = insertColumns.indexOf(columns.get(column.getName()));
+            ColumnHandle columnHandle = columns.get(column.getName());
+            int index = insertColumns.indexOf(columnHandle);
             if (index < 0) {
                 if (supportsMissingColumnsOnInsert) {
                     continue;
                 }
-                expression = new Constant(column.getType(), null);
+                if (column.getDefaultValue().isPresent()) {
+                    io.trino.sql.tree.Expression defaultExpression = defaultColumnValues.get(columnHandle);
+                    expression = planBuilder.rewrite(defaultExpression);
+                    expression = noTruncationCast(metadata, expression, expression.type(), tableType);
+                }
+                else {
+                    expression = new Constant(column.getType(), null);
+                }
             }
             else {
                 Symbol input = visibleFieldMappings.get(index);
@@ -623,7 +634,7 @@ public class LogicalPlanner
         if (queryType.equals(tableType)) {
             return fieldMapping.toSymbolReference();
         }
-        return noTruncationCast(fieldMapping.toSymbolReference(), queryType, tableType);
+        return noTruncationCast(metadata, fieldMapping.toSymbolReference(), queryType, tableType);
     }
 
     private Expression createNullNotAllowedFailExpression(String columnName, Type type)
@@ -724,6 +735,7 @@ public class LogicalPlanner
                         outputLayout,
                         false,
                         Optional.empty(),
+                        Optional.empty(),
                         maxWritersNodesCount));
             }
         }
@@ -795,7 +807,7 @@ public class LogicalPlanner
     TODO Once BINARY and parametric VARBINARY types are supported, they should be handled here.
     TODO This workaround is insufficient to handle structural types
      */
-    private Expression noTruncationCast(Expression expression, Type fromType, Type toType)
+    public static Expression noTruncationCast(Metadata metadata, Expression expression, Type fromType, Type toType)
     {
         if (fromType instanceof UnknownType || (!(toType instanceof VarcharType) && !(toType instanceof CharType))) {
             return new Cast(expression, toType);
@@ -1015,6 +1027,7 @@ public class LogicalPlanner
                         Partitioning.create(FIXED_HASH_DISTRIBUTION, partitionFunctionArguments),
                         outputLayout,
                         false,
+                        Optional.empty(),
                         Optional.empty(),
                         maxWritersNodesCount));
             }

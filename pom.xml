@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>270</version>
+        <version>278</version>
     </parent>
 
     <groupId>io.trino</groupId>
@@ -181,7 +181,7 @@
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}</air.test.jvm.additional-arguments>
 
         <!-- keep dependency properties sorted -->
-        <dep.airlift.version>338</dep.airlift.version>
+        <dep.airlift.version>339</dep.airlift.version>
         <dep.alluxio.version>2.9.6</dep.alluxio.version>
         <dep.antlr.version>4.13.2</dep.antlr.version>
         <dep.avro.version>1.12.0</dep.avro.version>
@@ -191,7 +191,7 @@
         <dep.checkstyle.version>10.23.1</dep.checkstyle.version>
         <dep.docker.images.version>116</dep.docker.images.version>
         <dep.drift.version>1.23</dep.drift.version>
-        <dep.flyway.version>11.9.2</dep.flyway.version>
+        <dep.flyway.version>11.10.1</dep.flyway.version>
         <dep.frontend-maven-plugin.version>1.15.1</dep.frontend-maven-plugin.version>
         <dep.frontend-node.version>v22.14.0</dep.frontend-node.version>
         <dep.frontend-npm.version>11.2.0</dep.frontend-npm.version>
@@ -202,13 +202,14 @@
         <dep.jsonwebtoken.version>0.12.6</dep.jsonwebtoken.version>
         <dep.jts.version>1.20.0</dep.jts.version>
         <dep.kafka-clients.version>4.0.0</dep.kafka-clients.version>
-        <dep.okio.version>3.13.0</dep.okio.version>
+        <dep.okhttp.version>5.1.0</dep.okhttp.version>
+        <dep.okio.version>3.15.0</dep.okio.version>
         <dep.parquet.version>1.15.2</dep.parquet.version>
         <dep.plugin.failsafe.version>${dep.plugin.surefire.version}</dep.plugin.failsafe.version>
         <dep.protobuf.version>3.25.8</dep.protobuf.version>
-        <dep.snowflake.version>3.24.2</dep.snowflake.version>
+        <dep.snowflake.version>3.25.0</dep.snowflake.version>
         <dep.swagger.version>2.2.34</dep.swagger.version>
-        <dep.takari.version>2.3.0</dep.takari.version>
+        <dep.takari.version>2.3.2</dep.takari.version>
         <dep.tcnative.version>2.0.72.Final</dep.tcnative.version>
         <dep.tempto.version>202</dep.tempto.version>
         <dep.wire.version>5.2.1</dep.wire.version>
@@ -227,7 +228,7 @@
             <dependency>
                 <groupId>com.azure</groupId>
                 <artifactId>azure-sdk-bom</artifactId>
-                <version>1.2.35</version>
+                <version>1.2.36</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -235,7 +236,7 @@
             <dependency>
                 <groupId>com.google.cloud</groupId>
                 <artifactId>libraries-bom</artifactId>
-                <version>26.62.0</version>
+                <version>26.63.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -251,7 +252,7 @@
             <dependency>
                 <groupId>com.squareup.okhttp3</groupId>
                 <artifactId>okhttp-bom</artifactId>
-                <version>4.12.0</version>
+                <version>${dep.okhttp.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -289,17 +290,9 @@
             </dependency>
 
             <dependency>
-                <groupId>org.ow2.asm</groupId>
-                <artifactId>asm-bom</artifactId>
-                <version>${dep.asm.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-
-            <dependency>
                 <groupId>org.testcontainers</groupId>
                 <artifactId>testcontainers-bom</artifactId>
-                <version>1.21.2</version>
+                <version>1.21.3</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -307,7 +300,7 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.31.71</version>
+                <version>2.31.78</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -315,7 +308,7 @@
             <dependency>
                 <groupId>com.adobe.testing</groupId>
                 <artifactId>s3mock-testcontainers</artifactId>
-                <version>4.5.0</version>
+                <version>4.6.0</version>
             </dependency>
 
             <dependency>
@@ -452,13 +445,13 @@
             <dependency>
                 <groupId>com.github.docker-java</groupId>
                 <artifactId>docker-java-api</artifactId>
-                <version>3.5.2</version>
+                <version>3.5.3</version>
             </dependency>
 
             <dependency>
                 <groupId>com.github.luben</groupId>
                 <artifactId>zstd-jni</artifactId>
-                <version>1.5.7-3</version>
+                <version>1.5.7-4</version>
             </dependency>
 
             <dependency>
@@ -550,7 +543,7 @@
             <dependency>
                 <groupId>com.nimbusds</groupId>
                 <artifactId>nimbus-jose-jwt</artifactId>
-                <version>10.3</version>
+                <version>10.3.1</version>
             </dependency>
 
             <dependency>
@@ -564,6 +557,12 @@
                 <groupId>com.opencsv</groupId>
                 <artifactId>opencsv</artifactId>
                 <version>5.11.2</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.squareup.okhttp3</groupId>
+                <artifactId>okhttp-jvm</artifactId>
+                <version>${dep.okhttp.version}</version>
             </dependency>
 
             <dependency>
@@ -668,6 +667,11 @@
                 <artifactId>discovery-server</artifactId>
                 <version>1.37</version>
                 <exclusions>
+                    <!-- exclude shaded guice dependency as we bring classes only variant -->
+                    <exclusion>
+                        <groupId>com.google.inject</groupId>
+                        <artifactId>guice</artifactId>
+                    </exclusion>
                     <exclusion>
                         <groupId>io.airlift</groupId>
                         <artifactId>event-http</artifactId>
@@ -733,6 +737,13 @@
                 <groupId>io.airlift.resolver</groupId>
                 <artifactId>resolver</artifactId>
                 <version>1.6</version>
+                <exclusions>
+                    <!-- exclude shaded guice dependency as we bring classes only variant -->
+                    <exclusion>
+                        <groupId>com.google.inject</groupId>
+                        <artifactId>guice</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -1893,14 +1904,26 @@
 
             <dependency>
                 <groupId>org.apache.commons</groupId>
+                <artifactId>commons-configuration2</artifactId>
+                <version>2.12.0</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.commons</groupId>
                 <artifactId>commons-lang3</artifactId>
-                <version>3.17.0</version>
+                <version>3.18.0</version>
             </dependency>
 
             <dependency>
                 <groupId>org.apache.commons</groupId>
                 <artifactId>commons-math3</artifactId>
                 <version>3.6.1</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-text</artifactId>
+                <version>1.13.1</version>
             </dependency>
 
             <dependency>
@@ -2200,7 +2223,7 @@
             <dependency>
                 <groupId>org.checkerframework</groupId>
                 <artifactId>checker-qual</artifactId>
-                <version>3.49.4</version>
+                <version>3.49.5</version>
             </dependency>
 
             <dependency>
@@ -2584,6 +2607,10 @@
                             <requirePropertyDiverges>
                                 <property>project.description</property>
                             </requirePropertyDiverges>
+                            <requireProperty>
+                                <property>project.name</property>
+                                <message>Project name must be set in the pom.xml</message>
+                            </requireProperty>
                             <requireJavaVendor>
                                 <message>Trino requires Temurin or Oracle JDK for development. Other vendors are not recommended due to lack of testing coverage.</message>
                                 <includes>
@@ -2906,6 +2933,7 @@
                                     -Xep:ErroneousBitwiseExpression:ERROR \
                                     -Xep:ErroneousThreadPoolConstructorChecker:ERROR \
                                     -Xep:EscapedEntity:ERROR \
+                                    -Xep:ExpensiveLenientFormatString:ERROR \
                                     -Xep:ExtendingJUnitAssert:ERROR \
                                     -Xep:ExtendsObject:ERROR \
                                     -Xep:FallThrough:ERROR \
@@ -2958,10 +2986,13 @@
                                     -Xep:ThreeLetterTimeZoneID:ERROR \
                                     -Xep:TraditionalSwitchExpression:ERROR \
                                     -Xep:UnicodeEscape:ERROR \
+                                    -Xep:UnnecessaryCopy:ERROR \
                                     -Xep:UnnecessaryLongToIntConversion:ERROR \
                                     -Xep:UnnecessaryMethodReference:ERROR \
                                     -Xep:UnnecessaryOptionalGet:ERROR \
                                     -Xep:UnnecessaryParentheses:ERROR \
+                                    <!-- false positive from io.airlift.configuration.Config annotation -->
+                                    -Xep:UnnecessaryQualifier:OFF \
                                     -Xep:UnnecessaryStringBuilder:ERROR \
                                     -Xep:UnusedMethod:OFF \
                                     -Xep:UnusedVariable:ERROR \

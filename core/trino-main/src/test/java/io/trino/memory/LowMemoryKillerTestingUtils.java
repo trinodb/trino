@@ -21,7 +21,7 @@ import io.trino.client.NodeVersion;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskInfo;
-import io.trino.metadata.InternalNode;
+import io.trino.node.InternalNode;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.QueryId;
 import io.trino.spi.memory.MemoryPoolInfo;

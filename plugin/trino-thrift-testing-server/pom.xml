@@ -10,6 +10,7 @@
     </parent>
 
     <artifactId>trino-thrift-testing-server</artifactId>
+    <name>${project.artifactId}</name>
     <description>Trino - Thrift testing server</description>
 
     <properties>
@@ -30,6 +31,7 @@
         <dependency>
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>
+            <classifier>classes</classifier>
         </dependency>
 
         <dependency>

@@ -25,6 +25,8 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 
+import java.util.function.IntSupplier;
+
 import static java.util.Objects.requireNonNull;
 
 public class BigQuerySplitManager
@@ -37,7 +39,7 @@ public class BigQuerySplitManager
     private final boolean viewEnabled;
     private final boolean arrowSerializationEnabled;
     private final Duration viewExpiration;
-    private final NodeManager nodeManager;
+    private final IntSupplier workerCountSupplier;
     private final int maxReadRowsRetries;
 
     @Inject
@@ -52,7 +54,8 @@ public class BigQuerySplitManager
         this.viewEnabled = config.isViewsEnabled();
         this.arrowSerializationEnabled = config.isArrowSerializationEnabled();
         this.viewExpiration = config.getViewExpireDuration();
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager cannot be null");
+        requireNonNull(nodeManager, "nodeManager is null");
+        this.workerCountSupplier = () -> nodeManager.getRequiredWorkerNodes().size();
         this.maxReadRowsRetries = config.getMaxReadRowsRetries();
     }
 
@@ -73,7 +76,7 @@ public class BigQuerySplitManager
                 viewEnabled,
                 arrowSerializationEnabled,
                 viewExpiration,
-                nodeManager,
+                workerCountSupplier,
                 maxReadRowsRetries);
     }
 }

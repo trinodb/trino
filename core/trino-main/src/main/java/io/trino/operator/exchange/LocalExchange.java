@@ -21,7 +21,6 @@ import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.slice.XxHash64;
 import io.airlift.units.DataSize;
 import io.trino.Session;
-import io.trino.operator.BucketPartitionFunction;
 import io.trino.operator.HashGenerator;
 import io.trino.operator.PartitionFunction;
 import io.trino.operator.output.SkewedPartitionRebalancer;
@@ -29,13 +28,14 @@ import io.trino.spi.Page;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.MergePartitioningHandle;
-import io.trino.sql.planner.NodePartitioningManager;
+import io.trino.sql.planner.PartitionFunctionProvider;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.SystemPartitioningHandle;
 
 import java.io.Closeable;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -86,10 +86,11 @@ public class LocalExchange
     private int nextSourceIndex;
 
     public LocalExchange(
-            NodePartitioningManager nodePartitioningManager,
+            PartitionFunctionProvider partitionFunctionProvider,
             Session session,
             int defaultConcurrency,
             PartitioningHandle partitioning,
+            Optional<Integer> bucketCount,
             List<Integer> partitionChannels,
             List<Type> partitionChannelTypes,
             DataSize maxBufferedBytes,
@@ -150,9 +151,10 @@ public class LocalExchange
 
             exchangerSupplier = () -> {
                 PartitionFunction partitionFunction = createPartitionFunction(
-                        nodePartitioningManager,
+                        partitionFunctionProvider,
                         session,
                         typeOperators,
+                        bucketCount,
                         partitioning,
                         partitionCount,
                         partitionChannels,
@@ -177,9 +179,10 @@ public class LocalExchange
                     .collect(toImmutableList());
             exchangerSupplier = () -> {
                 PartitionFunction partitionFunction = createPartitionFunction(
-                        nodePartitioningManager,
+                        partitionFunctionProvider,
                         session,
                         typeOperators,
+                        bucketCount,
                         partitioning,
                         bufferCount,
                         partitionChannels,
@@ -231,17 +234,18 @@ public class LocalExchange
     }
 
     private static PartitionFunction createPartitionFunction(
-            NodePartitioningManager nodePartitioningManager,
+            PartitionFunctionProvider partitionFunctionProvider,
             Session session,
             TypeOperators typeOperators,
-            PartitioningHandle partitioning,
+            Optional<Integer> optionalBucketCount,
+            PartitioningHandle partitioningHandle,
             int partitionCount,
             List<Integer> partitionChannels,
             List<Type> partitionChannelTypes)
     {
         checkArgument(Integer.bitCount(partitionCount) == 1, "partitionCount must be a power of 2");
 
-        if (isSystemPartitioning(partitioning)) {
+        if (partitioningHandle.getConnectorHandle() instanceof SystemPartitioningHandle) {
             HashGenerator hashGenerator = createChannelsHashGenerator(partitionChannelTypes, Ints.toArray(partitionChannels), typeOperators);
             return new LocalPartitionGenerator(hashGenerator, partitionCount);
         }
@@ -250,7 +254,7 @@ public class LocalExchange
         // The same bucket function (with the same bucket count) as for node
         // partitioning must be used. This way rows within a single bucket
         // will be being processed by single thread.
-        int bucketCount = getBucketCount(session, nodePartitioningManager, partitioning);
+        int bucketCount = optionalBucketCount.orElseThrow(() -> new IllegalArgumentException("Bucket count must be set before non-system partition function can be created"));
         int[] bucketToPartition = new int[bucketCount];
 
         for (int bucket = 0; bucket < bucketCount; bucket++) {
@@ -259,30 +263,7 @@ public class LocalExchange
             bucketToPartition[bucket] = hashedBucket & (partitionCount - 1);
         }
 
-        if (partitioning.getConnectorHandle() instanceof MergePartitioningHandle handle) {
-            return handle.getPartitionFunction(
-                    (scheme, types) -> nodePartitioningManager.getPartitionFunction(session, scheme, types, bucketToPartition),
-                    partitionChannelTypes,
-                    bucketToPartition);
-        }
-
-        return new BucketPartitionFunction(
-                nodePartitioningManager.getBucketFunction(session, partitioning, partitionChannelTypes, bucketCount),
-                bucketToPartition);
-    }
-
-    public static int getBucketCount(Session session, NodePartitioningManager nodePartitioningManager, PartitioningHandle partitioning)
-    {
-        if (partitioning.getConnectorHandle() instanceof MergePartitioningHandle) {
-            // TODO: can we always use this code path?
-            return nodePartitioningManager.getNodePartitioningMap(session, partitioning, 1000).getBucketToPartition().length;
-        }
-        return nodePartitioningManager.getBucketCount(session, partitioning);
-    }
-
-    private static boolean isSystemPartitioning(PartitioningHandle partitioning)
-    {
-        return partitioning.getConnectorHandle() instanceof SystemPartitioningHandle;
+        return partitionFunctionProvider.getPartitionFunction(session, partitioningHandle, partitionChannelTypes, bucketToPartition);
     }
 
     private void checkAllSourcesFinished()

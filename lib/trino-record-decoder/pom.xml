@@ -10,6 +10,7 @@
     </parent>
 
     <artifactId>trino-record-decoder</artifactId>
+    <name>${project.artifactId}</name>
     <description>Trino - Record-based file format support</description>
 
     <properties>
@@ -36,6 +37,7 @@
         <dependency>
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>
+            <classifier>classes</classifier>
         </dependency>
 
         <dependency>

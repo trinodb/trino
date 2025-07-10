@@ -11,20 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.metadata;
+package io.trino.node;
 
 public enum NodeState
 {
     /**
-     * Server is up and running ready to handle tasks
+     * The node is up and ready to handle tasks.
      */
     ACTIVE,
     /**
-     * Never used internally, might be used by discoveryNodeManager when communication error occurs
+     * The node is currently not handling tasks, but it is still part of the cluster.
+     * This is an internal state used by node manager when communication errors occur.
      */
     INACTIVE,
     /**
-     * A reversible graceful shutdown, can go to forward to DRAINED or back to ACTIVE.
+     * A reversible graceful shutdown can go to forward to DRAINED or back to ACTIVE.
      */
     DRAINING,
     /**
@@ -34,5 +35,16 @@ public enum NodeState
     /**
      * Graceful shutdown, non-reversible, when observed will drain and terminate
      */
-    SHUTTING_DOWN
+    SHUTTING_DOWN,
+    /**
+     * The node is not valid for this cluster. Nodes in this state are not visible to the node manager.
+     * This is an internal state used by node manager when the environment or version of the node is
+     * not valid for the cluster.
+     */
+    INVALID,
+    /**
+     * Connections to the node have been refused. Nodes in this state are not visible to the node manager.
+     * This is an internal state used to by execution engine to produce better error messages.
+     */
+    GONE,
 }

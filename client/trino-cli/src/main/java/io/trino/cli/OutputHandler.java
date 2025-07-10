@@ -37,17 +37,19 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public final class OutputHandler
         implements Closeable
 {
-    private static final int MAX_QUEUED_ROWS = 50_000;
-    private static final int MAX_BUFFERED_ROWS = 10_000;
     private static final Duration MAX_BUFFER_TIME = new Duration(3, SECONDS);
     private static final List<?> END_TOKEN = new ArrayList<>(0);
 
     private final AtomicBoolean closed = new AtomicBoolean();
     private final OutputPrinter printer;
+    private final int maxQueuedRows;
+    private final int maxBufferedRows;
 
-    public OutputHandler(OutputPrinter printer)
+    public OutputHandler(OutputPrinter printer, int maxQueuedRows, int maxBufferedRows)
     {
         this.printer = requireNonNull(printer, "printer is null");
+        this.maxQueuedRows = maxQueuedRows;
+        this.maxBufferedRows = maxBufferedRows;
     }
 
     @Override
@@ -62,7 +64,7 @@ public final class OutputHandler
     public void processRows(StatementClient client)
             throws IOException
     {
-        BlockingQueue<List<?>> rowQueue = new ArrayBlockingQueue<>(MAX_QUEUED_ROWS);
+        BlockingQueue<List<?>> rowQueue = new ArrayBlockingQueue<>(maxQueuedRows);
         CompletableFuture<Void> readerFuture = CompletableFuture.runAsync(() -> {
             while (client.isRunning()) {
                 for (List<Object> row : client.currentRows()) {
@@ -72,17 +74,17 @@ public final class OutputHandler
             }
         }).whenComplete((result, ex) -> putOrThrow(rowQueue, END_TOKEN));
 
-        List<List<?>> rowBuffer = new ArrayList<>(MAX_BUFFERED_ROWS);
+        List<List<?>> rowBuffer = new ArrayList<>(maxBufferedRows);
         long bufferStart = System.nanoTime();
         try {
             while (!readerFuture.isDone()) {
-                boolean atEnd = drainDetectingEnd(rowQueue, rowBuffer, MAX_BUFFERED_ROWS, END_TOKEN);
+                boolean atEnd = drainDetectingEnd(rowQueue, rowBuffer, maxBufferedRows, END_TOKEN);
                 if (atEnd) {
                     break;
                 }
 
                 // Flush if needed
-                if (rowBuffer.size() >= MAX_BUFFERED_ROWS || nanosSince(bufferStart).compareTo(MAX_BUFFER_TIME) >= 0) {
+                if (rowBuffer.size() >= maxBufferedRows || nanosSince(bufferStart).compareTo(MAX_BUFFER_TIME) >= 0) {
                     printer.printRows(unmodifiableList(rowBuffer), false);
                     rowBuffer.clear();
                     bufferStart = System.nanoTime();
