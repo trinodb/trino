@@ -10,6 +10,7 @@
     </parent>
 
     <artifactId>trino-filesystem</artifactId>
+    <name>${project.artifactId}</name>
     <description>Trino - Native file system support</description>
 
     <properties>
@@ -31,6 +32,7 @@
         <dependency>
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>
+            <classifier>classes</classifier>
         </dependency>
 
         <dependency>

@@ -255,7 +255,7 @@ public class InformationSchemaPageSource
                         tableName.getTableName(),
                         column.getName(),
                         ordinalPosition,
-                        null,
+                        column.getDefaultValue().orElse(null),
                         column.isNullable() ? "YES" : "NO",
                         getDisplayLabel(column.getType(), isOmitDateTimeTypePrecision(session)),
                         column.getComment(),

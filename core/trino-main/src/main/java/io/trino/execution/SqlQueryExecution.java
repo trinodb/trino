@@ -703,8 +703,8 @@ public class SqlQueryExecution
         return stateMachine.getFinalQueryInfo()
                 .map(ResultQueryInfo::new)
                 .orElseGet(() -> stateMachine.updateResultQueryInfo(
-                        scheduler.map(QueryScheduler::getBasicStageInfo),
-                        () -> scheduler.map(QueryScheduler::getStageInfo)));
+                        scheduler.map(QueryScheduler::getBasicStagesInfo),
+                        () -> scheduler.map(QueryScheduler::getStagesInfo)));
     }
 
     @Override
@@ -721,11 +721,11 @@ public class SqlQueryExecution
 
     private QueryInfo buildQueryInfo(QueryScheduler scheduler)
     {
-        Optional<StageInfo> stageInfo = Optional.empty();
+        Optional<StagesInfo> stagesInfo = Optional.empty();
         if (scheduler != null) {
-            stageInfo = Optional.ofNullable(scheduler.getStageInfo());
+            stagesInfo = Optional.ofNullable(scheduler.getStagesInfo());
         }
-        return stateMachine.updateQueryInfo(stageInfo);
+        return stateMachine.updateQueryInfo(stagesInfo);
     }
 
     @Override

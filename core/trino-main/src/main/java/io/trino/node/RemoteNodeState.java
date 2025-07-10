@@ -14,8 +14,8 @@
 package io.trino.node;
 
 import com.google.common.base.Ticker;
-import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
@@ -26,18 +26,17 @@ import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.trino.client.NodeVersion;
 import io.trino.server.ServerInfo;
-import jakarta.annotation.Nullable;
 
 import java.net.ConnectException;
 import java.net.URI;
 import java.util.Optional;
-import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.net.MediaType.JSON_UTF_8;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.HttpStatus.OK;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
@@ -49,6 +48,7 @@ import static io.trino.node.NodeState.INACTIVE;
 import static io.trino.node.NodeState.INVALID;
 import static jakarta.ws.rs.core.HttpHeaders.CONTENT_TYPE;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElseGet;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -67,7 +67,7 @@ public class RemoteNodeState
     private final AtomicReference<InternalNode> internalNode = new AtomicReference<>();
     private final AtomicReference<NodeState> nodeState = new AtomicReference<>(INACTIVE);
     private final AtomicBoolean hasBeenActive = new AtomicBoolean(false);
-    private final AtomicReference<Future<?>> future = new AtomicReference<>();
+    private final AtomicReference<ListenableFuture<Boolean>> future = new AtomicReference<>();
     private final AtomicLong lastSeenNanos;
     private final AtomicLong lastUpdateNanos;
     private final AtomicLong lastWarningLogged;
@@ -112,24 +112,23 @@ public class RemoteNodeState
         return lastSeenNanos.get() + SECONDS.toNanos(30) <= ticker.read();
     }
 
-    public synchronized void asyncRefresh()
+    public synchronized ListenableFuture<Boolean> asyncRefresh(boolean forceAndWait)
     {
         long millisSinceUpdate = millisSince(lastUpdateNanos.get());
         if (millisSinceUpdate > 10_000 && future.get() != null) {
             logWarning("Node state update request to %s has not returned in %sms", infoUri, millisSinceUpdate);
         }
-        if (millisSinceUpdate >= 1_000 && future.get() == null) {
-            Request request = prepareGet()
-                    .setUri(infoUri)
-                    .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
-                    .build();
-            HttpResponseFuture<JsonResponse<ServerInfo>> responseFuture = httpClient.executeAsync(request, createFullJsonResponseHandler(SERVER_INFO_CODEC));
-            future.compareAndSet(null, responseFuture);
-
-            Futures.addCallback(responseFuture, new FutureCallback<>()
-            {
-                @Override
-                public void onSuccess(@Nullable JsonResponse<ServerInfo> result)
+        if (!forceAndWait && (millisSinceUpdate < 1_000 || future.get() != null)) {
+            return requireNonNullElseGet(future.get(), () -> Futures.immediateFuture(true));
+        }
+        Request request = prepareGet()
+                .setUri(infoUri)
+                .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
+                .build();
+        HttpResponseFuture<JsonResponse<ServerInfo>> responseFuture = httpClient.executeAsync(request, createFullJsonResponseHandler(SERVER_INFO_CODEC));
+        ListenableFuture<Boolean> transformSuccess = Futures.transform(
+                responseFuture,
+                result ->
                 {
                     try {
                         // If the result is null, mark the node as INACTIVE to prevent work from being scheduled on it
@@ -168,6 +167,7 @@ public class RemoteNodeState
                         if (result == null || result.getStatusCode() != OK.code()) {
                             logWarning("Error fetching node state from %s", infoUri);
                         }
+                        return nodeState == ACTIVE;
                     }
                     catch (Throwable e) {
                         // Any failure results in the node being marked as INACTIVE to prevent work from being scheduled on it
@@ -175,23 +175,24 @@ public class RemoteNodeState
                         logWarning("Error processing node state from %s: %s", infoUri, e.getMessage());
                         throw e;
                     }
-                    finally {
-                        lastUpdateNanos.set(ticker.read());
-                        future.compareAndSet(responseFuture, null);
-                    }
-                }
-
-                @Override
-                public void onFailure(Throwable t)
+                }, directExecutor());
+        ListenableFuture<Boolean> catching = Futures.catching(
+                transformSuccess,
+                Throwable.class, t ->
                 {
                     // Any failure results in the node being marked a GONE or INACTIVE to prevent work from being scheduled on it
                     nodeState.set(t instanceof ConnectException ? GONE : INACTIVE);
                     logWarning("Error fetching node state from %s: %s", infoUri, t.getMessage());
-                    lastUpdateNanos.set(ticker.read());
-                    future.compareAndSet(responseFuture, null);
-                }
-            }, directExecutor());
-        }
+                    return false;
+                }, directExecutor());
+
+        future.compareAndSet(null, catching);
+        addSuccessCallback(catching, _ -> {
+            future.compareAndSet(catching, null);
+            lastUpdateNanos.set(ticker.read());
+        });
+
+        return catching;
     }
 
     private long millisSince(long startNanos)

@@ -97,7 +97,7 @@ public class DirectTrinoClient
             for (QueryState state = queryManager.getQueryState(queryId);
                     (state != FAILED) &&
                             !exchangeClient.isFinished() &&
-                            !(dispatchQuery.getState() == FINISHING && dispatchQuery.getFullQueryInfo().getOutputStage().isEmpty());
+                            !(dispatchQuery.getState() == FINISHING && dispatchQuery.getFullQueryInfo().getStages().isEmpty());
                     state = queryManager.getQueryState(queryId)) {
                 for (Slice serializedPage = exchangeClient.pollPage(); serializedPage != null; serializedPage = exchangeClient.pollPage()) {
                     Page page = pageDeserializer.deserialize(serializedPage);

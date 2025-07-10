@@ -29,15 +29,25 @@ public final class Completion
 
     public static Completer commandCompleter()
     {
+        // This is not an exhaustive list of commands, but it covers the most common ones.
         return new AggregateCompleter(buildArgumentCompleter("ALTER", asList("SCHEMA", "TABLE")),
-                buildArgumentCompleter("CREATE", asList("SCHEMA", "TABLE")),
-                buildArgumentCompleter("DESCRIBE"),
-                buildArgumentCompleter("DROP", asList("SCHEMA", "TABLE")),
+                buildArgumentCompleter("CREATE", asList("CATALOG", "SCHEMA", "TABLE", "VIEW", "MATERIALIZED VIEW", "FUNCTION", "BRANCH", "ROLE")),
+                buildArgumentCompleter("DESCRIBE", asList("INPUT", "OUTPUT")),
+                buildArgumentCompleter("DROP", asList("CATALOG", "SCHEMA", "TABLE", "VIEW", "MATERIALIZED VIEW", "FUNCTION", "BRANCH", "ROLE")),
                 buildArgumentCompleter("EXPLAIN"),
                 buildArgumentCompleter("HELP"),
                 buildArgumentCompleter("QUIT"),
                 buildArgumentCompleter("SELECT"),
-                buildArgumentCompleter("SHOW", asList("CATALOGS", "COLUMNS", "FUNCTIONS", "SCHEMAS", "SESSION", "TABLES")),
+                buildArgumentCompleter("MERGE"),
+                buildArgumentCompleter("TRUNCATE TABLE"),
+                buildArgumentCompleter("SET SESSION"),
+                buildArgumentCompleter("RESET SESSION"),
+                buildArgumentCompleter("RESET SESSION"),
+                buildArgumentCompleter("GRANT"),
+                buildArgumentCompleter("REVOKE"),
+                buildArgumentCompleter("DENY"),
+                buildArgumentCompleter("COMMENT ON", asList("TABLE", "VIEW", "COLUMN")),
+                buildArgumentCompleter("SHOW", asList("CATALOGS", "COLUMNS", "FUNCTIONS", "SCHEMAS", "SESSION", "TABLES", "STATS", "GRANT")),
                 buildArgumentCompleter("USE"));
     }
 

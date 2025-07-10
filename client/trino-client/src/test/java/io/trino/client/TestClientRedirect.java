@@ -16,12 +16,12 @@ package io.trino.client;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import io.trino.client.uri.TrinoUri;
+import mockwebserver3.MockResponse;
+import mockwebserver3.MockWebServer;
+import mockwebserver3.RecordedRequest;
+import mockwebserver3.junit5.StartStop;
 import okhttp3.Credentials;
 import okhttp3.OkHttpClient;
-import okhttp3.mockwebserver.MockResponse;
-import okhttp3.mockwebserver.MockWebServer;
-import okhttp3.mockwebserver.RecordedRequest;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -47,33 +47,25 @@ import static org.assertj.core.api.Assertions.assertThat;
 final class TestClientRedirect
 {
     private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
-    private MockWebServer proxyServer;
-    private MockWebServer trinoServer;
+
+    @StartStop
+    private final MockWebServer proxyServer = new MockWebServer();
+
+    @StartStop
+    private final MockWebServer trinoServer = new MockWebServer();
 
     @BeforeEach
     void setup()
             throws IOException
     {
-        proxyServer = new MockWebServer();
-        trinoServer = new MockWebServer();
-        proxyServer.start();
-        trinoServer.start();
-        proxyServer.enqueue(new MockResponse()
-                .setResponseCode(307)
-                .addHeader(LOCATION, trinoServer.url("/v1/statement")));
-        trinoServer.enqueue(new MockResponse()
+        proxyServer.enqueue(new MockResponse.Builder()
+                .code(307)
+                .addHeader(LOCATION, trinoServer.url("/v1/statement"))
+                .build());
+        trinoServer.enqueue(new MockResponse.Builder()
                 .addHeader(CONTENT_TYPE, "application/json")
-                .setBody(newQueryResults(proxyServer)));
-    }
-
-    @AfterEach
-    void teardown()
-            throws IOException
-    {
-        proxyServer.close();
-        trinoServer.close();
-        proxyServer = null;
-        trinoServer = null;
+                .body(newQueryResults(proxyServer))
+                .build());
     }
 
     @Test
@@ -95,34 +87,36 @@ final class TestClientRedirect
         }
 
         RecordedRequest redirectedRequest = trinoServer.takeRequest();
-        assertThat(redirectedRequest.getHeader(AUTHORIZATION)).isEqualTo("Bearer " + accessToken);
+        assertThat(redirectedRequest.getHeaders().get(AUTHORIZATION)).isEqualTo("Bearer " + accessToken);
     }
 
     @Test
     void testMultipleRedirects()
             throws Exception
     {
-        MockWebServer firstProxy = new MockWebServer();
-        firstProxy.start();
-        proxyServer.enqueue(new MockResponse()
-                .setResponseCode(307)
-                .addHeader(LOCATION, proxyServer.url("/v1/statement")));
-        String accessToken = "access_t0ken";
-        TrinoUri trinoUri = TrinoUri.builder()
-                .setUri(firstProxy.url("/").uri())
-                .setAccessToken(accessToken)
-                .setSsl(true)
-                .build();
+        try (MockWebServer firstProxy = new MockWebServer()) {
+            firstProxy.start();
+            proxyServer.enqueue(new MockResponse.Builder()
+                    .code(307)
+                    .addHeader(LOCATION, proxyServer.url("/v1/statement"))
+                    .build());
+            String accessToken = "access_t0ken";
+            TrinoUri trinoUri = TrinoUri.builder()
+                    .setUri(firstProxy.url("/").uri())
+                    .setAccessToken(accessToken)
+                    .setSsl(true)
+                    .build();
 
-        try (StatementClient client = createStatementClient(proxyServer, trinoUri)) {
-            while (client.advance()) {
-                // consume all client data
+            try (StatementClient client = createStatementClient(proxyServer, trinoUri)) {
+                while (client.advance()) {
+                    // consume all client data
+                }
+                assertThat(client.isFinished()).isTrue();
             }
-            assertThat(client.isFinished()).isTrue();
-        }
 
-        RecordedRequest redirectedRequest = trinoServer.takeRequest();
-        assertThat(redirectedRequest.getHeader(AUTHORIZATION)).isEqualTo("Bearer " + accessToken);
+            RecordedRequest redirectedRequest = trinoServer.takeRequest();
+            assertThat(redirectedRequest.getHeaders().get(AUTHORIZATION)).isEqualTo("Bearer " + accessToken);
+        }
     }
 
     @Test
@@ -146,7 +140,7 @@ final class TestClientRedirect
         }
 
         RecordedRequest redirectedRequest = trinoServer.takeRequest();
-        assertThat(redirectedRequest.getHeader(AUTHORIZATION)).isEqualTo(Credentials.basic(user, password));
+        assertThat(redirectedRequest.getHeaders().get(AUTHORIZATION)).isEqualTo(Credentials.basic(user, password));
     }
 
     private String newQueryResults(MockWebServer server)

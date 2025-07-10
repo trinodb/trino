@@ -50,7 +50,7 @@ public interface InternalNodeManager
 
     boolean isGone(HostAddress hostAddress);
 
-    void refreshNodes();
+    boolean refreshNodes(boolean forceAndWait);
 
     void addNodeChangeListener(Consumer<AllNodes> listener);
 

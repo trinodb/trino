@@ -11,6 +11,7 @@
 
     <artifactId>trino-thrift-api</artifactId>
     <packaging>jar</packaging>
+    <name>${project.artifactId}</name>
     <description>Trino - Thrift connector API</description>
 
     <properties>

@@ -36,6 +36,7 @@ import io.trino.exchange.ExchangeDataSource;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.exchange.LazyExchangeDataSource;
 import io.trino.execution.BasicStageInfo;
+import io.trino.execution.BasicStagesInfo;
 import io.trino.execution.QueryExecution;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryManager;
@@ -459,7 +460,7 @@ class Query
             updateCount = resultRows.getUpdateCount();
         }
 
-        if (isStarted && (queryInfo.outputStage().isEmpty() || exchangeDataSource.isFinished())) {
+        if (isStarted && (queryInfo.stages().isEmpty() || exchangeDataSource.isFinished())) {
             queryManager.resultsConsumed(queryId);
             resultsConsumed = true;
             queryDataProducer.close();
@@ -474,7 +475,7 @@ class Query
         // (2) there is more data to send (due to buffering)
         //   OR
         // (3) cached query result needs client acknowledgement to discard
-        if (queryInfo.state() != FAILED && (!queryInfo.finalQueryInfo() || !exchangeDataSource.isFinished() || (queryInfo.outputStage().isPresent() && !resultRows.isEmpty()))) {
+        if (queryInfo.state() != FAILED && (!queryInfo.finalQueryInfo() || !exchangeDataSource.isFinished() || (queryInfo.stages().isPresent() && !resultRows.isEmpty()))) {
             nextToken = OptionalLong.of(token + 1);
         }
         else {
@@ -564,7 +565,7 @@ class Query
 
     private synchronized QueryResultRows removePagesFromExchange(ResultQueryInfo queryInfo)
     {
-        if (!resultsConsumed && queryInfo.outputStage().isEmpty()) {
+        if (!resultsConsumed && queryInfo.stages().isEmpty()) {
             if (columns == null) {
                 columns = ImmutableList.of();
                 types = ImmutableList.of();
@@ -638,7 +639,7 @@ class Query
 
     private void closeExchangeIfNecessary(ResultQueryInfo queryInfo)
     {
-        if (queryInfo.state() != FAILED && queryInfo.outputStage().isPresent()) {
+        if (queryInfo.state() != FAILED && queryInfo.stages().isPresent()) {
             return;
         }
         // Close the exchange client if the query has failed, or if the query
@@ -733,11 +734,17 @@ class Query
     private static Optional<Integer> findCancelableLeafStage(ResultQueryInfo queryInfo)
     {
         // if query is running, find the leaf-most running stage
-        return queryInfo.outputStage().flatMap(Query::findCancelableLeafStage);
+        return queryInfo.stages().flatMap(Query::findCancelableLeafStage);
     }
 
-    private static Optional<Integer> findCancelableLeafStage(BasicStageInfo stage)
+    private static Optional<Integer> findCancelableLeafStage(BasicStagesInfo stages)
     {
+        return findCancelableLeafStage(stages.getOutputStageId(), stages);
+    }
+
+    private static Optional<Integer> findCancelableLeafStage(StageId stageId, BasicStagesInfo stages)
+    {
+        BasicStageInfo stage = stages.getStagesById().get(stageId);
         // if this stage is already done, we can't cancel it
         if (stage.getState().isDone()) {
             return Optional.empty();
@@ -745,8 +752,8 @@ class Query
 
         // attempt to find a cancelable sub stage
         // check in reverse order since build side of a join will be later in the list
-        for (BasicStageInfo subStage : stage.getSubStages().reversed()) {
-            Optional<Integer> leafStage = findCancelableLeafStage(subStage);
+        for (StageId subStageId : stage.getSubStages().reversed()) {
+            Optional<Integer> leafStage = findCancelableLeafStage(subStageId, stages);
             if (leafStage.isPresent()) {
                 return leafStage;
             }

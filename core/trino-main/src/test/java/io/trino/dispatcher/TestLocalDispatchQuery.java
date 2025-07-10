@@ -38,7 +38,7 @@ import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.QueryPreparer;
 import io.trino.execution.QueryState;
 import io.trino.execution.QueryStateMachine;
-import io.trino.execution.StageInfo;
+import io.trino.execution.StagesInfo;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.FunctionManager;
@@ -126,7 +126,7 @@ public class TestLocalDispatchQuery
                 Optional.empty(),
                 new NodeVersion("test"));
         QueryMonitor queryMonitor = new QueryMonitor(
-                JsonCodec.jsonCodec(StageInfo.class),
+                JsonCodec.jsonCodec(StagesInfo.class),
                 JsonCodec.jsonCodec(OperatorStats.class),
                 JsonCodec.jsonCodec(ExecutionFailureInfo.class),
                 JsonCodec.jsonCodec(StatsAndCosts.class),

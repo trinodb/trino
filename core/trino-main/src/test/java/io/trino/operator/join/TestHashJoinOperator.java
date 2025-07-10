@@ -1242,6 +1242,17 @@ public class TestHashJoinOperator
                 assertThat(operatorContext.isWaitingForMemory()).isNotDone();
             }
 
+            // still not enough memory to create lookup source
+            operator.finish();
+            assertThat(operator.getState()).isEqualTo(HashBuilderOperator.State.CONSUMING_INPUT);
+            assertThat(operator.isFinished()).isFalse();
+            if (spillEnabled) {
+                assertThat(operatorContext.isWaitingForRevocableMemory()).isNotDone();
+            }
+            else {
+                assertThat(operatorContext.isWaitingForMemory()).isNotDone();
+            }
+
             // free memory and let finish() proceed
             anotherOperatorContext.getOperatorMemoryContext().localUserMemoryContext().setBytes(0);
             operator.finish();

@@ -19,6 +19,7 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.units.Duration;
 import io.trino.server.ServerConfig;
 
+import static io.airlift.configuration.SwitchModule.switchModule;
 import static io.trino.server.InternalCommunicationHttpClientModule.internalHttpClientModule;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
@@ -51,6 +52,13 @@ public class NodeManagerModule
             binder.bind(InternalNodeManager.class).to(WorkerInternalNodeManager.class).in(Scopes.SINGLETON);
         }
 
-        install(new AirliftNodeInventoryModule(nodeVersion));
+        install(switchModule(
+                NodeInventoryConfig.class,
+                NodeInventoryConfig::getType,
+                type -> switch (type) {
+                    case AIRLIFT_DISCOVERY -> new AirliftNodeInventoryModule(nodeVersion);
+                    case ANNOUNCE -> new AnnounceNodeInventoryModule();
+                    case DNS -> new DnsNodeInventoryModule();
+                }));
     }
 }

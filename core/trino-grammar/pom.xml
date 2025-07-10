@@ -10,6 +10,7 @@
     </parent>
 
     <artifactId>trino-grammar</artifactId>
+    <name>${project.artifactId}</name>
     <description>Trino - SQL grammar</description>
 
     <properties>

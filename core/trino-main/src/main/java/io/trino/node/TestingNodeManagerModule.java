@@ -32,6 +32,6 @@ public class TestingNodeManagerModule
         else {
             binder.bind(InternalNodeManager.class).to(WorkerInternalNodeManager.class).in(Scopes.SINGLETON);
         }
-        binder.bind(Announcer.class).to(TestingAnnouncer.class).in(Scopes.SINGLETON);
+        binder.bind(Announcer.class).toInstance(Announcer.NOOP);
     }
 }

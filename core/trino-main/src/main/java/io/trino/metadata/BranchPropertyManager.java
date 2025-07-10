@@ -11,23 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.node;
+package io.trino.metadata;
 
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
+import io.trino.connector.CatalogServiceProvider;
+import io.trino.spi.session.PropertyMetadata;
 
-public class TestingAnnouncer
-        implements Announcer
+import java.util.Map;
+
+import static io.trino.spi.StandardErrorCode.INVALID_BRANCH_PROPERTY;
+
+public class BranchPropertyManager
+        extends AbstractCatalogPropertyManager
 {
-    @Override
-    public void start() {}
-
-    @Override
-    public ListenableFuture<?> forceAnnounce()
+    public BranchPropertyManager(CatalogServiceProvider<Map<String, PropertyMetadata<?>>> connectorProperties)
     {
-        return Futures.immediateFuture(null);
+        super("branch", INVALID_BRANCH_PROPERTY, connectorProperties);
     }
-
-    @Override
-    public void stop() {}
 }

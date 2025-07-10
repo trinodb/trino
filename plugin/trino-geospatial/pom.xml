@@ -10,6 +10,7 @@
 
     <artifactId>trino-geospatial</artifactId>
     <packaging>trino-plugin</packaging>
+    <name>${project.artifactId}</name>
     <description>Trino - Geospatial support</description>
 
     <properties>
@@ -86,6 +87,7 @@
         <dependency>
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>
+            <classifier>classes</classifier>
             <scope>runtime</scope>
         </dependency>
 

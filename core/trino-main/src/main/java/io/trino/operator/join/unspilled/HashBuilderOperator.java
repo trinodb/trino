@@ -319,7 +319,7 @@ public class HashBuilderOperator
                 hashArraySizeSupplier,
                 sortChannel,
                 hashChannels));
-        if (!reserved.isDone()) {
+        if (!reserved.isDone() || !operatorContext.isWaitingForMemory().isDone()) {
             // Yield when not enough memory is available to proceed, finish is expected to be called again when some memory is freed
             return;
         }
