@@ -16,6 +16,9 @@ package io.trino.metadata;
 import io.trino.spi.connector.PointerType;
 import io.trino.spi.type.Type;
 
+import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.spi.connector.PointerType.TARGET_ID;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
 public record TableVersion(PointerType pointerType, Type objectType, Object pointer)
@@ -23,5 +26,10 @@ public record TableVersion(PointerType pointerType, Type objectType, Object poin
     public TableVersion
     {
         requireNonNull(objectType, "objectType is null");
+    }
+
+    public static TableVersion toTableVersion(String branchName)
+    {
+        return new TableVersion(TARGET_ID, VARCHAR, utf8Slice(branchName));
     }
 }
