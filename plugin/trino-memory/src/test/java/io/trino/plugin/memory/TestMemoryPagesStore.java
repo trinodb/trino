@@ -27,6 +27,7 @@ import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorPageSink;
+import io.trino.testing.TestingNodeManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -59,7 +60,7 @@ public class TestMemoryPagesStore
     @BeforeEach
     public void setUp()
     {
-        pagesStore = new MemoryPagesStore(new MemoryConfig().setMaxDataPerNode(DataSize.of(1, DataSize.Unit.MEGABYTE)));
+        pagesStore = new MemoryPagesStore(new MemoryConfig().setMaxDataPerNode(DataSize.of(1, DataSize.Unit.MEGABYTE)), TestingNodeManager.create());
         pageSinkProvider = new MemoryPageSinkProvider(pagesStore, HostAddress.fromString("localhost:8080"));
     }
 
@@ -208,17 +209,17 @@ public class TestMemoryPagesStore
 
     private static ConnectorOutputTableHandle createMemoryOutputTableHandle(long tableId, Long... activeTableIds)
     {
-        return new MemoryOutputTableHandle(tableId, ImmutableSet.copyOf(activeTableIds));
+        return new MemoryOutputTableHandle(tableId, ImmutableSet.copyOf(activeTableIds), 1);
     }
 
     private static ConnectorInsertTableHandle createMemoryInsertTableHandle(long tableId, Long[] activeTableIds)
     {
-        return new MemoryInsertTableHandle(tableId, InsertMode.APPEND, ImmutableSet.copyOf(activeTableIds));
+        return new MemoryInsertTableHandle(tableId, InsertMode.APPEND, ImmutableSet.copyOf(activeTableIds), 1);
     }
 
     private static ConnectorInsertTableHandle createOverwriteMemoryInsertTableHandle(long tableId, Long[] activeTableIds)
     {
-        return new MemoryInsertTableHandle(tableId, InsertMode.OVERWRITE, ImmutableSet.copyOf(activeTableIds));
+        return new MemoryInsertTableHandle(tableId, InsertMode.OVERWRITE, ImmutableSet.copyOf(activeTableIds), 1);
     }
 
     private static Page createPage()

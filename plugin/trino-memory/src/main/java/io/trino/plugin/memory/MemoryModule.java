@@ -18,6 +18,7 @@ import com.google.inject.Module;
 import com.google.inject.Scopes;
 import io.trino.spi.Node;
 import io.trino.spi.NodeManager;
+import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.type.TypeManager;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -51,5 +52,7 @@ public class MemoryModule
         binder.bind(MemoryPageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(MemoryPageSinkProvider.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(MemoryConfig.class);
+
+        binder.bind(ConnectorNodePartitioningProvider.class).to(MemoryNodePartitioningProvider.class).in(Scopes.SINGLETON);
     }
 }
