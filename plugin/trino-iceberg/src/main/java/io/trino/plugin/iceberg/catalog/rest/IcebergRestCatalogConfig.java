@@ -22,7 +22,10 @@ import jakarta.validation.constraints.NotNull;
 import org.apache.iceberg.CatalogProperties;
 
 import java.net.URI;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -54,6 +57,28 @@ public class IcebergRestCatalogConfig
     private boolean sigV4Enabled;
     private boolean caseInsensitiveNameMatching;
     private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(1, MINUTES);
+    private Map<String, String> additionalProperties = Map.of();
+
+    public Map<String, String> getAdditionalProperties()
+    {
+        return additionalProperties;
+    }
+
+    @Config("iceberg.rest-catalog.additional-properties")
+    @ConfigDescription("Additional properties for the REST catalog")
+    public IcebergRestCatalogConfig setAdditionalProperties(List<String> additionalProperties)
+    {
+        try {
+            this.additionalProperties = additionalProperties
+                    .stream()
+                    .collect(Collectors.toUnmodifiableMap(kvs -> kvs.split(":", 2)[0], kvs -> kvs.split(":", 2)[1]));
+        }
+        catch (IndexOutOfBoundsException e) {
+            throw new IllegalArgumentException(String.format("Cannot parse http headers from property iceberg.rest-catalog.additional-properties; value provided was %s, " +
+                    "expected format is \"Header-Name-1: header value 1, Header-Value-2: header value 2, ...\"", String.join(", ", additionalProperties)), e);
+        }
+        return this;
+    }
 
     @NotNull
     public URI getBaseUri()
