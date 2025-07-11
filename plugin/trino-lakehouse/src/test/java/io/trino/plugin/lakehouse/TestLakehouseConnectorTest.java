@@ -361,7 +361,8 @@ public class TestLakehouseConnectorTest
                    format_version = 2,
                    location = \\E's3://test-bucket-.*/tpch/orders-.*'\\Q,
                    max_commit_retry = 4,
-                   type = 'ICEBERG'
+                   type = 'ICEBERG',
+                   write_change_mode = 'MOR'
                 )\\E""");
     }
 }
