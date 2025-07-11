@@ -54,7 +54,10 @@ import io.trino.plugin.iceberg.IcebergParquetColumnIOConverter.FieldContext;
 import io.trino.plugin.iceberg.delete.DeleteFile;
 import io.trino.plugin.iceberg.delete.DeleteManager;
 import io.trino.plugin.iceberg.delete.RowPredicate;
+import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingInputFile;
+import io.trino.plugin.iceberg.system.files.FilesTablePageSource;
+import io.trino.plugin.iceberg.system.files.FilesTableSplit;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -73,6 +76,7 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.connector.FixedPageSource;
 import io.trino.spi.connector.SourcePage;
+import io.trino.spi.connector.SystemColumnHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
@@ -204,6 +208,7 @@ public class IcebergPageSourceProvider
     private static final int MAX_RLE_PAGE_SIZE = DEFAULT_MAX_PAGE_SIZE_IN_BYTES / SIZE_OF_LONG;
 
     private final IcebergFileSystemFactory fileSystemFactory;
+    private final ForwardingFileIoFactory fileIoFactory;
     private final FileFormatDataSourceStats fileFormatDataSourceStats;
     private final OrcReaderOptions orcReaderOptions;
     private final ParquetReaderOptions parquetReaderOptions;
@@ -214,12 +219,14 @@ public class IcebergPageSourceProvider
 
     public IcebergPageSourceProvider(
             IcebergFileSystemFactory fileSystemFactory,
+            ForwardingFileIoFactory fileIoFactory,
             FileFormatDataSourceStats fileFormatDataSourceStats,
             OrcReaderOptions orcReaderOptions,
             ParquetReaderOptions parquetReaderOptions,
             TypeManager typeManager)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
+        this.fileIoFactory = requireNonNull(fileIoFactory, "fileIoFactory is null");
         this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
         this.orcReaderOptions = requireNonNull(orcReaderOptions, "orcReaderOptions is null");
         this.parquetReaderOptions = requireNonNull(parquetReaderOptions, "parquetReaderOptions is null");
@@ -236,6 +243,15 @@ public class IcebergPageSourceProvider
             List<ColumnHandle> columns,
             DynamicFilter dynamicFilter)
     {
+        if (connectorSplit instanceof FilesTableSplit filesTableSplit) {
+            return new FilesTablePageSource(
+                    typeManager,
+                    fileSystemFactory.create(session.getIdentity(), filesTableSplit.fileIoProperties()),
+                    fileIoFactory,
+                    columns.stream().map(SystemColumnHandle.class::cast).map(SystemColumnHandle::columnName).collect(toImmutableList()),
+                    filesTableSplit);
+        }
+
         IcebergSplit split = (IcebergSplit) connectorSplit;
         List<IcebergColumnHandle> icebergColumns = columns.stream()
                 .map(IcebergColumnHandle.class::cast)

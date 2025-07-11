@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.plugin.iceberg.system.files.FilesTable;
 import io.trino.plugin.iceberg.util.PageListBuilder;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
@@ -47,12 +48,12 @@ import java.util.concurrent.ExecutorService;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.wrappedHeapBuffer;
-import static io.trino.plugin.iceberg.FilesTable.getIcebergIdToTypeMapping;
 import static io.trino.plugin.iceberg.IcebergTypes.convertIcebergValueToTrino;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionColumnType;
 import static io.trino.plugin.iceberg.IcebergUtil.partitionTypes;
 import static io.trino.plugin.iceberg.IcebergUtil.primitiveFieldTypes;
 import static io.trino.plugin.iceberg.PartitionsTable.getAllPartitionFields;
+import static io.trino.plugin.iceberg.system.files.FilesTable.getIcebergIdToTypeMapping;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.StandardTypes.JSON;
