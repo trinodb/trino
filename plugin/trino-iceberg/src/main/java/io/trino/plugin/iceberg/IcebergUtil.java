@@ -57,9 +57,13 @@ import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import jakarta.annotation.Nullable;
 import org.apache.iceberg.BaseTable;
+import org.apache.iceberg.ContentFile;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.HistoryEntry;
+import org.apache.iceberg.ManifestFile;
+import org.apache.iceberg.ManifestFiles;
+import org.apache.iceberg.ManifestReader;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
@@ -71,6 +75,7 @@ import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.Transaction;
+import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.types.Type.PrimitiveType;
 import org.apache.iceberg.types.TypeUtil;
@@ -1226,5 +1231,18 @@ public final class IcebergUtil
             partitionTypeBuilder.add(type);
         }
         return partitionTypeBuilder.build();
+    }
+
+    public static ManifestReader<? extends ContentFile<?>> readerForManifest(ManifestFile manifest, Table table)
+    {
+        return readerForManifest(manifest, table.io(), table.specs());
+    }
+
+    public static ManifestReader<? extends ContentFile<?>> readerForManifest(ManifestFile manifest, FileIO fileIO, Map<Integer, PartitionSpec> specsById)
+    {
+        return switch (manifest.content()) {
+            case DATA -> ManifestFiles.read(manifest, fileIO);
+            case DELETES -> ManifestFiles.readDeleteManifest(manifest, fileIO, specsById);
+        };
     }
 }
