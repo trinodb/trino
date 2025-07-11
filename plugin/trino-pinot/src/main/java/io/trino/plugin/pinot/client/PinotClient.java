@@ -170,7 +170,11 @@ public class PinotClient
                 asyncReloading(CacheLoader.from(this::getAllTables), executor));
         this.controllerAuthenticationProvider = controllerAuthenticationProvider;
         this.brokerAuthenticationProvider = brokerAuthenticationProvider;
-        brokerHostAndPort = config.getBrokerUrl();
+        this.brokerHostAndPort = config.getBrokerUrl();
+
+        if (this.brokerHostAndPort.isPresent() && this.proxyEnabled) {
+            LOG.warn("Both pinot.broker-url and proxy are configured. Direct broker connection will be used, bypassing proxy.");
+        }
     }
 
     public static void addJsonBinders(JsonCodecBinder jsonCodecBinder)
@@ -242,7 +246,8 @@ public class PinotClient
 
     private HttpUriBuilder getBrokerHttpUriBuilder(String hostAndPort)
     {
-        return proxyEnabled ?
+        // If broker URL is explicitly configured, always use it directly (bypass proxy)
+        return proxyEnabled && brokerHostAndPort.isEmpty() ?
                 HttpUriBuilder.uriBuilderFrom(getControllerUrl()) :
                 HttpUriBuilder.uriBuilder().hostAndPort(HostAndPort.fromString(hostAndPort));
     }
