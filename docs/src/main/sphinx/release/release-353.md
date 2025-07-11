@@ -35,13 +35,13 @@
   within task using `task.writer-count` feature config. ({issue}`6924`, {issue}`6866`)
 * Fix a failure when `INSERT` writes to a partition created by an earlier `INSERT` statement. ({issue}`6853`)
 * Fix handling of folders created using the AWS S3 Console. ({issue}`6992`)
-* Fix query failures on ``information_schema.views`` table when there are failures 
+* Fix query failures on ``information_schema.views`` table when there are failures
   translating hive view definitions. ({issue}`6370`)
 
 ## Iceberg connector
 
 * Fix handling of folders created using the AWS S3 Console. ({issue}`6992`)
-* Fix query failure when reading nested columns with field names that may 
+* Fix query failure when reading nested columns with field names that may
   contain upper case characters. ({issue}`7180`)
 
 ## Kafka connector
@@ -52,18 +52,18 @@
 
 ## MySQL connector
 
-* Fix failure when reading a `timestamp` or `datetime` value with more than 3 decimal digits 
+* Fix failure when reading a `timestamp` or `datetime` value with more than 3 decimal digits
   in the fractional seconds part. ({issue}`6852`)
-* Fix incorrect predicate pushdown for `char` and `varchar` column with operators 
-  like `<>`, `<`, `<=`, `>` and `>=` due different case sensitivity between Trino 
+* Fix incorrect predicate pushdown for `char` and `varchar` column with operators
+  like `<>`, `<`, `<=`, `>` and `>=` due different case sensitivity between Trino
   and MySQL. ({issue}`6746`, {issue}`6671`)
 
 ## MemSQL connector
 
-* Fix failure when reading a `timestamp` or `datetime` value with more than 3 decimal digits 
+* Fix failure when reading a `timestamp` or `datetime` value with more than 3 decimal digits
   of the second fraction. ({issue}`6852`)
-* Fix incorrect predicate pushdown for `char` and `varchar` column with operators 
-  like `<>`, `<`, `<=`, `>` and `>=` due different case sensitivity between Trino 
+* Fix incorrect predicate pushdown for `char` and `varchar` column with operators
+  like `<>`, `<`, `<=`, `>` and `>=` due different case sensitivity between Trino
   and MemSQL. ({issue}`6746`, {issue}`6671`)
 
 ## Phoenix connector
@@ -74,12 +74,12 @@
 
 ## PostgreSQL connector
 
-* Improve performance of queries with `ORDER BY ... LIMIT` clause, when the computation 
+* Improve performance of queries with `ORDER BY ... LIMIT` clause, when the computation
   can be pushed down to the underlying database. This can be enabled by setting `topn-pushdown.enabled`.
   Enabling this feature can currently result in incorrect query results when sorting
   on `char` or `varchar` columns. ({issue}`6847`)
-* Fix incorrect predicate pushdown for `char` and `varchar` column with operators 
-  like `<>`, `<`, `<=`, `>` and `>=` due different case collation between Trino 
+* Fix incorrect predicate pushdown for `char` and `varchar` column with operators
+  like `<>`, `<`, `<=`, `>` and `>=` due different case collation between Trino
   and PostgreSQL. ({issue}`3645`)
 
 ## Redshift connector
@@ -90,8 +90,8 @@
 ## SQL Server connector
 
 * Abort queries on the SQL Server side when the Trino query is finished. ({issue}`6637`)
-* Fix incorrect predicate pushdown for `char` and `varchar` column with operators 
-  like `<>`, `<`, `<=`, `>` and `>=` due different case sensitivity between Trino 
+* Fix incorrect predicate pushdown for `char` and `varchar` column with operators
+  like `<>`, `<`, `<=`, `>` and `>=` due different case sensitivity between Trino
   and SQL Server. ({issue}`6753`)
 
 ## Other connectors
@@ -105,15 +105,15 @@
 
 * Fix lazy blocks to call listeners that are registered after the top level block is already loaded.
   Previously, such registered listeners were not called when the nested blocks were later loaded. ({issue}`6783`)
-* Fix case where LazyBlock.getFullyLoadedBlock() would not load nested blocks 
+* Fix case where LazyBlock.getFullyLoadedBlock() would not load nested blocks
   when the top level block was already loaded. ({issue}`6783`)
-* Do not include coordinator node in the result of `ConnectorAwareNodeManager.getWorkerNodes()` 
+* Do not include coordinator node in the result of `ConnectorAwareNodeManager.getWorkerNodes()`
   when `node-scheduler.include-coordinator` is false. ({issue}`7007`)
-* The function name passed to `ConnectorMetadata.applyAggregation()` 
-  is now the canonical function name. Previously, if query used function alias, the alias 
+* The function name passed to `ConnectorMetadata.applyAggregation()`
+  is now the canonical function name. Previously, if query used function alias, the alias
   name was passed. ({issue}`6189`)
 * Add support for redirecting table scans to multiple tables that are unioned together. ({issue}`6679`)
-* Change return type of `Range.intersect(Range)`. The method now 
+* Change return type of `Range.intersect(Range)`. The method now
   returns `Optional.empty()` instead of throwing when ranges do not overlap. ({issue}`6976`)
 * Change signature of `ConnectorMetadata.applyJoin()` to have an additional `JoinStatistics` argument. ({issue}`7000`)
 * Deprecate `io.trino.spi.predicate.Marker`.

@@ -43,6 +43,7 @@ public class TestTeradataDatabase
         connectionProperties.put("connection-user", config.getUsername());
         connectionProperties.put("connection-password", config.getPassword());
         connectionProperties.put("join-pushdown.enabled", "true");
+        //connectionProperties.put("join-pushdown.strategy", "EAGER");
         try {
             Class.forName("com.teradata.jdbc.TeraDriver");
             this.connection = DriverManager.getConnection(jdbcUrl, config.getUsername(), config.getPassword());
