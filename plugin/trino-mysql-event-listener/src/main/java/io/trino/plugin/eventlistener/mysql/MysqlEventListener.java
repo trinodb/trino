@@ -161,7 +161,25 @@ public class MysqlEventListener
                 stats.getCompletedSplits(),
                 context.getRetryPolicy(),
                 createOperatorSummariesJson(metadata.getQueryId(), stats.getOperatorSummaries()));
-        dao.store(entity);
+        try {
+            dao.store(entity);
+        }
+        catch (Exception e) {
+            if (isMissingTableException(e)) {
+                log.warn("Table 'trino_queries' is missing, attempting to create it.");
+                try {
+                    dao.createTable();
+                    dao.store(entity); // Retry once
+                    log.info("Successfully created table and starting to store query event.");
+                }
+                catch (Exception retryEx) {
+                    log.error("Retry failed: Could not create table or store query event (%s): %s", retryEx.getClass().getSimpleName(), retryEx.getMessage(), retryEx);
+                }
+            }
+            else {
+                log.error("Failed to store query event (%s): %s", e.getClass().getSimpleName(), e.getMessage(), e);
+            }
+        }
     }
 
     private Optional<String> createOperatorSummariesJson(String queryId, List<String> summaries)
@@ -176,6 +194,23 @@ public class MysqlEventListener
             return Optional.empty();
         }
         return Optional.of(result);
+    }
+
+    private boolean isMissingTableException(Exception e)
+    {
+        Throwable cause = e;
+        while (cause != null) {
+            if (cause instanceof java.sql.SQLException) {
+                java.sql.SQLException sqlEx = (java.sql.SQLException) cause;
+                // MySQL error code 1146: "Table doesn't exist"
+                // SQLState "42S02": "Base table or view not found"
+                if ("42S02".equals(sqlEx.getSQLState()) || sqlEx.getErrorCode() == 1146) {
+                    return true;
+                }
+            }
+            cause = cause.getCause();
+        }
+        return false;
     }
 
     @Override
