@@ -54,6 +54,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Isolated;
 
+import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.Date;
@@ -113,7 +114,7 @@ public class TestCassandraConnector
     public void setup()
             throws Exception
     {
-        this.server = new CassandraServer();
+        this.server = new TestingCassandraServer();
 
         String keyspace = "test_connector";
         createTestTables(server.getSession(), keyspace, DATE);
@@ -146,6 +147,7 @@ public class TestCassandraConnector
 
     @AfterAll
     public void tearDown()
+            throws IOException
     {
         server.close();
     }
