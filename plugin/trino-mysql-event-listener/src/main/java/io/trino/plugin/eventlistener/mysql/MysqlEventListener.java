@@ -33,14 +33,12 @@ import io.trino.spi.eventlistener.SplitCompletedEvent;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import jakarta.annotation.PostConstruct;
-
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import static java.util.Objects.requireNonNull;
 import java.util.Optional;
 import java.util.Set;
-
-import static java.util.Objects.requireNonNull;
 
 /**
  * Implement an EventListener that stores information in a MySQL database
@@ -173,11 +171,11 @@ public class MysqlEventListener
                     log.info("Successfully created table and starting to store query event.");
                 }
                 catch (Exception retryEx) {
-                    log.error("Retry failed: Could not create table or store query event (%s): %s", retryEx.getClass().getSimpleName(), retryEx.getMessage(), retryEx);
+                    log.error("Retry failed: Could not create table or store query event (%s): %s", retryEx.getClass().getSimpleName(), retryEx.getMessage());
                 }
             }
             else {
-                log.error("Failed to store query event (%s): %s", e.getClass().getSimpleName(), e.getMessage(), e);
+                log.error("Failed to store query event (%s): %s", e.getClass().getSimpleName(), e.getMessage());
             }
         }
     }
