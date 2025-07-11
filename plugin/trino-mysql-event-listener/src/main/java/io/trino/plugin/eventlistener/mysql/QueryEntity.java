@@ -22,6 +22,10 @@ public class QueryEntity
     private final String queryId;
     private final Optional<String> transactionId;
 
+    private final long createTimestamp;
+    private final long executionStartTimestamp;
+    private final long endTimestamp;
+
     private final String query;
     private final Optional<String> updateType;
     private final Optional<String> preparedQuery;
@@ -106,6 +110,9 @@ public class QueryEntity
     public QueryEntity(
             String queryId,
             Optional<String> transactionId,
+            long createTimestamp,
+            long executionStartTimestamp,
+            long endTimestamp,
             String query,
             Optional<String> updateType,
             Optional<String> preparedQuery,
@@ -175,6 +182,9 @@ public class QueryEntity
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
+        this.createTimestamp = createTimestamp;
+        this.executionStartTimestamp = executionStartTimestamp;
+        this.endTimestamp = endTimestamp;
         this.query = requireNonNull(query, "query is null");
         this.updateType = requireNonNull(updateType, "updateType is null");
         this.preparedQuery = requireNonNull(preparedQuery, "preparedQuery is null");
@@ -251,6 +261,21 @@ public class QueryEntity
     public Optional<String> getTransactionId()
     {
         return transactionId;
+    }
+
+    public long getCreateTimestamp()
+    {
+        return createTimestamp;
+    }
+
+    public long getExecutionStartTimestamp()
+    {
+        return executionStartTimestamp;
+    }
+
+    public long getEndTimestamp()
+    {
+        return endTimestamp;
     }
 
     public String getQuery()
