@@ -102,6 +102,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.builderWithExpectedSize;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -137,6 +138,7 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPER
 import static io.trino.plugin.iceberg.IcebergTableProperties.PROTECTED_ICEBERG_NATIVE_PROPERTIES;
 import static io.trino.plugin.iceberg.IcebergTableProperties.SORTED_BY_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.SUPPORTED_PROPERTIES;
+import static io.trino.plugin.iceberg.IcebergTableProperties.WRITE_CHANGE_MODE;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getSortOrder;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
@@ -147,6 +149,7 @@ import static io.trino.plugin.iceberg.TrinoMetricsReporter.TRINO_METRICS_REPORTE
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergType;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergTypeForNewColumn;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
+import static io.trino.plugin.iceberg.WriteChangeMode.MOR;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzFromMicros;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
@@ -181,7 +184,9 @@ import static org.apache.iceberg.TableProperties.AVRO_COMPRESSION;
 import static org.apache.iceberg.TableProperties.COMMIT_NUM_RETRIES;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT_DEFAULT;
+import static org.apache.iceberg.TableProperties.DELETE_MODE;
 import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
+import static org.apache.iceberg.TableProperties.MERGE_MODE;
 import static org.apache.iceberg.TableProperties.OBJECT_STORE_ENABLED;
 import static org.apache.iceberg.TableProperties.OBJECT_STORE_ENABLED_DEFAULT;
 import static org.apache.iceberg.TableProperties.ORC_BLOOM_FILTER_COLUMNS;
@@ -189,6 +194,7 @@ import static org.apache.iceberg.TableProperties.ORC_BLOOM_FILTER_FPP;
 import static org.apache.iceberg.TableProperties.ORC_COMPRESSION;
 import static org.apache.iceberg.TableProperties.PARQUET_BLOOM_FILTER_COLUMN_ENABLED_PREFIX;
 import static org.apache.iceberg.TableProperties.PARQUET_COMPRESSION;
+import static org.apache.iceberg.TableProperties.UPDATE_MODE;
 import static org.apache.iceberg.TableProperties.WRITE_DATA_LOCATION;
 import static org.apache.iceberg.TableProperties.WRITE_LOCATION_PROVIDER_IMPL;
 import static org.apache.iceberg.types.Type.TypeID.BINARY;
@@ -353,6 +359,13 @@ public final class IcebergUtil
 
         if (parseBoolean(icebergTable.properties().getOrDefault(OBJECT_STORE_ENABLED, "false"))) {
             properties.put(OBJECT_STORE_LAYOUT_ENABLED_PROPERTY, true);
+        }
+
+        for (String tableChangeMode : new String[] {UPDATE_MODE, DELETE_MODE, MERGE_MODE}) {
+            if (icebergTable.properties().containsKey(tableChangeMode)) {
+                properties.put(WRITE_CHANGE_MODE, WriteChangeMode.fromIcebergString(icebergTable.properties().get(tableChangeMode)));
+                break;
+            }
         }
 
         Optional<String> dataLocation = Optional.ofNullable(icebergTable.properties().get(WRITE_DATA_LOCATION));
@@ -874,7 +887,8 @@ public final class IcebergUtil
         ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builder();
         IcebergFileFormat fileFormat = IcebergTableProperties.getFileFormat(tableMetadata.getProperties());
         propertiesBuilder.put(DEFAULT_FILE_FORMAT, fileFormat.toIceberg().toString());
-        propertiesBuilder.put(FORMAT_VERSION, Integer.toString(IcebergTableProperties.getFormatVersion(tableMetadata.getProperties())));
+        int formatVersion = IcebergTableProperties.getFormatVersion(tableMetadata.getProperties());
+        propertiesBuilder.put(FORMAT_VERSION, Integer.toString(formatVersion));
         propertiesBuilder.put(COMMIT_NUM_RETRIES, Integer.toString(IcebergTableProperties.getMaxCommitRetry(tableMetadata.getProperties())));
 
         HiveCompressionCodec compressionCodec = toCompressionCodec(getCompressionCodec(session));
@@ -917,6 +931,14 @@ public final class IcebergUtil
 
         if (tableMetadata.getComment().isPresent()) {
             propertiesBuilder.put(TABLE_COMMENT, tableMetadata.getComment().get());
+        }
+
+        Optional<WriteChangeMode> writeChangeMode = IcebergTableProperties.getWriteChangeMode(tableMetadata.getProperties());
+
+        if (formatVersion >= 2) {
+            propertiesBuilder.put(UPDATE_MODE, writeChangeMode.orElse(MOR).toIcebergString());
+            propertiesBuilder.put(DELETE_MODE, writeChangeMode.orElse(MOR).toIcebergString());
+            propertiesBuilder.put(MERGE_MODE, writeChangeMode.orElse(MOR).toIcebergString());
         }
 
         Map<String, String> baseProperties = propertiesBuilder.buildOrThrow();
@@ -1226,5 +1248,18 @@ public final class IcebergUtil
             partitionTypeBuilder.add(type);
         }
         return partitionTypeBuilder.build();
+    }
+
+    public static WriteChangeMode getWriteChangeMode(Map<String, String> storageProperties)
+    {
+        WriteChangeMode updateMode = WriteChangeMode.fromIcebergString(storageProperties.getOrDefault(UPDATE_MODE, MOR.toIcebergString()));
+        WriteChangeMode deleteMode = WriteChangeMode.fromIcebergString(storageProperties.getOrDefault(DELETE_MODE, MOR.toIcebergString()));
+        WriteChangeMode mergeMode = WriteChangeMode.fromIcebergString(storageProperties.getOrDefault(MERGE_MODE, MOR.toIcebergString()));
+        checkState(
+                updateMode == deleteMode && updateMode == mergeMode,
+                "All modes must match, but were update=%s, delete=%s, merge=%s",
+                updateMode, deleteMode, mergeMode);
+
+        return updateMode;
     }
 }
