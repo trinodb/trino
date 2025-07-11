@@ -173,11 +173,11 @@ public class MysqlEventListener
                     log.info("Successfully created table and starting to store query event.");
                 }
                 catch (Exception retryEx) {
-                    log.error("Retry failed: Could not create table or store query event (%s): %s", retryEx.getClass().getSimpleName(), retryEx.getMessage(), retryEx);
+                    log.error("Retry failed: Could not create table or store query event (%s): %s", retryEx.getClass().getSimpleName(), retryEx.getMessage());
                 }
             }
             else {
-                log.error("Failed to store query event (%s): %s", e.getClass().getSimpleName(), e.getMessage(), e);
+                log.error("Failed to store query event (%s): %s", e.getClass().getSimpleName(), e.getMessage());
             }
         }
     }
