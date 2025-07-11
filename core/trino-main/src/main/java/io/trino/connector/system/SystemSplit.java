@@ -20,6 +20,7 @@ import io.airlift.slice.SizeOf;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.SystemColumnHandle;
 import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
