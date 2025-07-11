@@ -5123,13 +5123,13 @@ public abstract class BaseConnectorTest
         try (TestTable table = createTestTableForWrites("test_update", "AS TABLE tpch.tiny.nation", "nationkey,regionkey")) {
             String tableName = table.getName();
             assertUpdate("UPDATE " + tableName + " SET nationkey = 100 + nationkey WHERE regionkey = 2", 5);
-            assertThat(query("SELECT * FROM " + tableName))
+            assertThat(query("SELECT CAST(nationkey AS bigint), name, CAST(regionkey AS bigint), comment FROM " + tableName))
                     .skippingTypesCheck()
                     .matches("SELECT IF(regionkey=2, nationkey + 100, nationkey) nationkey, name, regionkey, comment FROM tpch.tiny.nation");
 
             // UPDATE after UPDATE
             assertUpdate("UPDATE " + tableName + " SET nationkey = nationkey * 2 WHERE regionkey IN (2,3)", 10);
-            assertThat(query("SELECT * FROM " + tableName))
+            assertThat(query("SELECT CAST(nationkey AS bigint), name, CAST(regionkey AS bigint), comment FROM " + tableName))
                     .skippingTypesCheck()
                     .matches("SELECT CASE regionkey WHEN 2 THEN 2*(nationkey+100) WHEN 3 THEN 2*nationkey ELSE nationkey END nationkey, name, regionkey, comment FROM tpch.tiny.nation");
         }
@@ -5198,8 +5198,10 @@ public abstract class BaseConnectorTest
                     .map(success -> success ? "1" : "0")
                     .collect(joining(",", "VALUES (", ", 0)"));
 
-            assertThat(query("TABLE " + tableName))
-                    .matches(expected);
+            String query = IntStream.range(0, threads + 1)
+                    .mapToObj(i -> format("CAST(col%s AS integer)", i))
+                    .collect(joining(", ", "SELECT ", " FROM " + tableName));
+            assertThat(query(query)).matches(expected);
         }
         finally {
             executor.shutdownNow();
