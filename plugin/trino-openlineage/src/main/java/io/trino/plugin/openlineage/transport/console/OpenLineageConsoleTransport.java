@@ -14,10 +14,10 @@
 package io.trino.plugin.openlineage.transport.console;
 
 import io.openlineage.client.transports.ConsoleTransport;
-import io.trino.plugin.openlineage.transport.OpenLineageTransport;
+import io.trino.plugin.openlineage.transport.OpenLineageTransportCreator;
 
 public class OpenLineageConsoleTransport
-        implements OpenLineageTransport
+        implements OpenLineageTransportCreator
 {
     @Override
     public ConsoleTransport buildTransport()

@@ -15,14 +15,20 @@ package io.trino.plugin.openlineage;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.log.Logger;
+import io.trino.connector.MockConnectorFactory;
+import io.trino.connector.MockConnectorPlugin;
 import io.trino.plugin.base.evenlistener.TestingEventListenerContext;
+import io.trino.plugin.blackhole.BlackHolePlugin;
 import io.trino.plugin.memory.MemoryPlugin;
+import io.trino.plugin.tpcds.TpcdsPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.spi.eventlistener.EventListener;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Supplier;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -43,6 +49,8 @@ public final class OpenLineageListenerQueryRunner
             extends DistributedQueryRunner.Builder<Builder>
     {
         private final Map<String, String> listenerProperties = new HashMap<>();
+        private Supplier<EventListener> eventListenerSupplier = () ->
+                new OpenLineageListenerFactory().create(listenerProperties, new TestingEventListenerContext());
 
         private Builder()
         {
@@ -59,11 +67,18 @@ public final class OpenLineageListenerQueryRunner
             return this;
         }
 
+        @CanIgnoreReturnValue
+        public Builder setCustomEventListener(EventListener eventListener)
+        {
+            this.eventListenerSupplier = () -> eventListener;
+            return this;
+        }
+
         @Override
         public DistributedQueryRunner build()
                 throws Exception
         {
-            super.setEventListener(new OpenLineageListenerFactory().create(listenerProperties, new TestingEventListenerContext()));
+            super.setEventListener(eventListenerSupplier.get());
             DistributedQueryRunner queryRunner = super.build();
             try {
                 // catalog used for output data
@@ -73,6 +88,18 @@ public final class OpenLineageListenerQueryRunner
                 // catalog used for input data
                 queryRunner.installPlugin(new TpchPlugin());
                 queryRunner.createCatalog("tpch", "tpch");
+
+                // catalog used for input data
+                queryRunner.installPlugin(new TpcdsPlugin());
+                queryRunner.createCatalog("tpcds", "tpcds");
+
+                // catalog used for materialized views
+                queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.create()));
+                queryRunner.createCatalog("mock", "mock");
+
+                // catalog used for deletes and merges
+                queryRunner.installPlugin(new BlackHolePlugin());
+                queryRunner.createCatalog("blackhole", "blackhole");
 
                 return queryRunner;
             }

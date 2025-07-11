@@ -15,7 +15,7 @@ package io.trino.plugin.openlineage.transport;
 
 import io.openlineage.client.transports.Transport;
 
-public interface OpenLineageTransport
+public interface OpenLineageTransportCreator
 {
     Transport buildTransport();
 }

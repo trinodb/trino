@@ -25,7 +25,6 @@ import java.util.Set;
 
 public class OpenLineageListenerConfig
 {
-    private OpenLineageTransport transport = OpenLineageTransport.CONSOLE;
     private URI trinoURI;
     private Set<OpenLineageTrinoFacet> disabledFacets = ImmutableSet.of();
     private Optional<String> namespace = Optional.empty();
@@ -38,19 +37,6 @@ public class OpenLineageListenerConfig
             .add(QueryType.UPDATE)
             .add(QueryType.DATA_DEFINITION)
             .build();
-
-    public OpenLineageTransport getTransport()
-    {
-        return transport;
-    }
-
-    @Config("openlineage-event-listener.transport.type")
-    @ConfigDescription("Type of transport used to emit lineage information.")
-    public OpenLineageListenerConfig setTransport(OpenLineageTransport transport)
-    {
-        this.transport = transport;
-        return this;
-    }
 
     @NotNull
     public URI getTrinoURI()
