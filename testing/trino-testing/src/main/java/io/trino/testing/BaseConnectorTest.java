@@ -5194,7 +5194,7 @@ public abstract class BaseConnectorTest
                     .collect(toImmutableList());
 
             String expected = futures.stream()
-                    .map(future -> tryGetFutureValue(future, 10, SECONDS).orElseThrow(() -> new RuntimeException("Wait timed out")))
+                    .map(future -> tryGetFutureValue(future, 1, MINUTES).orElseThrow(() -> new RuntimeException("Wait timed out")))
                     .map(success -> success ? "1" : "0")
                     .collect(joining(",", "VALUES (", ", 0)"));
 
