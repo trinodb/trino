@@ -17,7 +17,6 @@ import com.google.inject.Inject;
 import io.airlift.slice.Slices;
 import io.trino.FullConnectorSession;
 import io.trino.Session;
-import io.trino.connector.system.SystemColumnHandle;
 import io.trino.connector.system.SystemSplit;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedTablePrefix;
@@ -36,6 +35,7 @@ import io.trino.spi.connector.InMemoryRecordSet.Builder;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SystemColumnHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 
