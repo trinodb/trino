@@ -37,6 +37,7 @@ final class TestHttpEventListenerConfig
                 .setRetryDelay(Duration.succinctDuration(1, TimeUnit.SECONDS))
                 .setMaxDelay(Duration.succinctDuration(1, TimeUnit.MINUTES))
                 .setBackoffBase(2.0)
+                .setHttpMethod("POST")
                 .setLogCompleted(false)
                 .setLogCreated(false)
                 .setLogSplit(false));
@@ -52,6 +53,7 @@ final class TestHttpEventListenerConfig
                 "http-event-listener.log-split", "true",
                 "http-event-listener.connect-ingest-uri", "http://example.com:8080/api",
                 "http-event-listener.connect-http-headers", "Authorization: Trust Me, Cache-Control: no-cache",
+                "http-event-listener.connect-http-method", "PUT",
                 "http-event-listener.connect-retry-count", "2",
                 "http-event-listener.connect-retry-delay", "101s",
                 "http-event-listener.connect-backoff-base", "1.5",
@@ -62,6 +64,7 @@ final class TestHttpEventListenerConfig
                 .setLogCreated(true)
                 .setLogSplit(true)
                 .setIngestUri("http://example.com:8080/api")
+                .setHttpMethod("PUT")
                 .setHttpHeaders(List.of("Authorization: Trust Me", "Cache-Control: no-cache"))
                 .setRetryCount(2)
                 .setRetryDelay(Duration.succinctDuration(101, TimeUnit.SECONDS))

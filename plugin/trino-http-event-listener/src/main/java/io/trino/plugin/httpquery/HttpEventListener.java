@@ -43,6 +43,7 @@ import static com.google.common.net.MediaType.JSON_UTF_8;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
 import static io.airlift.http.client.Request.Builder.preparePost;
+import static io.airlift.http.client.Request.Builder.preparePut;
 import static io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static java.util.Objects.requireNonNull;
@@ -75,6 +76,7 @@ public class HttpEventListener
     private final double backoffBase;
     private final Map<String, String> httpHeaders;
     private final URI ingestUri;
+    private final String httpMethod;
     private final ScheduledExecutorService executor;
 
     @Inject
@@ -101,6 +103,7 @@ public class HttpEventListener
         this.maxDelay = config.getMaxDelay();
         this.backoffBase = config.getBackoffBase();
         this.httpHeaders = ImmutableMap.copyOf(config.getHttpHeaders());
+        this.httpMethod = config.getHttpMethod();
 
         try {
             ingestUri = new URI(config.getIngestUri());
@@ -144,7 +147,19 @@ public class HttpEventListener
 
     private void sendLog(BodyGenerator eventBodyGenerator, String queryId)
     {
-        Request request = preparePost()
+        Request.Builder requestBuilder;
+
+        if ("PUT".equalsIgnoreCase(httpMethod)) {
+            requestBuilder = preparePut();
+        }
+        else if ("POST".equalsIgnoreCase(httpMethod)) {
+            requestBuilder = preparePost();
+        }
+        else {
+            throw new IllegalArgumentException("Unsupported HTTP method: " + httpMethod);
+        }
+
+        Request request = requestBuilder
                 .addHeaders(Multimaps.forMap(httpHeaders))
                 .addHeader(CONTENT_TYPE, JSON_UTF_8.toString())
                 .setUri(ingestUri)
