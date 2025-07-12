@@ -89,7 +89,8 @@ public interface QueryDao
             "  failed_cumulative_memory DOUBLE NOT NULL,\n" +
             "  completed_splits BIGINT NOT NULL,\n" +
             "  retry_policy VARCHAR(255) NOT NULL,\n" +
-            "  operator_summaries_json MEDIUMTEXT NOT NULL\n" +
+            "  operator_summaries_json MEDIUMTEXT NOT NULL,\n" +
+            "  KEY idx_create_timestamp (create_timestamp)\n" +
             ")\n" +
             "DEFAULT CHARACTER SET utf8")
     void createTable();
