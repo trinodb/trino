@@ -21,6 +21,9 @@ public interface QueryDao
     @SqlUpdate("CREATE TABLE IF NOT EXISTS trino_queries (\n" +
             "  query_id VARCHAR(255) NOT NULL PRIMARY KEY,\n" +
             "  transaction_id VARCHAR(255) NULL,\n" +
+            "  create_timestamp BIGINT NOT NULL,\n" +
+            "  execution_start_timestamp BIGINT NOT NULL,\n" +
+            "  end_timestamp BIGINT NOT NULL,\n" +
             "  query MEDIUMTEXT NOT NULL,\n" +
             "  update_type VARCHAR(255) NULL,\n" +
             "  prepared_query MEDIUMTEXT NULL,\n" +
@@ -86,7 +89,8 @@ public interface QueryDao
             "  failed_cumulative_memory DOUBLE NOT NULL,\n" +
             "  completed_splits BIGINT NOT NULL,\n" +
             "  retry_policy VARCHAR(255) NOT NULL,\n" +
-            "  operator_summaries_json MEDIUMTEXT NOT NULL\n" +
+            "  operator_summaries_json MEDIUMTEXT NOT NULL,\n" +
+            "  KEY idx_create_timestamp (create_timestamp)\n" +
             ")\n" +
             "DEFAULT CHARACTER SET utf8")
     void createTable();
@@ -94,6 +98,9 @@ public interface QueryDao
     @SqlUpdate("INSERT INTO trino_queries (\n" +
             "  query_id,\n" +
             "  transaction_id,\n" +
+            "  create_timestamp,\n" +
+            "  execution_start_timestamp,\n" +
+            "  end_timestamp,\n" +
             "  query,\n" +
             "  update_type,\n" +
             "  prepared_query,\n" +
@@ -164,6 +171,9 @@ public interface QueryDao
             "VALUES (\n" +
             " :queryId,\n" +
             " :transactionId,\n" +
+            " :createTimestamp,\n" +
+            " :executionStartTimestamp,\n" +
+            " :endTimestamp,\n" +
             " :query,\n" +
             " :updateType,\n" +
             " :preparedQuery,\n" +

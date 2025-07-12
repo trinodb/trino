@@ -401,6 +401,9 @@ final class TestMysqlEventListener
                     assertThat(resultSet.next()).isTrue();
                     assertThat(resultSet.getString("query_id")).isEqualTo("full_query");
                     assertThat(resultSet.getString("transaction_id")).isEqualTo("transactionId");
+                    assertThat(resultSet.getLong("create_timestamp")).isEqualTo(FULL_QUERY_COMPLETED_EVENT.getCreateTime().toEpochMilli());
+                    assertThat(resultSet.getLong("execution_start_timestamp")).isEqualTo(FULL_QUERY_COMPLETED_EVENT.getExecutionStartTime().toEpochMilli());
+                    assertThat(resultSet.getLong("end_timestamp")).isEqualTo(FULL_QUERY_COMPLETED_EVENT.getEndTime().toEpochMilli());
                     assertThat(resultSet.getString("query")).isEqualTo("query");
                     assertThat(resultSet.getString("update_type")).isEqualTo("updateType");
                     assertThat(resultSet.getString("prepared_query")).isEqualTo("preparedQuery");
@@ -486,6 +489,9 @@ final class TestMysqlEventListener
                     assertThat(resultSet.next()).isTrue();
                     assertThat(resultSet.getString("query_id")).isEqualTo("minimal_query");
                     assertThat(resultSet.getString("transaction_id")).isNull();
+                    assertThat(resultSet.getLong("create_timestamp")).isEqualTo(MINIMAL_QUERY_COMPLETED_EVENT.getCreateTime().toEpochMilli());
+                    assertThat(resultSet.getLong("execution_start_timestamp")).isEqualTo(MINIMAL_QUERY_COMPLETED_EVENT.getExecutionStartTime().toEpochMilli());
+                    assertThat(resultSet.getLong("end_timestamp")).isEqualTo(MINIMAL_QUERY_COMPLETED_EVENT.getEndTime().toEpochMilli());
                     assertThat(resultSet.getString("query")).isEqualTo("query");
                     assertThat(resultSet.getString("update_type")).isNull();
                     assertThat(resultSet.getString("prepared_query")).isNull();
