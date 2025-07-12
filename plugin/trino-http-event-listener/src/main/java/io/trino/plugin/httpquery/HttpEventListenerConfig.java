@@ -19,6 +19,7 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.Duration;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 
 import java.util.EnumSet;
 import java.util.List;
@@ -33,6 +34,7 @@ public class HttpEventListenerConfig
     private Duration maxDelay = Duration.valueOf("1m");
     private final EnumSet<HttpEventListenerEventType> loggedEvents = EnumSet.noneOf(HttpEventListenerEventType.class);
     private String ingestUri;
+    private String httpMethod = "POST";
     private Map<String, String> httpHeaders = ImmutableMap.of();
 
     @ConfigDescription("Will log io.trino.spi.eventlistener.QueryCreatedEvent")
@@ -91,6 +93,20 @@ public class HttpEventListenerConfig
     public HttpEventListenerConfig setIngestUri(String ingestUri)
     {
         this.ingestUri = ingestUri;
+        return this;
+    }
+
+    @Pattern(regexp = "POST|PUT", message = "HTTP method must be either POST or PUT")
+    public String getHttpMethod()
+    {
+        return httpMethod;
+    }
+
+    @ConfigDescription("Specifies the HTTP method to use for the request. Supported values are POST (default) and PUT.")
+    @Config("http-event-listener.connect-http-method")
+    public HttpEventListenerConfig setHttpMethod(String httpMethod)
+    {
+        this.httpMethod = httpMethod;
         return this;
     }
 
