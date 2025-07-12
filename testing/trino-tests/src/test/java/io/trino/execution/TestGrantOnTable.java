@@ -189,6 +189,7 @@ public class TestGrantOnTable
         testValidGrantWithGrantOption("INSERT");
         testValidGrantWithGrantOption("UPDATE");
         testValidGrantWithGrantOption("DELETE");
+        testValidGrantWithGrantOption("CREATE BRANCH");
         testValidGrantWithGrantOption("ALL PRIVILEGES");
     }
 

@@ -26,6 +26,7 @@ import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.security.TrinoPrincipal;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
@@ -61,6 +62,9 @@ public class TestLakehouseMetadata
                     .add(ConnectorMetadata.class.getMethod("fastForwardBranch", ConnectorSession.class, ConnectorTableHandle.class, String.class, String.class))
                     .add(ConnectorMetadata.class.getMethod("listBranches", ConnectorSession.class, SchemaTableName.class))
                     .add(ConnectorMetadata.class.getMethod("branchExists", ConnectorSession.class, SchemaTableName.class, String.class))
+                    .add(ConnectorMetadata.class.getMethod("grantTableBranchPrivileges", ConnectorSession.class, SchemaTableName.class, String.class, Set.class, TrinoPrincipal.class, boolean.class))
+                    .add(ConnectorMetadata.class.getMethod("denyTableBranchPrivileges", ConnectorSession.class, SchemaTableName.class, String.class, Set.class, TrinoPrincipal.class))
+                    .add(ConnectorMetadata.class.getMethod("revokeTableBranchPrivileges", ConnectorSession.class, SchemaTableName.class, String.class, Set.class, TrinoPrincipal.class, boolean.class))
                     .build();
         }
         catch (NoSuchMethodException e) {
