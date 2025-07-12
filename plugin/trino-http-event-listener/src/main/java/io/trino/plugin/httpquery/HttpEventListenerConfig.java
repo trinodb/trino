@@ -106,7 +106,7 @@ public class HttpEventListenerConfig
     @Config("http-event-listener.connect-http-method")
     public HttpEventListenerConfig setHttpMethod(String httpMethod)
     {
-        this.httpMethod = HttpEventListenerConfig.this.httpMethod;
+        this.httpMethod = httpMethod;
         return this;
     }
 
