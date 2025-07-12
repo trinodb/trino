@@ -55,6 +55,8 @@ import io.trino.plugin.iceberg.delete.DeleteFile;
 import io.trino.plugin.iceberg.delete.DeleteManager;
 import io.trino.plugin.iceberg.delete.RowPredicate;
 import io.trino.plugin.iceberg.fileio.ForwardingInputFile;
+import io.trino.plugin.iceberg.system.files.FilesTablePageSource;
+import io.trino.plugin.iceberg.system.files.FilesTableSplit;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -73,6 +75,7 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.connector.FixedPageSource;
 import io.trino.spi.connector.SourcePage;
+import io.trino.spi.connector.SystemColumnHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
@@ -236,6 +239,14 @@ public class IcebergPageSourceProvider
             List<ColumnHandle> columns,
             DynamicFilter dynamicFilter)
     {
+        if (connectorSplit instanceof FilesTableSplit filesTableSplit) {
+            return new FilesTablePageSource(
+                    typeManager,
+                    fileSystemFactory.create(session.getIdentity(), filesTableSplit.fileSystemProperties()),
+                    columns.stream().map(SystemColumnHandle.class::cast).map(SystemColumnHandle::columnName).toList(), // TODO determine how and where to move system table columns class
+                    filesTableSplit);
+        }
+
         IcebergSplit split = (IcebergSplit) connectorSplit;
         List<IcebergColumnHandle> icebergColumns = columns.stream()
                 .map(IcebergColumnHandle.class::cast)
@@ -384,19 +395,21 @@ public class IcebergPageSourceProvider
 
         Types.StructType structType = partitionSpec.partitionType();
         PartitionKey partitionKey = partitionKeyFactories.computeIfAbsent(
-                partitionSpec.specId(),
-                key -> {
-                    // creating the template wrapper is expensive, reuse it for all partitions of the same spec
-                    // reuse is only safe because we only use the copyFor method which is thread safe
-                    StructLikeWrapper templateWrapper = StructLikeWrapper.forType(structType);
-                    return data -> new PartitionKey(key, templateWrapper.copyFor(data));
-                })
+                        partitionSpec.specId(),
+                        key -> {
+                            // creating the template wrapper is expensive, reuse it for all partitions of the same spec
+                            // reuse is only safe because we only use the copyFor method which is thread safe
+                            StructLikeWrapper templateWrapper = StructLikeWrapper.forType(structType);
+                            return data -> new PartitionKey(key, templateWrapper.copyFor(data));
+                        })
                 .apply(partitionData);
 
         return partitionedDeleteManagers.computeIfAbsent(partitionKey, ignored -> new DeleteManager(typeManager));
     }
 
-    private record PartitionKey(int specId, StructLikeWrapper partitionData) {}
+    private record PartitionKey(int specId, StructLikeWrapper partitionData)
+    {
+    }
 
     private TupleDomain<IcebergColumnHandle> getUnenforcedPredicate(
             Schema tableSchema,
