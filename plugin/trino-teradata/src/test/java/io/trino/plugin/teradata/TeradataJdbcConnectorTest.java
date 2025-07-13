@@ -5,6 +5,8 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.Test;
 
 import java.util.OptionalInt;
 
@@ -41,7 +43,9 @@ public class TeradataJdbcConnectorTest
                  SUPPORTS_CREATE_TABLE_WITH_DATA,
                  SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT,
                  SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
-                 SUPPORTS_RENAME_SCHEMA -> false;
+                 SUPPORTS_RENAME_SCHEMA,
+                 SUPPORTS_SET_COLUMN_TYPE,
+                 SUPPORTS_ROW_LEVEL_DELETE -> false;
             case SUPPORTS_CREATE_SCHEMA,
                  SUPPORTS_CREATE_TABLE,
                  SUPPORTS_TOPN_PUSHDOWN,
@@ -84,4 +88,68 @@ public class TeradataJdbcConnectorTest
     {
         assertThat(e).hasMessage(format("Schema name must be shorter than or equal to '%s' characters but got '%s'", TERADATA_OBJECT_NAME_LIMIT, TERADATA_OBJECT_NAME_LIMIT + 1));
     }
+
+    protected OptionalInt maxColumnNameLength()
+    {
+        return OptionalInt.of(TERADATA_OBJECT_NAME_LIMIT);
+    }
+
+    @Override
+    protected void verifyColumnNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageMatching(format("Column name must be shorter than or equal to '%s' characters but got '%s': '.*'", TERADATA_OBJECT_NAME_LIMIT, TERADATA_OBJECT_NAME_LIMIT + 1));
+    }
+
+    protected OptionalInt maxTableNameLength()
+    {
+        return OptionalInt.of(TERADATA_OBJECT_NAME_LIMIT);
+    }
+
+    protected void verifyTableNameLengthFailurePermissible(Throwable e)
+    {
+        throw new AssertionError(format("Table name must be shorter than or equal to '%s' characters but got '%s'", TERADATA_OBJECT_NAME_LIMIT, TERADATA_OBJECT_NAME_LIMIT + 1));
+    }
+
+    @Test
+    public void testRenameSchema()
+    {
+        Assumptions.abort("Skipping as connector does not support RENAME SCHEMA");
+    }
+
+    @Test
+    public void testColumnName()
+    {
+        Assumptions.abort("Skipping as connector does not support column level write operations");
+    }
+
+    @Test
+    public void testAddColumn()
+    {
+        Assumptions.abort("Skipping as connector does not support column level write operations");
+    }
+
+    @Test
+    public void testInsertWithoutTemporaryTable()
+    {
+        Assumptions.abort("Skipping as connector does not support insert operations");
+    }
+
+    @Test
+    public void testInsertIntoNotNullColumn()
+    {
+        Assumptions.abort("Skipping as connector does not support insert operations");
+    }
+
+    @Test
+    public void testDropSchemaCascade()
+    {
+        Assumptions.abort("Skipping as connector does not support dropping schemas with CASCADE option");
+    }
+
+    @Test
+    public void testDropNotNullConstraint()
+    {
+        Assumptions.abort("Skipping as connector does not support dropping a not null constraint");
+    }
 }
+

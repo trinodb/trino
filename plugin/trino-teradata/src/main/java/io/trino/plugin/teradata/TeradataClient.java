@@ -41,7 +41,10 @@ import io.trino.plugin.jdbc.expression.RewriteLikeWithCaseSensitivity;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.SchemaTableName;
@@ -205,6 +208,10 @@ public class TeradataClient
         // 5. Default: push down simplified, discrete set of values (e.g., IN ('a', 'b'))
         return FULL_PUSHDOWN.apply(session, simplifiedDomain);
     };
+    private static final long DEFAULT_FALLBACK_NDV = 100_000L;
+    private static final long MAX_FALLBACK_NDV = 1_000_000L; // max fallback NDV cap
+    private static final double DEFAULT_FALLBACK_FRACTION = 0.1; // fallback = 10% of row count
+
     private final TeradataConfig.TeradataCaseSensitivity teradataJDBCCaseSensitivity;
     private final boolean statisticsEnabled;
     private ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
@@ -231,7 +238,7 @@ public class TeradataClient
 
     private static boolean isEnableTeradataStringPushdown(ConnectorSession session)
     {
-        return session.getProperty("teradata.string_pushdown_enabled", Boolean.class);
+        return session.getProperty("string_pushdown_enabled", Boolean.class);
     }
 
     /**
@@ -539,9 +546,23 @@ public class TeradataClient
                 TeradataStatisticsDao.ColumnIndexStatistics stat = stats.get(columnName);
 
                 ColumnStatistics.Builder columnStats = ColumnStatistics.builder();
+
                 if (stat != null) {
                     columnStats.setNullsFraction(Estimate.of((double) stat.nullCount() / rowCount));
-                    columnStats.setDistinctValuesCount(Estimate.of((double) stat.distinctValues()));
+
+                    long distinctValues = stat.distinctValues();
+                    if (distinctValues <= 0) {
+                        // No NDV info from Teradata, fallback
+                        columnStats.setDistinctValuesCount(Estimate.of(computeFallbackNDV(rowCount)));
+                    }
+                    else {
+                        columnStats.setDistinctValuesCount(Estimate.of(distinctValues));
+                    }
+                }
+                else {
+                    // No stats at all for this column, fallback both null fraction and NDV
+                    columnStats.setNullsFraction(Estimate.of(0.0));
+                    columnStats.setDistinctValuesCount(Estimate.of(computeFallbackNDV(rowCount)));
                 }
 
                 tableStats.setColumnStatistics(column, columnStats.build());
@@ -549,6 +570,25 @@ public class TeradataClient
 
             return tableStats.build();
         }
+    }
+
+    /**
+     * Compute fallback NDV based on table row count.
+     * - Uses a fraction (e.g., 10%) of rowCount as fallback NDV,
+     * - capped at MAX_FALLBACK_NDV,
+     * - minimum fallback of 1 to avoid zero distinct count.
+     */
+    private long computeFallbackNDV(long rowCount)
+    {
+        if (rowCount <= 0) {
+            return 1; // minimal fallback for empty or invalid row count
+        }
+
+        long fallback = (long) (rowCount * DEFAULT_FALLBACK_FRACTION);
+        fallback = Math.max(fallback, 1); // at least 1 distinct value
+        fallback = Math.min(fallback, MAX_FALLBACK_NDV); // cap at max fallback
+
+        return fallback;
     }
 
     @Override
@@ -603,16 +643,26 @@ public class TeradataClient
     @Override
     protected boolean isSupportedJoinCondition(ConnectorSession session, JdbcJoinCondition joinCondition)
     {
-        // Teradata supports pushdown for varchar-based equality joins only
-        boolean isVarchar = Stream.of(joinCondition.getLeftColumn(), joinCondition.getRightColumn())
-                .map(JdbcColumnHandle::getColumnType)
-                .allMatch(type -> type instanceof CharType || type instanceof VarcharType);
+        JoinCondition.Operator operator = joinCondition.getOperator();
 
-        if (!isVarchar) {
+        if (operator == JoinCondition.Operator.IDENTICAL) {
             return false;
         }
 
-        return switch (joinCondition.getOperator()) {
+        boolean isVarcharJoin = Stream.of(joinCondition.getLeftColumn(), joinCondition.getRightColumn())
+                .map(JdbcColumnHandle::getColumnType)
+                .allMatch(type -> type instanceof CharType || type instanceof VarcharType);
+
+        if (!isVarcharJoin) {
+            // Non-VARCHAR join: allow common operators
+            return switch (operator) {
+                case EQUAL, NOT_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> true;
+                default -> false;
+            };
+        }
+
+        // For VARCHAR joins: allow only equality checks
+        return switch (operator) {
             case EQUAL, NOT_EQUAL -> true;
             default -> false;
         };
@@ -636,6 +686,27 @@ public class TeradataClient
         }
     }
 
+    @Override
+    protected void verifyTableName(DatabaseMetaData databaseMetadata, String tableName)
+            throws SQLException
+    {
+        // PostgreSQL truncates table name to 63 chars silently
+        if (tableName.length() > databaseMetadata.getMaxTableNameLength()) {
+            throw new TrinoException(NOT_SUPPORTED, format("Table name must be shorter than or equal to '%s' characters but got '%s'", databaseMetadata.getMaxTableNameLength(), tableName.length()));
+        }
+    }
+
+    @Override
+    protected void verifyColumnName(DatabaseMetaData databaseMetadata, String columnName)
+            throws SQLException
+    {
+        // PostgreSQL truncates table name to 63 chars silently
+        // PostgreSQL driver caches the max column name length in a DatabaseMetaData object. The cost to call this method per column is low.
+        if (columnName.length() > databaseMetadata.getMaxColumnNameLength()) {
+            throw new TrinoException(NOT_SUPPORTED, format("Column name must be shorter than or equal to '%s' characters but got '%s': '%s'", databaseMetadata.getMaxColumnNameLength(), columnName.length(), columnName));
+        }
+    }
+
     protected void dropSchema(ConnectorSession session, Connection connection, String remoteSchemaName, boolean cascade)
             throws SQLException
     {
@@ -646,6 +717,12 @@ public class TeradataClient
         }
         String dropSchema = "DROP DATABASE " + quoted(remoteSchemaName);
         execute(session, connection, dropSchema);
+    }
+
+    @Override
+    public void renameSchema(ConnectorSession session, String schemaName, String newSchemaName)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming schema");
     }
 
     /**
@@ -659,13 +736,13 @@ public class TeradataClient
     @Override
     public OptionalLong delete(ConnectorSession session, JdbcTableHandle handle)
     {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support delete operations");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support modifying table rows");
     }
 
     @Override
     public void truncateTable(ConnectorSession session, JdbcTableHandle handle)
     {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support truncate operations");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support truncating tables");
     }
 
     @Override
@@ -689,13 +766,25 @@ public class TeradataClient
     @Override
     public JdbcOutputTableHandle beginInsertTable(ConnectorSession session, JdbcTableHandle tableHandle, List<JdbcColumnHandle> columns)
     {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support insert operations");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support inserts");
     }
 
     @Override
-    public void setColumnComment(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Optional<String> comment)
+    public void setColumnType(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Type type)
     {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting column comments");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting column types");
+    }
+
+    @Override
+    public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column, ColumnPosition position)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support add column operations");
+    }
+
+    @Override
+    public void dropNotNullConstraint(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping a not null constraint");
     }
 
     /**
@@ -1025,7 +1114,7 @@ public class TeradataClient
         public OptionalLong sampleRowCountEstimate(JdbcTableHandle table, Connection connection)
         {
             RemoteTableName remote = table.getRequiredNamedRelation().getRemoteTableName();
-            String schema = remote.getCatalogName().orElseThrow();
+            String schema = remote.getSchemaName().orElseThrow();
             String tableName = remote.getTableName();
 
             String sql = String.format("""
