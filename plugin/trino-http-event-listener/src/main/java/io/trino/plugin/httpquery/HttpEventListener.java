@@ -42,7 +42,6 @@ import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.net.MediaType.JSON_UTF_8;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
-import static io.airlift.http.client.Request.Builder.preparePost;
 import static io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static java.util.Objects.requireNonNull;
@@ -75,6 +74,7 @@ public class HttpEventListener
     private final double backoffBase;
     private final Map<String, String> httpHeaders;
     private final URI ingestUri;
+    private final HttpEventListenerHttpMethod httpMethod;
     private final ScheduledExecutorService executor;
 
     @Inject
@@ -100,6 +100,7 @@ public class HttpEventListener
         this.retryDelay = config.getRetryDelay();
         this.maxDelay = config.getMaxDelay();
         this.backoffBase = config.getBackoffBase();
+        this.httpMethod = config.getHttpMethod();
         this.httpHeaders = ImmutableMap.copyOf(config.getHttpHeaders());
 
         try {
@@ -144,7 +145,8 @@ public class HttpEventListener
 
     private void sendLog(BodyGenerator eventBodyGenerator, String queryId)
     {
-        Request request = preparePost()
+        Request request = Request.builder()
+                .setMethod(httpMethod.name())
                 .addHeaders(Multimaps.forMap(httpHeaders))
                 .addHeader(CONTENT_TYPE, JSON_UTF_8.toString())
                 .setUri(ingestUri)

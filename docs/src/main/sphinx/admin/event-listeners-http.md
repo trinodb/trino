@@ -75,6 +75,11 @@ event-listener.config-files=etc/http-event-listener.properties,...
     [](http-event-listener-custom-headers) for more details
   - Empty
 
+* - http-event-listener.connect-http-method
+  - Specifies the HTTP method to use for the request. Supported values
+    are POST and PUT.
+  - `POST`
+
 * - http-event-listener.connect-retry-count
   - The number of retries on server error. A server is considered to be
     in an error state when the response code is 500 or higher
