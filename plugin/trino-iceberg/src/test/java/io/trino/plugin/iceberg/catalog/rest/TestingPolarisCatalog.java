@@ -20,6 +20,7 @@ import io.airlift.http.client.StatusResponseHandler;
 import io.airlift.http.client.StringResponseHandler.StringResponse;
 import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.json.ObjectMapperProvider;
+import io.trino.testing.containers.PrintingLogConsumer;
 import org.intellij.lang.annotations.Language;
 import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.GenericContainer;
@@ -67,6 +68,7 @@ public final class TestingPolarisCatalog
         polarisCatalog.withEnv("polaris.features.\"SUPPORTED_CATALOG_STORAGE_TYPES\"", "[\"FILE\"]");
         polarisCatalog.withEnv("polaris.features.\"ALLOW_INSECURE_STORAGE_TYPES\"", "true");
         polarisCatalog.withEnv("polaris.features.\"DROP_WITH_PURGE_ENABLED\"", "true");
+        polarisCatalog.withLogConsumer(new PrintingLogConsumer("polaris"));
 
         polarisCatalog.start();
 
