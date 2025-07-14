@@ -323,7 +323,6 @@ public final class DistributedQueryRunner
                 .put("query.client.timeout", "10m")
                 // Use few threads in tests to preserve resources on CI
                 .put("exchange.http-client.min-threads", "1") // default 8
-                .put("exchange.page-buffer-client.max-callback-threads", "5") // default 25
                 .put("exchange.http-client.idle-timeout", "1h")
                 .put("task.max-index-memory", "16kB"); // causes index joins to fault load
         if (coordinator) {

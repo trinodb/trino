@@ -27,7 +27,7 @@ import jakarta.validation.constraints.NotNull;
 
 import java.util.concurrent.TimeUnit;
 
-@DefunctConfig("exchange.min-error-duration")
+@DefunctConfig({"exchange.min-error-duration", "exchange.page-buffer-client.max-callback-threads"})
 public class DirectExchangeClientConfig
 {
     private DataSize maxBufferSize = DataSize.of(32, Unit.MEGABYTE);
@@ -35,7 +35,6 @@ public class DirectExchangeClientConfig
     private Duration maxErrorDuration = new Duration(1, TimeUnit.MINUTES);
     private DataSize maxResponseSize = new HttpClientConfig().getMaxContentLength();
     private int clientThreads = 25;
-    private int pageBufferClientMaxCallbackThreads = 25;
     private boolean acknowledgePages = true;
     private DataSize deduplicationBufferSize = DataSize.of(32, Unit.MEGABYTE);
 
@@ -103,19 +102,6 @@ public class DirectExchangeClientConfig
     public DirectExchangeClientConfig setClientThreads(String clientThreads)
     {
         this.clientThreads = ThreadCountParser.DEFAULT.parse(clientThreads);
-        return this;
-    }
-
-    @Min(1)
-    public int getPageBufferClientMaxCallbackThreads()
-    {
-        return pageBufferClientMaxCallbackThreads;
-    }
-
-    @Config("exchange.page-buffer-client.max-callback-threads")
-    public DirectExchangeClientConfig setPageBufferClientMaxCallbackThreads(String pageBufferClientMaxCallbackThreads)
-    {
-        this.pageBufferClientMaxCallbackThreads = ThreadCountParser.DEFAULT.parse(pageBufferClientMaxCallbackThreads);
         return this;
     }
 

@@ -31,6 +31,7 @@ import io.airlift.jmx.JmxModule;
 import io.airlift.json.JsonModule;
 import io.airlift.log.LogJmxModule;
 import io.airlift.log.Logger;
+import io.airlift.log.Logging;
 import io.airlift.node.NodeModule;
 import io.airlift.openmetrics.JmxOpenMetricsModule;
 import io.airlift.tracing.TracingModule;
@@ -68,6 +69,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
+import static io.airlift.log.Level.WARN;
 import static io.trino.server.TrinoSystemRequirements.verifySystemRequirements;
 import static java.lang.String.format;
 import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
@@ -81,6 +83,10 @@ public class Server
 
     private void doStart(String trinoVersion)
     {
+        Logging logging = Logging.initialize();
+
+        logging.setLevel("org.eclipse.jetty", WARN);
+
         // Trino server behavior does not depend on locale settings.
         // Use en_US as this is what Trino is tested with.
         Locale.setDefault(Locale.US);
