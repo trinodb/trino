@@ -20,6 +20,8 @@ import io.airlift.testing.TempFile;
 import io.trino.spi.security.GroupProvider;
 import io.trino.spi.security.GroupProviderFactory;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -45,14 +47,15 @@ public class TestGroupProviderManager
         }
     };
 
-    @Test
-    public void testGroupProviderIsLoaded()
+    @ParameterizedTest
+    @ValueSource(strings = {"", "group-provider.group-case=keep", "group-provider.group-case=KEEP"})
+    public void testGroupProviderIsLoaded(String additional)
             throws IOException
     {
         try (TempFile tempFile = new TempFile()) {
             Files.writeString(tempFile.path(), """
                 group-provider.name=testGroupProvider
-                """);
+                """ + additional);
 
             GroupProviderManager groupProviderManager = new GroupProviderManager(new SecretsResolver(ImmutableMap.of()));
             groupProviderManager.addGroupProviderFactory(TEST_GROUP_PROVIDER_FACTORY);
