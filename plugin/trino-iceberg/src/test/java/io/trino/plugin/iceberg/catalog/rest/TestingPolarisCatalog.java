@@ -124,7 +124,8 @@ public final class TestingPolarisCatalog
                 .setHeader("Content-Type", "application/json")
                 .setBodyGenerator(createStaticBodyGenerator(body, UTF_8))
                 .build();
-        HTTP_CLIENT.execute(request, createStatusResponseHandler());
+        StatusResponseHandler.StatusResponse response = HTTP_CLIENT.execute(request, createStatusResponseHandler());
+        checkState(response.getStatusCode() == 201, "Failed to grant privilege, status code: %s", response.getStatusCode());
     }
 
     public void dropTable(String schema, String table)
@@ -134,7 +135,8 @@ public final class TestingPolarisCatalog
                 .setHeader("Authorization", "Bearer " + token)
                 .setHeader("Content-Type", "application/json")
                 .build();
-        HTTP_CLIENT.execute(request, createStatusResponseHandler());
+        StatusResponseHandler.StatusResponse response = HTTP_CLIENT.execute(request, createStatusResponseHandler());
+        checkState(response.getStatusCode() == 204, "Failed to drop table, status code: %s", response.getStatusCode());
     }
 
     public String restUri()
