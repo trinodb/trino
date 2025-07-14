@@ -27,7 +27,10 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.util.Map;
 
+import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class TestGroupProviderManager
 {
@@ -99,6 +102,27 @@ public class TestGroupProviderManager
 
             assertThat(groupProviderManager.getGroups("Alice")).isEqualTo(ImmutableSet.of("test", "alice"));
             assertThat(groupProviderManager.getGroups("Bob")).isEqualTo(ImmutableSet.of("test", "bob"));
+        }
+    }
+
+    @Test
+    void setTestGroupProviderInvalidCase() throws Exception
+    {
+        try (TempFile tempFile = new TempFile()) {
+            Files.writeString(tempFile.path(), """
+                group-provider.name=testGroupProvider
+                group-provider.group-case=invalid
+                """);
+
+            GroupProviderManager groupProviderManager = new GroupProviderManager(new SecretsResolver(ImmutableMap.of()));
+            groupProviderManager.addGroupProviderFactory(TEST_GROUP_PROVIDER_FACTORY);
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () ->
+                groupProviderManager.loadConfiguredGroupProvider(tempFile.file()));
+
+            assertEquals(format(
+                "Group provider configuration %s does not contain valid group-provider.group-case. Expected one of: [KEEP, LOWER, UPPER]",
+                tempFile.path().toAbsolutePath()), ex.getMessage());
         }
     }
 }

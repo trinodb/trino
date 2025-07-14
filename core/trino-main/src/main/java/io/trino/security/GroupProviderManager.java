@@ -97,10 +97,10 @@ public class GroupProviderManager
                     .filter(groupCase::equalsIgnoreCase)
                     .map(Case::valueOf)
                     .findFirst()
-                    .orElseThrow(() -> new IllegalArgumentException(format("Group provider configuration %s does not contain valid %s. Allowed: %s",
+                    .orElseThrow(() -> new IllegalArgumentException(format("Group provider configuration %s does not contain valid %s. Expected one of: %s",
                             groupProviderFile.getAbsoluteFile(),
                             GROUP_PROVIDER_PROPERTY_GROUP_CASE,
-                            stream(Case.values()).map(Case::toString).collect(joining(", ")))));
+                            stream(Case.values()).map(Case::toString).collect(joining(", ", "[", "]")))));
         }
 
         setConfiguredGroupProvider(groupProviderName, properties);
