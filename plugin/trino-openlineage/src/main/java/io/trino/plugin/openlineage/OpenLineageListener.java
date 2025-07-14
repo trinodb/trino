@@ -276,7 +276,7 @@ public class OpenLineageListener
                 .name(queryMetadata.getQueryId())
                 .facets(openLineage.newJobFacetsBuilder()
                             .jobType(openLineage.newJobTypeJobFacet("BATCH", "TRINO", "QUERY"))
-                            .sql(openLineage.newSQLJobFacet(queryMetadata.getQuery()))
+                            .sql(openLineage.newSQLJobFacet(queryMetadata.getQuery(), "trino"))
                             .build());
     }
 
