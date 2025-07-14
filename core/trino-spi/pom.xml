@@ -658,6 +658,18 @@
                                     <old>method java.lang.String io.trino.spi.NodeManager::getEnvironment()</old>
                                     <justification>Unused</justification>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.addedToInterface</code>
+                                    <new>method long io.trino.spi.resourcegroups.ResourceGroup::getSoftPhysicalDataScanLimitBytes()</new>
+                                    <justification>Add physical data scan tracking to resource groups</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.addedToInterface</code>
+                                    <new>method void io.trino.spi.resourcegroups.ResourceGroup::setSoftPhysicalDataScanLimitBytes(long)</new>
+                                    <justification>Add physical data scan tracking to resource groups</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
