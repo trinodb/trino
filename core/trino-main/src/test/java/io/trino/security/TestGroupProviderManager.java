@@ -29,8 +29,7 @@ import java.util.Map;
 
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestGroupProviderManager
 {
@@ -117,12 +116,11 @@ public class TestGroupProviderManager
             GroupProviderManager groupProviderManager = new GroupProviderManager(new SecretsResolver(ImmutableMap.of()));
             groupProviderManager.addGroupProviderFactory(TEST_GROUP_PROVIDER_FACTORY);
 
-            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () ->
-                groupProviderManager.loadConfiguredGroupProvider(tempFile.file()));
-
-            assertEquals(format(
-                "Group provider configuration %s does not contain valid group-provider.group-case. Expected one of: [KEEP, LOWER, UPPER]",
-                tempFile.path().toAbsolutePath()), ex.getMessage());
+            assertThatThrownBy(() -> groupProviderManager.loadConfiguredGroupProvider(tempFile.file()))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining(format(
+                        "Group provider configuration %s does not contain valid group-provider.group-case. Expected one of: [KEEP, LOWER, UPPER]",
+                        tempFile.path().toAbsolutePath()));
         }
     }
 }
