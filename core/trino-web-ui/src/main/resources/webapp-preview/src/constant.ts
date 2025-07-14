@@ -43,7 +43,9 @@ export const Texts = {
         Forbidden: 'Forbidden',
         Network: 'The network has wandered off, please try again later!',
         NodeInformationNotLoaded: 'Node information could not be loaded',
+        QueryInformationNotLoaded: 'Query information could not be loaded',
         QueryListNotLoaded: 'Query list could not be loaded',
+        QueryNotFound: 'Query not found',
     },
     Menu: {
         Header: {
