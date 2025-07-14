@@ -33,6 +33,7 @@ public class HttpEventListenerConfig
     private Duration maxDelay = Duration.valueOf("1m");
     private final EnumSet<HttpEventListenerEventType> loggedEvents = EnumSet.noneOf(HttpEventListenerEventType.class);
     private String ingestUri;
+    private HttpEventListenerHttpMethod httpMethod = HttpEventListenerHttpMethod.POST;
     private Map<String, String> httpHeaders = ImmutableMap.of();
 
     @ConfigDescription("Will log io.trino.spi.eventlistener.QueryCreatedEvent")
@@ -91,6 +92,20 @@ public class HttpEventListenerConfig
     public HttpEventListenerConfig setIngestUri(String ingestUri)
     {
         this.ingestUri = ingestUri;
+        return this;
+    }
+
+    @NotNull
+    public HttpEventListenerHttpMethod getHttpMethod()
+    {
+        return httpMethod;
+    }
+
+    @ConfigDescription("Specifies the HTTP method to use for the request. Supported values are POST (default) and PUT.")
+    @Config("http-event-listener.connect-http-method")
+    public HttpEventListenerConfig setHttpMethod(HttpEventListenerHttpMethod httpMethod)
+    {
+        this.httpMethod = httpMethod;
         return this;
     }
 
