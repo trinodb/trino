@@ -129,6 +129,16 @@ public class TeradataJdbcConnectorTest
     }
 
     @Test
+    public void testTeradataLimitPushdown()
+    {
+
+        assertThat(query("SELECT name FROM nation LIMIT 5")).skipResultsCorrectnessCheckForPushdown().isFullyPushedDown();
+        assertThat(query("SELECT name FROM nation ORDER BY name LIMIT 5")).skipResultsCorrectnessCheckForPushdown().isFullyPushedDown();
+        assertThat(query("SELECT name FROM nation WHERE regionkey = 3 LIMIT 5")).skipResultsCorrectnessCheckForPushdown().isFullyPushedDown();
+        assertThat(query("SELECT name FROM nation WHERE name < 'EEE' LIMIT 5")).skipResultsCorrectnessCheckForPushdown().isFullyPushedDown();
+    }
+
+    @Test
     public void testInsertWithoutTemporaryTable()
     {
         Assumptions.abort("Skipping as connector does not support insert operations");

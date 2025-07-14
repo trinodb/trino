@@ -86,14 +86,19 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoField;
 import java.util.AbstractMap.SimpleEntry;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Set;
 import java.util.function.BiFunction;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -451,7 +456,11 @@ public class TeradataClient
     @Override
     protected Optional<BiFunction<String, Long, String>> limitFunction()
     {
-        return Optional.of((sql, limit) -> format("SELECT TOP %s * FROM (%s) o", limit, sql));
+        return Optional.of((sql, limit) -> {
+            // Apply TOP N directly to SELECT ... FROM ...
+            System.out.println(sql.replaceFirst("(?i)^SELECT", "SELECT TOP " + limit));
+            return sql.replaceFirst("(?i)^SELECT", "SELECT TOP " + limit);
+        });
     }
 
     @Override
@@ -477,25 +486,43 @@ public class TeradataClient
     protected Optional<TopNFunction> topNFunction()
     {
         return Optional.of((query, sortItems, limit) -> {
+            // Collect selected columns
+            Set<String> selectColumns = new HashSet<>();
+            Matcher matcher = Pattern.compile("(?i)SELECT\\s+(.*?)\\s+FROM").matcher(query);
+            if (matcher.find()) {
+                String[] cols = matcher.group(1).split(",");
+                for (String col : cols) {
+                    selectColumns.add(col.trim().replaceAll("\"", ""));
+                }
+            }
+
+            // Add missing ORDER BY columns to SELECT
+            List<String> extraColumns = new ArrayList<>();
+            for (JdbcSortItem sortItem : sortItems) {
+                String columnName = sortItem.column().getColumnName();
+                if (!selectColumns.contains(columnName)) {
+                    extraColumns.add("\"" + columnName + "\"");
+                }
+            }
+
+            String modifiedQuery = query;
+            if (!extraColumns.isEmpty()) {
+                String allColumns = String.join(", ", selectColumns.stream().map(c -> "\"" + c + "\"").toList());
+                allColumns += ", " + String.join(", ", extraColumns);
+                modifiedQuery = query.replaceFirst("(?i)SELECT\\s+(.*?)\\s+FROM", "SELECT " + allColumns + " FROM");
+            }
+
+            // Build ORDER BY clause
             String orderBy = sortItems.stream()
                     .map(sortItem -> {
                         String ordering = sortItem.sortOrder().isAscending() ? "ASC" : "DESC";
-                        String columnName = quoted(sortItem.column().getColumnName());
-
-                        // Add case sensitivity handling for character types
-                        if (isCharacterType(sortItem.column())) {
-                            boolean caseSensitive = sortItem.column().getJdbcTypeHandle()
-                                    .caseSensitivity()
-                                    .map(sensitivity -> sensitivity == CaseSensitivity.CASE_SENSITIVE)
-                                    .orElse(false);
-                            String caseSensitivity = caseSensitive ? "(CS)" : "(NOT CS)";
-                            return format("%s %s %s", columnName, caseSensitivity, ordering);
-                        }
-                        return format("%s %s", columnName, ordering);
+                        return quoted(sortItem.column().getColumnName()) + " " + ordering;
                     })
                     .collect(joining(", "));
-            // Remove schema qualification from subquery
-            String baseQuery = query.replaceAll("\\w+\\.\\w+\\.", "");
+
+            // Remove schema qualification (e.g. trino.nation → nation)
+            String baseQuery = modifiedQuery.replaceAll("\\w+\\.\\w+\\.", "");
+
             return format("SELECT TOP %d * FROM (%s) AS t ORDER BY %s", limit, baseQuery, orderBy);
         });
     }
@@ -909,7 +936,6 @@ public class TeradataClient
 
         // switch by names as some types overlap other types going by jdbc type alone
         String jdbcTypeName = typeHandle.jdbcTypeName().orElseThrow(() -> new TrinoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
-        System.out.println("Column with missing type name: " + typeHandle + " (column: " + jdbcTypeName + ")");
         switch (jdbcTypeName.toUpperCase()) {
             case "TIMESTAMP WITH TIME ZONE":
                 // TODO review correctness
