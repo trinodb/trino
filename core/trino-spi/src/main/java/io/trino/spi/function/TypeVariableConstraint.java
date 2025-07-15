@@ -16,7 +16,6 @@ package io.trino.spi.function;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.errorprone.annotations.DoNotCall;
-import io.trino.spi.Experimental;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 
@@ -28,7 +27,6 @@ import java.util.Set;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
-@Experimental(eta = "2022-10-31")
 public class TypeVariableConstraint
 {
     private final String name;

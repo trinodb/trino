@@ -13,7 +13,6 @@
  */
 package io.trino.spi.connector;
 
-import io.trino.spi.Experimental;
 import io.trino.spi.function.FunctionProvider;
 import io.trino.spi.function.table.ConnectorTableFunction;
 import io.trino.spi.procedure.Procedure;
@@ -127,7 +126,6 @@ public interface Connector
     /**
      * @return the set of procedures provided by this connector
      */
-    @Experimental(eta = "2022-10-31")
     default Optional<FunctionProvider> getFunctionProvider()
     {
         return Optional.empty();
