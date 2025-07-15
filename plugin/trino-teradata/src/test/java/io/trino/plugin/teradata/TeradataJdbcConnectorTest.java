@@ -50,6 +50,11 @@ public class TeradataJdbcConnectorTest
                  SUPPORTS_RENAME_SCHEMA,
                  SUPPORTS_SET_COLUMN_TYPE,
                  SUPPORTS_ROW_LEVEL_DELETE -> false;
+                 SUPPORTS_DROP_SCHEMA_CASCADE,
+                 SUPPORTS_CREATE_TABLE_WITH_DATA,
+                 SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT,
+                 SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
+                 SUPPORTS_RENAME_SCHEMA -> false;
             case SUPPORTS_CREATE_SCHEMA,
                  SUPPORTS_CREATE_TABLE,
                  SUPPORTS_TOPN_PUSHDOWN,

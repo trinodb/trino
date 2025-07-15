@@ -3368,6 +3368,7 @@ class AstBuilder
                 getLocation(context),
                 getQualifiedName(context.qualifiedName()),
                 (DataType) visit(context.type()),
+                visitIfPresent(context.literal(), Expression.class),
                 nullable,
                 properties,
                 comment);

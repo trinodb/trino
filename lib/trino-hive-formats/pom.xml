@@ -10,6 +10,7 @@
     </parent>
 
     <artifactId>trino-hive-formats</artifactId>
+    <name>${project.artifactId}</name>
     <description>Trino - Hive Formats</description>
 
     <properties>

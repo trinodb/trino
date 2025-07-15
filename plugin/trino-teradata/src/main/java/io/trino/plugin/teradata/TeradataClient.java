@@ -739,11 +739,11 @@ public class TeradataClient
     protected void dropSchema(ConnectorSession session, Connection connection, String remoteSchemaName, boolean cascade)
             throws SQLException
     {
-//        String deleteSchema = "DELETE DATABASE " + quoted(remoteSchemaName);
-//        execute(session, connection, deleteSchema);
         if (cascade) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping schemas with CASCADE option");
         }
+//        String deleteSchema = "DELETE DATABASE " + quoted(remoteSchemaName);
+//        execute(session, connection, deleteSchema);
         String dropSchema = "DROP DATABASE " + quoted(remoteSchemaName);
         execute(session, connection, dropSchema);
     }
@@ -767,13 +767,11 @@ public class TeradataClient
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support modifying table rows");
     }
-
     @Override
     public void truncateTable(ConnectorSession session, JdbcTableHandle handle)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support truncating tables");
     }
-
     @Override
     public void dropColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column)
     {
@@ -1167,5 +1165,9 @@ public class TeradataClient
         }
 
         public record ColumnIndexStatistics(boolean nullable, long distinctValues, long nullCount) {}
+    @Override
+    public void renameSchema(ConnectorSession session, String schemaName, String newSchemaName)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming schemas");
     }
 }
