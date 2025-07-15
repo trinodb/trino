@@ -11,8 +11,44 @@ import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.plugin.base.mapping.IdentifierMapping;
-import io.trino.plugin.jdbc.*;
-import io.trino.plugin.jdbc.aggregation.*;
+import io.trino.plugin.jdbc.BaseJdbcClient;
+import io.trino.plugin.jdbc.BaseJdbcConfig;
+import io.trino.plugin.jdbc.CaseSensitivity;
+import io.trino.plugin.jdbc.ColumnMapping;
+import io.trino.plugin.jdbc.ConnectionFactory;
+import io.trino.plugin.jdbc.JdbcColumnHandle;
+import io.trino.plugin.jdbc.JdbcExpression;
+import io.trino.plugin.jdbc.JdbcJoinCondition;
+import io.trino.plugin.jdbc.JdbcMetadata;
+import io.trino.plugin.jdbc.JdbcSortItem;
+import io.trino.plugin.jdbc.JdbcStatisticsConfig;
+import io.trino.plugin.jdbc.JdbcTableHandle;
+import io.trino.plugin.jdbc.JdbcTypeHandle;
+import io.trino.plugin.jdbc.LongReadFunction;
+import io.trino.plugin.jdbc.LongWriteFunction;
+import io.trino.plugin.jdbc.ObjectReadFunction;
+import io.trino.plugin.jdbc.ObjectWriteFunction;
+import io.trino.plugin.jdbc.PredicatePushdownController;
+import io.trino.plugin.jdbc.PreparedQuery;
+import io.trino.plugin.jdbc.QueryBuilder;
+import io.trino.plugin.jdbc.RemoteTableName;
+import io.trino.plugin.jdbc.WriteMapping;
+import io.trino.plugin.jdbc.aggregation.ImplementAvgDecimal;
+import io.trino.plugin.jdbc.aggregation.ImplementAvgFloatingPoint;
+import io.trino.plugin.jdbc.aggregation.ImplementCorr;
+import io.trino.plugin.jdbc.aggregation.ImplementCount;
+import io.trino.plugin.jdbc.aggregation.ImplementCountAll;
+import io.trino.plugin.jdbc.aggregation.ImplementCountDistinct;
+import io.trino.plugin.jdbc.aggregation.ImplementCovariancePop;
+import io.trino.plugin.jdbc.aggregation.ImplementCovarianceSamp;
+import io.trino.plugin.jdbc.aggregation.ImplementMinMax;
+import io.trino.plugin.jdbc.aggregation.ImplementRegrIntercept;
+import io.trino.plugin.jdbc.aggregation.ImplementRegrSlope;
+import io.trino.plugin.jdbc.aggregation.ImplementStddevPop;
+import io.trino.plugin.jdbc.aggregation.ImplementStddevSamp;
+import io.trino.plugin.jdbc.aggregation.ImplementSum;
+import io.trino.plugin.jdbc.aggregation.ImplementVariancePop;
+import io.trino.plugin.jdbc.aggregation.ImplementVarianceSamp;
 import io.trino.plugin.jdbc.expression.ComparisonOperator;
 import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
 import io.trino.plugin.jdbc.expression.ParameterizedExpression;
@@ -22,8 +58,15 @@ import io.trino.plugin.jdbc.expression.RewriteLikeEscapeWithCaseSensitivity;
 import io.trino.plugin.jdbc.expression.RewriteLikeWithCaseSensitivity;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.*;
-import io.trino.spi.exchange.ExchangeSourceOutputSelector;
+import io.trino.spi.connector.AggregateFunction;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnPosition;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.JoinCondition;
+import io.trino.spi.connector.JoinStatistics;
+import io.trino.spi.connector.JoinType;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.statistics.ColumnStatistics;
@@ -204,33 +247,13 @@ public class TeradataClient
         // 8. If nothing matched, fallback to no pushdown
         return DISABLE_PUSHDOWN.apply(session, domain);
     };
-
-
-    private static boolean isRangePredicate(Domain domain) {
-        return !domain.isSingleValue() &&
-                !domain.isAll() &&
-                !domain.getValues().isDiscreteSet() &&
-                !domain.getValues().isNone() &&
-                domain.getValues().getRanges().getOrderedRanges().size() == 1;
-    }
-
-    private static boolean isMultiRangePredicate(Domain domain) {
-        return !domain.getValues().isDiscreteSet() &&
-                domain.getValues().getRanges().getOrderedRanges().size() > 1 &&
-                !domain.getValues().isAll() &&
-                !domain.getValues().isNone();
-    }
-
     private static final long DEFAULT_FALLBACK_NDV = 100_000L;
     private static final long MAX_FALLBACK_NDV = 1_000_000L; // max fallback NDV cap
     private static final double DEFAULT_FALLBACK_FRACTION = 0.1; // fallback = 10% of row count
-
     private final TeradataConfig.TeradataCaseSensitivity teradataJDBCCaseSensitivity;
     private final boolean statisticsEnabled;
     private ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
     private AggregateFunctionRewriter<JdbcExpression, ?> aggregateFunctionRewriter;
-
-
     /**
      * Constructs a new TeradataClient instance.
      *
@@ -249,6 +272,23 @@ public class TeradataClient
         this.statisticsEnabled = statisticsConfig.isEnabled();
         buildExpressionRewriter();
         buildAggregateRewriter();
+    }
+
+    private static boolean isRangePredicate(Domain domain)
+    {
+        return !domain.isSingleValue() &&
+                !domain.isAll() &&
+                !domain.getValues().isDiscreteSet() &&
+                !domain.getValues().isNone() &&
+                domain.getValues().getRanges().getOrderedRanges().size() == 1;
+    }
+
+    private static boolean isMultiRangePredicate(Domain domain)
+    {
+        return !domain.getValues().isDiscreteSet() &&
+                domain.getValues().getRanges().getOrderedRanges().size() > 1 &&
+                !domain.getValues().isAll() &&
+                !domain.getValues().isNone();
     }
 
     private static boolean isEnableTeradataStringPushdown(ConnectorSession session)
@@ -461,6 +501,11 @@ public class TeradataClient
                 varcharReadFunction(varcharType),
                 varcharWriteFunction(),
                 isCaseSensitive ? TERADATA_STRING_PUSHDOWN : CASE_INSENSITIVE_CHARACTER_PUSHDOWN);
+    }
+
+    private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
+    {
+        return Optional.of(new JdbcTypeHandle(Types.NUMERIC, Optional.of("decimal"), Optional.of(decimalType.getPrecision()), Optional.of(decimalType.getScale()), Optional.empty(), Optional.empty()));
     }
 
     @Override
@@ -710,10 +755,8 @@ public class TeradataClient
     @Override
     public Optional<JdbcExpression> implementAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
     {
-        // TODO support complex ConnectorExpressions
         return aggregateFunctionRewriter.rewrite(session, aggregate, assignments);
     }
-
 
     protected void createSchema(ConnectorSession session, Connection connection, String remoteSchemaName)
             throws SQLException
@@ -810,7 +853,6 @@ public class TeradataClient
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming tables");
     }
 
-
     @Override
     public void setColumnType(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Type type)
     {
@@ -895,12 +937,6 @@ public class TeradataClient
                         .add(new ImplementRegrSlope())
                         .build()
         );
-
-    }
-
-    private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
-    {
-        return Optional.of(new JdbcTypeHandle(Types.NUMERIC, Optional.of("decimal"), Optional.of(decimalType.getPrecision()), Optional.of(decimalType.getScale()), Optional.empty(), Optional.empty()));
     }
 
     /**

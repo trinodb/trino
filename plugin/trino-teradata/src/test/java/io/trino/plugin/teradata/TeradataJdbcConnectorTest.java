@@ -2,7 +2,9 @@ package io.trino.plugin.teradata;
 
 import com.google.common.base.Verify;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
-import io.trino.spi.connector.So io.trino.testing.TestingConnectorBehavior;
+import io.trino.spi.connector.SortOrder;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.AfterAll;
@@ -47,12 +49,9 @@ public class TeradataJdbcConnectorTest
                  SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
                  SUPPORTS_RENAME_SCHEMA,
                  SUPPORTS_SET_COLUMN_TYPE,
-                 SUPPORTS_ROW_LEVEL_DELETE -> false;
+                 SUPPORTS_ROW_LEVEL_DELETE,
                  SUPPORTS_DROP_SCHEMA_CASCADE,
-                 SUPPORTS_CREATE_TABLE_WITH_DATA,
-                 SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT,
-                 SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
-                 SUPPORTS_RENAME_SCHEMA -> false;
+                 SUPPORTS_NATIVE_QUERY -> false;
             case SUPPORTS_CREATE_SCHEMA,
                  SUPPORTS_CREATE_TABLE,
                  SUPPORTS_TOPN_PUSHDOWN,
@@ -135,38 +134,22 @@ public class TeradataJdbcConnectorTest
         Assumptions.abort("Skipping as connector does not support column level write operations");
     }
 
-
     @Test
-    public void testPredicate() {
+    public void testPredicate()
+    {
         this.assertQuery("""
-        SELECT TOP 10 *
-          FROM (
-            SELECT orderkey+1 AS a FROM orders WHERE orderstatus = 'F'
-            UNION ALL\s
-            SELECT orderkey AS a FROM orders WHERE MOD(orderkey, 2) = 0
-            UNION ALL\s
-            SELECT orderkey+custkey AS a FROM orders
-          ) AS unioned
-          WHERE a < 20 OR a > 100
-          ORDER BY a;
-    """);
+                    SELECT TOP 10 *
+                      FROM (
+                        SELECT orderkey+1 AS a FROM orders WHERE orderstatus = 'F'
+                        UNION ALL\s
+                        SELECT orderkey AS a FROM orders WHERE MOD(orderkey, 2) = 0
+                        UNION ALL\s
+                        SELECT orderkey+custkey AS a FROM orders
+                      ) AS unioned
+                      WHERE a < 20 OR a > 100
+                      ORDER BY a;
+                """);
     }
-
-    @Test
-    public void testNullSensitiveTopNPushdown() {
-        if (this.hasBehavior(TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN)) {
-            @Language("SQL") String sql = String.format("CREATE TABLE %s (name varchar(10), a bigint)", "trino.test_null_sensitive_topn_pushdown");
-            database.execute(sql);
-            List<String> rowsToInsert = List.of("'small', 42", "'big', 134134", "'negative', -15", "'null', NULL");
-            for(String row : rowsToInsert) {
-                this.database.execute(String.format("INSERT INTO %s VALUES (%s)", "test_null_sensitive_topn_pushdown", row));
-            }
-            Verify.verify(SortOrder.values().length == 4, "The test needs to be updated when new options are added", new Object[0]);
-            ((QueryAssertions.QueryAssert) Assertions.assertThat(this.query("SELECT name FROM test_null_sensitive_topn_pushdown ORDER BY a ASC NULLS FIRST LIMIT 5"))).ordered().isFullyPushedDown();
-            ((QueryAssertions.QueryAssert)Assertions.assertThat(this.query("SELECT name FROM test_null_sensitive_topn_pushdown ORDER BY a ASC NULLS LAST LIMIT 5"))).ordered().isFullyPushedDown();
-            ((QueryAssertions.QueryAssert)Assertions.assertThat(this.query("SELECT name FROM test_null_sensitive_topn_pushdown ORDER BY a DESC NULLS FIRST LIMIT 5"))).ordered().isFullyPushedDown();
-            ((QueryAssertions.QueryAssert)Assertions.assertThat(this.query("SELECT name FROM test_null_sensitive_topn_pushdown ORDER BY a DESC NULLS LAST LIMIT 5"))).ordered().isFullyPushedDown();
-        }
 
     @Test
     public void testTeradataLimitPushdown()
