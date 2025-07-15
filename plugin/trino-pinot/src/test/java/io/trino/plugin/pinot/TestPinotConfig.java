@@ -68,7 +68,6 @@ public class TestPinotConfig
                 .put("pinot.max-rows-for-broker-queries", "5000")
                 .put("pinot.aggregation-pushdown.enabled", "false")
                 .put("pinot.count-distinct-pushdown.enabled", "false")
-                .put("pinot.proxy.enabled", "true")
                 .put("pinot.target-segment-page-size", "2MB")
                 .buildOrThrow();
 
@@ -85,7 +84,6 @@ public class TestPinotConfig
                 .setMaxRowsForBrokerQueries(5000)
                 .setAggregationPushdownEnabled(false)
                 .setCountDistinctPushdownEnabled(false)
-                .setProxyEnabled(true)
                 .setTargetSegmentPageSize(DataSize.of(2, MEGABYTE));
 
         ConfigAssertions.assertFullMapping(properties, expected);
@@ -100,6 +98,18 @@ public class TestPinotConfig
                         .setCountDistinctPushdownEnabled(true),
                 "validConfiguration",
                 "Invalid configuration: pinot.aggregation-pushdown.enabled must be enabled if pinot.count-distinct-pushdown.enabled",
+                AssertTrue.class);
+    }
+
+    @Test
+    public void testInvalidBrokerProxyConfiguration()
+    {
+        assertFailsValidation(
+                new PinotConfig()
+                        .setBrokerUrl(HostAndPort.fromString("host1:1111"))
+                        .setProxyEnabled(true),
+                "validBrokerProxyConfiguration",
+                "Invalid configuration: pinot.broker-url and pinot.proxy.enabled cannot both be set.",
                 AssertTrue.class);
     }
 
