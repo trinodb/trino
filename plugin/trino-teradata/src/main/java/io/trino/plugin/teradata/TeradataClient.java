@@ -7,30 +7,12 @@
 package io.trino.plugin.teradata;
 
 import com.google.inject.Inject;
+import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
+import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.plugin.base.mapping.IdentifierMapping;
-import io.trino.plugin.jdbc.BaseJdbcClient;
-import io.trino.plugin.jdbc.BaseJdbcConfig;
-import io.trino.plugin.jdbc.CaseSensitivity;
-import io.trino.plugin.jdbc.ColumnMapping;
-import io.trino.plugin.jdbc.ConnectionFactory;
-import io.trino.plugin.jdbc.JdbcColumnHandle;
-import io.trino.plugin.jdbc.JdbcJoinCondition;
-import io.trino.plugin.jdbc.JdbcMetadata;
-import io.trino.plugin.jdbc.JdbcOutputTableHandle;
-import io.trino.plugin.jdbc.JdbcSortItem;
-import io.trino.plugin.jdbc.JdbcStatisticsConfig;
-import io.trino.plugin.jdbc.JdbcTableHandle;
-import io.trino.plugin.jdbc.JdbcTypeHandle;
-import io.trino.plugin.jdbc.LongReadFunction;
-import io.trino.plugin.jdbc.LongWriteFunction;
-import io.trino.plugin.jdbc.ObjectReadFunction;
-import io.trino.plugin.jdbc.ObjectWriteFunction;
-import io.trino.plugin.jdbc.PredicatePushdownController;
-import io.trino.plugin.jdbc.PreparedQuery;
-import io.trino.plugin.jdbc.QueryBuilder;
-import io.trino.plugin.jdbc.RemoteTableName;
-import io.trino.plugin.jdbc.WriteMapping;
+import io.trino.plugin.jdbc.*;
+import io.trino.plugin.jdbc.aggregation.*;
 import io.trino.plugin.jdbc.expression.ComparisonOperator;
 import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
 import io.trino.plugin.jdbc.expression.ParameterizedExpression;
@@ -40,14 +22,8 @@ import io.trino.plugin.jdbc.expression.RewriteLikeEscapeWithCaseSensitivity;
 import io.trino.plugin.jdbc.expression.RewriteLikeWithCaseSensitivity;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.ColumnHandle;
-import io.trino.spi.connector.ColumnMetadata;
-import io.trino.spi.connector.ColumnPosition;
-import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.JoinCondition;
-import io.trino.spi.connector.JoinStatistics;
-import io.trino.spi.connector.JoinType;
-import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.*;
+import io.trino.spi.exchange.ExchangeSourceOutputSelector;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.statistics.ColumnStatistics;
@@ -192,27 +168,59 @@ public class TeradataClient
         extends BaseJdbcClient
 {
     private static final PredicatePushdownController TERADATA_STRING_PUSHDOWN = (session, domain) -> {
-        // 1. Push down NULL filters safely
+        // 1. NULL-only filters are always safe
         if (domain.isOnlyNull()) {
             return FULL_PUSHDOWN.apply(session, domain);
         }
 
-        // 2. Optional: check if string pushdown is globally enabled (if you want to control it via config)
+        // 2. If pushdown is explicitly enabled via session
         if (isEnableTeradataStringPushdown(session)) {
             return FULL_PUSHDOWN.apply(session, domain);
         }
 
-        // 3. Simplify the domain (e.g., condense IN (...) into a range if threshold is exceeded)
-        Domain simplifiedDomain = domain.simplify(getDomainCompactionThreshold(session));
+        // 3. Simplify complex domains (like IN(...), ranges)
+        Domain simplified = domain.simplify(getDomainCompactionThreshold(session));
 
-        // 4. If the domain values are not a discrete set (e.g., a range like > 'abc'), disable pushdown
-        if (!simplifiedDomain.getValues().isDiscreteSet()) {
-            return DISABLE_PUSHDOWN.apply(session, domain);
+        // 4. If this is a clean range predicate (e.g., <, <=, BETWEEN), push down
+        if (isRangePredicate(simplified)) {
+            return FULL_PUSHDOWN.apply(session, simplified);
         }
 
-        // 5. Default: push down simplified, discrete set of values (e.g., IN ('a', 'b'))
-        return FULL_PUSHDOWN.apply(session, simplifiedDomain);
+        // 5. Handle NOT NULL (non-null allowed and domain not only NULL)
+        if (!domain.isOnlyNull() && !domain.isNullAllowed() && simplified.getValues().isAll()) {
+            return FULL_PUSHDOWN.apply(session, simplified);
+        }
+
+        // 6. Handle NOT EQUAL and similar ranges (if safe range is expressible)
+        if (isMultiRangePredicate(simplified)) {
+            return FULL_PUSHDOWN.apply(session, simplified);
+        }
+
+        // 7. Push down discrete sets like IN ('a', 'b', 'c')
+        if (simplified.getValues().isDiscreteSet()) {
+            return FULL_PUSHDOWN.apply(session, simplified);
+        }
+
+        // 8. If nothing matched, fallback to no pushdown
+        return DISABLE_PUSHDOWN.apply(session, domain);
     };
+
+
+    private static boolean isRangePredicate(Domain domain) {
+        return !domain.isSingleValue() &&
+                !domain.isAll() &&
+                !domain.getValues().isDiscreteSet() &&
+                !domain.getValues().isNone() &&
+                domain.getValues().getRanges().getOrderedRanges().size() == 1;
+    }
+
+    private static boolean isMultiRangePredicate(Domain domain) {
+        return !domain.getValues().isDiscreteSet() &&
+                domain.getValues().getRanges().getOrderedRanges().size() > 1 &&
+                !domain.getValues().isAll() &&
+                !domain.getValues().isNone();
+    }
+
     private static final long DEFAULT_FALLBACK_NDV = 100_000L;
     private static final long MAX_FALLBACK_NDV = 1_000_000L; // max fallback NDV cap
     private static final double DEFAULT_FALLBACK_FRACTION = 0.1; // fallback = 10% of row count
@@ -220,6 +228,8 @@ public class TeradataClient
     private final TeradataConfig.TeradataCaseSensitivity teradataJDBCCaseSensitivity;
     private final boolean statisticsEnabled;
     private ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
+    private AggregateFunctionRewriter<JdbcExpression, ?> aggregateFunctionRewriter;
+
 
     /**
      * Constructs a new TeradataClient instance.
@@ -238,7 +248,7 @@ public class TeradataClient
         this.teradataJDBCCaseSensitivity = teradataConfig.getTeradataCaseSensitivity();
         this.statisticsEnabled = statisticsConfig.isEnabled();
         buildExpressionRewriter();
-        // TODO         this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(
+        buildAggregateRewriter();
     }
 
     private static boolean isEnableTeradataStringPushdown(ConnectorSession session)
@@ -695,6 +705,14 @@ public class TeradataClient
         };
     }
 
+    @Override
+    public Optional<JdbcExpression> implementAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
+    {
+        // TODO support complex ConnectorExpressions
+        return aggregateFunctionRewriter.rewrite(session, aggregate, assignments);
+    }
+
+
     protected void createSchema(ConnectorSession session, Connection connection, String remoteSchemaName)
             throws SQLException
     {
@@ -790,11 +808,6 @@ public class TeradataClient
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming tables");
     }
 
-    @Override
-    public JdbcOutputTableHandle beginInsertTable(ConnectorSession session, JdbcTableHandle tableHandle, List<JdbcColumnHandle> columns)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support inserts");
-    }
 
     @Override
     public void setColumnType(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Type type)
@@ -846,6 +859,46 @@ public class TeradataClient
                 .map("$is_null(value)").to("value IS NULL")
                 .map("$nullif(first, second)").to("NULLIF(first, second)")
                 .build();
+    }
+
+    private void buildAggregateRewriter()
+    {
+        JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+
+        this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(
+                this.connectorExpressionRewriter,
+                ImmutableSet.<AggregateFunctionRule<JdbcExpression, ParameterizedExpression>>builder()
+                        // Basic aggregates
+                        .add(new ImplementCountAll(bigintTypeHandle))
+                        .add(new ImplementCount(bigintTypeHandle))
+                        .add(new ImplementCountDistinct(bigintTypeHandle, false))
+                        .add(new ImplementMinMax(false))
+                        .add(new ImplementSum(TeradataClient::toTypeHandle))
+
+                        // AVG
+                        .add(new ImplementAvgFloatingPoint())
+                        .add(new ImplementAvgDecimal())
+
+                        // Statistical aggregates (numeric types only)
+                        .add(new ImplementStddevSamp())
+                        .add(new ImplementStddevPop())
+                        .add(new ImplementVarianceSamp())
+                        .add(new ImplementVariancePop())
+
+                        // Correlation and regression
+                        .add(new ImplementCovarianceSamp())
+                        .add(new ImplementCovariancePop())
+                        .add(new ImplementCorr())
+                        .add(new ImplementRegrIntercept())
+                        .add(new ImplementRegrSlope())
+                        .build()
+        );
+
+    }
+
+    private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
+    {
+        return Optional.of(new JdbcTypeHandle(Types.NUMERIC, Optional.of("decimal"), Optional.of(decimalType.getPrecision()), Optional.of(decimalType.getScale()), Optional.empty(), Optional.empty()));
     }
 
     /**
