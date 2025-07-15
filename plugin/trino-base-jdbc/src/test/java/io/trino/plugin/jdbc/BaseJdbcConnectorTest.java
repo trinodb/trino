@@ -152,6 +152,7 @@ public abstract class BaseJdbcConnectorTest
             case SUPPORTS_ADD_COLUMN_WITH_POSITION,
                  SUPPORTS_CREATE_MATERIALIZED_VIEW,
                  SUPPORTS_CREATE_VIEW,
+                 SUPPORTS_DEFAULT_COLUMN_VALUE,
                  SUPPORTS_MERGE,
                  SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN,
                  SUPPORTS_ROW_LEVEL_UPDATE -> false;

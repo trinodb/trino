@@ -21,11 +21,12 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public record ColumnInfo(MemoryColumnHandle handle, boolean nullable, Optional<String> comment)
+public record ColumnInfo(MemoryColumnHandle handle, Optional<String> defaultValue, boolean nullable, Optional<String> comment)
 {
     public ColumnInfo
     {
         requireNonNull(handle, "handle is null");
+        requireNonNull(defaultValue, "defaultValue is null");
         requireNonNull(comment, "comment is null");
     }
 
@@ -35,6 +36,7 @@ public record ColumnInfo(MemoryColumnHandle handle, boolean nullable, Optional<S
         return ColumnMetadata.builder()
                 .setName(handle.name())
                 .setType(handle.type())
+                .setDefaultValue(defaultValue)
                 .setNullable(nullable)
                 .setComment(comment)
                 .build();
@@ -46,6 +48,7 @@ public record ColumnInfo(MemoryColumnHandle handle, boolean nullable, Optional<S
         return toStringHelper(this)
                 .add("name", handle.name())
                 .add("type", handle.type())
+                .add("defaultValue", defaultValue)
                 .add("nullable", nullable)
                 .add("comment", comment)
                 .toString();

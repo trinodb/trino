@@ -11,6 +11,7 @@
 
     <artifactId>trino-opensearch</artifactId>
     <packaging>trino-plugin</packaging>
+    <name>${project.artifactId}</name>
     <description>Trino - OpenSearch connector</description>
 
     <properties>
@@ -37,6 +38,7 @@
         <dependency>
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>
+            <classifier>classes</classifier>
         </dependency>
 
         <dependency>
