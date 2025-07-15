@@ -1,13 +1,17 @@
 package io.trino.plugin.teradata;
 
+import com.google.common.base.Verify;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
+import io.trino.spi.connector.SortOrder;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
+import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.OptionalInt;
 
 import static io.trino.plugin.teradata.util.TeradataConstants.TERADATA_OBJECT_NAME_LIMIT;
@@ -131,11 +135,30 @@ public class TeradataJdbcConnectorTest
     @Test
     public void testTeradataLimitPushdown()
     {
-
         assertThat(query("SELECT name FROM nation LIMIT 5")).skipResultsCorrectnessCheckForPushdown().isFullyPushedDown();
         assertThat(query("SELECT name FROM nation ORDER BY name LIMIT 5")).skipResultsCorrectnessCheckForPushdown().isFullyPushedDown();
         assertThat(query("SELECT name FROM nation WHERE regionkey = 3 LIMIT 5")).skipResultsCorrectnessCheckForPushdown().isFullyPushedDown();
         assertThat(query("SELECT name FROM nation WHERE name < 'EEE' LIMIT 5")).skipResultsCorrectnessCheckForPushdown().isFullyPushedDown();
+    }
+
+    @Test
+    public void testNullSensitiveTopNPushdown()
+    {
+        if (this.hasBehavior(TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN)) {
+            if (!database.isTableExists("test_null_sensitive_topn_pushdown")) {
+                String sql = "CREATE TABLE trino.test_null_sensitive_topn_pushdown(name varchar(10), a bigint)";
+                database.execute(sql);
+            }
+            List<String> rowsToInsert = List.of("'small', 42", "'big', 134134", "'negative', -15", "'null', NULL");
+            for (String row : rowsToInsert) {
+                database.execute(format("INSERT INTO %s VALUES (%s)", "trino.test_null_sensitive_topn_pushdown", row));
+            }
+            Verify.verify(SortOrder.values().length == 4, "The test needs to be updated when new options are added");
+            Assertions.assertThat(this.query("SELECT name FROM trino.test_null_sensitive_topn_pushdown ORDER BY a ASC NULLS FIRST LIMIT 5")).ordered().isFullyPushedDown();
+            Assertions.assertThat(this.query("SELECT name FROM trino.test_null_sensitive_topn_pushdown ORDER BY a ASC NULLS LAST LIMIT 5")).ordered().isFullyPushedDown();
+            Assertions.assertThat(this.query("SELECT name FROM trino.test_null_sensitive_topn_pushdown ORDER BY a DESC NULLS FIRST LIMIT 5")).ordered().isFullyPushedDown();
+            Assertions.assertThat(this.query("SELECT name FROM trino.test_null_sensitive_topn_pushdown ORDER BY a DESC NULLS LAST LIMIT 5")).ordered().isFullyPushedDown();
+        }
     }
 
     @Test
