@@ -15,13 +15,11 @@ package io.trino.spi.function;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.trino.spi.Experimental;
 
 import java.util.Objects;
 
 import static java.util.Locale.ROOT;
 
-@Experimental(eta = "2022-10-31")
 public final class SchemaFunctionName
 {
     private final String schemaName;

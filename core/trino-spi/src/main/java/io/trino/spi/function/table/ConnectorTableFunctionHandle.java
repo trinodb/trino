@@ -13,12 +13,9 @@
  */
 package io.trino.spi.function.table;
 
-import io.trino.spi.Experimental;
-
 /**
  * An area to store all information necessary to execute the table function, gathered at analysis time
  */
-@Experimental(eta = "2022-10-31")
 public interface ConnectorTableFunctionHandle
 {
 }
