@@ -8,6 +8,9 @@ package io.trino.plugin.teradata;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.trino.plugin.jdbc.BaseJdbcConfig;
+
+import java.util.Optional;
 
 /**
  * Configuration class for Teradata connector properties.
@@ -21,8 +24,36 @@ import io.airlift.configuration.ConfigDescription;
  * </p>
  */
 public class TeradataConfig
+        extends BaseJdbcConfig
 {
+    private Boolean stringPushdownEnabled = false;
+    private Optional<String> jwtCredentialsFile = Optional.empty();
+    private Optional<String> jwtToken = Optional.empty();
     private TeradataCaseSensitivity teradataCaseSensitivity = TeradataCaseSensitivity.CASE_SPECIFIC;
+
+    public Optional<String> getJwtCredentialsFile()
+    {
+        return jwtCredentialsFile;
+    }
+
+    @Config("jwt.credentials-file")
+    public TeradataConfig setJwtCredentialsFile(String jwtCredentialsFile)
+    {
+        this.jwtCredentialsFile = Optional.ofNullable(jwtCredentialsFile);
+        return this;
+    }
+
+    public Optional<String> getJwtToken()
+    {
+        return jwtToken;
+    }
+
+    @Config("jwt.token")
+    public TeradataConfig setJwtToken(String jwtToken)
+    {
+        this.jwtToken = Optional.ofNullable(jwtToken);
+        return this;
+    }
 
     /**
      * Gets the Teradata case sensitivity setting.
@@ -45,6 +76,19 @@ public class TeradataConfig
     public TeradataConfig setTeradataCaseSensitivity(TeradataCaseSensitivity teradataCaseSensitivity)
     {
         this.teradataCaseSensitivity = teradataCaseSensitivity;
+        return this;
+    }
+
+    public Boolean isStringPushdownEnabled()
+    {
+        return stringPushdownEnabled;
+    }
+
+    @Config("teradata.string-pushdown-enabled")
+    @ConfigDescription("Enable pushdown of string predicates (VARCHAR, CHAR) to Teradata")
+    public TeradataConfig setStringPushdownEnabled(boolean enabled)
+    {
+        this.stringPushdownEnabled = enabled;
         return this;
     }
 

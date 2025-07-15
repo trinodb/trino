@@ -9,6 +9,7 @@ package io.trino.plugin.teradata;
 import com.google.inject.Inject;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.plugin.base.mapping.IdentifierMapping;
+import io.trino.plugin.base.mapping.RemoteIdentifiers;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.CaseSensitivity;
@@ -33,14 +34,12 @@ import io.trino.plugin.jdbc.expression.RewriteIn;
 import io.trino.plugin.jdbc.expression.RewriteLikeEscapeWithCaseSensitivity;
 import io.trino.plugin.jdbc.expression.RewriteLikeWithCaseSensitivity;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
-import io.trino.spi.ErrorCode;
-import io.trino.spi.ErrorCodeSupplier;
-import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -130,6 +129,7 @@ import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.Math.floorDiv;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static org.weakref.jmx.$internal.guava.base.Verify.verify;
 
 /**
  * TeradataClient is a JDBC client implementation for the Teradata database.
@@ -153,11 +153,8 @@ import static java.util.Objects.requireNonNull;
 public class TeradataClient
         extends BaseJdbcClient
 {
-
     private final TeradataConfig.TeradataCaseSensitivity teradataJDBCCaseSensitivity;
     private ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
-
-
 
     /**
      * Constructs a new TeradataClient instance.
@@ -417,6 +414,13 @@ public class TeradataClient
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support delete operations");
     }
+
+    @Override
+    public void dropTable(ConnectorSession session, JdbcTableHandle handle)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping tables");
+    }
+
     @Override
     public void truncateTable(ConnectorSession session, JdbcTableHandle handle)
     {
@@ -443,7 +447,7 @@ public class TeradataClient
     @Override
     public JdbcOutputTableHandle beginInsertTable(ConnectorSession session, JdbcTableHandle tableHandle, List<JdbcColumnHandle> columns)
     {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support insert operations");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support inserts");
     }
 
     @Override
