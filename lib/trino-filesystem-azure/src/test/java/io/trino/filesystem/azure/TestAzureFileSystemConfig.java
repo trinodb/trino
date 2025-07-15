@@ -34,7 +34,7 @@ class TestAzureFileSystemConfig
                 .setAuthType(AuthType.DEFAULT)
                 .setEndpoint("core.windows.net")
                 .setReadBlockSize(DataSize.of(4, Unit.MEGABYTE))
-                .setWriteBlockSize(DataSize.of(4, Unit.MEGABYTE))
+                .setWriteBlockSize(DataSize.of(8, Unit.MEGABYTE))
                 .setMaxHttpRequests(2 * Runtime.getRuntime().availableProcessors())
                 .setApplicationId("Trino"));
     }

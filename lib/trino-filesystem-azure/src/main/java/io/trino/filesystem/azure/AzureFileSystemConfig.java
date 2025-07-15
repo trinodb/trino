@@ -36,7 +36,7 @@ public class AzureFileSystemConfig
     private AuthType authType = AuthType.DEFAULT;
     private String endpoint = "core.windows.net";
     private DataSize readBlockSize = DataSize.of(4, Unit.MEGABYTE);
-    private DataSize writeBlockSize = DataSize.of(4, Unit.MEGABYTE);
+    private DataSize writeBlockSize = DataSize.of(8, Unit.MEGABYTE);
     private Integer maxHttpRequests = 2 * Runtime.getRuntime().availableProcessors();
     private String applicationId = "Trino";
 
