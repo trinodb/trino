@@ -25,6 +25,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.FileAlreadyExistsException;
+import java.util.concurrent.ExecutorService;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -34,21 +35,17 @@ class AzureOutputFile
 {
     private final AzureLocation location;
     private final BlobClient blobClient;
-    private final long writeBlockSizeBytes;
-    private final int maxWriteConcurrency;
-    private final long maxSingleUploadSizeBytes;
+    private final ExecutorService uploadExecutor;
+    private final int writeBlockSizeBytes;
 
-    public AzureOutputFile(AzureLocation location, BlobClient blobClient, long writeBlockSizeBytes, int maxWriteConcurrency, long maxSingleUploadSizeBytes)
+    public AzureOutputFile(AzureLocation location, BlobClient blobClient, ExecutorService uploadExecutor, int writeBlockSizeBytes)
     {
         this.location = requireNonNull(location, "location is null");
         location.location().verifyValidFileLocation();
         this.blobClient = requireNonNull(blobClient, "blobClient is null");
+        this.uploadExecutor = requireNonNull(uploadExecutor, "uploadExecutor is null");
         checkArgument(writeBlockSizeBytes >= 0, "writeBlockSizeBytes is negative");
         this.writeBlockSizeBytes = writeBlockSizeBytes;
-        checkArgument(maxWriteConcurrency >= 0, "maxWriteConcurrency is negative");
-        this.maxWriteConcurrency = maxWriteConcurrency;
-        checkArgument(maxSingleUploadSizeBytes >= 0, "maxSingleUploadSizeBytes is negative");
-        this.maxSingleUploadSizeBytes = maxSingleUploadSizeBytes;
     }
 
     public boolean exists()
@@ -93,9 +90,8 @@ class AzureOutputFile
     }
 
     private AzureOutputStream createOutputStream(AggregatedMemoryContext memoryContext, boolean overwrite)
-            throws IOException
     {
-        return new AzureOutputStream(location, blobClient, overwrite, memoryContext, writeBlockSizeBytes, maxWriteConcurrency, maxSingleUploadSizeBytes);
+        return new AzureOutputStream(location, blobClient, overwrite, memoryContext, uploadExecutor, writeBlockSizeBytes);
     }
 
     @Override

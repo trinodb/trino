@@ -60,9 +60,9 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
 
 import static com.azure.storage.common.implementation.Constants.HeaderConstants.ETAG_WILDCARD;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.filesystem.azure.AzureUtils.blobCustomerProvidedKey;
 import static io.trino.filesystem.azure.AzureUtils.encodedKey;
@@ -84,29 +84,25 @@ public class AzureFileSystem
     private final AzureAuth azureAuth;
     private final String endpoint;
     private final int readBlockSizeBytes;
-    private final long writeBlockSizeBytes;
-    private final int maxWriteConcurrency;
-    private final long maxSingleUploadSizeBytes;
+    private final int writeBlockSizeBytes;
+    private final ExecutorService uploadExecutor;
 
     public AzureFileSystem(
+            ExecutorService uploadExecutor,
             HttpClient httpClient,
             TracingOptions tracingOptions,
             AzureAuth azureAuth,
             String endpoint,
             DataSize readBlockSize,
-            DataSize writeBlockSize,
-            int maxWriteConcurrency,
-            DataSize maxSingleUploadSize)
+            DataSize writeBlockSize)
     {
+        this.uploadExecutor = requireNonNull(uploadExecutor, "uploadExecutor is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.tracingOptions = requireNonNull(tracingOptions, "tracingOptions is null");
         this.azureAuth = requireNonNull(azureAuth, "azureAuth is null");
         this.endpoint = requireNonNull(endpoint, "endpoint is null");
         this.readBlockSizeBytes = toIntExact(readBlockSize.toBytes());
-        this.writeBlockSizeBytes = writeBlockSize.toBytes();
-        checkArgument(maxWriteConcurrency >= 0, "maxWriteConcurrency is negative");
-        this.maxWriteConcurrency = maxWriteConcurrency;
-        this.maxSingleUploadSizeBytes = maxSingleUploadSize.toBytes();
+        this.writeBlockSizeBytes = toIntExact(writeBlockSize.toBytes());
     }
 
     @Override
@@ -162,7 +158,7 @@ public class AzureFileSystem
     {
         AzureLocation azureLocation = new AzureLocation(location);
         BlobClient client = createBlobClient(azureLocation, Optional.empty());
-        return new AzureOutputFile(azureLocation, client, writeBlockSizeBytes, maxWriteConcurrency, maxSingleUploadSizeBytes);
+        return new AzureOutputFile(azureLocation, client, uploadExecutor, writeBlockSizeBytes);
     }
 
     @Override
@@ -170,7 +166,7 @@ public class AzureFileSystem
     {
         AzureLocation azureLocation = new AzureLocation(location);
         BlobClient client = createBlobClient(azureLocation, Optional.of(key));
-        return new AzureOutputFile(azureLocation, client, writeBlockSizeBytes, maxWriteConcurrency, maxSingleUploadSizeBytes);
+        return new AzureOutputFile(azureLocation, client, uploadExecutor, writeBlockSizeBytes);
     }
 
     @Override

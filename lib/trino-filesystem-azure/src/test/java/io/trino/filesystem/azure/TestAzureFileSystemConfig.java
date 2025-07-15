@@ -35,8 +35,6 @@ class TestAzureFileSystemConfig
                 .setEndpoint("core.windows.net")
                 .setReadBlockSize(DataSize.of(4, Unit.MEGABYTE))
                 .setWriteBlockSize(DataSize.of(4, Unit.MEGABYTE))
-                .setMaxWriteConcurrency(8)
-                .setMaxSingleUploadSize(DataSize.of(4, Unit.MEGABYTE))
                 .setMaxHttpRequests(2 * Runtime.getRuntime().availableProcessors())
                 .setApplicationId("Trino"));
     }
@@ -49,8 +47,6 @@ class TestAzureFileSystemConfig
                 .put("azure.endpoint", "core.usgovcloudapi.net")
                 .put("azure.read-block-size", "3MB")
                 .put("azure.write-block-size", "5MB")
-                .put("azure.max-write-concurrency", "7")
-                .put("azure.max-single-upload-size", "7MB")
                 .put("azure.max-http-requests", "128")
                 .put("azure.application-id", "application id")
                 .buildOrThrow();
@@ -60,8 +56,6 @@ class TestAzureFileSystemConfig
                 .setEndpoint("core.usgovcloudapi.net")
                 .setReadBlockSize(DataSize.of(3, Unit.MEGABYTE))
                 .setWriteBlockSize(DataSize.of(5, Unit.MEGABYTE))
-                .setMaxWriteConcurrency(7)
-                .setMaxSingleUploadSize(DataSize.of(7, Unit.MEGABYTE))
                 .setMaxHttpRequests(128)
                 .setApplicationId("application id");
 

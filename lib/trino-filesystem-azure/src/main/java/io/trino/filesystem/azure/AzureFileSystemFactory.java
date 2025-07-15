@@ -31,19 +31,21 @@ import jakarta.annotation.PreDestroy;
 import reactor.netty.resources.ConnectionProvider;
 
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class AzureFileSystemFactory
         implements TrinoFileSystemFactory
 {
+    private final ExecutorService uploadExecutor = newCachedThreadPool(daemonThreadsNamed("azure-upload-%s"));
+
     private final AzureAuth auth;
     private final String endpoint;
     private final DataSize readBlockSize;
     private final DataSize writeBlockSize;
-    private final int maxWriteConcurrency;
-    private final DataSize maxSingleUploadSize;
     private final TracingOptions tracingOptions;
     private final HttpClient httpClient;
     private final ConnectionProvider connectionProvider;
@@ -57,8 +59,6 @@ public class AzureFileSystemFactory
                 config.getEndpoint(),
                 config.getReadBlockSize(),
                 config.getWriteBlockSize(),
-                config.getMaxWriteConcurrency(),
-                config.getMaxSingleUploadSize(),
                 config.getMaxHttpRequests(),
                 config.getApplicationId());
     }
@@ -69,8 +69,6 @@ public class AzureFileSystemFactory
             String endpoint,
             DataSize readBlockSize,
             DataSize writeBlockSize,
-            int maxWriteConcurrency,
-            DataSize maxSingleUploadSize,
             int maxHttpRequests,
             String applicationId)
     {
@@ -78,9 +76,6 @@ public class AzureFileSystemFactory
         this.endpoint = requireNonNull(endpoint, "endpoint is null");
         this.readBlockSize = requireNonNull(readBlockSize, "readBlockSize is null");
         this.writeBlockSize = requireNonNull(writeBlockSize, "writeBlockSize is null");
-        checkArgument(maxWriteConcurrency >= 0, "maxWriteConcurrency is negative");
-        this.maxWriteConcurrency = maxWriteConcurrency;
-        this.maxSingleUploadSize = requireNonNull(maxSingleUploadSize, "maxSingleUploadSize is null");
         this.tracingOptions = new OpenTelemetryTracingOptions().setOpenTelemetry(openTelemetry);
         this.connectionProvider = ConnectionProvider.create(applicationId, maxHttpRequests);
         this.eventLoopGroup = new MultiThreadIoEventLoopGroup(maxHttpRequests, NioIoHandler.newFactory());
@@ -108,12 +103,13 @@ public class AzureFileSystemFactory
                 // ignored
             }
         }
+        uploadExecutor.shutdownNow();
     }
 
     @Override
     public TrinoFileSystem create(ConnectorIdentity identity)
     {
-        return new AzureFileSystem(httpClient, tracingOptions, auth, endpoint, readBlockSize, writeBlockSize, maxWriteConcurrency, maxSingleUploadSize);
+        return new AzureFileSystem(uploadExecutor, httpClient, tracingOptions, auth, endpoint, readBlockSize, writeBlockSize);
     }
 
     public static HttpClient createAzureHttpClient(ConnectionProvider connectionProvider, EventLoopGroup eventLoopGroup, HttpClientOptions clientOptions)

@@ -15,6 +15,7 @@ package io.trino.filesystem.azure;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import jakarta.validation.constraints.Min;
@@ -22,6 +23,7 @@ import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
+@DefunctConfig({"azure.max-write-concurrency", "azure.max-single-upload-size"})
 public class AzureFileSystemConfig
 {
     public enum AuthType
@@ -35,8 +37,6 @@ public class AzureFileSystemConfig
     private String endpoint = "core.windows.net";
     private DataSize readBlockSize = DataSize.of(4, Unit.MEGABYTE);
     private DataSize writeBlockSize = DataSize.of(4, Unit.MEGABYTE);
-    private int maxWriteConcurrency = 8;
-    private DataSize maxSingleUploadSize = DataSize.of(4, Unit.MEGABYTE);
     private Integer maxHttpRequests = 2 * Runtime.getRuntime().availableProcessors();
     private String applicationId = "Trino";
 
@@ -89,31 +89,6 @@ public class AzureFileSystemConfig
     public AzureFileSystemConfig setWriteBlockSize(DataSize writeBlockSize)
     {
         this.writeBlockSize = writeBlockSize;
-        return this;
-    }
-
-    public int getMaxWriteConcurrency()
-    {
-        return maxWriteConcurrency;
-    }
-
-    @Config("azure.max-write-concurrency")
-    public AzureFileSystemConfig setMaxWriteConcurrency(int maxWriteConcurrency)
-    {
-        this.maxWriteConcurrency = maxWriteConcurrency;
-        return this;
-    }
-
-    @NotNull
-    public DataSize getMaxSingleUploadSize()
-    {
-        return maxSingleUploadSize;
-    }
-
-    @Config("azure.max-single-upload-size")
-    public AzureFileSystemConfig setMaxSingleUploadSize(DataSize maxSingleUploadSize)
-    {
-        this.maxSingleUploadSize = maxSingleUploadSize;
         return this;
     }
 

@@ -14,74 +14,75 @@
 package io.trino.filesystem.azure;
 
 import com.azure.storage.blob.BlobClient;
-import com.azure.storage.blob.models.BlobRequestConditions;
-import com.azure.storage.blob.models.ParallelTransferOptions;
-import com.azure.storage.blob.options.BlockBlobOutputStreamOptions;
-import com.azure.storage.common.implementation.Constants.HeaderConstants;
+import com.azure.storage.blob.specialized.BlobOutputStream;
+import com.azure.storage.blob.specialized.BlockBlobClient;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
 
-import java.io.BufferedOutputStream;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Base64;
+import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.util.concurrent.Futures.submit;
+import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.trino.filesystem.azure.AzureUtils.handleAzureException;
+import static java.lang.Math.clamp;
+import static java.lang.Math.max;
 import static java.lang.Math.min;
-import static java.util.Objects.checkFromIndexSize;
+import static java.lang.System.arraycopy;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 class AzureOutputStream
         extends OutputStream
 {
-    private static final int BUFFER_SIZE = 8192;
-
     private final AzureLocation location;
-    private final long writeBlockSizeBytes;
-    private final OutputStream stream;
+    private final BlockBlobClient blockClient;
     private final LocalMemoryContext memoryContext;
-    private long writtenBytes;
+    private final Executor uploadExecutor;
+
+    private final int writeBlockSizeBytes;
+    private final boolean overwrite;
     private boolean closed;
+    private boolean multiStagingStarted;
+    private final List<String> stagedBlocks = new ArrayList<>();
+    private final List<ListenableFuture<?>> stagedBlockFutures = new ArrayList<>();
+    private int blockNum;
+
+    private byte[] buffer = new byte[0];
+    private int bufferSize;
+    private int initialBufferSize = 64;
 
     public AzureOutputStream(
             AzureLocation location,
             BlobClient blobClient,
             boolean overwrite,
             AggregatedMemoryContext memoryContext,
-            long writeBlockSizeBytes,
-            int maxWriteConcurrency,
-            long maxSingleUploadSizeBytes)
-            throws IOException
+            ExecutorService uploadExecutor,
+            int writeBlockSizeBytes)
     {
         requireNonNull(location, "location is null");
         requireNonNull(blobClient, "blobClient is null");
         checkArgument(writeBlockSizeBytes >= 0, "writeBlockSizeBytes is negative");
-        checkArgument(maxWriteConcurrency >= 0, "maxWriteConcurrency is negative");
-        checkArgument(maxSingleUploadSizeBytes >= 0, "maxSingleUploadSizeBytes is negative");
 
         this.location = location;
         this.writeBlockSizeBytes = writeBlockSizeBytes;
-        BlockBlobOutputStreamOptions streamOptions = new BlockBlobOutputStreamOptions();
-        streamOptions.setParallelTransferOptions(new ParallelTransferOptions()
-                .setBlockSizeLong(writeBlockSizeBytes)
-                .setMaxConcurrency(maxWriteConcurrency)
-                .setMaxSingleUploadSizeLong(maxSingleUploadSizeBytes));
-        if (!overwrite) {
-            // This is not enforced until data is written
-            streamOptions.setRequestConditions(new BlobRequestConditions().setIfNoneMatch(HeaderConstants.ETAG_WILDCARD));
-        }
-
-        try {
-            // TODO It is not clear if the buffered stream helps or hurts... the underlying implementation seems to copy every write to a byte buffer so small writes will suffer
-            stream = new BufferedOutputStream(blobClient.getBlockBlobClient().getBlobOutputStream(streamOptions), BUFFER_SIZE);
-        }
-        catch (RuntimeException e) {
-            throw handleAzureException(e, "creating file", location);
-        }
-
-        // TODO to track memory we will need to fork com.azure.storage.blob.specialized.BlobOutputStream.BlockBlobOutputStream
+        this.overwrite = overwrite;
         this.memoryContext = memoryContext.newLocalMemoryContext(AzureOutputStream.class.getSimpleName());
-        this.memoryContext.setBytes(BUFFER_SIZE);
+        this.uploadExecutor = listeningDecorator(requireNonNull(uploadExecutor, "uploadExecutor is null"));
+        this.blockClient = blobClient.getBlockBlobClient();
     }
 
     @Override
@@ -89,29 +90,30 @@ class AzureOutputStream
             throws IOException
     {
         ensureOpen();
-        try {
-            stream.write(b);
-        }
-        catch (RuntimeException e) {
-            throw handleAzureException(e, "writing file", location);
-        }
-        recordBytesWritten(1);
+        ensureCapacity(1);
+        buffer[bufferSize] = (byte) b;
+        bufferSize++;
+        flushBuffer(false);
     }
 
     @Override
-    public void write(byte[] buffer, int offset, int length)
+    public void write(byte[] bytes, int offset, int length)
             throws IOException
     {
-        checkFromIndexSize(offset, length, buffer.length);
-
         ensureOpen();
-        try {
-            stream.write(buffer, offset, length);
+
+        while (length > 0) {
+            ensureCapacity(length);
+
+            int copied = min(buffer.length - bufferSize, length);
+            arraycopy(bytes, offset, buffer, bufferSize, copied);
+            bufferSize += copied;
+
+            flushBuffer(false);
+
+            offset += copied;
+            length -= copied;
         }
-        catch (RuntimeException e) {
-            throw handleAzureException(e, "writing file", location);
-        }
-        recordBytesWritten(length);
     }
 
     @Override
@@ -119,12 +121,7 @@ class AzureOutputStream
             throws IOException
     {
         ensureOpen();
-        try {
-            stream.flush();
-        }
-        catch (RuntimeException e) {
-            throw handleAzureException(e, "writing file", location);
-        }
+        flushBuffer(false);
     }
 
     private void ensureOpen()
@@ -135,32 +132,117 @@ class AzureOutputStream
         }
     }
 
+    private void ensureCapacity(int extra)
+    {
+        int capacity = min(writeBlockSizeBytes, bufferSize + extra);
+        if (buffer.length < capacity) {
+            int target = max(buffer.length, initialBufferSize);
+            if (target < capacity) {
+                target += target / 2; // increase 50%
+                target = clamp(target, capacity, writeBlockSizeBytes);
+            }
+            buffer = Arrays.copyOf(buffer, target);
+            memoryContext.setBytes(buffer.length);
+        }
+    }
+
+    private void flushBuffer(boolean finished)
+            throws IOException
+    {
+        // skip multipart upload if there would only be one staged block
+        if (finished && !multiStagingStarted) {
+            BlobOutputStream blobOutputStream = blockClient
+                    .getBlobOutputStream(overwrite);
+
+            blobOutputStream.write(buffer, 0, bufferSize);
+            blobOutputStream.close();
+            return;
+        }
+
+        if (bufferSize != writeBlockSizeBytes && (!finished || bufferSize == 0)) {
+            // If the buffer isn't full yet and we are not finished, do not stage the block
+            return;
+        }
+
+        multiStagingStarted = true;
+
+        byte[] data = buffer;
+        int length = bufferSize;
+
+        if (finished) {
+            this.buffer = null;
+        }
+        else {
+            this.buffer = new byte[0];
+            this.initialBufferSize = writeBlockSizeBytes;
+            bufferSize = 0;
+        }
+        memoryContext.setBytes(0);
+        String nextBlockId = nextBlockId();
+        stagedBlockFutures.add(submit(stageBlock(nextBlockId, data, length), uploadExecutor));
+    }
+
+    private Callable<String> stageBlock(String blockId, byte[] data, int length)
+    {
+        return () -> {
+            blockClient.stageBlock(blockId, new ByteArrayInputStream(data, 0, length), length);
+            return blockId;
+        };
+    }
+
+    private synchronized String nextBlockId()
+    {
+        String blockId = Base64.getEncoder().encodeToString(String.format("%06d", blockNum).getBytes(UTF_8));
+        blockNum++;
+        stagedBlocks.add(blockId);
+        return blockId;
+    }
+
+    private void waitForUploadsToFinish()
+            throws IOException
+    {
+        if (stagedBlockFutures.isEmpty()) {
+            return;
+        }
+
+        try {
+            Futures.allAsList(stagedBlockFutures).get();
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new InterruptedIOException();
+        }
+        catch (ExecutionException e) {
+            throw handleAzureException(e, "upload", location);
+        }
+    }
+
+    private void commitBlocksIfNeeded()
+    {
+        if (stagedBlocks.isEmpty()) {
+            return;
+        }
+
+        blockClient.commitBlockList(stagedBlocks, overwrite);
+    }
+
     @Override
     public void close()
             throws IOException
     {
-        if (!closed) {
-            closed = true;
-            try {
-                stream.close();
-            }
-            catch (IOException e) {
-                // Azure close sometimes rethrows IOExceptions from worker threads, so the
-                // stack traces are disconnected from this call. Wrapping here solves that problem.
-                throw new IOException("Error closing file: " + location, e);
-            }
-            finally {
-                memoryContext.close();
-            }
+        if (closed) {
+            return;
         }
-    }
+        closed = true;
 
-    private void recordBytesWritten(int size)
-    {
-        if (writtenBytes < writeBlockSizeBytes) {
-            // assume that there is only one pending block buffer, and that it grows as written bytes grow
-            memoryContext.setBytes(BUFFER_SIZE + min(writtenBytes + size, writeBlockSizeBytes));
+        try {
+            flushBuffer(true);
+            memoryContext.close();
+            waitForUploadsToFinish();
+            commitBlocksIfNeeded();
         }
-        writtenBytes += size;
+        catch (IOException | RuntimeException e) {
+            throw handleAzureException(e, "upload", location);
+        }
     }
 }

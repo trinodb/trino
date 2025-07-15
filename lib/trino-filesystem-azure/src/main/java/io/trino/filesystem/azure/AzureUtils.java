@@ -31,7 +31,7 @@ final class AzureUtils
 {
     private AzureUtils() {}
 
-    public static IOException handleAzureException(RuntimeException exception, String action, AzureLocation location)
+    public static IOException handleAzureException(Exception exception, String action, AzureLocation location)
             throws IOException
     {
         if (isFileNotFoundException(exception)) {
@@ -43,7 +43,7 @@ final class AzureUtils
         throw new IOException("Error %s file: %s".formatted(action, location), exception);
     }
 
-    public static boolean isFileNotFoundException(RuntimeException exception)
+    public static boolean isFileNotFoundException(Exception exception)
     {
         if (exception instanceof BlobStorageException blobStorageException) {
             return BlobErrorCode.BLOB_NOT_FOUND.equals(blobStorageException.getErrorCode());
