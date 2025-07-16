@@ -6550,6 +6550,44 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testExpireSnapshotsKeepFiles()
+            throws Exception
+    {
+        try (TestTable table = newTrinoTable("test_expiring_snapshots_", "(key varchar, value integer)")) {
+            Session sessionWithShortRetentionUnlocked = prepareCleanUpSession();
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES ('one', 1)", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES ('two', 2)", 1);
+            List<String> initialFiles = getAllDataFilesFromTableDirectory(table.getName());
+
+            assertQuerySucceeds(sessionWithShortRetentionUnlocked, "ALTER TABLE " + table.getName() + " EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s', delete_files => false)");
+
+            List<String> updatedDataFiles = getAllDataFilesFromTableDirectory(table.getName());
+            assertThat(updatedDataFiles).containsExactlyInAnyOrderElementsOf(initialFiles);
+            assertThat(query("SELECT sum(value), listagg(key, ' ') WITHIN GROUP (ORDER BY key) FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '3', VARCHAR 'one two')");
+        }
+    }
+
+    @Test
+    public void testExpireSnapshotsPartitionedTableKeepFiles()
+            throws Exception
+    {
+        try (TestTable table = newTrinoTable("test_expiring_snapshots_partitioned_table", "(col1 BIGINT, col2 BIGINT) WITH (partitioning = ARRAY['col1'])")) {
+            Session sessionWithShortRetentionUnlocked = prepareCleanUpSession();
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES(1, 100), (1, 101), (1, 102), (2, 200), (2, 201), (3, 300)", 6);
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE col1 = 1", 3);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES(4, 400)", 1);
+            List<String> initialFiles = getAllDataFilesFromTableDirectory(table.getName());
+
+            assertQuerySucceeds(sessionWithShortRetentionUnlocked, "ALTER TABLE " + table.getName() + " EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s', delete_files => false)");
+
+            List<String> updatedDataFiles = getAllDataFilesFromTableDirectory(table.getName());
+            assertThat(updatedDataFiles).containsExactlyInAnyOrderElementsOf(initialFiles);
+            assertQuery("SELECT sum(col2) FROM " + table.getName(), "SELECT 1101");
+        }
+    }
+
+    @Test
     public void testExpireSnapshotsOnSnapshot()
     {
         String tableName = "test_expire_snapshots_on_snapshot_" + randomNameSuffix();
@@ -6583,7 +6621,7 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("INSERT INTO " + tableName + " VALUES ('two', 2)", 1);
 
         assertExplain("EXPLAIN ALTER TABLE " + tableName + " EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')",
-                "SimpleTableExecute\\[table = iceberg:schemaTableName:tpch.test_expiring_snapshots.*\\[retentionThreshold=0\\.00s].*");
+                "SimpleTableExecute\\[table = iceberg:schemaTableName:tpch.test_expiring_snapshots.*\\[retentionThreshold=0\\.00s, deleteFiles=true].*");
     }
 
     @Test
