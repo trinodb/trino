@@ -111,6 +111,9 @@ final class S3InputStream
     public int read(byte[] bytes, int offset, int length)
             throws IOException
     {
+        if (offset < 0) {
+            throw new IndexOutOfBoundsException("Offset cannot be negative: " + offset);
+        }
         ensureOpen();
         seekStream(false);
 
