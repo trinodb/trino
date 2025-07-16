@@ -63,7 +63,6 @@ public class TrinoIcebergRestCatalogFactory
     private final boolean vendedCredentialsEnabled;
     private final boolean viewEndpointsEnabled;
     private final SecurityProperties securityProperties;
-    private final AwsProperties awsProperties;
     private final boolean uniqueTableLocation;
     private final TypeManager typeManager;
     private final boolean caseInsensitiveNameMatching;
@@ -79,7 +78,6 @@ public class TrinoIcebergRestCatalogFactory
             CatalogName catalogName,
             IcebergRestCatalogConfig restConfig,
             SecurityProperties securityProperties,
-            AwsProperties awsProperties,
             IcebergConfig icebergConfig,
             TypeManager typeManager,
             NodeVersion nodeVersion)
@@ -97,7 +95,6 @@ public class TrinoIcebergRestCatalogFactory
         this.vendedCredentialsEnabled = restConfig.isVendedCredentialsEnabled();
         this.viewEndpointsEnabled = restConfig.isViewEndpointsEnabled();
         this.securityProperties = requireNonNull(securityProperties, "securityProperties is null");
-        this.awsProperties = requireNonNull(awsProperties, "awsProperties is null");
         requireNonNull(icebergConfig, "icebergConfig is null");
         this.uniqueTableLocation = icebergConfig.isUniqueTableLocation();
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -126,7 +123,6 @@ public class TrinoIcebergRestCatalogFactory
             properties.put("trino-version", trinoVersion);
             properties.put(AUTH_SESSION_TIMEOUT_MS, String.valueOf(sessionTimeout.toMillis()));
             properties.putAll(securityProperties.get());
-            properties.putAll(awsProperties.get());
 
             if (vendedCredentialsEnabled) {
                 properties.put("header.X-Iceberg-Access-Delegation", "vended-credentials");
