@@ -178,7 +178,7 @@ public class S3FileSystemConfig
     private boolean supportsExclusiveCreate = true;
     private boolean crossRegionAccessEnabled;
     private String applicationId = "Trino";
-    private boolean enableCrtClient;
+    private boolean enableCrtClient = true;
 
     public String getAwsAccessKey()
     {
