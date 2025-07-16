@@ -123,10 +123,13 @@ public class TeradataJdbcConnectorTest
         return OptionalInt.of(TERADATA_OBJECT_NAME_LIMIT);
     }
 
-    protected void verifyTableNameLengthFailurePermissible(Throwable e)
-    {
-        throw new AssertionError(format("Table name must be shorter than or equal to '%s' characters but got '%s'", TERADATA_OBJECT_NAME_LIMIT, TERADATA_OBJECT_NAME_LIMIT + 1));
-    }
+//  
+protected void verifyTableNameLengthFailurePermissible(Throwable e)
+{
+    assertThat(e).hasMessage(format(
+            "Table name must be shorter than or equal to '%s' characters but got '%s'",
+            TERADATA_OBJECT_NAME_LIMIT, TERADATA_OBJECT_NAME_LIMIT + 1));
+}
 
     @Test
     public void testRenameSchema()
