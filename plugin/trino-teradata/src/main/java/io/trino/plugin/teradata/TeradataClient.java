@@ -37,6 +37,7 @@ import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.security.ConnectorIdentity;
@@ -388,6 +389,15 @@ public class TeradataClient
             throw new TrinoException(NOT_SUPPORTED, format("Schema name must be shorter than or equal to '%s' characters but got '%s'", schemaNameLimit, schemaName.length()));
         }
     }
+    @Override
+    protected void verifyTableName(DatabaseMetaData databaseMetadata, String tableName)
+            throws SQLException
+    {
+        int tableNameLimit = databaseMetadata.getMaxTableNameLength();
+        if (tableName.length() > tableNameLimit) {
+            throw new TrinoException(NOT_SUPPORTED, format("Schema name must be shorter than or equal to '%s' characters but got '%s'", tableNameLimit, tableName.length()));
+        }
+    }
 
     protected void dropSchema(ConnectorSession session, Connection connection, String remoteSchemaName, boolean cascade)
             throws SQLException
@@ -420,7 +430,6 @@ public class TeradataClient
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping tables");
     }
-
     @Override
     public void truncateTable(ConnectorSession session, JdbcTableHandle handle)
     {

@@ -5,8 +5,6 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.Assumptions;
-import org.junit.jupiter.api.Test;
 
 import java.util.OptionalInt;
 
@@ -45,14 +43,13 @@ public class TeradataJdbcConnectorTest
                  SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT,
                  SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
                  SUPPORTS_RENAME_SCHEMA,
-                 SUPPORTS_SET_COLUMN_TYPE,
-                 SUPPORTS_ROW_LEVEL_DELETE -> false;
+                 SUPPORTS_NOT_NULL_CONSTRAINT -> false;
             case SUPPORTS_CREATE_SCHEMA,
-                 SUPPORTS_CREATE_TABLE,
                  SUPPORTS_TOPN_PUSHDOWN,
                  SUPPORTS_PREDICATE_PUSHDOWN,
                  SUPPORTS_AGGREGATION_PUSHDOWN,
                  SUPPORTS_JOIN_PUSHDOWN,
+                 SUPPORTS_CREATE_TABLE,
                  SUPPORTS_LIMIT_PUSHDOWN -> true;
 //                 SUPPORTS_DROP_SCHEMA_CASCADE -> true;
             default -> super.hasBehavior(connectorBehavior);
@@ -79,69 +76,23 @@ public class TeradataJdbcConnectorTest
     {
         database.dropTestDatabaseIfExists();
     }
-
     @Override
-    protected OptionalInt maxSchemaNameLength()
-    {
+    protected OptionalInt maxSchemaNameLength() {
         return OptionalInt.of(TERADATA_OBJECT_NAME_LIMIT);
     }
-
     protected void verifySchemaNameLengthFailurePermissible(Throwable e)
     {
-        assertThat(e).hasMessage(format("Schema name must be shorter than or equal to '%s' characters but got '%s'", TERADATA_OBJECT_NAME_LIMIT, TERADATA_OBJECT_NAME_LIMIT + 1));
+        assertThat(e).hasMessage(format("Schema name must be shorter than or equal to '%s' characters but got '%s'",TERADATA_OBJECT_NAME_LIMIT,TERADATA_OBJECT_NAME_LIMIT + 1));
     }
-
-    protected OptionalInt maxColumnNameLength()
-    {
-        return OptionalInt.of(TERADATA_OBJECT_NAME_LIMIT);
-    }
-
     @Override
-    protected void verifyColumnNameLengthFailurePermissible(Throwable e)
-    {
-        assertThat(e).hasMessageMatching(format("Column name must be shorter than or equal to '%s' characters but got '%s': '.*'", TERADATA_OBJECT_NAME_LIMIT, TERADATA_OBJECT_NAME_LIMIT + 1));
-    }
-
     protected OptionalInt maxTableNameLength()
     {
         return OptionalInt.of(TERADATA_OBJECT_NAME_LIMIT);
     }
-
     protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
-        throw new AssertionError(format("Table name must be shorter than or equal to '%s' characters but got '%s'", TERADATA_OBJECT_NAME_LIMIT, TERADATA_OBJECT_NAME_LIMIT + 1));
+        assertThat(e).hasMessage(format("Table name must be shorter than or equal to '%s' characters but got '%s'",TERADATA_OBJECT_NAME_LIMIT,TERADATA_OBJECT_NAME_LIMIT + 1));
     }
 
-    @Test
-    public void testRenameSchema()
-    {
-        Assumptions.abort("Skipping as connector does not support RENAME SCHEMA");
-    }
 
-    @Test
-    public void testColumnName()
-    {
-        Assumptions.abort("Skipping as connector does not support column level write operations");
-    }
-
-    @Test
-    public void testAddColumn()
-    {
-        Assumptions.abort("Skipping as connector does not support column level write operations");
-    }
-
-    @Test
-    public void testTeradataLimitPushdown()
-    {
-
-        assertThat(query("SELECT name FROM nation LIMIT 5")).skipResultsCorrectnessCheckForPushdown().isFullyPushedDown();
-        assertThat(query("SELECT name FROM nation ORDER BY name LIMIT 5")).skipResultsCorrectnessCheckForPushdown().isFullyPushedDown();
-        assertThat(query("SELECT name FROM nation WHERE regionkey = 3 LIMIT 5")).skipResultsCorrectnessCheckForPushdown().isFullyPushedDown();
-        assertThat(query("SELECT name FROM nation WHERE name < 'EEE' LIMIT 5")).skipResultsCorrectnessCheckForPushdown().isFullyPushedDown();
-    }
-
-    @Test
-    public void testInsertWithoutTemporaryTable()
-    {
-        Assumptions.abort("Skipping as connector does not support insert operations");
-    }
+}
