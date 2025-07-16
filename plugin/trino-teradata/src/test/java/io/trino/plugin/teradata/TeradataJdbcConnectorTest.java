@@ -44,7 +44,6 @@ public class TeradataJdbcConnectorTest
                  SUPPORTS_MERGE,
                  SUPPORTS_COMMENT_ON_TABLE,
                  SUPPORTS_COMMENT_ON_COLUMN,
-                 SUPPORTS_CREATE_TABLE_WITH_DATA,
                  SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT,
                  SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
                  SUPPORTS_RENAME_SCHEMA,
