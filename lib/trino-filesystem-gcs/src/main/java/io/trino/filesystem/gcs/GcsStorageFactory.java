@@ -20,13 +20,13 @@ import com.google.cloud.storage.StorageOptions;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.trino.spi.security.ConnectorIdentity;
-import org.threeten.bp.Duration;
 
 import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -76,10 +76,9 @@ public class GcsStorageFactory
         }
         this.maxRetries = config.getMaxRetries();
         this.backoffScaleFactor = config.getBackoffScaleFactor();
-        // To avoid name collision by importing io.airlift.Duration
-        this.maxRetryTime = Duration.ofMillis(config.getMaxRetryTime().toMillis());
-        this.minBackoffDelay = Duration.ofMillis(config.getMinBackoffDelay().toMillis());
-        this.maxBackoffDelay = Duration.ofMillis(config.getMaxBackoffDelay().toMillis());
+        this.maxRetryTime = config.getMaxRetryTime().toJavaTime();
+        this.minBackoffDelay = config.getMinBackoffDelay().toJavaTime();
+        this.maxBackoffDelay = config.getMaxBackoffDelay().toJavaTime();
         this.applicationId = config.getApplicationId();
     }
 
@@ -122,9 +121,9 @@ public class GcsStorageFactory
                     .setRetrySettings(RetrySettings.newBuilder()
                             .setMaxAttempts(maxRetries + 1)
                             .setRetryDelayMultiplier(backoffScaleFactor)
-                            .setTotalTimeout(maxRetryTime)
-                            .setInitialRetryDelay(minBackoffDelay)
-                            .setMaxRetryDelay(maxBackoffDelay)
+                            .setTotalTimeoutDuration(maxRetryTime)
+                            .setInitialRetryDelayDuration(minBackoffDelay)
+                            .setMaxRetryDelayDuration(maxBackoffDelay)
                             .build())
                     .setHeaderProvider(() -> Map.of(USER_AGENT, StorageOptions.getLibraryName() + "/" + StorageOptions.version() + " " + applicationId))
                     .build()
