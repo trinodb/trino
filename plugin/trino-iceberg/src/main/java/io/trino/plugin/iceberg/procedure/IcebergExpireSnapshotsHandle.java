@@ -17,7 +17,7 @@ import io.airlift.units.Duration;
 
 import static java.util.Objects.requireNonNull;
 
-public record IcebergExpireSnapshotsHandle(Duration retentionThreshold)
+public record IcebergExpireSnapshotsHandle(Duration retentionThreshold, boolean deleteFiles)
         implements IcebergProcedureHandle
 {
     public IcebergExpireSnapshotsHandle
