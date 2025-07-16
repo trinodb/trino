@@ -123,7 +123,7 @@ public class TeradataJdbcConnectorTest
         return OptionalInt.of(TERADATA_OBJECT_NAME_LIMIT);
     }
 
-//  
+//
 protected void verifyTableNameLengthFailurePermissible(Throwable e)
 {
     assertThat(e).hasMessage(format(
