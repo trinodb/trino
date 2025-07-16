@@ -90,7 +90,8 @@ public class TestS3FileSystemAwsS3
                 .setEndpoint(endpoint)
                 .setSupportsExclusiveCreate(true)
                 .setSignerType(S3FileSystemConfig.SignerType.AwsS3V4Signer)
-                .setStreamingPartSize(DataSize.valueOf("5.5MB")), new S3FileSystemStats());
+                .setStreamingPartSize(DataSize.valueOf("5.5MB"))
+                .setEnableCrtClient(true), new S3FileSystemStats());
     }
 
     @Test

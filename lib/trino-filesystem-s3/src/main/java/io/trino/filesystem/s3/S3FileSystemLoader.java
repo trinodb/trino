@@ -14,6 +14,7 @@
 package io.trino.filesystem.s3;
 
 import com.google.inject.Inject;
+import io.airlift.units.Duration;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.instrumentation.awssdk.v2_2.AwsSdkTelemetry;
 import io.trino.filesystem.Location;
@@ -29,6 +30,7 @@ import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.http.SdkHttpClient;
 import software.amazon.awssdk.http.apache.ApacheHttpClient;
 import software.amazon.awssdk.http.apache.ProxyConfiguration;
+import software.amazon.awssdk.http.crt.AwsCrtHttpClient;
 import software.amazon.awssdk.metrics.MetricPublisher;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.LegacyMd5Plugin;
@@ -294,6 +296,33 @@ final class S3FileSystemLoader
 
     private static SdkHttpClient createHttpClient(S3FileSystemConfig config)
     {
+        if (config.isEnableCrtClient()) {
+            AwsCrtHttpClient.Builder builder = AwsCrtHttpClient
+                    .builder()
+                    .maxConcurrency(config.getMaxConnections());
+
+            config.getSocketConnectTimeout()
+                    .map(Duration::toJavaTime)
+                    .ifPresent(builder::connectionTimeout);
+
+            config.getConnectionMaxIdleTime()
+                    .map(Duration::toJavaTime)
+                    .ifPresent(builder::connectionMaxIdleTime);
+
+            if (config.getHttpProxy() != null) {
+                builder.proxyConfiguration(proxyBuilder -> {
+                    proxyBuilder.host(config.getHttpProxy().getHost());
+                    proxyBuilder.port(config.getHttpProxy().getPort());
+                    proxyBuilder.scheme(config.isHttpProxySecure() ? "https" : "http");
+                    proxyBuilder.username(config.getHttpProxyUsername());
+                    proxyBuilder.password(config.getHttpProxyPassword());
+                    proxyBuilder.nonProxyHosts(config.getNonProxyHosts());
+                });
+            }
+
+            return builder.build();
+        }
+
         ApacheHttpClient.Builder client = ApacheHttpClient.builder()
                 .maxConnections(config.getMaxConnections())
                 .tcpKeepAlive(config.getTcpKeepAlive());
