@@ -884,7 +884,7 @@ with the `retention_threshold` parameter.
 `expire_snapshots` can be run as follows:
 
 ```sql
-ALTER TABLE test_table EXECUTE expire_snapshots(retention_threshold => '7d');
+ALTER TABLE test_table EXECUTE expire_snapshots(retention_threshold => '7d', delete_files => true);
 ```
 
 The value for `retention_threshold` must be higher than or equal to
@@ -892,6 +892,10 @@ The value for `retention_threshold` must be higher than or equal to
 procedure fails with a similar message: `Retention specified (1.00d) is shorter
 than the minimum retention configured in the system (7.00d)`. The default value
 for this property is `7d`.
+
+The value for `delete_files` can be `true` or `false`. When set to `false` 
+files associated with the expired snapshots will NOT be deleted. The default 
+value for this property is `true`.
 
 (iceberg-remove-orphan-files)=
 ##### remove_orphan_files
