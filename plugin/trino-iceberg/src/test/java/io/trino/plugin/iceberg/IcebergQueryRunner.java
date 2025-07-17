@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import io.airlift.http.server.testing.TestingHttpServer;
+import io.airlift.json.ObjectMapperProvider;
 import io.airlift.log.Level;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
@@ -43,6 +44,7 @@ import java.nio.file.Path;
 import java.nio.file.attribute.FileAttribute;
 import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
+import java.util.Base64;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -51,6 +53,7 @@ import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.iceberg.catalog.jdbc.TestingIcebergJdbcServer.PASSWORD;
 import static io.trino.plugin.iceberg.catalog.jdbc.TestingIcebergJdbcServer.USER;
 import static io.trino.plugin.iceberg.catalog.rest.RestCatalogTestUtils.backendCatalog;
+import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
@@ -223,6 +226,39 @@ public final class IcebergQueryRunner
                     .build();
 
             Logger log = Logger.get(IcebergRestQueryRunnerMain.class);
+            log.info("======== SERVER STARTED ========");
+            log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
+        }
+    }
+
+    public static final class IcebergBigLakeMetastoreQueryRunnerMain
+    {
+        private IcebergBigLakeMetastoreQueryRunnerMain() {}
+
+        public static void main(String[] args)
+                throws Exception
+        {
+            byte[] jsonKeyBytes = Base64.getDecoder().decode(requireEnv("GCP_CREDENTIALS_KEY"));
+            Path gcpCredentialsFile = Files.createTempFile("gcp-credentials", ".json");
+            gcpCredentialsFile.toFile().deleteOnExit();
+            Files.write(gcpCredentialsFile, jsonKeyBytes);
+            String projectId = new ObjectMapperProvider().get().readTree(jsonKeyBytes).get("project_id").asText();
+
+            DistributedQueryRunner queryRunner = IcebergQueryRunner.builder()
+                    .addCoordinatorProperty("http-server.http.port", "8080")
+                    .addIcebergProperty("iceberg.register-table-procedure.enabled", "true")
+                    .addIcebergProperty("iceberg.catalog.type", "rest")
+                    .addIcebergProperty("iceberg.rest-catalog.uri", "https://biglake.googleapis.com/iceberg/v1beta/restcatalog")
+                    .addIcebergProperty("iceberg.rest-catalog.warehouse", "gs://" + requireEnv("GCP_STORAGE_BUCKET"))
+                    .addIcebergProperty("iceberg.rest-catalog.security", "GOOGLE")
+                    .addIcebergProperty("iceberg.rest-catalog.google-project-id", projectId)
+                    .addIcebergProperty("iceberg.rest-catalog.view-endpoints-enabled", "false")
+                    .addIcebergProperty("fs.native-gcs.enabled", "true")
+                    .addIcebergProperty("gcs.json-key-file-path", gcpCredentialsFile.toString())
+                    .disableSchemaInitializer()
+                    .build();
+
+            Logger log = Logger.get(IcebergBigLakeMetastoreQueryRunnerMain.class);
             log.info("======== SERVER STARTED ========");
             log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
         }
