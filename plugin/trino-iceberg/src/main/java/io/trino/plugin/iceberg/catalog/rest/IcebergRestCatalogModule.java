@@ -44,6 +44,10 @@ public class IcebergRestCatalogModule
                 new SigV4SecurityModule()));
         install(conditionalModule(
                 IcebergRestCatalogConfig.class,
+                config -> config.getSecurity() == Security.GOOGLE,
+                new GoogleSecurityModule()));
+        install(conditionalModule(
+                IcebergRestCatalogConfig.class,
                 config -> config.getSecurity() == Security.NONE,
                 new NoneSecurityModule()));
 
