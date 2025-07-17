@@ -662,6 +662,24 @@
                                     <code>java.annotation.removed</code>
                                     <annotationType>io.trino.spi.Experimental</annotationType>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.Page io.trino.spi.connector.EmptyPageSource::getNextPage()</old>
+                                    <justification>Deprecated</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.Page io.trino.spi.connector.FixedPageSource::getNextPage()</old>
+                                    <justification>Deprecated</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.Page io.trino.spi.connector.RecordPageSource::getNextPage()</old>
+                                    <justification>Deprecated</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
