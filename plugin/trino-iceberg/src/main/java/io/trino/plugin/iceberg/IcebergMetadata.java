@@ -49,6 +49,7 @@ import io.trino.plugin.hive.HiveWrittenPartitions;
 import io.trino.plugin.iceberg.aggregation.DataSketchStateSerializer;
 import io.trino.plugin.iceberg.aggregation.IcebergThetaSketchForStats;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.plugin.iceberg.catalog.rest.TrinoRestCatalog;
 import io.trino.plugin.iceberg.functions.IcebergFunctionProvider;
 import io.trino.plugin.iceberg.procedure.IcebergAddFilesFromTableHandle;
 import io.trino.plugin.iceberg.procedure.IcebergAddFilesHandle;
@@ -1310,8 +1311,8 @@ public class IcebergMetadata
         transaction = newCreateTableTransaction(catalog, tableMetadata, session, replace, tableLocation, allowedExtraProperties);
         Location location = Location.of(transaction.table().location());
         try {
-            // S3 Tables internally assigns a unique location for each table
-            if (!isS3Tables(location.toString())) {
+            // S3 Tables and BigLake metastore internally assign a unique location for each table
+            if (!isS3Tables(location.toString()) && !isBigLakeMetastore()) {
                 TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), transaction.table().io().properties());
                 if (!replace && fileSystem.listFiles(location).hasNext()) {
                     throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, format("" +
@@ -2874,6 +2875,10 @@ public class IcebergMetadata
         if (!isExtendedStatisticsEnabled(session) || !isCollectExtendedStatisticsOnWrite(session)) {
             return TableStatisticsMetadata.empty();
         }
+        if (isBigLakeMetastore()) {
+            log.debug("BigLake metastore does not support statistics: %s", tableMetadata.getTableSchema().getTable());
+            return TableStatisticsMetadata.empty();
+        }
 
         if (tableReplace) {
             return getStatisticsCollectionMetadata(tableMetadata, Optional.empty(), availableColumnNames -> {});
@@ -2927,6 +2932,9 @@ public class IcebergMetadata
             throw new TrinoException(NOT_SUPPORTED, "Analyze is not enabled. You can enable analyze using %s config or %s catalog session property".formatted(
                     IcebergConfig.EXTENDED_STATISTICS_CONFIG,
                     IcebergSessionProperties.EXTENDED_STATISTICS_ENABLED));
+        }
+        if (isBigLakeMetastore()) {
+            throw new TrinoException(NOT_SUPPORTED, "BigLake metastore does not support statistics");
         }
 
         checkArgument(handle.getTableType() == DATA, "Cannot analyze non-DATA table: %s", handle.getTableType());
@@ -2993,6 +3001,9 @@ public class IcebergMetadata
         Table icebergTable = catalog.loadTable(session, handle.getSchemaTableName());
         if (isS3Tables(icebergTable.location())) {
             throw new TrinoException(NOT_SUPPORTED, "S3 Tables do not support analyze");
+        }
+        if (isBigLakeMetastore()) {
+            throw new TrinoException(NOT_SUPPORTED, "BigLake metastore does not support analyze");
         }
         beginTransaction(icebergTable);
         return handle;
@@ -4048,6 +4059,11 @@ public class IcebergMetadata
     public WriterScalingOptions getInsertWriterScalingOptions(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         return WriterScalingOptions.ENABLED;
+    }
+
+    private boolean isBigLakeMetastore()
+    {
+        return catalog instanceof TrinoRestCatalog restCatalog && restCatalog.isBigLake();
     }
 
     public Optional<Long> getIncrementalRefreshFromSnapshot()
