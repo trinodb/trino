@@ -29,6 +29,7 @@ import io.trino.plugin.iceberg.ColumnIdentity;
 import io.trino.plugin.iceberg.IcebergSchemaProperties;
 import io.trino.plugin.iceberg.IcebergUtil;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.Security;
 import io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.SessionType;
 import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
@@ -110,6 +111,7 @@ public class TrinoRestCatalog
     private final RESTSessionCatalog restSessionCatalog;
     private final CatalogName catalogName;
     private final TypeManager typeManager;
+    private final Security security;
     private final SessionType sessionType;
     private final Map<String, String> credentials;
     private final boolean nestedNamespaceEnabled;
@@ -127,6 +129,7 @@ public class TrinoRestCatalog
     public TrinoRestCatalog(
             RESTSessionCatalog restSessionCatalog,
             CatalogName catalogName,
+            Security security,
             SessionType sessionType,
             Map<String, String> credentials,
             boolean nestedNamespaceEnabled,
@@ -140,6 +143,7 @@ public class TrinoRestCatalog
     {
         this.restSessionCatalog = requireNonNull(restSessionCatalog, "restSessionCatalog is null");
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        this.security = requireNonNull(security, "security is null");
         this.sessionType = requireNonNull(sessionType, "sessionType is null");
         this.credentials = ImmutableMap.copyOf(requireNonNull(credentials, "credentials is null"));
         this.nestedNamespaceEnabled = nestedNamespaceEnabled;
@@ -406,6 +410,11 @@ public class TrinoRestCatalog
             if (location.isEmpty()) {
                 // TODO Replace with createTransaction once S3 Tables supports stage-create option
                 return tableBuilder.create().newTransaction();
+            }
+            if (security == Security.GOOGLE) {
+                // Specifying location results in "Malformed request: The table `location` property can only point to the default location"
+                // even though the generated path is the same as the specific path.
+                return tableBuilder.createTransaction();
             }
             return tableBuilder.withLocation(location.get()).createTransaction();
         }
@@ -821,6 +830,11 @@ public class TrinoRestCatalog
         }
 
         replaceViewVersion.commit();
+    }
+
+    public boolean isBigLake()
+    {
+        return security == Security.GOOGLE;
     }
 
     private SessionCatalog.SessionContext convert(ConnectorSession session)
