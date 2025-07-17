@@ -15,6 +15,7 @@ package io.trino.plugin.hudi.split;
 
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.log.Logger;
 import io.trino.filesystem.cache.CachingHostAddressProvider;
 import io.trino.metastore.Partition;
@@ -39,6 +40,7 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -55,7 +57,7 @@ public class HudiBackgroundSplitLoader
     private final HudiTableHandle tableHandle;
     private final HudiDirectoryLister hudiDirectoryLister;
     private final AsyncQueue<ConnectorSplit> asyncQueue;
-    private final Executor splitGeneratorExecutor;
+    private final Executor executor;
     private final int splitGeneratorNumThreads;
     private final HudiSplitFactory hudiSplitFactory;
     private final Lazy<List<String>> lazyPartitions;
@@ -68,7 +70,7 @@ public class HudiBackgroundSplitLoader
             HudiTableHandle tableHandle,
             HudiDirectoryLister hudiDirectoryLister,
             AsyncQueue<ConnectorSplit> asyncQueue,
-            Executor splitGeneratorExecutor,
+            ExecutorService executor,
             HudiSplitWeightProvider hudiSplitWeightProvider,
             Lazy<Map<String, Partition>> lazyPartitionMap,
             boolean enableMetadataTable,
@@ -79,11 +81,11 @@ public class HudiBackgroundSplitLoader
         this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
         this.hudiDirectoryLister = requireNonNull(hudiDirectoryLister, "hudiDirectoryLister is null");
         this.asyncQueue = requireNonNull(asyncQueue, "asyncQueue is null");
-        this.splitGeneratorExecutor = requireNonNull(splitGeneratorExecutor, "splitGeneratorExecutorService is null");
         this.splitGeneratorNumThreads = getSplitGeneratorParallelism(session);
         this.hudiSplitFactory = new HudiSplitFactory(tableHandle, hudiSplitWeightProvider, getTargetSplitSize(session), cachingHostAddressProvider);
         this.lazyPartitions = Lazy.lazily(() -> requireNonNull(lazyPartitionMap, "partitions is null").get().keySet().stream().toList());
         this.enableMetadataTable = enableMetadataTable;
+        this.executor = requireNonNull(executor, "executor is null");
         this.errorListener = requireNonNull(errorListener, "errorListener is null");
         SchemaTableName schemaTableName = tableHandle.getSchemaTableName();
         this.partitionIndexSupportOpt = enableMetadataTable ?
@@ -118,7 +120,10 @@ public class HudiBackgroundSplitLoader
         List<HudiPartitionInfoLoader> splitGenerators = new ArrayList<>();
         List<ListenableFuture<Void>> futures = new ArrayList<>();
 
-        for (int i = 0; i < splitGeneratorNumThreads; i++) {
+        int splitGeneratorParallelism = Math.min(splitGeneratorNumThreads, lazyPartitions.get().size());
+        Executor splitGeneratorExecutor = new BoundedExecutor(executor, splitGeneratorParallelism);
+
+        for (int i = 0; i < splitGeneratorParallelism; i++) {
             HudiPartitionInfoLoader generator = new HudiPartitionInfoLoader(hudiDirectoryLister, tableHandle.getLatestCommitTime(), hudiSplitFactory,
                     asyncQueue, partitionQueue, useIndex);
             splitGenerators.add(generator);
