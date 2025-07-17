@@ -414,7 +414,7 @@ public final class StatisticsAwareJdbcClient
     public Connection getConnection(ConnectorSession session)
             throws SQLException
     {
-        return stats.getGetConnectionWithHandle().wrap(() -> delegate().getConnection(session));
+        return stats.getGetConnection().wrap(() -> delegate().getConnection(session));
     }
 
     @Override
