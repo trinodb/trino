@@ -229,6 +229,18 @@ public abstract class BaseIcebergConnectorSmokeTest
     }
 
     @Test
+    public void testRecreateTableWithSameName()
+    {
+        String tableName = "test_recreate_table_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 x, 'INDIA' y", 1);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'INDIA')");
+        assertUpdate("DROP TABLE " + tableName);
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 'Trino' data", 1);
+        assertQuery("SELECT * FROM " + tableName, "VALUES ('Trino')");
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testRegisterTableWithTableLocation()
     {
         String tableName = "test_register_table_with_table_location_" + randomNameSuffix();
