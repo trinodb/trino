@@ -27,6 +27,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static io.trino.plugin.teradata.util.TeradataConstants.TERADATA_OBJECT_NAME_LIMIT;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -406,6 +407,18 @@ public class TeradataJdbcConnectorTest
     public void testDropNotNullConstraint()
     {
         Assumptions.abort("Skipping as connector does not support dropping a not null constraint");
+    }
+    @Test
+    @Override
+    public void testCreateTableAsSelect()
+    {
+        String tableName = "test_ctas" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT name, regionkey FROM nation", "SELECT count(*) FROM nation");
+        assertUpdate("DROP TABLE " + tableName);
+    }
+    @Test
+    public void testCreateTableAsSelectWithUnicode() {
+        Assumptions.abort("Skipping as connector does not support creating tables with unicode");
     }
 }
 
