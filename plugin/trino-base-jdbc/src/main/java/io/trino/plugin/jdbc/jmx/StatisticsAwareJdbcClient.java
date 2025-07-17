@@ -221,6 +221,12 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
+    public void execute(ConnectorSession session, String query)
+    {
+        stats.getExecute().wrap(() -> delegate().execute(session, query));
+    }
+
+    @Override
     public void abortReadConnection(Connection connection, ResultSet resultSet)
             throws SQLException
     {
