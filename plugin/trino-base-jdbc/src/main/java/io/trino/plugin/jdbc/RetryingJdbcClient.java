@@ -203,6 +203,12 @@ public class RetryingJdbcClient
     }
 
     @Override
+    public void execute(ConnectorSession session, String query)
+    {
+        delegate.execute(session, query);
+    }
+
+    @Override
     public void abortReadConnection(Connection connection, ResultSet resultSet)
             throws SQLException
     {
