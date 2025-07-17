@@ -205,7 +205,8 @@ public class RetryingJdbcClient
     @Override
     public void execute(ConnectorSession session, String query)
     {
-        delegate.execute(session, query);
+        // we do a nested retry as opening a connection is already retried, however it is better to retry on intermittent issue than fail
+        retry(policy, () -> delegate.execute(session, query));
     }
 
     @Override
