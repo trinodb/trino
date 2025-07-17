@@ -28,6 +28,8 @@ support:
   - Required endpoint URL for S3.
 * - `s3.region`
   - Required region name for S3.
+* - `s3.cross-region-access`
+  - Enable cross region access. Defaults to `false`.
 * - `s3.path-style-access`
   - Use path-style access for all requests to S3
 * - `s3.storage-class`
