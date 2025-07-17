@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.eventlistener.mysql;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
 import io.airlift.json.JsonCodecFactory;
@@ -231,6 +232,7 @@ final class TestMysqlEventListener
             FULL_QUERY_STATISTICS,
             FULL_QUERY_CONTEXT,
             FULL_QUERY_IO_METADATA,
+            ImmutableList.of(),
             Optional.of(FULL_FAILURE_INFO),
             List.of(new TrinoWarning(
                     StandardWarningCode.TOO_MANY_STAGES,
@@ -346,6 +348,7 @@ final class TestMysqlEventListener
             MINIMAL_QUERY_STATISTICS,
             MINIMAL_QUERY_CONTEXT,
             MINIMAL_QUERY_IO_METADATA,
+            ImmutableList.of(),
             Optional.empty(),
             List.of(),
             Instant.now(),

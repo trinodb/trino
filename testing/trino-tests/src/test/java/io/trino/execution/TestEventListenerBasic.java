@@ -1519,6 +1519,32 @@ public class TestEventListenerBasic
         }
     }
 
+    @Test
+    public void testSelectColumnsLineageInfo()
+            throws Exception
+    {
+        String sql = "SELECT nationkey AS test_nationkey, name AS test_name, 'anonymous_literal', 'named_literal' AS named FROM nation";
+        QueryEvents queryEvents = runQueryAndWaitForEvents(sql).getQueryEvents();
+        QueryCompletedEvent event = queryEvents.getQueryCompletedEvent();
+        assertThat(event.getSelectColumnsLineageInfo()).hasSize(4);
+
+        assertThat(event.getSelectColumnsLineageInfo().getFirst().getName()).isEqualTo("test_nationkey");
+        assertThat(event.getSelectColumnsLineageInfo().getFirst().getIndex()).isEqualTo(0);
+        assertThat(event.getSelectColumnsLineageInfo().getFirst().getSourceColumns()).containsExactly(new ColumnDetail("tpch", "tiny", "nation", "nationkey"));
+
+        assertThat(event.getSelectColumnsLineageInfo().get(1).getName()).isEqualTo("test_name");
+        assertThat(event.getSelectColumnsLineageInfo().get(1).getIndex()).isEqualTo(1);
+        assertThat(event.getSelectColumnsLineageInfo().get(1).getSourceColumns()).containsExactly(new ColumnDetail("tpch", "tiny", "nation", "name"));
+
+        assertThat(event.getSelectColumnsLineageInfo().get(2).getName()).isEqualTo("");
+        assertThat(event.getSelectColumnsLineageInfo().get(2).getIndex()).isEqualTo(2);
+        assertThat(event.getSelectColumnsLineageInfo().get(2).getSourceColumns()).isEmpty();
+
+        assertThat(event.getSelectColumnsLineageInfo().get(3).getName()).isEqualTo("named");
+        assertThat(event.getSelectColumnsLineageInfo().get(3).getIndex()).isEqualTo(3);
+        assertThat(event.getSelectColumnsLineageInfo().get(3).getSourceColumns()).isEmpty();
+    }
+
     private void assertLineage(String baseQuery, Set<String> inputTables, OutputColumnMetadata... outputColumnMetadata)
             throws Exception
     {
