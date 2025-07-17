@@ -56,7 +56,7 @@ public class EnvMultinodeExasol
 
     private DockerContainer createExasol()
     {
-        DockerContainer container = new DockerContainer("exasol/docker-db:8.27.0", "exasol")
+        DockerContainer container = new DockerContainer("exasol/docker-db:8.34.0", "exasol")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
                 .waitingFor(forSelectedPorts(EXASOL_PORT));
         container.setPrivilegedMode(true);
