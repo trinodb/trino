@@ -48,6 +48,39 @@ final class TestIcebergOptimizeManifestsProcedure
     }
 
     @Test
+    void testOptimizeManifestWithNullPartitions()
+    {
+        try (TestTable table = newTrinoTable("test_optimize_null_partition", "(c1 int, c2 date, c3 double) WITH (partitioning = ARRAY['c1', 'month(c2)'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (null, date '2025-07-10', 0.1)", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (null, date '2025-07-10', 0.2)", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (3, null, 0.1)", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (3, date '2025-10-10', 0)", 1);
+
+            // all partitions are null
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (null, null, 0.3)", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (null, null, 0.5)", 1);
+
+            Set<String> manifestFiles = manifestFiles(table.getName());
+            assertThat(manifestFiles).hasSize(6);
+
+            assertUpdate("ALTER TABLE " + table.getName() + " EXECUTE optimize_manifests");
+
+            assertThat(manifestFiles(table.getName()))
+                    .hasSize(2)
+                    .doesNotContainAnyElementsOf(manifestFiles);
+
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES " +
+                            "(null, date '2025-07-10', double '0.1'), " +
+                            "(null, date '2025-07-10', double '0.2'), " +
+                            "(3, null, double '0.1'), " +
+                            "(3, date '2025-10-10', double '0.0'), " +
+                            "(null, null, double '0.3'), " +
+                            "(null, null, double '0.5')");
+        }
+    }
+
+    @Test
     void testOptimizeManifests()
     {
         try (TestTable table = newTrinoTable("test_optimize_manifests", "(x int)")) {

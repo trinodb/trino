@@ -2132,7 +2132,7 @@ public class IcebergMetadata
         rewriteManifests.clusterBy(file -> {
             // Use the first partition field as the clustering key
             StructLike partition = file.partition();
-            return partition.size() > 1 ? partition.get(0, Object.class) : partition;
+            return partition.size() > 1 ? Optional.ofNullable(partition.get(0, Object.class)) : partition;
         }).commit();
         commitTransaction(transaction, "optimize manifests");
         transaction = null;
