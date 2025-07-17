@@ -47,7 +47,7 @@ public class TestingExasolServer
 
     public TestingExasolServer()
     {
-        container = new ExasolContainer<>("8.32.0")
+        container = new ExasolContainer<>("8.34.0")
                 .withExposedPorts(8563)
                 .withRequiredServices(ExasolService.JDBC);
         cleanup = startOrReuse(container);
