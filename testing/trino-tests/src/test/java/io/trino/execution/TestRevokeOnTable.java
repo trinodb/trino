@@ -56,6 +56,7 @@ public class TestRevokeOnTable
     private static final Session userWithInsert = sessionOf(randomUsername());
     private static final Session userWithUpdate = sessionOf(randomUsername());
     private static final Session userWithDelete = sessionOf(randomUsername());
+    private static final Session userWithCreateBranch = sessionOf(randomUsername());
     private QueryRunner queryRunner;
     private QueryAssertions assertions;
 
@@ -73,6 +74,7 @@ public class TestRevokeOnTable
         tableGrants.grant(new TrinoPrincipal(USER, userWithInsert.getUser()), table, ImmutableSet.of(Privilege.INSERT), true);
         tableGrants.grant(new TrinoPrincipal(USER, userWithUpdate.getUser()), table, ImmutableSet.of(Privilege.UPDATE), true);
         tableGrants.grant(new TrinoPrincipal(USER, userWithDelete.getUser()), table, ImmutableSet.of(Privilege.DELETE), true);
+        tableGrants.grant(new TrinoPrincipal(USER, userWithCreateBranch.getUser()), table, ImmutableSet.of(Privilege.CREATE_BRANCH), true);
         MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
                 .withListSchemaNames(session -> ImmutableList.of("default"))
                 .withListTables((session, schemaName) -> "default".equalsIgnoreCase(schemaName) ? ImmutableList.of(table.getTableName()) : ImmutableList.of())
@@ -101,6 +103,7 @@ public class TestRevokeOnTable
         testRevokeOnSchema("INSERT", userWithInsert);
         testRevokeOnSchema("UPDATE", userWithUpdate);
         testRevokeOnSchema("DELETE", userWithDelete);
+        testRevokeOnSchema("CREATE BRANCH", userWithCreateBranch);
         testRevokeOnSchema("ALL PRIVILEGES", userWithAllPrivileges);
     }
 
@@ -121,6 +124,7 @@ public class TestRevokeOnTable
         testRevokeOnNonExistingCatalog("INSERT", userWithInsert);
         testRevokeOnNonExistingCatalog("UPDATE", userWithUpdate);
         testRevokeOnNonExistingCatalog("DELETE", userWithDelete);
+        testRevokeOnNonExistingCatalog("CREATE BRANCH", userWithCreateBranch);
         testRevokeOnNonExistingCatalog("ALL PRIVILEGES", userWithAllPrivileges);
     }
 
@@ -138,6 +142,7 @@ public class TestRevokeOnTable
         testRevokeOnNonExistingSchema("INSERT", userWithInsert);
         testRevokeOnNonExistingSchema("UPDATE", userWithUpdate);
         testRevokeOnNonExistingSchema("DELETE", userWithDelete);
+        testRevokeOnNonExistingSchema("CREATE BRANCH", userWithCreateBranch);
         testRevokeOnNonExistingSchema("ALL PRIVILEGES", userWithAllPrivileges);
     }
 
@@ -155,6 +160,7 @@ public class TestRevokeOnTable
         testRevokeOnNonExistingTable("INSERT", userWithInsert);
         testRevokeOnNonExistingTable("UPDATE", userWithUpdate);
         testRevokeOnNonExistingTable("DELETE", userWithDelete);
+        testRevokeOnNonExistingTable("CREATE BRANCH", userWithCreateBranch);
         testRevokeOnNonExistingTable("ALL PRIVILEGES", userWithAllPrivileges);
     }
 
@@ -181,6 +187,9 @@ public class TestRevokeOnTable
 
         assertThatThrownBy(() -> queryRunner.execute(sessionOf(randomUsername()), format("REVOKE DELETE ON TABLE table_one FROM %s", randomUsername())))
                 .hasMessageContaining("Access Denied: Cannot revoke privilege DELETE on table default.table_one");
+
+        assertThatThrownBy(() -> queryRunner.execute(sessionOf(randomUsername()), format("REVOKE CREATE BRANCH ON TABLE table_one FROM %s", randomUsername())))
+                .hasMessageContaining("Access Denied: Cannot revoke privilege CREATE BRANCH on table default.table_one");
 
         assertThatThrownBy(() -> queryRunner.execute(sessionOf(randomUsername()), format("REVOKE ALL PRIVILEGES ON TABLE table_one FROM %s", randomUsername())))
                 .hasMessageContaining("Access Denied: Cannot revoke privilege CREATE on table default.table_one");
