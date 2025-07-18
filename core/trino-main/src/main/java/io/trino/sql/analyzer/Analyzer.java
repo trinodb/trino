@@ -31,6 +31,7 @@ import io.trino.sql.tree.GroupingOperation;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.Statement;
+import io.trino.util.StatementUtils;
 
 import java.util.List;
 import java.util.Map;
@@ -39,6 +40,8 @@ import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_SCALAR;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractAggregateFunctions;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractExpressions;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractWindowExpressions;
+import static io.trino.sql.analyzer.QueryType.DESCRIBE;
+import static io.trino.sql.analyzer.QueryType.EXPLAIN;
 import static io.trino.sql.analyzer.QueryType.OTHERS;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.tracing.ScopedSpan.scopedSpan;
@@ -84,7 +87,16 @@ public class Analyzer
                 .setParent(Context.current().with(session.getQuerySpan()))
                 .startSpan();
         try (var _ = scopedSpan(span)) {
-            return analyze(statement, OTHERS);
+            // derive high-level type of the *original* statement before it gets rewritten
+            QueryType queryType = StatementUtils.getQueryType(statement)
+                    .map(original -> switch (original) {
+                        case DESCRIBE -> DESCRIBE;
+                        case EXPLAIN -> EXPLAIN;
+                        default -> OTHERS;
+                    })
+                    .orElse(OTHERS);
+
+            return analyze(statement, queryType);
         }
     }
 
