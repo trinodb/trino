@@ -157,11 +157,11 @@ public class TestRowNumberOperator
 
             // get result with yield; pick a relatively small buffer for partitionRowCount's memory usage
             GroupByHashYieldAssertion.GroupByHashYieldResult result = finishOperatorWithYieldingGroupByHash(input, type, operatorFactory, operator -> ((RowNumberOperator) operator).getCapacity(), 280_000);
-            assertThat(result.getYieldCount()).isGreaterThanOrEqualTo(5);
-            assertThat(result.getMaxReservedBytes()).isGreaterThanOrEqualTo(20L << 20);
+            assertThat(result.yieldCount()).isGreaterThanOrEqualTo(5);
+            assertThat(result.maxReservedBytes()).isGreaterThanOrEqualTo(20L << 20);
 
             int count = 0;
-            for (Page page : result.getOutput()) {
+            for (Page page : result.output()) {
                 assertThat(page.getChannelCount()).isEqualTo(2);
                 for (int i = 0; i < page.getPositionCount(); i++) {
                     assertThat(BIGINT.getLong(page.getBlock(1), i)).isEqualTo(1);
