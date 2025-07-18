@@ -36,6 +36,7 @@ import io.trino.parquet.metadata.ColumnChunkMetadata;
 import io.trino.parquet.metadata.ParquetMetadata;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
+import io.trino.plugin.hive.SortingFileWriterConfig;
 import io.trino.plugin.hive.TrinoViewHiveMetastore;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
@@ -91,7 +92,8 @@ public final class IcebergTestUtils
                     new OrcReaderConfig(),
                     new OrcWriterConfig(),
                     new ParquetReaderConfig(),
-                    new ParquetWriterConfig()).getSessionProperties())
+                    new ParquetWriterConfig(),
+                    new SortingFileWriterConfig()).getSessionProperties())
             .build();
 
     private IcebergTestUtils() {}

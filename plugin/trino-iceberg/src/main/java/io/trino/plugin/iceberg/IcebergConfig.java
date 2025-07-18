@@ -87,6 +87,8 @@ public class IcebergConfig
     private boolean hideMaterializedViewStorageTable = true;
     private Optional<String> materializedViewsStorageSchema = Optional.empty();
     private boolean sortedWritingEnabled = true;
+    private boolean temporaryStagingDirectoryEnabled;
+    private String temporaryStagingDirectoryPath = "/tmp/presto-${USER}";
     private boolean queryPartitionFilterRequired;
     private Set<String> queryPartitionFilterRequiredSchemas = ImmutableSet.of();
     private int splitManagerThreads = Math.min(Runtime.getRuntime().availableProcessors() * 2, 32);
@@ -451,6 +453,33 @@ public class IcebergConfig
     public IcebergConfig setSortedWritingEnabled(boolean sortedWritingEnabled)
     {
         this.sortedWritingEnabled = sortedWritingEnabled;
+        return this;
+    }
+
+    public boolean isTemporaryStagingDirectoryEnabled()
+    {
+        return temporaryStagingDirectoryEnabled;
+    }
+
+    @Config("iceberg.temporary-staging-directory-enabled")
+    @ConfigDescription("Should use temporary staging directory for write operations")
+    public IcebergConfig setTemporaryStagingDirectoryEnabled(boolean temporaryStagingDirectoryEnabled)
+    {
+        this.temporaryStagingDirectoryEnabled = temporaryStagingDirectoryEnabled;
+        return this;
+    }
+
+    @NotNull
+    public String getTemporaryStagingDirectoryPath()
+    {
+        return temporaryStagingDirectoryPath;
+    }
+
+    @Config("iceberg.temporary-staging-directory-path")
+    @ConfigDescription("Location of temporary staging directory for write operations. Use ${USER} placeholder to use different location for each user")
+    public IcebergConfig setTemporaryStagingDirectoryPath(String temporaryStagingDirectoryPath)
+    {
+        this.temporaryStagingDirectoryPath = temporaryStagingDirectoryPath;
         return this;
     }
 

@@ -63,7 +63,11 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_TOO_MANY_OPEN_PARTITIONS;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.getSortedWritingTempStagingDirPath;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.getSortedWritingWriterBufferSize;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.getSortedWritingWriterMaxOpenFiles;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isSortedWritingEnabled;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.isSortedWritingTempStagingDirEnabled;
 import static io.trino.plugin.iceberg.IcebergUtil.getTopLevelColumns;
 import static io.trino.plugin.iceberg.PartitionTransforms.getColumnTransform;
 import static io.trino.plugin.iceberg.util.Timestamps.getTimestampTz;
@@ -116,6 +120,8 @@ public class IcebergPageSink
     private final boolean sortedWritingEnabled;
     private final DataSize sortingFileWriterBufferSize;
     private final Integer sortingFileWriterMaxOpenFiles;
+    private final boolean sortedWritingTempStagingPathEnabled;
+    private final String sortedWritingTempStagingPath;
     private final Location tempDirectory;
     private final TypeManager typeManager;
     private final PageSorter pageSorter;
@@ -147,8 +153,6 @@ public class IcebergPageSink
             Map<String, String> storageProperties,
             int maxOpenWriters,
             List<TrinoSortField> sortOrder,
-            DataSize sortingFileWriterBufferSize,
-            int sortingFileWriterMaxOpenFiles,
             TypeManager typeManager,
             PageSorter pageSorter)
     {
@@ -169,14 +173,22 @@ public class IcebergPageSink
         this.storageProperties = requireNonNull(storageProperties, "storageProperties is null");
         this.sortOrder = requireNonNull(sortOrder, "sortOrder is null");
         this.sortedWritingEnabled = isSortedWritingEnabled(session);
-        this.sortingFileWriterBufferSize = requireNonNull(sortingFileWriterBufferSize, "sortingFileWriterBufferSize is null");
-        this.sortingFileWriterMaxOpenFiles = sortingFileWriterMaxOpenFiles;
-        this.tempDirectory = Location.of(locationProvider.newDataLocation("trino-tmp-files"));
+        this.sortingFileWriterBufferSize = getSortedWritingWriterBufferSize(session);
+        this.sortingFileWriterMaxOpenFiles = getSortedWritingWriterMaxOpenFiles(session);
+        this.sortedWritingTempStagingPathEnabled = isSortedWritingTempStagingDirEnabled(session);
+        this.sortedWritingTempStagingPath = getSortedWritingTempStagingDirPath(session);
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
         this.columnTypes = getTopLevelColumns(outputSchema, typeManager).stream()
                 .map(IcebergColumnHandle::getType)
                 .collect(toImmutableList());
+
+        if (sortedWritingTempStagingPathEnabled) {
+            String stagingPath = sortedWritingTempStagingPath.replace("${USER}", session.getIdentity().getUser());
+            this.tempDirectory = setSchemeToFileIfAbsent(Location.of(stagingPath));
+        } else {
+            this.tempDirectory = Location.of(locationProvider.newDataLocation("trino-tmp-files"));
+        }
 
         if (sortedWritingEnabled) {
             ImmutableList.Builder<Integer> sortColumnIndexes = ImmutableList.builder();
@@ -386,6 +398,14 @@ public class IcebergPageSink
         }
 
         return writerIndexes;
+    }
+
+    private static Location setSchemeToFileIfAbsent(Location location)
+    {
+        if (location.scheme().isPresent()) {
+            return location;
+        }
+        return Location.of("file:///" + location.path());
     }
 
     @Override

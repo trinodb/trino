@@ -21,6 +21,7 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.cache.DefaultCachingHostAddressProvider;
 import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.cache.CachingHiveMetastore;
+import io.trino.plugin.hive.SortingFileWriterConfig;
 import io.trino.plugin.hive.TrinoViewHiveMetastore;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
@@ -107,7 +108,8 @@ public class TestIcebergSplitSource
                     new OrcReaderConfig(),
                     new OrcWriterConfig(),
                     new ParquetReaderConfig(),
-                    new ParquetWriterConfig())
+                    new ParquetWriterConfig(),
+                    new SortingFileWriterConfig())
                     .getSessionProperties())
             .build();
 
