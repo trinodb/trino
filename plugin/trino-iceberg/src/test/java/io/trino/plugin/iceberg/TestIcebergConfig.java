@@ -35,6 +35,8 @@ import static io.trino.plugin.iceberg.CatalogType.GLUE;
 import static io.trino.plugin.iceberg.CatalogType.HIVE_METASTORE;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
+import static io.trino.plugin.iceberg.WriteChangeMode.COW;
+import static io.trino.plugin.iceberg.WriteChangeMode.MOR;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -81,7 +83,8 @@ public class TestIcebergConfig
                 .setObjectStoreLayoutEnabled(false)
                 .setMetadataParallelism(8)
                 .setBucketExecutionEnabled(true)
-                .setFileBasedConflictDetectionEnabled(true));
+                .setFileBasedConflictDetectionEnabled(true)
+                .setWriteChangeMode(MOR));
     }
 
     @Test
@@ -124,6 +127,8 @@ public class TestIcebergConfig
                 .put("iceberg.metadata.parallelism", "10")
                 .put("iceberg.bucket-execution", "false")
                 .put("iceberg.file-based-conflict-detection", "false")
+                .put("iceberg.write-change-mode", "COW")
+
                 .buildOrThrow();
 
         IcebergConfig expected = new IcebergConfig()
@@ -163,7 +168,8 @@ public class TestIcebergConfig
                 .setObjectStoreLayoutEnabled(true)
                 .setMetadataParallelism(10)
                 .setBucketExecutionEnabled(false)
-                .setFileBasedConflictDetectionEnabled(false);
+                .setFileBasedConflictDetectionEnabled(false)
+                .setWriteChangeMode(COW);
 
         assertFullMapping(properties, expected);
     }

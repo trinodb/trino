@@ -57,11 +57,15 @@ import io.trino.plugin.iceberg.delete.RowPredicate;
 import io.trino.plugin.iceberg.fileio.ForwardingInputFile;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.ArrayBlock;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.IntArrayBlock;
+import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.VariableWidthBlock;
+import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
@@ -77,6 +81,7 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
@@ -95,6 +100,7 @@ import org.apache.iceberg.mapping.NameMapping;
 import org.apache.iceberg.mapping.NameMappingParser;
 import org.apache.iceberg.parquet.ParquetSchemaUtil;
 import org.apache.iceberg.types.Types;
+import org.apache.iceberg.types.Types.NestedField;
 import org.apache.iceberg.util.StructLikeWrapper;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.io.MessageColumnIO;
@@ -165,10 +171,11 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.useParquetBloomFi
 import static io.trino.plugin.iceberg.IcebergSplitManager.ICEBERG_DOMAIN_COMPACTION_THRESHOLD;
 import static io.trino.plugin.iceberg.IcebergSplitSource.partitionMatchesPredicate;
 import static io.trino.plugin.iceberg.IcebergUtil.deserializePartitionValue;
-import static io.trino.plugin.iceberg.IcebergUtil.getColumnHandle;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionValues;
+import static io.trino.plugin.iceberg.IcebergUtil.getWriteChangeMode;
 import static io.trino.plugin.iceberg.IcebergUtil.schemaFromHandles;
+import static io.trino.plugin.iceberg.WriteChangeMode.MOR;
 import static io.trino.plugin.iceberg.util.OrcIcebergIds.fileColumnsByIcebergId;
 import static io.trino.plugin.iceberg.util.OrcTypeConverter.ORC_ICEBERG_ID_KEY;
 import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
@@ -179,6 +186,7 @@ import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.checkIndex;
 import static java.util.Objects.requireNonNull;
@@ -266,7 +274,8 @@ public class IcebergPageSourceProvider
                 split.getFileFormat(),
                 split.getFileIoProperties(),
                 split.getDataSequenceNumber(),
-                tableHandle.getNameMappingJson().map(NameMappingParser::fromJson));
+                tableHandle.getNameMappingJson().map(NameMappingParser::fromJson),
+                Optional.of(getWriteChangeMode(tableHandle.getStorageProperties())));
     }
 
     public ConnectorPageSource createPageSource(
@@ -288,7 +297,8 @@ public class IcebergPageSourceProvider
             IcebergFileFormat fileFormat,
             Map<String, String> fileIoProperties,
             long dataSequenceNumber,
-            Optional<NameMapping> nameMapping)
+            Optional<NameMapping> nameMapping,
+            Optional<WriteChangeMode> writeChangeMode)
     {
         Map<Integer, Optional<String>> partitionKeys = getPartitionKeys(partitionData, partitionSpec);
         TupleDomain<IcebergColumnHandle> effectivePredicate = getUnenforcedPredicate(
@@ -329,6 +339,50 @@ public class IcebergPageSourceProvider
                 .filter(not(icebergColumns::contains))
                 .forEach(requiredColumns::add);
 
+        return createPageSource(session,
+                inputFile,
+                fileSystem,
+                start,
+                length,
+                fileSize,
+                partitionSpec,
+                partitionData,
+                partitionDataJson,
+                fileFormat,
+                tableSchema,
+                icebergColumns,
+                requiredColumns,
+                effectivePredicate,
+                nameMapping,
+                partition,
+                partitionKeys,
+                deletes,
+                OptionalLong.of(dataSequenceNumber),
+                writeChangeMode);
+    }
+
+    public ConnectorPageSource createPageSource(
+            ConnectorSession session,
+            TrinoInputFile inputFile,
+            TrinoFileSystem fileSystem,
+            long start,
+            long length,
+            long fileSize,
+            PartitionSpec partitionSpec,
+            PartitionData partitionData,
+            String partitionDataJson,
+            IcebergFileFormat fileFormat,
+            Schema tableSchema,
+            List<IcebergColumnHandle> regularColumns,
+            List<IcebergColumnHandle> requiredColumns,
+            TupleDomain<IcebergColumnHandle> predicate,
+            Optional<NameMapping> nameMapping,
+            String partition,
+            Map<Integer, Optional<String>> partitionKeys,
+            List<DeleteFile> deleteFiles,
+            OptionalLong dataSequenceNumber,
+            Optional<WriteChangeMode> writeChangeMode)
+    {
         ReaderPageSourceWithRowPositions readerPageSourceWithRowPositions = createDataPageSource(
                 session,
                 inputFile,
@@ -340,20 +394,24 @@ public class IcebergPageSourceProvider
                 fileFormat,
                 tableSchema,
                 requiredColumns,
-                effectivePredicate,
+                predicate,
                 nameMapping,
                 partition,
-                partitionKeys);
+                partitionKeys,
+                deleteFiles,
+                dataSequenceNumber,
+                writeChangeMode);
 
         ConnectorPageSource pageSource = readerPageSourceWithRowPositions.pageSource();
 
         // filter out deleted rows
-        if (!deletes.isEmpty()) {
+        if (!deleteFiles.isEmpty()) {
+            checkState(dataSequenceNumber.isPresent());
             Supplier<Optional<RowPredicate>> deletePredicate = memoize(() -> getDeleteManager(partitionSpec, partitionData)
                     .getDeletePredicate(
-                            path,
-                            dataSequenceNumber,
-                            deletes,
+                            inputFile.location().toString(),
+                            dataSequenceNumber.getAsLong(),
+                            deleteFiles,
                             requiredColumns,
                             tableSchema,
                             readerPageSourceWithRowPositions,
@@ -361,11 +419,11 @@ public class IcebergPageSourceProvider
             pageSource = TransformConnectorPageSource.create(pageSource, page -> {
                 try {
                     Optional<RowPredicate> rowPredicate = deletePredicate.get();
-                    rowPredicate.ifPresent(predicate -> predicate.applyFilter(page));
-                    if (icebergColumns.size() == page.getChannelCount()) {
+                    rowPredicate.ifPresent(pred -> pred.applyFilter(page));
+                    if (regularColumns.size() == page.getChannelCount()) {
                         return page;
                     }
-                    return new PrefixColumnsSourcePage(page, icebergColumns.size());
+                    return new PrefixColumnsSourcePage(page, regularColumns.size());
                 }
                 catch (RuntimeException e) {
                     throwIfInstanceOf(e, TrinoException.class);
@@ -376,7 +434,7 @@ public class IcebergPageSourceProvider
         return pageSource;
     }
 
-    private DeleteManager getDeleteManager(PartitionSpec partitionSpec, PartitionData partitionData)
+    public DeleteManager getDeleteManager(PartitionSpec partitionSpec, PartitionData partitionData)
     {
         if (partitionSpec.isUnpartitioned()) {
             return unpartitionedTableDeleteManager;
@@ -431,7 +489,7 @@ public class IcebergPageSourceProvider
         }
 
         Set<IcebergColumnHandle> partitionColumns = partitionKeys.keySet().stream()
-                .map(fieldId -> getColumnHandle(tableSchema.findField(fieldId), typeManager))
+                .map(fieldId -> getColumnHandle(tableSchema.findField(fieldId)))
                 .collect(toImmutableSet());
         Supplier<Map<ColumnHandle, NullableValue>> partitionValues = memoize(() -> getPartitionValues(partitionColumns, partitionKeys));
         if (!partitionMatchesPredicate(partitionColumns, partitionValues, unenforcedPredicate)) {
@@ -445,21 +503,26 @@ public class IcebergPageSourceProvider
                 .filter((handle, domain) -> !domain.contains(fileStatisticsDomain.getDomain(handle, domain.getType())));
     }
 
-    private Set<IcebergColumnHandle> requiredColumnsForDeletes(Schema schema, List<DeleteFile> deletes)
+    public Set<IcebergColumnHandle> requiredColumnsForDeletes(Schema schema, List<DeleteFile> deletes)
     {
         ImmutableSet.Builder<IcebergColumnHandle> requiredColumns = ImmutableSet.builder();
         for (DeleteFile deleteFile : deletes) {
             if (deleteFile.content() == POSITION_DELETES) {
-                requiredColumns.add(getColumnHandle(ROW_POSITION, typeManager));
+                requiredColumns.add(getColumnHandle(ROW_POSITION));
             }
             else if (deleteFile.content() == EQUALITY_DELETES) {
                 deleteFile.equalityFieldIds().stream()
-                        .map(id -> getColumnHandle(schema.findField(id), typeManager))
+                        .map(id -> getColumnHandle(schema.findField(id)))
                         .forEach(requiredColumns::add);
             }
         }
 
         return requiredColumns.build();
+    }
+
+    public IcebergColumnHandle getColumnHandle(NestedField column)
+    {
+        return IcebergUtil.getColumnHandle(column, typeManager);
     }
 
     private ConnectorPageSource openDeletes(
@@ -483,7 +546,10 @@ public class IcebergPageSourceProvider
                 tupleDomain,
                 Optional.empty(),
                 "",
-                ImmutableMap.of())
+                ImmutableMap.of(),
+                ImmutableList.of(),
+                OptionalLong.empty(),
+                Optional.empty())
                 .pageSource();
     }
 
@@ -501,7 +567,10 @@ public class IcebergPageSourceProvider
             TupleDomain<IcebergColumnHandle> predicate,
             Optional<NameMapping> nameMapping,
             String partition,
-            Map<Integer, Optional<String>> partitionKeys)
+            Map<Integer, Optional<String>> partitionKeys,
+            List<DeleteFile> deleteFiles,
+            OptionalLong dataSequenceNumber,
+            Optional<WriteChangeMode> writeChangeMode)
     {
         return switch (fileFormat) {
             case ORC -> createOrcPageSource(
@@ -525,8 +594,12 @@ public class IcebergPageSourceProvider
                     typeManager,
                     nameMapping,
                     partition,
-                    partitionKeys);
+                    partitionKeys,
+                    deleteFiles,
+                    dataSequenceNumber,
+                    writeChangeMode);
             case PARQUET -> createParquetPageSource(
+                    session,
                     inputFile,
                     start,
                     length,
@@ -548,7 +621,10 @@ public class IcebergPageSourceProvider
                     fileFormatDataSourceStats,
                     nameMapping,
                     partition,
-                    partitionKeys);
+                    partitionKeys,
+                    deleteFiles,
+                    dataSequenceNumber,
+                    writeChangeMode);
             case AVRO -> createAvroPageSource(
                     inputFile,
                     start,
@@ -558,7 +634,10 @@ public class IcebergPageSourceProvider
                     fileSchema,
                     nameMapping,
                     partition,
-                    dataColumns);
+                    dataColumns,
+                    deleteFiles,
+                    dataSequenceNumber,
+                    writeChangeMode);
         };
     }
 
@@ -610,7 +689,10 @@ public class IcebergPageSourceProvider
             TypeManager typeManager,
             Optional<NameMapping> nameMapping,
             String partition,
-            Map<Integer, Optional<String>> partitionKeys)
+            Map<Integer, Optional<String>> partitionKeys,
+            List<DeleteFile> deleteFiles,
+            OptionalLong dataSequenceNumber,
+            Optional<WriteChangeMode> writeChangeMode)
     {
         OrcDataSource orcDataSource = null;
         try {
@@ -669,7 +751,13 @@ public class IcebergPageSourceProvider
                 }
                 else if (column.isMergeRowIdColumn()) {
                     appendRowNumberColumn = true;
-                    transforms.transform(MergeRowIdTransform.create(utf8Slice(inputFile.location().toString()), partitionSpecId, utf8Slice(partitionData)));
+                    checkState(writeChangeMode.isPresent());
+                    if (writeChangeMode.get().equals(MOR)) {
+                        transforms.transform(MorMergeRowIdTransform.create(utf8Slice(inputFile.location().toString()), partitionSpecId, utf8Slice(partitionData)));
+                    }
+                    else {
+                        transforms.transform(CowMergeRowIdTransform.create(utf8Slice(inputFile.location().toString()), partitionSpecId, utf8Slice(partitionData), dataSequenceNumber.getAsLong(), deleteFiles));
+                    }
                 }
                 else if (column.isRowPositionColumn()) {
                     appendRowNumberColumn = true;
@@ -880,7 +968,8 @@ public class IcebergPageSourceProvider
         }
     }
 
-    private static ReaderPageSourceWithRowPositions createParquetPageSource(
+    public static ReaderPageSourceWithRowPositions createParquetPageSource(
+            ConnectorSession session,
             TrinoInputFile inputFile,
             long start,
             long length,
@@ -893,7 +982,10 @@ public class IcebergPageSourceProvider
             FileFormatDataSourceStats fileFormatDataSourceStats,
             Optional<NameMapping> nameMapping,
             String partition,
-            Map<Integer, Optional<String>> partitionKeys)
+            Map<Integer, Optional<String>> partitionKeys,
+            List<DeleteFile> deleteFiles,
+            OptionalLong dataSequenceNumber,
+            Optional<WriteChangeMode> writeChangeMode)
     {
         AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
 
@@ -944,7 +1036,13 @@ public class IcebergPageSourceProvider
                 }
                 else if (column.isMergeRowIdColumn()) {
                     appendRowNumberColumn = true;
-                    transforms.transform(MergeRowIdTransform.create(utf8Slice(inputFile.location().toString()), partitionSpecId, utf8Slice(partitionData)));
+                    checkState(writeChangeMode.isPresent());
+                    if (writeChangeMode.get().equals(MOR)) {
+                        transforms.transform(MorMergeRowIdTransform.create(utf8Slice(inputFile.location().toString()), partitionSpecId, utf8Slice(partitionData)));
+                    }
+                    else {
+                        transforms.transform(CowMergeRowIdTransform.create(utf8Slice(inputFile.location().toString()), partitionSpecId, utf8Slice(partitionData), dataSequenceNumber.getAsLong(), deleteFiles));
+                    }
                 }
                 else if (column.isRowPositionColumn()) {
                     appendRowNumberColumn = true;
@@ -1096,7 +1194,10 @@ public class IcebergPageSourceProvider
             Schema fileSchema,
             Optional<NameMapping> nameMapping,
             String partition,
-            List<IcebergColumnHandle> columns)
+            List<IcebergColumnHandle> columns,
+            List<DeleteFile> deleteFiles,
+            OptionalLong dataSequenceNumber,
+            Optional<WriteChangeMode> writeChangeMode)
     {
         InputFile file = new ForwardingInputFile(inputFile);
         OptionalLong fileModifiedTime = OptionalLong.empty();
@@ -1140,7 +1241,13 @@ public class IcebergPageSourceProvider
                 }
                 else if (column.isMergeRowIdColumn()) {
                     appendRowNumberColumn = true;
-                    transforms.transform(MergeRowIdTransform.create(utf8Slice(file.location()), partitionSpecId, utf8Slice(partitionData)));
+                    checkState(writeChangeMode.isPresent());
+                    if (writeChangeMode.get().equals(MOR)) {
+                        transforms.transform(MorMergeRowIdTransform.create(utf8Slice(inputFile.location().toString()), partitionSpecId, utf8Slice(partitionData)));
+                    }
+                    else {
+                        transforms.transform(CowMergeRowIdTransform.create(utf8Slice(inputFile.location().toString()), partitionSpecId, utf8Slice(partitionData), dataSequenceNumber.getAsLong(), deleteFiles));
+                    }
                 }
                 else if (column.isRowPositionColumn()) {
                     appendRowNumberColumn = true;
@@ -1479,12 +1586,12 @@ public class IcebergPageSourceProvider
         }
     }
 
-    private record MergeRowIdTransform(VariableWidthBlock filePath, IntArrayBlock partitionSpecId, VariableWidthBlock partitionData)
+    private record MorMergeRowIdTransform(VariableWidthBlock filePath, IntArrayBlock partitionSpecId, VariableWidthBlock partitionData)
             implements Function<SourcePage, Block>
     {
         private static Function<SourcePage, Block> create(Slice filePath, int partitionSpecId, Slice partitionData)
         {
-            return new MergeRowIdTransform(
+            return new MorMergeRowIdTransform(
                     new VariableWidthBlock(1, filePath, new int[] {0, filePath.length()}, Optional.empty()),
                     new IntArrayBlock(1, Optional.empty(), new int[] {partitionSpecId}),
                     new VariableWidthBlock(1, partitionData, new int[] {0, partitionData.length()}, Optional.empty()));
@@ -1500,6 +1607,162 @@ public class IcebergPageSourceProvider
                     RunLengthEncodedBlock.create(partitionSpecId, rowPosition.getPositionCount()),
                     RunLengthEncodedBlock.create(partitionData, rowPosition.getPositionCount())
             };
+            return RowBlock.fromFieldBlocks(rowPosition.getPositionCount(), fields);
+        }
+    }
+
+    private record CowMergeRowIdTransform(VariableWidthBlock filePath, IntArrayBlock partitionSpecId, VariableWidthBlock partitionData,
+                                          LongArrayBlock dataFileDataSequenceNumber, ArrayBlock deleteFilesContent, ArrayBlock deleteFilesPath,
+                                          ArrayBlock deleteFilesFormat, ArrayBlock deleteFilesRecordCount, ArrayBlock deleteFilesFileSizeInBytes,
+                                          ArrayBlock deleteFilesEqualityFieldIds, ArrayBlock deleteFilesRowPositionLowerBound, ArrayBlock deleteFilesRowPositionUpperBound,
+                                          ArrayBlock deleteFilesDataSequenceNumber)
+            implements Function<SourcePage, Block>
+    {
+        private static Function<SourcePage, Block> create(Slice filePath, int partitionSpecId, Slice partitionData, long dataFileDataSequenceNumber, List<DeleteFile> deleteFiles)
+        {
+            Function<List<String>, VariableWidthBlock> strList2Slice = (strList) -> {
+                // 1. Estimate total byte size to size the builder appropriately
+                int totalBytes = 0;
+                for (String s : strList) {
+                    totalBytes += s.getBytes(UTF_8).length;
+                }
+
+                // 2. Create a VariableWidthBlockBuilder:
+                //    - new BlockBuilderStatus() for per-query accounting
+                //    - strList.size() entries
+                //    - totalBytes as approximate expected bytes
+                VariableWidthBlockBuilder builder =
+                        new VariableWidthBlockBuilder(null, strList.size(), totalBytes);
+
+                // 3. Write each string as a Slice entry
+                for (String s : strList) {
+                    byte[] bytes = s.getBytes(UTF_8);
+                    builder.writeEntry(bytes, 0, bytes.length);
+                }
+
+                // 4. Build and cast to VariableWidthBlock
+                return (VariableWidthBlock) builder.build();
+            };
+
+            int[] deleteFilesFileContent = deleteFiles.stream()
+                    .mapToInt(deleteFile -> deleteFile.content().id())
+                    .toArray();
+
+            IntArrayBlock deleteFilesFileContentBlock = new IntArrayBlock(deleteFilesFileContent.length, Optional.empty(), deleteFilesFileContent);
+            VariableWidthBlock deleteFilesPathBlock = strList2Slice.apply(deleteFiles.stream().map(DeleteFile::path).collect(toImmutableList()));
+            VariableWidthBlock deleteFilesFormatBlock = strList2Slice.apply(deleteFiles.stream().map(deleteFile -> deleteFile.format().toString()).collect(toImmutableList()));
+
+            long[] deleteFilesRecordCount = deleteFiles.stream()
+                    .mapToLong(DeleteFile::recordCount)
+                    .toArray();
+
+            LongArrayBlock deleteFilesRecordCountBlock = new LongArrayBlock(deleteFilesRecordCount.length, Optional.empty(), deleteFilesRecordCount);
+
+            long[] deleteFilesFileSizeInBytes = deleteFiles.stream()
+                    .mapToLong(DeleteFile::fileSizeInBytes)
+                    .toArray();
+
+            LongArrayBlock deleteFilesFileSizeInBytesBlock = new LongArrayBlock(deleteFilesFileSizeInBytes.length, Optional.empty(), deleteFilesFileSizeInBytes);
+
+            ArrayBlock deleteFilesEqualityFieldIdsBlock = buildNestedIntArrayBlock(deleteFiles.stream().map(DeleteFile::equalityFieldIds).collect(toImmutableList()));
+
+            LongArrayBlock deleteFilesRowPositionLowerBoundBlock = toLongArrayBlock(deleteFiles.stream().map(DeleteFile::rowPositionLowerBound).collect(toImmutableList()));
+
+            LongArrayBlock deleteFilesRowPositionUpperBoundBlock = toLongArrayBlock(deleteFiles.stream().map(DeleteFile::rowPositionUpperBound).collect(toImmutableList()));
+
+            long[] deleteFilesDataSequenceNumber = deleteFiles.stream()
+                    .mapToLong(DeleteFile::dataSequenceNumber)
+                    .toArray();
+
+            LongArrayBlock deleteFilesDataSequenceNumberBlock = new LongArrayBlock(deleteFilesDataSequenceNumber.length, Optional.empty(), deleteFilesDataSequenceNumber);
+
+            return new CowMergeRowIdTransform(
+                    new VariableWidthBlock(1, filePath, new int[] {0, filePath.length()}, Optional.empty()),
+                    new IntArrayBlock(1, Optional.empty(), new int[] {partitionSpecId}),
+                    new VariableWidthBlock(1, partitionData, new int[] {0, partitionData.length()}, Optional.empty()),
+                    new LongArrayBlock(1, Optional.empty(), new long[] {dataFileDataSequenceNumber}),
+                ArrayBlock.fromElementBlock(1, Optional.empty(), new int[] {0, deleteFiles.size()}, deleteFilesFileContentBlock),
+                ArrayBlock.fromElementBlock(1, Optional.empty(), new int[] {0, deleteFiles.size()}, deleteFilesPathBlock),
+                ArrayBlock.fromElementBlock(1, Optional.empty(), new int[] {0, deleteFiles.size()}, deleteFilesFormatBlock),
+                ArrayBlock.fromElementBlock(1, Optional.empty(), new int[] {0, deleteFiles.size()}, deleteFilesRecordCountBlock),
+                ArrayBlock.fromElementBlock(1, Optional.empty(), new int[] {0, deleteFiles.size()}, deleteFilesFileSizeInBytesBlock),
+                ArrayBlock.fromElementBlock(1, Optional.empty(), new int[] {0, deleteFiles.size()}, deleteFilesEqualityFieldIdsBlock),
+                ArrayBlock.fromElementBlock(1, Optional.empty(), new int[] {0, deleteFiles.size()}, deleteFilesRowPositionLowerBoundBlock),
+                ArrayBlock.fromElementBlock(1, Optional.empty(), new int[] {0, deleteFiles.size()}, deleteFilesRowPositionUpperBoundBlock),
+                ArrayBlock.fromElementBlock(1, Optional.empty(), new int[] {0, deleteFiles.size()}, deleteFilesDataSequenceNumberBlock));
+        }
+
+        private static ArrayBlock buildNestedIntArrayBlock(List<List<Integer>> data)
+        {
+            Type elementType = IntegerType.INTEGER;                        // the inner-most element type
+            ArrayType innerArrayType = new ArrayType(elementType);         // List<Integer> → Array<Integer>
+            ArrayType outerArrayType = new ArrayType(innerArrayType);      // List<List<Integer>> → Array<Array<Integer>>
+
+            BlockBuilder outerBuilder = outerArrayType.createBlockBuilder(null, data.size());
+
+            for (List<Integer> innerList : data) {
+                BlockBuilder innerBuilder = innerArrayType.createBlockBuilder(null, innerList.size());
+                for (Integer value : innerList) {
+                    elementType.writeLong(innerBuilder, value.longValue());
+                }
+                Block innerBlock = innerBuilder.build();
+
+                innerArrayType.writeObject(outerBuilder, innerBlock);
+            }
+
+            Block genericBlock = outerBuilder.build();
+            return (ArrayBlock) genericBlock;
+        }
+
+        private static LongArrayBlock toLongArrayBlock(List<Optional<Long>> data)
+        {
+            int positionCount = data.size();
+
+            // 1) allocate storage
+            long[] values = new long[positionCount];
+            boolean[] valueIsNull = new boolean[positionCount];
+
+            // 2) fill in values + null‐mask
+            for (int i = 0; i < positionCount; i++) {
+                Optional<Long> opt = data.get(i);
+                if (opt.isPresent()) {
+                    values[i] = opt.get();
+                    valueIsNull[i] = false;
+                }
+                else {
+                    // values[i] may be left at 0, but
+                    // valueIsNull[i] must be true
+                    valueIsNull[i] = true;
+                }
+            }
+
+            // 3) build the block
+            return new LongArrayBlock(
+                    positionCount,
+                    Optional.of(valueIsNull),
+                    values);
+        }
+
+        @Override
+        public Block apply(SourcePage page)
+        {
+            Block rowPosition = page.getBlock(page.getChannelCount() - 1);
+            Block[] fields = new Block[] {
+                RunLengthEncodedBlock.create(filePath, rowPosition.getPositionCount()),
+                rowPosition,
+                RunLengthEncodedBlock.create(partitionSpecId, rowPosition.getPositionCount()),
+                RunLengthEncodedBlock.create(partitionData, rowPosition.getPositionCount()),
+                RunLengthEncodedBlock.create(dataFileDataSequenceNumber, rowPosition.getPositionCount()),
+                RunLengthEncodedBlock.create(deleteFilesContent, rowPosition.getPositionCount()),
+                RunLengthEncodedBlock.create(deleteFilesPath, rowPosition.getPositionCount()),
+                RunLengthEncodedBlock.create(deleteFilesFormat, rowPosition.getPositionCount()),
+                RunLengthEncodedBlock.create(deleteFilesRecordCount, rowPosition.getPositionCount()),
+                RunLengthEncodedBlock.create(deleteFilesFileSizeInBytes, rowPosition.getPositionCount()),
+                RunLengthEncodedBlock.create(deleteFilesEqualityFieldIds, rowPosition.getPositionCount()),
+                RunLengthEncodedBlock.create(deleteFilesRowPositionLowerBound, rowPosition.getPositionCount()),
+                RunLengthEncodedBlock.create(deleteFilesRowPositionUpperBound, rowPosition.getPositionCount()),
+                RunLengthEncodedBlock.create(deleteFilesDataSequenceNumber, rowPosition.getPositionCount())};
+
             return RowBlock.fromFieldBlocks(rowPosition.getPositionCount(), fields);
         }
     }

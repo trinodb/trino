@@ -58,6 +58,27 @@ public class IcebergColumnHandle
     public static final int DATA_CHANGE_TIMESTAMP_ID = Integer.MIN_VALUE + 5;
     public static final String DATA_CHANGE_ORDINAL_NAME = "_change_ordinal";
     public static final int DATA_CHANGE_ORDINAL_ID = Integer.MIN_VALUE + 6;
+    public static final int DATA_FILE_DATA_SEQUENCE_NUMBER_ID = Integer.MIN_VALUE + 7;
+    public static final int DELETE_FILES_CONTENT_ID = Integer.MIN_VALUE + 8;
+    public static final int DELETE_FILES_CONTENT_ELEMENT_ID = Integer.MIN_VALUE + 9;
+    public static final int DELETE_FILES_PATH_ID = Integer.MIN_VALUE + 10;
+    public static final int DELETE_FILES_PATH_ELEMENT_ID = Integer.MIN_VALUE + 11;
+
+    public static final int DELETE_FILES_FORMAT_ID = Integer.MIN_VALUE + 12;
+    public static final int DELETE_FILES_FORMAT_ELEMENT_ID = Integer.MIN_VALUE + 13;
+    public static final int DELETE_FILES_RECORD_COUNT_ID = Integer.MIN_VALUE + 14;
+    public static final int DELETE_FILES_RECORD_COUNT_ELEMENT_ID = Integer.MIN_VALUE + 15;
+    public static final int DELETE_FILES_FILE_SIZE_IN_BYTES_ID = Integer.MIN_VALUE + 16;
+    public static final int DELETE_FILES_FILE_SIZE_IN_BYTES_ELEMENT_ID = Integer.MIN_VALUE + 17;
+    public static final int DELETE_FILES_EQUALITY_FIELD_IDS_ID = Integer.MIN_VALUE + 18;
+    public static final int DELETE_FILES_EQUALITY_FIELD_ID_ID = Integer.MIN_VALUE + 19;
+    public static final int DELETE_FILES_EQUALITY_FIELD_ID_ELEMENT_ID = Integer.MIN_VALUE + 20;
+    public static final int DELETE_FILES_ROW_POSITION_LOWER_BOUND_ID = Integer.MIN_VALUE + 21;
+    public static final int DELETE_FILES_ROW_POSITION_LOWER_BOUND_ELEMENT_ID = Integer.MIN_VALUE + 22;
+    public static final int DELETE_FILES_ROW_POSITION_UPPER_BOUND_ID = Integer.MIN_VALUE + 23;
+    public static final int DELETE_FILES_ROW_POSITION_UPPER_BOUND_ELEMENT_ID = Integer.MIN_VALUE + 24;
+    public static final int DELETE_FILES_DATA_SEQUENCE_NUMBER_ID = Integer.MIN_VALUE + 25;
+    public static final int DELETE_FILES_DATA_SEQUENCE_NUMBER_ELEMENT_ID = Integer.MIN_VALUE + 26;
 
     private final ColumnIdentity baseColumnIdentity;
     private final Type baseType;

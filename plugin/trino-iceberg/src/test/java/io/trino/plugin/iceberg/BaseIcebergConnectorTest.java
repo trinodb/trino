@@ -182,13 +182,15 @@ public abstract class BaseIcebergConnectorTest
     private static final Pattern WITH_CLAUSE_EXTRACTOR = Pattern.compile(".*(WITH\\s*\\([^)]*\\))\\s*$", Pattern.DOTALL);
 
     protected final IcebergFileFormat format;
+    protected final WriteChangeMode writeChangeMode;
 
     protected TrinoFileSystem fileSystem;
     protected TimeUnit storageTimePrecision;
 
-    protected BaseIcebergConnectorTest(IcebergFileFormat format)
+    protected BaseIcebergConnectorTest(IcebergFileFormat format, WriteChangeMode writeChangeMode)
     {
         this.format = requireNonNull(format, "format is null");
+        this.writeChangeMode = requireNonNull(writeChangeMode, "format is null");
     }
 
     @Override
@@ -208,6 +210,7 @@ public abstract class BaseIcebergConnectorTest
                         .put("iceberg.allowed-extra-properties", "extra.property.one,extra.property.two,extra.property.three,sorted_by")
                         // Allows testing the sorting writer flushing to the file system with smaller tables
                         .put("iceberg.writer-sort-buffer-size", "1MB")
+                        .put("iceberg.write-change-mode", writeChangeMode.toString())
                         .buildOrThrow())
                 .setInitialTables(REQUIRED_TPCH_TABLES);
     }
@@ -378,7 +381,8 @@ public abstract class BaseIcebergConnectorTest
                         "   format = '" + format.name() + "',\n" +
                         "   format_version = 2,\n" +
                         "   location = '\\E.*/tpch/orders-.*\\Q',\n" +
-                        "   max_commit_retry = 4\n" +
+                        "   max_commit_retry = 4,\n" +
+                        format("   write_change_mode = '%s'\n", writeChangeMode.toString()) +
                         ")\\E");
     }
 
@@ -1264,7 +1268,8 @@ public abstract class BaseIcebergConnectorTest
                         "WITH (" +
                         "format_version = 2," +
                         "location = '" + tempDirPath + "', " +
-                        "partitioning = ARRAY['ORDER_STATUS', 'Ship_Priority', 'Bucket(\"order key\",9)']" +
+                        "partitioning = ARRAY['ORDER_STATUS', 'Ship_Priority', 'Bucket(\"order key\",9)']," +
+                        "write_change_mode = '" + writeChangeMode + "'" +
                         ") " +
                         "AS " +
                         "SELECT orderkey AS \"order key\", shippriority AS ship_priority, orderstatus AS order_status " +
@@ -1282,13 +1287,15 @@ public abstract class BaseIcebergConnectorTest
                         "   format_version = 2,\n" +
                         "   location = '%s',\n" +
                         "   max_commit_retry = 4,\n" +
-                        "   partitioning = ARRAY['order_status','ship_priority','bucket(\"order key\", 9)']\n" +
+                        "   partitioning = ARRAY['order_status','ship_priority','bucket(\"order key\", 9)'],\n" +
+                        "   write_change_mode = '%s'\n" +
                         ")",
                 getSession().getCatalog().orElseThrow(),
                 getSession().getSchema().orElseThrow(),
                 "test_create_partitioned_table_as",
                 format,
-                tempDirPath));
+                tempDirPath,
+                writeChangeMode));
 
         assertQuery("SELECT * from test_create_partitioned_table_as", "SELECT orderkey, shippriority, orderstatus FROM orders");
 
@@ -1520,25 +1527,25 @@ public abstract class BaseIcebergConnectorTest
         Session withSmallRowGroups = withSmallRowGroups(getSession());
         try (TestTable table = newTrinoTable(
                 "test_sort_order_change",
-                "WITH (sorted_by = ARRAY['comment']) AS SELECT * FROM nation WITH NO DATA")) {
-            assertUpdate(withSmallRowGroups, "INSERT INTO " + table.getName() + " SELECT * FROM nation", 25);
+                "WITH (sorted_by = ARRAY['custkey']) AS SELECT * FROM customer WITH NO DATA")) {
+            assertUpdate(withSmallRowGroups, "INSERT INTO " + table.getName() + " SELECT * FROM customer", 1500);
             Set<String> sortedByComment = new HashSet<>();
             computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()
                     .forEach(fileName -> sortedByComment.add((String) fileName));
 
             assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES sorted_by = ARRAY['name']");
-            assertUpdate(withSmallRowGroups, "INSERT INTO " + table.getName() + " SELECT * FROM nation", 25);
+            assertUpdate(withSmallRowGroups, "INSERT INTO " + table.getName() + " SELECT * from customer", 1500);
 
             for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()) {
                 String path = (String) filePath;
                 if (sortedByComment.contains(path)) {
-                    assertThat(isFileSorted(path, "comment")).isTrue();
+                    assertThat(isFileSorted(path, "custkey")).isTrue();
                 }
                 else {
                     assertThat(isFileSorted(path, "name")).isTrue();
                 }
             }
-            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM nation UNION ALL SELECT * FROM nation");
+            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM customer UNION ALL SELECT * FROM customer");
         }
     }
 
@@ -1550,12 +1557,12 @@ public abstract class BaseIcebergConnectorTest
                 .build();
         try (TestTable table = newTrinoTable(
                 "test_sorting_disabled",
-                "WITH (sorted_by = ARRAY['comment']) AS SELECT * FROM nation WITH NO DATA")) {
-            assertUpdate(withSortingDisabled, "INSERT INTO " + table.getName() + " SELECT * FROM nation", 25);
+                "WITH (sorted_by = ARRAY['custkey']) AS SELECT * FROM customer WITH NO DATA")) {
+            assertUpdate(withSortingDisabled, "INSERT INTO " + table.getName() + " SELECT * FROM customer", 1500);
             for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()) {
                 assertThat(isFileSorted((String) filePath, "comment")).isFalse();
             }
-            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM nation");
+            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM customer");
         }
     }
 
@@ -1645,7 +1652,8 @@ public abstract class BaseIcebergConnectorTest
                 format("   format = '%s',\n", format) +
                 "   format_version = 2,\n" +
                 format("   location = '%s',\n", tempDirPath) +
-                "   max_commit_retry = 4\n" +
+                "   max_commit_retry = 4,\n" +
+                format("   write_change_mode = '%s'\n",writeChangeMode.toString()) +
                 ")";
         String createTableWithoutComment = "" +
                 "CREATE TABLE iceberg.tpch.test_table_comments (\n" +
@@ -1655,7 +1663,8 @@ public abstract class BaseIcebergConnectorTest
                 "   format = '" + format + "',\n" +
                 "   format_version = 2,\n" +
                 "   location = '" + tempDirPath + "',\n" +
-                "   max_commit_retry = 4\n" +
+                "   max_commit_retry = 4,\n" +
+                format("   write_change_mode = '%s'\n",writeChangeMode.toString()) +
                 ")";
         String createTableSql = format(createTableTemplate, "test table comment", format);
         assertUpdate(createTableSql);
@@ -1945,7 +1954,7 @@ public abstract class BaseIcebergConnectorTest
         // LIKE source INCLUDING PROPERTIES copies all the properties of the source table, including the `location`.
         // For this reason the source and the copied table will share the same directory.
         // This test does not drop intentionally the created tables to avoid affecting the source table or the information_schema.
-        assertUpdate(format("CREATE TABLE test_create_table_like_original (col1 INTEGER, aDate DATE) WITH(format = '%s', location = '%s', partitioning = ARRAY['aDate'])", format, tempDirPath));
+        assertUpdate(format("CREATE TABLE test_create_table_like_original (col1 INTEGER, aDate DATE) WITH(format = '%s', location = '%s', partitioning = ARRAY['aDate'], write_change_mode= '%s')", format, tempDirPath, writeChangeMode));
         assertThat(getTablePropertiesString("test_create_table_like_original")).isEqualTo(format(
                 """
                         WITH (
@@ -1953,10 +1962,12 @@ public abstract class BaseIcebergConnectorTest
                            format_version = 2,
                            location = '%s',
                            max_commit_retry = 4,
-                           partitioning = ARRAY['adate']
+                           partitioning = ARRAY['adate'],
+                           write_change_mode = '%s'
                         )""",
                 format,
-                tempDirPath));
+                tempDirPath,
+                writeChangeMode));
 
         assertUpdate("CREATE TABLE test_create_table_like_copy0 (LIKE test_create_table_like_original, col2 INTEGER)");
         assertUpdate("INSERT INTO test_create_table_like_copy0 (col1, aDate, col2) VALUES (1, CAST('1950-06-28' AS DATE), 3)", 1);
@@ -1969,10 +1980,12 @@ public abstract class BaseIcebergConnectorTest
                            format = '%s',
                            format_version = 2,
                            location = '%s',
-                           max_commit_retry = 4
+                           max_commit_retry = 4,
+                           write_change_mode = '%s'
                         )""",
                 format,
-                getTableLocation("test_create_table_like_copy1")));
+                getTableLocation("test_create_table_like_copy1"),
+                writeChangeMode));
 
         assertUpdate("CREATE TABLE test_create_table_like_copy2 (LIKE test_create_table_like_original EXCLUDING PROPERTIES)");
         assertThat(getTablePropertiesString("test_create_table_like_copy2")).isEqualTo(format(
@@ -1981,10 +1994,12 @@ public abstract class BaseIcebergConnectorTest
                            format = '%s',
                            format_version = 2,
                            location = '%s',
-                           max_commit_retry = 4
+                           max_commit_retry = 4,
+                           write_change_mode = '%s'
                         )""",
                 format,
-                getTableLocation("test_create_table_like_copy2")));
+                getTableLocation("test_create_table_like_copy2"),
+                writeChangeMode));
         assertUpdate("DROP TABLE test_create_table_like_copy2");
 
         assertQueryFails("CREATE TABLE test_create_table_like_copy3 (LIKE test_create_table_like_original INCLUDING PROPERTIES)",
@@ -5747,7 +5762,7 @@ public abstract class BaseIcebergConnectorTest
                 .collect(toImmutableList());
     }
 
-    private List<IcebergEntry> getIcebergEntries(String tableName)
+    protected List<IcebergEntry> getIcebergEntries(String tableName)
     {
         return computeActual(format("SELECT status, data_file.file_path, sequence_number, file_sequence_number FROM \"%s$entries\"", tableName))
                 .getMaterializedRows()
@@ -5756,7 +5771,7 @@ public abstract class BaseIcebergConnectorTest
                 .collect(toImmutableList());
     }
 
-    private record IcebergEntry(int status, String filePath, Long sequenceNumber, Long fileSequenceNumber) {}
+    protected record IcebergEntry(int status, String filePath, Long sequenceNumber, Long fileSequenceNumber) {}
 
     protected String getTableLocation(String tableName)
     {
@@ -7693,6 +7708,15 @@ public abstract class BaseIcebergConnectorTest
                 "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (partitioning = ARRAY['customer'])");
     }
 
+    @Test
+    public void testMergeWithDifferentPartitioningFailed()
+    {
+        testMergeWithDifferentPartitioning(
+                "target_flat_source_partitioned_by_customer",
+                "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)",
+                "CREATE TABLE %s (purchases INT, address VARCHAR, customer VARCHAR) WITH (partitioning = ARRAY['customer'])");
+    }
+
     private void testMergeWithDifferentPartitioning(String testDescription, String createTargetTableSql, String createSourceTableSql)
     {
         String targetTable = format("%s_target_%s", testDescription, randomNameSuffix());
@@ -9182,7 +9206,7 @@ public abstract class BaseIcebergConnectorTest
                 .build();
     }
 
-    private Session prepareCleanUpSession()
+    protected Session prepareCleanUpSession()
     {
         return Session.builder(getSession())
                 .setCatalogSessionProperty("iceberg", "expire_snapshots_min_retention", "0s")

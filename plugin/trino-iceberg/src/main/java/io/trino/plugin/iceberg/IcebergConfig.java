@@ -98,6 +98,7 @@ public class IcebergConfig
     private int metadataParallelism = 8;
     private boolean bucketExecutionEnabled = true;
     private boolean fileBasedConflictDetectionEnabled = true;
+    private WriteChangeMode writeChangeMode = WriteChangeMode.MOR;
 
     public CatalogType getCatalogType()
     {
@@ -607,6 +608,19 @@ public class IcebergConfig
     public IcebergConfig setFileBasedConflictDetectionEnabled(boolean fileBasedConflictDetectionEnabled)
     {
         this.fileBasedConflictDetectionEnabled = fileBasedConflictDetectionEnabled;
+        return this;
+    }
+
+    public WriteChangeMode getWriteChangeMode()
+    {
+        return writeChangeMode;
+    }
+
+    @Config("iceberg.write-change-mode")
+    @ConfigDescription("Set mode used for table change commands(insert, delete, update): copy-on-write or merge-on-read")
+    public IcebergConfig setWriteChangeMode(WriteChangeMode writeChangeMode)
+    {
+        this.writeChangeMode = writeChangeMode;
         return this;
     }
 }
