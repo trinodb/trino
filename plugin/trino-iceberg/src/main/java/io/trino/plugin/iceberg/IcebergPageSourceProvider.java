@@ -156,6 +156,7 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetSmallFi
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isOrcBloomFiltersEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isOrcNestedLazy;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isParquetIgnoreStatistics;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.isParquetUseColumnIndex;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isParquetVectorizedDecodingEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isUseFileSizeFromMetadata;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.useParquetBloomFilter;
@@ -532,8 +533,7 @@ public class IcebergPageSourceProvider
                             .withSmallFileThreshold(getParquetSmallFileThreshold(session))
                             .withIgnoreStatistics(isParquetIgnoreStatistics(session))
                             .withBloomFilter(useParquetBloomFilter(session))
-                            // TODO https://github.com/trinodb/trino/issues/11000
-                            .withUseColumnIndex(false)
+                            .withUseColumnIndex(isParquetUseColumnIndex(session))
                             .withVectorizedDecodingEnabled(isParquetVectorizedDecodingEnabled(session)),
                     predicate,
                     fileFormatDataSourceStats,
@@ -897,7 +897,8 @@ public class IcebergPageSourceProvider
 
             MessageType requestedSchema = getMessageType(regularColumns, fileSchema.getName(), parquetIdToField);
             Map<List<String>, ColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, requestedSchema);
-            TupleDomain<ColumnDescriptor> parquetTupleDomain = options.isIgnoreStatistics() ? TupleDomain.all() : getParquetTupleDomain(descriptorsByPath, effectivePredicate);
+            TupleDomain<ColumnDescriptor> effectiveParquetTupleDomain = getParquetTupleDomain(descriptorsByPath, effectivePredicate);
+            TupleDomain<ColumnDescriptor> parquetTupleDomain = options.isIgnoreStatistics() ? TupleDomain.all() : effectiveParquetTupleDomain;
             TupleDomainParquetPredicate parquetPredicate = buildPredicate(requestedSchema, parquetTupleDomain, descriptorsByPath, UTC);
 
             List<RowGroupInfo> rowGroups = getFilteredRowGroups(
@@ -982,7 +983,7 @@ public class IcebergPageSourceProvider
                     memoryContext,
                     options,
                     exception -> handleException(dataSourceId, exception),
-                    Optional.empty(),
+                    Optional.of(buildPredicate(requestedSchema, effectiveParquetTupleDomain, descriptorsByPath, UTC)),
                     Optional.empty());
             return new ReaderPageSourceWithRowPositions(
                     new ReaderPageSource(
