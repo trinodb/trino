@@ -13,10 +13,12 @@
  */
 package io.trino.plugin.hive.metastore.polaris;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
 import com.google.inject.Inject;
@@ -26,13 +28,12 @@ import io.airlift.http.client.Request;
 import io.airlift.http.client.Response;
 import io.airlift.http.client.ResponseHandler;
 import io.airlift.http.client.StaticBodyGenerator;
-import io.airlift.json.JsonCodec;
-import io.airlift.log.Logger;
-import io.trino.hive.thrift.metastore.Table;
-import io.trino.metastore.TableAlreadyExistsException;
-import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
+import org.apache.iceberg.HasTableOperations;
+import org.apache.iceberg.PartitionSpec;
+import org.apache.iceberg.Schema;
+import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.SessionCatalog;
 import org.apache.iceberg.catalog.TableIdentifier;
@@ -40,25 +41,18 @@ import org.apache.iceberg.exceptions.NoSuchTableException;
 import org.apache.iceberg.exceptions.RESTException;
 import org.apache.iceberg.rest.RESTSessionCatalog;
 import org.apache.iceberg.rest.auth.OAuth2Properties;
-import org.apache.iceberg.HasTableOperations;
-import org.apache.iceberg.TableOperations;
-import org.apache.iceberg.Schema;
-import org.apache.iceberg.PartitionSpec;
 
+import java.io.IOException;
 import java.net.URI;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.io.IOException;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.Request.Builder.prepareGet;
-import static io.airlift.http.client.Request.Builder.prepareHead;
-import static io.airlift.http.client.Request.Builder.preparePost;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
@@ -189,30 +183,9 @@ public class PolarisRestClient
                 if (response.getStatusCode() != 200) {
                     throw new PolarisException("Failed to list generic tables: " + response.getStatusCode());
                 }
-
                 try {
-                    JsonNode root = objectMapper.readTree(response.getInputStream());
-                    JsonNode identifiers = root.get("identifiers");
-                    
-                    if (identifiers == null || !identifiers.isArray()) {
-                        return ImmutableList.of();
-                    }
-
-                    ImmutableList.Builder<PolarisTableIdentifier> tables = ImmutableList.builder();
-                    for (JsonNode identifier : identifiers) {
-                        JsonNode namespaceNode = identifier.get("namespace");
-                        JsonNode nameNode = identifier.get("name");
-                        
-                        if (namespaceNode != null && nameNode != null && namespaceNode.isArray()) {
-                            List<String> namespaceParts = new ArrayList<>();
-                            for (JsonNode part : namespaceNode) {
-                                namespaceParts.add(part.asText());
-                            }
-                            String namespace = String.join(".", namespaceParts);
-                            tables.add(new PolarisTableIdentifier(namespace, nameNode.asText()));
-                        }
-                    }
-                    return tables.build();
+                    ListGenericTablesResponse listResponse = objectMapper.readValue(response.getInputStream(), ListGenericTablesResponse.class);
+                    return listResponse.toPolarisTableIdentifiers();
                 }
                 catch (IOException e) {
                     throw new PolarisException("Failed to parse generic tables response", e);
@@ -250,19 +223,12 @@ public class PolarisRestClient
                 if (response.getStatusCode() != 200) {
                     throw new PolarisException("Failed to load generic table: " + response.getStatusCode());
                 }
-
                 try {
-                    JsonNode root = objectMapper.readTree(response.getInputStream());
-                    JsonNode tableNode = root.get("table");
-                    
-                    if (tableNode == null) {
-                        throw new PolarisException("Missing 'table' field in response");
-                    }
-                    
-                    return parseGenericTable(tableNode);
+                    LoadGenericTableResponse loadResponse = objectMapper.readValue(response.getInputStream(), LoadGenericTableResponse.class);
+                    return loadResponse.getTable();
                 }
                 catch (IOException e) {
-                    throw new PolarisException("Failed to parse generic table response", e);
+                    throw new PolarisException("Failed to parse load generic table response", e);
                 }
             }
         });
@@ -282,26 +248,6 @@ public class PolarisRestClient
     public void dropGenericTable(String databaseName, String tableName)
     {
         // TODO: Implement REST API call
-    }
-
-    /**
-     * Parses a Generic table from JSON response
-     */
-    private PolarisGenericTable parseGenericTable(JsonNode tableNode)
-    {
-        String name = getRequiredString(tableNode, "name");
-        String format = getRequiredString(tableNode, "format");
-        String baseLocation = getOptionalString(tableNode, "base-location");
-        String doc = getOptionalString(tableNode, "doc");
-        
-        Map<String, String> properties = new HashMap<>();
-        JsonNode propertiesNode = tableNode.get("properties");
-        if (propertiesNode != null && propertiesNode.isObject()) {
-            propertiesNode.fields().forEachRemaining(entry -> 
-                properties.put(entry.getKey(), entry.getValue().asText()));
-        }
-        
-        return new PolarisGenericTable(name, format, baseLocation, doc, properties);
     }
 
     // HELPER METHODS
@@ -329,7 +275,7 @@ public class PolarisRestClient
         TableOperations ops = ((HasTableOperations) table).operations();
         String location = ops.current().location();
         Map<String, String> properties = ops.current().properties();
-        
+
         // Convert Iceberg schema to map representation
         Schema icebergSchema = ops.current().schema();
         Map<String, Object> schemaMap = ImmutableMap.of(
@@ -342,11 +288,11 @@ public class PolarisRestClient
                                 "required", field.isRequired(),
                                 "type", field.type().toString()))
                         .collect(toImmutableList()));
-        
+
         return new PolarisTableMetadata(
-                location,
-                schemaMap,
-                properties);
+                    location,
+                    schemaMap,
+                    properties);
     }
 
     // AUTHENTICATION & HTTP UTILITIES
@@ -423,86 +369,61 @@ public class PolarisRestClient
      */
     private String encodeNamespace(String namespace)
     {
-        return namespace.replace(".", "%1F");
+        // TODO: Add proper URL encoding
+        return namespace;
     }
 
-    // TODO: CONVERSION METHODS
-
-    private org.apache.iceberg.Schema extractSchemaFromRequest(Map<String, Object> tableRequest)
+    private static class ListGenericTablesResponse
     {
-        // Extract schema from table creation request
-        Object schemaObj = tableRequest.get("schema");
-        if (schemaObj == null) {
-            throw new PolarisException("Schema not found in table request");
+        private final List<TableIdentifierDto> identifiers;
+
+        @JsonCreator
+        public ListGenericTablesResponse(@JsonProperty("identifiers") List<TableIdentifierDto> identifiers)
+        {
+            this.identifiers = identifiers != null ? ImmutableList.copyOf(identifiers) : ImmutableList.of();
         }
 
-        try {
-            // For now, return a dummy schema - actual implementation would parse the schema
-            // from the JSON representation in the table request
-            return new Schema();
-        }
-        catch (Exception e) {
-            throw new PolarisException("Failed to parse schema from table request", e);
-        }
-    }
-
-    private org.apache.iceberg.PartitionSpec extractPartitionSpecFromRequest(Map<String, Object> tableRequest)
-    {
-        // Extract partition spec from table creation request
-        Object partitionSpecObj = tableRequest.get("partition-spec");
-        if (partitionSpecObj == null) {
-            // No partitioning specified
-            return PartitionSpec.unpartitioned();
-        }
-
-        try {
-            // For now, return unpartitioned - actual implementation would parse the spec
-            return PartitionSpec.unpartitioned();
-        }
-        catch (Exception e) {
-            throw new PolarisException("Failed to parse partition spec from table request", e);
+        public List<PolarisTableIdentifier> toPolarisTableIdentifiers()
+        {
+            return identifiers.stream()
+                    .map(TableIdentifierDto::toPolarisTableIdentifier)
+                    .collect(toImmutableList());
         }
     }
 
-    private Map<String, String> extractPropertiesFromRequest(Map<String, Object> tableRequest)
+    private static class TableIdentifierDto
     {
-        // Extract properties from table creation request
-        Object propertiesObj = tableRequest.get("properties");
-        if (propertiesObj == null) {
-            return ImmutableMap.of();
+        private final List<String> namespace;
+        private final String name;
+
+        @JsonCreator
+        public TableIdentifierDto(
+                @JsonProperty("namespace") List<String> namespace,
+                @JsonProperty("name") String name)
+        {
+            this.namespace = requireNonNull(namespace, "namespace is null");
+            this.name = requireNonNull(name, "name is null");
         }
 
-        if (propertiesObj instanceof Map) {
-            ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
-            ((Map<?, ?>) propertiesObj).forEach((key, value) -> {
-                if (key != null && value != null) {
-                    properties.put(key.toString(), value.toString());
-                }
-            });
-            return properties.build();
+        public PolarisTableIdentifier toPolarisTableIdentifier()
+        {
+            return new PolarisTableIdentifier(String.join(".", namespace), name);
         }
-
-        throw new PolarisException("Properties must be a map");
     }
 
-    private String getRequiredString(JsonNode node, String fieldName)
+    private static class LoadGenericTableResponse
     {
-        JsonNode fieldNode = node.get(fieldName);
-        if (fieldNode == null || !fieldNode.isTextual()) {
-            throw new PolarisException("Missing or invalid " + fieldName + " field");
-        }
-        return fieldNode.asText();
-    }
+        private final PolarisGenericTable table;
 
-    private String getOptionalString(JsonNode node, String fieldName)
-    {
-        JsonNode fieldNode = node.get(fieldName);
-        if (fieldNode == null || fieldNode.isNull()) {
-            return null;
+        @JsonCreator
+        public LoadGenericTableResponse(@JsonProperty("table") PolarisGenericTable table)
+        {
+            this.table = requireNonNull(table, "table is null");
         }
-        if (!fieldNode.isTextual()) {
-            throw new PolarisException("Invalid " + fieldName + " field format");
+
+        public PolarisGenericTable getTable()
+        {
+            return table;
         }
-        return fieldNode.asText();
     }
 }

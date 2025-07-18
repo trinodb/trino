@@ -44,11 +44,10 @@ import io.trino.spi.statistics.ColumnStatisticType;
 import io.trino.spi.type.Type;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Transaction;
-import org.apache.iceberg.catalog.Namespace;
+import org.apache.iceberg.catalog.SessionCatalog;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.exceptions.NoSuchTableException;
 import org.apache.iceberg.rest.RESTSessionCatalog;
-import org.apache.iceberg.catalog.SessionCatalog;
 import org.apache.iceberg.types.Types;
 
 import java.util.Collection;
@@ -59,8 +58,6 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
@@ -752,7 +749,7 @@ public class PolarisHiveMetastore
 
         // Set storage information
         genericTable.getBaseLocation().ifPresent(location ->
-            tableBuilder.withStorage(storage -> storage
+                tableBuilder.withStorage(storage -> storage
                     .setLocation(location)
                     .setStorageFormat(storageFormat)
                     .setSerdeParameters(ImmutableMap.of("path", location))));
