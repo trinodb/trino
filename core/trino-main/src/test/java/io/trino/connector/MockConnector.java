@@ -13,8 +13,6 @@
  */
 package io.trino.connector;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
@@ -592,7 +590,7 @@ public class MockConnector
         public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
         {
             MockConnectorColumnHandle mockColumnHandle = (MockConnectorColumnHandle) columnHandle;
-            return new ColumnMetadata(mockColumnHandle.getName(), mockColumnHandle.getType());
+            return new ColumnMetadata(mockColumnHandle.name(), mockColumnHandle.type());
         }
 
         @Override
@@ -1070,14 +1068,14 @@ public class MockConnector
                     .collect(toImmutableList());
             List<Type> types = columns.stream()
                     .map(MockConnectorColumnHandle.class::cast)
-                    .map(MockConnectorColumnHandle::getType)
+                    .map(MockConnectorColumnHandle::type)
                     .collect(toImmutableList());
             Map<String, Integer> columnIndexes = getColumnIndexes(tableName);
             List<List<?>> records = data.apply(tableName).stream()
                     .map(record -> {
                         ImmutableList.Builder<Object> projectedRow = ImmutableList.builder();
                         for (MockConnectorColumnHandle column : projection) {
-                            String columnName = column.getName();
+                            String columnName = column.name();
                             if (columnName.equals(DELETE_ROW_ID) || columnName.equals(UPDATE_ROW_ID) || columnName.equals(MERGE_ROW_ID)) {
                                 projectedRow.add(0);
                                 continue;
@@ -1115,29 +1113,6 @@ public class MockConnector
         }
     }
 
-    public static class MockConnectorTableExecuteHandle
-            implements ConnectorTableExecuteHandle
-    {
-        private final int someFieldForSerializer;
-        private final SchemaTableName schemaTableName;
-
-        @JsonCreator
-        public MockConnectorTableExecuteHandle(int someFieldForSerializer, SchemaTableName schemaTableName)
-        {
-            this.someFieldForSerializer = someFieldForSerializer;
-            this.schemaTableName = schemaTableName;
-        }
-
-        @JsonProperty
-        public int getSomeFieldForSerializer()
-        {
-            return someFieldForSerializer;
-        }
-
-        @JsonProperty
-        public SchemaTableName getSchemaTableName()
-        {
-            return schemaTableName;
-        }
-    }
+    public record MockConnectorTableExecuteHandle(int someFieldForSerializer, SchemaTableName schemaTableName)
+            implements ConnectorTableExecuteHandle {}
 }

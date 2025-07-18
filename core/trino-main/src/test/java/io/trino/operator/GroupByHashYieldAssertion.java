@@ -43,7 +43,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static java.lang.Math.max;
-import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -236,32 +235,11 @@ public final class GroupByHashYieldAssertion
         return (long) capacity * sizePerEntry;
     }
 
-    public static final class GroupByHashYieldResult
+    public record GroupByHashYieldResult(int yieldCount, long maxReservedBytes, List<Page> output)
     {
-        private final int yieldCount;
-        private final long maxReservedBytes;
-        private final List<Page> output;
-
-        public GroupByHashYieldResult(int yieldCount, long maxReservedBytes, List<Page> output)
+        public GroupByHashYieldResult
         {
-            this.yieldCount = yieldCount;
-            this.maxReservedBytes = maxReservedBytes;
-            this.output = requireNonNull(output, "output is null");
-        }
-
-        public int getYieldCount()
-        {
-            return yieldCount;
-        }
-
-        public long getMaxReservedBytes()
-        {
-            return maxReservedBytes;
-        }
-
-        public List<Page> getOutput()
-        {
-            return output;
+            output = ImmutableList.copyOf(output);
         }
     }
 }

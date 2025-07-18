@@ -105,7 +105,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
 
     private static final List<ColumnMetadata> ALL_COLUMNS = Stream.of(COLUMN_1_HANDLE, COLUMN_2_HANDLE, COLUMN_3_HANDLE, COLUMN_4_HANDLE, GROUPING_KEY_COLUMN_HANDLE, GROUPING_KEY2_COLUMN_HANDLE)
             .map(columnHandle -> (MockConnectorColumnHandle) columnHandle)
-            .map(column -> new ColumnMetadata(column.getName(), column.getType()))
+            .map(column -> new ColumnMetadata(column.name(), column.type()))
             .collect(toImmutableList());
 
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
