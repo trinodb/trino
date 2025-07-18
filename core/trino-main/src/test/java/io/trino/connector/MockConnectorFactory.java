@@ -125,6 +125,7 @@ public class MockConnectorFactory
     private final BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> getTableProperties;
     private final BiFunction<ConnectorSession, SchemaTablePrefix, List<GrantInfo>> listTablePrivileges;
     private final Collection<FunctionMetadata> functions;
+    private final Collection<String> branches;
     private final Function<SchemaTableName, List<List<?>>> data;
     private final Function<SchemaTableName, Metrics> metrics;
     private final Set<Procedure> procedures;
@@ -182,6 +183,7 @@ public class MockConnectorFactory
             BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> getTableProperties,
             BiFunction<ConnectorSession, SchemaTablePrefix, List<GrantInfo>> listTablePrivileges,
             Collection<FunctionMetadata> functions,
+            Collection<String> branches,
             Function<SchemaTableName, List<List<?>>> data,
             Function<SchemaTableName, Metrics> metrics,
             Set<Procedure> procedures,
@@ -235,6 +237,7 @@ public class MockConnectorFactory
         this.getTableProperties = requireNonNull(getTableProperties, "getTableProperties is null");
         this.listTablePrivileges = requireNonNull(listTablePrivileges, "listTablePrivileges is null");
         this.functions = ImmutableList.copyOf(functions);
+        this.branches = ImmutableList.copyOf(branches);
         this.analyzeProperties = requireNonNull(analyzeProperties, "analyzeProperties is null");
         this.schemaProperties = requireNonNull(schemaProperties, "schemaProperties is null");
         this.tableProperties = requireNonNull(tableProperties, "tableProperties is null");
@@ -298,6 +301,7 @@ public class MockConnectorFactory
                 getTableProperties,
                 listTablePrivileges,
                 functions,
+                branches,
                 roleGrants,
                 partitioningProvider,
                 accessControl,
@@ -442,6 +446,7 @@ public class MockConnectorFactory
         private BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> getTableProperties = defaultGetTableProperties();
         private BiFunction<ConnectorSession, SchemaTablePrefix, List<GrantInfo>> listTablePrivileges = defaultListTablePrivileges();
         private Collection<FunctionMetadata> functions = ImmutableList.of();
+        private Collection<String> branches = ImmutableList.of();
         private ApplyTopN applyTopN = (session, handle, topNCount, sortItems, assignments) -> Optional.empty();
         private ApplyFilter applyFilter = (session, handle, constraint) -> Optional.empty();
         private ApplyTableFunction applyTableFunction = (session, handle) -> Optional.empty();
@@ -685,6 +690,12 @@ public class MockConnectorFactory
             return this;
         }
 
+        public Builder withBranches(Collection<String> branches)
+        {
+            this.branches = ImmutableList.copyOf(branches);
+            return this;
+        }
+
         public Builder withData(Function<SchemaTableName, List<List<?>>> data)
         {
             this.data = requireNonNull(data, "data is null");
@@ -861,6 +872,7 @@ public class MockConnectorFactory
                     getTableProperties,
                     listTablePrivileges,
                     functions,
+                    branches,
                     data,
                     metrics,
                     procedures,
