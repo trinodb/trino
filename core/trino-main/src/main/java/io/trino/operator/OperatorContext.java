@@ -698,6 +698,18 @@ public class OperatorContext
         }
 
         @Override
+        public ListenableFuture<Void> addBytes(long delta)
+        {
+            if (delta == 0) {
+                return NOT_BLOCKED;
+            }
+            ListenableFuture<Void> blocked = delegate.addBytes(delta);
+            updateMemoryFuture(blocked, memoryFuture);
+            allocationListener.run();
+            return blocked;
+        }
+
+        @Override
         public boolean trySetBytes(long bytes)
         {
             if (delegate.trySetBytes(bytes)) {

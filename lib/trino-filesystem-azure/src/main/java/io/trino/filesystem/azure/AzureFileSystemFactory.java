@@ -31,13 +31,18 @@ import jakarta.annotation.PreDestroy;
 import reactor.netty.resources.ConnectionProvider;
 
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class AzureFileSystemFactory
         implements TrinoFileSystemFactory
 {
+    private final ExecutorService uploadExecutor = newCachedThreadPool(daemonThreadsNamed("azure-upload-%s"));
+
     private final AzureAuth auth;
     private final String endpoint;
     private final DataSize readBlockSize;
@@ -48,6 +53,7 @@ public class AzureFileSystemFactory
     private final HttpClient httpClient;
     private final ConnectionProvider connectionProvider;
     private final EventLoopGroup eventLoopGroup;
+    private final boolean multipart;
 
     @Inject
     public AzureFileSystemFactory(OpenTelemetry openTelemetry, AzureAuth azureAuth, AzureFileSystemConfig config)
@@ -60,7 +66,8 @@ public class AzureFileSystemFactory
                 config.getMaxWriteConcurrency(),
                 config.getMaxSingleUploadSize(),
                 config.getMaxHttpRequests(),
-                config.getApplicationId());
+                config.getApplicationId(),
+                config.isMultipartWriteEnabled());
     }
 
     public AzureFileSystemFactory(
@@ -72,7 +79,8 @@ public class AzureFileSystemFactory
             int maxWriteConcurrency,
             DataSize maxSingleUploadSize,
             int maxHttpRequests,
-            String applicationId)
+            String applicationId,
+            boolean multipart)
     {
         this.auth = requireNonNull(azureAuth, "azureAuth is null");
         this.endpoint = requireNonNull(endpoint, "endpoint is null");
@@ -88,11 +96,14 @@ public class AzureFileSystemFactory
         clientOptions.setTracingOptions(tracingOptions);
         clientOptions.setApplicationId(applicationId);
         httpClient = createAzureHttpClient(connectionProvider, eventLoopGroup, clientOptions);
+        this.multipart = multipart;
     }
 
     @PreDestroy
     public void destroy()
     {
+        uploadExecutor.shutdown();
+
         if (connectionProvider != null) {
             connectionProvider.dispose();
         }
@@ -113,7 +124,7 @@ public class AzureFileSystemFactory
     @Override
     public TrinoFileSystem create(ConnectorIdentity identity)
     {
-        return new AzureFileSystem(httpClient, tracingOptions, auth, endpoint, readBlockSize, writeBlockSize, maxWriteConcurrency, maxSingleUploadSize);
+        return new AzureFileSystem(httpClient, uploadExecutor, tracingOptions, auth, endpoint, readBlockSize, writeBlockSize, maxWriteConcurrency, maxSingleUploadSize, multipart);
     }
 
     public static HttpClient createAzureHttpClient(ConnectionProvider connectionProvider, EventLoopGroup eventLoopGroup, HttpClientOptions clientOptions)

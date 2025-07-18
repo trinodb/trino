@@ -31,6 +31,17 @@ public interface LocalMemoryContext
     ListenableFuture<Void> setBytes(long bytes);
 
     /**
+     * When this method returns, the bytes tracked by this LocalMemoryContext has been updated by the provided delta.
+     * The returned future will tell the caller whether it should block before reserving more memory
+     * (which happens when the memory pools are low on memory).
+     * <p>
+     * Note: Canceling the returned future will complete it immediately even though the memory pools are low
+     * on memory, and callers blocked on this future will proceed to allocating more memory from the exhausted
+     * pools, which will violate the protocol of Trino MemoryPool implementation.
+     */
+    ListenableFuture<Void> addBytes(long delta);
+
+    /**
      * This method can return false when there is not enough memory available to satisfy a positive delta allocation
      * ({@code bytes} is greater than the bytes tracked by this LocalMemoryContext).
      *
