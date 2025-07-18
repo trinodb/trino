@@ -292,7 +292,8 @@ public class MockManagedQueryExecution
                 Optional.empty(),
                 RetryPolicy.NONE,
                 false,
-                new NodeVersion("test"));
+                new NodeVersion("test"),
+                ImmutableList.of());
     }
 
     @Override
