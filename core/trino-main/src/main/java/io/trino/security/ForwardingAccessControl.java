@@ -291,6 +291,12 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
+    public void checkCanRefreshView(SecurityContext context, QualifiedObjectName viewName)
+    {
+        delegate().checkCanRefreshView(context, viewName);
+    }
+
+    @Override
     public void checkCanDropView(SecurityContext context, QualifiedObjectName viewName)
     {
         delegate().checkCanDropView(context, viewName);

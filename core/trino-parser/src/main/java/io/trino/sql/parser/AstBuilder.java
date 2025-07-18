@@ -223,6 +223,7 @@ import io.trino.sql.tree.QueryPeriod;
 import io.trino.sql.tree.QuerySpecification;
 import io.trino.sql.tree.RangeQuantifier;
 import io.trino.sql.tree.RefreshMaterializedView;
+import io.trino.sql.tree.RefreshView;
 import io.trino.sql.tree.Relation;
 import io.trino.sql.tree.RenameColumn;
 import io.trino.sql.tree.RenameMaterializedView;
@@ -636,6 +637,14 @@ class AstBuilder
         return new RefreshMaterializedView(
                 getLocation(context),
                 new Table(getQualifiedName(context.qualifiedName())));
+    }
+
+    @Override
+    public Node visitRefreshView(SqlBaseParser.RefreshViewContext context)
+    {
+        return new RefreshView(
+                getLocation(context),
+                getQualifiedName(context.qualifiedName()));
     }
 
     @Override
