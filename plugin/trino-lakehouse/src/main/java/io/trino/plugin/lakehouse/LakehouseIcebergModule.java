@@ -39,6 +39,7 @@ import io.trino.plugin.iceberg.catalog.file.IcebergFileMetastoreCatalogModule;
 import io.trino.plugin.iceberg.catalog.glue.IcebergGlueCatalogModule;
 import io.trino.plugin.iceberg.catalog.hms.IcebergHiveMetastoreCatalogModule;
 import io.trino.plugin.iceberg.catalog.rest.DefaultIcebergFileSystemFactory;
+import io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogModule;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -74,6 +75,7 @@ public class LakehouseIcebergModule
             case THRIFT -> new IcebergHiveMetastoreCatalogModule();
             case FILE -> new IcebergFileMetastoreCatalogModule();
             case GLUE -> new IcebergGlueCatalogModule();
+            case POLARIS -> new IcebergRestCatalogModule();
         });
 
         binder.install(new IcebergExecutorModule());

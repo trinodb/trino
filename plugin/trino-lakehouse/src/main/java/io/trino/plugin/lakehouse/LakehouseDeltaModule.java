@@ -104,6 +104,7 @@ public class LakehouseDeltaModule
             case THRIFT -> new DeltaLakeThriftMetastoreModule();
             case FILE -> new DeltaLakeFileMetastoreModule();
             case GLUE -> new DeltaLakeGlueMetastoreModule();
+            case POLARIS -> new DeltaLakeFileMetastoreModule(); // Polaris uses standard HiveMetastore interface
         });
 
         binder.install(new DeltaLakeExecutorModule());
