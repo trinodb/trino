@@ -22,6 +22,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static java.lang.Math.addExact;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -64,6 +65,20 @@ public final class SimpleLocalMemoryContext
         // update the parent first as it may throw a runtime exception (e.g., ExceededMemoryLimitException)
         ListenableFuture<Void> future = parentMemoryContext.updateBytes(allocationTag, bytes - usedBytes);
         usedBytes = bytes;
+        return future;
+    }
+
+    @Override
+    public synchronized ListenableFuture<Void> addBytes(long delta)
+    {
+        checkState(!closed, "SimpleLocalMemoryContext is already closed");
+        if (delta == 0) {
+            return NOT_BLOCKED;
+        }
+
+        // update the parent first as it may throw a runtime exception (e.g., ExceededMemoryLimitException)
+        ListenableFuture<Void> future = parentMemoryContext.updateBytes(allocationTag, delta);
+        usedBytes = addExact(usedBytes, delta);
         return future;
     }
 

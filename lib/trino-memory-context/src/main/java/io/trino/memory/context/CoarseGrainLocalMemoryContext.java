@@ -70,6 +70,21 @@ public class CoarseGrainLocalMemoryContext
     }
 
     @Override
+    public synchronized ListenableFuture<Void> addBytes(long delta)
+    {
+        if (delta == 0) {
+            return Futures.immediateVoidFuture();
+        }
+
+        long roundedUpBytes = roundUpToNearest(currentBytes + delta);
+        if (roundedUpBytes != currentBytes) {
+            currentBytes = roundedUpBytes;
+            return delegate.setBytes(currentBytes);
+        }
+        return Futures.immediateVoidFuture();
+    }
+
+    @Override
     public synchronized boolean trySetBytes(long bytes)
     {
         long roundedUpBytes = roundUpToNearest(bytes);
