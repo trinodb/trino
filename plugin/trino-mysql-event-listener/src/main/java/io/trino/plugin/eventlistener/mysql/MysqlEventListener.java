@@ -90,6 +90,9 @@ public class MysqlEventListener
         QueryEntity entity = new QueryEntity(
                 metadata.getQueryId(),
                 metadata.getTransactionId(),
+                event.getCreateTime().toEpochMilli(),
+                event.getExecutionStartTime().toEpochMilli(),
+                event.getEndTime().toEpochMilli(),
                 metadata.getQuery(),
                 metadata.getUpdateType(),
                 metadata.getPreparedQuery(),
