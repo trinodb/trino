@@ -11,6 +11,7 @@ permissions:
 jobs:
   triage:
     runs-on: ubuntu-latest
+    if: false
     steps:
       - uses: actions/labeler@v5
         with:
