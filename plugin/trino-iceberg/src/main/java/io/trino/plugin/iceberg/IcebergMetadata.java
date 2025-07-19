@@ -455,6 +455,7 @@ public class IcebergMetadata
     private final ExecutorService icebergScanExecutor;
     private final Executor metadataFetchingExecutor;
     private final ExecutorService icebergPlanningExecutor;
+    private final ExecutorService fileDeleteExecutor;
     private final Map<IcebergTableHandle, AtomicReference<TableStatistics>> tableStatisticsCache = new ConcurrentHashMap<>();
 
     private Transaction transaction;
@@ -472,7 +473,8 @@ public class IcebergMetadata
             Predicate<String> allowedExtraProperties,
             ExecutorService icebergScanExecutor,
             Executor metadataFetchingExecutor,
-            ExecutorService icebergPlanningExecutor)
+            ExecutorService icebergPlanningExecutor,
+            ExecutorService fileDeleteExecutor)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.trinoCatalogHandle = requireNonNull(trinoCatalogHandle, "trinoCatalogHandle is null");
@@ -486,6 +488,7 @@ public class IcebergMetadata
         this.icebergScanExecutor = requireNonNull(icebergScanExecutor, "icebergScanExecutor is null");
         this.metadataFetchingExecutor = requireNonNull(metadataFetchingExecutor, "metadataFetchingExecutor is null");
         this.icebergPlanningExecutor = requireNonNull(icebergPlanningExecutor, "icebergPlanningExecutor is null");
+        this.fileDeleteExecutor = requireNonNull(fileDeleteExecutor, "fileDeleteExecutor is null");
     }
 
     @Override
@@ -2177,34 +2180,12 @@ public class IcebergMetadata
                 IcebergConfig.EXPIRE_SNAPSHOTS_MIN_RETENTION,
                 IcebergSessionProperties.EXPIRE_SNAPSHOTS_MIN_RETENTION);
 
-        long expireTimestampMillis = session.getStart().toEpochMilli() - retention.toMillis();
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), table.io().properties());
-        List<Location> pathsToDelete = new ArrayList<>();
-        // deleteFunction is not accessed from multiple threads unless .executeDeleteWith() is used
-        Consumer<String> deleteFunction = path -> {
-            pathsToDelete.add(Location.of(path));
-            if (pathsToDelete.size() == DELETE_BATCH_SIZE) {
-                try {
-                    fileSystem.deleteFiles(pathsToDelete);
-                    pathsToDelete.clear();
-                }
-                catch (IOException e) {
-                    throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed to delete files during snapshot expiration", e);
-                }
-            }
-        };
-
-        try {
-            table.expireSnapshots()
-                    .expireOlderThan(expireTimestampMillis)
-                    .deleteWith(deleteFunction)
-                    .commit();
-
-            fileSystem.deleteFiles(pathsToDelete);
-        }
-        catch (IOException e) {
-            throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed to delete files during snapshot expiration", e);
-        }
+        // ForwardingFileIo handles bulk operations so no separate function implementation is needed
+        table.expireSnapshots()
+                .expireOlderThan(session.getStart().toEpochMilli() - retention.toMillis())
+                .executeDeleteWith(fileDeleteExecutor)
+                .planWith(icebergScanExecutor)
+                .commit();
     }
 
     private static void validateTableExecuteParameters(

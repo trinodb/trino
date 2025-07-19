@@ -83,4 +83,17 @@ public class IcebergExecutorModule
                 config.getPlanningThreads(),
                 daemonThreadsNamed("iceberg-planning-" + catalogName + "-%s"));
     }
+
+    @Provides
+    @Singleton
+    @ForIcebergFileDelete
+    public ExecutorService createFileDeleteExecutor(CatalogName catalogName, IcebergConfig config)
+    {
+        if (config.getFileDeleteThreads() == 0) {
+            return newDirectExecutorService();
+        }
+        return newFixedThreadPool(
+                config.getFileDeleteThreads(),
+                daemonThreadsNamed("iceberg-file-delete-" + catalogName + "-%s"));
+    }
 }
