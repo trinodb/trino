@@ -27,8 +27,11 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static io.trino.plugin.teradata.util.TeradataConstants.TERADATA_OBJECT_NAME_LIMIT;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Integration test class for Teradata JDBC Connector.
@@ -93,7 +96,7 @@ public class TeradataJdbcConnectorTest
     @AfterAll
     public void cleanupTestDatabase()
     {
-        database.dropTestDatabaseIfExists();
+        //database.dropTestDatabaseIfExists();
     }
 
     @Override
@@ -125,7 +128,7 @@ public class TeradataJdbcConnectorTest
 
     protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
-        throw new AssertionError(format("Table name must be shorter than or equal to '%s' characters but got '%s'", TERADATA_OBJECT_NAME_LIMIT, TERADATA_OBJECT_NAME_LIMIT + 1));
+        assertThat(e).hasMessage(format("Table name must be shorter than or equal to '%s' characters but got '%s'", TERADATA_OBJECT_NAME_LIMIT, TERADATA_OBJECT_NAME_LIMIT + 1));
     }
 
     @Test
