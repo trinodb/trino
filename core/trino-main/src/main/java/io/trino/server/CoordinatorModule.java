@@ -108,6 +108,7 @@ import io.trino.metadata.Split;
 import io.trino.operator.ForScheduler;
 import io.trino.operator.OperatorStats;
 import io.trino.server.protocol.ExecutingStatementResource;
+import io.trino.server.protocol.ExecutingStatementResourceConfig;
 import io.trino.server.protocol.QueryInfoUrlFactory;
 import io.trino.server.remotetask.RemoteTaskStats;
 import io.trino.server.ui.WebUiModule;
@@ -175,6 +176,7 @@ public class CoordinatorModule
         newExporter(binder).export(StatementHttpExecutionMBean.class).withGeneratedName();
         binder.bind(QueryInfoUrlFactory.class).in(Scopes.SINGLETON);
 
+        configBinder(binder).bindConfig(ExecutingStatementResourceConfig.class);
         // allow large prepared statements in headers
         configBinder(binder).bindConfigDefaults(HttpServerConfig.class, config -> {
             config.setMaxRequestHeaderSize(DataSize.of(2, MEGABYTE));

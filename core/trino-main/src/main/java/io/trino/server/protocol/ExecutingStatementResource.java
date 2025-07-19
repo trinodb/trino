@@ -13,11 +13,13 @@
  */
 package io.trino.server.protocol;
 
+import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Inject;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.log.Logger;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.client.ProtocolHeaders;
@@ -38,6 +40,7 @@ import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.container.AsyncResponse;
 import jakarta.ws.rs.container.Suspended;
 import jakarta.ws.rs.core.MediaType;
@@ -56,6 +59,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.jaxrs.AsyncResponseHandler.bindAsyncResponse;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
+import static io.trino.server.protocol.ExecutingStatementResourceConfig.MAX_TARGET_RESULT_SIZE;
 import static io.trino.server.protocol.Slug.Context.EXECUTING_QUERY;
 import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -70,6 +74,7 @@ public class ExecutingStatementResource
 {
     private static final Logger log = Logger.get(ExecutingStatementResource.class);
     private static final Duration MAX_WAIT_TIME = new Duration(1, SECONDS);
+    private final DataSize defaultTargetResultSize;
     private final QueryManager queryManager;
     private final QueryDataProducerFactory queryDataProducerFactory;
     private final DirectExchangeClientSupplier directExchangeClientSupplier;
@@ -95,7 +100,8 @@ public class ExecutingStatementResource
             @ForStatementResource BoundedExecutor responseExecutor,
             @ForStatementResource ScheduledExecutorService timeoutExecutor,
             PreparedStatementEncoder preparedStatementEncoder,
-            ServerConfig serverConfig)
+            ServerConfig serverConfig,
+            ExecutingStatementResourceConfig executingStatementResourceConfig)
     {
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
         this.queryDataProducerFactory = requireNonNull(queryDataProducerFactory, "queryDataProducerFactory is null");
@@ -107,6 +113,7 @@ public class ExecutingStatementResource
         this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
         this.preparedStatementEncoder = requireNonNull(preparedStatementEncoder, "preparedStatementEncoder is null");
         this.compressionEnabled = serverConfig.isQueryResultsCompressionEnabled();
+        this.defaultTargetResultSize = executingStatementResourceConfig.getTargetResultSize();
 
         queryPurger.scheduleWithFixedDelay(
                 () -> {
@@ -152,11 +159,15 @@ public class ExecutingStatementResource
             @PathParam("queryId") QueryId queryId,
             @PathParam("slug") String slug,
             @PathParam("token") long token,
+            @QueryParam("targetResultSize") DataSize targetResultSize,
             @BeanParam ExternalUriInfo externalUriInfo,
             @Suspended AsyncResponse asyncResponse)
     {
         Query query = getQuery(queryId, slug, token);
-        asyncQueryResults(query, token, externalUriInfo, asyncResponse);
+        DataSize targetResultSizeToUse = Optional.ofNullable(targetResultSize)
+                .map(size -> Ordering.natural().min(size, DataSize.valueOf(MAX_TARGET_RESULT_SIZE)))
+                .orElse(defaultTargetResultSize);
+        asyncQueryResults(query, token, targetResultSizeToUse, externalUriInfo, asyncResponse);
     }
 
     protected Query getQuery(QueryId queryId, String slug, long token)
@@ -200,10 +211,11 @@ public class ExecutingStatementResource
     private void asyncQueryResults(
             Query query,
             long token,
+            DataSize targetResultSize,
             ExternalUriInfo externalUriInfo,
             AsyncResponse asyncResponse)
     {
-        ListenableFuture<QueryResultsResponse> queryResultsFuture = query.waitForResults(token, externalUriInfo, MAX_WAIT_TIME);
+        ListenableFuture<QueryResultsResponse> queryResultsFuture = query.waitForResults(token, externalUriInfo, MAX_WAIT_TIME, targetResultSize);
 
         ListenableFuture<Response> response = Futures.transform(queryResultsFuture, results ->
                 toResponse(results, query.getQueryInfo().getSession().getQueryDataEncoding()), directExecutor());
