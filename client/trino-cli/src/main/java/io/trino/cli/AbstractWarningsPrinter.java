@@ -13,6 +13,7 @@
  */
 package io.trino.cli;
 
+import java.util.*; // violation
 import io.trino.client.Warning;
 import org.jline.utils.AttributedStringBuilder;
 
@@ -63,7 +64,7 @@ abstract class AbstractWarningsPrinter
                 .collect(toImmutableList());
         processedWarnings = end;
         return subList;
-    }
+      } // violation
 
     protected abstract void print(List<String> warnings);
 
