@@ -13,17 +13,15 @@
  */
 package io.trino.tests.product.deltalake;
 
-import com.amazonaws.ClientConfiguration;
-import com.amazonaws.Protocol;
-import com.amazonaws.auth.AWSCredentials;
-import com.amazonaws.auth.AWSCredentialsProvider;
-import com.amazonaws.auth.AWSStaticCredentialsProvider;
-import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.client.builder.AwsClientBuilder;
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3Client;
-import com.amazonaws.services.s3.model.Region;
 import io.trino.testing.minio.MinioClient;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.AwsCredentials;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.S3Client;
+
+import java.net.URI;
 
 import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static io.trino.testing.minio.MinioClient.DEFAULT_MINIO_ACCESS_KEY;
@@ -34,7 +32,9 @@ final class S3ClientFactory
     public static final String AWS_S3_SERVER_TYPE = "aws";
     public static final String MINIO_S3_SERVER_TYPE = "minio";
 
-    public AmazonS3 createS3Client(String serverType)
+    private S3ClientFactory() {}
+
+    public static S3Client createS3Client(String serverType)
     {
         return switch (serverType) {
             case AWS_S3_SERVER_TYPE -> createAwsS3Client();
@@ -43,25 +43,22 @@ final class S3ClientFactory
         };
     }
 
-    private AmazonS3 createAwsS3Client()
+    private static S3Client createAwsS3Client()
     {
         String region = requireEnv("AWS_REGION");
-        return AmazonS3Client.builder().withRegion(region).build();
+        return S3Client.builder().region(Region.of(region)).build();
     }
 
-    private AmazonS3 createMinioS3Client()
+    private static S3Client createMinioS3Client()
     {
-        AWSCredentials credentials = new BasicAWSCredentials(DEFAULT_MINIO_ACCESS_KEY, DEFAULT_MINIO_SECRET_KEY);
-        AWSCredentialsProvider credentialsProvider = new AWSStaticCredentialsProvider(credentials);
-        ClientConfiguration clientConfiguration = new ClientConfiguration()
-                .withProtocol(Protocol.HTTP)
-                .withSignerOverride("AWSS3V4SignerType");
+        AwsCredentials credentials = AwsBasicCredentials.create(DEFAULT_MINIO_ACCESS_KEY, DEFAULT_MINIO_SECRET_KEY);
+        AwsCredentialsProvider credentialsProvider = StaticCredentialsProvider.create(credentials);
 
-        return AmazonS3Client.builder()
-                .withEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration(MinioClient.DEFAULT_MINIO_ENDPOINT, Region.US_East_2.name()))
-                .withPathStyleAccessEnabled(true)
-                .withClientConfiguration(clientConfiguration)
-                .withCredentials(credentialsProvider)
+        return S3Client.builder()
+                .endpointOverride(URI.create(MinioClient.DEFAULT_MINIO_ENDPOINT))
+                .region(Region.US_EAST_2)
+                .forcePathStyle(true)
+                .credentialsProvider(credentialsProvider)
                 .build();
     }
 }
