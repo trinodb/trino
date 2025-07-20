@@ -1,3 +1,46 @@
+
+@font-face {
+    font-family: 'Roboto';
+    src: url('./fonts/Roboto-VariableFont_wdth,wght.woff2') format('woff2');
+    font-weight: 100 900;
+    font-stretch: 75% 100%;
+    font-style: normal;
+    font-display: swap;
+  }
+  
+  @font-face {
+    font-family: 'Open Sans';
+    src: url('./fonts/OpenSans-VariableFont_wdth,wght.woff2') format('woff2');
+    font-weight: 300 800;
+    font-stretch: 75% 100%;
+    font-style: normal italic;
+    font-display: swap;
+  }
+  
+  @font-face {
+      font-family: 'Open Sans';
+      src: url('./fonts/OpenSans-Italic-VariableFont_wdth,wght.woff2') format('woff2');
+      font-weight: 300 800;
+      font-stretch: 75% 100%;
+      font-style: italic;
+      font-display: swap;
+    }
+  
+  @font-face {
+    font-family: 'Alata';
+    font-style: normal;
+    font-weight: 400;
+    src: url('./fonts/Alata-Regular.woff2') format('woff2');
+    font-display: swap;
+  }
+
+body {
+  font-family: 'Roboto', 'Open Sans', Arial, Helvetica, sans-serif;
+}
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Alata', 'Roboto', 'Open Sans', Arial, Helvetica, sans-serif;
+}
+
 :root {
     --trino-black: #212121;
     --trino-dark-blue: #000033;
