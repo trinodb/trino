@@ -13,17 +13,18 @@
  */
 package io.trino.tests.product.deltalake;
 
-import com.amazonaws.services.s3.AmazonS3;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
 import io.trino.tempto.BeforeMethodWithContext;
 import org.testng.annotations.Test;
+import software.amazon.awssdk.services.s3.S3Client;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.product.deltalake.S3ClientFactory.createS3Client;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.removeS3Directory;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
@@ -38,12 +39,12 @@ public class TestDeltaLakeActiveFilesCache
     @Named("s3.server_type")
     private String s3ServerType;
 
-    private AmazonS3 s3;
+    private S3Client s3;
 
     @BeforeMethodWithContext
     public void setup()
     {
-        s3 = new S3ClientFactory().createS3Client(s3ServerType);
+        s3 = createS3Client(s3ServerType);
     }
 
     @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})

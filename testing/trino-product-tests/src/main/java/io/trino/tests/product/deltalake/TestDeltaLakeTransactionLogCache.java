@@ -13,23 +13,25 @@
  */
 package io.trino.tests.product.deltalake;
 
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.model.DeleteObjectsRequest;
-import com.amazonaws.services.s3.model.DeleteObjectsResult;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
 import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.assertions.QueryAssert;
 import org.testng.annotations.Test;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.DeleteObjectsResponse;
+import software.amazon.awssdk.services.s3.model.DeletedObject;
+import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
 
 import java.util.List;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.product.deltalake.S3ClientFactory.createS3Client;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -42,12 +44,12 @@ public class TestDeltaLakeTransactionLogCache
     @Named("s3.server_type")
     private String s3ServerType;
 
-    private AmazonS3 s3;
+    private S3Client s3;
 
     @BeforeMethodWithContext
     public void setup()
     {
-        s3 = new S3ClientFactory().createS3Client(s3ServerType);
+        s3 = createS3Client(s3ServerType);
     }
 
     @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
@@ -92,13 +94,13 @@ public class TestDeltaLakeTransactionLogCache
                 tableDirectory + "/_delta_log/00000000000000000004.json",
                 tableDirectory + "/_delta_log/00000000000000000005.json"
         };
-        DeleteObjectsResult deleteObjectsResult = s3.deleteObjects(
-                new DeleteObjectsRequest(bucketName)
-                        .withKeys(transactionLogFilesToRemove));
-        assertThat(
-                        deleteObjectsResult.getDeletedObjects().stream()
-                                .map(DeleteObjectsResult.DeletedObject::getKey)
-                                .collect(Collectors.toList()))
+        List<ObjectIdentifier> keys = Stream.of(transactionLogFilesToRemove)
+                .map(key -> ObjectIdentifier.builder().key(key).build())
+                .toList();
+        DeleteObjectsResponse response = s3.deleteObjects(request -> request.bucket(bucketName)
+                .delete(delete -> delete.objects(keys))
+                .build());
+        assertThat(response.deleted().stream().map(DeletedObject::key).toList())
                 .containsExactlyInAnyOrder(transactionLogFilesToRemove);
 
         assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))

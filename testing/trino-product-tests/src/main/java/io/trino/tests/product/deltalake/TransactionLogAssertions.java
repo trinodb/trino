@@ -13,8 +13,9 @@
  */
 package io.trino.tests.product.deltalake;
 
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.model.ListObjectsV2Result;
+import com.google.common.base.Splitter;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.S3Object;
 
 import java.util.List;
 import java.util.Optional;
@@ -28,7 +29,7 @@ public final class TransactionLogAssertions
 {
     private TransactionLogAssertions() {}
 
-    public static void assertLastEntryIsCheckpointed(AmazonS3 s3Client, String bucketName, String tableName)
+    public static void assertLastEntryIsCheckpointed(S3Client s3Client, String bucketName, String tableName)
     {
         Optional<String> lastJsonEntry = listJsonLogEntries(s3Client, bucketName, tableName).stream().max(String::compareTo);
         assertThat(lastJsonEntry).isPresent();
@@ -38,32 +39,30 @@ public final class TransactionLogAssertions
         assertThat(lastJsonEntry.get().replace(".json", "")).isEqualTo(lastCheckpointEntry.get().replace(".checkpoint.parquet", ""));
     }
 
-    public static void assertTransactionLogVersion(AmazonS3 s3Client, String bucketName, String tableName, int versionNumber)
+    public static void assertTransactionLogVersion(S3Client s3Client, String bucketName, String tableName, int versionNumber)
     {
         Optional<String> lastJsonEntry = listJsonLogEntries(s3Client, bucketName, tableName).stream().max(String::compareTo);
         assertThat(lastJsonEntry).isPresent();
         assertThat(lastJsonEntry.get()).isEqualTo(format("%020d.json", versionNumber));
     }
 
-    private static List<String> listJsonLogEntries(AmazonS3 s3Client, String bucketName, String tableName)
+    private static List<String> listJsonLogEntries(S3Client s3Client, String bucketName, String tableName)
     {
         return listLogEntries(s3Client, bucketName, tableName, file -> file.endsWith(".json"));
     }
 
-    private static List<String> listCheckpointEntries(AmazonS3 s3Client, String bucketName, String tableName)
+    private static List<String> listCheckpointEntries(S3Client s3Client, String bucketName, String tableName)
     {
         return listLogEntries(s3Client, bucketName, tableName, file -> file.endsWith(".checkpoint.parquet"));
     }
 
-    private static List<String> listLogEntries(AmazonS3 s3Client, String bucketName, String tableName, Predicate<String> fileFilter)
+    private static List<String> listLogEntries(S3Client s3Client, String bucketName, String tableName, Predicate<String> fileFilter)
     {
         String prefix = "databricks-compatibility-test-" + tableName + "/_delta_log/";
-        ListObjectsV2Result listResult = s3Client.listObjectsV2(bucketName, prefix);
-        return listResult.getObjectSummaries().stream()
-                .map(s3Object -> {
-                    String[] path = s3Object.getKey().split("/");
-                    return path[path.length - 1];
-                })
+        return s3Client.listObjectsV2Paginator(request -> request.bucket(bucketName).prefix(prefix)).contents().stream()
+                .map(S3Object::key)
+                .map(key -> Splitter.on('/').splitToList(key))
+                .map(List::getLast)
                 .filter(fileFilter)
                 .collect(toImmutableList());
     }
