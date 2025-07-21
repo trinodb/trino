@@ -24,6 +24,7 @@ import io.trino.plugin.opa.AccessControlMethodHelpers.ThrowingMethodWrapper;
 import io.trino.plugin.opa.HttpClientUtils.InstrumentedHttpClient;
 import io.trino.plugin.opa.HttpClientUtils.MockResponse;
 import io.trino.plugin.opa.schema.OpaViewExpression;
+import io.trino.spi.QueryId;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaRoutineName;
 import io.trino.spi.connector.CatalogSchemaTableName;
@@ -37,6 +38,7 @@ import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.VarcharType;
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -958,6 +960,51 @@ final class TestOpaAccessControl
                 methodUnderTest,
                 OpaQueryException.class,
                 "Failed to deserialize");
+    }
+
+
+    @Test
+    public void testQueryIdPropagation()
+    {
+        QueryId queryId = new QueryId("20250718_081710_03427_trino");
+
+        SystemSecurityContext customSecurityContext = new SystemSecurityContext(TEST_IDENTITY, queryId, Instant.now());
+        CatalogSchemaTableName tableName = new CatalogSchemaTableName("my_catalog", "my_schema", "my_table");
+
+        ThrowingMethodWrapper wrappedMethod = new ThrowingMethodWrapper(accessControl ->
+                accessControl.checkCanShowCreateTable(customSecurityContext, tableName));
+
+        String expectedActionRequest =
+                """
+                {
+                    "operation": "ShowCreateTable",
+                    "resource": {
+                        "table": {
+                            "catalogName": "%s",
+                            "schemaName": "%s",
+                            "tableName": "%s"
+                        }
+                    }
+                }
+                """.formatted(
+                        tableName.getCatalogName(),
+                        tableName.getSchemaTableName().getSchemaName(),
+                        tableName.getSchemaTableName().getTableName());
+
+        InstrumentedHttpClient mockClient = createMockHttpClient(OPA_SERVER_URI, request -> {
+            JsonNode contextNode = request.path("input").path("context");
+
+            assertThat(contextNode.path("queryId").asText()).isEqualTo(queryId.id());
+            assertThat(contextNode.path("identity").path("user").asText()).isEqualTo(TEST_IDENTITY.getUser());
+            assertThat(contextNode.path("softwareStack").path("trinoVersion").asText()).isEqualTo("trino-version");
+
+            return OK_RESPONSE;
+        });
+
+        OpaAccessControl authorizer = createOpaAuthorizer(simpleOpaConfig(), mockClient);
+
+        assertThat(wrappedMethod.isAccessAllowed(authorizer)).isTrue();
+        assertStringRequestsEqual(ImmutableSet.of(expectedActionRequest), mockClient.getRequests(), "/input/action");
     }
 
     private void testGetColumnMasks(Map<ColumnSchema, String> columnResponseContent, Map<ColumnSchema, OpaViewExpression> expectedResult)
