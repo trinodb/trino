@@ -3,6 +3,10 @@ package io.trino.plugin.teradata;
 import com.google.common.base.Verify;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.spi.connector.SortOrder;
+import io.trino.sql.planner.assertions.PlanMatchPattern;
+import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.sql.planner.plan.FilterNode;
+import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
@@ -15,6 +19,7 @@ import java.util.List;
 import java.util.OptionalInt;
 
 import static io.trino.plugin.teradata.util.TeradataConstants.TERADATA_OBJECT_NAME_LIMIT;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUSHDOWN;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -202,6 +207,18 @@ public class TeradataJdbcConnectorTest
     public void testDropNotNullConstraint()
     {
         Assumptions.abort("Skipping as connector does not support dropping a not null constraint");
+    }
+
+    @Test
+    public void testAggregationPushdown()
+    {
+
+        if (!hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN)) {
+            assertThat(query("SELECT count(nationkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
+            return;
+        }
+
+        this.assertConditionallyPushedDown(this.getSession(), "SELECT regionkey, sum(nationkey) FROM nation  GROUP BY regionkey", this.hasBehavior(TestingConnectorBehavior.SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN_WITH_LIKE), PlanMatchPattern.node(FilterNode.class, PlanMatchPattern.node(TableScanNode.class)));
     }
 }
 

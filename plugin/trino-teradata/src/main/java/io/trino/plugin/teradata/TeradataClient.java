@@ -254,6 +254,7 @@ public class TeradataClient
     private final boolean statisticsEnabled;
     private ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
     private AggregateFunctionRewriter<JdbcExpression, ?> aggregateFunctionRewriter;
+
     /**
      * Constructs a new TeradataClient instance.
      *
@@ -922,6 +923,7 @@ public class TeradataClient
                         // AVG
                         .add(new ImplementAvgFloatingPoint())
                         .add(new ImplementAvgDecimal())
+                        .add(new ImplementAvgBigint())
 
                         // Statistical aggregates (numeric types only)
                         .add(new ImplementStddevSamp())
