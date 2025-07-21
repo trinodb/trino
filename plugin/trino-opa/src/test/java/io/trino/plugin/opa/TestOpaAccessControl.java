@@ -24,6 +24,7 @@ import io.trino.plugin.opa.AccessControlMethodHelpers.ThrowingMethodWrapper;
 import io.trino.plugin.opa.HttpClientUtils.InstrumentedHttpClient;
 import io.trino.plugin.opa.HttpClientUtils.MockResponse;
 import io.trino.plugin.opa.schema.OpaViewExpression;
+import io.trino.spi.QueryId;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaRoutineName;
 import io.trino.spi.connector.CatalogSchemaTableName;
@@ -37,6 +38,7 @@ import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.VarcharType;
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -1015,5 +1017,59 @@ public class TestOpaAccessControl
         assertThat(permissiveMockClient.getRequests()).containsExactlyInAnyOrderElementsOf(restrictiveMockClient.getRequests());
         assertStringRequestsEqual(expectedRequests, permissiveMockClient.getRequests(), "/input/action");
         assertAccessControlMethodThrowsForIllegalResponses(method::isAccessAllowed, simpleOpaConfig(), OPA_SERVER_URI);
+    }
+
+    @Test
+    public void testQueryIdInSystemSecurityContextRequests()
+    {
+
+        String customQueryId = "20250718_081710_03427_trino";
+
+        SystemSecurityContext customSecurityContext = new SystemSecurityContext(
+                TEST_IDENTITY,
+                new QueryId("20250718_081710_03427_trino"),
+                Instant.now()
+        );
+
+        FunctionalHelpers.Consumer3<OpaAccessControl, SystemSecurityContext, CatalogSchemaTableName> callable =
+                OpaAccessControl::checkCanShowCreateTable;
+        CatalogSchemaTableName tableName = new CatalogSchemaTableName("my_catalog", "my_schema", "my_table");
+
+        ThrowingMethodWrapper wrappedMethod = new ThrowingMethodWrapper(
+                accessControl -> callable.accept(accessControl, customSecurityContext, tableName));
+
+        String expectedActionRequest =
+                """
+                {
+                    "operation": "ShowCreateTable",
+                    "resource": {
+                        "table": {
+                            "catalogName": "%s",
+                            "schemaName": "%s",
+                            "tableName": "%s"
+                        }
+                    }
+                }
+                """.formatted(
+                        tableName.getCatalogName(),
+                        tableName.getSchemaTableName().getSchemaName(),
+                        tableName.getSchemaTableName().getTableName());
+
+        InstrumentedHttpClient mockClient = createMockHttpClient(
+                OPA_SERVER_URI,
+                (request) -> {
+                    JsonNode contextNode = request.path("input").path("context");
+
+                    assertThat(contextNode.path("queryId").asText()).isEqualTo(customQueryId);
+                    assertThat(contextNode.path("identity").path("user").asText()).isEqualTo(TEST_IDENTITY.getUser());
+                    assertThat(contextNode.path("softwareStack").path("trinoVersion").asText()).isEqualTo("trino-version");
+
+                    return OK_RESPONSE;
+                });
+
+        OpaAccessControl authorizer = createOpaAuthorizer(simpleOpaConfig(), mockClient);
+
+        assertThat(wrappedMethod.isAccessAllowed(authorizer)).isTrue();
+        assertStringRequestsEqual(ImmutableSet.of(expectedActionRequest), mockClient.getRequests(), "/input/action");
     }
 }

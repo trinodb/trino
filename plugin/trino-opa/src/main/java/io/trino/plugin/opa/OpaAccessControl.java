@@ -802,11 +802,11 @@ public sealed class OpaAccessControl
 
     OpaQueryContext buildQueryContext(Identity trinoIdentity)
     {
-        return new OpaQueryContext(TrinoIdentity.fromTrinoIdentity(trinoIdentity), pluginContext);
+        return new OpaQueryContext(TrinoIdentity.fromTrinoIdentity(trinoIdentity), pluginContext, null);
     }
 
     OpaQueryContext buildQueryContext(SystemSecurityContext securityContext)
     {
-        return new OpaQueryContext(TrinoIdentity.fromTrinoIdentity(securityContext.getIdentity()), pluginContext);
+        return new OpaQueryContext(TrinoIdentity.fromTrinoIdentity(securityContext.getIdentity()), pluginContext, securityContext.getQueryId().toString());
     }
 }
