@@ -59,9 +59,53 @@ public class KafkaEventListenerConfig
     private Optional<String> environmentVariablePrefix = Optional.empty();
     private List<File> resourceConfigFiles = ImmutableList.of();
 
+    // SCRAM/SASL/Kafka security configs
+    private Optional<String> saslMechanism = Optional.empty();
+    private Optional<String> securityProtocol = Optional.empty();
+    private Optional<String> saslJaasConfig = Optional.empty();
+
     public boolean isAnonymizationEnabled()
     {
         return anonymizationEnabled;
+    }
+
+    public Optional<String> getSaslMechanism()
+    {
+        return saslMechanism;
+    }
+
+    @Config("kafka-event-listener.sasl-mechanism")
+    @ConfigDescription("SASL mechanism for Kafka authentication (e.g., SCRAM-SHA-256, SCRAM-SHA-512)")
+    public KafkaEventListenerConfig setSaslMechanism(String saslMechanism)
+    {
+        this.saslMechanism = Optional.ofNullable(saslMechanism);
+        return this;
+    }
+
+    public Optional<String> getSecurityProtocol()
+    {
+        return securityProtocol;
+    }
+
+    @Config("kafka-event-listener.security-protocol")
+    @ConfigDescription("Kafka security protocol (e.g., SASL_PLAINTEXT, SASL_SSL)")
+    public KafkaEventListenerConfig setSecurityProtocol(String securityProtocol)
+    {
+        this.securityProtocol = Optional.ofNullable(securityProtocol);
+        return this;
+    }
+
+    public Optional<String> getSaslJaasConfig()
+    {
+        return saslJaasConfig;
+    }
+
+    @Config("kafka-event-listener.sasl-jaas-config")
+    @ConfigDescription("JAAS config for SASL authentication (e.g., username/password for SCRAM)")
+    public KafkaEventListenerConfig setSaslJaasConfig(String saslJaasConfig)
+    {
+        this.saslJaasConfig = Optional.ofNullable(saslJaasConfig);
+        return this;
     }
 
     @Config("kafka-event-listener.anonymization.enabled")
