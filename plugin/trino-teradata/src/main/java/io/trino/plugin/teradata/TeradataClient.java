@@ -937,6 +937,13 @@ public class TeradataClient
         return this.connectorExpressionRewriter.rewrite(session, expression, assignments);
     }
 
+    @Override
+    public boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<AggregateFunction> aggregates, Map<String, ColumnHandle> assignments, List<List<ColumnHandle>> groupingSets)
+    {
+        // Remote database can be case insensitive.
+        return preventTextualTypeAggregationPushdown(groupingSets);
+    }
+
     /**
      * Returns a mapping of column names to their case sensitivity,
      * derived from the metadata of a query "SELECT * FROM schema.table WHERE 0=1".

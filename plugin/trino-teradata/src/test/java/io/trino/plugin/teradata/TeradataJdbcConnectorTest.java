@@ -10,15 +10,14 @@ import io.trino.plugin.jdbc.JoinPushdownStrategy;
 import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.SortOrder;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
-import io.trino.sql.planner.plan.AggregationNode;
-import io.trino.sql.planner.plan.FilterNode;
-import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.planner.plan.*;
 import io.trino.sql.query.QueryAssertions;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.assertj.core.api.Assertions;
+import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
@@ -70,7 +69,8 @@ public class TeradataJdbcConnectorTest
                  SUPPORTS_DROP_SCHEMA_CASCADE,
                  SUPPORTS_NATIVE_QUERY,
                  SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM,
-                 SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_INEQUALITY -> false;
+                 SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_INEQUALITY,
+                 SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY -> false;
             case SUPPORTS_CREATE_SCHEMA,
                  SUPPORTS_CREATE_TABLE,
                  SUPPORTS_TOPN_PUSHDOWN,
@@ -187,6 +187,7 @@ public class TeradataJdbcConnectorTest
                 String sql = "CREATE TABLE trino.test_null_sensitive_topn_pushdown(name varchar(10), a bigint)";
                 database.execute(sql);
             }
+            try {
             List<String> rowsToInsert = List.of("'small', 42", "'big', 134134", "'negative', -15", "'null', NULL");
             for (String row : rowsToInsert) {
                 database.execute(format("INSERT INTO %s VALUES (%s)", "trino.test_null_sensitive_topn_pushdown", row));
@@ -196,6 +197,82 @@ public class TeradataJdbcConnectorTest
             Assertions.assertThat(this.query("SELECT name FROM trino.test_null_sensitive_topn_pushdown ORDER BY a ASC NULLS LAST LIMIT 5")).ordered().isFullyPushedDown();
             Assertions.assertThat(this.query("SELECT name FROM trino.test_null_sensitive_topn_pushdown ORDER BY a DESC NULLS FIRST LIMIT 5")).ordered().isFullyPushedDown();
             Assertions.assertThat(this.query("SELECT name FROM trino.test_null_sensitive_topn_pushdown ORDER BY a DESC NULLS LAST LIMIT 5")).ordered().isFullyPushedDown();
+        }   finally {
+                String sql = "DROP TABLE trino.test_null_sensitive_topn_pushdown";
+                database.execute(sql);
+            }
+    }
+    }
+
+    @Test
+    public void testCaseSensitiveTopNPushdown() {
+        if (this.hasBehavior(TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN)) {
+            boolean expectTopNPushdown = this.hasBehavior(TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR);
+            PlanMatchPattern topNOverTableScan = PlanMatchPattern.project(PlanMatchPattern.node(TopNNode.class, new PlanMatchPattern[]{PlanMatchPattern.anyTree(new PlanMatchPattern[]{PlanMatchPattern.node(TableScanNode.class, new PlanMatchPattern[0])})}));
+
+            if (!database.isTableExists("test_case_sensitive_topn_pushdown")) {
+                String sql = "CREATE TABLE trino.test_case_sensitive_topn_pushdown(a_string varchar(10), a_char char(10), a_bigint bigint)";
+                database.execute(sql);
+            }
+            try {
+                List<String> rowsToInsert = List.of("'A', 'A', 1", "'B', 'B', 2", "'a', 'a', 3", "'b', 'b', 4");
+                for (String row : rowsToInsert) {
+                    database.execute(format("INSERT INTO %s VALUES (%s)", "trino.test_case_sensitive_topn_pushdown", row));
+                }
+                this.assertConditionallyOrderedPushedDown(this.getSession(), "SELECT a_bigint FROM trino.test_case_sensitive_topn_pushdown ORDER BY a_string ASC LIMIT 2", expectTopNPushdown, topNOverTableScan);
+                this.assertConditionallyOrderedPushedDown(this.getSession(), "SELECT a_bigint FROM trino.test_case_sensitive_topn_pushdown ORDER BY a_string DESC LIMIT 2", expectTopNPushdown, topNOverTableScan);
+                this.assertConditionallyOrderedPushedDown(this.getSession(), "SELECT a_bigint FROM trino.test_case_sensitive_topn_pushdown ORDER BY a_char ASC LIMIT 2", expectTopNPushdown, topNOverTableScan);
+                this.assertConditionallyOrderedPushedDown(this.getSession(), "SELECT a_bigint FROM trino.test_case_sensitive_topn_pushdown ORDER BY a_char DESC LIMIT 2", expectTopNPushdown, topNOverTableScan);
+                this.assertConditionallyOrderedPushedDown(this.getSession(), "SELECT a_bigint FROM trino.test_case_sensitive_topn_pushdown ORDER BY a_bigint, a_char LIMIT 2", expectTopNPushdown, topNOverTableScan);
+                this.assertConditionallyOrderedPushedDown(this.getSession(), "SELECT a_bigint FROM trino.test_case_sensitive_topn_pushdown ORDER BY a_bigint, a_string DESC LIMIT 2", expectTopNPushdown, topNOverTableScan);
+
+            } finally {
+                String sql = "DROP TABLE trino.test_case_sensitive_topn_pushdown";
+                database.execute(sql);
+            }
+
+        }
+    }
+
+    @Test
+    public void testCaseSensitiveAggregationPushdown() {
+        if (this.hasBehavior(TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUSHDOWN)) {
+            boolean supportsPushdownWithVarcharInequality = this.hasBehavior(TestingConnectorBehavior.SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY);
+            boolean supportsCountDistinctPushdown = this.hasBehavior(TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT);
+            boolean supportsSumDistinctPushdown = this.hasBehavior(TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUSHDOWN);
+            PlanMatchPattern aggregationOverTableScan = PlanMatchPattern.node(AggregationNode.class, new PlanMatchPattern[]{PlanMatchPattern.node(TableScanNode.class, new PlanMatchPattern[0])});
+            PlanMatchPattern groupingAggregationOverTableScan = PlanMatchPattern.node(AggregationNode.class, new PlanMatchPattern[]{PlanMatchPattern.node(TableScanNode.class, new PlanMatchPattern[0])});
+
+            if (!database.isTableExists("test_cs_agg_pushdown")) {
+                String sql = "CREATE TABLE trino.test_cs_agg_pushdown(a_string varchar(1), a_char char(1), a_bigint bigint)";
+                database.execute(sql);
+            }
+            try {
+                List<String> rowsToInsert = ImmutableList.of("'A', 'A', 1", "'B', 'B', 1", "'a', 'a', 3", "'b', 'b', 4");
+                for (String row : rowsToInsert) {
+                    database.execute(format("INSERT INTO %s VALUES (%s)", "trino.test_cs_agg_pushdown", row));
+                }
+
+                this.assertConditionallyPushedDown(this.getSession(), "SELECT max(a_string), min(a_string), max(a_char), min(a_char) FROM trino.test_cs_agg_pushdown ", supportsPushdownWithVarcharInequality, aggregationOverTableScan).skippingTypesCheck().matches("VALUES ('b', 'A', 'b', 'A')");
+                this.assertConditionallyPushedDown(this.getSession(), "SELECT distinct a_string FROM trino.test_cs_agg_pushdown  " , supportsPushdownWithVarcharInequality, groupingAggregationOverTableScan).skippingTypesCheck().matches("VALUES 'A', 'B', 'a', 'b'");
+                this.assertConditionallyPushedDown(this.getSession(), "SELECT distinct a_char FROM trino.test_cs_agg_pushdown  " , supportsPushdownWithVarcharInequality, groupingAggregationOverTableScan).skippingTypesCheck().matches("VALUES 'A', 'B', 'a', 'b'");
+                this.assertConditionallyPushedDown(this.getSession(), "SELECT a_string, count(*) FROM trino.test_cs_agg_pushdown  "  + " GROUP BY a_string", supportsPushdownWithVarcharInequality, groupingAggregationOverTableScan).skippingTypesCheck().matches("VALUES ('A', BIGINT '1'), ('a', BIGINT '1'), ('b', BIGINT '1'), ('B', BIGINT '1')");
+                this.assertConditionallyPushedDown(this.getSession(), "SELECT a_char, count(*) FROM trino.test_cs_agg_pushdown  "  + " GROUP BY a_char", supportsPushdownWithVarcharInequality, groupingAggregationOverTableScan).skippingTypesCheck().matches("VALUES ('A', BIGINT '1'), ('B', BIGINT '1'), ('a', BIGINT '1'), ('b', BIGINT '1')");
+                ((QueryAssertions.QueryAssert)Assertions.assertThat(this.query("SELECT count(a_string), count(a_char) FROM trino.test_cs_agg_pushdown  " ))).isFullyPushedDown();
+                ((QueryAssertions.QueryAssert)Assertions.assertThat(this.query("SELECT count(a_string), count(a_char) FROM trino.test_cs_agg_pushdown  "  + " GROUP BY a_bigint"))).isFullyPushedDown();
+                this.assertConditionallyPushedDown(this.getSession(), "SELECT count(DISTINCT a_string) FROM trino.test_cs_agg_pushdown  " , supportsPushdownWithVarcharInequality, groupingAggregationOverTableScan).skippingTypesCheck().matches("VALUES BIGINT '4'");
+                this.assertConditionallyPushedDown(this.getSession(), "SELECT count(DISTINCT a_char) FROM trino.test_cs_agg_pushdown  " , supportsPushdownWithVarcharInequality, groupingAggregationOverTableScan).skippingTypesCheck().matches("VALUES BIGINT '4'");
+                Session withMarkDistinct = Session.builder(this.getSession()).setSystemProperty("distinct_aggregations_strategy", "mark_distinct").build();
+                Session withSingleStep = Session.builder(this.getSession()).setSystemProperty("distinct_aggregations_strategy", "single_step").build();
+                Session withPreAggregate = Session.builder(this.getSession()).setSystemProperty("distinct_aggregations_strategy", "pre_aggregate").build();
+                this.verifyMultipleDistinctPushdown(withMarkDistinct, PlanMatchPattern.node(ExchangeNode.class, new PlanMatchPattern[]{PlanMatchPattern.node(AggregationNode.class, new PlanMatchPattern[]{PlanMatchPattern.anyTree(new PlanMatchPattern[]{PlanMatchPattern.node(TableScanNode.class, new PlanMatchPattern[0])})})}), supportsPushdownWithVarcharInequality, supportsCountDistinctPushdown, supportsSumDistinctPushdown, "trino.test_cs_agg_pushdown");
+                this.verifyMultipleDistinctPushdown(withSingleStep, PlanMatchPattern.node(AggregationNode.class, new PlanMatchPattern[]{PlanMatchPattern.anyTree(new PlanMatchPattern[]{PlanMatchPattern.node(TableScanNode.class, new PlanMatchPattern[0])})}), supportsPushdownWithVarcharInequality, supportsCountDistinctPushdown, supportsSumDistinctPushdown, "trino.test_cs_agg_pushdown");
+                this.verifyMultipleDistinctPushdown(withPreAggregate, PlanMatchPattern.node(AggregationNode.class, new PlanMatchPattern[]{PlanMatchPattern.project(PlanMatchPattern.node(AggregationNode.class, new PlanMatchPattern[]{PlanMatchPattern.anyTree(new PlanMatchPattern[]{PlanMatchPattern.node(GroupIdNode.class, new PlanMatchPattern[]{PlanMatchPattern.node(TableScanNode.class, new PlanMatchPattern[0])})})}))}), supportsPushdownWithVarcharInequality, supportsCountDistinctPushdown, supportsSumDistinctPushdown, "trino.test_cs_agg_pushdown");
+               } finally {
+                String sql = "DROP TABLE trino.test_cs_agg_pushdown";
+                database.execute(sql);
+            }
+
         }
     }
 
