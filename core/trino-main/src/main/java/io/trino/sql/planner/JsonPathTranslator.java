@@ -35,6 +35,7 @@ import io.trino.json.ir.IrIsUnknownPredicate;
 import io.trino.json.ir.IrJsonPath;
 import io.trino.json.ir.IrKeyValueMethod;
 import io.trino.json.ir.IrLastIndexVariable;
+import io.trino.json.ir.IrLikeRegexPredicate;
 import io.trino.json.ir.IrLiteral;
 import io.trino.json.ir.IrMemberAccessor;
 import io.trino.json.ir.IrNamedJsonVariable;
@@ -46,6 +47,7 @@ import io.trino.json.ir.IrPredicateCurrentItemVariable;
 import io.trino.json.ir.IrSizeMethod;
 import io.trino.json.ir.IrStartsWithPredicate;
 import io.trino.json.ir.IrTypeMethod;
+import io.trino.json.regex.XQuerySqlRegex;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.JsonPathAnalyzer.JsonPathAnalysis;
@@ -386,8 +388,9 @@ class JsonPathTranslator
         {
             checkArgument(BOOLEAN.equals(types.get(PathNodeRef.of(node))), "Wrong predicate type. Expected BOOLEAN");
 
-            // TODO
-            throw new IllegalStateException("like_regex predicate is not yet supported. The query should have failed in JsonPathAnalyzer.");
+            IrPathNode path = process(node.getPath());
+            XQuerySqlRegex regex = XQuerySqlRegex.compile(node.getPattern(), node.getFlag());
+            return new IrLikeRegexPredicate(path, regex);
         }
 
         @Override
