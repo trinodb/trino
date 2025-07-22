@@ -666,10 +666,6 @@ public class TeradataClient
             List<ParameterizedExpression> joinConditions,
             JoinStatistics statistics)
     {
-        if (joinType == JoinType.FULL_OUTER) {
-            // Teradata doesn't support FULL OUTER join pushdown well
-            return Optional.empty();
-        }
 
         return implementJoinCostAware(
                 session,
@@ -1221,11 +1217,7 @@ public class TeradataClient
             String schema = remote.getSchemaName().orElseThrow();
             String tableName = remote.getTableName();
 
-            String sql = String.format("""
-                    SELECT COUNT(*) * 100 AS estimated_count
-                    FROM %s.%s
-                    WHERE RANDOM(1, 10000) <= 100
-                    """, schema, tableName);
+            String sql = String.format("SELECT COUNT(*) * 100 AS estimated_count FROM %s.%s SAMPLE 1", schema, tableName);
 
             try (Statement stmt = connection.createStatement();
                     ResultSet rs = stmt.executeQuery(sql)) {
