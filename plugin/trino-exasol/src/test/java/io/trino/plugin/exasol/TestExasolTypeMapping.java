@@ -289,7 +289,7 @@ final class TestExasolTypeMapping
     }
 
     @Test
-    public void testTimestampWithTimeZone()
+    void testTimestampWithTimeZone()
     {
         //Only JVM Time Zone is currently used for testing timestamp with time zone
         //Adding test cases for other time zones would require improving the test to forcibly apply session changes for timestamp with timezone
@@ -297,7 +297,7 @@ final class TestExasolTypeMapping
     }
 
     @Test
-    public void testUnsupportedTimestampValues()
+    void testUnsupportedTimestampValues()
     {
         try (TestTable table = new TestTable(exasolServer::execute, "tpch.test_unsupported_timestamp", "(col TIMESTAMP)")) {
             // Too early
