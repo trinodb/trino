@@ -16,9 +16,11 @@ import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.query.QueryAssertions;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
+import io.trino.testing.TestingNames;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.assertj.core.api.Assertions;
+import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
@@ -77,7 +79,8 @@ public class TeradataJdbcConnectorTest
                  SUPPORTS_PREDICATE_PUSHDOWN,
                  SUPPORTS_AGGREGATION_PUSHDOWN,
                  SUPPORTS_JOIN_PUSHDOWN,
-                 SUPPORTS_LIMIT_PUSHDOWN -> true;
+                 SUPPORTS_LIMIT_PUSHDOWN,
+                 SUPPORTS_PREDICATE_ARITHMETIC_EXPRESSION_PUSHDOWN -> true;
 //                 SUPPORTS_DROP_SCHEMA_CASCADE -> true;
             default -> super.hasBehavior(connectorBehavior);
         };
@@ -257,7 +260,19 @@ public class TeradataJdbcConnectorTest
         }
     }
 
+    protected void assertCreateTableAsSelect(Session session, @Language("SQL") String query, @Language("SQL") String expectedQuery, @Language("SQL") String rowCountQuery) {
+        String table = "test_ctas_" + TestingNames.randomNameSuffix();
+        this.assertUpdate(session, "CREATE TABLE " + table + " AS ( " + query + ") WITH DATA", rowCountQuery);
+        this.assertQuery(session, "SELECT * FROM " + table, expectedQuery);
+        this.assertUpdate(session, "DROP TABLE " + table);
+        Assertions.assertThat(this.getQueryRunner().tableExists(session, table)).isFalse();
+    }
 
+
+    @Test
+    public void testCreateTableAsSelectWithUnicode() {
+        Assumptions.abort("Skipping as connector does not support creating table with UNICODE characters");
+    }
     @Test
     public void testUpdateNotNullColumn() {
         Assumptions.abort("Skipping as connector does not support insert operations");
