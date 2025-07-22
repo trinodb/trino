@@ -15,7 +15,7 @@ package io.trino.plugin.deltalake;
 
 import io.airlift.json.JsonCodec;
 import io.trino.filesystem.Location;
-import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.TypeOperators;
@@ -35,10 +35,11 @@ public class DeltaLakeCdfPageSink
             List<DeltaLakeColumnHandle> inputColumns,
             List<String> originalPartitionColumns,
             PageIndexerFactory pageIndexerFactory,
-            TrinoFileSystemFactory fileSystemFactory,
+            DeltaLakeFileSystemFactory fileSystemFactory,
             int maxOpenWriters,
             JsonCodec<DataFileInfo> dataFileInfoCodec,
             Location tableLocation,
+            VendedCredentialsHandle credentialsHandle,
             Location outputPath,
             ConnectorSession session,
             DeltaLakeWriterStats stats,
@@ -54,6 +55,7 @@ public class DeltaLakeCdfPageSink
                 maxOpenWriters,
                 dataFileInfoCodec,
                 tableLocation,
+                credentialsHandle,
                 outputPath,
                 session,
                 stats,

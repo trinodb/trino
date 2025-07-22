@@ -16,7 +16,6 @@ package io.trino.plugin.deltalake;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.deltalake.metastore.DeltaMetastoreTable;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.Transaction;
@@ -53,13 +52,13 @@ public abstract class BaseTransactionsTable
         implements SystemTable
 {
     private final DeltaMetastoreTable table;
-    private final TrinoFileSystemFactory fileSystemFactory;
+    private final DeltaLakeFileSystemFactory fileSystemFactory;
     private final TransactionLogAccess transactionLogAccess;
     private final ConnectorTableMetadata tableMetadata;
 
     public BaseTransactionsTable(
             DeltaMetastoreTable table,
-            TrinoFileSystemFactory fileSystemFactory,
+            DeltaLakeFileSystemFactory fileSystemFactory,
             TransactionLogAccess transactionLogAccess,
             TypeManager typeManager,
             ConnectorTableMetadata tableMetadata)
@@ -86,12 +85,13 @@ public abstract class BaseTransactionsTable
     @Override
     public ConnectorPageSource pageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session, table);
         long snapshotVersion;
         try {
             // Verify the transaction log is readable
             TableSnapshot tableSnapshot = transactionLogAccess.loadSnapshot(session, table, Optional.empty());
             snapshotVersion = tableSnapshot.getVersion();
-            transactionLogAccess.getMetadataEntry(session, tableSnapshot);
+            transactionLogAccess.getMetadataEntry(session, fileSystem, tableSnapshot);
         }
         catch (IOException e) {
             throw new TrinoException(DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA, "Unable to load table metadata from location: " + table.location(), e);
@@ -137,7 +137,6 @@ public abstract class BaseTransactionsTable
             endVersionInclusive = Optional.of(snapshotVersion);
         }
 
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         PageListBuilder pagesBuilder = PageListBuilder.forTable(tableMetadata);
         try {
             List<Transaction> transactions = loadNewTailBackward(fileSystem, table.location(), startVersionExclusive, endVersionInclusive.get()).reversed();

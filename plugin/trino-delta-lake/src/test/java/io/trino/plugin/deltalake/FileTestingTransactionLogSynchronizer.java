@@ -16,8 +16,8 @@ package io.trino.plugin.deltalake;
 import com.google.inject.Inject;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoOutputFile;
+import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogSynchronizer;
 import io.trino.spi.connector.ConnectorSession;
 
@@ -29,10 +29,10 @@ import static java.util.Objects.requireNonNull;
 public class FileTestingTransactionLogSynchronizer
         implements TransactionLogSynchronizer
 {
-    private final TrinoFileSystemFactory fileSystemFactory;
+    private final DeltaLakeFileSystemFactory fileSystemFactory;
 
     @Inject
-    public FileTestingTransactionLogSynchronizer(TrinoFileSystemFactory fileSystemFactory)
+    public FileTestingTransactionLogSynchronizer(DeltaLakeFileSystemFactory fileSystemFactory)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
     }
@@ -44,10 +44,10 @@ public class FileTestingTransactionLogSynchronizer
     }
 
     @Override
-    public void write(ConnectorSession session, String clusterId, Location newLogEntryPath, byte[] entryContents)
+    public void write(ConnectorSession session, VendedCredentialsHandle credentialsHandle, String clusterId, Location newLogEntryPath, byte[] entryContents)
     {
         try {
-            TrinoFileSystem fileSystem = fileSystemFactory.create(session);
+            TrinoFileSystem fileSystem = fileSystemFactory.create(session, credentialsHandle);
             TrinoOutputFile outputFile = fileSystem.newOutputFile(newLogEntryPath);
             outputFile.createOrOverwrite(entryContents);
         }
