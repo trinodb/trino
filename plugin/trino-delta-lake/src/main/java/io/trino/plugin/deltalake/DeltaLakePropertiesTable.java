@@ -15,6 +15,7 @@ package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.deltalake.metastore.DeltaMetastoreTable;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
@@ -51,12 +52,14 @@ public class DeltaLakePropertiesTable
             .add(new ColumnMetadata("value", VARCHAR))
             .build();
 
+    private final DeltaLakeFileSystemFactory fileSystemFactory;
     private final DeltaMetastoreTable table;
     private final TransactionLogAccess transactionLogAccess;
     private final ConnectorTableMetadata tableMetadata;
 
-    public DeltaLakePropertiesTable(DeltaMetastoreTable table, TransactionLogAccess transactionLogAccess)
+    public DeltaLakePropertiesTable(DeltaLakeFileSystemFactory fileSystemFactory, DeltaMetastoreTable table, TransactionLogAccess transactionLogAccess)
     {
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.table = requireNonNull(table, "table is null");
         this.transactionLogAccess = requireNonNull(transactionLogAccess, "transactionLogAccess is null");
         this.tableMetadata = new ConnectorTableMetadata(requireNonNull(table.schemaTableName(), "tableName is null"), COLUMNS);
@@ -80,10 +83,11 @@ public class DeltaLakePropertiesTable
         MetadataEntry metadataEntry;
         ProtocolEntry protocolEntry;
 
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session, table);
         try {
             TableSnapshot tableSnapshot = transactionLogAccess.loadSnapshot(session, table, Optional.empty());
-            metadataEntry = transactionLogAccess.getMetadataEntry(session, tableSnapshot);
-            protocolEntry = transactionLogAccess.getProtocolEntry(session, tableSnapshot);
+            metadataEntry = transactionLogAccess.getMetadataEntry(session, fileSystem, tableSnapshot);
+            protocolEntry = transactionLogAccess.getProtocolEntry(session, fileSystem, tableSnapshot);
         }
         catch (IOException e) {
             throw new TrinoException(DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA, "Unable to load table metadata from location: " + table.location(), e);

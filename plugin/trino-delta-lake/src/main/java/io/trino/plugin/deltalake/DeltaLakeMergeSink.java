@@ -21,7 +21,6 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetReaderOptions;
@@ -31,6 +30,7 @@ import io.trino.parquet.reader.MetadataReader;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.deltalake.delete.RoaringBitmapArray;
+import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.plugin.deltalake.transactionlog.DeletionVectorEntry;
 import io.trino.plugin.hive.parquet.ParquetFileWriter;
 import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
@@ -140,7 +140,7 @@ public class DeltaLakeMergeSink
 
     public DeltaLakeMergeSink(
             TypeOperators typeOperators,
-            TrinoFileSystemFactory fileSystemFactory,
+            DeltaLakeFileSystemFactory fileSystemFactory,
             ConnectorSession session,
             DateTimeZone parquetDateTimeZone,
             String trinoVersion,
@@ -148,6 +148,7 @@ public class DeltaLakeMergeSink
             JsonCodec<DeltaLakeMergeResult> mergeResultJsonCodec,
             DeltaLakeWriterStats writerStats,
             Location rootTableLocation,
+            VendedCredentialsHandle credentialsHandle,
             ConnectorPageSink insertPageSink,
             List<DeltaLakeColumnHandle> tableColumns,
             int domainCompactionThreshold,
@@ -163,7 +164,7 @@ public class DeltaLakeMergeSink
     {
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.session = requireNonNull(session, "session is null");
-        this.fileSystem = fileSystemFactory.create(session);
+        this.fileSystem = fileSystemFactory.create(session, credentialsHandle);
         this.parquetDateTimeZone = requireNonNull(parquetDateTimeZone, "parquetDateTimeZone is null");
         this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
         this.dataFileInfoCodec = requireNonNull(dataFileInfoCodec, "dataFileInfoCodec is null");

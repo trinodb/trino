@@ -11,20 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.deltalake;
+package io.trino.plugin.deltalake.metastore;
 
-import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
-import io.trino.spi.connector.ConnectorTableHandle;
-import io.trino.spi.connector.SchemaTableName;
-
-public interface LocatedTableHandle
-        extends ConnectorTableHandle
+public interface VendedCredentialsProvider
 {
-    SchemaTableName schemaTableName();
-
-    boolean managed();
-
-    String location();
-
-    VendedCredentialsHandle toCredentialsHandle();
+    VendedCredentialsHandle getFreshCredentials(VendedCredentialsHandle handle);
 }
