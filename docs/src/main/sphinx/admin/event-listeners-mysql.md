@@ -33,6 +33,8 @@ as an example:
 ```properties
 event-listener.name=mysql
 mysql-event-listener.db.url=jdbc:mysql://example.net:3306
+mysql-event-listener.db.user=username
+mysql-event-listener.db.password=password
 ```
 
 The `mysql-event-listener.db.url` defines the connection to a MySQL database
@@ -66,5 +68,15 @@ string, user, catalog, and others with information about the query processing.
 * - Property name
   - Description
 * - `mysql-event-listener.db.url`
-  - JDBC connection URL to the database including credentials
+  - Fully qualified JDBC connection URL used to connect to the MySQL database.
+    Credentials can be embedded in the URL if `user` and `password` are not
+    specified separately
+* - `mysql-event-listener.db.user`
+  - Username used for authenticating the JDBC connection to the MySQL database.
+    An exception will be raised if credentials are included in the `URL`.
+* - `mysql-event-listener.db.password`
+  - Password used for authenticating the JDBC connection to the MySQL database.
+    If a password is provided, the user property must also be set.
+    An exception will be raised if credentials are included in the `URL` or
+    if a password is set without a corresponding user.
 :::

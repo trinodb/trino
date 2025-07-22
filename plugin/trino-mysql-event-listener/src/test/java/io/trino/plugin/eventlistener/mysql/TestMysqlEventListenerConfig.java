@@ -28,17 +28,23 @@ final class TestMysqlEventListenerConfig
     void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(MysqlEventListenerConfig.class)
-                .setUrl(null));
+                .setUrl(null)
+                .setUser(null)
+                .setPassword(null));
     }
 
     @Test
     void testExplicitPropertyMappings()
     {
         Map<String, String> properties = Map.of(
-                "mysql-event-listener.db.url", "jdbc:mysql://example.net:3306");
+                "mysql-event-listener.db.url", "jdbc:mysql://example.net:3306",
+                "mysql-event-listener.db.user", "user",
+                "mysql-event-listener.db.password", "password");
 
         MysqlEventListenerConfig expected = new MysqlEventListenerConfig()
-                .setUrl("jdbc:mysql://example.net:3306");
+                .setUrl("jdbc:mysql://example.net:3306")
+                .setUser("user")
+                .setPassword("password");
 
         assertFullMapping(properties, expected);
     }
@@ -48,7 +54,60 @@ final class TestMysqlEventListenerConfig
     {
         assertThat(isValidUrl("jdbc:mysql://example.net:3306")).isTrue();
         assertThat(isValidUrl("jdbc:mysql://example.net:3306/")).isTrue();
+        assertThat(isValidUrl("jdbc:mysql://example.net:3306/?user=trino&password=123456")).isTrue();
         assertThat(isValidUrl("jdbc:postgresql://example.net:3306/somedatabase")).isFalse();
+    }
+
+    @Test
+    void testAuthenticationRedundant()
+    {
+        assertThat(new MysqlEventListenerConfig()
+                .setUrl("jdbc:mysql://example.net:3306?user=trino")
+                .setUser("trino")
+                .isUserNotRedundant()).isFalse();
+
+        assertThat(new MysqlEventListenerConfig()
+                .setUrl("jdbc:mysql://example.net:3306?password=123")
+                .setPassword("123")
+                .isPasswordNotRedundant()).isFalse();
+
+        assertThat(new MysqlEventListenerConfig()
+                .setUrl("jdbc:mysql://example.net:3306")
+                .setUser("trino")
+                .isUserNotRedundant()).isTrue();
+
+        assertThat(new MysqlEventListenerConfig()
+                .setUrl("jdbc:mysql://example.net:3306")
+                .setPassword("123")
+                .isPasswordNotRedundant()).isTrue();
+
+        assertThat(new MysqlEventListenerConfig()
+                .setUrl("jdbc:mysql://example.net:3306?user=trino")
+                .isUserNotRedundant()).isTrue();
+
+        assertThat(new MysqlEventListenerConfig()
+                .setUrl("jdbc:mysql://example.net:3306?password=123")
+                .isPasswordNotRedundant()).isTrue();
+    }
+
+    @Test
+    void testUserPresentWithPassword()
+    {
+        assertThat(new MysqlEventListenerConfig()
+                .setUser("user")
+                .setPassword("pass")
+                .isUserPresentWithPassword()).isTrue();
+
+        assertThat(new MysqlEventListenerConfig()
+                .setPassword("pass")
+                .isUserPresentWithPassword()).isFalse();
+
+        assertThat(new MysqlEventListenerConfig()
+                .setUser("user")
+                .isUserPresentWithPassword()).isTrue();
+
+        assertThat(new MysqlEventListenerConfig()
+                .isUserPresentWithPassword()).isTrue();
     }
 
     private static boolean isValidUrl(String url)
