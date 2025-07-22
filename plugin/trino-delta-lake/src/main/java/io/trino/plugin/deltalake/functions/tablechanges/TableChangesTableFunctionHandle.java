@@ -15,6 +15,7 @@ package io.trino.plugin.deltalake.functions.tablechanges;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
+import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 
@@ -27,11 +28,15 @@ public record TableChangesTableFunctionHandle(
         long firstReadVersion,
         long tableReadVersion,
         String tableLocation,
-        List<DeltaLakeColumnHandle> columns) implements ConnectorTableFunctionHandle
+        VendedCredentialsHandle credentialsHandle,
+        List<DeltaLakeColumnHandle> columns)
+        implements ConnectorTableFunctionHandle
 {
-    public TableChangesTableFunctionHandle {
+    public TableChangesTableFunctionHandle
+    {
         requireNonNull(schemaTableName, "schemaTableName is null");
         requireNonNull(tableLocation, "tableLocation is null");
+        requireNonNull(credentialsHandle, "credentialsHandle is null");
         columns = ImmutableList.copyOf(columns);
     }
 }
