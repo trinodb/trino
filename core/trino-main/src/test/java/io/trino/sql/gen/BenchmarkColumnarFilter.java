@@ -162,6 +162,7 @@ public class BenchmarkColumnarFilter
         ExpressionCompiler expressionCompiler = FUNCTION_RESOLUTION.getExpressionCompiler();
         compiledProcessor = expressionCompiler.compilePageProcessor(
                         columnarEvaluationEnabled,
+                        true,
                         Optional.of(filterProvider.getExpression(type)),
                         Optional.empty(),
                         ImmutableList.of(field(0, type)),
