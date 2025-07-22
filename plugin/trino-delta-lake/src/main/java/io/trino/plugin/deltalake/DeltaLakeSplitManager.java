@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.Location;
-import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.cache.CachingHostAddressProvider;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitSource;
 import io.trino.plugin.deltalake.functions.tablechanges.TableChangesSplitSource;
@@ -84,7 +83,7 @@ public class DeltaLakeSplitManager
     private final int maxSplitsPerSecond;
     private final int maxOutstandingSplits;
     private final double minimumAssignedSplitWeight;
-    private final TrinoFileSystemFactory fileSystemFactory;
+    private final DeltaLakeFileSystemFactory fileSystemFactory;
     private final DeltaLakeTransactionManager deltaLakeTransactionManager;
     private final CachingHostAddressProvider cachingHostAddressProvider;
 
@@ -94,7 +93,7 @@ public class DeltaLakeSplitManager
             TransactionLogAccess transactionLogAccess,
             @ForDeltaLakeSplitManager ExecutorService executor,
             DeltaLakeConfig config,
-            TrinoFileSystemFactory fileSystemFactory,
+            DeltaLakeFileSystemFactory fileSystemFactory,
             DeltaLakeTransactionManager deltaLakeTransactionManager,
             CachingHostAddressProvider cachingHostAddressProvider)
     {

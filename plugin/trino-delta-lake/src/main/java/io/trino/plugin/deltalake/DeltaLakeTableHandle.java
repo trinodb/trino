@@ -18,6 +18,8 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
+import io.trino.plugin.deltalake.metastore.VendedCredentials;
+import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.spi.connector.SchemaTableName;
@@ -70,6 +72,8 @@ public class DeltaLakeTableHandle
     // Used only for validation when config property delta.query-partition-filter-required is enabled.
     private final Set<DeltaLakeColumnHandle> constraintColumns;
 
+    private final Optional<VendedCredentials> vendedCredentials;
+
     @JsonCreator
     public DeltaLakeTableHandle(
             @JsonProperty("schemaName") String schemaName,
@@ -86,7 +90,8 @@ public class DeltaLakeTableHandle
             @JsonProperty("updateRowIdColumns") Optional<List<DeltaLakeColumnHandle>> updateRowIdColumns,
             @JsonProperty("analyzeHandle") Optional<AnalyzeHandle> analyzeHandle,
             @JsonProperty("readVersion") long readVersion,
-            @JsonProperty("timeTravel") boolean timeTravel)
+            @JsonProperty("timeTravel") boolean timeTravel,
+            @JsonProperty("vendedCredentials") Optional<VendedCredentials> vendedCredentials)
     {
         this(
                 schemaName,
@@ -107,7 +112,8 @@ public class DeltaLakeTableHandle
                 false,
                 Optional.empty(),
                 readVersion,
-                timeTravel);
+                timeTravel,
+                vendedCredentials);
     }
 
     public DeltaLakeTableHandle(
@@ -129,7 +135,8 @@ public class DeltaLakeTableHandle
             boolean isOptimize,
             Optional<DataSize> maxScannedFileSize,
             long readVersion,
-            boolean timeTravel)
+            boolean timeTravel,
+            Optional<VendedCredentials> vendedCredentials)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -152,6 +159,7 @@ public class DeltaLakeTableHandle
         this.readVersion = readVersion;
         this.timeTravel = timeTravel;
         this.constraintColumns = ImmutableSet.copyOf(requireNonNull(constraintColumns, "constraintColumns is null"));
+        this.vendedCredentials = requireNonNull(vendedCredentials, "vendedCredentials is null");
     }
 
     public DeltaLakeTableHandle withProjectedColumns(Set<DeltaLakeColumnHandle> projectedColumns)
@@ -175,7 +183,8 @@ public class DeltaLakeTableHandle
                 isOptimize,
                 maxScannedFileSize,
                 readVersion,
-                timeTravel);
+                timeTravel,
+                vendedCredentials);
     }
 
     public DeltaLakeTableHandle forOptimize(boolean recordScannedFiles, DataSize maxScannedFileSize)
@@ -199,7 +208,8 @@ public class DeltaLakeTableHandle
                 true,
                 Optional.of(maxScannedFileSize),
                 readVersion,
-                timeTravel);
+                timeTravel,
+                vendedCredentials);
     }
 
     @Override
@@ -241,6 +251,12 @@ public class DeltaLakeTableHandle
     public String location()
     {
         return getLocation();
+    }
+
+    @Override
+    public VendedCredentialsHandle toCredentialsHandle()
+    {
+        return new VendedCredentialsHandle(false, managed, location, vendedCredentials.orElse(VendedCredentials.empty()));
     }
 
     @JsonProperty
@@ -340,6 +356,12 @@ public class DeltaLakeTableHandle
         return timeTravel;
     }
 
+    @JsonProperty
+    public Optional<VendedCredentials> getVendedCredentials()
+    {
+        return vendedCredentials;
+    }
+
     @Override
     public String toString()
     {
@@ -374,7 +396,8 @@ public class DeltaLakeTableHandle
                 isOptimize == that.isOptimize &&
                 Objects.equals(maxScannedFileSize, that.maxScannedFileSize) &&
                 readVersion == that.readVersion &&
-                timeTravel == that.timeTravel;
+                timeTravel == that.timeTravel &&
+                Objects.equals(vendedCredentials, that.vendedCredentials);
     }
 
     @Override
@@ -398,6 +421,7 @@ public class DeltaLakeTableHandle
                 isOptimize,
                 maxScannedFileSize,
                 readVersion,
-                timeTravel);
+                timeTravel,
+                vendedCredentials);
     }
 }
