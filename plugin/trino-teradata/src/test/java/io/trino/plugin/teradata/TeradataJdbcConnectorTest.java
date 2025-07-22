@@ -79,6 +79,7 @@ public class TeradataJdbcConnectorTest
                  SUPPORTS_AGGREGATION_PUSHDOWN,
                  SUPPORTS_JOIN_PUSHDOWN,
                  SUPPORTS_LIMIT_PUSHDOWN,
+                 SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR,
                  SUPPORTS_PREDICATE_ARITHMETIC_EXPRESSION_PUSHDOWN -> true;
 //                 SUPPORTS_DROP_SCHEMA_CASCADE -> true;
             default -> super.hasBehavior(connectorBehavior);
