@@ -30,8 +30,9 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static io.trino.plugin.teradata.util.TeradataConstants.TERADATA_OBJECT_NAME_LIMIT;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUSHDOWN;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_DATA;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.*;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static io.trino.testing.TestingConnectorBehavior.*;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -81,7 +82,8 @@ public class TeradataJdbcConnectorTest
                  SUPPORTS_JOIN_PUSHDOWN,
                  SUPPORTS_LIMIT_PUSHDOWN,
                  SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR,
-                 SUPPORTS_PREDICATE_ARITHMETIC_EXPRESSION_PUSHDOWN -> true;
+                 SUPPORTS_PREDICATE_ARITHMETIC_EXPRESSION_PUSHDOWN,
+                 SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN -> true;
 //                 SUPPORTS_DROP_SCHEMA_CASCADE -> true;
             default -> super.hasBehavior(connectorBehavior);
         };
@@ -98,7 +100,7 @@ public class TeradataJdbcConnectorTest
             throws Exception
     {
         database.createTestDatabaseIfAbsent();
-        return TeradataQueryRunner.builder().addCoordinatorProperty("http-server.http.port", "8080").setInitialTables(REQUIRED_TPCH_TABLES).build();
+        return TeradataQueryRunner.builder().addCoordinatorProperty("http-server.http.port", "8090").setInitialTables(REQUIRED_TPCH_TABLES).build();
     }
 
     @AfterAll
@@ -455,17 +457,6 @@ public class TeradataJdbcConnectorTest
         Assumptions.abort("Skipping as connector does not support dropping a not null constraint");
     }
 
-    @Test
-    public void testAggregationPushdown()
-    {
-
-        if (!hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN)) {
-            assertThat(query("SELECT count(nationkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
-            return;
-        }
-
-        this.assertConditionallyPushedDown(this.getSession(), "SELECT regionkey, sum(nationkey) FROM nation  GROUP BY regionkey", this.hasBehavior(TestingConnectorBehavior.SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN_WITH_LIKE), PlanMatchPattern.node(FilterNode.class, PlanMatchPattern.node(TableScanNode.class)));
-    }
 
     @Override
     protected Session joinPushdownEnabled(Session session)

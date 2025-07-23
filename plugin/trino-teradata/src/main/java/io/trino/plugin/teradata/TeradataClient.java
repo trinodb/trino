@@ -40,6 +40,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.*;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
@@ -192,31 +193,19 @@ public class TeradataClient
             return FULL_PUSHDOWN.apply(session, domain);
         }
 
-        // 3. Simplify complex domains (like IN(...), ranges)
-        Domain simplified = domain.simplify(getDomainCompactionThreshold(session));
-
-        // 4. If this is a clean range predicate (e.g., <, <=, BETWEEN), push down
-        if (isRangePredicate(simplified)) {
-            return FULL_PUSHDOWN.apply(session, simplified);
+        Domain simplifiedDomain = domain.simplify(getDomainCompactionThreshold(session));
+        if (!simplifiedDomain.getValues().isDiscreteSet()) {
+            // Push down inequality predicate
+            ValueSet complement = simplifiedDomain.getValues().complement();
+            if (complement.isDiscreteSet()) {
+                return FULL_PUSHDOWN.apply(session, simplifiedDomain);
+            }
+            // Domain#simplify can turn a discrete set into a range predicate
+            // Push down of range predicate for varchar/char types could lead to incorrect results
+            // when the remote database is case-insensitive
+            return DISABLE_PUSHDOWN.apply(session, domain);
         }
-
-        // 5. Handle NOT NULL (non-null allowed and domain not only NULL)
-        if (!domain.isOnlyNull() && !domain.isNullAllowed() && simplified.getValues().isAll()) {
-            return FULL_PUSHDOWN.apply(session, simplified);
-        }
-
-        // 6. Handle NOT EQUAL and similar ranges (if safe range is expressible)
-        if (isMultiRangePredicate(simplified)) {
-            return FULL_PUSHDOWN.apply(session, simplified);
-        }
-
-        // 7. Push down discrete sets like IN ('a', 'b', 'c')
-        if (simplified.getValues().isDiscreteSet()) {
-            return FULL_PUSHDOWN.apply(session, simplified);
-        }
-
-        // 8. If nothing matched, fallback to no pushdown
-        return DISABLE_PUSHDOWN.apply(session, domain);
+        return FULL_PUSHDOWN.apply(session, simplifiedDomain);
     };
     private static final long DEFAULT_FALLBACK_NDV = 100_000L;
     private static final long MAX_FALLBACK_NDV = 1_000_000L; // max fallback NDV cap
