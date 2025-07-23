@@ -413,6 +413,21 @@ public class TeradataJdbcConnectorTest
     }
 
 
+
+    @Test
+    public void testArithmeticPredicatePushdown() {
+        if (!this.hasBehavior(TestingConnectorBehavior.SUPPORTS_PREDICATE_ARITHMETIC_EXPRESSION_PUSHDOWN)) {
+            ((QueryAssertions.QueryAssert)Assertions.assertThat(this.query("SELECT shippriority FROM orders WHERE shippriority % 4 = 0"))).isNotFullyPushedDown(FilterNode.class, new Class[0]);
+        } else {
+            ((QueryAssertions.QueryAssert)Assertions.assertThat(this.query("SELECT shippriority FROM orders WHERE shippriority % 4 = 0"))).isFullyPushedDown();
+            ((QueryAssertions.QueryAssert)Assertions.assertThat(this.query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % nationkey = 2"))).isFullyPushedDown().matches("VALUES (BIGINT '3', CAST('CANADA' AS varchar(25)), BIGINT '1')");
+            ((QueryAssertions.QueryAssert)Assertions.assertThat(this.query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % -nationkey = 2"))).isFullyPushedDown().matches("VALUES (BIGINT '3', CAST('CANADA' AS varchar(25)), BIGINT '1')");
+            ((QueryAssertions.QueryAssert)Assertions.assertThat(this.query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % 0 = 2"))).failure().hasMessageContaining("Operation Error computing expression");
+            ((QueryAssertions.QueryAssert)Assertions.assertThat(this.query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % (regionkey - 1) = 2"))).failure().hasMessageContaining("Operation Error computing expression");
+        }
+    }
+
+
     @Test
     public void testCreateTableAsSelectWithUnicode() {
         Assumptions.abort("Skipping as connector does not support creating table with UNICODE characters");
