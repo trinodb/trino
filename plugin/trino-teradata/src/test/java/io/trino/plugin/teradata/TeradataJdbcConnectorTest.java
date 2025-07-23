@@ -31,6 +31,8 @@ import java.util.stream.Stream;
 
 import static io.trino.plugin.teradata.util.TeradataConstants.TERADATA_OBJECT_NAME_LIMIT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUSHDOWN;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_DATA;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -61,7 +63,6 @@ public class TeradataJdbcConnectorTest
                  SUPPORTS_MERGE,
                  SUPPORTS_COMMENT_ON_TABLE,
                  SUPPORTS_COMMENT_ON_COLUMN,
-                 SUPPORTS_CREATE_TABLE_WITH_DATA,
                  SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT,
                  SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
                  SUPPORTS_RENAME_SCHEMA,
@@ -343,6 +344,70 @@ public class TeradataJdbcConnectorTest
         this.assertQuery(session, "SELECT * FROM " + table, expectedQuery);
         this.assertUpdate(session, "DROP TABLE " + table);
         Assertions.assertThat(this.getQueryRunner().tableExists(session, table)).isFalse();
+    }
+
+    @Test
+    public void testCreateTableAsSelect()
+    {
+        String tableName = "test_ctas" + randomNameSuffix();
+        if (!hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA)) {
+            assertQueryFails("CREATE TABLE IF NOT EXISTS " + tableName + " AS SELECT name, regionkey FROM nation", "This connector does not support creating tables with data");
+            return;
+        }
+        assertUpdate("CREATE TABLE IF NOT EXISTS " + tableName + " AS SELECT name, regionkey FROM nation", "SELECT count(*) FROM nation");
+        assertTableColumnNames(tableName, "name", "regionkey");
+        assertThat(getTableComment(tableName)).isNull();
+        assertUpdate("DROP TABLE " + tableName);
+
+        // Some connectors support CREATE TABLE AS but not the ordinary CREATE TABLE. Let's test CTAS IF NOT EXISTS with a table that is guaranteed to exist.
+        assertUpdate("CREATE TABLE IF NOT EXISTS nation AS SELECT nationkey, regionkey FROM nation", 0);
+        assertTableColumnNames("nation", "nationkey", "name", "regionkey", "comment");
+
+        assertCreateTableAsSelect(
+                "SELECT nationkey, name, regionkey FROM nation",
+                "SELECT count(*) FROM nation");
+
+        assertCreateTableAsSelect(
+                "SELECT mktsegment, sum(acctbal) x FROM customer GROUP BY mktsegment",
+                "SELECT count(DISTINCT mktsegment) FROM customer");
+
+        assertCreateTableAsSelect(
+                "SELECT count(*) x FROM nation JOIN region ON nation.regionkey = region.regionkey",
+                "SELECT 1");
+
+        assertCreateTableAsSelect(
+                "SELECT nationkey FROM nation ORDER BY nationkey LIMIT 10",
+                "SELECT 10");
+
+        // Tests for CREATE TABLE with UNION ALL: exercises PushTableWriteThroughUnion optimizer
+
+        assertCreateTableAsSelect(
+                "SELECT name, nationkey, regionkey FROM nation WHERE nationkey % 2 = 0 UNION ALL " +
+                        "SELECT name, nationkey, regionkey FROM nation WHERE nationkey % 2 = 1",
+                "SELECT name, nationkey, regionkey FROM nation",
+                "SELECT count(*) FROM nation");
+
+        assertCreateTableAsSelect(
+                Session.builder(getSession()).setSystemProperty("redistribute_writes", "true").build(),
+                "SELECT CAST(nationkey AS BIGINT) nationkey, regionkey FROM nation UNION ALL " +
+                        "SELECT 1234567890, 123",
+                "SELECT nationkey, regionkey FROM nation UNION ALL " +
+                        "SELECT 1234567890, 123",
+                "SELECT count(*) + 1 FROM nation");
+
+        assertCreateTableAsSelect(
+                Session.builder(getSession()).setSystemProperty("redistribute_writes", "false").build(),
+                "SELECT CAST(nationkey AS BIGINT) nationkey, regionkey FROM nation UNION ALL " +
+                        "SELECT 1234567890, 123",
+                "SELECT nationkey, regionkey FROM nation UNION ALL " +
+                        "SELECT 1234567890, 123",
+                "SELECT count(*) + 1 FROM nation");
+
+        // TODO: BigQuery throws table not found at BigQueryClient.insert if we reuse the same table name
+        tableName = "test_ctas" + randomNameSuffix();
+        assertExplainAnalyze("EXPLAIN ANALYZE CREATE TABLE " + tableName + " AS SELECT name FROM nation");
+        assertQuery("SELECT * from " + tableName, "SELECT name FROM nation");
+        assertUpdate("DROP TABLE " + tableName);
     }
 
 

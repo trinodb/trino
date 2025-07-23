@@ -37,15 +37,7 @@ import io.trino.plugin.jdbc.expression.RewriteLikeEscapeWithCaseSensitivity;
 import io.trino.plugin.jdbc.expression.RewriteLikeWithCaseSensitivity;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.AggregateFunction;
-import io.trino.spi.connector.ColumnHandle;
-import io.trino.spi.connector.ColumnMetadata;
-import io.trino.spi.connector.ColumnPosition;
-import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.JoinCondition;
-import io.trino.spi.connector.JoinStatistics;
-import io.trino.spi.connector.JoinType;
-import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.*;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.statistics.ColumnStatistics;
@@ -743,6 +735,23 @@ public class TeradataClient
     }
 
     @Override
+    protected void copyTableSchema(ConnectorSession session, Connection connection, String catalogName, String schemaName, String tableName, String newTableName, List<String> columnNames)
+    {
+        String tableCopyFormat = "CREATE TABLE %s AS ( SELECT * FROM %s ) WITH DATA";
+        String sql = format(
+                tableCopyFormat,
+                quoted(catalogName, schemaName, newTableName),
+                quoted(catalogName, schemaName, tableName));
+        try {
+            execute(session, connection, sql);
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
+    }
+
+
+    @Override
     protected void verifySchemaName(DatabaseMetaData databaseMetadata, String schemaName)
             throws SQLException
     {
@@ -878,7 +887,7 @@ public class TeradataClient
                 .map("$subtract(left: integer_type, right: integer_type)").to("left - right")
                 .map("$multiply(left: integer_type, right: integer_type)").to("left * right")
                 .map("$divide(left: integer_type, right: integer_type)").to("left / right")
-                .map("$modulus(left: integer_type, right: integer_type)").to("left % right")
+                .map("$modulus(left: integer_type, right: integer_type)").to("MOD(left, right)")
                 .map("$negate(value: integer_type)").to("-value")
                 .map("$not($is_null(value))").to("value IS NOT NULL")
                 .map("$not(value: boolean)").to("NOT value")
