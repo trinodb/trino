@@ -119,3 +119,11 @@ Some `integer` type properties enforce their own minimum and maximum values.
 The properties of type `string` support a set of values that consist of a
 sequence of characters. Allowed values are defined on a property-by-property
 basis, refer to the specific property for its supported and default values.
+
+(prop-type-long)=
+### `long`
+
+The properties of type `long` support whole numeric values, similar to the `integer` type,
+but can accommodate a significantly larger range of numbers. For example, in addition
+to values like `100`, it supports very large numbers such as `4000000000`. Negative values are also supported.
+Like `integer`, `long` values must be whole numbers; decimal values such as `2.5` are not supported.
