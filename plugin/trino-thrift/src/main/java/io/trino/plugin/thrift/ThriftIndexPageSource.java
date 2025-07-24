@@ -108,13 +108,13 @@ public class ThriftIndexPageSource
         this.stats = requireNonNull(stats, "stats is null");
 
         requireNonNull(indexHandle, "indexHandle is null");
-        this.schemaTableName = new TrinoThriftSchemaTableName(indexHandle.getSchemaTableName());
-        this.outputConstraint = tupleDomainToThriftTupleDomain(indexHandle.getTupleDomain());
+        this.schemaTableName = new TrinoThriftSchemaTableName(indexHandle.schemaTableName());
+        this.outputConstraint = tupleDomainToThriftTupleDomain(indexHandle.tupleDomain());
 
         requireNonNull(lookupColumns, "lookupColumns is null");
         this.lookupColumnNames = lookupColumns.stream()
                 .map(ThriftColumnHandle.class::cast)
-                .map(ThriftColumnHandle::getColumnName)
+                .map(ThriftColumnHandle::columnName)
                 .collect(toImmutableList());
 
         requireNonNull(outputColumns, "outputColumns is null");
@@ -122,8 +122,8 @@ public class ThriftIndexPageSource
         ImmutableList.Builder<Type> outputColumnTypes = ImmutableList.builder();
         for (ColumnHandle columnHandle : outputColumns) {
             ThriftColumnHandle thriftColumnHandle = (ThriftColumnHandle) columnHandle;
-            outputColumnNames.add(thriftColumnHandle.getColumnName());
-            outputColumnTypes.add(thriftColumnHandle.getColumnType());
+            outputColumnNames.add(thriftColumnHandle.columnName());
+            outputColumnTypes.add(thriftColumnHandle.columnType());
         }
         this.outputColumnNames = outputColumnNames.build();
         this.outputColumnTypes = outputColumnTypes.build();

@@ -13,89 +13,30 @@
  */
 package io.trino.plugin.thrift;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
 
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
-public final class ThriftTableHandle
+public record ThriftTableHandle(String schemaName, String tableName, TupleDomain<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
         implements ConnectorTableHandle
 {
-    private final String schemaName;
-    private final String tableName;
-    private final TupleDomain<ColumnHandle> constraint;
-    private final Optional<Set<ColumnHandle>> desiredColumns;
-
-    @JsonCreator
-    public ThriftTableHandle(
-            @JsonProperty("schemaName") String schemaName,
-            @JsonProperty("tableName") String tableName,
-            @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint,
-            @JsonProperty("desiredColumns") Optional<Set<ColumnHandle>> desiredColumns)
+    public ThriftTableHandle
     {
-        this.schemaName = requireNonNull(schemaName, "schemaName is null");
-        this.tableName = requireNonNull(tableName, "tableName is null");
-        this.constraint = requireNonNull(constraint, "constraint is null");
-        this.desiredColumns = requireNonNull(desiredColumns, "desiredColumns is null");
+        requireNonNull(schemaName, "schemaName is null");
+        requireNonNull(tableName, "tableName is null");
+        requireNonNull(constraint, "constraint is null");
+        requireNonNull(desiredColumns, "desiredColumns is null");
     }
 
-    public ThriftTableHandle(SchemaTableName schemaTableName)
+    public static ThriftTableHandle toThriftTableHandle(SchemaTableName schemaTableName)
     {
-        this(schemaTableName.getSchemaName(), schemaTableName.getTableName(), TupleDomain.all(), Optional.empty());
-    }
-
-    @JsonProperty
-    public String getSchemaName()
-    {
-        return schemaName;
-    }
-
-    @JsonProperty
-    public String getTableName()
-    {
-        return tableName;
-    }
-
-    @JsonProperty
-    public TupleDomain<ColumnHandle> getConstraint()
-    {
-        return constraint;
-    }
-
-    @JsonProperty
-    public Optional<Set<ColumnHandle>> getDesiredColumns()
-    {
-        return desiredColumns;
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        ThriftTableHandle other = (ThriftTableHandle) obj;
-        return Objects.equals(this.schemaName, other.schemaName) &&
-                Objects.equals(this.tableName, other.tableName) &&
-                Objects.equals(this.constraint, other.constraint) &&
-                Objects.equals(this.desiredColumns, other.desiredColumns);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(schemaName, tableName, constraint, desiredColumns);
+        return new ThriftTableHandle(schemaTableName.getSchemaName(), schemaTableName.getTableName(), TupleDomain.all(), Optional.empty());
     }
 
     @Override
