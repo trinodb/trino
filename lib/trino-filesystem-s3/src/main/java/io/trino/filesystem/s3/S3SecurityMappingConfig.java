@@ -15,30 +15,19 @@ package io.trino.filesystem.s3;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
-import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.Duration;
+import io.trino.iam.aws.IAMSecurityMappingConfig;
 import jakarta.validation.constraints.AssertTrue;
-import jakarta.validation.constraints.NotNull;
 
 import java.io.File;
 import java.net.URI;
 import java.util.Optional;
 
 public class S3SecurityMappingConfig
+        extends IAMSecurityMappingConfig
 {
-    private File configFile;
-    private URI configUri;
-    private String jsonPointer = "";
-    private String roleCredentialName;
     private String kmsKeyIdCredentialName;
     private String sseCustomerKeyCredentialName;
-    private Duration refreshPeriod;
-    private String colonReplacement;
-
-    public Optional<@FileExists File> getConfigFile()
-    {
-        return Optional.ofNullable(configFile);
-    }
 
     @Config("s3.security-mapping.config-file")
     @ConfigDescription("Path to the JSON security mappings file")
@@ -46,11 +35,6 @@ public class S3SecurityMappingConfig
     {
         this.configFile = configFile;
         return this;
-    }
-
-    public Optional<URI> getConfigUri()
-    {
-        return Optional.ofNullable(configUri);
     }
 
     @Config("s3.security-mapping.config-uri")
@@ -61,23 +45,12 @@ public class S3SecurityMappingConfig
         return this;
     }
 
-    @NotNull
-    public String getJsonPointer()
-    {
-        return jsonPointer;
-    }
-
     @Config("s3.security-mapping.json-pointer")
     @ConfigDescription("JSON pointer (RFC 6901) to mappings inside JSON config")
     public S3SecurityMappingConfig setJsonPointer(String jsonPointer)
     {
         this.jsonPointer = jsonPointer;
         return this;
-    }
-
-    public Optional<String> getRoleCredentialName()
-    {
-        return Optional.ofNullable(roleCredentialName);
     }
 
     @Config("s3.security-mapping.iam-role-credential-name")
@@ -114,22 +87,12 @@ public class S3SecurityMappingConfig
         return this;
     }
 
-    public Optional<Duration> getRefreshPeriod()
-    {
-        return Optional.ofNullable(refreshPeriod);
-    }
-
     @Config("s3.security-mapping.refresh-period")
     @ConfigDescription("How often to refresh the security mapping configuration")
     public S3SecurityMappingConfig setRefreshPeriod(Duration refreshPeriod)
     {
         this.refreshPeriod = refreshPeriod;
         return this;
-    }
-
-    public Optional<String> getColonReplacement()
-    {
-        return Optional.ofNullable(colonReplacement);
     }
 
     @Config("s3.security-mapping.colon-replacement")
@@ -143,6 +106,6 @@ public class S3SecurityMappingConfig
     @AssertTrue(message = "Exactly one of s3.security-mapping.config-file or s3.security-mapping.config-uri must be set")
     public boolean validateMappingsConfig()
     {
-        return (configFile == null) != (configUri == null);
+        return super.validateMappingsConfig();
     }
 }

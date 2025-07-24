@@ -432,6 +432,130 @@ properties:
   - `false`
 :::
 
+
+(hive-glue-metastore-security-mapping)=
+### Security mapping
+
+Trino supports flexible security mapping for Glue, allowing for separate
+credentials or IAM roles for specific users. The IAM role
+for a specific query can be selected from a list of allowed roles by providing
+it as an *extra credential*.
+
+Each security mapping entry may specify one or more match criteria.
+If multiple criteria are specified, all criteria must match.
+The following match criteria are available:
+
+- `user`: Regular expression to match against username. Example: `alice|bob`
+- `group`: Regular expression to match against any of the groups that the user
+  belongs to. Example: `finance|sales`
+
+The security mapping must provide one or more configuration settings:
+
+- `accessKey` and `secretKey`: AWS access key and secret key. This overrides
+  any globally configured credentials, such as access key or instance credentials.
+- `iamRole`: IAM role to use if no user provided role is specified as an
+  extra credential. This overrides any globally configured IAM role. This role
+  is allowed to be specified as an extra credential, although specifying it
+  explicitly has no effect.
+- `roleSessionName`: Optional role session name to use with `iamRole`. This can only
+  be used when `iamRole` is specified. If `roleSessionName` includes the string
+  `${USER}`, then the `${USER}` portion of the string is replaced with the
+  current session's username. If `roleSessionName` is not specified, it defaults
+  to `trino-session`.
+- `allowedIamRoles`: IAM roles that are allowed to be specified as an extra
+  credential. This is useful because a particular AWS account may have permissions
+  to use many roles, but a specific user should only be allowed to use a subset
+  of those roles.
+- `endpoint`: The Glue catalog endpoint server. This optional property can be used
+  to override Glue endpoints on a per-user basis.
+- `region`: The Glue region to connect to. This optional property can be used
+  to override Glue regions on a per-user basis.
+
+The security mapping entries are processed in the order listed in the JSON configuration.
+You can specify the default configuration by not including any match criteria for the last entry in the list.
+
+In addition to the preceding rules, the default mapping can contain the optional
+`useClusterDefault` boolean property set to `true` to use the default IAM configuration.
+It cannot be used with any other configuration settings.
+
+If no mapping entry matches and no default is configured, access is denied.
+
+The configuration JSON is read from a file via `hive.metastore.glue.security-mapping.config-file`
+or from an HTTP endpoint via `hive.metastore.glue.security-mapping.config-uri`.
+
+Example JSON configuration:
+
+```json
+{
+  "mappings": [
+    {
+      "user": "bob|charlie",
+      "iamRole": "arn:aws:iam::123456789101:role/test_default",
+      "allowedIamRoles": [
+        "arn:aws:iam::123456789101:role/test1",
+        "arn:aws:iam::123456789101:role/test2",
+        "arn:aws:iam::123456789101:role/test3"
+      ]
+    },
+    {
+      "user": "alice",
+      "accessKey": "AKIAxxxaccess",
+      "secretKey": "iXbXxxxsecret"
+    },
+    {
+      "user": "danny",
+      "iamRole": "arn:aws:iam::123456789101:role/regional-user",
+      "endpoint": "https://bucket.vpce-1a2b3c4d-5e6f.s3.us-east-1.vpce.amazonaws.com",
+      "region": "us-east-1"
+    },
+    {
+      "user": "test.*",
+      "iamRole": "arn:aws:iam::123456789101:role/test_users"
+    },
+    {
+      "group": "finance",
+      "iamRole": "arn:aws:iam::123456789101:role/finance_users"
+    },
+    {
+      "iamRole": "arn:aws:iam::123456789101:role/default"
+    }
+  ]
+}
+```
+
+:::{list-table} Security mapping properties
+:header-rows: 1
+
+* - Property name
+  - Description
+* - `s3.security-mapping.enabled`
+  - Activate the security mapping feature. Defaults to `false`.
+  Must be set to `true` for all other properties be used.
+* - `s3.security-mapping.config-file`
+  - Path to the JSON configuration file containing security mappings.
+* - `s3.security-mapping.config-uri`
+  - HTTP endpoint URI containing security mappings.
+* - `s3.security-mapping.json-pointer`
+  - A JSON pointer (RFC 6901) to mappings inside the JSON retrieved from the
+  configuration file or HTTP endpoint. The default is the root of the document.
+* - `s3.security-mapping.iam-role-credential-name`
+  - The name of the *extra credential* used to provide the IAM role.
+* - `s3.security-mapping.kms-key-id-credential-name`
+  - The name of the *extra credential* used to provide the KMS-managed key ID.
+* - `s3.security-mapping.sse-customer-key-credential-name`
+  - The name of the *extra credential* used to provide the server-side encryption with customer-provided keys (SSE-C).
+* - `s3.security-mapping.refresh-period`
+  - How often to refresh the security mapping configuration, specified as a
+  {ref}`prop-type-duration`. By default, the configuration is not refreshed.
+* - `s3.security-mapping.colon-replacement`
+  - The character or characters to be used instead of a colon character
+  when specifying an IAM role name as an extra credential.
+  Any instances of this replacement value in the extra credential value
+  are converted to a colon.
+  Choose a value not used in any of your IAM ARNs.
+:::
+
+
 (iceberg-glue-catalog)=
 ### Iceberg-specific Glue catalog configuration properties
 

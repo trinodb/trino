@@ -15,10 +15,13 @@ package io.trino.plugin.iceberg.catalog.glue;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.TableInfo;
 import io.trino.plugin.hive.NodeVersion;
+import io.trino.plugin.hive.metastore.glue.GlueClientFactory;
+import io.trino.plugin.hive.metastore.glue.GlueHiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.iceberg.CommitTaskData;
 import io.trino.plugin.iceberg.IcebergConfig;
@@ -26,6 +29,7 @@ import io.trino.plugin.iceberg.IcebergMetadata;
 import io.trino.plugin.iceberg.TableStatisticsWriter;
 import io.trino.plugin.iceberg.catalog.BaseTrinoCatalogTest;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.spi.block.TestingSession;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
@@ -33,6 +37,7 @@ import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.MaterializedViewNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.type.TestingTypeManager;
@@ -75,7 +80,13 @@ public class TestTrinoGlueCatalog
 
     private TrinoCatalog createGlueTrinoCatalog(boolean useUniqueTableLocations, boolean useSystemSecurity)
     {
-        GlueClient glueClient = GlueClient.create();
+        GlueHiveMetastoreConfig glueConfig = new GlueHiveMetastoreConfig();
+        GlueClientFactory glueClientFactory = new GlueClientFactory(
+                glueConfig,
+                Optional.empty(),
+                ImmutableSet.of());
+        ConnectorSession session = TestingSession.SESSION;
+        ConnectorIdentity identity = session.getIdentity();
         IcebergGlueCatalogConfig catalogConfig = new IcebergGlueCatalogConfig();
         return new TrinoGlueCatalog(
                 new CatalogName("catalog_name"),
@@ -87,9 +98,9 @@ public class TestTrinoGlueCatalog
                         catalogConfig,
                         HDFS_FILE_SYSTEM_FACTORY,
                         new GlueMetastoreStats(),
-                        glueClient),
+                        glueClientFactory),
                 "test",
-                glueClient,
+                glueClientFactory.create(identity),
                 new GlueMetastoreStats(),
                 useSystemSecurity,
                 Optional.empty(),
@@ -108,7 +119,14 @@ public class TestTrinoGlueCatalog
         // Trino schema names are always lowercase (until https://github.com/trinodb/trino/issues/17)
         String trinoSchemaName = databaseName.toLowerCase(ENGLISH);
 
-        GlueClient glueClient = GlueClient.create();
+        GlueHiveMetastoreConfig glueConfig = new GlueHiveMetastoreConfig();
+        GlueClientFactory glueClientFactory = new GlueClientFactory(
+                glueConfig,
+                Optional.empty(),
+                ImmutableSet.of());
+        ConnectorSession session = TestingSession.SESSION;
+        ConnectorIdentity identity = session.getIdentity();
+        GlueClient glueClient = glueClientFactory.create(identity);
         glueClient.createDatabase(database -> database
                 .databaseInput(input -> input
                         // Currently this is actually stored in lowercase
@@ -213,7 +231,14 @@ public class TestTrinoGlueCatalog
         tmpDirectory.toFile().deleteOnExit();
 
         TrinoFileSystemFactory fileSystemFactory = HDFS_FILE_SYSTEM_FACTORY;
-        GlueClient glueClient = GlueClient.create();
+        GlueHiveMetastoreConfig glueConfig = new GlueHiveMetastoreConfig();
+        GlueClientFactory glueClientFactory = new GlueClientFactory(
+                glueConfig,
+                Optional.empty(),
+                ImmutableSet.of());
+        ConnectorSession session = TestingSession.SESSION;
+        ConnectorIdentity identity = session.getIdentity();
+        GlueClient glueClient = glueClientFactory.create(identity);
         IcebergGlueCatalogConfig catalogConfig = new IcebergGlueCatalogConfig();
         TrinoCatalog catalogWithDefaultLocation = new TrinoGlueCatalog(
                 new CatalogName("catalog_name"),
@@ -225,7 +250,7 @@ public class TestTrinoGlueCatalog
                         catalogConfig,
                         fileSystemFactory,
                         new GlueMetastoreStats(),
-                        glueClient),
+                        glueClientFactory),
                 "test",
                 glueClient,
                 new GlueMetastoreStats(),

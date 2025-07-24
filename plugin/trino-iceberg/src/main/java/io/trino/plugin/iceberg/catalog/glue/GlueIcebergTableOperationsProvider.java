@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg.catalog.glue;
 
 import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.plugin.hive.metastore.glue.GlueClientFactory;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
@@ -35,7 +36,7 @@ public class GlueIcebergTableOperationsProvider
     private final TypeManager typeManager;
     private final boolean cacheTableMetadata;
     private final TrinoFileSystemFactory fileSystemFactory;
-    private final GlueClient glueClient;
+    private final GlueClientFactory glueClientFactory;
     private final GlueMetastoreStats stats;
 
     @Inject
@@ -44,13 +45,13 @@ public class GlueIcebergTableOperationsProvider
             IcebergGlueCatalogConfig catalogConfig,
             TrinoFileSystemFactory fileSystemFactory,
             GlueMetastoreStats stats,
-            GlueClient glueClient)
+            GlueClientFactory glueClientFactory)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.cacheTableMetadata = catalogConfig.isCacheTableMetadata();
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.stats = requireNonNull(stats, "stats is null");
-        this.glueClient = requireNonNull(glueClient, "glueClient is null");
+        this.glueClientFactory = requireNonNull(glueClientFactory, "glueClientFactory is null");
     }
 
     @Override
@@ -62,6 +63,7 @@ public class GlueIcebergTableOperationsProvider
             Optional<String> owner,
             Optional<String> location)
     {
+        GlueClient glueClient = glueClientFactory.create(session.getIdentity());
         return new GlueIcebergTableOperations(
                 typeManager,
                 cacheTableMetadata,

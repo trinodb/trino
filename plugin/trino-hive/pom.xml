@@ -68,6 +68,11 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
+            <artifactId>http-client</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
             <artifactId>json</artifactId>
         </dependency>
 
@@ -109,6 +114,12 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-hive-formats</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-iam-aws</artifactId>
+            <scope>compile</scope>
         </dependency>
 
         <dependency>

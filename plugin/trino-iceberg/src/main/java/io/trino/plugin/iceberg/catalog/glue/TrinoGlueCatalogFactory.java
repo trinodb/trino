@@ -17,6 +17,7 @@ import com.google.inject.Inject;
 import io.airlift.concurrent.BoundedExecutor;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.hive.NodeVersion;
+import io.trino.plugin.hive.metastore.glue.GlueClientFactory;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.hive.security.UsingSystemSecurity;
@@ -30,7 +31,6 @@ import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
-import software.amazon.awssdk.services.glue.GlueClient;
 
 import java.util.Optional;
 import java.util.concurrent.Executor;
@@ -49,7 +49,7 @@ public class TrinoGlueCatalogFactory
     private final IcebergTableOperationsProvider tableOperationsProvider;
     private final String trinoVersion;
     private final Optional<String> defaultSchemaLocation;
-    private final GlueClient glueClient;
+    private final GlueClientFactory glueClientFactory;
     private final boolean isUniqueTableLocation;
     private final boolean hideMaterializedViewStorageTable;
     private final GlueMetastoreStats stats;
@@ -68,7 +68,7 @@ public class TrinoGlueCatalogFactory
             IcebergGlueCatalogConfig catalogConfig,
             @UsingSystemSecurity boolean usingSystemSecurity,
             GlueMetastoreStats stats,
-            GlueClient glueClient,
+            GlueClientFactory glueClientFactory,
             @ForIcebergMetadata ExecutorService metadataExecutorService)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
@@ -78,7 +78,7 @@ public class TrinoGlueCatalogFactory
         this.tableOperationsProvider = requireNonNull(tableOperationsProvider, "tableOperationsProvider is null");
         this.trinoVersion = nodeVersion.toString();
         this.defaultSchemaLocation = glueConfig.getDefaultWarehouseDir();
-        this.glueClient = requireNonNull(glueClient, "glueClient is null");
+        this.glueClientFactory = requireNonNull(glueClientFactory, "glueClientFactory is null");
         this.isUniqueTableLocation = icebergConfig.isUniqueTableLocation();
         this.hideMaterializedViewStorageTable = icebergConfig.isHideMaterializedViewStorageTable();
         this.stats = requireNonNull(stats, "stats is null");
@@ -108,7 +108,7 @@ public class TrinoGlueCatalogFactory
                 cacheTableMetadata,
                 tableOperationsProvider,
                 trinoVersion,
-                glueClient,
+                glueClientFactory.create(identity),
                 stats,
                 isUsingSystemSecurity,
                 defaultSchemaLocation,

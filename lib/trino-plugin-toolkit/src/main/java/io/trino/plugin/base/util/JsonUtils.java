@@ -20,6 +20,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.core.StreamReadFeature;
 import com.fasterxml.jackson.core.StreamWriteFeature;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.core.util.JsonRecyclerPools;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -43,11 +44,11 @@ import static java.util.Objects.requireNonNull;
 
 public final class JsonUtils
 {
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get()
-            .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
-            .enable(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS);
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get().enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES).enable(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS);
 
-    private JsonUtils() {}
+    private JsonUtils()
+    {
+    }
 
     public static <T> T parseJson(Path path, Class<T> javaType)
     {
@@ -149,6 +150,71 @@ public final class JsonUtils
     {
         JsonNode mappingsNode = node.at(jsonPointer);
         return jsonTreeToValue(mappingsNode, javaType);
+    }
+
+    public static <T> T parseJson(Path path, TypeReference<T> typeReference)
+    {
+        if (!path.isAbsolute()) {
+            path = path.toAbsolutePath();
+        }
+
+        checkArgument(exists(path), "File does not exist: %s", path);
+        checkArgument(isReadable(path), "File is not readable: %s", path);
+
+        try {
+            byte[] json = Files.readAllBytes(path);
+            return parseJson(json, typeReference);
+        }
+        catch (IOException | RuntimeException e) {
+            throw new IllegalArgumentException(format("Invalid JSON file '%s' for '%s'", path, typeReference.getType()), e);
+        }
+    }
+
+    public static <T> T parseJson(byte[] jsonBytes, TypeReference<T> typeReference)
+    {
+        requireNonNull(jsonBytes, "jsonBytes is null");
+        requireNonNull(typeReference, "typeReference is null");
+
+        try (JsonParser parser = OBJECT_MAPPER.createParser(jsonBytes)) {
+            T value = OBJECT_MAPPER.readValue(parser, typeReference);
+            checkArgument(parser.nextToken() == null, "Found characters after the expected end of input");
+            return value;
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException("Could not parse JSON", e);
+        }
+    }
+
+    public static <T> T parseJson(String json, String jsonPointer, TypeReference<T> typeReference)
+    {
+        JsonNode node = parseJson(json, JsonNode.class);
+        return parseJson(node, jsonPointer, typeReference);
+    }
+
+    private static <T> T parseJson(JsonNode node, String jsonPointer, TypeReference<T> typeReference)
+    {
+        JsonNode mappingsNode = node.at(jsonPointer);
+        try {
+            return OBJECT_MAPPER.treeToValue(mappingsNode, OBJECT_MAPPER.getTypeFactory().constructType(typeReference.getType()));
+        }
+        catch (JsonProcessingException e) {
+            throw new UncheckedIOException("Failed to convert JSON tree node using TypeReference", e);
+        }
+    }
+
+    public static <T> T parseJson(Path path, String jsonPointer, TypeReference<T> typeReference)
+    {
+        JsonNode node = parseJson(path, JsonNode.class);
+        JsonNode mappingsNode = node.at(jsonPointer);
+        if (mappingsNode.isMissingNode()) {
+            throw new IllegalArgumentException("JSON pointer not found: " + jsonPointer);
+        }
+        try {
+            return OBJECT_MAPPER.readValue(mappingsNode.traverse(), typeReference);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException("Failed to parse JSON at pointer", e);
+        }
     }
 
     public static JsonFactory jsonFactory()
