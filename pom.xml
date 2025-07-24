@@ -95,6 +95,7 @@
         <module>plugin/trino-ml</module>
         <module>plugin/trino-mongodb</module>
         <module>plugin/trino-mysql</module>
+        <module>plugin/trino-mysql-catalog-store</module>
         <module>plugin/trino-mysql-event-listener</module>
         <module>plugin/trino-opa</module>
         <module>plugin/trino-openlineage</module>
