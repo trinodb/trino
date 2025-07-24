@@ -537,7 +537,7 @@ public class MockConnector
         @Override
         public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
         {
-            if (endVersion.isPresent() || (branches.isEmpty() && startVersion.isPresent())) {
+            if (startVersion.isPresent() || (branches.isEmpty() && endVersion.isPresent())) {
                 throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
             }
 
