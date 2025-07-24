@@ -411,7 +411,8 @@ public class HashBuilderOperator
         spiller = Optional.of(singleStreamSpillerFactory.create(
                 index.getTypes(),
                 operatorContext.getSpillContext().newLocalSpillContext(),
-                operatorContext.newLocalUserMemoryContext(HashBuilderOperator.class.getSimpleName())));
+                operatorContext.newLocalUserMemoryContext(HashBuilderOperator.class.getSimpleName()),
+                true));
         long spillStartNanos = System.nanoTime();
         ListenableFuture<DataSize> spillFuture = getSpiller().spill(index.getPages());
         addSuccessCallback(spillFuture, dataSize -> {
