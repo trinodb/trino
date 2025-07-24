@@ -38,6 +38,7 @@ final class TestingResourceGroups
                 selectors.stream()
                         .map(SelectorSpecBuilder::build)
                         .collect(toImmutableList()),
+                Optional.empty(),
                 Optional.empty());
     }
 

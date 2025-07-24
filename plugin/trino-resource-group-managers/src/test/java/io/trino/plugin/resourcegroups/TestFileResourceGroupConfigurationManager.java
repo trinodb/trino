@@ -32,6 +32,7 @@ import java.util.regex.Pattern;
 import static com.google.common.io.Resources.getResource;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.airlift.units.DataSize.Unit.TERABYTE;
 import static io.trino.plugin.resourcegroups.TestingResourceGroups.groupIdTemplate;
 import static io.trino.plugin.resourcegroups.TestingResourceGroups.managerSpec;
 import static io.trino.plugin.resourcegroups.TestingResourceGroups.resourceGroupSpec;
@@ -199,6 +200,8 @@ public class TestFileResourceGroupConfigurationManager
         assertThat(global.getSoftCpuLimit()).isEqualTo(Duration.ofHours(1));
         assertThat(global.getHardCpuLimit()).isEqualTo(Duration.ofDays(1));
         assertThat(global.getCpuQuotaGenerationMillisPerSecond()).isEqualTo(1000 * 24);
+        assertThat(global.getSoftPhysicalDataScanLimitBytes()).isEqualTo(DataSize.of(1, TERABYTE).toBytes());
+        assertThat(global.getPhysicalDataScanQuotaGenerationBytesPerSecond()).isEqualTo(DataSize.of(1, TERABYTE).toBytes() / 3600);
         assertThat(global.getMaxQueuedQueries()).isEqualTo(1000);
         assertThat(global.getHardConcurrencyLimit()).isEqualTo(100);
         assertThat(global.getSchedulingPolicy()).isEqualTo(WEIGHTED);
@@ -215,6 +218,7 @@ public class TestFileResourceGroupConfigurationManager
         assertThat(sub.getSchedulingWeight()).isEqualTo(5);
         assertThat(sub.getJmxExport()).isFalse();
         assertThat(sub.getSoftPhysicalDataScanLimitBytes()).isEqualTo(DataSize.of(10, MEGABYTE).toBytes());
+        assertThat(sub.getPhysicalDataScanQuotaGenerationBytesPerSecond()).isEqualTo(DataSize.of(10, MEGABYTE).toBytes() / 3600);
 
         ResourceGroupId subIdNoSoftMemoryLimit = new ResourceGroupId(globalId, "sub_no_soft_memory_limit");
         ResourceGroup subNoSoftMemoryLimit = new TestingResourceGroup(subIdNoSoftMemoryLimit);

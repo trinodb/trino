@@ -296,7 +296,7 @@ public class TestResourceGroups
         assertThat(query2.getState()).isEqualTo(RUNNING);
         assertThat(query3.getState()).isEqualTo(QUEUED);
 
-        root.generateCpuQuota(2);
+        root.generateQuotas(2);
         root.updateGroupsAndProcessQueuedQueries();
         assertThat(query2.getState()).isEqualTo(RUNNING);
         assertThat(query3.getState()).isEqualTo(RUNNING);
@@ -329,7 +329,7 @@ public class TestResourceGroups
         root.updateGroupsAndProcessQueuedQueries();
         assertThat(query2.getState()).isEqualTo(QUEUED);
 
-        root.generateCpuQuota(2);
+        root.generateQuotas(2);
         root.updateGroupsAndProcessQueuedQueries();
         assertThat(query2.getState()).isEqualTo(RUNNING);
     }
@@ -342,48 +342,24 @@ public class TestResourceGroups
         root.setMaxQueuedQueries(4);
         root.setHardConcurrencyLimit(3);
         root.setSoftPhysicalDataScanLimitBytes(1);
-        MockManagedQueryExecution query1 = new MockManagedQueryExecutionBuilder().withInitialPhysicalDataScanUsage(DataSize.ofBytes(2)).build();
+        root.setPhysicalDataScanQuotaGenerationBytesPerSecond(1);
+
+        MockManagedQueryExecution query1 = new MockManagedQueryExecutionBuilder().withInitialPhysicalDataScanUsage(3).build();
         root.run(query1);
-        // Process the group to refresh stats
-        root.updateGroupsAndProcessQueuedQueries();
         assertThat(query1.getState()).isEqualTo(RUNNING);
+        root.updateGroupsAndProcessQueuedQueries();
+
         MockManagedQueryExecution query2 = new MockManagedQueryExecutionBuilder().build();
         root.run(query2);
         assertThat(query2.getState()).isEqualTo(QUEUED);
+
         MockManagedQueryExecution query3 = new MockManagedQueryExecutionBuilder().build();
         root.run(query3);
         assertThat(query3.getState()).isEqualTo(QUEUED);
 
         query1.complete();
-        assertThat(query2.getState()).isEqualTo(RUNNING);
-        assertThat(query3.getState()).isEqualTo(RUNNING);
-    }
-
-    @Test
-    public void testSubgroupPhysicalDataScanLimit()
-    {
-        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
-        root.setMaxQueuedQueries(4);
-        root.setHardConcurrencyLimit(3);
-        root.setSoftPhysicalDataScanLimitBytes(5);
-        InternalResourceGroup subgroup = root.getOrCreateSubGroup("subgroup");
-        subgroup.setMaxQueuedQueries(4);
-        subgroup.setHardConcurrencyLimit(3);
-        subgroup.setSoftPhysicalDataScanLimitBytes(1);
-
-        MockManagedQueryExecution query1 = new MockManagedQueryExecutionBuilder().withInitialPhysicalDataScanUsage(DataSize.ofBytes(2)).build();
-        subgroup.run(query1);
-        // Process the group to refresh stats
+        root.generateQuotas(3);
         root.updateGroupsAndProcessQueuedQueries();
-        assertThat(query1.getState()).isEqualTo(RUNNING);
-        MockManagedQueryExecution query2 = new MockManagedQueryExecutionBuilder().build();
-        subgroup.run(query2);
-        assertThat(query2.getState()).isEqualTo(QUEUED);
-        MockManagedQueryExecution query3 = new MockManagedQueryExecutionBuilder().build();
-        subgroup.run(query3);
-        assertThat(query3.getState()).isEqualTo(QUEUED);
-
-        query1.complete();
         assertThat(query2.getState()).isEqualTo(RUNNING);
         assertThat(query3.getState()).isEqualTo(RUNNING);
     }
@@ -421,7 +397,7 @@ public class TestResourceGroups
         assertThat(q2.getState()).isEqualTo(QUEUED);
 
         // Generating CPU quota before the query finishes. This assertion verifies CPU update during quota generation.
-        root.generateCpuQuota(2);
+        root.generateQuotas(2);
         Stream.of(root, child).forEach(group -> assertWithinCpuLimit(group, 2));
 
         // An incoming query starts running right away.
@@ -466,7 +442,7 @@ public class TestResourceGroups
         child.run(q2);
         assertThat(q2.getState()).isEqualTo(QUEUED);
 
-        root.generateCpuQuota(2);
+        root.generateQuotas(2);
         Stream.of(root, child).forEach(group -> assertWithinCpuLimit(group, 2));
         assertThat(q2.getState()).isEqualTo(QUEUED);
 
@@ -699,12 +675,13 @@ public class TestResourceGroups
             group.setHardConcurrencyLimit(100);
             group.setMaxQueuedQueries(100);
             group.setSoftPhysicalDataScanLimitBytes(5);
+            group.setPhysicalDataScanQuotaGenerationBytesPerSecond(1);
         });
 
         MockManagedQueryExecution q1 = new MockManagedQueryExecutionBuilder().build();
         child.run(q1);
         assertThat(q1.getState()).isEqualTo(RUNNING);
-        q1.setPhysicalDataScanUsage(DataSize.ofBytes(6));
+        q1.consumePhysicalDataScanBytes(6);
 
         Stream.of(root, child).forEach(group -> assertWithinPhysicalDataScanLimit(group, 0));
         root.updateGroupsAndProcessQueuedQueries();
@@ -715,18 +692,19 @@ public class TestResourceGroups
         child.run(q2);
         assertThat(q2.getState()).isEqualTo(QUEUED);
 
-        q1.setPhysicalDataScanUsage(DataSize.ofBytes(4));
+        // Generating data scan quota before the query finishes. This assertion verifies data scan update during quota generation.
+        root.generateQuotas(2);
+        Stream.of(root, child).forEach(group -> assertWithinPhysicalDataScanLimit(group, 4));
 
-        // A new incoming query q3 gets queued since cached usage still exceeds the limit.
+        // A new incoming query q3 starts running right away.
         MockManagedQueryExecution q3 = new MockManagedQueryExecutionBuilder().build();
         child.run(q3);
-        assertThat(q3.getState()).isEqualTo(QUEUED);
-
-        // q2 and q3 start running when cached usage is updated and queued queries are processed.
-        root.updateGroupsAndProcessQueuedQueries();
-        Stream.of(root, child).forEach(group -> assertWithinPhysicalDataScanLimit(group, 4));
-        assertThat(q2.getState()).isEqualTo(RUNNING);
         assertThat(q3.getState()).isEqualTo(RUNNING);
+
+        // A queued query starts running only after invoking `updateGroupsAndProcessQueuedQueries`.
+        assertThat(q2.getState()).isEqualTo(QUEUED);
+        root.updateGroupsAndProcessQueuedQueries();
+        assertThat(q2.getState()).isEqualTo(RUNNING);
     }
 
     @Test
@@ -740,24 +718,31 @@ public class TestResourceGroups
             group.setHardConcurrencyLimit(100);
             group.setMaxQueuedQueries(100);
             group.setSoftPhysicalDataScanLimitBytes(3);
+            group.setPhysicalDataScanQuotaGenerationBytesPerSecond(1);
         });
 
         MockManagedQueryExecution q1 = new MockManagedQueryExecutionBuilder().build();
         child.run(q1);
         assertThat(q1.getState()).isEqualTo(RUNNING);
-        q1.setPhysicalDataScanUsage(DataSize.ofBytes(4));
 
-        Stream.of(root, child).forEach(group -> assertWithinPhysicalDataScanLimit(group, 0));
-        root.updateGroupsAndProcessQueuedQueries();
+        q1.consumePhysicalDataScanBytes(4);
+        q1.complete();
+
+        // q1 is removed from runningQueries and usage is cached at this point.
         Stream.of(root, child).forEach(group -> assertExceedsPhysicalDataScanLimit(group, 4));
 
-        // Query completion should reduce the cached data scan usage to 0B.
-        q1.complete();
-        Stream.of(root, child).forEach(group -> assertWithinMemoryLimit(group, 0));
-
-        // q2 starts running since usage is within the limit.
+        // q2 gets queued since cached usage exceeds the limit.
         MockManagedQueryExecution q2 = new MockManagedQueryExecutionBuilder().build();
         child.run(q2);
+        assertThat(q2.getState()).isEqualTo(QUEUED);
+
+        root.generateQuotas(2);
+        Stream.of(root, child).forEach(group -> assertWithinPhysicalDataScanLimit(group, 2));
+        assertThat(q2.getState()).isEqualTo(QUEUED);
+
+        // q2 should run after groups are updated. Data scan usage should not be double counted.
+        root.updateGroupsAndProcessQueuedQueries();
+        Stream.of(root, child).forEach(group -> assertWithinPhysicalDataScanLimit(group, 2));
         assertThat(q2.getState()).isEqualTo(RUNNING);
     }
 
@@ -769,22 +754,23 @@ public class TestResourceGroups
         root.setHardConcurrencyLimit(100);
         root.setMaxQueuedQueries(100);
         root.setSoftPhysicalDataScanLimitBytes(3);
+        root.setPhysicalDataScanQuotaGenerationBytesPerSecond(1);
 
         MockManagedQueryExecution q1 = new MockManagedQueryExecutionBuilder().build();
         root.run(q1);
         assertThat(q1.getState()).isEqualTo(RUNNING);
-        q1.setPhysicalDataScanUsage(DataSize.ofBytes(2));
+        q1.consumePhysicalDataScanBytes(2);
 
         InternalResourceGroup child = root.getOrCreateSubGroup("child");
         child.setHardConcurrencyLimit(100);
         child.setMaxQueuedQueries(100);
-        child.setSoftMemoryLimitBytes(3);
         child.setSoftPhysicalDataScanLimitBytes(3);
+        child.setPhysicalDataScanQuotaGenerationBytesPerSecond(1);
 
         MockManagedQueryExecution q2 = new MockManagedQueryExecutionBuilder().build();
         child.run(q2);
         assertThat(q2.getState()).isEqualTo(RUNNING);
-        q2.setPhysicalDataScanUsage(DataSize.ofBytes(2));
+        q2.consumePhysicalDataScanBytes(2);
 
         root.updateGroupsAndProcessQueuedQueries();
         assertExceedsPhysicalDataScanLimit(root, 4);
@@ -807,12 +793,13 @@ public class TestResourceGroups
             group.setHardConcurrencyLimit(100);
             group.setMaxQueuedQueries(100);
             group.setSoftPhysicalDataScanLimitBytes(3);
+            group.setPhysicalDataScanQuotaGenerationBytesPerSecond(1);
         });
 
         MockManagedQueryExecution q1 = new MockManagedQueryExecutionBuilder().build();
         child.run(q1);
         assertThat(q1.getState()).isEqualTo(RUNNING);
-        q1.setPhysicalDataScanUsage(DataSize.ofBytes(2));
+        q1.consumePhysicalDataScanBytes(2);
 
         Stream.of(root, child).forEach(group -> assertWithinPhysicalDataScanLimit(group, 0));
         root.updateGroupsAndProcessQueuedQueries();
@@ -823,7 +810,7 @@ public class TestResourceGroups
         MockManagedQueryExecution q2 = new MockManagedQueryExecutionBuilder().build();
         root.run(q2);
         assertThat(q2.getState()).isEqualTo(RUNNING);
-        q2.setPhysicalDataScanUsage(DataSize.ofBytes(2));
+        q2.consumePhysicalDataScanBytes(2);
 
         root.updateGroupsAndProcessQueuedQueries();
         assertWithinPhysicalDataScanLimit(child, 2);
@@ -899,7 +886,7 @@ public class TestResourceGroups
         assertThat(q5.getState()).isEqualTo(QUEUED);
 
         // Assert CPU usage update after quota regeneration
-        root.generateCpuQuota(4);
+        root.generateQuotas(4);
         assertWithinCpuLimit(root, 14);
         assertExceedsCpuLimit(rootChild1, 10);
         assertWithinCpuLimit(rootChild2, 0);
@@ -927,7 +914,7 @@ public class TestResourceGroups
         assertThat(q6.getState()).isEqualTo(QUEUED);
 
         // Assert usage after regeneration
-        root.generateCpuQuota(6);
+        root.generateQuotas(6);
         assertWithinCpuLimit(root, 11);
         assertExceedsCpuLimit(rootChild1, 7);
         assertWithinCpuLimit(rootChild2, 0);
@@ -942,7 +929,7 @@ public class TestResourceGroups
         assertThat(q6.getState()).isEqualTo(RUNNING);
 
         // q5 starts running after rootChild1's usage comes within the limit
-        root.generateCpuQuota(2);
+        root.generateQuotas(2);
         assertWithinCpuLimit(rootChild1, 5);
         root.updateGroupsAndProcessQueuedQueries();
         assertThat(q5.getState()).isEqualTo(RUNNING);
@@ -1050,16 +1037,9 @@ public class TestResourceGroups
      */
     @Test
     @Timeout(10)
-    public void testRecursivePhysicalDataScanUsageUpdateRecursively()
+    public void testPhysicalDataScanUsageUpdateRecursively()
     {
-        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor())
-        {
-            @Override
-            public void triggerProcessQueuedQueries()
-            {
-                // No op to allow the test fine-grained control about when to trigger the next query.
-            }
-        };
+        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
         InternalResourceGroup rootChild1 = root.getOrCreateSubGroup("rootChild1");
         InternalResourceGroup rootChild2 = root.getOrCreateSubGroup("rootChild2");
         InternalResourceGroup rootChild1Child1 = rootChild1.getOrCreateSubGroup("rootChild1Child1");
@@ -1069,11 +1049,13 @@ public class TestResourceGroups
         Stream.of(root, rootChild1, rootChild2, rootChild1Child1, rootChild1Child2).forEach(group -> {
             group.setHardConcurrencyLimit(100);
             group.setMaxQueuedQueries(100);
+            group.setPhysicalDataScanQuotaGenerationBytesPerSecond(1);
         });
 
         root.setSoftPhysicalDataScanLimitBytes(12);
         rootChild1.setSoftPhysicalDataScanLimitBytes(4);
-        // Setting a higher limit for leaf nodes
+
+        // Setting a higher limit for leaf nodes to make sure they are always in the limit
         rootChild2.setSoftPhysicalDataScanLimitBytes(100);
         rootChild1Child1.setSoftPhysicalDataScanLimitBytes(100);
         rootChild1Child2.setSoftPhysicalDataScanLimitBytes(100);
@@ -1090,9 +1072,9 @@ public class TestResourceGroups
         assertThat(q2.getState()).isEqualTo(RUNNING);
         assertThat(q3.getState()).isEqualTo(RUNNING);
 
-        q1.setPhysicalDataScanUsage(DataSize.ofBytes(4));
-        q2.setPhysicalDataScanUsage(DataSize.ofBytes(5));
-        q3.setPhysicalDataScanUsage(DataSize.ofBytes(6));
+        q1.consumePhysicalDataScanBytes(4);
+        q2.consumePhysicalDataScanBytes(5);
+        q3.consumePhysicalDataScanBytes(6);
 
         // The cached memory usage gets updated for the tree
         root.updateGroupsAndProcessQueuedQueries();
@@ -1112,30 +1094,51 @@ public class TestResourceGroups
         rootChild1Child1.run(q5);
         assertThat(q5.getState()).isEqualTo(QUEUED);
 
-        q1.setPhysicalDataScanUsage(DataSize.ofBytes(0));
-        root.updateGroupsAndProcessQueuedQueries();
-
+        // Assert data scan usage update after quota regeneration
+        root.generateQuotas(4);
         assertWithinPhysicalDataScanLimit(root, 11);
         assertExceedsPhysicalDataScanLimit(rootChild1, 5);
+        assertWithinPhysicalDataScanLimit(rootChild2, 2);
         assertWithinPhysicalDataScanLimit(rootChild1Child1, 0);
+        assertWithinPhysicalDataScanLimit(rootChild1Child2, 1);
+
+        root.updateGroupsAndProcessQueuedQueries();
 
         // q4 starts running since usage in root and rootChild2 is within the limits
         assertThat(q4.getState()).isEqualTo(RUNNING);
-        // q5 is queued since usage in rootChild1 exceeds the limit.
+        // q5 is still queued since usage in rootChild1 exceeds the limit.
         assertThat(q5.getState()).isEqualTo(QUEUED);
 
-        // q2's completion triggers data scan usage updates
+        // Query completion updates cached CPU usage of root, rootChild1 and rootChild1Child2.
+        q2.consumePhysicalDataScanBytes(3);
         q2.complete();
-        assertWithinPhysicalDataScanLimit(root, 6);
-        assertWithinPhysicalDataScanLimit(rootChild1, 0);
+        assertExceedsPhysicalDataScanLimit(root, 14);
+        assertExceedsPhysicalDataScanLimit(rootChild1, 8);
+        assertWithinPhysicalDataScanLimit(rootChild1Child2, 4);
 
-        // An incoming query starts running
+        // q6 in rootChild2 gets queued because root's CPU usage exceeds the limit.
         MockManagedQueryExecution q6 = new MockManagedQueryExecutionBuilder().build();
-        rootChild1Child2.run(q6);
+        rootChild2.run(q6);
+        assertThat(q6.getState()).isEqualTo(QUEUED);
+
+        // Assert usage after regeneration
+        root.generateQuotas(3);
+        assertWithinPhysicalDataScanLimit(root, 11);
+        assertExceedsPhysicalDataScanLimit(rootChild1, 5);
+        assertWithinPhysicalDataScanLimit(rootChild2, 0);
+        assertWithinPhysicalDataScanLimit(rootChild1Child1, 0);
+        assertWithinPhysicalDataScanLimit(rootChild1Child2, 1);
+
+        root.updateGroupsAndProcessQueuedQueries();
+
+        // q5 is queued, because rootChild1's usage still exceeds the limit.
+        assertThat(q5.getState()).isEqualTo(QUEUED);
+        // q6 starts running, because usage in rootChild2 and root are within their limits.
         assertThat(q6.getState()).isEqualTo(RUNNING);
 
-        // queued queries will start running after the update
-        assertThat(q5.getState()).isEqualTo(QUEUED);
+        // q5 starts running after rootChild1's usage comes within the limit
+        root.generateQuotas(2);
+        assertWithinPhysicalDataScanLimit(rootChild1, 3);
         root.updateGroupsAndProcessQueuedQueries();
         assertThat(q5.getState()).isEqualTo(RUNNING);
     }

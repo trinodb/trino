@@ -159,6 +159,7 @@ final class H2TestUtil
             throws InterruptedException
     {
         dao.insertResourceGroupsGlobalProperties("cpu_quota_period", "1h");
+        dao.insertResourceGroupsGlobalProperties("physical_data_scan_quota_period", "1h");
         dao.insertResourceGroup(1, "global", "1MB", 100, 1000, 1000, null, null, null, null, null, null, null, TEST_ENVIRONMENT);
         dao.insertResourceGroup(2, "bi-${USER}", "1MB", 3, 2, 2, null, null, null, null, null, null, 1L, TEST_ENVIRONMENT);
         dao.insertResourceGroup(3, "user-${USER}", "1MB", 3, 3, 3, null, null, null, null, null, null, 1L, TEST_ENVIRONMENT);

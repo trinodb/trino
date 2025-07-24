@@ -77,6 +77,7 @@ public class DbResourceGroupConfigurationManager
     private final AtomicReference<List<ResourceGroupSpec>> rootGroups = new AtomicReference<>(ImmutableList.of());
     private final AtomicReference<List<ResourceGroupSelector>> selectors = new AtomicReference<>();
     private final AtomicReference<Optional<Duration>> cpuQuotaPeriod = new AtomicReference<>(Optional.empty());
+    private final AtomicReference<Optional<Duration>> physicalDataScanQuotaPeriod = new AtomicReference<>(Optional.empty());
     private final ScheduledExecutorService configExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("DbResourceGroupConfigurationManager"));
     private final AtomicBoolean started = new AtomicBoolean();
     private final AtomicLong lastRefresh = new AtomicLong();
@@ -140,6 +141,12 @@ public class DbResourceGroupConfigurationManager
     protected Optional<Duration> getCpuQuotaPeriod()
     {
         return cpuQuotaPeriod.get();
+    }
+
+    @Override
+    protected Optional<Duration> getPhysicalDataScanQuotaPeriod()
+    {
+        return physicalDataScanQuotaPeriod.get();
     }
 
     @Override
@@ -215,11 +222,9 @@ public class DbResourceGroupConfigurationManager
         return selectors.get();
     }
 
-    private synchronized Optional<Duration> getCpuQuotaPeriodFromDb()
+    private synchronized ResourceGroupGlobalProperties getResourceGroupGlobalPropertiesFromDB()
     {
-        List<ResourceGroupGlobalProperties> globalProperties = dao.getResourceGroupGlobalProperties();
-        checkState(globalProperties.size() <= 1, "There is more than one cpu_quota_period");
-        return !globalProperties.isEmpty() ? globalProperties.get(0).getCpuQuotaPeriod() : Optional.empty();
+        return dao.getResourceGroupGlobalProperties();
     }
 
     @VisibleForTesting
@@ -234,6 +239,7 @@ public class DbResourceGroupConfigurationManager
             Set<ResourceGroup> deletedGroups = findDeletedGroups(templateToGroup, newResourceGroupSpecs);
 
             this.cpuQuotaPeriod.set(managerSpec.getCpuQuotaPeriod());
+            this.physicalDataScanQuotaPeriod.set(managerSpec.getPhysicalDataScanQuotaPeriod());
             this.rootGroups.set(managerSpec.getRootGroups());
             List<ResourceGroupSelector> selectors = buildSelectors(managerSpec);
             if (exactMatchSelectorEnabled) {
@@ -387,7 +393,9 @@ public class DbResourceGroupConfigurationManager
                                 selectorRecord.getSelectorResourceEstimate(),
                                 resourceGroupIdTemplateMap.get(selectorRecord.getResourceGroupId()))
                 ).collect(Collectors.toList());
-        ManagerSpec managerSpec = new ManagerSpec(rootGroups, selectors, getCpuQuotaPeriodFromDb());
+
+        ResourceGroupGlobalProperties globalProperties = dao.getResourceGroupGlobalProperties();
+        ManagerSpec managerSpec = new ManagerSpec(rootGroups, selectors, globalProperties.getCpuQuotaPeriod(), globalProperties.getPhysicalDataScanQuotaPeriod());
         validateRootGroups(managerSpec);
         return new AbstractMap.SimpleImmutableEntry<>(managerSpec, resourceGroupSpecs);
     }

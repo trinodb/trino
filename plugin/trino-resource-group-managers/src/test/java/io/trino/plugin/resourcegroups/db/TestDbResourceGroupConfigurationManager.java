@@ -74,6 +74,7 @@ public class TestDbResourceGroupConfigurationManager
         String prodEnvironment = "prod";
         String devEnvironment = "dev";
         dao.insertResourceGroupsGlobalProperties("cpu_quota_period", "1h");
+        dao.insertResourceGroupsGlobalProperties("physical_data_scan_quota_period", "1h");
         // two resource groups are the same except the group for the prod environment has a larger softMemoryLimit
         dao.insertResourceGroup(1, "prod_global", "10MB", 1000, 100, 100, "weighted", null, true, "1h", "1d", "5MB", null, prodEnvironment);
         dao.insertResourceGroup(2, "dev_global", "1MB", 1000, 100, 100, "weighted", null, true, "1h", "1d", "5MB", null, devEnvironment);
@@ -113,6 +114,7 @@ public class TestDbResourceGroupConfigurationManager
         dao.createResourceGroupsTable();
         dao.createSelectorsTable();
         dao.insertResourceGroupsGlobalProperties("cpu_quota_period", "1h");
+        dao.insertResourceGroupsGlobalProperties("physical_data_scan_quota_period", "1h");
         dao.insertResourceGroup(1, "global", "1MB", 1000, 100, 100, "weighted", null, true, "1h", "1d", "1TB", null, ENVIRONMENT);
         dao.insertResourceGroup(2, "sub", "2MB", 4, 3, 3, null, 5, null, null, null, "10GB", 1L, ENVIRONMENT);
         dao.insertSelector(2, 1, null, null, null, null, null, null, null, null);
@@ -194,6 +196,7 @@ public class TestDbResourceGroupConfigurationManager
         dao.insertResourceGroup(2, "sub", "2MB", 4, 3, 3, null, 5, null, null, null, "100MB", 1L, ENVIRONMENT);
         dao.insertSelector(2, 1, null, null, null, null, null, null, null, null);
         dao.insertResourceGroupsGlobalProperties("cpu_quota_period", "1h");
+        dao.insertResourceGroupsGlobalProperties("physical_data_scan_quota_period", "1h");
         DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager(listener -> {}, new DbResourceGroupConfig(), daoProvider.get(), ENVIRONMENT);
         manager.start();
         InternalResourceGroup global = new InternalResourceGroup("global", (group, export) -> {}, directExecutor());

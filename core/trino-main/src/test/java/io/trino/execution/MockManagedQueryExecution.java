@@ -84,16 +84,16 @@ public class MockManagedQueryExecution
         this.memoryUsage = memoryUsage;
     }
 
-    public void setPhysicalDataScanUsage(DataSize physicalDataScanUsage)
+    public void consumePhysicalDataScanBytes(long physicalDataScanBytes)
     {
         checkState(state == RUNNING, "cannot set physical data scan usage in a non-running state");
-        this.physicalDataScanUsage = physicalDataScanUsage;
+        long newDataScan = physicalDataScanUsage.toBytes() + physicalDataScanBytes;
+        this.physicalDataScanUsage = DataSize.ofBytes(newDataScan);
     }
 
     public void complete()
     {
         memoryUsage = DataSize.ofBytes(0);
-        physicalDataScanUsage = DataSize.ofBytes(0);
         state = FINISHED;
         fireStateChange();
     }
@@ -385,9 +385,9 @@ public class MockManagedQueryExecution
             return this;
         }
 
-        public MockManagedQueryExecutionBuilder withInitialPhysicalDataScanUsage(DataSize physicalDataScanUsage)
+        public MockManagedQueryExecutionBuilder withInitialPhysicalDataScanUsage(long physicalDataScanUsageBytes)
         {
-            this.physicalDataScanUsage = physicalDataScanUsage;
+            this.physicalDataScanUsage = DataSize.ofBytes(physicalDataScanUsageBytes);
             return this;
         }
 

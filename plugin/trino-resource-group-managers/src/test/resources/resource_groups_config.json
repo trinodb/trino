@@ -7,6 +7,7 @@
       "maxQueued": 1000,
       "softCpuLimit": "1h",
       "hardCpuLimit": "1d",
+      "softPhysicalDataScanLimit": "1TB",
       "schedulingPolicy": "weighted",
       "jmxExport": true,
       "subGroups": [
@@ -31,6 +32,7 @@
       "group": "global"
     }
   ],
-  "cpuQuotaPeriod": "1h"
+  "cpuQuotaPeriod": "1h",
+  "physicalDataScanQuotaPeriod": "1h"
 }
 

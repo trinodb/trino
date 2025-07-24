@@ -17,6 +17,7 @@ import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 import org.jdbi.v3.sqlobject.statement.UseRowMapper;
+import org.jdbi.v3.sqlobject.statement.UseRowReducer;
 
 import java.util.List;
 
@@ -25,13 +26,13 @@ public interface ResourceGroupsDao
     @SqlUpdate("CREATE TABLE IF NOT EXISTS resource_groups_global_properties (\n" +
             "  name VARCHAR(128) NOT NULL PRIMARY KEY,\n" +
             "  value VARCHAR(512) NULL,\n" +
-            "  CHECK (name in ('cpu_quota_period'))\n" +
+            "  CHECK (name in ('cpu_quota_period', 'physical_data_scan_quota_period'))\n" +
             ")")
     void createResourceGroupsGlobalPropertiesTable();
 
-    @SqlQuery("SELECT value FROM resource_groups_global_properties WHERE name = 'cpu_quota_period'")
-    @UseRowMapper(ResourceGroupGlobalProperties.Mapper.class)
-    List<ResourceGroupGlobalProperties> getResourceGroupGlobalProperties();
+    @SqlQuery("SELECT name, value FROM resource_groups_global_properties")
+    @UseRowReducer(ResourceGroupGlobalPropertiesReducer.class)
+    ResourceGroupGlobalProperties getResourceGroupGlobalProperties();
 
     @SqlUpdate("CREATE TABLE IF NOT EXISTS resource_groups (\n" +
             "  resource_group_id BIGINT NOT NULL AUTO_INCREMENT,\n" +

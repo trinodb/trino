@@ -28,6 +28,7 @@
       "userGroup": "groupA"
     }
   ],
-  "cpuQuotaPeriod": "1h"
+  "cpuQuotaPeriod": "1h",
+  "physicalDataScanQuotaPeriod": "1h"
 }
 

@@ -51,6 +51,7 @@ public class FileResourceGroupConfigurationManager
     private final List<ResourceGroupSpec> rootGroups;
     private final List<ResourceGroupSelector> selectors;
     private final Optional<Duration> cpuQuotaPeriod;
+    private final Optional<Duration> physicalDataScanQuotaPeriod;
 
     @Inject
     public FileResourceGroupConfigurationManager(LifeCycleManager lifeCycleManager, ClusterMemoryPoolManager memoryPoolManager, FileResourceGroupConfig config)
@@ -78,6 +79,7 @@ public class FileResourceGroupConfigurationManager
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.rootGroups = ImmutableList.copyOf(managerSpec.getRootGroups());
         this.cpuQuotaPeriod = managerSpec.getCpuQuotaPeriod();
+        this.physicalDataScanQuotaPeriod = managerSpec.getPhysicalDataScanQuotaPeriod();
         validateRootGroups(managerSpec);
         this.selectors = buildSelectors(managerSpec);
     }
@@ -117,6 +119,12 @@ public class FileResourceGroupConfigurationManager
     protected Optional<Duration> getCpuQuotaPeriod()
     {
         return cpuQuotaPeriod;
+    }
+
+    @Override
+    protected Optional<Duration> getPhysicalDataScanQuotaPeriod()
+    {
+        return physicalDataScanQuotaPeriod;
     }
 
     @Override

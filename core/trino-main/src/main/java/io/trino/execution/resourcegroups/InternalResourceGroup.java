@@ -103,6 +103,8 @@ public class InternalResourceGroup
     @GuardedBy("root")
     private long softPhysicalDataScanLimitBytes = Long.MAX_VALUE;
     @GuardedBy("root")
+    private long physicalDataScanQuotaGenerationBytesPerSecond = Long.MAX_VALUE;
+    @GuardedBy("root")
     private int schedulingWeight = DEFAULT_WEIGHT;
     @GuardedBy("root")
     private SchedulingPolicy schedulingPolicy = FAIR;
@@ -478,6 +480,23 @@ public class InternalResourceGroup
         }
     }
 
+    @Override
+    public long getPhysicalDataScanQuotaGenerationBytesPerSecond()
+    {
+        synchronized (root) {
+            return physicalDataScanQuotaGenerationBytesPerSecond;
+        }
+    }
+
+    @Override
+    public void setPhysicalDataScanQuotaGenerationBytesPerSecond(long rate)
+    {
+        checkArgument(rate > 0, "Physical data scan quota generation must be positive");
+        synchronized (root) {
+            physicalDataScanQuotaGenerationBytesPerSecond = rate;
+        }
+    }
+
     @Managed
     @Override
     public int getSoftConcurrencyLimit()
@@ -792,11 +811,11 @@ public class InternalResourceGroup
         }
     }
 
-    public void generateCpuQuota(long elapsedSeconds)
+    public void generateQuotas(long elapsedSeconds)
     {
         synchronized (root) {
             if (elapsedSeconds > 0) {
-                internalGenerateCpuQuota(elapsedSeconds);
+                internalGenerateQuotas(elapsedSeconds);
             }
         }
     }
@@ -819,13 +838,12 @@ public class InternalResourceGroup
 
             // The query is present in runningQueries
             if (lastUsage != null) {
-                // CPU is measured cumulatively (i.e. total CPU used until this moment by the query). Memory is measured
-                // instantaneously (how much memory the query is using at this moment). At query completion, memory and
-                // data scan usage drops to zero.
+                // CPU and data scan are measured cumulatively (i.e. total CPU & physical data scan used until this moment by the query).
+                // Memory is measured instantaneously (how much memory the query is using at this moment). At query completion, memory data scan usage drops to zero.
                 ResourceUsage finalUsage = new ResourceUsage(
                         query.getTotalCpuTime().toMillis(),
                         0L,
-                        0L);
+                        query.getBasicQueryInfo().getQueryStats().getPhysicalInputDataSize().toBytes());
                 ResourceUsage delta = finalUsage.subtract(lastUsage);
 
                 runningQueries.remove(query);
@@ -896,30 +914,38 @@ public class InternalResourceGroup
         }
     }
 
-    private void internalGenerateCpuQuota(long elapsedSeconds)
+    private void internalGenerateQuotas(long elapsedSeconds)
     {
-        checkState(Thread.holdsLock(root), "Must hold lock to generate cpu quota");
+        checkState(Thread.holdsLock(root), "Must hold lock to generate quotas");
         synchronized (root) {
-            long newQuota = saturatedMultiply(elapsedSeconds, cpuQuotaGenerationMillisPerSecond);
+            long oldCpuUsageMillis = cachedResourceUsage.getCpuUsageMillis();
+            long oldDataScanBytes = cachedResourceUsage.getPhysicalDataScanUsageBytes();
 
-            long oldUsageMillis = cachedResourceUsage.getCpuUsageMillis();
-            long newCpuUsageMillis = saturatedSubtract(oldUsageMillis, newQuota);
+            long newCpuUsageMillis = computeNewUsage(oldCpuUsageMillis, elapsedSeconds, cpuQuotaGenerationMillisPerSecond);
+            long newDataScanBytes = computeNewUsage(oldDataScanBytes, elapsedSeconds, physicalDataScanQuotaGenerationBytesPerSecond);
+            cachedResourceUsage = new ResourceUsage(newCpuUsageMillis, cachedResourceUsage.getMemoryUsageBytes(), newDataScanBytes);
 
-            if (newCpuUsageMillis < 0 || newCpuUsageMillis == Long.MAX_VALUE) {
-                newCpuUsageMillis = 0;
-            }
-
-            cachedResourceUsage = new ResourceUsage(newCpuUsageMillis, cachedResourceUsage.getMemoryUsageBytes(), cachedResourceUsage.getPhysicalDataScanUsageBytes());
-
-            if ((newCpuUsageMillis < hardCpuLimitMillis && oldUsageMillis >= hardCpuLimitMillis) ||
-                    (newCpuUsageMillis < softCpuLimitMillis && oldUsageMillis >= softCpuLimitMillis)) {
+            if ((newCpuUsageMillis < hardCpuLimitMillis && oldCpuUsageMillis >= hardCpuLimitMillis) ||
+                    (newCpuUsageMillis < softCpuLimitMillis && oldCpuUsageMillis >= softCpuLimitMillis) ||
+                    (newDataScanBytes < softPhysicalDataScanLimitBytes && oldDataScanBytes >= softPhysicalDataScanLimitBytes)) {
                 updateEligibility();
             }
 
             for (InternalResourceGroup group : subGroups.values()) {
-                group.internalGenerateCpuQuota(elapsedSeconds);
+                group.internalGenerateQuotas(elapsedSeconds);
             }
         }
+    }
+
+    private long computeNewUsage(long currentUsage, long elapsedSeconds, long generationRate)
+    {
+        long quotaToRegenerate = saturatedMultiply(elapsedSeconds, generationRate);
+        long newUsage = saturatedSubtract(currentUsage, quotaToRegenerate);
+
+        if (newUsage < 0 || newUsage == Long.MAX_VALUE) {
+            newUsage = 0;
+        }
+        return newUsage;
     }
 
     private boolean internalStartNext()
@@ -1034,7 +1060,7 @@ public class InternalResourceGroup
             long cpuUsageMillis = cachedResourceUsage.getCpuUsageMillis();
             long memoryUsageBytes = cachedResourceUsage.getMemoryUsageBytes();
             long physicalDataScanUsageBytes = cachedResourceUsage.getPhysicalDataScanUsageBytes();
-            if ((cpuUsageMillis >= hardCpuLimitMillis) || (memoryUsageBytes > softMemoryLimitBytes) || (physicalDataScanUsageBytes > softPhysicalDataScanLimitBytes)) {
+            if ((cpuUsageMillis >= hardCpuLimitMillis) || (memoryUsageBytes > softMemoryLimitBytes) || (physicalDataScanUsageBytes >= softPhysicalDataScanLimitBytes)) {
                 return false;
             }
 

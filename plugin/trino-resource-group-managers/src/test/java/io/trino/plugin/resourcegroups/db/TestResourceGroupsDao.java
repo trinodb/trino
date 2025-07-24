@@ -257,8 +257,12 @@ public class TestResourceGroupsDao
         H2ResourceGroupsDao dao = setup("global_properties");
         dao.createResourceGroupsGlobalPropertiesTable();
         dao.insertResourceGroupsGlobalProperties("cpu_quota_period", "1h");
-        ResourceGroupGlobalProperties globalProperties = new ResourceGroupGlobalProperties(Optional.of(new Duration(1, HOURS)));
-        ResourceGroupGlobalProperties records = dao.getResourceGroupGlobalProperties().get(0);
+        dao.insertResourceGroupsGlobalProperties("physical_data_scan_quota_period", "1h");
+        ResourceGroupGlobalProperties globalProperties = ResourceGroupGlobalProperties.builder()
+                .setCpuQuotaPeriod(Optional.of(new Duration(1, HOURS)))
+                .setPhysicalDataScanQuotaPeriod(Optional.of(new Duration(1, HOURS)))
+                .build();
+        ResourceGroupGlobalProperties records = dao.getResourceGroupGlobalProperties();
         assertThat(globalProperties).isEqualTo(records);
         try {
             dao.insertResourceGroupsGlobalProperties("invalid_property", "1h");

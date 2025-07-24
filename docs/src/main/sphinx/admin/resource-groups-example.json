@@ -120,5 +120,6 @@
       "group": "global.adhoc.other.${USER}"
     }
   ],
-  "cpuQuotaPeriod": "1h"
+  "cpuQuotaPeriod": "1h",
+  "physicalDataScanQuotaPeriod": "1h"
 }
