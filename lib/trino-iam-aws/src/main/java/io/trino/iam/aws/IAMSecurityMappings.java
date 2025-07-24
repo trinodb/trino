@@ -11,29 +11,37 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.filesystem.s3;
+package io.trino.iam.aws;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.trino.iam.aws.IAMSecurityMappings;
+import com.google.common.collect.ImmutableList;
 import io.trino.spi.security.ConnectorIdentity;
 
 import java.util.List;
 import java.util.Optional;
 
-public final class S3SecurityMappings
-        extends IAMSecurityMappings<S3SecurityMapping>
+import static java.util.Objects.requireNonNull;
+
+public class IAMSecurityMappings<T extends IAMSecurityMapping>
 {
+    protected final List<T> mappings;
+
     @JsonCreator
-    public S3SecurityMappings(@JsonProperty("mappings") List<S3SecurityMapping> mappings)
+    public IAMSecurityMappings(@JsonProperty("mappings") List<T> mappings)
     {
-        super(mappings);
+        this.mappings = ImmutableList.copyOf(requireNonNull(mappings, "mappings is null"));
     }
 
-    Optional<S3SecurityMapping> getMapping(ConnectorIdentity identity, S3Location location)
+    protected List<T> getMappings()
     {
-        return getMappings().stream()
-                .filter(mapping -> mapping.matches(identity, location))
+        return mappings;
+    }
+
+    Optional<T> getMapping(ConnectorIdentity identity)
+    {
+        return mappings.stream()
+                .filter(mapping -> mapping.matches(identity))
                 .findFirst();
     }
 }

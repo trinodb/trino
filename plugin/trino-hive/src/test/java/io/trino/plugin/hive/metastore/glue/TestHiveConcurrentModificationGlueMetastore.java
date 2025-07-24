@@ -14,10 +14,15 @@
 package io.trino.plugin.hive.metastore.glue;
 
 import com.google.common.collect.ImmutableSet;
+import io.trino.spi.block.TestingSession;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.security.ConnectorIdentity;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import software.amazon.awssdk.awscore.exception.AwsErrorDetails;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
+import software.amazon.awssdk.http.SdkHttpClient;
+import software.amazon.awssdk.http.apache.ApacheHttpClient;
 import software.amazon.awssdk.retries.api.RefreshRetryTokenRequest;
 import software.amazon.awssdk.retries.api.RefreshRetryTokenResponse;
 import software.amazon.awssdk.retries.api.RetryStrategy;
@@ -25,7 +30,8 @@ import software.amazon.awssdk.retries.internal.DefaultRetryToken;
 import software.amazon.awssdk.services.glue.GlueClient;
 import software.amazon.awssdk.services.glue.model.ConcurrentModificationException;
 
-import static io.trino.plugin.hive.metastore.glue.GlueMetastoreModule.createGlueClient;
+import java.util.Optional;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -36,7 +42,18 @@ public class TestHiveConcurrentModificationGlueMetastore
     @Test
     public void testGlueClientShouldRetryConcurrentModificationException()
     {
-        try (GlueClient glueClient = createGlueClient(new GlueHiveMetastoreConfig(), ImmutableSet.of())) {
+        GlueHiveMetastoreConfig config = new GlueHiveMetastoreConfig();
+        SdkHttpClient sdkHttpClient = ApacheHttpClient.builder().build();
+        GlueClientFactory glueClientFactory = new GlueClientFactory(
+                config,
+                Optional.empty(),
+                ImmutableSet.of(),
+                sdkHttpClient,
+                sdkHttpClient);
+        ConnectorSession session = TestingSession.SESSION;
+        ConnectorIdentity identity = session.getIdentity();
+
+        try (GlueClient glueClient = glueClientFactory.create(identity)) {
             ClientOverrideConfiguration clientOverrideConfiguration = glueClient.serviceClientConfiguration().overrideConfiguration();
             RetryStrategy retryStrategy = clientOverrideConfiguration.retryStrategy().orElseThrow();
 
