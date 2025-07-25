@@ -134,7 +134,7 @@ public class CreateTableTask
         checkArgument(!statement.getElements().isEmpty(), "no columns for table");
 
         Map<NodeRef<Parameter>, Expression> parameterLookup = bindParameters(statement, parameters);
-        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName());
+        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName(), plannerContext.getMetadata());
         Optional<TableHandle> tableHandle;
         try {
             tableHandle = plannerContext.getMetadata().getTableHandle(session, tableName);
@@ -216,7 +216,7 @@ public class CreateTableTask
                         .build());
             }
             else if (element instanceof LikeClause likeClause) {
-                QualifiedObjectName originalLikeTableName = createQualifiedObjectName(session, statement, likeClause.getTableName());
+                QualifiedObjectName originalLikeTableName = createQualifiedObjectName(session, statement, likeClause.getTableName(), plannerContext.getMetadata());
                 if (plannerContext.getMetadata().getCatalogHandle(session, originalLikeTableName.catalogName()).isEmpty()) {
                     throw semanticException(CATALOG_NOT_FOUND, statement, "LIKE table catalog '%s' not found", originalLikeTableName.catalogName());
                 }

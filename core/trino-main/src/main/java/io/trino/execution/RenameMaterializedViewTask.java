@@ -61,7 +61,7 @@ public class RenameMaterializedViewTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        QualifiedObjectName materializedViewName = createQualifiedObjectName(session, statement, statement.getSource());
+        QualifiedObjectName materializedViewName = createQualifiedObjectName(session, statement, statement.getSource(), metadata);
         if (!metadata.isMaterializedView(session, materializedViewName)) {
             if (metadata.isView(session, materializedViewName)) {
                 throw semanticException(
@@ -83,7 +83,7 @@ public class RenameMaterializedViewTask
             throw semanticException(TABLE_NOT_FOUND, statement, "Materialized View '%s' does not exist", materializedViewName);
         }
 
-        QualifiedObjectName target = createQualifiedObjectName(session, statement, statement.getTarget());
+        QualifiedObjectName target = createQualifiedObjectName(session, statement, statement.getTarget(), metadata);
         if (metadata.getCatalogHandle(session, target.catalogName()).isEmpty()) {
             throw semanticException(CATALOG_NOT_FOUND, statement, "Target catalog '%s' not found", target.catalogName());
         }
