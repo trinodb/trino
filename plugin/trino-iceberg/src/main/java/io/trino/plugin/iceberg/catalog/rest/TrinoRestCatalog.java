@@ -285,7 +285,7 @@ public class TrinoRestCatalog
                     throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to list tables", e);
                 }
             }).stream()
-                    .map(id -> new TableInfo(SchemaTableName.schemaTableName(toSchemaName(id.namespace()), id.name()), TableInfo.ExtendedRelationType.TABLE))
+                    .map(id -> new TableInfo(SchemaTableName.schemaTableName(canonicalize(toSchemaName(id.namespace()), true), canonicalize(id.name(), true)), TableInfo.ExtendedRelationType.TABLE))
                     .forEach(tables::add);
             if (viewEndpointsEnabled) {
                 listTableIdentifiers(restNamespace, () -> {
@@ -296,7 +296,7 @@ public class TrinoRestCatalog
                         throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to list views", e);
                     }
                 }).stream()
-                        .map(id -> new TableInfo(SchemaTableName.schemaTableName(toSchemaName(id.namespace()), id.name()), TableInfo.ExtendedRelationType.OTHER_VIEW))
+                        .map(id -> new TableInfo(SchemaTableName.schemaTableName(canonicalize(toSchemaName(id.namespace()), true), canonicalize(id.name(), true)), TableInfo.ExtendedRelationType.OTHER_VIEW))
                         .forEach(tables::add);
             }
         }
@@ -440,7 +440,7 @@ public class TrinoRestCatalog
     @Override
     public void registerTable(ConnectorSession session, SchemaTableName tableName, TableMetadata tableMetadata)
     {
-        TableIdentifier tableIdentifier = TableIdentifier.of(toRemoteNamespace(session, toNamespace(tableName.getSchemaName())), tableName.getTableName());
+        TableIdentifier tableIdentifier = TableIdentifier.of(toRemoteNamespace(session, toNamespace(tableName.getSchemaName())), tableName.getTableName().toLowerCase(ENGLISH));
         try {
             restSessionCatalog.registerTable(convert(session), tableIdentifier, tableMetadata.metadataFileLocation());
         }

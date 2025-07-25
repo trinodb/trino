@@ -8797,7 +8797,7 @@ public abstract class BaseHiveConnectorTest
                 .setCatalog(Optional.empty())
                 .setSchema(Optional.empty())
                 .build();
-        assertQueryFails(sessionNoCatalog, "SELECT count(*) FROM " + viewName, ".*Schema must be specified when session schema is not set.*");
+        assertQueryFails(sessionNoCatalog, "SELECT count(*) FROM " + viewName, ".*Catalog must be specified when session catalog is not set.*");
         assertQuery(sessionNoCatalog, "SELECT count(*) FROM hive.tpch." + viewName, "VALUES 1");
     }
 

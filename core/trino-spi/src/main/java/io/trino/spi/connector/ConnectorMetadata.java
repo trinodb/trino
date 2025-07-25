@@ -1824,4 +1824,13 @@ public interface ConnectorMetadata
     {
         return WriterScalingOptions.DISABLED;
     }
+
+    /**
+     * Canonicalizes the provided SQL identifier according to connector-specific rules
+     * for the purpose of providing the name in metadata APIs
+     */
+    default String canonicalize(ConnectorSession session, String identifier, boolean delimited)
+    {
+        return identifier.toLowerCase(ENGLISH);
+    }
 }

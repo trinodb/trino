@@ -11,12 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.spi.connector;
+package io.trino.metadata;
 
-public enum ConnectorCapabilities
+import static java.util.Locale.ENGLISH;
+
+public interface NameCanonicalizer
 {
-    DEFAULT_COLUMN_VALUE,
-    NOT_NULL_COLUMN_CONSTRAINT,
-    MATERIALIZED_VIEW_GRACE_PERIOD,
-    MIXED_CASE_IDENTIFIER_SUPPORTED,
+    NameCanonicalizer LEGACY_NAME_CANONICALIZER = (identifier, delimited) -> identifier.toLowerCase(ENGLISH);
+
+    String canonicalize(String identifier, boolean delimited);
 }

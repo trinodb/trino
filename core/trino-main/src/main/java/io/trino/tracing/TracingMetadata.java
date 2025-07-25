@@ -29,6 +29,7 @@ import io.trino.metadata.InsertTableHandle;
 import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.MergeHandle;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.NameCanonicalizer;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.metadata.OutputTableHandle;
 import io.trino.metadata.QualifiedObjectName;
@@ -1643,6 +1644,15 @@ public class TracingMetadata
         Span span = startSpan("getFunctionsAuthorizationInfo", prefix);
         try (var ignored = scopedSpan(span)) {
             return delegate.getFunctionsAuthorizationInfo(session, prefix);
+        }
+    }
+
+    @Override
+    public NameCanonicalizer getNameCanonicalizer(Session session, String catalogName)
+    {
+        Span span = startSpan("getNameCanonicalizer", catalogName);
+        try (var ignored = scopedSpan(span)) {
+            return delegate.getNameCanonicalizer(session, catalogName);
         }
     }
 

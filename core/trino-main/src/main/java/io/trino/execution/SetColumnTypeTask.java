@@ -85,7 +85,7 @@ public class SetColumnTypeTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        QualifiedObjectName qualifiedObjectName = createQualifiedObjectName(session, statement, statement.getTableName());
+        QualifiedObjectName qualifiedObjectName = createQualifiedObjectName(session, statement, statement.getTableName(), metadata);
         RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, qualifiedObjectName);
         if (redirectionAwareTableHandle.tableHandle().isEmpty()) {
             String exceptionMessage = format("Table '%s' does not exist", qualifiedObjectName);
