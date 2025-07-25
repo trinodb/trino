@@ -15,6 +15,7 @@ package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.operator.PagesIndex;
+import io.trino.operator.PagesIndexOrdering;
 import io.trino.operator.window.PagesWindowIndex;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.BlockBuilder;
@@ -35,10 +36,9 @@ public class OrderedWindowAccumulator
 {
     private final PagesIndex.Factory pagesIndexFactory;
     private final PagesIndex pagesIndex;
+    private final PagesIndexOrdering pagesIndexOrdering;
     private final List<Type> argumentTypes;
     private final List<Integer> argumentChannels;
-    private final List<Integer> sortKeysArguments;
-    private final List<SortOrder> sortOrders;
 
     private WindowAccumulator delegate;
     private final WindowAccumulator initialDelegate;
@@ -54,36 +54,36 @@ public class OrderedWindowAccumulator
             List<Integer> sortKeysArguments,
             List<SortOrder> sortOrders)
     {
-        this(pagesIndexFactory, pagesIndexFactory.newPagesIndex(argumentTypes, 10_000), delegate, argumentTypes, argumentChannels, sortKeysArguments, sortOrders);
+        this(
+                pagesIndexFactory,
+                createPagesIndexWithOrdering(
+                        pagesIndexFactory,
+                        argumentTypes,
+                        requireNonNull(argumentChannels, "argumentChannels is null").size(),
+                        sortKeysArguments,
+                        sortOrders),
+                delegate,
+                argumentTypes,
+                argumentChannels);
     }
 
     private OrderedWindowAccumulator(
             PagesIndex.Factory pagesIndexFactory,
-            PagesIndex pagesIndex,
+            PagesIndexWithOrdering pagesIndexWithOrdering,
             WindowAccumulator delegate,
             List<Type> argumentTypes,
-            List<Integer> argumentChannels,
-            List<Integer> sortKeysArguments,
-            List<SortOrder> sortOrders)
+            List<Integer> argumentChannels)
     {
         this.pagesIndexFactory = requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
-        this.pagesIndex = requireNonNull(pagesIndex, "pagesIndex is null");
+        requireNonNull(pagesIndexWithOrdering, "pagesIndexWithOrdering is null");
+        this.pagesIndex = pagesIndexWithOrdering.pagesIndex;
+        this.pagesIndexOrdering = pagesIndexWithOrdering.pagesIndexOrdering;
 
         requireNonNull(argumentTypes, "argumentTypes is null");
         requireNonNull(argumentChannels, "argumentChannels is null");
         checkArgument(argumentTypes.size() == argumentChannels.size(), "argumentTypes and argumentChannels must have the same size");
         this.argumentTypes = ImmutableList.copyOf(argumentTypes);
         this.argumentChannels = ImmutableList.copyOf(argumentChannels);
-        requireNonNull(sortOrders, "sortOrders is null");
-        requireNonNull(sortKeysArguments, "sortChannels is null");
-        checkArgument(sortOrders.size() == sortKeysArguments.size(), "sortOrders and sortChannels must have the same size");
-        sortKeysArguments.forEach(argument -> {
-            checkArgument(
-                    argument < argumentChannels.size(),
-                    "invalid argument %s referenced; total number of arguments is %s", argument, argumentChannels.size());
-        });
-        this.sortOrders = ImmutableList.copyOf(sortOrders);
-        this.sortKeysArguments = ImmutableList.copyOf(sortKeysArguments);
 
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.initialDelegate = delegate.copy();
@@ -102,7 +102,7 @@ public class OrderedWindowAccumulator
     {
         PagesIndex pagesIndexCopy = pagesIndexFactory.newPagesIndex(argumentTypes, pagesIndex.getPositionCount());
         pagesIndex.getPages().forEachRemaining(pagesIndexCopy::addPage);
-        return new OrderedWindowAccumulator(pagesIndexFactory, pagesIndexCopy, delegate.copy(), argumentTypes, argumentChannels, sortKeysArguments, sortOrders);
+        return new OrderedWindowAccumulator(pagesIndexFactory, new PagesIndexWithOrdering(pagesIndexCopy, pagesIndexOrdering), delegate.copy(), argumentTypes, argumentChannels);
     }
 
     @Override
@@ -145,7 +145,7 @@ public class OrderedWindowAccumulator
                 delegate.output(blockBuilder);
                 return;
             }
-            pagesIndex.sort(sortKeysArguments, sortOrders);
+            pagesIndex.sort(pagesIndexOrdering);
             WindowIndex sortedWindowIndex = new PagesWindowIndex(pagesIndex, 0, positionCount);
             delegate.addInput(sortedWindowIndex, 0, positionCount - 1);
             pagesIndexSorted = true;
@@ -153,5 +153,35 @@ public class OrderedWindowAccumulator
         checkState(pageBuilder.isEmpty());
 
         delegate.output(blockBuilder);
+    }
+
+    private static PagesIndexWithOrdering createPagesIndexWithOrdering(
+            PagesIndex.Factory pagesIndexFactory,
+            List<Type> argumentTypes,
+            int argumentChannelCount,
+            List<Integer> sortKeysArguments,
+            List<SortOrder> sortOrders)
+    {
+        requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
+        requireNonNull(sortOrders, "sortOrders is null");
+        requireNonNull(sortKeysArguments, "sortChannels is null");
+        checkArgument(sortOrders.size() == sortKeysArguments.size(), "sortOrders and sortChannels must have the same size");
+        sortKeysArguments.forEach(argument -> {
+            checkArgument(
+                    argument < argumentChannelCount,
+                    "invalid argument %s referenced; total number of arguments is %s", argument, argumentChannelCount);
+        });
+        PagesIndex pagesIndex = pagesIndexFactory.newPagesIndex(argumentTypes, 10_000);
+        PagesIndexOrdering pagesIndexOrdering = pagesIndex.createPagesIndexComparator(sortKeysArguments, sortOrders);
+        return new PagesIndexWithOrdering(pagesIndex, pagesIndexOrdering);
+    }
+
+    private record PagesIndexWithOrdering(PagesIndex pagesIndex, PagesIndexOrdering pagesIndexOrdering)
+    {
+        private PagesIndexWithOrdering
+        {
+            requireNonNull(pagesIndex, "pagesIndex is null");
+            requireNonNull(pagesIndexOrdering, "pagesIndexOrdering is null");
+        }
     }
 }
