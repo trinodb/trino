@@ -30,7 +30,7 @@ public interface ResourceGroupsDao
             ")")
     void createResourceGroupsGlobalPropertiesTable();
 
-    @SqlQuery("SELECT name, value FROM resource_groups_global_properties")
+    @SqlQuery("SELECT name, value FROM resource_groups_global_properties WHERE name IN ('cpu_quota_period', 'physical_data_scan_quota_period')")
     @UseRowReducer(ResourceGroupGlobalPropertiesReducer.class)
     ResourceGroupGlobalProperties getResourceGroupGlobalProperties();
 
@@ -46,7 +46,7 @@ public interface ResourceGroupsDao
             "  jmx_export BOOLEAN NULL,\n" +
             "  soft_cpu_limit VARCHAR(128) NULL,\n" +
             "  hard_cpu_limit VARCHAR(128) NULL,\n" +
-            "  soft_physical_data_scan_limit VARCHAR(128) NULL,\n" +
+            "  hard_physical_data_scan_limit VARCHAR(128) NULL,\n" +
             "  parent BIGINT NULL,\n" +
             "  environment VARCHAR(128) NULL,\n" +
             "  PRIMARY KEY (resource_group_id),\n" +
@@ -56,7 +56,7 @@ public interface ResourceGroupsDao
 
     @SqlQuery("SELECT resource_group_id, name, soft_memory_limit, max_queued, soft_concurrency_limit, " +
             "  hard_concurrency_limit, scheduling_policy, scheduling_weight, jmx_export, soft_cpu_limit, " +
-            "  hard_cpu_limit, soft_physical_data_scan_limit, parent\n" +
+            "  hard_cpu_limit, hard_physical_data_scan_limit, parent\n" +
             "FROM resource_groups\n" +
             "WHERE environment = :environment\n")
     @UseRowMapper(ResourceGroupSpecBuilder.Mapper.class)

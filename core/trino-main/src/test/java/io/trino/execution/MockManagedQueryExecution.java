@@ -54,11 +54,11 @@ public class MockManagedQueryExecution
 
     private DataSize memoryUsage;
     private Duration cpuUsage;
-    private DataSize physicalDataScanUsage;
+    private DataSize physicalInputDataUsage;
     private QueryState state = QUEUED;
     private Throwable failureCause;
 
-    private MockManagedQueryExecution(String queryId, int priority, DataSize memoryUsage, Duration cpuUsage, DataSize physicalDataScanUsage)
+    private MockManagedQueryExecution(String queryId, int priority, DataSize memoryUsage, Duration cpuUsage, DataSize physicalInputDataUsage)
     {
         requireNonNull(queryId, "queryId is null");
         this.session = testSessionBuilder()
@@ -68,7 +68,7 @@ public class MockManagedQueryExecution
 
         this.memoryUsage = requireNonNull(memoryUsage, "memoryUsage is null");
         this.cpuUsage = requireNonNull(cpuUsage, "cpuUsage is null");
-        this.physicalDataScanUsage = requireNonNull(physicalDataScanUsage, "physicalDataScanUsage is null");
+        this.physicalInputDataUsage = requireNonNull(physicalInputDataUsage, "physicalInputDataUsage is null");
     }
 
     public void consumeCpuTimeMillis(long cpuTimeDeltaMillis)
@@ -84,11 +84,11 @@ public class MockManagedQueryExecution
         this.memoryUsage = memoryUsage;
     }
 
-    public void consumePhysicalDataScanBytes(long physicalDataScanBytes)
+    public void consumePhysicalInputDataBytes(long physicalInputDataBytes)
     {
-        checkState(state == RUNNING, "cannot set physical data scan usage in a non-running state");
-        long newDataScan = physicalDataScanUsage.toBytes() + physicalDataScanBytes;
-        this.physicalDataScanUsage = DataSize.ofBytes(newDataScan);
+        checkState(state == RUNNING, "cannot set physical input data usage in a non-running state");
+        long newDataScan = physicalInputDataUsage.toBytes() + physicalInputDataBytes;
+        this.physicalInputDataUsage = DataSize.ofBytes(newDataScan);
     }
 
     public void complete()
@@ -143,7 +143,7 @@ public class MockManagedQueryExecution
                         DataSize.ofBytes(14),
                         15,
                         DataSize.ofBytes(13),
-                        physicalDataScanUsage,
+                        physicalInputDataUsage,
                         DataSize.ofBytes(13),
                         DataSize.ofBytes(13),
                         16.0,
@@ -234,7 +234,7 @@ public class MockManagedQueryExecution
                         false,
                         ImmutableSet.of(),
 
-                        physicalDataScanUsage,
+                        physicalInputDataUsage,
                         DataSize.ofBytes(0),
                         251,
                         0,
@@ -367,7 +367,7 @@ public class MockManagedQueryExecution
     {
         private DataSize memoryUsage = DataSize.ofBytes(0);
         private Duration cpuUsage = new Duration(0, MILLISECONDS);
-        private DataSize physicalDataScanUsage = DataSize.ofBytes(0);
+        private DataSize physicalInputDataUsage = DataSize.ofBytes(0);
         private int priority = 1;
         private String queryId = "query_id";
 
@@ -385,9 +385,9 @@ public class MockManagedQueryExecution
             return this;
         }
 
-        public MockManagedQueryExecutionBuilder withInitialPhysicalDataScanUsage(long physicalDataScanUsageBytes)
+        public MockManagedQueryExecutionBuilder withInitialPhysicalInputDataUsage(long physicalInputDataUsageBytes)
         {
-            this.physicalDataScanUsage = DataSize.ofBytes(physicalDataScanUsageBytes);
+            this.physicalInputDataUsage = DataSize.ofBytes(physicalInputDataUsageBytes);
             return this;
         }
 
@@ -405,7 +405,7 @@ public class MockManagedQueryExecution
 
         public MockManagedQueryExecution build()
         {
-            return new MockManagedQueryExecution(queryId, priority, memoryUsage, cpuUsage, physicalDataScanUsage);
+            return new MockManagedQueryExecution(queryId, priority, memoryUsage, cpuUsage, physicalInputDataUsage);
         }
     }
 }

@@ -1,4 +1,4 @@
-ALTER TABLE resource_groups ADD COLUMN soft_physical_data_scan_limit VARCHAR(128);
+ALTER TABLE resource_groups ADD COLUMN hard_physical_data_scan_limit VARCHAR(128);
 
 -- Find and drop the old constraint dynamically
 DO $$

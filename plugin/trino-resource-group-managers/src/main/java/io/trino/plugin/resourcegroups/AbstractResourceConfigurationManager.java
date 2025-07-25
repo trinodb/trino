@@ -69,7 +69,7 @@ public abstract class AbstractResourceConfigurationManager
                 checkArgument(group.getHardCpuLimit().isPresent(), "Must specify hard CPU limit in addition to soft limit");
                 checkArgument(group.getSoftCpuLimit().get().compareTo(group.getHardCpuLimit().get()) <= 0, "Soft CPU limit cannot be greater than hard CPU limit");
             }
-            if (group.getSoftPhysicalDataScanLimit().isPresent()) {
+            if (group.getHardPhysicalDataScanLimit().isPresent()) {
                 checkArgument(managerSpec.getPhysicalDataScanQuotaPeriod().isPresent(), "physicalDataScanQuotaPeriod must be specified to use data scan limits on group: %s", group.getName());
             }
             if (group.getSchedulingPolicy().isPresent()) {
@@ -233,10 +233,10 @@ public abstract class AbstractResourceConfigurationManager
             rate = Math.max(1, rate);
             group.setCpuQuotaGenerationMillisPerSecond(rate);
         }
-        match.getSoftPhysicalDataScanLimit().map(DataSize::toBytes).ifPresent(group::setSoftPhysicalDataScanLimitBytes);
-        if (match.getSoftPhysicalDataScanLimit().isPresent()) {
+        match.getHardPhysicalDataScanLimit().map(DataSize::toBytes).ifPresent(group::setHardPhysicalDataScanLimitBytes);
+        if (match.getHardPhysicalDataScanLimit().isPresent()) {
             checkState(getPhysicalDataScanQuotaPeriod().isPresent(), "physicalDataScanQuotaPeriod must be specified to use data scan limits on group: %s", group.getId());
-            DataSize limit = match.getSoftPhysicalDataScanLimit().get();
+            DataSize limit = match.getHardPhysicalDataScanLimit().get();
             long rate = (long) Math.min(1000.0 * limit.toBytes() / (double) getPhysicalDataScanQuotaPeriod().get().toMillis(), Long.MAX_VALUE);
             rate = Math.max(1, rate);
             group.setPhysicalDataScanQuotaGenerationBytesPerSecond(rate);

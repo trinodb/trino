@@ -500,7 +500,7 @@ public class TestDbResourceGroupConfigurationManager
             boolean jmxExport,
             Duration softCpuLimit,
             Duration hardCpuLimit,
-            String softPhysicalDataScanLimit)
+            String hardPhysicalDataScanLimit)
     {
         assertThat(group.getSoftMemoryLimitBytes()).isEqualTo(DataSize.valueOf(softMemoryLimit).toBytes());
         assertThat(group.getMaxQueuedQueries()).isEqualTo(maxQueued);
@@ -511,7 +511,7 @@ public class TestDbResourceGroupConfigurationManager
         assertThat(group.getJmxExport()).isEqualTo(jmxExport);
         assertThat(group.getSoftCpuLimit()).isEqualTo(softCpuLimit);
         assertThat(group.getHardCpuLimit()).isEqualTo(hardCpuLimit);
-        assertThat(group.getSoftPhysicalDataScanLimitBytes()).isEqualTo(DataSize.valueOf(softPhysicalDataScanLimit).toBytes());
+        assertThat(group.getHardPhysicalDataScanLimitBytes()).isEqualTo(DataSize.valueOf(hardPhysicalDataScanLimit).toBytes());
     }
 
     private static SelectionCriteria userGroupsSelectionCriteria(String... groups)

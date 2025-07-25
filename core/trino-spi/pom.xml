@@ -683,13 +683,13 @@
                                 <item>
                                     <ignore>true</ignore>
                                     <code>java.method.addedToInterface</code>
-                                    <new>method long io.trino.spi.resourcegroups.ResourceGroup::getSoftPhysicalDataScanLimitBytes()</new>
+                                    <new>method long io.trino.spi.resourcegroups.ResourceGroup::getHardPhysicalDataScanLimitBytes()</new>
                                     <justification>Add physical data scan tracking to resource groups</justification>
                                 </item>
                                 <item>
                                     <ignore>true</ignore>
                                     <code>java.method.addedToInterface</code>
-                                    <new>method void io.trino.spi.resourcegroups.ResourceGroup::setSoftPhysicalDataScanLimitBytes(long)</new>
+                                    <new>method void io.trino.spi.resourcegroups.ResourceGroup::setHardPhysicalDataScanLimitBytes(long)</new>
                                     <justification>Add physical data scan tracking to resource groups</justification>
                                 </item>
                                 <item>

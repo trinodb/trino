@@ -200,7 +200,7 @@ public class TestFileResourceGroupConfigurationManager
         assertThat(global.getSoftCpuLimit()).isEqualTo(Duration.ofHours(1));
         assertThat(global.getHardCpuLimit()).isEqualTo(Duration.ofDays(1));
         assertThat(global.getCpuQuotaGenerationMillisPerSecond()).isEqualTo(1000 * 24);
-        assertThat(global.getSoftPhysicalDataScanLimitBytes()).isEqualTo(DataSize.of(1, TERABYTE).toBytes());
+        assertThat(global.getHardPhysicalDataScanLimitBytes()).isEqualTo(DataSize.of(1, TERABYTE).toBytes());
         assertThat(global.getPhysicalDataScanQuotaGenerationBytesPerSecond()).isEqualTo(DataSize.of(1, TERABYTE).toBytes() / 3600);
         assertThat(global.getMaxQueuedQueries()).isEqualTo(1000);
         assertThat(global.getHardConcurrencyLimit()).isEqualTo(100);
@@ -217,7 +217,7 @@ public class TestFileResourceGroupConfigurationManager
         assertThat(sub.getSchedulingPolicy()).isNull();
         assertThat(sub.getSchedulingWeight()).isEqualTo(5);
         assertThat(sub.getJmxExport()).isFalse();
-        assertThat(sub.getSoftPhysicalDataScanLimitBytes()).isEqualTo(DataSize.of(10, MEGABYTE).toBytes());
+        assertThat(sub.getHardPhysicalDataScanLimitBytes()).isEqualTo(DataSize.of(10, MEGABYTE).toBytes());
         assertThat(sub.getPhysicalDataScanQuotaGenerationBytesPerSecond()).isEqualTo(DataSize.of(10, MEGABYTE).toBytes() / 3600);
 
         ResourceGroupId subIdNoSoftMemoryLimit = new ResourceGroupId(globalId, "sub_no_soft_memory_limit");
@@ -287,7 +287,7 @@ public class TestFileResourceGroupConfigurationManager
         manager.configure(resourceGroup, selectionContext);
         assertThat(resourceGroup.getHardConcurrencyLimit()).isEqualTo(1);
         assertThat(resourceGroup.getMaxQueuedQueries()).isEqualTo(100);
-        assertThat(resourceGroup.getSoftPhysicalDataScanLimitBytes()).isEqualTo(DataSize.of(10, GIGABYTE).toBytes());
+        assertThat(resourceGroup.getHardPhysicalDataScanLimitBytes()).isEqualTo(DataSize.of(10, GIGABYTE).toBytes());
     }
 
     @Test

@@ -204,7 +204,7 @@ public final class InternalResourceGroupManager<C>
         long nanoTime = System.nanoTime();
         long elapsedSeconds = NANOSECONDS.toSeconds(nanoTime - lastQuotaGenerationNanos.get());
         if (elapsedSeconds > 0) {
-            // Only advance our clock on second boundaries to avoid calling generateCpuQuota() too frequently, and because it would be a no-op for zero seconds.
+            // Only advance our clock on second boundaries to avoid calling generateQuotas() too frequently, and because it would be a no-op for zero seconds.
             lastQuotaGenerationNanos.addAndGet(elapsedSeconds * 1_000_000_000L);
         }
         else if (elapsedSeconds < 0) {

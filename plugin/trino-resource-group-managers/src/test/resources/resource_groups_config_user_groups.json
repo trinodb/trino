@@ -7,7 +7,7 @@
       "maxQueued": 1000,
       "softCpuLimit": "1h",
       "hardCpuLimit": "1d",
-      "softPhysicalDataScanLimit": "5MB",
+      "hardPhysicalDataScanLimit": "5MB",
       "schedulingPolicy": "weighted",
       "jmxExport": true,
       "subGroups": [
@@ -15,7 +15,7 @@
           "name": "sub",
           "softMemoryLimit": "2MB",
           "hardConcurrencyLimit": 3,
-          "softPhysicalDataScanLimit": "1MB",
+          "hardPhysicalDataScanLimit": "1MB",
           "maxQueued": 4,
           "schedulingWeight": 5
         }

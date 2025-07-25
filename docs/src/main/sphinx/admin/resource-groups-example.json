@@ -3,7 +3,7 @@
     {
       "name": "global",
       "softMemoryLimit": "80%",
-      "softPhysicalDataScanLimit": "50TB",
+      "hardPhysicalDataScanLimit": "50TB",
       "hardConcurrencyLimit": 100,
       "maxQueued": 1000,
       "schedulingPolicy": "weighted",
@@ -36,7 +36,7 @@
                   "softMemoryLimit": "10%",
                   "hardConcurrencyLimit": 1,
                   "maxQueued": 100,
-                  "softPhysicalDataScanLimit": "10GB"
+                  "hardPhysicalDataScanLimit": "10GB"
                 }
               ]
             },

@@ -25,29 +25,29 @@ final class ResourceUsage
 {
     private final long cpuUsageMillis;
     private final long memoryUsageBytes;
-    private final long physicalDataScanUsageBytes;
+    private final long physicalInputDataUsageBytes;
 
-    public ResourceUsage(long cpuUsageMillis, long memoryUsageBytes, long physicalDataScanUsageBytes)
+    public ResourceUsage(long cpuUsageMillis, long memoryUsageBytes, long physicalInputDataUsageBytes)
     {
         this.cpuUsageMillis = cpuUsageMillis;
         this.memoryUsageBytes = memoryUsageBytes;
-        this.physicalDataScanUsageBytes = physicalDataScanUsageBytes;
+        this.physicalInputDataUsageBytes = physicalInputDataUsageBytes;
     }
 
     public ResourceUsage add(ResourceUsage other)
     {
         long newCpuUsageMillis = saturatedAdd(this.cpuUsageMillis, other.cpuUsageMillis);
         long newMemoryUsageBytes = saturatedAdd(this.memoryUsageBytes, other.memoryUsageBytes);
-        long newPhysicalDataScanUsageBytes = saturatedAdd(this.physicalDataScanUsageBytes, other.physicalDataScanUsageBytes);
-        return new ResourceUsage(newCpuUsageMillis, newMemoryUsageBytes, newPhysicalDataScanUsageBytes);
+        long newPhysicalInputDataUsageBytes = saturatedAdd(this.physicalInputDataUsageBytes, other.physicalInputDataUsageBytes);
+        return new ResourceUsage(newCpuUsageMillis, newMemoryUsageBytes, newPhysicalInputDataUsageBytes);
     }
 
     public ResourceUsage subtract(ResourceUsage other)
     {
         long newCpuUsageMillis = saturatedSubtract(this.cpuUsageMillis, other.cpuUsageMillis);
         long newMemoryUsageBytes = saturatedSubtract(this.memoryUsageBytes, other.memoryUsageBytes);
-        long newPhysicalDataScanUsageBytes = saturatedSubtract(this.physicalDataScanUsageBytes, other.physicalDataScanUsageBytes);
-        return new ResourceUsage(newCpuUsageMillis, newMemoryUsageBytes, newPhysicalDataScanUsageBytes);
+        long newPhysicalInputDataUsageBytes = saturatedSubtract(this.physicalInputDataUsageBytes, other.physicalInputDataUsageBytes);
+        return new ResourceUsage(newCpuUsageMillis, newMemoryUsageBytes, newPhysicalInputDataUsageBytes);
     }
 
     public long getCpuUsageMillis()
@@ -60,9 +60,9 @@ final class ResourceUsage
         return memoryUsageBytes;
     }
 
-    public long getPhysicalDataScanUsageBytes()
+    public long getPhysicalInputDataUsageBytes()
     {
-        return physicalDataScanUsageBytes;
+        return physicalInputDataUsageBytes;
     }
 
     @Override
@@ -78,12 +78,12 @@ final class ResourceUsage
         ResourceUsage otherUsage = (ResourceUsage) other;
         return cpuUsageMillis == otherUsage.cpuUsageMillis
                 && memoryUsageBytes == otherUsage.memoryUsageBytes
-                && physicalDataScanUsageBytes == otherUsage.physicalDataScanUsageBytes;
+                && physicalInputDataUsageBytes == otherUsage.physicalInputDataUsageBytes;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(cpuUsageMillis, memoryUsageBytes, physicalDataScanUsageBytes);
+        return Objects.hash(cpuUsageMillis, memoryUsageBytes, physicalInputDataUsageBytes);
     }
 }

@@ -31,7 +31,7 @@ public class TestingResourceGroup
     private long cpuQuotaGenerationRate;
     private int softConcurrencyLimit;
     private int hardConcurrencyLimit;
-    private long softPhysicalDataScanLimitBytes;
+    private long hardPhysicalDataScanLimitBytes;
     private long physicalDataScanGenerationRate;
     private int maxQueued;
     private int schedulingWeight;
@@ -99,15 +99,15 @@ public class TestingResourceGroup
     }
 
     @Override
-    public long getSoftPhysicalDataScanLimitBytes()
+    public long getHardPhysicalDataScanLimitBytes()
     {
-        return softPhysicalDataScanLimitBytes;
+        return hardPhysicalDataScanLimitBytes;
     }
 
     @Override
-    public void setSoftPhysicalDataScanLimitBytes(long limit)
+    public void setHardPhysicalDataScanLimitBytes(long limit)
     {
-        this.softPhysicalDataScanLimitBytes = limit;
+        this.hardPhysicalDataScanLimitBytes = limit;
     }
 
     @Override
