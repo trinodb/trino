@@ -68,6 +68,7 @@ public class TrinoIcebergRestCatalogFactory
     private final boolean caseInsensitiveNameMatching;
     private final Cache<Namespace, Namespace> remoteNamespaceMappingCache;
     private final Cache<TableIdentifier, TableIdentifier> remoteTableMappingCache;
+    private final Map<String, String> additionalProperties;
 
     @GuardedBy("this")
     private RESTSessionCatalog icebergCatalog;
@@ -107,6 +108,7 @@ public class TrinoIcebergRestCatalogFactory
                 .expireAfterWrite(restConfig.getCaseInsensitiveNameMatchingCacheTtl().toMillis(), MILLISECONDS)
                 .shareNothingWhenDisabled()
                 .build();
+        this.additionalProperties = ImmutableMap.copyOf(restConfig.getAdditionalProperties());
     }
 
     @Override
@@ -127,6 +129,7 @@ public class TrinoIcebergRestCatalogFactory
             if (vendedCredentialsEnabled) {
                 properties.put("header.X-Iceberg-Access-Delegation", "vended-credentials");
             }
+            properties.putAll(additionalProperties);
 
             RESTSessionCatalog icebergCatalogInstance = new RESTSessionCatalog(
                     config -> HTTPClient.builder(config)
