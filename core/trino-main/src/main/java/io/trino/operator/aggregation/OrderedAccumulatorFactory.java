@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesIndex.Factory;
+import io.trino.operator.PagesIndexOrdering;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -109,8 +110,7 @@ public class OrderedAccumulatorFactory
     {
         private final Accumulator accumulator;
         private final int[] argumentChannels;
-        private final List<Integer> orderByChannels;
-        private final List<SortOrder> orderings;
+        private final PagesIndexOrdering pagesIndexOrdering;
         @Nullable
         private PagesIndex pagesIndex; // null after evaluateFinal() is called
 
@@ -124,9 +124,10 @@ public class OrderedAccumulatorFactory
         {
             this.accumulator = requireNonNull(accumulator, "accumulator is null");
             this.argumentChannels = Ints.toArray(argumentChannels);
-            this.orderByChannels = ImmutableList.copyOf(requireNonNull(orderByChannels, "orderByChannels is null"));
-            this.orderings = ImmutableList.copyOf(requireNonNull(orderings, "orderings is null"));
             this.pagesIndex = pagesIndexFactory.newPagesIndex(aggregationSourceTypes, 10_000);
+            requireNonNull(orderByChannels, "orderByChannels is null");
+            requireNonNull(orderings, "orderings is null");
+            this.pagesIndexOrdering = pagesIndex.createPagesIndexComparator(orderByChannels, orderings);
         }
 
         @Override
@@ -168,7 +169,7 @@ public class OrderedAccumulatorFactory
         public void evaluateFinal(BlockBuilder blockBuilder)
         {
             checkState(pagesIndex != null, "evaluateFinal() already called");
-            pagesIndex.sort(orderByChannels, orderings);
+            pagesIndex.sort(pagesIndexOrdering);
             Iterator<Page> pagesIterator = pagesIndex.getSortedPages();
             AggregationMask mask = AggregationMask.createSelectAll(0);
             pagesIterator.forEachRemaining(arguments -> {
@@ -186,8 +187,7 @@ public class OrderedAccumulatorFactory
     {
         private final GroupedAccumulator accumulator;
         private final int[] argumentChannels;
-        private final List<Integer> orderByChannels;
-        private final List<SortOrder> orderings;
+        private final PagesIndexOrdering pagesIndexOrdering;
         @Nullable
         private PagesIndex pagesIndex; // null after prepareFinal() is called
         private long groupCount;
@@ -203,12 +203,13 @@ public class OrderedAccumulatorFactory
             this.accumulator = requireNonNull(accumulator, "accumulator is null");
             this.argumentChannels = Ints.toArray(argumentChannels);
             requireNonNull(aggregationSourceTypes, "aggregationSourceTypes is null");
-            this.orderByChannels = ImmutableList.copyOf(requireNonNull(orderByChannels, "orderByChannels is null"));
-            this.orderings = ImmutableList.copyOf(requireNonNull(orderings, "orderings is null"));
             List<Type> pageIndexTypes = new ArrayList<>(aggregationSourceTypes);
             // Add group id column
             pageIndexTypes.add(INTEGER);
             this.pagesIndex = pagesIndexFactory.newPagesIndex(pageIndexTypes, 10_000);
+            requireNonNull(orderByChannels, "orderByChannels is null");
+            requireNonNull(orderings, "orderings is null");
+            this.pagesIndexOrdering = pagesIndex.createPagesIndexComparator(orderByChannels, orderings);
             this.groupCount = 0;
         }
 
@@ -266,7 +267,7 @@ public class OrderedAccumulatorFactory
         public void prepareFinal()
         {
             checkState(pagesIndex != null, "prepareFinal() already called");
-            pagesIndex.sort(orderByChannels, orderings);
+            pagesIndex.sort(pagesIndexOrdering);
             Iterator<Page> pagesIterator = pagesIndex.getSortedPages();
             AggregationMask mask = AggregationMask.createSelectAll(0);
             pagesIterator.forEachRemaining(page -> {
