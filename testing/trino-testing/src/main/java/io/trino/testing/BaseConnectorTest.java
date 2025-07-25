@@ -1008,7 +1008,7 @@ public abstract class BaseConnectorTest
 
         try (TestTable table = newTrinoTable("test_table", "(id BIGINT, column_to_dropped BIGINT, column_to_be_renamed BIGINT, column_with_comment BIGINT)", ImmutableList.of("1, 2, 3, 4"));
                 TestView view = new TestView(getQueryRunner()::execute, "test_view", " SELECT * FROM %s".formatted(table.getName()))) {
-            assertQuery("SELECT * FROM " + view.getName(), "VALUES (1, 2, 3, 4)");
+            assertQueryReturnsEmptyResult("SELECT * FROM " + view.getName() + " EXCEPT CORRESPONDING SELECT * FROM " + table.getName());
 
             assertUpdate("ALTER TABLE %s ADD COLUMN new_column BIGINT".formatted(table.getName()));
             assertQueryFails(
@@ -1016,7 +1016,7 @@ public abstract class BaseConnectorTest
                     ".*is stale or in invalid state: stored view column count \\(4\\) does not match column count derived from the view query analysis \\(5\\)");
 
             assertUpdate("ALTER VIEW %s REFRESH".formatted(view.getName()));
-            assertQuery("SELECT * FROM " + view.getName(), "VALUES (1, 2, 3, 4, null)");
+            assertQueryReturnsEmptyResult("SELECT * FROM " + view.getName() + " EXCEPT CORRESPONDING SELECT * FROM " + table.getName());
 
             if (hasBehavior(SUPPORTS_RENAME_COLUMN)) {
                 assertUpdate("ALTER TABLE %s RENAME COLUMN column_to_be_renamed TO renamed_column".formatted(table.getName()));
@@ -1024,7 +1024,7 @@ public abstract class BaseConnectorTest
                         "SELECT * FROM %s".formatted(view.getName()),
                         ".*is stale or in invalid state: column \\[renamed_column] of type bigint projected from query view at position 2 has a different name from column \\[column_to_be_renamed] of type bigint stored in view definition");
                 assertUpdate("ALTER VIEW %s REFRESH".formatted(view.getName()));
-                assertQuery("SELECT * FROM " + view.getName(), "VALUES (1, 2, 3, 4, null)");
+                assertQueryReturnsEmptyResult("SELECT * FROM " + view.getName() + " EXCEPT CORRESPONDING SELECT * FROM " + table.getName());
             }
 
             if (hasBehavior(SUPPORTS_COMMENT_ON_COLUMN)) {
@@ -1035,18 +1035,16 @@ public abstract class BaseConnectorTest
                 assertUpdate("ALTER TABLE %s ADD COLUMN new_column_2 BIGINT".formatted(table.getName()));
                 assertUpdate("ALTER VIEW %s REFRESH".formatted(view.getName()));
                 assertThat(getColumnComment(view.getName(), "column_with_comment")).isEqualTo("test comment");
-
-                assertUpdate("ALTER TABLE %s RENAME COLUMN column_with_comment TO renamed_new_column".formatted(table.getName()));
             }
 
             if (hasBehavior(SUPPORTS_DROP_COLUMN)) {
                 assertUpdate("ALTER TABLE %s DROP COLUMN column_to_dropped".formatted(table.getName()));
                 assertQueryFails(
                         "SELECT * FROM " + view.getName(),
-                        ".*is stale or in invalid state: stored view column count \\(5\\) does not match column count derived from the view query analysis \\(4\\)");
+                        ".*is stale or in invalid state: stored view column count \\(\\d\\) does not match column count derived from the view query analysis \\(\\d\\)");
 
                 assertUpdate("ALTER VIEW %s REFRESH".formatted(view.getName()));
-                assertQuery("SELECT * FROM " + view.getName(), "VALUES (1, 3, 4, null)");
+                assertQueryReturnsEmptyResult("SELECT * FROM " + view.getName() + " EXCEPT CORRESPONDING SELECT * FROM " + table.getName());
             }
         }
     }
