@@ -414,12 +414,7 @@ public class PagesIndex
 
     public void sort(List<Integer> sortChannels, List<SortOrder> sortOrders)
     {
-        sort(sortChannels, sortOrders, 0, getPositionCount());
-    }
-
-    public void sort(List<Integer> sortChannels, List<SortOrder> sortOrders, int startPosition, int endPosition)
-    {
-        sort(createPagesIndexComparator(sortChannels, sortOrders), startPosition, endPosition);
+        sort(createPagesIndexComparator(sortChannels, sortOrders), 0, getPositionCount());
     }
 
     public void sort(PagesIndexOrdering pagesIndexOrdering)
