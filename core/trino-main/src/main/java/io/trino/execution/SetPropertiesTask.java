@@ -72,7 +72,7 @@ public class SetPropertiesTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        QualifiedObjectName objectName = createQualifiedObjectName(session, statement, statement.getName());
+        QualifiedObjectName objectName = createQualifiedObjectName(session, statement, statement.getName(), plannerContext.getMetadata());
 
         String catalogName = objectName.catalogName();
         if (statement.getType() == TABLE) {
