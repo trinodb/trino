@@ -100,6 +100,7 @@ import io.trino.spi.type.Type;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -932,6 +933,12 @@ public class LakehouseMetadata
     public WriterScalingOptions getInsertWriterScalingOptions(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         return forHandle(tableHandle).getInsertWriterScalingOptions(session, tableHandle);
+    }
+
+    @Override
+    public String canonicalize(ConnectorSession session, String identifier, boolean delimited)
+    {
+        return identifier.toLowerCase(Locale.ENGLISH);
     }
 
     private ConnectorMetadata forHandle(ConnectorTableHandle handle)

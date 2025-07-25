@@ -64,7 +64,7 @@ public class DropNotNullConstraintTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTable());
+        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTable(), metadata);
         RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, tableName);
         if (redirectionAwareTableHandle.tableHandle().isEmpty()) {
             String exceptionMessage = "Table '%s' does not exist".formatted(tableName);
