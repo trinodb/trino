@@ -21,6 +21,7 @@ import io.trino.Session;
 import io.trino.connector.CatalogHandle;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.NameCanonicalizer;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.security.AllowAllAccessControl;
@@ -60,6 +61,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_DEFAULT_COLUMN_VALUE;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.connector.ConnectorCapabilities.DEFAULT_COLUMN_VALUE;
+import static io.trino.spi.connector.ConnectorCapabilities.MIXED_CASE_IDENTIFIER_SUPPORTED;
 import static io.trino.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
 import static io.trino.spi.connector.SaveMode.FAIL;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -73,6 +75,7 @@ import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestAddColumnTask
@@ -606,6 +609,15 @@ public class TestAddColumnTask
         public Set<ConnectorCapabilities> getConnectorCapabilities(Session session, CatalogHandle catalogHandle)
         {
             return capabilities;
+        }
+
+        @Override
+        public NameCanonicalizer getNameCanonicalizer(Session session, String catalogName)
+        {
+            if (capabilities.contains(MIXED_CASE_IDENTIFIER_SUPPORTED)) {
+                return (identifier, delimited) -> delimited ? identifier : identifier.toLowerCase(ENGLISH);
+            }
+            return NameCanonicalizer.LEGACY_NAME_CANONICALIZER;
         }
     }
 }
