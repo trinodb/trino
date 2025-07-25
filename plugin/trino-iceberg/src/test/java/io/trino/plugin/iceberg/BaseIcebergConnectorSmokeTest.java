@@ -567,6 +567,33 @@ public abstract class BaseIcebergConnectorSmokeTest
     }
 
     @Test
+    public void testFileSortingWithLargerTableAndTempDirForBufferFiles()
+    {
+        // Using a larger table forces buffered data to be written to disk
+        Session withSmallRowGroups = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", "orc_writer_max_stripe_rows", "200")
+                .setCatalogSessionProperty("iceberg", "parquet_writer_block_size", "20kB")
+                .setCatalogSessionProperty("iceberg", "parquet_writer_batch_size", "200")
+                .setCatalogSessionProperty("iceberg", "sorted_writing_temporary_staging_directory_enabled", "true")
+                .setCatalogSessionProperty("iceberg", "sorted_writing_write_buffer_size", "2kB")
+                .setCatalogSessionProperty("iceberg", "sorted_writing_writer_max_open_files", "5")
+                .build();
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_sorted_lineitem_table",
+                "WITH (sorted_by = ARRAY['comment'], format = '" + format.name() + "') AS TABLE tpch.tiny.lineitem WITH NO DATA")) {
+            assertUpdate(
+                    withSmallRowGroups,
+                    "INSERT INTO " + table.getName() + " TABLE tpch.tiny.lineitem",
+                    "VALUES 60175");
+            for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()) {
+                assertThat(isFileSorted(Location.of((String) filePath), "comment")).isTrue();
+            }
+            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM lineitem");
+        }
+    }
+
+    @Test
     public void testDropTableWithMissingMetadataFile()
             throws Exception
     {

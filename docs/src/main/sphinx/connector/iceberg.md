@@ -217,6 +217,22 @@ implementation is used:
   -  Enable [sorted writing](iceberg-sorted-files) to tables with a specified sort order. Equivalent
      session property is `sorted_writing_enabled`.
   -  `true` 
+* - `iceberg.temporary-staging-directory-enabled`
+  -  Controls whether the temporary staging directory configured at
+     `iceberg.temporary-staging-directory-path` is used for write operations.
+     Temporary staging directory is never used for writes to non-sorted tables on
+     S3, encrypted HDFS or external location. Writes to sorted tables will
+     utilize this path for staging temporary files during sorting operation. When
+     disabled, the target storage will be used for staging while writing sorted
+     tables which can be inefficient when writing to object stores like S3. Equivalent
+     session property is `sorted_writing_temporary_staging_directory_enabled`.
+  -  `false`
+* - `iceberg.temporary-staging-directory-path`
+  -  Controls the location of temporary staging directory that is used for write
+     operations. The `${USER}` placeholder can be used to use a different
+     location for each user. Equivalent session property is
+     `sorted_writing_temporary_staging_directory_path`.
+  -  `/tmp/presto-${USER}`
 * - `iceberg.allowed-extra-properties`
   -  List of extra properties that are allowed to be set on Iceberg tables.
      Use `*` to allow all properties.
