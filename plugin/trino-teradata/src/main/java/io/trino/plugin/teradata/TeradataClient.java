@@ -7,6 +7,7 @@
 package io.trino.plugin.teradata;
 
 import com.google.inject.Inject;
+import io.airlift.slice.Slice;
 import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
@@ -65,6 +66,15 @@ import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 import org.weakref.jmx.$internal.guava.collect.ImmutableMap;
 import org.weakref.jmx.$internal.guava.collect.ImmutableSet;
+
+import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeSignature;
+import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
+import static io.trino.plugin.base.util.JsonTypeUtil.toJsonValue;
+import static io.trino.spi.type.StandardTypes.JSON;
+import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
+
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -189,6 +199,7 @@ import static java.util.stream.Collectors.toMap;
 public class TeradataClient
         extends BaseJdbcClient
 {
+    private final Type jsonType;
     private static final PredicatePushdownController TERADATA_STRING_PUSHDOWN = (session, domain) -> {
         // 1. NULL-only filters are always safe
         if (domain.isOnlyNull()) {
@@ -244,9 +255,10 @@ public class TeradataClient
      * @param remoteQueryModifier optional modifier for remote queries
      */
     @Inject
-    public TeradataClient(BaseJdbcConfig config, TeradataConfig teradataConfig, JdbcStatisticsConfig statisticsConfig, ConnectionFactory connectionFactory, QueryBuilder queryBuilder, IdentifierMapping identifierMapping, RemoteQueryModifier remoteQueryModifier)
+    public TeradataClient(BaseJdbcConfig config, TeradataConfig teradataConfig, JdbcStatisticsConfig statisticsConfig, ConnectionFactory connectionFactory, QueryBuilder queryBuilder, TypeManager typeManager, IdentifierMapping identifierMapping, RemoteQueryModifier remoteQueryModifier)
     {
         super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, remoteQueryModifier, true);
+        this.jsonType = typeManager.getType(new TypeSignature(JSON));
         this.teradataJDBCCaseSensitivity = teradataConfig.getTeradataCaseSensitivity();
         this.statisticsEnabled = statisticsConfig.isEnabled();
         buildExpressionRewriter();
@@ -1021,14 +1033,7 @@ public class TeradataClient
                 return Optional.of(timeWithTimeZoneColumnMapping(typeHandle.requiredDecimalDigits()));
             case "JSON":
                 // TODO map to trino json value
-                Optional<ColumnMapping> cm = mapToUnboundedVarchar(typeHandle);
-                if (cm.isPresent()) {
-                    System.out.println(cm);
-                }
-                else {
-                    System.out.println(typeHandle.jdbcTypeName() + "deosnt no have correct mapping");
-                }
-                return cm;
+                return Optional.of(jsonColumnMapping());
         }
 
         // switch by jdbc type
@@ -1096,6 +1101,9 @@ public class TeradataClient
     @Override
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
+        if (type.equals(jsonType)) {
+            return WriteMapping.sliceMapping("JSON", typedVarcharWriteFunction("json"));
+        }
         if (type == BOOLEAN) {
             return WriteMapping.booleanMapping("boolean", booleanWriteFunction());
         }
@@ -1241,5 +1249,51 @@ public class TeradataClient
         }
 
         public record ColumnIndexStatistics(boolean nullable, long distinctValues, long nullCount) {}
+    }
+
+    private ColumnMapping jsonColumnMapping()
+    {
+        return ColumnMapping.sliceMapping(
+                jsonType,
+                jsonReadFunction(),
+                typedVarcharWriteFunction("json"),
+                DISABLE_PUSHDOWN);
+    }
+
+    private SliceReadFunction jsonReadFunction()
+    {
+        return (resultSet, columnIndex) -> {
+            String json = resultSet.getString(columnIndex);
+            if (json == null) {
+                return null;
+            }
+            return jsonParse(utf8Slice(json));
+        };
+    }
+
+    private static SliceWriteFunction typedVarcharWriteFunction(String jdbcTypeName)
+    {
+        requireNonNull(jdbcTypeName, "jdbcTypeName is null");
+        String bindExpression = format("CAST(? AS %s)", jdbcTypeName.toUpperCase());
+
+        return new SliceWriteFunction()
+        {
+            @Override
+            public String getBindExpression()
+            {
+                return bindExpression;
+            }
+
+            @Override
+            public void set(PreparedStatement statement, int index, Slice value)
+                    throws SQLException
+            {
+                if (value == null) {
+                    statement.setNull(index, Types.OTHER);
+                    return;
+                }
+                statement.setString(index, value.toStringUtf8());
+            }
+        };
     }
 }

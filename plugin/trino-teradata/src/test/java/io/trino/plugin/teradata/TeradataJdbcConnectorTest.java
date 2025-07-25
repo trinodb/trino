@@ -6,6 +6,7 @@ import com.google.common.collect.MoreCollectors;
 import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.plugin.jdbc.JoinOperator;
+import io.trino.plugin.jdbc.JoinPushdownStrategy;
 import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.SortOrder;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
@@ -13,12 +14,18 @@ import io.trino.sql.planner.plan.*;
 import io.trino.sql.query.QueryAssertions;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
+import io.trino.testing.TestingNames;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.assertj.core.api.Assertions;
+import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
+import io.trino.testing.MaterializedResult;
+import io.trino.testing.MaterializedRow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Optional;
@@ -27,9 +34,13 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static io.trino.plugin.teradata.util.TeradataConstants.TERADATA_OBJECT_NAME_LIMIT;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.*;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static io.trino.testing.TestingConnectorBehavior.*;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Integration test class for Teradata JDBC Connector.
@@ -39,7 +50,7 @@ public class TeradataJdbcConnectorTest
         extends BaseJdbcConnectorTest
 {
     protected final TestTeradataDatabase database = new TestTeradataDatabase(DatabaseConfig.fromEnv());
-
+    private final String databaseName = "trino";
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
@@ -63,14 +74,20 @@ public class TeradataJdbcConnectorTest
                  SUPPORTS_SET_COLUMN_TYPE,
                  SUPPORTS_ROW_LEVEL_DELETE,
                  SUPPORTS_DROP_SCHEMA_CASCADE,
-                 SUPPORTS_NATIVE_QUERY -> false;
+                 SUPPORTS_NATIVE_QUERY,
+                 SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM,
+                 SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_INEQUALITY,
+                 SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY -> false;
             case SUPPORTS_CREATE_SCHEMA,
                  SUPPORTS_CREATE_TABLE,
                  SUPPORTS_TOPN_PUSHDOWN,
                  SUPPORTS_PREDICATE_PUSHDOWN,
                  SUPPORTS_AGGREGATION_PUSHDOWN,
                  SUPPORTS_JOIN_PUSHDOWN,
-                 SUPPORTS_LIMIT_PUSHDOWN -> true;
+                 SUPPORTS_LIMIT_PUSHDOWN,
+                 SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR,
+                 SUPPORTS_PREDICATE_ARITHMETIC_EXPRESSION_PUSHDOWN,
+                 SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN -> true;
 //                 SUPPORTS_DROP_SCHEMA_CASCADE -> true;
             default -> super.hasBehavior(connectorBehavior);
         };
@@ -87,13 +104,13 @@ public class TeradataJdbcConnectorTest
             throws Exception
     {
         database.createTestDatabaseIfAbsent();
-        return TeradataQueryRunner.builder().addCoordinatorProperty("http-server.http.port", "8080").setInitialTables(REQUIRED_TPCH_TABLES).build();
+        return TeradataQueryRunner.builder().addCoordinatorProperty("http-server.http.port", "8090").setInitialTables(REQUIRED_TPCH_TABLES).build();
     }
 
     @AfterAll
     public void cleanupTestDatabase()
     {
-        database.dropTestDatabaseIfExists();
+        //database.dropTestDatabaseIfExists();
     }
 
     @Override
@@ -125,7 +142,7 @@ public class TeradataJdbcConnectorTest
 
     protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
-        throw new AssertionError(format("Table name must be shorter than or equal to '%s' characters but got '%s'", TERADATA_OBJECT_NAME_LIMIT, TERADATA_OBJECT_NAME_LIMIT + 1));
+        assertThat(e).hasMessage(format("Table name must be shorter than or equal to '%s' characters but got '%s'", TERADATA_OBJECT_NAME_LIMIT, TERADATA_OBJECT_NAME_LIMIT + 1));
     }
 
     @Test
@@ -180,6 +197,7 @@ public class TeradataJdbcConnectorTest
                 String sql = "CREATE TABLE trino.test_null_sensitive_topn_pushdown(name varchar(10), a bigint)";
                 database.execute(sql);
             }
+            try {
             List<String> rowsToInsert = List.of("'small', 42", "'big', 134134", "'negative', -15", "'null', NULL");
             for (String row : rowsToInsert) {
                 database.execute(format("INSERT INTO %s VALUES (%s)", "trino.test_null_sensitive_topn_pushdown", row));
@@ -189,88 +207,80 @@ public class TeradataJdbcConnectorTest
             Assertions.assertThat(this.query("SELECT name FROM trino.test_null_sensitive_topn_pushdown ORDER BY a ASC NULLS LAST LIMIT 5")).ordered().isFullyPushedDown();
             Assertions.assertThat(this.query("SELECT name FROM trino.test_null_sensitive_topn_pushdown ORDER BY a DESC NULLS FIRST LIMIT 5")).ordered().isFullyPushedDown();
             Assertions.assertThat(this.query("SELECT name FROM trino.test_null_sensitive_topn_pushdown ORDER BY a DESC NULLS LAST LIMIT 5")).ordered().isFullyPushedDown();
-        }
+        }   finally {
+                String sql = "DROP TABLE trino.test_null_sensitive_topn_pushdown";
+                database.execute(sql);
+            }
+    }
     }
 
     @Test
     public void testCaseSensitiveTopNPushdown() {
-
         if (this.hasBehavior(TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN)) {
             boolean expectTopNPushdown = this.hasBehavior(TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR);
-            String tblName = "trino.test_case_sensitive_topn_pushdown";
-            if (!database.isTableExists("test_case_sensitive_topn_pushdown")) {
-                String sql = "CREATE TABLE " + tblName + "(name varchar(10), a bigint)";
-                database.execute(sql);
-            }
-            List<String> rowsToInsert = List.of("'small', 42", "'big', 134134", "'negative', -15", "'null', NULL");
-            for (String row : rowsToInsert) {
-                database.execute(format("INSERT INTO %s VALUES (%s)", tblName, row));
-            }
             PlanMatchPattern topNOverTableScan = PlanMatchPattern.project(PlanMatchPattern.node(TopNNode.class, new PlanMatchPattern[]{PlanMatchPattern.anyTree(new PlanMatchPattern[]{PlanMatchPattern.node(TableScanNode.class, new PlanMatchPattern[0])})}));
 
+            if (!database.isTableExists("test_case_sensitive_topn_pushdown")) {
+                String sql = "CREATE TABLE trino.test_case_sensitive_topn_pushdown(a_string varchar(10), a_char char(10), a_bigint bigint)";
+                database.execute(sql);
+            }
+            try {
+                List<String> rowsToInsert = List.of("'A', 'A', 1", "'B', 'B', 2", "'a', 'a', 3", "'b', 'b', 4");
+                for (String row : rowsToInsert) {
+                    database.execute(format("INSERT INTO %s VALUES (%s)", "trino.test_case_sensitive_topn_pushdown", row));
+                }
+                this.assertConditionallyOrderedPushedDown(this.getSession(), "SELECT a_bigint FROM trino.test_case_sensitive_topn_pushdown ORDER BY a_string ASC LIMIT 2", expectTopNPushdown, topNOverTableScan);
+                this.assertConditionallyOrderedPushedDown(this.getSession(), "SELECT a_bigint FROM trino.test_case_sensitive_topn_pushdown ORDER BY a_string DESC LIMIT 2", expectTopNPushdown, topNOverTableScan);
+                this.assertConditionallyOrderedPushedDown(this.getSession(), "SELECT a_bigint FROM trino.test_case_sensitive_topn_pushdown ORDER BY a_char ASC LIMIT 2", expectTopNPushdown, topNOverTableScan);
+                this.assertConditionallyOrderedPushedDown(this.getSession(), "SELECT a_bigint FROM trino.test_case_sensitive_topn_pushdown ORDER BY a_char DESC LIMIT 2", expectTopNPushdown, topNOverTableScan);
+                this.assertConditionallyOrderedPushedDown(this.getSession(), "SELECT a_bigint FROM trino.test_case_sensitive_topn_pushdown ORDER BY a_bigint, a_char LIMIT 2", expectTopNPushdown, topNOverTableScan);
+                this.assertConditionallyOrderedPushedDown(this.getSession(), "SELECT a_bigint FROM trino.test_case_sensitive_topn_pushdown ORDER BY a_bigint, a_string DESC LIMIT 2", expectTopNPushdown, topNOverTableScan);
 
-            this.assertConditionallyOrderedPushedDown(this.getSession(), "SELECT a_bigint FROM " + tblName + " ORDER BY a_string ASC LIMIT 2", expectTopNPushdown, topNOverTableScan);
-            this.assertConditionallyOrderedPushedDown(this.getSession(), "SELECT a_bigint FROM " + tblName + " ORDER BY a_string DESC LIMIT 2", expectTopNPushdown, topNOverTableScan);
-            this.assertConditionallyOrderedPushedDown(this.getSession(), "SELECT a_bigint FROM " + tblName + " ORDER BY a_char ASC LIMIT 2", expectTopNPushdown, topNOverTableScan);
-            this.assertConditionallyOrderedPushedDown(this.getSession(), "SELECT a_bigint FROM " + tblName + " ORDER BY a_char DESC LIMIT 2", expectTopNPushdown, topNOverTableScan);
-            this.assertConditionallyOrderedPushedDown(this.getSession(), "SELECT a_bigint FROM " + tblName + " ORDER BY a_bigint, a_char LIMIT 2", expectTopNPushdown, topNOverTableScan);
-            this.assertConditionallyOrderedPushedDown(this.getSession(), "SELECT a_bigint FROM " + tblName + " ORDER BY a_bigint, a_string DESC LIMIT 2", expectTopNPushdown, topNOverTableScan);
+            } finally {
+                String sql = "DROP TABLE trino.test_case_sensitive_topn_pushdown";
+                database.execute(sql);
+            }
+
         }
     }
 
     @Test
-    public void testJoinPushdown() {
-        Session session = this.joinPushdownEnabled(this.getSession());
-        if (!this.hasBehavior(TestingConnectorBehavior.SUPPORTS_JOIN_PUSHDOWN)) {
-            ((QueryAssertions.QueryAssert)Assertions.assertThat(this.query(session, "SELECT r.name, n.name FROM nation n JOIN region r ON n.regionkey = r.regionkey"))).joinIsNotFullyPushedDown();
-        } else {
-            try (TestTable nationLowercaseTable = this.newTrinoTable("nation_lowercase", "AS SELECT nationkey, lower(name) name, regionkey FROM nation")) {
-                for(JoinOperator joinOperator : JoinOperator.values()) {
-                    System.out.println(format("Testing joinOperator=%s", new Object[]{joinOperator}));
-                    if (joinOperator == JoinOperator.FULL_JOIN && !this.hasBehavior(TestingConnectorBehavior.SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN)) {
-                        ((QueryAssertions.QueryAssert)Assertions.assertThat(this.query(session, "SELECT r.name, n.name FROM nation n FULL JOIN region r ON n.regionkey = r.regionkey"))).joinIsNotFullyPushedDown();
-                    } else {
-                        Session withoutDynamicFiltering = Session.builder(session).setSystemProperty("enable_dynamic_filtering", "false").build();
-                        List<String> nonEqualities = (List) Stream.concat(Stream.of(JoinCondition.Operator.values()).filter((operatorx) -> operatorx != JoinCondition.Operator.EQUAL && operatorx != JoinCondition.Operator.IDENTICAL).map(JoinCondition.Operator::getValue), Stream.of("IS DISTINCT FROM", "IS NOT DISTINCT FROM")).collect(ImmutableList.toImmutableList());
-                        ((QueryAssertions.QueryAssert)Assertions.assertThat(this.query(session, String.format("SELECT r.name, n.name FROM nation n %s region r ON n.regionkey = r.regionkey", joinOperator)))).isFullyPushedDown();
-                        ((QueryAssertions.QueryAssert)Assertions.assertThat(this.query(session, String.format("SELECT r.name, n.name FROM nation n %s region r ON n.nationkey = r.regionkey", joinOperator)))).isFullyPushedDown();
-                        ((QueryAssertions.QueryAssert)Assertions.assertThat(this.query(session, String.format("SELECT r.name, n.name FROM nation n %s region r USING(regionkey)", joinOperator)))).isFullyPushedDown();
-                        this.assertJoinConditionallyPushedDown(session, String.format("SELECT n.name, n2.regionkey FROM nation n %s nation n2 ON n.name = n2.name", joinOperator), this.hasBehavior(TestingConnectorBehavior.SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY));
-                        this.assertJoinConditionallyPushedDown(session, String.format("SELECT n.name, nl.regionkey FROM nation n %s %s nl ON n.name = nl.name", joinOperator, nationLowercaseTable.getName()), this.hasBehavior(TestingConnectorBehavior.SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY));
-                        ((QueryAssertions.QueryAssert)Assertions.assertThat(this.query(session, String.format("SELECT n.name, c.name FROM nation n %s customer c ON n.nationkey = c.nationkey and n.regionkey = c.custkey", joinOperator)))).isFullyPushedDown();
+    public void testCaseSensitiveAggregationPushdown() {
+        if (this.hasBehavior(TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUSHDOWN)) {
+            boolean supportsPushdownWithVarcharInequality = this.hasBehavior(TestingConnectorBehavior.SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY);
+            boolean supportsCountDistinctPushdown = this.hasBehavior(TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT);
+            boolean supportsSumDistinctPushdown = this.hasBehavior(TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUSHDOWN);
+            PlanMatchPattern aggregationOverTableScan = PlanMatchPattern.node(AggregationNode.class, new PlanMatchPattern[]{PlanMatchPattern.node(TableScanNode.class, new PlanMatchPattern[0])});
+            PlanMatchPattern groupingAggregationOverTableScan = PlanMatchPattern.node(AggregationNode.class, new PlanMatchPattern[]{PlanMatchPattern.node(TableScanNode.class, new PlanMatchPattern[0])});
 
-                        for(String operator : nonEqualities) {
-                            this.assertJoinConditionallyPushedDown(withoutDynamicFiltering, String.format("SELECT r.name, n.name FROM nation n %s region r ON n.regionkey %s r.regionkey", joinOperator, operator), this.expectJoinPushdown(operator) && this.expectJoinPushdownOnInequalityOperator(joinOperator));
-                            try {
-                                this.assertJoinConditionallyPushedDown(withoutDynamicFiltering, String.format("SELECT n.name, nl.name FROM nation n %s %s nl ON n.name %s nl.name", joinOperator, nationLowercaseTable.getName(), operator), this.expectVarcharJoinPushdown(operator) && this.expectJoinPushdownOnInequalityOperator(joinOperator));
-                            } catch (Throwable e) {
-                                throw new RuntimeException(e);
-                            }
-                        }
-
-                        for(String operator : nonEqualities) {
-                            System.out.println(format("Testing [joinOperator=%s] operator=%s on number", new Object[]{joinOperator, operator}));
-                            this.assertJoinConditionallyPushedDown(session, String.format("SELECT n.name, c.name FROM nation n %s customer c ON n.nationkey = c.nationkey AND n.regionkey %s c.custkey", joinOperator, operator), this.expectJoinPushdown(operator));
-                        }
-
-                        for(String operator : nonEqualities) {
-                            System.out.println(format("Testing [joinOperator=%s] operator=%s on varchar", new Object[]{joinOperator, operator}));
-                            try {
-                                this.assertJoinConditionallyPushedDown(session, String.format("SELECT n.name, nl.name FROM nation n %s %s nl ON n.regionkey = nl.regionkey AND n.name %s nl.name", joinOperator, nationLowercaseTable.getName(), operator), this.expectVarcharJoinPushdown(operator));
-                            } catch (Throwable e) {
-                                throw new RuntimeException(e);
-                            }
-                        }
-
-                        ((QueryAssertions.QueryAssert)Assertions.assertThat(this.query(session, String.format("SELECT c.name, n.name FROM (SELECT * FROM customer WHERE acctbal > 8000) c %s nation n ON c.custkey = n.nationkey", joinOperator)))).isFullyPushedDown();
-                        this.assertJoinConditionallyPushedDown(session, String.format("SELECT c.name, n.name FROM (SELECT * FROM customer WHERE address = 'TcGe5gaZNgVePxU5kRrvXBfkasDTea') c %s nation n ON c.custkey = n.nationkey", joinOperator), this.hasBehavior(TestingConnectorBehavior.SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY));
-                        this.assertJoinConditionallyPushedDown(session, String.format("SELECT c.name, n.name FROM (SELECT * FROM customer WHERE address < 'TcGe5gaZNgVePxU5kRrvXBfkasDTea') c %s nation n ON c.custkey = n.nationkey", joinOperator), this.hasBehavior(TestingConnectorBehavior.SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY));
-                        this.assertJoinConditionallyPushedDown(session, String.format("SELECT * FROM (SELECT regionkey rk, count(nationkey) c FROM nation GROUP BY regionkey) n %s region r ON n.rk = r.regionkey", joinOperator), this.hasBehavior(TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUSHDOWN));
-                        this.assertJoinConditionallyPushedDown(session, String.format("SELECT * FROM (SELECT nationkey FROM nation LIMIT 30) n %s region r ON n.nationkey = r.regionkey", joinOperator), this.hasBehavior(TestingConnectorBehavior.SUPPORTS_LIMIT_PUSHDOWN));
-                        this.assertJoinConditionallyPushedDown(session, String.format("SELECT * FROM (SELECT nationkey FROM nation ORDER BY regionkey LIMIT 5) n %s region r ON n.nationkey = r.regionkey", joinOperator), this.hasBehavior(TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN));
-                        ((QueryAssertions.QueryAssert)Assertions.assertThat(this.query(session, "SELECT * FROM nation n, region r, customer c WHERE n.regionkey = r.regionkey AND r.regionkey = c.custkey"))).isFullyPushedDown();
-                    }
+            if (!database.isTableExists("test_cs_agg_pushdown")) {
+                String sql = "CREATE TABLE trino.test_cs_agg_pushdown(a_string varchar(1), a_char char(1), a_bigint bigint)";
+                database.execute(sql);
+            }
+            try {
+                List<String> rowsToInsert = ImmutableList.of("'A', 'A', 1", "'B', 'B', 1", "'a', 'a', 3", "'b', 'b', 4");
+                for (String row : rowsToInsert) {
+                    database.execute(format("INSERT INTO %s VALUES (%s)", "trino.test_cs_agg_pushdown", row));
                 }
+
+                this.assertConditionallyPushedDown(this.getSession(), "SELECT max(a_string), min(a_string), max(a_char), min(a_char) FROM trino.test_cs_agg_pushdown ", supportsPushdownWithVarcharInequality, aggregationOverTableScan).skippingTypesCheck().matches("VALUES ('b', 'A', 'b', 'A')");
+                this.assertConditionallyPushedDown(this.getSession(), "SELECT distinct a_string FROM trino.test_cs_agg_pushdown  " , supportsPushdownWithVarcharInequality, groupingAggregationOverTableScan).skippingTypesCheck().matches("VALUES 'A', 'B', 'a', 'b'");
+                this.assertConditionallyPushedDown(this.getSession(), "SELECT distinct a_char FROM trino.test_cs_agg_pushdown  " , supportsPushdownWithVarcharInequality, groupingAggregationOverTableScan).skippingTypesCheck().matches("VALUES 'A', 'B', 'a', 'b'");
+                this.assertConditionallyPushedDown(this.getSession(), "SELECT a_string, count(*) FROM trino.test_cs_agg_pushdown  "  + " GROUP BY a_string", supportsPushdownWithVarcharInequality, groupingAggregationOverTableScan).skippingTypesCheck().matches("VALUES ('A', BIGINT '1'), ('a', BIGINT '1'), ('b', BIGINT '1'), ('B', BIGINT '1')");
+                this.assertConditionallyPushedDown(this.getSession(), "SELECT a_char, count(*) FROM trino.test_cs_agg_pushdown  "  + " GROUP BY a_char", supportsPushdownWithVarcharInequality, groupingAggregationOverTableScan).skippingTypesCheck().matches("VALUES ('A', BIGINT '1'), ('B', BIGINT '1'), ('a', BIGINT '1'), ('b', BIGINT '1')");
+                ((QueryAssertions.QueryAssert)Assertions.assertThat(this.query("SELECT count(a_string), count(a_char) FROM trino.test_cs_agg_pushdown  " ))).isFullyPushedDown();
+                ((QueryAssertions.QueryAssert)Assertions.assertThat(this.query("SELECT count(a_string), count(a_char) FROM trino.test_cs_agg_pushdown  "  + " GROUP BY a_bigint"))).isFullyPushedDown();
+                this.assertConditionallyPushedDown(this.getSession(), "SELECT count(DISTINCT a_string) FROM trino.test_cs_agg_pushdown  " , supportsPushdownWithVarcharInequality, groupingAggregationOverTableScan).skippingTypesCheck().matches("VALUES BIGINT '4'");
+                this.assertConditionallyPushedDown(this.getSession(), "SELECT count(DISTINCT a_char) FROM trino.test_cs_agg_pushdown  " , supportsPushdownWithVarcharInequality, groupingAggregationOverTableScan).skippingTypesCheck().matches("VALUES BIGINT '4'");
+                Session withMarkDistinct = Session.builder(this.getSession()).setSystemProperty("distinct_aggregations_strategy", "mark_distinct").build();
+                Session withSingleStep = Session.builder(this.getSession()).setSystemProperty("distinct_aggregations_strategy", "single_step").build();
+                Session withPreAggregate = Session.builder(this.getSession()).setSystemProperty("distinct_aggregations_strategy", "pre_aggregate").build();
+                this.verifyMultipleDistinctPushdown(withMarkDistinct, PlanMatchPattern.node(ExchangeNode.class, new PlanMatchPattern[]{PlanMatchPattern.node(AggregationNode.class, new PlanMatchPattern[]{PlanMatchPattern.anyTree(new PlanMatchPattern[]{PlanMatchPattern.node(TableScanNode.class, new PlanMatchPattern[0])})})}), supportsPushdownWithVarcharInequality, supportsCountDistinctPushdown, supportsSumDistinctPushdown, "trino.test_cs_agg_pushdown");
+                this.verifyMultipleDistinctPushdown(withSingleStep, PlanMatchPattern.node(AggregationNode.class, new PlanMatchPattern[]{PlanMatchPattern.anyTree(new PlanMatchPattern[]{PlanMatchPattern.node(TableScanNode.class, new PlanMatchPattern[0])})}), supportsPushdownWithVarcharInequality, supportsCountDistinctPushdown, supportsSumDistinctPushdown, "trino.test_cs_agg_pushdown");
+                this.verifyMultipleDistinctPushdown(withPreAggregate, PlanMatchPattern.node(AggregationNode.class, new PlanMatchPattern[]{PlanMatchPattern.project(PlanMatchPattern.node(AggregationNode.class, new PlanMatchPattern[]{PlanMatchPattern.anyTree(new PlanMatchPattern[]{PlanMatchPattern.node(GroupIdNode.class, new PlanMatchPattern[]{PlanMatchPattern.node(TableScanNode.class, new PlanMatchPattern[0])})})}))}), supportsPushdownWithVarcharInequality, supportsCountDistinctPushdown, supportsSumDistinctPushdown, "trino.test_cs_agg_pushdown");
+               } finally {
+                String sql = "DROP TABLE trino.test_cs_agg_pushdown";
+                database.execute(sql);
             }
 
         }
@@ -307,40 +317,6 @@ public class TeradataJdbcConnectorTest
         }
     }
 
-    @Test
-    public void testCaseSensitiveAggregationPushdown() {
-        String tblName = "trino.test_cs_agg_pushdown";
-        if (this.hasBehavior(TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUSHDOWN)) {
-            if (!database.isTableExists("test_cs_agg_pushdown")) {
-                String sql = "CREATE TABLE " + tblName + "(name varchar(10), a bigint)";
-                database.execute(sql);
-            }
-            List<String> rowsToInsert = ImmutableList.of("'A', 'A', 1", "'B', 'B', 1", "'a', 'a', 3", "'b', 'b', 4");
-            for (String row : rowsToInsert) {
-                database.execute(format("INSERT INTO %s VALUES (%s)", tblName, row));
-            }
-            boolean supportsPushdownWithVarcharInequality = this.hasBehavior(TestingConnectorBehavior.SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY);
-            boolean supportsCountDistinctPushdown = this.hasBehavior(TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT);
-            boolean supportsSumDistinctPushdown = this.hasBehavior(TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUSHDOWN);
-            PlanMatchPattern aggregationOverTableScan = PlanMatchPattern.node(AggregationNode.class, new PlanMatchPattern[]{PlanMatchPattern.node(TableScanNode.class, new PlanMatchPattern[0])});
-            PlanMatchPattern groupingAggregationOverTableScan = PlanMatchPattern.node(AggregationNode.class, new PlanMatchPattern[]{PlanMatchPattern.node(TableScanNode.class, new PlanMatchPattern[0])});
-            this.assertConditionallyPushedDown(this.getSession(), "SELECT max(a_string), min(a_string), max(a_char), min(a_char) FROM " + tblName, supportsPushdownWithVarcharInequality, aggregationOverTableScan).skippingTypesCheck().matches("VALUES ('b', 'A', 'b', 'A')");
-            this.assertConditionallyPushedDown(this.getSession(), "SELECT distinct a_string FROM " + tblName, supportsPushdownWithVarcharInequality, groupingAggregationOverTableScan).skippingTypesCheck().matches("VALUES 'A', 'B', 'a', 'b'");
-            this.assertConditionallyPushedDown(this.getSession(), "SELECT distinct a_char FROM " + tblName, supportsPushdownWithVarcharInequality, groupingAggregationOverTableScan).skippingTypesCheck().matches("VALUES 'A', 'B', 'a', 'b'");
-            this.assertConditionallyPushedDown(this.getSession(), "SELECT a_string, count(*) FROM " + tblName + " GROUP BY a_string", supportsPushdownWithVarcharInequality, groupingAggregationOverTableScan).skippingTypesCheck().matches("VALUES ('A', BIGINT '1'), ('a', BIGINT '1'), ('b', BIGINT '1'), ('B', BIGINT '1')");
-            this.assertConditionallyPushedDown(this.getSession(), "SELECT a_char, count(*) FROM " + tblName + " GROUP BY a_char", supportsPushdownWithVarcharInequality, groupingAggregationOverTableScan).skippingTypesCheck().matches("VALUES ('A', BIGINT '1'), ('B', BIGINT '1'), ('a', BIGINT '1'), ('b', BIGINT '1')");
-            ((QueryAssertions.QueryAssert)Assertions.assertThat(this.query("SELECT count(a_string), count(a_char) FROM " + tblName))).isFullyPushedDown();
-            ((QueryAssertions.QueryAssert)Assertions.assertThat(this.query("SELECT count(a_string), count(a_char) FROM " + tblName + " GROUP BY a_bigint"))).isFullyPushedDown();
-            this.assertConditionallyPushedDown(this.getSession(), "SELECT count(DISTINCT a_string) FROM " + tblName, supportsPushdownWithVarcharInequality, groupingAggregationOverTableScan).skippingTypesCheck().matches("VALUES BIGINT '4'");
-            this.assertConditionallyPushedDown(this.getSession(), "SELECT count(DISTINCT a_char) FROM " + tblName, supportsPushdownWithVarcharInequality, groupingAggregationOverTableScan).skippingTypesCheck().matches("VALUES BIGINT '4'");
-            Session withMarkDistinct = Session.builder(this.getSession()).setSystemProperty("distinct_aggregations_strategy", "mark_distinct").build();
-            Session withSingleStep = Session.builder(this.getSession()).setSystemProperty("distinct_aggregations_strategy", "single_step").build();
-            Session withPreAggregate = Session.builder(this.getSession()).setSystemProperty("distinct_aggregations_strategy", "pre_aggregate").build();
-            this.verifyMultipleDistinctPushdown(withMarkDistinct, PlanMatchPattern.node(ExchangeNode.class, new PlanMatchPattern[]{PlanMatchPattern.node(AggregationNode.class, new PlanMatchPattern[]{PlanMatchPattern.anyTree(new PlanMatchPattern[]{PlanMatchPattern.node(TableScanNode.class, new PlanMatchPattern[0])})})}), supportsPushdownWithVarcharInequality, supportsCountDistinctPushdown, supportsSumDistinctPushdown, tblName);
-            this.verifyMultipleDistinctPushdown(withSingleStep, PlanMatchPattern.node(AggregationNode.class, new PlanMatchPattern[]{PlanMatchPattern.anyTree(new PlanMatchPattern[]{PlanMatchPattern.node(TableScanNode.class, new PlanMatchPattern[0])})}), supportsPushdownWithVarcharInequality, supportsCountDistinctPushdown, supportsSumDistinctPushdown, tblName);
-            this.verifyMultipleDistinctPushdown(withPreAggregate, PlanMatchPattern.node(AggregationNode.class, new PlanMatchPattern[]{PlanMatchPattern.project(PlanMatchPattern.node(AggregationNode.class, new PlanMatchPattern[]{PlanMatchPattern.anyTree(new PlanMatchPattern[]{PlanMatchPattern.node(GroupIdNode.class, new PlanMatchPattern[]{PlanMatchPattern.node(TableScanNode.class, new PlanMatchPattern[0])})})}))}), supportsPushdownWithVarcharInequality, supportsCountDistinctPushdown, supportsSumDistinctPushdown, tblName);
-          }
-    }
 
     private void verifyMultipleDistinctPushdown(Session session, PlanMatchPattern otherwiseExpected, boolean supportsPushdownWithVarcharInequality, boolean supportsCountDistinctPushdown, boolean supportsSumDistinctPushdown, String tableName) {
         this.assertConditionallyPushedDown(session, "SELECT count(DISTINCT a_string), count(DISTINCT a_bigint) FROM " + tableName, supportsPushdownWithVarcharInequality && supportsCountDistinctPushdown, otherwiseExpected).skippingTypesCheck().matches("VALUES (BIGINT '4', BIGINT '3')");
@@ -368,7 +344,98 @@ public class TeradataJdbcConnectorTest
         }
     }
 
+    protected void assertCreateTableAsSelect(Session session, @Language("SQL") String query, @Language("SQL") String expectedQuery, @Language("SQL") String rowCountQuery) {
+        String table = "test_ctas_" + TestingNames.randomNameSuffix();
+        this.assertUpdate(session, "CREATE TABLE " + table + " AS ( " + query + ") WITH DATA", rowCountQuery);
+        this.assertQuery(session, "SELECT * FROM " + table, expectedQuery);
+        this.assertUpdate(session, "DROP TABLE " + table);
+        Assertions.assertThat(this.getQueryRunner().tableExists(session, table)).isFalse();
+    }
 
+    @Test
+    public void testCreateTableAsSelect()
+    {
+        String tableName = "test_ctas" + randomNameSuffix();
+        if (!hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA)) {
+            assertQueryFails("CREATE TABLE IF NOT EXISTS " + tableName + " AS SELECT name, regionkey FROM nation", "This connector does not support creating tables with data");
+            return;
+        }
+        assertUpdate("CREATE TABLE IF NOT EXISTS " + tableName + " AS SELECT name, regionkey FROM nation", "SELECT count(*) FROM nation");
+        assertTableColumnNames(tableName, "name", "regionkey");
+        assertThat(getTableComment(tableName)).isNull();
+        assertUpdate("DROP TABLE " + tableName);
+
+        // Some connectors support CREATE TABLE AS but not the ordinary CREATE TABLE. Let's test CTAS IF NOT EXISTS with a table that is guaranteed to exist.
+        assertUpdate("CREATE TABLE IF NOT EXISTS nation AS SELECT nationkey, regionkey FROM nation", 0);
+        assertTableColumnNames("nation", "nationkey", "name", "regionkey", "comment");
+
+        assertCreateTableAsSelect(
+                "SELECT nationkey, name, regionkey FROM nation",
+                "SELECT count(*) FROM nation");
+
+        assertCreateTableAsSelect(
+                "SELECT mktsegment, sum(acctbal) x FROM customer GROUP BY mktsegment",
+                "SELECT count(DISTINCT mktsegment) FROM customer");
+
+        assertCreateTableAsSelect(
+                "SELECT count(*) x FROM nation JOIN region ON nation.regionkey = region.regionkey",
+                "SELECT 1");
+
+        assertCreateTableAsSelect(
+                "SELECT nationkey FROM nation ORDER BY nationkey LIMIT 10",
+                "SELECT 10");
+
+        // Tests for CREATE TABLE with UNION ALL: exercises PushTableWriteThroughUnion optimizer
+
+        assertCreateTableAsSelect(
+                "SELECT name, nationkey, regionkey FROM nation WHERE nationkey % 2 = 0 UNION ALL " +
+                        "SELECT name, nationkey, regionkey FROM nation WHERE nationkey % 2 = 1",
+                "SELECT name, nationkey, regionkey FROM nation",
+                "SELECT count(*) FROM nation");
+
+        assertCreateTableAsSelect(
+                Session.builder(getSession()).setSystemProperty("redistribute_writes", "true").build(),
+                "SELECT CAST(nationkey AS BIGINT) nationkey, regionkey FROM nation UNION ALL " +
+                        "SELECT 1234567890, 123",
+                "SELECT nationkey, regionkey FROM nation UNION ALL " +
+                        "SELECT 1234567890, 123",
+                "SELECT count(*) + 1 FROM nation");
+
+        assertCreateTableAsSelect(
+                Session.builder(getSession()).setSystemProperty("redistribute_writes", "false").build(),
+                "SELECT CAST(nationkey AS BIGINT) nationkey, regionkey FROM nation UNION ALL " +
+                        "SELECT 1234567890, 123",
+                "SELECT nationkey, regionkey FROM nation UNION ALL " +
+                        "SELECT 1234567890, 123",
+                "SELECT count(*) + 1 FROM nation");
+
+        // TODO: BigQuery throws table not found at BigQueryClient.insert if we reuse the same table name
+        tableName = "test_ctas" + randomNameSuffix();
+        assertExplainAnalyze("EXPLAIN ANALYZE CREATE TABLE " + tableName + " AS SELECT name FROM nation");
+        assertQuery("SELECT * from " + tableName, "SELECT name FROM nation");
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+
+
+    @Test
+    public void testArithmeticPredicatePushdown() {
+        if (!this.hasBehavior(TestingConnectorBehavior.SUPPORTS_PREDICATE_ARITHMETIC_EXPRESSION_PUSHDOWN)) {
+            ((QueryAssertions.QueryAssert)Assertions.assertThat(this.query("SELECT shippriority FROM orders WHERE shippriority % 4 = 0"))).isNotFullyPushedDown(FilterNode.class, new Class[0]);
+        } else {
+            ((QueryAssertions.QueryAssert)Assertions.assertThat(this.query("SELECT shippriority FROM orders WHERE shippriority % 4 = 0"))).isFullyPushedDown();
+            ((QueryAssertions.QueryAssert)Assertions.assertThat(this.query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % nationkey = 2"))).isFullyPushedDown().matches("VALUES (BIGINT '3', CAST('CANADA' AS varchar(25)), BIGINT '1')");
+            ((QueryAssertions.QueryAssert)Assertions.assertThat(this.query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % -nationkey = 2"))).isFullyPushedDown().matches("VALUES (BIGINT '3', CAST('CANADA' AS varchar(25)), BIGINT '1')");
+            ((QueryAssertions.QueryAssert)Assertions.assertThat(this.query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % 0 = 2"))).failure().hasMessageContaining("Operation Error computing expression");
+            ((QueryAssertions.QueryAssert)Assertions.assertThat(this.query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % (regionkey - 1) = 2"))).failure().hasMessageContaining("Operation Error computing expression");
+        }
+    }
+
+
+    @Test
+    public void testCreateTableAsSelectWithUnicode() {
+        Assumptions.abort("Skipping as connector does not support creating table with UNICODE characters");
+    }
     @Test
     public void testUpdateNotNullColumn() {
         Assumptions.abort("Skipping as connector does not support insert operations");
@@ -408,17 +475,204 @@ public class TeradataJdbcConnectorTest
     {
         Assumptions.abort("Skipping as connector does not support dropping a not null constraint");
     }
-    @Test
+
+
     @Override
-    public void testCreateTableAsSelect()
+    protected Session joinPushdownEnabled(Session session)
     {
-        String tableName = "test_ctas" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT name, regionkey FROM nation", "SELECT count(*) FROM nation");
-        assertUpdate("DROP TABLE " + tableName);
+        return Session.builder(super.joinPushdownEnabled(session))
+                // strategy is AUTOMATIC by default and would not work for certain test cases (even if statistics are collected)
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "join_pushdown_strategy", "EAGER")
+                .build();
+    }
+
+    @Test
+    public void testJsonColumnMapping()
+    {
+        String testTableName = "test_json_table";
+
+        // Drop table if it exists from previous runs
+        try {
+            database.execute(format("DROP TABLE %s.%s", databaseName, testTableName));
+        } catch (Exception e) {
+            // Ignore if table doesn't exist
+        }
+
+        try {
+            // Create table with JSON column
+            database.execute(format(
+                    "CREATE TABLE %s.%s (id INTEGER, json_data JSON)",
+                    databaseName, testTableName));
+
+            // Insert test JSON data
+            database.execute(format(
+                    "INSERT INTO %s.%s VALUES (1, '{\"name\": \"Alice\", \"age\": 30}')",
+                    databaseName, testTableName));
+
+            database.execute(format(
+                    "INSERT INTO %s.%s VALUES (2, '{\"name\": \"Bob\", \"age\": 25, \"active\": true}')",
+                    databaseName, testTableName));
+
+            database.execute(format(
+                    "INSERT INTO %s.%s VALUES (3, NULL)",
+                    databaseName, testTableName));
+
+            // Test JSON reading
+            assertQuery(
+                    format("SELECT id, json_data FROM teradata.%s.%s ORDER BY id", databaseName, testTableName),
+                    "VALUES " +
+                            "(1, JSON '{\"name\": \"Alice\", \"age\": 30}'), " +
+                            "(2, JSON '{\"name\": \"Bob\", \"age\": 25, \"active\": true}'), " +
+                            "(3, CAST(NULL AS JSON))");
+
+            // Test JSON extraction
+            assertQuery(
+                    format("SELECT JSON_EXTRACT_SCALAR(json_data, '$.name') FROM teradata.%s.%s WHERE id = 1", databaseName, testTableName),
+                    "VALUES 'Alice'");
+
+            assertQuery(
+                    format("SELECT JSON_EXTRACT_SCALAR(json_data, '$.age') FROM teradata.%s.%s WHERE id = 2", databaseName, testTableName),
+                    "VALUES '25'");
+
+        } finally {
+            // Clean up
+            try {
+                database.execute(format("DROP TABLE %s.%s", databaseName, testTableName));
+            } catch (Exception e) {
+                System.err.println("Warning: Could not drop test table " + testTableName + ": " + e.getMessage());
+            }
+        }
     }
     @Test
-    public void testCreateTableAsSelectWithUnicode() {
-        Assumptions.abort("Skipping as connector does not support creating tables with unicode");
+    public void testJsonColumnMappingTypeMapping()
+    {
+        String testTableName = "test_json_type_mapping";
+
+        try {
+            database.execute(format(
+                    "CREATE TABLE %s.%s (id INTEGER, json_col JSON)",
+                    databaseName, testTableName));
+
+            database.execute(format(
+                    "INSERT INTO %s.%s VALUES (1, '{\"test\": \"value\"}')",
+                    databaseName, testTableName));
+
+            // Verify the column type is mapped correctly
+            MaterializedResult result = computeActual(format(
+                    "DESCRIBE teradata.%s.%s", databaseName, testTableName));
+
+            boolean jsonColumnFound = false;
+            for (MaterializedRow row : result.getMaterializedRows()) {
+                String columnName = (String) row.getField(0);
+                String columnType = (String) row.getField(1);
+
+                if ("json_col".equals(columnName)) {
+                    assertEquals("json", columnType);
+                    jsonColumnFound = true;
+                    break;
+                }
+            }
+
+            assertTrue(jsonColumnFound, "JSON column should be found and mapped to json type");
+
+        } finally {
+            try {
+                database.execute(format("DROP TABLE %s.%s", databaseName, testTableName));
+            } catch (Exception e) {
+                System.err.println("Warning: Could not drop test table " + testTableName + ": " + e.getMessage());
+            }
+        }
     }
+    @Test
+    public void testJsonColumnMappingComplexData()
+    {
+        String testTableName = "test_json_complex";
+
+        try {
+            database.execute(format(
+                    "CREATE TABLE %s.%s (id INTEGER, json_data JSON)",
+                    databaseName, testTableName));
+
+            // Insert complex JSON data
+            database.execute(format(
+                    "INSERT INTO %s.%s VALUES (1, '{\"user\": {\"name\": \"John\", \"addresses\": [{\"city\": \"NYC\", \"zip\": \"10001\"}, {\"city\": \"LA\", \"zip\": \"90210\"}]}}')",
+                    databaseName, testTableName));
+
+            database.execute(format(
+                    "INSERT INTO %s.%s VALUES (2, '{\"numbers\": [1, 2, 3, 4, 5], \"mixed\": [\"text\", 42, true, null]}')",
+                    databaseName, testTableName));
+
+            database.execute(format(
+                    "INSERT INTO %s.%s VALUES (3, '{\"empty_object\": {}, \"empty_array\": [], \"null_value\": null}')",
+                    databaseName, testTableName));
+
+            // Test nested object extraction
+            assertQuery(
+                    format("SELECT JSON_EXTRACT_SCALAR(json_data, '$.user.name') FROM teradata.%s.%s WHERE id = 1", databaseName, testTableName),
+                    "VALUES 'John'");
+
+            // Test array element extraction
+            assertQuery(
+                    format("SELECT JSON_EXTRACT_SCALAR(json_data, '$.user.addresses[0].city') FROM teradata.%s.%s WHERE id = 1", databaseName, testTableName),
+                    "VALUES 'NYC'");
+
+            // Test array element from numbers array
+            assertQuery(
+                    format("SELECT JSON_EXTRACT_SCALAR(json_data, '$.numbers[2]') FROM teradata.%s.%s WHERE id = 2", databaseName, testTableName),
+                    "VALUES '3'");
+
+            // Test JSON_EXTRACT for object/array values
+            assertQuery(
+                    format("SELECT JSON_EXTRACT(json_data, '$.user.addresses') FROM teradata.%s.%s WHERE id = 1", databaseName, testTableName),
+                    "VALUES JSON '[{\"city\": \"NYC\", \"zip\": \"10001\"}, {\"city\": \"LA\", \"zip\": \"90210\"}]'");
+
+        } finally {
+            try {
+                database.execute(format("DROP TABLE %s.%s", databaseName, testTableName));
+            } catch (Exception e) {
+                System.err.println("Warning: Could not drop test table " + testTableName + ": " + e.getMessage());
+            }
+        }
+    }
+
+    @Test
+    public void testJsonArrayWithNullValues()
+    {
+        String testTableName = "test_json_array_nulls";
+
+        try {
+            // Create a table with a JSON column
+            database.execute(format(
+                    "CREATE TABLE %s.%s (id INTEGER, json_data JSON)",
+                    databaseName, testTableName));
+
+            // Insert JSON data with null values in arrays
+            database.execute(format(
+                    "INSERT INTO %s.%s VALUES (1, '{\"array\": [1, null, 3, null]}')",
+                    databaseName, testTableName));
+
+            // Extract specific array elements
+            assertQuery(
+                    format("SELECT JSON_EXTRACT_SCALAR(json_data, '$.array[1]') FROM teradata.%s.%s WHERE id = 1", databaseName, testTableName),
+                    "VALUES CAST(NULL AS VARCHAR)"); // Second element is null
+
+            assertQuery(
+                    format("SELECT JSON_EXTRACT_SCALAR(json_data, '$.array[2]') FROM teradata.%s.%s WHERE id = 1", databaseName, testTableName),
+                    "VALUES '3'"); // Third element is 3
+
+            // Extract the entire array
+            assertQuery(
+                    format("SELECT JSON_EXTRACT(json_data, '$.array') FROM teradata.%s.%s WHERE id = 1", databaseName, testTableName),
+                    "VALUES JSON '[1, null, 3, null]'");
+
+        } finally {
+            try {
+                database.execute(format("DROP TABLE %s.%s", databaseName, testTableName));
+            } catch (Exception e) {
+                System.err.println("Warning: Could not drop test table " + testTableName + ": " + e.getMessage());
+            }
+        }
+    }
+
 }
 
