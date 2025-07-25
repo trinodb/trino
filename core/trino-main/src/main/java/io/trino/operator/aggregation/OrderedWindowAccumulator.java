@@ -38,7 +38,6 @@ public class OrderedWindowAccumulator
     private final PagesIndex pagesIndex;
     private final PagesIndexOrdering pagesIndexOrdering;
     private final List<Type> argumentTypes;
-    private final List<Integer> argumentChannels;
 
     private WindowAccumulator delegate;
     private final WindowAccumulator initialDelegate;
@@ -50,7 +49,6 @@ public class OrderedWindowAccumulator
             PagesIndex.Factory pagesIndexFactory,
             WindowAccumulator delegate,
             List<Type> argumentTypes,
-            List<Integer> argumentChannels,
             List<Integer> sortKeysArguments,
             List<SortOrder> sortOrders)
     {
@@ -59,20 +57,17 @@ public class OrderedWindowAccumulator
                 createPagesIndexWithOrdering(
                         pagesIndexFactory,
                         argumentTypes,
-                        requireNonNull(argumentChannels, "argumentChannels is null").size(),
                         sortKeysArguments,
                         sortOrders),
                 delegate,
-                argumentTypes,
-                argumentChannels);
+                argumentTypes);
     }
 
     private OrderedWindowAccumulator(
             PagesIndex.Factory pagesIndexFactory,
             PagesIndexWithOrdering pagesIndexWithOrdering,
             WindowAccumulator delegate,
-            List<Type> argumentTypes,
-            List<Integer> argumentChannels)
+            List<Type> argumentTypes)
     {
         this.pagesIndexFactory = requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
         requireNonNull(pagesIndexWithOrdering, "pagesIndexWithOrdering is null");
@@ -80,10 +75,7 @@ public class OrderedWindowAccumulator
         this.pagesIndexOrdering = pagesIndexWithOrdering.pagesIndexOrdering;
 
         requireNonNull(argumentTypes, "argumentTypes is null");
-        requireNonNull(argumentChannels, "argumentChannels is null");
-        checkArgument(argumentTypes.size() == argumentChannels.size(), "argumentTypes and argumentChannels must have the same size");
         this.argumentTypes = ImmutableList.copyOf(argumentTypes);
-        this.argumentChannels = ImmutableList.copyOf(argumentChannels);
 
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.initialDelegate = delegate.copy();
@@ -102,7 +94,7 @@ public class OrderedWindowAccumulator
     {
         PagesIndex pagesIndexCopy = pagesIndexFactory.newPagesIndex(argumentTypes, pagesIndex.getPositionCount());
         pagesIndex.getPages().forEachRemaining(pagesIndexCopy::addPage);
-        return new OrderedWindowAccumulator(pagesIndexFactory, new PagesIndexWithOrdering(pagesIndexCopy, pagesIndexOrdering), delegate.copy(), argumentTypes, argumentChannels);
+        return new OrderedWindowAccumulator(pagesIndexFactory, new PagesIndexWithOrdering(pagesIndexCopy, pagesIndexOrdering), delegate.copy(), argumentTypes);
     }
 
     @Override
@@ -114,12 +106,12 @@ public class OrderedWindowAccumulator
             // nicer would be to add reset() method to WindowAccumulator but it requires reset method in each AccumulatorState class
             delegate = initialDelegate.copy();
         }
-        // index is remapped so just go from 0 to argumentChannels.size()
+        // index is remapped so just go from 0 to argumentTypes.size()
         for (int position = startPosition; position <= endPosition; position++) {
             if (pageBuilder.isFull()) {
                 indexCurrentPage();
             }
-            for (int channel = 0; channel < argumentChannels.size(); channel++) {
+            for (int channel = 0; channel < argumentTypes.size(); channel++) {
                 ValueBlock value = index.getSingleValueBlock(channel, position).getSingleValueBlock(0);
                 pageBuilder.getBlockBuilder(channel).append(value, 0);
             }
@@ -158,18 +150,18 @@ public class OrderedWindowAccumulator
     private static PagesIndexWithOrdering createPagesIndexWithOrdering(
             PagesIndex.Factory pagesIndexFactory,
             List<Type> argumentTypes,
-            int argumentChannelCount,
             List<Integer> sortKeysArguments,
             List<SortOrder> sortOrders)
     {
         requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
+        requireNonNull(argumentTypes, "argumentTypes is null");
         requireNonNull(sortOrders, "sortOrders is null");
         requireNonNull(sortKeysArguments, "sortChannels is null");
         checkArgument(sortOrders.size() == sortKeysArguments.size(), "sortOrders and sortChannels must have the same size");
         sortKeysArguments.forEach(argument -> {
             checkArgument(
-                    argument < argumentChannelCount,
-                    "invalid argument %s referenced; total number of arguments is %s", argument, argumentChannelCount);
+                    argument < argumentTypes.size(),
+                    "invalid argument %s referenced; total number of arguments is %s", argument, argumentTypes.size());
         });
         PagesIndex pagesIndex = pagesIndexFactory.newPagesIndex(argumentTypes, 10_000);
         PagesIndexOrdering pagesIndexOrdering = pagesIndex.createPagesIndexComparator(sortKeysArguments, sortOrders);
