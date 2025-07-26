@@ -42,6 +42,12 @@ abstract class BaseKafkaProducerFactory
         kafkaClientConfig.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, Long.toString(config.getMaxRequestSize().toBytes()));
         kafkaClientConfig.put(ProducerConfig.BATCH_SIZE_CONFIG, Long.toString(config.getBatchSize().toBytes()));
         kafkaClientConfig.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, Long.toString(config.getRequestTimeout().toMillis()));
+
+        // Add SCRAM/SASL configs if present
+        config.getSaslMechanism().ifPresent(mechanism -> kafkaClientConfig.put("sasl.mechanism", mechanism));
+        config.getSecurityProtocol().ifPresent(protocol -> kafkaClientConfig.put("security.protocol", protocol));
+        config.getSaslJaasConfig().ifPresent(jaasConfig -> kafkaClientConfig.put("sasl.jaas.config", jaasConfig));
+
         return kafkaClientConfig;
     }
 }

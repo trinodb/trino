@@ -144,6 +144,15 @@ Use the following properties for further configuration.
     `TRINO_INSIGHTS_CLUSTER_ID=foo`, then the Kafka payload metadata contains
     `CLUSTER_ID=foo`.
   -
+* - `kafka-event-listener.sasl-mechanism`
+  - SASL mechanism for Kafka authentication (e.g., `SCRAM-SHA-256`, `SCRAM-SHA-512`).
+  -
+* - `kafka-event-listener.security-protocol`
+  - Kafka security protocol (e.g., `SASL_PLAINTEXT`, `SASL_SSL`).
+  -
+* - `kafka-event-listener.sasl-jaas-config`
+  - JAAS config for SASL authentication (e.g., username/password for SCRAM). Example: `org.apache.kafka.common.security.scram.ScramLoginModule required username="user" password="pass";`
+  -
 * - `kafka-event-listener.config.resources`
   - A comma-separated list of Kafka client configuration files. These files
     must exist on the machines running Trino. Only specify this if absolutely
