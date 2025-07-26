@@ -32,6 +32,7 @@ import org.junit.jupiter.api.Test;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.metastore.cache.CachingHiveMetastore.createPerTransactionCache;
+import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -50,12 +51,13 @@ public class TestIcebergMergeAppend
         HiveMetastore metastore = getHiveMetastore(queryRunner);
         CachingHiveMetastore cachingHiveMetastore = createPerTransactionCache(metastore, 1000);
         TrinoFileSystemFactory fileSystemFactory = getFileSystemFactory(queryRunner);
-        tableOperationsProvider = new FileMetastoreTableOperationsProvider(fileSystemFactory);
+        tableOperationsProvider = new FileMetastoreTableOperationsProvider(fileSystemFactory, FILE_IO_FACTORY);
         trinoCatalog = new TrinoHiveCatalog(
                 new CatalogName("catalog"),
                 cachingHiveMetastore,
                 new TrinoViewHiveMetastore(cachingHiveMetastore, false, "trino-version", "test"),
                 fileSystemFactory,
+                FILE_IO_FACTORY,
                 new TestingTypeManager(),
                 tableOperationsProvider,
                 false,

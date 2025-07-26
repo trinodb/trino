@@ -19,7 +19,7 @@ import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
-import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
+import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.TypeManager;
 import software.amazon.awssdk.services.glue.GlueClient;
@@ -32,23 +32,26 @@ import static java.util.Objects.requireNonNull;
 public class GlueIcebergTableOperationsProvider
         implements IcebergTableOperationsProvider
 {
+    private final TrinoFileSystemFactory fileSystemFactory;
+    private final ForwardingFileIoFactory fileIoFactory;
     private final TypeManager typeManager;
     private final boolean cacheTableMetadata;
-    private final TrinoFileSystemFactory fileSystemFactory;
     private final GlueClient glueClient;
     private final GlueMetastoreStats stats;
 
     @Inject
     public GlueIcebergTableOperationsProvider(
+            TrinoFileSystemFactory fileSystemFactory,
+            ForwardingFileIoFactory fileIoFactory,
             TypeManager typeManager,
             IcebergGlueCatalogConfig catalogConfig,
-            TrinoFileSystemFactory fileSystemFactory,
             GlueMetastoreStats stats,
             GlueClient glueClient)
     {
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
+        this.fileIoFactory = requireNonNull(fileIoFactory, "fileIoFactory is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.cacheTableMetadata = catalogConfig.isCacheTableMetadata();
-        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.glueClient = requireNonNull(glueClient, "glueClient is null");
     }
@@ -70,7 +73,7 @@ public class GlueIcebergTableOperationsProvider
                 // Share Glue Table cache between Catalog and TableOperations so that, when doing metadata queries (e.g. information_schema.columns)
                 // the GetTableRequest is issued once per table.
                 ((TrinoGlueCatalog) catalog)::getTable,
-                new ForwardingFileIo(fileSystemFactory.create(session), isUseFileSizeFromMetadata(session)),
+                fileIoFactory.create(fileSystemFactory.create(session), isUseFileSizeFromMetadata(session)),
                 session,
                 database,
                 table,

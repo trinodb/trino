@@ -30,7 +30,6 @@ import io.trino.metastore.Storage;
 import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.plugin.hive.TestingHivePlugin;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
-import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
@@ -93,6 +92,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
+import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.SESSION;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
@@ -230,7 +230,7 @@ public class TestIcebergV2
 
         String dataFilePath = (String) computeActual("SELECT file_path FROM \"" + tableName + "$files\" LIMIT 1").getOnlyValue();
 
-        FileIO fileIo = new ForwardingFileIo(fileSystemFactory.create(SESSION));
+        FileIO fileIo = FILE_IO_FACTORY.create(fileSystemFactory.create(SESSION));
 
         PositionDeleteWriter<Record> writer = Parquet.writeDeletes(fileIo.newOutputFile("local:///delete_file_" + UUID.randomUUID()))
                 .createWriterFunc(GenericParquetWriter::create)

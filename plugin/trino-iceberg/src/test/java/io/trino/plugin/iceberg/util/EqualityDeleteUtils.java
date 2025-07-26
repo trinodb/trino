@@ -15,7 +15,6 @@ package io.trino.plugin.iceberg.util;
 
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.iceberg.PartitionData;
-import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
@@ -35,6 +34,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 
 public final class EqualityDeleteUtils
@@ -69,7 +69,7 @@ public final class EqualityDeleteUtils
             throws IOException
     {
         String deleteFileName = "local:///delete_file_" + UUID.randomUUID() + ".parquet";
-        FileIO fileIo = new ForwardingFileIo(fileSystemFactory.create(SESSION));
+        FileIO fileIo = FILE_IO_FACTORY.create(fileSystemFactory.create(SESSION));
 
         Parquet.DeleteWriteBuilder writerBuilder = Parquet.writeDeletes(fileIo.newOutputFile(deleteFileName))
                 .forTable(icebergTable)

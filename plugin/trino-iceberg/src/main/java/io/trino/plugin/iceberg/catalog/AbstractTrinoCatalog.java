@@ -23,7 +23,7 @@ import io.trino.plugin.iceberg.ColumnIdentity;
 import io.trino.plugin.iceberg.IcebergMaterializedViewDefinition;
 import io.trino.plugin.iceberg.IcebergUtil;
 import io.trino.plugin.iceberg.PartitionTransforms.ColumnTransform;
-import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
+import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingOutputFile;
 import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
@@ -121,23 +121,26 @@ public abstract class AbstractTrinoCatalog
     protected static final String TRINO_QUERY_ID_NAME = HiveMetadata.TRINO_QUERY_ID_NAME;
 
     private final CatalogName catalogName;
+    private final boolean useUniqueTableLocation;
     protected final TypeManager typeManager;
     protected final IcebergTableOperationsProvider tableOperationsProvider;
-    private final TrinoFileSystemFactory fileSystemFactory;
-    private final boolean useUniqueTableLocation;
+    protected final TrinoFileSystemFactory fileSystemFactory;
+    protected final ForwardingFileIoFactory fileIoFactory;
 
     protected AbstractTrinoCatalog(
             CatalogName catalogName,
+            boolean useUniqueTableLocation,
             TypeManager typeManager,
             IcebergTableOperationsProvider tableOperationsProvider,
             TrinoFileSystemFactory fileSystemFactory,
-            boolean useUniqueTableLocation)
+            ForwardingFileIoFactory fileIoFactory)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        this.useUniqueTableLocation = useUniqueTableLocation;
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.tableOperationsProvider = requireNonNull(tableOperationsProvider, "tableOperationsProvider is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
-        this.useUniqueTableLocation = useUniqueTableLocation;
+        this.fileIoFactory = requireNonNull(fileIoFactory, "fileIoFactory is null");
     }
 
     @Override
@@ -325,7 +328,7 @@ public abstract class AbstractTrinoCatalog
     protected void dropMaterializedViewStorage(ConnectorSession session, TrinoFileSystem fileSystem, String storageMetadataLocation)
             throws IOException
     {
-        TableMetadata metadata = TableMetadataParser.read(new ForwardingFileIo(fileSystem, isUseFileSizeFromMetadata(session)), storageMetadataLocation);
+        TableMetadata metadata = TableMetadataParser.read(fileIoFactory.create(fileSystem, isUseFileSizeFromMetadata(session)), storageMetadataLocation);
         String storageLocation = metadata.location();
         fileSystem.deleteDirectory(Location.of(storageLocation));
     }
