@@ -16,18 +16,24 @@ package io.trino.plugin.openlineage;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.trino.plugin.openlineage.job.OpenLineageJobInterpolatedValues;
 import io.trino.spi.resourcegroups.QueryType;
+import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 
 import java.net.URI;
 import java.util.Optional;
 import java.util.Set;
 
+import static io.trino.plugin.base.logging.FormatInterpolator.hasValidPlaceholders;
+
 public class OpenLineageListenerConfig
 {
     private URI trinoURI;
     private Set<OpenLineageTrinoFacet> disabledFacets = ImmutableSet.of();
     private Optional<String> namespace = Optional.empty();
+    private String jobNameFormat = "$QUERY_ID";
 
     private Set<QueryType> includeQueryTypes = ImmutableSet.<QueryType>builder()
             .add(QueryType.ALTER_TABLE_EXECUTE)
@@ -45,7 +51,7 @@ public class OpenLineageListenerConfig
     }
 
     @Config("openlineage-event-listener.trino.uri")
-    @ConfigDescription("URI of trino server. Used for namespace rendering.")
+    @ConfigDescription("URI of trino server. Used for namespace rendering")
     public OpenLineageListenerConfig setTrinoURI(URI trinoURI)
     {
         this.trinoURI = trinoURI;
@@ -58,7 +64,7 @@ public class OpenLineageListenerConfig
     }
 
     @Config("openlineage-event-listener.trino.include-query-types")
-    @ConfigDescription("Which query types emitted by Trino should generate OpenLineage events. Other query types will be filtered out.")
+    @ConfigDescription("Which query types emitted by Trino should generate OpenLineage events. Other query types will be filtered out")
     public OpenLineageListenerConfig setIncludeQueryTypes(Set<QueryType> includeQueryTypes)
     {
         this.includeQueryTypes = ImmutableSet.copyOf(includeQueryTypes);
@@ -71,7 +77,7 @@ public class OpenLineageListenerConfig
     }
 
     @Config("openlineage-event-listener.disabled-facets")
-    @ConfigDescription("Which facets should be removed from OpenLineage events.")
+    @ConfigDescription("Which facets should be removed from OpenLineage events")
     public OpenLineageListenerConfig setDisabledFacets(Set<OpenLineageTrinoFacet> disabledFacets)
             throws RuntimeException
     {
@@ -85,10 +91,30 @@ public class OpenLineageListenerConfig
     }
 
     @Config("openlineage-event-listener.namespace")
-    @ConfigDescription("Override default namespace for job facet.")
+    @ConfigDescription("Override default namespace for OpenLineage job")
     public OpenLineageListenerConfig setNamespace(String namespace)
     {
         this.namespace = Optional.ofNullable(namespace);
         return this;
+    }
+
+    @NotEmpty
+    public String getJobNameFormat()
+    {
+        return jobNameFormat;
+    }
+
+    @Config("openlineage-event-listener.job.name-format")
+    @ConfigDescription("Set name format for OpenLineage job")
+    public OpenLineageListenerConfig setJobNameFormat(String jobNameFormat)
+    {
+        this.jobNameFormat = jobNameFormat;
+        return this;
+    }
+
+    @AssertTrue(message = "Correct job name format may consist of only letters, digits, underscores, commas, spaces, equal signs and predefined values")
+    public boolean isJobNameFormatValid()
+    {
+        return hasValidPlaceholders(jobNameFormat, OpenLineageJobInterpolatedValues.values());
     }
 }

@@ -30,6 +30,9 @@ import io.openlineage.client.OpenLineage.RunEvent;
 import io.openlineage.client.OpenLineage.RunFacet;
 import io.openlineage.client.OpenLineage.RunFacetsBuilder;
 import io.openlineage.client.OpenLineageClient;
+import io.trino.plugin.base.logging.FormatInterpolator;
+import io.trino.plugin.openlineage.job.OpenLineageJobContext;
+import io.trino.plugin.openlineage.job.OpenLineageJobInterpolatedValues;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.OutputColumnMetadata;
@@ -71,6 +74,7 @@ public class OpenLineageListener
     private final OpenLineageClient client;
     private final URI trinoURI;
     private final String jobNamespace;
+    private final String jobNameFormat;
     private final String datasetNamespace;
     private final Set<QueryType> includeQueryTypes;
 
@@ -82,6 +86,7 @@ public class OpenLineageListener
         requireNonNull(listenerConfig, "listenerConfig is null");
         this.trinoURI = defaultNamespace(listenerConfig.getTrinoURI());
         this.jobNamespace = listenerConfig.getNamespace().orElse(trinoURI.toString());
+        this.jobNameFormat = listenerConfig.getJobNameFormat();
         this.datasetNamespace = trinoURI.toString();
         this.includeQueryTypes = ImmutableSet.copyOf(listenerConfig.getIncludeQueryTypes());
     }
@@ -224,7 +229,7 @@ public class OpenLineageListener
                 .eventType(RunEvent.EventType.START)
                 .eventTime(queryCreatedEvent.getCreateTime().atZone(UTC))
                 .run(openLineage.newRunBuilder().runId(runID).facets(runFacetsBuilder.build()).build())
-                .job(getBaseJobBuilder(queryCreatedEvent.getMetadata()).build())
+                .job(getBaseJobBuilder(queryCreatedEvent.getContext(), queryCreatedEvent.getMetadata()).build())
                 .build();
     }
 
@@ -263,7 +268,7 @@ public class OpenLineageListener
                                 : RunEvent.EventType.COMPLETE)
                 .eventTime(queryCompletedEvent.getEndTime().atZone(UTC))
                 .run(openLineage.newRunBuilder().runId(runID).facets(runFacetsBuilder.build()).build())
-                .job(getBaseJobBuilder(queryCompletedEvent.getMetadata()).build())
+                .job(getBaseJobBuilder(queryCompletedEvent.getContext(), queryCompletedEvent.getMetadata()).build())
                 .inputs(buildInputs(queryCompletedEvent.getMetadata()))
                 .outputs(buildOutputs(queryCompletedEvent.getIoMetadata()))
                 .build();
@@ -278,15 +283,22 @@ public class OpenLineageListener
                         .build());
     }
 
-    private JobBuilder getBaseJobBuilder(QueryMetadata queryMetadata)
+    private JobBuilder getBaseJobBuilder(QueryContext queryContext, QueryMetadata queryMetadata)
     {
         return openLineage.newJobBuilder()
                 .namespace(this.jobNamespace)
-                .name(queryMetadata.getQueryId())
+                .name(buildJobName(queryContext, queryMetadata))
                 .facets(openLineage.newJobFacetsBuilder()
                             .jobType(openLineage.newJobTypeJobFacet("BATCH", "TRINO", "QUERY"))
                             .sql(openLineage.newSQLJobFacet(queryMetadata.getQuery(), "trino"))
                             .build());
+    }
+
+    private String buildJobName(QueryContext queryContext, QueryMetadata queryMetadata)
+    {
+        FormatInterpolator<OpenLineageJobContext> interpolator = new FormatInterpolator<>(jobNameFormat, OpenLineageJobInterpolatedValues.values());
+        OpenLineageJobContext jobContext = new OpenLineageJobContext(queryContext, queryMetadata);
+        return interpolator.interpolate(jobContext);
     }
 
     private List<InputDataset> buildInputs(QueryMetadata queryMetadata)
