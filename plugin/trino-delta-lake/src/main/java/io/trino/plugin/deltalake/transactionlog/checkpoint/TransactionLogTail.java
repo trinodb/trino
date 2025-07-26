@@ -19,6 +19,7 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
+import io.trino.plugin.deltalake.transactionlog.MissingTransactionLogException;
 import io.trino.plugin.deltalake.transactionlog.Transaction;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogEntries;
 
@@ -27,10 +28,12 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
+import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogJsonEntryPath;
 import static java.util.Objects.requireNonNull;
 
@@ -45,6 +48,47 @@ public class TransactionLogTail
     {
         this.entries = ImmutableList.copyOf(requireNonNull(entries, "entries is null"));
         this.version = version;
+    }
+
+    // Load a section of the Transaction Log JSON entries. Optionally from a given start version (exclusive) through an end version (inclusive)
+    public static TransactionLogTail loadNewTail(
+            TrinoFileSystem fileSystem,
+            String tableLocation,
+            Optional<Long> startVersion,
+            Optional<Long> endVersion,
+            DataSize transactionLogMaxCachedFileSize)
+            throws IOException
+    {
+        if (startVersion.isPresent() && endVersion.isPresent() && startVersion.get().equals(endVersion.get())) {
+            // This is time travel to a specific checkpoint. No need to read transaction log files.
+            return new TransactionLogTail(ImmutableList.of(), startVersion.get());
+        }
+
+        if (endVersion.isPresent()) {
+            return loadNewTail(fileSystem, tableLocation, startVersion, endVersion.get(), transactionLogMaxCachedFileSize);
+        }
+
+        if (startVersion.isPresent()) {
+            return loadNewTail(fileSystem, tableLocation, startVersion.get(), startVersion.get() + 1, transactionLogMaxCachedFileSize);
+        }
+
+        return loadNewTail(fileSystem, tableLocation, 0L, 0L, transactionLogMaxCachedFileSize);
+    }
+
+    public Optional<TransactionLogTail> getUpdatedTail(TrinoFileSystem fileSystem, String tableLocation, Optional<Long> endVersion, DataSize transactionLogMaxCachedFileSize)
+            throws IOException
+    {
+        checkArgument(endVersion.isEmpty() || endVersion.get() > version, "Invalid start/end versions: %s, %s", version, endVersion);
+        TransactionLogTail newTail = loadNewTail(fileSystem, tableLocation, Optional.of(version), endVersion, transactionLogMaxCachedFileSize);
+        if (newTail.version == version) {
+            return Optional.empty();
+        }
+        return Optional.of(new TransactionLogTail(
+                ImmutableList.<Transaction>builder()
+                        .addAll(entries)
+                        .addAll(newTail.entries)
+                        .build(),
+                newTail.version));
     }
 
     /**
@@ -94,5 +138,68 @@ public class TransactionLogTail
         return INSTANCE_SIZE
                 + SIZE_OF_LONG
                 + estimatedSizeOf(entries, Transaction::getRetainedSizeInBytes);
+    }
+
+    private static TransactionLogTail loadNewTail(
+            TrinoFileSystem fileSystem,
+            String tableLocation,
+            long version,
+            long startVersion,
+            DataSize transactionLogMaxCachedFileSize)
+            throws IOException
+    {
+        ImmutableList.Builder<Transaction> entriesBuilder = ImmutableList.builder();
+        String transactionLogDir = getTransactionLogDir(tableLocation);
+
+        long entryNumber = startVersion;
+        while (true) {
+            Optional<TransactionLogEntries> results = getEntriesFromJson(entryNumber, transactionLogDir, fileSystem, transactionLogMaxCachedFileSize);
+            if (results.isEmpty()) {
+                break;
+            }
+
+            entriesBuilder.add(new Transaction(entryNumber, results.get()));
+            version = entryNumber;
+            entryNumber++;
+        }
+
+        return new TransactionLogTail(entriesBuilder.build(), version);
+    }
+
+    // Load a section of the Transaction Log JSON entries. Optionally from a given end version (inclusive) through an start version (exclusive)
+    private static TransactionLogTail loadNewTail(
+            TrinoFileSystem fileSystem,
+            String tableLocation,
+            Optional<Long> startVersion,
+            long endVersion,
+            DataSize transactionLogMaxCachedFileSize)
+            throws IOException
+    {
+        ImmutableList.Builder<Transaction> transactionsBuilder = ImmutableList.builder();
+        String transactionLogDir = getTransactionLogDir(tableLocation);
+
+        long version = endVersion;
+        long entryNumber = version;
+        boolean endOfHead = false;
+
+        while (!endOfHead) {
+            Optional<TransactionLogEntries> results = getEntriesFromJson(entryNumber, transactionLogDir, fileSystem, transactionLogMaxCachedFileSize);
+            if (results.isPresent()) {
+                transactionsBuilder.add(new Transaction(entryNumber, results.get()));
+                version = entryNumber;
+                entryNumber--;
+            }
+            else {
+                // When there is a gap in the transaction log version, indicate the end of the current head
+                endOfHead = true;
+                if (startVersion.isPresent() && entryNumber > startVersion.get() + 1) {
+                    throw new MissingTransactionLogException(getTransactionLogJsonEntryPath(transactionLogDir, entryNumber).toString());
+                }
+            }
+            if ((startVersion.isPresent() && version == startVersion.get() + 1) || entryNumber < 0) {
+                endOfHead = true;
+            }
+        }
+        return new TransactionLogTail(transactionsBuilder.build().reversed(), endVersion);
     }
 }
