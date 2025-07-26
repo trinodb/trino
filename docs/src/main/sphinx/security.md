@@ -41,6 +41,7 @@ security/jwt
 
 security/user-mapping
 security/group-file
+security/group-ldap
 ```
 
 (security-access-control)=
