@@ -19,7 +19,7 @@ import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreFactory;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
-import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
+import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.spi.connector.ConnectorSession;
 
 import java.util.Optional;
@@ -31,16 +31,19 @@ public class HiveMetastoreTableOperationsProvider
         implements IcebergTableOperationsProvider
 {
     private final TrinoFileSystemFactory fileSystemFactory;
+    private final ForwardingFileIoFactory fileIoFactory;
     private final ThriftMetastoreFactory thriftMetastoreFactory;
     private final boolean lockingEnabled;
 
     @Inject
     public HiveMetastoreTableOperationsProvider(
             TrinoFileSystemFactory fileSystemFactory,
+            ForwardingFileIoFactory fileIoFactory,
             ThriftMetastoreFactory thriftMetastoreFactory,
             IcebergHiveCatalogConfig metastoreConfig)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
+        this.fileIoFactory = requireNonNull(fileIoFactory, "fileIoFactory is null");
         this.thriftMetastoreFactory = requireNonNull(thriftMetastoreFactory, "thriftMetastoreFactory is null");
         this.lockingEnabled = metastoreConfig.getLockingEnabled();
     }
@@ -55,7 +58,7 @@ public class HiveMetastoreTableOperationsProvider
             Optional<String> location)
     {
         return new HiveMetastoreTableOperations(
-                new ForwardingFileIo(fileSystemFactory.create(session), isUseFileSizeFromMetadata(session)),
+                fileIoFactory.create(fileSystemFactory.create(session), isUseFileSizeFromMetadata(session)),
                 ((TrinoHiveCatalog) catalog).getMetastore(),
                 thriftMetastoreFactory.createMetastore(Optional.of(session.getIdentity())),
                 lockingEnabled,

@@ -2181,35 +2181,11 @@ public class IcebergMetadata
                 IcebergConfig.EXPIRE_SNAPSHOTS_MIN_RETENTION,
                 IcebergSessionProperties.EXPIRE_SNAPSHOTS_MIN_RETENTION);
 
-        long expireTimestampMillis = session.getStart().toEpochMilli() - retention.toMillis();
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), table.io().properties());
-        List<Location> pathsToDelete = new ArrayList<>();
-        // deleteFunction is not accessed from multiple threads unless .executeDeleteWith() is used
-        Consumer<String> deleteFunction = path -> {
-            pathsToDelete.add(Location.of(path));
-            if (pathsToDelete.size() == DELETE_BATCH_SIZE) {
-                try {
-                    fileSystem.deleteFiles(pathsToDelete);
-                    pathsToDelete.clear();
-                }
-                catch (IOException e) {
-                    throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed to delete files during snapshot expiration", e);
-                }
-            }
-        };
-
-        try {
-            table.expireSnapshots()
-                    .expireOlderThan(expireTimestampMillis)
-                    .deleteWith(deleteFunction)
-                    .planWith(icebergScanExecutor)
-                    .commit();
-
-            fileSystem.deleteFiles(pathsToDelete);
-        }
-        catch (IOException e) {
-            throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed to delete files during snapshot expiration", e);
-        }
+        // ForwardingFileIo handles bulk operations so no separate function implementation is needed
+        table.expireSnapshots()
+                .expireOlderThan(session.getStart().toEpochMilli() - retention.toMillis())
+                .planWith(icebergScanExecutor)
+                .commit();
     }
 
     private static void validateTableExecuteParameters(

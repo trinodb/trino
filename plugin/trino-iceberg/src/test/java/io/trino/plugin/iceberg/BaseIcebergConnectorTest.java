@@ -35,7 +35,6 @@ import io.trino.metadata.TableHandle;
 import io.trino.operator.OperatorStats;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.plugin.hive.TestingHivePlugin;
-import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import io.trino.server.DynamicFilterService;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.ColumnHandle;
@@ -130,6 +129,7 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.COLLECT_EXTENDED_
 import static io.trino.plugin.iceberg.IcebergSessionProperties.DYNAMIC_FILTERING_WAIT_TIMEOUT;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.EXTENDED_STATISTICS_ENABLED;
 import static io.trino.plugin.iceberg.IcebergSplitManager.ICEBERG_DOMAIN_COMPACTION_THRESHOLD;
+import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.withSmallRowGroups;
 import static io.trino.plugin.iceberg.IcebergUtil.TRINO_QUERY_ID_NAME;
@@ -5094,7 +5094,7 @@ public abstract class BaseIcebergConnectorTest
         String tableLocation = getTableLocation(tableName);
         String metadataLocation = getLatestMetadataLocation(fileSystem, tableLocation);
 
-        TableMetadata tableMetadata = TableMetadataParser.read(new ForwardingFileIo(fileSystem), metadataLocation);
+        TableMetadata tableMetadata = TableMetadataParser.read(FILE_IO_FACTORY.create(fileSystem), metadataLocation);
         Map<String, String> newProperties = ImmutableMap.<String, String>builder()
                 .putAll(tableMetadata.properties())
                 .put("orc.bloom.filter.columns", "x,y") // legacy incorrect property
@@ -7868,7 +7868,7 @@ public abstract class BaseIcebergConnectorTest
 
         String tableLocation = getTableLocation(tableName);
         String metadataLocation = getLatestMetadataLocation(fileSystem, tableLocation);
-        TableMetadata tableMetadata = TableMetadataParser.read(new ForwardingFileIo(fileSystem), metadataLocation);
+        TableMetadata tableMetadata = TableMetadataParser.read(FILE_IO_FACTORY.create(fileSystem), metadataLocation);
         Location currentSnapshotFile = Location.of(tableMetadata.currentSnapshot().manifestListLocation());
 
         // Delete current snapshot file
@@ -7894,7 +7894,7 @@ public abstract class BaseIcebergConnectorTest
 
         String tableLocation = getTableLocation(tableName);
         String metadataLocation = getLatestMetadataLocation(fileSystem, tableLocation);
-        FileIO fileIo = new ForwardingFileIo(fileSystem);
+        FileIO fileIo = FILE_IO_FACTORY.create(fileSystem);
         TableMetadata tableMetadata = TableMetadataParser.read(fileIo, metadataLocation);
         Location manifestListFile = Location.of(tableMetadata.currentSnapshot().allManifests(fileIo).get(0).path());
 

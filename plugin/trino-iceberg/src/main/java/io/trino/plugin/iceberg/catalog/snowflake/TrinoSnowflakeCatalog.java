@@ -22,6 +22,7 @@ import io.trino.metastore.TableInfo;
 import io.trino.plugin.iceberg.ColumnIdentity;
 import io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
+import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.CatalogSchemaTableName;
@@ -84,10 +85,11 @@ public class TrinoSnowflakeCatalog
             CatalogName catalogName,
             TypeManager typeManager,
             TrinoFileSystemFactory trinoFileSystemFactory,
+            ForwardingFileIoFactory fileIoFactory,
             IcebergTableOperationsProvider tableOperationsProvider,
             String snowflakeDatabase)
     {
-        super(catalogName, typeManager, tableOperationsProvider, trinoFileSystemFactory, false);
+        super(catalogName, false, typeManager, tableOperationsProvider, trinoFileSystemFactory, fileIoFactory);
         this.snowflakeCatalog = requireNonNull(snowflakeCatalog, "snowflakeCatalog is null");
         this.snowflakeDatabase = requireNonNull(snowflakeDatabase, "snowflakeDatabase is null");
     }

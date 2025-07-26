@@ -49,6 +49,7 @@ import static io.trino.SystemSessionProperties.TASK_MIN_WRITER_COUNT;
 import static io.trino.metastore.cache.CachingHiveMetastore.createPerTransactionCache;
 import static io.trino.plugin.iceberg.DataFileRecord.toDataFileRecord;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
+import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -84,7 +85,7 @@ public class TestIcebergOrcMetricsCollection
         queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", ImmutableMap.of("iceberg.file-format", "ORC"));
 
         TrinoFileSystemFactory fileSystemFactory = getFileSystemFactory(queryRunner);
-        tableOperationsProvider = new FileMetastoreTableOperationsProvider(fileSystemFactory);
+        tableOperationsProvider = new FileMetastoreTableOperationsProvider(fileSystemFactory, FILE_IO_FACTORY);
 
         HiveMetastore metastore = getHiveMetastore(queryRunner);
 
@@ -94,6 +95,7 @@ public class TestIcebergOrcMetricsCollection
                 cachingHiveMetastore,
                 new TrinoViewHiveMetastore(cachingHiveMetastore, false, "trino-version", "test"),
                 fileSystemFactory,
+                FILE_IO_FACTORY,
                 new TestingTypeManager(),
                 tableOperationsProvider,
                 false,

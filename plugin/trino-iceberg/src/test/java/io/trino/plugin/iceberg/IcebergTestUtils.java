@@ -46,6 +46,7 @@ import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.file.FileMetastoreTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog;
+import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingInputFile;
 import io.trino.spi.block.Block;
 import io.trino.spi.catalog.CatalogName;
@@ -72,6 +73,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterators.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.metastore.cache.CachingHiveMetastore.createPerTransactionCache;
 import static io.trino.orc.OrcReader.INITIAL_BATCH_SIZE;
@@ -93,6 +95,8 @@ public final class IcebergTestUtils
                     new ParquetReaderConfig(),
                     new ParquetWriterConfig()).getSessionProperties())
             .build();
+
+    public static final ForwardingFileIoFactory FILE_IO_FACTORY = new ForwardingFileIoFactory(newDirectExecutorService());
 
     private IcebergTestUtils() {}
 
@@ -209,7 +213,7 @@ public final class IcebergTestUtils
             String catalogName,
             String schemaName)
     {
-        IcebergTableOperationsProvider tableOperationsProvider = new FileMetastoreTableOperationsProvider(fileSystemFactory);
+        IcebergTableOperationsProvider tableOperationsProvider = new FileMetastoreTableOperationsProvider(fileSystemFactory, FILE_IO_FACTORY);
         TrinoCatalog catalog = getTrinoCatalog(metastore, fileSystemFactory, catalogName);
         return loadIcebergTable(catalog, tableOperationsProvider, SESSION, new SchemaTableName(schemaName, tableName));
     }
@@ -219,13 +223,14 @@ public final class IcebergTestUtils
             TrinoFileSystemFactory fileSystemFactory,
             String catalogName)
     {
-        IcebergTableOperationsProvider tableOperationsProvider = new FileMetastoreTableOperationsProvider(fileSystemFactory);
+        IcebergTableOperationsProvider tableOperationsProvider = new FileMetastoreTableOperationsProvider(fileSystemFactory, FILE_IO_FACTORY);
         CachingHiveMetastore cachingHiveMetastore = createPerTransactionCache(metastore, 1000);
         return new TrinoHiveCatalog(
                 new CatalogName(catalogName),
                 cachingHiveMetastore,
                 new TrinoViewHiveMetastore(cachingHiveMetastore, false, "trino-version", "test"),
                 fileSystemFactory,
+                FILE_IO_FACTORY,
                 new TestingTypeManager(),
                 tableOperationsProvider,
                 false,

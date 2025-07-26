@@ -26,7 +26,7 @@ import io.trino.plugin.iceberg.IcebergFileSystemFactory;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.SessionType;
-import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
+import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
@@ -52,6 +52,7 @@ public class TrinoIcebergRestCatalogFactory
         implements TrinoCatalogFactory
 {
     private final IcebergFileSystemFactory fileSystemFactory;
+    private final ForwardingFileIoFactory fileIoFactory;
     private final CatalogName catalogName;
     private final String trinoVersion;
     private final URI serverUri;
@@ -75,6 +76,7 @@ public class TrinoIcebergRestCatalogFactory
     @Inject
     public TrinoIcebergRestCatalogFactory(
             IcebergFileSystemFactory fileSystemFactory,
+            ForwardingFileIoFactory fileIoFactory,
             CatalogName catalogName,
             IcebergRestCatalogConfig restConfig,
             SecurityProperties securityProperties,
@@ -83,6 +85,7 @@ public class TrinoIcebergRestCatalogFactory
             NodeVersion nodeVersion)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
+        this.fileIoFactory = requireNonNull(fileIoFactory, "fileIoFactory is null");
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.trinoVersion = requireNonNull(nodeVersion, "nodeVersion is null").toString();
         requireNonNull(restConfig, "restConfig is null");
@@ -137,7 +140,7 @@ public class TrinoIcebergRestCatalogFactory
                         ConnectorIdentity currentIdentity = (context.wrappedIdentity() != null)
                                 ? ((ConnectorIdentity) context.wrappedIdentity())
                                 : ConnectorIdentity.ofUser("fake");
-                        return new ForwardingFileIo(fileSystemFactory.create(currentIdentity, config), config, true);
+                        return fileIoFactory.create(fileSystemFactory.create(currentIdentity, config), true, config);
                     });
             icebergCatalogInstance.initialize(catalogName.toString(), properties.buildOrThrow());
 
