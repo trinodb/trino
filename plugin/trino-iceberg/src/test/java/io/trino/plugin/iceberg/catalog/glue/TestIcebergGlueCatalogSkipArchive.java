@@ -16,7 +16,6 @@ package io.trino.plugin.iceberg.catalog.glue;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.plugin.iceberg.SchemaInitializer;
-import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
@@ -41,6 +40,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.catalog.glue.GlueIcebergUtil.getTableInput;
 import static io.trino.testing.TestingConnectorSession.SESSION;
@@ -119,7 +119,7 @@ public class TestIcebergGlueCatalogSkipArchive
             Table glueTable = glueClient.getTable(builder -> builder.databaseName(schemaName).name(table.getName())).table();
             Map<String, String> tableParameters = new HashMap<>(glueTable.parameters());
             String metadataLocation = tableParameters.remove(METADATA_LOCATION_PROP);
-            FileIO io = new ForwardingFileIo(getFileSystemFactory(getDistributedQueryRunner()).create(SESSION));
+            FileIO io = FILE_IO_FACTORY.create(getFileSystemFactory(getDistributedQueryRunner()).create(SESSION));
             TableMetadata metadata = TableMetadataParser.read(io, io.newInputFile(metadataLocation));
             boolean cacheTableMetadata = new IcebergGlueCatalogConfig().isCacheTableMetadata();
             TableInput tableInput = getTableInput(TESTING_TYPE_MANAGER, table.getName(), Optional.empty(), metadata, metadata.location(), metadataLocation, tableParameters, cacheTableMetadata);

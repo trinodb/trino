@@ -228,6 +228,9 @@ implementation is used:
   - Number of threads used for retrieving metadata. Currently, only table loading 
     is parallelized.
   - `8`
+* - `iceberg.file-delete-threads`
+  - Number of threads to use for deleting files when running `expire_snapshots` procedure.
+  - Double the number of processors on the coordinator node.
 * - `iceberg.bucket-execution`
   - Enable bucket-aware execution. This allows the engine to use physical
     bucketing information to optimize queries by reducing data exchanges.

@@ -61,6 +61,7 @@ import java.util.Optional;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.airlift.json.JsonCodec.jsonCodec;
+import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.plugin.iceberg.catalog.snowflake.TestIcebergSnowflakeCatalogConnectorSmokeTest.S3_ACCESS_KEY;
 import static io.trino.plugin.iceberg.catalog.snowflake.TestIcebergSnowflakeCatalogConnectorSmokeTest.S3_REGION;
 import static io.trino.plugin.iceberg.catalog.snowflake.TestIcebergSnowflakeCatalogConnectorSmokeTest.S3_SECRET_KEY;
@@ -168,17 +169,18 @@ public class TestTrinoSnowflakeCatalog
                                 .setStreamingPartSize(DataSize.valueOf("5.5MB")), new S3FileSystemStats());
 
         CatalogName catalogName = new CatalogName("snowflake_test_catalog");
-        TrinoIcebergSnowflakeCatalogFileIOFactory catalogFileIOFactory = new TrinoIcebergSnowflakeCatalogFileIOFactory(s3FileSystemFactory, ConnectorIdentity.ofUser("trino"));
+        TrinoIcebergSnowflakeCatalogFileIOFactory catalogFileIOFactory = new TrinoIcebergSnowflakeCatalogFileIOFactory(s3FileSystemFactory, FILE_IO_FACTORY, ConnectorIdentity.ofUser("trino"));
         SnowflakeCatalog snowflakeCatalog = new SnowflakeCatalog();
         snowflakeCatalog.initialize(catalogName.toString(), snowflakeClient, catalogFileIOFactory, properties);
 
-        IcebergTableOperationsProvider tableOperationsProvider = new SnowflakeIcebergTableOperationsProvider(CATALOG_CONFIG, s3FileSystemFactory);
+        IcebergTableOperationsProvider tableOperationsProvider = new SnowflakeIcebergTableOperationsProvider(s3FileSystemFactory, FILE_IO_FACTORY, CATALOG_CONFIG);
 
         return new TrinoSnowflakeCatalog(
                 snowflakeCatalog,
                 catalogName,
                 TESTING_TYPE_MANAGER,
                 s3FileSystemFactory,
+                FILE_IO_FACTORY,
                 tableOperationsProvider,
                 SNOWFLAKE_TEST_DATABASE);
     }

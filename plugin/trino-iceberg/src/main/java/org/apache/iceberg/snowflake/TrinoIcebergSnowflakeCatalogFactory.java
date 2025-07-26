@@ -21,6 +21,7 @@ import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import io.trino.plugin.iceberg.catalog.snowflake.IcebergSnowflakeCatalogConfig;
 import io.trino.plugin.iceberg.catalog.snowflake.TrinoSnowflakeCatalog;
+import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
@@ -46,6 +47,7 @@ public class TrinoIcebergSnowflakeCatalogFactory
     private static final int UNIQUE_ID_LENGTH = 20;
 
     private final TrinoFileSystemFactory fileSystemFactory;
+    private final ForwardingFileIoFactory fileIoFactory;
     private final CatalogName catalogName;
     private final TypeManager typeManager;
     private final IcebergTableOperationsProvider tableOperationsProvider;
@@ -57,12 +59,14 @@ public class TrinoIcebergSnowflakeCatalogFactory
     @Inject
     public TrinoIcebergSnowflakeCatalogFactory(
             TrinoFileSystemFactory fileSystemFactory,
+            ForwardingFileIoFactory fileIoFactory,
             CatalogName catalogName,
             IcebergSnowflakeCatalogConfig snowflakeCatalogConfig,
             TypeManager typeManager,
             IcebergTableOperationsProvider tableOperationsProvider)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
+        this.fileIoFactory = requireNonNull(fileIoFactory, "fileIoFactory is null");
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
 
         this.snowflakeDriverProperties = getSnowflakeDriverProperties(
@@ -89,9 +93,9 @@ public class TrinoIcebergSnowflakeCatalogFactory
         // Mimics the `SnowflakeCatalog` initialization https://github.com/apache/iceberg/blob/apache-iceberg-1.5.0/snowflake/src/main/java/org/apache/iceberg/snowflake/SnowflakeCatalog.java#L105-L134
         SnowflakeClient snowflakeClient = new JdbcSnowflakeClient(snowflakeConnectionPool);
         SnowflakeCatalog icebergSnowflakeCatalog = new SnowflakeCatalog();
-        icebergSnowflakeCatalog.initialize(catalogName.toString(), snowflakeClient, new TrinoIcebergSnowflakeCatalogFileIOFactory(fileSystemFactory, identity), snowflakeDriverProperties);
+        icebergSnowflakeCatalog.initialize(catalogName.toString(), snowflakeClient, new TrinoIcebergSnowflakeCatalogFileIOFactory(fileSystemFactory, fileIoFactory, identity), snowflakeDriverProperties);
 
-        return new TrinoSnowflakeCatalog(icebergSnowflakeCatalog, catalogName, typeManager, fileSystemFactory, tableOperationsProvider, snowflakeDatabase);
+        return new TrinoSnowflakeCatalog(icebergSnowflakeCatalog, catalogName, typeManager, fileSystemFactory, fileIoFactory, tableOperationsProvider, snowflakeDatabase);
     }
 
     public static Map<String, String> getSnowflakeDriverProperties(URI snowflakeUri, String snowflakeUser, String snowflakePassword, Optional<String> snowflakeRole)

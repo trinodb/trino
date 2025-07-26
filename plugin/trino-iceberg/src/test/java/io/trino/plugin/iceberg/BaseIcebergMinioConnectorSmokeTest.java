@@ -252,10 +252,12 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
         assertThat(query("SELECT * FROM " + tableName))
                 .matches("VALUES (VARCHAR 'one', 1), (VARCHAR 'two', 2)");
         assertThat(events).hasSize(3);
-        // if files were deleted in batch there should be only one request id because there was one request only
+        // since we have delegated the batch delete operation to iceberg there are two requests.
+        // the first request is for data and the second is for statistics files.
+        // https://github.com/apache/iceberg/blob/9a23420592e2b8be5f792c8e6eb32a64e92e4088/core/src/main/java/org/apache/iceberg/IncrementalFileCleanup.java#L58
         assertThat(events.stream()
                 .map(event -> event.responseElements().get("x-amz-request-id"))
-                .collect(toImmutableSet())).hasSize(1);
+                .collect(toImmutableSet())).hasSize(2);
 
         assertUpdate("DROP TABLE " + tableName);
     }

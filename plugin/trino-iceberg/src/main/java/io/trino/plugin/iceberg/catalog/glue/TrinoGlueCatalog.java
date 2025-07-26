@@ -37,7 +37,7 @@ import io.trino.plugin.iceberg.UnknownTableTypeException;
 import io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
-import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
+import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.CatalogSchemaTableName;
@@ -169,7 +169,6 @@ public class TrinoGlueCatalog
 
     private final String trinoVersion;
     private final boolean cacheTableMetadata;
-    private final TrinoFileSystemFactory fileSystemFactory;
     private final Optional<String> defaultSchemaLocation;
     private final GlueClient glueClient;
     private final GlueMetastoreStats stats;
@@ -195,6 +194,7 @@ public class TrinoGlueCatalog
     public TrinoGlueCatalog(
             CatalogName catalogName,
             TrinoFileSystemFactory fileSystemFactory,
+            ForwardingFileIoFactory fileIoFactory,
             TypeManager typeManager,
             boolean cacheTableMetadata,
             IcebergTableOperationsProvider tableOperationsProvider,
@@ -207,10 +207,9 @@ public class TrinoGlueCatalog
             boolean hideMaterializedViewStorageTable,
             Executor metadataFetchingExecutor)
     {
-        super(catalogName, typeManager, tableOperationsProvider, fileSystemFactory, useUniqueTableLocation);
+        super(catalogName, useUniqueTableLocation, typeManager, tableOperationsProvider, fileSystemFactory, fileIoFactory);
         this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
         this.cacheTableMetadata = cacheTableMetadata;
-        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.glueClient = requireNonNull(glueClient, "glueClient is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.isUsingSystemSecurity = isUsingSystemSecurity;
@@ -872,7 +871,7 @@ public class TrinoGlueCatalog
             try {
                 // Cache the TableMetadata while we have the Table retrieved anyway
                 // Note: this is racy from cache invalidation perspective, but it should not matter here
-                uncheckedCacheGet(tableMetadataCache, schemaTableName, () -> TableMetadataParser.read(new ForwardingFileIo(fileSystemFactory.create(session), isUseFileSizeFromMetadata(session)), metadataLocation));
+                uncheckedCacheGet(tableMetadataCache, schemaTableName, () -> TableMetadataParser.read(fileIoFactory.create(fileSystemFactory.create(session), isUseFileSizeFromMetadata(session)), metadataLocation));
             }
             catch (RuntimeException e) {
                 LOG.warn(e, "Failed to cache table metadata from table at %s", metadataLocation);
@@ -1408,7 +1407,7 @@ public class TrinoGlueCatalog
         requireNonNull(storageMetadataLocation, "storageMetadataLocation is null");
         return uncheckedCacheGet(tableMetadataCache, storageTableName, () -> {
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-            return TableMetadataParser.read(new ForwardingFileIo(fileSystem, isUseFileSizeFromMetadata(session)), storageMetadataLocation);
+            return TableMetadataParser.read(fileIoFactory.create(fileSystem, isUseFileSizeFromMetadata(session)), storageMetadataLocation);
         });
     }
 
