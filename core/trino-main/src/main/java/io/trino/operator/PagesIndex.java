@@ -414,13 +414,19 @@ public class PagesIndex
 
     public void sort(List<Integer> sortChannels, List<SortOrder> sortOrders)
     {
-        sort(sortChannels, sortOrders, 0, getPositionCount());
+        sort(createPagesIndexComparator(sortChannels, sortOrders), 0, getPositionCount());
     }
 
-    public void sort(List<Integer> sortChannels, List<SortOrder> sortOrders, int startPosition, int endPosition)
+    public void sort(PagesIndexOrdering pagesIndexOrdering)
     {
+        sort(pagesIndexOrdering, 0, getPositionCount());
+    }
+
+    public void sort(PagesIndexOrdering pagesIndexOrdering, int startPosition, int endPosition)
+    {
+        requireNonNull(pagesIndexOrdering, "pagesIndexOrdering is null");
         modificationCount++;
-        createPagesIndexComparator(sortChannels, sortOrders).sort(this, startPosition, endPosition);
+        pagesIndexOrdering.sort(this, startPosition, endPosition);
     }
 
     public boolean positionIdenticalToPosition(PagesHashStrategy partitionHashStrategy, int leftPosition, int rightPosition)
@@ -445,7 +451,7 @@ public class PagesIndex
         return pagesHashStrategy.positionIdenticalToRow(pageIndex, pagePosition, rightPosition, rightPage);
     }
 
-    private PagesIndexOrdering createPagesIndexComparator(List<Integer> sortChannels, List<SortOrder> sortOrders)
+    public PagesIndexOrdering createPagesIndexComparator(List<Integer> sortChannels, List<SortOrder> sortOrders)
     {
         List<Type> sortTypes = sortChannels.stream()
                 .map(types::get)
