@@ -113,6 +113,9 @@ are reflected automatically for incoming queries.
 - `hardCpuLimit` (optional): maximum amount of CPU time this
   group may use in a period.
 
+- `hardPhysicalDataScanLimit` (optional): maximum amount of data this
+  group can scan in a period before new queries become queued. Must be specified as an absolute value (i.e. `1GB`).
+
 - `schedulingPolicy` (optional): specifies how queued queries are selected to run,
   and how sub-groups become eligible to start their queries. May be one of three values:
 
@@ -213,6 +216,7 @@ Selectors are processed sequentially and the first one that matches will be used
 ## Global properties
 
 - `cpuQuotaPeriod` (optional): the period in which cpu quotas are enforced.
+- `physicalDataScanQuotaPeriod` (optional): the period in which physical data scan quotas are enforced.
 
 ## Providing selector properties
 
@@ -305,7 +309,7 @@ INSERT INTO resource_groups_global_properties (name, value) VALUES ('cpu_quota_p
 -- The parent-child relationship is indicated by the ID in 'parent' column.
 
 -- create a root group 'global' with NULL parent
-INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued, scheduling_policy, jmx_export, environment) VALUES ('global', '80%', 100, 1000, 'weighted', true, 'test_environment');
+INSERT INTO resource_groups (name, soft_memory_limit, hard_physical_data_scan_limit, hard_concurrency_limit, max_queued, scheduling_policy, jmx_export, environment) VALUES ('global', '80%', '50TB', 100, 1000, 'weighted', true, 'test_environment');
 
 -- get ID of 'global' group
 SELECT resource_group_id FROM resource_groups WHERE name = 'global';  -- 1
@@ -321,7 +325,7 @@ INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, ma
 -- get ID of 'other' group
 SELECT resource_group_id FROM resource_groups WHERE name = 'other';  -- 4
 -- create '${USER}' group with 'other' as parent.
-INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued, environment, parent) VALUES ('${USER}', '10%', 1, 100, 'test_environment', 4);
+INSERT INTO resource_groups (name, soft_memory_limit, hard_physical_data_scan_limit, hard_concurrency_limit, max_queued, environment, parent) VALUES ('${USER}', '10%', '10GB', 1, 100, 'test_environment', 4);
 
 -- create 'bi-${toolname}' group with 'adhoc' as parent
 INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued, scheduling_weight, scheduling_policy, environment, parent) VALUES ('bi-${toolname}', '10%', 10, 100, 10, 'weighted_fair', 'test_environment', 3);
