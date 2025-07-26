@@ -76,7 +76,7 @@ public class TestingDeltaLakePlugin
                             newMapBinder(binder, String.class, TrinoFileSystemFactory.class)
                                     .addBinding("local").toInstance(localFileSystemFactory);
                             newMapBinder(binder, String.class, TransactionLogSynchronizer.class)
-                                    .addBinding("local").toInstance(new LocalTransactionLogSynchronizer(localFileSystemFactory));
+                                    .addBinding("local").toInstance(new LocalTransactionLogSynchronizer(new DefaultDeltaLakeFileSystemFactory(localFileSystemFactory)));
                             configBinder(binder).bindConfigDefaults(FileHiveMetastoreConfig.class, defaults -> defaults.setCatalogDirectory("local:///"));
                         });
             }

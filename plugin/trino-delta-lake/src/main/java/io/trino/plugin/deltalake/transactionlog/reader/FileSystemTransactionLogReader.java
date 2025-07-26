@@ -16,7 +16,8 @@ package io.trino.plugin.deltalake.transactionlog.reader;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.plugin.deltalake.DeltaLakeFileSystemFactory;
+import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.plugin.deltalake.transactionlog.MissingTransactionLogException;
 import io.trino.plugin.deltalake.transactionlog.Transaction;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogEntries;
@@ -36,11 +37,13 @@ public class FileSystemTransactionLogReader
         implements TransactionLogReader
 {
     private final String tableLocation;
-    private final TrinoFileSystemFactory fileSystemFactory;
+    private final VendedCredentialsHandle credentialsHandle;
+    private final DeltaLakeFileSystemFactory fileSystemFactory;
 
-    public FileSystemTransactionLogReader(String tableLocation, TrinoFileSystemFactory fileSystemFactory)
+    public FileSystemTransactionLogReader(String tableLocation, VendedCredentialsHandle credentialsHandle, DeltaLakeFileSystemFactory fileSystemFactory)
     {
         this.tableLocation = requireNonNull(tableLocation, "tableLocation is null");
+        this.credentialsHandle = requireNonNull(credentialsHandle, "credentialsHandle is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
     }
 
@@ -65,7 +68,7 @@ public class FileSystemTransactionLogReader
         checkArgument(endVersion.isEmpty() || entryNumber <= endVersion.get(), "Invalid start/end versions: %s, %s", startVersion, endVersion);
 
         String transactionLogDir = getTransactionLogDir(tableLocation);
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session);
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session, credentialsHandle);
 
         boolean endOfTail = false;
         while (!endOfTail) {
