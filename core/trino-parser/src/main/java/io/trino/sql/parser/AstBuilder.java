@@ -315,6 +315,7 @@ import io.trino.sql.tree.WithQuery;
 import io.trino.sql.tree.ZeroOrMoreQuantifier;
 import io.trino.sql.tree.ZeroOrOneQuantifier;
 import org.antlr.v4.runtime.ParserRuleContext;
+import org.antlr.v4.runtime.RuleContext;
 import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.TerminalNode;
@@ -1722,7 +1723,7 @@ class AstBuilder
 
     private static List<String> extractPrivileges(List<SqlBaseParser.PrivilegeOrRoleContext> privilegesOrRoles)
     {
-        return privilegesOrRoles.stream().map(SqlBaseParser.PrivilegeOrRoleContext::getText).collect(toImmutableList());
+        return privilegesOrRoles.stream().map(AstBuilder::privilegeToString).collect(toImmutableList());
     }
 
     private Set<Identifier> extractRoles(List<SqlBaseParser.PrivilegeOrRoleContext> privilegesOrRoles)
@@ -1745,7 +1746,8 @@ class AstBuilder
         return new GrantObject(
                 location,
                 context.entityKind() == null ? Optional.empty() : Optional.of(context.entityKind().getText()),
-                getQualifiedName(context.qualifiedName()));
+                getQualifiedName(context.qualifiedName()),
+                getIdentifierIfPresent(context.branch));
     }
 
     @Override
@@ -1774,7 +1776,7 @@ class AstBuilder
         }
         else {
             privileges = Optional.of(context.privilege().stream()
-                    .map(SqlBaseParser.PrivilegeContext::getText)
+                    .map(AstBuilder::privilegeToString)
                     .collect(toList()));
         }
         return new Deny(
@@ -1782,6 +1784,16 @@ class AstBuilder
                 privileges,
                 createGrantObject(getLocation(context), context.grantObject()),
                 getPrincipalSpecification(context.grantee));
+    }
+
+    private static String privilegeToString(RuleContext context)
+    {
+        checkArgument(context.getChildCount() >= 1, "Privilege context must have at least one child");
+        List<String> children = new ArrayList<>();
+        for (int i = 0; i < context.getChildCount(); i++) {
+            children.add(context.getChild(i).getText());
+        }
+        return String.join(" ", children);
     }
 
     @Override

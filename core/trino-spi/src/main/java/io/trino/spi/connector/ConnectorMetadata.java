@@ -1304,6 +1304,30 @@ public interface ConnectorMetadata
         return emptyList();
     }
 
+    /**
+     * Grants the specified privilege to the specified user on the specified branch
+     */
+    default void grantTableBranchPrivileges(ConnectorSession session, SchemaTableName tableName, String branchName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support grants on branches in tables");
+    }
+
+    /**
+     * Denys the specified privilege to the specified user on the specified branch
+     */
+    default void denyTableBranchPrivileges(ConnectorSession session, SchemaTableName tableName, String branchName, Set<Privilege> privileges, TrinoPrincipal grantee)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support denys on branches in tables");
+    }
+
+    /**
+     * Revokes the specified privilege on the specified branch from the specified user
+     */
+    default void revokeTableBranchPrivileges(ConnectorSession session, SchemaTableName tableName, String branchName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support revokes on branches in tables");
+    }
+
     default ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
     {
         return new ConnectorTableProperties();

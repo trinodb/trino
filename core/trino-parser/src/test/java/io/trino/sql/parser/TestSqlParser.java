@@ -4297,50 +4297,87 @@ public class TestSqlParser
                 new Grant(
                         location(1, 1),
                         Optional.of(ImmutableList.of("INSERT", "DELETE")),
-                        new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 25), "t", false)))),
+                        new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 25), "t", false))), Optional.empty()),
                         new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 30), "u", false)),
                         false));
         assertThat(statement("GRANT UPDATE ON t TO u")).isEqualTo(
                 new Grant(
                         location(1, 1),
                         Optional.of(ImmutableList.of("UPDATE")),
-                        new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 17), "t", false)))),
+                        new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 17), "t", false))), Optional.empty()),
                         new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 22), "u", false)),
                         false));
         assertThat(statement("GRANT EXECUTE ON t TO u")).isEqualTo(
                 new Grant(
                         location(1, 1),
                         Optional.of(ImmutableList.of("EXECUTE")),
-                        new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 18), "t", false)))),
+                        new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 18), "t", false))), Optional.empty()),
                         new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 23), "u", false)),
                         false));
         assertThat(statement("GRANT SELECT ON t TO ROLE PUBLIC WITH GRANT OPTION")).isEqualTo(
                 new Grant(
                         location(1, 1),
                         Optional.of(ImmutableList.of("SELECT")),
-                        new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 17), "t", false)))),
+                        new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 17), "t", false))), Optional.empty()),
                         new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier(location(1, 27), "PUBLIC", false)),
                         true));
         assertThat(statement("GRANT ALL PRIVILEGES ON TABLE t TO USER u")).isEqualTo(
                 new Grant(
                         location(1, 1),
                         Optional.empty(),
-                        new GrantObject(location(1, 1), Optional.of("TABLE"), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 31), "t", false)))),
+                        new GrantObject(location(1, 1), Optional.of("TABLE"), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 31), "t", false))), Optional.empty()),
                         new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier(location(1, 41), "u", false)),
                         false));
         assertThat(statement("GRANT DELETE ON \"t\" TO ROLE \"public\" WITH GRANT OPTION")).isEqualTo(
                 new Grant(
                         location(1, 1),
                         Optional.of(ImmutableList.of("DELETE")),
-                        new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 17), "t", true)))),
+                        new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 17), "t", true))), Optional.empty()),
                         new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier(location(1, 29), "public", true)),
                         true));
         assertThat(statement("GRANT SELECT ON SCHEMA s TO USER u")).isEqualTo(
                 new Grant(
                         location(1, 1),
                         Optional.of(ImmutableList.of("SELECT")),
-                        new GrantObject(location(1, 1), Optional.of("SCHEMA"), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 24), "s", false)))),
+                        new GrantObject(location(1, 1), Optional.of("SCHEMA"), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 24), "s", false))), Optional.empty()),
                         new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier(location(1, 34), "u", false)),
+                        false));
+
+        // Branching
+        assertThat(statement("GRANT CREATE BRANCH ON TABLE t TO u")).isEqualTo(
+                new Grant(
+                        location(1, 1),
+                        Optional.of(ImmutableList.of("CREATE BRANCH")),
+                        new GrantObject(
+                                location(1, 1),
+                                Optional.of("TABLE"),
+                                QualifiedName.of(ImmutableList.of(new Identifier(location(1, 30), "t", false))),
+                                Optional.empty()),
+                        new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 35), "u", false)),
+                        false));
+
+        assertThat(statement("GRANT INSERT, DELETE ON BRANCH dev IN SCHEMA t TO u")).isEqualTo(
+                new Grant(
+                        location(1, 1),
+                        Optional.of(ImmutableList.of("INSERT", "DELETE")),
+                        new GrantObject(
+                                location(1, 1),
+                                Optional.of("SCHEMA"),
+                                QualifiedName.of(ImmutableList.of(new Identifier(location(1, 46), "t", false))),
+                                Optional.of(new Identifier(location(1, 32), "dev", false))),
+                        new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 51), "u", false)),
+                        false));
+
+        assertThat(statement("GRANT INSERT, DELETE ON BRANCH dev IN TABLE t TO u")).isEqualTo(
+                new Grant(
+                        location(1, 1),
+                        Optional.of(ImmutableList.of("INSERT", "DELETE")),
+                        new GrantObject(
+                                location(1, 1),
+                                Optional.of("TABLE"),
+                                QualifiedName.of(ImmutableList.of(new Identifier(location(1, 45), "t", false))),
+                                Optional.of(new Identifier(location(1, 32), "dev", false))),
+                        new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 50), "u", false)),
                         false));
     }
 
@@ -4351,25 +4388,25 @@ public class TestSqlParser
                 new Deny(
                         location(1, 1),
                         Optional.of(ImmutableList.of("INSERT", "DELETE")),
-                        new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of(List.of(new Identifier(location(1, 24), "t", false)))),
+                        new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of(List.of(new Identifier(location(1, 24), "t", false))), Optional.empty()),
                         new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 29), "u", false))));
         assertThat(statement("DENY UPDATE ON t TO u")).isEqualTo(
                 new Deny(
                         location(1, 1),
                         Optional.of(ImmutableList.of("UPDATE")),
-                        new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of(List.of(new Identifier(location(1, 16), "t", false)))),
+                        new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of(List.of(new Identifier(location(1, 16), "t", false))), Optional.empty()),
                         new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 21), "u", false))));
         assertThat(statement("DENY ALL PRIVILEGES ON TABLE t TO USER u")).isEqualTo(
                 new Deny(
                         location(1, 1),
                         Optional.empty(),
-                        new GrantObject(location(1, 1), Optional.of("TABLE"), QualifiedName.of(List.of(new Identifier(location(1, 30), "t", false)))),
+                        new GrantObject(location(1, 1), Optional.of("TABLE"), QualifiedName.of(List.of(new Identifier(location(1, 30), "t", false))), Optional.empty()),
                         new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier(location(1, 40), "u", false))));
         assertThat(statement("DENY SELECT ON SCHEMA s TO USER u")).isEqualTo(
                 new Deny(
                         location(1, 1),
                         Optional.of(ImmutableList.of("SELECT")),
-                        new GrantObject(location(1, 1), Optional.of("SCHEMA"), QualifiedName.of(List.of(new Identifier(location(1, 23), "s", false)))),
+                        new GrantObject(location(1, 1), Optional.of("SCHEMA"), QualifiedName.of(List.of(new Identifier(location(1, 23), "s", false))), Optional.empty()),
                         new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier(location(1, 33), "u", false))));
     }
 
@@ -4381,49 +4418,49 @@ public class TestSqlParser
                         location(1, 1),
                         false,
                         Optional.of(ImmutableList.of("INSERT", "DELETE")),
-                        new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 26), "t", false)))),
+                        new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 26), "t", false))), Optional.empty()),
                         new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 33), "u", false))));
         assertThat(statement("REVOKE UPDATE ON t FROM u")).isEqualTo(
                 new Revoke(
                         location(1, 1),
                         false,
                         Optional.of(ImmutableList.of("UPDATE")),
-                        new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 18), "t", false)))),
+                        new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 18), "t", false))), Optional.empty()),
                         new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 25), "u", false))));
         assertThat(statement("REVOKE EXECUTE ON t FROM u")).isEqualTo(
                 new Revoke(
                         location(1, 1),
                         false,
                         Optional.of(ImmutableList.of("EXECUTE")),
-                        new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 19), "t", false)))),
+                        new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 19), "t", false))), Optional.empty()),
                         new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 26), "u", false))));
         assertThat(statement("REVOKE GRANT OPTION FOR SELECT ON t FROM ROLE PUBLIC")).isEqualTo(
                 new Revoke(
                         location(1, 1),
                         true,
                         Optional.of(ImmutableList.of("SELECT")),
-                        new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 35), "t", false)))),
+                        new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 35), "t", false))), Optional.empty()),
                         new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier(location(1, 47), "PUBLIC", false))));
         assertThat(statement("REVOKE ALL PRIVILEGES ON TABLE t FROM USER u")).isEqualTo(
                 new Revoke(
                         location(1, 1),
                         false,
                         Optional.empty(),
-                        new GrantObject(location(1, 1), Optional.of("TABLE"), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 32), "t", false)))),
+                        new GrantObject(location(1, 1), Optional.of("TABLE"), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 32), "t", false))), Optional.empty()),
                         new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier(location(1, 44), "u", false))));
         assertThat(statement("REVOKE DELETE ON TABLE \"t\" FROM \"u\"")).isEqualTo(
                 new Revoke(
                         location(1, 1),
                         false,
                         Optional.of(ImmutableList.of("DELETE")),
-                        new GrantObject(location(1, 1), Optional.of("TABLE"), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 24), "t", true)))),
+                        new GrantObject(location(1, 1), Optional.of("TABLE"), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 24), "t", true))), Optional.empty()),
                         new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 33), "u", true))));
         assertThat(statement("REVOKE SELECT ON SCHEMA s FROM USER u")).isEqualTo(
                 new Revoke(
                         location(1, 1),
                         false,
                         Optional.of(ImmutableList.of("SELECT")),
-                        new GrantObject(location(1, 1), Optional.of("SCHEMA"), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 25), "s", false)))),
+                        new GrantObject(location(1, 1), Optional.of("SCHEMA"), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 25), "s", false))), Optional.empty()),
                         new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier(location(1, 37), "u", false))));
     }
 
@@ -4434,35 +4471,35 @@ public class TestSqlParser
                 .isEqualTo(new Grant(
                         location(1, 1),
                         Optional.empty(),
-                        new GrantObject(location(1, 1), Optional.of("FUNKY_ENTITY"), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 38), "t", false)))),
+                        new GrantObject(location(1, 1), Optional.of("FUNKY_ENTITY"), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 38), "t", false))), Optional.empty()),
                         new PrincipalSpecification(Type.UNSPECIFIED, new Identifier(location(1, 43), "u", false)),
                         false));
         assertThat(statement("GRANT ALL PRIVILEGES ON FUNKY_ENTITY t TO u WITH GRANT OPTION"))
                 .isEqualTo(new Grant(
                         location(1, 1),
                         Optional.empty(),
-                        new GrantObject(location(1, 1), Optional.of("FUNKY_ENTITY"), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 38), "t", false)))),
+                        new GrantObject(location(1, 1), Optional.of("FUNKY_ENTITY"), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 38), "t", false))), Optional.empty()),
                         new PrincipalSpecification(Type.UNSPECIFIED, new Identifier(location(1, 43), "u", false)),
                         true));
         assertThat(statement("GRANT AUTO_GYRATE ON FUNKY_ENTITY t TO u WITH GRANT OPTION"))
                 .isEqualTo(new Grant(
                         location(1, 1),
                         Optional.of(ImmutableList.of("AUTO_GYRATE")),
-                        new GrantObject(location(1, 1), Optional.of("FUNKY_ENTITY"), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 35), "t", false)))),
+                        new GrantObject(location(1, 1), Optional.of("FUNKY_ENTITY"), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 35), "t", false))), Optional.empty()),
                         new PrincipalSpecification(Type.UNSPECIFIED, new Identifier(location(1, 40), "u", false)),
                         true));
         assertThat(statement("GRANT AUTO_GYRATE ON FUNKY_ENTITY t TO u"))
                 .isEqualTo(new Grant(
                         location(1, 1),
                         Optional.of(ImmutableList.of("AUTO_GYRATE")),
-                        new GrantObject(location(1, 1), Optional.of("FUNKY_ENTITY"), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 35), "t", false)))),
+                        new GrantObject(location(1, 1), Optional.of("FUNKY_ENTITY"), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 35), "t", false))), Optional.empty()),
                         new PrincipalSpecification(Type.UNSPECIFIED, new Identifier(location(1, 40), "u", false)),
                         false));
         assertThat(statement("GRANT AUTO_GYRATE ON t TO u"))
                 .isEqualTo(new Grant(
                         location(1, 1),
                         Optional.of(ImmutableList.of("AUTO_GYRATE")),
-                        new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 22), "t", false)))),
+                        new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 22), "t", false))), Optional.empty()),
                         new PrincipalSpecification(Type.UNSPECIFIED, new Identifier(location(1, 27), "u", false)),
                         false));
 
@@ -4471,47 +4508,47 @@ public class TestSqlParser
                         location(1, 1),
                         false,
                         Optional.empty(),
-                        new GrantObject(location(1, 1), Optional.of("FUNKY_ENTITY"), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 39), "t", false)))),
+                        new GrantObject(location(1, 1), Optional.of("FUNKY_ENTITY"), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 39), "t", false))), Optional.empty()),
                         new PrincipalSpecification(Type.UNSPECIFIED, new Identifier(location(1, 46), "u", false))));
         assertThat(statement("REVOKE AUTO_GYRATE ON FUNKY_ENTITY t FROM u"))
                 .isEqualTo(new Revoke(
                         location(1, 1),
                         false,
                         Optional.of(ImmutableList.of("AUTO_GYRATE")),
-                        new GrantObject(location(1, 1), Optional.of("FUNKY_ENTITY"), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 36), "t", false)))),
+                        new GrantObject(location(1, 1), Optional.of("FUNKY_ENTITY"), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 36), "t", false))), Optional.empty()),
                         new PrincipalSpecification(Type.UNSPECIFIED, new Identifier(location(1, 43), "u", false))));
         assertThat(statement("REVOKE GRANT OPTION FOR AUTO_GYRATE ON FUNKY_ENTITY t FROM u"))
                 .isEqualTo(new Revoke(
                         location(1, 1),
                         true,
                         Optional.of(ImmutableList.of("AUTO_GYRATE")),
-                        new GrantObject(location(1, 1), Optional.of("FUNKY_ENTITY"), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 53), "t", false)))),
+                        new GrantObject(location(1, 1), Optional.of("FUNKY_ENTITY"), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 53), "t", false))), Optional.empty()),
                         new PrincipalSpecification(Type.UNSPECIFIED, new Identifier(location(1, 60), "u", false))));
         assertThat(statement("REVOKE AUTO_GYRATE ON t FROM u"))
                 .isEqualTo(new Revoke(
                         location(1, 1),
                         false,
                         Optional.of(ImmutableList.of("AUTO_GYRATE")),
-                        new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 23), "t", false)))),
+                        new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 23), "t", false))), Optional.empty()),
                         new PrincipalSpecification(Type.UNSPECIFIED, new Identifier(location(1, 30), "u", false))));
 
         assertThat(statement("DENY ALL PRIVILEGES ON FUNKY_ENTITY t TO u"))
                 .isEqualTo(new Deny(
                         location(1, 1),
                         Optional.empty(),
-                        new GrantObject(location(1, 1), Optional.of("FUNKY_ENTITY"), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 37), "t", false)))),
+                        new GrantObject(location(1, 1), Optional.of("FUNKY_ENTITY"), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 37), "t", false))), Optional.empty()),
                         new PrincipalSpecification(Type.UNSPECIFIED, new Identifier(location(1, 42), "u", false))));
         assertThat(statement("DENY AUTO_GYRATE ON FUNKY_ENTITY t TO u"))
                 .isEqualTo(new Deny(
                         location(1, 1),
                         Optional.of(ImmutableList.of("AUTO_GYRATE")),
-                        new GrantObject(location(1, 1), Optional.of("FUNKY_ENTITY"), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 34), "t", false)))),
+                        new GrantObject(location(1, 1), Optional.of("FUNKY_ENTITY"), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 34), "t", false))), Optional.empty()),
                         new PrincipalSpecification(Type.UNSPECIFIED, new Identifier(location(1, 39), "u", false))));
         assertThat(statement("DENY AUTO_GYRATE ON t TO u"))
                 .isEqualTo(new Deny(
                         location(1, 1),
                         Optional.of(ImmutableList.of("AUTO_GYRATE")),
-                        new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 21), "t", false)))),
+                        new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 21), "t", false))), Optional.empty()),
                         new PrincipalSpecification(Type.UNSPECIFIED, new Identifier(location(1, 26), "u", false))));
     }
 
@@ -4519,9 +4556,9 @@ public class TestSqlParser
     public void testShowGrants()
     {
         assertThat(statement("SHOW GRANTS ON TABLE t"))
-                .isEqualTo(new ShowGrants(location(1, 1), Optional.of(new GrantObject(location(1, 1), Optional.of("TABLE"), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 22), "t", false)))))));
+                .isEqualTo(new ShowGrants(location(1, 1), Optional.of(new GrantObject(location(1, 1), Optional.of("TABLE"), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 22), "t", false))), Optional.empty()))));
         assertThat(statement("SHOW GRANTS ON t"))
-                .isEqualTo(new ShowGrants(location(1, 1), Optional.of(new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 16), "t", false)))))));
+                .isEqualTo(new ShowGrants(location(1, 1), Optional.of(new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 16), "t", false))), Optional.empty()))));
         assertThat(statement("SHOW GRANTS"))
                 .isEqualTo(new ShowGrants(location(1, 1), Optional.empty()));
     }
