@@ -61,25 +61,25 @@ final class TestExasolConnectorTest
         return switch (connectorBehavior) {
             // Tests requires write access which is not implemented
             case SUPPORTS_AGGREGATION_PUSHDOWN,
-                 SUPPORTS_JOIN_PUSHDOWN,
-                 SUPPORTS_LIMIT_PUSHDOWN,
-                 SUPPORTS_TOPN_PUSHDOWN -> false;
+                    SUPPORTS_JOIN_PUSHDOWN,
+                    SUPPORTS_LIMIT_PUSHDOWN,
+                    SUPPORTS_TOPN_PUSHDOWN -> false;
 
             // Parallel writing is not supported due to restrictions of the Exasol JDBC driver.
             case SUPPORTS_ADD_COLUMN,
-                 SUPPORTS_ARRAY,
-                 SUPPORTS_COMMENT_ON_TABLE,
-                 SUPPORTS_CREATE_SCHEMA,
-                 SUPPORTS_CREATE_TABLE,
-                 SUPPORTS_DELETE,
-                 SUPPORTS_INSERT,
-                 SUPPORTS_MAP_TYPE,
-                 SUPPORTS_NEGATIVE_DATE, // min date is 0001-01-01
-                 SUPPORTS_RENAME_COLUMN,
-                 SUPPORTS_RENAME_TABLE,
-                 SUPPORTS_ROW_TYPE,
-                 SUPPORTS_SET_COLUMN_TYPE,
-                 SUPPORTS_UPDATE -> false;
+                    SUPPORTS_ARRAY,
+                    SUPPORTS_COMMENT_ON_TABLE,
+                    SUPPORTS_CREATE_SCHEMA,
+                    SUPPORTS_CREATE_TABLE,
+                    SUPPORTS_DELETE,
+                    SUPPORTS_INSERT,
+                    SUPPORTS_MAP_TYPE,
+                    SUPPORTS_NEGATIVE_DATE, // min date is 0001-01-01
+                    SUPPORTS_RENAME_COLUMN,
+                    SUPPORTS_RENAME_TABLE,
+                    SUPPORTS_ROW_TYPE,
+                    SUPPORTS_SET_COLUMN_TYPE,
+                    SUPPORTS_UPDATE -> false;
 
             default -> super.hasBehavior(connectorBehavior);
         };
