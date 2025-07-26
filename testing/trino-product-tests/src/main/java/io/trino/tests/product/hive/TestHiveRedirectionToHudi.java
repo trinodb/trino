@@ -113,6 +113,7 @@ public class TestHiveRedirectionToHudi
         assertQueryFailure(() -> onTrino().executeQuery("TABLE " + hiveTableName))
                 .hasMessageMatching(".*Table 'hive.default.redirect_to_nonexistent_hudi_.*' redirected to 'someweirdcatalog.default.redirect_to_nonexistent_hudi_.*', but the target catalog 'someweirdcatalog' does not exist");
 
+        onTrino().executeQuery("RESET SESSION hive.hudi_catalog_name");
         onHudi().executeQuery("DROP TABLE " + schemaTableName);
     }
 
