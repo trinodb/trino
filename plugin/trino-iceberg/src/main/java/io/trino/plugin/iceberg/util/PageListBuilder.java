@@ -29,6 +29,7 @@ import java.util.Map;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
@@ -86,6 +87,13 @@ public final class PageListBuilder
     public void appendNull()
     {
         nextColumn().appendNull();
+    }
+
+    public void appendBoolean(Boolean value)
+    {
+        if (checkNonNull(value)) {
+            BOOLEAN.writeBoolean(nextColumn(), value);
+        }
     }
 
     public void appendInteger(int value)
