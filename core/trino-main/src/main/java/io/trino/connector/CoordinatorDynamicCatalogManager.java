@@ -34,6 +34,7 @@ import io.trino.spi.connector.ConnectorName;
 import jakarta.annotation.PreDestroy;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -329,5 +330,105 @@ public class CoordinatorDynamicCatalogManager
         }
         // Do not shut down the catalog, because there may still be running queries using this catalog.
         // Catalog shutdown logic will be added later.
+    }
+
+    /**
+     * Refresh catalogs from the catalog store by synchronizing with external sources.
+     * This method updates the active catalogs based on what's currently in the catalog store.
+     */
+    public void refreshCatalogs()
+    {
+        catalogsUpdateLock.lock();
+        try {
+            if (state == State.STOPPED) {
+                return;
+            }
+            updateCatalogs();
+        }
+        finally {
+            catalogsUpdateLock.unlock();
+        }
+    }
+
+    private void updateCatalogs()
+    {
+        // Get System Catalog (this will never be pruned)
+        CatalogName systemCatalogName = new CatalogName(GlobalSystemConnector.NAME);
+        Catalog systemCatalog = activeCatalogs.get(systemCatalogName);
+        Set<CatalogHandle> catalogsInUse = this.activeCatalogs.values().stream()
+                .map(Catalog::getCatalogHandle)
+                .collect(toImmutableSet());
+        if (systemCatalog != null) {
+            catalogsInUse = ImmutableSet.<CatalogHandle>builder()
+                    .addAll(catalogsInUse)
+                    .add(systemCatalog.getCatalogHandle())
+                    .build();
+        }
+
+        log.info("Active Catalogs in use: %s", catalogsInUse);
+        log.info("All Catalogs: %s", allCatalogs.keySet());
+
+        // Prune Old Catalogs
+        pruneCatalogs(catalogsInUse);
+
+        // Add New Catalogs From Catalog Store
+        Collection<CatalogStore.StoredCatalog> storeCatalogs = catalogStore.getCatalogs();
+
+        for (CatalogStore.StoredCatalog catalog : storeCatalogs) {
+            addStoredCatalogToManagerState(catalog);
+        }
+
+        // Deactivate Catalogs not in Catalog Store (excluding system catalog)
+        Set<CatalogName> storeCatalogNames = storeCatalogs.stream()
+                .map(CatalogStore.StoredCatalog::name)
+                .collect(toImmutableSet());
+        List<CatalogName> deactiveCatalogs = activeCatalogs.keySet().stream()
+                .filter(catalogName -> !catalogName.equals(systemCatalogName) &&
+                        !storeCatalogNames.contains(catalogName))
+                .toList();
+
+        // Remove from activeCatalogs only - keep in allCatalogs for existing connections
+        for (CatalogName catalogName : deactiveCatalogs) {
+            Catalog removedCatalog = activeCatalogs.remove(catalogName);
+            if (removedCatalog != null) {
+                log.info("Deactivated catalog from activeCatalogs: %s (keeping in allCatalogs for existing connections)", catalogName);
+            }
+        }
+    }
+
+    private void addStoredCatalogToManagerState(CatalogStore.StoredCatalog storedCatalog)
+    {
+        if (storedCatalog == null) {
+            log.debug("Stored catalog is null, skipping");
+            return;
+        }
+
+        try {
+            CatalogProperties properties = storedCatalog.loadProperties();
+            CatalogName catalogName = properties.catalogHandle().getCatalogName();
+            verify(catalogName.equals(storedCatalog.name()), "Catalog name does not match catalog handle");
+
+            // Check if Catalog Already Exists within Active Catalogs
+            Catalog existingCatalog = activeCatalogs.get(catalogName);
+            if (existingCatalog != null) {
+                // Check if the catalog version has changed
+                if (existingCatalog.getCatalogHandle().getVersion().equals(properties.catalogHandle().getVersion())) {
+                    return;
+                }
+                log.info("-- Updating catalog %s using connector %s from version %s to %s --",
+                        storedCatalog.name(), properties.connectorName(),
+                        existingCatalog.getCatalogHandle().getVersion(), properties.catalogHandle().getVersion());
+            }
+
+            CatalogConnector newCatalog = catalogFactory.createCatalog(properties);
+            Catalog previousCatalog = activeCatalogs.put(storedCatalog.name(), newCatalog.getCatalog());
+            if (previousCatalog == null) {
+                log.info("-- Added catalog %s using connector %s --", storedCatalog.name(), properties.connectorName());
+            }
+            allCatalogs.put(properties.catalogHandle(), newCatalog);
+        }
+        catch (Exception e) {
+            log.error(e, "Failed to add stored catalog %s to manager state", storedCatalog.name());
+        }
     }
 }
