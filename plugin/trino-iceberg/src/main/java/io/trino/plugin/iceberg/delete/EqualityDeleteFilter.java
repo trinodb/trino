@@ -21,6 +21,7 @@ import io.trino.plugin.iceberg.IcebergColumnHandle;
 import io.trino.plugin.iceberg.delete.DeleteManager.DeletePageSourceProvider;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
@@ -53,7 +54,7 @@ public final class EqualityDeleteFilter
     }
 
     @Override
-    public RowPredicate createPredicate(List<IcebergColumnHandle> columns, long splitDataSequenceNumber)
+    public RowPredicate createPredicate(ConnectorSession session, List<IcebergColumnHandle> columns, long splitDataSequenceNumber)
     {
         StructType fileStructType = structTypeFromHandles(columns);
         StructType deleteStructType = deleteSchema.asStruct();
@@ -68,7 +69,7 @@ public final class EqualityDeleteFilter
                 .toArray(Type[]::new);
 
         return (page, position) -> {
-            StructProjection row = projection.wrap(new LazyTrinoRow(types, page, position));
+            StructProjection row = projection.wrap(new LazyTrinoRow(session, types, page, position));
             DataSequenceNumber maxDeleteVersion = deletedRows.get(structLikeWrapper.set(row));
             // clear reference to avoid memory leak
             structLikeWrapper.set(null);
@@ -94,19 +95,19 @@ public final class EqualityDeleteFilter
             this.deletedRows = new ConcurrentHashMap<>();
         }
 
-        public ListenableFuture<?> readEqualityDeletes(DeleteFile deleteFile, List<IcebergColumnHandle> deleteColumns, DeletePageSourceProvider deletePageSourceProvider)
+        public ListenableFuture<?> readEqualityDeletes(ConnectorSession session, DeleteFile deleteFile, List<IcebergColumnHandle> deleteColumns, DeletePageSourceProvider deletePageSourceProvider)
         {
             verify(deleteColumns.size() == deleteSchema.columns().size(), "delete columns size doesn't match delete schema size");
 
             // ensure only one thread loads the file
             ListenableFutureTask<?> futureTask = loadingFiles.computeIfAbsent(
                     deleteFile.path(),
-                    key -> ListenableFutureTask.create(() -> readEqualityDeletesInternal(deleteFile, deleteColumns, deletePageSourceProvider), null));
+                    key -> ListenableFutureTask.create(() -> readEqualityDeletesInternal(session, deleteFile, deleteColumns, deletePageSourceProvider), null));
             futureTask.run();
             return Futures.nonCancellationPropagating(futureTask);
         }
 
-        private void readEqualityDeletesInternal(DeleteFile deleteFile, List<IcebergColumnHandle> deleteColumns, DeletePageSourceProvider deletePageSourceProvider)
+        private void readEqualityDeletesInternal(ConnectorSession session, DeleteFile deleteFile, List<IcebergColumnHandle> deleteColumns, DeletePageSourceProvider deletePageSourceProvider)
         {
             DataSequenceNumber sequenceNumber = new DataSequenceNumber(deleteFile.dataSequenceNumber());
             try (ConnectorPageSource pageSource = deletePageSourceProvider.openDeletes(deleteFile, deleteColumns, TupleDomain.all())) {
@@ -122,7 +123,7 @@ public final class EqualityDeleteFilter
                     }
 
                     for (int position = 0; position < page.getPositionCount(); position++) {
-                        TrinoRow row = new TrinoRow(types, page, position);
+                        TrinoRow row = new TrinoRow(session, types, page, position);
                         deletedRows.merge(wrapper.copyFor(row), sequenceNumber, (existing, newValue) -> {
                             if (existing.dataSequenceNumber() > newValue.dataSequenceNumber()) {
                                 return existing;
