@@ -11,23 +11,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.filesystem.s3;
+package io.trino.plugin.hive.metastore.glue;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.inject.Inject;
-import io.airlift.http.client.HttpClient;
-import io.trino.filesystem.s3.S3FileSystemModule.ForS3SecurityMapping;
-import io.trino.iam.aws.IAMSecurityMappingsUriSource;
+import io.trino.iam.aws.IAMSecurityMapping;
+import io.trino.iam.aws.IAMSecurityMappingProvider;
+import io.trino.iam.aws.IAMSecurityMappings;
 
 import java.util.function.Supplier;
 
-class S3SecurityMappingsUriSource
-        extends IAMSecurityMappingsUriSource<S3SecurityMappings, S3SecurityMapping, S3SecurityMappingConfig>
-        implements Supplier<S3SecurityMappings>
+public class GlueSecurityMappingProvider
+        extends IAMSecurityMappingProvider<IAMSecurityMappings<IAMSecurityMapping>, IAMSecurityMapping, GlueSecurityMappingConfig>
 {
     @Inject
-    public S3SecurityMappingsUriSource(S3SecurityMappingConfig config, @ForS3SecurityMapping HttpClient httpClient)
+    public GlueSecurityMappingProvider(
+            GlueSecurityMappingConfig config,
+            Supplier<IAMSecurityMappings<IAMSecurityMapping>> mappings)
     {
-        super(config, httpClient, new TypeReference<S3SecurityMappings>() {});
+        super(config, mappings);
     }
 }

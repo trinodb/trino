@@ -18,9 +18,13 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.trino.Session;
+import io.trino.plugin.hive.metastore.glue.GlueClientFactory;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastoreConfig;
 import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.spi.block.TestingSession;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -33,9 +37,9 @@ import software.amazon.awssdk.services.glue.model.TableInput;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
-import static io.trino.plugin.hive.metastore.glue.GlueMetastoreModule.createGlueClient;
 import static io.trino.plugin.hive.metastore.glue.TestingGlueHiveMetastore.createTestingGlueHiveMetastore;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
@@ -141,7 +145,13 @@ public class TestHiveGlueMetadataListing
     {
         GlueHiveMetastoreConfig glueConfig = new GlueHiveMetastoreConfig()
                 .setDefaultWarehouseDir(dataDirectory.toString());
-        try (GlueClient glueClient = createGlueClient(glueConfig, ImmutableSet.of())) {
+        GlueClientFactory glueClientFactory = new GlueClientFactory(
+                glueConfig,
+                Optional.empty(),
+                ImmutableSet.of());
+        ConnectorSession session = TestingSession.SESSION;
+        ConnectorIdentity identity = session.getIdentity();
+        try (GlueClient glueClient = glueClientFactory.create(identity)) {
             for (TableInput tableInput : tablesInput) {
                 CreateTableRequest createTableRequest = CreateTableRequest.builder()
                         .databaseName(tpchSchema)

@@ -11,21 +11,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.filesystem.s3;
+package io.trino.plugin.hive.metastore.glue;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.google.inject.Inject;
-import io.trino.iam.aws.IAMSecurityMappingsFileSource;
+import io.airlift.configuration.Config;
 
-import java.util.function.Supplier;
-
-class S3SecurityMappingsFileSource
-        extends IAMSecurityMappingsFileSource<S3SecurityMappings, S3SecurityMapping, S3SecurityMappingConfig>
-        implements Supplier<S3SecurityMappings>
+public class GlueSecurityMappingEnabledConfig
 {
-    @Inject
-    public S3SecurityMappingsFileSource(S3SecurityMappingConfig config)
+    private boolean enabled;
+
+    public boolean isEnabled()
     {
-        super(config, new TypeReference<S3SecurityMappings>() {});
+        return enabled;
+    }
+
+    @Config("hive.metastore.glue.security-mapping.enabled")
+    public GlueSecurityMappingEnabledConfig setEnabled(boolean enabled)
+    {
+        this.enabled = enabled;
+        return this;
     }
 }

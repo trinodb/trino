@@ -13,20 +13,29 @@
  */
 package io.trino.plugin.hive.metastore.glue;
 
-import com.google.common.collect.ImmutableList;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.google.common.base.VerifyException;
 import com.google.inject.Binder;
+import com.google.inject.BindingAnnotation;
 import com.google.inject.Inject;
 import com.google.inject.Key;
 import com.google.inject.Provider;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
+import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.Multibinder;
 import com.google.inject.multibindings.ProvidesIntoOptional;
+import com.google.inject.util.Providers;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.instrumentation.awssdk.v2_2.AwsSdkTelemetry;
+import io.trino.iam.aws.IAMSecurityMapping;
+import io.trino.iam.aws.IAMSecurityMappingProvider;
+import io.trino.iam.aws.IAMSecurityMappings;
+import io.trino.iam.aws.IAMSecurityMappingsFileSource;
+import io.trino.iam.aws.IAMSecurityMappingsUriSource;
 import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.metastore.RawHiveMetastoreFactory;
 import io.trino.metastore.cache.CachingHiveMetastoreConfig;
@@ -34,33 +43,27 @@ import io.trino.plugin.hive.AllowHiveTableRename;
 import io.trino.plugin.hive.HideDeltaLakeTables;
 import io.trino.spi.Node;
 import io.trino.spi.catalog.CatalogName;
-import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
-import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.interceptor.ExecutionInterceptor;
-import software.amazon.awssdk.http.apache.ApacheHttpClient;
-import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.regions.providers.DefaultAwsRegionProviderChain;
-import software.amazon.awssdk.retries.api.BackoffStrategy;
-import software.amazon.awssdk.services.glue.GlueClient;
-import software.amazon.awssdk.services.glue.GlueClientBuilder;
-import software.amazon.awssdk.services.glue.model.ConcurrentModificationException;
-import software.amazon.awssdk.services.sts.StsClient;
-import software.amazon.awssdk.services.sts.StsClientBuilder;
-import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
-import software.amazon.awssdk.services.sts.auth.StsWebIdentityTokenFileCredentialsProvider;
 
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
 import java.util.EnumSet;
-import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static com.google.inject.multibindings.ProvidesIntoOptional.Type.DEFAULT;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.trino.plugin.base.ClosingBinder.closingBinder;
+import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
+import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.ElementType.METHOD;
+import static java.lang.annotation.ElementType.PARAMETER;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public final class GlueMetastoreModule
@@ -71,10 +74,18 @@ public final class GlueMetastoreModule
     {
         configBinder(binder).bindConfig(GlueHiveMetastoreConfig.class);
 
+        if (buildConfigObject(GlueSecurityMappingEnabledConfig.class).isEnabled()) {
+            install(new GlueMetastoreModule.GlueSecurityMappingModule());
+        }
+        else {
+            newOptionalBinder(binder, new TypeLiteral<IAMSecurityMappingProvider<IAMSecurityMappings<IAMSecurityMapping>, IAMSecurityMapping, GlueSecurityMappingConfig>>() {})
+                    .setDefault()
+                    .toProvider(Providers.of(null));
+        }
+
         binder.bind(GlueHiveMetastoreFactory.class).in(Scopes.SINGLETON);
-        binder.bind(GlueHiveMetastore.class).in(Scopes.SINGLETON);
         binder.bind(GlueMetastoreStats.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(GlueHiveMetastore.class).withGeneratedName();
+        binder.bind(GlueClientFactory.class).in(Scopes.SINGLETON);
         newExporter(binder).export(GlueMetastoreStats.class).withGeneratedName();
         newOptionalBinder(binder, Key.get(HiveMetastoreFactory.class, RawHiveMetastoreFactory.class))
                 .setDefault()
@@ -86,8 +97,6 @@ public final class GlueMetastoreModule
         executionInterceptorMultibinder.addBinding().toProvider(TelemetryExecutionInterceptorProvider.class).in(Scopes.SINGLETON);
         executionInterceptorMultibinder.addBinding().to(GlueHiveExecutionInterceptor.class).in(Scopes.SINGLETON);
         executionInterceptorMultibinder.addBinding().to(GlueCatalogIdInterceptor.class).in(Scopes.SINGLETON);
-
-        closingBinder(binder).registerCloseable(GlueClient.class);
     }
 
     @Override
@@ -123,7 +132,7 @@ public final class GlueMetastoreModule
         // Note: while we could skip CachingHiveMetastoreModule altogether on workers, we retain it so that catalog
         // configuration can remain identical for all nodes, making cluster configuration easier.
         boolean enabled = currentNode.isCoordinator() &&
-                          (metadataCacheTtl.toMillis() > 0 || statsCacheTtl.toMillis() > 0);
+                (metadataCacheTtl.toMillis() > 0 || statsCacheTtl.toMillis() > 0);
 
         checkState(config.isPartitionCacheEnabled(), "Disabling partitions cache is not supported with Glue v2");
         checkState(config.isCacheMissing(), "Disabling cache missing is not supported with Glue v2");
@@ -140,91 +149,6 @@ public final class GlueMetastoreModule
                     config.getMetastoreCacheMaximumSize());
         }
         return GlueCache.NOOP;
-    }
-
-    @Provides
-    @Singleton
-    public static GlueClient createGlueClient(GlueHiveMetastoreConfig config, @ForGlueHiveMetastore Set<ExecutionInterceptor> executionInterceptors)
-    {
-        GlueClientBuilder glue = GlueClient.builder();
-
-        glue.overrideConfiguration(builder -> builder
-                .executionInterceptors(ImmutableList.copyOf(executionInterceptors))
-                .retryStrategy(retryBuilder -> retryBuilder
-                        .retryOnException(throwable -> throwable instanceof ConcurrentModificationException)
-                        .backoffStrategy(BackoffStrategy.exponentialDelay(
-                                java.time.Duration.ofMillis(20),
-                                java.time.Duration.ofMillis(1500)))
-                        .maxAttempts(config.getMaxGlueErrorRetries())));
-
-        Optional<StaticCredentialsProvider> staticCredentialsProvider = getStaticCredentialsProvider(config);
-
-        if (config.isUseWebIdentityTokenCredentialsProvider()) {
-            glue.credentialsProvider(StsWebIdentityTokenFileCredentialsProvider.builder()
-                    .stsClient(getStsClient(config, staticCredentialsProvider))
-                    .asyncCredentialUpdateEnabled(true)
-                    .build());
-        }
-        else if (config.getIamRole().isPresent()) {
-            glue.credentialsProvider(StsAssumeRoleCredentialsProvider.builder()
-                    .refreshRequest(request -> request
-                            .roleArn(config.getIamRole().get())
-                            .roleSessionName("trino-session")
-                            .externalId(config.getExternalId().orElse(null)))
-                    .stsClient(getStsClient(config, staticCredentialsProvider))
-                    .asyncCredentialUpdateEnabled(true)
-                    .build());
-        }
-        else {
-            staticCredentialsProvider.ifPresent(glue::credentialsProvider);
-        }
-
-        ApacheHttpClient.Builder httpClient = ApacheHttpClient.builder()
-                .maxConnections(config.getMaxGlueConnections());
-
-        if (config.getGlueEndpointUrl().isPresent()) {
-            checkArgument(config.getGlueRegion().isPresent(), "Glue region must be set when Glue endpoint URL is set");
-            glue.region(Region.of(config.getGlueRegion().get()));
-            glue.endpointOverride(config.getGlueEndpointUrl().get());
-        }
-        else if (config.getGlueRegion().isPresent()) {
-            glue.region(Region.of(config.getGlueRegion().get()));
-        }
-        else if (config.getPinGlueClientToCurrentRegion()) {
-            glue.region(DefaultAwsRegionProviderChain.builder().build().getRegion());
-        }
-
-        glue.httpClientBuilder(httpClient);
-
-        return glue.build();
-    }
-
-    private static Optional<StaticCredentialsProvider> getStaticCredentialsProvider(GlueHiveMetastoreConfig config)
-    {
-        if (config.getAwsAccessKey().isPresent() && config.getAwsSecretKey().isPresent()) {
-            return Optional.of(StaticCredentialsProvider.create(
-                    AwsBasicCredentials.create(config.getAwsAccessKey().get(), config.getAwsSecretKey().get())));
-        }
-        return Optional.empty();
-    }
-
-    private static StsClient getStsClient(GlueHiveMetastoreConfig config, Optional<StaticCredentialsProvider> staticCredentialsProvider)
-    {
-        StsClientBuilder sts = StsClient.builder();
-        staticCredentialsProvider.ifPresent(sts::credentialsProvider);
-
-        if (config.getGlueStsEndpointUrl().isPresent() && config.getGlueStsRegion().isPresent()) {
-            sts.endpointOverride(config.getGlueStsEndpointUrl().get())
-                    .region(Region.of(config.getGlueStsRegion().get()));
-        }
-        else if (config.getGlueStsRegion().isPresent()) {
-            sts.region(Region.of(config.getGlueStsRegion().get()));
-        }
-        else if (config.getPinGlueClientToCurrentRegion()) {
-            sts.region(DefaultAwsRegionProviderChain.builder().build().getRegion());
-        }
-
-        return sts.build();
     }
 
     private static class TelemetryExecutionInterceptorProvider
@@ -248,4 +172,45 @@ public final class GlueMetastoreModule
                     .newExecutionInterceptor();
         }
     }
+
+    public static class GlueSecurityMappingModule
+            extends AbstractConfigurationAwareModule
+    {
+        @Override
+        protected void setup(Binder binder)
+        {
+            GlueSecurityMappingConfig config = buildConfigObject(GlueSecurityMappingConfig.class);
+            newOptionalBinder(
+                    binder,
+                    new TypeLiteral<IAMSecurityMappingProvider<IAMSecurityMappings<IAMSecurityMapping>, IAMSecurityMapping, GlueSecurityMappingConfig>>() {})
+                    .setBinding()
+                    .to(GlueSecurityMappingProvider.class)
+                    .in(Scopes.SINGLETON);
+
+            var mappingsBinder = binder.bind(new Key<Supplier<IAMSecurityMappings<IAMSecurityMapping>>>()
+            {
+            });
+            if (config.getConfigFile().isPresent()) {
+                mappingsBinder.toInstance(new IAMSecurityMappingsFileSource<>(
+                        config, new TypeReference<>() {}));
+            }
+            else if (config.getConfigUri().isPresent()) {
+                mappingsBinder.to(new TypeLiteral<IAMSecurityMappingsUriSource<IAMSecurityMappings<IAMSecurityMapping>, IAMSecurityMapping, GlueSecurityMappingConfig>>() {}).in(SINGLETON);
+                httpClientBinder(binder).bindHttpClient("glue-security-mapping", GlueMetastoreModule.ForGlueSecurityMapping.class)
+                        .withConfigDefaults(httpConfig -> httpConfig
+                                .setRequestTimeout(new Duration(10, SECONDS))
+                                .setSelectorCount(1)
+                                .setMinThreads(1));
+            }
+            else {
+                throw new VerifyException("No security mapping source configured");
+            }
+        }
+    }
+
+    @Retention(RUNTIME)
+    @Target({FIELD, PARAMETER, METHOD})
+    @BindingAnnotation
+    public @interface ForGlueSecurityMapping
+    { }
 }
