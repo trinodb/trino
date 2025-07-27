@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>277</version>
+        <version>280</version>
     </parent>
 
     <groupId>io.trino</groupId>
@@ -181,23 +181,23 @@
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}</air.test.jvm.additional-arguments>
 
         <!-- keep dependency properties sorted -->
-        <dep.airlift.version>339</dep.airlift.version>
+        <dep.airlift.version>341</dep.airlift.version>
         <dep.alluxio.version>2.9.6</dep.alluxio.version>
         <dep.antlr.version>4.13.2</dep.antlr.version>
         <dep.avro.version>1.12.0</dep.avro.version>
-        <dep.aws-sdk.version>1.12.787</dep.aws-sdk.version>
+        <dep.aws-sdk.version>1.12.788</dep.aws-sdk.version>
         <dep.cassandra.version>4.17.0</dep.cassandra.version>
         <dep.confluent.version>7.8.0</dep.confluent.version>
         <dep.checkstyle.version>10.23.1</dep.checkstyle.version>
         <dep.docker.images.version>116</dep.docker.images.version>
         <dep.drift.version>1.23</dep.drift.version>
-        <dep.flyway.version>11.10.1</dep.flyway.version>
+        <dep.flyway.version>11.10.3</dep.flyway.version>
         <dep.frontend-maven-plugin.version>1.15.1</dep.frontend-maven-plugin.version>
         <dep.frontend-node.version>v22.14.0</dep.frontend-node.version>
         <dep.frontend-npm.version>11.2.0</dep.frontend-npm.version>
         <dep.gib.version>4.5.4</dep.gib.version>
         <dep.httpcore5.version>5.3.4</dep.httpcore5.version>
-        <dep.iceberg.version>1.9.1</dep.iceberg.version>
+        <dep.iceberg.version>1.9.2</dep.iceberg.version>
         <dep.jna.version>5.17.0</dep.jna.version>
         <dep.jsonwebtoken.version>0.12.6</dep.jsonwebtoken.version>
         <dep.jts.version>1.20.0</dep.jts.version>
@@ -207,7 +207,7 @@
         <dep.parquet.version>1.15.2</dep.parquet.version>
         <dep.plugin.failsafe.version>${dep.plugin.surefire.version}</dep.plugin.failsafe.version>
         <dep.protobuf.version>3.25.8</dep.protobuf.version>
-        <dep.snowflake.version>3.24.2</dep.snowflake.version>
+        <dep.snowflake.version>3.25.1</dep.snowflake.version>
         <dep.swagger.version>2.2.34</dep.swagger.version>
         <dep.takari.version>2.3.2</dep.takari.version>
         <dep.tcnative.version>2.0.72.Final</dep.tcnative.version>
@@ -236,7 +236,7 @@
             <dependency>
                 <groupId>com.google.cloud</groupId>
                 <artifactId>libraries-bom</artifactId>
-                <version>26.63.0</version>
+                <version>26.64.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -268,7 +268,7 @@
             <dependency>
                 <groupId>io.netty</groupId>
                 <artifactId>netty-bom</artifactId>
-                <version>4.2.2.Final</version>
+                <version>4.2.3.Final</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -290,14 +290,6 @@
             </dependency>
 
             <dependency>
-                <groupId>org.ow2.asm</groupId>
-                <artifactId>asm-bom</artifactId>
-                <version>${dep.asm.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-
-            <dependency>
                 <groupId>org.testcontainers</groupId>
                 <artifactId>testcontainers-bom</artifactId>
                 <version>1.21.3</version>
@@ -308,7 +300,7 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.31.77</version>
+                <version>2.32.3</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -447,7 +439,7 @@
             <dependency>
                 <groupId>com.github.ben-manes.caffeine</groupId>
                 <artifactId>caffeine</artifactId>
-                <version>3.2.1</version>
+                <version>3.2.2</version>
             </dependency>
 
             <dependency>
@@ -925,7 +917,7 @@
             <dependency>
                 <groupId>io.projectreactor</groupId>
                 <artifactId>reactor-core</artifactId>
-                <version>3.7.7</version>
+                <version>3.7.8</version>
             </dependency>
 
             <dependency>
@@ -1919,7 +1911,7 @@
             <dependency>
                 <groupId>org.apache.commons</groupId>
                 <artifactId>commons-lang3</artifactId>
-                <version>3.17.0</version>
+                <version>3.18.0</version>
             </dependency>
 
             <dependency>
@@ -2064,7 +2056,7 @@
             <dependency>
                 <groupId>org.apache.logging.log4j</groupId>
                 <artifactId>log4j-api</artifactId>
-                <version>2.25.0</version>
+                <version>2.25.1</version>
             </dependency>
 
             <dependency>
@@ -2229,6 +2221,12 @@
             </dependency>
 
             <dependency>
+                <groupId>org.bouncycastle</groupId>
+                <artifactId>bcprov-jdk18on</artifactId>
+                <version>1.81</version>
+            </dependency>
+
+            <dependency>
                 <groupId>org.checkerframework</groupId>
                 <artifactId>checker-qual</artifactId>
                 <version>3.49.5</version>
@@ -2361,12 +2359,6 @@
                 <groupId>org.sonatype.aether</groupId>
                 <artifactId>aether-api</artifactId>
                 <version>1.13.1</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.threeten</groupId>
-                <artifactId>threetenbp</artifactId>
-                <version>1.7.1</version>
             </dependency>
 
             <dependency>

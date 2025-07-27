@@ -54,15 +54,19 @@ class TestFileBasedConflictDetection
     private static final HadoopTables HADOOP_TABLES = new HadoopTables(new Configuration(false));
     private static final String COLUMN_1_NAME = "col1";
     private static final ColumnIdentity COLUMN_1_IDENTITY = new ColumnIdentity(1, COLUMN_1_NAME, PRIMITIVE, ImmutableList.of());
-    private static final IcebergColumnHandle COLUMN_1_HANDLE = new IcebergColumnHandle(COLUMN_1_IDENTITY, INTEGER, ImmutableList.of(), INTEGER, true, Optional.empty());
+    private static final IcebergColumnHandle COLUMN_1_HANDLE = IcebergColumnHandle.optional(COLUMN_1_IDENTITY).columnType(INTEGER).build();
     private static final String COLUMN_2_NAME = "part";
     private static final ColumnIdentity COLUMN_2_IDENTITY = new ColumnIdentity(2, COLUMN_2_NAME, PRIMITIVE, ImmutableList.of());
-    private static final IcebergColumnHandle COLUMN_2_HANDLE = new IcebergColumnHandle(COLUMN_2_IDENTITY, INTEGER, ImmutableList.of(), INTEGER, true, Optional.empty());
+    private static final IcebergColumnHandle COLUMN_2_HANDLE = IcebergColumnHandle.optional(COLUMN_2_IDENTITY).columnType(INTEGER).build();
     private static final String CHILD_COLUMN_NAME = "child";
     private static final ColumnIdentity CHILD_COLUMN_IDENTITY = new ColumnIdentity(4, CHILD_COLUMN_NAME, PRIMITIVE, ImmutableList.of());
     private static final String PARENT_COLUMN_NAME = "parent";
     private static final ColumnIdentity PARENT_COLUMN_IDENTITY = new ColumnIdentity(3, PARENT_COLUMN_NAME, STRUCT, ImmutableList.of(CHILD_COLUMN_IDENTITY));
-    private static final IcebergColumnHandle CHILD_COLUMN_HANDLE = new IcebergColumnHandle(PARENT_COLUMN_IDENTITY, RowType.rowType(new RowType.Field(Optional.of(CHILD_COLUMN_NAME), INTEGER)), ImmutableList.of(CHILD_COLUMN_IDENTITY.getId()), INTEGER, true, Optional.empty());
+    private static final IcebergColumnHandle CHILD_COLUMN_HANDLE = IcebergColumnHandle.optional(PARENT_COLUMN_IDENTITY)
+            .fieldType(RowType.rowType(new RowType.Field(Optional.of(CHILD_COLUMN_NAME), INTEGER)), INTEGER)
+            .path(CHILD_COLUMN_IDENTITY.getId())
+            .build();
+
     private static final Schema TABLE_SCHEMA = new Schema(
             optional(COLUMN_1_IDENTITY.getId(), COLUMN_1_NAME, Types.IntegerType.get()),
             optional(COLUMN_2_IDENTITY.getId(), COLUMN_2_NAME, Types.IntegerType.get()),

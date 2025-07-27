@@ -23,13 +23,11 @@ import io.trino.spi.TrinoWarning;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
 import io.trino.spi.eventlistener.QueryContext;
-import io.trino.spi.eventlistener.QueryCreatedEvent;
 import io.trino.spi.eventlistener.QueryFailureInfo;
 import io.trino.spi.eventlistener.QueryInputMetadata;
 import io.trino.spi.eventlistener.QueryMetadata;
 import io.trino.spi.eventlistener.QueryOutputMetadata;
 import io.trino.spi.eventlistener.QueryStatistics;
-import io.trino.spi.eventlistener.SplitCompletedEvent;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import jakarta.annotation.PostConstruct;
@@ -81,9 +79,6 @@ public class MysqlEventListener
     {
         dao.createTable();
     }
-
-    @Override
-    public void queryCreated(QueryCreatedEvent event) {}
 
     @Override
     public void queryCompleted(QueryCompletedEvent event)
@@ -177,7 +172,4 @@ public class MysqlEventListener
         }
         return Optional.of(result);
     }
-
-    @Override
-    public void splitCompleted(SplitCompletedEvent event) {}
 }

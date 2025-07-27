@@ -336,6 +336,12 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanRefreshView(SystemSecurityContext context, CatalogSchemaTableName viewName)
+    {
+        delegate().checkCanRefreshView(context, viewName);
+    }
+
+    @Override
     public void checkCanDropView(SystemSecurityContext context, CatalogSchemaTableName view)
     {
         delegate().checkCanDropView(context, view);

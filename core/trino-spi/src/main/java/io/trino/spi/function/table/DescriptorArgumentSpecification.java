@@ -13,11 +13,8 @@
  */
 package io.trino.spi.function.table;
 
-import io.trino.spi.Experimental;
-
 import static io.trino.spi.function.table.Preconditions.checkArgument;
 
-@Experimental(eta = "2022-10-31")
 public class DescriptorArgumentSpecification
         extends ArgumentSpecification
 {

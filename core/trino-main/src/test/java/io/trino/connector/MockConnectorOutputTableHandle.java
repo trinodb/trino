@@ -13,48 +13,16 @@
  */
 package io.trino.connector;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.SchemaTableName;
 
-import java.util.Objects;
-
 import static java.util.Objects.requireNonNull;
 
-public class MockConnectorOutputTableHandle
+public record MockConnectorOutputTableHandle(SchemaTableName tableName)
         implements ConnectorOutputTableHandle
 {
-    private final SchemaTableName tableName;
-
-    @JsonCreator
-    public MockConnectorOutputTableHandle(@JsonProperty("tableHandle") SchemaTableName tableName)
+    public MockConnectorOutputTableHandle
     {
-        this.tableName = requireNonNull(tableName, "tableName is null");
-    }
-
-    @JsonProperty
-    public SchemaTableName getTableName()
-    {
-        return tableName;
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        MockConnectorOutputTableHandle other = (MockConnectorOutputTableHandle) o;
-        return Objects.equals(tableName, other.tableName);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(tableName);
+        requireNonNull(tableName, "tableName is null");
     }
 }

@@ -42,9 +42,11 @@ public final class JdbcClientStats
     private final JdbcApiStats finishMergeTable = new JdbcApiStats();
     private final JdbcApiStats getColumns = new JdbcApiStats();
     private final JdbcApiStats getAllTableComments = new JdbcApiStats();
+    private final JdbcApiStats getConnection = new JdbcApiStats();
     private final JdbcApiStats getConnectionWithHandle = new JdbcApiStats();
     private final JdbcApiStats getConnectionWithSplit = new JdbcApiStats();
     private final JdbcApiStats getConnectionWithProcedure = new JdbcApiStats();
+    private final JdbcApiStats execute = new JdbcApiStats();
     private final JdbcApiStats getPreparedStatement = new JdbcApiStats();
     private final JdbcApiStats getSchemaNames = new JdbcApiStats();
     private final JdbcApiStats getSplits = new JdbcApiStats();
@@ -243,6 +245,13 @@ public final class JdbcClientStats
 
     @Managed
     @Nested
+    public JdbcApiStats getGetConnection()
+    {
+        return getConnection;
+    }
+
+    @Managed
+    @Nested
     public JdbcApiStats getGetConnectionWithHandle()
     {
         return getConnectionWithHandle;
@@ -260,6 +269,13 @@ public final class JdbcClientStats
     public JdbcApiStats getGetConnectionWithProcedure()
     {
         return getConnectionWithProcedure;
+    }
+
+    @Managed
+    @Nested
+    public JdbcApiStats getExecute()
+    {
+        return execute;
     }
 
     @Managed

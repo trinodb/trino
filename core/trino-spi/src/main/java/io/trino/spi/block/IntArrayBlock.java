@@ -13,7 +13,6 @@
  */
 package io.trino.spi.block;
 
-import io.trino.spi.Experimental;
 import jakarta.annotation.Nullable;
 
 import java.util.Optional;
@@ -231,13 +230,11 @@ public final class IntArrayBlock
         return valueIsNull;
     }
 
-    @Experimental(eta = "2023-12-31")
     public int[] getRawValues()
     {
         return values;
     }
 
-    @Experimental(eta = "2023-12-31")
     public int getRawValuesOffset()
     {
         return arrayOffset;

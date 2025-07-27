@@ -674,16 +674,16 @@ public class TestResourceSecurity
                     uriBuilderFrom(baseUri)
                             .replacePath("/oauth2/callback/")
                             .addParameter("code", "TEST_CODE")
-                            .addParameter("state", bearer.getState())
+                            .addParameter("state", bearer.state())
                             .toString());
             if (refreshTokensEnabled) {
                 TokenPairSerializer serializer = server.getInstance(Key.get(TokenPairSerializer.class));
-                TokenPair tokenPair = serializer.deserialize(getOauthToken(client, bearer.getTokenServer()));
+                TokenPair tokenPair = serializer.deserialize(getOauthToken(client, bearer.tokenServer()));
                 assertThat(tokenPair.accessToken()).isEqualTo(tokenServer.getAccessToken());
                 assertThat(tokenPair.refreshToken()).isEqualTo(Optional.of(tokenServer.getRefreshToken()));
             }
             else {
-                assertThat(getOauthToken(client, bearer.getTokenServer())).isEqualTo(tokenServer.getAccessToken());
+                assertThat(getOauthToken(client, bearer.tokenServer())).isEqualTo(tokenServer.getAccessToken());
             }
 
             // if Web UI is using oauth so we should get a cookie
@@ -696,7 +696,7 @@ public class TestResourceSecurity
                 assertThat(cookie.isHttpOnly()).isTrue();
 
                 HttpCookie idTokenCookie = getCookie(cookieManager, ID_TOKEN_COOKIE);
-                assertThat(idTokenCookie.getValue()).isEqualTo(tokenServer.issueIdToken(Optional.of(hashNonce(bearer.getNonceCookie().getValue()))));
+                assertThat(idTokenCookie.getValue()).isEqualTo(tokenServer.issueIdToken(Optional.of(hashNonce(bearer.nonceCookie().getValue()))));
                 assertThat(idTokenCookie.getPath()).isEqualTo("/ui/");
                 assertThat(idTokenCookie.getDomain()).isEqualTo(baseUri.getHost());
                 assertThat(idTokenCookie.getMaxAge() > 0 && cookie.getMaxAge() < MINUTES.toSeconds(5)).isTrue();
@@ -713,7 +713,7 @@ public class TestResourceSecurity
 
             OkHttpClient clientWithOAuthToken = client.newBuilder()
                     .authenticator((route, response) -> response.request().newBuilder()
-                            .header(AUTHORIZATION, "Bearer " + getOauthToken(client, bearer.getTokenServer()))
+                            .header(AUTHORIZATION, "Bearer " + getOauthToken(client, bearer.tokenServer()))
                             .build())
                     .build();
             assertAuthenticationAutomatic(httpServerInfo.getHttpsUri(), clientWithOAuthToken);
@@ -733,7 +733,7 @@ public class TestResourceSecurity
                 .url(uriBuilderFrom(baseUri)
                         .replacePath("/oauth2/callback/")
                         .addParameter("error", maliciousErrorCode)
-                        .addParameter("state", bearer.getState())
+                        .addParameter("state", bearer.state())
                         .toString())
                 .build();
         try (Response response = client.newCall(request).execute()) {
@@ -785,32 +785,13 @@ public class TestResourceSecurity
         }
     }
 
-    private static class OAuthBearer
+    private record OAuthBearer(String state, String tokenServer, HttpCookie nonceCookie)
     {
-        private final String state;
-        private final String tokenServer;
-        private final HttpCookie nonceCookie;
-
-        public OAuthBearer(String state, String tokenServer, HttpCookie nonceCookie)
+        private OAuthBearer
         {
-            this.state = requireNonNull(state, "state is null");
-            this.tokenServer = requireNonNull(tokenServer, "tokenServer is null");
-            this.nonceCookie = requireNonNull(nonceCookie, "nonce is null");
-        }
-
-        public String getState()
-        {
-            return state;
-        }
-
-        public String getTokenServer()
-        {
-            return tokenServer;
-        }
-
-        public HttpCookie getNonceCookie()
-        {
-            return nonceCookie;
+            requireNonNull(state, "state is null");
+            requireNonNull(tokenServer, "tokenServer is null");
+            requireNonNull(nonceCookie, "nonce is null");
         }
     }
 

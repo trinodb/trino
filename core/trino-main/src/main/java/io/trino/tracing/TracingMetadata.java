@@ -931,6 +931,15 @@ public class TracingMetadata
     }
 
     @Override
+    public void refreshView(Session session, QualifiedObjectName viewName, ViewDefinition viewDefinition)
+    {
+        Span span = startSpan("refreshView", viewName);
+        try (var _ = scopedSpan(span)) {
+            delegate.refreshView(session, viewName, viewDefinition);
+        }
+    }
+
+    @Override
     public void dropView(Session session, QualifiedObjectName viewName)
     {
         Span span = startSpan("dropView", viewName);

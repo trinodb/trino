@@ -59,6 +59,7 @@ import io.trino.spi.type.VarcharType;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
@@ -216,11 +217,13 @@ public class SingleStoreClient
     @Override
     public Collection<String> listSchemas(Connection connection)
     {
-        // for SingleStore, we need to list catalogs instead of schemas
-        try (ResultSet resultSet = connection.getMetaData().getCatalogs()) {
+        // Avoid using DatabaseMetaData.getCatalogs method because
+        // https://github.com/memsql/S2-JDBC-Connector/pull/9 causes the driver to return only the databases in the current workspace
+        try (PreparedStatement statement = connection.prepareStatement("SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA");
+                ResultSet resultSet = statement.executeQuery()) {
             ImmutableSet.Builder<String> schemaNames = ImmutableSet.builder();
             while (resultSet.next()) {
-                String schemaName = resultSet.getString("TABLE_CAT");
+                String schemaName = resultSet.getString("SCHEMA_NAME");
                 // skip internal schemas
                 if (filterSchema(schemaName)) {
                     schemaNames.add(schemaName);

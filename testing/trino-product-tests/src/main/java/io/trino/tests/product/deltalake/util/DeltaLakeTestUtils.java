@@ -13,10 +13,6 @@
  */
 package io.trino.tests.product.deltalake.util;
 
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.model.DeleteObjectsRequest;
-import com.amazonaws.services.s3.model.ObjectListing;
-import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.google.common.base.Throwables;
 import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
@@ -24,6 +20,9 @@ import io.airlift.log.Logger;
 import io.trino.tempto.query.QueryResult;
 import org.intellij.lang.annotations.Language;
 import software.amazon.awssdk.services.glue.model.ConcurrentModificationException;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
+import software.amazon.awssdk.services.s3.model.S3Object;
 
 import java.sql.SQLException;
 import java.time.temporal.ChronoUnit;
@@ -32,7 +31,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.onlyElement;
@@ -144,16 +142,12 @@ public final class DeltaLakeTestUtils
                 .get(() -> onDelta().executeQuery("DROP TABLE IF EXISTS " + tableName));
     }
 
-    public static void removeS3Directory(AmazonS3 s3, String bucketName, String directoryPrefix)
+    public static void removeS3Directory(S3Client s3, String bucketName, String directoryPrefix)
     {
-        ObjectListing listing = s3.listObjects(bucketName, directoryPrefix);
-        do {
-            List<String> objectKeys = listing.getObjectSummaries().stream().map(S3ObjectSummary::getKey).collect(toImmutableList());
-            DeleteObjectsRequest deleteObjectsRequest = new DeleteObjectsRequest(bucketName).withKeys(objectKeys.toArray(new String[0]));
-            log.info("Deleting keys: %s", objectKeys);
-            s3.deleteObjects(deleteObjectsRequest);
-            listing = s3.listNextBatchOfObjects(listing);
-        }
-        while (listing.isTruncated());
+        List<String> objectKeys = s3.listObjectsV2Paginator(request -> request.bucket(bucketName).prefix(directoryPrefix))
+                .contents().stream().map(S3Object::key).toList();
+        log.info("Deleting keys: %s", objectKeys);
+        List<ObjectIdentifier> objects = objectKeys.stream().map(key -> ObjectIdentifier.builder().key(key).build()).toList();
+        s3.deleteObjects(request -> request.bucket(bucketName).delete(delete -> delete.objects(objects)));
     }
 }

@@ -50,7 +50,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
-import java.util.OptionalInt;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -526,40 +525,15 @@ public class PagesIndex
             HashArraySizeSupplier hashArraySizeSupplier)
     {
         List<ObjectArrayList<Block>> channels = ImmutableList.copyOf(this.channels);
-        if (!joinChannels.isEmpty()) {
-            // todo compiled implementation of lookup join does not support when we are joining with empty join channels.
-            // This code path will trigger only for OUTER joins. To fix that we need to add support for
-            //        OUTER joins into NestedLoopsJoin and remove "type == INNER" condition in LocalExecutionPlanner.visitJoin()
-
-            LookupSourceSupplierFactory lookupSourceFactory = joinCompiler.compileLookupSourceFactory(types, joinChannels, sortChannel, outputChannels);
-            return lookupSourceFactory.createLookupSourceSupplier(
-                    session,
-                    valueAddresses,
-                    channels,
-                    filterFunctionFactory,
-                    sortChannel,
-                    searchFunctionFactories,
-                    hashArraySizeSupplier);
-        }
-
-        PagesHashStrategy hashStrategy = new SimplePagesHashStrategy(
-                types,
-                outputChannels.orElseGet(() -> rangeList(types.size())),
-                channels,
-                joinChannels,
-                sortChannel,
-                blockTypeOperators);
-
-        return new JoinHashSupplier(
+        LookupSourceSupplierFactory lookupSourceFactory = joinCompiler.compileLookupSourceFactory(types, joinChannels, sortChannel, outputChannels);
+        return lookupSourceFactory.createLookupSourceSupplier(
                 session,
-                hashStrategy,
                 valueAddresses,
                 channels,
                 filterFunctionFactory,
                 sortChannel,
                 searchFunctionFactories,
-                hashArraySizeSupplier,
-                OptionalInt.empty());
+                hashArraySizeSupplier);
     }
 
     private static List<Integer> rangeList(int endExclusive)

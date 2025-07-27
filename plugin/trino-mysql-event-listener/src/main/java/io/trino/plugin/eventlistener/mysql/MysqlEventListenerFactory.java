@@ -113,6 +113,7 @@ public class MysqlEventListenerFactory
         {
             this.dao = jdbi
                     .installPlugin(new SqlObjectPlugin())
+                    .registerRowMapper(new RecordAndAnnotatedConstructorMapper())
                     .onDemand(QueryDao.class);
         }
 

@@ -81,6 +81,7 @@ import static io.trino.spi.security.AccessDeniedException.denyGrantSchemaPrivile
 import static io.trino.spi.security.AccessDeniedException.denyGrantTablePrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyInsertTable;
 import static io.trino.spi.security.AccessDeniedException.denyRefreshMaterializedView;
+import static io.trino.spi.security.AccessDeniedException.denyRefreshView;
 import static io.trino.spi.security.AccessDeniedException.denyRenameColumn;
 import static io.trino.spi.security.AccessDeniedException.denyRenameMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyRenameSchema;
@@ -446,6 +447,15 @@ public class FileBasedAccessControl
         // check if user owns the existing view, and if they will be an owner of the view after the rename
         if (!checkTablePermission(context, viewName, OWNERSHIP) || !checkTablePermission(context, newViewName, OWNERSHIP)) {
             denyRenameView(viewName.toString(), newViewName.toString());
+        }
+    }
+
+    @Override
+    public void checkCanRefreshView(ConnectorSecurityContext context, SchemaTableName viewName)
+    {
+        // check if user owns the existing view for refreshing the view
+        if (!checkTablePermission(context, viewName, OWNERSHIP)) {
+            denyRefreshView(viewName.toString());
         }
     }
 
