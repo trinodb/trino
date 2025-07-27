@@ -11,7 +11,29 @@ import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.plugin.base.mapping.IdentifierMapping;
-import io.trino.plugin.jdbc.*;
+import io.trino.plugin.jdbc.BaseJdbcClient;
+import io.trino.plugin.jdbc.BaseJdbcConfig;
+import io.trino.plugin.jdbc.CaseSensitivity;
+import io.trino.plugin.jdbc.ColumnMapping;
+import io.trino.plugin.jdbc.ConnectionFactory;
+import io.trino.plugin.jdbc.JdbcColumnHandle;
+import io.trino.plugin.jdbc.JdbcExpression;
+import io.trino.plugin.jdbc.JdbcJoinCondition;
+import io.trino.plugin.jdbc.JdbcMetadata;
+import io.trino.plugin.jdbc.JdbcOutputTableHandle;
+import io.trino.plugin.jdbc.JdbcSortItem;
+import io.trino.plugin.jdbc.JdbcStatisticsConfig;
+import io.trino.plugin.jdbc.JdbcTableHandle;
+import io.trino.plugin.jdbc.JdbcTypeHandle;
+import io.trino.plugin.jdbc.LongReadFunction;
+import io.trino.plugin.jdbc.LongWriteFunction;
+import io.trino.plugin.jdbc.ObjectReadFunction;
+import io.trino.plugin.jdbc.ObjectWriteFunction;
+import io.trino.plugin.jdbc.PredicatePushdownController;
+import io.trino.plugin.jdbc.PreparedQuery;
+import io.trino.plugin.jdbc.QueryBuilder;
+import io.trino.plugin.jdbc.RemoteTableName;
+import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.aggregation.ImplementAvgDecimal;
 import io.trino.plugin.jdbc.aggregation.ImplementAvgFloatingPoint;
 import io.trino.plugin.jdbc.aggregation.ImplementCorr;
@@ -37,7 +59,15 @@ import io.trino.plugin.jdbc.expression.RewriteLikeEscapeWithCaseSensitivity;
 import io.trino.plugin.jdbc.expression.RewriteLikeWithCaseSensitivity;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.*;
+import io.trino.spi.connector.AggregateFunction;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnPosition;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.JoinCondition;
+import io.trino.spi.connector.JoinStatistics;
+import io.trino.spi.connector.JoinType;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.ValueSet;
@@ -207,7 +237,6 @@ public class TeradataClient
         }
         return FULL_PUSHDOWN.apply(session, simplifiedDomain);
     };
-    private static final long DEFAULT_FALLBACK_NDV = 100_000L;
     private static final long MAX_FALLBACK_NDV = 1_000_000L; // max fallback NDV cap
     private static final double DEFAULT_FALLBACK_FRACTION = 0.1; // fallback = 10% of row count
     private final TeradataConfig.TeradataCaseSensitivity teradataJDBCCaseSensitivity;
@@ -570,7 +599,6 @@ public class TeradataClient
 
         try (Connection connection = connectionFactory.openConnection(session);
                 Handle handle = Jdbi.open(connection)) {
-
             TeradataStatisticsDao dao = new TeradataStatisticsDao(handle);
             long rowCount = dao.estimateRowCount(table);
 
@@ -647,7 +675,6 @@ public class TeradataClient
             List<ParameterizedExpression> joinConditions,
             JoinStatistics statistics)
     {
-
         return implementJoinCostAware(
                 session,
                 joinType,
@@ -738,7 +765,6 @@ public class TeradataClient
             throw new TrinoException(JDBC_ERROR, e);
         }
     }
-
 
     @Override
     protected void verifySchemaName(DatabaseMetaData databaseMetadata, String schemaName)
@@ -916,8 +942,7 @@ public class TeradataClient
                         .add(new ImplementCorr())
                         .add(new ImplementRegrIntercept())
                         .add(new ImplementRegrSlope())
-                        .build()
-        );
+                        .build());
     }
 
     /**
@@ -1014,7 +1039,7 @@ public class TeradataClient
         }
 
         // switch by names as some types overlap other types going by jdbc type alone
-        String jdbcTypeName = typeHandle.jdbcTypeName().orElseThrow(() -> new TrinoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
+        String jdbcTypeName = typeHandle.jdbcTypeName().orElse("VARCHAR");
         switch (jdbcTypeName.toUpperCase()) {
             case "TIMESTAMP WITH TIME ZONE":
                 // TODO review correctness
@@ -1226,7 +1251,6 @@ public class TeradataClient
 
             try (Statement stmt = connection.createStatement();
                     ResultSet rs = stmt.executeQuery(sql)) {
-
                 if (rs.next()) {
                     long estimated = rs.getLong("estimated_count");
                     return OptionalLong.of(estimated);
