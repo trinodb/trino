@@ -81,6 +81,7 @@ import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
@@ -480,11 +481,11 @@ public class ExasolClient
             }
 
             @Override
-            public void set(PreparedStatement statement, int index, long epochMicros)
+            public void set(PreparedStatement statement, int index, long dateTimeWithTimeZone)
                     throws SQLException
             {
-                LocalDateTime localDateTime = fromTrinoTimestamp(epochMicros);
-                Timestamp timestampValue = Timestamp.valueOf(localDateTime);
+                long epochMillis = unpackMillisUtc(dateTimeWithTimeZone);
+                Timestamp timestampValue = Timestamp.from(Instant.ofEpochMilli(epochMillis));
                 statement.setObject(index, timestampValue);
             }
 
