@@ -85,6 +85,7 @@ import static io.trino.spi.security.AccessDeniedException.denyGrantRoles;
 import static io.trino.spi.security.AccessDeniedException.denyGrantTablePrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyInsertTable;
 import static io.trino.spi.security.AccessDeniedException.denyRefreshMaterializedView;
+import static io.trino.spi.security.AccessDeniedException.denyRefreshView;
 import static io.trino.spi.security.AccessDeniedException.denyRenameColumn;
 import static io.trino.spi.security.AccessDeniedException.denyRenameMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyRenameSchema;
@@ -235,6 +236,14 @@ public class SqlStandardAccessControl
     {
         if (!isTableOwner(context, viewName)) {
             denyCommentView(viewName.toString());
+        }
+    }
+
+    @Override
+    public void checkCanRefreshView(ConnectorSecurityContext context, SchemaTableName viewName)
+    {
+        if (!checkTablePermission(context, viewName, UPDATE, false)) {
+            denyRefreshView(viewName.toString());
         }
     }
 
@@ -636,6 +645,30 @@ public class SqlStandardAccessControl
         if (!isDatabaseOwner(context, function.getSchemaName())) {
             denyShowCreateFunction(function.toString());
         }
+    }
+
+    @Override
+    public void checkCanShowBranches(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support branches");
+    }
+
+    @Override
+    public void checkCanCreateBranch(ConnectorSecurityContext context, SchemaTableName tableName, String branchName)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support branches");
+    }
+
+    @Override
+    public void checkCanDropBranch(ConnectorSecurityContext context, SchemaTableName tableName, String branchName)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support branches");
+    }
+
+    @Override
+    public void checkCanFastForwardBranch(ConnectorSecurityContext context, SchemaTableName tableName, String sourceBranchName, String targetBranchName)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support branches");
     }
 
     @Override

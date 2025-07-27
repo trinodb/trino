@@ -13,14 +13,15 @@
  */
 package io.trino.tests.product.deltalake;
 
-import com.amazonaws.services.s3.AmazonS3;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
+import io.trino.tempto.AfterMethodWithContext;
 import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.assertions.QueryAssert.Row;
 import io.trino.tempto.query.QueryExecutor;
 import org.testng.annotations.Test;
+import software.amazon.awssdk.services.s3.S3Client;
 
 import java.util.List;
 
@@ -28,6 +29,7 @@ import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.product.deltalake.S3ClientFactory.createS3Client;
 import static io.trino.tests.product.deltalake.TransactionLogAssertions.assertLastEntryIsCheckpointed;
 import static io.trino.tests.product.deltalake.TransactionLogAssertions.assertTransactionLogVersion;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
@@ -42,13 +44,20 @@ public class TestDeltaLakeCreateOrReplaceTableAsSelectCompatibility
     @Named("s3.server_type")
     private String s3ServerType;
 
-    private AmazonS3 s3;
+    private S3Client s3;
 
     @BeforeMethodWithContext
     public void setup()
     {
         super.setUp();
-        s3 = new S3ClientFactory().createS3Client(s3ServerType);
+        s3 = createS3Client(s3ServerType);
+    }
+
+    @AfterMethodWithContext
+    public void cleanUp()
+    {
+        s3.close();
+        s3 = null;
     }
 
     @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})

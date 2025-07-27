@@ -19,6 +19,7 @@ import com.google.common.net.HostAndPort;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
+import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
@@ -163,7 +164,7 @@ public class S3FileSystemConfig
     private Duration connectionTtl;
     private Duration connectionMaxIdleTime;
     private Duration socketConnectTimeout;
-    private Duration socketReadTimeout;
+    private Duration socketTimeout;
     private boolean tcpKeepAlive;
     private HostAndPort httpProxy;
     private boolean httpProxySecure;
@@ -511,16 +512,17 @@ public class S3FileSystemConfig
         return this;
     }
 
-    public Optional<Duration> getSocketReadTimeout()
+    public Optional<Duration> getSocketTimeout()
     {
-        return Optional.ofNullable(socketReadTimeout);
+        return Optional.ofNullable(socketTimeout);
     }
 
-    @Config("s3.socket-read-timeout")
-    @ConfigDescription("Maximum time allowed for socket reads before timing out")
-    public S3FileSystemConfig setSocketReadTimeout(Duration socketReadTimeout)
+    @LegacyConfig("s3.socket-read-timeout")
+    @Config("s3.socket-timeout")
+    @ConfigDescription("Maximum time allowed for socket reads/writes before timing out")
+    public S3FileSystemConfig setSocketTimeout(Duration socketTimeout)
     {
-        this.socketReadTimeout = socketReadTimeout;
+        this.socketTimeout = socketTimeout;
         return this;
     }
 

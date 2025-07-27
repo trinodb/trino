@@ -10,6 +10,7 @@
 
     <artifactId>trino-vertica</artifactId>
     <packaging>trino-plugin</packaging>
+    <name>${project.artifactId}</name>
     <description>Trino - Vertica Connector</description>
 
     <dependencies>
@@ -43,12 +44,13 @@
         <dependency>
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>
+            <classifier>classes</classifier>
         </dependency>
 
         <dependency>
             <groupId>com.vertica.jdbc</groupId>
             <artifactId>vertica-jdbc</artifactId>
-            <version>24.4.0-0</version>
+            <version>25.3.0-0</version>
         </dependency>
 
         <dependency>

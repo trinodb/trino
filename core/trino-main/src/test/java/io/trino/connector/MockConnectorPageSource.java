@@ -13,7 +13,6 @@
  */
 package io.trino.connector;
 
-import io.trino.spi.Page;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.metrics.Metrics;
@@ -58,13 +57,6 @@ public class MockConnectorPageSource
     public boolean isFinished()
     {
         return delegate.isFinished();
-    }
-
-    @Override
-    @SuppressWarnings("removal")
-    public Page getNextPage()
-    {
-        return delegate.getNextPage();
     }
 
     @Override

@@ -120,7 +120,7 @@ public class TestLimitMaxWriterNodesCount
                 })
                 .withGetLayoutForTableExecute((session, tableHandle) -> {
                     MockConnector.MockConnectorTableExecuteHandle tableExecuteHandle = (MockConnector.MockConnectorTableExecuteHandle) tableHandle;
-                    if (tableExecuteHandle.getSchemaTableName().getTableName().equals(partitionedTable)) {
+                    if (tableExecuteHandle.schemaTableName().getTableName().equals(partitionedTable)) {
                         return Optional.of(new ConnectorTableLayout(ImmutableList.of("column_a")));
                     }
                     return Optional.empty();

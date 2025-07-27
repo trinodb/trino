@@ -291,6 +291,12 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
+    public void checkCanRefreshView(SecurityContext context, QualifiedObjectName viewName)
+    {
+        delegate().checkCanRefreshView(context, viewName);
+    }
+
+    @Override
     public void checkCanDropView(SecurityContext context, QualifiedObjectName viewName)
     {
         delegate().checkCanDropView(context, viewName);
@@ -504,6 +510,30 @@ public abstract class ForwardingAccessControl
     public void checkCanShowCreateFunction(SecurityContext context, QualifiedObjectName functionName)
     {
         delegate().checkCanShowCreateFunction(context, functionName);
+    }
+
+    @Override
+    public void checkCanShowBranches(SecurityContext context, QualifiedObjectName tableName)
+    {
+        delegate().checkCanShowBranches(context, tableName);
+    }
+
+    @Override
+    public void checkCanCreateBranch(SecurityContext context, QualifiedObjectName tableName, String branchName)
+    {
+        delegate().checkCanCreateBranch(context, tableName, branchName);
+    }
+
+    @Override
+    public void checkCanDropBranch(SecurityContext context, QualifiedObjectName tableName, String branchName)
+    {
+        delegate().checkCanDropBranch(context, tableName, branchName);
+    }
+
+    @Override
+    public void checkCanFastForwardBranch(SecurityContext context, QualifiedObjectName tableName, String sourceBranchName, String targetBranchName)
+    {
+        delegate().checkCanFastForwardBranch(context, tableName, sourceBranchName, targetBranchName);
     }
 
     @Override

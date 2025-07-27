@@ -242,25 +242,17 @@ public class TestIcebergSplitSource
         IcebergSplit split = generateSplit(nationTable, tableHandle, DynamicFilter.EMPTY);
         assertThat(split.getFileStatisticsDomain()).isEqualTo(TupleDomain.all());
 
-        IcebergColumnHandle nationKey = new IcebergColumnHandle(
-                new ColumnIdentity(1, "nationkey", ColumnIdentity.TypeCategory.PRIMITIVE, ImmutableList.of()),
-                BIGINT,
-                ImmutableList.of(),
-                BIGINT,
-                true,
-                Optional.empty());
+        IcebergColumnHandle nationKey = IcebergColumnHandle.optional(new ColumnIdentity(1, "nationkey", ColumnIdentity.TypeCategory.PRIMITIVE, ImmutableList.of()))
+                .columnType(BIGINT)
+                .build();
         tableHandle = createTableHandle(schemaTableName, nationTable, TupleDomain.fromFixedValues(ImmutableMap.of(nationKey, NullableValue.of(BIGINT, 1L))));
         split = generateSplit(nationTable, tableHandle, DynamicFilter.EMPTY);
         assertThat(split.getFileStatisticsDomain()).isEqualTo(TupleDomain.withColumnDomains(
                 ImmutableMap.of(nationKey, Domain.create(ValueSet.ofRanges(Range.range(BIGINT, 0L, true, 24L, true)), false))));
 
-        IcebergColumnHandle regionKey = new IcebergColumnHandle(
-                new ColumnIdentity(3, "regionkey", ColumnIdentity.TypeCategory.PRIMITIVE, ImmutableList.of()),
-                BIGINT,
-                ImmutableList.of(),
-                BIGINT,
-                true,
-                Optional.empty());
+        IcebergColumnHandle regionKey = IcebergColumnHandle.optional(new ColumnIdentity(3, "regionkey", ColumnIdentity.TypeCategory.PRIMITIVE, ImmutableList.of()))
+                .columnType(BIGINT)
+                .build();
         split = generateSplit(nationTable, tableHandle, new DynamicFilter()
         {
             @Override
@@ -302,13 +294,9 @@ public class TestIcebergSplitSource
     @Test
     public void testBigintPartitionPruning()
     {
-        IcebergColumnHandle bigintColumn = new IcebergColumnHandle(
-                new ColumnIdentity(1, "name", ColumnIdentity.TypeCategory.PRIMITIVE, ImmutableList.of()),
-                BIGINT,
-                ImmutableList.of(),
-                BIGINT,
-                true,
-                Optional.empty());
+        IcebergColumnHandle bigintColumn = IcebergColumnHandle.optional(new ColumnIdentity(1, "name", ColumnIdentity.TypeCategory.PRIMITIVE, ImmutableList.of()))
+                .columnType(BIGINT)
+                .build();
         assertThat(IcebergSplitSource.partitionMatchesPredicate(
                 ImmutableSet.of(bigintColumn),
                 () -> ImmutableMap.of(bigintColumn, NullableValue.of(BIGINT, 1000L)),
@@ -326,13 +314,9 @@ public class TestIcebergSplitSource
     @Test
     public void testBigintStatisticsPruning()
     {
-        IcebergColumnHandle bigintColumn = new IcebergColumnHandle(
-                new ColumnIdentity(1, "name", ColumnIdentity.TypeCategory.PRIMITIVE, ImmutableList.of()),
-                BIGINT,
-                ImmutableList.of(),
-                BIGINT,
-                true,
-                Optional.empty());
+        IcebergColumnHandle bigintColumn = IcebergColumnHandle.optional(new ColumnIdentity(1, "name", ColumnIdentity.TypeCategory.PRIMITIVE, ImmutableList.of()))
+                .columnType(BIGINT)
+                .build();
         Map<Integer, Type.PrimitiveType> primitiveTypes = ImmutableMap.of(1, Types.LongType.get());
         Map<Integer, ByteBuffer> lowerBound = ImmutableMap.of(1, Conversions.toByteBuffer(Types.LongType.get(), 1000L));
         Map<Integer, ByteBuffer> upperBound = ImmutableMap.of(1, Conversions.toByteBuffer(Types.LongType.get(), 2000L));
@@ -352,13 +336,9 @@ public class TestIcebergSplitSource
     @Test
     public void testNullStatisticsMaps()
     {
-        IcebergColumnHandle bigintColumn = new IcebergColumnHandle(
-                new ColumnIdentity(1, "name", ColumnIdentity.TypeCategory.PRIMITIVE, ImmutableList.of()),
-                BIGINT,
-                ImmutableList.of(),
-                BIGINT,
-                true,
-                Optional.empty());
+        IcebergColumnHandle bigintColumn = IcebergColumnHandle.optional(new ColumnIdentity(1, "name", ColumnIdentity.TypeCategory.PRIMITIVE, ImmutableList.of()))
+                .columnType(BIGINT)
+                .build();
         Map<Integer, Type.PrimitiveType> primitiveTypes = ImmutableMap.of(1, Types.LongType.get());
         Map<Integer, ByteBuffer> lowerBound = ImmutableMap.of(1, Conversions.toByteBuffer(Types.LongType.get(), -1000L));
         Map<Integer, ByteBuffer> upperBound = ImmutableMap.of(1, Conversions.toByteBuffer(Types.LongType.get(), 2000L));

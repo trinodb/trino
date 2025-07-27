@@ -31,6 +31,7 @@ import static io.trino.spi.security.AccessDeniedException.denyAlterColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentTable;
 import static io.trino.spi.security.AccessDeniedException.denyCommentView;
+import static io.trino.spi.security.AccessDeniedException.denyCreateBranch;
 import static io.trino.spi.security.AccessDeniedException.denyCreateFunction;
 import static io.trino.spi.security.AccessDeniedException.denyCreateMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyCreateRole;
@@ -41,6 +42,7 @@ import static io.trino.spi.security.AccessDeniedException.denyCreateViewWithSele
 import static io.trino.spi.security.AccessDeniedException.denyDeleteTable;
 import static io.trino.spi.security.AccessDeniedException.denyDenySchemaPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyDenyTablePrivilege;
+import static io.trino.spi.security.AccessDeniedException.denyDropBranch;
 import static io.trino.spi.security.AccessDeniedException.denyDropColumn;
 import static io.trino.spi.security.AccessDeniedException.denyDropFunction;
 import static io.trino.spi.security.AccessDeniedException.denyDropMaterializedView;
@@ -50,11 +52,13 @@ import static io.trino.spi.security.AccessDeniedException.denyDropTable;
 import static io.trino.spi.security.AccessDeniedException.denyDropView;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteProcedure;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteTableProcedure;
+import static io.trino.spi.security.AccessDeniedException.denyFastForwardBranch;
 import static io.trino.spi.security.AccessDeniedException.denyGrantRoles;
 import static io.trino.spi.security.AccessDeniedException.denyGrantSchemaPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyGrantTablePrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyInsertTable;
 import static io.trino.spi.security.AccessDeniedException.denyRefreshMaterializedView;
+import static io.trino.spi.security.AccessDeniedException.denyRefreshView;
 import static io.trino.spi.security.AccessDeniedException.denyRenameColumn;
 import static io.trino.spi.security.AccessDeniedException.denyRenameMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyRenameSchema;
@@ -72,6 +76,7 @@ import static io.trino.spi.security.AccessDeniedException.denySetSchemaAuthoriza
 import static io.trino.spi.security.AccessDeniedException.denySetTableAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denySetTableProperties;
 import static io.trino.spi.security.AccessDeniedException.denySetViewAuthorization;
+import static io.trino.spi.security.AccessDeniedException.denyShowBranches;
 import static io.trino.spi.security.AccessDeniedException.denyShowColumns;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateFunction;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateSchema;
@@ -467,6 +472,16 @@ public interface ConnectorAccessControl
     }
 
     /**
+     * Check if identity is allowed to refresh the specified view.
+     *
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanRefreshView(ConnectorSecurityContext context, SchemaTableName viewName)
+    {
+        denyRefreshView(viewName.toString());
+    }
+
+    /**
      * Check if identity is allowed to set the properties of the specified materialized view.
      *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
@@ -692,6 +707,46 @@ public interface ConnectorAccessControl
     default void checkCanShowCreateFunction(ConnectorSecurityContext context, SchemaRoutineName function)
     {
         denyShowCreateFunction(function.toString());
+    }
+
+    /**
+     * Check if identity is allowed to show branches of tables.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanShowBranches(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        denyShowBranches(tableName.toString());
+    }
+
+    /**
+     * Check if identity is allowed to create the specified branch.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanCreateBranch(ConnectorSecurityContext context, SchemaTableName tableName, String branchName)
+    {
+        denyCreateBranch(tableName.toString());
+    }
+
+    /**
+     * Check if identity is allowed to drop the specified branch.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanDropBranch(ConnectorSecurityContext context, SchemaTableName tableName, String branchName)
+    {
+        denyDropBranch(tableName.toString());
+    }
+
+    /**
+     * Check if identity is allowed to fast-forward the specified branch.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanFastForwardBranch(ConnectorSecurityContext context, SchemaTableName tableName, String sourceBranchName, String targetBranchName)
+    {
+        denyFastForwardBranch(tableName.toString());
     }
 
     /**

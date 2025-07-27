@@ -10,7 +10,7 @@
     </parent>
 
     <artifactId>trino-filesystem-gcs</artifactId>
-    <name>trino-filesystem-gcs</name>
+    <name>${project.artifactId}</name>
     <description>Trino - Google Cloud Storage file system support</description>
 
     <dependencies>
@@ -67,6 +67,7 @@
         <dependency>
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>
+            <classifier>classes</classifier>
         </dependency>
 
         <dependency>
@@ -102,11 +103,6 @@
         <dependency>
             <groupId>jakarta.validation</groupId>
             <artifactId>jakarta.validation-api</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.threeten</groupId>
-            <artifactId>threetenbp</artifactId>
         </dependency>
 
         <dependency>

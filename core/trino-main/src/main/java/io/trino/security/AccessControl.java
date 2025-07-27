@@ -323,6 +323,13 @@ public interface AccessControl
     void checkCanRenameView(SecurityContext context, QualifiedObjectName viewName, QualifiedObjectName newViewName);
 
     /**
+     * Check if identity is allowed to refresh the specified view.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanRefreshView(SecurityContext context, QualifiedObjectName viewName);
+
+    /**
      * Check if identity is allowed to drop the specified view.
      *
      * @throws AccessDeniedException if not allowed
@@ -584,6 +591,34 @@ public interface AccessControl
      * @throws AccessDeniedException if not allowed
      */
     void checkCanShowCreateFunction(SecurityContext context, QualifiedObjectName functionName);
+
+    /**
+     * Check if identity is allowed to show branches of tables.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanShowBranches(SecurityContext context, QualifiedObjectName tableName);
+
+    /**
+     * Check if identity is allowed to create the specified branch.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanCreateBranch(SecurityContext context, QualifiedObjectName tableName, String branchName);
+
+    /**
+     * Check if identity is allowed to drop the specified branch.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanDropBranch(SecurityContext context, QualifiedObjectName tableName, String branchName);
+
+    /**
+     * Check if identity is allowed to fast-forward the specified branch.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanFastForwardBranch(SecurityContext context, QualifiedObjectName tableName, String sourceBranchName, String targetBranchName);
 
     default List<ViewExpression> getRowFilters(SecurityContext context, QualifiedObjectName tableName)
     {

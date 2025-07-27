@@ -280,6 +280,13 @@ public class InjectedConnectorAccessControl
     }
 
     @Override
+    public void checkCanRefreshView(ConnectorSecurityContext context, SchemaTableName viewName)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.checkCanRefreshView(securityContext, getQualifiedObjectName(viewName));
+    }
+
+    @Override
     public void checkCanDropView(ConnectorSecurityContext context, SchemaTableName viewName)
     {
         checkArgument(context == null, "context must be null");
@@ -510,6 +517,30 @@ public class InjectedConnectorAccessControl
     public void checkCanShowCreateFunction(ConnectorSecurityContext context, SchemaRoutineName function)
     {
         accessControl.checkCanShowCreateFunction(securityContext, new QualifiedObjectName(catalogName, function.getSchemaName(), function.getRoutineName()));
+    }
+
+    @Override
+    public void checkCanShowBranches(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        accessControl.checkCanShowBranches(securityContext, new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName()));
+    }
+
+    @Override
+    public void checkCanCreateBranch(ConnectorSecurityContext context, SchemaTableName tableName, String branchName)
+    {
+        accessControl.checkCanCreateBranch(securityContext, new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName()), branchName);
+    }
+
+    @Override
+    public void checkCanDropBranch(ConnectorSecurityContext context, SchemaTableName tableName, String branchName)
+    {
+        accessControl.checkCanDropBranch(securityContext, new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName()), branchName);
+    }
+
+    @Override
+    public void checkCanFastForwardBranch(ConnectorSecurityContext context, SchemaTableName tableName, String sourceBranchName, String targetBranchName)
+    {
+        accessControl.checkCanFastForwardBranch(securityContext, new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName()), sourceBranchName, targetBranchName);
     }
 
     @Override

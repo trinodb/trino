@@ -10,6 +10,7 @@
     </parent>
 
     <artifactId>trino-spi</artifactId>
+    <name>${project.artifactId}</name>
     <description>Trino - Service Provider Interface (SPI)</description>
 
     <properties>
@@ -54,6 +55,12 @@
 
         <dependency>
             <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-common</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
             <artifactId>opentelemetry-context</artifactId>
             <scope>runtime</scope>
         </dependency>
@@ -85,6 +92,7 @@
         <dependency>
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>
+            <classifier>classes</classifier>
             <scope>test</scope>
         </dependency>
 
@@ -177,16 +185,6 @@
                     <skip>${trino.check.skip-revapi}</skip>
                     <ignoreSuggestionsFormat>xml</ignoreSuggestionsFormat>
                     <analysisConfiguration>
-                        <revapi.filter>
-                            <elements>
-                                <exclude>
-                                    <item>
-                                        <matcher>java</matcher>
-                                        <match>@io.trino.spi.Experimental(*) ^*;</match>
-                                    </item>
-                                </exclude>
-                            </elements>
-                        </revapi.filter>
                         <revapi.differences>
                             <ignore>true</ignore>
                             <differences>
@@ -655,6 +653,32 @@
                                     <code>java.method.removed</code>
                                     <old>method java.lang.String io.trino.spi.NodeManager::getEnvironment()</old>
                                     <justification>Unused</justification>
+                                </item>
+                                <item>
+                                    <code>java.class.removed</code>
+                                    <annotationType>@interface io.trino.spi.Experimental</annotationType>
+                                </item>
+                                <item>
+                                    <code>java.annotation.removed</code>
+                                    <annotationType>io.trino.spi.Experimental</annotationType>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.Page io.trino.spi.connector.EmptyPageSource::getNextPage()</old>
+                                    <justification>Deprecated</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.Page io.trino.spi.connector.FixedPageSource::getNextPage()</old>
+                                    <justification>Deprecated</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.Page io.trino.spi.connector.RecordPageSource::getNextPage()</old>
+                                    <justification>Deprecated</justification>
                                 </item>
                             </differences>
                         </revapi.differences>

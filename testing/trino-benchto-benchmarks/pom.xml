@@ -9,6 +9,7 @@
     </parent>
 
     <artifactId>trino-benchto-benchmarks</artifactId>
+    <name>${project.artifactId}</name>
     <description>Trino - Benchto benchmarks</description>
 
     <properties>

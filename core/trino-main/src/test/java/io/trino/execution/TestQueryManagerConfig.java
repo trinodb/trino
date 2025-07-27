@@ -118,7 +118,7 @@ public class TestQueryManagerConfig
                 .setFaultTolerantExecutionSmallStageRequireNoMorePartitions(false)
                 .setFaultTolerantExecutionStageEstimationForEagerParentEnabled(true)
                 .setFaultTolerantExecutionAdaptiveQueryPlanningEnabled(true)
-                .setFaultTolerantExecutionAdaptiveJoinReorderingEnabled(true)
+                .setFaultTolerantExecutionAdaptiveJoinReorderingEnabled(false)
                 .setFaultTolerantExecutionAdaptiveJoinReorderingMinSizeThreshold(DataSize.of(5, GIGABYTE))
                 .setFaultTolerantExecutionAdaptiveJoinReorderingSizeDifferenceRatio(1.5)
                 .setMaxWriterTaskCount(100));
@@ -203,7 +203,7 @@ public class TestQueryManagerConfig
                 .put("fault-tolerant-execution-small-stage-require-no-more-partitions", "true")
                 .put("fault-tolerant-execution-stage-estimation-for-eager-parent-enabled", "false")
                 .put("fault-tolerant-execution-adaptive-query-planning-enabled", "false")
-                .put("fault-tolerant-execution-adaptive-join-reordering-enabled", "false")
+                .put("fault-tolerant-execution-adaptive-join-reordering-enabled", "true")
                 .put("fault-tolerant-execution-adaptive-join-reordering-min-size-threshold", "1GB")
                 .put("fault-tolerant-execution-adaptive-join-reordering-size-difference-ratio", "2")
                 .buildOrThrow();
@@ -283,7 +283,7 @@ public class TestQueryManagerConfig
                 .setFaultTolerantExecutionSmallStageRequireNoMorePartitions(true)
                 .setFaultTolerantExecutionStageEstimationForEagerParentEnabled(false)
                 .setFaultTolerantExecutionAdaptiveQueryPlanningEnabled(false)
-                .setFaultTolerantExecutionAdaptiveJoinReorderingEnabled(false)
+                .setFaultTolerantExecutionAdaptiveJoinReorderingEnabled(true)
                 .setFaultTolerantExecutionAdaptiveJoinReorderingMinSizeThreshold(DataSize.of(1, GIGABYTE))
                 .setFaultTolerantExecutionAdaptiveJoinReorderingSizeDifferenceRatio(2.0)
                 .setMaxWriterTaskCount(101);

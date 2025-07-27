@@ -125,6 +125,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WI
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_DATA;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_VIEW;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DEFAULT_COLUMN_VALUE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DELETE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DEREFERENCE_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DROP_COLUMN;
@@ -139,6 +140,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_MERGE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_MULTI_STATEMENT_WRITES;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_NEGATIVE_DATE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_NOT_NULL_CONSTRAINT;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_REFRESH_VIEW;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_COLUMN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_FIELD;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_MATERIALIZED_VIEW;
@@ -986,6 +988,67 @@ public abstract class BaseConnectorTest
         assertUpdate("DROP VIEW " + testView);
         assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet())
                 .doesNotContain(testView);
+    }
+
+    @Test
+    public void testRefreshView()
+    {
+        if (!hasBehavior(SUPPORTS_REFRESH_VIEW)) {
+            if (hasBehavior(SUPPORTS_CREATE_VIEW)) {
+                try (TestView testView = new TestView(getQueryRunner()::execute, "test_view", " SELECT * FROM nation")) {
+                    assertQueryFails("ALTER VIEW %s REFRESH".formatted(testView.getName()), "This connector does not support refreshing view definition");
+                }
+            }
+            return;
+        }
+
+        if (!hasBehavior(SUPPORTS_CREATE_TABLE) && !hasBehavior(SUPPORTS_ADD_COLUMN)) {
+            throw new AssertionError("Cannot test ALTER VIEW REFRESH without CREATE TABLE, the test needs to be implemented in a connector-specific way");
+        }
+
+        try (TestTable table = newTrinoTable("test_table", "(id BIGINT, column_to_dropped BIGINT, column_to_be_renamed BIGINT, column_with_comment BIGINT)", ImmutableList.of("1, 2, 3, 4"));
+                TestView view = new TestView(getQueryRunner()::execute, "test_view", " SELECT * FROM %s".formatted(table.getName()))) {
+            assertQuery("SELECT * FROM " + view.getName(), "VALUES (1, 2, 3, 4)");
+
+            assertUpdate("ALTER TABLE %s ADD COLUMN new_column BIGINT".formatted(table.getName()));
+            assertQueryFails(
+                    "SELECT * FROM " + view.getName(),
+                    ".*is stale or in invalid state: stored view column count \\(4\\) does not match column count derived from the view query analysis \\(5\\)");
+
+            assertUpdate("ALTER VIEW %s REFRESH".formatted(view.getName()));
+            assertQuery("SELECT * FROM " + view.getName(), "VALUES (1, 2, 3, 4, null)");
+
+            if (hasBehavior(SUPPORTS_RENAME_COLUMN)) {
+                assertUpdate("ALTER TABLE %s RENAME COLUMN column_to_be_renamed TO renamed_column".formatted(table.getName()));
+                assertQueryFails(
+                        "SELECT * FROM %s".formatted(view.getName()),
+                        ".*is stale or in invalid state: column \\[renamed_column] of type bigint projected from query view at position 2 has a different name from column \\[column_to_be_renamed] of type bigint stored in view definition");
+                assertUpdate("ALTER VIEW %s REFRESH".formatted(view.getName()));
+                assertQuery("SELECT * FROM " + view.getName(), "VALUES (1, 2, 3, 4, null)");
+            }
+
+            if (hasBehavior(SUPPORTS_COMMENT_ON_COLUMN)) {
+                assertUpdate("COMMENT ON COLUMN %s.column_with_comment IS 'test comment'".formatted(view.getName()));
+                assertThat(getColumnComment(view.getName(), "column_with_comment")).isEqualTo("test comment");
+
+                // Add another column
+                assertUpdate("ALTER TABLE %s ADD COLUMN new_column_2 BIGINT".formatted(table.getName()));
+                assertUpdate("ALTER VIEW %s REFRESH".formatted(view.getName()));
+                assertThat(getColumnComment(view.getName(), "column_with_comment")).isEqualTo("test comment");
+
+                assertUpdate("ALTER TABLE %s RENAME COLUMN column_with_comment TO renamed_new_column".formatted(table.getName()));
+            }
+
+            if (hasBehavior(SUPPORTS_DROP_COLUMN)) {
+                assertUpdate("ALTER TABLE %s DROP COLUMN column_to_dropped".formatted(table.getName()));
+                assertQueryFails(
+                        "SELECT * FROM " + view.getName(),
+                        ".*is stale or in invalid state: stored view column count \\(5\\) does not match column count derived from the view query analysis \\(4\\)");
+
+                assertUpdate("ALTER VIEW %s REFRESH".formatted(view.getName()));
+                assertQuery("SELECT * FROM " + view.getName(), "VALUES (1, 3, 4, null)");
+            }
+        }
     }
 
     @Test
@@ -2340,6 +2403,20 @@ public abstract class BaseConnectorTest
 
             assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN empty_comment varchar COMMENT ''");
             assertThat(getColumnComment(tableName, "empty_comment")).isEqualTo("");
+        }
+    }
+
+    @Test
+    public void testAddDefaultColumn()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_ADD_COLUMN) && hasBehavior(SUPPORTS_DEFAULT_COLUMN_VALUE));
+
+        try (TestTable table = newTrinoTable("test_default_value", "(x int)")) {
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN y int DEFAULT 123");
+            assertUpdate("INSERT INTO " + table.getName() + "(x) VALUES 1", 1);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .skippingTypesCheck()
+                    .matches("VALUES (1, 123)");
         }
     }
 
@@ -4470,6 +4547,27 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    public void testCreateTableWithDefaultColumn()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_INSERT));
+
+        if (!hasBehavior(SUPPORTS_DEFAULT_COLUMN_VALUE)) {
+            String tableName = "test_default_value_" + randomNameSuffix();
+            assertQueryFails("CREATE TABLE " + tableName + " (x int DEFAULT 1)", ".* Catalog '.*' does not support default value for column name 'x'");
+            return;
+        }
+
+        try (TestTable table = newTrinoTable("test_default_value", "(x int, y int DEFAULT 123, z int DEFAULT NULL)")) {
+            assertUpdate("INSERT INTO " + table.getName() + "(x) VALUES 1", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (2, 456, 789)", 1);
+
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .skippingTypesCheck()
+                    .matches("VALUES (1, 123, NULL), (2, 456, 789)");
+        }
+    }
+
+    @Test
     public void testInsertForDefaultColumn()
     {
         skipTestUnless(hasBehavior(SUPPORTS_INSERT));
@@ -4481,6 +4579,16 @@ public abstract class BaseConnectorTest
             assertUpdate(format("INSERT INTO %s (col_required2, col_required) VALUES (12, 13)", testTable.getName()), 1);
 
             assertQuery("SELECT * FROM " + testTable.getName(), "VALUES (1, null, 43, 42, 10), (2, 3, 4, 5, 6), (7, null, null, 8, 9), (13, null, 43, 42, 12)");
+        }
+    }
+
+    @Test
+    public void testInsertDefaultNullIntoNotNullColumn()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_INSERT) && hasBehavior(SUPPORTS_DEFAULT_COLUMN_VALUE) && hasBehavior(SUPPORTS_NOT_NULL_CONSTRAINT));
+
+        try (TestTable testTable = newTrinoTable("test_default_value", "(x int, y int DEFAULT null NOT NULL)")) {
+            assertQueryFails("INSERT INTO " + testTable.getName() + " (x) VALUES (1)", "NULL value not allowed for NOT NULL column: y");
         }
     }
 
@@ -5077,13 +5185,13 @@ public abstract class BaseConnectorTest
         try (TestTable table = createTestTableForWrites("test_update", "AS TABLE tpch.tiny.nation", "nationkey,regionkey")) {
             String tableName = table.getName();
             assertUpdate("UPDATE " + tableName + " SET nationkey = 100 + nationkey WHERE regionkey = 2", 5);
-            assertThat(query("SELECT * FROM " + tableName))
+            assertThat(query("SELECT CAST(nationkey AS bigint), name, CAST(regionkey AS bigint), comment FROM " + tableName))
                     .skippingTypesCheck()
                     .matches("SELECT IF(regionkey=2, nationkey + 100, nationkey) nationkey, name, regionkey, comment FROM tpch.tiny.nation");
 
             // UPDATE after UPDATE
             assertUpdate("UPDATE " + tableName + " SET nationkey = nationkey * 2 WHERE regionkey IN (2,3)", 10);
-            assertThat(query("SELECT * FROM " + tableName))
+            assertThat(query("SELECT CAST(nationkey AS bigint), name, CAST(regionkey AS bigint), comment FROM " + tableName))
                     .skippingTypesCheck()
                     .matches("SELECT CASE regionkey WHEN 2 THEN 2*(nationkey+100) WHEN 3 THEN 2*nationkey ELSE nationkey END nationkey, name, regionkey, comment FROM tpch.tiny.nation");
         }
@@ -5148,12 +5256,14 @@ public abstract class BaseConnectorTest
                     .collect(toImmutableList());
 
             String expected = futures.stream()
-                    .map(future -> tryGetFutureValue(future, 10, SECONDS).orElseThrow(() -> new RuntimeException("Wait timed out")))
+                    .map(future -> tryGetFutureValue(future, 1, MINUTES).orElseThrow(() -> new RuntimeException("Wait timed out")))
                     .map(success -> success ? "1" : "0")
                     .collect(joining(",", "VALUES (", ", 0)"));
 
-            assertThat(query("TABLE " + tableName))
-                    .matches(expected);
+            String query = IntStream.range(0, threads + 1)
+                    .mapToObj(i -> format("CAST(col%s AS integer)", i))
+                    .collect(joining(", ", "SELECT ", " FROM " + tableName));
+            assertThat(query(query)).matches(expected);
         }
         finally {
             executor.shutdownNow();
@@ -6363,6 +6473,49 @@ public abstract class BaseConnectorTest
         assertQuery("SELECT * FROM " + targetTable, "VALUES ('Dave', 'dates'), ('Carol_Craig', 'candles'), ('Joe', 'jellybeans')");
 
         assertUpdate("DROP TABLE " + sourceTable);
+        assertUpdate("DROP TABLE " + targetTable);
+    }
+
+    @Test
+    public void testMergeWithDefaultColumnValue()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_MERGE) && hasBehavior(SUPPORTS_DEFAULT_COLUMN_VALUE));
+
+        String targetTable = "merge_default_column_value_" + randomNameSuffix();
+
+        createTableForWrites("CREATE TABLE %s (nation_name VARCHAR, region_name VARCHAR DEFAULT 'test default')", targetTable, Optional.of("nation_name"));
+
+        assertUpdate("INSERT INTO " + targetTable + " (nation_name, region_name) VALUES ('FRANCE', 'EUROPE'), ('ALGERIA', 'AFRICA'), ('GERMANY', 'EUROPE')", 3);
+
+        assertUpdate("MERGE INTO " + targetTable + " t" +
+                " USING (VALUES ('IMAGINARIA', 'AFRICA')) s(nation_name, region_name)" +
+                " ON (t.nation_name = s.nation_name)" +
+                " WHEN NOT MATCHED THEN INSERT (nation_name) VALUES ('IMAGINARIA')", 1);
+
+        assertThat(query("SELECT * FROM " + targetTable))
+                .skippingTypesCheck()
+                .matches("VALUES ('FRANCE', 'EUROPE'), ('ALGERIA', 'AFRICA'), ('GERMANY', 'EUROPE'), ('IMAGINARIA', 'test default')");
+
+        assertUpdate("DROP TABLE " + targetTable);
+    }
+
+    @Test
+    public void testMergeDefaultNullIntoNotNullColumn()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_MERGE) && hasBehavior(SUPPORTS_DEFAULT_COLUMN_VALUE) && hasBehavior(SUPPORTS_NOT_NULL_CONSTRAINT));
+
+        String targetTable = "merge_default_null_into_not_null_" + randomNameSuffix();
+
+        createTableForWrites("CREATE TABLE %s (nation_name VARCHAR, region_name VARCHAR DEFAULT null NOT NULL)", targetTable, Optional.of("nation_name"));
+
+        assertUpdate("INSERT INTO " + targetTable + " (nation_name, region_name) VALUES ('FRANCE', 'EUROPE'), ('ALGERIA', 'AFRICA'), ('GERMANY', 'EUROPE')", 3);
+
+        assertQueryFails("MERGE INTO " + targetTable + " t" +
+                        " USING (VALUES ('IMAGINARIA', 'AFRICA')) s(nation_name, region_name)" +
+                        " ON (t.nation_name = s.nation_name)" +
+                        " WHEN NOT MATCHED THEN INSERT (nation_name) VALUES ('IMAGINARIA')",
+                "NULL value not allowed for NOT NULL column: region_name");
+
         assertUpdate("DROP TABLE " + targetTable);
     }
 

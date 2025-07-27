@@ -336,6 +336,12 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanRefreshView(SystemSecurityContext context, CatalogSchemaTableName viewName)
+    {
+        delegate().checkCanRefreshView(context, viewName);
+    }
+
+    @Override
     public void checkCanDropView(SystemSecurityContext context, CatalogSchemaTableName view)
     {
         delegate().checkCanDropView(context, view);
@@ -537,6 +543,30 @@ public abstract class ForwardingSystemAccessControl
     public void checkCanShowCreateFunction(SystemSecurityContext systemSecurityContext, CatalogSchemaRoutineName functionName)
     {
         delegate().checkCanShowCreateFunction(systemSecurityContext, functionName);
+    }
+
+    @Override
+    public void checkCanShowBranches(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName tableName)
+    {
+        delegate().checkCanShowBranches(systemSecurityContext, tableName);
+    }
+
+    @Override
+    public void checkCanCreateBranch(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName tableName, String branchName)
+    {
+        delegate().checkCanCreateBranch(systemSecurityContext, tableName, branchName);
+    }
+
+    @Override
+    public void checkCanDropBranch(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName tableName, String branchName)
+    {
+        delegate().checkCanDropBranch(systemSecurityContext, tableName, branchName);
+    }
+
+    @Override
+    public void checkCanFastForwardBranch(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName tableName, String sourceBranchName, String targetBranchName)
+    {
+        delegate().checkCanFastForwardBranch(systemSecurityContext, tableName, sourceBranchName, targetBranchName);
     }
 
     @Override

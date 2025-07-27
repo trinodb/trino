@@ -11,6 +11,7 @@
 
     <artifactId>trino-delta-lake</artifactId>
     <packaging>trino-plugin</packaging>
+    <name>${project.artifactId}</name>
     <description>Trino - Delta Lake connector</description>
 
     <dependencies>
@@ -38,6 +39,7 @@
         <dependency>
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>
+            <classifier>classes</classifier>
         </dependency>
 
         <dependency>
@@ -534,20 +536,6 @@
 
     <build>
         <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-dependency-plugin</artifactId>
-                <configuration>
-                    <ignoredNonTestScopedDependencies>
-                        <!-- dependency plugin fails to recognize aws-java-sdk-core as a compile-time dependency, because
-                             we only explicitly use a class from aws-java-sdk-glue, which in turn extends from a class from
-                             aws-java-sdk-core -->
-                        <ignoredDependency>com.amazonaws:aws-java-sdk-core</ignoredDependency>
-                        <ignoredDependency>org.apache.iceberg:iceberg-api</ignoredDependency>
-                    </ignoredNonTestScopedDependencies>
-                </configuration>
-            </plugin>
-
             <plugin>
                 <groupId>org.antlr</groupId>
                 <artifactId>antlr4-maven-plugin</artifactId>

@@ -14,13 +14,16 @@
 package io.trino.plugin.hive.projection;
 
 import com.google.common.base.VerifyException;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.metastore.Column;
 import io.trino.metastore.Partition;
 import io.trino.metastore.Table;
+import io.trino.spi.TrinoException;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -36,6 +39,7 @@ import static com.google.common.collect.Sets.cartesianProduct;
 import static io.trino.metastore.Partitions.escapePathName;
 import static io.trino.metastore.Partitions.toPartitionValues;
 import static io.trino.plugin.hive.projection.InvalidProjectionException.invalidProjectionMessage;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -44,12 +48,66 @@ public final class PartitionProjection
     private static final Pattern PROJECTION_LOCATION_TEMPLATE_PLACEHOLDER_PATTERN = Pattern.compile("(\\$\\{[^}]+\\})");
 
     private final Optional<String> storageLocationTemplate;
+    private final boolean escapeInjectedColumnValues;
     private final Map<String, Projection> columnProjections;
 
     public PartitionProjection(Optional<String> storageLocationTemplate, Map<String, Projection> columnProjections)
     {
         this.storageLocationTemplate = requireNonNull(storageLocationTemplate, "storageLocationTemplate is null");
+        this.escapeInjectedColumnValues = isEscapeInjectedColumnValues(storageLocationTemplate, columnProjections);
         this.columnProjections = ImmutableMap.copyOf(requireNonNull(columnProjections, "columnProjections is null"));
+    }
+
+    // Check if we need to escape injected column values in the storage location template.
+    // The projection partition storage location template is compatible with Hive we need to escape injected column values.
+    //
+    // If the storage location template is not defined, we think that it is compatible -- we will use
+    // the default partition location format (e.g. "col1=val1/col2=val2/")
+    //
+    // If the storage location is defined, we need to escape injected column values only if the template is compatible:
+    // - it ends with the Hive default partition format (e.g. "col1=${col1}/col2=${col2}")
+    // - the prefix of the template does not contain any column references (e.g. "${col1}" or "${col2}")
+    private static boolean isEscapeInjectedColumnValues(Optional<String> storageLocationTemplate, Map<String, Projection> columnProjections)
+    {
+        if (storageLocationTemplate.isEmpty()) {
+            return true;
+        }
+
+        String locationTemplate = storageLocationTemplate.get();
+        if (locationTemplate.endsWith("/")) {
+            locationTemplate = locationTemplate.substring(0, locationTemplate.length() - 1);
+        }
+        String hiveLocationTemplate = toPartitionLocationTemplate(columnProjections.keySet());
+        if (!locationTemplate.endsWith(hiveLocationTemplate)) {
+            return false;
+        }
+        String locationPrefix = locationTemplate.substring(0, locationTemplate.length() - hiveLocationTemplate.length());
+
+        // prefix shouldn't reference any column at all
+        return columnProjections.keySet().stream()
+                .map(column -> "${" + column + "}")
+                .noneMatch(locationPrefix::contains);
+    }
+
+    // TODO: support writing partition projection
+    public void checkWriteSupported()
+    {
+        if (storageLocationTemplate.isPresent()) {
+            if (!escapeInjectedColumnValues) {
+                throw new TrinoException(NOT_SUPPORTED, "Partition projection with storage location template is not compatible with Hive");
+            }
+        }
+
+        for (Projection projection : columnProjections.values()) {
+            // DateProjection may contain a user-defined format that is incompatible with Hive.
+            // Currently, we only support writing partitions in Hive's default date format.
+            // Allowing custom date formats in partition projection can lead to inconsistencies
+            // between reading and writing of the projection partition.
+            // To ensure compatibility and avoid incorrect query results, disable writing for now.
+            if (projection instanceof DateProjection dateProjection) {
+                dateProjection.checkWriteSupported();
+            }
+        }
     }
 
     public Optional<List<String>> getProjectedPartitionNamesByFilter(List<String> columnNames, TupleDomain<String> partitionKeysFilter)
@@ -87,7 +145,18 @@ public final class PartitionProjection
 
     private Partition buildPartitionObject(Table table, String partitionName)
     {
+        List<String> partitionColumns = table.getPartitionColumns().stream()
+                .map(Column::getName)
+                .collect(toImmutableList());
+
         List<String> partitionValues = toPartitionValues(partitionName);
+        ImmutableList.Builder<String> partitionTemplateValues = ImmutableList.builderWithExpectedSize(partitionValues.size());
+        for (int i = 0; i < partitionColumns.size(); i++) {
+            String partitionColumn = partitionColumns.get(i);
+            String partitionValue = columnProjections.get(partitionColumn).toPartitionLocationTemplateValue(partitionValues.get(i));
+            partitionTemplateValues.add(escapeInjectedColumnValues ? escapePathName(partitionValue) : partitionValue);
+        }
+
         return Partition.builder()
                 .setDatabaseName(table.getDatabaseName())
                 .setTableName(table.getTableName())
@@ -96,24 +165,21 @@ public final class PartitionProjection
                 .setParameters(Map.of())
                 .withStorage(storage -> storage
                         .setStorageFormat(table.getStorage().getStorageFormat())
-                        .setLocation(storageLocationTemplate
-                                .map(template -> expandStorageLocationTemplate(
-                                        template,
-                                        table.getPartitionColumns().stream()
-                                                .map(Column::getName).collect(Collectors.toList()),
-                                        partitionValues))
-                                .orElseGet(() -> getPartitionLocation(table.getStorage().getLocation(), partitionName)))
+                        .setLocation(expandStorageLocationTemplate(
+                                storageLocationTemplate.orElseGet(() -> getPartitionLocation(table.getStorage().getLocation(), partitionColumns)),
+                                partitionColumns,
+                                partitionTemplateValues.build()))
                         .setBucketProperty(table.getStorage().getBucketProperty())
                         .setSerdeParameters(table.getStorage().getSerdeParameters()))
                 .build();
     }
 
-    private static String getPartitionLocation(String tableLocation, String partitionName)
+    private static String getPartitionLocation(String tableLocation, List<String> partitionColumns)
     {
         if (tableLocation.endsWith("/")) {
-            return format("%s%s/", tableLocation, partitionName);
+            return format("%s%s/", tableLocation, toPartitionLocationTemplate(partitionColumns));
         }
-        return format("%s/%s/", tableLocation, partitionName);
+        return format("%s/%s/", tableLocation, toPartitionLocationTemplate(partitionColumns));
     }
 
     private static String expandStorageLocationTemplate(String template, List<String> partitionColumns, List<String> partitionValues)
@@ -127,5 +193,12 @@ public final class PartitionProjection
         }
         matcher.appendTail(location);
         return location.toString();
+    }
+
+    private static String toPartitionLocationTemplate(Collection<String> partitionColumns)
+    {
+        return partitionColumns.stream()
+                .map(column -> column + "=${" + column + "}")
+                .collect(Collectors.joining("/"));
     }
 }

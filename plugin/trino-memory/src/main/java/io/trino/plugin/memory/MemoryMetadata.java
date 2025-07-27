@@ -348,7 +348,7 @@ public class MemoryMetadata
         for (int i = 0; i < tableMetadata.getColumns().size(); i++) {
             ColumnMetadata column = tableMetadata.getColumns().get(i);
             MemoryColumnHandle handle = new MemoryColumnHandle(i, column.getName(), column.getType());
-            columns.add(new ColumnInfo(handle, column.isNullable(), Optional.ofNullable(column.getComment())));
+            columns.add(new ColumnInfo(handle, column.getDefaultValue(), column.isNullable(), Optional.ofNullable(column.getComment())));
         }
 
         tableIds.put(tableMetadata.getTable(), tableId);
@@ -450,7 +450,7 @@ public class MemoryMetadata
 
         List<ColumnInfo> columns = ImmutableList.<ColumnInfo>builderWithExpectedSize(table.columns().size() + 1)
                 .addAll(table.columns())
-                .add(new ColumnInfo(newColumn, column.isNullable(), Optional.ofNullable(column.getComment())))
+                .add(new ColumnInfo(newColumn, column.getDefaultValue(), column.isNullable(), Optional.ofNullable(column.getComment())))
                 .build();
 
         tables.put(tableId, new TableInfo(tableId, table.schemaName(), table.tableName(), columns, table.truncated(), table.dataFragments(), table.comment()));
@@ -468,7 +468,7 @@ public class MemoryMetadata
 
         List<ColumnInfo> columns = new ArrayList<>(table.columns());
         ColumnInfo columnInfo = columns.get(column.columnIndex());
-        columns.set(column.columnIndex(), new ColumnInfo(newColumn, columnInfo.nullable(), columnInfo.comment()));
+        columns.set(column.columnIndex(), new ColumnInfo(newColumn, columnInfo.defaultValue(), columnInfo.nullable(), columnInfo.comment()));
 
         tables.put(tableId, new TableInfo(tableId, table.schemaName(), table.tableName(), ImmutableList.copyOf(columns), table.truncated(), table.dataFragments(), table.comment()));
     }
@@ -483,7 +483,7 @@ public class MemoryMetadata
 
         List<ColumnInfo> columns = new ArrayList<>(table.columns());
         ColumnInfo columnInfo = columns.get(column.columnIndex());
-        columns.set(column.columnIndex(), new ColumnInfo(columnInfo.handle(), true, columnInfo.comment()));
+        columns.set(column.columnIndex(), new ColumnInfo(columnInfo.handle(), columnInfo.defaultValue(), true, columnInfo.comment()));
 
         tables.put(tableId, new TableInfo(tableId, table.schemaName(), table.tableName(), ImmutableList.copyOf(columns), table.truncated(), table.dataFragments(), table.comment()));
     }
@@ -557,6 +557,18 @@ public class MemoryMetadata
 
         tableIds.put(newViewName, tableIds.remove(viewName));
         views.put(newViewName, views.remove(viewName));
+    }
+
+    @Override
+    public synchronized void refreshView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition viewDefinition)
+    {
+        checkSchemaExists(viewName.getSchemaName());
+
+        if (!tableIds.containsKey(viewName)) {
+            throw new TrinoException(NOT_FOUND, "View not found: " + viewName);
+        }
+
+        views.replace(viewName, viewDefinition);
     }
 
     @Override
@@ -669,7 +681,7 @@ public class MemoryMetadata
         checkArgument(info != null, "Table not found");
         List<ColumnInfo> newColumns = info.columns().stream()
                 .map(column -> column.handle().equals(columnHandle)
-                        ? new ColumnInfo(column.handle(), column.nullable(), comment)
+                        ? new ColumnInfo(column.handle(), column.defaultValue(), column.nullable(), comment)
                         : column)
                 .collect(toImmutableList());
         tables.put(table.id(), new TableInfo(table.id(), info.schemaName(), info.tableName(), newColumns, info.truncated(), info.dataFragments(), info.comment()));

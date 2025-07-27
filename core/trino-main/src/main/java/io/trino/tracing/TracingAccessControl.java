@@ -414,6 +414,15 @@ public class TracingAccessControl
     }
 
     @Override
+    public void checkCanRefreshView(SecurityContext context, QualifiedObjectName viewName)
+    {
+        Span span = startSpan("checkCanRefreshView");
+        try (var _ = scopedSpan(span)) {
+            delegate.checkCanRefreshView(context, viewName);
+        }
+    }
+
+    @Override
     public void checkCanDropView(SecurityContext context, QualifiedObjectName viewName)
     {
         Span span = startSpan("checkCanDropView");
@@ -734,6 +743,42 @@ public class TracingAccessControl
         Span span = startSpan("checkCanShowCreateFunction");
         try (var ignored = scopedSpan(span)) {
             delegate.checkCanShowCreateFunction(context, functionName);
+        }
+    }
+
+    @Override
+    public void checkCanShowBranches(SecurityContext context, QualifiedObjectName tableName)
+    {
+        Span span = startSpan("checkCanShowBranches");
+        try (var ignored = scopedSpan(span)) {
+            delegate.checkCanShowBranches(context, tableName);
+        }
+    }
+
+    @Override
+    public void checkCanCreateBranch(SecurityContext context, QualifiedObjectName tableName, String branchName)
+    {
+        Span span = startSpan("checkCanCreateBranch");
+        try (var ignored = scopedSpan(span)) {
+            delegate.checkCanCreateBranch(context, tableName, branchName);
+        }
+    }
+
+    @Override
+    public void checkCanDropBranch(SecurityContext context, QualifiedObjectName tableName, String branchName)
+    {
+        Span span = startSpan("checkCanDropBranch");
+        try (var ignored = scopedSpan(span)) {
+            delegate.checkCanDropBranch(context, tableName, branchName);
+        }
+    }
+
+    @Override
+    public void checkCanFastForwardBranch(SecurityContext context, QualifiedObjectName tableName, String sourceBranchName, String targetBranchName)
+    {
+        Span span = startSpan("checkCanFastForwardBranch");
+        try (var ignored = scopedSpan(span)) {
+            delegate.checkCanFastForwardBranch(context, tableName, sourceBranchName, targetBranchName);
         }
     }
 

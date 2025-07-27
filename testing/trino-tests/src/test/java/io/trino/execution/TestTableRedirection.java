@@ -410,7 +410,7 @@ public class TestTableRedirection
                             .where(TableFinishNode.class::isInstance)
                             .findOnlyElement();
                     TableWriterNode.InsertTarget insertTarget = ((TableWriterNode.InsertTarget) finishNode.getTarget());
-                    assertThat(((MockConnectorInsertTableHandle) insertTarget.getHandle().connectorHandle()).getTableName()).isEqualTo(schemaTableName(SCHEMA_TWO, VALID_REDIRECTION_TARGET));
+                    assertThat(((MockConnectorInsertTableHandle) insertTarget.getHandle().connectorHandle()).tableName()).isEqualTo(schemaTableName(SCHEMA_TWO, VALID_REDIRECTION_TARGET));
                     assertThat(insertTarget.getSchemaTableName()).isEqualTo(schemaTableName(SCHEMA_TWO, VALID_REDIRECTION_TARGET));
                 });
     }

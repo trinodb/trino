@@ -487,8 +487,8 @@ following properties:
   - Warehouse identifier/location for the catalog (optional). Example:
     `s3://my_bucket/warehouse_location`
 * - `iceberg.rest-catalog.security`
-  - The type of security to use (default: `NONE`).  `OAUTH2` requires either a
-    `token` or `credential`. Example: `OAUTH2`
+  - The type of security to use (default: `NONE`). Possible values are `NONE`, 
+    `SIGV4` or `OAUTH2`. `OAUTH2` requires either a `token` or `credential`.
 * - `iceberg.rest-catalog.session`
   - Session information included when communicating with the REST Catalog.
     Options are `NONE` or `USER` (default: `NONE`).
@@ -517,8 +517,6 @@ following properties:
     Defaults to `false`.
 * - `iceberg.rest-catalog.view-endpoints-enabled`
   - Enable view endpoints. Defaults to `true`.
-* - `iceberg.rest-catalog.sigv4-enabled`
-  - Enable AWS Signature version 4 (SigV4). Defaults to `false`.
 * - `iceberg.rest-catalog.signing-name`
   - AWS SigV4 signing service name. Defaults to `execute-api`.
 * - `iceberg.rest-catalog.case-insensitive-name-matching`

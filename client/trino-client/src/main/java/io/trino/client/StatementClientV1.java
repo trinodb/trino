@@ -511,6 +511,9 @@ class StatementClientV1
                     state.compareAndSet(State.RUNNING, State.CLIENT_ERROR);
                     throw requestFailedException(taskName, request, response);
                 }
+                cause = new ClientException(format("Expected http code %d but got %d%s", HTTP_OK, response.getStatusCode(), response.getResponseBody()
+                                .map(message -> "\nResponse body was: " + message)
+                                .orElse("")));
                 continue;
             }
 

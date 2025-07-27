@@ -41,7 +41,6 @@ public class TestIcebergRestCatalogConfig
                 .setSecurity(IcebergRestCatalogConfig.Security.NONE)
                 .setVendedCredentialsEnabled(false)
                 .setViewEndpointsEnabled(true)
-                .setSigV4Enabled(false)
                 .setCaseInsensitiveNameMatching(false)
                 .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, MINUTES)));
     }
@@ -59,7 +58,6 @@ public class TestIcebergRestCatalogConfig
                 .put("iceberg.rest-catalog.session-timeout", "100ms")
                 .put("iceberg.rest-catalog.vended-credentials-enabled", "true")
                 .put("iceberg.rest-catalog.view-endpoints-enabled", "false")
-                .put("iceberg.rest-catalog.sigv4-enabled", "true")
                 .put("iceberg.rest-catalog.case-insensitive-name-matching", "true")
                 .put("iceberg.rest-catalog.case-insensitive-name-matching.cache-ttl", "3m")
                 .buildOrThrow();
@@ -74,7 +72,6 @@ public class TestIcebergRestCatalogConfig
                 .setSecurity(IcebergRestCatalogConfig.Security.OAUTH2)
                 .setVendedCredentialsEnabled(true)
                 .setViewEndpointsEnabled(false)
-                .setSigV4Enabled(true)
                 .setCaseInsensitiveNameMatching(true)
                 .setCaseInsensitiveNameMatchingCacheTtl(new Duration(3, MINUTES));
 

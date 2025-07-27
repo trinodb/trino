@@ -33,7 +33,7 @@ public class VerticaDriver
         extends HybridAbstractDriver
 {
     @Override
-    protected JDBCVersion runningJDBCVersion()
+    protected JDBCVersion getJDBCVersion()
     {
         return JDBCVersion.JDBC42;
     }

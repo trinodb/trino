@@ -1609,7 +1609,8 @@ public abstract class BaseJdbcClient
         execute(session, connection, "ALTER SCHEMA " + quoted(remoteSchemaName) + " RENAME TO " + quoted(newRemoteSchemaName));
     }
 
-    protected void execute(ConnectorSession session, String query)
+    @Override
+    public void execute(ConnectorSession session, String query)
     {
         try (Connection connection = connectionFactory.openConnection(session)) {
             execute(session, connection, query);

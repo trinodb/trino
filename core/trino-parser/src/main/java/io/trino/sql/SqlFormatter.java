@@ -33,6 +33,7 @@ import io.trino.sql.tree.Commit;
 import io.trino.sql.tree.CompoundStatement;
 import io.trino.sql.tree.ControlStatement;
 import io.trino.sql.tree.Corresponding;
+import io.trino.sql.tree.CreateBranch;
 import io.trino.sql.tree.CreateCatalog;
 import io.trino.sql.tree.CreateFunction;
 import io.trino.sql.tree.CreateMaterializedView;
@@ -47,6 +48,7 @@ import io.trino.sql.tree.Deny;
 import io.trino.sql.tree.DescribeInput;
 import io.trino.sql.tree.DescribeOutput;
 import io.trino.sql.tree.DeterministicCharacteristic;
+import io.trino.sql.tree.DropBranch;
 import io.trino.sql.tree.DropCatalog;
 import io.trino.sql.tree.DropColumn;
 import io.trino.sql.tree.DropFunction;
@@ -67,6 +69,7 @@ import io.trino.sql.tree.ExplainFormat;
 import io.trino.sql.tree.ExplainOption;
 import io.trino.sql.tree.ExplainType;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.FastForwardBranch;
 import io.trino.sql.tree.FetchFirst;
 import io.trino.sql.tree.FunctionSpecification;
 import io.trino.sql.tree.Grant;
@@ -119,6 +122,7 @@ import io.trino.sql.tree.QueryColumn;
 import io.trino.sql.tree.QueryPeriod;
 import io.trino.sql.tree.QuerySpecification;
 import io.trino.sql.tree.RefreshMaterializedView;
+import io.trino.sql.tree.RefreshView;
 import io.trino.sql.tree.Relation;
 import io.trino.sql.tree.RenameColumn;
 import io.trino.sql.tree.RenameMaterializedView;
@@ -149,6 +153,7 @@ import io.trino.sql.tree.SetRole;
 import io.trino.sql.tree.SetSession;
 import io.trino.sql.tree.SetSessionAuthorization;
 import io.trino.sql.tree.SetTimeZone;
+import io.trino.sql.tree.ShowBranches;
 import io.trino.sql.tree.ShowCatalogs;
 import io.trino.sql.tree.ShowColumns;
 import io.trino.sql.tree.ShowCreate;
@@ -1095,6 +1100,8 @@ public final class SqlFormatter
             builder.append("MERGE INTO ")
                     .append(formatName(node.getTargetTable().getName()));
 
+            node.getTargetTable().getBranch().ifPresent(branch -> builder.append("@").append(formatName(branch)));
+
             node.getTargetAlias().ifPresent(value -> builder
                     .append(' ')
                     .append(formatName(value)));
@@ -1270,6 +1277,15 @@ public final class SqlFormatter
             builder.append("REFRESH MATERIALIZED VIEW ");
             builder.append(formatName(node.getName()));
 
+            return null;
+        }
+
+        @Override
+        protected Void visitRefreshView(RefreshView node, Integer indent)
+        {
+            builder.append("ALTER VIEW ");
+            builder.append(formatName(node.getName()));
+            builder.append(" REFRESH");
             return null;
         }
 
@@ -1481,6 +1497,8 @@ public final class SqlFormatter
             builder.append("DELETE FROM ")
                     .append(formatName(node.getTable().getName()));
 
+            node.getTable().getBranch().ifPresent(branch -> builder.append("@").append(formatName(branch)));
+
             node.getWhere().ifPresent(where -> builder
                     .append(" WHERE ")
                     .append(formatExpression(where)));
@@ -1660,6 +1678,9 @@ public final class SqlFormatter
             StringBuilder builder = new StringBuilder()
                     .append(formatName(column.getName()))
                     .append(" ").append(column.getType());
+            column.getDefaultValue().ifPresent(defaultValue -> builder
+                    .append(" DEFAULT ")
+                    .append(formatExpression(defaultValue)));
             if (!column.isNullable()) {
                 builder.append(" NOT NULL");
             }
@@ -1893,6 +1914,8 @@ public final class SqlFormatter
             builder.append("INSERT INTO ")
                     .append(formatName(node.getTarget()));
 
+            node.getTable().getBranch().ifPresent(branch -> builder.append("@").append(formatName(branch)));
+
             node.getColumns().ifPresent(columns -> builder
                     .append(" (")
                     .append(Joiner.on(", ").join(columns))
@@ -1909,8 +1932,11 @@ public final class SqlFormatter
         protected Void visitUpdate(Update node, Integer indent)
         {
             builder.append("UPDATE ")
-                    .append(formatName(node.getTable().getName()))
-                    .append(" SET");
+                    .append(formatName(node.getTable().getName()));
+            node.getTable().getBranch().ifPresent(branch -> builder.append("@").append(formatName(branch)));
+
+            builder.append(" SET");
+
             int setCounter = node.getAssignments().size() - 1;
             for (UpdateAssignment assignment : node.getAssignments()) {
                 builder.append("\n")
@@ -2319,6 +2345,57 @@ public final class SqlFormatter
                 append(indent, "AS ");
                 builder.append("$$\n").append(definition).append("$$");
             });
+            return null;
+        }
+
+        @Override
+        protected Void visitCreateBranch(CreateBranch node, Integer context)
+        {
+            builder.append("CREATE ");
+            if (node.getSaveMode() == REPLACE) {
+                builder.append("OR REPLACE ");
+            }
+            builder.append("BRANCH ");
+            if (node.getSaveMode() == IGNORE) {
+                builder.append("IF NOT EXISTS ");
+            }
+            builder.append(formatName(node.getBranchName()));
+            builder.append(formatPropertiesMultiLine(node.getProperties()));
+            builder.append(" IN TABLE ");
+            builder.append(formatName(node.getTableName()));
+            return null;
+        }
+
+        @Override
+        protected Void visitDropBranch(DropBranch node, Integer context)
+        {
+            builder.append("DROP BRANCH ");
+            if (node.isExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(formatName(node.getBranchName()));
+            builder.append(" IN TABLE ");
+            builder.append(formatName(node.getTableName()));
+            return null;
+        }
+
+        @Override
+        protected Void visitFastForwardBranch(FastForwardBranch node, Integer context)
+        {
+            builder.append("ALTER BRANCH ");
+            builder.append(formatName(node.getSourceBranchName()));
+            builder.append(" IN TABLE ");
+            builder.append(formatName(node.geTableName()));
+            builder.append(" FAST FORWARD TO ");
+            builder.append(formatName(node.getTargetBranchName()));
+            return null;
+        }
+
+        @Override
+        protected Void visitShowBranches(ShowBranches node, Integer context)
+        {
+            builder.append("SHOW BRANCHES FROM TABLE ")
+                    .append(formatName(node.getTableName()));
             return null;
         }
 

@@ -147,7 +147,7 @@ public class TestEffectivePredicateExtractor
                     TEST_CATALOG_HANDLE,
                     TestingConnectorTransactionHandle.INSTANCE,
                     new ConnectorTableProperties(
-                            ((PredicatedTableHandle) handle.connectorHandle()).getPredicate(),
+                            ((PredicatedTableHandle) handle.connectorHandle()).predicate(),
                             Optional.empty(),
                             Optional.empty(),
                             ImmutableList.of()));
@@ -1155,19 +1155,6 @@ public class TestEffectivePredicateExtractor
         }
     }
 
-    private static class PredicatedTableHandle
-            implements ConnectorTableHandle
-    {
-        private final TupleDomain<ColumnHandle> predicate;
-
-        public PredicatedTableHandle(TupleDomain<ColumnHandle> predicate)
-        {
-            this.predicate = predicate;
-        }
-
-        public TupleDomain<ColumnHandle> getPredicate()
-        {
-            return predicate;
-        }
-    }
+    private record PredicatedTableHandle(TupleDomain<ColumnHandle> predicate)
+            implements ConnectorTableHandle {}
 }

@@ -21,6 +21,9 @@ import io.trino.spi.HostAddress;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ByteArrayBlock;
+import io.trino.spi.block.IntArrayBlock;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorPageSink;
@@ -33,7 +36,9 @@ import java.util.List;
 import java.util.OptionalDouble;
 import java.util.OptionalLong;
 
+import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingPageSinkId.TESTING_PAGE_SINK_ID;
@@ -97,6 +102,29 @@ public class TestMemoryPagesStore
         assertThatThrownBy(() -> pagesStore.getPages(0L, 0, 1, new int[] {0}, List.of(INTEGER), 42, OptionalLong.empty(), OptionalDouble.empty()))
                 .isInstanceOf(TrinoException.class)
                 .hasMessageMatching("Expected to find.*");
+    }
+
+    @Test
+    public void testReadBackExtraColumns()
+    {
+        createTable(0L, 0L);
+        int positions = 1024;
+        // insert single BIGINT column page
+        insertToTable(0L, new Page(createLongSequenceBlock(0, positions)), 0L);
+        // Read back as BIGINT, INTEGER, BOOLEAN expecting the INTEGER and BOOLEAN columns to be RLE encoded
+        List<Page> readBack = pagesStore.getPages(0L, 0, 1, new int[] {0, 1, 2}, List.of(BIGINT, INTEGER, BOOLEAN), positions, OptionalLong.empty(), OptionalDouble.empty());
+        assertThat(readBack).hasSize(1);
+        Page readPage = readBack.getFirst();
+        assertThat(readPage.getChannelCount()).isEqualTo(3);
+        assertThat(readPage.getPositionCount()).isEqualTo(positions);
+        assertThat(readPage.getBlock(1))
+                .isInstanceOf(RunLengthEncodedBlock.class);
+        assertThat(readPage.getBlock(1).getUnderlyingValueBlock())
+                .isInstanceOf(IntArrayBlock.class);
+        assertThat(readPage.getBlock(2))
+                .isInstanceOf(RunLengthEncodedBlock.class);
+        assertThat(readPage.getBlock(2).getUnderlyingValueBlock())
+                .isInstanceOf(ByteArrayBlock.class);
     }
 
     @Test
