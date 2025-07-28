@@ -38,6 +38,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT_DEFAULT;
+import static org.apache.iceberg.TableUtil.formatVersion;
 
 public class PropertiesTable
         implements SystemTable
@@ -90,7 +91,7 @@ public class PropertiesTable
         properties.put("provider", "iceberg");
         properties.put("current-snapshot-id", currentSnapshotId);
         properties.put("location", icebergTable.location());
-        properties.put("format-version", String.valueOf(icebergTable.operations().current().formatVersion()));
+        properties.put("format-version", String.valueOf(formatVersion(icebergTable)));
         // TODO: Support sort column transforms (https://github.com/trinodb/trino/issues/15088)
         SortOrder sortOrder = icebergTable.sortOrder();
         if (!sortOrder.isUnsorted() && sortOrder.fields().stream().allMatch(sortField -> sortField.transform().isIdentity())) {
