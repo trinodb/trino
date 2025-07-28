@@ -81,7 +81,8 @@ public class ClearScapeManager
         String envUrl = ClearScapeEnvVariables.ENV_CLEARSCAPE_URL;
         if (isValidUrl(envUrl)) {
             return new TeradataHttpClient(envUrl);
-        } else {
+        }
+        else {
             throw new URISyntaxException(envUrl, "Provide valid environment URL");
         }
     }
