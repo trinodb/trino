@@ -75,7 +75,9 @@ public class ClearScapeManager
      * @return an initialized {@link TeradataHttpClient} instance
      * @throws URISyntaxException if the environment URL is invalid
      */
-    private TeradataHttpClient getTeradataHttpClient(JsonNode config) throws URISyntaxException {
+    private TeradataHttpClient getTeradataHttpClient(JsonNode config)
+            throws URISyntaxException
+    {
         String envUrl = ClearScapeEnvVariables.ENV_CLEARSCAPE_URL;
         if (isValidUrl(envUrl)) {
             return new TeradataHttpClient(envUrl);
