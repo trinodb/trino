@@ -39,7 +39,8 @@ record QueryResultsResponse(
         Optional<TransactionId> startedTransactionId,
         boolean clearTransactionId,
         ProtocolHeaders protocolHeaders,
-        QueryResults queryResults)
+        QueryResults queryResults,
+        Optional<String> queryDataEncoding)
 {
     QueryResultsResponse {
         requireNonNull(setCatalog, "setCatalog is null");
@@ -55,5 +56,6 @@ record QueryResultsResponse(
         requireNonNull(startedTransactionId, "startedTransactionId is null");
         requireNonNull(protocolHeaders, "protocolHeaders is null");
         requireNonNull(queryResults, "queryResults is null");
+        requireNonNull(queryDataEncoding, "queryDataEncoding is null");
     }
 }
