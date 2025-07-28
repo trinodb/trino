@@ -46,6 +46,8 @@ import java.util.regex.Pattern;
  */
 public class ClearScapeManager {
 
+public class ClearScapeManager
+{
     private static final Logger LOGGER = LoggerFactory.getLogger(ClearScapeManager.class);
 
     private static final Pattern ALLOWED_URL_PATTERN =
