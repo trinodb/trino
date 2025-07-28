@@ -20,8 +20,7 @@ public record EnvironmentResponse(
 
         String type,
 
-        List<Service> services
-)
+        List<Service> services)
 {
     record Service(
 
