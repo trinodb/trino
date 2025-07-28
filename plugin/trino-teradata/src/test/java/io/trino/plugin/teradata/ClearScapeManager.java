@@ -63,7 +63,8 @@ public class ClearScapeManager
      * @param url the environment URL to validate
      * @return true if the URL is valid, false otherwise
      */
-    private boolean isValidUrl(String url) {
+    private boolean isValidUrl(String url)
+    {
         return ALLOWED_URL_PATTERN.matcher(url).matches();
     }
 
