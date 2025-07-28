@@ -98,7 +98,8 @@ public class ClearScapeManager
     }
 
     /** Public method to stop the clearscape instance */
-    public void stop() {
+    public void stop()
+    {
         stopClearScapeInstance();
     }
 
