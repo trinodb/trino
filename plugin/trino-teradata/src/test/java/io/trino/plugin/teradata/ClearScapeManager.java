@@ -91,7 +91,8 @@ public class ClearScapeManager
      * Public method to create and start the ClearScape environment instance. Should be called
      * before any operations requiring an active environment.
      */
-    public void setup() {
+    public void setup()
+    {
         this.configJSON = new ObjectMapper().createObjectNode();
         createAndStartClearScapeInstance();
     }
