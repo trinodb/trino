@@ -21,9 +21,8 @@ public record EnvironmentResponse(
         String type,
 
         List<Service> services
-
-) {
-
+)
+{
     record Service(
 
             List<Credential> credentials,
