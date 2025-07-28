@@ -37,8 +37,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TeradataJdbcConnectorTest
         extends BaseJdbcConnectorTest
 {
-    protected final TestTeradataDatabase database = new TestTeradataDatabase(DatabaseConfig.fromEnv());
-
+    protected final TestTeradataDatabase database = new TestTeradataDatabase(DatabaseConfig.fromEnvWithClearScape(), true);
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
@@ -71,7 +70,6 @@ public class TeradataJdbcConnectorTest
                  SUPPORTS_AGGREGATION_PUSHDOWN,
                  SUPPORTS_JOIN_PUSHDOWN,
                  SUPPORTS_LIMIT_PUSHDOWN -> true;
-//                 SUPPORTS_DROP_SCHEMA_CASCADE -> true;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
@@ -94,6 +92,12 @@ public class TeradataJdbcConnectorTest
     public void cleanupTestDatabase()
     {
         database.dropTestDatabaseIfExists();
+        System.out.println("Database Dropped Successfully");
+        try {
+                database.close();  // This should stop ClearScape
+        } catch (Exception e) {
+            System.err.println("Cleanup failed: " + e.getMessage());
+        }
     }
 
     @Override
