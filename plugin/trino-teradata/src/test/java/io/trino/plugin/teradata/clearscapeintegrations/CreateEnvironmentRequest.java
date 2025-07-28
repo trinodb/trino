@@ -7,7 +7,6 @@ public record CreateEnvironmentRequest(
         String region,
 
         String password
-
-) {
-
+)
+{
 }
