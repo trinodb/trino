@@ -62,6 +62,10 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.ArrayType;
+import java.sql.Array;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 import org.weakref.jmx.$internal.guava.collect.ImmutableMap;
@@ -170,8 +174,7 @@ import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.round;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
-import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
-import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.spi.type.VarcharType.*;
 import static java.lang.Math.floorDiv;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -1034,6 +1037,8 @@ public class TeradataClient
             case "JSON":
                 // TODO map to trino json value
                 return Optional.of(jsonColumnMapping());
+            case "ARRAY":
+                return Optional.of(arrayColumnMapping(session, connection, typeHandle));
         }
 
         // switch by jdbc type
@@ -1080,6 +1085,8 @@ public class TeradataClient
                 return Optional.of(timeColumnMapping(typeHandle.requiredDecimalDigits()));
             case Types.TIMESTAMP:
                 return Optional.of(timestampColumnMapping(TimestampType.createTimestampType(typeHandle.requiredDecimalDigits())));
+            case Types.ARRAY:
+                return Optional.of(arrayColumnMapping(session, connection, typeHandle));
         }
 
         if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
@@ -1279,12 +1286,6 @@ public class TeradataClient
         return new SliceWriteFunction()
         {
             @Override
-            public String getBindExpression()
-            {
-                return bindExpression;
-            }
-
-            @Override
             public void set(PreparedStatement statement, int index, Slice value)
                     throws SQLException
             {
@@ -1295,5 +1296,63 @@ public class TeradataClient
                 statement.setString(index, value.toStringUtf8());
             }
         };
+    }
+
+    private ColumnMapping arrayColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
+    {
+        // Default to VARCHAR element type - you can enhance this to detect actual element type
+        Type elementType = VARCHAR;
+        Type arrayType = new ArrayType(elementType);
+
+        return ColumnMapping.objectMapping(
+                arrayType,
+                arrayReadFunction(elementType),
+                arrayWriteFunction(elementType),
+                DISABLE_PUSHDOWN);
+    }
+
+    private ObjectReadFunction arrayReadFunction(Type elementType)
+    {
+        return ObjectReadFunction.of(Block.class, (resultSet, columnIndex) -> {
+            Array sqlArray = resultSet.getArray(columnIndex);
+            if (sqlArray == null) {
+                return null;
+            }
+
+            Object[] elements = (Object[]) sqlArray.getArray();
+            BlockBuilder blockBuilder = elementType.createBlockBuilder(null, elements.length);
+
+            for (Object element : elements) {
+                if (element == null) {
+                    blockBuilder.appendNull();
+                } else {
+                    elementType.writeSlice(blockBuilder, utf8Slice(element.toString()));
+                }
+            }
+
+            return blockBuilder.build();
+        });
+    }
+
+    private ObjectWriteFunction arrayWriteFunction(Type elementType)
+    {
+        return ObjectWriteFunction.of(Block.class, (statement, index, block) -> {
+            if (block == null) {
+                statement.setNull(index, Types.ARRAY);
+                return;
+            }
+
+            Object[] elements = new Object[block.getPositionCount()];
+            for (int i = 0; i < block.getPositionCount(); i++) {
+                if (block.isNull(i)) {
+                    elements[i] = null;
+                } else {
+                    elements[i] = elementType.getSlice(block, i).toStringUtf8();
+                }
+            }
+
+            Array sqlArray = statement.getConnection().createArrayOf("VARCHAR", elements);
+            statement.setArray(index, sqlArray);
+        });
     }
 }

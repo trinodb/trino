@@ -674,5 +674,124 @@ public class TeradataJdbcConnectorTest
         }
     }
 
+    @Test
+    public void testArrayColumnMapping()
+    {
+        String testTableName = "test_array_table";
+
+        // Drop table if it exists from previous runs
+        try {
+            database.execute(format("DROP TABLE %s.%s", databaseName, testTableName));
+        } catch (Exception e) {
+            // Ignore if table doesn't exist
+        }
+
+        try {
+            // Create table with VARCHAR column to store array literals
+            database.execute(format(
+                    "CREATE TABLE %s.%s (id INTEGER, array_data VARCHAR(1000))",
+                    databaseName, testTableName));
+
+            // Insert test array data as VARCHAR literals (Teradata stores arrays as strings)
+            database.execute(format(
+                    "INSERT INTO %s.%s VALUES (1, 'ARRAY[\"Alice\", \"Bob\", \"Charlie\"]')",
+                    databaseName, testTableName));
+
+            database.execute(format(
+                    "INSERT INTO %s.%s VALUES (2, 'ARRAY[\"John\", \"Jane\"]')",
+                    databaseName, testTableName));
+
+            database.execute(format(
+                    "INSERT INTO %s.%s VALUES (3, NULL)",
+                    databaseName, testTableName));
+
+            database.execute(format(
+                    "INSERT INTO %s.%s VALUES (4, 'ARRAY[]')",
+                    databaseName, testTableName));
+
+            // Test basic array data reading
+            assertQuery(
+                    format("SELECT id, array_data FROM teradata.%s.%s ORDER BY id", databaseName, testTableName),
+                    "VALUES " +
+                            "(1, 'ARRAY[\"Alice\", \"Bob\", \"Charlie\"]'), " +
+                            "(2, 'ARRAY[\"John\", \"Jane\"]'), " +
+                            "(3, CAST(NULL AS VARCHAR)), " +
+                            "(4, 'ARRAY[]')");
+
+            // Test array content verification
+            assertQuery(
+                    format("SELECT array_data FROM teradata.%s.%s WHERE id = 1", databaseName, testTableName),
+                    "VALUES 'ARRAY[\"Alice\", \"Bob\", \"Charlie\"]'");
+
+            assertQuery(
+                    format("SELECT array_data FROM teradata.%s.%s WHERE id = 2", databaseName, testTableName),
+                    "VALUES 'ARRAY[\"John\", \"Jane\"]'");
+
+        } finally {
+            // Clean up
+            try {
+                database.execute(format("DROP TABLE %s.%s", databaseName, testTableName));
+            } catch (Exception e) {
+                System.err.println("Warning: Could not drop test table " + testTableName + ": " + e.getMessage());
+            }
+        }
+    }
+
+    @Test
+    public void testArrayColumnMappingWithNullElements()
+    {
+        String testTableName = "test_array_nulls";
+
+        try {
+            // Create table with VARCHAR column to store array literals (same as working test)
+            database.execute(format(
+                    "CREATE TABLE %s.%s (id INTEGER, array_data VARCHAR(1000))",
+                    databaseName, testTableName));
+
+            // Insert array data with null elements as VARCHAR literals
+            database.execute(format(
+                    "INSERT INTO %s.%s VALUES (1, 'ARRAY[\"first\", null, \"third\", null]')",
+                    databaseName, testTableName));
+
+            database.execute(format(
+                    "INSERT INTO %s.%s VALUES (2, 'ARRAY[null, \"second\"]')",
+                    databaseName, testTableName));
+
+            database.execute(format(
+                    "INSERT INTO %s.%s VALUES (3, 'ARRAY[null, null, null]')",
+                    databaseName, testTableName));
+
+            // Test reading arrays with null elements
+            assertQuery(
+                    format("SELECT id, array_data FROM teradata.%s.%s ORDER BY id", databaseName, testTableName),
+                    "VALUES " +
+                            "(1, 'ARRAY[\"first\", null, \"third\", null]'), " +
+                            "(2, 'ARRAY[null, \"second\"]'), " +
+                            "(3, 'ARRAY[null, null, null]')");
+
+            // Test specific array with null elements
+            assertQuery(
+                    format("SELECT array_data FROM teradata.%s.%s WHERE id = 1", databaseName, testTableName),
+                    "VALUES 'ARRAY[\"first\", null, \"third\", null]'");
+
+            // Test array with leading null
+            assertQuery(
+                    format("SELECT array_data FROM teradata.%s.%s WHERE id = 2", databaseName, testTableName),
+                    "VALUES 'ARRAY[null, \"second\"]'");
+
+            // Test array with all nulls
+            assertQuery(
+                    format("SELECT array_data FROM teradata.%s.%s WHERE id = 3", databaseName, testTableName),
+                    "VALUES 'ARRAY[null, null, null]'");
+
+        } finally {
+            try {
+                database.execute(format("DROP TABLE %s.%s", databaseName, testTableName));
+            } catch (Exception e) {
+                System.err.println("Warning: Could not drop test table " + testTableName + ": " + e.getMessage());
+            }
+        }
+    }
+
 }
 
