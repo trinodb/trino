@@ -35,7 +35,7 @@ import static org.testcontainers.utility.MountableFile.forHostPath;
 public class Kafka
         implements EnvironmentExtender
 {
-    private static final String CONFLUENT_VERSION = "7.9.0";
+    private static final String CONFLUENT_VERSION = "8.0.0";
     private static final int SCHEMA_REGISTRY_PORT = 8081;
     static final String KAFKA = "kafka";
     static final String SCHEMA_REGISTRY = "schema-registry";

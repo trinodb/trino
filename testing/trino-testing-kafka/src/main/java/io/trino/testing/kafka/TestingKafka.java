@@ -25,8 +25,8 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.serialization.LongSerializer;
 import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.KafkaContainer;
 import org.testcontainers.containers.Network;
+import org.testcontainers.kafka.ConfluentKafkaContainer;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.MountableFile;
 
@@ -49,7 +49,6 @@ import java.util.stream.Stream;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.time.temporal.ChronoUnit.MILLIS;
-import static org.testcontainers.containers.KafkaContainer.KAFKA_PORT;
 import static org.testcontainers.utility.MountableFile.forClasspathResource;
 
 public final class TestingKafka
@@ -57,14 +56,14 @@ public final class TestingKafka
 {
     private static final Logger log = Logger.get(TestingKafka.class);
 
-    private static final String DEFAULT_CONFLUENT_PLATFORM_VERSION = "7.9.0";
+    private static final String DEFAULT_CONFLUENT_PLATFORM_VERSION = "8.0.0";
     private static final int SCHEMA_REGISTRY_PORT = 8081;
 
     private static final DockerImageName KAFKA_IMAGE_NAME = DockerImageName.parse("confluentinc/cp-kafka");
     private static final DockerImageName SCHEMA_REGISTRY_IMAGE_NAME = DockerImageName.parse("confluentinc/cp-schema-registry");
 
     private final Network network;
-    private final KafkaContainer kafka;
+    private final ConfluentKafkaContainer kafka;
     private final GenericContainer<?> schemaRegistry;
     private final boolean withSchemaRegistry;
     private final Closer closer = Closer.create();
@@ -95,10 +94,11 @@ public final class TestingKafka
         // Modify the template directly instead.
         MountableFile kafkaLogTemplate = forClasspathResource("log4j-kafka.properties.template");
         MountableFile schemaRegistryLogTemplate = forClasspathResource("log4j-schema-registry.properties.template");
-        kafka = new KafkaContainer(KAFKA_IMAGE_NAME.withTag(confluentPlatformVersion))
+        kafka = new ConfluentKafkaContainer(KAFKA_IMAGE_NAME.withTag(confluentPlatformVersion))
                 .withStartupAttempts(3)
                 .withNetwork(network)
                 .withNetworkAliases("kafka")
+                .withListener("kafka:9095")
                 .withCopyFileToContainer(
                         kafkaLogTemplate,
                         "/etc/confluent/docker/log4j.properties.template");
@@ -106,7 +106,7 @@ public final class TestingKafka
                 .withStartupAttempts(3)
                 .withNetwork(network)
                 .withNetworkAliases("schema-registry")
-                .withEnv("SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS", "PLAINTEXT://kafka:9092")
+                .withEnv("SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS", "kafka:9095")
                 .withEnv("SCHEMA_REGISTRY_HOST_NAME", "0.0.0.0")
                 .withEnv("SCHEMA_REGISTRY_LISTENERS", "http://0.0.0.0:" + SCHEMA_REGISTRY_PORT)
                 .withEnv("SCHEMA_REGISTRY_HEAP_OPTS", "-Xmx1G")
@@ -163,6 +163,8 @@ public final class TestingKafka
             command.add(Integer.toString(replication));
             command.add("--topic");
             command.add(topic);
+            command.add("--bootstrap-server");
+            command.add("localhost:9093");
 
             kafka.execInContainer(command.toArray(new String[0]));
         }
@@ -184,7 +186,7 @@ public final class TestingKafka
             command.add("--replication-factor");
             command.add(Integer.toString(replication));
             command.add("--bootstrap-server");
-            command.add("localhost:9092");
+            command.add("localhost:9093");
             if (enableLogAppendTime) {
                 command.add("--config");
                 command.add("message.timestamp.type=LogAppendTime");
@@ -233,14 +235,14 @@ public final class TestingKafka
 
     public String getConnectString()
     {
-        return kafka.getHost() + ":" + kafka.getMappedPort(KAFKA_PORT);
+        return kafka.getBootstrapServers();
     }
 
     private <K, V> KafkaProducer<K, V> createProducer(Map<String, String> extraProperties)
     {
         Map<String, String> properties = new HashMap<>(extraProperties);
 
-        properties.putIfAbsent(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, getConnectString());
+        properties.putIfAbsent(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafka.getBootstrapServers());
         properties.putIfAbsent(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, LongSerializer.class.getName());
         properties.putIfAbsent(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class.getName());
         properties.putIfAbsent(ProducerConfig.PARTITIONER_CLASS_CONFIG, NumberPartitioner.class.getName());

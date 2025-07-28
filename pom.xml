@@ -187,7 +187,7 @@
         <dep.avro.version>1.12.0</dep.avro.version>
         <dep.aws-sdk.version>1.12.788</dep.aws-sdk.version>
         <dep.cassandra.version>4.17.0</dep.cassandra.version>
-        <dep.confluent.version>7.8.0</dep.confluent.version>
+        <dep.confluent.version>8.0.0</dep.confluent.version>
         <dep.checkstyle.version>10.23.1</dep.checkstyle.version>
         <dep.docker.images.version>116</dep.docker.images.version>
         <dep.drift.version>1.23</dep.drift.version>
@@ -206,13 +206,13 @@
         <dep.okio.version>3.15.0</dep.okio.version>
         <dep.parquet.version>1.15.2</dep.parquet.version>
         <dep.plugin.failsafe.version>${dep.plugin.surefire.version}</dep.plugin.failsafe.version>
-        <dep.protobuf.version>3.25.8</dep.protobuf.version>
+        <dep.protobuf.version>4.29.3</dep.protobuf.version>
         <dep.snowflake.version>3.25.1</dep.snowflake.version>
         <dep.swagger.version>2.2.34</dep.swagger.version>
         <dep.takari.version>2.3.2</dep.takari.version>
         <dep.tcnative.version>2.0.72.Final</dep.tcnative.version>
         <dep.tempto.version>202</dep.tempto.version>
-        <dep.wire.version>5.2.1</dep.wire.version>
+        <dep.wire.version>5.3.5</dep.wire.version>
         <dep.zookeeper.version>3.9.3</dep.zookeeper.version>
         <extraJavaVectorArgs>--add-modules=jdk.incubator.vector</extraJavaVectorArgs>
         <!--

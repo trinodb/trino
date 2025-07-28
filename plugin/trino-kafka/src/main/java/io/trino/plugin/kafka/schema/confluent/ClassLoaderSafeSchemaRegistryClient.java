@@ -624,4 +624,22 @@ public class ClassLoaderSafeSchemaRegistryClient
             delegate.close();
         }
     }
+
+    @Override
+    public ParsedSchema getSchemaByGuid(String guid, String format)
+            throws IOException, RestClientException
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getSchemaByGuid(guid, format);
+        }
+    }
+
+    @Override
+    public RegisterSchemaResponse getIdWithResponse(String subject, ParsedSchema schema, boolean normalize)
+            throws IOException, RestClientException
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getIdWithResponse(subject, schema, normalize);
+        }
+    }
 }
