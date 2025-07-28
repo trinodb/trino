@@ -30,10 +30,7 @@ public record EnvironmentResponse(
             String name,
 
             String url
-
-    ) {
-
-    }
+    ) {}
 
     record Credential(
 
