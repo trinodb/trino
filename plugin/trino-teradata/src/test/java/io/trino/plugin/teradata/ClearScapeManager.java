@@ -119,7 +119,8 @@ public class ClearScapeManager
             EnvironmentResponse response = null;
             try {
                 response = teradataHttpClient.getEnvironment(new GetEnvironmentRequest(name), token);
-            } catch (BaseException be) {
+            }
+            catch (BaseException be) {
                 LOGGER.info("Environment {} is not available. {}", name, be.getMessage());
             }
 
