@@ -39,10 +39,8 @@ public record EnvironmentResponse(
             String value
     ) {}
 
-    }
-
-    public enum State {
-
+    public enum State
+    {
         PROVISIONING,
         INITIALIZING,
         RUNNING,
