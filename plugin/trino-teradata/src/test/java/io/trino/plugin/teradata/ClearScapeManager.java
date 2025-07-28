@@ -110,7 +110,8 @@ public class ClearScapeManager
      * environment already exists and is stopped, it is started. If it doesn't exist, a new
      * environment is created. Updates the {@code configJSON} with host/IP and authentication info.
      */
-    private void createAndStartClearScapeInstance() {
+    private void createAndStartClearScapeInstance()
+    {
         try {
             TeradataHttpClient teradataHttpClient = getTeradataHttpClient(configJSON);
             String name = ClearScapeEnvVariables.ENV_CLEARSCAPE_NAME;
