@@ -136,8 +136,7 @@ public class ClearScapeManager
                 CreateEnvironmentRequest request = new CreateEnvironmentRequest(
                         name,
                         ClearScapeEnvVariables.ENV_CLEARSCAPE_REGION,
-                        ClearScapeEnvVariables.ENV_CLEARSCAPE_PASSWORD
-                );
+                        ClearScapeEnvVariables.ENV_CLEARSCAPE_PASSWORD);
                 response = teradataHttpClient.createEnvironment(request, token).get();
             }
             else if (response.state() == EnvironmentResponse.State.STOPPED) {
