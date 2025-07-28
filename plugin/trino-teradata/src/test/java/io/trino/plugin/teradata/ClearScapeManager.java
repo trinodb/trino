@@ -16,22 +16,8 @@ import io.trino.plugin.teradata.clearscapeintegrations.TeradataConstants;
 import io.trino.plugin.teradata.clearscapeintegrations.TeradataHttpClient;
 import io.trino.plugin.teradata.clearscapeintegrations.TeradataConstants;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.teradata.clearScapeIntegrations.BaseException;
-import io.trino.plugin.teradata.clearScapeIntegrations.CreateEnvironmentRequest;
-import io.trino.plugin.teradata.clearScapeIntegrations.DeleteEnvironmentRequest;
-import io.trino.plugin.teradata.clearScapeIntegrations.EnvironmentRequest;
-import io.trino.plugin.teradata.clearScapeIntegrations.EnvironmentResponse;
-import io.trino.plugin.teradata.clearScapeIntegrations.GetEnvironmentRequest;
-import io.trino.plugin.teradata.clearScapeIntegrations.OperationRequest;
-import io.trino.plugin.teradata.clearScapeIntegrations.TeradataHttpClient;
-import io.trino.plugin.teradata.clearScapeIntegrations.TeradataConstants;
-import io.trino.plugin.teradata.clearScapeIntegrations.ClearScapeEnvVariables;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.ImmutableMap;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.net.URISyntaxException;
 import java.util.regex.Pattern;
