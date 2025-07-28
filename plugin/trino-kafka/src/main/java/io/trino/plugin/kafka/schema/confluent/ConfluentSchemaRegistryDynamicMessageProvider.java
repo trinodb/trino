@@ -81,7 +81,7 @@ public class ConfluentSchemaRegistryDynamicMessageProvider
             return ((ProtobufSchema) schema).toDescriptor();
         }
         catch (IOException | RestClientException e) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Looking up schemaId '%s'from confluent schema registry failed", schemaId), e);
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Looking up schemaId '%s' from confluent schema registry failed", schemaId), e);
         }
     }
 
