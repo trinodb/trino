@@ -26,6 +26,10 @@ import io.trino.plugin.teradata.clearScapeIntegrations.TeradataConstants;
 import io.trino.plugin.teradata.clearScapeIntegrations.ClearScapeEnvVariables;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableMap;
+
+import java.net.URISyntaxException;
+import java.util.regex.Pattern;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
