@@ -15,11 +15,10 @@
 
     <properties>
         <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
-        <dep.wire.version>5.2.1</dep.wire.version>
+        <dep.wire.version>5.5.0</dep.wire.version>
     </properties>
 
     <dependencies>
-
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-core</artifactId>
