@@ -130,7 +130,8 @@ public class ClearScapeManager
                         ClearScapeEnvVariables.ENV_CLEARSCAPE_PASSWORD
                 );
                 response = teradataHttpClient.createEnvironment(request, token).get();
-            } else if (response.state() == EnvironmentResponse.State.STOPPED) {
+            }
+            else if (response.state() == EnvironmentResponse.State.STOPPED) {
                 EnvironmentRequest request = new EnvironmentRequest(name, new OperationRequest("start"));
                 teradataHttpClient.startEnvironment(request, token);
             }
