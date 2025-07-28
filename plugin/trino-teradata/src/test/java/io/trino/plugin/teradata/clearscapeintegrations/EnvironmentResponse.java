@@ -37,8 +37,7 @@ public record EnvironmentResponse(
             String name,
 
             String value
-
-    ) {
+    ) {}
 
     }
 
