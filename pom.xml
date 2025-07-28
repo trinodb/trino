@@ -2328,7 +2328,7 @@
             <dependency>
                 <groupId>org.pcollections</groupId>
                 <artifactId>pcollections</artifactId>
-                <version>4.0.2</version>
+                <version>5.0.0</version>
             </dependency>
 
             <dependency>
