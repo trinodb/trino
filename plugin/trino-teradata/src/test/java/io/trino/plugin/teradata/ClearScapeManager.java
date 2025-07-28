@@ -1,5 +1,16 @@
 package io.trino.plugin.teradata;
 
+import io.trino.plugin.teradata.clearscapeintegrations.BaseException;
+import io.trino.plugin.teradata.clearscapeintegrations.ClearScapeEnvVariables;
+import io.trino.plugin.teradata.clearscapeintegrations.CreateEnvironmentRequest;
+import io.trino.plugin.teradata.clearscapeintegrations.DeleteEnvironmentRequest;
+import io.trino.plugin.teradata.clearscapeintegrations.EnvironmentRequest;
+import io.trino.plugin.teradata.clearscapeintegrations.EnvironmentResponse;
+import io.trino.plugin.teradata.clearscapeintegrations.GetEnvironmentRequest;
+import io.trino.plugin.teradata.clearscapeintegrations.OperationRequest;
+import io.trino.plugin.teradata.clearscapeintegrations.TeradataHttpClient;
+import io.trino.plugin.teradata.clearscapeintegrations.TeradataConstants;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableMap;
