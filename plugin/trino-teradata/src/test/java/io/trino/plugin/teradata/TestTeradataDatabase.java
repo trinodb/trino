@@ -1,5 +1,8 @@
 package io.trino.plugin.teradata;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import io.trino.plugin.teradata.clearScapeIntegrations.TeradataConstants;
+import io.trino.plugin.teradata.clearScapeIntegrations.ClearScapeEnvVariables;
 import io.trino.testing.sql.SqlExecutor;
 import org.intellij.lang.annotations.Language;
 
@@ -22,11 +25,65 @@ import java.util.Map;
 public class TestTeradataDatabase
         implements AutoCloseable, SqlExecutor
 {
+    private final ClearScapeManager clearScapeManager;
+    private final boolean useClearScape;
     private final String databaseName;
-    private final Connection connection;
+    private Connection connection;
     private final String jdbcUrl;
     private final Map<String, String> connectionProperties = new HashMap<>();
 
+
+    private void initializeConnection(DatabaseConfig config) {
+        String username;
+        String password;
+
+        // Use ClearScape credentials if available, otherwise fall back to config
+        if (useClearScape && clearScapeManager != null) {
+            JsonNode authInfo = clearScapeManager.getConfigJSON().get(TeradataConstants.LOG_MECH);
+            username = authInfo.get("username").asText();
+            password = authInfo.get("password").asText();
+            System.out.println("Using ClearScape credentials");
+        } else {
+            username = config.getUsername();
+            password = config.getPassword();
+            System.out.println("Using environment variable credentials");
+        }
+
+        connectionProperties.put("connection-url", jdbcUrl);
+        connectionProperties.put("connection-user", username);
+        connectionProperties.put("connection-password", password);
+        connectionProperties.put("join-pushdown.enabled", "true");
+
+        try {
+            Class.forName(TeradataConstants.DRIVER_CLASS);
+            this.connection = DriverManager.getConnection(jdbcUrl, username, password);
+        }
+        catch (SQLException | ClassNotFoundException e) {
+            throw new RuntimeException("Failed to initialize database connection", e);
+        }
+    }
+
+    public TestTeradataDatabase(DatabaseConfig config, boolean useClearScape) {
+        this.useClearScape = useClearScape;
+
+        if (useClearScape) {
+            this.clearScapeManager = new ClearScapeManager();
+            this.clearScapeManager.setup();
+            String dynamicHost = clearScapeManager.getConfigJSON().get("host").asText();
+            this.databaseName = ClearScapeEnvVariables.ENV_CLEARSAOPE_USERNAME;
+            this.jdbcUrl = buildJdbcUrlWithHost(dynamicHost);
+        } else {
+            this.clearScapeManager = null;
+            this.databaseName = config.getDatabaseName();
+            this.jdbcUrl = config.getJdbcUrl();
+        }
+
+        initializeConnection(config);
+    }
+    private String buildJdbcUrlWithHost(String host) {
+        return String.format("jdbc:teradata://%s/DBS_PORT=1025,DATABASE=%s,TMODE=ANSI,CHARSET=UTF8",
+                host, this.databaseName);
+    }
     /**
      * Creates a new TestTeradataDatabase instance using the provided configuration.
      *
@@ -34,24 +91,6 @@ public class TestTeradataDatabase
      * @throws SQLException if a database access error occurs.
      * @throws ClassNotFoundException if the JDBC driver class is not found.
      */
-    public TestTeradataDatabase(DatabaseConfig config)
-    {
-        this.databaseName = config.getDatabaseName();
-        this.jdbcUrl = config.getJdbcUrl();
-
-        connectionProperties.put("connection-url", jdbcUrl);
-        connectionProperties.put("connection-user", config.getUsername());
-        connectionProperties.put("connection-password", config.getPassword());
-        connectionProperties.put("join-pushdown.enabled", "true");
-        //connectionProperties.put("join-pushdown.strategy", "EAGER");
-        try {
-            Class.forName("com.teradata.jdbc.TeraDriver");
-            this.connection = DriverManager.getConnection(jdbcUrl, config.getUsername(), config.getPassword());
-        }
-        catch (SQLException | ClassNotFoundException e) {
-            throw new RuntimeException(e);
-        }
-    }
 
     /**
      * Checks whether a table with the given name exists in the specified schema of the database.
@@ -69,7 +108,7 @@ public class TestTeradataDatabase
     {
         @Language("SQL") String query = "SELECT count(1)  FROM DBC.TablesV WHERE DataBaseName = ? AND TableName = ?";
         try (PreparedStatement stmt = connection.prepareStatement(query)) {
-            stmt.setString(1, "trino");
+            stmt.setString(1, this.databaseName); // Use the actual database name instead of hardcoded "trino"
             stmt.setString(2, tableName);
             try (ResultSet rs = stmt.executeQuery()) {
                 return rs.next() && rs.getInt(1) > 0;
@@ -161,11 +200,12 @@ public class TestTeradataDatabase
      * @throws SQLException if closing fails
      */
     @Override
-    public void close()
-            throws SQLException
-    {
+    public void close() throws SQLException {
         if (!connection.isClosed()) {
             connection.close();
+        }
+        if (useClearScape && clearScapeManager != null) {
+            clearScapeManager.teardown(); // Clean up ClearScape environment
         }
     }
 

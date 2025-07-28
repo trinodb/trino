@@ -1,5 +1,8 @@
 package io.trino.plugin.teradata;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import io.trino.plugin.teradata.clearScapeIntegrations.TeradataConstants;
+
 /**
  * Holds Teradata database connection configuration,
  * typically loaded from environment variables.
@@ -10,6 +13,7 @@ public class DatabaseConfig
     private final String username;
     private final String password;
     private String databaseName;
+    private boolean useClearScape = false;
 
     public DatabaseConfig(String jdbcUrl, String username, String password, String databaseName)
     {
@@ -26,7 +30,7 @@ public class DatabaseConfig
      * @throws IllegalStateException if required env vars are missing.
      */
     public static DatabaseConfig fromEnv()
-    {
+        {
         String host = System.getenv("hostname");
         String user = System.getenv("user");
         String pass = System.getenv("password");
@@ -41,6 +45,21 @@ public class DatabaseConfig
 
         String jdbcUrl = String.format("jdbc:teradata://%s/TMODE=ANSI,CHARSET=UTF8", host);
         return new DatabaseConfig(jdbcUrl, user, pass, database);
+    }
+
+    public static DatabaseConfig fromEnvWithClearScape() {
+        DatabaseConfig config = fromEnv();
+        config.setUseClearScape(Boolean.parseBoolean(
+                System.getProperty("test.clearscape.enabled", "false")));
+        return config;
+    }
+
+    public boolean isUseClearScape() {
+        return useClearScape;
+    }
+
+    public void setUseClearScape(boolean useClearScape) {
+        this.useClearScape = useClearScape;
     }
 
     public String getJdbcUrl()

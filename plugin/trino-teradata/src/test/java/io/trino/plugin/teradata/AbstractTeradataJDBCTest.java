@@ -54,9 +54,11 @@ abstract class AbstractTeradataJDBCTest
     AbstractTeradataJDBCTest(String databaseName)
     {
         this.databaseName = databaseName;
-        this.config = DatabaseConfig.fromEnv();
+        this.config = DatabaseConfig.fromEnvWithClearScape();
         this.config.setDatabaseName(databaseName);
-        this.database = new TestTeradataDatabase(config);
+        // Use ClearScape if enabled
+        this.database = new TestTeradataDatabase(config, config.isUseClearScape());
+
         try {
             this.assertions = new QueryAssertions(new TeradataQueryRunner.Builder().build());
         }

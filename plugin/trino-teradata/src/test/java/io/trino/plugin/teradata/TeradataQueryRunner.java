@@ -30,8 +30,7 @@ import static java.util.Objects.requireNonNull;
  */
 public final class TeradataQueryRunner
 {
-    private static final TestTeradataDatabase database = new TestTeradataDatabase(DatabaseConfig.fromEnv());
-
+    private static final TestTeradataDatabase database = new TestTeradataDatabase(DatabaseConfig.fromEnvWithClearScape(), true);
     private TeradataQueryRunner()
     {
         // private constructor to prevent instantiation
@@ -83,7 +82,7 @@ public final class TeradataQueryRunner
 
         protected Builder()
         {
-            super(testSessionBuilder().setCatalog("teradata").setSchema("trino").build());
+            super(testSessionBuilder().setCatalog("teradata").setSchema("demo_user").build());
         }
 
         public static void copyTable(QueryRunner queryRunner, QualifiedObjectName table, Session session)
