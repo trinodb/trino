@@ -6,6 +6,7 @@ public class ClearScapeEnvVariables
     {
         // Utility class - prevent instantiation
     }
+    
 //    public static final String ENV_CLEARSCAPE_ENABLED = "test.clearscape.enabled";
     public static final String ENV_CLEARSCAPE_URL ="https://api.clearscape.teradata.com";
     public static final String ENV_CLEARSAOPE_USERNAME = "demo_user";
