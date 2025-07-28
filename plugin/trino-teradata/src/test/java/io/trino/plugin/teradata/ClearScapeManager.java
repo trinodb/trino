@@ -8,6 +8,7 @@ import io.trino.plugin.teradata.clearscapeintegrations.EnvironmentRequest;
 import io.trino.plugin.teradata.clearscapeintegrations.EnvironmentResponse;
 import io.trino.plugin.teradata.clearscapeintegrations.GetEnvironmentRequest;
 import io.trino.plugin.teradata.clearscapeintegrations.OperationRequest;
+import io.trino.plugin.teradata.clearscapeintegrations.TeradataConstants;
 import io.trino.plugin.teradata.clearscapeintegrations.TeradataHttpClient;
 import io.trino.plugin.teradata.clearscapeintegrations.TeradataConstants;
 
