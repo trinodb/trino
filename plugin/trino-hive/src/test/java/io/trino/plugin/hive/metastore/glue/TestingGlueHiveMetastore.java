@@ -15,18 +15,21 @@ package io.trino.plugin.hive.metastore.glue;
 
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore.TableKind;
+import io.trino.spi.block.TestingSession;
 import io.trino.spi.catalog.CatalogName;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.security.ConnectorIdentity;
 import software.amazon.awssdk.services.glue.GlueClient;
 
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Path;
 import java.util.EnumSet;
+import java.util.Optional;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
-import static io.trino.plugin.hive.metastore.glue.GlueMetastoreModule.createGlueClient;
 import static java.nio.file.Files.createDirectories;
 import static java.nio.file.Files.exists;
 import static java.nio.file.Files.isDirectory;
@@ -53,7 +56,13 @@ public final class TestingGlueHiveMetastore
     {
         GlueHiveMetastoreConfig glueConfig = new GlueHiveMetastoreConfig()
                 .setDefaultWarehouseDir(warehouseUri.toString());
-        GlueClient glueClient = createGlueClient(glueConfig, ImmutableSet.of());
+        GlueClientFactory glueClientFactory = new GlueClientFactory(
+                glueConfig,
+                Optional.empty(),
+                ImmutableSet.of());
+        ConnectorSession session = TestingSession.SESSION;
+        ConnectorIdentity identity = session.getIdentity();
+        GlueClient glueClient = glueClientFactory.create(identity);
         registerResource.accept(glueClient);
         return new GlueHiveMetastore(
                 glueClient,

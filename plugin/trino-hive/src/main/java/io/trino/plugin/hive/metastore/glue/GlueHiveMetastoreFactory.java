@@ -15,23 +15,69 @@ package io.trino.plugin.hive.metastore.glue;
 
 import com.google.inject.Inject;
 import io.opentelemetry.api.trace.Tracer;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.metastore.tracing.TracingHiveMetastore;
+import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.security.ConnectorIdentity;
+import software.amazon.awssdk.services.glue.GlueClient;
 
 import java.util.Optional;
+import java.util.Set;
+
+import static java.util.Objects.requireNonNull;
 
 public class GlueHiveMetastoreFactory
         implements HiveMetastoreFactory
 {
-    private final HiveMetastore metastore;
+    private final Tracer tracer;
+    private final GlueClientFactory glueClientFactory;
+    private final GlueCache glueCache;
+    private final GlueMetastoreStats glueStats;
+    private final TrinoFileSystemFactory fileSystemFactory;
+    private final GlueHiveMetastoreConfig config;
+    private final CatalogName catalogName;
+    private final Set<GlueHiveMetastore.TableKind> visibleTableKinds;
 
-    // Glue metastore does not support impersonation, so just use single shared instance
     @Inject
-    public GlueHiveMetastoreFactory(GlueHiveMetastore metastore, Tracer tracer)
+    public GlueHiveMetastoreFactory(
+            Tracer tracer,
+            GlueClientFactory glueClientFactory,
+            GlueCache glueCache,
+            GlueMetastoreStats glueStats,
+            TrinoFileSystemFactory fileSystemFactory,
+            GlueHiveMetastoreConfig config,
+            CatalogName catalogName,
+            Set<GlueHiveMetastore.TableKind> visibleTableKinds)
     {
-        this.metastore = new TracingHiveMetastore(tracer, metastore);
+        this.tracer = requireNonNull(tracer, "tracer is null");
+        this.glueClientFactory = requireNonNull(glueClientFactory, "glueClientFactory is null");
+        this.glueCache = requireNonNull(glueCache, "glueCache is null");
+        this.glueStats = requireNonNull(glueStats, "glueStats is null");
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
+        this.config = requireNonNull(config, "config is null");
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        this.visibleTableKinds = requireNonNull(visibleTableKinds, "visibleTableKinds is null");
+    }
+
+    @Override
+    public HiveMetastore createMetastore(Optional<ConnectorIdentity> identity)
+    {
+        if (identity.isEmpty()) {
+            throw new IllegalStateException("ConnectorIdentity must be provided");
+        }
+
+        GlueClient glueClient = glueClientFactory.create(identity.get());
+        GlueHiveMetastore metastore = new GlueHiveMetastore(
+                glueClient,
+                glueCache,
+                glueStats,
+                fileSystemFactory,
+                config,
+                catalogName,
+                visibleTableKinds);
+        return new TracingHiveMetastore(tracer, metastore);
     }
 
     @Override
@@ -44,11 +90,5 @@ public class GlueHiveMetastoreFactory
     public boolean isImpersonationEnabled()
     {
         return false;
-    }
-
-    @Override
-    public HiveMetastore createMetastore(Optional<ConnectorIdentity> identity)
-    {
-        return metastore;
     }
 }
