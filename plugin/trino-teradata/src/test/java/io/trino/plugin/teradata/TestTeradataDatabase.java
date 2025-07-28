@@ -208,6 +208,7 @@ public class TestTeradataDatabase
             clearScapeManager.teardown(); // Clean up ClearScape environment
         }
     }
+
     @Override
     public boolean supportsMultiRowInsert()
     {

@@ -11,7 +11,29 @@ import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.plugin.base.mapping.IdentifierMapping;
-import io.trino.plugin.jdbc.*;
+import io.trino.plugin.jdbc.BaseJdbcClient;
+import io.trino.plugin.jdbc.BaseJdbcConfig;
+import io.trino.plugin.jdbc.CaseSensitivity;
+import io.trino.plugin.jdbc.ColumnMapping;
+import io.trino.plugin.jdbc.ConnectionFactory;
+import io.trino.plugin.jdbc.JdbcColumnHandle;
+import io.trino.plugin.jdbc.JdbcExpression;
+import io.trino.plugin.jdbc.JdbcJoinCondition;
+import io.trino.plugin.jdbc.JdbcMetadata;
+import io.trino.plugin.jdbc.JdbcOutputTableHandle;
+import io.trino.plugin.jdbc.JdbcSortItem;
+import io.trino.plugin.jdbc.JdbcStatisticsConfig;
+import io.trino.plugin.jdbc.JdbcTableHandle;
+import io.trino.plugin.jdbc.JdbcTypeHandle;
+import io.trino.plugin.jdbc.LongReadFunction;
+import io.trino.plugin.jdbc.LongWriteFunction;
+import io.trino.plugin.jdbc.ObjectReadFunction;
+import io.trino.plugin.jdbc.ObjectWriteFunction;
+import io.trino.plugin.jdbc.PredicatePushdownController;
+import io.trino.plugin.jdbc.PreparedQuery;
+import io.trino.plugin.jdbc.QueryBuilder;
+import io.trino.plugin.jdbc.RemoteTableName;
+import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.aggregation.ImplementAvgDecimal;
 import io.trino.plugin.jdbc.aggregation.ImplementAvgFloatingPoint;
 import io.trino.plugin.jdbc.aggregation.ImplementCorr;
@@ -48,6 +70,7 @@ import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
@@ -201,39 +224,27 @@ public class TeradataClient
             return FULL_PUSHDOWN.apply(session, domain);
         }
 
-        // 3. Simplify complex domains (like IN(...), ranges)
-        Domain simplified = domain.simplify(getDomainCompactionThreshold(session));
-
-        // 4. If this is a clean range predicate (e.g., <, <=, BETWEEN), push down
-        if (isRangePredicate(simplified)) {
-            return FULL_PUSHDOWN.apply(session, simplified);
+        Domain simplifiedDomain = domain.simplify(getDomainCompactionThreshold(session));
+        if (!simplifiedDomain.getValues().isDiscreteSet()) {
+            // Push down inequality predicate
+            ValueSet complement = simplifiedDomain.getValues().complement();
+            if (complement.isDiscreteSet()) {
+                return FULL_PUSHDOWN.apply(session, simplifiedDomain);
+            }
+            // Domain#simplify can turn a discrete set into a range predicate
+            // Push down of range predicate for varchar/char types could lead to incorrect results
+            // when the remote database is case-insensitive
+            return DISABLE_PUSHDOWN.apply(session, domain);
         }
-
-        // 5. Handle NOT NULL (non-null allowed and domain not only NULL)
-        if (!domain.isOnlyNull() && !domain.isNullAllowed() && simplified.getValues().isAll()) {
-            return FULL_PUSHDOWN.apply(session, simplified);
-        }
-
-        // 6. Handle NOT EQUAL and similar ranges (if safe range is expressible)
-        if (isMultiRangePredicate(simplified)) {
-            return FULL_PUSHDOWN.apply(session, simplified);
-        }
-
-        // 7. Push down discrete sets like IN ('a', 'b', 'c')
-        if (simplified.getValues().isDiscreteSet()) {
-            return FULL_PUSHDOWN.apply(session, simplified);
-        }
-
-        // 8. If nothing matched, fallback to no pushdown
-        return DISABLE_PUSHDOWN.apply(session, domain);
+        return FULL_PUSHDOWN.apply(session, simplifiedDomain);
     };
-    private static final long DEFAULT_FALLBACK_NDV = 100_000L;
     private static final long MAX_FALLBACK_NDV = 1_000_000L; // max fallback NDV cap
     private static final double DEFAULT_FALLBACK_FRACTION = 0.1; // fallback = 10% of row count
     private final TeradataConfig.TeradataCaseSensitivity teradataJDBCCaseSensitivity;
     private final boolean statisticsEnabled;
     private ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
     private AggregateFunctionRewriter<JdbcExpression, ?> aggregateFunctionRewriter;
+
     /**
      * Constructs a new TeradataClient instance.
      *
@@ -589,7 +600,6 @@ public class TeradataClient
 
         try (Connection connection = connectionFactory.openConnection(session);
                 Handle handle = Jdbi.open(connection)) {
-
             TeradataStatisticsDao dao = new TeradataStatisticsDao(handle);
             long rowCount = dao.estimateRowCount(table);
 
@@ -666,11 +676,6 @@ public class TeradataClient
             List<ParameterizedExpression> joinConditions,
             JoinStatistics statistics)
     {
-        if (joinType == JoinType.FULL_OUTER) {
-            // Teradata doesn't support FULL OUTER join pushdown well
-            return Optional.empty();
-        }
-
         return implementJoinCostAware(
                 session,
                 joinType,
@@ -744,6 +749,22 @@ public class TeradataClient
         execute(session, format(
                 "CREATE DATABASE %s AS PERMANENT = 60000000, SPOOL = 120000000",
                 quoted(remoteSchemaName)));
+    }
+
+    @Override
+    protected void copyTableSchema(ConnectorSession session, Connection connection, String catalogName, String schemaName, String tableName, String newTableName, List<String> columnNames)
+    {
+        String tableCopyFormat = "CREATE TABLE %s AS ( SELECT * FROM %s ) WITH DATA";
+        String sql = format(
+                tableCopyFormat,
+                quoted(catalogName, schemaName, newTableName),
+                quoted(catalogName, schemaName, tableName));
+        try {
+            execute(session, connection, sql);
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
     }
 
     @Override
@@ -882,7 +903,7 @@ public class TeradataClient
                 .map("$subtract(left: integer_type, right: integer_type)").to("left - right")
                 .map("$multiply(left: integer_type, right: integer_type)").to("left * right")
                 .map("$divide(left: integer_type, right: integer_type)").to("left / right")
-                .map("$modulus(left: integer_type, right: integer_type)").to("left % right")
+                .map("$modulus(left: integer_type, right: integer_type)").to("MOD(left, right)")
                 .map("$negate(value: integer_type)").to("-value")
                 .map("$not($is_null(value))").to("value IS NOT NULL")
                 .map("$not(value: boolean)").to("NOT value")
@@ -908,6 +929,7 @@ public class TeradataClient
                         // AVG
                         .add(new ImplementAvgFloatingPoint())
                         .add(new ImplementAvgDecimal())
+                        .add(new ImplementAvgBigint())
 
                         // Statistical aggregates (numeric types only)
                         .add(new ImplementStddevSamp())
@@ -921,8 +943,7 @@ public class TeradataClient
                         .add(new ImplementCorr())
                         .add(new ImplementRegrIntercept())
                         .add(new ImplementRegrSlope())
-                        .build()
-        );
+                        .build());
     }
 
     /**
@@ -938,6 +959,13 @@ public class TeradataClient
     public Optional<ParameterizedExpression> convertPredicate(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
     {
         return this.connectorExpressionRewriter.rewrite(session, expression, assignments);
+    }
+
+    @Override
+    public boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<AggregateFunction> aggregates, Map<String, ColumnHandle> assignments, List<List<ColumnHandle>> groupingSets)
+    {
+        // Remote database can be case insensitive.
+        return preventTextualTypeAggregationPushdown(groupingSets);
     }
 
     /**
@@ -1012,7 +1040,7 @@ public class TeradataClient
         }
 
         // switch by names as some types overlap other types going by jdbc type alone
-        String jdbcTypeName = typeHandle.jdbcTypeName().orElseThrow(() -> new TrinoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
+        String jdbcTypeName = typeHandle.jdbcTypeName().orElse("VARCHAR");
         switch (jdbcTypeName.toUpperCase()) {
             case "TIMESTAMP WITH TIME ZONE":
                 // TODO review correctness
@@ -1220,15 +1248,10 @@ public class TeradataClient
             String schema = remote.getSchemaName().orElseThrow();
             String tableName = remote.getTableName();
 
-            String sql = String.format("""
-                    SELECT COUNT(*) * 100 AS estimated_count
-                    FROM %s.%s
-                    WHERE RANDOM(1, 10000) <= 100
-                    """, schema, tableName);
+            String sql = String.format("SELECT COUNT(*) * 100 AS estimated_count FROM %s.%s SAMPLE 1", schema, tableName);
 
             try (Statement stmt = connection.createStatement();
                     ResultSet rs = stmt.executeQuery(sql)) {
-
                 if (rs.next()) {
                     long estimated = rs.getLong("estimated_count");
                     return OptionalLong.of(estimated);
