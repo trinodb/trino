@@ -1,5 +1,10 @@
 package io.trino.plugin.teradata;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableMap;
+
 import io.trino.plugin.teradata.clearscapeintegrations.BaseException;
 import io.trino.plugin.teradata.clearscapeintegrations.ClearScapeEnvVariables;
 import io.trino.plugin.teradata.clearscapeintegrations.CreateEnvironmentRequest;
