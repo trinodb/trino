@@ -107,7 +107,8 @@ public class ClearScapeManager
      * Public method to shut down and delete the ClearScape environment instance. Should be called
      * to clean up resources after usage.
      */
-    public void teardown() {
+    public void teardown()
+    {
         shutdownAndDestroyClearScapeInstance();
     }
 
