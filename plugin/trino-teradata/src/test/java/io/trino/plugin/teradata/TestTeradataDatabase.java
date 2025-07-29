@@ -1,8 +1,8 @@
 package io.trino.plugin.teradata;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import io.trino.plugin.teradata.clearScapeIntegrations.TeradataConstants;
-import io.trino.plugin.teradata.clearScapeIntegrations.ClearScapeEnvVariables;
+import io.trino.plugin.teradata.clearscapeintegrations.ClearScapeEnvVariables;
+import io.trino.plugin.teradata.clearscapeintegrations.TeradataConstants;
 import io.trino.testing.sql.SqlExecutor;
 import org.intellij.lang.annotations.Language;
 
@@ -32,8 +32,8 @@ public class TestTeradataDatabase
     private final String jdbcUrl;
     private final Map<String, String> connectionProperties = new HashMap<>();
 
-
-    private void initializeConnection(DatabaseConfig config) {
+    private void initializeConnection(DatabaseConfig config)
+    {
         String username;
         String password;
 
@@ -43,7 +43,8 @@ public class TestTeradataDatabase
             username = authInfo.get("username").asText();
             password = authInfo.get("password").asText();
             System.out.println("Using ClearScape credentials");
-        } else {
+        }
+        else {
             username = config.getUsername();
             password = config.getPassword();
             System.out.println("Using environment variable credentials");
@@ -63,7 +64,8 @@ public class TestTeradataDatabase
         }
     }
 
-    public TestTeradataDatabase(DatabaseConfig config, boolean useClearScape) {
+    public TestTeradataDatabase(DatabaseConfig config, boolean useClearScape)
+    {
         this.useClearScape = useClearScape;
 
         if (useClearScape) {
@@ -72,15 +74,17 @@ public class TestTeradataDatabase
             String dynamicHost = clearScapeManager.getConfigJSON().get("host").asText();
             this.databaseName = ClearScapeEnvVariables.ENV_CLEARSAOPE_USERNAME;
             this.jdbcUrl = buildJdbcUrlWithHost(dynamicHost);
-        } else {
+        }
+        else {
             this.clearScapeManager = null;
             this.databaseName = config.getDatabaseName();
             this.jdbcUrl = config.getJdbcUrl();
         }
-
         initializeConnection(config);
     }
-    private String buildJdbcUrlWithHost(String host) {
+
+    private String buildJdbcUrlWithHost(String host)
+    {
         return String.format("jdbc:teradata://%s/DBS_PORT=1025,DATABASE=%s,TMODE=ANSI,CHARSET=UTF8",
                 host, this.databaseName);
     }
@@ -200,7 +204,9 @@ public class TestTeradataDatabase
      * @throws SQLException if closing fails
      */
     @Override
-    public void close() throws SQLException {
+    public void close()
+            throws SQLException
+    {
         if (!connection.isClosed()) {
             connection.close();
         }

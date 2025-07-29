@@ -1,12 +1,11 @@
-package io.trino.plugin.teradata.clearScapeIntegrations;
+package io.trino.plugin.teradata.clearscapeintegrations;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
-import io.trino.plugin.teradata.clearScapeIntegrations.*;
-import static io.trino.plugin.teradata.clearScapeIntegrations.Headers.*;
+
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
@@ -15,18 +14,26 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.concurrent.CompletableFuture;
 
-public class TeradataHttpClient {
+import static io.trino.plugin.teradata.clearscapeintegrations.Headers.APPLICATION_JSON;
+import static io.trino.plugin.teradata.clearscapeintegrations.Headers.AUTHORIZATION;
+import static io.trino.plugin.teradata.clearscapeintegrations.Headers.BEARER;
+import static io.trino.plugin.teradata.clearscapeintegrations.Headers.CONTENT_TYPE;
+
+public class TeradataHttpClient
+{
     private final String baseUrl;
 
     private final HttpClient httpClient;
 
     private final ObjectMapper objectMapper;
 
-    public TeradataHttpClient(String baseUrl) {
+    public TeradataHttpClient(String baseUrl)
+    {
         this(HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).build(), baseUrl);
     }
 
-    public TeradataHttpClient(HttpClient httpClient, String baseUrl) {
+    public TeradataHttpClient(HttpClient httpClient, String baseUrl)
+    {
         this.httpClient = httpClient;
         this.baseUrl = baseUrl;
         this.objectMapper = JsonMapper.builder()
@@ -37,7 +44,8 @@ public class TeradataHttpClient {
 
     // Creating an environment is a blocking operation by default, and it takes ~1.5min to finish
     public CompletableFuture<EnvironmentResponse> createEnvironment(CreateEnvironmentRequest createEnvironmentRequest,
-                                                                    String token) {
+                                                                    String token)
+    {
         var requestBody = handleCheckedException(() -> objectMapper.writeValueAsString(createEnvironmentRequest));
 
         var httpRequest = HttpRequest.newBuilder(URI.create(baseUrl.concat("/environments")))
@@ -54,11 +62,13 @@ public class TeradataHttpClient {
     // Avoids long connections and the risk of connection termination by intermediary
     public CompletableFuture<EnvironmentResponse> pollingCreateEnvironment(
             CreateEnvironmentRequest createEnvironmentRequest,
-            String token) {
+            String token)
+    {
         throw new UnsupportedOperationException();
     }
 
-    public EnvironmentResponse getEnvironment(GetEnvironmentRequest getEnvironmentRequest, String token) {
+    public EnvironmentResponse getEnvironment(GetEnvironmentRequest getEnvironmentRequest, String token)
+    {
         var httpRequest = HttpRequest.newBuilder(URI.create(baseUrl
                         .concat("/environments/")
                         .concat(getEnvironmentRequest.name())))
@@ -72,7 +82,8 @@ public class TeradataHttpClient {
     }
 
     // Deleting an environment is a blocking operation by default, and it takes ~1.5min to finish
-    public CompletableFuture<Void> deleteEnvironment(DeleteEnvironmentRequest deleteEnvironmentRequest, String token) {
+    public CompletableFuture<Void> deleteEnvironment(DeleteEnvironmentRequest deleteEnvironmentRequest, String token)
+    {
         var httpRequest = HttpRequest.newBuilder(URI.create(baseUrl
                         .concat("/environments/")
                         .concat(deleteEnvironmentRequest.name())))
@@ -84,17 +95,20 @@ public class TeradataHttpClient {
                 .thenApply(httpResponse -> handleHttpResponse(httpResponse, new TypeReference<>() {}));
     }
 
-    public CompletableFuture<Void> startEnvironment(EnvironmentRequest environmentRequest, String token) {
+    public CompletableFuture<Void> startEnvironment(EnvironmentRequest environmentRequest, String token)
+    {
         var requestBody = handleCheckedException(() -> objectMapper.writeValueAsString(environmentRequest.request()));
         return getVoidCompletableFuture(environmentRequest.name(), token, requestBody);
     }
 
-    public CompletableFuture<Void> stopEnvironment(EnvironmentRequest environmentRequest, String token) {
+    public CompletableFuture<Void> stopEnvironment(EnvironmentRequest environmentRequest, String token)
+    {
         var requestBody = handleCheckedException(() -> objectMapper.writeValueAsString(environmentRequest.request()));
         return getVoidCompletableFuture(environmentRequest.name(), token, requestBody);
     }
 
-    private CompletableFuture<Void> getVoidCompletableFuture(String name, String token, String jsonPayLoadString) {
+    private CompletableFuture<Void> getVoidCompletableFuture(String name, String token, String jsonPayLoadString)
+    {
         HttpRequest.BodyPublisher publisher = HttpRequest.BodyPublishers.ofString(jsonPayLoadString);
         var httpRequest = HttpRequest.newBuilder(URI.create(baseUrl
                         .concat("/environments/")
@@ -106,43 +120,50 @@ public class TeradataHttpClient {
         var httpResponse =
                 handleCheckedException(() -> httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString()));
         return handleHttpResponse(httpResponse, new TypeReference<>() {});
-
     }
 
-    private <T> T handleHttpResponse(HttpResponse<String> httpResponse, TypeReference<T> typeReference) {
+    private <T> T handleHttpResponse(HttpResponse<String> httpResponse, TypeReference<T> typeReference)
+    {
         var body = httpResponse.body();
         if (httpResponse.statusCode() >= 200 && httpResponse.statusCode() <= 299) {
             return handleCheckedException(() -> {
                 if (typeReference.getType().getTypeName().equals(Void.class.getTypeName())) {
                     return null;
-                } else {
+                }
+                else {
                     return objectMapper.readValue(body, typeReference);
                 }
             });
-        } else if (httpResponse.statusCode() >= 400 && httpResponse.statusCode() <= 499) {
+        }
+        else if (httpResponse.statusCode() >= 400 && httpResponse.statusCode() <= 499) {
             throw new Error4xxException(httpResponse.statusCode(), body);
-        } else if (httpResponse.statusCode() >= 500 && httpResponse.statusCode() <= 599) {
+        }
+        else if (httpResponse.statusCode() >= 500 && httpResponse.statusCode() <= 599) {
             throw new Error5xxException(httpResponse.statusCode(), body);
-        } else {
+        }
+        else {
             throw new BaseException(httpResponse.statusCode(), body);
         }
     }
 
-    private <T> T handleCheckedException(CheckedSupplier<T> checkedSupplier) {
+    private <T> T handleCheckedException(CheckedSupplier<T> checkedSupplier)
+    {
         try {
             return checkedSupplier.get();
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             throw new UncheckedIOException(e);
-        } catch (InterruptedException e) {
+        }
+        catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new RuntimeException(e);
         }
     }
 
     @FunctionalInterface
-    private interface CheckedSupplier<T> {
-
-        T get() throws IOException, InterruptedException;
-
+    private interface CheckedSupplier<T>
+    {
+        T get()
+                throws IOException, InterruptedException;
     }
 }

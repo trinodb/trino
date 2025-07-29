@@ -1,37 +1,42 @@
-package io.trino.plugin.teradata.clearScapeIntegrations;
+package io.trino.plugin.teradata.clearscapeintegrations;
 
-public class BaseException extends RuntimeException {
-
+public class BaseException
+        extends RuntimeException
+{
     private final int statusCode;
 
     private final String body;
 
     private final String reason;
 
-    public BaseException(int statusCode, String body) {
+    public BaseException(int statusCode, String body)
+    {
         super(body);
         this.statusCode = statusCode;
         this.body = body;
         this.reason = null;
     }
 
-    public BaseException(int statusCode, String body, String reason) {
+    public BaseException(int statusCode, String body, String reason)
+    {
         super(body);
         this.statusCode = statusCode;
         this.body = body;
         this.reason = reason;
     }
 
-    public int getStatusCode() {
+    public int getStatusCode()
+    {
         return statusCode;
     }
 
-    public String getBody() {
+    public String getBody()
+    {
         return body;
     }
 
-    public String getReason() {
+    public String getReason()
+    {
         return reason;
     }
-
 }

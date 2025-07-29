@@ -1,13 +1,15 @@
-package io.trino.plugin.teradata.clearScapeIntegrations;
+package io.trino.plugin.teradata.clearscapeintegrations;
 
-public class Error5xxException extends BaseException {
-
-    public Error5xxException(int statusCode, String body, String reason) {
+public class Error5xxException
+        extends BaseException
+{
+    public Error5xxException(int statusCode, String body, String reason)
+    {
         super(statusCode, body, reason);
     }
 
-    public Error5xxException(int statusCode, String body) {
+    public Error5xxException(int statusCode, String body)
+    {
         super(statusCode, body);
     }
-
 }

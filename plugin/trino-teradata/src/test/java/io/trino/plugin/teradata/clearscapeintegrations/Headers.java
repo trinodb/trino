@@ -1,8 +1,9 @@
-package io.trino.plugin.teradata.clearScapeIntegrations;
+package io.trino.plugin.teradata.clearscapeintegrations;
 
-public class Headers {
-    private Headers() {
-
+public class Headers
+{
+    private Headers()
+    {
     }
 
     public static final String CONTENT_TYPE = "Content-Type";

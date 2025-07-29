@@ -1,8 +1,5 @@
 package io.trino.plugin.teradata;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import io.trino.plugin.teradata.clearScapeIntegrations.TeradataConstants;
-
 /**
  * Holds Teradata database connection configuration,
  * typically loaded from environment variables.
@@ -13,7 +10,7 @@ public class DatabaseConfig
     private final String username;
     private final String password;
     private String databaseName;
-    private boolean useClearScape = false;
+    private boolean useClearScape;
 
     public DatabaseConfig(String jdbcUrl, String username, String password, String databaseName)
     {
@@ -30,7 +27,7 @@ public class DatabaseConfig
      * @throws IllegalStateException if required env vars are missing.
      */
     public static DatabaseConfig fromEnv()
-        {
+    {
         String host = System.getenv("hostname");
         String user = System.getenv("user");
         String pass = System.getenv("password");
@@ -38,27 +35,28 @@ public class DatabaseConfig
         if (database == null || database.isEmpty()) {
             database = "trino";
         }
-
         if (host == null || user == null || pass == null) {
             throw new IllegalStateException("Environment variables [hostname, user, password] must be set.");
         }
-
         String jdbcUrl = String.format("jdbc:teradata://%s/TMODE=ANSI,CHARSET=UTF8", host);
         return new DatabaseConfig(jdbcUrl, user, pass, database);
     }
 
-    public static DatabaseConfig fromEnvWithClearScape() {
+    public static DatabaseConfig fromEnvWithClearScape()
+    {
         DatabaseConfig config = fromEnv();
         config.setUseClearScape(Boolean.parseBoolean(
-                System.getProperty("test.clearscape.enabled", "false")));
+                System.getProperty("test.clearscape.enabled")));
         return config;
     }
 
-    public boolean isUseClearScape() {
+    public boolean isUseClearScape()
+    {
         return useClearScape;
     }
 
-    public void setUseClearScape(boolean useClearScape) {
+    public void setUseClearScape(boolean useClearScape)
+    {
         this.useClearScape = useClearScape;
     }
 

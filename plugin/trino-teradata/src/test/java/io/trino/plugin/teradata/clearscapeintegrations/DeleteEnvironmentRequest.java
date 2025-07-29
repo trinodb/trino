@@ -1,4 +1,4 @@
-package io.trino.plugin.teradata.clearScapeIntegrations;
+package io.trino.plugin.teradata.clearscapeintegrations;
 
 public record DeleteEnvironmentRequest(
 
