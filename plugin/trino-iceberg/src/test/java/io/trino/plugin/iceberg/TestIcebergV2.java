@@ -932,7 +932,7 @@ public class TestIcebergV2
                                         (2,
                                         'PARQUET',
                                         1L,
-                                        JSON '{"3":49}',
+                                        JSON '{"3":52}',
                                         JSON '{"3":1}',
                                         JSON '{"3":0}',
                                         JSON '{}',

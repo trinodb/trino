@@ -35,6 +35,8 @@ import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.iceberg.IcebergAvroDataConversion.toIcebergRecords;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_WRITER_CLOSE_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_WRITER_OPEN_ERROR;
+import static io.trino.plugin.iceberg.IcebergFileFormat.AVRO;
+import static io.trino.plugin.iceberg.IcebergTableProperties.validateCompression;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.TableProperties.AVRO_COMPRESSION;
@@ -62,6 +64,8 @@ public final class IcebergAvroFileWriter
         this.rollbackAction = requireNonNull(rollbackAction, "rollbackAction null");
         this.icebergSchema = requireNonNull(icebergSchema, "icebergSchema is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+
+        validateCompression(AVRO, Optional.of(hiveCompressionCodec));
 
         try {
             avroWriter = Avro.write(file)
