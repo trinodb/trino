@@ -47,7 +47,9 @@ import org.apache.hudi.metadata.HoodieTableMetadata;
 import org.apache.hudi.storage.StoragePath;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -57,6 +59,8 @@ import java.util.stream.IntStream;
 
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.plugin.hive.util.HiveUtil.checkCondition;
+import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMNS;
+import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_TYPES;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_BAD_DATA;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_FILESYSTEM_ERROR;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_META_CLIENT_ERROR;
@@ -170,19 +174,27 @@ public final class HudiUtil
 
     public static Schema constructSchema(List<String> columnNames, List<HiveType> columnTypes)
     {
-        // create instance of this class to keep nested record naming consistent for any given inputs
-        AvroHiveFileUtils recordIncrementingUtil = new AvroHiveFileUtils();
-        SchemaBuilder.RecordBuilder<Schema> schemaBuilder = SchemaBuilder.record("baseRecord");
-        SchemaBuilder.FieldAssembler<Schema> fieldBuilder = schemaBuilder.fields();
+        // Convert lists into the format expected by the utility class
+        String columnNamesString = String.join(",", columnNames);
+        String columnTypesString = columnTypes.stream()
+                .map(HiveType::getHiveTypeName)
+                .map(Object::toString)
+                .collect(Collectors.joining(":"));
 
-        for (int i = 0; i < columnNames.size(); ++i) {
-            Schema fieldSchema = recordIncrementingUtil.avroSchemaForHiveType(columnTypes.get(i));
-            fieldBuilder = fieldBuilder
-                    .name(columnNames.get(i))
-                    .type(fieldSchema)
-                    .withDefault(null);
+        // Create the properties map
+        Map<String, String> properties = new HashMap<>();
+        properties.put(LIST_COLUMNS, columnNamesString);
+        properties.put(LIST_COLUMN_TYPES, columnTypesString);
+
+        // Call the public static method to build the schema
+        try {
+            // Pass null for the file system as we are not reading from a URL
+            return AvroHiveFileUtils.determineSchemaOrThrowException(null, properties);
         }
-        return fieldBuilder.endRecord();
+        catch (IOException e) {
+            // The IOException is declared on the method, but this path shouldn't throw it
+            throw new UncheckedIOException("Failed to construct Avro schema", e);
+        }
     }
 
     public static Schema constructSchema(Schema dataSchema, List<String> columnNames)
