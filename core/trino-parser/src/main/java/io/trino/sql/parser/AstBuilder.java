@@ -1002,7 +1002,8 @@ class AstBuilder
         return new CreateBranch(
                 getLocation(context),
                 getQualifiedName(context.qualifiedName()),
-                (Identifier) visit(context.identifier()),
+                (Identifier) visit(context.branch),
+                visitIfPresent(context.from, Identifier.class),
                 toSaveMode(context.REPLACE(), context.EXISTS()),
                 properties);
     }

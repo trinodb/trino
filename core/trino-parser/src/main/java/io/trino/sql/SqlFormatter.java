@@ -2363,6 +2363,9 @@ public final class SqlFormatter
             builder.append(formatPropertiesMultiLine(node.getProperties()));
             builder.append(" IN TABLE ");
             builder.append(formatName(node.getTableName()));
+            if (node.getFromBranch().isPresent()) {
+                builder.append(" FROM " + formatName(node.getFromBranch().get()));
+            }
             return null;
         }
 

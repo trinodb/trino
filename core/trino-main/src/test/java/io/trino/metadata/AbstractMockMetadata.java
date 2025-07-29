@@ -928,7 +928,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public void createBranch(Session session, TableHandle tableHandle, String branch, SaveMode saveMode, Map<String, Object> properties)
+    public void createBranch(Session session, TableHandle tableHandle, String branch, Optional<String> fromBranch, SaveMode saveMode, Map<String, Object> properties)
     {
         throw new UnsupportedOperationException();
     }

@@ -766,7 +766,7 @@ public interface Metadata
 
     void dropLanguageFunction(Session session, QualifiedObjectName name, String signatureToken);
 
-    void createBranch(Session session, TableHandle tableHandle, String branch, SaveMode saveMode, Map<String, Object> properties);
+    void createBranch(Session session, TableHandle tableHandle, String branch, Optional<String> fromBranch, SaveMode saveMode, Map<String, Object> properties);
 
     void dropBranch(Session session, TableHandle tableHandle, String branch);
 

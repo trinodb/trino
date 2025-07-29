@@ -1389,11 +1389,11 @@ public class TracingMetadata
     }
 
     @Override
-    public void createBranch(Session session, TableHandle tableHandle, String branch, SaveMode saveMode, Map<String, Object> properties)
+    public void createBranch(Session session, TableHandle tableHandle, String branch, Optional<String> fromBranch, SaveMode saveMode, Map<String, Object> properties)
     {
         Span span = startSpan("createBranch", tableHandle);
         try (var _ = scopedSpan(span)) {
-            delegate.createBranch(session, tableHandle, branch, saveMode, properties);
+            delegate.createBranch(session, tableHandle, branch, fromBranch, saveMode, properties);
         }
     }
 
