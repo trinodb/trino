@@ -1638,9 +1638,7 @@ public class TestIcebergSparkCompatibility
         String trinoTableName = trinoTableName(baseTableName);
         String sparkTableName = sparkTableName(baseTableName);
 
-        onTrino().executeQuery("SET SESSION iceberg.compression_codec = '" + compressionCodec + "'");
-
-        String createTable = "CREATE TABLE " + trinoTableName + " WITH (format = '" + storageFormat + "') AS TABLE tpch.tiny.nation";
+        String createTable = "CREATE TABLE " + trinoTableName + " WITH (format = '" + storageFormat + "', compression_codec = '" + compressionCodec + "') AS TABLE tpch.tiny.nation";
         if (storageFormat == StorageFormat.PARQUET && "LZ4".equals(compressionCodec)) {
             // TODO (https://github.com/trinodb/trino/issues/9142) LZ4 is not supported with native Parquet writer
             assertQueryFailure(() -> onTrino().executeQuery(createTable))
@@ -1663,18 +1661,6 @@ public class TestIcebergSparkCompatibility
                 .containsOnly(expected);
 
         onTrino().executeQuery("DROP TABLE " + trinoTableName);
-    }
-
-    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
-    public void verifyCompressionCodecsDataProvider()
-    {
-        assertThat(onTrino().executeQuery("SHOW SESSION LIKE 'iceberg.compression_codec'"))
-                .containsOnly(row(
-                        "iceberg.compression_codec",
-                        "ZSTD",
-                        "ZSTD",
-                        "varchar",
-                        "Compression codec to use when writing files. Possible values: " + compressionCodecs()));
     }
 
     @DataProvider
