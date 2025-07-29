@@ -46,7 +46,6 @@ public class TeradataJdbcConnectorTest
 {
     protected final TestTeradataDatabase database = new TestTeradataDatabase(DatabaseConfig.fromEnvWithClearScape(), true);
     private static final Logger log = Logger.get(TeradataJdbcConnectorTest.class);
-    protected final TestTeradataDatabase database = new TestTeradataDatabase(DatabaseConfig.fromEnv());
 
     private static void verifyResultOrFailure(AssertProvider<QueryAssertions.QueryAssert> queryAssertProvider, Consumer<QueryAssertions.QueryAssert> verifyResults, Consumer<TrinoExceptionAssert> verifyFailure)
     {
@@ -130,8 +129,9 @@ public class TeradataJdbcConnectorTest
         database.dropTestDatabaseIfExists();
         System.out.println("Database Dropped Successfully");
         try {
-                database.close();  // This should stop ClearScape
-        } catch (Exception e) {
+            database.close();  // This should stop ClearScape
+        }
+        catch (Exception e) {
             System.err.println("Cleanup failed: " + e.getMessage());
         }
     }
@@ -545,27 +545,6 @@ public class TeradataJdbcConnectorTest
         Assertions.assertThat(this.getQueryRunner().tableExists(session, table)).isFalse();
     }
 
-    protected void verifySchemaNameLengthFailurePermissible(Throwable e)
-    {
-        assertThat(e).hasMessage(format("Schema name must be shorter than or equal to '%s' characters but got '%s'", TERADATA_OBJECT_NAME_LIMIT, TERADATA_OBJECT_NAME_LIMIT + 1));
-    }
-
-    protected OptionalInt maxColumnNameLength()
-    {
-        return OptionalInt.of(TERADATA_OBJECT_NAME_LIMIT);
-    }
-
-    @Override
-    protected void verifyColumnNameLengthFailurePermissible(Throwable e)
-    {
-        assertThat(e).hasMessageMatching(format("Column name must be shorter than or equal to '%s' characters but got '%s': '.*'", TERADATA_OBJECT_NAME_LIMIT, TERADATA_OBJECT_NAME_LIMIT + 1));
-    }
-
-    protected OptionalInt maxTableNameLength()
-    {
-        return OptionalInt.of(TERADATA_OBJECT_NAME_LIMIT);
-    }
-
     @Override
     protected Session joinPushdownEnabled(Session session)
     {
@@ -573,17 +552,6 @@ public class TeradataJdbcConnectorTest
                 // strategy is AUTOMATIC by default and would not work for certain test cases (even if statistics are collected)
                 .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "join_pushdown_strategy", "EAGER")
                 .build();
-    }
-
-    protected void verifyTableNameLengthFailurePermissible(Throwable e)
-    {
-        assertThat(e).hasMessage(format("Table name must be shorter than or equal to '%s' characters but got '%s'", TERADATA_OBJECT_NAME_LIMIT, TERADATA_OBJECT_NAME_LIMIT + 1));
-    }
-
-    @Override
-    protected OptionalInt maxSchemaNameLength()
-    {
-        return OptionalInt.of(TERADATA_OBJECT_NAME_LIMIT);
     }
 
     protected TestTable newTrinoTable(String namePrefix, @Language("SQL") String tableDefinition, List<String> rowsToInsert)

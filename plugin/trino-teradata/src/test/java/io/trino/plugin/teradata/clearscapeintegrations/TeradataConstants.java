@@ -1,4 +1,4 @@
-package io.trino.plugin.teradata.clearScapeIntegrations;
+package io.trino.plugin.teradata.clearscapeintegrations;
 
 public class TeradataConstants
 {
@@ -6,7 +6,7 @@ public class TeradataConstants
     {
         // Utility class - prevent instantiation
     }
-    
+
     public static final String DRIVER_CLASS = "com.teradata.jdbc.TeraDriver";
     public static final String DEFAULT_SCHEMA_NAME = "def_airbyte_db";
     public static final String PARAM_MODE = "mode";

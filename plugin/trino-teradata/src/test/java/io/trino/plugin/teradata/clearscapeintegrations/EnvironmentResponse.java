@@ -1,9 +1,8 @@
-package io.trino.plugin.teradata.clearScapeIntegrations;
+package io.trino.plugin.teradata.clearscapeintegrations;
 
 import java.util.List;
 
 public record EnvironmentResponse(
-
         State state,
 
         String region,
@@ -49,7 +48,5 @@ public record EnvironmentResponse(
         TERMINATING,
         TERMINATED,
         REPAIRING
-
     }
-
 }

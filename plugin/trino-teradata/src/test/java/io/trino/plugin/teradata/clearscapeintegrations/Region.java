@@ -1,7 +1,6 @@
-package io.trino.plugin.teradata.clearScapeIntegrations;
+package io.trino.plugin.teradata.clearscapeintegrations;
 
 public enum Region {
-
     US_CENTRAL("us-central"),
 
     US_EAST("us-east"),
@@ -22,12 +21,13 @@ public enum Region {
 
     private final String regionName;
 
-    Region(String regionName) {
+    Region(String regionName)
+    {
         this.regionName = regionName;
     }
 
-    public String getRegionName() {
+    public String getRegionName()
+    {
         return regionName;
     }
-
 }
