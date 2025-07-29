@@ -27,6 +27,7 @@ import io.trino.spi.connector.SaveMode;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.CreateBranch;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Parameter;
 
@@ -39,6 +40,7 @@ import static io.trino.execution.ParameterExtractor.bindParameters;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
 import static io.trino.spi.StandardErrorCode.BRANCH_ALREADY_EXISTS;
+import static io.trino.spi.StandardErrorCode.BRANCH_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
@@ -76,6 +78,7 @@ public class CreateBranchTask
 
         QualifiedObjectName table = createQualifiedObjectName(session, statement, statement.getTableName());
         String branch = statement.getBranchName().getValue();
+        Optional<String> fromBranch = statement.getFromBranch().map(Identifier::getValue);
 
         if (metadata.isMaterializedView(session, table)) {
             throw semanticException(NOT_SUPPORTED, statement, "Creating branch from materialized view is not supported");
@@ -96,6 +99,11 @@ public class CreateBranchTask
             }
             return immediateVoidFuture();
         }
+        fromBranch.ifPresent(from -> {
+            if (!metadata.branchExists(session, table, from)) {
+                throw semanticException(BRANCH_NOT_FOUND, statement, "Branch '%s' does not exist", from);
+            }
+        });
 
         Map<NodeRef<Parameter>, Expression> parameterLookup = bindParameters(statement, parameters);
         CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, statement, table.catalogName());
@@ -109,7 +117,7 @@ public class CreateBranchTask
                 parameterLookup,
                 true);
 
-        metadata.createBranch(session, tableHandle.get(), branch, toConnectorSaveMode(statement.getSaveMode()), properties);
+        metadata.createBranch(session, tableHandle.get(), branch, fromBranch, toConnectorSaveMode(statement.getSaveMode()), properties);
 
         return immediateVoidFuture();
     }

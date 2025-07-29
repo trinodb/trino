@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -27,14 +28,16 @@ public final class CreateBranch
     private final QualifiedName tableName;
     private final SaveMode saveMode;
     private final Identifier branchName;
+    private final Optional<Identifier> fromBranch;
     private final List<Property> properties;
 
-    public CreateBranch(NodeLocation location, QualifiedName tableName, Identifier branchName, SaveMode saveMode, List<Property> properties)
+    public CreateBranch(NodeLocation location, QualifiedName tableName, Identifier branchName, Optional<Identifier> fromBranch, SaveMode saveMode, List<Property> properties)
     {
         super(location);
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.saveMode = requireNonNull(saveMode, "saveMode is null");
         this.branchName = requireNonNull(branchName, "branchName is null");
+        this.fromBranch = requireNonNull(fromBranch, "fromBranch is null");
         this.properties = ImmutableList.copyOf(properties);
     }
 
@@ -46,6 +49,11 @@ public final class CreateBranch
     public Identifier getBranchName()
     {
         return branchName;
+    }
+
+    public Optional<Identifier> getFromBranch()
+    {
+        return fromBranch;
     }
 
     public SaveMode getSaveMode()
@@ -84,6 +92,7 @@ public final class CreateBranch
         CreateBranch o = (CreateBranch) obj;
         return Objects.equals(tableName, o.tableName) &&
                 Objects.equals(branchName, o.branchName) &&
+                Objects.equals(fromBranch, o.fromBranch) &&
                 saveMode == o.saveMode &&
                 Objects.equals(properties, o.properties);
     }
@@ -91,7 +100,7 @@ public final class CreateBranch
     @Override
     public int hashCode()
     {
-        return Objects.hash(tableName, branchName, saveMode, properties);
+        return Objects.hash(tableName, branchName, fromBranch, saveMode, properties);
     }
 
     @Override
@@ -100,6 +109,7 @@ public final class CreateBranch
         return toStringHelper(this)
                 .add("tableName", tableName)
                 .add("branchName", branchName)
+                .add("fromBranch", fromBranch)
                 .add("saveMode", saveMode)
                 .add("properties", properties)
                 .toString();
