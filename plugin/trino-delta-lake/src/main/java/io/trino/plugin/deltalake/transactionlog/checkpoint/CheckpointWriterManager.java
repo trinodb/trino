@@ -19,11 +19,12 @@ import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.json.JsonCodec;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
+import io.trino.plugin.deltalake.DeltaLakeFileSystemFactory;
 import io.trino.plugin.deltalake.ForDeltaLakeMetadata;
+import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot.MetadataAndProtocolEntry;
@@ -60,7 +61,7 @@ public class CheckpointWriterManager
 {
     private final TypeManager typeManager;
     private final CheckpointSchemaManager checkpointSchemaManager;
-    private final TrinoFileSystemFactory fileSystemFactory;
+    private final DeltaLakeFileSystemFactory fileSystemFactory;
     private final String trinoVersion;
     private final TransactionLogAccess transactionLogAccess;
     private final FileFormatDataSourceStats fileFormatDataSourceStats;
@@ -72,7 +73,7 @@ public class CheckpointWriterManager
     public CheckpointWriterManager(
             TypeManager typeManager,
             CheckpointSchemaManager checkpointSchemaManager,
-            TrinoFileSystemFactory fileSystemFactory,
+            DeltaLakeFileSystemFactory fileSystemFactory,
             NodeVersion nodeVersion,
             TransactionLogAccess transactionLogAccess,
             FileFormatDataSourceStats fileFormatDataSourceStats,
@@ -91,7 +92,7 @@ public class CheckpointWriterManager
         this.checkpointProcessingParallelism = deltaLakeConfig.getCheckpointProcessingParallelism();
     }
 
-    public void writeCheckpoint(ConnectorSession session, TableSnapshot snapshot)
+    public void writeCheckpoint(ConnectorSession session, TableSnapshot snapshot, VendedCredentialsHandle credentialsHandle)
     {
         try {
             SchemaTableName table = snapshot.getTable();
@@ -106,7 +107,7 @@ public class CheckpointWriterManager
 
             CheckpointBuilder checkpointBuilder = new CheckpointBuilder();
 
-            TrinoFileSystem fileSystem = fileSystemFactory.create(session);
+            TrinoFileSystem fileSystem = fileSystemFactory.create(session, credentialsHandle);
             List<DeltaLakeTransactionLogEntry> checkpointLogEntries;
             try (Stream<DeltaLakeTransactionLogEntry> checkpointLogEntriesStream = snapshot.getCheckpointTransactionLogEntries(
                     session,
@@ -128,7 +129,7 @@ public class CheckpointWriterManager
                 // so we can read add entries below this should be reworked so we pass metadata entry explicitly to getCheckpointTransactionLogEntries,
                 // and we should get rid of `setCachedMetadata` in TableSnapshot to make it immutable.
                 // Also more proper would be to use metadata entry obtained above in snapshot.getCheckpointTransactionLogEntries to read other checkpoint entries, but using newer one should not do harm.
-                transactionLogAccess.getMetadataEntry(session, snapshot);
+                transactionLogAccess.getMetadataEntry(session, fileSystem, snapshot);
 
                 // register metadata entry in writer
                 DeltaLakeTransactionLogEntry metadataLogEntry = checkpointLogEntries.stream()
@@ -166,7 +167,7 @@ public class CheckpointWriterManager
             Location targetFile = transactionLogDir.appendPath("%020d.checkpoint.parquet".formatted(newCheckpointVersion));
             CheckpointWriter checkpointWriter = new CheckpointWriter(typeManager, checkpointSchemaManager, trinoVersion);
             CheckpointEntries checkpointEntries = checkpointBuilder.build();
-            TrinoOutputFile checkpointFile = fileSystemFactory.create(session).newOutputFile(targetFile);
+            TrinoOutputFile checkpointFile = fileSystemFactory.create(session, credentialsHandle).newOutputFile(targetFile);
             checkpointWriter.write(checkpointEntries, checkpointFile);
 
             // update last checkpoint file

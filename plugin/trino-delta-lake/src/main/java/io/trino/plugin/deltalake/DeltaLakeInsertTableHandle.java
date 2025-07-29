@@ -14,6 +14,7 @@
 package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
@@ -30,7 +31,8 @@ public record DeltaLakeInsertTableHandle(
         ProtocolEntry protocolEntry,
         List<DeltaLakeColumnHandle> inputColumns,
         long readVersion,
-        boolean retriesEnabled)
+        boolean retriesEnabled,
+        VendedCredentialsHandle credentialsHandle)
         implements ConnectorInsertTableHandle
 {
     public DeltaLakeInsertTableHandle
@@ -40,6 +42,7 @@ public record DeltaLakeInsertTableHandle(
         requireNonNull(protocolEntry, "protocolEntry is null");
         inputColumns = ImmutableList.copyOf(requireNonNull(inputColumns, "inputColumns is null"));
         requireNonNull(location, "location is null");
+        requireNonNull(credentialsHandle, "credentialsHandle is null");
     }
 
     @Override
