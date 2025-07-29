@@ -973,8 +973,13 @@ connector using a {doc}`WITH </sql/create-table-as>` clause.
   - Description
 * - `format`
   - Optionally specifies the format of table data files; either `PARQUET`,
-    `ORC`, or `AVRO`. Defaults to the value of the `iceberg.file-format` catalog
-    configuration property, which defaults to `PARQUET`.
+    `ORC`, or `AVRO`. Defaults to the value of the `iceberg.file-format` 
+    catalog configuration property, which defaults to `PARQUET`.
+* - `compression_codec`
+  - Optionally specifies the compression-codec used for writing the table; 
+    either `NONE`, `ZSTD`, `SNAPPY`, `LZ4`, or `GZIP`. Defaults to the value 
+    of the `iceberg.compression-codec` catalog configuration property, which 
+    defaults to `ZSTD`.
 * - `partitioning`
   - Optionally specifies table partitioning. If a table is partitioned by
     columns `c1` and `c2`, the partitioning property is `partitioning =
@@ -1032,9 +1037,9 @@ WITH (
     location = '/var/example_tables/test_table');
 ```
 
-The table definition below specifies to use ORC files, bloom filter index by columns
-`c1` and `c2`, fpp is 0.05, and a file system location of
-`/var/example_tables/test_table`:
+The table definition below specifies to use ORC files with compression_codec
+SNAPPY, bloom filter index by columns `c1` and `c2`, fpp is 0.05, and a file
+system location of `/var/example_tables/test_table`:
 
 ```sql
 CREATE TABLE test_table (
@@ -1043,6 +1048,7 @@ CREATE TABLE test_table (
     c3 DOUBLE)
 WITH (
     format = 'ORC',
+    compression_codec = 'SNAPPY',
     location = '/var/example_tables/test_table',
     orc_bloom_filter_columns = ARRAY['c1', 'c2'],
     orc_bloom_filter_fpp = 0.05);
