@@ -793,5 +793,76 @@ public class TeradataJdbcConnectorTest
         }
     }
 
+    @Test
+    public void testNumberColumnMapping()
+    {
+        String testTableName = "test_number_mapping";
+
+        try {
+            // Create table with various NUMBER column types
+            database.execute(format(
+                    "CREATE TABLE %s.%s (" +
+                            "id INTEGER, " +
+                            "num_unbounded NUMBER, " +
+                            "num_int NUMBER(9,0), " +
+                            "num_bigint NUMBER(18,0), " +
+                            "num_large_int NUMBER(30,0), " +
+                            "num_decimal NUMBER(10,2)" +
+                            ")",
+                    databaseName, testTableName));
+
+            // Insert test data with smaller values that fit within the precision limits
+            database.execute(format(
+                    "INSERT INTO %s.%s VALUES (1, 123456789012345, 123456789, 123456789012345678, 123456789012345678901234567890, 12345.67)",
+                    databaseName, testTableName));
+
+            // Verify column type mappings through DESCRIBE
+            MaterializedResult result = computeActual(format(
+                    "DESCRIBE teradata.%s.%s", databaseName, testTableName));
+
+            // Check that columns are mapped to expected Trino types
+            for (MaterializedRow row : result.getMaterializedRows()) {
+                String columnName = (String) row.getField(0);
+                String columnType = (String) row.getField(1);
+
+                switch (columnName) {
+                    case "num_unbounded":
+                        // NUMBER without precision should map to VARCHAR for safety
+                        assertEquals("varchar(50)", columnType);
+                        break;
+                    case "num_int":
+                        // NUMBER(9,0) should map to INTEGER
+                        assertEquals("integer", columnType);
+                        break;
+                    case "num_bigint":
+                        // NUMBER(18,0) should map to BIGINT
+                        assertEquals("bigint", columnType);
+                        break;
+                    case "num_large_int":
+                        // NUMBER(30,0) should map to DECIMAL
+                        assertEquals("decimal(30,0)", columnType);
+                        break;
+                    case "num_decimal":
+                        // NUMBER(10,2) should map to DECIMAL
+                        assertEquals("decimal(10,2)", columnType);
+                        break;
+                }
+            }
+
+            // Test data retrieval with the updated value
+            assertQuery(
+                    format("SELECT num_int, num_bigint, num_decimal FROM teradata.%s.%s WHERE id = 1", databaseName, testTableName),
+                    "VALUES (123456789, 123456789012345678, 12345.67)");
+
+        } finally {
+            try {
+                database.execute(format("DROP TABLE %s.%s", databaseName, testTableName));
+            } catch (Exception e) {
+                System.err.println("Warning: Could not drop test table " + testTableName + ": " + e.getMessage());
+            }
+        }
+    }
+
+
 }
 

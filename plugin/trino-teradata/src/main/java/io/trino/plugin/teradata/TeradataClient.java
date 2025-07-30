@@ -1039,6 +1039,8 @@ public class TeradataClient
                 return Optional.of(jsonColumnMapping());
             case "ARRAY":
                 return Optional.of(arrayColumnMapping(session, connection, typeHandle));
+            case "NUMBER":
+                return Optional.of(numberColumnMapping(typeHandle));
         }
 
         // switch by jdbc type
@@ -1355,4 +1357,45 @@ public class TeradataClient
             statement.setArray(index, sqlArray);
         });
     }
+
+    private ColumnMapping numberColumnMapping(JdbcTypeHandle typeHandle)
+    {
+        int precision = typeHandle.requiredColumnSize();
+        int scale = typeHandle.requiredDecimalDigits();
+
+        // Teradata NUMBER without precision/scale (NUMBER(*) or plain NUMBER)
+        // These can have very large precision (up to 40 digits)
+        if (precision <= 0 || precision > Decimals.MAX_PRECISION) {
+            // Map to VARCHAR for safety to avoid precision loss
+            return varcharColumnMapping(50, false);
+        }
+
+        if (scale == 0) {
+            // NUMBER(p) - integer-like values
+            if (precision <= 9) {
+                return integerColumnMapping();
+            } else if (precision <= 18) {
+                return bigintColumnMapping();
+            } else {
+                // Large precision integer - use decimal to preserve exactness
+                DecimalType decimalType = createDecimalType(precision, 0);
+                return decimalColumnMapping(decimalType);
+            }
+        } else if (scale < 0) {
+            // NUMBER(p, negative_scale) - e.g., NUMBER(5, -2) represents values like 12300
+            // Map to decimal with adjusted precision
+            int adjustedPrecision = precision + Math.abs(scale);
+            if (adjustedPrecision <= Decimals.MAX_PRECISION) {
+                DecimalType decimalType = createDecimalType(adjustedPrecision, 0);
+                return decimalColumnMapping(decimalType);
+            } else {
+                return varcharColumnMapping(50, false);
+            }
+        } else {
+            // NUMBER(p,s) with positive scale - decimal values
+            DecimalType decimalType = createDecimalType(precision, scale);
+            return decimalColumnMapping(decimalType);
+        }
+    }
+
 }
