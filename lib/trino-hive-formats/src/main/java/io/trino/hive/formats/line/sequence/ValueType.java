@@ -39,7 +39,7 @@ public enum ValueType
             writeVInt(output, length);
         }
     },
-    BYTES("org.apache.hadoop.io.BytesWritable", i -> 4) {
+    BYTES("org.apache.hadoop.io.BytesWritable", i -> Integer.BYTES) {
         public int readLengthField(DataInput input)
                 throws IOException
         {
