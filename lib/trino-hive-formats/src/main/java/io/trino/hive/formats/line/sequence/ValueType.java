@@ -28,24 +28,28 @@ import static java.lang.Math.toIntExact;
 public enum ValueType
 {
     TEXT("org.apache.hadoop.io.Text", ReadWriteUtils::computeVIntLength) {
+        @Override
         public int readLengthField(DataInput input)
                 throws IOException
         {
             return toIntExact(readVInt(input));
         }
 
+        @Override
         public void writeLengthField(SliceOutput output, int length)
         {
             writeVInt(output, length);
         }
     },
     BYTES("org.apache.hadoop.io.BytesWritable", i -> Integer.BYTES) {
+        @Override
         public int readLengthField(DataInput input)
                 throws IOException
         {
             return reverseBytes(input.readInt());
         }
 
+        @Override
         public void writeLengthField(SliceOutput output, int length)
         {
             output.writeInt(reverseBytes(length));
