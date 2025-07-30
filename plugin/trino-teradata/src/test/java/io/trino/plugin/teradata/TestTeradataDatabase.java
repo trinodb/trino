@@ -28,66 +28,30 @@ public class TestTeradataDatabase
     private final ClearScapeManager clearScapeManager;
     private final boolean useClearScape;
     private final String databaseName;
-    private Connection connection;
+    private final Connection connection;
     private final String jdbcUrl;
     private final Map<String, String> connectionProperties = new HashMap<>();
 
-    private void initializeConnection(DatabaseConfig config)
-    {
-        String username;
-        String password;
 
-        // Use ClearScape credentials if available, otherwise fall back to config
-        if (useClearScape && clearScapeManager != null) {
-            JsonNode authInfo = clearScapeManager.getConfigJSON().get(TeradataConstants.LOG_MECH);
-            username = authInfo.get("username").asText();
-            password = authInfo.get("password").asText();
-            System.out.println("Using ClearScape credentials");
-        }
-        else {
-            username = config.getUsername();
-            password = config.getPassword();
-            System.out.println("Using environment variable credentials");
-        }
+    public TestTeradataDatabase(DatabaseConfig config)
+    {
+        this.databaseName = config.getDatabaseName();
+        this.jdbcUrl = config.getJdbcUrl();
+        this.useClearScape = config.isUseClearScape();
+        this.clearScapeManager = config.getClearScapeManager();
 
         connectionProperties.put("connection-url", jdbcUrl);
-        connectionProperties.put("connection-user", username);
-        connectionProperties.put("connection-password", password);
-        connectionProperties.put("join-pushdown.enabled", "true");
-
+        connectionProperties.put("connection-user", config.getUsername());
+        connectionProperties.put("connection-password", config.getPassword());
         try {
-            Class.forName(TeradataConstants.DRIVER_CLASS);
-            this.connection = DriverManager.getConnection(jdbcUrl, username, password);
+            Class.forName("com.teradata.jdbc.TeraDriver");
+            this.connection = DriverManager.getConnection(jdbcUrl, config.getUsername(), config.getPassword());
         }
         catch (SQLException | ClassNotFoundException e) {
-            throw new RuntimeException("Failed to initialize database connection", e);
+            throw new RuntimeException(e);
         }
     }
 
-    public TestTeradataDatabase(DatabaseConfig config, boolean useClearScape)
-    {
-        this.useClearScape = useClearScape;
-
-        if (useClearScape) {
-            this.clearScapeManager = new ClearScapeManager();
-            this.clearScapeManager.setup();
-            String dynamicHost = clearScapeManager.getConfigJSON().get("host").asText();
-            this.databaseName = ClearScapeEnvVariables.ENV_CLEARSAOPE_USERNAME;
-            this.jdbcUrl = buildJdbcUrlWithHost(dynamicHost);
-        }
-        else {
-            this.clearScapeManager = null;
-            this.databaseName = config.getDatabaseName();
-            this.jdbcUrl = config.getJdbcUrl();
-        }
-        initializeConnection(config);
-    }
-
-    private String buildJdbcUrlWithHost(String host)
-    {
-        return String.format("jdbc:teradata://%s/DBS_PORT=1025,DATABASE=%s,TMODE=ANSI,CHARSET=UTF8",
-                host, this.databaseName);
-    }
     /**
      * Creates a new TestTeradataDatabase instance using the provided configuration.
      *

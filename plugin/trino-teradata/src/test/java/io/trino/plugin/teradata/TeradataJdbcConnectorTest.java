@@ -44,7 +44,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TeradataJdbcConnectorTest
         extends BaseJdbcConnectorTest
 {
-    protected final TestTeradataDatabase database = new TestTeradataDatabase(DatabaseConfig.fromEnvWithClearScape(), true);
+    protected final TestTeradataDatabase database = new TestTeradataDatabase(DatabaseConfig.fromEnvWithClearScape());
     private static final Logger log = Logger.get(TeradataJdbcConnectorTest.class);
 
     private static void verifyResultOrFailure(AssertProvider<QueryAssertions.QueryAssert> queryAssertProvider, Consumer<QueryAssertions.QueryAssert> verifyResults, Consumer<TrinoExceptionAssert> verifyFailure)
@@ -127,12 +127,11 @@ public class TeradataJdbcConnectorTest
     public void cleanupTestDatabase()
     {
         database.dropTestDatabaseIfExists();
-        System.out.println("Database Dropped Successfully");
         try {
             database.close();  // This should stop ClearScape
         }
         catch (Exception e) {
-            System.err.println("Cleanup failed: " + e.getMessage());
+            log.error("Cleanup failed: " + e.getMessage());
         }
     }
 

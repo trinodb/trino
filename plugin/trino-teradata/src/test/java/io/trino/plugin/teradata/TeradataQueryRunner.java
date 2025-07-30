@@ -30,7 +30,7 @@ import static java.util.Objects.requireNonNull;
  */
 public final class TeradataQueryRunner
 {
-    private static final TestTeradataDatabase database = new TestTeradataDatabase(DatabaseConfig.fromEnvWithClearScape(), true);
+    private static final TestTeradataDatabase database = new TestTeradataDatabase(DatabaseConfig.fromEnvWithClearScape());
 
     private TeradataQueryRunner()
     {
