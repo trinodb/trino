@@ -32,7 +32,6 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.ContentFile;
 import org.apache.iceberg.ManifestContent;
-import org.apache.iceberg.ManifestFile;
 import org.apache.iceberg.ManifestFiles;
 import org.apache.iceberg.ManifestReader;
 import org.apache.iceberg.MetricsUtil;
@@ -49,7 +48,6 @@ import org.apache.iceberg.types.Types;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
-import java.util.Base64;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
@@ -57,7 +55,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.function.BiConsumer;
-import java.util.stream.Collectors;
+import java.util.function.Supplier;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -91,7 +89,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.MetricsUtil.readableMetricsStruct;
 
-public class FilesTablePageSource
+public final class FilesTablePageSource
         implements ConnectorPageSource
 {
     private final Closer closer;
@@ -102,9 +100,10 @@ public class FilesTablePageSource
     private final Optional<IcebergPartitionColumn> partitionColumnType;
     private final Map<Integer, Type.PrimitiveType> idToPrimitiveTypeMapping;
     private final List<Types.NestedField> primitiveFields;
-    private final Iterator<? extends ContentFile<?>> contentItr;
+    private final Iterator<? extends ContentFile<?>> contentIterator;
     private final Map<String, Integer> columnNameToIndex;
     private final PageBuilder pageBuilder;
+    private final long completedBytes;
     private long completedPositions;
     private boolean closed;
 
@@ -119,29 +118,25 @@ public class FilesTablePageSource
         this.schema = SchemaParser.fromJson(requireNonNull(split.schemaJson(), "schema is null"));
         this.metadataSchema = SchemaParser.fromJson(requireNonNull(split.metadataTableJson(), "metadataSchema is null"));
         this.idToTypeMapping = FilesTable.getIcebergIdToTypeMapping(schema);
-        Map<Integer, PartitionSpec> specs = split.partitionSpecsByIdJson().entrySet().stream().collect(Collectors.toMap(
+        Map<Integer, PartitionSpec> specs = split.partitionSpecsByIdJson().entrySet().stream().collect(toImmutableMap(
                 Map.Entry::getKey,
-                kv -> PartitionSpecParser.fromJson(SchemaParser.fromJson(split.schemaJson()), kv.getValue())));
+                entry -> PartitionSpecParser.fromJson(SchemaParser.fromJson(split.schemaJson()), entry.getValue())));
         this.partitionFields = PartitionsTable.getAllPartitionFields(schema, specs);
         this.partitionColumnType = getPartitionColumnType(partitionFields, schema, typeManager);
         this.idToPrimitiveTypeMapping = IcebergUtil.primitiveFieldTypes(schema);
         this.primitiveFields = IcebergUtil.primitiveFields(schema).stream()
                 .sorted(Comparator.comparing(Types.NestedField::name))
                 .collect(toImmutableList());
-        try {
-            ManifestFile manifestFile = ManifestFiles.decode(Base64.getDecoder().decode(split.manifestFileEncoded()));
-            ManifestReader<? extends ContentFile<?>> manifestReader = closer.register(manifestFile.content() == ManifestContent.DATA ?
-                    ManifestFiles.read(manifestFile, fileIoFactory.create(trinoFileSystem)) :
-                    ManifestFiles.readDeleteManifest(manifestFile, fileIoFactory.create(trinoFileSystem), specs));
-            this.contentItr = manifestReader.iterator();
-        }
-        catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-        this.pageBuilder = new PageBuilder(requiredColumns.stream().map(c -> split.columns().get(c)).toList());
+        ManifestReader<? extends ContentFile<?>> manifestReader = closer.register(split.manifestFile().content() == ManifestContent.DATA ?
+                ManifestFiles.read(split.manifestFile(), fileIoFactory.create(trinoFileSystem)) :
+                ManifestFiles.readDeleteManifest(split.manifestFile(), fileIoFactory.create(trinoFileSystem), specs));
+        // TODO figure out why selecting the specific column causes null to be returned for offset_splits
+        this.contentIterator = closer.register(manifestReader.iterator());
+        this.pageBuilder = new PageBuilder(requiredColumns.stream().map(column -> split.columns().get(column)).collect(toImmutableList()));
         this.columnNameToIndex = mapWithIndex(requiredColumns.stream(),
                 (columnName, position) -> immutableEntry(columnName, Long.valueOf(position).intValue()))
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+        this.completedBytes = split.manifestFile().length();
         this.completedPositions = 0L;
         this.closed = false;
     }
@@ -149,8 +144,7 @@ public class FilesTablePageSource
     @Override
     public long getCompletedBytes()
     {
-        // TODO
-        return 0L;
+        return completedBytes;
     }
 
     @Override
@@ -179,18 +173,18 @@ public class FilesTablePageSource
             return null;
         }
 
-        while (contentItr.hasNext() && !pageBuilder.isFull()) {
+        while (contentIterator.hasNext() && !pageBuilder.isFull()) {
             pageBuilder.declarePosition();
-            ContentFile<?> contentFile = contentItr.next();
+            ContentFile<?> contentFile = contentIterator.next();
 
             // content
-            writeValueOrNull(pageBuilder, CONTENT_COLUMN_NAME, contentFile.content().id(), INTEGER::writeInt);
+            writeValueOrNull(pageBuilder, CONTENT_COLUMN_NAME, () -> contentFile.content().id(), INTEGER::writeInt);
             // file_path
-            writeValueOrNull(pageBuilder, FILE_PATH_COLUMN_NAME, contentFile.location(), VARCHAR::writeString);
+            writeValueOrNull(pageBuilder, FILE_PATH_COLUMN_NAME, contentFile::location, VARCHAR::writeString);
             // file_format
-            writeValueOrNull(pageBuilder, FILE_FORMAT_COLUMN_NAME, contentFile.format().toString(), VARCHAR::writeString);
+            writeValueOrNull(pageBuilder, FILE_FORMAT_COLUMN_NAME, () -> contentFile.format().toString(), VARCHAR::writeString);
             // spec_id
-            writeValueOrNull(pageBuilder, SPEC_ID_COLUMN_NAME, contentFile.specId(), INTEGER::writeInt);
+            writeValueOrNull(pageBuilder, SPEC_ID_COLUMN_NAME, contentFile::specId, INTEGER::writeInt);
             // partitions
             if (partitionColumnType.isPresent() && columnNameToIndex.containsKey(FilesTable.PARTITION_COLUMN_NAME)) {
                 List<Type> partitionTypes = partitionTypes(partitionFields, idToPrimitiveTypeMapping);
@@ -214,41 +208,41 @@ public class FilesTablePageSource
                 }
             }
             // record_count
-            writeValueOrNull(pageBuilder, RECORD_COUNT_COLUMN_NAME, contentFile.recordCount(), BIGINT::writeLong);
+            writeValueOrNull(pageBuilder, RECORD_COUNT_COLUMN_NAME, contentFile::recordCount, BIGINT::writeLong);
             // file_size_in_bytes
-            writeValueOrNull(pageBuilder, FILE_SIZE_IN_BYTES_COLUMN_NAME, contentFile.fileSizeInBytes(), BIGINT::writeLong);
+            writeValueOrNull(pageBuilder, FILE_SIZE_IN_BYTES_COLUMN_NAME, contentFile::fileSizeInBytes, BIGINT::writeLong);
             // column_sizes
-            writeValueOrNull(pageBuilder, COLUMN_SIZES_COLUMN_NAME, contentFile.columnSizes(),
+            writeValueOrNull(pageBuilder, COLUMN_SIZES_COLUMN_NAME, contentFile::columnSizes,
                     FilesTablePageSource::writeIntegerBigintInMap);
             // value_counts
-            writeValueOrNull(pageBuilder, VALUE_COUNTS_COLUMN_NAME, contentFile.valueCounts(),
+            writeValueOrNull(pageBuilder, VALUE_COUNTS_COLUMN_NAME, contentFile::valueCounts,
                     FilesTablePageSource::writeIntegerBigintInMap);
             // null_value_counts
-            writeValueOrNull(pageBuilder, NULL_VALUE_COUNTS_COLUMN_NAME, contentFile.nullValueCounts(),
+            writeValueOrNull(pageBuilder, NULL_VALUE_COUNTS_COLUMN_NAME, contentFile::nullValueCounts,
                     FilesTablePageSource::writeIntegerBigintInMap);
             // nan_value_counts
-            writeValueOrNull(pageBuilder, NAN_VALUE_COUNTS_COLUMN_NAME, contentFile.nanValueCounts(),
+            writeValueOrNull(pageBuilder, NAN_VALUE_COUNTS_COLUMN_NAME, contentFile::nanValueCounts,
                     FilesTablePageSource::writeIntegerBigintInMap);
             // lower_bounds
-            writeValueOrNull(pageBuilder, LOWER_BOUNDS_COLUMN_NAME, contentFile.lowerBounds(),
+            writeValueOrNull(pageBuilder, LOWER_BOUNDS_COLUMN_NAME, contentFile::lowerBounds,
                     this::writeIntegerVarcharInMap);
             // upper_bounds
-            writeValueOrNull(pageBuilder, UPPER_BOUNDS_COLUMN_NAME, contentFile.upperBounds(),
+            writeValueOrNull(pageBuilder, UPPER_BOUNDS_COLUMN_NAME, contentFile::upperBounds,
                     this::writeIntegerVarcharInMap);
             // key_metadata
-            writeValueOrNull(pageBuilder, KEY_METADATA_COLUMN_NAME, contentFile.keyMetadata(),
+            writeValueOrNull(pageBuilder, KEY_METADATA_COLUMN_NAME, contentFile::keyMetadata,
                     (blkBldr, value) -> VARBINARY.writeSlice(blkBldr, Slices.wrappedHeapBuffer(value)));
             // split_offset
-            writeValueOrNull(pageBuilder, SPLIT_OFFSETS_COLUMN_NAME, contentFile.splitOffsets(),
+            writeValueOrNull(pageBuilder, SPLIT_OFFSETS_COLUMN_NAME, contentFile::splitOffsets,
                     FilesTablePageSource::writeLongInArray);
             // equality_ids
-            writeValueOrNull(pageBuilder, EQUALITY_IDS_COLUMN_NAME, contentFile.equalityFieldIds(),
+            writeValueOrNull(pageBuilder, EQUALITY_IDS_COLUMN_NAME, contentFile::equalityFieldIds,
                     FilesTablePageSource::writeIntegerInArray);
             // sort_order_id
-            writeValueOrNull(pageBuilder, SORT_ORDER_ID_COLUMN_NAME, contentFile.sortOrderId(),
+            writeValueOrNull(pageBuilder, SORT_ORDER_ID_COLUMN_NAME, contentFile::sortOrderId,
                     (blkBldr, value) -> INTEGER.writeLong(blkBldr, value));
             // readable_metrics
-            writeValueOrNull(pageBuilder, READABLE_METRICS_COLUMN_NAME, metadataSchema.findField(MetricsUtil.READABLE_METRICS),
+            writeValueOrNull(pageBuilder, READABLE_METRICS_COLUMN_NAME, () -> metadataSchema.findField(MetricsUtil.READABLE_METRICS),
                     (blkBldr, value) -> VARCHAR.writeString(blkBldr, FilesTable.toJson(readableMetricsStruct(schema, contentFile, value.type().asStructType()), primitiveFields)));
         }
 
@@ -266,7 +260,7 @@ public class FilesTablePageSource
     @Override
     public long getMemoryUsage()
     {
-        return 0;
+        return pageBuilder.getRetainedSizeInBytes();
     }
 
     @Override
@@ -285,21 +279,20 @@ public class FilesTablePageSource
         }
     }
 
-    private <T> void writeValueOrNull(PageBuilder pageBuilder, String columnName, T value, BiConsumer<BlockBuilder, T> execute)
+    private <T> void writeValueOrNull(PageBuilder pageBuilder, String columnName, Supplier<T> valueSupplier, BiConsumer<BlockBuilder, T> valueWriter)
     {
         Integer channel = columnNameToIndex.get(columnName);
-
         if (channel == null) {
             return;
         }
 
         BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(channel);
-
+        T value = valueSupplier.get();
         if (value == null) {
             blockBuilder.appendNull();
         }
         else {
-            execute.accept(blockBuilder, value);
+            valueWriter.accept(blockBuilder, value);
         }
     }
 
@@ -315,7 +308,7 @@ public class FilesTablePageSource
     {
         if (blockBuilder instanceof ArrayBlockBuilder arrayBlockBuilder) {
             arrayBlockBuilder.buildEntry(builder ->
-                    values.forEach(value -> INTEGER.writeLong(builder, value)));
+                    values.forEach(value -> INTEGER.writeInt(builder, value)));
         }
     }
 
@@ -323,7 +316,7 @@ public class FilesTablePageSource
     {
         if (blockBuilder instanceof MapBlockBuilder mapBlockBuilder) {
             mapBlockBuilder.buildEntry((keyBuilder, valueBuilder) -> values.forEach((key, value) -> {
-                INTEGER.writeLong(keyBuilder, key);
+                INTEGER.writeInt(keyBuilder, key);
                 BIGINT.writeLong(valueBuilder, value);
             }));
         }
@@ -335,7 +328,7 @@ public class FilesTablePageSource
             mapBlockBuilder.buildEntry((keyBuilder, valueBuilder) -> {
                 values.forEach((key, value) -> {
                     if (idToTypeMapping.containsKey(key)) {
-                        INTEGER.writeLong(keyBuilder, key);
+                        INTEGER.writeInt(keyBuilder, key);
                         VARCHAR.writeString(valueBuilder, Transforms.identity().toHumanString(
                                 idToTypeMapping.get(key),
                                 Conversions.fromByteBuffer(idToTypeMapping.get(key), value)));

@@ -63,14 +63,15 @@ public class SystemPageSourceProvider
     private final SystemTablesProvider tables;
     private final AccessControl accessControl;
     private final String catalogName;
-    private final Optional<ConnectorPageSourceProviderFactory> pageSourceProviderFactory;
+    private final Optional<ConnectorPageSourceProvider> connectorPageSourceProvider;
 
     public SystemPageSourceProvider(SystemTablesProvider tables, AccessControl accessControl, String catalogName, Optional<ConnectorPageSourceProviderFactory> pageSourceProviderFactory)
     {
         this.tables = requireNonNull(tables, "tables is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
-        this.pageSourceProviderFactory = requireNonNull(pageSourceProviderFactory, "pageSourceProviderFactory is null");
+        this.connectorPageSourceProvider = requireNonNull(pageSourceProviderFactory, "pageSourceProviderFactory is null")
+                .map(ConnectorPageSourceProviderFactory::createPageSourceProvider);
     }
 
     @Override
@@ -87,7 +88,7 @@ public class SystemPageSourceProvider
 
         // if the split is not a SystemSplit, we immediately delegate to the Connector to build a PageSource
         if (!(split instanceof SystemSplit systemSplit)) {
-            return pageSourceProviderFactory.orElseThrow().createPageSourceProvider()
+            return connectorPageSourceProvider.orElseThrow()
                     .createPageSource(systemTransaction.getConnectorTransactionHandle(), session, split, table, columns, dynamicFilter);
         }
 

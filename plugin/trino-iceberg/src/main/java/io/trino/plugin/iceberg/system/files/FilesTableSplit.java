@@ -13,9 +13,12 @@
  */
 package io.trino.plugin.iceberg.system.files;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import io.airlift.slice.SizeOf;
+import io.trino.plugin.iceberg.bean.ManifestFileBean;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.type.Type;
+import org.apache.iceberg.ManifestFile;
 
 import java.util.Map;
 
@@ -23,12 +26,12 @@ import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 
 public record FilesTableSplit(
-        String manifestFileEncoded,
+        @JsonDeserialize(as = ManifestFileBean.class) ManifestFile manifestFile,
         String schemaJson,
         String metadataTableJson,
         Map<Integer, String> partitionSpecsByIdJson,
         Map<String, Type> columns,
-        Map<String, String> fileSystemProperties)
+        Map<String, String> fileIoProperties)
         implements ConnectorSplit
 {
     private static final int INSTANCE_SIZE = instanceSize(FilesTableSplit.class);
@@ -37,11 +40,11 @@ public record FilesTableSplit(
     public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE
-                + estimatedSizeOf(manifestFileEncoded)
+                + ManifestFileBean.INSTANCE_SIZE
                 + estimatedSizeOf(schemaJson)
                 + estimatedSizeOf(metadataTableJson)
                 + estimatedSizeOf(partitionSpecsByIdJson, SizeOf::sizeOf, SizeOf::estimatedSizeOf)
                 + estimatedSizeOf(columns, SizeOf::estimatedSizeOf, (t) -> instanceSize(t.getClass()))
-                + estimatedSizeOf(fileSystemProperties, SizeOf::estimatedSizeOf, SizeOf::estimatedSizeOf);
+                + estimatedSizeOf(fileIoProperties, SizeOf::estimatedSizeOf, SizeOf::estimatedSizeOf);
     }
 }

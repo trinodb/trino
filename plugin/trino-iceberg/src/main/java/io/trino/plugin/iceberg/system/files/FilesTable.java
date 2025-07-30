@@ -41,8 +41,7 @@ import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.SingleValueParser;
 import org.apache.iceberg.Table;
-import org.apache.iceberg.TableScan;
-import org.apache.iceberg.types.Type;
+import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.types.Types;
 
 import java.io.IOException;
@@ -51,9 +50,8 @@ import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ExecutorService;
-import java.util.stream.Collectors;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionColumnType;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -63,7 +61,7 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
-public class FilesTable
+public final class FilesTable
         implements SystemTable
 {
     private static final JsonFactory JSON_FACTORY = JsonUtils.jsonFactoryBuilder().build();
@@ -90,9 +88,8 @@ public class FilesTable
     private final ConnectorTableMetadata tableMetadata;
     private final Table icebergTable;
     private final Optional<Long> snapshotId;
-    private final ExecutorService executor;
 
-    public FilesTable(SchemaTableName tableName, TypeManager typeManager, Table icebergTable, Optional<Long> snapshotId, ExecutorService executor)
+    public FilesTable(SchemaTableName tableName, TypeManager typeManager, Table icebergTable, Optional<Long> snapshotId)
     {
         this.icebergTable = requireNonNull(icebergTable, "icebergTable is null");
         this.snapshotId = requireNonNull(snapshotId, "snapshotId is null");
@@ -120,10 +117,7 @@ public class FilesTable
         columns.add(new ColumnMetadata(SORT_ORDER_ID_COLUMN_NAME, INTEGER));
         columns.add(new ColumnMetadata(READABLE_METRICS_COLUMN_NAME, typeManager.getType(new TypeSignature(JSON))));
 
-        List<ColumnMetadata> partitionColumns = columns.build();
-
-        this.tableMetadata = new ConnectorTableMetadata(requireNonNull(tableName, "tableName is null"), partitionColumns);
-        this.executor = requireNonNull(executor, "executor is null");
+        this.tableMetadata = new ConnectorTableMetadata(requireNonNull(tableName, "tableName is null"), columns.build());
     }
 
     @Override
@@ -141,22 +135,19 @@ public class FilesTable
     @Override
     public Optional<ConnectorSplitSource> splitSource(ConnectorSession connectorSession, TupleDomain<ColumnHandle> constraint)
     {
-        TableScan scan = icebergTable.newScan()
-                .includeColumnStats()
-                .planWith(executor);
-
-        snapshotId.ifPresent(scan::useSnapshot);
-
-        return Optional.of(new FilesTableSplitSource(
-                scan.snapshot().allManifests(icebergTable.io()).iterator(),
-                SchemaParser.toJson(icebergTable.schema()),
-                SchemaParser.toJson(MetadataTableUtils.createMetadataTableInstance(icebergTable, MetadataTableType.FILES).schema()),
-                icebergTable.specs().entrySet().stream().collect(Collectors.toMap(
-                        Map.Entry::getKey,
-                        kv -> PartitionSpecParser.toJson(kv.getValue()))),
-                tableMetadata.getColumns().stream().collect(Collectors.toMap(
-                        ColumnMetadata::getName, ColumnMetadata::getType)),
-                icebergTable.io().properties()));
+        try (FileIO fileIO = icebergTable.io()) {
+            return Optional.of(new FilesTableSplitSource(
+                    icebergTable,
+                    snapshotId,
+                    SchemaParser.toJson(icebergTable.schema()),
+                    SchemaParser.toJson(MetadataTableUtils.createMetadataTableInstance(icebergTable, MetadataTableType.FILES).schema()),
+                    icebergTable.specs().entrySet().stream().collect(toImmutableMap(
+                            Map.Entry::getKey,
+                            partitionSpec -> PartitionSpecParser.toJson(partitionSpec.getValue()))),
+                    tableMetadata.getColumns().stream().collect(toImmutableMap(
+                            ColumnMetadata::getName, ColumnMetadata::getType)),
+                    fileIO.properties()));
+        }
     }
 
     public static String toJson(ReadableMetricsStruct readableMetrics, List<Types.NestedField> primitiveFields)
@@ -227,20 +218,20 @@ public class FilesTable
         }
     }
 
-    public static Map<Integer, Type> getIcebergIdToTypeMapping(Schema schema)
+    public static Map<Integer, org.apache.iceberg.types.Type> getIcebergIdToTypeMapping(Schema schema)
     {
-        ImmutableMap.Builder<Integer, Type> icebergIdToTypeMapping = ImmutableMap.builder();
-        for (Types.NestedField field : schema.columns()) {
+        ImmutableMap.Builder<Integer, org.apache.iceberg.types.Type> icebergIdToTypeMapping = ImmutableMap.builder();
+        for (org.apache.iceberg.types.Types.NestedField field : schema.columns()) {
             populateIcebergIdToTypeMapping(field, icebergIdToTypeMapping);
         }
         return icebergIdToTypeMapping.buildOrThrow();
     }
 
-    private static void populateIcebergIdToTypeMapping(Types.NestedField field, ImmutableMap.Builder<Integer, Type> icebergIdToTypeMapping)
+    private static void populateIcebergIdToTypeMapping(Types.NestedField field, ImmutableMap.Builder<Integer, org.apache.iceberg.types.Type> icebergIdToTypeMapping)
     {
-        Type type = field.type();
+        org.apache.iceberg.types.Type type = field.type();
         icebergIdToTypeMapping.put(field.fieldId(), type);
-        if (type instanceof Type.NestedType) {
+        if (type instanceof org.apache.iceberg.types.Type.NestedType) {
             type.asNestedType().fields().forEach(child -> populateIcebergIdToTypeMapping(child, icebergIdToTypeMapping));
         }
     }

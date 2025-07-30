@@ -19,7 +19,6 @@ import io.airlift.configuration.secrets.SecretsResolver;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.connector.informationschema.InformationSchemaConnector;
-import io.trino.connector.system.DefaultSystemTablesProvider;
 import io.trino.connector.system.SystemConnector;
 import io.trino.connector.system.SystemTablesProvider;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
@@ -155,7 +154,7 @@ public class DefaultCatalogFactory
                         accessControl,
                         maxPrefetchedInformationSchemaPrefixes));
 
-        SystemTablesProvider systemTablesProvider = new DefaultSystemTablesProvider(
+        SystemTablesProvider systemTablesProvider = new SystemTablesProvider(
                 transactionManager,
                 metadata,
                 catalogHandle.getCatalogName().toString(),
@@ -170,7 +169,8 @@ public class DefaultCatalogFactory
                         systemTablesProvider,
                         transactionId -> transactionManager.getConnectorTransaction(transactionId, catalogHandle),
                         accessControl,
-                        catalogHandle.getCatalogName().toString(), catalogConnector.getPageSourceProviderFactory()));
+                        catalogHandle.getCatalogName().toString(),
+                        catalogConnector.getPageSourceProviderFactory()));
 
         return new CatalogConnector(
                 catalogHandle,

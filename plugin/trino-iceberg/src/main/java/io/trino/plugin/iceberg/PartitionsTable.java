@@ -154,16 +154,7 @@ public class PartitionsTable
 
     public static List<PartitionField> getAllPartitionFields(Table icebergTable)
     {
-        Set<Integer> existingColumnsIds = TypeUtil.indexById(icebergTable.schema().asStruct()).keySet();
-
-        List<PartitionField> visiblePartitionFields = icebergTable.specs()
-                .values().stream()
-                .flatMap(partitionSpec -> partitionSpec.fields().stream())
-                // skip columns that were dropped
-                .filter(partitionField -> existingColumnsIds.contains(partitionField.sourceId()))
-                .collect(toImmutableList());
-
-        return filterOutDuplicates(visiblePartitionFields);
+        return getAllPartitionFields(icebergTable.schema(), icebergTable.specs());
     }
 
     private static List<PartitionField> filterOutDuplicates(List<PartitionField> visiblePartitionFields)

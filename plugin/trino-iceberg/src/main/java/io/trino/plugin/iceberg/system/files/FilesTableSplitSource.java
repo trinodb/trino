@@ -13,69 +13,80 @@
  */
 package io.trino.plugin.iceberg.system.files;
 
+import io.trino.plugin.iceberg.bean.ManifestFileBean;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.type.Type;
 import org.apache.iceberg.ManifestFile;
-import org.apache.iceberg.ManifestFiles;
+import org.apache.iceberg.Table;
+import org.apache.iceberg.TableScan;
+import org.apache.iceberg.io.FileIO;
 
-import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Base64;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
-public class FilesTableSplitSource
+public final class FilesTableSplitSource
         implements ConnectorSplitSource
 {
+    private final Table icebergTable;
+    private final Optional<Long> snapshotId;
     private final String schemaJson;
     private final String metadataSchemaJson;
     private final Map<Integer, String> partitionSpecsByIdJson;
     private final Map<String, Type> columns;
-    private final Map<String, String> fileSystemProperties;
-    private final Iterator<ManifestFile> manifestFileItr;
+    private final Map<String, String> fileIoProperties;
+    private boolean finished;
 
     public FilesTableSplitSource(
-            Iterator<ManifestFile> manifestFileItr,
+            Table icebergTable,
+            Optional<Long> snapshotId,
             String schemaJson,
             String metadataSchemaJson,
             Map<Integer, String> partitionSpecsByIdJson,
             Map<String, Type> columns,
-            Map<String, String> fileSystemProperties)
+            Map<String, String> fileIoProperties)
     {
+        this.icebergTable = requireNonNull(icebergTable, "icebergTable is null");
+        this.snapshotId = requireNonNull(snapshotId, "snapshotId is null");
         this.schemaJson = requireNonNull(schemaJson, "schemaJson is null");
         this.metadataSchemaJson = requireNonNull(metadataSchemaJson, "metadataSchemaJson is null");
         this.partitionSpecsByIdJson = requireNonNull(partitionSpecsByIdJson, "partitionSpecsByIdJson is null");
         this.columns = requireNonNull(columns, "columns is null");
-        this.fileSystemProperties = requireNonNull(fileSystemProperties, "fileSystemProperties is null");
-        this.manifestFileItr = requireNonNull(manifestFileItr, "manifestFileItr is null");
+        this.fileIoProperties = requireNonNull(fileIoProperties, "fileIoProperties is null");
+        this.finished = false;
     }
 
     @Override
     public CompletableFuture<ConnectorSplitBatch> getNextBatch(int maxSize)
     {
+        TableScan scan = icebergTable.newScan()
+                .includeColumnStats();
+
+        snapshotId.ifPresent(scan::useSnapshot);
+
         List<ConnectorSplit> splits = new ArrayList<>();
 
-        while (manifestFileItr.hasNext() && splits.size() < maxSize) {
-            try {
+        try (FileIO fileIO = icebergTable.io()) {
+            for (ManifestFile manifestFile : scan.snapshot().allManifests(fileIO)) {
                 splits.add(new FilesTableSplit(
-                        Base64.getEncoder().encodeToString(ManifestFiles.encode(manifestFileItr.next())),
+                        ManifestFileBean.from(manifestFile),
                         schemaJson,
                         metadataSchemaJson,
                         partitionSpecsByIdJson,
                         columns,
-                        fileSystemProperties));
-            }
-            catch (IOException e) {
-                throw new RuntimeException(e);
+                        fileIoProperties));
             }
         }
-        return completedFuture(new ConnectorSplitBatch(splits, !manifestFileItr.hasNext()));
+
+        finished = true;
+
+        return completedFuture(new ConnectorSplitBatch(splits, true));
     }
 
     @Override
@@ -87,6 +98,6 @@ public class FilesTableSplitSource
     @Override
     public boolean isFinished()
     {
-        return manifestFileItr != null && !manifestFileItr.hasNext();
+        return finished;
     }
 }
