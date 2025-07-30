@@ -244,7 +244,7 @@
             <dependency>
                 <groupId>com.oracle.database.jdbc</groupId>
                 <artifactId>ojdbc11-production</artifactId>
-                <version>23.8.0.25.04</version>
+                <version>23.9.0.25.07</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
