@@ -19,6 +19,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
+import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.function.BoundSignature;
@@ -58,7 +59,7 @@ public class TestLakehouseMetadata
                     .add(ConnectorMetadata.class.getMethod("applyTableScanRedirect", ConnectorSession.class, ConnectorTableHandle.class))
                     .add(ConnectorMetadata.class.getMethod("redirectTable", ConnectorSession.class, SchemaTableName.class))
                     .add(ConnectorMetadata.class.getMethod("getMaxWriterTasks", ConnectorSession.class))
-                    .add(ConnectorMetadata.class.getMethod("createBranch", ConnectorSession.class, ConnectorTableHandle.class, String.class, Optional.class, Map.class))
+                    .add(ConnectorMetadata.class.getMethod("createBranch", ConnectorSession.class, ConnectorTableHandle.class, String.class, Optional.class, SaveMode.class, Map.class))
                     .add(ConnectorMetadata.class.getMethod("dropBranch", ConnectorSession.class, ConnectorTableHandle.class, String.class))
                     .add(ConnectorMetadata.class.getMethod("fastForwardBranch", ConnectorSession.class, ConnectorTableHandle.class, String.class, String.class))
                     .add(ConnectorMetadata.class.getMethod("listBranches", ConnectorSession.class, SchemaTableName.class))
