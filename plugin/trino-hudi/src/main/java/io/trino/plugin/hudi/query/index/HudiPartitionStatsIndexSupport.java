@@ -18,7 +18,9 @@ import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hudi.util.TupleDomainUtils;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.Type;
 import org.apache.hudi.avro.model.HoodieMetadataColumnStats;
 import org.apache.hudi.common.model.HoodieIndexDefinition;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
@@ -32,7 +34,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static io.trino.plugin.hudi.util.TupleDomainUtils.hasSimpleNullCheck;
@@ -70,8 +71,11 @@ public class HudiPartitionStatsIndexSupport
                 .stream()
                 .map(col -> new ColumnIndexID(col).asBase64EncodedString()).toList();
 
-        // Map of partition stats keyed by partition name
-        Map<String, Map<String, HoodieMetadataColumnStats>> statsByPartitionName = lazyMetadataTable.get().getRecordsByKeyPrefixes(
+        Map<String, Type> columnTypes = regularColumnPredicates.getDomains().get().entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().getType()));
+
+        // Map of domains with partition stats keyed by partition name and column name
+        Map<String, Map<String, Domain>> domainsWithStats = lazyMetadataTable.get().getRecordsByKeyPrefixes(
                         encodedTargetColumnNames,
                         HoodieTableMetadataUtil.PARTITION_NAME_PARTITION_STATS, true)
                 .collectAsList()
@@ -82,14 +86,15 @@ public class HudiPartitionStatsIndexSupport
                         HoodieMetadataColumnStats::getFileName,
                         Collectors.toMap(
                                 HoodieMetadataColumnStats::getColumnName,
-                                Function.identity())));
+                                // Pre-compute the Domain object for each HoodieMetadataColumnStats
+                                stats -> getDomainFromColumnStats(stats.getColumnName(), columnTypes.get(stats.getColumnName()), stats))));
 
         // For each partition, determine if it should be kept based on stats availability and predicate evaluation
         List<String> prunedPartitions = allPartitions.stream()
                 .filter(partition -> {
                     // Check if stats exist for this partition
-                    Map<String, HoodieMetadataColumnStats> partitionStats = statsByPartitionName.get(partition);
-                    if (partitionStats == null) {
+                    Map<String, Domain> partitionDomainsWithStats = domainsWithStats.get(partition);
+                    if (partitionDomainsWithStats == null) {
                         // Partition has no stats in the index, keep it
                         return true;
                     }
@@ -99,7 +104,7 @@ public class HudiPartitionStatsIndexSupport
                         // Important: If some columns in encodedTargetColumnNames is not available in partition stats, partition will not be pruned iff all available predicate
                         // evaluates to true. Since we cannot determine if the predicate will evaluate to true or not on the missing stat, adopt conservative measure to true,
                         // i.e. to not prune
-                        return evaluateStatisticPredicate(filteredRegularPredicates, partitionStats, regularColumns);
+                        return evaluateStatisticPredicate(filteredRegularPredicates, partitionDomainsWithStats, regularColumns);
                     }
                 })
                 .collect(Collectors.toList());
