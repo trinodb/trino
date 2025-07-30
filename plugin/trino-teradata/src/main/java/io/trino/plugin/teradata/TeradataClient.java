@@ -34,6 +34,8 @@ import io.trino.plugin.jdbc.PredicatePushdownController;
 import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
+import io.trino.plugin.jdbc.SliceReadFunction;
+import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.aggregation.ImplementAvgDecimal;
 import io.trino.plugin.jdbc.aggregation.ImplementAvgFloatingPoint;
@@ -84,20 +86,13 @@ import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 import org.weakref.jmx.$internal.guava.collect.ImmutableMap;
 import org.weakref.jmx.$internal.guava.collect.ImmutableSet;
-
-import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
-import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
-import static io.trino.plugin.base.util.JsonTypeUtil.toJsonValue;
-import static io.trino.spi.type.StandardTypes.JSON;
-import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
-
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -135,6 +130,8 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
 import static io.trino.plugin.jdbc.CaseSensitivity.CASE_INSENSITIVE;
 import static io.trino.plugin.jdbc.CaseSensitivity.CASE_SENSITIVE;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
@@ -183,6 +180,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.StandardTypes.JSON;
 import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
@@ -222,7 +220,6 @@ import static java.util.stream.Collectors.toMap;
 public class TeradataClient
         extends BaseJdbcClient
 {
-    private final Type jsonType;
     private static final PredicatePushdownController TERADATA_STRING_PUSHDOWN = (session, domain) -> {
         // 1. NULL-only filters are always safe
         if (domain.isOnlyNull()) {
@@ -250,6 +247,7 @@ public class TeradataClient
     };
     private static final long MAX_FALLBACK_NDV = 1_000_000L; // max fallback NDV cap
     private static final double DEFAULT_FALLBACK_FRACTION = 0.1; // fallback = 10% of row count
+    private final Type jsonType;
     private final TeradataConfig.TeradataCaseSensitivity teradataJDBCCaseSensitivity;
     private final boolean statisticsEnabled;
     private ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
@@ -508,6 +506,32 @@ public class TeradataClient
     private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
     {
         return Optional.of(new JdbcTypeHandle(Types.NUMERIC, Optional.of("decimal"), Optional.of(decimalType.getPrecision()), Optional.of(decimalType.getScale()), Optional.empty(), Optional.empty()));
+    }
+
+    private static SliceWriteFunction typedVarcharWriteFunction(String jdbcTypeName)
+    {
+        requireNonNull(jdbcTypeName, "jdbcTypeName is null");
+        String bindExpression = format("CAST(? AS %s)", jdbcTypeName.toUpperCase());
+
+        return new SliceWriteFunction()
+        {
+            @Override
+            public String getBindExpression()
+            {
+                return bindExpression;
+            }
+
+            @Override
+            public void set(PreparedStatement statement, int index, Slice value)
+                    throws SQLException
+            {
+                if (value == null) {
+                    statement.setNull(index, Types.OTHER);
+                    return;
+                }
+                statement.setString(index, value.toStringUtf8());
+            }
+        };
     }
 
     @Override
@@ -1052,6 +1076,7 @@ public class TeradataClient
 
         // switch by names as some types overlap other types going by jdbc type alone
         String jdbcTypeName = typeHandle.jdbcTypeName().orElse("VARCHAR");
+        System.out.println(jdbcTypeName);
         switch (jdbcTypeName.toUpperCase()) {
             case "TIMESTAMP WITH TIME ZONE":
                 // TODO review correctness
@@ -1094,6 +1119,7 @@ public class TeradataClient
                 }
                 return Optional.of(decimalColumnMapping(createDecimalType(precision, scale)));
             case Types.CHAR:
+                CharType charType = createCharType(typeHandle.requiredColumnSize());
                 return Optional.of(charColumnMapping(typeHandle.requiredColumnSize(), deriveCaseSensitivity(typeHandle.caseSensitivity())));
             case Types.VARCHAR:
                 // see prior note on trino case sensitivity
@@ -1190,6 +1216,26 @@ public class TeradataClient
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
     }
 
+    private ColumnMapping jsonColumnMapping()
+    {
+        return ColumnMapping.sliceMapping(
+                jsonType,
+                jsonReadFunction(),
+                typedVarcharWriteFunction("json"),
+                DISABLE_PUSHDOWN);
+    }
+
+    private SliceReadFunction jsonReadFunction()
+    {
+        return (resultSet, columnIndex) -> {
+            String json = resultSet.getString(columnIndex);
+            if (json == null) {
+                return null;
+            }
+            return jsonParse(utf8Slice(json));
+        };
+    }
+
     private static class TeradataStatisticsDao
     {
         private final Handle handle;
@@ -1272,51 +1318,5 @@ public class TeradataClient
         }
 
         public record ColumnIndexStatistics(boolean nullable, long distinctValues, long nullCount) {}
-    }
-
-    private ColumnMapping jsonColumnMapping()
-    {
-        return ColumnMapping.sliceMapping(
-                jsonType,
-                jsonReadFunction(),
-                typedVarcharWriteFunction("json"),
-                DISABLE_PUSHDOWN);
-    }
-
-    private SliceReadFunction jsonReadFunction()
-    {
-        return (resultSet, columnIndex) -> {
-            String json = resultSet.getString(columnIndex);
-            if (json == null) {
-                return null;
-            }
-            return jsonParse(utf8Slice(json));
-        };
-    }
-
-    private static SliceWriteFunction typedVarcharWriteFunction(String jdbcTypeName)
-    {
-        requireNonNull(jdbcTypeName, "jdbcTypeName is null");
-        String bindExpression = format("CAST(? AS %s)", jdbcTypeName.toUpperCase());
-
-        return new SliceWriteFunction()
-        {
-            @Override
-            public String getBindExpression()
-            {
-                return bindExpression;
-            }
-
-            @Override
-            public void set(PreparedStatement statement, int index, Slice value)
-                    throws SQLException
-            {
-                if (value == null) {
-                    statement.setNull(index, Types.OTHER);
-                    return;
-                }
-                statement.setString(index, value.toStringUtf8());
-            }
-        };
     }
 }
