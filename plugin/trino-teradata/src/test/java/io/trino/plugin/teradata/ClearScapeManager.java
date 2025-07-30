@@ -18,6 +18,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.URISyntaxException;
+import java.security.SecureRandom;
 import java.util.regex.Pattern;
 
 /**
@@ -35,6 +36,7 @@ public class ClearScapeManager
             Pattern.compile("^(https?://)(www\\.)?api.clearscape.teradata\\.com.*");
     /** Configuration object loaded from the JSON file. */
     private ObjectNode configJSON;
+    private String generatedPassword;
 
     /**
      * Validates that the provided URL matches the expected Clearscape Teradata API pattern.
@@ -70,9 +72,22 @@ public class ClearScapeManager
      * Public method to create and start the ClearScape environment instance. Should be called
      * before any operations requiring an active environment.
      */
+    public static String randomPassword() {
+        // Password-suitable character set
+        char[] passwordChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*".toCharArray();
+        SecureRandom random = new SecureRandom();
+
+        char[] password = new char[10];
+        for (int i = 0; i < password.length; i++) {
+            password[i] = passwordChars[random.nextInt(passwordChars.length)];
+        }
+        return new String(password);
+    }
     public void setup()
     {
         this.configJSON = new ObjectMapper().createObjectNode();
+//        this.generatedPassword = randomPassword();
+//        configJSON.put("password", generatedPassword);
         createAndStartClearScapeInstance();
     }
 
@@ -101,7 +116,7 @@ public class ClearScapeManager
         try {
             TeradataHttpClient teradataHttpClient = getTeradataHttpClient(configJSON);
             String name = ClearScapeEnvVariables.ENV_CLEARSCAPE_NAME;
-            String token = ClearScapeEnvVariables.ENV_CLEARSCAPE_TOKEN;
+            String token = System.getenv("TOKEN");
 
             EnvironmentResponse response = null;
             try {
@@ -129,7 +144,7 @@ public class ClearScapeManager
 
             ImmutableMap<String, Object> authMap = ImmutableMap.<String, Object>builder()
                     .put(TeradataConstants.AUTH_TYPE, "TD2")
-                    .put("username", ClearScapeEnvVariables.ENV_CLEARSAOPE_USERNAME)
+                    .put("username", ClearScapeEnvVariables.ENV_CLEARSCAPE_USERNAME)
                     .put("password", ClearScapeEnvVariables.ENV_CLEARSCAPE_PASSWORD)
                     .build();
             ObjectMapper mapper = new ObjectMapper();
@@ -146,7 +161,7 @@ public class ClearScapeManager
         try {
             TeradataHttpClient teradataHttpClient = getTeradataHttpClient(configJSON);
             String name = ClearScapeEnvVariables.ENV_CLEARSCAPE_NAME;
-            String token = ClearScapeEnvVariables.ENV_CLEARSCAPE_TOKEN;
+            String token = System.getenv("TOKEN");
 
             EnvironmentResponse response = null;
             try {
@@ -175,7 +190,7 @@ public class ClearScapeManager
     {
         try {
             TeradataHttpClient teradataHttpClient = getTeradataHttpClient(configJSON);
-            String token = ClearScapeEnvVariables.ENV_CLEARSCAPE_TOKEN;
+            String token = System.getenv("TOKEN");
             DeleteEnvironmentRequest request = new DeleteEnvironmentRequest(ClearScapeEnvVariables.ENV_CLEARSCAPE_NAME);
             teradataHttpClient.deleteEnvironment(request, token).get();
         }
