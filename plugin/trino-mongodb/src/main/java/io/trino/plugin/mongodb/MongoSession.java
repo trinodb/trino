@@ -179,6 +179,7 @@ public class MongoSession
 
     private final String schemaCollection;
     private final boolean caseInsensitiveNameMatching;
+    private final boolean skipCollation;
     private final int cursorBatchSize;
 
     private final Cache<SchemaTableName, MongoTable> tableCache;
@@ -190,6 +191,7 @@ public class MongoSession
         this.client = requireNonNull(client, "client is null");
         this.schemaCollection = requireNonNull(config.getSchemaCollection(), "config.getSchemaCollection() is null");
         this.caseInsensitiveNameMatching = config.isCaseInsensitiveNameMatching();
+        this.skipCollation = config.isSkipCollation();
         this.cursorBatchSize = config.getCursorBatchSize();
         this.implicitPrefix = requireNonNull(config.getImplicitRowFieldPrefix(), "config.getImplicitRowFieldPrefix() is null");
 
@@ -533,7 +535,12 @@ public class MongoSession
 
         MongoCollection<Document> collection = getCollection(tableHandle.remoteTableName());
         Document filter = buildFilter(tableHandle);
-        FindIterable<Document> iterable = collection.find(filter).projection(projection).collation(SIMPLE_COLLATION);
+        FindIterable<Document> iterable = collection.find(filter).projection(projection);
+
+        if (!skipCollation) {
+            iterable.collation(SIMPLE_COLLATION);
+        }
+
         tableHandle.limit().ifPresent(iterable::limit);
         log.debug("Find documents: collection: %s, filter: %s, projection: %s", tableHandle.schemaTableName(), filter, projection);
 

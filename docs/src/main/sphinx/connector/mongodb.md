@@ -44,6 +44,7 @@ The following configuration properties are available:
 | `mongodb.connection-url`                 | The connection url that the driver uses to connect to a MongoDB deployment |
 | `mongodb.schema-collection`              | A collection which contains schema information                             |
 | `mongodb.case-insensitive-name-matching` | Match database and collection names case insensitively                     |
+| `mongodb.skip-collation`                 | Skip using `Collation` when querying the collections                       |
 | `mongodb.min-connections-per-host`       | The minimum size of the connection pool per host                           |
 | `mongodb.connections-per-host`           | The maximum size of the connection pool per host                           |
 | `mongodb.max-wait-time`                  | The maximum wait time                                                      |
@@ -93,6 +94,12 @@ This property is optional; the default is `_schema`.
 ### `mongodb.case-insensitive-name-matching`
 
 Match database and collection names case insensitively.
+
+This property is optional; the default is `false`.
+
+### `mongodb.skip-collation`
+
+Skip using `Collation` when querying the collections. For more info check the [official documentation](https://www.mongodb.com/docs/manual/reference/collation/)
 
 This property is optional; the default is `false`.
 
