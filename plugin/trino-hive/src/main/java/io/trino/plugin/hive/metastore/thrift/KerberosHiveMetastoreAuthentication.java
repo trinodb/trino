@@ -115,6 +115,7 @@ public class KerberosHiveMetastoreAuthentication
         private final String password;
 
         public SaslClientCallbackHandler(String token)
+                throws IOException
         {
             // see org.apache.hadoop.security.token.Token#decodeFromUrlString
             byte[] decoded = Base64.getUrlDecoder().decode(token);
