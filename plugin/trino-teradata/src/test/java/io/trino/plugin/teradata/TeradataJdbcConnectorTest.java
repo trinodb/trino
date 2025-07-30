@@ -863,6 +863,52 @@ public class TeradataJdbcConnectorTest
         }
     }
 
+    @Test
+    public void testCharacterDataType()
+    {
+        String tableName = "test_character_types";
 
+        try {
+            // Create table with CHARACTER columns
+            database.execute(format(
+                    "CREATE TABLE %s.%s (" +
+                            "char_col CHARACTER(10), " +
+                            "char_fixed CHARACTER(5), " +
+                            "char_max CHARACTER(255)" +
+                            ")",
+                    databaseName, tableName));
+
+            // Insert test data
+            database.execute(format(
+                    "INSERT INTO %s.%s VALUES ('Hello     ', 'Test ', 'MaxLen')",
+                    databaseName, tableName));
+
+            // Test that CHARACTER columns are mapped correctly to char(n)
+            assertThat(query("SELECT char_col FROM " + databaseName + "." + tableName))
+                    .matches("VALUES CAST('Hello     ' AS char(10))");
+
+            assertThat(query("SELECT char_fixed FROM " + databaseName + "." + tableName))
+                    .matches("VALUES CAST('Test ' AS char(5))");
+
+            assertThat(query("SELECT char_max FROM " + databaseName + "." + tableName))
+                    .matches("VALUES CAST('MaxLen' AS char(255))");
+
+            // Test DESCRIBE to verify column types show as char(n)
+            MaterializedResult describeResult = computeActual("DESCRIBE " + databaseName + "." + tableName);
+            assertThat(describeResult)
+                    .anyMatch(row -> row.getField(0).equals("char_col") &&
+                            row.getField(1).equals("char(10)"));
+            assertThat(describeResult)
+                    .anyMatch(row -> row.getField(0).equals("char_fixed") &&
+                            row.getField(1).equals("char(5)"));
+
+        } finally {
+            try {
+                database.execute(format("DROP TABLE %s.%s", databaseName, tableName));
+            } catch (Exception e) {
+                System.err.println("Warning: Could not drop test table " + tableName + ": " + e.getMessage());
+            }
+        }
+    }
 }
 

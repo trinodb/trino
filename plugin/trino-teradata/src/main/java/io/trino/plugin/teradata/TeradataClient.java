@@ -1041,6 +1041,8 @@ public class TeradataClient
                 return Optional.of(arrayColumnMapping(session, connection, typeHandle));
             case "NUMBER":
                 return Optional.of(numberColumnMapping(typeHandle));
+            case  "CHARACTER":
+                return Optional.of(characterColumnMapping(typeHandle.requiredColumnSize()));
         }
 
         // switch by jdbc type
@@ -1396,6 +1398,22 @@ public class TeradataClient
             DecimalType decimalType = createDecimalType(precision, scale);
             return decimalColumnMapping(decimalType);
         }
+    }
+
+    private static ColumnMapping characterColumnMapping(int characterLength)
+    {
+        // For CHARACTER type, create a custom type name that shows as "character"
+        if (characterLength > CharType.MAX_LENGTH) {
+            return varcharColumnMapping(characterLength, false);
+        }
+
+        // Create a custom char type that displays as "character"
+        CharType characterType = createCharType(characterLength);
+        return ColumnMapping.sliceMapping(
+                characterType,
+                charReadFunction(characterType),
+                charWriteFunction(),
+                DISABLE_PUSHDOWN);
     }
 
 }
