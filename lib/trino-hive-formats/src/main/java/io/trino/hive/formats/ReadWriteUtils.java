@@ -14,7 +14,6 @@
 package io.trino.hive.formats;
 
 import io.airlift.slice.Slice;
-import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import io.trino.filesystem.TrinoInput;
@@ -23,6 +22,7 @@ import io.trino.spi.type.CharType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
+import java.io.DataInput;
 import java.io.IOException;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -67,24 +67,8 @@ public final class ReadWriteUtils
         return value < -120 || (value >= -112 && value < 0);
     }
 
-    public static long readVInt(TrinoDataInputStream in)
+    public static long readVInt(DataInput in)
             throws IOException
-    {
-        byte firstByte = in.readByte();
-        int length = decodeVIntSize(firstByte);
-        if (length == 1) {
-            return firstByte;
-        }
-
-        long value = 0;
-        for (int i = 1; i < length; i++) {
-            value <<= 8;
-            value |= (in.readByte() & 0xFF);
-        }
-        return isNegativeVInt(firstByte) ? ~value : value;
-    }
-
-    public static long readVInt(SliceInput in)
     {
         byte firstByte = in.readByte();
         int length = decodeVIntSize(firstByte);

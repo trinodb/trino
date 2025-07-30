@@ -30,10 +30,12 @@ public class SequenceFileWriterFactory
         implements LineWriterFactory
 {
     private final String trinoVersion;
+    private final ValueType valueType;
 
-    public SequenceFileWriterFactory(String trinoVersion)
+    public SequenceFileWriterFactory(String trinoVersion, ValueType valueType)
     {
         this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
+        this.valueType = valueType;
     }
 
     @Override
@@ -53,6 +55,7 @@ public class SequenceFileWriterFactory
                 ImmutableMap.<String, String>builder()
                         .put("trino_version", trinoVersion)
                         .put("trino_query_id", session.getQueryId())
-                        .buildOrThrow());
+                        .buildOrThrow(),
+                valueType);
     }
 }

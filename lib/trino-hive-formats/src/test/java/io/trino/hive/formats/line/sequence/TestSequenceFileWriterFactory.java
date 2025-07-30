@@ -27,6 +27,7 @@ import java.util.Optional;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.trino.hive.formats.line.sequence.ValueType.TEXT;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -41,7 +42,8 @@ public class TestSequenceFileWriterFactory
                 out,
                 Optional.empty(),
                 false,
-                ImmutableMap.of())) {
+                ImmutableMap.of(),
+                TEXT)) {
             writer.write(utf8Slice("header"));
             for (int i = 0; i < 1000; i++) {
                 writer.write(utf8Slice("data " + i));
