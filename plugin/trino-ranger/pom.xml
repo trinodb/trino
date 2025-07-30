@@ -16,7 +16,7 @@
 
     <properties>
         <dep.graalvm.version>24.2.2</dep.graalvm.version>
-        <dep.ranger.version>2.6.0</dep.ranger.version>
+        <dep.ranger.version>2.7.0</dep.ranger.version>
     </properties>
 
     <dependencies>
@@ -132,7 +132,7 @@
 
         <dependency>
             <groupId>org.apache.ranger</groupId>
-            <artifactId>ranger-plugins-audit</artifactId>
+            <artifactId>ranger-audit-core</artifactId>
             <version>${dep.ranger.version}</version>
             <scope>runtime</scope>
             <exclusions>
