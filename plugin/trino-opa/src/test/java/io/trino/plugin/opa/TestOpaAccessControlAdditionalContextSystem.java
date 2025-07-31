@@ -23,6 +23,7 @@ import org.junit.jupiter.api.TestInstance;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.Set;
 
@@ -32,23 +33,26 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @Testcontainers
 @TestInstance(PER_CLASS)
-public class TestOpaAccessControlSystem
+public class TestOpaAccessControlAdditionalContextSystem
 {
     private QueryRunnerHelper runner;
     private static final String OPA_ALLOW_POLICY_NAME = "allow";
     private static final String OPA_BATCH_ALLOW_POLICY_NAME = "batchAllow";
+    private static final File OPA_ADDITIONAL_CONTEXT_FILE = new File("src/test/resources/additional-context.json");
     @Container
     private static final OpaContainer OPA_CONTAINER = new OpaContainer();
 
     @Nested
     @TestInstance(PER_CLASS)
-    @DisplayName("Unbatched Authorizer Tests")
-    class UnbatchedAuthorizerTests
+    @DisplayName("Additional Context Unbatched Authorizer Tests")
+    class AdditionalContextUnbatchedAuthorizerTests
     {
         @BeforeAll
         public void setupTrino()
         {
-            setupTrinoWithOpa(new OpaConfig().setOpaUri(OPA_CONTAINER.getOpaUriForPolicyPath(OPA_ALLOW_POLICY_NAME)));
+            setupTrinoWithOpa(new OpaConfig()
+                    .setAdditionalContextFile(OPA_ADDITIONAL_CONTEXT_FILE)
+                    .setOpaUri(OPA_CONTAINER.getOpaUriForPolicyPath(OPA_ALLOW_POLICY_NAME)));
         }
 
         @AfterAll
@@ -63,31 +67,35 @@ public class TestOpaAccessControlSystem
         {
             OPA_CONTAINER.submitPolicy(
                     """
-                    package trino
-                    import future.keywords.in
-                    import future.keywords.if
+                            package trino
+                            import future.keywords.in
+                            import future.keywords.if
 
-                    default allow = false
-                    allow {
-                      is_bob
-                      can_be_accessed_by_bob
-                    }
-                    allow if is_admin
+                            default allow = false
+                            allow {
+                              is_bob
+                              is_some_namespace
+                              can_be_accessed_by_bob
+                            }
+                            allow if is_admin
 
-                    is_admin {
-                      input.context.identity.user == "admin"
-                    }
-                    is_bob {
-                      input.context.identity.user == "bob"
-                    }
-                    can_be_accessed_by_bob {
-                      input.action.operation in ["ImpersonateUser", "ExecuteQuery"]
-                    }
-                    can_be_accessed_by_bob {
-                      input.action.operation in ["FilterCatalogs", "AccessCatalog"]
-                      input.action.resource.catalog.name == "catalog_one"
-                    }
-                    """);
+                            is_admin {
+                              input.context.identity.user == "admin"
+                            }
+                            is_bob {
+                              input.context.identity.user == "bob"
+                            }
+                            is_some_namespace {
+                                input.context.additionalContext.properties.namespace == "some-namespace"
+                            }
+                            can_be_accessed_by_bob {
+                              input.action.operation in ["ImpersonateUser", "ExecuteQuery"]
+                            }
+                            can_be_accessed_by_bob {
+                              input.action.operation in ["FilterCatalogs", "AccessCatalog"]
+                              input.action.resource.catalog.name == "catalog_one"
+                            }
+                            """);
             Set<String> catalogsForBob = runner.querySetOfStrings("bob", "SHOW CATALOGS");
             assertThat(catalogsForBob).containsExactlyInAnyOrder("catalog_one");
             Set<String> catalogsForAdmin = runner.querySetOfStrings("admin", "SHOW CATALOGS");
@@ -105,7 +113,11 @@ public class TestOpaAccessControlSystem
                     default allow = false
 
                     allow {
-                        input.context.identity.user in ["someone", "admin"]
+                        input.context.identity.user in ["someone"]
+                        input.context.additionalContext.properties.namespace == "some-namespace"
+                    }
+                    allow {
+                        input.context.identity.user in ["admin"]
                     }
                     """);
             assertThatThrownBy(() -> runner.querySetOfStrings("bob", "SHOW CATALOGS"))
@@ -116,22 +128,21 @@ public class TestOpaAccessControlSystem
         }
     }
 
+
     @Nested
     @TestInstance(PER_CLASS)
-    @DisplayName("Batched Authorizer Tests")
-    class BatchedAuthorizerTests
-    {
+    @DisplayName("Additional Context Batched Authorizer Tests")
+    class AdditionalContextBatchedAuthorizerTests {
         @BeforeAll
-        public void setupTrino()
-        {
+        public void setupTrino() {
             setupTrinoWithOpa(new OpaConfig()
+                    .setAdditionalContextFile(OPA_ADDITIONAL_CONTEXT_FILE)
                     .setOpaUri(OPA_CONTAINER.getOpaUriForPolicyPath(OPA_ALLOW_POLICY_NAME))
                     .setOpaBatchUri(OPA_CONTAINER.getOpaUriForPolicyPath(OPA_BATCH_ALLOW_POLICY_NAME)));
         }
 
         @AfterAll
-        public void teardown()
-        {
+        public void teardown() {
             if (runner != null) {
                 runner.teardown();
             }
@@ -139,85 +150,52 @@ public class TestOpaAccessControlSystem
 
         @Test
         public void testFilterOutItemsBatch()
-                throws IOException, InterruptedException
-        {
+                throws IOException, InterruptedException {
             OPA_CONTAINER.submitPolicy(
                     """
-                    package trino
-                    import future.keywords.in
-                    import future.keywords.if
-                    default allow = false
+                            package trino
+                            import future.keywords.in
+                            import future.keywords.if
+                            default allow = false
 
-                    allow if is_admin
+                            allow if is_admin
 
-                    allow {
-                        is_bob
-                        input.action.operation in ["AccessCatalog", "ExecuteQuery", "ImpersonateUser", "ShowSchemas", "SelectFromColumns"]
-                    }
+                            allow {
+                                is_bob
+                                input.context.additionalContext.properties.namespace == "some-namespace"
+                                input.action.operation in ["AccessCatalog", "ExecuteQuery", "ImpersonateUser", "ShowSchemas", "SelectFromColumns"]
+                            }
 
-                    is_bob {
-                        input.context.identity.user == "bob"
-                    }
+                            is_bob {
+                                input.context.identity.user == "bob"
+                            }
 
-                    is_admin {
-                        input.context.identity.user == "admin"
-                    }
+                            is_admin {
+                                input.context.identity.user == "admin"
+                            }
 
-                    batchAllow[i] {
-                        some i
-                        is_bob
-                        input.action.operation == "FilterCatalogs"
-                        input.action.filterResources[i].catalog.name == "catalog_one"
-                    }
+                            batchAllow[i] {
+                                some i
+                                is_bob
+                                input.context.additionalContext.properties.namespace == "diff-namespace"
+                                input.action.operation == "FilterCatalogs"
+                                input.action.filterResources[i].catalog.name == "catalog_one"
+                            }
 
-                    batchAllow[i] {
-                        some i
-                        input.action.filterResources[i]
-                        is_admin
-                    }
-                    """);
+                            batchAllow[i] {
+                                some i
+                                input.action.filterResources[i]
+                                is_admin
+                            }
+                            """);
             Set<String> catalogsForBob = runner.querySetOfStrings("bob", "SHOW CATALOGS");
-            assertThat(catalogsForBob).containsExactlyInAnyOrder("catalog_one");
+            assertThat(catalogsForBob).doesNotContain("catalog_one", "catalog_two", "system");
             Set<String> catalogsForAdmin = runner.querySetOfStrings("admin", "SHOW CATALOGS");
             assertThat(catalogsForAdmin).containsExactlyInAnyOrder("catalog_one", "catalog_two", "system");
         }
-
-        @Test
-        public void testDenyUnbatchedQuery()
-                throws IOException, InterruptedException
-        {
-            OPA_CONTAINER.submitPolicy(
-                    """
-                    package trino
-                    import future.keywords.in
-                    default allow = false
-                    """);
-            assertThatThrownBy(() -> runner.querySetOfStrings("bob", "SELECT version()"))
-                    .isInstanceOf(RuntimeException.class)
-                    .hasMessageContaining("Access Denied");
-        }
-
-        @Test
-        public void testAllowUnbatchedQuery()
-                throws IOException, InterruptedException
-        {
-            OPA_CONTAINER.submitPolicy(
-                    """
-                    package trino
-                    import future.keywords.in
-                    default allow = false
-                    allow {
-                        input.context.identity.user == "bob"
-                        input.action.operation in ["ImpersonateUser", "ExecuteFunction", "AccessCatalog", "ExecuteQuery"]
-                    }
-                    """);
-            Set<String> version = runner.querySetOfStrings("bob", "SELECT version()");
-            assertThat(version).isNotEmpty();
-        }
     }
 
-    private void setupTrinoWithOpa(OpaConfig opaConfig)
-    {
+    private void setupTrinoWithOpa(OpaConfig opaConfig) {
         this.runner = QueryRunnerHelper.withOpaConfig(opaConfig);
         runner.getBaseQueryRunner().installPlugin(new BlackHolePlugin());
         runner.getBaseQueryRunner().createCatalog("catalog_one", "blackhole");
