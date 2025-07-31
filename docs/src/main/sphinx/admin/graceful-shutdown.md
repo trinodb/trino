@@ -7,7 +7,7 @@ sufficient grace period.
 You can invoke the API with a HTTP PUT request:
 
 ```bash
-curl -v -X PUT -d '"SHUTTING_DOWN"' -H "Content-type: application/json" \
+curl -v -X PUT -d '"SHUTTING_DOWN"' -H "Content-type: application/json" -H "X-Trino-User: authorizeduser" \
     http://worker:8081/v1/info/state
 ```
 
@@ -26,6 +26,7 @@ Keep the following aspects in mind:
   configure {ref}`system information rules
   <system-file-auth-system-information>` with the `file` system access
   control. These configuration must be present on all workers.
+- The user supplied in the `X-Trino-User` header must have permissions to write "system information" 
 
 ## Shutdown behavior
 

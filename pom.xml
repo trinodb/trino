@@ -203,7 +203,7 @@
         <dep.jts.version>1.20.0</dep.jts.version>
         <dep.kafka-clients.version>4.0.0</dep.kafka-clients.version>
         <dep.okhttp.version>5.1.0</dep.okhttp.version>
-        <dep.okio.version>3.15.0</dep.okio.version>
+        <dep.okio.version>3.16.0</dep.okio.version>
         <dep.parquet.version>1.15.2</dep.parquet.version>
         <dep.plugin.failsafe.version>${dep.plugin.surefire.version}</dep.plugin.failsafe.version>
         <dep.protobuf.version>3.25.8</dep.protobuf.version>
@@ -244,7 +244,7 @@
             <dependency>
                 <groupId>com.oracle.database.jdbc</groupId>
                 <artifactId>ojdbc11-production</artifactId>
-                <version>23.8.0.25.04</version>
+                <version>23.9.0.25.07</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -300,7 +300,7 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.32.9</version>
+                <version>2.32.11</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -549,7 +549,7 @@
             <dependency>
                 <groupId>com.nimbusds</groupId>
                 <artifactId>oauth2-oidc-sdk</artifactId>
-                <version>11.26.1</version>
+                <version>11.27</version>
                 <classifier>jdk11</classifier>
             </dependency>
 
@@ -1899,7 +1899,7 @@
             <dependency>
                 <groupId>org.apache.commons</groupId>
                 <artifactId>commons-compress</artifactId>
-                <version>1.27.1</version>
+                <version>1.28.0</version>
             </dependency>
 
             <dependency>

@@ -671,6 +671,7 @@ public class TestSqlFormatter
                         new NodeLocation(1, 1),
                         QualifiedName.of("a"),
                         new Identifier("branch"),
+                        Optional.empty(),
                         IGNORE,
                         ImmutableList.of())))
                 .isEqualTo("CREATE BRANCH IF NOT EXISTS branch IN TABLE a");
@@ -680,6 +681,7 @@ public class TestSqlFormatter
                         new NodeLocation(1, 1),
                         QualifiedName.of("a"),
                         new Identifier("branch"),
+                        Optional.empty(),
                         REPLACE,
                         ImmutableList.of())))
                 .isEqualTo("CREATE OR REPLACE BRANCH branch IN TABLE a");
@@ -689,6 +691,7 @@ public class TestSqlFormatter
                         new NodeLocation(1, 1),
                         QualifiedName.of("a"),
                         new Identifier("branch"),
+                        Optional.empty(),
                         FAIL,
                         ImmutableList.of())))
                 .isEqualTo("CREATE BRANCH branch IN TABLE a");
@@ -698,6 +701,17 @@ public class TestSqlFormatter
                         new NodeLocation(1, 1),
                         QualifiedName.of("a"),
                         new Identifier("branch"),
+                        Optional.of(new Identifier("other")),
+                        FAIL,
+                        ImmutableList.of())))
+                .isEqualTo("CREATE BRANCH branch IN TABLE a FROM other");
+
+        assertThat(formatSql(
+                new CreateBranch(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("a"),
+                        new Identifier("branch"),
+                        Optional.empty(),
                         FAIL,
                         ImmutableList.of(new Property(new Identifier("property_1"), new StringLiteral("property_value"))))))
                 .isEqualTo(

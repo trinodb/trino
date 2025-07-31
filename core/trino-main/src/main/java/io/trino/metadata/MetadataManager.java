@@ -2735,13 +2735,13 @@ public final class MetadataManager
     }
 
     @Override
-    public void createBranch(Session session, TableHandle tableHandle, String branch, SaveMode saveMode, Map<String, Object> properties)
+    public void createBranch(Session session, TableHandle tableHandle, String branch, Optional<String> fromBranch, SaveMode saveMode, Map<String, Object> properties)
     {
         CatalogHandle catalogHandle = tableHandle.catalogHandle();
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogHandle);
         ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
 
-        metadata.createBranch(session.toConnectorSession(catalogHandle), tableHandle.connectorHandle(), branch, properties);
+        metadata.createBranch(session.toConnectorSession(catalogHandle), tableHandle.connectorHandle(), branch, fromBranch, saveMode, properties);
     }
 
     @Override

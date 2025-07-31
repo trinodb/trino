@@ -1477,6 +1477,18 @@ public class TestDeltaLakeBasic
     }
 
     @Test
+    void testDeletionVectorsRepeatWithSpecialCharsPartition()
+    {
+        try (TestTable table = newTrinoTable("test_dv", "(x bigint, y varchar) WITH (deletion_vectors_enabled = true, partitioned_by = ARRAY['y'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 'white spaces'), (2, 'white spaces'), (3, 'white spaces')", 3);
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE x = 1", 1);
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE x = 2", 1);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES (bigint '3', varchar 'white spaces')");
+        }
+    }
+
+    @Test
     void testDeletionVectorsPages()
             throws Exception
     {
