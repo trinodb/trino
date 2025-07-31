@@ -12,7 +12,31 @@ import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.plugin.base.mapping.IdentifierMapping;
-import io.trino.plugin.jdbc.*;
+import io.trino.plugin.jdbc.BaseJdbcClient;
+import io.trino.plugin.jdbc.BaseJdbcConfig;
+import io.trino.plugin.jdbc.CaseSensitivity;
+import io.trino.plugin.jdbc.ColumnMapping;
+import io.trino.plugin.jdbc.ConnectionFactory;
+import io.trino.plugin.jdbc.JdbcColumnHandle;
+import io.trino.plugin.jdbc.JdbcExpression;
+import io.trino.plugin.jdbc.JdbcJoinCondition;
+import io.trino.plugin.jdbc.JdbcMetadata;
+import io.trino.plugin.jdbc.JdbcOutputTableHandle;
+import io.trino.plugin.jdbc.JdbcSortItem;
+import io.trino.plugin.jdbc.JdbcStatisticsConfig;
+import io.trino.plugin.jdbc.JdbcTableHandle;
+import io.trino.plugin.jdbc.JdbcTypeHandle;
+import io.trino.plugin.jdbc.LongReadFunction;
+import io.trino.plugin.jdbc.LongWriteFunction;
+import io.trino.plugin.jdbc.ObjectReadFunction;
+import io.trino.plugin.jdbc.ObjectWriteFunction;
+import io.trino.plugin.jdbc.PredicatePushdownController;
+import io.trino.plugin.jdbc.PreparedQuery;
+import io.trino.plugin.jdbc.QueryBuilder;
+import io.trino.plugin.jdbc.RemoteTableName;
+import io.trino.plugin.jdbc.SliceReadFunction;
+import io.trino.plugin.jdbc.SliceWriteFunction;
+import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.aggregation.ImplementAvgDecimal;
 import io.trino.plugin.jdbc.aggregation.ImplementAvgFloatingPoint;
 import io.trino.plugin.jdbc.aggregation.ImplementCorr;
@@ -49,6 +73,7 @@ import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
@@ -61,24 +86,13 @@ import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
-import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.type.ArrayType;
-import java.sql.Array;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 import org.weakref.jmx.$internal.guava.collect.ImmutableMap;
 import org.weakref.jmx.$internal.guava.collect.ImmutableSet;
-
-import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
-import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
-import static io.trino.plugin.base.util.JsonTypeUtil.toJsonValue;
-import static io.trino.spi.type.StandardTypes.JSON;
-import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
-
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -116,6 +130,8 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
 import static io.trino.plugin.jdbc.CaseSensitivity.CASE_INSENSITIVE;
 import static io.trino.plugin.jdbc.CaseSensitivity.CASE_SENSITIVE;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
@@ -164,6 +180,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.StandardTypes.JSON;
 import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
@@ -174,7 +191,8 @@ import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.round;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
-import static io.trino.spi.type.VarcharType.*;
+import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.Math.floorDiv;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -202,7 +220,6 @@ import static java.util.stream.Collectors.toMap;
 public class TeradataClient
         extends BaseJdbcClient
 {
-    private final Type jsonType;
     private static final PredicatePushdownController TERADATA_STRING_PUSHDOWN = (session, domain) -> {
         // 1. NULL-only filters are always safe
         if (domain.isOnlyNull()) {
@@ -214,39 +231,28 @@ public class TeradataClient
             return FULL_PUSHDOWN.apply(session, domain);
         }
 
-        // 3. Simplify complex domains (like IN(...), ranges)
-        Domain simplified = domain.simplify(getDomainCompactionThreshold(session));
-
-        // 4. If this is a clean range predicate (e.g., <, <=, BETWEEN), push down
-        if (isRangePredicate(simplified)) {
-            return FULL_PUSHDOWN.apply(session, simplified);
+        Domain simplifiedDomain = domain.simplify(getDomainCompactionThreshold(session));
+        if (!simplifiedDomain.getValues().isDiscreteSet()) {
+            // Push down inequality predicate
+            ValueSet complement = simplifiedDomain.getValues().complement();
+            if (complement.isDiscreteSet()) {
+                return FULL_PUSHDOWN.apply(session, simplifiedDomain);
+            }
+            // Domain#simplify can turn a discrete set into a range predicate
+            // Push down of range predicate for varchar/char types could lead to incorrect results
+            // when the remote database is case-insensitive
+            return DISABLE_PUSHDOWN.apply(session, domain);
         }
-
-        // 5. Handle NOT NULL (non-null allowed and domain not only NULL)
-        if (!domain.isOnlyNull() && !domain.isNullAllowed() && simplified.getValues().isAll()) {
-            return FULL_PUSHDOWN.apply(session, simplified);
-        }
-
-        // 6. Handle NOT EQUAL and similar ranges (if safe range is expressible)
-        if (isMultiRangePredicate(simplified)) {
-            return FULL_PUSHDOWN.apply(session, simplified);
-        }
-
-        // 7. Push down discrete sets like IN ('a', 'b', 'c')
-        if (simplified.getValues().isDiscreteSet()) {
-            return FULL_PUSHDOWN.apply(session, simplified);
-        }
-
-        // 8. If nothing matched, fallback to no pushdown
-        return DISABLE_PUSHDOWN.apply(session, domain);
+        return FULL_PUSHDOWN.apply(session, simplifiedDomain);
     };
-    private static final long DEFAULT_FALLBACK_NDV = 100_000L;
     private static final long MAX_FALLBACK_NDV = 1_000_000L; // max fallback NDV cap
     private static final double DEFAULT_FALLBACK_FRACTION = 0.1; // fallback = 10% of row count
+    private final Type jsonType;
     private final TeradataConfig.TeradataCaseSensitivity teradataJDBCCaseSensitivity;
     private final boolean statisticsEnabled;
     private ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
     private AggregateFunctionRewriter<JdbcExpression, ?> aggregateFunctionRewriter;
+
     /**
      * Constructs a new TeradataClient instance.
      *
@@ -502,6 +508,32 @@ public class TeradataClient
         return Optional.of(new JdbcTypeHandle(Types.NUMERIC, Optional.of("decimal"), Optional.of(decimalType.getPrecision()), Optional.of(decimalType.getScale()), Optional.empty(), Optional.empty()));
     }
 
+    private static SliceWriteFunction typedVarcharWriteFunction(String jdbcTypeName)
+    {
+        requireNonNull(jdbcTypeName, "jdbcTypeName is null");
+        String bindExpression = format("CAST(? AS %s)", jdbcTypeName.toUpperCase());
+
+        return new SliceWriteFunction()
+        {
+            @Override
+            public String getBindExpression()
+            {
+                return bindExpression;
+            }
+
+            @Override
+            public void set(PreparedStatement statement, int index, Slice value)
+                    throws SQLException
+            {
+                if (value == null) {
+                    statement.setNull(index, Types.OTHER);
+                    return;
+                }
+                statement.setString(index, value.toStringUtf8());
+            }
+        };
+    }
+
     @Override
     protected Optional<BiFunction<String, Long, String>> limitFunction()
     {
@@ -603,7 +635,6 @@ public class TeradataClient
 
         try (Connection connection = connectionFactory.openConnection(session);
                 Handle handle = Jdbi.open(connection)) {
-
             TeradataStatisticsDao dao = new TeradataStatisticsDao(handle);
             long rowCount = dao.estimateRowCount(table);
 
@@ -680,11 +711,6 @@ public class TeradataClient
             List<ParameterizedExpression> joinConditions,
             JoinStatistics statistics)
     {
-        if (joinType == JoinType.FULL_OUTER) {
-            // Teradata doesn't support FULL OUTER join pushdown well
-            return Optional.empty();
-        }
-
         return implementJoinCostAware(
                 session,
                 joinType,
@@ -758,6 +784,22 @@ public class TeradataClient
         execute(session, format(
                 "CREATE DATABASE %s AS PERMANENT = 60000000, SPOOL = 120000000",
                 quoted(remoteSchemaName)));
+    }
+
+    @Override
+    protected void copyTableSchema(ConnectorSession session, Connection connection, String catalogName, String schemaName, String tableName, String newTableName, List<String> columnNames)
+    {
+        String tableCopyFormat = "CREATE TABLE %s AS ( SELECT * FROM %s ) WITH DATA";
+        String sql = format(
+                tableCopyFormat,
+                quoted(catalogName, schemaName, newTableName),
+                quoted(catalogName, schemaName, tableName));
+        try {
+            execute(session, connection, sql);
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
     }
 
     @Override
@@ -896,7 +938,7 @@ public class TeradataClient
                 .map("$subtract(left: integer_type, right: integer_type)").to("left - right")
                 .map("$multiply(left: integer_type, right: integer_type)").to("left * right")
                 .map("$divide(left: integer_type, right: integer_type)").to("left / right")
-                .map("$modulus(left: integer_type, right: integer_type)").to("left % right")
+                .map("$modulus(left: integer_type, right: integer_type)").to("MOD(left, right)")
                 .map("$negate(value: integer_type)").to("-value")
                 .map("$not($is_null(value))").to("value IS NOT NULL")
                 .map("$not(value: boolean)").to("NOT value")
@@ -922,6 +964,7 @@ public class TeradataClient
                         // AVG
                         .add(new ImplementAvgFloatingPoint())
                         .add(new ImplementAvgDecimal())
+                        .add(new ImplementAvgBigint())
 
                         // Statistical aggregates (numeric types only)
                         .add(new ImplementStddevSamp())
@@ -935,8 +978,7 @@ public class TeradataClient
                         .add(new ImplementCorr())
                         .add(new ImplementRegrIntercept())
                         .add(new ImplementRegrSlope())
-                        .build()
-        );
+                        .build());
     }
 
     /**
@@ -952,6 +994,13 @@ public class TeradataClient
     public Optional<ParameterizedExpression> convertPredicate(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
     {
         return this.connectorExpressionRewriter.rewrite(session, expression, assignments);
+    }
+
+    @Override
+    public boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<AggregateFunction> aggregates, Map<String, ColumnHandle> assignments, List<List<ColumnHandle>> groupingSets)
+    {
+        // Remote database can be case insensitive.
+        return preventTextualTypeAggregationPushdown(groupingSets);
     }
 
     /**
@@ -1026,7 +1075,8 @@ public class TeradataClient
         }
 
         // switch by names as some types overlap other types going by jdbc type alone
-        String jdbcTypeName = typeHandle.jdbcTypeName().orElseThrow(() -> new TrinoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
+        String jdbcTypeName = typeHandle.jdbcTypeName().orElse("VARCHAR");
+        System.out.println(jdbcTypeName);
         switch (jdbcTypeName.toUpperCase()) {
             case "TIMESTAMP WITH TIME ZONE":
                 // TODO review correctness
@@ -1037,12 +1087,6 @@ public class TeradataClient
             case "JSON":
                 // TODO map to trino json value
                 return Optional.of(jsonColumnMapping());
-            case "ARRAY":
-                return Optional.of(arrayColumnMapping(session, connection, typeHandle));
-            case "NUMBER":
-                return Optional.of(numberColumnMapping(typeHandle));
-            case  "CHARACTER":
-                return Optional.of(characterColumnMapping(typeHandle.requiredColumnSize()));
         }
 
         // switch by jdbc type
@@ -1075,6 +1119,7 @@ public class TeradataClient
                 }
                 return Optional.of(decimalColumnMapping(createDecimalType(precision, scale)));
             case Types.CHAR:
+                CharType charType = createCharType(typeHandle.requiredColumnSize());
                 return Optional.of(charColumnMapping(typeHandle.requiredColumnSize(), deriveCaseSensitivity(typeHandle.caseSensitivity())));
             case Types.VARCHAR:
                 // see prior note on trino case sensitivity
@@ -1089,8 +1134,6 @@ public class TeradataClient
                 return Optional.of(timeColumnMapping(typeHandle.requiredDecimalDigits()));
             case Types.TIMESTAMP:
                 return Optional.of(timestampColumnMapping(TimestampType.createTimestampType(typeHandle.requiredDecimalDigits())));
-            case Types.ARRAY:
-                return Optional.of(arrayColumnMapping(session, connection, typeHandle));
         }
 
         if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
@@ -1173,6 +1216,26 @@ public class TeradataClient
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
     }
 
+    private ColumnMapping jsonColumnMapping()
+    {
+        return ColumnMapping.sliceMapping(
+                jsonType,
+                jsonReadFunction(),
+                typedVarcharWriteFunction("json"),
+                DISABLE_PUSHDOWN);
+    }
+
+    private SliceReadFunction jsonReadFunction()
+    {
+        return (resultSet, columnIndex) -> {
+            String json = resultSet.getString(columnIndex);
+            if (json == null) {
+                return null;
+            }
+            return jsonParse(utf8Slice(json));
+        };
+    }
+
     private static class TeradataStatisticsDao
     {
         private final Handle handle;
@@ -1238,15 +1301,10 @@ public class TeradataClient
             String schema = remote.getSchemaName().orElseThrow();
             String tableName = remote.getTableName();
 
-            String sql = String.format("""
-                    SELECT COUNT(*) * 100 AS estimated_count
-                    FROM %s.%s
-                    WHERE RANDOM(1, 10000) <= 100
-                    """, schema, tableName);
+            String sql = String.format("SELECT COUNT(*) * 100 AS estimated_count FROM %s.%s SAMPLE 1", schema, tableName);
 
             try (Statement stmt = connection.createStatement();
                     ResultSet rs = stmt.executeQuery(sql)) {
-
                 if (rs.next()) {
                     long estimated = rs.getLong("estimated_count");
                     return OptionalLong.of(estimated);
@@ -1261,159 +1319,4 @@ public class TeradataClient
 
         public record ColumnIndexStatistics(boolean nullable, long distinctValues, long nullCount) {}
     }
-
-    private ColumnMapping jsonColumnMapping()
-    {
-        return ColumnMapping.sliceMapping(
-                jsonType,
-                jsonReadFunction(),
-                typedVarcharWriteFunction("json"),
-                DISABLE_PUSHDOWN);
-    }
-
-    private SliceReadFunction jsonReadFunction()
-    {
-        return (resultSet, columnIndex) -> {
-            String json = resultSet.getString(columnIndex);
-            if (json == null) {
-                return null;
-            }
-            return jsonParse(utf8Slice(json));
-        };
-    }
-
-    private static SliceWriteFunction typedVarcharWriteFunction(String jdbcTypeName)
-    {
-        requireNonNull(jdbcTypeName, "jdbcTypeName is null");
-        String bindExpression = format("CAST(? AS %s)", jdbcTypeName.toUpperCase());
-
-        return new SliceWriteFunction()
-        {
-            @Override
-            public void set(PreparedStatement statement, int index, Slice value)
-                    throws SQLException
-            {
-                if (value == null) {
-                    statement.setNull(index, Types.OTHER);
-                    return;
-                }
-                statement.setString(index, value.toStringUtf8());
-            }
-        };
-    }
-
-    private ColumnMapping arrayColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
-    {
-        // Default to VARCHAR element type - you can enhance this to detect actual element type
-        Type elementType = VARCHAR;
-        Type arrayType = new ArrayType(elementType);
-
-        return ColumnMapping.objectMapping(
-                arrayType,
-                arrayReadFunction(elementType),
-                arrayWriteFunction(elementType),
-                DISABLE_PUSHDOWN);
-    }
-
-    private ObjectReadFunction arrayReadFunction(Type elementType)
-    {
-        return ObjectReadFunction.of(Block.class, (resultSet, columnIndex) -> {
-            Array sqlArray = resultSet.getArray(columnIndex);
-            if (sqlArray == null) {
-                return null;
-            }
-
-            Object[] elements = (Object[]) sqlArray.getArray();
-            BlockBuilder blockBuilder = elementType.createBlockBuilder(null, elements.length);
-
-            for (Object element : elements) {
-                if (element == null) {
-                    blockBuilder.appendNull();
-                } else {
-                    elementType.writeSlice(blockBuilder, utf8Slice(element.toString()));
-                }
-            }
-
-            return blockBuilder.build();
-        });
-    }
-
-    private ObjectWriteFunction arrayWriteFunction(Type elementType)
-    {
-        return ObjectWriteFunction.of(Block.class, (statement, index, block) -> {
-            if (block == null) {
-                statement.setNull(index, Types.ARRAY);
-                return;
-            }
-
-            Object[] elements = new Object[block.getPositionCount()];
-            for (int i = 0; i < block.getPositionCount(); i++) {
-                if (block.isNull(i)) {
-                    elements[i] = null;
-                } else {
-                    elements[i] = elementType.getSlice(block, i).toStringUtf8();
-                }
-            }
-
-            Array sqlArray = statement.getConnection().createArrayOf("VARCHAR", elements);
-            statement.setArray(index, sqlArray);
-        });
-    }
-
-    private ColumnMapping numberColumnMapping(JdbcTypeHandle typeHandle)
-    {
-        int precision = typeHandle.requiredColumnSize();
-        int scale = typeHandle.requiredDecimalDigits();
-
-        // Teradata NUMBER without precision/scale (NUMBER(*) or plain NUMBER)
-        // These can have very large precision (up to 40 digits)
-        if (precision <= 0 || precision > Decimals.MAX_PRECISION) {
-            // Map to VARCHAR for safety to avoid precision loss
-            return varcharColumnMapping(50, false);
-        }
-
-        if (scale == 0) {
-            // NUMBER(p) - integer-like values
-            if (precision <= 9) {
-                return integerColumnMapping();
-            } else if (precision <= 18) {
-                return bigintColumnMapping();
-            } else {
-                // Large precision integer - use decimal to preserve exactness
-                DecimalType decimalType = createDecimalType(precision, 0);
-                return decimalColumnMapping(decimalType);
-            }
-        } else if (scale < 0) {
-            // NUMBER(p, negative_scale) - e.g., NUMBER(5, -2) represents values like 12300
-            // Map to decimal with adjusted precision
-            int adjustedPrecision = precision + Math.abs(scale);
-            if (adjustedPrecision <= Decimals.MAX_PRECISION) {
-                DecimalType decimalType = createDecimalType(adjustedPrecision, 0);
-                return decimalColumnMapping(decimalType);
-            } else {
-                return varcharColumnMapping(50, false);
-            }
-        } else {
-            // NUMBER(p,s) with positive scale - decimal values
-            DecimalType decimalType = createDecimalType(precision, scale);
-            return decimalColumnMapping(decimalType);
-        }
-    }
-
-    private static ColumnMapping characterColumnMapping(int characterLength)
-    {
-        // For CHARACTER type, create a custom type name that shows as "character"
-        if (characterLength > CharType.MAX_LENGTH) {
-            return varcharColumnMapping(characterLength, false);
-        }
-
-        // Create a custom char type that displays as "character"
-        CharType characterType = createCharType(characterLength);
-        return ColumnMapping.sliceMapping(
-                characterType,
-                charReadFunction(characterType),
-                charWriteFunction(),
-                DISABLE_PUSHDOWN);
-    }
-
 }

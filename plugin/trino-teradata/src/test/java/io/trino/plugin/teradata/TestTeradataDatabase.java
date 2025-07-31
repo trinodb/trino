@@ -168,6 +168,7 @@ public class TestTeradataDatabase
             connection.close();
         }
     }
+
     @Override
     public boolean supportsMultiRowInsert()
     {
