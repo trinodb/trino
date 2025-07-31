@@ -211,11 +211,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -2179,14 +2181,19 @@ public class IcebergMetadata
 
         long expireTimestampMillis = session.getStart().toEpochMilli() - retention.toMillis();
         TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), table.io().properties());
-        List<Location> pathsToDelete = new ArrayList<>();
-        // deleteFunction is not accessed from multiple threads unless .executeDeleteWith() is used
+        BlockingQueue<Location> pathsToDelete = new LinkedBlockingQueue<>();
+        // deleteFunction is accessed from multiple threads even the .executeDeleteWith() is not used
+        // Iceberg clean up files using thread pool by default
+        // https://github.com/apache/iceberg/blob/b7b56fd90c2178a5cc1a6b4314b63446b1c1c0ec/core/src/main/java/org/apache/iceberg/RemoveSnapshots.java#L377-L387C47
         Consumer<String> deleteFunction = path -> {
             pathsToDelete.add(Location.of(path));
             if (pathsToDelete.size() == DELETE_BATCH_SIZE) {
+                List<Location> toDelete = new ArrayList<>(DELETE_BATCH_SIZE);
+                pathsToDelete.drainTo(toDelete, DELETE_BATCH_SIZE);
                 try {
-                    fileSystem.deleteFiles(pathsToDelete);
-                    pathsToDelete.clear();
+                    if (!toDelete.isEmpty()) {
+                        fileSystem.deleteFiles(toDelete);
+                    }
                 }
                 catch (IOException e) {
                     throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed to delete files during snapshot expiration", e);
