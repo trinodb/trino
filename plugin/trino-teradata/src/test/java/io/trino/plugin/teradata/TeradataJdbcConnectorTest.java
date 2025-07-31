@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.Consumer;
@@ -39,6 +40,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WI
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -625,6 +627,69 @@ public class TeradataJdbcConnectorTest
                  "U&'a \\000a newline'" -> Optional.empty();
             default -> Optional.of(dataMappingTestSetup);
         };
+    }
+
+    @Test
+    public void testDataMappingSmokeTest()
+    {
+        skipTestUnless(this.hasBehavior(TestingConnectorBehavior.SUPPORTS_CREATE_TABLE));
+
+        for (DataMappingTestSetup dataMappingTestSetup : this.testDataMappingSmokeTestDataProvider1()) {
+            this.testDataMapping(dataMappingTestSetup);
+        }
+    }
+
+    public final List<DataMappingTestSetup> testDataMappingSmokeTestDataProvider1()
+    {
+        return testDataMappingSmokeTestData().stream()
+                .map(this::filterDataMappingSmokeTestData)
+                .flatMap(Optional::stream)
+                .collect(toList());
+    }
+
+    private List<DataMappingTestSetup> testDataMappingSmokeTestData()
+    {
+        return ImmutableList.<DataMappingTestSetup>builder()
+                .add(new DataMappingTestSetup("date", "DATE '1582-10-05'", "DATE '1582-10-14'"))
+                .build();
+    }
+
+    private void testDataMapping(DataMappingTestSetup dataMappingTestSetup)
+    {
+        log.info("dataMappingTestSetup=%s", dataMappingTestSetup);
+        String trinoTypeName = dataMappingTestSetup.getTrinoTypeName();
+        String sampleValueLiteral = dataMappingTestSetup.getSampleValueLiteral();
+        String highValueLiteral = dataMappingTestSetup.getHighValueLiteral();
+        String tableName = this.dataMappingTableName(trinoTypeName);
+        Runnable setup = () -> {
+            String createTable = "CREATE TABLE " + tableName + " AS SELECT CAST(row_id AS varchar(50)) row_id, CAST(value AS " + trinoTypeName + ") value, CAST(value AS " + trinoTypeName + ") another_column FROM (VALUES   ('null value', NULL),   ('sample value', " + sampleValueLiteral + "),   ('high value', " + highValueLiteral + "))  t(row_id, value)";
+            this.assertUpdate(createTable, 3L);
+        };
+        if (dataMappingTestSetup.isUnsupportedType()) {
+            Objects.requireNonNull(setup);
+            Assertions.assertThatThrownBy(setup::run).satisfies((exception) -> this.verifyUnsupportedTypeException(exception, trinoTypeName));
+        }
+        else {
+            setup.run();
+            this.assertQuery("SELECT row_id FROM " + tableName + " WHERE rand() = 42 OR value IS NULL", "VALUES 'null value'");
+            this.assertQuery("SELECT row_id FROM " + tableName + " WHERE rand() = 42 OR value IS NOT NULL", "VALUES 'sample value', 'high value'");
+            this.assertQuery("SELECT row_id FROM " + tableName + " WHERE rand() = 42 OR value = " + sampleValueLiteral, "VALUES 'sample value'");
+            this.assertQuery("SELECT row_id FROM " + tableName + " WHERE rand() = 42 OR value = " + highValueLiteral, "VALUES 'high value'");
+            this.assertQuery("SELECT row_id FROM " + tableName + " WHERE value IS NULL", "VALUES 'null value'");
+            this.assertQuery("SELECT row_id FROM " + tableName + " WHERE value IS NOT NULL", "VALUES 'sample value', 'high value'");
+            this.assertQuery("SELECT row_id FROM " + tableName + " WHERE value = " + sampleValueLiteral, "VALUES 'sample value'");
+            this.assertQuery("SELECT row_id FROM " + tableName + " WHERE value != " + sampleValueLiteral, "VALUES 'high value'");
+            this.assertQuery("SELECT row_id FROM " + tableName + " WHERE value <= " + sampleValueLiteral, "VALUES 'sample value'");
+            this.assertQuery("SELECT row_id FROM " + tableName + " WHERE value > " + sampleValueLiteral, "VALUES 'high value'");
+            this.assertQuery("SELECT row_id FROM " + tableName + " WHERE value <= " + highValueLiteral, "VALUES 'sample value', 'high value'");
+            this.assertQuery("SELECT row_id FROM " + tableName + " WHERE value IS NULL OR value = " + sampleValueLiteral, "VALUES 'null value', 'sample value'");
+            this.assertQuery("SELECT row_id FROM " + tableName + " WHERE value IS NULL OR value != " + sampleValueLiteral, "VALUES 'null value', 'high value'");
+            this.assertQuery("SELECT row_id FROM " + tableName + " WHERE value IS NULL OR value <= " + sampleValueLiteral, "VALUES 'null value', 'sample value'");
+            this.assertQuery("SELECT row_id FROM " + tableName + " WHERE value IS NULL OR value > " + sampleValueLiteral, "VALUES 'null value', 'high value'");
+            this.assertQuery("SELECT row_id FROM " + tableName + " WHERE value IS NULL OR value <= " + highValueLiteral, "VALUES 'null value', 'sample value', 'high value'");
+            this.assertQuery("SELECT row_id FROM " + tableName + " WHERE value = " + sampleValueLiteral + " OR another_column = " + sampleValueLiteral, "VALUES 'sample value'");
+            this.assertUpdate("DROP TABLE " + tableName);
+        }
     }
 
     @Test
