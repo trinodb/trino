@@ -286,6 +286,7 @@ public class TestHudiSparkCompatibility
                             row(2, "a2", 40, 2000)));
         }
         finally {
+            onTrino().executeQuery("RESET SESSION hudi.columns_to_hide");
             onHudi().executeQuery("DROP TABLE default." + tableName);
         }
     }
