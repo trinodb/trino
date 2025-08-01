@@ -20,6 +20,8 @@ import io.trino.hive.formats.line.simple.SimpleSerializerFactory;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.spi.type.TypeManager;
 
+import static io.trino.hive.formats.line.sequence.ValueType.TEXT;
+
 public class SimpleSequenceFileWriterFactory
         extends LineFileWriterFactory
 {
@@ -29,7 +31,7 @@ public class SimpleSequenceFileWriterFactory
         super(trinoFileSystemFactory,
                 typeManager,
                 new SimpleSerializerFactory(),
-                new SequenceFileWriterFactory(nodeVersion.toString()),
+                new SequenceFileWriterFactory(nodeVersion.toString(), TEXT),
                 false);
     }
 }
