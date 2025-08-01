@@ -20,6 +20,7 @@ import io.airlift.http.client.StatusResponseHandler;
 import io.airlift.http.client.StringResponseHandler.StringResponse;
 import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.json.ObjectMapperProvider;
+import io.trino.testing.containers.PrintingLogConsumer;
 import org.intellij.lang.annotations.Language;
 import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.GenericContainer;
@@ -34,7 +35,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static io.airlift.http.client.StringResponseHandler.createStringResponseHandler;
-import static io.trino.testing.TestingProperties.getDockerImagesVersion;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
@@ -56,9 +56,9 @@ public final class TestingPolarisCatalog
     {
         this.warehouseLocation = requireNonNull(warehouseLocation, "warehouseLocation is null");
 
-        // TODO: Use the official docker image once Polaris community provides it
-        polarisCatalog = new GenericContainer<>("ghcr.io/trinodb/testing/polaris-catalog:" + getDockerImagesVersion());
+        polarisCatalog = new GenericContainer<>("apache/polaris:1.0.0-incubating");
         polarisCatalog.addExposedPort(POLARIS_PORT);
+        polarisCatalog.withEnv("USER", System.getProperty("user.name"));
         polarisCatalog.withFileSystemBind(warehouseLocation, warehouseLocation, BindMode.READ_WRITE);
         polarisCatalog.waitingFor(new LogMessageWaitStrategy().withRegEx(".*Apache Polaris Server.* started.*"));
         polarisCatalog.withEnv("POLARIS_BOOTSTRAP_CREDENTIALS", "default-realm,root,s3cr3t");
@@ -67,6 +67,7 @@ public final class TestingPolarisCatalog
         polarisCatalog.withEnv("polaris.features.\"SUPPORTED_CATALOG_STORAGE_TYPES\"", "[\"FILE\"]");
         polarisCatalog.withEnv("polaris.features.\"ALLOW_INSECURE_STORAGE_TYPES\"", "true");
         polarisCatalog.withEnv("polaris.features.\"DROP_WITH_PURGE_ENABLED\"", "true");
+        polarisCatalog.withLogConsumer(new PrintingLogConsumer("polaris"));
 
         polarisCatalog.start();
 
@@ -124,7 +125,8 @@ public final class TestingPolarisCatalog
                 .setHeader("Content-Type", "application/json")
                 .setBodyGenerator(createStaticBodyGenerator(body, UTF_8))
                 .build();
-        HTTP_CLIENT.execute(request, createStatusResponseHandler());
+        StatusResponseHandler.StatusResponse response = HTTP_CLIENT.execute(request, createStatusResponseHandler());
+        checkState(response.getStatusCode() == 201, "Failed to grant privilege, status code: %s", response.getStatusCode());
     }
 
     public void dropTable(String schema, String table)
@@ -134,7 +136,8 @@ public final class TestingPolarisCatalog
                 .setHeader("Authorization", "Bearer " + token)
                 .setHeader("Content-Type", "application/json")
                 .build();
-        HTTP_CLIENT.execute(request, createStatusResponseHandler());
+        StatusResponseHandler.StatusResponse response = HTTP_CLIENT.execute(request, createStatusResponseHandler());
+        checkState(response.getStatusCode() == 204, "Failed to drop table, status code: %s", response.getStatusCode());
     }
 
     public String restUri()
