@@ -2285,7 +2285,7 @@ public class IcebergMetadata
 
                 validMetadataFileNames.add(fileName(manifest.path()));
                 try (ManifestReader<? extends ContentFile<?>> manifestReader = readerForManifest(table, manifest)) {
-                    for (ContentFile<?> contentFile : manifestReader) {
+                    for (ContentFile<?> contentFile : manifestReader.select(ImmutableList.of("file_path"))) {
                         validDataFileNames.add(fileName(contentFile.location()));
                     }
                 }
