@@ -26,6 +26,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
+
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -827,5 +828,188 @@ public class TeradataJdbcConnectorTest
         String typeNameBase = trinoTypeName.replaceFirst("\\(.*", "");
         String expectedMessagePart = String.format("(%1$s.*not (yet )?supported)|((?i)unsupported.*%1$s)|((?i)not supported.*%1$s)", Pattern.quote(typeNameBase));
         Assertions.assertThat(exception).hasMessageFindingMatch(expectedMessagePart).satisfies((e) -> Assertions.assertThat(io.trino.testing.QueryAssertions.getTrinoExceptionCause(e)).hasMessageFindingMatch(expectedMessagePart));
+    }
+
+    @Test
+    public void testTeradataNumberDataType()
+    {
+        try (TestTable table = newTrinoTable("test_number",
+                "(id INTEGER, " +
+                        "number_col NUMBER(10,2), " +
+                        "number_default NUMBER, " +
+                        "number_large NUMBER(38,10))",
+                List.of(
+                        "1, CAST(12345.67 AS NUMBER(10,2)), CAST(999999999999999 AS NUMBER), CAST(1234567890123456789012345678.1234567890 AS NUMBER(38,10))",
+                        "2, CAST(-99999.99 AS NUMBER(10,2)), CAST(-123456789012345 AS NUMBER), CAST(-9999999999999999999999999999.9999999999 AS NUMBER(38,10))",
+                        "3, CAST(0.00 AS NUMBER(10,2)), CAST(0 AS NUMBER), CAST(0.0000000000 AS NUMBER(38,10))"
+                ))) {
+
+            assertThat(query(format("SELECT number_col FROM %s WHERE id = 1", table.getName())))
+                    .matches("VALUES CAST(12345.67 AS DECIMAL(10,2))");
+
+            assertThat(query(format("SELECT number_default FROM %s WHERE id = 1", table.getName())))
+                    .matches("VALUES CAST(999999999999999 AS DECIMAL(38,0))");
+
+            assertThat(query(format("SELECT number_large FROM %s WHERE id = 1", table.getName())))
+                    .matches("VALUES CAST(1234567890123456789012345678.1234567890 AS DECIMAL(38,10))");
+
+            assertThat(query(format("SELECT number_col FROM %s WHERE id = 2", table.getName())))
+                    .matches("VALUES CAST(-99999.99 AS DECIMAL(10,2))");
+
+            assertThat(query(format("SELECT number_col FROM %s WHERE id = 3", table.getName())))
+                    .matches("VALUES CAST(0.00 AS DECIMAL(10,2))");
+        }
+    }
+
+    @Test
+    public void testTeradataCharacterDataType()
+    {
+        try (TestTable table = newTrinoTable("test_character",
+                "(id INTEGER, " +
+                        "char_col CHARACTER(5), " +
+                        "char_default CHARACTER, " +
+                        "char_large CHARACTER(100))",
+                List.of(
+                        "1, CAST('HELLO' AS CHARACTER(5)), CAST('A' AS CHARACTER), CAST('TERADATA' AS CHARACTER(100))",
+                        "2, CAST('WORLD' AS CHARACTER(5)), CAST('B' AS CHARACTER), CAST('CHARACTER' AS CHARACTER(100))",
+                        "3, CAST('' AS CHARACTER(5)), CAST('C' AS CHARACTER), CAST('' AS CHARACTER(100))"
+                ))) {
+
+            assertThat(query(format("SELECT char_col FROM %s WHERE id = 1", table.getName())))
+                    .matches("VALUES CAST('HELLO' AS CHAR(5))");
+
+            assertThat(query(format("SELECT char_default FROM %s WHERE id = 1", table.getName())))
+                    .matches("VALUES CAST('A' AS CHAR(1))");
+
+            assertThat(query(format("SELECT char_large FROM %s WHERE id = 1", table.getName())))
+                    .matches("VALUES CAST('TERADATA' AS CHAR(100))");
+
+            assertThat(query(format("SELECT char_col FROM %s WHERE id = 3", table.getName())))
+                    .matches("VALUES CAST('' AS CHAR(5))");
+        }
+    }
+
+    @Test
+    public void testTeradataTimeWithTimeZoneDataType()
+    {
+        try (TestTable table = newTrinoTable("test_time_with_timezone",
+                "(id INTEGER, " +
+                        "time_tz_default TIME WITH TIME ZONE, " +
+                        "time_tz_precision TIME(3) WITH TIME ZONE, " +
+                        "time_tz_max TIME(6) WITH TIME ZONE)",
+                List.of(
+                        "1, CAST('10:30:45.000000+05:30' AS TIME WITH TIME ZONE), CAST('14:25:30.123+00:00' AS TIME(3) WITH TIME ZONE), CAST('09:15:20.123456-08:00' AS TIME(6) WITH TIME ZONE)",
+                        "2, CAST('23:59:59.000000-07:00' AS TIME WITH TIME ZONE), CAST('00:00:00.000+01:00' AS TIME(3) WITH TIME ZONE), CAST('12:30:45.999999+09:00' AS TIME(6) WITH TIME ZONE)",
+                        "3, CAST('06:45:30.000000+00:00' AS TIME WITH TIME ZONE), CAST('18:20:15.567+03:00' AS TIME(3) WITH TIME ZONE), CAST('21:10:05.000001-05:00' AS TIME(6) WITH TIME ZONE)"
+                ))) {
+
+            assertThat(query(format("SELECT time_tz_default FROM %s WHERE id = 1", table.getName())))
+                    .matches("VALUES CAST('10:30:45.000000+05:30' AS TIME(6) WITH TIME ZONE)");
+
+        }
+    }
+
+    @Test
+    public void testTeradataTimestampWithTimeZoneDataType()
+    {
+        try (TestTable table = newTrinoTable("test_timestamp_with_timezone",
+                "(id INTEGER, " +
+                        "ts_tz_default TIMESTAMP WITH TIME ZONE, " +
+                        "ts_tz_precision TIMESTAMP(3) WITH TIME ZONE, " +
+                        "ts_tz_max TIMESTAMP(6) WITH TIME ZONE)",
+                List.of(
+                        "1, CAST('2023-05-15 10:30:45.000000+05:30' AS TIMESTAMP WITH TIME ZONE), CAST('2023-05-15 14:25:30.123+00:00' AS TIMESTAMP(3) WITH TIME ZONE), CAST('2023-05-15 09:15:20.123456-08:00' AS TIMESTAMP(6) WITH TIME ZONE)",
+                        "2, CAST('2023-12-31 23:59:59.000000-07:00' AS TIMESTAMP WITH TIME ZONE), CAST('2023-01-01 00:00:00.000+01:00' AS TIMESTAMP(3) WITH TIME ZONE), CAST('2023-06-15 12:30:45.999999+09:00' AS TIMESTAMP(6) WITH TIME ZONE)",
+                        "3, CAST('2023-07-04 06:45:30.000000+00:00' AS TIMESTAMP WITH TIME ZONE), CAST('2023-11-25 18:20:15.567+03:00' AS TIMESTAMP(3) WITH TIME ZONE), CAST('2023-03-10 21:10:05.000001-05:00' AS TIMESTAMP(6) WITH TIME ZONE)"
+                ))) {
+
+            assertThat(query(format("SELECT ts_tz_default FROM %s WHERE id = 1", table.getName())))
+                    .matches("VALUES CAST('2023-05-15 10:30:45.000000+05:30' AS TIMESTAMP(6) WITH TIME ZONE)");
+
+            assertThat(query(format("SELECT ts_tz_precision FROM %s WHERE id = 1", table.getName())))
+                    .matches("VALUES CAST('2023-05-15 14:25:30.123+00:00' AS TIMESTAMP(3) WITH TIME ZONE)");
+
+            assertThat(query(format("SELECT ts_tz_max FROM %s WHERE id = 1", table.getName())))
+                    .matches("VALUES CAST('2023-05-15 09:15:20.123456-08:00' AS TIMESTAMP(6) WITH TIME ZONE)");
+
+            assertThat(query(format("SELECT ts_tz_default FROM %s WHERE id = 2", table.getName())))
+                    .matches("VALUES CAST('2023-12-31 23:59:59.000000-07:00' AS TIMESTAMP(6) WITH TIME ZONE)");
+
+            assertThat(query(format("SELECT ts_tz_precision FROM %s WHERE id = 2", table.getName())))
+                    .matches("VALUES CAST('2023-01-01 00:00:00.000+01:00' AS TIMESTAMP(3) WITH TIME ZONE)");
+
+            assertThat(query(format("SELECT ts_tz_max FROM %s WHERE id = 3", table.getName())))
+                    .matches("VALUES CAST('2023-03-10 21:10:05.000001-05:00' AS TIMESTAMP(6) WITH TIME ZONE)");
+
+            assertThat(query(format("SELECT ts_tz_default FROM %s WHERE id = 3", table.getName())))
+                    .matches("VALUES CAST('2023-07-04 06:45:30.000000+00:00' AS TIMESTAMP(6) WITH TIME ZONE)");
+        }
+    }
+
+
+    @Test
+    public void testArrayColumnMapping()
+    {
+        String testTableName = "test_array_table";
+
+        try (TestTable table = newTrinoTable(testTableName,
+                "(id INTEGER, array_data VARCHAR(1000))",
+                List.of(
+                        "1, 'ARRAY[\"Alice\", \"Bob\", \"Charlie\"]'",
+                        "2, 'ARRAY[\"John\", \"Jane\"]'",
+                        "3, NULL",
+                        "4, 'ARRAY[]'"
+                ))) {
+
+            assertQuery(
+                    format("SELECT id, array_data FROM %s ORDER BY id", table.getName()),
+                    "VALUES " +
+                            "(1, 'ARRAY[\"Alice\", \"Bob\", \"Charlie\"]'), " +
+                            "(2, 'ARRAY[\"John\", \"Jane\"]'), " +
+                            "(3, CAST(NULL AS VARCHAR)), " +
+                            "(4, 'ARRAY[]')");
+
+            assertQuery(
+                    format("SELECT array_data FROM %s WHERE id = 1", table.getName()),
+                    "VALUES 'ARRAY[\"Alice\", \"Bob\", \"Charlie\"]'");
+
+            assertQuery(
+                    format("SELECT array_data FROM %s WHERE id = 2", table.getName()),
+                    "VALUES 'ARRAY[\"John\", \"Jane\"]'");
+        }
+    }
+
+    @Test
+    public void testArrayColumnMappingWithNullElements()
+    {
+        String testTableName = "test_array_nulls";
+
+        try (TestTable table = newTrinoTable(testTableName,
+                "(id INTEGER, array_data VARCHAR(1000))",
+                List.of(
+                        "1, 'ARRAY[\"first\", null, \"third\", null]'",
+                        "2, 'ARRAY[null, \"second\"]'",
+                        "3, 'ARRAY[null, null, null]'"
+                ))) {
+
+            assertQuery(
+                    format("SELECT id, array_data FROM %s ORDER BY id", table.getName()),
+                    "VALUES " +
+                            "(1, 'ARRAY[\"first\", null, \"third\", null]'), " +
+                            "(2, 'ARRAY[null, \"second\"]'), " +
+                            "(3, 'ARRAY[null, null, null]')");
+
+            assertQuery(
+                    format("SELECT array_data FROM %s WHERE id = 1", table.getName()),
+                    "VALUES 'ARRAY[\"first\", null, \"third\", null]'");
+
+            assertQuery(
+                    format("SELECT array_data FROM %s WHERE id = 2", table.getName()),
+                    "VALUES 'ARRAY[null, \"second\"]'");
+
+            assertQuery(
+                    format("SELECT array_data FROM %s WHERE id = 3", table.getName()),
+                    "VALUES 'ARRAY[null, null, null]'");
+        }
     }
 }
