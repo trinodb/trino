@@ -162,6 +162,7 @@ public class TrinoIcebergRestCatalogFactory
                 uniqueTableLocation,
                 caseInsensitiveNameMatching,
                 remoteNamespaceMappingCache,
-                remoteTableMappingCache);
+                remoteTableMappingCache,
+                viewEndpointsEnabled);
     }
 }
