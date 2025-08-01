@@ -32,7 +32,7 @@ public class SelectorSpec
     private final Optional<Pattern> authenticatedUserRegex;
     private final Optional<Pattern> sourceRegex;
     private final Optional<String> queryType;
-    private final Optional<List<String>> clientTags;
+    private final Optional<List<Pattern>> clientTags;
     private final Optional<SelectorResourceEstimate> selectorResourceEstimate;
     private final ResourceGroupIdTemplate group;
 
@@ -44,7 +44,7 @@ public class SelectorSpec
             @JsonProperty("authenticatedUser") Optional<Pattern> authenticatedUserRegex,
             @JsonProperty("source") Optional<Pattern> sourceRegex,
             @JsonProperty("queryType") Optional<String> queryType,
-            @JsonProperty("clientTags") Optional<List<String>> clientTags,
+            @JsonProperty("clientTags") Optional<List<Pattern>> clientTags,
             @JsonProperty("selectorResourceEstimate") Optional<SelectorResourceEstimate> selectorResourceEstimate,
             @JsonProperty("group") ResourceGroupIdTemplate group)
     {
@@ -89,7 +89,7 @@ public class SelectorSpec
         return queryType;
     }
 
-    public Optional<List<String>> getClientTags()
+    public Optional<List<Pattern>> getClientTags()
     {
         return clientTags;
     }
