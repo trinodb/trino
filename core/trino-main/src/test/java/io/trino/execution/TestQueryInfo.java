@@ -249,7 +249,8 @@ public class TestQueryInfo
                 Optional.of(QueryType.SELECT),
                 RetryPolicy.TASK,
                 false,
-                new NodeVersion("test"));
+                new NodeVersion("test"),
+                ImmutableList.of());
     }
 
     private StagesInfo createStagesInfo(int count, StageState state, int baseValue)

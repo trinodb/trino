@@ -43,6 +43,7 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.eventlistener.BaseViewReferenceInfo;
 import io.trino.spi.eventlistener.ColumnDetail;
 import io.trino.spi.eventlistener.ColumnInfo;
+import io.trino.spi.eventlistener.ColumnLineageInfo;
 import io.trino.spi.eventlistener.ColumnMaskReferenceInfo;
 import io.trino.spi.eventlistener.MaterializedViewReferenceInfo;
 import io.trino.spi.eventlistener.RoutineInfo;
@@ -269,11 +270,23 @@ public class Analysis
     private final Set<NodeRef<TableFunctionInvocation>> polymorphicTableFunctions = new LinkedHashSet<>();
     private final Map<NodeRef<Table>, List<Field>> materializedViewStorageTableFields = new LinkedHashMap<>();
 
+    private List<ColumnLineageInfo> selectColumnLineageInfo = ImmutableList.of();
+
     public Analysis(@Nullable Statement root, Map<NodeRef<Parameter>, Expression> parameters, QueryType queryType)
     {
         this.root = root;
         this.parameters = ImmutableMap.copyOf(requireNonNull(parameters, "parameters is null"));
         this.queryType = requireNonNull(queryType, "queryType is null");
+    }
+
+    public void setSelectColumnLineageInfo(List<ColumnLineageInfo> selectColumnLineageInfo)
+    {
+        this.selectColumnLineageInfo = ImmutableList.copyOf(selectColumnLineageInfo);
+    }
+
+    public List<ColumnLineageInfo> getSelectColumnLineageInfo()
+    {
+        return selectColumnLineageInfo;
     }
 
     public Statement getStatement()
