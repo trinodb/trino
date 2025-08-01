@@ -871,11 +871,15 @@ public final class IcebergUtil
 
     public static Map<String, String> createTableProperties(ConnectorSession session, ConnectorTableMetadata tableMetadata, Predicate<String> allowedExtraProperties)
     {
+        Map<String, String> extraProperties = IcebergTableProperties.getExtraProperties(tableMetadata.getProperties()).orElseGet(ImmutableMap::of);
+
         ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builder();
         IcebergFileFormat fileFormat = IcebergTableProperties.getFileFormat(tableMetadata.getProperties());
         propertiesBuilder.put(DEFAULT_FILE_FORMAT, fileFormat.toIceberg().toString());
         propertiesBuilder.put(FORMAT_VERSION, Integer.toString(IcebergTableProperties.getFormatVersion(tableMetadata.getProperties())));
-        propertiesBuilder.put(COMMIT_NUM_RETRIES, Integer.toString(IcebergTableProperties.getMaxCommitRetry(tableMetadata.getProperties())));
+        if (!extraProperties.containsKey(COMMIT_NUM_RETRIES)) {
+            propertiesBuilder.put(COMMIT_NUM_RETRIES, Integer.toString(IcebergTableProperties.getMaxCommitRetry(tableMetadata.getProperties())));
+        }
 
         HiveCompressionCodec compressionCodec = toCompressionCodec(getCompressionCodec(session));
         switch (fileFormat) {
@@ -920,7 +924,6 @@ public final class IcebergUtil
         }
 
         Map<String, String> baseProperties = propertiesBuilder.buildOrThrow();
-        Map<String, String> extraProperties = IcebergTableProperties.getExtraProperties(tableMetadata.getProperties()).orElseGet(ImmutableMap::of);
 
         verifyExtraProperties(baseProperties.keySet(), extraProperties, allowedExtraProperties);
 
