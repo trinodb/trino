@@ -128,6 +128,14 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.ArrayType;
+import io.trino.plugin.jdbc.ReadFunction;
+import io.trino.plugin.jdbc.WriteFunction;
+import java.sql.Array;
+import java.util.Locale;
+
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -1087,6 +1095,12 @@ public class TeradataClient
             case "JSON":
                 // TODO map to trino json value
                 return Optional.of(jsonColumnMapping());
+            case "NUMBER":
+                return Optional.of(numberColumnMapping(typeHandle));
+            case "CHARACTER":
+                return Optional.of(characterColumnMapping(typeHandle));
+            case "ARRAY":
+                return Optional.of(arrayColumnMapping(session, connection, typeHandle));
         }
 
         // switch by jdbc type
@@ -1319,4 +1333,87 @@ public class TeradataClient
 
         public record ColumnIndexStatistics(boolean nullable, long distinctValues, long nullCount) {}
     }
+
+    private static ColumnMapping numberColumnMapping(JdbcTypeHandle typeHandle)
+    {
+        int precision = typeHandle.columnSize().orElse(38); // Default to max precision for NUMBER
+        int scale = typeHandle.decimalDigits().orElse(0);
+
+        if (precision > Decimals.MAX_PRECISION) {
+            precision = Decimals.MAX_PRECISION;
+            scale = Math.min(scale, Decimals.MAX_PRECISION);
+        }
+
+        DecimalType decimalType = createDecimalType(precision, scale);
+        return decimalColumnMapping(decimalType);
+    }
+
+    private static ColumnMapping characterColumnMapping(JdbcTypeHandle typeHandle)
+    {
+        int characterLength = typeHandle.columnSize().orElse(1); // Default to length 1 for CHARACTER
+
+        // Use existing char column mapping logic with case sensitivity
+        boolean isCaseSensitive = typeHandle.caseSensitivity().orElse(CASE_INSENSITIVE) == CASE_SENSITIVE;
+
+        return charColumnMapping(characterLength, isCaseSensitive);
+    }
+
+    private ColumnMapping arrayColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
+    {
+        // Default to VARCHAR element type - you can enhance this to detect actual element type
+        Type elementType = createUnboundedVarcharType();
+        Type arrayType = new ArrayType(elementType);
+
+        return ColumnMapping.objectMapping(
+                arrayType,
+                arrayReadFunction(elementType),
+                arrayWriteFunction(elementType),
+                DISABLE_PUSHDOWN);
+    }
+
+    private ObjectReadFunction arrayReadFunction(Type elementType)
+    {
+        return ObjectReadFunction.of(Block.class, (resultSet, columnIndex) -> {
+            Array sqlArray = resultSet.getArray(columnIndex);
+            if (sqlArray == null) {
+                return null;
+            }
+
+            Object[] elements = (Object[]) sqlArray.getArray();
+            BlockBuilder blockBuilder = elementType.createBlockBuilder(null, elements.length);
+
+            for (Object element : elements) {
+                if (element == null) {
+                    blockBuilder.appendNull();
+                } else {
+                    elementType.writeSlice(blockBuilder, utf8Slice(element.toString()));
+                }
+            }
+
+            return blockBuilder.build();
+        });
+    }
+
+    private ObjectWriteFunction arrayWriteFunction(Type elementType)
+    {
+        return ObjectWriteFunction.of(Block.class, (statement, index, block) -> {
+            if (block == null) {
+                statement.setNull(index, Types.ARRAY);
+                return;
+            }
+
+            Object[] elements = new Object[block.getPositionCount()];
+            for (int i = 0; i < block.getPositionCount(); i++) {
+                if (block.isNull(i)) {
+                    elements[i] = null;
+                } else {
+                    elements[i] = elementType.getSlice(block, i).toStringUtf8();
+                }
+            }
+
+            Array sqlArray = statement.getConnection().createArrayOf("VARCHAR", elements);
+            statement.setArray(index, sqlArray);
+        });
+    }
+
 }
