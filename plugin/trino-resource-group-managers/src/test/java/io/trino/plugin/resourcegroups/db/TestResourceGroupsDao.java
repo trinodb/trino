@@ -142,7 +142,7 @@ public class TestResourceGroupsDao
                         Optional.of(Pattern.compile("admin_auth_user")),
                         Optional.of(Pattern.compile(".*")),
                         Optional.of(EXPLAIN.name()),
-                        Optional.of(ImmutableList.of("tag1", "tag2")),
+                        Optional.of(ImmutableList.of(Pattern.compile("tag1"), Pattern.compile("tag2"))),
                         Optional.empty()));
         map.put(4L,
                 new SelectorRecord(
@@ -181,7 +181,7 @@ public class TestResourceGroupsDao
                 Optional.of(Pattern.compile("ping_auth.*")),
                 Optional.of(Pattern.compile("ping_source")),
                 Optional.empty(),
-                Optional.of(ImmutableList.of("tag1")),
+                Optional.of(ImmutableList.of(Pattern.compile("tag1"))),
                 Optional.empty());
         map.put(2L, updated);
         compareSelectors(map, dao.getSelectors(ENVIRONMENT));
@@ -202,7 +202,7 @@ public class TestResourceGroupsDao
                 Optional.of(Pattern.compile("ping_auth.*")),
                 Optional.of(Pattern.compile("ping_source")),
                 Optional.of(EXPLAIN.name()),
-                Optional.of(ImmutableList.of("tag1", "tag2")),
+                Optional.of(ImmutableList.of(Pattern.compile("tag1"), Pattern.compile("tag2"))),
                 Optional.empty());
         map.put(2L, updated);
         dao.updateSelector(2, "ping.*", "ping_gr.*", "ping_original.*", "ping_auth.*", "ping_source", LIST_STRING_CODEC.toJson(ImmutableList.of("tag1", "tag2")), null, null, null, null, null, null);
