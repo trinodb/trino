@@ -101,6 +101,13 @@ Trino data type mapping:
   * - ``DATE``
     - ``DATE``
     -
+  * - ``TIMESTAMP(n)``
+    - ``TIMESTAMP(n)``
+    -  See :ref:`exasol-timestamp-mapping`
+  * - ``TIMESTAMP(n) WITH LOCAL TIME ZONE``
+    - ``TIMESTAMP(n) WITH TIME ZONE``
+    -  See :ref:`exasol-timestamp-with-local-time-zone-mapping`
+    
 ```
 
 No other types are supported.
@@ -127,6 +134,45 @@ If no length is specified, the connector uses 2000000.
 Trino's `CHAR(n)` maps to `CHAR(n)` and vice versa if `n` is no greater than 2000.
 Exasol does not support longer values.
 
+(exasol-timestamp-mapping)=
+### Mapping `TIMESTAMP` Types
+
+Exasol `TIMESTAMP(n)` columns are mapped to Trino's `TIMESTAMP(n)` type 
+and vice versa, with the following exceptions:
+
+- **No precision specified**:  
+  If the precision is omitted (i.e., the column is defined as `TIMESTAMP` 
+  without `(n)`), Exasol defaults to a precision of 3. 
+  This maps to Trino's `TIMESTAMP(3)`.
+
+- **Precision greater than 9**:  
+  Exasol supports up to 9 digits of fractional seconds. 
+  If the precision in Exasol exceeds 9, an exception is thrown
+
+- **Negative precision**:  
+  Negative values for precision are invalid. If encountered, 
+  an exception is thrown.
+
+(exasol-timestamp-with-local-time-zone-mapping)=
+### Mapping `TIMESTAMP WITH LOCAL TIME ZONE` Types
+
+Exasol `TIMESTAMP(n) WITH LOCAL TIME ZONE` columns are mapped 
+to Trino's `TIMESTAMP(n) WITH TIME ZONE` type and vice versa, 
+with the following exceptions:
+
+- **No precision specified**:  
+  If the precision is omitted (i.e., the column is defined 
+  as `TIMESTAMP WITH LOCAL TIME ZONE` without `(n)`), Exasol defaults 
+  to a precision of 3. This maps to Trino's `TIMESTAMP(3) WITH TIME ZONE`.
+
+- **Precision greater than 9**:  
+  Exasol supports up to 9 digits of fractional seconds. 
+  If the precision in Exasol exceeds 9, an exception is thrown.
+
+- **Negative precision**:  
+  Negative values for precision are invalid. 
+  If encountered, an exception is thrown.
+ 
 ```{include} jdbc-type-mapping.fragment
 ```
 
