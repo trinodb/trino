@@ -173,6 +173,9 @@ public final class GeoFunctions
     private static final EnumSet<Type> GEOMETRY_TYPES_FOR_SPHERICAL_GEOGRAPHY = EnumSet.of(
             Type.Point, Type.Polyline, Type.Polygon, Type.MultiPoint);
 
+    private static final EnumSet<GeometryType> COLLECTION_TYPES = EnumSet.of(
+            MULTI_POINT, MULTI_LINE_STRING, MULTI_POLYGON);
+
     private static final EnumSet<GeometryType> VALID_TYPES_FOR_ST_POINTS = EnumSet.of(
             LINE_STRING, POLYGON, POINT, MULTI_POINT, MULTI_LINE_STRING, MULTI_POLYGON, GEOMETRY_COLLECTION);
 
@@ -263,6 +266,22 @@ public final class GeoFunctions
             return null;
         }
         return serialize(createFromEsriGeometry(multipoint, null, true));
+    }
+
+    @SqlNullable
+    @Description("Returns a multi geometry formed from input geometry. If the geometry is already a collection, it is returned unchanged.")
+    @ScalarFunction("ST_Multi")
+    @SqlType(StandardTypes.GEOMETRY)
+    public static Slice stMulti(@SqlType(StandardTypes.GEOMETRY) Slice input)
+    {
+        OGCGeometry geometry = deserialize(input);
+        GeometryType type = GeometryType.getForEsriGeometryType(geometry.geometryType());
+        // We can immediately return the shapes if they are already multi types
+        if(COLLECTION_TYPES.contains(type)) {
+            return serialize(geometry);
+        } else {
+            return serialize(geometry.convertToMulti());
+        }
     }
 
     @Description("Returns a Geometry type Polygon object from Well-Known Text representation (WKT)")
