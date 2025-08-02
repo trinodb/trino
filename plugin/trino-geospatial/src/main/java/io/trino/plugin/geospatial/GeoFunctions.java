@@ -277,9 +277,10 @@ public final class GeoFunctions
         OGCGeometry geometry = deserialize(input);
         GeometryType type = GeometryType.getForEsriGeometryType(geometry.geometryType());
         // We can immediately return the shapes if they are already multi types
-        if(COLLECTION_TYPES.contains(type)) {
+        if (COLLECTION_TYPES.contains(type)) {
             return serialize(geometry);
-        } else {
+        }
+        else {
             return serialize(geometry.convertToMulti());
         }
     }

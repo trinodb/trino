@@ -2005,7 +2005,7 @@ public class TestGeoFunctions
     }
 
     @Test
-    private void testSTMulti()
+    public void testSTMulti()
     {
         testMultiConversion("POINT (0 0)", "MULTIPOINT ((0 0))");
         testMultiConversion("MULTIPOINT ((1 1))", "MULTIPOINT ((1 1))");
@@ -2015,7 +2015,8 @@ public class TestGeoFunctions
         testMultiConversion("MULTIPOLYGON (((1 1, 1 4, 4 4, 4 1)), ((1 1, 1 4, 4 4, 4 1)))", "MULTIPOLYGON (((1 1, 1 4, 4 4, 4 1)), ((1 1, 1 4, 4 4, 4 1)))");
     }
 
-    public void testMultiConversion(String wkt, String expected) {
+    public void testMultiConversion(String wkt, String expected)
+    {
         assertThat(assertions.expression("ST_AsText(ST_Multi(geometry))")
                 .binding("geometry", "ST_GeometryFromText('%s')".formatted(wkt)))
                 .hasType(VARCHAR)
