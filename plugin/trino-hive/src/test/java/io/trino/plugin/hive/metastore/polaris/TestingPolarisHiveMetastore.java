@@ -172,7 +172,7 @@ public final class TestingPolarisHiveMetastore
                         .uri(httpConfig.get("uri"))
                         .withHeaders(Map.of())
                         .build(),
-                (ioConfig) -> {
+                (context, ioConfig) -> {
                     ConnectorIdentity currentIdentity = ConnectorIdentity.ofUser("test-user");
                     return new ForwardingFileIo(HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY.create(currentIdentity), ioConfig);
                 });
