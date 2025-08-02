@@ -178,6 +178,7 @@ public class S3FileSystemConfig
     private boolean supportsExclusiveCreate = true;
     private boolean crossRegionAccessEnabled;
     private String applicationId = "Trino";
+    private boolean enableCrtClient;
 
     public String getAwsAccessKey()
     {
@@ -650,6 +651,19 @@ public class S3FileSystemConfig
     public S3FileSystemConfig setApplicationId(String applicationId)
     {
         this.applicationId = applicationId;
+        return this;
+    }
+
+    public boolean isEnableCrtClient()
+    {
+        return enableCrtClient;
+    }
+
+    @Config("s3.use-crt-client")
+    @ConfigDescription("Use AWS SDK for Java 2.x CRT client for S3 operations")
+    public S3FileSystemConfig setEnableCrtClient(boolean enableCrtClient)
+    {
+        this.enableCrtClient = enableCrtClient;
         return this;
     }
 }
