@@ -53,6 +53,7 @@ import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SourcePage;
+import io.trino.spi.type.BigintType;
 import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
 import io.trino.testing.QueryRunner;
@@ -162,6 +163,7 @@ public final class IcebergTestUtils
     {
         return switch (orcTypeKind) {
             case OrcType.OrcTypeKind.STRING, OrcType.OrcTypeKind.VARCHAR -> VARCHAR;
+            case OrcType.OrcTypeKind.LONG -> BigintType.BIGINT;
             default -> throw new IllegalArgumentException("Unsupported orc type: " + orcTypeKind);
         };
     }

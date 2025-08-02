@@ -63,6 +63,7 @@ public class IcebergTableProperties
     public static final String OBJECT_STORE_LAYOUT_ENABLED_PROPERTY = "object_store_layout_enabled";
     public static final String DATA_LOCATION_PROPERTY = "data_location";
     public static final String EXTRA_PROPERTIES_PROPERTY = "extra_properties";
+    public static final String WRITE_CHANGE_MODE = "write_change_mode";
 
     public static final Set<String> SUPPORTED_PROPERTIES = ImmutableSet.<String>builder()
             .add(FILE_FORMAT_PROPERTY)
@@ -77,6 +78,7 @@ public class IcebergTableProperties
             .add(DATA_LOCATION_PROPERTY)
             .add(EXTRA_PROPERTIES_PROPERTY)
             .add(PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY)
+            .add(WRITE_CHANGE_MODE)
             .build();
 
     // These properties are used by Trino or Iceberg internally and cannot be set directly by users through extra_properties
@@ -202,6 +204,12 @@ public class IcebergTableProperties
                         "File system location URI for the table's data files",
                         null,
                         false))
+                .add(enumProperty(
+                        WRITE_CHANGE_MODE,
+                        "Mode used for table write change commands: copy-on-write or merge-on-read (v2 only)",
+                        WriteChangeMode.class,
+                        icebergConfig.getWriteChangeMode(),
+                        false))
                 .build();
 
         checkState(SUPPORTED_PROPERTIES.containsAll(tableProperties.stream()
@@ -289,6 +297,11 @@ public class IcebergTableProperties
     public static Optional<String> getDataLocation(Map<String, Object> tableProperties)
     {
         return Optional.ofNullable((String) tableProperties.get(DATA_LOCATION_PROPERTY));
+    }
+
+    public static Optional<WriteChangeMode> getWriteChangeMode(Map<String, Object> tableProperties)
+    {
+        return Optional.ofNullable((WriteChangeMode) tableProperties.get(WRITE_CHANGE_MODE));
     }
 
     public static Optional<Map<String, String>> getExtraProperties(Map<String, Object> tableProperties)

@@ -6422,6 +6422,8 @@ public abstract class BaseConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
+
+
     @Test
     public void testMergeSimpleSelect()
     {

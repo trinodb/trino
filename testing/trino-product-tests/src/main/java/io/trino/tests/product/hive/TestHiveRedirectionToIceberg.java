@@ -299,7 +299,8 @@ public class TestHiveRedirectionToIceberg
                         "   format_version = 2,\n" +
                         format("   location = 'hdfs://hadoop-master:9000/user/hive/warehouse/%s-\\E.*\\Q',\n", tableName) +
                         "   max_commit_retry = 4,\n" +
-                        "   partitioning = ARRAY['regionkey']\n" + // 'partitioning' comes from Iceberg
+                        "   partitioning = ARRAY['regionkey'],\n" + // 'partitioning' comes from Iceberg
+                        "   write_change_mode = 'MOR'\n" +
                         ")\\E");
 
         onTrino().executeQuery("DROP TABLE " + icebergTableName);
