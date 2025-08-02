@@ -418,6 +418,7 @@ public class IcebergMetadata
     private static final int OPTIMIZE_MAX_SUPPORTED_TABLE_VERSION = 2;
     private static final int CLEANING_UP_PROCEDURES_MAX_SUPPORTED_TABLE_VERSION = 2;
     private static final String RETENTION_THRESHOLD = "retention_threshold";
+    private static final String DELETE_FILES = "delete_files";
     private static final String UNKNOWN_SNAPSHOT_TOKEN = "UNKNOWN";
     public static final Set<String> UPDATABLE_TABLE_PROPERTIES = ImmutableSet.<String>builder()
             .add(EXTRA_PROPERTIES_PROPERTY)
@@ -1723,12 +1724,13 @@ public class IcebergMetadata
     private Optional<ConnectorTableExecuteHandle> getTableHandleForExpireSnapshots(ConnectorSession session, IcebergTableHandle tableHandle, Map<String, Object> executeProperties)
     {
         Duration retentionThreshold = (Duration) executeProperties.get(RETENTION_THRESHOLD);
+        boolean deleteFiles = (boolean) executeProperties.get(DELETE_FILES);
         Table icebergTable = catalog.loadTable(session, tableHandle.getSchemaTableName());
 
         return Optional.of(new IcebergTableExecuteHandle(
                 tableHandle.getSchemaTableName(),
                 EXPIRE_SNAPSHOTS,
-                new IcebergExpireSnapshotsHandle(retentionThreshold),
+                new IcebergExpireSnapshotsHandle(retentionThreshold, deleteFiles),
                 icebergTable.location(),
                 icebergTable.io().properties()));
     }
@@ -2185,6 +2187,7 @@ public class IcebergMetadata
 
         // ForwardingFileIo handles bulk operations so no separate function implementation is needed
         table.expireSnapshots()
+                .cleanExpiredFiles(expireSnapshotsHandle.deleteFiles())
                 .expireOlderThan(session.getStart().toEpochMilli() - retention.toMillis())
                 .planWith(icebergScanExecutor)
                 .commit();

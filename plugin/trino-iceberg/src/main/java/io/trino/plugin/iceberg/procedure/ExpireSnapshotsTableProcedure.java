@@ -21,6 +21,7 @@ import io.trino.spi.connector.TableProcedureMetadata;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.durationProperty;
 import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.EXPIRE_SNAPSHOTS;
 import static io.trino.spi.connector.TableProcedureExecutionMode.coordinatorOnly;
+import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 
 public class ExpireSnapshotsTableProcedure
         implements Provider<TableProcedureMetadata>
@@ -36,6 +37,11 @@ public class ExpireSnapshotsTableProcedure
                                 "retention_threshold",
                                 "Only snapshots older than threshold should be removed",
                                 Duration.valueOf("7d"),
+                                false),
+                        booleanProperty(
+                                "delete_files",
+                                "Delete underlying files associated to the expired snapshot(s)",
+                                true,
                                 false)));
     }
 }
