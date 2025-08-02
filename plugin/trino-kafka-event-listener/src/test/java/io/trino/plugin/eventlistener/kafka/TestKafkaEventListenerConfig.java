@@ -57,7 +57,10 @@ final class TestKafkaEventListenerConfig
                 .setRequestTimeout(new Duration(10, TimeUnit.SECONDS))
                 .setTerminateOnInitializationFailure(true)
                 .setResourceConfigFiles(List.of())
-                .setEnvironmentVariablePrefix(null));
+                .setEnvironmentVariablePrefix(null)
+                .setSaslMechanism(null)
+                .setSecurityProtocol(null)
+                .setSaslJaasConfig(null));
     }
 
     @Test
@@ -84,6 +87,9 @@ final class TestKafkaEventListenerConfig
                 .put("kafka-event-listener.anonymization.enabled", "true")
                 .put("kafka-event-listener.terminate-on-initialization-failure", "false")
                 .put("kafka-event-listener.config.resources", resource1.toString() + "," + resource2.toString())
+                .put("kafka-event-listener.sasl-mechanism", "SCRAM-SHA-256")
+                .put("kafka-event-listener.security-protocol", "SCRAM-SHA-256")
+                .put("kafka-event-listener.sasl-jaas-config", "org.apache.kafka.common.security.scram.ScramLoginModule")
                 .buildOrThrow();
 
         KafkaEventListenerConfig expected = new KafkaEventListenerConfig()
@@ -102,7 +108,10 @@ final class TestKafkaEventListenerConfig
                 .setRequestTimeout(new Duration(3, TimeUnit.SECONDS))
                 .setEnvironmentVariablePrefix("INSIGHTS_")
                 .setResourceConfigFiles(ImmutableList.of(resource1.toString(), resource2.toString()))
-                .setTerminateOnInitializationFailure(false);
+                .setTerminateOnInitializationFailure(false)
+                .setSaslMechanism("SCRAM-SHA-256")
+                .setSecurityProtocol("SCRAM-SHA-256")
+                .setSaslJaasConfig("org.apache.kafka.common.security.scram.ScramLoginModule");
 
         assertFullMapping(properties, expected);
     }
