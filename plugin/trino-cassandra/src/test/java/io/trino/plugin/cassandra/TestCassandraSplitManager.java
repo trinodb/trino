@@ -50,7 +50,7 @@ final class TestCassandraSplitManager
     void setUp()
             throws Exception
     {
-        server = new CassandraServer();
+        server = new TestingCassandraServer();
         session = server.getSession();
         createKeyspace(session, KEYSPACE);
     }
