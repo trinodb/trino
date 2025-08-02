@@ -292,8 +292,7 @@ public class TestIcebergVendingRestCatalogConnectorSmokeTest
                 .isInstanceOf(QueryFailedException.class)
                 .cause()
                 .hasMessageContaining("Failed to drop table")
-                .cause()
-                .hasMessageMatching("Server error: NoSuchKeyException:.*");
+                .hasNoCause();
     }
 
     @Test

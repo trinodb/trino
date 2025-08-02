@@ -2681,11 +2681,6 @@ public class IcebergMetadata
                 .filter(spec -> spec.getValue().specId() != currentSpecId)
                 .flatMap(spec -> spec.getValue().fields().stream())
                 .anyMatch(field -> field.sourceId() == fieldId);
-        if (columnUsedInOlderPartitionSpecs) {
-            // After dropping a column which was used in older partition specs, insert/update/select fails on the table.
-            // So restricting user to dropping that column. https://github.com/trinodb/trino/issues/15729
-            throw new TrinoException(NOT_SUPPORTED, "Cannot drop column which is used by an old partition spec: " + name);
-        }
         try {
             icebergTable.updateSchema()
                     .deleteColumn(name)
