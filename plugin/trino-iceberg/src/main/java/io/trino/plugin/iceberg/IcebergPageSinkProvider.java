@@ -15,8 +15,6 @@ package io.trino.plugin.iceberg;
 
 import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
-import io.airlift.units.DataSize;
-import io.trino.plugin.hive.SortingFileWriterConfig;
 import io.trino.plugin.iceberg.procedure.IcebergOptimizeHandle;
 import io.trino.plugin.iceberg.procedure.IcebergTableExecuteHandle;
 import io.trino.spi.PageIndexerFactory;
@@ -52,8 +50,6 @@ public class IcebergPageSinkProvider
     private final JsonCodec<CommitTaskData> jsonCodec;
     private final IcebergFileWriterFactory fileWriterFactory;
     private final PageIndexerFactory pageIndexerFactory;
-    private final DataSize sortingFileWriterBufferSize;
-    private final int sortingFileWriterMaxOpenFiles;
     private final TypeManager typeManager;
     private final PageSorter pageSorter;
 
@@ -63,7 +59,6 @@ public class IcebergPageSinkProvider
             JsonCodec<CommitTaskData> jsonCodec,
             IcebergFileWriterFactory fileWriterFactory,
             PageIndexerFactory pageIndexerFactory,
-            SortingFileWriterConfig sortingFileWriterConfig,
             TypeManager typeManager,
             PageSorter pageSorter)
     {
@@ -71,8 +66,6 @@ public class IcebergPageSinkProvider
         this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
         this.fileWriterFactory = requireNonNull(fileWriterFactory, "fileWriterFactory is null");
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
-        this.sortingFileWriterBufferSize = sortingFileWriterConfig.getWriterSortBufferSize();
-        this.sortingFileWriterMaxOpenFiles = sortingFileWriterConfig.getMaxOpenSortFiles();
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
     }
@@ -109,8 +102,6 @@ public class IcebergPageSinkProvider
                 tableHandle.storageProperties(),
                 maxPartitionsPerWriter(session),
                 tableHandle.sortOrder(),
-                sortingFileWriterBufferSize,
-                sortingFileWriterMaxOpenFiles,
                 typeManager,
                 pageSorter);
     }
@@ -140,8 +131,6 @@ public class IcebergPageSinkProvider
                         optimizeHandle.tableStorageProperties(),
                         maxPartitionsPerWriter(session),
                         optimizeHandle.sortOrder(),
-                        sortingFileWriterBufferSize,
-                        sortingFileWriterMaxOpenFiles,
                         typeManager,
                         pageSorter);
             case OPTIMIZE_MANIFESTS:
