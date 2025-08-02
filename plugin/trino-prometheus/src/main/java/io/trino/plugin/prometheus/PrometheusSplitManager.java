@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.units.Duration;
+import io.trino.plugin.prometheus.expression.LabelFilterExpression;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
@@ -45,6 +46,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.prometheus.PrometheusClient.TIMESTAMP_COLUMN_TYPE;
 import static io.trino.plugin.prometheus.PrometheusErrorCode.PROMETHEUS_UNKNOWN_ERROR;
 import static io.trino.plugin.prometheus.PrometheusSessionProperties.getMaxQueryRange;
@@ -89,37 +91,95 @@ public class PrometheusSplitManager
         Duration maxQueryRangeDuration = getMaxQueryRange(session);
         Duration queryChunkSizeDuration = getQueryChunkSize(session);
 
+        // Build a PromQL-compatible label matcher clause from any pushed-down label predicates
+        String labelMatchers = generateLabelMatchers(tableHandle.expressions());
+
         List<ConnectorSplit> splits = generateTimesForSplits(prometheusClock.now(), maxQueryRangeDuration, queryChunkSizeDuration, tableHandle)
                 .stream()
                 .map(time -> {
                     try {
+                        // Pass in the label matchers (e.g., "{instance=\"app1\",job!=\"test\"}")
                         return new PrometheusSplit(buildQuery(
                                 prometheusURI,
                                 time,
                                 table.name(),
-                                queryChunkSizeDuration).toString());
+                                queryChunkSizeDuration,
+                                labelMatchers).toString());
                     }
                     catch (URISyntaxException e) {
                         throw new TrinoException(PROMETHEUS_UNKNOWN_ERROR, "split URI invalid: " + e.getMessage());
                     }
-                }).collect(Collectors.toList());
+                })
+                .collect(toImmutableList());
         return new FixedSplitSource(splits);
     }
 
-    // HttpUriBuilder handles URI encode
-    private static URI buildQuery(URI baseURI, String time, String metricName, Duration queryChunkSizeDuration)
-            throws URISyntaxException
+    /**
+      * Inspect the TupleDomain predicate to extract any label-based constraints
+      * (PrometheusColumnHandle instances that are not the timestamp column),
+      * and convert them into a PromQL "{...}" matcher. If no label filters are present,
+      * returns an empty string.
+      */
+    private static String generateLabelMatchers(List<LabelFilterExpression> expressions)
     {
+        if (expressions.isEmpty()) {
+            return "";
+        }
+
+        // Convert each LabelFilterExpression into a PromQL matcher string
+        List<String> matchers = expressions.stream()
+                .map(expr -> {
+                    String labelName = expr.labelName();
+                    String labelValue = expr.labelValue();
+
+                    // If the value is a regex, use =~, otherwise use =
+                    if (expr.isRegex()) {
+                        if (expr.isNegative()) {
+                            return labelName + "!~\"" + labelValue + "\"";
+                        }
+                        return labelName + "=~\"" + labelValue + "\"";
+                    }
+                    else {
+                        if (expr.isNegative()) {
+                            return labelName + "!=\"" + labelValue + "\"";
+                        }
+                        return labelName + "=\"" + labelValue + "\"";
+                    }
+                })
+                .collect(toImmutableList());
+
+        // Join all individual matchers with commas inside braces
+        return "{" + String.join(",", matchers) + "}";
+    }
+
+    private static URI buildQuery(
+             URI baseURI,
+             String time,
+             String metricName,
+             Duration queryChunkSizeDuration,
+             String labelMatchers)
+             throws URISyntaxException
+    {
+        // Construct PromQL expressions: e.g. metricName{…}[5m]
+        StringBuilder promql = new StringBuilder(metricName);
+        if (!labelMatchers.isEmpty()) {
+            promql.append(labelMatchers);
+        }
+        promql.append("[")
+                .append(queryChunkSizeDuration.roundTo(queryChunkSizeDuration.getUnit()))
+                .append(Duration.timeUnitToString(queryChunkSizeDuration.getUnit()))
+                .append("]");
+
         return HttpUriBuilder.uriBuilderFrom(baseURI)
                 .appendPath("api/v1/query")
-                .addParameter("query", metricName + "[" + queryChunkSizeDuration.roundTo(queryChunkSizeDuration.getUnit()) + Duration.timeUnitToString(queryChunkSizeDuration.getUnit()) + "]")
+                .addParameter("query", promql.toString())
                 .addParameter("time", time)
                 .build();
     }
 
     /**
      * Utility method to get the end times in decimal seconds that divide up the query into chunks
-     * The times will be used in queries to Prometheus like: {@code http://localhost:9090/api/v1/query?query=up[21d]&time=1568229904.000"}
+     * The times will be used in queries to Prometheus like: {@code http://localhost:9090/api/v1/query?query=up[21d]&time=1568229904.000}
      *
      * <p>
      * NOTE: Prometheus instant query wants the duration and end time specified.
@@ -131,8 +191,7 @@ public class PrometheusSplitManager
     protected static List<String> generateTimesForSplits(Instant defaultUpperBound, Duration maxQueryRangeDurationRequested, Duration queryChunkSizeDurationRequested,
             PrometheusTableHandle tableHandle)
     {
-        Optional<PrometheusPredicateTimeInfo> predicateRange = tableHandle.predicate()
-                .flatMap(PrometheusSplitManager::determinePredicateTimes);
+        Optional<PrometheusPredicateTimeInfo> predicateRange = determinePredicateTimes(tableHandle.predicate());
 
         EffectiveLimits effectiveLimits = new EffectiveLimits(defaultUpperBound, maxQueryRangeDurationRequested, predicateRange);
         Instant upperBound = effectiveLimits.getUpperBound();
