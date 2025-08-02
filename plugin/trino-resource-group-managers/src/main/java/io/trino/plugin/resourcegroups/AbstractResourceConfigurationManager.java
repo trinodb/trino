@@ -51,6 +51,8 @@ public abstract class AbstractResourceConfigurationManager
 
     protected abstract Optional<Duration> getCpuQuotaPeriod();
 
+    protected abstract Optional<Duration> getPhysicalDataScanQuotaPeriod();
+
     protected abstract List<ResourceGroupSpec> getRootGroups();
 
     protected void validateRootGroups(ManagerSpec managerSpec)
@@ -66,6 +68,9 @@ public abstract class AbstractResourceConfigurationManager
             if (group.getSoftCpuLimit().isPresent()) {
                 checkArgument(group.getHardCpuLimit().isPresent(), "Must specify hard CPU limit in addition to soft limit");
                 checkArgument(group.getSoftCpuLimit().get().compareTo(group.getHardCpuLimit().get()) <= 0, "Soft CPU limit cannot be greater than hard CPU limit");
+            }
+            if (group.getHardPhysicalDataScanLimit().isPresent()) {
+                checkArgument(managerSpec.getPhysicalDataScanQuotaPeriod().isPresent(), "physicalDataScanQuotaPeriod must be specified to use data scan limits on group: %s", group.getName());
             }
             if (group.getSchedulingPolicy().isPresent()) {
                 switch (group.getSchedulingPolicy().get()) {
@@ -227,6 +232,14 @@ public abstract class AbstractResourceConfigurationManager
             long rate = (long) Math.min(1000.0 * limit.toMillis() / (double) getCpuQuotaPeriod().get().toMillis(), Long.MAX_VALUE);
             rate = Math.max(1, rate);
             group.setCpuQuotaGenerationMillisPerSecond(rate);
+        }
+        match.getHardPhysicalDataScanLimit().map(DataSize::toBytes).ifPresent(group::setHardPhysicalDataScanLimitBytes);
+        if (match.getHardPhysicalDataScanLimit().isPresent()) {
+            checkState(getPhysicalDataScanQuotaPeriod().isPresent(), "physicalDataScanQuotaPeriod must be specified to use data scan limits on group: %s", group.getId());
+            DataSize limit = match.getHardPhysicalDataScanLimit().get();
+            long rate = (long) Math.min(1000.0 * limit.toBytes() / (double) getPhysicalDataScanQuotaPeriod().get().toMillis(), Long.MAX_VALUE);
+            rate = Math.max(1, rate);
+            group.setPhysicalDataScanQuotaGenerationBytesPerSecond(rate);
         }
     }
 }
