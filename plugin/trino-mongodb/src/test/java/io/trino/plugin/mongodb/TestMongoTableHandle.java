@@ -117,7 +117,7 @@ public class TestMongoTableHandle
                         false,
                         false,
                         Optional.empty()),
-                new MongoColumnHandle("creator", ImmutableList.of("databasename"), VARCHAR, false, true, Optional.empty()));
+                new MongoColumnHandle("creator", ImmutableList.of("databaseName"), VARCHAR, false, true, Optional.empty()));
 
         MongoTableHandle expected = new MongoTableHandle(
                 schemaTableName,
