@@ -170,7 +170,7 @@ public class PinotClient
                 asyncReloading(CacheLoader.from(this::getAllTables), executor));
         this.controllerAuthenticationProvider = controllerAuthenticationProvider;
         this.brokerAuthenticationProvider = brokerAuthenticationProvider;
-        brokerHostAndPort = config.getBrokerUrl();
+        this.brokerHostAndPort = config.getBrokerUrl();
     }
 
     public static void addJsonBinders(JsonCodecBinder jsonCodecBinder)
