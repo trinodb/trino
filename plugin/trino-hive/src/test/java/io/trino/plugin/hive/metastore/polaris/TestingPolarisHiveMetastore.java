@@ -55,14 +55,11 @@ import static java.util.Objects.requireNonNull;
 public final class TestingPolarisHiveMetastore
         implements AutoCloseable
 {
-    public static final String WAREHOUSE = "polaris";
-    public static final String CREDENTIAL = "root:s3cr3t";
     private static final int POLARIS_PORT = 8181;
     private static final String CONTAINER_WAREHOUSE_PATH = "/warehouse";
 
     private final GenericContainer<?> polarisContainer;
     private final String token;
-    private final String warehouseLocation;
     private final AutoCloseableCloser closer = AutoCloseableCloser.create();
 
     private static final HttpClient HTTP_CLIENT = new JettyHttpClient();
@@ -70,7 +67,7 @@ public final class TestingPolarisHiveMetastore
 
     private TestingPolarisHiveMetastore(String warehouseLocation)
     {
-        this.warehouseLocation = requireNonNull(warehouseLocation, "warehouseLocation is null");
+        requireNonNull(warehouseLocation, "warehouseLocation is null");
 
         // Use the official Apache Polaris Docker image
         polarisContainer = new GenericContainer<>("apache/polaris:1.0.0-incubating");
@@ -175,7 +172,7 @@ public final class TestingPolarisHiveMetastore
                         .uri(httpConfig.get("uri"))
                         .withHeaders(Map.of())
                         .build(),
-                (context, ioConfig) -> {
+                (ioConfig) -> {
                     ConnectorIdentity currentIdentity = ConnectorIdentity.ofUser("test-user");
                     return new ForwardingFileIo(HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY.create(currentIdentity), ioConfig);
                 });

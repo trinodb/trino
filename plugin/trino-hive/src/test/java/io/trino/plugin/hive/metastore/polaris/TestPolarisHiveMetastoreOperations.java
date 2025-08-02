@@ -44,13 +44,12 @@ final class TestPolarisHiveMetastoreOperations
 
     private TestingPolarisHiveMetastore polarisContainer;
     private PolarisHiveMetastore hiveMetastore;
-    private Path warehouseLocation;
 
     @BeforeAll
     void setUp()
             throws Exception
     {
-        warehouseLocation = Files.createTempDirectory("polaris-test-warehouse");
+        Path warehouseLocation = Files.createTempDirectory("polaris-test-warehouse");
         polarisContainer = TestingPolarisHiveMetastore.create(warehouseLocation, resource -> {});
         hiveMetastore = (PolarisHiveMetastore) polarisContainer.createHiveMetastore();
 

@@ -31,14 +31,12 @@ import io.airlift.http.client.UnexpectedResponseException;
 import io.airlift.json.JsonCodec;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
-import org.apache.iceberg.catalog.SessionCatalog;
 import org.apache.iceberg.rest.auth.OAuth2Properties;
 
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
