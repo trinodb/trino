@@ -735,7 +735,7 @@ class StatementAnalyzer
 
             // analyze the query that creates the data
             Query query = parseView(view.getOriginalSql(), name, refreshMaterializedView);
-            Scope queryScope = process(query, scope);
+            Scope queryScope = analyzeView(query, name, view.getCatalog(), view.getSchema(), view.getRunAsIdentity(), view.getPath(), refreshMaterializedView.getTable(), false);
 
             // verify the insert destination columns match the query
             TableHandle targetTableHandle = metadata.getTableHandle(session, targetTable)
@@ -2289,10 +2289,10 @@ class StatementAnalyzer
                     checkStorageTableNotRedirected(storageTableName);
                     TableHandle tableHandle = metadata.getTableHandle(session, storageTableName)
                             .orElseThrow(() -> semanticException(INVALID_VIEW, table, "Storage table '%s' does not exist", storageTableName));
-                    return createScopeForMaterializedView(table, name, scope, materializedViewDefinition, Optional.of(tableHandle));
+                    return createScopeForMaterializedView(table, name, scope, materializedViewDefinition, Optional.of(tableHandle), true);
                 }
                 // This is a stale materialized view and should be expanded like a logical view
-                return createScopeForMaterializedView(table, name, scope, materializedViewDefinition, Optional.empty());
+                return createScopeForMaterializedView(table, name, scope, materializedViewDefinition, Optional.empty(), true);
             }
 
             // This could be a reference to a logical view or a table
@@ -2525,7 +2525,7 @@ class StatementAnalyzer
             return createAndAssignScope(table, scope, fields);
         }
 
-        private Scope createScopeForMaterializedView(Table table, QualifiedObjectName name, Optional<Scope> scope, MaterializedViewDefinition view, Optional<TableHandle> storageTable)
+        private Scope createScopeForMaterializedView(Table table, QualifiedObjectName name, Optional<Scope> scope, MaterializedViewDefinition view, Optional<TableHandle> storageTable, boolean bypassViewAccessControl)
         {
             return createScopeForView(
                     table,
@@ -2538,7 +2538,8 @@ class StatementAnalyzer
                     view.getPath(),
                     view.getColumns(),
                     storageTable,
-                    true);
+                    true,
+                    bypassViewAccessControl);
         }
 
         private Scope createScopeForView(Table table, QualifiedObjectName name, Optional<Scope> scope, ViewDefinition view)
@@ -2553,6 +2554,7 @@ class StatementAnalyzer
                     view.getPath(),
                     view.getColumns(),
                     Optional.empty(),
+                    false,
                     false);
         }
 
@@ -2567,7 +2569,8 @@ class StatementAnalyzer
                 List<CatalogSchemaName> path,
                 List<ViewColumn> columns,
                 Optional<TableHandle> storageTable,
-                boolean isMaterializedView)
+                boolean isMaterializedView,
+                boolean bypassViewAccessControl)
         {
             Statement statement = analysis.getStatement();
             if (statement instanceof CreateView viewStatement) {
@@ -2593,7 +2596,8 @@ class StatementAnalyzer
             }
 
             analysis.registerTableForView(table, name, isMaterializedView);
-            RelationType descriptor = analyzeView(query, name, catalog, schema, owner, path, table);
+            RelationType descriptor = analyzeView(query, name, catalog, schema, owner, path, table, bypassViewAccessControl)
+                    .getRelationType().withAlias(name.objectName(), null);
             analysis.unregisterTableForView();
 
             checkViewStaleness(columns, descriptor.getVisibleFields(), name, table)
@@ -5129,34 +5133,38 @@ class StatementAnalyzer
             }
         }
 
-        private RelationType analyzeView(
+        private Scope analyzeView(
                 Query query,
                 QualifiedObjectName name,
                 Optional<String> catalog,
                 Optional<String> schema,
                 Optional<Identity> owner,
                 List<CatalogSchemaName> path,
-                Table node)
+                Table node,
+                boolean bypassAccessControl)
         {
             try {
                 // run view as view owner if set; otherwise, run as session user
                 Identity identity;
-                AccessControl viewAccessControl;
+                AccessControl viewAccessControl = accessControl;
                 if (owner.isPresent()) {
                     identity = Identity.from(owner.get())
                             .withGroups(groupProvider.getGroups(owner.get().getUser()))
                             .build();
-                    if (owner.get().getUser().equals(session.getIdentity().getUser())) {
-                        // View owner does not need GRANT OPTION to grant access themselves
-                        viewAccessControl = accessControl;
+                    if (bypassAccessControl) {
+                        viewAccessControl = new AllowAllAccessControl();
                     }
-                    else {
+                    // View owner does not need GRANT OPTION to grant access themselves
+                    // All others do need GRANT OPTION
+                    else if (!owner.get().getUser().equals(session.getIdentity().getUser())) {
                         viewAccessControl = new ViewAccessControl(accessControl);
                     }
                 }
                 else {
                     identity = session.getIdentity();
-                    viewAccessControl = accessControl;
+                    if (bypassAccessControl) {
+                        viewAccessControl = new AllowAllAccessControl();
+                    }
                 }
 
                 Session viewSession = session.createViewSession(catalog, schema, identity, path);
@@ -5164,8 +5172,7 @@ class StatementAnalyzer
                 StatementAnalyzer analyzer = statementAnalyzerFactory
                         .withSpecializedAccessControl(viewAccessControl)
                         .createStatementAnalyzer(analysis, viewSession, warningCollector, CorrelationSupport.ALLOWED);
-                Scope queryScope = analyzer.analyze(query);
-                return queryScope.getRelationType().withAlias(name.objectName(), null);
+                return analyzer.analyze(query);
             }
             catch (RuntimeException e) {
                 throw semanticException(INVALID_VIEW, node, e, "Failed analyzing stored view '%s': %s", name, e.getMessage());
