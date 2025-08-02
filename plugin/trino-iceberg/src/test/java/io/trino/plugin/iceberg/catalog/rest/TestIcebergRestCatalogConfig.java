@@ -18,6 +18,7 @@ import io.airlift.units.Duration;
 import org.apache.iceberg.CatalogProperties;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
@@ -42,7 +43,8 @@ public class TestIcebergRestCatalogConfig
                 .setVendedCredentialsEnabled(false)
                 .setViewEndpointsEnabled(true)
                 .setCaseInsensitiveNameMatching(false)
-                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, MINUTES)));
+                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, MINUTES))
+                .setAdditionalProperties(List.of()));
     }
 
     @Test
@@ -60,6 +62,7 @@ public class TestIcebergRestCatalogConfig
                 .put("iceberg.rest-catalog.view-endpoints-enabled", "false")
                 .put("iceberg.rest-catalog.case-insensitive-name-matching", "true")
                 .put("iceberg.rest-catalog.case-insensitive-name-matching.cache-ttl", "3m")
+                .put("iceberg.rest-catalog.additional-properties", "Authorization: Trust Me, Cache-Control: no-cache")
                 .buildOrThrow();
 
         IcebergRestCatalogConfig expected = new IcebergRestCatalogConfig()
@@ -73,7 +76,8 @@ public class TestIcebergRestCatalogConfig
                 .setVendedCredentialsEnabled(true)
                 .setViewEndpointsEnabled(false)
                 .setCaseInsensitiveNameMatching(true)
-                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(3, MINUTES));
+                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(3, MINUTES))
+                .setAdditionalProperties(List.of("Authorization: Trust Me", "Cache-Control: no-cache"));
 
         assertFullMapping(properties, expected);
     }
