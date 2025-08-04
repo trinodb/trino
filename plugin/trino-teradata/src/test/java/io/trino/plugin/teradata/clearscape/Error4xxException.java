@@ -1,4 +1,4 @@
-package io.trino.plugin.teradata.clearscapeintegrations;
+package io.trino.plugin.teradata.clearscape;
 
 public class Error4xxException
         extends BaseException

@@ -1,12 +1,7 @@
-package io.trino.plugin.teradata.clearscapeintegrations;
+package io.trino.plugin.teradata.clearscape;
 
 public class TeradataConstants
 {
-    private TeradataConstants()
-    {
-        // Utility class - prevent instantiation
-    }
-
     public static final String DRIVER_CLASS = "com.teradata.jdbc.TeraDriver";
     public static final String DEFAULT_SCHEMA_NAME = "def_airbyte_db";
     public static final String PARAM_MODE = "mode";
@@ -31,4 +26,8 @@ public class TeradataConstants
     public static final String LOG_MECH = "logmech";
     public static final String AUTH_TYPE = "auth_type";
     public static final String TD2_LOG_MECH = "BROWSER";
+    private TeradataConstants()
+    {
+        // Utility class - prevent instantiation
+    }
 }
