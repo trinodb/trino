@@ -1,4 +1,4 @@
-package io.trino.plugin.teradata.clearscapeintegrations;
+package io.trino.plugin.teradata.clearscape;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -14,10 +14,10 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.concurrent.CompletableFuture;
 
-import static io.trino.plugin.teradata.clearscapeintegrations.Headers.APPLICATION_JSON;
-import static io.trino.plugin.teradata.clearscapeintegrations.Headers.AUTHORIZATION;
-import static io.trino.plugin.teradata.clearscapeintegrations.Headers.BEARER;
-import static io.trino.plugin.teradata.clearscapeintegrations.Headers.CONTENT_TYPE;
+import static io.trino.plugin.teradata.clearscape.Headers.APPLICATION_JSON;
+import static io.trino.plugin.teradata.clearscape.Headers.AUTHORIZATION;
+import static io.trino.plugin.teradata.clearscape.Headers.BEARER;
+import static io.trino.plugin.teradata.clearscape.Headers.CONTENT_TYPE;
 
 public class TeradataHttpClient
 {
@@ -44,7 +44,7 @@ public class TeradataHttpClient
 
     // Creating an environment is a blocking operation by default, and it takes ~1.5min to finish
     public CompletableFuture<EnvironmentResponse> createEnvironment(CreateEnvironmentRequest createEnvironmentRequest,
-                                                                    String token)
+            String token)
     {
         var requestBody = handleCheckedException(() -> objectMapper.writeValueAsString(createEnvironmentRequest));
 

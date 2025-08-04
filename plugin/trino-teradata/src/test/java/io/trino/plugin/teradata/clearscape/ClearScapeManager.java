@@ -1,24 +1,9 @@
-package io.trino.plugin.teradata;
+package io.trino.plugin.teradata.clearscape;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.teradata.clearscapeintegrations.BaseException;
-import io.trino.plugin.teradata.clearscapeintegrations.ClearScapeEnvVariables;
-import io.trino.plugin.teradata.clearscapeintegrations.CreateEnvironmentRequest;
-import io.trino.plugin.teradata.clearscapeintegrations.DeleteEnvironmentRequest;
-import io.trino.plugin.teradata.clearscapeintegrations.EnvironmentRequest;
-import io.trino.plugin.teradata.clearscapeintegrations.EnvironmentResponse;
-import io.trino.plugin.teradata.clearscapeintegrations.GetEnvironmentRequest;
-import io.trino.plugin.teradata.clearscapeintegrations.OperationRequest;
-import io.trino.plugin.teradata.clearscapeintegrations.TeradataConstants;
-import io.trino.plugin.teradata.clearscapeintegrations.TeradataHttpClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.URISyntaxException;
-import java.security.SecureRandom;
 import java.util.regex.Pattern;
 
 /**
@@ -34,9 +19,11 @@ public class ClearScapeManager
     private static final Logger LOGGER = LoggerFactory.getLogger(ClearScapeManager.class);
     private static final Pattern ALLOWED_URL_PATTERN =
             Pattern.compile("^(https?://)(www\\.)?api.clearscape.teradata\\.com.*");
-    /** Configuration object loaded from the JSON file. */
-    private ObjectNode configJSON;
-    private String generatedPassword;
+    private Model model;
+
+    public ClearScapeManager()
+    {
+    }
 
     /**
      * Validates that the provided URL matches the expected Clearscape Teradata API pattern.
@@ -52,14 +39,13 @@ public class ClearScapeManager
     /**
      * Creates a new instance of {@link TeradataHttpClient} using the environment URL from the config.
      *
-     * @param config the loaded JSON configuration
      * @return an initialized {@link TeradataHttpClient} instance
      * @throws URISyntaxException if the environment URL is invalid
      */
-    private TeradataHttpClient getTeradataHttpClient(JsonNode config)
+    private TeradataHttpClient getTeradataHttpClient()
             throws URISyntaxException
     {
-        String envUrl = ClearScapeEnvVariables.ENV_CLEARSCAPE_URL;
+        String envUrl = Constants.ENV_CLEARSCAPE_URL;
         if (isValidUrl(envUrl)) {
             return new TeradataHttpClient(envUrl);
         }
@@ -68,30 +54,19 @@ public class ClearScapeManager
         }
     }
 
-    /**
-     * Public method to create and start the ClearScape environment instance. Should be called
-     * before any operations requiring an active environment.
-     */
-    public static String randomPassword() {
-        // Password-suitable character set
-        char[] passwordChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*".toCharArray();
-        SecureRandom random = new SecureRandom();
-
-        char[] password = new char[10];
-        for (int i = 0; i < password.length; i++) {
-            password[i] = passwordChars[random.nextInt(passwordChars.length)];
-        }
-        return new String(password);
+    public void init(Model model)
+    {
+        this.model = model;
     }
+
     public void setup()
     {
-        this.configJSON = new ObjectMapper().createObjectNode();
-//        this.generatedPassword = randomPassword();
-//        configJSON.put("password", generatedPassword);
         createAndStartClearScapeInstance();
     }
 
-    /** Public method to stop the clearscape instance */
+    /**
+     * Public method to stop the clearscape instance
+     */
     public void stop()
     {
         stopClearScapeInstance();
@@ -114,10 +89,10 @@ public class ClearScapeManager
     private void createAndStartClearScapeInstance()
     {
         try {
-            TeradataHttpClient teradataHttpClient = getTeradataHttpClient(configJSON);
-            String name = ClearScapeEnvVariables.ENV_CLEARSCAPE_NAME;
-            String token = System.getenv("TOKEN");
+            TeradataHttpClient teradataHttpClient = getTeradataHttpClient();
 
+            String token = this.model.getToken();
+            String name = this.model.getEnvName();
             EnvironmentResponse response = null;
             try {
                 response = teradataHttpClient.getEnvironment(new GetEnvironmentRequest(name), token);
@@ -129,8 +104,8 @@ public class ClearScapeManager
             if (response == null || response.ip() == null) {
                 CreateEnvironmentRequest request = new CreateEnvironmentRequest(
                         name,
-                        ClearScapeEnvVariables.ENV_CLEARSCAPE_REGION,
-                        ClearScapeEnvVariables.ENV_CLEARSCAPE_PASSWORD);
+                        Constants.ENV_CLEARSCAPE_REGION,
+                        model.getPassword());
                 response = teradataHttpClient.createEnvironment(request, token).get();
             }
             else if (response.state() == EnvironmentResponse.State.STOPPED) {
@@ -139,29 +114,23 @@ public class ClearScapeManager
             }
 
             if (response != null) {
-                configJSON.put("host", response.ip());
+                model.setHostName(response.ip());
             }
-
-            ImmutableMap<String, Object> authMap = ImmutableMap.<String, Object>builder()
-                    .put(TeradataConstants.AUTH_TYPE, "TD2")
-                    .put("username", ClearScapeEnvVariables.ENV_CLEARSCAPE_USERNAME)
-                    .put("password", ClearScapeEnvVariables.ENV_CLEARSCAPE_PASSWORD)
-                    .build();
-            ObjectMapper mapper = new ObjectMapper();
-            configJSON.set(TeradataConstants.LOG_MECH, mapper.valueToTree(authMap));
         }
         catch (Exception e) {
             throw new RuntimeException("Failed to create and start ClearScape instance", e);
         }
     }
 
-    /** Handles the logic for stopping a ClearScape environment instance. */
+    /**
+     * Handles the logic for stopping a ClearScape environment instance.
+     */
     private void stopClearScapeInstance()
     {
         try {
-            TeradataHttpClient teradataHttpClient = getTeradataHttpClient(configJSON);
-            String name = ClearScapeEnvVariables.ENV_CLEARSCAPE_NAME;
-            String token = System.getenv("TOKEN");
+            TeradataHttpClient teradataHttpClient = getTeradataHttpClient();
+            String token = this.model.getToken();
+            String name = this.model.getEnvName();
 
             EnvironmentResponse response = null;
             try {
@@ -189,29 +158,17 @@ public class ClearScapeManager
     private void shutdownAndDestroyClearScapeInstance()
     {
         try {
-            TeradataHttpClient teradataHttpClient = getTeradataHttpClient(configJSON);
-            String token = System.getenv("TOKEN");
-            DeleteEnvironmentRequest request = new DeleteEnvironmentRequest(ClearScapeEnvVariables.ENV_CLEARSCAPE_NAME);
+            TeradataHttpClient teradataHttpClient = getTeradataHttpClient();
+            String token = this.model.getToken();
+            DeleteEnvironmentRequest request = new DeleteEnvironmentRequest(Constants.ENV_CLEARSCAPE_NAME);
             teradataHttpClient.deleteEnvironment(request, token).get();
         }
         catch (BaseException be) {
             LOGGER.info("Environment {} is not available. Error - {}",
-                    ClearScapeEnvVariables.ENV_CLEARSCAPE_NAME, be.getMessage());
+                    Constants.ENV_CLEARSCAPE_NAME, be.getMessage());
         }
         catch (Exception e) {
             throw new RuntimeException("Failed to shutdown and destroy ClearScape instance", e);
         }
-    }
-
-    /**
-     * Loads a JSON configuration file from the provided file path.
-     *
-     * @return the parsed {@link ObjectNode} representing the configuration
-     * @throws RuntimeException if the file is missing or unreadable
-     */
-
-    public ObjectNode getConfigJSON()
-    {
-        return configJSON;
     }
 }

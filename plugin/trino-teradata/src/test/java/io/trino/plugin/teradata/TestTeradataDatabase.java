@@ -1,8 +1,6 @@
 package io.trino.plugin.teradata;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import io.trino.plugin.teradata.clearscapeintegrations.ClearScapeEnvVariables;
-import io.trino.plugin.teradata.clearscapeintegrations.TeradataConstants;
+import io.trino.plugin.teradata.clearscape.ClearScapeManager;
 import io.trino.testing.sql.SqlExecutor;
 import org.intellij.lang.annotations.Language;
 
@@ -31,7 +29,6 @@ public class TestTeradataDatabase
     private final Connection connection;
     private final String jdbcUrl;
     private final Map<String, String> connectionProperties = new HashMap<>();
-
 
     public TestTeradataDatabase(DatabaseConfig config)
     {
@@ -163,19 +160,22 @@ public class TestTeradataDatabase
     }
 
     /**
-     * Closes the database connection.
-     *
-     * @throws SQLException if closing fails
+     * Closes the database connection.     *
      */
     @Override
     public void close()
-            throws SQLException
     {
-        if (!connection.isClosed()) {
-            connection.close();
+        try {
+            dropTestDatabaseIfExists();
+            if (!connection.isClosed()) {
+                connection.close();
+            }
+            if (useClearScape && clearScapeManager != null) {
+                clearScapeManager.teardown(); // Clean up ClearScape environment
+            }
         }
-        if (useClearScape && clearScapeManager != null) {
-            clearScapeManager.teardown(); // Clean up ClearScape environment
+        catch (SQLException e) {
+            throw new RuntimeException("Failed to close connection: " + e.getMessage(), e);
         }
     }
 

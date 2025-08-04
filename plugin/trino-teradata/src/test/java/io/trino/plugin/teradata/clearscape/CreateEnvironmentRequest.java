@@ -1,4 +1,4 @@
-package io.trino.plugin.teradata.clearscapeintegrations;
+package io.trino.plugin.teradata.clearscape;
 
 public record CreateEnvironmentRequest(
 
@@ -7,4 +7,4 @@ public record CreateEnvironmentRequest(
         String region,
 
         String password
-){}
+) {}

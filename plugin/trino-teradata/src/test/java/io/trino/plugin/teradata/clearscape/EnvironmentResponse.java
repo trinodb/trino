@@ -1,4 +1,4 @@
-package io.trino.plugin.teradata.clearscapeintegrations;
+package io.trino.plugin.teradata.clearscape;
 
 import java.util.List;
 
@@ -21,6 +21,19 @@ public record EnvironmentResponse(
 
         List<Service> services)
 {
+    public enum State
+    {
+        PROVISIONING,
+        INITIALIZING,
+        RUNNING,
+        STARTING,
+        STOPPING,
+        STOPPED,
+        TERMINATING,
+        TERMINATED,
+        REPAIRING
+    }
+
     record Service(
 
             List<Credential> credentials,
@@ -36,17 +49,4 @@ public record EnvironmentResponse(
 
             String value
     ) {}
-
-    public enum State
-    {
-        PROVISIONING,
-        INITIALIZING,
-        RUNNING,
-        STARTING,
-        STOPPING,
-        STOPPED,
-        TERMINATING,
-        TERMINATED,
-        REPAIRING
-    }
 }

@@ -30,7 +30,7 @@ import static java.util.Objects.requireNonNull;
  */
 public final class TeradataQueryRunner
 {
-    private static final TestTeradataDatabase database = new TestTeradataDatabase(DatabaseConfig.fromEnvWithClearScape());
+    private static TestTeradataDatabase database;
 
     private TeradataQueryRunner()
     {
@@ -45,6 +45,11 @@ public final class TeradataQueryRunner
     public static SqlExecutor getSqlExecutor()
     {
         return database;
+    }
+
+    public static void setTeradataDatabase(TestTeradataDatabase database)
+    {
+        TeradataQueryRunner.database = requireNonNull(database, "database is null");
     }
 
     public static Builder builder()
@@ -64,7 +69,9 @@ public final class TeradataQueryRunner
         Logging logger = Logging.initialize();
         logger.setLevel("io.trino.plugin.teradata", Level.DEBUG);
         logger.setLevel("io.trino", Level.INFO);
-
+        DatabaseConfig dbConfig = DatabaseTestUtil.getDatabaseConfig();
+        database = new TestTeradataDatabase(dbConfig);
+        TeradataQueryRunner.setTeradataDatabase(database);
         QueryRunner queryRunner = builder().addCoordinatorProperty("http-server.http.port", "8080").setInitialTables(TpchTable.getTables()).build();
 
         Logger log = Logger.get(TeradataQueryRunner.class);

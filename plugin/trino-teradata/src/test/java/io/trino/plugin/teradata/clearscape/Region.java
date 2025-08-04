@@ -1,6 +1,7 @@
-package io.trino.plugin.teradata.clearscapeintegrations;
+package io.trino.plugin.teradata.clearscape;
 
-public enum Region {
+public enum Region
+{
     US_CENTRAL("us-central"),
 
     US_EAST("us-east"),
