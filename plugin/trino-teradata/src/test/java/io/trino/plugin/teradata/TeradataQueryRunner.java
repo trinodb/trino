@@ -90,7 +90,7 @@ public final class TeradataQueryRunner
 
         protected Builder()
         {
-            super(testSessionBuilder().setCatalog("teradata").setSchema("demo_user").build());
+            super(testSessionBuilder().setCatalog("teradata").setSchema(database.getDatabaseName()).build());
         }
 
         public static void copyTable(QueryRunner queryRunner, QualifiedObjectName table, Session session)
