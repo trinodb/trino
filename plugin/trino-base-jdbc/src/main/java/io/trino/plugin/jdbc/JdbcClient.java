@@ -119,6 +119,8 @@ public interface JdbcClient
     Connection getConnection(ConnectorSession session, JdbcSplit split, JdbcProcedureHandle procedureHandle)
             throws SQLException;
 
+    void execute(ConnectorSession session, String query);
+
     default void abortReadConnection(Connection connection, ResultSet resultSet)
             throws SQLException
     {

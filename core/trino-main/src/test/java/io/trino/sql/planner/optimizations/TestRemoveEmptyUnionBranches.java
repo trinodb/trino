@@ -135,7 +135,7 @@ public class TestRemoveEmptyUnionBranches
             if (table instanceof MockConnectorTableHandle handle) {
                 SchemaTableName schemaTable = handle.getTableName();
                 if (schemaTable.getSchemaName().equals(SCHEMA_NAME) && tables.contains(schemaTable.getTableName())) {
-                    Predicate<ColumnHandle> shouldPushdown = columnHandle -> ((MockConnectorColumnHandle) columnHandle).getName().equals(pushdownColumn);
+                    Predicate<ColumnHandle> shouldPushdown = columnHandle -> ((MockConnectorColumnHandle) columnHandle).name().equals(pushdownColumn);
                     TupleDomain<ColumnHandle> oldDomain = handle.getConstraint();
                     TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary()
                             .filter((columnHandle, domain) -> shouldPushdown.test(columnHandle)));

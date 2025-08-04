@@ -257,6 +257,7 @@ public abstract class BaseHiveConnectorTest
                  SUPPORTS_DROP_FIELD,
                  SUPPORTS_MERGE,
                  SUPPORTS_NOT_NULL_CONSTRAINT,
+                 SUPPORTS_REFRESH_VIEW,
                  SUPPORTS_RENAME_FIELD,
                  SUPPORTS_SET_COLUMN_TYPE,
                  SUPPORTS_TOPN_PUSHDOWN,

@@ -155,7 +155,7 @@ public class QueryManagerConfig
     private boolean faultTolerantExecutionSmallStageRequireNoMorePartitions;
     private boolean faultTolerantExecutionStageEstimationForEagerParentEnabled = true;
     private boolean faultTolerantExecutionAdaptiveQueryPlanningEnabled = true;
-    private boolean faultTolerantExecutionAdaptiveJoinReorderingEnabled = true;
+    private boolean faultTolerantExecutionAdaptiveJoinReorderingEnabled;
     // Use a smaller threshold to change the order since the cost of changing the order is lower here. Additionally,
     // the data size stats are more accurate compared to static planning since they are collected at run time from the
     // stage execution.

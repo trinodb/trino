@@ -13,12 +13,10 @@
  */
 package io.trino.tests.product.deltalake;
 
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.model.ObjectListing;
-import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
+import io.trino.tempto.AfterMethodWithContext;
 import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.assertions.QueryAssert.Row;
 import io.trino.tempto.query.QueryResult;
@@ -26,6 +24,8 @@ import io.trino.testng.services.Flaky;
 import io.trino.tests.product.deltalake.util.DatabricksVersion;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.S3Object;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -43,6 +43,7 @@ import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_143;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_154;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.product.deltalake.S3ClientFactory.createS3Client;
 import static io.trino.tests.product.deltalake.TransactionLogAssertions.assertLastEntryIsCheckpointed;
 import static io.trino.tests.product.deltalake.TransactionLogAssertions.assertTransactionLogVersion;
 import static io.trino.tests.product.deltalake.util.DatabricksVersion.DATABRICKS_113_RUNTIME_VERSION;
@@ -62,14 +63,21 @@ public class TestDeltaLakeCheckpointsCompatibility
     @Named("s3.server_type")
     private String s3ServerType;
 
-    private AmazonS3 s3;
+    private S3Client s3;
     private Optional<DatabricksVersion> databricksRuntimeVersion;
 
     @BeforeMethodWithContext
     public void setup()
     {
-        s3 = new S3ClientFactory().createS3Client(s3ServerType);
+        s3 = createS3Client(s3ServerType);
         databricksRuntimeVersion = getDatabricksRuntimeVersion();
+    }
+
+    @AfterMethodWithContext
+    public void cleanUp()
+    {
+        s3.close();
+        s3 = null;
     }
 
     @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
@@ -731,13 +739,9 @@ public class TestDeltaLakeCheckpointsCompatibility
 
     private List<String> listS3Directory(String bucketName, String directory)
     {
-        ImmutableList.Builder<String> result = ImmutableList.builder();
-        ObjectListing listing = s3.listObjects(bucketName, directory);
-        do {
-            listing.getObjectSummaries().stream().map(S3ObjectSummary::getKey).forEach(result::add);
-            listing = s3.listNextBatchOfObjects(listing);
-        }
-        while (listing.isTruncated());
-        return result.build();
+        return s3.listObjectsV2Paginator(request -> request.bucket(bucketName).prefix(directory))
+                .contents().stream()
+                .map(S3Object::key)
+                .toList();
     }
 }

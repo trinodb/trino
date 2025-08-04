@@ -16,6 +16,7 @@ package io.trino.sql;
 import com.google.common.collect.ImmutableList;
 import io.trino.sql.tree.AddColumn;
 import io.trino.sql.tree.AllColumns;
+import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.ColumnPosition;
 import io.trino.sql.tree.Comment;
@@ -25,16 +26,21 @@ import io.trino.sql.tree.CreateMaterializedView;
 import io.trino.sql.tree.CreateTable;
 import io.trino.sql.tree.CreateTableAsSelect;
 import io.trino.sql.tree.CreateView;
+import io.trino.sql.tree.Delete;
 import io.trino.sql.tree.DropBranch;
 import io.trino.sql.tree.ExecuteImmediate;
 import io.trino.sql.tree.FastForwardBranch;
 import io.trino.sql.tree.GenericDataType;
 import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.Insert;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.Merge;
+import io.trino.sql.tree.MergeDelete;
 import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.Property;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Query;
+import io.trino.sql.tree.RefreshView;
 import io.trino.sql.tree.ShowBranches;
 import io.trino.sql.tree.ShowCatalogs;
 import io.trino.sql.tree.ShowColumns;
@@ -43,11 +49,15 @@ import io.trino.sql.tree.ShowSchemas;
 import io.trino.sql.tree.ShowSession;
 import io.trino.sql.tree.ShowTables;
 import io.trino.sql.tree.StringLiteral;
+import io.trino.sql.tree.Table;
+import io.trino.sql.tree.Update;
+import io.trino.sql.tree.UpdateAssignment;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 import java.util.function.BiFunction;
 
+import static io.trino.sql.QueryUtil.aliased;
 import static io.trino.sql.QueryUtil.identifier;
 import static io.trino.sql.QueryUtil.selectList;
 import static io.trino.sql.QueryUtil.simpleQuery;
@@ -561,6 +571,14 @@ public class TestSqlFormatter
     }
 
     @Test
+    public void testRefreshView()
+    {
+        assertThat(formatSql(
+                new RefreshView(new NodeLocation(1, 1), QualifiedName.of("catalog", "schema", "view"))))
+                .isEqualTo("ALTER VIEW catalog.schema.view REFRESH");
+    }
+
+    @Test
     public void testExecuteImmediate()
     {
         assertThat(formatSql(
@@ -582,6 +600,67 @@ public class TestSqlFormatter
                         ImmutableList.of())))
                 .isEqualTo("EXECUTE IMMEDIATE\n" +
                         "'SELECT * FROM foo WHERE col1 = ''攻殻機動隊'''");
+    }
+
+    @Test
+    void testInsertWithBranch()
+    {
+        assertThat(formatSql(new Insert(
+                new NodeLocation(1, 1),
+                new Table(new NodeLocation(1, 1), QualifiedName.of("t"), Optional.of(new Identifier("main"))),
+                Optional.empty(),
+                simpleQuery(selectList(new AllColumns(new NodeLocation(1, 1))), table(QualifiedName.of("s"))))))
+                .isEqualTo(
+                        """
+                        INSERT INTO t@main
+                        SELECT *
+                        FROM
+                          s
+                        """);
+    }
+
+    @Test
+    void testDeleteWithBranch()
+    {
+        assertThat(formatSql(new Delete(
+                new NodeLocation(1, 1),
+                new Table(new NodeLocation(1, 1), QualifiedName.of("t"), Optional.of(new Identifier("main"))),
+                Optional.empty())))
+                .isEqualTo("DELETE FROM t@main");
+    }
+
+    @Test
+    void testUpdateWithBranch()
+    {
+        assertThat(formatSql(new Update(
+                new NodeLocation(1, 1),
+                new Table(new NodeLocation(1, 1), QualifiedName.of("t"), Optional.of(new Identifier("main"))),
+                ImmutableList.of(new UpdateAssignment(new Identifier("bar"), new LongLiteral(new NodeLocation(1, 1), "23"))),
+                Optional.empty())))
+                .isEqualTo(
+                        """
+                        UPDATE t@main SET
+                           bar = 23\
+                        """);
+    }
+
+    @Test
+    void testMergeWithBranch()
+    {
+        assertThat(formatSql(new Merge(
+                new NodeLocation(1, 1),
+                new Table(new NodeLocation(1, 1), QualifiedName.of("t"), Optional.of(new Identifier("main"))),
+                aliased(table(QualifiedName.of("changes")), "c"),
+                new BooleanLiteral(new NodeLocation(1, 1), "true"),
+                ImmutableList.of(new MergeDelete(new NodeLocation(1, 1), Optional.empty())))))
+                .isEqualTo(
+                        """
+                        MERGE INTO t@main
+                           USING changes c
+                           ON true
+                        WHEN MATCHED
+                           THEN DELETE\
+                        """);
     }
 
     @Test

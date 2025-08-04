@@ -20,6 +20,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.Math.addExact;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -67,6 +68,12 @@ public class CoarseGrainLocalMemoryContext
             return delegate.setBytes(currentBytes);
         }
         return Futures.immediateVoidFuture();
+    }
+
+    @Override
+    public synchronized ListenableFuture<Void> addBytes(long delta)
+    {
+        return setBytes(addExact(currentBytes, delta));
     }
 
     @Override

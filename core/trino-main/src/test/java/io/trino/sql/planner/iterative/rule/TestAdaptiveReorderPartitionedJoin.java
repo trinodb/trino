@@ -16,6 +16,7 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.Session;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -24,6 +25,7 @@ import io.trino.sql.planner.iterative.rule.test.RuleTester;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.testing.PlanTester;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -42,6 +44,7 @@ import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
 import static io.trino.sql.planner.plan.JoinType.INNER;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public class TestAdaptiveReorderPartitionedJoin
         extends BaseRuleTest
@@ -482,5 +485,14 @@ public class TestAdaptiveReorderPartitionedJoin
                                     .scope(LOCAL)),
                             new JoinNode.EquiJoinClause(probeSymbol, buildSymbol));
                 });
+    }
+
+    @Override
+    protected Optional<PlanTester> createPlanTester()
+    {
+        Session session = testSessionBuilder()
+                .setSystemProperty("fault_tolerant_execution_adaptive_join_reordering_enabled", "true")
+                .build();
+        return Optional.of(PlanTester.create(session));
     }
 }

@@ -13,8 +13,6 @@
  */
 package io.trino.connector;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
@@ -54,7 +52,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.IntStream;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -729,23 +726,8 @@ public class TestingTableFunctions
                     .build();
         }
 
-        public static class RepeatFunctionHandle
-                implements ConnectorTableFunctionHandle
-        {
-            private final long count;
-
-            @JsonCreator
-            public RepeatFunctionHandle(@JsonProperty("count") long count)
-            {
-                this.count = count;
-            }
-
-            @JsonProperty
-            public long getCount()
-            {
-                return count;
-            }
-        }
+        public record RepeatFunctionHandle(long count)
+                implements ConnectorTableFunctionHandle {}
 
         public static class RepeatFunctionProcessorProvider
                 implements TableFunctionProcessorProvider
@@ -753,7 +735,7 @@ public class TestingTableFunctions
             @Override
             public TableFunctionDataProcessor getDataProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle)
             {
-                return new RepeatFunctionProcessor(((RepeatFunctionHandle) handle).getCount());
+                return new RepeatFunctionProcessor(((RepeatFunctionHandle) handle).count());
             }
         }
 
@@ -1262,31 +1244,8 @@ public class TestingTableFunctions
                     .build();
         }
 
-        public static class ConstantFunctionHandle
-                implements ConnectorTableFunctionHandle
-        {
-            private final Long value;
-            private final long count;
-
-            @JsonCreator
-            public ConstantFunctionHandle(@JsonProperty("value") Long value, @JsonProperty("count") long count)
-            {
-                this.value = value;
-                this.count = count;
-            }
-
-            @JsonProperty
-            public Long getValue()
-            {
-                return value;
-            }
-
-            @JsonProperty
-            public long getCount()
-            {
-                return count;
-            }
-        }
+        public record ConstantFunctionHandle(Long value, long count)
+                implements ConnectorTableFunctionHandle {}
 
         public static class ConstantFunctionProcessorProvider
                 implements TableFunctionProcessorProvider
@@ -1294,7 +1253,7 @@ public class TestingTableFunctions
             @Override
             public TableFunctionSplitProcessor getSplitProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle, ConnectorSplit split)
             {
-                return new ConstantFunctionProcessor(((ConstantFunctionHandle) handle).getValue(), (ConstantFunctionSplit) split);
+                return new ConstantFunctionProcessor(((ConstantFunctionHandle) handle).value(), (ConstantFunctionSplit) split);
             }
         }
 
@@ -1311,7 +1270,7 @@ public class TestingTableFunctions
             public ConstantFunctionProcessor(Long value, ConstantFunctionSplit split)
             {
                 this.value = nativeValueToBlock(INTEGER, value);
-                long count = split.getCount();
+                long count = split.count();
                 this.fullPagesCount = count / PAGE_SIZE;
                 this.reminder = toIntExact(count % PAGE_SIZE);
             }
@@ -1339,43 +1298,21 @@ public class TestingTableFunctions
         {
             long splitSize = DEFAULT_SPLIT_SIZE;
             ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
-            for (long i = 0; i < handle.getCount() / splitSize; i++) {
+            for (long i = 0; i < handle.count() / splitSize; i++) {
                 splits.add(new ConstantFunctionSplit(splitSize));
             }
-            long remainingSize = handle.getCount() % splitSize;
+            long remainingSize = handle.count() % splitSize;
             if (remainingSize > 0) {
                 splits.add(new ConstantFunctionSplit(remainingSize));
             }
             return new FixedSplitSource(splits.build());
         }
 
-        public static final class ConstantFunctionSplit
+        public record ConstantFunctionSplit(long count)
                 implements ConnectorSplit
         {
             private static final int INSTANCE_SIZE = instanceSize(ConstantFunctionSplit.class);
             public static final int DEFAULT_SPLIT_SIZE = 5500;
-
-            private final long count;
-
-            @JsonCreator
-            public ConstantFunctionSplit(@JsonProperty("count") long count)
-            {
-                this.count = count;
-            }
-
-            @JsonProperty
-            public long getCount()
-            {
-                return count;
-            }
-
-            @Override
-            public String toString()
-            {
-                return toStringHelper(this)
-                        .add("count", count)
-                        .toString();
-            }
 
             @Override
             public long getRetainedSizeInBytes()

@@ -25,7 +25,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 
 import java.time.temporal.ChronoUnit;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -223,7 +222,7 @@ public final class PartitionProjectionProperties
             }
         }
 
-        Map<String, Projection> columnProjections = new HashMap<>();
+        ImmutableMap.Builder<String, Projection> columnProjections = ImmutableMap.builder();
         partitionColumns.forEach((columnName, type) -> {
             Map<String, Object> columnProperties = rewriteColumnProjectionProperties(tableProperties, columnName);
             if (enabled) {
@@ -243,7 +242,7 @@ public final class PartitionProjectionProperties
         if (!enabled) {
             return Optional.empty();
         }
-        return Optional.of(new PartitionProjection(storageLocationTemplate, columnProjections));
+        return Optional.of(new PartitionProjection(storageLocationTemplate, columnProjections.buildOrThrow()));
     }
 
     private static Map<String, Object> rewriteColumnProjectionProperties(Map<String, String> metastoreTableProperties, String columnName)

@@ -13,11 +13,9 @@
  */
 package io.trino.spi.function.table;
 
-import io.trino.spi.Experimental;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 
-@Experimental(eta = "2023-07-31")
 public interface TableFunctionProcessorProvider
 {
     /**

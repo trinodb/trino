@@ -166,9 +166,9 @@ public class TestDistinctLimitOperator
                 hashStrategyCompiler);
 
         GroupByHashYieldAssertion.GroupByHashYieldResult result = finishOperatorWithYieldingGroupByHash(input, type, operatorFactory, operator -> ((DistinctLimitOperator) operator).getCapacity(), 450_000);
-        assertThat(result.getYieldCount()).isGreaterThanOrEqualTo(5);
-        assertThat(result.getMaxReservedBytes()).isGreaterThanOrEqualTo(20L << 20);
-        assertThat(result.getOutput().stream().mapToInt(Page::getPositionCount).sum()).isEqualTo(6_000 * 600);
+        assertThat(result.yieldCount()).isGreaterThanOrEqualTo(5);
+        assertThat(result.maxReservedBytes()).isGreaterThanOrEqualTo(20L << 20);
+        assertThat(result.output().stream().mapToInt(Page::getPositionCount).sum()).isEqualTo(6_000 * 600);
     }
 
     private DriverContext newDriverContext()

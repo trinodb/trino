@@ -798,6 +798,19 @@ public class AccessControlManager
     }
 
     @Override
+    public void checkCanRefreshView(SecurityContext securityContext, QualifiedObjectName viewName)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(viewName, "viewName is null");
+
+        checkCanAccessCatalog(securityContext, viewName.catalogName());
+
+        systemAuthorizationCheck(control -> control.checkCanRefreshView(securityContext.toSystemSecurityContext(), viewName.asCatalogSchemaTableName()));
+
+        catalogAuthorizationCheck(viewName.catalogName(), securityContext, (control, context) -> control.checkCanRefreshView(context, viewName.asSchemaTableName()));
+    }
+
+    @Override
     public void checkCanDropView(SecurityContext securityContext, QualifiedObjectName viewName)
     {
         requireNonNull(securityContext, "securityContext is null");
