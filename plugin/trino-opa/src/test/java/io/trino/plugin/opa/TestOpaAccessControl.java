@@ -364,7 +364,6 @@ public class TestOpaAccessControl
     @Test
     public void testCreateSchemaWithProperties()
     {
-
         CatalogSchemaName schema = new CatalogSchemaName("my_catalog", "my_schema");
         ThrowingMethodWrapper wrappedMethod = new ThrowingMethodWrapper(
                 accessControl -> accessControl.checkCanCreateSchema(TEST_SECURITY_CONTEXT, schema, ImmutableMap.of("some_key", "some_value")));

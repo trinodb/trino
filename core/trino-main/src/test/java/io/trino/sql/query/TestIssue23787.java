@@ -35,7 +35,7 @@ public class TestIssue23787
                         WHEN a = 2 OR b THEN 'b'
                         ELSE 'c'
                       END = 'b'
-                    FROM t                    
+                    FROM t
                     """))
                     .matches("VALUES false");
         }

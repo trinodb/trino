@@ -218,8 +218,6 @@ public class TestAdaptivePartitioning
                 true);
     }
 
-
-
     private Session getSession()
     {
         return Session.builder(getPlanTester().getDefaultSession())
