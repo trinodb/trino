@@ -1,5 +1,6 @@
 package io.trino.plugin.teradata;
 
+import io.trino.plugin.teradata.clearscape.ClearScapeManager;
 import io.trino.testing.sql.SqlExecutor;
 import org.intellij.lang.annotations.Language;
 
@@ -22,28 +23,23 @@ import java.util.Map;
 public class TestTeradataDatabase
         implements AutoCloseable, SqlExecutor
 {
+    private final ClearScapeManager clearScapeManager;
+    private final boolean useClearScape;
     private final String databaseName;
     private final Connection connection;
     private final String jdbcUrl;
     private final Map<String, String> connectionProperties = new HashMap<>();
 
-    /**
-     * Creates a new TestTeradataDatabase instance using the provided configuration.
-     *
-     * @param config DatabaseConfig containing connection details.
-     * @throws SQLException if a database access error occurs.
-     * @throws ClassNotFoundException if the JDBC driver class is not found.
-     */
     public TestTeradataDatabase(DatabaseConfig config)
     {
         this.databaseName = config.getDatabaseName();
         this.jdbcUrl = config.getJdbcUrl();
+        this.useClearScape = config.isUseClearScape();
+        this.clearScapeManager = config.getClearScapeManager();
 
         connectionProperties.put("connection-url", jdbcUrl);
         connectionProperties.put("connection-user", config.getUsername());
         connectionProperties.put("connection-password", config.getPassword());
-        connectionProperties.put("join-pushdown.enabled", "true");
-        //connectionProperties.put("join-pushdown.strategy", "EAGER");
         try {
             Class.forName("com.teradata.jdbc.TeraDriver");
             this.connection = DriverManager.getConnection(jdbcUrl, config.getUsername(), config.getPassword());
@@ -52,6 +48,14 @@ public class TestTeradataDatabase
             throw new RuntimeException(e);
         }
     }
+
+    /**
+     * Creates a new TestTeradataDatabase instance using the provided configuration.
+     *
+     * @param config DatabaseConfig containing connection details.
+     * @throws SQLException if a database access error occurs.
+     * @throws ClassNotFoundException if the JDBC driver class is not found.
+     */
 
     /**
      * Checks whether a table with the given name exists in the specified schema of the database.
@@ -69,7 +73,7 @@ public class TestTeradataDatabase
     {
         @Language("SQL") String query = "SELECT count(1)  FROM DBC.TablesV WHERE DataBaseName = ? AND TableName = ?";
         try (PreparedStatement stmt = connection.prepareStatement(query)) {
-            stmt.setString(1, "trino");
+            stmt.setString(1, this.databaseName); // Use the actual database name instead of hardcoded "trino"
             stmt.setString(2, tableName);
             try (ResultSet rs = stmt.executeQuery()) {
                 return rs.next() && rs.getInt(1) > 0;
@@ -156,16 +160,22 @@ public class TestTeradataDatabase
     }
 
     /**
-     * Closes the database connection.
-     *
-     * @throws SQLException if closing fails
+     * Closes the database connection.     *
      */
     @Override
     public void close()
-            throws SQLException
     {
-        if (!connection.isClosed()) {
-            connection.close();
+        try {
+            dropTestDatabaseIfExists();
+            if (!connection.isClosed()) {
+                connection.close();
+            }
+            if (useClearScape && clearScapeManager != null) {
+                clearScapeManager.teardown(); // Clean up ClearScape environment
+            }
+        }
+        catch (SQLException e) {
+            throw new RuntimeException("Failed to close connection: " + e.getMessage(), e);
         }
     }
 

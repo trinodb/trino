@@ -70,8 +70,10 @@ statement
          (COMMENT string)?
          (WITH properties)?                                            #createTable
     | DROP TABLE (IF EXISTS)? qualifiedName                            #dropTable
-    | INSERT INTO qualifiedName columnAliases? rootQuery               #insertInto
-    | DELETE FROM qualifiedName (WHERE booleanExpression)?             #delete
+    | INSERT INTO qualifiedName ('@' branch=identifier)?
+       columnAliases? rootQuery                                        #insertInto
+    | DELETE FROM qualifiedName ('@' branch=identifier)?
+         (WHERE booleanExpression)?                                    #delete
     | TRUNCATE TABLE qualifiedName                                     #truncateTable
     | COMMENT ON TABLE qualifiedName IS (string | NULL)                #commentTable
     | COMMENT ON VIEW qualifiedName IS (string | NULL)                 #commentView
@@ -114,6 +116,7 @@ statement
         SET PROPERTIES propertyAssignments                             #setMaterializedViewProperties
     | DROP VIEW (IF EXISTS)? qualifiedName                             #dropView
     | ALTER VIEW from=qualifiedName RENAME TO to=qualifiedName         #renameView
+    | ALTER VIEW viewName=qualifiedName REFRESH                        #refreshView
     | CALL qualifiedName '(' (callArgument (',' callArgument)*)? ')'   #call
     | CREATE (OR REPLACE)? functionSpecification                       #createFunction
     | DROP FUNCTION (IF EXISTS)? functionDeclaration                   #dropFunction
@@ -197,10 +200,11 @@ statement
     | DESCRIBE OUTPUT identifier                                       #describeOutput
     | SET PATH pathSpecification                                       #setPath
     | SET TIME ZONE (LOCAL | expression)                               #setTimeZone
-    | UPDATE qualifiedName
+    | UPDATE qualifiedName ('@' branch=identifier)?
         SET updateAssignment (',' updateAssignment)*
         (WHERE where=booleanExpression)?                               #update
-    | MERGE INTO qualifiedName (AS? identifier)?
+    | MERGE INTO
+        qualifiedName ('@' branch=identifier)? (AS? alias=identifier)?
         USING relation ON expression mergeCase+                        #merge
     ;
 

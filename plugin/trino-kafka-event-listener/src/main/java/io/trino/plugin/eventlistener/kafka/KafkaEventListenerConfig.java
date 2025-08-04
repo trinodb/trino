@@ -19,6 +19,7 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.validation.FileExists;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 import jakarta.validation.constraints.AssertTrue;
@@ -33,6 +34,8 @@ import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.airlift.units.DataSize.Unit.KILOBYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -48,6 +51,8 @@ public class KafkaEventListenerConfig
     private Optional<String> splitCompletedTopicName = Optional.empty();
     private String brokerEndpoints;
     private Optional<String> clientId = Optional.empty();
+    private DataSize maxRequestSize = DataSize.of(5, MEGABYTE); // Greater than default value because the size of completed events are quite large
+    private DataSize batchSize = DataSize.of(16, KILOBYTE); // Default value of batch.size
     private Set<String> excludedFields = Collections.emptySet();
     private Duration requestTimeout = new Duration(10, SECONDS);
     private boolean terminateOnInitializationFailure = true;
@@ -88,6 +93,32 @@ public class KafkaEventListenerConfig
     public KafkaEventListenerConfig setClientId(String clientId)
     {
         this.clientId = Optional.ofNullable(clientId);
+        return this;
+    }
+
+    public DataSize getMaxRequestSize()
+    {
+        return maxRequestSize;
+    }
+
+    @ConfigDescription("The maximum size of a request/message in bytes")
+    @Config("kafka-event-listener.max-request-size")
+    public KafkaEventListenerConfig setMaxRequestSize(DataSize maxRequestSize)
+    {
+        this.maxRequestSize = maxRequestSize;
+        return this;
+    }
+
+    public DataSize getBatchSize()
+    {
+        return batchSize;
+    }
+
+    @ConfigDescription("Value that specifies the size to batch before sending records to Kafka")
+    @Config("kafka-event-listener.batch-size")
+    public KafkaEventListenerConfig setBatchSize(DataSize batchSize)
+    {
+        this.batchSize = batchSize;
         return this;
     }
 

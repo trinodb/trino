@@ -58,6 +58,7 @@ import static io.trino.spi.security.AccessDeniedException.denyGrantSchemaPrivile
 import static io.trino.spi.security.AccessDeniedException.denyGrantTablePrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyInsertTable;
 import static io.trino.spi.security.AccessDeniedException.denyRefreshMaterializedView;
+import static io.trino.spi.security.AccessDeniedException.denyRefreshView;
 import static io.trino.spi.security.AccessDeniedException.denyRenameColumn;
 import static io.trino.spi.security.AccessDeniedException.denyRenameMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyRenameSchema;
@@ -468,6 +469,16 @@ public interface ConnectorAccessControl
     default void checkCanRefreshMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName)
     {
         denyRefreshMaterializedView(materializedViewName.toString());
+    }
+
+    /**
+     * Check if identity is allowed to refresh the specified view.
+     *
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanRefreshView(ConnectorSecurityContext context, SchemaTableName viewName)
+    {
+        denyRefreshView(viewName.toString());
     }
 
     /**

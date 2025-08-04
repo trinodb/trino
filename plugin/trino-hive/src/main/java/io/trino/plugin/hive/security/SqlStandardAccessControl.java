@@ -85,6 +85,7 @@ import static io.trino.spi.security.AccessDeniedException.denyGrantRoles;
 import static io.trino.spi.security.AccessDeniedException.denyGrantTablePrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyInsertTable;
 import static io.trino.spi.security.AccessDeniedException.denyRefreshMaterializedView;
+import static io.trino.spi.security.AccessDeniedException.denyRefreshView;
 import static io.trino.spi.security.AccessDeniedException.denyRenameColumn;
 import static io.trino.spi.security.AccessDeniedException.denyRenameMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyRenameSchema;
@@ -235,6 +236,14 @@ public class SqlStandardAccessControl
     {
         if (!isTableOwner(context, viewName)) {
             denyCommentView(viewName.toString());
+        }
+    }
+
+    @Override
+    public void checkCanRefreshView(ConnectorSecurityContext context, SchemaTableName viewName)
+    {
+        if (!checkTablePermission(context, viewName, UPDATE, false)) {
+            denyRefreshView(viewName.toString());
         }
     }
 

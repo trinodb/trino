@@ -15,7 +15,6 @@ package io.trino.spi.function;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.trino.spi.Experimental;
 import io.trino.spi.type.Type;
 
 import java.util.List;
@@ -25,7 +24,6 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toUnmodifiableList;
 
-@Experimental(eta = "2022-10-31")
 public class BoundSignature
 {
     private final CatalogSchemaFunctionName name;

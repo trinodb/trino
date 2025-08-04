@@ -167,6 +167,9 @@ public class AllowAllAccessControl
     public void checkCanRenameView(SecurityContext context, QualifiedObjectName viewName, QualifiedObjectName newViewName) {}
 
     @Override
+    public void checkCanRefreshView(SecurityContext context, QualifiedObjectName viewName) {}
+
+    @Override
     public void checkCanDropView(SecurityContext context, QualifiedObjectName viewName) {}
 
     @Override

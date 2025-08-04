@@ -30,6 +30,6 @@ class TestAzureFileSystemGen2Hierarchical
     void setup()
             throws IOException
     {
-        initializeWithAccessKey(requireEnv("ABFS_HIERARCHICAL_ACCOUNT"), requireEnv("ABFS_HIERARCHICAL_ACCESS_KEY"), HIERARCHICAL);
+        initializeWithAccessKeyAndMultipartWrites(requireEnv("ABFS_HIERARCHICAL_ACCOUNT"), requireEnv("ABFS_HIERARCHICAL_ACCESS_KEY"), HIERARCHICAL);
     }
 }

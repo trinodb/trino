@@ -15,9 +15,7 @@ package io.trino.spi.spool;
 
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
-import io.trino.spi.Experimental;
 
-@Experimental(eta = "2025-05-31")
 public interface SpoolingManagerContext
 {
     default OpenTelemetry getOpenTelemetry()

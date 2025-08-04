@@ -13,7 +13,6 @@
  */
 package io.trino.spi.function.table;
 
-import io.trino.spi.Experimental;
 import jakarta.annotation.Nullable;
 
 import static io.trino.spi.function.table.Preconditions.checkArgument;
@@ -29,7 +28,6 @@ import static io.trino.spi.function.table.Preconditions.checkNotNullOrEmpty;
  * <p>
  * Default values are allowed for all arguments except Table arguments.
  */
-@Experimental(eta = "2022-10-31")
 public abstract class ArgumentSpecification
 {
     private final String name;

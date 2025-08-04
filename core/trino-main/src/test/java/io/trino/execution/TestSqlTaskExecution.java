@@ -13,8 +13,6 @@
  */
 package io.trino.execution;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -487,42 +485,22 @@ public class TestSqlTaskExecution
                 }
 
                 pauser.await();
-                Page result = new Page(createStringSequenceBlock(split.getBegin(), split.getEnd()));
+                Page result = new Page(createStringSequenceBlock(split.begin(), split.end()));
                 finish();
                 return result;
             }
         }
     }
 
-    public static class TestingSplit
+    public record TestingSplit(int begin, int end)
             implements ConnectorSplit
     {
         private static final int INSTANCE_SIZE = instanceSize(TestingSplit.class);
-
-        private final int begin;
-        private final int end;
-
-        @JsonCreator
-        public TestingSplit(@JsonProperty("begin") int begin, @JsonProperty("end") int end)
-        {
-            this.begin = begin;
-            this.end = end;
-        }
 
         @Override
         public long getRetainedSizeInBytes()
         {
             return INSTANCE_SIZE;
-        }
-
-        public int getBegin()
-        {
-            return begin;
-        }
-
-        public int getEnd()
-        {
-            return end;
         }
     }
 }

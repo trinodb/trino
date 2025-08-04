@@ -1,15 +1,21 @@
 package io.trino.plugin.teradata;
 
+import io.trino.plugin.teradata.clearscape.ClearScapeManager;
+
 /**
  * Holds Teradata database connection configuration,
  * typically loaded from environment variables.
  */
 public class DatabaseConfig
 {
+    private static final String TMODE = System.getenv("TMODE");
+    private static final String CHARSET = System.getenv("CHARSET");
     private final String jdbcUrl;
     private final String username;
     private final String password;
     private String databaseName;
+    private boolean useClearScape;
+    private ClearScapeManager clearScapeManager;
 
     public DatabaseConfig(String jdbcUrl, String username, String password, String databaseName)
     {
@@ -25,22 +31,19 @@ public class DatabaseConfig
      *
      * @throws IllegalStateException if required env vars are missing.
      */
-    public static DatabaseConfig fromEnv()
+    public ClearScapeManager getClearScapeManager()
     {
-        String host = System.getenv("hostname");
-        String user = System.getenv("user");
-        String pass = System.getenv("password");
-        String database = System.getenv("database");
-        if (database == null || database.isEmpty()) {
-            database = "trino";
-        }
+        return clearScapeManager;
+    }
 
-        if (host == null || user == null || pass == null) {
-            throw new IllegalStateException("Environment variables [hostname, user, password] must be set.");
-        }
+    public boolean isUseClearScape()
+    {
+        return useClearScape;
+    }
 
-        String jdbcUrl = String.format("jdbc:teradata://%s/TMODE=ANSI,CHARSET=UTF8", host);
-        return new DatabaseConfig(jdbcUrl, user, pass, database);
+    public void setUseClearScape(boolean useClearScape)
+    {
+        this.useClearScape = useClearScape;
     }
 
     public String getJdbcUrl()

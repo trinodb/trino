@@ -723,8 +723,6 @@ public class TeradataClient
         if (cascade) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping schemas with CASCADE option");
         }
-//        String deleteSchema = "DELETE DATABASE " + quoted(remoteSchemaName);
-//        execute(session, connection, deleteSchema);
         String dropSchema = "DROP DATABASE " + quoted(remoteSchemaName);
         execute(session, connection, dropSchema);
     }

@@ -3934,6 +3934,9 @@ public class ExpressionAnalyzer
         if (type instanceof BooleanType) {
             checkArgument(value instanceof Boolean, "Value must be true or false '%s'".formatted(value));
         }
+        if (value == null) {
+            return;
+        }
         if (type instanceof CharType charType) {
             int targetLength = charType.getLength();
             Slice slice = (Slice) value;

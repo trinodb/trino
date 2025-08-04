@@ -1149,7 +1149,7 @@ public abstract class BaseIcebergMaterializedViewTest
         }
     }
 
-    public static class SequenceTableFunctionHandle
+    public record SequenceTableFunctionHandle()
             implements ConnectorTableFunctionHandle {}
 
     public static class SequenceTableFunctionProcessorProvider

@@ -34,7 +34,9 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WI
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Integration test class for Teradata JDBC Connector.
@@ -44,7 +46,13 @@ public class TeradataJdbcConnectorTest
         extends BaseJdbcConnectorTest
 {
     private static final Logger log = Logger.get(TeradataJdbcConnectorTest.class);
-    protected final TestTeradataDatabase database = new TestTeradataDatabase(DatabaseConfig.fromEnv());
+    protected final TestTeradataDatabase database;
+
+    public TeradataJdbcConnectorTest()
+    {
+        DatabaseConfig dbConfig = DatabaseTestUtil.getDatabaseConfig();
+        database = new TestTeradataDatabase(dbConfig);
+    }
 
     private static void verifyResultOrFailure(AssertProvider<QueryAssertions.QueryAssert> queryAssertProvider, Consumer<QueryAssertions.QueryAssert> verifyResults, Consumer<TrinoExceptionAssert> verifyFailure)
     {
@@ -119,13 +127,46 @@ public class TeradataJdbcConnectorTest
             throws Exception
     {
         database.createTestDatabaseIfAbsent();
+        TeradataQueryRunner.setTeradataDatabase(database);
         return TeradataQueryRunner.builder().setInitialTables(REQUIRED_TPCH_TABLES).build();
     }
 
     @AfterAll
     public void cleanupTestDatabase()
     {
-        database.dropTestDatabaseIfExists();
+        database.close();
+    }
+
+    @Override
+    protected OptionalInt maxSchemaNameLength()
+    {
+        return OptionalInt.of(TERADATA_OBJECT_NAME_LIMIT);
+    }
+
+    protected void verifySchemaNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessage(format("Schema name must be shorter than or equal to '%s' characters but got '%s'", TERADATA_OBJECT_NAME_LIMIT, TERADATA_OBJECT_NAME_LIMIT + 1));
+    }
+
+    protected OptionalInt maxColumnNameLength()
+    {
+        return OptionalInt.of(TERADATA_OBJECT_NAME_LIMIT);
+    }
+
+    @Override
+    protected void verifyColumnNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageMatching(format("Column name must be shorter than or equal to '%s' characters but got '%s': '.*'", TERADATA_OBJECT_NAME_LIMIT, TERADATA_OBJECT_NAME_LIMIT + 1));
+    }
+
+    protected OptionalInt maxTableNameLength()
+    {
+        return OptionalInt.of(TERADATA_OBJECT_NAME_LIMIT);
+    }
+
+    protected void verifyTableNameLengthFailurePermissible(Throwable e)
+    {
+        throw new AssertionError(format("Table name must be shorter than or equal to '%s' characters but got '%s'", TERADATA_OBJECT_NAME_LIMIT, TERADATA_OBJECT_NAME_LIMIT + 1));
     }
 
     @Test
@@ -616,10 +657,115 @@ public class TeradataJdbcConnectorTest
     {
         String typeName = dataMappingTestSetup.getTrinoTypeName();
         return switch (typeName) {
-            case "boolean", "tinyint", "real", "timestamp(6)", "timestamp(6) with time zone", "char(3)", "varchar",
+            case "boolean", "timestamp(6)", "time(6)", "timestamp(6) with time zone", "timestamp(3) with time zone", "date",
                  "U&'a \\000a newline'" -> Optional.empty();
             default -> Optional.of(dataMappingTestSetup);
         };
+    }
+
+    @Test
+    public void testDataMappingSmokeTest()
+    {
+        skipTestUnless(this.hasBehavior(TestingConnectorBehavior.SUPPORTS_CREATE_TABLE));
+
+        for (DataMappingTestSetup dataMappingTestSetup : this.testDataMappingSmokeTestDataProvider1()) {
+            this.testDataMapping(dataMappingTestSetup);
+        }
+    }
+
+    public final List<DataMappingTestSetup> testDataMappingSmokeTestDataProvider1()
+    {
+        return testDataMappingSmokeTestData().stream()
+                .map(this::filterDataMappingSmokeTestData)
+                .flatMap(Optional::stream)
+                .collect(toList());
+    }
+
+    private void testDataMapping(DataMappingTestSetup dataMappingTestSetup)
+    {
+        log.info("dataMappingTestSetup=%s", dataMappingTestSetup);
+        String trinoTypeName = dataMappingTestSetup.getTrinoTypeName();
+        String sampleValueLiteral = dataMappingTestSetup.getSampleValueLiteral();
+        String highValueLiteral = dataMappingTestSetup.getHighValueLiteral();
+
+        String tableName = dataMappingTableName(trinoTypeName);
+
+        Runnable setup = () -> {
+            // TODO test with both CTAS *and* CREATE TABLE + INSERT, since they use different connector API methods.
+            String createTable = "CREATE TABLE " + tableName + " AS " +
+                    "SELECT CAST(row_id AS varchar(50)) row_id, CAST(value AS " + trinoTypeName + ") value, CAST(value AS " + trinoTypeName + ") another_column " +
+                    "FROM (VALUES " +
+                    "  ('null value', NULL), " +
+                    "  ('sample value', " + sampleValueLiteral + "), " +
+                    "  ('high value', " + highValueLiteral + ")) " +
+                    " t(row_id, value)";
+            assertUpdate(createTable, 3);
+        };
+        if (dataMappingTestSetup.isUnsupportedType()) {
+            assertThatThrownBy(setup::run)
+                    .satisfies(exception -> verifyUnsupportedTypeException(exception, trinoTypeName));
+            return;
+        }
+        setup.run();
+
+        // without pushdown, i.e. test read data mapping
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE rand() = 42 OR value IS NULL", "VALUES 'null value'");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE rand() = 42 OR value IS NOT NULL", "VALUES 'sample value', 'high value'");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE rand() = 42 OR value = " + sampleValueLiteral, "VALUES 'sample value'");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE rand() = 42 OR value = " + highValueLiteral, "VALUES 'high value'");
+
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE value IS NULL", "VALUES 'null value'");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE value IS NOT NULL", "VALUES 'sample value', 'high value'");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE value = " + sampleValueLiteral, "VALUES 'sample value'");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE value != " + sampleValueLiteral, "VALUES 'high value'");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE value <= " + sampleValueLiteral, "VALUES 'sample value'");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE value > " + sampleValueLiteral, "VALUES 'high value'");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE value <= " + highValueLiteral, "VALUES 'sample value', 'high value'");
+
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE value IS NULL OR value = " + sampleValueLiteral, "VALUES 'null value', 'sample value'");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE value IS NULL OR value != " + sampleValueLiteral, "VALUES 'null value', 'high value'");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE value IS NULL OR value <= " + sampleValueLiteral, "VALUES 'null value', 'sample value'");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE value IS NULL OR value > " + sampleValueLiteral, "VALUES 'null value', 'high value'");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE value IS NULL OR value <= " + highValueLiteral, "VALUES 'null value', 'sample value', 'high value'");
+
+        // complex condition, one that cannot be represented with a TupleDomain
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE value = " + sampleValueLiteral + " OR another_column = " + sampleValueLiteral, "VALUES 'sample value'");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    private List<DataMappingTestSetup> testDataMappingSmokeTestData()
+    {
+        return ImmutableList.<DataMappingTestSetup>builder()
+                .add(new DataMappingTestSetup("boolean", "false", "true"))
+                .add(new DataMappingTestSetup("tinyint", "37", "127"))
+                .add(new DataMappingTestSetup("smallint", "32123", "32767"))
+                .add(new DataMappingTestSetup("integer", "1274942432", "2147483647"))
+                .add(new DataMappingTestSetup("bigint", "312739231274942432", "9223372036854775807"))
+                .add(new DataMappingTestSetup("real", "REAL '567.123'", "REAL '999999.999'"))
+                .add(new DataMappingTestSetup("double", "DOUBLE '1234567890123.123'", "DOUBLE '9999999999999.999'"))
+                .add(new DataMappingTestSetup("decimal(5,3)", "12.345", "99.999"))
+                .add(new DataMappingTestSetup("decimal(15,3)", "123456789012.345", "999999999999.99"))
+                .add(new DataMappingTestSetup("date", "DATE '0001-01-01'", "DATE '1582-10-04'")) // before julian->gregorian switch
+                .add(new DataMappingTestSetup("date", "DATE '2020-02-12'", "DATE '9999-12-31'"))
+                .add(new DataMappingTestSetup("time", "TIME '15:03:00'", "TIME '23:59:59.999'"))
+                .add(new DataMappingTestSetup("time(6)", "TIME '15:03:00'", "TIME '23:59:59.999999'"))
+                .add(new DataMappingTestSetup("timestamp", "TIMESTAMP '1969-12-31 15:03:00.123'", "TIMESTAMP '1969-12-31 17:03:00.456'"))
+                .add(new DataMappingTestSetup("timestamp", "TIMESTAMP '2020-02-12 15:03:00'", "TIMESTAMP '2199-12-31 23:59:59.999'"))
+                .add(new DataMappingTestSetup("timestamp(6)", "TIMESTAMP '1969-12-31 15:03:00.123456'", "TIMESTAMP '1969-12-31 17:03:00.123456'"))
+                .add(new DataMappingTestSetup("timestamp(6)", "TIMESTAMP '2020-02-12 15:03:00'", "TIMESTAMP '2199-12-31 23:59:59.999999'"))
+                .add(new DataMappingTestSetup("timestamp(3) with time zone", "TIMESTAMP '1969-12-31 15:03:00.123 +01:00'", "TIMESTAMP '1969-12-31 17:03:00.456 +01:00'"))
+                .add(new DataMappingTestSetup("timestamp(3) with time zone", "TIMESTAMP '2020-02-12 15:03:00 +01:00'", "TIMESTAMP '9999-12-31 23:59:59.999 +12:00'"))
+                .add(new DataMappingTestSetup("timestamp(6) with time zone", "TIMESTAMP '1969-12-31 15:03:00.123456 +01:00'", "TIMESTAMP '1969-12-31 17:03:00.123456 +01:00'"))
+                .add(new DataMappingTestSetup("timestamp(6) with time zone", "TIMESTAMP '2020-02-12 15:03:00 +01:00'", "TIMESTAMP '9999-12-31 23:59:59.999999 +12:00'"))
+                .add(new DataMappingTestSetup("char(3)", "'ab'", "'zzz'"))
+                .add(new DataMappingTestSetup("varchar(3)", "'de'", "'zzz'"))
+                .add(new DataMappingTestSetup("varchar", "'łąka for the win'", "'ŻŻŻŻŻŻŻŻŻŻ'"))
+                .add(new DataMappingTestSetup("varchar", "'a \\backslash'", "'a a'")) // `a` sorts after `\`; \b may be interpreted as an escape sequence
+                .add(new DataMappingTestSetup("varchar", "'end backslash \\'", "'end backslash a'")) // `a` sorts after `\`; final \ before end quote may confuse a parser
+                .add(new DataMappingTestSetup("varchar", "U&'a \\000a newline'", "'a a'")) // `a` sorts after `\n`; newlines can require special handling in a remote system's language
+                .add(new DataMappingTestSetup("varbinary", "X'12ab3f'", "X'ffffffffffffffffffff'"))
+                .build();
     }
 
     @Test
@@ -715,27 +861,6 @@ public class TeradataJdbcConnectorTest
         Assertions.assertThat(this.getQueryRunner().tableExists(session, table)).isFalse();
     }
 
-    protected void verifySchemaNameLengthFailurePermissible(Throwable e)
-    {
-        assertThat(e).hasMessage(format("Schema name must be shorter than or equal to '%s' characters but got '%s'", TERADATA_OBJECT_NAME_LIMIT, TERADATA_OBJECT_NAME_LIMIT + 1));
-    }
-
-    protected OptionalInt maxColumnNameLength()
-    {
-        return OptionalInt.of(TERADATA_OBJECT_NAME_LIMIT);
-    }
-
-    @Override
-    protected void verifyColumnNameLengthFailurePermissible(Throwable e)
-    {
-        assertThat(e).hasMessageMatching(format("Column name must be shorter than or equal to '%s' characters but got '%s': '.*'", TERADATA_OBJECT_NAME_LIMIT, TERADATA_OBJECT_NAME_LIMIT + 1));
-    }
-
-    protected OptionalInt maxTableNameLength()
-    {
-        return OptionalInt.of(TERADATA_OBJECT_NAME_LIMIT);
-    }
-
     @Override
     protected Session joinPushdownEnabled(Session session)
     {
@@ -743,17 +868,6 @@ public class TeradataJdbcConnectorTest
                 // strategy is AUTOMATIC by default and would not work for certain test cases (even if statistics are collected)
                 .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "join_pushdown_strategy", "EAGER")
                 .build();
-    }
-
-    protected void verifyTableNameLengthFailurePermissible(Throwable e)
-    {
-        assertThat(e).hasMessage(format("Table name must be shorter than or equal to '%s' characters but got '%s'", TERADATA_OBJECT_NAME_LIMIT, TERADATA_OBJECT_NAME_LIMIT + 1));
-    }
-
-    @Override
-    protected OptionalInt maxSchemaNameLength()
-    {
-        return OptionalInt.of(TERADATA_OBJECT_NAME_LIMIT);
     }
 
     protected TestTable newTrinoTable(String namePrefix, @Language("SQL") String tableDefinition, List<String> rowsToInsert)
