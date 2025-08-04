@@ -132,6 +132,7 @@ public class TestDeltaLakeBasic
             new ResourceTable("person_without_last_checkpoint", "databricks73/person_without_last_checkpoint"),
             new ResourceTable("person_without_old_jsons", "databricks73/person_without_old_jsons"),
             new ResourceTable("person_without_checkpoints", "databricks73/person_without_checkpoints"));
+
     private static final List<ResourceTable> OTHER_TABLES = ImmutableList.of(
             new ResourceTable("allow_column_defaults", "deltalake/allow_column_defaults"),
             new ResourceTable("stats_with_minmax_nulls", "deltalake/stats_with_minmax_nulls"),
@@ -1511,7 +1512,7 @@ public class TestDeltaLakeBasic
         assertQueryReturnsEmptyResult(session, "SELECT * FROM " + tableName + " WHERE id = 20001");
         assertThat(query(session, "SELECT * FROM " + tableName + " WHERE id = 99999")).matches("VALUES 99999");
 
-        assertThat(query(session, "SELECT id, _change_type, _commit_version FROM TABLE(system.table_changes('tpch', '" +tableName+ "')) WHERE id = 20001"))
+        assertThat(query(session, "SELECT id, _change_type, _commit_version FROM TABLE(system.table_changes('tpch', '" + tableName + "')) WHERE id = 20001"))
                 .matches("VALUES (20001, VARCHAR 'insert', BIGINT '1'), (20001, VARCHAR 'update_preimage', BIGINT '2')");
 
         assertUpdate("DROP TABLE " + tableName);
@@ -2723,7 +2724,8 @@ public class TestDeltaLakeBasic
                             if (!content.equals(newContent)) {
                                 Files.write(file, newContent.getBytes(StandardCharsets.UTF_8), StandardOpenOption.TRUNCATE_EXISTING);
                             }
-                        } catch (IOException e) {
+                        }
+                        catch (IOException e) {
                             throw new RuntimeException(e);
                         }
                     });

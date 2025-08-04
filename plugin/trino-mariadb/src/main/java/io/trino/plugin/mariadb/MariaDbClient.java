@@ -957,5 +957,5 @@ public class MariaDbClient
 
     private record AnalyzeColumnStatistics(double nullsRatio) {}
 
-    private record ColumnIndexStatistics(boolean nullable, long cardinality) { }
+    private record ColumnIndexStatistics(boolean nullable, long cardinality) {}
 }
