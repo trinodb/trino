@@ -26,10 +26,13 @@ import io.trino.plugin.hive.HiveColumnStatisticType;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.Fixed12Block;
 import io.trino.spi.statistics.ColumnStatisticMetadata;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 
 import java.math.BigDecimal;
@@ -65,6 +68,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
@@ -128,10 +132,12 @@ public final class Statistics
         else if (type.equals(DATE)) {
             result.setDateStatistics(new DateStatistics(Optional.empty(), Optional.empty()));
         }
+        else if (type instanceof TimestampType) {
+            result.setIntegerStatistics(new IntegerStatistics(OptionalLong.empty(), OptionalLong.empty()));
+        }
         else if (type instanceof DecimalType) {
             result.setDecimalStatistics(new DecimalStatistics(Optional.empty(), Optional.empty()));
         }
-        // TODO (https://github.com/trinodb/trino/issues/5859) Add support for timestamp
         else {
             throw new IllegalArgumentException("Unexpected type: " + type);
         }
@@ -240,10 +246,12 @@ public final class Statistics
         else if (type.equals(DATE)) {
             result.setDateStatistics(new DateStatistics(getDateValue(type, min), getDateValue(type, max)));
         }
+        else if (type instanceof TimestampType) {
+            result.setIntegerStatistics(new IntegerStatistics(getTimestampEpochMicro(type, min), getTimestampEpochMicro(type, max)));
+        }
         else if (type instanceof DecimalType) {
             result.setDecimalStatistics(new DecimalStatistics(getDecimalValue(type, min), getDecimalValue(type, max)));
         }
-        // TODO (https://github.com/trinodb/trino/issues/5859) Add support for timestamp
         else {
             throw new IllegalArgumentException("Unexpected type: " + type);
         }
@@ -286,6 +294,26 @@ public final class Statistics
         }
         int days = toIntExact(type.getLong(block, 0));
         return Optional.of(LocalDate.ofEpochDay(days));
+    }
+
+    private static OptionalLong getTimestampEpochMicro(Type type, Block block)
+    {
+        verify(type instanceof TimestampType, "Unsupported type: %s", type);
+        if (block.isNull(0)) {
+            return OptionalLong.empty();
+        }
+        // TODO: https://github.com/trinodb/trino/issues/28835
+        //  The columnTypes map in HiveMetadata.finishChangingTable is built using the deprecated
+        //   getTypeSignature(HiveType) which always resolves TIMESTAMP to milliseconds,
+        //   ignoring the session's hive.timestamp-precision setting. The statistics
+        //   blocks however are computed by the engine using the session's precision.
+        //   The fix is to pass the session's timestamp precision when building columnTypes in HiveMetadata.
+        if (block instanceof Fixed12Block) {
+            LongTimestamp timestamp = (LongTimestamp) TIMESTAMP_NANOS.getObject(block, 0);
+            // Note: we're truncating even for the max value. Statistics are estimate so this should be fine.
+            return OptionalLong.of(timestamp.getEpochMicros());
+        }
+        return OptionalLong.of(type.getLong(block, 0));
     }
 
     private static Optional<BigDecimal> getDecimalValue(Type type, Block block)

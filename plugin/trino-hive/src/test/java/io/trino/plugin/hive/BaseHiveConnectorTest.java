@@ -6602,12 +6602,12 @@ public abstract class BaseHiveConnectorTest
                 "  VALUES " +
                 "    (null, null, null, null, null, null, 'p1'), " +
                 "    (null, null, null, null, null, null, 'p1'), " +
-                "    (true, BIGINT '1', DOUBLE '2.2', TIMESTAMP '2012-08-08 01:00:00.000', VARCHAR 'abc1', CAST('bcd1' AS VARBINARY), 'p1')," +
-                "    (false, BIGINT '0', DOUBLE '1.2', TIMESTAMP '2012-08-08 00:00:00.000', VARCHAR 'abc2', CAST('bcd2' AS VARBINARY), 'p1')," +
+                "    (true, BIGINT '1', DOUBLE '2.2', TIMESTAMP '2012-08-08 01:00:00.123', VARCHAR 'abc1', CAST('bcd1' AS VARBINARY), 'p1')," +
+                "    (false, BIGINT '0', DOUBLE '1.2', TIMESTAMP '2012-08-08 00:00:00.456', VARCHAR 'abc2', CAST('bcd2' AS VARBINARY), 'p1')," +
                 "    (null, null, null, null, null, null, 'p2'), " +
                 "    (null, null, null, null, null, null, 'p2'), " +
-                "    (true, BIGINT '2', DOUBLE '3.3', TIMESTAMP '2012-09-09 01:00:00.000', VARCHAR 'cba1', CAST('dcb1' AS VARBINARY), 'p2'), " +
-                "    (false, BIGINT '1', DOUBLE '2.3', TIMESTAMP '2012-09-09 00:00:00.000', VARCHAR 'cba2', CAST('dcb2' AS VARBINARY), 'p2') " +
+                "    (true, BIGINT '2', DOUBLE '3.3', TIMESTAMP '2012-09-09 01:00:00.123', VARCHAR 'cba1', CAST('dcb1' AS VARBINARY), 'p2'), " +
+                "    (false, BIGINT '1', DOUBLE '2.3', TIMESTAMP '2012-09-09 00:00:00.456', VARCHAR 'cba2', CAST('dcb2' AS VARBINARY), 'p2') " +
                 ") AS x (c_boolean, c_bigint, c_double, c_timestamp, c_varchar, c_varbinary, p_varchar)", tableName), 8);
 
         assertQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar = 'p1')", tableName),
@@ -6615,7 +6615,7 @@ public abstract class BaseHiveConnectorTest
                         "('c_boolean', null, 2.0E0, 0.5E0, null, null, null), " +
                         "('c_bigint', null, 2.0E0, 0.5E0, null, '0', '1'), " +
                         "('c_double', null, 2.0E0, 0.5E0, null, '1.2', '2.2'), " +
-                        "('c_timestamp', null, 2.0E0, 0.5E0, null, null, null), " +
+                        "('c_timestamp', null, 2.0E0, 0.5E0, null, '2012-08-08 00:00:00.456', '2012-08-08 01:00:00.123'), " +
                         "('c_varchar', 8.0E0, 2.0E0, 0.5E0, null, null, null), " +
                         "('c_varbinary', 8.0E0, null, 0.5E0, null, null, null), " +
                         "('p_varchar', 8.0E0, 1.0E0, 0.0E0, null, null, null), " +
@@ -6625,7 +6625,7 @@ public abstract class BaseHiveConnectorTest
                         "('c_boolean', null, 2.0E0, 0.5E0, null, null, null), " +
                         "('c_bigint', null, 2.0E0, 0.5E0, null, '1', '2'), " +
                         "('c_double', null, 2.0E0, 0.5E0, null, '2.3', '3.3'), " +
-                        "('c_timestamp', null, 2.0E0, 0.5E0, null, null, null), " +
+                        "('c_timestamp', null, 2.0E0, 0.5E0, null, '2012-09-09 00:00:00.456', '2012-09-09 01:00:00.123'), " +
                         "('c_varchar', 8.0E0, 2.0E0, 0.5E0, null, null, null), " +
                         "('c_varbinary', 8.0E0, null, 0.5E0, null, null, null), " +
                         "('p_varchar', 8.0E0, 1.0E0, 0.0E0, null, null, null), " +
@@ -6672,7 +6672,7 @@ public abstract class BaseHiveConnectorTest
 
             assertQuery("SHOW STATS FOR " + tableName,
                     "SELECT * FROM VALUES " +
-                            "('c_timestamp', null, 9.0, 0.0, null, null, null), " +
+                            "('c_timestamp', null, 9.0, 0.0, null, '1988-04-08 02:03:04.111', '1988-04-08 02:03:04.119'), " +
                             "(null, null, null, null, 12.0, null, null)");
         }
         finally {
@@ -6718,7 +6718,7 @@ public abstract class BaseHiveConnectorTest
                         "('c_boolean', null, 2.0E0, 0.5E0, null, null, null), " +
                         "('c_bigint', null, 2.0E0, 0.5E0, null, '0', '1'), " +
                         "('c_double', null, 2.0E0, 0.5E0, null, '1.2', '2.2'), " +
-                        "('c_timestamp', null, 2.0E0, 0.5E0, null, null, null), " +
+                        "('c_timestamp', null, 2.0E0, 0.5E0, null, '2012-08-08 00:00:00.000', '2012-08-08 01:00:00.000'), " +
                         "('c_varchar', 8.0E0, 2.0E0, 0.5E0, null, null, null), " +
                         "('c_varbinary', 8.0E0, null, 0.5E0, null, null, null), " +
                         "('p_varchar', 8.0E0, 1.0E0, 0.0E0, null, null, null), " +
@@ -6728,7 +6728,7 @@ public abstract class BaseHiveConnectorTest
                         "('c_boolean', null, 2.0E0, 0.5E0, null, null, null), " +
                         "('c_bigint', null, 2.0E0, 0.5E0, null, '1', '2'), " +
                         "('c_double', null, 2.0E0, 0.5E0, null, '2.3', '3.3'), " +
-                        "('c_timestamp', null, 2.0E0, 0.5E0, null, null, null), " +
+                        "('c_timestamp', null, 2.0E0, 0.5E0, null, '2012-09-09 00:00:00.000', '2012-09-09 01:00:00.000'), " +
                         "('c_varchar', 8.0E0, 2.0E0, 0.5E0, null, null, null), " +
                         "('c_varbinary', 8.0E0, null, 0.5E0, null, null, null), " +
                         "('p_varchar', 8.0E0, 1.0E0, 0.0E0, null, null, null), " +
@@ -6912,7 +6912,7 @@ public abstract class BaseHiveConnectorTest
                     ('c_boolean', null, 2.0, 0.5, null, null, null),
                     ('c_bigint', null, 2.0, 0.5, null, '0', '1'),
                     ('c_double', null, 2.0, 0.5, null, '1.2', '2.2'),
-                    ('c_timestamp', null, 2.0, 0.5, null, null, null),
+                    ('c_timestamp', null, 2.0, 0.5, null, '2012-08-08 00:00:00.000', '2012-08-08 01:00:00.000'),
                     ('c_varchar', 8.0, 2.0, 0.5, null, null, null),
                     ('c_varbinary', 4.0, null, 0.5, null, null, null),
                     ('p_varchar', 8.0, 1.0, 0.0, null, null, null),
@@ -6925,7 +6925,7 @@ public abstract class BaseHiveConnectorTest
                     ('c_boolean', null, 2.0, 0.5, null, null, null),
                     ('c_bigint', null, 2.0, 0.5, null, '1', '2'),
                     ('c_double', null, 2.0, 0.5, null, '2.3', '3.3'),
-                    ('c_timestamp', null, 2.0, 0.5, null, null, null),
+                    ('c_timestamp', null, 2.0, 0.5, null, '2012-09-09 00:00:00.000', '2012-09-09 01:00:00.000'),
                     ('c_varchar', 8.0, 2.0, 0.5, null, null, null),
                     ('c_varbinary', 4.0, null, 0.5, null, null, null),
                     ('p_varchar', 8.0, 1.0, 0.0, null, null, null),
@@ -6939,7 +6939,7 @@ public abstract class BaseHiveConnectorTest
                     ('c_boolean', null, 1.0, 0.0, null, null, null),
                     ('c_bigint', null, 4.0, 0.0, null, '4', '7'),
                     ('c_double', null, 4.0, 0.0, null, '4.7', '7.7'),
-                    ('c_timestamp', null, 4.0, 0.0, null, null, null),
+                    ('c_timestamp', null, 4.0, 0.0, null, '1977-07-07 07:04:00.000', '1977-07-07 07:07:00.000'),
                     ('c_varchar', 16.0, 4.0, 0.0, null, null, null),
                     ('c_varbinary', 8.0, null, 0.0, null, null, null),
                     ('p_varchar', 0.0, 0.0, 1.0, null, null, null),
@@ -6998,7 +6998,7 @@ public abstract class BaseHiveConnectorTest
                     ('c_boolean', null, 2.0, 0.5, null, null, null),
                     ('c_bigint', null, 2.0, 0.5, null, '0', '1'),
                     ('c_double', null, 2.0, 0.5, null, '1.2', '2.2'),
-                    ('c_timestamp', null, 2.0, 0.5, null, null, null),
+                    ('c_timestamp', null, 2.0, 0.5, null, '2012-08-08 00:00:00.000', '2012-08-08 01:00:00.000'),
                     ('c_varchar', 8.0, 2.0, 0.5, null, null, null),
                     ('c_varbinary', 4.0, null, 0.5, null, null, null),
                     ('p_varchar', 8.0, 1.0, 0.0, null, null, null),
@@ -7011,7 +7011,7 @@ public abstract class BaseHiveConnectorTest
                     ('c_boolean', null, 2.0, 0.5, null, null, null),
                     ('c_bigint', null, 2.0, 0.5, null, '1', '2'),
                     ('c_double', null, 2.0, 0.5, null, '2.3', '3.3'),
-                    ('c_timestamp', null, 2.0, 0.5, null, null, null),
+                    ('c_timestamp', null, 2.0, 0.5, null, '2012-09-09 00:00:00.000', '2012-09-09 01:00:00.000'),
                     ('c_varchar', 8.0, 2.0, 0.5, null, null, null),
                     ('c_varbinary', 4.0, null, 0.5, null, null, null),
                     ('p_varchar', 8.0, 1.0, 0.0, null, null, null),
@@ -7024,7 +7024,7 @@ public abstract class BaseHiveConnectorTest
                     ('c_boolean', null, 1.0, 0.0, null, null, null),
                     ('c_bigint', null, 4.0, 0.0, null, '4', '7'),
                     ('c_double', null, 4.0, 0.0, null, '4.7', '7.7'),
-                    ('c_timestamp', null, 4.0, 0.0, null, null, null),
+                    ('c_timestamp', null, 4.0, 0.0, null, '1977-07-07 07:04:00.000', '1977-07-07 07:07:00.000'),
                     ('c_varchar', 16.0, 4.0, 0.0, null, null, null),
                     ('c_varbinary', 8.0, null, 0.0, null, null, null),
                     ('p_varchar', 0.0, 0.0, 1.0, null, null, null),
@@ -7037,7 +7037,7 @@ public abstract class BaseHiveConnectorTest
                     ('c_boolean', null, 2.0, 0.5, null, null, null),
                     ('c_bigint', null, 2.0, 0.5, null, '2', '3'),
                     ('c_double', null, 2.0, 0.5, null, '3.4', '4.4'),
-                    ('c_timestamp', null, 2.0, 0.5, null, null, null),
+                    ('c_timestamp', null, 2.0, 0.5, null, '2012-10-10 00:00:00.000', '2012-10-10 01:00:00.000'),
                     ('c_varchar', 8.0, 2.0, 0.5, null, null, null),
                     ('c_varbinary', 4.0, null, 0.5, null, null, null),
                     ('p_varchar', 8.0, 1.0, 0.0, null, null, null),
@@ -7110,7 +7110,7 @@ public abstract class BaseHiveConnectorTest
                     ('c_boolean', null, null, null, null, null, null),
                     ('c_bigint', null, null, null, null, null, null),
                     ('c_double', null, null, null, null, null, null),
-                    ('c_timestamp', null, 2.0, 0.5, null, null, null),
+                    ('c_timestamp', null, 2.0, 0.5, null, '2012-08-08 00:00:00.000', '2012-08-08 01:00:00.000'),
                     ('c_varchar', 8.0, 2.0, 0.5, null, null, null),
                     ('c_varbinary', null, null, null, null, null, null),
                     ('p_varchar', 8.0, 1.0, 0.0, null, null, null),
@@ -7124,7 +7124,7 @@ public abstract class BaseHiveConnectorTest
                     ('c_boolean', null, null, null, null, null, null),
                     ('c_bigint', null, null, null, null, null, null),
                     ('c_double', null, null, null, null, null, null),
-                    ('c_timestamp', null, 2.0, 0.5, null, null, null),
+                    ('c_timestamp', null, 2.0, 0.5, null, '2012-09-09 00:00:00.000', '2012-09-09 01:00:00.000'),
                     ('c_varchar', 8.0, 2.0, 0.5, null, null, null),
                     ('c_varbinary', null, null, null, null, null, null),
                     ('p_varchar', 8.0, 1.0, 0.0, null, null, null),
@@ -7138,7 +7138,7 @@ public abstract class BaseHiveConnectorTest
                     ('c_boolean', null, null, null, null, null, null),
                     ('c_bigint', null, null, null, null, null, null),
                     ('c_double', null, null, null, null, null, null),
-                    ('c_timestamp', null, 4.0, 0.0, null, null, null),
+                    ('c_timestamp', null, 4.0, 0.0, null, '1977-07-07 07:04:00.000', '1977-07-07 07:07:00.000'),
                     ('c_varchar', 16.0, 4.0, 0.0, null, null, null),
                     ('c_varbinary', null, null, null, null, null, null),
                     ('p_varchar', 0.0, 0.0, 1.0, null, null, null),
@@ -7202,7 +7202,7 @@ public abstract class BaseHiveConnectorTest
                     ('c_boolean', null, null, null, null, null, null),
                     ('c_bigint', null, 2.0, 0.5, null, '0', '1'),
                     ('c_double', null, 2.0, 0.5, null, '1.2', '2.2'),
-                    ('c_timestamp', null, 2.0, 0.5, null, null, null),
+                    ('c_timestamp', null, 2.0, 0.5, null, '2012-08-08 00:00:00.000', '2012-08-08 01:00:00.000'),
                     ('c_varchar', 8.0, 2.0, 0.5, null, null, null),
                     ('c_varbinary', null, null, null, null, null, null),
                     ('p_varchar', 8.0, 1.0, 0.0, null, null, null),
@@ -7216,7 +7216,7 @@ public abstract class BaseHiveConnectorTest
                     ('c_boolean', null, null, null, null, null, null),
                     ('c_bigint', null, 2.0, 0.5, null, '1', '2'),
                     ('c_double', null, 2.0, 0.5, null, '2.3', '3.3'),
-                    ('c_timestamp', null, 2.0, 0.5, null, null, null),
+                    ('c_timestamp', null, 2.0, 0.5, null, '2012-09-09 00:00:00.000', '2012-09-09 01:00:00.000'),
                     ('c_varchar', 8.0, 2.0, 0.5, null, null, null),
                     ('c_varbinary', null, null, null, null, null, null),
                     ('p_varchar', 8.0, 1.0, 0.0, null, null, null),
@@ -7230,7 +7230,7 @@ public abstract class BaseHiveConnectorTest
                     ('c_boolean', null, null, null, null, null, null),
                     ('c_bigint', null, 4.0, 0.0, null, '4', '7'),
                     ('c_double', null, 4.0, 0.0, null, '4.7', '7.7'),
-                    ('c_timestamp', null, 4.0, 0.0, null, null, null),
+                    ('c_timestamp', null, 4.0, 0.0, null, '1977-07-07 07:04:00.000', '1977-07-07 07:07:00.000'),
                     ('c_varchar', 16.0, 4.0, 0.0, null, null, null),
                     ('c_varbinary', null, null, null, null, null, null),
                     ('p_varchar', 0.0, 0.0, 1.0, null, null, null),
@@ -7245,6 +7245,94 @@ public abstract class BaseHiveConnectorTest
                     ('c_bigint', null, 2.0, 0.5, null, '2', '3'),
                     ('c_double', null, 2.0, 0.5, null, '3.4', '4.4'),
                     ('c_timestamp', null, null, null, null, null, null),
+                    ('c_varchar', null, null, null, null, null, null),
+                    ('c_varbinary', null, null, null, null, null, null),
+                    ('p_varchar', 8.0, 1.0, 0.0, null, null, null),
+                    ('p_bigint', null, 1.0, 0.0, null, '8', '8'),
+                    (null, null, null, null, 4.0, null, null)
+                """);
+        assertQuery(
+                format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar = 'e1' AND p_bigint = 9)", tableName),
+                """
+                SELECT * FROM VALUES
+                    ('c_boolean', null, null, null, null, null, null),
+                    ('c_bigint', null, null, null, null, null, null),
+                    ('c_double', null, null, null, null, null, null),
+                    ('c_timestamp', null, null, null, null, null, null),
+                    ('c_varchar', null, null, null, null, null, null),
+                    ('c_varbinary', null, null, null, null, null, null),
+                    ('p_varchar', null, 1.0, 0.0, null, null, null),
+                    ('p_bigint', null, 1.0, 0.0, null, 9, 9),
+                    (null, null, null, null, null, null, null)
+                """);
+        assertQuery(
+                format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar = 'e2' AND p_bigint = 9)", tableName),
+                """
+                SELECT * FROM VALUES
+                    ('c_boolean', null, null, null, null, null, null),
+                    ('c_bigint', null, null, null, null, null, null),
+                    ('c_double', null, null, null, null, null, null),
+                    ('c_timestamp', null, null, null, null, null, null),
+                    ('c_varchar', null, null, null, null, null, null),
+                    ('c_varbinary', null, null, null, null, null, null),
+                    ('p_varchar', null, 1.0, 0.0, null, null, null),
+                    ('p_bigint', null, 1.0, 0.0, null, 9, 9),
+                    (null, null, null, null, null, null, null)
+                """);
+
+        assertUpdate(
+                format("ANALYZE %s WITH (columns = ARRAY['c_timestamp'])", tableName), 16);
+
+        assertQuery(
+                format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar = 'p1' AND p_bigint = 7)", tableName),
+                """
+                SELECT * FROM VALUES
+                    ('c_boolean', null, null, null, null, null, null),
+                    ('c_bigint', null, 2.0, 0.5, null, '0', '1'),
+                    ('c_double', null, 2.0, 0.5, null, '1.2', '2.2'),
+                    ('c_timestamp', null, 2.0, 0.5, null, '2012-08-08 00:00:00.000', '2012-08-08 01:00:00.000'),
+                    ('c_varchar', 8.0, 2.0, 0.5, null, null, null),
+                    ('c_varbinary', null, null, null, null, null, null),
+                    ('p_varchar', 8.0, 1.0, 0.0, null, null, null),
+                    ('p_bigint', null, 1.0, 0.0, null, '7', '7'),
+                    (null, null, null, null, 4.0, null, null)
+                """);
+        assertQuery(
+                format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar = 'p2' AND p_bigint = 7)", tableName),
+                """
+                SELECT * FROM VALUES
+                    ('c_boolean', null, null, null, null, null, null),
+                    ('c_bigint', null, 2.0, 0.5, null, '1', '2'),
+                    ('c_double', null, 2.0, 0.5, null, '2.3', '3.3'),
+                    ('c_timestamp', null, 2.0, 0.5, null, '2012-09-09 00:00:00.000', '2012-09-09 01:00:00.000'),
+                    ('c_varchar', 8.0, 2.0, 0.5, null, null, null),
+                    ('c_varbinary', null, null, null, null, null, null),
+                    ('p_varchar', 8.0, 1.0, 0.0, null, null, null),
+                    ('p_bigint', null, 1.0, 0.0, null, '7', '7'),
+                    (null, null, null, null, 4.0, null, null)
+                """);
+        assertQuery(
+                format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar IS NULL AND p_bigint IS NULL)", tableName),
+                """
+                SELECT * FROM VALUES
+                    ('c_boolean', null, null, null, null, null, null),
+                    ('c_bigint', null, 4.0, 0.0, null, '4', '7'),
+                    ('c_double', null, 4.0, 0.0, null, '4.7', '7.7'),
+                    ('c_timestamp', null, 4.0, 0.0, null, '1977-07-07 07:04:00.000', '1977-07-07 07:07:00.000'),
+                    ('c_varchar', 16.0, 4.0, 0.0, null, null, null),
+                    ('c_varbinary', null, null, null, null, null, null),
+                    ('p_varchar', 0.0, 0.0, 1.0, null, null, null),
+                    ('p_bigint', 0.0, 0.0, 1.0, null, null, null),
+                    (null, null, null, null, 4.0, null, null)
+                """);
+        assertQuery(
+                format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar = 'p3' AND p_bigint = 8)", tableName),
+                """
+                SELECT * FROM VALUES
+                    ('c_boolean', null, null, null, null, null, null),
+                    ('c_bigint', null, 2.0, 0.5, null, '2', '3'),
+                    ('c_double', null, 2.0, 0.5, null, '3.4', '4.4'),
+                    ('c_timestamp', null, 2.0, 0.5, null, '2012-10-10 00:00:00.000', '2012-10-10 01:00:00.000'),
                     ('c_varchar', null, null, null, null, null, null),
                     ('c_varbinary', null, null, null, null, null, null),
                     ('p_varchar', 8.0, 1.0, 0.0, null, null, null),
@@ -7313,7 +7401,7 @@ public abstract class BaseHiveConnectorTest
                     ('c_boolean', null, 2.0, 0.375, null, null, null),
                     ('c_bigint', null, 8.0, 0.375, null, '0', '7'),
                     ('c_double', null, 10.0, 0.375, null, '1.2', '7.7'),
-                    ('c_timestamp', null, 10.0, 0.375, null, null, null),
+                    ('c_timestamp', null, 10.0, 0.375, null, '1977-07-07 07:04:00.000', '2012-10-10 01:00:00.000'),
                     ('c_varchar', 40.0, 10.0, 0.375, null, null, null),
                     ('c_varbinary', 20.0, null, 0.375, null, null, null),
                     ('p_varchar', 24.0, 3.0, 0.25, null, null, null),
@@ -7365,21 +7453,21 @@ public abstract class BaseHiveConnectorTest
             assertUpdate(nanosecondsTimestamp, "ANALYZE " + tableName, 12);
             assertQuery("SHOW STATS FOR " + tableName,
                     "SELECT * FROM VALUES " +
-                            "('c_timestamp', null, 9.0, 0.0, null, null, null), " +
+                            "('c_timestamp', null, 9.0, 0.0, null, '1988-04-08 02:03:04.111', '1988-04-08 02:03:04.119'), " +
                             "(null, null, null, null, 12.0, null, null)");
 
             assertUpdate(format("CALL system.drop_stats('%s', '%s')", TPCH_SCHEMA, tableName));
             assertUpdate(microsecondsTimestamp, "ANALYZE " + tableName, 12);
             assertQuery("SHOW STATS FOR " + tableName,
                     "SELECT * FROM VALUES " +
-                            "('c_timestamp', null, 7.0, 0.0, null, null, null), " +
+                            "('c_timestamp', null, 7.0, 0.0, null, '1988-04-08 02:03:04.111', '1988-04-08 02:03:04.119'), " +
                             "(null, null, null, null, 12.0, null, null)");
 
             assertUpdate(format("CALL system.drop_stats('%s', '%s')", TPCH_SCHEMA, tableName));
             assertUpdate(millisecondsTimestamp, "ANALYZE " + tableName, 12);
             assertQuery("SHOW STATS FOR " + tableName,
                     "SELECT * FROM VALUES " +
-                            "('c_timestamp', null, 4.0, 0.0, null, null, null), " +
+                            "('c_timestamp', null, 4.0, 0.0, null, '1988-04-08 02:03:04.111', '1988-04-08 02:03:04.119'), " +
                             "(null, null, null, null, 12.0, null, null)");
         }
         finally {
@@ -7508,7 +7596,7 @@ public abstract class BaseHiveConnectorTest
                     ('c_boolean', null, 2.0, 0.5, null, null, null),
                     ('c_bigint', null, 2.0, 0.5, null, '0', '1'),
                     ('c_double', null, 2.0, 0.5, null, '1.2', '2.2'),
-                    ('c_timestamp', null, 2.0, 0.5, null, null, null),
+                    ('c_timestamp', null, 2.0, 0.5, null, '2012-08-08 00:00:00.000', '2012-08-08 01:00:00.000'),
                     ('c_varchar', 8.0, 2.0, 0.5, null, null, null),
                     ('c_varbinary', 4.0, null, 0.5, null, null, null),
                     ('p_varchar', 8.0, 1.0, 0.0, null, null, null),
@@ -7521,7 +7609,7 @@ public abstract class BaseHiveConnectorTest
                     ('c_boolean', null, 2.0, 0.5, null, null, null),
                     ('c_bigint', null, 2.0, 0.5, null, '1', '2'),
                     ('c_double', null, 2.0, 0.5, null, '2.3', '3.3'),
-                    ('c_timestamp', null, 2.0, 0.5, null, null, null),
+                    ('c_timestamp', null, 2.0, 0.5, null, '2012-09-09 00:00:00.000', '2012-09-09 01:00:00.000'),
                     ('c_varchar', 8.0, 2.0, 0.5, null, null, null),
                     ('c_varbinary', 4.0, null, 0.5, null, null, null),
                     ('p_varchar', 8.0, 1.0, 0.0, null, null, null),
@@ -7534,7 +7622,7 @@ public abstract class BaseHiveConnectorTest
                     ('c_boolean', null, 1.0, 0.0, null, null, null),
                     ('c_bigint', null, 4.0, 0.0, null, '4', '7'),
                     ('c_double', null, 4.0, 0.0, null, '4.7', '7.7'),
-                    ('c_timestamp', null, 4.0, 0.0, null, null, null),
+                    ('c_timestamp', null, 4.0, 0.0, null, '1977-07-07 07:04:00.000', '1977-07-07 07:07:00.000'),
                     ('c_varchar', 16.0, 4.0, 0.0, null, null, null),
                     ('c_varbinary', 8.0, null, 0.0, null, null, null),
                     ('p_varchar', 0.0, 0.0, 1.0, null, null, null),
@@ -7547,7 +7635,7 @@ public abstract class BaseHiveConnectorTest
                     ('c_boolean', null, 2.0, 0.5, null, null, null),
                     ('c_bigint', null, 2.0, 0.5, null, '2', '3'),
                     ('c_double', null, 2.0, 0.5, null, '3.4', '4.4'),
-                    ('c_timestamp', null, 2.0, 0.5, null, null, null),
+                    ('c_timestamp', null, 2.0, 0.5, null, '2012-10-10 00:00:00.000', '2012-10-10 01:00:00.000'),
                     ('c_varchar', 8.0, 2.0, 0.5, null, null, null),
                     ('c_varbinary', 4.0, null, 0.5, null, null, null),
                     ('p_varchar', 8.0, 1.0, 0.0, null, null, null),
@@ -7596,7 +7684,7 @@ public abstract class BaseHiveConnectorTest
                     ('c_boolean', null, 2.0, 0.5, null, null, null),
                     ('c_bigint', null, 2.0, 0.5, null, '0', '1'),
                     ('c_double', null, 2.0, 0.5, null, '1.2', '2.2'),
-                    ('c_timestamp', null, 2.0, 0.5, null, null, null),
+                    ('c_timestamp', null, 2.0, 0.5, null, '2012-08-08 00:00:00.000', '2012-08-08 01:00:00.000'),
                     ('c_varchar', 8.0, 2.0, 0.5, null, null, null),
                     ('c_varbinary', 4.0, null, 0.5, null, null, null),
                     ('p_varchar', 8.0, 1.0, 0.0, null, null, null),
@@ -7624,7 +7712,7 @@ public abstract class BaseHiveConnectorTest
                     ('c_boolean', null, 1.0, 0.0, null, null, null),
                     ('c_bigint', null, 4.0, 0.0, null, '4', '7'),
                     ('c_double', null, 4.0, 0.0, null, '4.7', '7.7'),
-                    ('c_timestamp', null, 4.0, 0.0, null, null, null),
+                    ('c_timestamp', null, 4.0, 0.0, null, '1977-07-07 07:04:00.000', '1977-07-07 07:07:00.000'),
                     ('c_varchar', 16.0, 4.0, 0.0, null, null, null),
                     ('c_varbinary', 8.0, null, 0.0, null, null, null),
                     ('p_varchar', 0.0, 0.0, 1.0, null, null, null),
@@ -7794,7 +7882,7 @@ public abstract class BaseHiveConnectorTest
                         "('c_boolean', null, 2.0, 0.375, null, null, null), " +
                         "('c_bigint', null, 8.0, 0.375, null, '0', '7'), " +
                         "('c_double', null, 10.0, 0.375, null, '1.2', '7.7'), " +
-                        "('c_timestamp', null, 10.0, 0.375, null, null, null), " +
+                        "('c_timestamp', null, 10.0, 0.375, null, '1977-07-07 07:04:00.000', '2012-10-10 01:00:00.000'), " +
                         "('c_varchar', 40.0, 10.0, 0.375, null, null, null), " +
                         "('c_varbinary', 20.0, null, 0.375, null, null, null), " +
                         "('p_varchar', 24.0, 3.0, 0.25, null, null, null), " +
