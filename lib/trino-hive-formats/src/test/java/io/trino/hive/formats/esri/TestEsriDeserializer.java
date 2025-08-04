@@ -112,7 +112,8 @@ public class TestEsriDeserializer
     }
 
     @Test
-    public void testDeserializeNullValues() throws IOException
+    public void testDeserializeNullValues()
+            throws IOException
     {
         String json = """
             {
@@ -235,7 +236,8 @@ public class TestEsriDeserializer
     }
 
     @Test
-    public void testDeserializeMissingColumns() throws IOException
+    public void testDeserializeMissingColumns()
+            throws IOException
     {
         String json = """
             {
@@ -262,7 +264,9 @@ public class TestEsriDeserializer
     }
 
     @Test
-    public void testDeserializeDateFormats() throws IOException {
+    public void testDeserializeDateFormats()
+            throws IOException
+    {
         // Test valid epoch milliseconds (as number)
         String jsonEpoch = """
             {
@@ -320,7 +324,9 @@ public class TestEsriDeserializer
     }
 
     @Test
-    public void testDeserializeTimestampFormats() throws IOException {
+    public void testDeserializeTimestampFormats()
+            throws IOException
+    {
         String[] validTimestampFormats = {
                 "2025-03-03 00:00:00.000", // with leading zeros
                 "2025-03-03 00:00:00",
@@ -387,7 +393,9 @@ public class TestEsriDeserializer
     }
 
     @Test
-    public void testDeserializeInvalidDateFormat() throws IOException {
+    public void testDeserializeInvalidDateFormat()
+            throws IOException
+    {
         String json = """
             {
                 "attributes": {
@@ -402,7 +410,9 @@ public class TestEsriDeserializer
     }
 
     @Test
-    public void testDeserializeInvalidTimestampFormat() throws IOException {
+    public void testDeserializeInvalidTimestampFormat()
+            throws IOException
+    {
         String json = """
             {
                 "attributes": {
@@ -417,7 +427,9 @@ public class TestEsriDeserializer
     }
 
     @Test
-    public void testDeserializeDateOutOfRange() throws IOException {
+    public void testDeserializeDateOutOfRange()
+            throws IOException
+    {
         String json = """
             {
                 "attributes": {
@@ -595,7 +607,8 @@ public class TestEsriDeserializer
     }
 
     private static Page parse(String json, List<Column> columns)
-            throws IOException {
+            throws IOException
+    {
         JsonParser jsonParser = JSON_FACTORY.createParser(json);
         assertThat(jsonParser.nextToken()).isEqualTo(START_OBJECT);
 

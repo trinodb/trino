@@ -1462,7 +1462,7 @@ public class MySqlClient
         }
     }
 
-    private record ColumnIndexStatistics(boolean nullable, long cardinality) { }
+    private record ColumnIndexStatistics(boolean nullable, long cardinality) {}
 
     // See https://dev.mysql.com/doc/refman/8.0/en/optimizer-statistics.html
     public static class ColumnHistogram
