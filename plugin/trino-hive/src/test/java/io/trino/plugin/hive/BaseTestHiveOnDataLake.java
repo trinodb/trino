@@ -2252,6 +2252,46 @@ abstract class BaseTestHiveOnDataLake
     }
 
     @Test
+    public void testSupportTimestampStatisticsForHive3andHive4()
+    {
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty("hive", "insert_existing_partitions_behavior", "APPEND")
+                .setCatalogSessionProperty("hive", "collect_column_statistics_on_write", "true")
+                .build();
+        String testTable = HIVE_TEST_SCHEMA + ".test_tabble_" + randomNameSuffix();
+        assertUpdate(session, "CREATE TABLE " + testTable + "(\n" +
+                "    VendorID BIGINT,\n" +
+                "    tpep_pickup_datetime TIMESTAMP,\n" +
+                "    tpep_dropoff_datetime TIMESTAMP,\n" +
+                "    passenger_count DOUBLE,\n" +
+                "    trip_distance DOUBLE,\n" +
+                "    payment_type BIGINT,\n" +
+                "    Fare_amount DOUBLE,\n" +
+                "    Tip_amount DOUBLE,\n" +
+                "    Total_amount DOUBLE\n" +
+                ")");
+        assertUpdate(session, "INSERT INTO " + testTable + " VALUES(1, TIMESTAMP '2025-09-19 10:00:00', TIMESTAMP '2025-09-19 10:10:00', 2, 3.5, 1, 10.0, 2.0, 12.0)", 1);
+        assertUpdate(session, "ANALYZE " + testTable, 1);
+        assertUpdate(session, "ANALYZE " + testTable, 1);
+
+        assertQuery(
+                "SHOW STATS FOR " + testTable,
+                """
+                        VALUES
+                              ('vendorid', null, '1.0', '0.0', null, '1', '1'),
+                              ('tpep_pickup_datetime', null, '1.0', '0.0', null, '2025-09-19 10:00:00.000', '2025-09-19 10:00:00.000'),
+                              ('tpep_dropoff_datetime', null, '1.0', '0.0', null, '2025-09-19 10:10:00.000', '2025-09-19 10:10:00.000'),
+                              ('passenger_count', null, '1.0', '0.0', null, '2.0', '2.0'),
+                              ('trip_distance', null, '1.0', '0.0', null, '3.5', '3.5'),
+                              ('payment_type', null, '1.0', '0.0', null, '1', '1'),
+                              ('fare_amount', null, '1.0', '0.0', null, '10.0', '10.0'),
+                              ('tip_amount', null, '1.0', '0.0', null, '2.0', '2.0'),
+                              ('total_amount', null, '1.0', '0.0', null, '12.0', '12.0'),
+                              (null, null, null, null, '1.0', null, null)
+                        """);
+    }
+
+    @Test
     public void testUnsupportedCommentOnHiveView()
     {
         String viewName = HIVE_TEST_SCHEMA + ".test_unsupported_comment_on_hive_view_" + randomNameSuffix();
