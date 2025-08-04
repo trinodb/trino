@@ -40,7 +40,7 @@ public class HudiConfig
     private List<String> columnsToHide = ImmutableList.of();
     private boolean tableStatisticsEnabled = true;
     private int tableStatisticsExecutorParallelism = 4;
-    private boolean metadataEnabled;
+    private boolean metadataEnabled = true;
     private boolean shouldUseParquetColumnNames = true;
     private boolean shouldUseParquetColumnIndex;
     private boolean sizeBasedSplitWeightsEnabled = true;
