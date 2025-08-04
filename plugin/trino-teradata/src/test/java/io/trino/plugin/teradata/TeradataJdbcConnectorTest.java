@@ -10,12 +10,7 @@ import io.trino.spi.connector.JoinCondition;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.query.QueryAssertions;
-import io.trino.testing.MaterializedResult;
-import io.trino.testing.MaterializedRow;
-import io.trino.testing.QueryFailedException;
-import io.trino.testing.QueryRunner;
-import io.trino.testing.TestingConnectorBehavior;
-import io.trino.testing.TestingNames;
+import io.trino.testing.*;
 import io.trino.testing.assertions.TrinoExceptionAssert;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
@@ -25,7 +20,6 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
-
 
 import java.util.List;
 import java.util.Optional;
