@@ -1304,7 +1304,6 @@ final class TestIcebergLocalConcurrentWrites
         try (TestTable table = newTrinoTable(
                 "test_concurrent_non_overlapping_optimize_table_",
                 "(a INT, part INT) " + (partitioned ? " WITH (partitioning = ARRAY['part'])" : ""))) {
-
             ImmutableList.Builder<String> expectedValues = ImmutableList.builder();
             // Add 10 files to each partition
             for (int i = 0; i < 10; i++) {
@@ -1364,7 +1363,6 @@ final class TestIcebergLocalConcurrentWrites
         try (TestTable table = newTrinoTable(
                 "test_concurrent_non_overlapping_optimize_table_",
                 "(a INT, part INT) WITH (partitioning = ARRAY['part']) ")) {
-
             ImmutableList.Builder<String> expectedValues = ImmutableList.builder();
             // Add 10 files to each partition
             for (int i = 0; i < 10; i++) {

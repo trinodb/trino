@@ -92,7 +92,6 @@ public class TestEsriTable
         assertUpdate("DROP TABLE counties");
     }
 
-
     private static List<MaterializedRow> readExpectedResults(String resourcePath)
             throws IOException
     {
@@ -110,7 +109,8 @@ public class TestEsriTable
                 .collect(toImmutableList());
     }
 
-    private static byte[] hexToBytes(String hex) {
+    private static byte[] hexToBytes(String hex)
+    {
         // Remove 'X' prefix, spaces, and single quotes if present
         hex = hex.replaceAll("^X'|'$", "")  // Remove X' and trailing '
                 .replaceAll("\\s+", "");      // Remove all whitespace
