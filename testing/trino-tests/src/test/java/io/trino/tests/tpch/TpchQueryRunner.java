@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
+import io.trino.plugin.hive.HivePlugin;
+import io.trino.plugin.memory.MemoryPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -83,6 +85,13 @@ public final class TpchQueryRunner
                         .buildOrThrow())
                 .withProtocolSpooling("json+zstd")
                 .build();
+
+        queryRunner.installPlugin(new MemoryPlugin());
+        queryRunner.createCatalog("memory", "memory");
+
+        queryRunner.installPlugin(new HivePlugin());
+        queryRunner.createCatalog("hive", "hive");
+
         Logger log = Logger.get(TpchQueryRunner.class);
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
