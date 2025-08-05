@@ -166,7 +166,6 @@ public class TestTeradataDatabase
     public void close()
     {
         try {
-//            dropTestDatabaseIfExists();
             if (!connection.isClosed()) {
                 connection.close();
             }
