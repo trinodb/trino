@@ -14,18 +14,23 @@
 package io.trino.plugin.redshift;
 
 import io.airlift.slice.Slice;
+import io.trino.filesystem.InputFileMetrics;
 import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.parquet.AbstractParquetDataSource;
 import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
+import io.trino.plugin.base.metrics.LongCount;
+import io.trino.spi.metrics.Metric;
+import io.trino.spi.metrics.Metrics;
 
 import java.io.IOException;
+import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
-// Copied as-is from io.trino.plugin.hive.parquet.TrinoParquetDataSource
+// Copied from io.trino.plugin.hive.parquet.TrinoParquetDataSource
 public class TrinoParquetDataSource
         extends AbstractParquetDataSource
 {
@@ -64,5 +69,15 @@ public class TrinoParquetDataSource
         long readStart = System.nanoTime();
         input.readFully(position, buffer, bufferOffset, bufferLength);
         stats.readDataBytesPerSecond(bufferLength, System.nanoTime() - readStart);
+    }
+
+    @Override
+    public Metrics getMetrics()
+    {
+        InputFileMetrics inputMetrics = input.getMetrics();
+        Map<String, Metric<?>> metrics = Map.of(
+                "bytes_read_from_cache", new LongCount(inputMetrics.getBytesReadFromCache()),
+                "bytes_read_externally", new LongCount(inputMetrics.getBytesReadExternally()));
+        return new Metrics(metrics);
     }
 }

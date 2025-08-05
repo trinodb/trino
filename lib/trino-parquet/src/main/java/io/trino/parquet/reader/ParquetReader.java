@@ -697,6 +697,7 @@ public class ParquetReader
         if (columnIndexRowsFiltered >= 0) {
             metrics.put(COLUMN_INDEX_ROWS_FILTERED, new LongCount(columnIndexRowsFiltered));
         }
+        metrics.putAll(dataSource.getMetrics().getMetrics());
 
         return new Metrics(metrics.buildOrThrow());
     }

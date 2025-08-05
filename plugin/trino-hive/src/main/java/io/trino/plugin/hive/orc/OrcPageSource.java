@@ -27,6 +27,7 @@ import io.trino.plugin.base.metrics.LongCount;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.SourcePage;
+import io.trino.spi.metrics.Metric;
 import io.trino.spi.metrics.Metrics;
 
 import java.io.IOException;
@@ -213,6 +214,10 @@ public class OrcPageSource
     @Override
     public Metrics getMetrics()
     {
-        return new Metrics(ImmutableMap.of(ORC_CODEC_METRIC_PREFIX + compressionKind.name(), new LongCount(recordReader.getTotalDataLength())));
+        ImmutableMap.Builder<String, Metric<?>> metrics = ImmutableMap.builder();
+        metrics.put(ORC_CODEC_METRIC_PREFIX + compressionKind.name(), new LongCount(recordReader.getTotalDataLength()));
+        metrics.putAll(orcDataSource.getMetrics().getMetrics());
+
+        return new Metrics(metrics.buildOrThrow());
     }
 }
