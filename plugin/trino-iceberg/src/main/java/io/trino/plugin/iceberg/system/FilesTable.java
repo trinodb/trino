@@ -13,11 +13,7 @@
  */
 package io.trino.plugin.iceberg.system;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonGenerator;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.base.util.JsonUtils;
 import io.trino.plugin.iceberg.system.files.FilesTableSplitSource;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -33,26 +29,19 @@ import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
 import org.apache.iceberg.MetadataTableType;
 import org.apache.iceberg.MetadataTableUtils;
-import org.apache.iceberg.MetricsUtil.ReadableColMetricsStruct;
-import org.apache.iceberg.MetricsUtil.ReadableMetricsStruct;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpecParser;
-import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
-import org.apache.iceberg.SingleValueParser;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.io.FileIO;
-import org.apache.iceberg.types.Types;
 
-import java.io.IOException;
-import java.io.StringWriter;
-import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.trino.plugin.iceberg.IcebergUtil.getPartitionColumnType;
+import static io.trino.plugin.iceberg.util.SystemTableUtil.getAllPartitionFields;
+import static io.trino.plugin.iceberg.util.SystemTableUtil.getPartitionColumnType;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.StandardTypes.JSON;
@@ -64,8 +53,6 @@ import static java.util.Objects.requireNonNull;
 public final class FilesTable
         implements SystemTable
 {
-    private static final JsonFactory JSON_FACTORY = JsonUtils.jsonFactoryBuilder().build();
-
     public static final String CONTENT_COLUMN_NAME = "content";
     public static final String FILE_PATH_COLUMN_NAME = "file_path";
     public static final String FILE_FORMAT_COLUMN_NAME = "file_format";
@@ -115,8 +102,8 @@ public final class FilesTable
         this.icebergTable = requireNonNull(icebergTable, "icebergTable is null");
         this.snapshotId = requireNonNull(snapshotId, "snapshotId is null");
 
-        List<PartitionField> partitionFields = PartitionsTable.getAllPartitionFields(icebergTable);
-        this.partitionColumnType = getPartitionColumnType(partitionFields, icebergTable.schema(), typeManager)
+        List<PartitionField> partitionFields = getAllPartitionFields(icebergTable);
+        this.partitionColumnType = getPartitionColumnType(typeManager, partitionFields, icebergTable.schema())
                 .map(IcebergPartitionColumn::rowType);
 
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
@@ -157,92 +144,6 @@ public final class FilesTable
                             partitionSpec -> PartitionSpecParser.toJson(partitionSpec.getValue()))),
                     partitionColumnType,
                     fileIO.properties()));
-        }
-    }
-
-    public static String toJson(ReadableMetricsStruct readableMetrics, List<Types.NestedField> primitiveFields)
-    {
-        StringWriter writer = new StringWriter();
-        try {
-            JsonGenerator generator = JSON_FACTORY.createGenerator(writer);
-            generator.writeStartObject();
-
-            for (int i = 0; i < readableMetrics.size(); i++) {
-                Types.NestedField field = primitiveFields.get(i);
-                generator.writeFieldName(field.name());
-
-                generator.writeStartObject();
-                ReadableColMetricsStruct columnMetrics = readableMetrics.get(i, ReadableColMetricsStruct.class);
-
-                generator.writeFieldName("column_size");
-                Long columnSize = columnMetrics.get(0, Long.class);
-                if (columnSize == null) {
-                    generator.writeNull();
-                }
-                else {
-                    generator.writeNumber(columnSize);
-                }
-
-                generator.writeFieldName("value_count");
-                Long valueCount = columnMetrics.get(1, Long.class);
-                if (valueCount == null) {
-                    generator.writeNull();
-                }
-                else {
-                    generator.writeNumber(valueCount);
-                }
-
-                generator.writeFieldName("null_value_count");
-                Long nullValueCount = columnMetrics.get(2, Long.class);
-                if (nullValueCount == null) {
-                    generator.writeNull();
-                }
-                else {
-                    generator.writeNumber(nullValueCount);
-                }
-
-                generator.writeFieldName("nan_value_count");
-                Long nanValueCount = columnMetrics.get(3, Long.class);
-                if (nanValueCount == null) {
-                    generator.writeNull();
-                }
-                else {
-                    generator.writeNumber(nanValueCount);
-                }
-
-                generator.writeFieldName("lower_bound");
-                SingleValueParser.toJson(field.type(), columnMetrics.get(4, Object.class), generator);
-
-                generator.writeFieldName("upper_bound");
-                SingleValueParser.toJson(field.type(), columnMetrics.get(5, Object.class), generator);
-
-                generator.writeEndObject();
-            }
-
-            generator.writeEndObject();
-            generator.flush();
-            return writer.toString();
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException("JSON conversion failed for: " + readableMetrics, e);
-        }
-    }
-
-    public static Map<Integer, org.apache.iceberg.types.Type> getIcebergIdToTypeMapping(Schema schema)
-    {
-        ImmutableMap.Builder<Integer, org.apache.iceberg.types.Type> icebergIdToTypeMapping = ImmutableMap.builder();
-        for (Types.NestedField field : schema.columns()) {
-            populateIcebergIdToTypeMapping(field, icebergIdToTypeMapping);
-        }
-        return icebergIdToTypeMapping.buildOrThrow();
-    }
-
-    private static void populateIcebergIdToTypeMapping(Types.NestedField field, ImmutableMap.Builder<Integer, org.apache.iceberg.types.Type> icebergIdToTypeMapping)
-    {
-        org.apache.iceberg.types.Type type = field.type();
-        icebergIdToTypeMapping.put(field.fieldId(), type);
-        if (type instanceof org.apache.iceberg.types.Type.NestedType) {
-            type.asNestedType().fields().forEach(child -> populateIcebergIdToTypeMapping(child, icebergIdToTypeMapping));
         }
     }
 
