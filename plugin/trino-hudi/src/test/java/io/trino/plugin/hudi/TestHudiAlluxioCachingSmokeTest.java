@@ -16,6 +16,7 @@ package io.trino.plugin.hudi;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Closer;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.parallel.ResourceLock;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -24,6 +25,7 @@ import java.nio.file.Path;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 
+@ResourceLock("HUDI_CACHE_SYSTEM")
 public class TestHudiAlluxioCachingSmokeTest
         extends TestHudiSmokeTest
 {

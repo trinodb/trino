@@ -26,6 +26,7 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.junit.jupiter.api.parallel.ResourceLock;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -43,6 +44,7 @@ import static io.trino.plugin.hudi.util.FileOperationUtils.FileType.TABLE_PROPER
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
 import static java.util.stream.Collectors.toCollection;
 
+@ResourceLock("HUDI_CACHE_SYSTEM")
 @Execution(ExecutionMode.SAME_THREAD)
 public class TestHudiAlluxioCacheFileOperations
         extends AbstractTestQueryFramework
