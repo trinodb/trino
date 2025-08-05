@@ -20,6 +20,7 @@ import io.trino.orc.AbstractOrcDataSource;
 import io.trino.orc.OrcDataSourceId;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
+import io.trino.spi.metrics.Metrics;
 
 import java.io.IOException;
 
@@ -63,5 +64,11 @@ public class TrinoOrcDataSource
         long readStart = System.nanoTime();
         input.readFully(position, buffer, bufferOffset, bufferLength);
         stats.readDataBytesPerSecond(bufferLength, System.nanoTime() - readStart);
+    }
+
+    @Override
+    public Metrics getMetrics()
+    {
+        return input.getMetrics();
     }
 }
