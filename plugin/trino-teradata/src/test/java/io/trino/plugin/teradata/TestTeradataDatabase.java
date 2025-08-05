@@ -166,11 +166,10 @@ public class TestTeradataDatabase
     public void close()
     {
         try {
-            dropTestDatabaseIfExists();
             if (!connection.isClosed()) {
                 connection.close();
             }
-            if (useClearScape && clearScapeManager != null) {
+            if (useClearScape) {
                 clearScapeManager.teardown(); // Clean up ClearScape environment
             }
         }
