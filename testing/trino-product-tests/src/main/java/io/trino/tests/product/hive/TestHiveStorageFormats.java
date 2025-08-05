@@ -65,6 +65,7 @@ import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS_DETAILED;
 import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_ISSUES;
 import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_MATCH;
+import static io.trino.tests.product.utils.JdbcDriverUtils.resetSessionProperty;
 import static io.trino.tests.product.utils.JdbcDriverUtils.setSessionProperty;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
@@ -257,7 +258,7 @@ public class TestHiveStorageFormats
     {
         return new StorageFormat[] {
                 storageFormat("TEXTFILE"),
-                storageFormat("RCTEXT"),
+                storageFormat("RCTEXT", ImmutableMap.of("hive.rcfile_optimized_writer_validate", "false")),
                 storageFormat("SEQUENCEFILE")
         };
     }
@@ -433,6 +434,8 @@ public class TestHiveStorageFormats
     @Test(dataProvider = "storageFormatsWithNullFormat", groups = {STORAGE_FORMATS_DETAILED, HMS_ONLY})
     public void testInsertAndSelectWithNullFormat(StorageFormat storageFormat)
     {
+        setSessionProperties(storageFormat);
+
         String nullFormat = "null_value";
         String tableName = format(
                 "test_storage_format_%s_insert_and_select_with_null_format",
@@ -705,6 +708,7 @@ public class TestHiveStorageFormats
         for (TimestampAndPrecision entry : TIMESTAMPS_FROM_TRINO) {
             setTimestampPrecision(entry.getPrecision());
             onTrino().executeQuery(format("INSERT INTO %s VALUES (%s, TIMESTAMP '%s')", tableName, entry.getId(), entry.getWriteValue()));
+            resetTimestampPrecision();
         }
 
         assertSimpleTimestamps(tableName, TIMESTAMPS_FROM_TRINO);
@@ -765,6 +769,7 @@ public class TestHiveStorageFormats
                                     entry.getId(),
                                     format("TIMESTAMP '%s'", entry.getWriteValue())))
                                     .collect(joining("), ("))));
+                    resetTimestampPrecision();
                 });
 
         assertStructTimestamps(tableName, TIMESTAMPS_FROM_TRINO);
@@ -826,6 +831,7 @@ public class TestHiveStorageFormats
                                 entry.getReadType(precision),
                                 entry.getReadValue(precision),
                                 Timestamp.valueOf(entry.getReadValue(precision)))));
+                resetTimestampPrecision();
             }
         }
         softly.assertAll();
@@ -914,6 +920,7 @@ public class TestHiveStorageFormats
                                     e.getId(),
                                     nCopies(6, Timestamp.valueOf(e.getReadValue(precision))).toArray())))
                             .collect(toList())));
+            resetTimestampPrecision();
         }
         softly.assertAll();
     }
@@ -987,6 +994,16 @@ public class TestHiveStorageFormats
     {
         try {
             setSessionProperty(onTrino().getConnection(), "hive.timestamp_precision", readPrecision.name());
+        }
+        catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static void resetTimestampPrecision()
+    {
+        try {
+            resetSessionProperty(onTrino().getConnection(), "hive.timestamp_precision");
         }
         catch (SQLException e) {
             throw new RuntimeException(e);

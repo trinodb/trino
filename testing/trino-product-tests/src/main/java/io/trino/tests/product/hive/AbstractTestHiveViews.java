@@ -212,6 +212,7 @@ public abstract class AbstractTestHiveViews
         assertThat(onTrino().executeQuery(format("SELECT COUNT(*) FROM %s.%s", schemaX, viewName))).containsOnly(row(25));
 
         onHive().executeQuery(format("DROP SCHEMA %s CASCADE", schemaX));
+        onHive().executeQuery("USE default");
     }
 
     @Test
