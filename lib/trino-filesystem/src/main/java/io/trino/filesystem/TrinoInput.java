@@ -15,6 +15,7 @@ package io.trino.filesystem;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.spi.metrics.Metrics;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -42,5 +43,10 @@ public interface TrinoInput
         byte[] buffer = new byte[length];
         int read = readTail(buffer, 0, length);
         return Slices.wrappedBuffer(buffer, 0, read);
+    }
+
+    default Metrics getMetrics()
+    {
+        return Metrics.EMPTY;
     }
 }

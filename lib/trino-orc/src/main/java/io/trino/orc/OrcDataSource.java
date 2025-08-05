@@ -15,6 +15,7 @@ package io.trino.orc;
 
 import io.airlift.slice.Slice;
 import io.trino.orc.stream.OrcDataReader;
+import io.trino.spi.metrics.Metrics;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -45,6 +46,11 @@ public interface OrcDataSource
 
     <K> Map<K, OrcDataReader> readFully(Map<K, DiskRange> diskRanges)
             throws IOException;
+
+    default Metrics getMetrics()
+    {
+        return Metrics.EMPTY;
+    }
 
     @Override
     default void close()

@@ -26,6 +26,7 @@ import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.reader.ChunkedInputStream;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
+import io.trino.spi.metrics.Metrics;
 import jakarta.annotation.Nullable;
 
 import java.io.IOException;
@@ -45,6 +46,7 @@ public class MemoryParquetDataSource
     private final long readTimeNanos;
     private final long readBytes;
     private final LocalMemoryContext memoryUsage;
+    private final Metrics metrics;
     @Nullable
     private Slice data;
 
@@ -56,6 +58,7 @@ public class MemoryParquetDataSource
             this.data = input.readTail(toIntExact(inputFile.length()));
             this.readTimeNanos = System.nanoTime() - readStart;
             stats.readDataBytesPerSecond(data.length(), readTimeNanos);
+            metrics = input.getMetrics();
         }
         this.memoryUsage = memoryContext.newLocalMemoryContext(MemoryParquetDataSource.class.getSimpleName());
         this.memoryUsage.setBytes(data.length());
@@ -133,6 +136,12 @@ public class MemoryParquetDataSource
             builder.put(entry.getKey(), new ChunkedInputStream(chunkReaders));
         }
         return builder.buildOrThrow();
+    }
+
+    @Override
+    public Metrics getMetrics()
+    {
+        return metrics;
     }
 
     @Override

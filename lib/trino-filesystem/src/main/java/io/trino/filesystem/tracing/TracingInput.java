@@ -19,6 +19,7 @@ import io.opentelemetry.api.trace.SpanBuilder;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoInput;
+import io.trino.spi.metrics.Metrics;
 
 import java.io.IOException;
 import java.util.Optional;
@@ -79,6 +80,12 @@ final class TracingInput
         Span span = spanBuilder("Input.readTail", length)
                 .startSpan();
         return withTracing(span, () -> delegate.readTail(length));
+    }
+
+    @Override
+    public Metrics getMetrics()
+    {
+        return delegate.getMetrics();
     }
 
     @Override
