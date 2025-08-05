@@ -548,7 +548,7 @@ public final class Session
                 identity.getUser(),
                 originalIdentity.getUser(),
                 originalIdentity.getEnabledRoles(),
-                originalIdentity.getGroups(),
+                identity.getGroups(),
                 originalIdentity.getGroups(),
                 identity.getPrincipal().map(Principal::toString),
                 identity.getEnabledRoles(),
