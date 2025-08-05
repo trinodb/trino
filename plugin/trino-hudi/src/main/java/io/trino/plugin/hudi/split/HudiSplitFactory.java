@@ -62,6 +62,13 @@ public class HudiSplitFactory
         return createHudiSplits(hudiTableHandle, partitionKeys, fileSlice, commitTime, hudiSplitWeightProvider, targetSplitSize, cachingHostAddressProvider);
     }
 
+    /**
+     * Creates a list of Hudi splits from a file slice.
+     * <p>
+     * For Copy-On-Write (COW) tables or read-optimized Merge-On-Read (MOR) tables, the base file may be broken into multiple smaller splits.
+     * <p>
+     * For regular MOR tables, a single split is created for the combination of the base file and its log files.
+     */
     public static List<HudiSplit> createHudiSplits(
             HudiTableHandle hudiTableHandle,
             List<HivePartitionKey> partitionKeys,
@@ -72,69 +79,113 @@ public class HudiSplitFactory
             CachingHostAddressProvider cachingHostAddressProvider)
     {
         if (fileSlice.isEmpty()) {
-            throw new TrinoException(HUDI_FILESYSTEM_ERROR, format("Not a valid file slice: %s", fileSlice.toString()));
+            throw new TrinoException(HUDI_FILESYSTEM_ERROR, format("Not a valid file slice: %s", fileSlice));
         }
 
-        // Handle MERGE_ON_READ tables to be read in read_optimized mode
-        // IMPORTANT: These tables will have a COPY_ON_WRITE table type due to how `HudiTableTypeUtils#fromInputFormat`
-        if (fileSlice.getLogFiles().findAny().isEmpty()
-                || hudiTableHandle.getTableType().equals(HoodieTableType.COPY_ON_WRITE)) {
-            // Base file only
-            checkArgument(fileSlice.getBaseFile().isPresent(),
-                    "Hudi base file must exist if there is no log file in the file slice");
-            HoodieBaseFile baseFile = fileSlice.getBaseFile().get();
-            long fileSize = baseFile.getFileSize();
-            List<HostAddress> addresses = cachingHostAddressProvider.getHosts(
-                    baseFile.getPath(), ImmutableList.of());
+        if (isCopyOnWriteOrReadOptimized(hudiTableHandle, fileSlice)) {
+            // Handle MERGE_ON_READ tables to be read in read_optimized mode
+            // IMPORTANT: These tables will have a COPY_ON_WRITE table type due to how `HudiTableTypeUtils#fromInputFormat`
+            return createSplitsForBaseFile(hudiTableHandle, partitionKeys, fileSlice, commitTime, hudiSplitWeightProvider, targetSplitSize, cachingHostAddressProvider);
+        }
+        return createSplitForMergeOnRead(hudiTableHandle, partitionKeys, fileSlice, commitTime, hudiSplitWeightProvider, cachingHostAddressProvider);
+    }
 
-            if (fileSize == 0) {
-                return ImmutableList.of(new HudiSplit(
-                        HudiBaseFile.of(baseFile),
-                        Collections.emptyList(),
-                        commitTime,
-                        hudiTableHandle.getRegularPredicates(),
-                        partitionKeys,
-                        hudiSplitWeightProvider.calculateSplitWeight(fileSize),
-                        addresses));
-            }
+    /**
+     * Checks if the file slice should be treated as a base-file-only read, which applies to COW tables and MOR tables in read-optimized mode.
+     */
+    private static boolean isCopyOnWriteOrReadOptimized(HudiTableHandle hudiTableHandle, FileSlice fileSlice)
+    {
+        return fileSlice.getLogFiles().findAny().isEmpty()
+                || hudiTableHandle.getTableType().equals(HoodieTableType.COPY_ON_WRITE);
+    }
 
-            ImmutableList.Builder<HudiSplit> splits = ImmutableList.builder();
-            long targetSplitSizeInBytes = Math.max(targetSplitSize.toBytes(), baseFile.getPathInfo().getBlockSize());
+    /**
+     * Creates splits for a base file, potentially breaking it into multiple smaller splits.
+     */
+    private static List<HudiSplit> createSplitsForBaseFile(
+            HudiTableHandle hudiTableHandle,
+            List<HivePartitionKey> partitionKeys,
+            FileSlice fileSlice,
+            String commitTime,
+            HudiSplitWeightProvider hudiSplitWeightProvider,
+            DataSize targetSplitSize,
+            CachingHostAddressProvider cachingHostAddressProvider)
+    {
+        checkArgument(fileSlice.getBaseFile().isPresent(),
+                "Hudi base file must exist if there are no log files in the file slice");
 
-            long bytesRemaining = fileSize;
-            while (((double) bytesRemaining) / targetSplitSizeInBytes > SPLIT_SLOP) {
-                splits.add(new HudiSplit(
-                        HudiBaseFile.of(baseFile, fileSize - bytesRemaining, targetSplitSizeInBytes),
-                        Collections.emptyList(),
-                        commitTime,
-                        hudiTableHandle.getRegularPredicates(),
-                        partitionKeys,
-                        hudiSplitWeightProvider.calculateSplitWeight(targetSplitSizeInBytes),
-                        addresses));
-                bytesRemaining -= targetSplitSizeInBytes;
-            }
-            if (bytesRemaining > 0) {
-                splits.add(new HudiSplit(
-                        HudiBaseFile.of(baseFile, fileSize - bytesRemaining, bytesRemaining),
-                        Collections.emptyList(),
-                        commitTime,
-                        hudiTableHandle.getRegularPredicates(),
-                        partitionKeys,
-                        hudiSplitWeightProvider.calculateSplitWeight(bytesRemaining),
-                        addresses));
-            }
-            return splits.build();
+        HoodieBaseFile baseFile = fileSlice.getBaseFile().get();
+        long fileSize = baseFile.getFileSize();
+        List<HostAddress> addresses = cachingHostAddressProvider.getHosts(baseFile.getPath(), ImmutableList.of());
+
+        // If the file is empty, create a single split to represent it
+        if (fileSize == 0) {
+            HudiSplit split = new HudiSplit(
+                    HudiBaseFile.of(baseFile),
+                    Collections.emptyList(),
+                    commitTime,
+                    hudiTableHandle.getRegularPredicates(),
+                    partitionKeys,
+                    hudiSplitWeightProvider.calculateSplitWeight(0),
+                    addresses);
+            return ImmutableList.of(split);
         }
 
-        // Base and log files
+        ImmutableList.Builder<HudiSplit> splits = ImmutableList.builder();
+        long targetSplitSizeInBytes = Math.max(targetSplitSize.toBytes(), baseFile.getPathInfo().getBlockSize());
+
+        long bytesRemaining = fileSize;
+        while (((double) bytesRemaining) / targetSplitSizeInBytes > SPLIT_SLOP) {
+            splits.add(new HudiSplit(
+                    HudiBaseFile.of(baseFile, fileSize - bytesRemaining, targetSplitSizeInBytes),
+                    Collections.emptyList(),
+                    commitTime,
+                    hudiTableHandle.getRegularPredicates(),
+                    partitionKeys,
+                    hudiSplitWeightProvider.calculateSplitWeight(targetSplitSizeInBytes),
+                    addresses));
+            bytesRemaining -= targetSplitSizeInBytes;
+        }
+        if (bytesRemaining > 0) {
+            splits.add(new HudiSplit(
+                    HudiBaseFile.of(baseFile, fileSize - bytesRemaining, bytesRemaining),
+                    Collections.emptyList(),
+                    commitTime,
+                    hudiTableHandle.getRegularPredicates(),
+                    partitionKeys,
+                    hudiSplitWeightProvider.calculateSplitWeight(bytesRemaining),
+                    addresses));
+        }
+
+        return splits.build();
+    }
+
+    /**
+     * Creates a single split for a Merge-On-Read file slice, including the base file and log files.
+     */
+    private static List<HudiSplit> createSplitForMergeOnRead(
+            HudiTableHandle hudiTableHandle,
+            List<HivePartitionKey> partitionKeys,
+            FileSlice fileSlice,
+            String commitTime,
+            HudiSplitWeightProvider hudiSplitWeightProvider,
+            CachingHostAddressProvider cachingHostAddressProvider)
+    {
+        // NOTE: Some file slices may not have base files
         Option<HoodieBaseFile> baseFileOption = fileSlice.getBaseFile();
-        return ImmutableList.of(new HudiSplit(
-                baseFileOption.isPresent() ? HudiBaseFile.of(baseFileOption.get()) : null,
+        List<HostAddress> addresses = baseFileOption
+                .map(baseFile -> cachingHostAddressProvider.getHosts(baseFile.getPath(), ImmutableList.of()))
+                .orElse(ImmutableList.of());
+
+        HudiSplit split = new HudiSplit(
+                baseFileOption.map(HudiBaseFile::of).orElse(null),
                 fileSlice.getLogFiles().map(HudiLogFile::of).toList(),
                 commitTime,
                 hudiTableHandle.getRegularPredicates(),
                 partitionKeys,
                 hudiSplitWeightProvider.calculateSplitWeight(fileSlice.getTotalFileSize()),
-                ImmutableList.of()));
+                addresses);
+
+        return ImmutableList.of(split);
     }
 }
