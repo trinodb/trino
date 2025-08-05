@@ -64,6 +64,9 @@ public class DatabaseTestUtil
 
         DatabaseConfig config = new DatabaseConfig(jdbcUrl, username, password, databaseName);
         config.setUseClearScape(useClearScape);
+        if (clearScapeManager != null) {
+            config.setClearScapeManager(clearScapeManager);
+        }
         return config;
     }
 

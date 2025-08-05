@@ -36,6 +36,11 @@ public class DatabaseConfig
         return clearScapeManager;
     }
 
+    public void setClearScapeManager(ClearScapeManager clearScapeManager)
+    {
+        this.clearScapeManager = clearScapeManager;
+    }
+
     public boolean isUseClearScape()
     {
         return useClearScape;
