@@ -6,6 +6,11 @@ import io.trino.plugin.teradata.clearscape.Model;
 
 public class DatabaseTestUtil
 {
+    private DatabaseTestUtil()
+    {
+        // Prevent instantiation
+    }
+
     public static DatabaseConfig getDatabaseConfig()
     {
         boolean useClearScape = System.getenv("clearscape_token") != null && !System.getenv("clearscape_token").isEmpty();

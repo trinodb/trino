@@ -26,6 +26,7 @@ public class TeradataConstants
     public static final String LOG_MECH = "logmech";
     public static final String AUTH_TYPE = "auth_type";
     public static final String TD2_LOG_MECH = "BROWSER";
+
     private TeradataConstants()
     {
         // Utility class - prevent instantiation
