@@ -45,7 +45,7 @@ public class ClearScapeManager
     private TeradataHttpClient getTeradataHttpClient()
             throws URISyntaxException
     {
-        String envUrl = Constants.ENV_CLEARSCAPE_URL;
+        String envUrl = TeradataConstants.ENV_CLEARSCAPE_URL;
         if (isValidUrl(envUrl)) {
             return new TeradataHttpClient(envUrl);
         }
@@ -104,7 +104,7 @@ public class ClearScapeManager
             if (response == null || response.ip() == null) {
                 CreateEnvironmentRequest request = new CreateEnvironmentRequest(
                         name,
-                        Constants.ENV_CLEARSCAPE_REGION,
+                        TeradataConstants.ENV_CLEARSCAPE_REGION,
                         model.getPassword());
                 response = teradataHttpClient.createEnvironment(request, token).get();
             }
@@ -160,12 +160,12 @@ public class ClearScapeManager
         try {
             TeradataHttpClient teradataHttpClient = getTeradataHttpClient();
             String token = this.model.getToken();
-            DeleteEnvironmentRequest request = new DeleteEnvironmentRequest(Constants.ENV_CLEARSCAPE_NAME);
+            DeleteEnvironmentRequest request = new DeleteEnvironmentRequest(TeradataConstants.ENV_CLEARSCAPE_NAME);
             teradataHttpClient.deleteEnvironment(request, token).get();
         }
         catch (BaseException be) {
             LOGGER.info("Environment {} is not available. Error - {}",
-                    Constants.ENV_CLEARSCAPE_NAME, be.getMessage());
+                    TeradataConstants.ENV_CLEARSCAPE_NAME, be.getMessage());
         }
         catch (Exception e) {
             throw new RuntimeException("Failed to shutdown and destroy ClearScape instance", e);

@@ -1,8 +1,8 @@
 package io.trino.plugin.teradata;
 
 import io.trino.plugin.teradata.clearscape.ClearScapeManager;
-import io.trino.plugin.teradata.clearscape.Constants;
 import io.trino.plugin.teradata.clearscape.Model;
+import io.trino.plugin.teradata.clearscape.TeradataConstants;
 
 public class DatabaseTestUtil
 {
@@ -26,10 +26,10 @@ public class DatabaseTestUtil
             // Handle ClearScape configuration similar to TestTeradataDatabase
             clearScapeManager = new ClearScapeManager();
             Model model = new Model();
-            model.setEnvName(Constants.ENV_CLEARSCAPE_NAME);
-            model.setUserName(Constants.ENV_CLEARSCAPE_USERNAME);
+            model.setEnvName(TeradataConstants.ENV_CLEARSCAPE_NAME);
+            model.setUserName(TeradataConstants.ENV_CLEARSCAPE_USERNAME);
             model.setPassword(password);
-            model.setDatabaseName(Constants.ENV_CLEARSCAPE_USERNAME);
+            model.setDatabaseName(TeradataConstants.ENV_CLEARSCAPE_USERNAME);
             model.setToken(System.getenv("clearscape_token"));
             clearScapeManager.init(model);
             try {
