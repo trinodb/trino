@@ -20,6 +20,7 @@ import io.trino.metastore.TableInfo;
 import io.trino.metastore.TableInfo.ExtendedRelationType;
 import io.trino.plugin.base.util.AutoCloseableCloser;
 import io.trino.plugin.hive.NodeVersion;
+import io.trino.plugin.hive.SortingFileWriterConfig;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
@@ -86,7 +87,8 @@ public abstract class BaseTrinoCatalogTest
                     new OrcReaderConfig(),
                     new OrcWriterConfig(),
                     new ParquetReaderConfig(),
-                    new ParquetWriterConfig())
+                    new ParquetWriterConfig(),
+                    new SortingFileWriterConfig())
                     .getSessionProperties())
             .build();
 
