@@ -100,7 +100,8 @@ public class PositionDeleteWriter
                 partition.map(PartitionData::toJson),
                 FileContent.POSITION_DELETES,
                 Optional.of(dataFilePath),
-                writer.getFileMetrics().splitOffsets());
+                writer.getFileMetrics().splitOffsets(),
+                false);
 
         return List.of(wrappedBuffer(jsonCodec.toJsonBytes(task)));
     }

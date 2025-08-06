@@ -116,7 +116,10 @@ public abstract class BaseIcebergConnectorSmokeTest
                         "   format = '" + format.name() + "',\n" +
                         "   format_version = 2,\n" +
                         format("   location = '.*/" + schemaName + "/region.*',\n" +
-                        "   max_commit_retry = 4\n") +
+                        "   max_commit_retry = 4,\n") +
+                        "   write_delete_mode = 'MOR',\n" +
+                        "   write_merge_mode = 'MOR',\n" +
+                        "   write_update_mode = 'MOR'\n" +
                         "\\)");
     }
 
