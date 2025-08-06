@@ -234,7 +234,7 @@ Configure metrics retrieval from the workers in your Prometheus configuration:
       tls_config:
         insecure_skip_verify: true
       basic_auth:
-        username: mysuer # replace with a user with system information permission 
+        username: myuser # replace with a username that has system information permission
         # DO NOT ADD PASSWORD
 ```
 
@@ -292,7 +292,7 @@ configuration:
       tls_config:
         insecure_skip_verify: true
       basic_auth:
-        username: mysuer # replace with a user with system information permission 
+        username: myuser # replace with a username that has system information permission
         password_file: /some/password/file
 ```
 
