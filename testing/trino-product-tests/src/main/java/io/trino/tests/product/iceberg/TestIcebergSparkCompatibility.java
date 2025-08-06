@@ -1762,11 +1762,10 @@ public class TestIcebergSparkCompatibility
         QueryResult trinoResult = onTrino().executeQuery(trinoSelect + trinoTableName);
         assertThat(trinoResult).containsOnly(row);
 
-        // After removing the name mapping, columns from migrated files should be null since they are missing the Iceberg Field IDs
+        // After removing the name mapping, Trino should still be able to derive the mapping, although they are missing the Iceberg Field IDs
         onSpark().executeQuery(format("ALTER TABLE %s UNSET TBLPROPERTIES ('schema.name-mapping.default')", sparkTableName));
-        assertThat(onTrino().executeQuery(trinoSelect + trinoTableName)).containsOnly(row(null, null, null, null, null, null, null, null));
-        assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(row(null, null, null, null));
-        assertThat(onTrino().executeQuery("SELECT nested_struct.address.street_number, nested_struct.address.street_name FROM " + trinoTableName)).containsOnly(row(null, null));
+        assertThat(onTrino().executeQuery(trinoSelect + trinoTableName)).containsOnly(row);
+        assertThat(onTrino().executeQuery("SELECT nested_struct.address.street_number, nested_struct.address.street_name FROM " + trinoTableName)).containsOnly(row(42, "Wallaby Way"));
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
