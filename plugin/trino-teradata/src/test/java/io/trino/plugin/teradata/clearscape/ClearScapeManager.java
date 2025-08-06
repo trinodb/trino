@@ -1,7 +1,6 @@
 package io.trino.plugin.teradata.clearscape;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import io.airlift.log.Logger;
 
 import java.net.URISyntaxException;
 import java.util.regex.Pattern;
@@ -16,7 +15,7 @@ import java.util.regex.Pattern;
 
 public class ClearScapeManager
 {
-    private static final Logger LOGGER = LoggerFactory.getLogger(ClearScapeManager.class);
+    private static final Logger log = Logger.get(ClearScapeManager.class);
     private static final Pattern ALLOWED_URL_PATTERN =
             Pattern.compile("^(https?://)(www\\.)?api.clearscape.teradata\\.com.*");
     private Model model;
@@ -98,7 +97,7 @@ public class ClearScapeManager
                 response = teradataHttpClient.getEnvironment(new GetEnvironmentRequest(name), token);
             }
             catch (BaseException be) {
-                LOGGER.info("Environment {} is not available. {}", name, be.getMessage());
+                log.info("Environment {} is not available. {}", name, be.getMessage());
             }
 
             if (response == null || response.ip() == null) {
@@ -137,7 +136,7 @@ public class ClearScapeManager
                 response = teradataHttpClient.getEnvironment(new GetEnvironmentRequest(name), token);
             }
             catch (BaseException be) {
-                LOGGER.info("Environment {} is not available. {}", name, be.getMessage());
+                log.info("Environment {} is not available. {}", name, be.getMessage());
             }
             if (response != null &&
                     response.ip() != null &&
@@ -164,7 +163,7 @@ public class ClearScapeManager
             teradataHttpClient.deleteEnvironment(request, token).get();
         }
         catch (BaseException be) {
-            LOGGER.info("Environment {} is not available. Error - {}",
+            log.info("Environment {} is not available. Error - {}",
                     TeradataConstants.ENV_CLEARSCAPE_NAME, be.getMessage());
         }
         catch (Exception e) {
