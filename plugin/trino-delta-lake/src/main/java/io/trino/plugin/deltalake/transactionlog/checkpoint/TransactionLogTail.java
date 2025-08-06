@@ -15,7 +15,6 @@ package io.trino.plugin.deltalake.transactionlog.checkpoint;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
-import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
@@ -74,18 +73,6 @@ public class TransactionLogTail
         return loadNewTail(fileSystem, tableLocation, 0L, 0L, transactionLogMaxCachedFileSize);
     }
 
-    /**
-     * @deprecated use {@link #getEntriesFromJson(long, TrinoInputFile, DataSize)}
-     */
-    @Deprecated
-    public static Optional<TransactionLogEntries> getEntriesFromJson(long entryNumber, String transactionLogDir, TrinoFileSystem fileSystem, DataSize transactionLogMaxCachedFileSize)
-            throws IOException
-    {
-        Location transactionLogFilePath = getTransactionLogJsonEntryPath(transactionLogDir, entryNumber);
-        TrinoInputFile inputFile = fileSystem.newInputFile(transactionLogFilePath);
-        return getEntriesFromJson(entryNumber, inputFile, transactionLogMaxCachedFileSize);
-    }
-
     public static Optional<TransactionLogEntries> getEntriesFromJson(long entryNumber, TrinoInputFile inputFile, DataSize transactionLogMaxCachedFileSize)
             throws IOException
     {
@@ -142,7 +129,7 @@ public class TransactionLogTail
 
         long entryNumber = startVersion;
         while (true) {
-            Optional<TransactionLogEntries> results = getEntriesFromJson(entryNumber, transactionLogDir, fileSystem, transactionLogMaxCachedFileSize);
+            Optional<TransactionLogEntries> results = getEntriesFromJson(entryNumber, fileSystem.newInputFile(getTransactionLogJsonEntryPath(transactionLogDir, entryNumber)), transactionLogMaxCachedFileSize);
             if (results.isEmpty()) {
                 break;
             }
@@ -172,7 +159,7 @@ public class TransactionLogTail
         boolean endOfHead = false;
 
         while (!endOfHead) {
-            Optional<TransactionLogEntries> results = getEntriesFromJson(entryNumber, transactionLogDir, fileSystem, transactionLogMaxCachedFileSize);
+            Optional<TransactionLogEntries> results = getEntriesFromJson(entryNumber, fileSystem.newInputFile(getTransactionLogJsonEntryPath(transactionLogDir, entryNumber)), transactionLogMaxCachedFileSize);
             if (results.isPresent()) {
                 transactionsBuilder.add(new Transaction(entryNumber, results.get()));
                 version = entryNumber;
