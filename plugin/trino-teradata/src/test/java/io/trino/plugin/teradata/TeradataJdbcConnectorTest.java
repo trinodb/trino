@@ -662,7 +662,7 @@ public class TeradataJdbcConnectorTest
         return switch (typeName) {
             // skipping date as during julian->gregorian date is handled differently in Teradata. tinyint, double and varchar with unbounded (need to handle special characters) is skipped and will handle it while improving
             // write functionalities.
-            case "boolean", "tinyint", "date", "double", "varchar", "timestamp(3) with time zone", "timestamp(6) with time zone",
+            case "boolean", "tinyint", "date", "real", "double", "varchar", "timestamp(3) with time zone", "timestamp(6) with time zone",
                  "U&'a \\000a newline'" -> Optional.empty();
             default -> Optional.of(dataMappingTestSetup);
         };

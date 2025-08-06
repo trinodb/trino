@@ -86,6 +86,16 @@ public class DatabaseTestUtil
             urlBuilder.append("/DATABASE=").append(databaseName);
             hasParams = true;
         }
+        String tmode = "ANSI";
+        if (hasParams) {
+            urlBuilder.append(",");
+        }
+        else {
+            urlBuilder.append("/");
+        }
+        urlBuilder.append("TMODE=").append(tmode);
+        hasParams = true;
+
         return urlBuilder.toString();
     }
 }
