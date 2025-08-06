@@ -1,7 +1,6 @@
 package io.trino.plugin.teradata.clearscape;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import io.airlift.log.Logger;
 
 import java.net.URISyntaxException;
 import java.util.regex.Pattern;
@@ -16,7 +15,7 @@ import java.util.regex.Pattern;
 
 public class ClearScapeManager
 {
-    private static final Logger LOGGER = LoggerFactory.getLogger(ClearScapeManager.class);
+    private static final Logger log = Logger.get(ClearScapeManager.class);
     private static final Pattern ALLOWED_URL_PATTERN =
             Pattern.compile("^(https?://)(www\\.)?api.clearscape.teradata\\.com.*");
     private Model model;
@@ -45,7 +44,7 @@ public class ClearScapeManager
     private TeradataHttpClient getTeradataHttpClient()
             throws URISyntaxException
     {
-        String envUrl = Constants.ENV_CLEARSCAPE_URL;
+        String envUrl = TeradataConstants.ENV_CLEARSCAPE_URL;
         if (isValidUrl(envUrl)) {
             return new TeradataHttpClient(envUrl);
         }
@@ -98,13 +97,13 @@ public class ClearScapeManager
                 response = teradataHttpClient.getEnvironment(new GetEnvironmentRequest(name), token);
             }
             catch (BaseException be) {
-                LOGGER.info("Environment {} is not available. {}", name, be.getMessage());
+                log.info("Environment {} is not available. {}", name, be.getMessage());
             }
 
             if (response == null || response.ip() == null) {
                 CreateEnvironmentRequest request = new CreateEnvironmentRequest(
                         name,
-                        Constants.ENV_CLEARSCAPE_REGION,
+                        TeradataConstants.ENV_CLEARSCAPE_REGION,
                         model.getPassword());
                 response = teradataHttpClient.createEnvironment(request, token).get();
             }
@@ -137,7 +136,7 @@ public class ClearScapeManager
                 response = teradataHttpClient.getEnvironment(new GetEnvironmentRequest(name), token);
             }
             catch (BaseException be) {
-                LOGGER.info("Environment {} is not available. {}", name, be.getMessage());
+                log.info("Environment {} is not available. {}", name, be.getMessage());
             }
             if (response != null &&
                     response.ip() != null &&
@@ -160,12 +159,12 @@ public class ClearScapeManager
         try {
             TeradataHttpClient teradataHttpClient = getTeradataHttpClient();
             String token = this.model.getToken();
-            DeleteEnvironmentRequest request = new DeleteEnvironmentRequest(Constants.ENV_CLEARSCAPE_NAME);
+            DeleteEnvironmentRequest request = new DeleteEnvironmentRequest(TeradataConstants.ENV_CLEARSCAPE_NAME);
             teradataHttpClient.deleteEnvironment(request, token).get();
         }
         catch (BaseException be) {
-            LOGGER.info("Environment {} is not available. Error - {}",
-                    Constants.ENV_CLEARSCAPE_NAME, be.getMessage());
+            log.info("Environment {} is not available. Error - {}",
+                    TeradataConstants.ENV_CLEARSCAPE_NAME, be.getMessage());
         }
         catch (Exception e) {
             throw new RuntimeException("Failed to shutdown and destroy ClearScape instance", e);
