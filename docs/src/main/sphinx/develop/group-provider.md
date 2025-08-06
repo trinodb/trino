@@ -20,18 +20,22 @@ must be wrapped as a Trino plugin and installed on the cluster.
 
 After a plugin that implements `GroupProviderFactory` has been installed on the coordinator,
 it is configured using an `etc/group-provider.properties` file.
-All the properties other than `group-provider.name` are specific to
+All the properties other than `group-provider.name` and `group-provider.group-case` are specific to
 the `GroupProviderFactory` implementation.
 
-The `group-provider.name` property is used by Trino to find a registered
+* The `group-provider.name` property is used by Trino to find a registered
 `GroupProviderFactory` based on the name returned by `GroupProviderFactory.getName()`.
-The remaining properties are passed as a map to
+* The `group-provider.group-case` property can be used to transform the case of groups. Allowed values
+are `[keep, upper, lower]`. This property is not mandatory and the default is `keep`, which does not
+transform the group name.
+* The remaining properties are passed as a map to
 `GroupProviderFactory.create(Map<String, String>)`.
 
 Example configuration file:
 
 ```text
 group-provider.name=custom-group-provider
+group-provider.group-case=keep
 custom-property1=custom-value1
 custom-property2=custom-value2
 ```
