@@ -33,7 +33,11 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileAttribute;
+import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -74,7 +78,8 @@ final class TestIcebergPolarisCatalogConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        warehouseLocation = Files.createTempDirectory(null);
+        FileAttribute<Set<PosixFilePermission>> rwx = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwxrwxrwx"));
+        warehouseLocation = Files.createTempDirectory(null, rwx);
         polarisCatalog = closeAfterClass(new TestingPolarisCatalog(warehouseLocation.toString()));
 
         return IcebergQueryRunner.builder()
