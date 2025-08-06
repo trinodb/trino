@@ -63,12 +63,6 @@ final class TestColumnDefaultOptions
     }
 
     @Test
-    void testNull()
-    {
-        assertDefaultColumnValue(TINYINT, new NullLiteral(LOCATION));
-    }
-
-    @Test
     void testBoolean()
     {
         assertDefaultColumnValue(BOOLEAN, new BooleanLiteral(LOCATION, "true"));
@@ -84,6 +78,7 @@ final class TestColumnDefaultOptions
     {
         assertDefaultColumnValue(TINYINT, new LongLiteral(LOCATION, "-128"));
         assertDefaultColumnValue(TINYINT, new LongLiteral(LOCATION, "127"));
+        assertDefaultColumnValue(TINYINT, new NullLiteral(LOCATION));
 
         assertInvalidDefaultColumnValue(TINYINT, new LongLiteral(LOCATION, "-129"), "Out of range for tinyint: -129");
         assertInvalidDefaultColumnValue(TINYINT, new LongLiteral(LOCATION, "128"), "Out of range for tinyint: 128");
@@ -94,6 +89,7 @@ final class TestColumnDefaultOptions
     {
         assertDefaultColumnValue(SMALLINT, new LongLiteral(LOCATION, "-32768"));
         assertDefaultColumnValue(SMALLINT, new LongLiteral(LOCATION, "32767"));
+        assertDefaultColumnValue(SMALLINT, new NullLiteral(LOCATION));
 
         assertInvalidDefaultColumnValue(SMALLINT, new LongLiteral(LOCATION, "-32769"), " Out of range for smallint: -32769");
         assertInvalidDefaultColumnValue(SMALLINT, new LongLiteral(LOCATION, "32768"), " Out of range for smallint: 32768");
@@ -104,6 +100,7 @@ final class TestColumnDefaultOptions
     {
         assertDefaultColumnValue(INTEGER, new LongLiteral(LOCATION, "-2147483648"));
         assertDefaultColumnValue(INTEGER, new LongLiteral(LOCATION, "2147483647"));
+        assertDefaultColumnValue(INTEGER, new NullLiteral(LOCATION));
 
         assertInvalidDefaultColumnValue(INTEGER, new LongLiteral(LOCATION, "-2147483649"), "Out of range for integer: -2147483649");
         assertInvalidDefaultColumnValue(INTEGER, new LongLiteral(LOCATION, "2147483648"), "Out of range for integer: 2147483648");
@@ -114,6 +111,7 @@ final class TestColumnDefaultOptions
     {
         assertDefaultColumnValue(BIGINT, new LongLiteral(LOCATION, "-9223372036854775808"));
         assertDefaultColumnValue(BIGINT, new LongLiteral(LOCATION, "9223372036854775807"));
+        assertDefaultColumnValue(BIGINT, new NullLiteral(LOCATION));
 
         // LongLiteral disallows values outside the range of a long
     }
@@ -128,6 +126,7 @@ final class TestColumnDefaultOptions
         assertDefaultColumnValue(REAL, new GenericLiteral(LOCATION, "REAL", "NaN"));
         assertDefaultColumnValue(REAL, new GenericLiteral(LOCATION, "REAL", "+Infinity"));
         assertDefaultColumnValue(REAL, new GenericLiteral(LOCATION, "REAL", "-Infinity"));
+        assertDefaultColumnValue(REAL, new NullLiteral(LOCATION));
     }
 
     @Test
@@ -141,6 +140,7 @@ final class TestColumnDefaultOptions
         assertDefaultColumnValue(DOUBLE, new GenericLiteral(LOCATION, "DOUBLE", "NaN"));
         assertDefaultColumnValue(DOUBLE, new GenericLiteral(LOCATION, "DOUBLE", "+Infinity"));
         assertDefaultColumnValue(DOUBLE, new GenericLiteral(LOCATION, "DOUBLE", "-Infinity"));
+        assertDefaultColumnValue(DOUBLE, new NullLiteral(LOCATION));
     }
 
     @Test
@@ -154,6 +154,8 @@ final class TestColumnDefaultOptions
         assertDefaultColumnValue(createDecimalType(30, 5), new DecimalLiteral(LOCATION, "-3141592653589793238462643.38327"));
         assertDefaultColumnValue(createDecimalType(38), new DecimalLiteral(LOCATION, "27182818284590452353602874713526624977"));
         assertDefaultColumnValue(createDecimalType(38), new DecimalLiteral(LOCATION, "-27182818284590452353602874713526624977"));
+        assertDefaultColumnValue(createDecimalType(3), new NullLiteral(LOCATION));
+        assertDefaultColumnValue(createDecimalType(38), new NullLiteral(LOCATION));
     }
 
     @Test
@@ -177,6 +179,7 @@ final class TestColumnDefaultOptions
         assertDefaultColumnValue(createCharType(10), new StringLiteral(LOCATION, "test"));
         assertDefaultColumnValue(createCharType(5), new StringLiteral(LOCATION, "攻殻機動隊"));
         assertDefaultColumnValue(createCharType(1), new StringLiteral(LOCATION, "😂"));
+        assertDefaultColumnValue(createCharType(3), new NullLiteral(LOCATION));
     }
 
     @Test
@@ -200,6 +203,8 @@ final class TestColumnDefaultOptions
         assertDefaultColumnValue(VARCHAR, new StringLiteral(LOCATION, "test"));
         assertDefaultColumnValue(createVarcharType(5), new StringLiteral(LOCATION, "攻殻機動隊"));
         assertDefaultColumnValue(createVarcharType(1), new StringLiteral(LOCATION, "😂"));
+        assertDefaultColumnValue(VARCHAR, new NullLiteral(LOCATION));
+        assertDefaultColumnValue(createVarcharType(255), new NullLiteral(LOCATION));
     }
 
     @Test
@@ -233,6 +238,9 @@ final class TestColumnDefaultOptions
         assertDefaultColumnValue(createTimeType(10), new GenericLiteral(LOCATION, "TIME", "00:00:00.1234567890"));
         assertDefaultColumnValue(createTimeType(11), new GenericLiteral(LOCATION, "TIME", "00:00:00.12345678901"));
         assertDefaultColumnValue(createTimeType(12), new GenericLiteral(LOCATION, "TIME", "00:00:00.123456789012"));
+
+        assertDefaultColumnValue(createTimeType(0), new NullLiteral(LOCATION));
+        assertDefaultColumnValue(createTimeType(12), new NullLiteral(LOCATION));
     }
 
     @Test
@@ -242,6 +250,7 @@ final class TestColumnDefaultOptions
         assertDefaultColumnValue(DATE, new GenericLiteral(LOCATION, "DATE", "1969-12-31"));
         assertDefaultColumnValue(DATE, new GenericLiteral(LOCATION, "DATE", "1970-01-01"));
         assertDefaultColumnValue(DATE, new GenericLiteral(LOCATION, "DATE", "9999-12-31"));
+        assertDefaultColumnValue(DATE, new NullLiteral(LOCATION));
     }
 
     @Test
@@ -269,6 +278,9 @@ final class TestColumnDefaultOptions
         assertDefaultColumnValue(createTimestampType(12), new GenericLiteral(LOCATION, "TIMESTAMP", "1970-01-01 00:00:00.9999"));
         assertDefaultColumnValue(createTimestampType(12), new GenericLiteral(LOCATION, "TIMESTAMP", "1970-01-01 00:00:00.99999"));
         assertDefaultColumnValue(createTimestampType(12), new GenericLiteral(LOCATION, "TIMESTAMP", "1970-01-01 00:00:00.999999"));
+
+        assertDefaultColumnValue(createTimestampType(0), new NullLiteral(LOCATION));
+        assertDefaultColumnValue(createTimestampType(12), new NullLiteral(LOCATION));
     }
 
     @Test
@@ -302,6 +314,9 @@ final class TestColumnDefaultOptions
         assertDefaultColumnValue(createTimestampWithTimeZoneType(12), new GenericLiteral(LOCATION, "TIMESTAMP", "1970-01-01 00:00:00.9 UTC"));
         assertDefaultColumnValue(createTimestampWithTimeZoneType(12), new GenericLiteral(LOCATION, "TIMESTAMP", "1970-01-01 00:00:00.99 UTC"));
         assertDefaultColumnValue(createTimestampWithTimeZoneType(12), new GenericLiteral(LOCATION, "TIMESTAMP", "1970-01-01 00:00:00.999 UTC"));
+
+        assertDefaultColumnValue(createTimestampWithTimeZoneType(0), new NullLiteral(LOCATION));
+        assertDefaultColumnValue(createTimestampWithTimeZoneType(12), new NullLiteral(LOCATION));
     }
 
     @Test

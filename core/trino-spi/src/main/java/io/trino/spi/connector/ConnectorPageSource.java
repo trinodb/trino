@@ -13,7 +13,6 @@
  */
 package io.trino.spi.connector;
 
-import io.trino.spi.Page;
 import io.trino.spi.metrics.Metrics;
 
 import java.io.Closeable;
@@ -54,26 +53,11 @@ public interface ConnectorPageSource
     boolean isFinished();
 
     /**
-     * Gets the next page of data.  This method is allowed to return null.
-     *
-     * @deprecated Use {@link #getNextSourcePage()} instead
-     */
-    @Deprecated(forRemoval = true)
-    default Page getNextPage()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    /**
      * Gets the next page of data. This method is allowed to return null.
      */
     default SourcePage getNextSourcePage()
     {
-        Page nextPage = getNextPage();
-        if (nextPage == null) {
-            return null;
-        }
-        return SourcePage.create(nextPage);
+        throw new UnsupportedOperationException();
     }
 
     /**

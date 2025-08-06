@@ -13,8 +13,6 @@
  */
 package io.trino.connector;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
@@ -175,6 +173,7 @@ public class MockConnector
     private final BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> getTableProperties;
     private final BiFunction<ConnectorSession, SchemaTablePrefix, List<GrantInfo>> listTablePrivileges;
     private final Collection<FunctionMetadata> functions;
+    private final Collection<String> branches;
     private final MockConnectorFactory.ListRoleGrants roleGrants;
     private final Optional<ConnectorNodePartitioningProvider> partitioningProvider;
     private final Optional<ConnectorAccessControl> accessControl;
@@ -229,6 +228,7 @@ public class MockConnector
             BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> getTableProperties,
             BiFunction<ConnectorSession, SchemaTablePrefix, List<GrantInfo>> listTablePrivileges,
             Collection<FunctionMetadata> functions,
+            Collection<String> branches,
             ListRoleGrants roleGrants,
             Optional<ConnectorNodePartitioningProvider> partitioningProvider,
             Optional<ConnectorAccessControl> accessControl,
@@ -281,6 +281,7 @@ public class MockConnector
         this.getTableProperties = requireNonNull(getTableProperties, "getTableProperties is null");
         this.listTablePrivileges = requireNonNull(listTablePrivileges, "listTablePrivileges is null");
         this.functions = ImmutableList.copyOf(functions);
+        this.branches = ImmutableList.copyOf(branches);
         this.roleGrants = requireNonNull(roleGrants, "roleGrants is null");
         this.partitioningProvider = requireNonNull(partitioningProvider, "partitioningProvider is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
@@ -536,7 +537,7 @@ public class MockConnector
         @Override
         public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
         {
-            if (startVersion.isPresent() || endVersion.isPresent()) {
+            if (startVersion.isPresent() || (branches.isEmpty() && endVersion.isPresent())) {
                 throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
             }
 
@@ -592,7 +593,7 @@ public class MockConnector
         public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
         {
             MockConnectorColumnHandle mockColumnHandle = (MockConnectorColumnHandle) columnHandle;
-            return new ColumnMetadata(mockColumnHandle.getName(), mockColumnHandle.getType());
+            return new ColumnMetadata(mockColumnHandle.name(), mockColumnHandle.type());
         }
 
         @Override
@@ -927,6 +928,12 @@ public class MockConnector
         }
 
         @Override
+        public Collection<String> listBranches(ConnectorSession session, SchemaTableName tableName)
+        {
+            return branches;
+        }
+
+        @Override
         public Set<RoleGrant> listRoleGrants(ConnectorSession session, TrinoPrincipal principal)
         {
             return roleGrants.apply(session, Optional.empty(), Optional.empty(), OptionalLong.empty())
@@ -1070,14 +1077,14 @@ public class MockConnector
                     .collect(toImmutableList());
             List<Type> types = columns.stream()
                     .map(MockConnectorColumnHandle.class::cast)
-                    .map(MockConnectorColumnHandle::getType)
+                    .map(MockConnectorColumnHandle::type)
                     .collect(toImmutableList());
             Map<String, Integer> columnIndexes = getColumnIndexes(tableName);
             List<List<?>> records = data.apply(tableName).stream()
                     .map(record -> {
                         ImmutableList.Builder<Object> projectedRow = ImmutableList.builder();
                         for (MockConnectorColumnHandle column : projection) {
-                            String columnName = column.getName();
+                            String columnName = column.name();
                             if (columnName.equals(DELETE_ROW_ID) || columnName.equals(UPDATE_ROW_ID) || columnName.equals(MERGE_ROW_ID)) {
                                 projectedRow.add(0);
                                 continue;
@@ -1115,29 +1122,6 @@ public class MockConnector
         }
     }
 
-    public static class MockConnectorTableExecuteHandle
-            implements ConnectorTableExecuteHandle
-    {
-        private final int someFieldForSerializer;
-        private final SchemaTableName schemaTableName;
-
-        @JsonCreator
-        public MockConnectorTableExecuteHandle(int someFieldForSerializer, SchemaTableName schemaTableName)
-        {
-            this.someFieldForSerializer = someFieldForSerializer;
-            this.schemaTableName = schemaTableName;
-        }
-
-        @JsonProperty
-        public int getSomeFieldForSerializer()
-        {
-            return someFieldForSerializer;
-        }
-
-        @JsonProperty
-        public SchemaTableName getSchemaTableName()
-        {
-            return schemaTableName;
-        }
-    }
+    public record MockConnectorTableExecuteHandle(int someFieldForSerializer, SchemaTableName schemaTableName)
+            implements ConnectorTableExecuteHandle {}
 }

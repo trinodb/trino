@@ -27,13 +27,17 @@ import java.util.Optional;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
-@DefunctConfig("iceberg.rest-catalog.parent-namespace")
+@DefunctConfig({
+        "iceberg.rest-catalog.parent-namespace",
+        "iceberg.rest-catalog.sigv4-enabled",
+})
 public class IcebergRestCatalogConfig
 {
     public enum Security
     {
         NONE,
         OAUTH2,
+        SIGV4,
     }
 
     public enum SessionType
@@ -51,7 +55,6 @@ public class IcebergRestCatalogConfig
     private Duration sessionTimeout = new Duration(CatalogProperties.AUTH_SESSION_TIMEOUT_MS_DEFAULT, MILLISECONDS);
     private boolean vendedCredentialsEnabled;
     private boolean viewEndpointsEnabled = true;
-    private boolean sigV4Enabled;
     private boolean caseInsensitiveNameMatching;
     private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(1, MINUTES);
 
@@ -176,19 +179,6 @@ public class IcebergRestCatalogConfig
     public IcebergRestCatalogConfig setViewEndpointsEnabled(boolean viewEndpointsEnabled)
     {
         this.viewEndpointsEnabled = viewEndpointsEnabled;
-        return this;
-    }
-
-    public boolean isSigV4Enabled()
-    {
-        return sigV4Enabled;
-    }
-
-    @Config("iceberg.rest-catalog.sigv4-enabled")
-    @ConfigDescription("Enable AWS Signature version 4 (SigV4)")
-    public IcebergRestCatalogConfig setSigV4Enabled(boolean sigV4Enabled)
-    {
-        this.sigV4Enabled = sigV4Enabled;
         return this;
     }
 

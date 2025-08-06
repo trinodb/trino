@@ -14,15 +14,18 @@
 package io.trino.plugin.openlineage;
 
 import com.google.inject.Binder;
-import com.google.inject.Provides;
 import com.google.inject.Scopes;
-import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.openlineage.client.OpenLineage;
 import io.openlineage.client.OpenLineageClient;
-import io.trino.plugin.openlineage.transport.OpenLineageTransport;
+import io.trino.plugin.openlineage.transport.OpenLineageTransportConfig;
+import io.trino.plugin.openlineage.transport.OpenLineageTransportCreator;
 import io.trino.plugin.openlineage.transport.console.OpenLineageConsoleTransport;
 import io.trino.plugin.openlineage.transport.http.OpenLineageHttpTransport;
 import io.trino.plugin.openlineage.transport.http.OpenLineageHttpTransportConfig;
+import io.trino.spi.eventlistener.EventListener;
+
+import java.net.URI;
 
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -32,43 +35,43 @@ import static io.trino.plugin.openlineage.OpenLineageTransport.HTTP;
 public class OpenLineageListenerModule
         extends AbstractConfigurationAwareModule
 {
+    private static final URI OPEN_LINEAGE_PRODUCER = URI.create("https://github.com/trinodb/trino/plugin/trino-openlineage");
+
     @Override
     protected void setup(Binder binder)
     {
-        binder.bind(OpenLineageListener.class).in(Scopes.SINGLETON);
-
-        configBinder(binder).bindConfig(OpenLineageListenerConfig.class);
+        configBinder(binder).bindConfig(OpenLineageTransportConfig.class);
 
         install(conditionalModule(
-                OpenLineageListenerConfig.class,
+                OpenLineageTransportConfig.class,
                 config -> config.getTransport().equals(CONSOLE),
-                internalBinder -> internalBinder.bind(OpenLineageTransport.class).to(OpenLineageConsoleTransport.class)));
+                internalBinder -> {
+                    internalBinder.bind(OpenLineage.class).toInstance(createOpenLineage());
+                    configBinder(internalBinder).bindConfig(OpenLineageListenerConfig.class);
+                    internalBinder.bind(OpenLineageTransportCreator.class).to(OpenLineageConsoleTransport.class);
+                    internalBinder.bind(OpenLineageClient.class).toProvider(OpenLineageClientProvider.class).in(Scopes.SINGLETON);
+                    internalBinder.bind(EventListener.class)
+                            .to(OpenLineageListener.class)
+                            .in(Scopes.SINGLETON);
+                }));
 
         install(conditionalModule(
-                OpenLineageListenerConfig.class,
+                OpenLineageTransportConfig.class,
                 config -> config.getTransport().equals(HTTP),
                 internalBinder -> {
+                    internalBinder.bind(OpenLineage.class).toInstance(createOpenLineage());
+                    configBinder(internalBinder).bindConfig(OpenLineageListenerConfig.class);
                     configBinder(internalBinder).bindConfig(OpenLineageHttpTransportConfig.class);
-                    internalBinder.bind(OpenLineageTransport.class).to(OpenLineageHttpTransport.class);
+                    internalBinder.bind(OpenLineageTransportCreator.class).to(OpenLineageHttpTransport.class);
+                    internalBinder.bind(OpenLineageClient.class).toProvider(OpenLineageClientProvider.class).in(Scopes.SINGLETON);
+                    internalBinder.bind(EventListener.class)
+                            .to(OpenLineageListener.class)
+                            .in(Scopes.SINGLETON);
                 }));
     }
 
-    @Provides
-    @Singleton
-    private OpenLineageClient getClient(OpenLineageListenerConfig listenerConfig, OpenLineageTransport openLineageTransport)
-            throws Exception
+    private static OpenLineage createOpenLineage()
     {
-        OpenLineageClient.Builder clientBuilder = OpenLineageClient.builder();
-        clientBuilder.transport(openLineageTransport.buildTransport());
-
-        String[] disabledFacets = listenerConfig
-                .getDisabledFacets()
-                .stream()
-                .map(OpenLineageTrinoFacet::asText)
-                .toArray(String[]::new);
-
-        clientBuilder.disableFacets(disabledFacets);
-
-        return clientBuilder.build();
+        return new OpenLineage(OPEN_LINEAGE_PRODUCER);
     }
 }

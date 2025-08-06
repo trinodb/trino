@@ -116,7 +116,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.inject.Scopes.SINGLETON;
 import static io.airlift.json.JsonBinder.jsonBinder;
@@ -1026,34 +1025,17 @@ public class TestHttpRemoteTask
                     initialTaskStatus.getRunningPartitionedSplitsWeight());
         }
 
-        private static class DynamicFiltersFetchRequest
+        private record DynamicFiltersFetchRequest(
+                String uriInfo,
+                TaskId taskId,
+                Long currentDynamicFiltersVersion,
+                long storedDynamicFiltersVersion)
         {
-            private final String uriInfo;
-            private final TaskId taskId;
-            private final Long currentDynamicFiltersVersion;
-            private final long storedDynamicFiltersVersion;
-
-            private DynamicFiltersFetchRequest(
-                    String uriInfo,
-                    TaskId taskId,
-                    Long currentDynamicFiltersVersion,
-                    long storedDynamicFiltersVersion)
+            private DynamicFiltersFetchRequest
             {
-                this.uriInfo = requireNonNull(uriInfo, "uriInfo is null");
-                this.taskId = requireNonNull(taskId, "taskId is null");
-                this.currentDynamicFiltersVersion = requireNonNull(currentDynamicFiltersVersion, "currentDynamicFiltersVersion is null");
-                this.storedDynamicFiltersVersion = storedDynamicFiltersVersion;
-            }
-
-            @Override
-            public String toString()
-            {
-                return toStringHelper(this)
-                        .add("uriInfo", uriInfo)
-                        .add("taskId", taskId)
-                        .add("currentDynamicFiltersVersion", currentDynamicFiltersVersion)
-                        .add("storedDynamicFiltersVersion", storedDynamicFiltersVersion)
-                        .toString();
+                requireNonNull(uriInfo, "uriInfo is null");
+                requireNonNull(taskId, "taskId is null");
+                requireNonNull(currentDynamicFiltersVersion, "currentDynamicFiltersVersion is null");
             }
         }
     }

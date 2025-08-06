@@ -71,7 +71,7 @@ final class TestIcebergS3TablesConnectorSmokeTest
                 .addIcebergProperty("iceberg.rest-catalog.uri", "https://glue.%s.amazonaws.com/iceberg".formatted(AWS_REGION))
                 .addIcebergProperty("iceberg.rest-catalog.warehouse", "s3tablescatalog/" + S3_TABLES_BUCKET)
                 .addIcebergProperty("iceberg.rest-catalog.view-endpoints-enabled", "false")
-                .addIcebergProperty("iceberg.rest-catalog.sigv4-enabled", "true")
+                .addIcebergProperty("iceberg.rest-catalog.security", "sigv4")
                 .addIcebergProperty("iceberg.rest-catalog.signing-name", "glue")
                 .addIcebergProperty("iceberg.writer-sort-buffer-size", "1MB")
                 .addIcebergProperty("iceberg.allowed-extra-properties", "write.metadata.delete-after-commit.enabled,write.metadata.previous-versions-max")
