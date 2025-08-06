@@ -83,6 +83,7 @@ import io.trino.spi.connector.SortItem;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TopNApplicationResult;
+import io.trino.spi.connector.UpdateKind;
 import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
@@ -153,8 +154,14 @@ public class LakehouseMetadata
     @Override
     public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
     {
+        return getTableHandle(session, tableName, startVersion, endVersion, Optional.empty());
+    }
+
+    @Override
+    public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion, Optional<UpdateKind> updateKind)
+    {
         if (isIcebergTableName(tableName.getTableName()) && isMaterializedViewStorage(tableName.getTableName())) {
-            return icebergMetadata.getTableHandle(session, tableName, startVersion, endVersion);
+            return icebergMetadata.getTableHandle(session, tableName, startVersion, endVersion, updateKind);
         }
 
         Table table = hiveMetadata.getMetastore()
@@ -164,7 +171,7 @@ public class LakehouseMetadata
             return null;
         }
         if (isIcebergTable(table)) {
-            return icebergMetadata.getTableHandle(session, tableName, startVersion, endVersion);
+            return icebergMetadata.getTableHandle(session, tableName, startVersion, endVersion, updateKind);
         }
         if (isDeltaLakeTable(table)) {
             return deltaMetadata.getTableHandle(session, tableName, startVersion, endVersion);

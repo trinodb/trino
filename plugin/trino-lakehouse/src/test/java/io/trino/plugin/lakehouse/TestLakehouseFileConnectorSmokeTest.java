@@ -101,7 +101,10 @@ public class TestLakehouseFileConnectorSmokeTest
                    format_version = 2,
                    location = 's3://test-bucket/tpch/region-\\E.*\\Q',
                    max_commit_retry = 4,
-                   type = 'ICEBERG'
+                   type = 'ICEBERG',
+                   write_delete_mode = 'MOR',
+                   write_merge_mode = 'MOR',
+                   write_update_mode = 'MOR'
                 )\\E""");
     }
 }

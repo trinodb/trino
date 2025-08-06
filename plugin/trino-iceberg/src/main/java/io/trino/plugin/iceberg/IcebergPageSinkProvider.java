@@ -37,9 +37,11 @@ import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.io.LocationProvider;
+import org.apache.iceberg.mapping.NameMappingParser;
 
 import java.util.Map;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.transformValues;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.maxPartitionsPerWriter;
 import static io.trino.plugin.iceberg.IcebergUtil.getLocationProvider;
@@ -56,6 +58,7 @@ public class IcebergPageSinkProvider
     private final int sortingFileWriterMaxOpenFiles;
     private final TypeManager typeManager;
     private final PageSorter pageSorter;
+    private final IcebergPageSourceProviderFactory icebergPageSourceProviderFactory;
 
     @Inject
     public IcebergPageSinkProvider(
@@ -65,7 +68,8 @@ public class IcebergPageSinkProvider
             PageIndexerFactory pageIndexerFactory,
             SortingFileWriterConfig sortingFileWriterConfig,
             TypeManager typeManager,
-            PageSorter pageSorter)
+            PageSorter pageSorter,
+            IcebergPageSourceProviderFactory icebergPageSourceProviderFactory)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
@@ -75,6 +79,7 @@ public class IcebergPageSinkProvider
         this.sortingFileWriterMaxOpenFiles = sortingFileWriterConfig.getMaxOpenSortFiles();
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
+        this.icebergPageSourceProviderFactory = requireNonNull(icebergPageSourceProviderFactory, "icebergPageSourceProviderFactory is null");
     }
 
     @Override
@@ -166,6 +171,7 @@ public class IcebergPageSinkProvider
         Map<Integer, PartitionSpec> partitionsSpecs = transformValues(tableHandle.partitionsSpecsAsJson(), json -> PartitionSpecParser.fromJson(schema, json));
         ConnectorPageSink pageSink = createPageSink(session, tableHandle);
 
+        checkState(((IcebergTableHandle) mergeHandle.getTableHandle()).getUpdateKind().isPresent());
         return new IcebergMergeSink(
                 locationProvider,
                 fileWriterFactory,
@@ -177,6 +183,10 @@ public class IcebergPageSinkProvider
                 schema,
                 partitionsSpecs,
                 pageSink,
-                schema.columns().size());
+                schema.columns().size(),
+                IcebergUtil.getTopLevelColumns(schema, typeManager),
+                merge.getTableHandle().getNameMappingJson().map(NameMappingParser::fromJson),
+                (IcebergPageSourceProvider) icebergPageSourceProviderFactory.createPageSourceProvider(),
+                ((IcebergTableHandle) mergeHandle.getTableHandle()).getUpdateKind().get());
     }
 }
