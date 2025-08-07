@@ -47,7 +47,7 @@ public class TestIcebergConfig
         assertRecordedDefaults(recordDefaults(IcebergConfig.class)
                 .setFileFormat(PARQUET)
                 .setCompressionCodec(ZSTD)
-                .setMaxCommitRetry(4)
+                .setMaxCommitRetry(null)
                 .setUseFileSizeFromMetadata(true)
                 .setMaxPartitionsPerWriter(100)
                 .setUniqueTableLocation(true)
