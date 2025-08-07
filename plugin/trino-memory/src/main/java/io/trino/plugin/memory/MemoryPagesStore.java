@@ -14,11 +14,17 @@
 package io.trino.plugin.memory;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
+import io.trino.spi.NodeManager;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.Type;
 
@@ -36,12 +42,14 @@ import java.util.concurrent.ThreadLocalRandom;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.memory.MemoryErrorCode.MEMORY_LIMIT_EXCEEDED;
 import static io.trino.plugin.memory.MemoryErrorCode.MISSING_DATA;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 
 @ThreadSafe
 public class MemoryPagesStore
 {
     private final long maxBytes;
+    private final Slice address;
 
     @GuardedBy("this")
     private long currentBytes;
@@ -49,15 +57,16 @@ public class MemoryPagesStore
     private final Map<Long, TableData> tables = new HashMap<>();
 
     @Inject
-    public MemoryPagesStore(MemoryConfig config)
+    public MemoryPagesStore(MemoryConfig config, NodeManager nodeManager)
     {
         this.maxBytes = config.getMaxDataPerNode().toBytes();
+        this.address = Slices.utf8Slice(nodeManager.getCurrentNode().getHostAndPort().toString());
     }
 
-    public synchronized void initialize(long tableId)
+    public synchronized void initialize(long tableId, int rowIdIndex)
     {
         if (!tables.containsKey(tableId)) {
-            tables.put(tableId, new TableData());
+            tables.put(tableId, new TableData(rowIdIndex, address));
         }
     }
 
@@ -77,6 +86,32 @@ public class MemoryPagesStore
 
         TableData tableData = tables.get(tableId);
         tableData.add(page);
+    }
+
+    public synchronized void update(Long tableId, Page page)
+    {
+        if (!contains(tableId)) {
+            throw new TrinoException(MISSING_DATA, "Failed to find table on a worker.");
+        }
+
+        page.compact();
+
+        TableData tableData = tables.get(tableId);
+        currentBytes -= tableData.update(page);
+
+        if (currentBytes > maxBytes) {
+            throw new TrinoException(MEMORY_LIMIT_EXCEEDED, format("Memory limit [%d] for memory connector exceeded", maxBytes));
+        }
+    }
+
+    public synchronized void delete(Long tableId, Block rowIds)
+    {
+        if (!contains(tableId)) {
+            throw new TrinoException(MISSING_DATA, "Failed to find table on a worker.");
+        }
+
+        TableData tableData = tables.get(tableId);
+        currentBytes -= tableData.delete(rowIds);
     }
 
     public synchronized List<Page> getPages(
@@ -116,7 +151,9 @@ public class MemoryPagesStore
                 done = true;
             }
             // Append missing columns with null values. This situation happens when a new column is added without additional insert.
-            for (int j = page.getChannelCount(); j < columnIndexes.length; j++) {
+            // Since newly added columns appear after the row_id column, the actual number of column channel could be up to
+            // columnIndexes.length, thus here appends one more channel in the page
+            for (int j = page.getChannelCount() - 1; j < columnIndexes.length; j++) {
                 page = page.appendColumn(RunLengthEncodedBlock.create(columnTypes.get(j), null, page.getPositionCount()));
             }
             partitionedPages.add(page.getColumns(columnIndexes));
@@ -168,13 +205,95 @@ public class MemoryPagesStore
 
     private static final class TableData
     {
+        private final int rowIdIndex;
+        private final Slice address;
         private final List<Page> pages = new ArrayList<>();
         private long rows;
+
+        TableData(int rowIdIndex, Slice address)
+        {
+            this.rowIdIndex = rowIdIndex;
+            this.address = address;
+        }
 
         public void add(Page page)
         {
             pages.add(page);
             rows += page.getPositionCount();
+        }
+
+        // return how many bytes deleted
+        public long update(Page page)
+        {
+            long bytesAdded = page.getRetainedSizeInBytes();
+            long bytesDelete = delete(page.getBlock(rowIdIndex));
+
+            add(page);
+            return bytesDelete - bytesAdded;
+        }
+
+        // return how many bytes deleted
+        public long delete(Block block)
+        {
+            Set<Slice> rowIdsToRemove = buildRowIds(block);
+            int rowsToRemove = block.getPositionCount();
+            rows -= rowsToRemove;
+
+            long bytesDeleted = 0;
+            for (int i = 0; i < pages.size(); i++) {
+                Page page = pages.get(i);
+
+                long beforeBytes = page.getRetainedSizeInBytes();
+                List<Block> rowIdBlocks = RowBlock.getRowFieldsFromBlock(page.getBlock(rowIdIndex));
+                checkArgument(rowIdBlocks.size() == 2, "Expected two channels row_id field, but found %s", rowIdBlocks.size());
+                Block rowIdBlock = rowIdBlocks.get(0);
+                Block storageBlock = rowIdBlocks.get(1);
+
+                int positionCount = 0;
+                int[] positions = new int[page.getPositionCount()];
+                for (int position = 0; position < page.getPositionCount(); position++) {
+                    Slice rowId = VARCHAR.getSlice(rowIdBlock, position);
+                    Slice storage = VARCHAR.getSlice(storageBlock, position);
+                    checkArgument(storage.equals(address), "Unexpected row is stored in current worker: %s, row worker: %s", address.toStringUtf8(), rowId.toStringUtf8());
+                    if (!rowIdsToRemove.contains(rowId)) {
+                        positions[positionCount] = position;
+                        positionCount++;
+                    }
+                    else {
+                        rowsToRemove--;
+                    }
+                }
+
+                if (positionCount == page.getPositionCount()) {
+                    continue;
+                }
+
+                page = page.getPositions(positions, 0, positionCount);
+                bytesDeleted += beforeBytes - page.getRetainedSizeInBytes();
+
+                // TODO: we actually could remove the page if it doesn't contain data anymore
+                pages.set(i, page);
+            }
+
+            checkArgument(rowsToRemove == 0, "There are %s rows not be deleted", rowsToRemove);
+            return bytesDeleted;
+        }
+
+        private Set<Slice> buildRowIds(Block block)
+        {
+            List<Block> rowIdFields = RowBlock.getRowFieldsFromBlock(block);
+            checkArgument(rowIdFields.size() == 2, "Expected two channels row_id field, but found %s", rowIdFields.size());
+
+            Block rowIdBlock = rowIdFields.get(0);
+            Block storageBlock = rowIdFields.get(1);
+
+            ImmutableSet.Builder<Slice> rowIdsBuilder = ImmutableSet.builder();
+            for (int position = 0; position < block.getPositionCount(); position++) {
+                Slice rowAddress = VARCHAR.getSlice(storageBlock, position);
+                checkArgument(rowAddress.equals(address), "Unexpected row is distributed to current worker: %s, expected worker: %s", address.toStringUtf8(), rowAddress.toStringUtf8());
+                rowIdsBuilder.add(VARCHAR.getSlice(rowIdBlock, position));
+            }
+            return rowIdsBuilder.build();
         }
 
         private List<Page> getPages()
