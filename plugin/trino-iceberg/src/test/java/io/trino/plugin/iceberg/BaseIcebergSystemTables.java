@@ -856,8 +856,7 @@ public abstract class BaseIcebergSystemTables
                     entry("location", icebergTable.location()),
                     entry("format-version", "2"),
                     entry("sort-order", "y ASC NULLS FIRST"),
-                    entry("write.format.default", format.name()),
-                    entry("commit.retry.num-retries", "4"));
+                    entry("write.format.default", format.name()));
         }
     }
 

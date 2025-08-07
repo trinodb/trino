@@ -49,7 +49,6 @@ import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
-import static org.apache.iceberg.TableProperties.COMMIT_NUM_RETRIES_DEFAULT;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
 import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
 import static org.apache.iceberg.TableProperties.ORC_BLOOM_FILTER_COLUMNS;
@@ -150,7 +149,7 @@ public class IcebergTableProperties
                 .add(integerProperty(
                         MAX_COMMIT_RETRY,
                         "Number of times to retry a commit before failing",
-                        icebergConfig.getMaxCommitRetry(),
+                        icebergConfig.getMaxCommitRetry().orElse(null),
                         value -> {
                             if (value < 0) {
                                 throw new TrinoException(INVALID_TABLE_PROPERTY, "max_commit_retry must be greater than or equal to 0");
@@ -291,9 +290,9 @@ public class IcebergTableProperties
         };
     }
 
-    public static int getMaxCommitRetry(Map<String, Object> tableProperties)
+    public static Optional<Integer> getMaxCommitRetry(Map<String, Object> tableProperties)
     {
-        return (int) tableProperties.getOrDefault(MAX_COMMIT_RETRY, COMMIT_NUM_RETRIES_DEFAULT);
+        return Optional.ofNullable((Integer) tableProperties.get(MAX_COMMIT_RETRY));
     }
 
     public static List<String> getOrcBloomFilterColumns(Map<String, Object> tableProperties)
