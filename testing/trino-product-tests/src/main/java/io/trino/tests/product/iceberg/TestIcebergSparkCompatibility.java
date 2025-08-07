@@ -2518,8 +2518,8 @@ public class TestIcebergSparkCompatibility
         onSpark().executeQuery("ALTER TABLE " + sparkTableName + " ADD PARTITION FIELD parent.nested");
         onTrino().executeQuery("ALTER TABLE " + trinoTableName + " SET PROPERTIES partitioning = ARRAY[]");
 
-        assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE " + trinoTableName + " DROP COLUMN parent.nested"))
-                .hasMessageContaining("Cannot drop column which is used by an old partition spec: parent.nested");
+        onTrino().executeQuery("ALTER TABLE " + trinoTableName + " DROP COLUMN parent.nested");
+        assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName)).hasNoRows();
 
         onTrino().executeQuery("DROP TABLE " + trinoTableName);
     }
