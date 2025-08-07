@@ -22,6 +22,7 @@ import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
 import io.trino.Session;
 import io.trino.cost.StatsCalculator;
 import io.trino.execution.FailureInjector.InjectedFailureType;
+import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.MetadataUtil;
@@ -91,6 +92,7 @@ public final class StandaloneQueryRunner
         this.trinoClient = new TestingDirectTrinoClient(
                 server.getDispatchManager(),
                 server.getQueryManager(),
+                server.getInstance(Key.get(QueryManagerConfig.class)),
                 server.getInstance(Key.get(DirectExchangeClientSupplier.class)),
                 server.getInstance(Key.get(BlockEncodingSerde.class)));
     }

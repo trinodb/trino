@@ -21,6 +21,7 @@ import io.trino.dispatcher.DispatchManager;
 import io.trino.dispatcher.DispatchQuery;
 import io.trino.exchange.DirectExchangeInput;
 import io.trino.execution.QueryManager;
+import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.QueryState;
 import io.trino.execution.buffer.PageDeserializer;
 import io.trino.memory.context.SimpleLocalMemoryContext;
@@ -40,6 +41,8 @@ import java.net.URI;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
@@ -56,13 +59,20 @@ public class DirectTrinoClient
     private final QueryManager queryManager;
     private final DirectExchangeClientSupplier directExchangeClientSupplier;
     private final BlockEncodingSerde blockEncodingSerde;
+    private final long heartBeatIntervalMillis;
 
-    public DirectTrinoClient(DispatchManager dispatchManager, QueryManager queryManager, DirectExchangeClientSupplier directExchangeClientSupplier, BlockEncodingSerde blockEncodingSerde)
+    public DirectTrinoClient(
+            DispatchManager dispatchManager,
+            QueryManager queryManager,
+            QueryManagerConfig queryManagerConfig,
+            DirectExchangeClientSupplier directExchangeClientSupplier,
+            BlockEncodingSerde blockEncodingSerde)
     {
         this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
         this.directExchangeClientSupplier = requireNonNull(directExchangeClientSupplier, "directExchangeClientSupplier is null");
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
+        this.heartBeatIntervalMillis = requireNonNull(queryManagerConfig, "queryManagerConfig is null").getClientTimeout().toMillis() / 2;
     }
 
     public DispatchQuery execute(SessionContext sessionContext, @Language("SQL") String sql, QueryResultsListener queryResultsListener)
@@ -103,7 +113,27 @@ public class DirectTrinoClient
                     Page page = pageDeserializer.deserialize(serializedPage);
                     queryResultsListener.consumeOutputPage(page);
                 }
-                getQueryFuture(whenAnyComplete(ImmutableList.of(queryManager.getStateChange(queryId, state), exchangeClient.isBlocked())));
+
+                ListenableFuture<Object> anyCompleteFuture = whenAnyComplete(ImmutableList.of(
+                        queryManager.getStateChange(queryId, state),
+                        exchangeClient.isBlocked()));
+                while (!anyCompleteFuture.isDone()) {
+                    try {
+                        anyCompleteFuture.get(heartBeatIntervalMillis, TimeUnit.MILLISECONDS);
+                    }
+                    catch (TimeoutException e) {
+                        // continue waiting until the query state changes or the exchange client is blocked.
+                        // we need to periodically record the heartbeat to prevent the query from being canceled
+                        dispatchQuery.recordHeartbeat();
+                    }
+                    catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        throw new TrinoException(GENERIC_INTERNAL_ERROR, "Thread interrupted", e);
+                    }
+                    catch (ExecutionException e) {
+                        throw new TrinoException(GENERIC_INTERNAL_ERROR, "Error processing query", e.getCause());
+                    }
+                }
             }
         }
 
