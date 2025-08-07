@@ -18,9 +18,9 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.trino.plugin.base.authentication.CachingKerberosAuthentication;
-import io.trino.plugin.base.authentication.KerberosAuthentication;
-import io.trino.plugin.base.authentication.KerberosConfiguration;
+import io.trino.plugin.base.authentication.kerberos.CachingKerberosAuthentication;
+import io.trino.plugin.base.authentication.kerberos.KerberosAuthentication;
+import io.trino.plugin.base.authentication.kerberos.KerberosConfiguration;
 
 import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;

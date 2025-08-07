@@ -22,8 +22,8 @@ import javax.security.auth.kerberos.KerberosTicket;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.plugin.base.authentication.KerberosTicketUtils.getRefreshTime;
-import static io.trino.plugin.base.authentication.KerberosTicketUtils.getTicketGrantingTicket;
+import static io.trino.plugin.base.authentication.kerberos.KerberosTicketUtils.getRefreshTime;
+import static io.trino.plugin.base.authentication.kerberos.KerberosTicketUtils.getTicketGrantingTicket;
 import static java.util.Objects.requireNonNull;
 
 public class CachingKerberosHadoopAuthentication

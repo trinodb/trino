@@ -18,7 +18,7 @@ import com.google.inject.Inject;
 import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.Slices;
-import io.trino.plugin.base.authentication.CachingKerberosAuthentication;
+import io.trino.plugin.base.authentication.kerberos.CachingKerberosAuthentication;
 import org.apache.thrift.transport.TSaslClientTransport;
 import org.apache.thrift.transport.TTransport;
 import org.apache.thrift.transport.TTransportException;

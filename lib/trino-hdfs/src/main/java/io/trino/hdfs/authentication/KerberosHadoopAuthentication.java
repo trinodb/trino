@@ -15,7 +15,7 @@ package io.trino.hdfs.authentication;
 
 import io.trino.hadoop.HadoopNative;
 import io.trino.hdfs.HdfsConfigurationInitializer;
-import io.trino.plugin.base.authentication.KerberosAuthentication;
+import io.trino.plugin.base.authentication.kerberos.KerberosAuthentication;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.security.UserGroupInformation;
 
