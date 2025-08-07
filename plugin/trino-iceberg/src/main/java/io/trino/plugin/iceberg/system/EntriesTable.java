@@ -11,10 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg;
+package io.trino.plugin.iceberg.system;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.plugin.iceberg.system.files.FilesTable;
+import io.trino.plugin.iceberg.IcebergUtil;
 import io.trino.plugin.iceberg.util.PageListBuilder;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
@@ -52,8 +52,8 @@ import static io.trino.plugin.iceberg.IcebergTypes.convertIcebergValueToTrino;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionColumnType;
 import static io.trino.plugin.iceberg.IcebergUtil.partitionTypes;
 import static io.trino.plugin.iceberg.IcebergUtil.primitiveFieldTypes;
-import static io.trino.plugin.iceberg.PartitionsTable.getAllPartitionFields;
-import static io.trino.plugin.iceberg.system.files.FilesTable.getIcebergIdToTypeMapping;
+import static io.trino.plugin.iceberg.system.FilesTable.getIcebergIdToTypeMapping;
+import static io.trino.plugin.iceberg.system.PartitionsTable.getAllPartitionFields;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.StandardTypes.JSON;

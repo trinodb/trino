@@ -11,15 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg.system.files;
+package io.trino.plugin.iceberg.system;
 
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.base.util.JsonUtils;
-import io.trino.plugin.iceberg.IcebergPartitionColumn;
-import io.trino.plugin.iceberg.PartitionsTable;
+import io.trino.plugin.iceberg.system.files.FilesTableSplitSource;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
@@ -67,24 +66,24 @@ public final class FilesTable
 {
     private static final JsonFactory JSON_FACTORY = JsonUtils.jsonFactoryBuilder().build();
 
-    static final String CONTENT_COLUMN_NAME = "content";
-    static final String FILE_PATH_COLUMN_NAME = "file_path";
-    static final String FILE_FORMAT_COLUMN_NAME = "file_format";
-    static final String SPEC_ID_COLUMN_NAME = "spec_id";
-    static final String PARTITION_COLUMN_NAME = "partition";
-    static final String RECORD_COUNT_COLUMN_NAME = "record_count";
-    static final String FILE_SIZE_IN_BYTES_COLUMN_NAME = "file_size_in_bytes";
-    static final String COLUMN_SIZES_COLUMN_NAME = "column_sizes";
-    static final String VALUE_COUNTS_COLUMN_NAME = "value_counts";
-    static final String NULL_VALUE_COUNTS_COLUMN_NAME = "null_value_counts";
-    static final String NAN_VALUE_COUNTS_COLUMN_NAME = "nan_value_counts";
-    static final String LOWER_BOUNDS_COLUMN_NAME = "lower_bounds";
-    static final String UPPER_BOUNDS_COLUMN_NAME = "upper_bounds";
-    static final String KEY_METADATA_COLUMN_NAME = "key_metadata";
-    static final String SPLIT_OFFSETS_COLUMN_NAME = "split_offsets";
-    static final String EQUALITY_IDS_COLUMN_NAME = "equality_ids";
-    static final String SORT_ORDER_ID_COLUMN_NAME = "sort_order_id";
-    static final String READABLE_METRICS_COLUMN_NAME = "readable_metrics";
+    public static final String CONTENT_COLUMN_NAME = "content";
+    public static final String FILE_PATH_COLUMN_NAME = "file_path";
+    public static final String FILE_FORMAT_COLUMN_NAME = "file_format";
+    public static final String SPEC_ID_COLUMN_NAME = "spec_id";
+    public static final String PARTITION_COLUMN_NAME = "partition";
+    public static final String RECORD_COUNT_COLUMN_NAME = "record_count";
+    public static final String FILE_SIZE_IN_BYTES_COLUMN_NAME = "file_size_in_bytes";
+    public static final String COLUMN_SIZES_COLUMN_NAME = "column_sizes";
+    public static final String VALUE_COUNTS_COLUMN_NAME = "value_counts";
+    public static final String NULL_VALUE_COUNTS_COLUMN_NAME = "null_value_counts";
+    public static final String NAN_VALUE_COUNTS_COLUMN_NAME = "nan_value_counts";
+    public static final String LOWER_BOUNDS_COLUMN_NAME = "lower_bounds";
+    public static final String UPPER_BOUNDS_COLUMN_NAME = "upper_bounds";
+    public static final String KEY_METADATA_COLUMN_NAME = "key_metadata";
+    public static final String SPLIT_OFFSETS_COLUMN_NAME = "split_offsets";
+    public static final String EQUALITY_IDS_COLUMN_NAME = "equality_ids";
+    public static final String SORT_ORDER_ID_COLUMN_NAME = "sort_order_id";
+    public static final String READABLE_METRICS_COLUMN_NAME = "readable_metrics";
 
     private static final List<String> COLUMN_NAMES = ImmutableList.of(
             CONTENT_COLUMN_NAME,
@@ -247,7 +246,7 @@ public final class FilesTable
         }
     }
 
-    static Type getColumnType(String columnName, TypeManager typeManager)
+    public static Type getColumnType(String columnName, TypeManager typeManager)
     {
         return switch (columnName) {
             case CONTENT_COLUMN_NAME,

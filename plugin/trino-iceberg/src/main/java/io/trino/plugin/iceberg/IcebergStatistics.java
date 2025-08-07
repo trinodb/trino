@@ -43,7 +43,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static java.util.Objects.requireNonNull;
 
-record IcebergStatistics(
+public record IcebergStatistics(
         long recordCount,
         long fileCount,
         long size,
@@ -53,7 +53,7 @@ record IcebergStatistics(
         Map<Integer, Long> nanCounts,
         Map<Integer, Long> columnSizes)
 {
-    IcebergStatistics
+    public IcebergStatistics
     {
         minValues = ImmutableMap.copyOf(requireNonNull(minValues, "minValues is null"));
         maxValues = ImmutableMap.copyOf(requireNonNull(maxValues, "maxValues is null"));
@@ -62,7 +62,7 @@ record IcebergStatistics(
         columnSizes = ImmutableMap.copyOf(requireNonNull(columnSizes, "columnSizes is null"));
     }
 
-    static class Builder
+    public static class Builder
     {
         private final TypeManager typeManager;
         private final Map<Integer, io.trino.spi.type.Type> fieldIdToTrinoType;

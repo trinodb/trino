@@ -33,6 +33,7 @@ import io.trino.plugin.iceberg.PartitionTransforms.ColumnTransform;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.plugin.iceberg.system.IcebergPartitionColumn;
 import io.trino.plugin.iceberg.util.DefaultLocationProvider;
 import io.trino.plugin.iceberg.util.ObjectStoreLocationProvider;
 import io.trino.spi.TrinoException;
