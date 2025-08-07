@@ -383,8 +383,7 @@ public abstract class BaseIcebergConnectorTest
                         "WITH (\n" +
                         "   format = '" + format.name() + "',\n" +
                         "   format_version = 2,\n" +
-                        "   location = '\\E.*/tpch/orders-.*\\Q',\n" +
-                        "   max_commit_retry = 4\n" +
+                        "   location = '\\E.*/tpch/orders-.*\\Q'\n" +
                         ")\\E");
     }
 
@@ -1287,7 +1286,6 @@ public abstract class BaseIcebergConnectorTest
                         "   format = '%s',\n" +
                         "   format_version = 2,\n" +
                         "   location = '%s',\n" +
-                        "   max_commit_retry = 4,\n" +
                         "   partitioning = ARRAY['order_status','ship_priority','bucket(\"order key\", 9)']\n" +
                         ")",
                 getSession().getCatalog().orElseThrow(),
@@ -1650,8 +1648,7 @@ public abstract class BaseIcebergConnectorTest
                 "WITH (\n" +
                 format("   format = '%s',\n", format) +
                 "   format_version = 2,\n" +
-                format("   location = '%s',\n", tempDirPath) +
-                "   max_commit_retry = 4\n" +
+                format("   location = '%s'\n", tempDirPath) +
                 ")";
         String createTableWithoutComment = "" +
                 "CREATE TABLE iceberg.tpch.test_table_comments (\n" +
@@ -1660,8 +1657,7 @@ public abstract class BaseIcebergConnectorTest
                 "WITH (\n" +
                 "   format = '" + format + "',\n" +
                 "   format_version = 2,\n" +
-                "   location = '" + tempDirPath + "',\n" +
-                "   max_commit_retry = 4\n" +
+                "   location = '" + tempDirPath + "'\n" +
                 ")";
         String createTableSql = format(createTableTemplate, "test table comment", format);
         assertUpdate(createTableSql);
@@ -1958,7 +1954,6 @@ public abstract class BaseIcebergConnectorTest
                            format = '%s',
                            format_version = 2,
                            location = '%s',
-                           max_commit_retry = 4,
                            partitioning = ARRAY['adate']
                         )""",
                 format,
@@ -1974,8 +1969,7 @@ public abstract class BaseIcebergConnectorTest
                         WITH (
                            format = '%s',
                            format_version = 2,
-                           location = '%s',
-                           max_commit_retry = 4
+                           location = '%s'
                         )""",
                 format,
                 getTableLocation("test_create_table_like_copy1")));
@@ -1986,8 +1980,7 @@ public abstract class BaseIcebergConnectorTest
                         WITH (
                            format = '%s',
                            format_version = 2,
-                           location = '%s',
-                           max_commit_retry = 4
+                           location = '%s'
                         )""",
                 format,
                 getTableLocation("test_create_table_like_copy2")));
