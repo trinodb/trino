@@ -95,7 +95,7 @@ public class FileSystemExchangeManager
         if (outputPartitionCount > maxOutputPartitionCount) {
             throw new TrinoException(
                     MAX_OUTPUT_PARTITION_COUNT_EXCEEDED,
-                    format("Max number of output partitions exceeded for exchange '%s'. Allowed: %s. Requested: %s.", context.getExchangeId(), maxOutputPartitionCount, outputPartitionCount));
+                    format("Max number of output partitions exceeded for exchange '%s'. Allowed: %s. Requested: %s.", context.exchangeId(), maxOutputPartitionCount, outputPartitionCount));
         }
 
         return new FileSystemExchange(

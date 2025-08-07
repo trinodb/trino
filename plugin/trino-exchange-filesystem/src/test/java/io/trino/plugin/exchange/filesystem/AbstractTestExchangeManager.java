@@ -55,7 +55,6 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.plugin.exchange.filesystem.FileSystemExchangeErrorCode.MAX_OUTPUT_PARTITION_COUNT_EXCEEDED;
 import static io.trino.spi.exchange.ExchangeId.createRandomExchangeId;
 import static java.lang.Math.toIntExact;
-import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -85,31 +84,9 @@ public abstract class AbstractTestExchangeManager
 
     protected abstract ExchangeManager createExchangeManager();
 
-    private record TestExchangeContext(ExchangeId exchangeId)
-            implements ExchangeContext
+    private static ExchangeContext testExchangeContext(ExchangeId exchangeId)
     {
-        private TestExchangeContext(ExchangeId exchangeId)
-        {
-            this.exchangeId = requireNonNull(exchangeId, "exchangeId is null");
-        }
-
-        @Override
-        public QueryId getQueryId()
-        {
-            return new QueryId("query");
-        }
-
-        @Override
-        public ExchangeId getExchangeId()
-        {
-            return exchangeId;
-        }
-
-        @Override
-        public Span getParentSpan()
-        {
-            return Span.getInvalid();
-        }
+        return new ExchangeContext(new QueryId("query"), exchangeId, Span.getInvalid());
     }
 
     @Test
@@ -117,7 +94,7 @@ public abstract class AbstractTestExchangeManager
             throws Exception
     {
         ExchangeId exchangeId = createRandomExchangeId();
-        Exchange exchange = exchangeManager.createExchange(new TestExchangeContext(exchangeId), 2, false);
+        Exchange exchange = exchangeManager.createExchange(testExchangeContext(exchangeId), 2, false);
         ExchangeSinkHandle sinkHandle0 = exchange.addSink(0);
         ExchangeSinkHandle sinkHandle1 = exchange.addSink(1);
         ExchangeSinkHandle sinkHandle2 = exchange.addSink(2);
@@ -225,7 +202,7 @@ public abstract class AbstractTestExchangeManager
         String maxPage = "d".repeat(toIntExact(DataSize.of(16, MEGABYTE).toBytes()) - Integer.BYTES);
 
         ExchangeId exchangeId = createRandomExchangeId();
-        Exchange exchange = exchangeManager.createExchange(new TestExchangeContext(exchangeId), 3, false);
+        Exchange exchange = exchangeManager.createExchange(testExchangeContext(exchangeId), 3, false);
         ExchangeSinkHandle sinkHandle0 = exchange.addSink(0);
         ExchangeSinkHandle sinkHandle1 = exchange.addSink(1);
         ExchangeSinkHandle sinkHandle2 = exchange.addSink(2);
@@ -296,7 +273,7 @@ public abstract class AbstractTestExchangeManager
     @Test
     public void testMaxOutputPartitionCountCheck()
     {
-        assertThatThrownBy(() -> exchangeManager.createExchange(new TestExchangeContext(createRandomExchangeId()), 51, false))
+        assertThatThrownBy(() -> exchangeManager.createExchange(testExchangeContext(createRandomExchangeId()), 51, false))
                 .hasMessageContaining("Max number of output partitions exceeded for exchange")
                 .hasFieldOrPropertyWithValue("errorCode", MAX_OUTPUT_PARTITION_COUNT_EXCEEDED.toErrorCode());
     }

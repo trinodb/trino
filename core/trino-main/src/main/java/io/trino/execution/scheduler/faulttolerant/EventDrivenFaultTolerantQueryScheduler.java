@@ -44,7 +44,6 @@ import io.opentelemetry.context.Context;
 import io.trino.Session;
 import io.trino.cost.RuntimeInfoProvider;
 import io.trino.cost.StaticRuntimeInfoProvider;
-import io.trino.exchange.ExchangeContextInstance;
 import io.trino.exchange.SpoolingExchangeInput;
 import io.trino.execution.BasicStageStats;
 import io.trino.execution.BasicStagesInfo;
@@ -1491,7 +1490,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 FaultTolerantPartitioningScheme sinkPartitioningScheme = partitioningSchemeFactory.get(
                         fragment.getOutputPartitioningScheme().getPartitioning().getHandle(),
                         fragment.getOutputPartitioningScheme().getPartitionCount());
-                ExchangeContext exchangeContext = new ExchangeContextInstance(
+                ExchangeContext exchangeContext = new ExchangeContext(
                         queryStateMachine.getQueryId(),
                         new ExchangeId("external-exchange-" + stage.getStageId().getId()),
                         schedulerSpan);

@@ -118,8 +118,8 @@ public class FileSystemExchange
         this.stats = requireNonNull(stats, "stats is null");
         this.exchangeContext = requireNonNull(exchangeContext, "exchangeContext is null");
         this.exchangeSpan = tracer.spanBuilder("exchange")
-                .setParent(Context.current().with(exchangeContext.getParentSpan()))
-                .setAttribute("ExchangeId", exchangeContext.getExchangeId().getId())
+                .setParent(Context.current().with(exchangeContext.parentSpan()))
+                .setAttribute("ExchangeId", exchangeContext.exchangeId().getId())
                 .setAttribute("PartitionCount", outputPartitionCount)
                 .setAttribute("PreserveOrderWithinPartition", Boolean.toString(preserveOrderWithinPartition))
                 .startSpan();
@@ -134,7 +134,7 @@ public class FileSystemExchange
     @Override
     public ExchangeId getId()
     {
-        return exchangeContext.getExchangeId();
+        return exchangeContext.exchangeId();
     }
 
     @Override
@@ -236,7 +236,7 @@ public class FileSystemExchange
                         ImmutableList.Builder<SourceFile> currentExchangeHandleFiles = ImmutableList.builder();
                         for (SourceFile file : files) {
                             if (currentExchangeHandleDataSizeInBytes > 0 && currentExchangeHandleDataSizeInBytes + file.getFileSize() > exchangeSourceHandleTargetDataSizeInBytes) {
-                                result.add(new FileSystemExchangeSourceHandle(exchangeContext.getExchangeId(), partitionId, currentExchangeHandleFiles.build()));
+                                result.add(new FileSystemExchangeSourceHandle(exchangeContext.exchangeId(), partitionId, currentExchangeHandleFiles.build()));
                                 currentExchangeHandleDataSizeInBytes = 0;
                                 currentExchangeHandleFiles = ImmutableList.builder();
                             }
@@ -244,7 +244,7 @@ public class FileSystemExchange
                             currentExchangeHandleFiles.add(file);
                         }
                         if (currentExchangeHandleDataSizeInBytes > 0) {
-                            result.add(new FileSystemExchangeSourceHandle(exchangeContext.getExchangeId(), partitionId, currentExchangeHandleFiles.build()));
+                            result.add(new FileSystemExchangeSourceHandle(exchangeContext.exchangeId(), partitionId, currentExchangeHandleFiles.build()));
                         }
                     }
                     return result.build();
@@ -304,7 +304,7 @@ public class FileSystemExchange
         // Add a randomized prefix to evenly distribute data into different S3 shards
         // Data output file path format: {randomizedHexPrefix}.{queryId}.{stageId}.{sinkPartitionId}/{attemptId}/{sourcePartitionId}_{splitId}.data
         return outputDirectories.computeIfAbsent(taskPartitionId, _ -> baseDirectories.get(ThreadLocalRandom.current().nextInt(baseDirectories.size()))
-                .resolve(generateRandomizedHexPrefix() + "." + exchangeContext.getQueryId() + "." + exchangeContext.getExchangeId() + "." + taskPartitionId + PATH_SEPARATOR));
+                .resolve(generateRandomizedHexPrefix() + "." + exchangeContext.queryId() + "." + exchangeContext.exchangeId() + "." + taskPartitionId + PATH_SEPARATOR));
     }
 
     @Override

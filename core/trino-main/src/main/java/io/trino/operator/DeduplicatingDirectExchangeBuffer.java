@@ -32,13 +32,13 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.Span;
 import io.trino.annotation.NotThreadSafe;
-import io.trino.exchange.ExchangeContextInstance;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.exchange.Exchange;
+import io.trino.spi.exchange.ExchangeContext;
 import io.trino.spi.exchange.ExchangeId;
 import io.trino.spi.exchange.ExchangeManager;
 import io.trino.spi.exchange.ExchangeSink;
@@ -508,7 +508,7 @@ public class DeduplicatingDirectExchangeBuffer
                 verify(writeBuffer == null, "writeBuffer is not expected to be initialized");
 
                 exchangeManager = exchangeManagerRegistry.getExchangeManager();
-                exchange = exchangeManager.createExchange(new ExchangeContextInstance(queryId, exchangeId, parentSpan), 1, true);
+                exchange = exchangeManager.createExchange(new ExchangeContext(queryId, exchangeId, parentSpan), 1, true);
 
                 sinkHandle = exchange.addSink(0);
                 exchange.noMoreSinks();

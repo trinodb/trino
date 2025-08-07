@@ -16,11 +16,14 @@ package io.trino.spi.exchange;
 import io.opentelemetry.api.trace.Span;
 import io.trino.spi.QueryId;
 
-public interface ExchangeContext
+import static java.util.Objects.requireNonNull;
+
+public record ExchangeContext(QueryId queryId, ExchangeId exchangeId, Span parentSpan)
 {
-    QueryId getQueryId();
-
-    ExchangeId getExchangeId();
-
-    Span getParentSpan();
+    public ExchangeContext
+    {
+        requireNonNull(queryId, "queryId is null");
+        requireNonNull(exchangeId, "exchangeId is null");
+        requireNonNull(parentSpan, "parentSpan is null");
+    }
 }
