@@ -758,6 +758,19 @@ public class TestingTrinoServer
             return this;
         }
 
+        public Builder overrideProperties(Map<String, String> properties)
+        {
+            ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+            this.properties.forEach((k, v) -> {
+                if (!properties.containsKey(k)) {
+                    builder.put(k, v);
+                }
+            });
+            builder.putAll(properties);
+            this.properties = builder.buildOrThrow();
+            return this;
+        }
+
         public Builder setProperties(Map<String, String> properties)
         {
             this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
