@@ -285,7 +285,7 @@ public class TrinoRestCatalog
                     throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to list tables", e);
                 }
             }).stream()
-                    .map(id -> new TableInfo(SchemaTableName.schemaTableName(canonicalize(toSchemaName(id.namespace()), true), canonicalize(id.name(), true)), TableInfo.ExtendedRelationType.TABLE))
+                    .map(id -> new TableInfo(SchemaTableName.schemaTableName(canonicalize(toSchemaName(id.namespace()), false), canonicalize(id.name(), false)), TableInfo.ExtendedRelationType.TABLE))
                     .forEach(tables::add);
             if (viewEndpointsEnabled) {
                 listTableIdentifiers(restNamespace, () -> {
@@ -296,7 +296,7 @@ public class TrinoRestCatalog
                         throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to list views", e);
                     }
                 }).stream()
-                        .map(id -> new TableInfo(SchemaTableName.schemaTableName(canonicalize(toSchemaName(id.namespace()), true), canonicalize(id.name(), true)), TableInfo.ExtendedRelationType.OTHER_VIEW))
+                        .map(id -> new TableInfo(SchemaTableName.schemaTableName(canonicalize(toSchemaName(id.namespace()), false), canonicalize(id.name(), false)), TableInfo.ExtendedRelationType.OTHER_VIEW))
                         .forEach(tables::add);
             }
         }
@@ -1009,5 +1009,11 @@ public class TrinoRestCatalog
     private static Namespace toTrinoNamespace(Namespace namespace)
     {
         return Namespace.of(Arrays.stream(namespace.levels()).map(level -> level.toLowerCase(ENGLISH)).toArray(String[]::new));
+    }
+
+    @Override
+    public String canonicalize(String name, boolean delimited)
+    {
+        return canonicalize(name, delimited, !caseInsensitiveNameMatching);
     }
 }

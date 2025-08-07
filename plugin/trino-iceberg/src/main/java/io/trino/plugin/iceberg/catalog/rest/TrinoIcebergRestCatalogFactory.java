@@ -101,7 +101,8 @@ public class TrinoIcebergRestCatalogFactory
         requireNonNull(icebergConfig, "icebergConfig is null");
         this.uniqueTableLocation = icebergConfig.isUniqueTableLocation();
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.caseInsensitiveNameMatching = restConfig.isCaseInsensitiveNameMatching();
+        // Use the new case sensitivity configuration from IcebergConfig, fallback to REST config for backward compatibility
+        this.caseInsensitiveNameMatching = icebergConfig.isCaseSensitiveNameMatching() ? false : restConfig.isCaseInsensitiveNameMatching();
         this.remoteNamespaceMappingCache = EvictableCacheBuilder.newBuilder()
                 .expireAfterWrite(restConfig.getCaseInsensitiveNameMatchingCacheTtl().toMillis(), MILLISECONDS)
                 .shareNothingWhenDisabled()

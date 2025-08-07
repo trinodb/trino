@@ -205,7 +205,7 @@ public final class MetadataUtil
                 semanticException(MISSING_CATALOG_NAME, node, "Catalog must be specified when session catalog is not set"));
 
         String catalogName = NameCanonicalizer.LEGACY_NAME_CANONICALIZER.canonicalize(catalogIdentifier.getValue(), catalogIdentifier.isDelimited());
-        NameCanonicalizer canonicalizer = metadata.getNameCanonicalizer(session, NameCanonicalizer.LEGACY_NAME_CANONICALIZER.canonicalize(catalogName, false));
+        NameCanonicalizer canonicalizer = metadata.getNameCanonicalizer(session, catalogName);
 
         String objectName = canonicalizer.canonicalize(parts.get(0).getValue(), parts.get(0).isDelimited());
         String schemaName = (parts.size() > 1) ? canonicalizer.canonicalize(parts.get(1).getValue(), parts.get(1).isDelimited())

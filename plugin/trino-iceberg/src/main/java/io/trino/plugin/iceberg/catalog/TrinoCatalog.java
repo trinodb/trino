@@ -206,4 +206,16 @@ public interface TrinoCatalog
     {
         return name.toLowerCase(ENGLISH);
     }
+
+    /**
+     * Canonicalize identifier based on case sensitivity configuration.
+     * This method should be overridden by catalogs that support case-sensitive identifiers.
+     */
+    default String canonicalize(String name, boolean delimited, boolean caseSensitive)
+    {
+        if (caseSensitive && delimited) {
+            return name; // Preserve case for delimited identifiers when case-sensitive
+        }
+        return name.toLowerCase(ENGLISH); // Default behavior: lowercase
+    }
 }

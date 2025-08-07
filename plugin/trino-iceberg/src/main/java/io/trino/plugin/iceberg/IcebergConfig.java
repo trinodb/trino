@@ -99,6 +99,7 @@ public class IcebergConfig
     private int metadataParallelism = 8;
     private boolean bucketExecutionEnabled = true;
     private boolean fileBasedConflictDetectionEnabled = true;
+    private boolean caseSensitiveNameMatching;
 
     public CatalogType getCatalogType()
     {
@@ -622,6 +623,19 @@ public class IcebergConfig
     public IcebergConfig setFileBasedConflictDetectionEnabled(boolean fileBasedConflictDetectionEnabled)
     {
         this.fileBasedConflictDetectionEnabled = fileBasedConflictDetectionEnabled;
+        return this;
+    }
+
+    public boolean isCaseSensitiveNameMatching()
+    {
+        return caseSensitiveNameMatching;
+    }
+
+    @Config("iceberg.case-sensitive-name-matching")
+    @ConfigDescription("Enable case-sensitive matching for table and schema names")
+    public IcebergConfig setCaseSensitiveNameMatching(boolean caseSensitiveNameMatching)
+    {
+        this.caseSensitiveNameMatching = caseSensitiveNameMatching;
         return this;
     }
 }
