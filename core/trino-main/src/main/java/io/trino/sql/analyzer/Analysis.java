@@ -280,12 +280,11 @@ public class Analysis
         this.queryType = requireNonNull(queryType, "queryType is null");
     }
 
-    public void setSelectColumnLineage()
+    public void setSelectColumnLineage(Scope scope)
     {
-        Scope rootScope = getRootScope();
-        List<Field> outputFields = rootScope.getRelationType().getVisibleFields().stream().toList();
+        List<Field> outputFields = scope.getRelationType().getVisibleFields().stream().toList();
         List<Integer> outputFieldIndices = outputFields.stream()
-                .map(rootScope.getRelationType()::indexOf)
+                .map(scope.getRelationType()::indexOf)
                 .collect(toImmutableList());
         List<ColumnLineageInfo> lineageInfo = new ArrayList<>();
         for (int i = 0; i < outputFields.size(); i++) {

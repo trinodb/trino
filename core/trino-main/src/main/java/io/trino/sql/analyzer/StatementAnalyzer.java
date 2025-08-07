@@ -1595,7 +1595,7 @@ class StatementAnalyzer
 
             analysis.setScope(node, queryScope);
             if (isTopLevel) {
-                analysis.setSelectColumnLineage();
+                analysis.setSelectColumnLineage(queryScope);
             }
             return queryScope;
         }
