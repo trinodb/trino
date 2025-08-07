@@ -11,9 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg;
+package io.trino.plugin.iceberg.system;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.plugin.iceberg.IcebergStatistics;
+import io.trino.plugin.iceberg.StructLikeWrapperWithFieldIdToIndex;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
