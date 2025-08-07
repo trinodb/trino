@@ -101,6 +101,7 @@ import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -279,9 +280,25 @@ public class Analysis
         this.queryType = requireNonNull(queryType, "queryType is null");
     }
 
-    public void setSelectColumnLineageInfo(List<ColumnLineageInfo> selectColumnLineageInfo)
+    public void setSelectColumnLineage()
     {
-        this.selectColumnLineageInfo = ImmutableList.copyOf(selectColumnLineageInfo);
+        Scope rootScope = getRootScope();
+        List<Field> outputFields = rootScope.getRelationType().getVisibleFields().stream().toList();
+        List<Integer> outputFieldIndices = outputFields.stream()
+                .map(rootScope.getRelationType()::indexOf)
+                .collect(toImmutableList());
+        List<ColumnLineageInfo> lineageInfo = new ArrayList<>();
+        for (int i = 0; i < outputFields.size(); i++) {
+            Field field = outputFields.get(i);
+            String outputColumnName = field.getName().orElse("");
+            ImmutableSet<ColumnDetail> sources = getSourceColumns(field).stream()
+                    .map(SourceColumn::getColumnDetail)
+                    .collect(toImmutableSet());
+            lineageInfo.add(new ColumnLineageInfo(outputColumnName, outputFieldIndices.get(i), sources));
+        }
+        // always sort lineageInfo by index to ensure consistent ordering
+        lineageInfo.sort(Comparator.comparingInt(ColumnLineageInfo::getIndex));
+        this.selectColumnLineageInfo = ImmutableList.copyOf(lineageInfo);
     }
 
     public List<ColumnLineageInfo> getSelectColumnLineageInfo()

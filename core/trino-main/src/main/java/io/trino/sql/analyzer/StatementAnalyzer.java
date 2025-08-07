@@ -72,8 +72,6 @@ import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.PointerType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableProcedureMetadata;
-import io.trino.spi.eventlistener.ColumnDetail;
-import io.trino.spi.eventlistener.ColumnLineageInfo;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.FunctionKind;
 import io.trino.spi.function.OperatorType;
@@ -283,7 +281,6 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -1542,26 +1539,6 @@ class StatementAnalyzer
             return createAndAssignScope(node, scope, Field.newUnqualified("Query Plan", VARCHAR));
         }
 
-        private void analyzeSelectColumnLineage(Analysis analysis, Scope queryScope)
-        {
-            List<Field> outputFields = queryScope.getRelationType().getVisibleFields().stream().toList();
-            List<Integer> outputFieldIndices = outputFields.stream()
-                    .map(queryScope.getRelationType()::indexOf)
-                    .collect(toImmutableList());
-            List<ColumnLineageInfo> lineageInfo = new ArrayList<>();
-            for (int i = 0; i < outputFields.size(); i++) {
-                Field field = outputFields.get(i);
-                String outputColumnName = field.getName().orElse("");
-                ImmutableSet<ColumnDetail> sources = analysis.getSourceColumns(field).stream()
-                        .map(SourceColumn::getColumnDetail)
-                        .collect(toImmutableSet());
-                lineageInfo.add(new ColumnLineageInfo(outputColumnName, outputFieldIndices.get(i), sources));
-            }
-            // always sort lineageInfo by index to ensure consistent ordering
-            lineageInfo.sort(Comparator.comparingInt(ColumnLineageInfo::getIndex));
-            analysis.setSelectColumnLineageInfo(lineageInfo);
-        }
-
         @Override
         protected Scope visitQuery(Query node, Optional<Scope> scope)
         {
@@ -1618,7 +1595,7 @@ class StatementAnalyzer
 
             analysis.setScope(node, queryScope);
             if (isTopLevel) {
-                analyzeSelectColumnLineage(analysis, queryScope);
+                analysis.setSelectColumnLineage();
             }
             return queryScope;
         }

@@ -30,11 +30,11 @@ public class ColumnLineageInfo
     private final Set<ColumnDetail> sourceColumns;
 
     @JsonCreator
-    public ColumnLineageInfo(@JsonProperty String outputExpression, @JsonProperty int index, @JsonProperty Set<ColumnDetail> sourceColumns)
+    public ColumnLineageInfo(@JsonProperty String name, @JsonProperty int index, @JsonProperty Set<ColumnDetail> sourceColumns)
     {
-        this.name = outputExpression;
+        this.name = name;
         this.index = index;
-        this.sourceColumns = sourceColumns;
+        this.sourceColumns = Set.copyOf(sourceColumns);
     }
 
     @JsonProperty
