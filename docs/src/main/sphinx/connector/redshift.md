@@ -262,3 +262,35 @@ potentially re-activate it again afterward.
 Additionally, define further required [S3 configuration such as IAM key, role,
 or region](/object-storage/file-system-s3), except `fs.native-s3.enabled`,
 
+### Batch inserts from S3 using Redshift `COPY FROM`
+
+The connector supports the Redshift `COPY FROM` command to 
+efficiently write large batches of data to Redshift by staging them as 
+Parquet files on Amazon S3. This method significantly improves sink 
+performance compared to the default JDBC batch inserts for Redshift.
+
+This feature is disabled by default.  To enable this feature, configure a 
+writeable S3 location with the following configuration properties:
+
+:::{list-table} Parallel write configuration properties
+:widths: 30, 60
+:header-rows: 1
+
+* - Property
+   - Description
+* - `redshift.batched-inserts-copy-location`
+   - A writeable location in Amazon S3 in the same AWS region as the 
+     Redshift cluster. Used for temporary Parquet staging files during 
+     insert operations. These files are automatically cleaned up after the load.
+* - `redshift.batched-inserts-copy-iam-role`
+   - Fully specified ARN of the IAM Role to use for the `COPY FROM` 
+     command. This role must have read access to the S3 bucket.
+
+:::
+
+Use the `batched_inserts_copy_enabled` [catalog session property](/sql/set-session) to
+deactivate the batch inserts using copy for a specific query, and
+potentially re-activate it again afterward.
+
+Additionally, define further required [S3 configuration such as IAM key, role,
+or region](/object-storage/file-system-s3).

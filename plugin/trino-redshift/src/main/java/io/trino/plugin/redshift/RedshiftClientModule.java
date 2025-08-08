@@ -66,22 +66,27 @@ public class RedshiftClientModule
 
         install(new DecimalModule());
         install(new JdbcJoinPushdownSupportModule());
+        install(new S3FileSystemModule());
+
+        install(conditionalModule(
+                RedshiftConfig.class,
+                config -> config.getUnloadLocation().isPresent() || config.getBatchedInsertsCopyLocation().isPresent(),
+                condBinder -> {
+                    condBinder.bind(Connector.class).to(RedshiftConnector.class).in(Scopes.SINGLETON);
+                    condBinder.bind(RedshiftPageSinkProvider.class).in(Scopes.SINGLETON);
+                    condBinder.bind(FileFormatDataSourceStats.class).in(Scopes.SINGLETON);
+                },
+                jdbcBinder -> jdbcBinder.bind(Connector.class).to(JdbcConnector.class).in(Scopes.SINGLETON)));
 
         install(conditionalModule(
                 RedshiftConfig.class,
                 config -> config.getUnloadLocation().isPresent(),
                 unloadBinder -> {
-                    install(new S3FileSystemModule());
                     unloadBinder.bind(JdbcSplitManager.class).in(Scopes.SINGLETON);
-                    unloadBinder.bind(Connector.class).to(RedshiftUnloadConnector.class).in(Scopes.SINGLETON);
-                    unloadBinder.bind(FileFormatDataSourceStats.class).in(Scopes.SINGLETON);
-
                     newSetBinder(unloadBinder, JdbcQueryEventListener.class).addBinding().to(RedshiftUnloadJdbcQueryEventListener.class).in(Scopes.SINGLETON);
-
                     newOptionalBinder(unloadBinder, Key.get(ConnectorSplitManager.class, ForJdbcDynamicFiltering.class))
                             .setBinding().to(RedshiftSplitManager.class).in(SINGLETON);
-                },
-                jdbcBinder -> jdbcBinder.bind(Connector.class).to(JdbcConnector.class).in(Scopes.SINGLETON)));
+                }));
     }
 
     @Singleton

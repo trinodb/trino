@@ -30,6 +30,8 @@ public class RedshiftConfig
     private Integer fetchSize;
     private String unloadLocation;
     private String unloadIamRole;
+    private String batchedInsertsCopyLocation;
+    private String batchedInsertsCopyIamRole;
 
     public Optional<@Min(0) Integer> getFetchSize()
     {
@@ -67,6 +69,32 @@ public class RedshiftConfig
     public RedshiftConfig setUnloadIamRole(String unloadIamRole)
     {
         this.unloadIamRole = unloadIamRole;
+        return this;
+    }
+
+    public Optional<@Pattern(regexp = "^s3://[^/]+(/[^/]+)?$", message = "Path shouldn't end with trailing slash") String> getBatchedInsertsCopyLocation()
+    {
+        return Optional.ofNullable(batchedInsertsCopyLocation);
+    }
+
+    @Config("redshift.batched-inserts-copy-location")
+    @ConfigDescription("A writeable location in Amazon S3, to be used to stage data for using Redshift COPY FROM statement during batched inserts")
+    public RedshiftConfig setBatchedInsertsCopyLocation(String batchedInsertsCopyLocation)
+    {
+        this.batchedInsertsCopyLocation = batchedInsertsCopyLocation;
+        return this;
+    }
+
+    public Optional<String> getBatchedInsertsCopyIamRole()
+    {
+        return Optional.ofNullable(batchedInsertsCopyIamRole);
+    }
+
+    @Config("redshift.batched-inserts-copy-iam-role")
+    @ConfigDescription("Fully specified ARN of the IAM Role attached to the Redshift cluster and having access to S3")
+    public RedshiftConfig setBatchedInsertsCopyIamRole(String batchedInsertsCopyIamRole)
+    {
+        this.batchedInsertsCopyIamRole = batchedInsertsCopyIamRole;
         return this;
     }
 }
