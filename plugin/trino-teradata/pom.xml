@@ -216,7 +216,16 @@
                     <skip>true</skip>
                 </configuration>
             </plugin>
-
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <version>3.8.1</version>
+                <configuration>
+                    <ignoredDependencies>
+                        <ignoredDependency>com.fasterxml.jackson.core:jackson-core</ignoredDependency>
+                    </ignoredDependencies>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 
