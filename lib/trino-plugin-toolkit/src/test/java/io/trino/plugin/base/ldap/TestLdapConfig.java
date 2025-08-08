@@ -31,6 +31,8 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDe
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
 import static io.airlift.testing.ValidationAssertions.assertValidates;
+import static io.airlift.units.Duration.succinctDuration;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class TestLdapConfig
 {
@@ -45,8 +47,8 @@ public class TestLdapConfig
                 .setTrustStorePath(null)
                 .setTruststorePassword(null)
                 .setIgnoreReferrals(false)
-                .setLdapConnectionTimeout(null)
-                .setLdapReadTimeout(null));
+                .setLdapConnectionTimeout(succinctDuration(1, MINUTES))
+                .setLdapReadTimeout(succinctDuration(1, MINUTES)));
     }
 
     @Test
@@ -104,5 +106,7 @@ public class TestLdapConfig
         assertFailsValidation(new LdapClientConfig().setLdapUrl("ldaps:/localhost"), "ldapUrl", "Invalid LDAP server URL. Expected ldap:// or ldaps://", Pattern.class);
 
         assertFailsValidation(new LdapClientConfig(), "ldapUrl", "must not be null", NotNull.class);
+        assertFailsValidation(new LdapClientConfig().setLdapConnectionTimeout(null), "ldapConnectionTimeout", "must not be null", NotNull.class);
+        assertFailsValidation(new LdapClientConfig().setLdapReadTimeout(null), "ldapReadTimeout", "must not be null", NotNull.class);
     }
 }
