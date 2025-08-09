@@ -61,7 +61,6 @@ import static io.trino.spi.type.StandardTypes.BIGINT;
 import static io.trino.spi.type.StandardTypes.INTEGER;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static java.lang.Boolean.TRUE;
-import static java.lang.String.format;
 import static java.time.Duration.ofMillis;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -354,6 +353,8 @@ final class TestMysqlEventListener
 
     private MySQLContainer<?> mysqlContainer;
     private String mysqlContainerUrl;
+    private String mysqlContainerUser;
+    private String mysqlContainerPassword;
     private EventListener eventListener;
     private JsonCodecFactory jsonCodecFactory;
 
@@ -363,8 +364,12 @@ final class TestMysqlEventListener
         mysqlContainer = new MySQLContainer<>("mysql:8.0.36");
         mysqlContainer.start();
         mysqlContainerUrl = getJdbcUrl(mysqlContainer);
+        mysqlContainerUser = mysqlContainer.getUsername();
+        mysqlContainerPassword = mysqlContainer.getPassword();
         eventListener = new MysqlEventListenerFactory()
-                .create(Map.of("mysql-event-listener.db.url", mysqlContainerUrl), new TestingEventListenerContext());
+                .create(Map.of("mysql-event-listener.db.url", mysqlContainerUrl,
+                        "mysql-event-listener.db.user", mysqlContainerUser,
+                        "mysql-event-listener.db.password", mysqlContainerPassword), new TestingEventListenerContext());
         jsonCodecFactory = new JsonCodecFactory();
     }
 
@@ -382,10 +387,7 @@ final class TestMysqlEventListener
 
     private static String getJdbcUrl(MySQLContainer<?> container)
     {
-        return format("%s?user=%s&password=%s&useSSL=false&allowPublicKeyRetrieval=true",
-                container.getJdbcUrl(),
-                container.getUsername(),
-                container.getPassword());
+        return container.getJdbcUrl() + "?useSSL=false&allowPublicKeyRetrieval=true";
     }
 
     @Test
@@ -394,7 +396,7 @@ final class TestMysqlEventListener
     {
         eventListener.queryCompleted(FULL_QUERY_COMPLETED_EVENT);
 
-        try (Connection connection = DriverManager.getConnection(mysqlContainerUrl)) {
+        try (Connection connection = DriverManager.getConnection(mysqlContainerUrl, mysqlContainerUser, mysqlContainerPassword)) {
             try (Statement statement = connection.createStatement()) {
                 statement.execute("SELECT * FROM trino_queries WHERE query_id = 'full_query'");
                 try (ResultSet resultSet = statement.getResultSet()) {
@@ -479,7 +481,7 @@ final class TestMysqlEventListener
     {
         eventListener.queryCompleted(MINIMAL_QUERY_COMPLETED_EVENT);
 
-        try (Connection connection = DriverManager.getConnection(mysqlContainerUrl)) {
+        try (Connection connection = DriverManager.getConnection(mysqlContainerUrl, mysqlContainerUser, mysqlContainerPassword)) {
             try (Statement statement = connection.createStatement()) {
                 statement.execute("SELECT * FROM trino_queries WHERE query_id = 'minimal_query'");
                 try (ResultSet resultSet = statement.getResultSet()) {
