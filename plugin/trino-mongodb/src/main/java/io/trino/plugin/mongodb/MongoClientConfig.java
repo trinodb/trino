@@ -31,6 +31,7 @@ public class MongoClientConfig
 {
     private String schemaCollection = "_schema";
     private boolean caseInsensitiveNameMatching;
+    private boolean skipCollation;
     private String connectionUrl;
 
     private int minConnectionsPerHost;
@@ -74,6 +75,18 @@ public class MongoClientConfig
     public MongoClientConfig setCaseInsensitiveNameMatching(boolean caseInsensitiveNameMatching)
     {
         this.caseInsensitiveNameMatching = caseInsensitiveNameMatching;
+        return this;
+    }
+
+    public boolean isSkipCollation()
+    {
+        return skipCollation;
+    }
+
+    @Config("mongodb.skip-collation")
+    public MongoClientConfig setSkipCollation(boolean skipCollation)
+    {
+        this.skipCollation = skipCollation;
         return this;
     }
 
