@@ -5705,6 +5705,7 @@ public abstract class BaseHiveConnectorTest
             case CSV -> false;
             case REGEX -> false;
             case ESRI -> true;
+            case GROK -> false;
         };
     }
 
@@ -9511,6 +9512,10 @@ public abstract class BaseHiveConnectorTest
             }
             if (hiveStorageFormat == ESRI) {
                 // ESRI format is read-only
+                continue;
+            }
+            if (hiveStorageFormat == HiveStorageFormat.GROK) {
+                // GROK format is read-only
                 continue;
             }
 
