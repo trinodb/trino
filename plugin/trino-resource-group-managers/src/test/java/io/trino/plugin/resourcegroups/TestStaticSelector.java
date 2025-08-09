@@ -202,7 +202,7 @@ public class TestStaticSelector
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.of(ImmutableList.of("tag1", "tag2")),
+                Optional.of(ImmutableList.of(Pattern.compile("tag1"), Pattern.compile("tag2"))),
                 Optional.empty(),
                 Optional.empty(),
                 new ResourceGroupIdTemplate("global.foo"));
@@ -210,6 +210,46 @@ public class TestStaticSelector
         assertThat(selector.match(newSelectionCriteria("userB", "source", ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES))).isEqualTo(Optional.empty());
         assertThat(selector.match(newSelectionCriteria("A.user", "a source b", ImmutableSet.of("tag1"), EMPTY_RESOURCE_ESTIMATES))).isEqualTo(Optional.empty());
         assertThat(selector.match(newSelectionCriteria("A.user", "a source b", ImmutableSet.of("tag1", "tag2", "tag3"), EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId)).isEqualTo(Optional.of(resourceGroupId));
+    }
+
+    @Test
+    void testClientTagsRegex()
+    {
+        ResourceGroupId resourceGroupId = new ResourceGroupId(new ResourceGroupId("global"), "foo");
+        StaticSelector selector = new StaticSelector(
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of(ImmutableList.of(Pattern.compile("tag1"), Pattern.compile("tagPattern.*"))),
+                Optional.empty(),
+                Optional.empty(),
+                new ResourceGroupIdTemplate("global.foo"));
+        assertThat(selector.match(newSelectionCriteria("userA", null, ImmutableSet.of("tag1", "tagPattern2"), EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId)).isEqualTo(Optional.of(resourceGroupId));
+        assertThat(selector.match(newSelectionCriteria("userB", "source", ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES))).isEqualTo(Optional.empty());
+        assertThat(selector.match(newSelectionCriteria("A.user", "a source b", ImmutableSet.of("tag1"), EMPTY_RESOURCE_ESTIMATES))).isEqualTo(Optional.empty());
+        assertThat(selector.match(newSelectionCriteria("A.user", "a source b", ImmutableSet.of("tag1", "tagPattern222", "tag3"), EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId)).isEqualTo(Optional.of(resourceGroupId));
+    }
+
+    @Test
+    void testClientTagsRegexCustomGroup()
+    {
+        ResourceGroupId resourceGroupId = new ResourceGroupId(new ResourceGroupId("global"), "foo_userA_my_job");
+        StaticSelector selector = new StaticSelector(
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of(ImmutableList.of(Pattern.compile("job_id=job_(?<jobid>.*)"))),
+                Optional.empty(),
+                Optional.empty(),
+                new ResourceGroupIdTemplate("global.foo_${USER}_${jobid}"));
+        assertThat(selector.match(newSelectionCriteria("userA", null, ImmutableSet.of("job_id=job_my_job"), EMPTY_RESOURCE_ESTIMATES))).hasValueSatisfying(context -> {
+            assertThat(context.getResourceGroupId()).isEqualTo(resourceGroupId);
+            assertThat(context.getContext().getVariableNames()).containsExactlyInAnyOrder("jobid", "USER");
+        });
     }
 
     @Test
