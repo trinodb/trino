@@ -61,9 +61,8 @@ public class InternalCommunicationHttpClientModule
             configDefaults.accept(httpConfig);
         });
 
-        httpClientBindingBuilder.addFilterBinding().to(InternalAuthenticationManager.class);
+        httpClientBindingBuilder.withFilter(InternalAuthenticationManager.class);
         filters.forEach(httpClientBindingBuilder::withFilter);
-
         if (internalCommunicationConfig.isHttp2Enabled()) {
             httpClientBindingBuilder.withFilter(EnforceHttp2RequestFilter.class);
         }
@@ -72,6 +71,7 @@ public class InternalCommunicationHttpClientModule
     public static void configureClient(HttpClientConfig httpConfig, InternalCommunicationConfig internalCommunicationConfig)
     {
         httpConfig.setHttp2Enabled(internalCommunicationConfig.isHttp2Enabled());
+        httpConfig.setUseVirtualThreads(true);
 
         if (internalCommunicationConfig.isHttpsRequired() && internalCommunicationConfig.getKeyStorePath() == null && internalCommunicationConfig.getTrustStorePath() == null) {
             configureClientForAutomaticHttps(httpConfig, internalCommunicationConfig);
@@ -113,12 +113,6 @@ public class InternalCommunicationHttpClientModule
         public Builder withConfigDefaults(Consumer<HttpClientConfig> configDefaults)
         {
             this.configDefaults = requireNonNull(configDefaults, "configDefaults is null");
-            return this;
-        }
-
-        public Builder withFilter(Class<? extends HttpRequestFilter> requestFilter)
-        {
-            this.filters.add(requestFilter);
             return this;
         }
 
