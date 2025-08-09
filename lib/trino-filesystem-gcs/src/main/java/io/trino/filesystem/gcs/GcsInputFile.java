@@ -59,7 +59,7 @@ public class GcsInputFile
             throws IOException
     {
         // Note: Only pass predeclared length, to keep the contract of TrinoFileSystem.newInputFile
-        return new GcsInput(location, storage, readBlockSize, predeclaredLength, key);
+        return new GcsInput(location, storage, predeclaredLength, key);
     }
 
     @Override

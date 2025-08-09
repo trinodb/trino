@@ -26,7 +26,6 @@ import java.nio.ByteBuffer;
 import java.util.Optional;
 import java.util.OptionalLong;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.filesystem.gcs.GcsUtils.encodedKey;
 import static io.trino.filesystem.gcs.GcsUtils.getBlobOrThrow;
 import static io.trino.filesystem.gcs.GcsUtils.getReadChannel;
@@ -39,17 +38,14 @@ final class GcsInput
 {
     private final GcsLocation location;
     private final Storage storage;
-    private final int readBlockSize;
     private final OptionalLong length;
     private final Optional<EncryptionKey> key;
     private boolean closed;
 
-    public GcsInput(GcsLocation location, Storage storage, int readBlockSize, OptionalLong length, Optional<EncryptionKey> key)
+    public GcsInput(GcsLocation location, Storage storage, OptionalLong length, Optional<EncryptionKey> key)
     {
         this.location = requireNonNull(location, "location is null");
         this.storage = requireNonNull(storage, "storage is null");
-        checkArgument(readBlockSize >= 0, "readBlockSize is negative");
-        this.readBlockSize = readBlockSize;
         this.length = requireNonNull(length, "length is null");
         this.key = requireNonNull(key, "key is null");
     }
@@ -67,7 +63,7 @@ final class GcsInput
             return;
         }
 
-        try (ReadChannel readChannel = getReadChannel(getBlobOrThrow(storage, location, blobGetOptions()), location, position, readBlockSize, length, key)) {
+        try (ReadChannel readChannel = getReadChannel(getBlobOrThrow(storage, location, blobGetOptions()), location, position, bufferLength, length, key)) {
             int readSize = readNBytes(readChannel, buffer, bufferOffset, bufferLength);
             if (readSize != bufferLength) {
                 throw new EOFException("End of file reached before reading fully: " + location);
@@ -86,7 +82,7 @@ final class GcsInput
         checkFromIndexSize(bufferOffset, bufferLength, buffer.length);
         Blob blob = getBlobOrThrow(storage, location, blobGetOptions());
         long offset = Math.max(0, length.orElse(blob.getSize()) - bufferLength);
-        try (ReadChannel readChannel = getReadChannel(blob, location, offset, readBlockSize, length, key)) {
+        try (ReadChannel readChannel = getReadChannel(blob, location, offset, bufferLength, length, key)) {
             return readNBytes(readChannel, buffer, bufferOffset, bufferLength);
         }
         catch (RuntimeException e) {
