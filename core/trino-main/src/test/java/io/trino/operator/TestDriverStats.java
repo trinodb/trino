@@ -65,6 +65,7 @@ public class TestDriverStats
 
             DataSize.ofBytes(18),
             19,
+            0,
 
             new Duration(102, NANOSECONDS),
 

@@ -124,6 +124,7 @@ public class TestBasicQueryInfo
                                 DataSize.valueOf("47GB"),
                                 DataSize.valueOf("48GB"),
                                 49,
+                                0,
                                 50,
                                 new Duration(103, SECONDS),
                                 new Duration(104, SECONDS),
