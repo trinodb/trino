@@ -19,6 +19,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Joiner;
 import io.trino.spi.connector.SchemaTableName;
 
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -61,7 +62,7 @@ public final class RemoteTableName
 
     public SchemaTableName getSchemaTableName()
     {
-        return new SchemaTableName(schemaName.orElseThrow(), tableName);
+        return new SchemaTableName(schemaName.orElseThrow().toLowerCase(Locale.ENGLISH), tableName.toLowerCase(Locale.ENGLISH));
     }
 
     @Override
