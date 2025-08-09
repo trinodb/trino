@@ -20,6 +20,7 @@ import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 import org.junit.jupiter.api.Test;
 
+import java.nio.file.Path;
 import java.util.Map;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
@@ -119,7 +120,9 @@ public class TestHiveConfig
                 .setAutoPurge(false)
                 .setPartitionProjectionEnabled(true)
                 .setS3GlacierFilter(S3GlacierFilter.READ_ALL)
-                .setMetadataParallelism(8));
+                .setMetadataParallelism(8)
+                .setProtobufDescriptors(null)
+                .setProtobufDescriptorsUpdateInterval(new Duration(1, TimeUnit.HOURS)));
     }
 
     @Test
@@ -207,6 +210,8 @@ public class TestHiveConfig
                 .put("hive.partition-projection-enabled", "false")
                 .put("hive.s3-glacier-filter", "READ_NON_GLACIER_AND_RESTORED")
                 .put("hive.metadata.parallelism", "10")
+                .put("hive.protobufs.descriptors.location", "/tmp")
+                .put("hive.protobufs.descriptors.update-interval", "10s")
                 .buildOrThrow();
 
         HiveConfig expected = new HiveConfig()
@@ -290,7 +295,9 @@ public class TestHiveConfig
                 .setAutoPurge(true)
                 .setPartitionProjectionEnabled(false)
                 .setS3GlacierFilter(S3GlacierFilter.READ_NON_GLACIER_AND_RESTORED)
-                .setMetadataParallelism(10);
+                .setMetadataParallelism(10)
+                .setProtobufDescriptors(Path.of("/tmp"))
+                .setProtobufDescriptorsUpdateInterval(new Duration(10, TimeUnit.SECONDS));
 
         assertFullMapping(properties, expected);
     }
