@@ -26,6 +26,7 @@ import io.trino.spi.ErrorCode;
 import io.trino.spi.ErrorType;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoWarning;
+import io.trino.spi.eventlistener.ColumnLineageInfo;
 import io.trino.spi.eventlistener.RoutineInfo;
 import io.trino.spi.eventlistener.TableInfo;
 import io.trino.spi.resourcegroups.QueryType;
@@ -86,6 +87,7 @@ public class QueryInfo
     private final RetryPolicy retryPolicy;
     private final boolean pruned;
     private final NodeVersion version;
+    private final List<ColumnLineageInfo> selectColumnLineageInfo;
 
     @JsonCreator
     public QueryInfo(
@@ -124,7 +126,9 @@ public class QueryInfo
             @JsonProperty("queryType") Optional<QueryType> queryType,
             @JsonProperty("retryPolicy") RetryPolicy retryPolicy,
             @JsonProperty("pruned") boolean pruned,
-            @JsonProperty("version") NodeVersion version)
+            @JsonProperty("version") NodeVersion version,
+            @JsonProperty("selectColumnLineageInfo") List<ColumnLineageInfo> selectColumnLineageInfo)
+
     {
         requireNonNull(queryId, "queryId is null");
         requireNonNull(session, "session is null");
@@ -154,6 +158,7 @@ public class QueryInfo
         requireNonNull(queryType, "queryType is null");
         requireNonNull(retryPolicy, "retryPolicy is null");
         requireNonNull(version, "version is null");
+        requireNonNull(selectColumnLineageInfo, "selectColumnLineageInfo is null");
 
         this.queryId = queryId;
         this.session = session;
@@ -193,6 +198,13 @@ public class QueryInfo
         this.retryPolicy = retryPolicy;
         this.pruned = pruned;
         this.version = version;
+        this.selectColumnLineageInfo = selectColumnLineageInfo;
+    }
+
+    @JsonProperty
+    public List<ColumnLineageInfo> getSelectColumnLineageInfo()
+    {
+        return selectColumnLineageInfo;
     }
 
     @JsonProperty
@@ -487,6 +499,7 @@ public class QueryInfo
                 queryType,
                 retryPolicy,
                 pruned,
-                version);
+                version,
+                selectColumnLineageInfo);
     }
 }

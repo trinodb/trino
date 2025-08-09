@@ -212,6 +212,7 @@ public class TestQueryStateInfo
                 Optional.of(QueryType.SELECT),
                 RetryPolicy.NONE,
                 false,
-                new NodeVersion("version"));
+                new NodeVersion("version"),
+                ImmutableList.of());
     }
 }
