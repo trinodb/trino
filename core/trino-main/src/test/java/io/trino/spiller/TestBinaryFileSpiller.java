@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import io.trino.FeaturesConfig;
 import io.trino.RowPagesBuilder;
+import io.trino.execution.TaskManagerConfig;
 import io.trino.execution.buffer.PageSerializer;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.memory.context.AggregatedMemoryContext;
@@ -82,7 +83,7 @@ public class TestBinaryFileSpiller
         featuresConfig.setSpillMaxUsedSpaceThreshold(1.0);
         NodeSpillConfig nodeSpillConfig = new NodeSpillConfig();
         BlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
-        singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(blockEncodingSerde, spillerStats, featuresConfig, nodeSpillConfig);
+        singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(blockEncodingSerde, spillerStats, featuresConfig, nodeSpillConfig, new TaskManagerConfig());
         factory = new GenericSpillerFactory(singleStreamSpillerFactory);
         PagesSerdeFactory pagesSerdeFactory = createSpillingPagesSerdeFactory(blockEncodingSerde, nodeSpillConfig.getSpillCompressionCodec());
         serializer = pagesSerdeFactory.createSerializer(Optional.empty());
