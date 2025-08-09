@@ -20,7 +20,9 @@ import io.trino.orc.AbstractOrcDataSource;
 import io.trino.orc.OrcDataSourceId;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
+import io.trino.plugin.hive.parquet.MetricsUtils;
 import io.trino.spi.TrinoException;
+import io.trino.spi.metrics.Metrics;
 
 import java.io.IOException;
 
@@ -85,5 +87,11 @@ public class HdfsOrcDataSource
             }
             throw new TrinoException(HIVE_UNKNOWN_ERROR, message, e);
         }
+    }
+
+    @Override
+    public Metrics getMetrics()
+    {
+        return MetricsUtils.convert(input.getMetrics());
     }
 }

@@ -25,6 +25,7 @@ import io.trino.filesystem.TrinoInputStream;
 
 import java.io.EOFException;
 import java.io.IOException;
+import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.primitives.Ints.saturatedCast;
@@ -63,7 +64,7 @@ public class AlluxioInputStream
         this.location = inputFile.location();
         this.statistics = requireNonNull(statistics, "statistics is null");
         this.key = requireNonNull(key, "key is null");
-        this.helper = new AlluxioInputHelper(tracer, inputFile.location(), key, status, cacheManager, configuration, statistics);
+        this.helper = new AlluxioInputHelper(tracer, inputFile.location(), key, status, cacheManager, configuration, statistics, Optional.empty());
     }
 
     @Override

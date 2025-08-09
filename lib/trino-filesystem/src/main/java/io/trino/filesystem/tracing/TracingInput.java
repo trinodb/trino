@@ -17,6 +17,7 @@ import io.airlift.slice.Slice;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanBuilder;
 import io.opentelemetry.api.trace.Tracer;
+import io.trino.filesystem.InputFileMetrics;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoInput;
 
@@ -79,6 +80,12 @@ final class TracingInput
         Span span = spanBuilder("Input.readTail", length)
                 .startSpan();
         return withTracing(span, () -> delegate.readTail(length));
+    }
+
+    @Override
+    public InputFileMetrics getMetrics()
+    {
+        return delegate.getMetrics();
     }
 
     @Override
