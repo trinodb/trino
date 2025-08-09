@@ -33,6 +33,7 @@ as an example:
 ```properties
 event-listener.name=mysql
 mysql-event-listener.db.url=jdbc:mysql://example.net:3306
+mysql-event-listener.db.terminate-on-initialization-failure=true
 ```
 
 The `mysql-event-listener.db.url` defines the connection to a MySQL database
@@ -57,6 +58,10 @@ processing event is captured by the event listener and a new row is inserted
 into the table. The table includes many columns, such as query identifier, query
 string, user, catalog, and others with information about the query processing.
 
+To control how Trino behaves when the MySQL event listener fails to initialize
+(e.g., due to the database being unavailable), you can use the
+`mysql-event-listener.terminate-on-initialization-failure` property.
+
 ### Configuration properties
 
 :::{list-table}
@@ -67,4 +72,11 @@ string, user, catalog, and others with information about the query processing.
   - Description
 * - `mysql-event-listener.db.url`
   - JDBC connection URL to the database including credentials
+* - `mysql-event-listener.terminate-on-initialization-failure`
+  - A [boolean](prop-type-boolean) flag that determines whether Trino should fail
+    to start if the MySQL event listener cannot initialize—typically due to the
+    database being unavailable.
+    When set to `true`, any initialization failure will raise an exception,
+    preventing the Trino Coordinator from starting. When set to `false`, the
+    Coordinator will continue to start even if the listener fails to initialize
 :::
