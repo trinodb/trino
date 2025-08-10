@@ -24,6 +24,7 @@ import io.trino.plugin.iceberg.IcebergPageSourceProvider.ReaderPageSourceWithRow
 import io.trino.plugin.iceberg.delete.EqualityDeleteFilter.EqualityDeleteFilterBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.Range;
@@ -69,6 +70,7 @@ public class DeleteManager
     }
 
     public Optional<RowPredicate> getDeletePredicate(
+            ConnectorSession session,
             String dataFilePath,
             long dataSequenceNumber,
             List<DeleteFile> deleteFiles,
@@ -92,9 +94,9 @@ public class DeleteManager
         }
 
         Optional<RowPredicate> positionDeletes = createPositionDeleteFilter(dataFilePath, positionDeleteFiles, readerPageSourceWithRowPositions, deletePageSourceProvider)
-                .map(filter -> filter.createPredicate(readColumns, dataSequenceNumber));
-        Optional<RowPredicate> equalityDeletes = createEqualityDeleteFilter(equalityDeleteFiles, tableSchema, deletePageSourceProvider).stream()
-                .map(filter -> filter.createPredicate(readColumns, dataSequenceNumber))
+                .map(filter -> filter.createPredicate(session, readColumns, dataSequenceNumber));
+        Optional<RowPredicate> equalityDeletes = createEqualityDeleteFilter(session, equalityDeleteFiles, tableSchema, deletePageSourceProvider).stream()
+                .map(filter -> filter.createPredicate(session, readColumns, dataSequenceNumber))
                 .reduce(RowPredicate::and);
 
         if (positionDeletes.isEmpty()) {
@@ -168,7 +170,7 @@ public class DeleteManager
                 (positionUpperBound.isEmpty() || positionUpperBound.get() >= startRowPosition.get());
     }
 
-    private List<EqualityDeleteFilter> createEqualityDeleteFilter(List<DeleteFile> equalityDeleteFiles, Schema schema, DeletePageSourceProvider deletePageSourceProvider)
+    private List<EqualityDeleteFilter> createEqualityDeleteFilter(ConnectorSession session, List<DeleteFile> equalityDeleteFiles, Schema schema, DeletePageSourceProvider deletePageSourceProvider)
     {
         if (equalityDeleteFiles.isEmpty()) {
             return List.of();
@@ -189,7 +191,7 @@ public class DeleteManager
             EqualityDeleteFilterBuilder builder = equalityDeleteFiltersBySchema.computeIfAbsent(fieldIds, _ -> EqualityDeleteFilter.builder(schemaFromHandles(deleteColumns)));
             deleteFilters.add(builder);
 
-            ListenableFuture<?> loadFuture = builder.readEqualityDeletes(deleteFile, deleteColumns, deletePageSourceProvider);
+            ListenableFuture<?> loadFuture = builder.readEqualityDeletes(session, deleteFile, deleteColumns, deletePageSourceProvider);
             if (loadFuture.state() != SUCCESS) {
                 pendingLoads.add(loadFuture);
             }
