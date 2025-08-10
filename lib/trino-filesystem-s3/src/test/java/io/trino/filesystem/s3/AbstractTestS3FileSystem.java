@@ -281,4 +281,9 @@ public abstract class AbstractTestS3FileSystem
             s3Client.deleteObject(delete -> delete.bucket(bucket()).key(path));
         }
     }
+
+    protected static String environmentVariable(String name)
+    {
+        return requireNonNull(System.getenv(name), "Environment variable not set: " + name);
+    }
 }
