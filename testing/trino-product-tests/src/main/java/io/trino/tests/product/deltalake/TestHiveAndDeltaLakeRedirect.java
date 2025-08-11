@@ -100,6 +100,7 @@ public class TestHiveAndDeltaLakeRedirect
                     .hasMessageMatching(".*Table 'hive.default.test_redirect_to_nonexistent_delta_.*' redirected to 'epsilon.default.test_redirect_to_nonexistent_delta_.*', but the target catalog 'epsilon' does not exist");
         }
         finally {
+            onTrino().executeQuery("RESET SESSION hive.delta_lake_catalog_name");
             dropDeltaTableWithRetry(tableName);
         }
     }
@@ -209,6 +210,7 @@ public class TestHiveAndDeltaLakeRedirect
                     .hasMessageMatching(".*Table 'delta.default.test_redirect_to_nonexistent_hive_.*' redirected to 'spark.default.test_redirect_to_nonexistent_hive_.*', but the target catalog 'spark' does not exist");
         }
         finally {
+            onTrino().executeQuery("RESET SESSION delta.hive_catalog_name");
             onTrino().executeQuery("DROP TABLE hive.default." + tableName);
         }
     }
@@ -817,6 +819,7 @@ public class TestHiveAndDeltaLakeRedirect
                     .hasMessageMatching("\\QQuery failed (\\E#\\S+\\Q): default." + viewName + " is not a Delta Lake table");
         }
         finally {
+            onTrino().executeQuery("RESET SESSION hive.hive_views_legacy_translation");
             onDelta().executeQuery("DROP VIEW IF EXISTS " + viewName);
             dropDeltaTableWithRetry(deltaTableName);
             dropDeltaTableWithRetry(deltaRegionTableName);
