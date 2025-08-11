@@ -569,6 +569,12 @@ public class LakehouseMetadata
     }
 
     @Override
+    public Optional<List<ColumnHandle>> getColumnHandlesForExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, ConnectorTableHandle tableHandle)
+    {
+        return forHandle(tableHandle).getColumnHandlesForExecute(session, tableExecuteHandle, tableHandle);
+    }
+
+    @Override
     public Optional<ConnectorPartitioningHandle> getUpdateLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         return forHandle(tableHandle).getUpdateLayout(session, tableHandle);

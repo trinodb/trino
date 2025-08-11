@@ -1250,6 +1250,14 @@ public final class MetadataManager
     }
 
     @Override
+    public Optional<List<ColumnHandle>> getColumnHandlesForExecute(Session session, TableExecuteHandle tableExecuteHandle, TableHandle tableHandle)
+    {
+        CatalogHandle catalogHandle = tableHandle.catalogHandle();
+        ConnectorMetadata metadata = getMetadata(session, catalogHandle);
+        return metadata.getColumnHandlesForExecute(session.toConnectorSession(catalogHandle), tableExecuteHandle.connectorHandle(), tableHandle.connectorHandle());
+    }
+
+    @Override
     public Optional<PartitioningHandle> getUpdateLayout(Session session, TableHandle tableHandle)
     {
         CatalogHandle catalogHandle = tableHandle.catalogHandle();

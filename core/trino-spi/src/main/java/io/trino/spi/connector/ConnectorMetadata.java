@@ -850,6 +850,11 @@ public interface ConnectorMetadata
         throw new TrinoException(NOT_SUPPORTED, MODIFYING_ROWS_MESSAGE);
     }
 
+    default Optional<List<ColumnHandle>> getColumnHandlesForExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, ConnectorTableHandle tableHandle)
+    {
+        return Optional.empty();
+    }
+
     /**
      * Get the physical layout for updated or deleted rows of a MERGE operation.
      * Inserted rows are handled by {@link #getInsertLayout}.

@@ -745,6 +745,15 @@ public class TracingConnectorMetadata
     }
 
     @Override
+    public Optional<List<ColumnHandle>> getColumnHandlesForExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, ConnectorTableHandle tableHandle)
+    {
+        Span span = startSpan("getColumnHandlesForExecute", tableHandle);
+        try (var _ = scopedSpan(span)) {
+            return delegate.getColumnHandlesForExecute(session, tableExecuteHandle, tableHandle);
+        }
+    }
+
+    @Override
     public Optional<ConnectorPartitioningHandle> getUpdateLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         Span span = startSpan("getUpdateLayout", tableHandle);
