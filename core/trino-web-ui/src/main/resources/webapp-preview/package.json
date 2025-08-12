@@ -16,12 +16,14 @@
     "check:clean": "npm clean-install && npm run lint && npm run prettier:check"
   },
   "dependencies": {
+    "@dagrejs/dagre": "^1.1.5",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
     "@fontsource/roboto": "^5.2.5",
     "@mui/icons-material": "^6.4.7",
     "@mui/material": "^6.4.7",
     "@mui/x-charts": "^7.27.1",
+    "@xyflow/react": "^12.8.2",
     "axios": "^1.8.2",
     "lodash": "^4.17.21",
     "react": "^18.3.1",

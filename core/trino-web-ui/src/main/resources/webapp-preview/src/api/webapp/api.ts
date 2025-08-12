@@ -206,6 +206,42 @@ export interface Session {
     catalogProperties: { [key: string]: string | number | boolean }
 }
 
+export interface QueryStagePlan {
+    id: string
+    jsonRepresentation: string
+    root: {
+        id: string
+    }
+}
+
+export interface QueryStageStats {
+    completedDrivers: number
+    fullyBlocked: boolean
+    totalCpuTime: string
+    userMemoryReservation: string
+    queuedDrivers: number
+    runningDrivers: number
+    rawInputDataSize: string
+    rawInputPositions: number
+    bufferedDataSize: string
+    totalBlockedTime: string
+    outputDataSize: string
+    outputPositions: number
+}
+
+export interface QueryStage {
+    coordinatorOnly: boolean
+    plan: QueryStagePlan
+    stageId: string
+    state: string
+    stageStats: QueryStageStats
+}
+
+export interface QueryStages {
+    outputStageId: string
+    stages: QueryStage[]
+}
+
 export interface QueryStatusInfo extends QueryInfoBase {
     session: Session
     query: string
@@ -214,6 +250,7 @@ export interface QueryStatusInfo extends QueryInfoBase {
     retryPolicy: string
     pruned: boolean
     finalQueryInfo: boolean
+    stages: QueryStages
 }
 
 export async function statsApi(): Promise<ApiResponse<Stats>> {
