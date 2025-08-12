@@ -20,6 +20,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import io.airlift.units.Duration;
+import io.azam.ulidj.MonotonicULID;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
@@ -44,7 +45,6 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Random;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
@@ -64,12 +64,10 @@ public class FileSystemSpoolingManager
     private final TrinoFileSystem fileSystem;
     private final FileSystemLayout fileSystemLayout;
     private final String nodeIdentifier;
-    private final Duration ttl;
+    private final MonotonicULID uuidGenerator;
     private final Duration directAccessTtl;
     private final boolean encryptionEnabled;
     private final boolean explicitAckEnabled;
-
-    private final Random random;
 
     @Inject
     public FileSystemSpoolingManager(FileSystemSpoolingConfig config, TrinoFileSystemFactory fileSystemFactory, FileSystemLayout fileSystemLayout, Node currentNode)
@@ -81,11 +79,10 @@ public class FileSystemSpoolingManager
         this.fileSystemLayout = requireNonNull(fileSystemLayout, "fileSystemLayout is null");
         this.nodeIdentifier = requireNonNull(currentNode, "currentNode is null").getNodeIdentifier();
         this.encryptionHeadersTranslator = encryptionHeadersTranslator(location);
-        this.ttl = config.getTtl();
+        this.uuidGenerator = new MonotonicULID(new TimeToLiveClock(config.getTtl()), new SecureRandom(nodeIdentifier.getBytes(UTF_8)));
         this.directAccessTtl = config.getDirectAccessTtl();
         this.encryptionEnabled = config.isEncryptionEnabled();
         this.explicitAckEnabled = config.isExplicitAckEnabled();
-        this.random = new SecureRandom(nodeIdentifier.getBytes(UTF_8));
     }
 
     @Override
@@ -110,11 +107,11 @@ public class FileSystemSpoolingManager
     @Override
     public FileSystemSpooledSegmentHandle create(SpoolingContext context)
     {
-        Instant expireAt = Instant.now().plusMillis(ttl.toMillis());
-        if (encryptionEnabled) {
-            return FileSystemSpooledSegmentHandle.random(random, nodeIdentifier, context, expireAt, Optional.of(randomAes256()));
-        }
-        return FileSystemSpooledSegmentHandle.random(random, nodeIdentifier, context, expireAt);
+        return new FileSystemSpooledSegmentHandle(
+                context.encoding(),
+                uuidGenerator.generateBinary(),
+                nodeIdentifier,
+                encryptionEnabled ? Optional.of(randomAes256()) : Optional.empty());
     }
 
     @Override
