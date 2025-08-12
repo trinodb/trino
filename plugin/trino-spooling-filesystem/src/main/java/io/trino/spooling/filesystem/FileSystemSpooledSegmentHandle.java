@@ -29,25 +29,28 @@ import static java.util.Objects.requireNonNull;
 public record FileSystemSpooledSegmentHandle(
         @Override String encoding,
         byte[] uuid,
+        String nodeIdentifier,
         Optional<EncryptionKey> encryptionKey)
         implements SpooledSegmentHandle
 {
     public FileSystemSpooledSegmentHandle
     {
         requireNonNull(encryptionKey, "encryptionKey is null");
+        requireNonNull(nodeIdentifier, "nodeIdentifier is null");
         verify(uuid.length == 16, "uuid must be 128 bits");
     }
 
-    public static FileSystemSpooledSegmentHandle random(Random random, SpoolingContext context, Instant expireAt)
+    public static FileSystemSpooledSegmentHandle random(Random random, String nodeIdentifier, SpoolingContext context, Instant expireAt)
     {
-        return random(random, context, expireAt, Optional.empty());
+        return random(random, nodeIdentifier, context, expireAt, Optional.empty());
     }
 
-    public static FileSystemSpooledSegmentHandle random(Random random, SpoolingContext context, Instant expireAt, Optional<EncryptionKey> encryptionKey)
+    public static FileSystemSpooledSegmentHandle random(Random random, String nodeIdentifier, SpoolingContext context, Instant expireAt, Optional<EncryptionKey> encryptionKey)
     {
         return new FileSystemSpooledSegmentHandle(
                 context.encoding(),
                 ULID.generateBinary(expireAt.toEpochMilli(), entropy(random)),
+                nodeIdentifier,
                 encryptionKey);
     }
 
