@@ -2012,7 +2012,7 @@ public class TestGeoFunctions
         testMultiConversion("LINESTRING (1 2, 3 4, 5 6, 7 8)", "MULTILINESTRING ((1 2, 3 4, 5 6, 7 8))");
         testMultiConversion("MULTILINESTRING ((1 2, 3 4, 5 6, 7 8))", "MULTILINESTRING ((1 2, 3 4, 5 6, 7 8))");
         testMultiConversion("POLYGON ((0 0, 1 0, 1 1, 0 1, 0 0))", "MULTIPOLYGON (((0 0, 1 0, 1 1, 0 1, 0 0)))");
-        testMultiConversion("MULTIPOLYGON (((1 1, 1 4, 4 4, 4 1)), ((1 1, 1 4, 4 4, 4 1)))", "MULTIPOLYGON (((1 1, 1 4, 4 4, 4 1)), ((1 1, 1 4, 4 4, 4 1)))");
+        testMultiConversion("MULTIPOLYGON (((1 1, 4 1, 4 4, 1 4, 1 1)), ((1 1, 4 1, 4 4, 1 4, 1 1)))", "MULTIPOLYGON (((1 1, 4 1, 4 4, 1 4, 1 1)), ((1 1, 4 1, 4 4, 1 4, 1 1)))");
     }
 
     public void testMultiConversion(String wkt, String expected)
