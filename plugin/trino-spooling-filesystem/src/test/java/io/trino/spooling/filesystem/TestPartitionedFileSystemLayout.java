@@ -32,7 +32,7 @@ class TestPartitionedFileSystemLayout
     @Test
     public void testStorageLocation()
     {
-        FileSystemSpooledSegmentHandle handle = new FileSystemSpooledSegmentHandle("json", ULID.generateBinary(213700331, STATIC_ENTROPY), Optional.empty());
+        FileSystemSpooledSegmentHandle handle = new FileSystemSpooledSegmentHandle("json", ULID.generateBinary(213700331, STATIC_ENTROPY), "nodeId", Optional.empty());
 
         assertThat(handle.identifier()).isEqualTo("00006BSKQBDSQQ8RBJC5Q68VVD");
 
@@ -40,9 +40,9 @@ class TestPartitionedFileSystemLayout
 
         assertThat(segmentLocation).isEqualTo(ROOT_LOCATION
                 .appendPath("200-spooled")
-                .appendPath("00006BSKQBDSQQ8RBJC5Q68VVD.json"));
+                .appendPath("00006BSKQBDSQQ8RBJC5Q68VVDA3C995C2DAF8B753.json"));
 
-        assertThat(segmentLocation.fileName()).isEqualTo("00006BSKQBDSQQ8RBJC5Q68VVD.json");
+        assertThat(segmentLocation.fileName()).isEqualTo("00006BSKQBDSQQ8RBJC5Q68VVDA3C995C2DAF8B753.json");
         assertThat(LAYOUT.getExpiration(segmentLocation)).hasValue(Instant.ofEpochMilli(213700331));
     }
 
