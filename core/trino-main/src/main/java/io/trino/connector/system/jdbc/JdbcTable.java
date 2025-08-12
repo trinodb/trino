@@ -16,6 +16,7 @@ package io.trino.connector.system.jdbc;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.Constraint;
+import io.trino.spi.connector.SystemColumnHandle;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
 
@@ -31,7 +32,7 @@ public abstract class JdbcTable
     }
 
     /**
-     * @param constraint a {@link Constraint} using {@link io.trino.connector.system.SystemColumnHandle} to identify columns
+     * @param constraint a {@link Constraint} using {@link SystemColumnHandle} to identify columns
      */
     /*
      * This method is not part of the SystemTable interface, because system tables do not operate on column handles,

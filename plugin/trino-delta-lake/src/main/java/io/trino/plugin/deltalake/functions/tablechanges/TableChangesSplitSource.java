@@ -45,6 +45,7 @@ import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_FILESYSTEM
 import static io.trino.plugin.deltalake.functions.tablechanges.TableChangesFileType.CDF_FILE;
 import static io.trino.plugin.deltalake.functions.tablechanges.TableChangesFileType.DATA_FILE;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
+import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogJsonEntryPath;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail.getEntriesFromJson;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static java.lang.String.format;
@@ -75,7 +76,7 @@ public class TableChangesSplitSource
                 .boxed()
                 .flatMap(version -> {
                     try {
-                        List<DeltaLakeTransactionLogEntry> entries = getEntriesFromJson(version, transactionLogDir, fileSystem, DEFAULT_TRANSACTION_LOG_MAX_CACHED_SIZE)
+                        List<DeltaLakeTransactionLogEntry> entries = getEntriesFromJson(version, fileSystem.newInputFile(getTransactionLogJsonEntryPath(transactionLogDir, version)), DEFAULT_TRANSACTION_LOG_MAX_CACHED_SIZE)
                                 .orElseThrow(() -> new TrinoException(DELTA_LAKE_BAD_DATA, "Delta Lake log entries are missing for version " + version))
                                 .getEntriesList(fileSystem);
                         List<CommitInfoEntry> commitInfoEntries = entries.stream()

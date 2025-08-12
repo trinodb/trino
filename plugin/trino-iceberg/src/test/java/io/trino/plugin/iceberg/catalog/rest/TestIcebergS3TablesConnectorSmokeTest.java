@@ -133,6 +133,7 @@ final class TestIcebergS3TablesConnectorSmokeTest
                         "   comment varchar\n" +
                         "\\)\n" +
                         "WITH \\(\n" +
+                        "   compression_codec = 'ZSTD',\n" +
                         "   format = 'PARQUET',\n" +
                         "   format_version = 2,\n" +
                         "   location = 's3://.*--table-s3',\n" +

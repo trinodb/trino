@@ -1484,7 +1484,6 @@ public class TestAccessControl
         assertAccessAllowed(session, "SELECT nationkey FROM nation");
     }
 
-
     @Test
     public void testSchemasAuthorization()
     {

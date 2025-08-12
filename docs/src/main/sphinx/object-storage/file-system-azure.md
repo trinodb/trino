@@ -51,6 +51,8 @@ system support:
 * - `azure.application-id`
   - Specify the application identifier appended to the `User-Agent` header
     for all requests sent to Azure Storage. Defaults to `Trino`. 
+* - `azure.multipart-write-enabled`
+  - Enable multipart writes for large files. Defaults to `false`. 
 :::
 
 (azure-user-assigned-managed-identity-authentication)=

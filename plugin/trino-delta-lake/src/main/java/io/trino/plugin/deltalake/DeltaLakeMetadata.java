@@ -2386,7 +2386,7 @@ public class DeltaLakeMetadata
                 TransactionLogEntries transactionLogEntries;
                 try {
                     long finalVersion = version;
-                    transactionLogEntries = getEntriesFromJson(version, transactionLogDirectory, fileSystem, DataSize.of(0, BYTE))
+                    transactionLogEntries = getEntriesFromJson(version, fileSystem.newInputFile(getTransactionLogJsonEntryPath(transactionLogDirectory, version)), DataSize.of(0, BYTE))
                             .orElseThrow(() -> new TrinoException(DELTA_LAKE_BAD_DATA, "Delta Lake log entries are missing for version " + finalVersion));
                 }
                 catch (IOException e) {

@@ -868,18 +868,18 @@ public class TestSqlParser
         assertStatement("SELECT 123 INTERSECT DISTINCT CORRESPONDING SELECT 123 INTERSECT ALL CORRESPONDING SELECT 123",
                 query(new Intersect(
                         ImmutableList.of(
-                                new Intersect(ImmutableList.of(createSelect123(), createSelect123()), true, Optional.of(new Corresponding(location(1 ,1), List.of()))),
+                                new Intersect(ImmutableList.of(createSelect123(), createSelect123()), true, Optional.of(new Corresponding(location(1, 1), List.of()))),
                                 createSelect123()),
                         false,
-                        Optional.of(new Corresponding(location(1 ,1), List.of())))));
+                        Optional.of(new Corresponding(location(1, 1), List.of())))));
 
         assertStatement("SELECT 123 INTERSECT DISTINCT CORRESPONDING BY (x) SELECT 123 INTERSECT ALL CORRESPONDING SELECT 123",
                 query(new Intersect(
                         ImmutableList.of(
-                                new Intersect(ImmutableList.of(createSelect123(), createSelect123()), true, Optional.of(new Corresponding(location(1 ,1), List.of(identifier("x"))))),
+                                new Intersect(ImmutableList.of(createSelect123(), createSelect123()), true, Optional.of(new Corresponding(location(1, 1), List.of(identifier("x"))))),
                                 createSelect123()),
                         false,
-                        Optional.of(new Corresponding(location(1 ,1), List.of())))));
+                        Optional.of(new Corresponding(location(1, 1), List.of())))));
     }
 
     @Test
@@ -896,18 +896,18 @@ public class TestSqlParser
         assertStatement("SELECT 123 UNION DISTINCT CORRESPONDING SELECT 123 UNION ALL CORRESPONDING SELECT 123",
                 query(new Union(
                         ImmutableList.of(
-                                new Union(ImmutableList.of(createSelect123(), createSelect123()), true, Optional.of(new Corresponding(location(1 ,1), List.of()))),
+                                new Union(ImmutableList.of(createSelect123(), createSelect123()), true, Optional.of(new Corresponding(location(1, 1), List.of()))),
                                 createSelect123()),
                         false,
-                        Optional.of(new Corresponding(location(1 ,1), List.of())))));
+                        Optional.of(new Corresponding(location(1, 1), List.of())))));
 
         assertStatement("SELECT 123 UNION DISTINCT CORRESPONDING BY (x) SELECT 123 UNION ALL CORRESPONDING SELECT 123",
                 query(new Union(
                         ImmutableList.of(
-                                new Union(ImmutableList.of(createSelect123(), createSelect123()), true, Optional.of(new Corresponding(location(1 ,1), List.of(identifier("x"))))),
+                                new Union(ImmutableList.of(createSelect123(), createSelect123()), true, Optional.of(new Corresponding(location(1, 1), List.of(identifier("x"))))),
                                 createSelect123()),
                         false,
-                        Optional.of(new Corresponding(location(1 ,1), List.of())))));
+                        Optional.of(new Corresponding(location(1, 1), List.of())))));
     }
 
     @Test
@@ -924,18 +924,18 @@ public class TestSqlParser
         assertStatement("SELECT 123 EXCEPT DISTINCT CORRESPONDING SELECT 123 EXCEPT ALL CORRESPONDING SELECT 123",
                 query(new Except(
                         location(1, 1),
-                        new Except(location(1, 1), createSelect123(), createSelect123(), true, Optional.of(new Corresponding(location(1 ,1), List.of()))),
+                        new Except(location(1, 1), createSelect123(), createSelect123(), true, Optional.of(new Corresponding(location(1, 1), List.of()))),
                         createSelect123(),
                         false,
-                        Optional.of(new Corresponding(location(1 ,1), List.of())))));
+                        Optional.of(new Corresponding(location(1, 1), List.of())))));
 
         assertStatement("SELECT 123 EXCEPT DISTINCT CORRESPONDING BY (x) SELECT 123 EXCEPT ALL CORRESPONDING SELECT 123",
                 query(new Except(
                         location(1, 1),
-                        new Except(location(1, 1), createSelect123(), createSelect123(), true, Optional.of(new Corresponding(location(1 ,1), List.of(identifier("x"))))),
+                        new Except(location(1, 1), createSelect123(), createSelect123(), true, Optional.of(new Corresponding(location(1, 1), List.of(identifier("x"))))),
                         createSelect123(),
                         false,
-                        Optional.of(new Corresponding(location(1 ,1), List.of())))));
+                        Optional.of(new Corresponding(location(1, 1), List.of())))));
     }
 
     private static QuerySpecification createSelect123()
@@ -3519,22 +3519,23 @@ public class TestSqlParser
                   ON true
                 WHEN MATCHED
                   THEN DELETE
-                """)).isEqualTo(new Merge(
-                location,
-                new AliasedRelation(
-                        new Table(
-                                location(1, 1),
-                                QualifiedName.of(List.of(new Identifier(location(1, 12), "inventory", false))),
-                                Optional.of(new Identifier(location(1, 24), "dev", false))),
-                        new Identifier(location(1, 31), "i", false),
-                        null),
-                new AliasedRelation(
-                        location(2, 9),
-                        new Table(location(2, 9), QualifiedName.of(List.of(new Identifier(location(2, 9), "changes", false)))),
-                        new Identifier(location(2, 20), "c", false),
-                        null),
-                new BooleanLiteral(location(3, 6), "true"),
-                ImmutableList.of(new MergeDelete(location(4, 1), Optional.empty()))));
+                """))
+                .isEqualTo(new Merge(
+                        location,
+                        new AliasedRelation(
+                                new Table(
+                                    location(1, 1),
+                                    QualifiedName.of(List.of(new Identifier(location(1, 12), "inventory", false))),
+                                    Optional.of(new Identifier(location(1, 24), "dev", false))),
+                                new Identifier(location(1, 31), "i", false),
+                                null),
+                        new AliasedRelation(
+                                location(2, 9),
+                                new Table(location(2, 9), QualifiedName.of(List.of(new Identifier(location(2, 9), "changes", false)))),
+                                new Identifier(location(2, 20), "c", false),
+                                null),
+                        new BooleanLiteral(location(3, 6), "true"),
+                    ImmutableList.of(new MergeDelete(location(4, 1), Optional.empty()))));
     }
 
     @Test
@@ -6706,7 +6707,6 @@ public class TestSqlParser
                                 new BooleanLiteral(location(1, 1), "true"),
                                 new StringLiteral(location(1, 1), "..."),
                                 new BooleanLiteral(location(1, 1), "false"))));
-
     }
 
     @Test
@@ -7139,7 +7139,7 @@ public class TestSqlParser
                         Optional.empty(),
                         new QuerySpecification(
                                 location(4, 1),
-                                new Select(location(4, 1), false, ImmutableList.of(new SingleColumn(location(4, 8), new LongLiteral(location(4, 8),"1"), Optional.empty()))),
+                                new Select(location(4, 1), false, ImmutableList.of(new SingleColumn(location(4, 8), new LongLiteral(location(4, 8), "1"), Optional.empty()))),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
@@ -7163,7 +7163,7 @@ public class TestSqlParser
 
         // Session after function
         assertStatementIsInvalid("WITH FUNCTION abc() RETURNS int RETURN 42, SESSION query_max_memory = '1GB' SELECT 1")
-            .withMessage("line 1:44: mismatched input 'SESSION'. Expecting: 'FUNCTION'");
+                .withMessage("line 1:44: mismatched input 'SESSION'. Expecting: 'FUNCTION'");
 
         // Session after function
         assertStatementIsInvalid("WITH SESSION query_max_memory = '1GB', FUNCTION abc() RETURNS int RETURN 42, SESSION query_max_total_memory = '1GB' SELECT 1")
@@ -7203,7 +7203,7 @@ public class TestSqlParser
                         Optional.empty(),
                         new QuerySpecification(
                                 location(7, 1),
-                                new Select(location(7, 1), false, ImmutableList.of(new SingleColumn(location(7, 8), new LongLiteral(location(7, 8),"1"), Optional.empty()))),
+                                new Select(location(7, 1), false, ImmutableList.of(new SingleColumn(location(7, 8), new LongLiteral(location(7, 8), "1"), Optional.empty()))),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),

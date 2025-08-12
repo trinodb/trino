@@ -151,9 +151,9 @@ final class TestOpenSearchProjectionPushdownPlans
                 .build();
         @Language("JSON")
         String properties =
-                """      
+                """
                 {
-                  "properties": {
+                   "properties": {
                       "col0": {
                           "properties": {
                               "a": {
@@ -164,9 +164,9 @@ final class TestOpenSearchProjectionPushdownPlans
                               }
                           }
                       }
-                  }
-              }
-              """;
+                   }
+                }
+                """;
         createIndex(tableName, properties);
 
         assertPlan(
@@ -324,7 +324,7 @@ final class TestOpenSearchProjectionPushdownPlans
     private void deleteIndex(String indexName)
             throws IOException
     {
-        Request request = new Request("DELETE",  "/" + indexName);
+        Request request = new Request("DELETE", "/" + indexName);
         client.getLowLevelClient().performRequest(request);
     }
 }

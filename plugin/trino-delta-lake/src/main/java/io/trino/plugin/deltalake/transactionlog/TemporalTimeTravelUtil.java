@@ -88,8 +88,9 @@ public final class TemporalTimeTravelUtil
         Optional<LastCheckpoint> lastCheckpoint = readLastCheckpoint(fileSystem, tableLocation);
         if (lastCheckpoint.isPresent()) {
             long entryNumber = lastCheckpoint.map(LastCheckpoint::version).orElseThrow();
-            Stream<DeltaLakeTransactionLogEntry> logEntries = getEntriesFromJson(entryNumber, transactionLogDir, fileSystem, DataSize.ofBytes(0))
-                    .orElseThrow(() -> new MissingTransactionLogException(getTransactionLogJsonEntryPath(transactionLogDir, entryNumber).toString()))
+            Location transactionLogFilePath = getTransactionLogJsonEntryPath(transactionLogDir, entryNumber);
+            Stream<DeltaLakeTransactionLogEntry> logEntries = getEntriesFromJson(entryNumber, fileSystem.newInputFile(transactionLogFilePath), DataSize.ofBytes(0))
+                    .orElseThrow(() -> new MissingTransactionLogException(transactionLogFilePath.toString()))
                     .getEntries(fileSystem);
             try (logEntries) {
                 Optional<CommitInfoEntry> commitInfo = logEntries.map(DeltaLakeTransactionLogEntry::getCommitInfo)
@@ -141,7 +142,7 @@ public final class TemporalTimeTravelUtil
             throws IOException
     {
         long entryNumber = end;
-        Optional<TransactionLogEntries> entries = getEntriesFromJson(entryNumber, transactionLogDir, fileSystem, DataSize.ofBytes(0));
+        Optional<TransactionLogEntries> entries = getEntriesFromJson(entryNumber, fileSystem.newInputFile(getTransactionLogJsonEntryPath(transactionLogDir, entryNumber)), DataSize.ofBytes(0));
         while (start <= entryNumber && entries.isPresent()) {
             try (Stream<DeltaLakeTransactionLogEntry> logEntryStream = entries.get().getEntries(fileSystem)) {
                 Optional<CommitInfoEntry> commitInfo = logEntryStream
@@ -156,7 +157,7 @@ public final class TemporalTimeTravelUtil
                 if (entryNumber < 0) {
                     break;
                 }
-                entries = getEntriesFromJson(entryNumber, transactionLogDir, fileSystem, DataSize.ofBytes(0));
+                entries = getEntriesFromJson(entryNumber, fileSystem.newInputFile(getTransactionLogJsonEntryPath(transactionLogDir, entryNumber)), DataSize.ofBytes(0));
             }
         }
 
@@ -186,7 +187,7 @@ public final class TemporalTimeTravelUtil
     {
         long entryNumber = start;
         long version = VERSION_NOT_FOUND;
-        Optional<TransactionLogEntries> entries = getEntriesFromJson(entryNumber, transactionLogDir, fileSystem, DataSize.ofBytes(0));
+        Optional<TransactionLogEntries> entries = getEntriesFromJson(entryNumber, fileSystem.newInputFile(getTransactionLogJsonEntryPath(transactionLogDir, entryNumber)), DataSize.ofBytes(0));
         while (entries.isPresent()) {
             try (Stream<DeltaLakeTransactionLogEntry> logEntryStream = entries.get().getEntries(fileSystem)) {
                 Optional<CommitInfoEntry> commitInfo = logEntryStream
@@ -196,7 +197,7 @@ public final class TemporalTimeTravelUtil
 
                 if (commitInfo.isEmpty()) {
                     entryNumber++;
-                    entries = getEntriesFromJson(entryNumber, transactionLogDir, fileSystem, DataSize.ofBytes(0));
+                    entries = getEntriesFromJson(entryNumber, fileSystem.newInputFile(getTransactionLogJsonEntryPath(transactionLogDir, entryNumber)), DataSize.ofBytes(0));
                     continue;
                 }
 
@@ -207,7 +208,7 @@ public final class TemporalTimeTravelUtil
                 version = entryNumber;
 
                 entryNumber++;
-                entries = getEntriesFromJson(entryNumber, transactionLogDir, fileSystem, DataSize.ofBytes(0));
+                entries = getEntriesFromJson(entryNumber, fileSystem.newInputFile(getTransactionLogJsonEntryPath(transactionLogDir, entryNumber)), DataSize.ofBytes(0));
             }
         }
 
@@ -232,7 +233,7 @@ public final class TemporalTimeTravelUtil
             }
             long entryNumber = Long.parseLong(matcher.group(1));
 
-            Stream<DeltaLakeTransactionLogEntry> logEntryStream = getEntriesFromJson(entryNumber, transactionLogDir, fileSystem, DataSize.ofBytes(0))
+            Stream<DeltaLakeTransactionLogEntry> logEntryStream = getEntriesFromJson(entryNumber, fileSystem.newInputFile(getTransactionLogJsonEntryPath(transactionLogDir, entryNumber)), DataSize.ofBytes(0))
                     .map(entry -> entry.getEntries(fileSystem))
                     .orElseThrow();
 

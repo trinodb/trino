@@ -132,7 +132,27 @@
 
         <dependency>
             <groupId>org.apache.ranger</groupId>
-            <artifactId>ranger-audit-core</artifactId>
+            <artifactId>ranger-audit-dest-cloudwatch</artifactId>
+            <version>${dep.ranger.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.ranger</groupId>
+            <artifactId>ranger-audit-dest-es</artifactId>
+            <version>${dep.ranger.version}</version>
+            <scope>runtime</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>commons-logging</groupId>
+                    <artifactId>commons-logging</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.ranger</groupId>
+            <artifactId>ranger-audit-dest-hdfs</artifactId>
             <version>${dep.ranger.version}</version>
             <scope>runtime</scope>
             <exclusions>
@@ -143,6 +163,45 @@
                 <exclusion>
                     <groupId>org.apache.hadoop</groupId>
                     <artifactId>hadoop-common</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.ranger</groupId>
+            <artifactId>ranger-audit-dest-kafka</artifactId>
+            <version>${dep.ranger.version}</version>
+            <scope>runtime</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>commons-logging</groupId>
+                    <artifactId>commons-logging</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.ranger</groupId>
+            <artifactId>ranger-audit-dest-log4j</artifactId>
+            <version>${dep.ranger.version}</version>
+            <scope>runtime</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>commons-logging</groupId>
+                    <artifactId>commons-logging</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.ranger</groupId>
+            <artifactId>ranger-audit-dest-solr</artifactId>
+            <version>${dep.ranger.version}</version>
+            <scope>runtime</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>commons-logging</groupId>
+                    <artifactId>commons-logging</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
