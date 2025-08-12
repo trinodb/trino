@@ -280,9 +280,7 @@ public final class GeoFunctions
         if (COLLECTION_TYPES.contains(type)) {
             return serialize(geometry);
         }
-        else {
-            return serialize(geometry.convertToMulti());
-        }
+        return serialize(geometry.convertToMulti());
     }
 
     @Description("Returns a Geometry type Polygon object from Well-Known Text representation (WKT)")
