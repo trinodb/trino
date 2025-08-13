@@ -238,7 +238,8 @@ public final class ArrayBlock
         IntArrayList valuesPositions = new IntArrayList();
         for (int i = 0; i < length; i++) {
             int position = positions[offset + i];
-            if (newValueIsNull != null && isNull(position)) {
+            checkReadablePosition(this, position);
+            if (valueIsNull != null && valueIsNull[position + arrayOffset]) {
                 hasNull = true;
                 newValueIsNull[i] = true;
                 newOffsets[i + 1] = newOffsets[i];
