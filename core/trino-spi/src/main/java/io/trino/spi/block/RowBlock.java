@@ -238,9 +238,15 @@ public final class RowBlock
 
         boolean[] newRowIsNull = null;
         if (rowIsNull != null) {
+            boolean hasNull = false;
             newRowIsNull = new boolean[length];
             for (int i = 0; i < length; i++) {
-                newRowIsNull[i] = rowIsNull[positions[offset + i]];
+                boolean isNull = rowIsNull[positions[offset + i]];
+                newRowIsNull[i] = isNull;
+                hasNull |= isNull;
+            }
+            if (!hasNull) {
+                newRowIsNull = null;
             }
         }
 

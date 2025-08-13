@@ -177,6 +177,7 @@ public final class Int128ArrayBlock
     {
         checkArrayRange(positions, offset, length);
 
+        boolean hasNull = false;
         boolean[] newValueIsNull = null;
         if (valueIsNull != null) {
             newValueIsNull = new boolean[length];
@@ -186,12 +187,14 @@ public final class Int128ArrayBlock
             int position = positions[offset + i];
             checkReadablePosition(this, position);
             if (valueIsNull != null) {
-                newValueIsNull[i] = valueIsNull[position + positionOffset];
+                boolean isNull = valueIsNull[position + positionOffset];
+                newValueIsNull[i] = isNull;
+                hasNull |= isNull;
             }
             newValues[i * 2] = values[(position + positionOffset) * 2];
             newValues[(i * 2) + 1] = values[((position + positionOffset) * 2) + 1];
         }
-        return new Int128ArrayBlock(0, length, newValueIsNull, newValues);
+        return new Int128ArrayBlock(0, length, hasNull ? newValueIsNull : null, newValues);
     }
 
     @Override
