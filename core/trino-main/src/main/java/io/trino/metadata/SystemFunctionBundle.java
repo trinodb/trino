@@ -204,6 +204,7 @@ import io.trino.operator.scalar.timestamp.ExtractYearOfWeek;
 import io.trino.operator.scalar.timestamp.FormatDateTime;
 import io.trino.operator.scalar.timestamp.HumanReadableSeconds;
 import io.trino.operator.scalar.timestamp.LastDayOfMonth;
+import io.trino.operator.scalar.timestamp.LastDayOfWeekOfMonth;
 import io.trino.operator.scalar.timestamp.LocalTimestamp;
 import io.trino.operator.scalar.timestamp.SequenceIntervalDayToSecond;
 import io.trino.operator.scalar.timestamp.SequenceIntervalYearToMonth;
@@ -637,7 +638,8 @@ public final class SystemFunctionBundle
                 .scalar(ExtractDayOfWeek.class)
                 .scalar(ExtractWeekOfYear.class)
                 .scalar(ExtractYearOfWeek.class)
-                .scalar(LastDayOfMonth.class);
+                .scalar(LastDayOfMonth.class)
+                .scalar(LastDayOfWeekOfMonth.class);
 
         // timestamp with timezone operators and functions
         builder
@@ -672,6 +674,7 @@ public final class SystemFunctionBundle
                 .scalar(io.trino.operator.scalar.timestamptz.FormatDateTime.class)
                 .scalar(io.trino.operator.scalar.timestamptz.ToUnixTime.class)
                 .scalar(io.trino.operator.scalar.timestamptz.LastDayOfMonth.class)
+                .scalar(io.trino.operator.scalar.timestamptz.LastDayOfWeekOfMonth.class)
                 .scalar(AtTimeZone.class)
                 .scalar(AtTimeZoneWithOffset.class)
                 .scalar(DateToTimestampWithTimeZoneCast.class)
