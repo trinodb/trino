@@ -219,18 +219,22 @@ public final class VariableWidthBlock
         }
 
         SliceOutput newSlice = Slices.allocate(finalLength).getOutput();
+        boolean hasNull = false;
         boolean[] newValueIsNull = null;
         int firstPosition = positions[offset];
         if (valueIsNull != null) {
             newValueIsNull = new boolean[length];
             newValueIsNull[0] = valueIsNull[firstPosition + arrayOffset];
+            hasNull |= newValueIsNull[0];
         }
         int currentStart = getPositionOffset(firstPosition);
         int currentEnd = getPositionOffset(firstPosition + 1);
         for (int i = 1; i < length; i++) {
             int position = positions[offset + i];
             if (valueIsNull != null) {
-                newValueIsNull[i] = valueIsNull[position + arrayOffset];
+                boolean isNull = valueIsNull[position + arrayOffset];
+                newValueIsNull[i] = isNull;
+                hasNull |= isNull;
             }
             // Null positions must have valid offsets for getSliceLength to work correctly on the next non-null position
             int currentOffset = getPositionOffset(position);
@@ -243,7 +247,7 @@ public final class VariableWidthBlock
         }
         // Copy last range of bytes
         newSlice.writeBytes(slice, currentStart, currentEnd - currentStart);
-        return new VariableWidthBlock(0, length, newSlice.slice(), newOffsets, newValueIsNull);
+        return new VariableWidthBlock(0, length, newSlice.slice(), newOffsets, hasNull ? newValueIsNull : null);
     }
 
     @Override

@@ -160,6 +160,7 @@ public final class LongArrayBlock
     {
         checkArrayRange(positions, offset, length);
 
+        boolean hasNull = false;
         boolean[] newValueIsNull = null;
         if (valueIsNull != null) {
             newValueIsNull = new boolean[length];
@@ -169,11 +170,13 @@ public final class LongArrayBlock
             int position = positions[offset + i];
             checkReadablePosition(this, position);
             if (valueIsNull != null) {
-                newValueIsNull[i] = valueIsNull[position + arrayOffset];
+                boolean isNull = valueIsNull[position + arrayOffset];
+                newValueIsNull[i] = isNull;
+                hasNull |= isNull;
             }
             newValues[i] = values[position + arrayOffset];
         }
-        return new LongArrayBlock(0, length, newValueIsNull, newValues);
+        return new LongArrayBlock(0, length, hasNull ? newValueIsNull : null, newValues);
     }
 
     @Override
