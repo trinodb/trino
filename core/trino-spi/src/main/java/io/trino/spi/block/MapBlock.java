@@ -27,6 +27,7 @@ import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkReadablePosition;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactArray;
+import static io.trino.spi.block.BlockUtil.compactIsNull;
 import static io.trino.spi.block.BlockUtil.compactOffsets;
 import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
 import static io.trino.spi.block.BlockUtil.copyOffsetsAndAppendNull;
@@ -427,9 +428,7 @@ public final class MapBlock
         Block newValues = valueBlock.copyRegion(startValueOffset, endValueOffset - startValueOffset);
 
         int[] newOffsets = compactOffsets(offsets, position + startOffset, length);
-        boolean[] mapIsNull = this.mapIsNull;
-        boolean[] newMapIsNull;
-        newMapIsNull = mapIsNull == null ? null : compactArray(mapIsNull, position + startOffset, length);
+        boolean[] newMapIsNull = compactIsNull(mapIsNull, position + startOffset, length);
         int[] rawHashTables = hashTables.tryGet().orElse(null);
         int[] newRawHashTables = null;
         int expectedNewHashTableEntries = (endValueOffset - startValueOffset) * HASH_MULTIPLIER;
