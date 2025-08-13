@@ -23,7 +23,7 @@ import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkReadablePosition;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
-import static io.trino.spi.block.BlockUtil.compactArray;
+import static io.trino.spi.block.BlockUtil.compactIsNull;
 import static io.trino.spi.block.BlockUtil.compactOffsets;
 import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
 import static io.trino.spi.block.BlockUtil.copyOffsetsAndAppendNull;
@@ -294,9 +294,7 @@ public final class ArrayBlock
         Block newValues = values.copyRegion(startValueOffset, endValueOffset - startValueOffset);
 
         int[] newOffsets = compactOffsets(offsets, position + arrayOffset, length);
-        boolean[] valueIsNull = this.valueIsNull;
-        boolean[] newValueIsNull;
-        newValueIsNull = valueIsNull == null ? null : compactArray(valueIsNull, position + arrayOffset, length);
+        boolean[] newValueIsNull = compactIsNull(valueIsNull, position + arrayOffset, length);
 
         if (newValues == values && newOffsets == offsets && newValueIsNull == valueIsNull) {
             return this;
