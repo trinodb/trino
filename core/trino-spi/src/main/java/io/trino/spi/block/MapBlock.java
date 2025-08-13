@@ -329,13 +329,18 @@ public final class MapBlock
         checkArrayRange(positions, offset, length);
 
         int[] newOffsets = new int[length + 1];
-        boolean[] newMapIsNull = new boolean[length];
+        boolean hasNull = false;
+        boolean[] newMapIsNull = null;
+        if (mapIsNull != null) {
+            newMapIsNull = new boolean[length];
+        }
 
         IntArrayList entriesPositions = new IntArrayList();
         int newPosition = 0;
         for (int i = offset; i < offset + length; ++i) {
             int position = positions[i];
-            if (isNull(position)) {
+            if (mapIsNull != null && mapIsNull[position + startOffset]) {
+                hasNull = true;
                 newMapIsNull[newPosition] = true;
                 newOffsets[newPosition + 1] = newOffsets[newPosition];
             }
@@ -351,6 +356,9 @@ public final class MapBlock
                 }
             }
             newPosition++;
+        }
+        if (!hasNull) {
+            newMapIsNull = null;
         }
 
         int[] rawHashTables = hashTables.tryGet().orElse(null);
@@ -376,7 +384,7 @@ public final class MapBlock
                 mapType,
                 0,
                 length,
-                Optional.of(newMapIsNull),
+                Optional.ofNullable(newMapIsNull),
                 newOffsets,
                 newKeys,
                 newValues,
