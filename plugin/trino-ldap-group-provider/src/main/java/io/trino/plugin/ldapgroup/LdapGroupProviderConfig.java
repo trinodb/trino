@@ -26,6 +26,7 @@ public class LdapGroupProviderConfig
     private String ldapUserSearchFilter = "(uid={0})";
     private String ldapGroupsNameAttribute = "cn";
     private boolean ldapUseGroupFilter;
+    private boolean ldapUseChainGroups;
 
     @NotNull
     public String getLdapAdminUser()
@@ -108,6 +109,19 @@ public class LdapGroupProviderConfig
     public LdapGroupProviderConfig setLdapUseGroupFilter(boolean ldapUseGroupFilter)
     {
         this.ldapUseGroupFilter = ldapUseGroupFilter;
+        return this;
+    }
+
+    public boolean getLdapUseChainGroups()
+    {
+        return ldapUseChainGroups;
+    }
+
+    @Config("ldap.use-chain-groups")
+    @ConfigDescription("Enable nested group resolution using LDAP_MATCHING_RULE_IN_CHAIN")
+    public LdapGroupProviderConfig setLdapUseChainGroups(boolean ldapUseChainGroups)
+    {
+        this.ldapUseChainGroups = ldapUseChainGroups;
         return this;
     }
 }

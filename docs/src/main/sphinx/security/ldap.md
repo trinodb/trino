@@ -173,6 +173,12 @@ LDAP context with user distinguished name and user password. In order to use
 this mechanism `ldap.bind-dn`, `ldap.bind-password` and
 `ldap.group-auth-pattern` properties need to be defined.
 
+#### Nested LDAP Groups Support
+
+Trino supports nested LDAP groups using `LDAP_MATCHING_RULE_IN_CHAIN` for efficient single-query resolution of group hierarchies. This feature enables more flexible and scalable group management in enterprise environments.
+
+For detailed information about configuring and using nested groups, see :doc:`ldap-nested-groups`.
+
 :::{list-table}
 :widths: 35, 65
 :header-rows: 1

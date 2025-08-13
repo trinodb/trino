@@ -39,5 +39,14 @@ public class LdapGroupProviderModule
                     configBinder(binder).bindConfig(LdapSingleQueryGroupProviderConfig.class);
                     innerBinder.bind(GroupProvider.class).to(LdapSingleQueryGroupProvider.class).in(Scopes.SINGLETON);
                 }));
+        
+        // Add chain-based group provider support for nested groups
+        install(conditionalModule(
+                LdapGroupProviderConfig.class,
+                LdapGroupProviderConfig::getLdapUseChainGroups,
+                innerBinder -> {
+                    configBinder(innerBinder).bindConfig(LdapChainGroupProviderConfig.class);
+                    innerBinder.bind(GroupProvider.class).to(LdapChainGroupProvider.class).in(Scopes.SINGLETON);
+                }));
     }
 }
