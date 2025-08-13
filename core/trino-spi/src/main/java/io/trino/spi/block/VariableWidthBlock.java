@@ -27,7 +27,7 @@ import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkReadablePosition;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
-import static io.trino.spi.block.BlockUtil.compactArray;
+import static io.trino.spi.block.BlockUtil.compactIsNull;
 import static io.trino.spi.block.BlockUtil.compactOffsets;
 import static io.trino.spi.block.BlockUtil.compactSlice;
 import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
@@ -262,7 +262,7 @@ public final class VariableWidthBlock
 
         int[] newOffsets = compactOffsets(offsets, positionOffset, length);
         Slice newSlice = compactSlice(slice, offsets[positionOffset], newOffsets[length]);
-        boolean[] newValueIsNull = valueIsNull == null ? null : compactArray(valueIsNull, positionOffset, length);
+        boolean[] newValueIsNull = compactIsNull(valueIsNull, positionOffset, length);
 
         if (newOffsets == offsets && newSlice == slice && newValueIsNull == valueIsNull) {
             return this;

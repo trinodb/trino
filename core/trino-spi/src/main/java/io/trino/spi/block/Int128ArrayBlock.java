@@ -25,6 +25,7 @@ import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkReadablePosition;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactArray;
+import static io.trino.spi.block.BlockUtil.compactIsNull;
 import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
 import static io.trino.spi.block.BlockUtil.ensureCapacity;
 
@@ -207,7 +208,7 @@ public final class Int128ArrayBlock
         checkValidRegion(getPositionCount(), positionOffset, length);
 
         positionOffset += this.positionOffset;
-        boolean[] newValueIsNull = valueIsNull == null ? null : compactArray(valueIsNull, positionOffset, length);
+        boolean[] newValueIsNull = compactIsNull(valueIsNull, positionOffset, length);
         long[] newValues = compactArray(values, positionOffset * 2, length * 2);
 
         if (newValueIsNull == valueIsNull && newValues == values) {
