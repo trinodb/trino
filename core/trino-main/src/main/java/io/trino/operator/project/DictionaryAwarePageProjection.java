@@ -22,7 +22,6 @@ import io.trino.spi.block.DictionaryId;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SourcePage;
-import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
 
 import java.util.Optional;
@@ -49,12 +48,6 @@ public class DictionaryAwarePageProjection
         this.sourceIdFunction = sourceIdFunction;
         verify(projection.isDeterministic(), "projection must be deterministic");
         verify(projection.getInputChannels().size() == 1, "projection must have only one input");
-    }
-
-    @Override
-    public Type getType()
-    {
-        return projection.getType();
     }
 
     @Override
