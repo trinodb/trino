@@ -157,6 +157,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/lance">
+        <artifact id="${project.groupId}:trino-lance:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/loki">
         <artifact id="${project.groupId}:trino-loki:zip:${project.version}">
             <unpack />

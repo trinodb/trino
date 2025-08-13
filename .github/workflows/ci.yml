@@ -377,6 +377,7 @@ jobs:
             !:trino-jdbc,
             !:trino-kafka,
             !:trino-lakehouse,
+            !:trino-lance,
             !:trino-main,
             !:trino-mariadb,
             !:trino-memory,
@@ -500,6 +501,7 @@ jobs:
             - { modules: plugin/trino-ignite }
             - { modules: plugin/trino-kafka }
             - { modules: plugin/trino-lakehouse }
+            - { modules: plugin/trino-lance }
             - { modules: plugin/trino-mariadb }
             - { modules: plugin/trino-mongodb }
             - { modules: plugin/trino-mysql }
@@ -924,6 +926,7 @@ jobs:
             - suite-storage-formats-detailed
             - suite-parquet
             - suite-oauth2
+            - suite-lance
             - suite-ldap
             - suite-loki
             - suite-compatibility
