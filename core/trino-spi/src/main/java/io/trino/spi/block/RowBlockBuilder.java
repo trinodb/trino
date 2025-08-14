@@ -160,6 +160,7 @@ public class RowBlockBuilder
         }
 
         RowBlock rowBlock = (RowBlock) block;
+        int baseOffset = rowBlock.getOffsetBase();
         ensureCapacity(positionCount + length);
 
         List<Block> fieldBlocks = rowBlock.getFieldBlocks();
@@ -170,7 +171,7 @@ public class RowBlockBuilder
         boolean[] rawRowIsNull = rowBlock.getRawRowIsNull();
         if (rawRowIsNull != null) {
             for (int i = 0; i < length; i++) {
-                if (rawRowIsNull[offset + i]) {
+                if (rawRowIsNull[baseOffset + offset + i]) {
                     rowIsNull[positionCount + i] = true;
                     hasNullRow = true;
                 }
@@ -263,6 +264,7 @@ public class RowBlockBuilder
         }
 
         RowBlock rowBlock = (RowBlock) block;
+        int baseOffset = rowBlock.getOffsetBase();
         ensureCapacity(positionCount + length);
 
         List<Block> fieldBlocks = rowBlock.getFieldBlocks();
@@ -273,7 +275,7 @@ public class RowBlockBuilder
         boolean[] rawRowIsNull = rowBlock.getRawRowIsNull();
         if (rawRowIsNull != null) {
             for (int i = 0; i < length; i++) {
-                if (rawRowIsNull[positions[offset + i]]) {
+                if (rawRowIsNull[baseOffset + positions[offset + i]]) {
                     rowIsNull[positionCount + i] = true;
                     hasNullRow = true;
                 }
@@ -377,7 +379,7 @@ public class RowBlockBuilder
         for (int i = 0; i < fieldBlockBuilders.length; i++) {
             fieldBlocks[i] = fieldBlockBuilders[i].build();
         }
-        return createRowBlockInternal(positionCount, hasNullRow ? rowIsNull : null, fieldBlocks);
+        return createRowBlockInternal(0, positionCount, hasNullRow ? rowIsNull : null, fieldBlocks);
     }
 
     private void ensureCapacity(int capacity)
@@ -413,7 +415,7 @@ public class RowBlockBuilder
             fieldBlocks[i] = fieldBlockBuilders[i].newBlockBuilderLike(null).appendNull().build();
         }
 
-        RowBlock nullRowBlock = createRowBlockInternal(1, new boolean[] {true}, fieldBlocks);
+        RowBlock nullRowBlock = createRowBlockInternal(0, 1, new boolean[] {true}, fieldBlocks);
         return RunLengthEncodedBlock.create(nullRowBlock, length);
     }
 }

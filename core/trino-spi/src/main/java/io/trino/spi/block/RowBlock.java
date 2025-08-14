@@ -35,6 +35,7 @@ public final class RowBlock
 {
     private static final int INSTANCE_SIZE = instanceSize(RowBlock.class);
 
+    private final int startOffset;
     private final int positionCount;
     @Nullable
     private final boolean[] rowIsNull;
@@ -42,7 +43,6 @@ public final class RowBlock
      * Field blocks have the same position count as this row block. The field value of a null row must be null.
      */
     private final Block[] fieldBlocks;
-    private final List<Block> fieldBlocksList;
 
     private volatile long sizeInBytes = -1;
     private volatile long retainedSizeInBytes = -1;
@@ -52,7 +52,7 @@ public final class RowBlock
      */
     public static RowBlock fromFieldBlocks(int positionCount, Block[] fieldBlocks)
     {
-        return createRowBlockInternal(positionCount, null, fieldBlocks);
+        return createRowBlockInternal(0, positionCount, null, fieldBlocks);
     }
 
     /**
@@ -74,25 +74,29 @@ public final class RowBlock
                 }
             }
         }
-        return createRowBlockInternal(positionCount, rowIsNullOptional.orElse(null), fieldBlocks);
+        return createRowBlockInternal(0, positionCount, rowIsNullOptional.orElse(null), fieldBlocks);
     }
 
-    static RowBlock createRowBlockInternal(int positionCount, @Nullable boolean[] rowIsNull, Block[] fieldBlocks)
+    static RowBlock createRowBlockInternal(int startOffset, int positionCount, @Nullable boolean[] rowIsNull, Block[] fieldBlocks)
     {
-        return new RowBlock(positionCount, rowIsNull, fieldBlocks);
+        return new RowBlock(startOffset, positionCount, rowIsNull, fieldBlocks);
     }
 
     /**
      * Use createRowBlockInternal or fromFieldBlocks instead of this method. The caller of this method is assumed to have
      * validated the arguments with validateConstructorArguments.
      */
-    private RowBlock(int positionCount, @Nullable boolean[] rowIsNull, Block[] fieldBlocks)
+    private RowBlock(int startOffset, int positionCount, @Nullable boolean[] rowIsNull, Block[] fieldBlocks)
     {
+        if (startOffset < 0) {
+            throw new IllegalArgumentException("startOffset is negative");
+        }
+
         if (positionCount < 0) {
             throw new IllegalArgumentException("positionCount is negative");
         }
 
-        if (rowIsNull != null && rowIsNull.length < positionCount) {
+        if (rowIsNull != null && rowIsNull.length - startOffset < positionCount) {
             throw new IllegalArgumentException("rowIsNull length is less than positionCount");
         }
 
@@ -101,31 +105,36 @@ public final class RowBlock
             throw new IllegalArgumentException("Row block must contain at least one field");
         }
 
-        for (int i = 0; i < fieldBlocks.length; i++) {
-            if (positionCount != fieldBlocks[i].getPositionCount()) {
-                throw new IllegalArgumentException("Expected field %s to have %s positions but has %s positions".formatted(i, positionCount, fieldBlocks[i].getPositionCount()));
+        int firstFieldBlockPositionCount = fieldBlocks[0].getPositionCount();
+        for (int i = 1; i < fieldBlocks.length; i++) {
+            if (firstFieldBlockPositionCount != fieldBlocks[i].getPositionCount()) {
+                throw new IllegalArgumentException(format("length of field blocks differ: field 0: %s, block %s: %s", firstFieldBlockPositionCount, i, fieldBlocks[i].getPositionCount()));
             }
         }
 
+        if (startOffset + positionCount > fieldBlocks[0].getPositionCount()) {
+            throw new IllegalArgumentException("sum of startOffset and positionCount is greater than fieldBlocks positionCount");
+        }
+
+        this.startOffset = startOffset;
         this.positionCount = positionCount;
         this.rowIsNull = positionCount == 0 ? null : rowIsNull;
         this.fieldBlocks = fieldBlocks;
-        this.fieldBlocksList = List.of(fieldBlocks);
-    }
-
-    Block[] getRawFieldBlocks()
-    {
-        return fieldBlocks;
     }
 
     public List<Block> getFieldBlocks()
     {
-        return fieldBlocksList;
+        return Arrays.stream(fieldBlocks).map(block -> block.getRegion(startOffset, positionCount)).toList();
     }
 
     public Block getFieldBlock(int fieldIndex)
     {
-        return fieldBlocks[fieldIndex];
+        return fieldBlocks[fieldIndex].getRegion(startOffset, positionCount);
+    }
+
+    int getOffsetBase()
+    {
+        return startOffset;
     }
 
     @Override
@@ -141,7 +150,7 @@ public final class RowBlock
             return false;
         }
         for (int i = 0; i < positionCount; i++) {
-            if (rowIsNull[i]) {
+            if (isNull(i)) {
                 return true;
             }
         }
@@ -168,7 +177,7 @@ public final class RowBlock
 
         long sizeInBytes = Byte.BYTES * (long) positionCount;
         for (Block fieldBlock : fieldBlocks) {
-            sizeInBytes += fieldBlock.getSizeInBytes();
+            sizeInBytes += fieldBlock.getRegionSizeInBytes(startOffset, positionCount);
         }
         this.sizeInBytes = sizeInBytes;
         return sizeInBytes;
@@ -203,7 +212,7 @@ public final class RowBlock
     @Override
     public String toString()
     {
-        return format("RowBlock{fieldCount=%d, positionCount=%d}", fieldBlocks.length, positionCount);
+        return format("RowBlock{startOffset=%d, fieldCount=%d, positionCount=%d}", startOffset, fieldBlocks.length, positionCount);
     }
 
     @Override
@@ -223,7 +232,7 @@ public final class RowBlock
         for (int i = 0; i < fieldBlocks.length; i++) {
             newBlocks[i] = fieldBlocks[i].copyWithAppendedNull();
         }
-        return new RowBlock(positionCount + 1, newRowIsNull, newBlocks);
+        return new RowBlock(startOffset, positionCount + 1, newRowIsNull, newBlocks);
     }
 
     @Override
@@ -232,19 +241,24 @@ public final class RowBlock
         checkArrayRange(positions, offset, length);
 
         Block[] newBlocks = new Block[fieldBlocks.length];
+
+        int[] rawPositions = new int[positions.length];
+        for (int i = 0; i < rawPositions.length; i++) {
+            rawPositions[i] = startOffset + positions[i];
+        }
         for (int i = 0; i < newBlocks.length; i++) {
-            newBlocks[i] = fieldBlocks[i].copyPositions(positions, offset, length);
+            newBlocks[i] = fieldBlocks[i].copyPositions(rawPositions, offset, length);
         }
 
         boolean[] newRowIsNull = null;
         if (rowIsNull != null) {
             newRowIsNull = new boolean[length];
             for (int i = 0; i < length; i++) {
-                newRowIsNull[i] = rowIsNull[positions[offset + i]];
+                newRowIsNull[i] = rowIsNull[rawPositions[offset + i]];
             }
         }
 
-        return new RowBlock(length, newRowIsNull, newBlocks);
+        return new RowBlock(0, length, newRowIsNull, newBlocks);
     }
 
     @Override
@@ -252,15 +266,7 @@ public final class RowBlock
     {
         checkValidRegion(positionCount, positionOffset, length);
 
-        // This copies the null array, but this dramatically simplifies this class.
-        // Without a copy here, we would need a null array offset, and that would mean that the
-        // null array would be offset while the field blocks are not offset, which is confusing.
-        boolean[] newRowIsNull = rowIsNull == null ? null : compactArray(rowIsNull, positionOffset, length);
-        Block[] newBlocks = new Block[fieldBlocks.length];
-        for (int i = 0; i < newBlocks.length; i++) {
-            newBlocks[i] = fieldBlocks[i].getRegion(positionOffset, length);
-        }
-        return new RowBlock(length, newRowIsNull, newBlocks);
+        return new RowBlock(startOffset + positionOffset, length, rowIsNull, fieldBlocks);
     }
 
     @Override
@@ -270,7 +276,7 @@ public final class RowBlock
 
         long regionSizeInBytes = Byte.BYTES * (long) length;
         for (Block fieldBlock : fieldBlocks) {
-            regionSizeInBytes += fieldBlock.getRegionSizeInBytes(position, length);
+            regionSizeInBytes += fieldBlock.getRegionSizeInBytes(startOffset + position, length);
         }
         return regionSizeInBytes;
     }
@@ -282,14 +288,14 @@ public final class RowBlock
 
         Block[] newBlocks = new Block[fieldBlocks.length];
         for (int i = 0; i < fieldBlocks.length; i++) {
-            newBlocks[i] = fieldBlocks[i].copyRegion(positionOffset, length);
+            newBlocks[i] = fieldBlocks[i].copyRegion(startOffset + positionOffset, length);
         }
 
-        boolean[] newRowIsNull = rowIsNull == null ? null : compactArray(rowIsNull, positionOffset, length);
+        boolean[] newRowIsNull = rowIsNull == null ? null : compactArray(rowIsNull, positionOffset + startOffset, length);
         if (newRowIsNull == rowIsNull && arraySame(newBlocks, fieldBlocks)) {
             return this;
         }
-        return new RowBlock(length, newRowIsNull, newBlocks);
+        return new RowBlock(0, length, newRowIsNull, newBlocks);
     }
 
     public SqlRow getRow(int position)
@@ -298,7 +304,7 @@ public final class RowBlock
         if (isNull(position)) {
             throw new IllegalStateException("Position is null");
         }
-        return new SqlRow(position, fieldBlocks);
+        return new SqlRow(startOffset + position, fieldBlocks);
     }
 
     @Override
@@ -308,10 +314,10 @@ public final class RowBlock
 
         Block[] newBlocks = new Block[fieldBlocks.length];
         for (int i = 0; i < fieldBlocks.length; i++) {
-            newBlocks[i] = fieldBlocks[i].getSingleValueBlock(position);
+            newBlocks[i] = fieldBlocks[i].getSingleValueBlock(startOffset + position);
         }
         boolean[] newRowIsNull = isNull(position) ? new boolean[] {true} : null;
-        return new RowBlock(1, newRowIsNull, newBlocks);
+        return new RowBlock(0, 1, newRowIsNull, newBlocks);
     }
 
     @Override
@@ -325,7 +331,7 @@ public final class RowBlock
 
         long size = 0;
         for (Block fieldBlock : fieldBlocks) {
-            size += fieldBlock.getEstimatedDataSizeForStats(position);
+            size += fieldBlock.getEstimatedDataSizeForStats(startOffset + position);
         }
         return size;
     }
@@ -334,7 +340,7 @@ public final class RowBlock
     public boolean isNull(int position)
     {
         checkReadablePosition(this, position);
-        return rowIsNull != null && rowIsNull[position];
+        return rowIsNull != null && rowIsNull[startOffset + position];
     }
 
     /**
@@ -346,13 +352,13 @@ public final class RowBlock
     {
         if (block instanceof RunLengthEncodedBlock runLengthEncodedBlock) {
             RowBlock rowBlock = (RowBlock) runLengthEncodedBlock.getValue();
-            return rowBlock.fieldBlocksList.stream()
+            return rowBlock.getFieldBlocks().stream()
                     .map(fieldBlock -> RunLengthEncodedBlock.create(fieldBlock, runLengthEncodedBlock.getPositionCount()))
                     .toList();
         }
         if (block instanceof DictionaryBlock dictionaryBlock) {
             RowBlock rowBlock = (RowBlock) dictionaryBlock.getDictionary();
-            return rowBlock.fieldBlocksList.stream()
+            return rowBlock.getFieldBlocks().stream()
                     .map(dictionaryBlock::createProjection)
                     .toList();
         }
@@ -379,7 +385,7 @@ public final class RowBlock
                 throw new IllegalStateException("Expected run length encoded block value to be null");
             }
             // all values are null, so return a zero-length block of the correct type
-            return rowBlock.fieldBlocksList.stream()
+            return rowBlock.getFieldBlocks().stream()
                     .map(fieldBlock -> fieldBlock.getRegion(0, 0))
                     .toList();
         }
@@ -394,7 +400,7 @@ public final class RowBlock
             }
             int nonNullPositionCount = idCount;
             RowBlock rowBlock = (RowBlock) dictionaryBlock.getDictionary();
-            return rowBlock.fieldBlocksList.stream()
+            return rowBlock.getFieldBlocks().stream()
                     .map(field -> DictionaryBlock.create(nonNullPositionCount, field, newIds))
                     .toList();
         }
@@ -408,7 +414,7 @@ public final class RowBlock
                 }
             }
             int nonNullPositionCount = idCount;
-            return rowBlock.fieldBlocksList.stream()
+            return rowBlock.getFieldBlocks().stream()
                     .map(field -> DictionaryBlock.create(nonNullPositionCount, field, nonNullPositions))
                     .toList();
         }
@@ -424,6 +430,6 @@ public final class RowBlock
     @Override
     public Optional<ByteArrayBlock> getNulls()
     {
-        return BlockUtil.getNulls(rowIsNull, 0, positionCount);
+        return BlockUtil.getNulls(rowIsNull, startOffset, positionCount);
     }
 }
