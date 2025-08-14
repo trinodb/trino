@@ -29,13 +29,27 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.attribute.PosixFilePermission;
+import java.util.EnumSet;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static io.airlift.http.client.StringResponseHandler.createStringResponseHandler;
-import static io.trino.testing.TestingProperties.getDockerImagesVersion;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.file.Files.setPosixFilePermissions;
+import static java.nio.file.attribute.PosixFilePermission.GROUP_EXECUTE;
+import static java.nio.file.attribute.PosixFilePermission.GROUP_READ;
+import static java.nio.file.attribute.PosixFilePermission.GROUP_WRITE;
+import static java.nio.file.attribute.PosixFilePermission.OTHERS_EXECUTE;
+import static java.nio.file.attribute.PosixFilePermission.OTHERS_READ;
+import static java.nio.file.attribute.PosixFilePermission.OTHERS_WRITE;
+import static java.nio.file.attribute.PosixFilePermission.OWNER_EXECUTE;
+import static java.nio.file.attribute.PosixFilePermission.OWNER_READ;
+import static java.nio.file.attribute.PosixFilePermission.OWNER_WRITE;
 import static java.util.Objects.requireNonNull;
 
 public final class TestingPolarisCatalog
@@ -55,9 +69,25 @@ public final class TestingPolarisCatalog
     public TestingPolarisCatalog(String warehouseLocation)
     {
         this.warehouseLocation = requireNonNull(warehouseLocation, "warehouseLocation is null");
+        Path warehousePath = Paths.get(warehouseLocation);
+        try {
+            Set<PosixFilePermission> permissions = EnumSet.of(
+                    OWNER_READ,
+                    OWNER_WRITE,
+                    OWNER_EXECUTE,
+                    GROUP_READ,
+                    GROUP_WRITE,
+                    GROUP_EXECUTE,
+                    OTHERS_READ,
+                    OTHERS_WRITE,
+                    OTHERS_EXECUTE);
+            setPosixFilePermissions(warehousePath, permissions);
+        }
+        catch (Exception e) {
+            throw new RuntimeException("Failed to setup warehouse directory", e);
+        }
 
-        // TODO: Use the official docker image once Polaris community provides it
-        polarisCatalog = new GenericContainer<>("ghcr.io/trinodb/testing/polaris-catalog:" + getDockerImagesVersion());
+        polarisCatalog = new GenericContainer<>("apache/polaris:1.0.0-incubating");
         polarisCatalog.addExposedPort(POLARIS_PORT);
         polarisCatalog.withFileSystemBind(warehouseLocation, warehouseLocation, BindMode.READ_WRITE);
         polarisCatalog.waitingFor(new LogMessageWaitStrategy().withRegEx(".*Apache Polaris Server.* started.*"));
