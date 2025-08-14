@@ -81,8 +81,8 @@ Azure Storage, and Google Cloud Storage. The object storage system must provide
 good connectivity for all cluster nodes as well as any clients. 
 
 Activate the desired system with
-`fs.s3.enabled`, `fs.azure.enabled`, or `fs.s3.enabled=true` in
-`etc/spooling-manager.properties`and configure further details using relevant
+`fs.s3.enabled`, `fs.azure.enabled`, or `fs.gcs.enabled` in
+`etc/spooling-manager.properties` and configure further details using relevant
 properties from [](prop-spooling-file-system),
 [](/object-storage/file-system-s3), [](/object-storage/file-system-azure), and
 [](/object-storage/file-system-gcs).
@@ -120,7 +120,7 @@ The following client drivers and client applications support the spooling protoc
 * [Trino Python client](https://github.com/trinodb/trino-python-client), version
   0.332.0 and newer
 
-Refer to the documentation for other your specific client drivers and client
+Refer to the documentation for your specific client drivers and client
 applications for up to date information.
 
 (protocol-direct)=
@@ -142,8 +142,8 @@ characteristics, compared to the spooling protocol:
 
 ### Configuration
 
-Use of the direct protocol requires not configuration. Find optional
-configuration properties in [](prop-protocol-shared).
+Use of the direct protocol requires no configuration.
+Find optional configuration properties in [](prop-protocol-shared).
 
 ## Development and reference information
 
