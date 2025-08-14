@@ -19,8 +19,10 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 
 import static io.trino.spi.type.TimestampType.MAX_PRECISION;
+import static java.lang.Math.divideExact;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
+import static java.lang.Math.multiplyExact;
 import static java.time.ZoneOffset.UTC;
 
 public class Timestamps
@@ -84,13 +86,10 @@ public class Timestamps
         }
 
         if (fromPrecision <= toPrecision) {
-            value *= scaleFactor(fromPrecision, toPrecision);
-        }
-        else {
-            value /= scaleFactor(toPrecision, fromPrecision);
+            return multiplyExact(value, scaleFactor(fromPrecision, toPrecision));
         }
 
-        return value;
+        return divideExact(value, scaleFactor(toPrecision, fromPrecision));
     }
 
     private static long scaleFactor(int fromPrecision, int toPrecision)
