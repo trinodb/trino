@@ -117,23 +117,7 @@ public class DirectTrinoClient
                 ListenableFuture<Object> anyCompleteFuture = whenAnyComplete(ImmutableList.of(
                         queryManager.getStateChange(queryId, state),
                         exchangeClient.isBlocked()));
-                while (!anyCompleteFuture.isDone()) {
-                    try {
-                        anyCompleteFuture.get(heartBeatIntervalMillis, TimeUnit.MILLISECONDS);
-                    }
-                    catch (TimeoutException e) {
-                        // continue waiting until the query state changes or the exchange client is blocked.
-                        // we need to periodically record the heartbeat to prevent the query from being canceled
-                        dispatchQuery.recordHeartbeat();
-                    }
-                    catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                        throw new TrinoException(GENERIC_INTERNAL_ERROR, "Thread interrupted", e);
-                    }
-                    catch (ExecutionException e) {
-                        throw new TrinoException(GENERIC_INTERNAL_ERROR, "Error processing query", e.getCause());
-                    }
-                }
+                getQueryFutureWithHeartbeats(anyCompleteFuture, dispatchQuery);
             }
         }
 
@@ -155,6 +139,27 @@ public class DirectTrinoClient
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "Query"),
                 queryManager::outputTaskFailed,
                 getRetryPolicy(dispatchQuery.getSession()));
+    }
+
+    private void getQueryFutureWithHeartbeats(ListenableFuture<Object> anyCompleteFuture, DispatchQuery dispatchQuery)
+    {
+        while (!anyCompleteFuture.isDone()) {
+            try {
+                anyCompleteFuture.get(heartBeatIntervalMillis, TimeUnit.MILLISECONDS);
+            }
+            catch (TimeoutException e) {
+                // continue waiting until the query state changes or the exchange client is blocked.
+                // we need to periodically record the heartbeat to prevent the query from being canceled
+                dispatchQuery.recordHeartbeat();
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Thread interrupted", e);
+            }
+            catch (ExecutionException e) {
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Error processing query", e.getCause());
+            }
+        }
     }
 
     private static <T> void getQueryFuture(ListenableFuture<T> future)
