@@ -411,6 +411,7 @@ public class HiveMetadata
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
     private final boolean writesToNonManagedTablesEnabled;
     private final boolean createsOfNonManagedTablesEnabled;
+    private final boolean createsOfManagedTablesEnabled;
     private final boolean translateHiveViews;
     private final boolean hiveViewsRunAsInvoker;
     private final boolean hideDeltaLakeTables;
@@ -435,6 +436,7 @@ public class HiveMetadata
             HivePartitionManager partitionManager,
             boolean writesToNonManagedTablesEnabled,
             boolean createsOfNonManagedTablesEnabled,
+            boolean createsOfManagedTablesEnabled,
             boolean translateHiveViews,
             boolean hiveViewsRunAsInvoker,
             boolean hideDeltaLakeTables,
@@ -466,6 +468,7 @@ public class HiveMetadata
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
         this.writesToNonManagedTablesEnabled = writesToNonManagedTablesEnabled;
         this.createsOfNonManagedTablesEnabled = createsOfNonManagedTablesEnabled;
+        this.createsOfManagedTablesEnabled = createsOfManagedTablesEnabled;
         this.translateHiveViews = translateHiveViews;
         this.hiveViewsRunAsInvoker = hiveViewsRunAsInvoker;
         this.hideDeltaLakeTables = hideDeltaLakeTables;
@@ -1101,6 +1104,9 @@ public class HiveMetadata
             checkExternalPathAndCreateIfNotExists(session, targetPath.get());
         }
         else {
+            if (!createsOfManagedTablesEnabled) {
+                throw new TrinoException(NOT_SUPPORTED, "Cannot create managed Hive table");
+            }
             external = false;
             if (isTransactional && isDelegateTransactionalManagedTableLocationToMetastore(session)) {
                 targetPath = Optional.empty();
@@ -1767,6 +1773,10 @@ public class HiveMetadata
                 .map(HiveMetadata::getValidatedExternalLocation);
         if (!createsOfNonManagedTablesEnabled && externalLocation.isPresent()) {
             throw new TrinoException(NOT_SUPPORTED, "Creating non-managed Hive tables is disabled");
+        }
+
+        if (!createsOfManagedTablesEnabled && externalLocation.isEmpty()) {
+            throw new TrinoException(NOT_SUPPORTED, "Creating managed Hive tables is disabled");
         }
 
         if (!writesToNonManagedTablesEnabled && externalLocation.isPresent()) {

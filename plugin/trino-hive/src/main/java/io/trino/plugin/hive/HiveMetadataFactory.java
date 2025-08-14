@@ -50,6 +50,7 @@ public class HiveMetadataFactory
     private final boolean skipTargetCleanupOnRollback;
     private final boolean writesToNonManagedTablesEnabled;
     private final boolean createsOfNonManagedTablesEnabled;
+    private final boolean createsOfManagedTablesEnabled;
     private final boolean deleteSchemaLocationsFallback;
     private final boolean translateHiveViews;
     private final boolean hiveViewsRunAsInvoker;
@@ -117,6 +118,7 @@ public class HiveMetadataFactory
                 hiveConfig.isSkipTargetCleanupOnRollback(),
                 hiveConfig.getWritesToNonManagedTablesEnabled(),
                 hiveConfig.getCreatesOfNonManagedTablesEnabled(),
+                hiveConfig.getCreatesOfManagedTablesEnabled(),
                 hiveConfig.isDeleteSchemaLocationsFallback(),
                 hiveConfig.isTranslateHiveViews(),
                 hiveConfig.isHiveViewsRunAsInvoker(),
@@ -155,6 +157,7 @@ public class HiveMetadataFactory
             boolean skipTargetCleanupOnRollback,
             boolean writesToNonManagedTablesEnabled,
             boolean createsOfNonManagedTablesEnabled,
+            boolean createsOfManagedTablesEnabled,
             boolean deleteSchemaLocationsFallback,
             boolean translateHiveViews,
             boolean hiveViewsRunAsInvoker,
@@ -183,6 +186,7 @@ public class HiveMetadataFactory
         this.skipTargetCleanupOnRollback = skipTargetCleanupOnRollback;
         this.writesToNonManagedTablesEnabled = writesToNonManagedTablesEnabled;
         this.createsOfNonManagedTablesEnabled = createsOfNonManagedTablesEnabled;
+        this.createsOfManagedTablesEnabled = createsOfManagedTablesEnabled;
         this.deleteSchemaLocationsFallback = deleteSchemaLocationsFallback;
         this.translateHiveViews = translateHiveViews;
         this.hiveViewsRunAsInvoker = hiveViewsRunAsInvoker;
@@ -257,6 +261,7 @@ public class HiveMetadataFactory
                 partitionManager,
                 writesToNonManagedTablesEnabled,
                 createsOfNonManagedTablesEnabled,
+                createsOfManagedTablesEnabled,
                 translateHiveViews,
                 hiveViewsRunAsInvoker,
                 hideDeltaLakeTables,

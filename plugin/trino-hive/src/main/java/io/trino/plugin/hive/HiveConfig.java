@@ -127,6 +127,7 @@ public class HiveConfig
     private boolean optimizeMismatchedBucketCount = true;
     private boolean writesToNonManagedTablesEnabled;
     private boolean createsOfNonManagedTablesEnabled = true;
+    private boolean createsOfManagedTablesEnabled = true;
 
     private boolean tableStatisticsEnabled = true;
     private int partitionStatisticsSampleSize = 100;
@@ -975,6 +976,19 @@ public class HiveConfig
     public boolean getCreatesOfNonManagedTablesEnabled()
     {
         return createsOfNonManagedTablesEnabled;
+    }
+
+    @Config("hive.managed-table-creates-enabled")
+    @ConfigDescription("Enable managed (internal) table creates")
+    public HiveConfig setCreatesOfManagedTablesEnabled(boolean createsOfManagedTablesEnabled)
+    {
+        this.createsOfManagedTablesEnabled = createsOfManagedTablesEnabled;
+        return this;
+    }
+
+    public boolean getCreatesOfManagedTablesEnabled()
+    {
+        return createsOfManagedTablesEnabled;
     }
 
     @Config("hive.table-statistics-enabled")
