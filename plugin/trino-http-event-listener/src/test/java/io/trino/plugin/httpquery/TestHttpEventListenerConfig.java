@@ -13,25 +13,57 @@
  */
 package io.trino.plugin.httpquery;
 
+import com.google.common.collect.ImmutableMap;
+import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.Duration;
 import org.junit.jupiter.api.Test;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
+import static org.assertj.core.api.Assertions.assertThat;
 
 final class TestHttpEventListenerConfig
 {
     @Test
+    void testValidateHeaderConfigRedundant()
+            throws IOException
+    {
+        HttpEventListenerConfig config = new HttpEventListenerConfig();
+        // Neither set: valid
+        assertThat(config.validateHeaderConfigRedundant()).isTrue();
+
+        // Only httpHeaders set: valid
+        config.setHttpHeaders(List.of("Authorization: Trust Me"));
+        assertThat(config.validateHeaderConfigRedundant()).isTrue();
+
+        // Only httpHeadersConfigFile set: valid
+        config = new HttpEventListenerConfig();
+        config.setHttpHeadersConfigFile(Files.createTempFile(null, null).toFile());
+        assertThat(config.validateHeaderConfigRedundant()).isTrue();
+
+        // Both set: invalid
+        config.setHttpHeaders(List.of("Authorization: Trust Me"));
+        assertThat(config.validateHeaderConfigRedundant()).isFalse();
+    }
+
+    @Test
     void testDefaults()
-            throws Exception
     {
         assertRecordedDefaults(recordDefaults(HttpEventListenerConfig.class)
                 .setHttpHeaders(List.of())
+                .setHttpHeadersConfigFile(null)
                 .setIngestUri(null)
                 .setRetryCount(0)
                 .setRetryDelay(Duration.succinctDuration(1, TimeUnit.SECONDS))
@@ -44,33 +76,79 @@ final class TestHttpEventListenerConfig
     }
 
     @Test
-    void testExplicitPropertyMappings()
-            throws Exception
+    void testExplicitPropertyMappingsSkippingConnectHttpHeaders()
+            throws IOException
     {
-        Map<String, String> properties = Map.of(
-                "http-event-listener.log-created", "true",
-                "http-event-listener.log-completed", "true",
-                "http-event-listener.log-split", "true",
-                "http-event-listener.connect-ingest-uri", "http://example.com:8080/api",
-                "http-event-listener.connect-http-headers", "Authorization: Trust Me, Cache-Control: no-cache",
-                "http-event-listener.connect-retry-count", "2",
-                "http-event-listener.connect-http-method", "PUT",
-                "http-event-listener.connect-retry-delay", "101s",
-                "http-event-listener.connect-backoff-base", "1.5",
-                "http-event-listener.connect-max-delay", "10m");
+        Path httpHeadersConfigFile = Files.createTempFile(null, null);
+
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("http-event-listener.connect-http-headers.config-file", httpHeadersConfigFile.toString())
+                .put("http-event-listener.log-created", "true")
+                .put("http-event-listener.log-completed", "true")
+                .put("http-event-listener.log-split", "true")
+                .put("http-event-listener.connect-ingest-uri", "http://example.com:8080/api")
+                .put("http-event-listener.connect-retry-count", "2")
+                .put("http-event-listener.connect-http-method", "PUT")
+                .put("http-event-listener.connect-retry-delay", "101s")
+                .put("http-event-listener.connect-backoff-base", "1.5")
+                .put("http-event-listener.connect-max-delay", "10m")
+                .buildOrThrow();
 
         HttpEventListenerConfig expected = new HttpEventListenerConfig()
+                .setHttpHeadersConfigFile(httpHeadersConfigFile.toFile())
                 .setLogCompleted(true)
                 .setLogCreated(true)
                 .setLogSplit(true)
                 .setIngestUri("http://example.com:8080/api")
-                .setHttpHeaders(List.of("Authorization: Trust Me", "Cache-Control: no-cache"))
                 .setRetryCount(2)
                 .setHttpMethod(HttpEventListenerHttpMethod.PUT)
                 .setRetryDelay(Duration.succinctDuration(101, TimeUnit.SECONDS))
                 .setBackoffBase(1.5)
                 .setMaxDelay(Duration.succinctDuration(10, TimeUnit.MINUTES));
 
-        assertFullMapping(properties, expected);
+        assertFullMapping(properties, expected, Set.of("http-event-listener.connect-http-headers"));
+    }
+
+    @Test
+    void testExplicitPropertyMappings()
+    {
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("http-event-listener.connect-http-headers", "Authorization: Trust Me, Cache-Control: no-cache")
+                .put("http-event-listener.log-created", "true")
+                .put("http-event-listener.log-completed", "true")
+                .put("http-event-listener.log-split", "true")
+                .put("http-event-listener.connect-ingest-uri", "http://example.com:8080/api")
+                .put("http-event-listener.connect-retry-count", "2")
+                .put("http-event-listener.connect-http-method", "PUT")
+                .put("http-event-listener.connect-retry-delay", "101s")
+                .put("http-event-listener.connect-backoff-base", "1.5")
+                .put("http-event-listener.connect-max-delay", "10m")
+                .buildOrThrow();
+
+        HttpEventListenerConfig expected = new HttpEventListenerConfig()
+                .setHttpHeaders(List.of("Authorization: Trust Me", "Cache-Control: no-cache"))
+                .setLogCompleted(true)
+                .setLogCreated(true)
+                .setLogSplit(true)
+                .setIngestUri("http://example.com:8080/api")
+                .setRetryCount(2)
+                .setHttpMethod(HttpEventListenerHttpMethod.PUT)
+                .setRetryDelay(Duration.succinctDuration(101, TimeUnit.SECONDS))
+                .setBackoffBase(1.5)
+                .setMaxDelay(Duration.succinctDuration(10, TimeUnit.MINUTES));
+
+        assertFullMapping(properties, expected, Set.of("http-event-listener.connect-http-headers.config-file"));
+    }
+
+    @Test
+    void testConfigFileDoesNotExist()
+    {
+        File file = new File("/doesNotExist-" + UUID.randomUUID());
+        assertFailsValidation(
+                new HttpEventListenerConfig()
+                        .setHttpHeadersConfigFile(file),
+                "httpHeadersConfigFile",
+                "file does not exist: " + file,
+                FileExists.class);
     }
 }

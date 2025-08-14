@@ -16,13 +16,17 @@ package io.trino.plugin.httpquery;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.Duration;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
+import java.io.File;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 public class HttpEventListenerConfig
@@ -35,6 +39,7 @@ public class HttpEventListenerConfig
     private String ingestUri;
     private HttpEventListenerHttpMethod httpMethod = HttpEventListenerHttpMethod.POST;
     private Map<String, String> httpHeaders = ImmutableMap.of();
+    private File httpHeadersConfigFile;
 
     @ConfigDescription("Will log io.trino.spi.eventlistener.QueryCreatedEvent")
     @Config("http-event-listener.log-created")
@@ -130,6 +135,20 @@ public class HttpEventListenerConfig
         return this;
     }
 
+    public Optional<@FileExists File> getHttpHeadersConfigFile()
+    {
+        return Optional.ofNullable(httpHeadersConfigFile);
+    }
+
+    @Config("http-event-listener.connect-http-headers.config-file")
+    @ConfigDescription("Path to a properties file containing custom HTTP headers, " +
+            "specified as key-value pairs (one per line, e.g., Header-Name=Header Value)")
+    public HttpEventListenerConfig setHttpHeadersConfigFile(File httpHeadersConfigFile)
+    {
+        this.httpHeadersConfigFile = httpHeadersConfigFile;
+        return this;
+    }
+
     @ConfigDescription("Number of retries on server error")
     @Config("http-event-listener.connect-retry-count")
     public HttpEventListenerConfig setRetryCount(int retryCount)
@@ -183,5 +202,12 @@ public class HttpEventListenerConfig
     public Duration getMaxDelay()
     {
         return this.maxDelay;
+    }
+
+    @AssertTrue(message = "Exactly one of http-event-listener.connect-http-headers.config-file or " +
+            "http-event-listener.connect-http-headers must be set")
+    public boolean validateHeaderConfigRedundant()
+    {
+        return !(httpHeadersConfigFile != null && !httpHeaders.isEmpty());
     }
 }

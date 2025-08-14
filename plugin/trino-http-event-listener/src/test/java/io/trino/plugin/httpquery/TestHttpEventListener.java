@@ -52,6 +52,8 @@ import javax.net.ssl.X509TrustManager;
 
 import java.io.File;
 import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.KeyStore;
 import java.time.Duration;
 import java.time.Instant;
@@ -314,6 +316,29 @@ final class TestHttpEventListener
     }
 
     @Test
+    void testHttpHeadersConfigFileShouldBePresent()
+            throws Exception
+    {
+        // Create a temp file with header values in properties format, including single and double quotes
+        Path tempFile = Files.createTempFile("headers", ".properties");
+        String fileContent = "Authorization=Trust Me!\nCache-Control=no-cache";
+        Files.writeString(tempFile, fileContent);
+
+        EventListener eventListener = createEventListener(Map.of(
+                "http-event-listener.connect-ingest-uri", server.url("/").toString(),
+                "http-event-listener.log-completed", "true",
+                "http-event-listener.connect-http-headers.config-file", tempFile.toFile().getAbsolutePath()));
+
+        server.enqueue(new MockResponse.Builder().code(200).build());
+
+        eventListener.queryCompleted(queryCompleteEvent);
+
+        checkRequest(server.takeRequest(5, TimeUnit.SECONDS), Map.of(
+                "Authorization", "Trust Me!",
+                "Cache-Control", "no-cache"), queryCompleteEventJson);
+    }
+
+    @Test
     void testHttpsEnabledShouldUseTLSv13()
             throws Exception
     {
@@ -447,6 +472,32 @@ final class TestHttpEventListener
                 .isTrue();
 
         checkRequest(server.takeRequest(5, TimeUnit.SECONDS), queryCompleteEventJson);
+    }
+
+    @Test
+    void testGetHttpHeadersLoadsFromConfigFile()
+            throws Exception
+    {
+        // Create a temp file with header values in properties format, including single and double quotes
+        Path tempFile = Files.createTempFile("headers", ".properties");
+        String fileContent = "Authorization=Trust Me\nCache-Control=no-cache\nCustom-Header='single-quoted'\nAnother-Header=\"double-quoted\"\n";
+        Files.writeString(tempFile, fileContent);
+
+        HttpEventListenerConfig config = new HttpEventListenerConfig();
+        config.setHttpHeadersConfigFile(tempFile.toFile());
+
+
+        Map<String, String> headers = config.getHttpHeadersConfigFile()
+                .map(HttpEventListener::loadHttpHeadersFromFile)
+                .orElseGet(Map::of);
+
+        assertThat(headers)
+                .hasSize(4)
+                .containsExactlyInAnyOrderEntriesOf(Map.of(
+                        "Authorization", "Trust Me",
+                        "Cache-Control", "no-cache",
+                        "Custom-Header", "'single-quoted'",
+                        "Another-Header", "\"double-quoted\""));
     }
 
     private static void checkRequest(RecordedRequest recordedRequest, String eventJson)
