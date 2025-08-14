@@ -13,24 +13,16 @@
  */
 package io.trino.plugin.memory;
 
-import com.google.common.collect.ImmutableSet;
-import io.trino.spi.connector.ConnectorInsertTableHandle;
+import com.google.common.collect.ImmutableMap;
+import io.trino.spi.connector.ConnectorPartitioningHandle;
 
-import java.util.Set;
+import java.util.Map;
 
-import static java.util.Objects.requireNonNull;
-
-public record MemoryInsertTableHandle(long table, InsertMode mode, Set<Long> activeTableIds, int rowIdIndex)
-        implements ConnectorInsertTableHandle
+public record MemoryPartitioningHandle(Map<String, Integer> nodeToBucket)
+        implements ConnectorPartitioningHandle
 {
-    public enum InsertMode
+    public MemoryPartitioningHandle
     {
-        APPEND, OVERWRITE
-    }
-
-    public MemoryInsertTableHandle
-    {
-        requireNonNull(mode, "mode is null");
-        activeTableIds = ImmutableSet.copyOf(requireNonNull(activeTableIds, "activeTableIds is null"));
+        nodeToBucket = ImmutableMap.copyOf(nodeToBucket);
     }
 }
