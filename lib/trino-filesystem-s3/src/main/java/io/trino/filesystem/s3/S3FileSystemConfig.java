@@ -174,7 +174,7 @@ public class S3FileSystemConfig
     private Set<String> nonProxyHosts = ImmutableSet.of();
     private ObjectCannedAcl objectCannedAcl = ObjectCannedAcl.NONE;
     private RetryMode retryMode = RetryMode.LEGACY;
-    private int maxErrorRetries = 10;
+    private int maxErrorRetries = 20;
     private boolean supportsExclusiveCreate = true;
     private boolean crossRegionAccessEnabled;
     private String applicationId = "Trino";
