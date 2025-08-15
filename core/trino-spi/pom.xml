@@ -704,6 +704,22 @@
                                     <new>method void io.trino.spi.resourcegroups.ResourceGroup::setPhysicalDataScanQuotaGenerationBytesPerSecond(long)</new>
                                     <justification>Add physical data scan tracking to resource groups</justification>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <old>method void io.trino.spi.type.Int128Math::multiply(long, long, long, long, long[], int)</old>
+                                    <new>method void io.trino.spi.type.Int128Math::multiply(long, long, long, long, long[], int)</new>
+                                    <oldVisibility>private</oldVisibility>
+                                    <newVisibility>public</newVisibility>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <old>method long io.trino.spi.type.Int128Math::signExtension(long)</old>
+                                    <new>method long io.trino.spi.type.Int128Math::signExtension(long)</new>
+                                    <oldVisibility>private</oldVisibility>
+                                    <newVisibility>public</newVisibility>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
