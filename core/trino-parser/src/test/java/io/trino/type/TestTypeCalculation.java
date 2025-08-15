@@ -47,4 +47,26 @@ public class TestTypeCalculation
 
         assertThat(calculateLiteralValue("x + y", ImmutableMap.of("x", 42L, "y", 55L))).isEqualTo(Long.valueOf(42 + 55));
     }
+
+    @Test
+    void testIf()
+    {
+        assertThat(calculateLiteralValue("if(1 > 0, 10, 20)", ImmutableMap.of())).isEqualTo(Long.valueOf(10));
+        assertThat(calculateLiteralValue("if(0 > 1, 10, 20)", ImmutableMap.of())).isEqualTo(Long.valueOf(20));
+
+        assertThat(calculateLiteralValue("if(1 >= 0, 10, 20)", ImmutableMap.of())).isEqualTo(Long.valueOf(10));
+        assertThat(calculateLiteralValue("if(0 >= 1, 10, 20)", ImmutableMap.of())).isEqualTo(Long.valueOf(20));
+
+        assertThat(calculateLiteralValue("if(0 < 1, 10, 20)", ImmutableMap.of())).isEqualTo(Long.valueOf(10));
+        assertThat(calculateLiteralValue("if(1 < 0, 10, 20)", ImmutableMap.of())).isEqualTo(Long.valueOf(20));
+
+        assertThat(calculateLiteralValue("if(0 <= 1, 10, 20)", ImmutableMap.of())).isEqualTo(Long.valueOf(10));
+        assertThat(calculateLiteralValue("if(1 <= 0, 10, 20)", ImmutableMap.of())).isEqualTo(Long.valueOf(20));
+
+        assertThat(calculateLiteralValue("if(0 = 0, 10, 20)", ImmutableMap.of())).isEqualTo(Long.valueOf(10));
+        assertThat(calculateLiteralValue("if(0 = 1, 10, 20)", ImmutableMap.of())).isEqualTo(Long.valueOf(20));
+
+        assertThat(calculateLiteralValue("if(0 != 1, 10, 20)", ImmutableMap.of())).isEqualTo(Long.valueOf(10));
+        assertThat(calculateLiteralValue("if(0 != 0, 10, 20)", ImmutableMap.of())).isEqualTo(Long.valueOf(20));
+    }
 }
