@@ -18,8 +18,10 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.predicate.TupleDomain;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.OptionalLong;
 
 import static java.util.Objects.requireNonNull;
@@ -30,7 +32,10 @@ public record PinotTableHandle(
         boolean enableNullHandling,
         TupleDomain<ColumnHandle> constraint,
         OptionalLong limit,
-        Optional<DynamicTable> query)
+        Optional<DynamicTable> query,
+        Optional<List<String>> nodes,
+        OptionalInt segmentCount,
+        Optional<PinotDateTimeField> dateTimeField)
         implements ConnectorTableHandle
 {
     public PinotTableHandle
@@ -40,6 +45,9 @@ public record PinotTableHandle(
         requireNonNull(constraint, "constraint is null");
         requireNonNull(limit, "limit is null");
         requireNonNull(query, "query is null");
+        requireNonNull(nodes, "nodes is null");
+        requireNonNull(segmentCount, "segmentCount is null");
+        requireNonNull(dateTimeField, "dateTimeField is null");
     }
 
     @Override

@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.pinot.client.PinotClient;
 import io.trino.spi.type.TestingTypeManager;
+import io.trino.testing.TestingNodeManager;
 import org.apache.pinot.spi.data.FieldSpec.DataType;
 import org.apache.pinot.spi.data.Schema;
 import org.apache.pinot.spi.data.Schema.SchemaBuilder;
@@ -43,7 +44,8 @@ public class TestPinotQueryBase
             mockClusterInfoFetcher,
             pinotConfig,
             newCachedThreadPool(threadsNamed("mock-pinot-metadata-fetcher")),
-            TESTING_TYPE_CONVERTER);
+            TESTING_TYPE_CONVERTER,
+            new TestingNodeManager());
 
     protected List<String> getColumnNames(String table)
     {

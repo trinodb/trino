@@ -19,6 +19,7 @@ import com.google.common.net.HostAndPort;
 import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.plugin.pinot.deepstore.PinotDeepStore;
 import jakarta.validation.constraints.AssertTrue;
 import org.junit.jupiter.api.Test;
 
@@ -49,7 +50,27 @@ public class TestPinotConfig
                         .setAggregationPushdownEnabled(true)
                         .setCountDistinctPushdownEnabled(true)
                         .setProxyEnabled(false)
-                        .setTargetSegmentPageSize(DataSize.of(1, MEGABYTE)));
+                        .setInsertTimeoutThreads(3)
+                        .setSegmentBuilderParallelism(40)
+                        .setSegmentBuilderQueueSize(4)
+                        .setSegmentBuilderQueueTimeout(new Duration(60, TimeUnit.MINUTES))
+                        .setDeepStoreProvider(PinotDeepStore.DeepStoreProvider.NONE)
+                        .setTargetSegmentPageSize(DataSize.of(1, MEGABYTE))
+                        .setSegmentCreationBaseDirectory("/tmp")
+                        .setSegmentCreationDataSize(DataSize.of(256, MEGABYTE))
+                        .setSegmentBuilderParallelism(40)
+                        .setSegmentBuilderQueueSize(4)
+                        .setPerQuerySegmentBuilderParallelism(3)
+                        .setSegmentBuilderQueueTimeout(new Duration(60, TimeUnit.MINUTES))
+                        .setSegmentBuildTimeout(new Duration(60, TimeUnit.MINUTES))
+                        .setFinishInsertTimeout(new Duration(60, TimeUnit.MINUTES))
+                        .setSegmentUploadTimeout(new Duration(60, TimeUnit.SECONDS))
+                        .setFinishInsertTimeout(new Duration(60, TimeUnit.MINUTES))
+                        .setSegmentBuildOnHeapEnabled(false)
+                        .setDeepStoreProvider(PinotDeepStore.DeepStoreProvider.NONE)
+                        .setInsertExistingSegmentsBehavior(PinotSessionProperties.InsertExistingSegmentsBehavior.APPEND)
+                        .setForceCleanupAfterInsertEnabled(false)
+                        .setPerQuerySegmentBuilderParallelism(3));
     }
 
     @Test
@@ -70,6 +91,20 @@ public class TestPinotConfig
                 .put("pinot.count-distinct-pushdown.enabled", "false")
                 .put("pinot.proxy.enabled", "true")
                 .put("pinot.target-segment-page-size", "2MB")
+                .put("pinot.deep-store-provider", "S3")
+                .put("pinot.insert-timeout-threads", "4")
+                .put("pinot.segment-builder-parallelism", "4")
+                .put("pinot.segment-builder-queue-size", "3")
+                .put("pinot.segment-builder-queue-timeout", "10m")
+                .put("pinot.insert-existing-segments-behavior", "OVERWRITE")
+                .put("pinot.segment-creation-base-directory", "/custom/segments")
+                .put("pinot.segment-creation-data-size", "200MB")
+                .put("pinot.segment-build-timeout", "5m")
+                .put("pinot.finish-insert-timeout", "15m")
+                .put("pinot.segment-upload-timeout", "20m")
+                .put("pinot.segment-build-on-heap-enabled", "true")
+                .put("pinot.force-cleanup-after-insert.enabled", "true")
+                .put("pinot.per-query-segment-builder-parallelism", "8")
                 .buildOrThrow();
 
         PinotConfig expected = new PinotConfig()
@@ -86,7 +121,21 @@ public class TestPinotConfig
                 .setAggregationPushdownEnabled(false)
                 .setCountDistinctPushdownEnabled(false)
                 .setProxyEnabled(true)
-                .setTargetSegmentPageSize(DataSize.of(2, MEGABYTE));
+                .setSegmentBuilderParallelism(4)
+                .setSegmentBuilderQueueSize(3)
+                .setSegmentBuilderQueueTimeout(new Duration(10, TimeUnit.MINUTES))
+                .setInsertTimeoutThreads(4)
+                .setDeepStoreProvider(PinotDeepStore.DeepStoreProvider.S3)
+                .setTargetSegmentPageSize(DataSize.of(2, MEGABYTE))
+                .setInsertExistingSegmentsBehavior(PinotSessionProperties.InsertExistingSegmentsBehavior.OVERWRITE)
+                .setSegmentCreationBaseDirectory("/custom/segments")
+                .setSegmentCreationDataSize(DataSize.of(200, MEGABYTE))
+                .setSegmentBuildTimeout(new Duration(5, TimeUnit.MINUTES))
+                .setFinishInsertTimeout(new Duration(15, TimeUnit.MINUTES))
+                .setSegmentUploadTimeout(new Duration(20, TimeUnit.MINUTES))
+                .setSegmentBuildOnHeapEnabled(true)
+                .setForceCleanupAfterInsertEnabled(true)
+                .setPerQuerySegmentBuilderParallelism(8);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

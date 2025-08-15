@@ -25,6 +25,11 @@ import io.trino.plugin.pinot.auth.PinotControllerAuthenticationProvider;
 import io.trino.plugin.pinot.auth.none.PinotEmptyAuthenticationProvider;
 import io.trino.plugin.pinot.client.IdentityPinotHostMapper;
 import io.trino.plugin.pinot.client.PinotClient;
+import org.apache.pinot.spi.config.table.IndexingConfig;
+import org.apache.pinot.spi.config.table.SegmentsValidationAndRetentionConfig;
+import org.apache.pinot.spi.config.table.TableConfig;
+import org.apache.pinot.spi.config.table.TableCustomConfig;
+import org.apache.pinot.spi.config.table.TenantConfig;
 import org.apache.pinot.spi.data.Schema;
 
 import java.util.AbstractMap;
@@ -41,6 +46,8 @@ import static io.trino.plugin.pinot.MetadataUtil.TIME_BOUNDARY_JSON_CODEC;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.stream.Collectors.toList;
+import static org.apache.pinot.spi.config.table.TableType.OFFLINE;
+import static org.apache.pinot.spi.config.table.TableType.REALTIME;
 
 public class MockPinotClient
         extends PinotClient
@@ -89,6 +96,62 @@ public class MockPinotClient
             Multimap<String, String> additionalHeaders)
     {
         return codec.fromJson(response);
+    }
+
+    @Override
+    public PinotSegments getSegments(String table)
+    {
+        return new PinotSegments(ImmutableList.of(), ImmutableList.of());
+    }
+
+    @Override
+    public PinotTableConfig getTableConfig(String tableName)
+    {
+        SegmentsValidationAndRetentionConfig segmentsValidationAndRetentionConfig = new SegmentsValidationAndRetentionConfig();
+        segmentsValidationAndRetentionConfig.setTimeColumnName("DaysSinceEpoch");
+        return new PinotTableConfig(
+                Optional.of(new TableConfig(tableName,
+                        REALTIME.name(),
+                        segmentsValidationAndRetentionConfig,
+                        new TenantConfig(null, null, null),
+                        new IndexingConfig(),
+                        new TableCustomConfig(null),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        false,
+                        null,
+                        null,
+                        null)),
+                Optional.of(new TableConfig(tableName,
+                        OFFLINE.name(),
+                        segmentsValidationAndRetentionConfig,
+                        new TenantConfig(null, null, null),
+                        new IndexingConfig(),
+                        new TableCustomConfig(null),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        false,
+                        null,
+                        null,
+                        null)));
     }
 
     @Override

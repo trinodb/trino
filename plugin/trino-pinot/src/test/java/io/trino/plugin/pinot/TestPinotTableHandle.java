@@ -19,6 +19,7 @@ import io.trino.spi.predicate.TupleDomain;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.OptionalLong;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
@@ -55,6 +56,15 @@ public class TestPinotTableHandle
 
     public static PinotTableHandle newTableHandle(String schemaName, String tableName)
     {
-        return new PinotTableHandle(schemaName, tableName, false, TupleDomain.all(), OptionalLong.empty(), Optional.empty());
+        return new PinotTableHandle(
+                schemaName,
+                tableName,
+                false,
+                TupleDomain.all(),
+                OptionalLong.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                OptionalInt.empty(),
+                Optional.empty());
     }
 }
