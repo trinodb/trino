@@ -148,8 +148,12 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.StandardTypes.TIMESTAMP;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static java.lang.Math.ceilDiv;
+import static java.lang.Math.floorDiv;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -521,6 +525,10 @@ public final class ThriftMetastoreUtil
             LongColumnStatsData longStatsData = columnStatistics.getStatsData().getLongStats();
             OptionalLong min = longStatsData.isSetLowValue() ? OptionalLong.of(longStatsData.getLowValue()) : OptionalLong.empty();
             OptionalLong max = longStatsData.isSetHighValue() ? OptionalLong.of(longStatsData.getHighValue()) : OptionalLong.empty();
+            if (min.isPresent() && max.isPresent() && columnStatistics.getColType().equals(TIMESTAMP)) {
+                min = OptionalLong.of(min.getAsLong() * MICROSECONDS_PER_SECOND);
+                max = OptionalLong.of(max.getAsLong() * MICROSECONDS_PER_SECOND);
+            }
             OptionalLong nullsCount = longStatsData.isSetNumNulls() ? fromMetastoreNullsCount(longStatsData.getNumNulls()) : OptionalLong.empty();
             OptionalLong distinctValuesWithNullCount = longStatsData.isSetNumDVs() ? OptionalLong.of(longStatsData.getNumDVs()) : OptionalLong.empty();
             return createIntegerColumnStatistics(min, max, nullsCount, distinctValuesWithNullCount);
@@ -768,8 +776,9 @@ public final class ThriftMetastoreUtil
             case SHORT:
             case INT:
             case LONG:
-            case TIMESTAMP:
                 return createLongStatistics(columnName, columnType, statistics);
+            case TIMESTAMP:
+                return createTimestampStatistics(columnName, columnType, statistics);
             case FLOAT:
             case DOUBLE:
                 return createDoubleStatistics(columnName, columnType, statistics);
@@ -813,6 +822,18 @@ public final class ThriftMetastoreUtil
         statistics.getIntegerStatistics().ifPresent(integerStatistics -> {
             integerStatistics.getMin().ifPresent(data::setLowValue);
             integerStatistics.getMax().ifPresent(data::setHighValue);
+        });
+        statistics.getNullsCount().ifPresent(data::setNumNulls);
+        statistics.getDistinctValuesWithNullCount().ifPresent(data::setNumDVs);
+        return new ColumnStatisticsObj(columnName, columnType.toString(), longStats(data));
+    }
+
+    private static ColumnStatisticsObj createTimestampStatistics(String columnName, HiveType columnType, HiveColumnStatistics statistics)
+    {
+        LongColumnStatsData data = new LongColumnStatsData();
+        statistics.getIntegerStatistics().ifPresent(timestampStatistics -> {
+            timestampStatistics.getMin().ifPresent(value -> data.setLowValue(floorDiv(value, MICROSECONDS_PER_SECOND)));
+            timestampStatistics.getMax().ifPresent(value -> data.setHighValue(ceilDiv(value, MICROSECONDS_PER_SECOND)));
         });
         statistics.getNullsCount().ifPresent(data::setNumNulls);
         statistics.getDistinctValuesWithNullCount().ifPresent(data::setNumDVs);
@@ -893,8 +914,7 @@ public final class ThriftMetastoreUtil
             return ImmutableSet.of(MIN_VALUE, MAX_VALUE, NUMBER_OF_DISTINCT_VALUES, NUMBER_OF_NON_NULL_VALUES);
         }
         if (type instanceof TimestampType || type instanceof TimestampWithTimeZoneType) {
-            // TODO (https://github.com/trinodb/trino/issues/5859) Add support for timestamp MIN_VALUE, MAX_VALUE
-            return ImmutableSet.of(NUMBER_OF_DISTINCT_VALUES, NUMBER_OF_NON_NULL_VALUES);
+            return ImmutableSet.of(MIN_VALUE, MAX_VALUE, NUMBER_OF_DISTINCT_VALUES, NUMBER_OF_NON_NULL_VALUES);
         }
         if (type instanceof VarcharType || type instanceof CharType) {
             // TODO Collect MIN,MAX once it is used by the optimizer
