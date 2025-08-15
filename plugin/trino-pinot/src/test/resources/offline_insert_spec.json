@@ -1,0 +1,58 @@
+{
+    "tableName": "offline_insert",
+    "tableType": "OFFLINE",
+    "segmentsConfig": {
+        "timeColumnName": "updated_at_seconds",
+        "timeType": "SECONDS",
+        "retentionTimeUnit": "DAYS",
+        "retentionTimeValue": "365000",
+        "segmentPushType": "APPEND",
+        "segmentPushFrequency": "daily",
+        "segmentAssignmentStrategy": "BalanceNumSegmentAssignmentStrategy",
+        "schemaName": "offline_insert",
+        "replication": "1"
+    },
+    "tenants": {
+        "broker": "DefaultTenant",
+        "server": "DefaultTenant"
+    },
+    "tableIndexConfig": {
+        "loadMode": "MMAP",
+        "invertedIndexColumns": ["string_col"],
+        "noDictionaryColumns": ["int_col", "json_col"],
+        "sortedColumn": ["updated_at_seconds"],
+        "starTreeIndexConfigs": [
+            {
+                "dimensionsSplitOrder": ["string_col"],
+                "functionColumnPairs": [
+                    "COUNT__int_col",
+                    "COUNT__float_col",
+                    "COUNT__double_col",
+                    "COUNT__long_col",
+                    "MIN__int_col",
+                    "MIN__float_col",
+                    "MIN__double_col",
+                    "MIN__long_col",
+                    "MIN__timestamp_col",
+                    "MAX__int_col",
+                    "MAX__float_col",
+                    "MAX__double_col",
+                    "MAX__long_col",
+                    "MAX__timestamp_col",
+                    "AVG__int_col",
+                    "AVG__float_col",
+                    "AVG__double_col",
+                    "AVG__long_col",
+                    "SUM__int_col",
+                    "SUM__float_col",
+                    "SUM__double_col",
+                    "SUM__long_col"
+                ]
+            }
+        ],
+        "nullHandlingEnabled": "true"
+    },
+    "metadata": {
+        "customConfigs": {}
+    }
+}
