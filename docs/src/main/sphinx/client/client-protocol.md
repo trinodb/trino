@@ -119,6 +119,8 @@ The following client drivers and client applications support the spooling protoc
 * [Trino command line interface](cli-spooling-protocol), version 466 and newer
 * [Trino Python client](https://github.com/trinodb/trino-python-client), version
   0.332.0 and newer
+* [Trino Go client](https://github.com/trinodb/trino-go-client), version 
+  0.328.0 and newer
 
 Refer to the documentation for your specific client drivers and client
 applications for up to date information.
