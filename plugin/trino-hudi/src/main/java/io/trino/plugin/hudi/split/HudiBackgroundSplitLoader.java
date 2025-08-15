@@ -113,6 +113,7 @@ public class HudiBackgroundSplitLoader
     private void generateSplits(boolean useIndex)
     {
         // Attempt to apply partition pruning using partition stats index
+        log.info("Testing Flakiness");
         Optional<List<String>> effectivePartitionsOpt = useIndex && partitionIndexSupportOpt.isPresent() ?
                 partitionIndexSupportOpt.get().prunePartitions(lazyPartitions.get()) : Optional.empty();
 
