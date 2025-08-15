@@ -19,6 +19,7 @@ import com.google.common.io.Closer;
 import io.trino.FeaturesConfig;
 import io.trino.RowPagesBuilder;
 import io.trino.SequencePageBuilder;
+import io.trino.execution.TaskManagerConfig;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.operator.PartitionFunction;
 import io.trino.operator.SpillContext;
@@ -85,7 +86,8 @@ public class TestGenericPartitioningSpiller
                 new TestingBlockEncodingSerde(),
                 new SpillerStats(),
                 featuresConfig,
-                new NodeSpillConfig());
+                new NodeSpillConfig(),
+                new TaskManagerConfig());
         factory = new GenericPartitioningSpillerFactory(singleStreamSpillerFactory);
         scheduledExecutor = newSingleThreadScheduledExecutor();
     }
