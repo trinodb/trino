@@ -372,6 +372,28 @@ public class TestingMetadata
     }
 
     @Override
+    public void setDefaultValue(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, String defaultValue)
+    {
+        ConnectorTableMetadata tableMetadata = getTableMetadata(session, tableHandle);
+        SchemaTableName tableName = getTableName(tableHandle);
+        List<ColumnMetadata> columns = new ArrayList<>(tableMetadata.getColumns());
+        ColumnMetadata columnMetadata = getColumnMetadata(session, tableHandle, column);
+        columns.set(columns.indexOf(columnMetadata), ColumnMetadata.builderFrom(columnMetadata).setDefaultValue(Optional.of(defaultValue)).build());
+        tables.put(tableName, new ConnectorTableMetadata(tableName, ImmutableList.copyOf(columns), tableMetadata.getProperties(), tableMetadata.getComment()));
+    }
+
+    @Override
+    public void dropDefaultValue(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
+    {
+        ConnectorTableMetadata tableMetadata = getTableMetadata(session, tableHandle);
+        SchemaTableName tableName = getTableName(tableHandle);
+        List<ColumnMetadata> columns = new ArrayList<>(tableMetadata.getColumns());
+        ColumnMetadata columnMetadata = getColumnMetadata(session, tableHandle, columnHandle);
+        columns.set(columns.indexOf(columnMetadata), ColumnMetadata.builderFrom(columnMetadata).setDefaultValue(Optional.empty()).build());
+        tables.put(tableName, new ConnectorTableMetadata(tableName, ImmutableList.copyOf(columns), tableMetadata.getProperties(), tableMetadata.getComment()));
+    }
+
+    @Override
     public void setColumnType(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, Type type)
     {
         ConnectorTableMetadata tableMetadata = getTableMetadata(session, tableHandle);

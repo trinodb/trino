@@ -436,6 +436,44 @@ public abstract class BaseDataDefinitionTaskTest
         }
 
         @Override
+        public void setDefaultValue(Session session, TableHandle tableHandle, ColumnHandle columnHandle, String defaultValue)
+        {
+            SchemaTableName tableName = getTableName(tableHandle);
+            ConnectorTableMetadata metadata = tables.get(tableName).metadata;
+
+            ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builderWithExpectedSize(metadata.getColumns().size());
+            for (ColumnMetadata column : metadata.getColumns()) {
+                if (column.getName().equals(((TestingColumnHandle) columnHandle).getName())) {
+                    columns.add(ColumnMetadata.builderFrom(column).setDefaultValue(Optional.of(defaultValue)).build());
+                }
+                else {
+                    columns.add(column);
+                }
+            }
+
+            tables.put(tableName, new MockConnectorTableMetadata(new ConnectorTableMetadata(tableName, columns.build())));
+        }
+
+        @Override
+        public void dropDefaultValue(Session session, TableHandle tableHandle, ColumnHandle columnHandle)
+        {
+            SchemaTableName tableName = getTableName(tableHandle);
+            ConnectorTableMetadata metadata = tables.get(tableName).metadata;
+
+            ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builderWithExpectedSize(metadata.getColumns().size());
+            for (ColumnMetadata column : metadata.getColumns()) {
+                if (column.getName().equals(((TestingColumnHandle) columnHandle).getName())) {
+                    columns.add(ColumnMetadata.builderFrom(column).setDefaultValue(Optional.empty()).build());
+                }
+                else {
+                    columns.add(column);
+                }
+            }
+
+            tables.put(tableName, new MockConnectorTableMetadata(new ConnectorTableMetadata(tableName, columns.build())));
+        }
+
+        @Override
         public void setColumnType(Session session, TableHandle tableHandle, ColumnHandle columnHandle, Type type)
         {
             SchemaTableName tableName = getTableName(tableHandle);
