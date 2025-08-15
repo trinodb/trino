@@ -1,0 +1,189 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.trino.plugin.lakehouse;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableMap;
+import io.airlift.http.client.HttpClient;
+import io.airlift.http.client.Request;
+import io.airlift.http.client.StatusResponseHandler;
+import io.airlift.http.client.StringResponseHandler.StringResponse;
+import io.airlift.http.client.jetty.JettyHttpClient;
+import io.airlift.json.ObjectMapperProvider;
+import org.intellij.lang.annotations.Language;
+import org.testcontainers.containers.BindMode;
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy;
+
+import java.io.Closeable;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.net.URI;
+
+import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
+import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
+import static io.airlift.http.client.StringResponseHandler.createStringResponseHandler;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
+
+public final class TestingPolarisCatalogLakehouse
+        implements Closeable
+{
+    public static final String WAREHOUSE = "polaris";
+    private static final int POLARIS_PORT = 8181;
+    public static final String CREDENTIAL = "root:s3cr3t";
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
+    private static final HttpClient HTTP_CLIENT = new JettyHttpClient();
+
+    private final GenericContainer<?> polarisCatalog;
+    private final String token;
+    private final String warehouseLocation;
+
+    public TestingPolarisCatalogLakehouse(String warehouseLocation)
+    {
+        this.warehouseLocation = requireNonNull(warehouseLocation, "warehouseLocation is null");
+        java.nio.file.Path warehousePath = java.nio.file.Paths.get(warehouseLocation);
+        try {
+            if (!java.nio.file.Files.exists(warehousePath)) {
+                java.nio.file.Files.createDirectories(warehousePath);
+            }
+
+            java.util.Set<java.nio.file.attribute.PosixFilePermission> permissions = java.util.EnumSet.of(
+                    java.nio.file.attribute.PosixFilePermission.OWNER_READ,
+                    java.nio.file.attribute.PosixFilePermission.OWNER_WRITE,
+                    java.nio.file.attribute.PosixFilePermission.OWNER_EXECUTE,
+                    java.nio.file.attribute.PosixFilePermission.GROUP_READ,
+                    java.nio.file.attribute.PosixFilePermission.GROUP_WRITE,
+                    java.nio.file.attribute.PosixFilePermission.GROUP_EXECUTE,
+                    java.nio.file.attribute.PosixFilePermission.OTHERS_READ,
+                    java.nio.file.attribute.PosixFilePermission.OTHERS_WRITE,
+                    java.nio.file.attribute.PosixFilePermission.OTHERS_EXECUTE);
+            java.nio.file.Files.setPosixFilePermissions(warehousePath, permissions);
+        }
+        catch (Exception e) {
+            throw new RuntimeException("Failed to setup warehouse directory", e);
+        }
+
+        polarisCatalog = new GenericContainer<>("apache/polaris:1.0.0-incubating");
+        polarisCatalog.addExposedPort(POLARIS_PORT);
+        polarisCatalog.withFileSystemBind(warehouseLocation, warehouseLocation, BindMode.READ_WRITE);
+        polarisCatalog.waitingFor(new LogMessageWaitStrategy().withRegEx(".*Apache Polaris Server.* started.*"));
+        polarisCatalog.withEnv("POLARIS_BOOTSTRAP_CREDENTIALS", "default-realm,root,s3cr3t");
+        polarisCatalog.withEnv("polaris.realm-context.realms", "default-realm");
+        polarisCatalog.withEnv("polaris.readiness.ignore-severe-issues", "true");
+        polarisCatalog.withEnv("polaris.features.\"SUPPORTED_CATALOG_STORAGE_TYPES\"", "[\"FILE\"]");
+        polarisCatalog.withEnv("polaris.features.\"ALLOW_INSECURE_STORAGE_TYPES\"", "true");
+        polarisCatalog.withEnv("polaris.features.\"DROP_WITH_PURGE_ENABLED\"", "true");
+
+        polarisCatalog.start();
+
+        token = getToken();
+        createCatalog();
+        grantPrivilege();
+    }
+
+    private String getToken()
+    {
+        String body = "grant_type=client_credentials&client_id=root&client_secret=s3cr3t&scope=PRINCIPAL_ROLE:ALL";
+        Request request = Request.Builder.preparePost()
+                .setUri(URI.create(restUri() + "/api/catalog/v1/oauth/tokens"))
+                .setHeader("Polaris-Realm", "default-realm")
+                .setHeader("Content-Type", "application/x-www-form-urlencoded")
+                .setBodyGenerator(createStaticBodyGenerator(body, UTF_8))
+                .build();
+        StringResponse response = HTTP_CLIENT.execute(request, createStringResponseHandler());
+        try {
+            return OBJECT_MAPPER.readTree(response.getBody()).get("access_token").asText();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    private void createCatalog()
+    {
+        @Language("JSON")
+        String body = "{" +
+                "\"name\": \"polaris\"," +
+                "\"id\": 1," +
+                "\"type\": \"INTERNAL\"," +
+                "\"readOnly\": false, " +
+                "\"storageConfigInfo\": {\"storageType\": \"FILE\", \"allowedLocations\":[\"" + warehouseLocation + "\"]}, " +
+                "\"properties\": {\"default-base-location\": \"file://" + warehouseLocation + "\"}" +
+                "}";
+
+        Request request = Request.Builder.preparePost()
+                .setUri(URI.create(restUri() + "/api/management/v1/catalogs"))
+                .setHeader("Authorization", "Bearer " + token)
+                .setHeader("Content-Type", "application/json")
+                .setBodyGenerator(createStaticBodyGenerator(body, UTF_8))
+                .build();
+        StatusResponseHandler.StatusResponse response = HTTP_CLIENT.execute(request, createStatusResponseHandler());
+
+        checkState(response.getStatusCode() == 201, "Failed to create polaris catalog, status code: %s", response.getStatusCode());
+    }
+
+    private void grantPrivilege()
+    {
+        @Language("JSON")
+        String body = "{\"grant\": {\"type\": \"catalog\", \"privilege\": \"TABLE_WRITE_DATA\"}}";
+        Request request = Request.Builder.preparePut()
+                .setUri(URI.create(restUri() + "/api/management/v1/catalogs/polaris/catalog-roles/catalog_admin/grants"))
+                .setHeader("Authorization", "Bearer " + token)
+                .setHeader("Content-Type", "application/json")
+                .setBodyGenerator(createStaticBodyGenerator(body, UTF_8))
+                .build();
+        HTTP_CLIENT.execute(request, createStatusResponseHandler());
+    }
+
+    public void dropTable(String schema, String table)
+    {
+        Request request = Request.Builder.prepareDelete()
+                .setUri(URI.create(restUri() + "/api/catalog/v1/polaris/namespaces/" + schema + "/tables/" + table))
+                .setHeader("Authorization", "Bearer " + token)
+                .setHeader("Content-Type", "application/json")
+                .build();
+        HTTP_CLIENT.execute(request, createStatusResponseHandler());
+    }
+
+    public String restUri()
+    {
+        return "http://%s:%s".formatted(polarisCatalog.getHost(), polarisCatalog.getMappedPort(POLARIS_PORT));
+    }
+
+    public ImmutableMap<String, String> getTrinoConfigurationProperties()
+    {
+        return ImmutableMap.<String, String>builder()
+                .put("hive.metastore", "polaris")
+                .put("hive.metastore.polaris.uri", restUri() + "/api/catalog")
+                .put("hive.metastore.polaris.prefix", "polaris")
+                .put("hive.metastore.polaris.warehouse", WAREHOUSE)
+                .put("hive.metastore.polaris.security", "OAUTH2")
+                .put("hive.metastore.polaris.oauth2.credential", CREDENTIAL)
+                .put("hive.metastore.polaris.oauth2.scope", "PRINCIPAL_ROLE:ALL")
+                .put("hive.metastore.polaris.oauth2.server-uri", restUri() + "/api/catalog/v1/oauth/tokens")
+                .put("hive.metastore.polaris.realm", "default-realm")
+                .put("fs.native-local.enabled", "true")
+                .put("local.location", "/")
+                .buildOrThrow();
+    }
+
+    @Override
+    public void close()
+    {
+        polarisCatalog.close();
+    }
+}
