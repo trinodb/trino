@@ -57,6 +57,7 @@ import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -66,10 +67,12 @@ public class PinotModule
         extends AbstractConfigurationAwareModule
 {
     private final String catalogName;
+    private final NodeManager nodeManager;
 
-    public PinotModule(String catalogName)
+    public PinotModule(String catalogName, NodeManager nodeManager)
     {
         this.catalogName = catalogName;
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
     }
 
     @Override
@@ -104,6 +107,7 @@ public class PinotModule
         jsonBinder(binder).addDeserializerBinding(BrokerResponseNative.class).to(BrokerResponseNativeDeserializer.class);
 
         PinotClient.addJsonBinders(jsonCodecBinder(binder));
+        binder.bind(NodeManager.class).toInstance(nodeManager);
         binder.bind(ConnectorNodePartitioningProvider.class).to(PinotNodePartitioningProvider.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, PinotHostMapper.class).setDefault().to(IdentityPinotHostMapper.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, DeepStore.class);
