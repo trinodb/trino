@@ -1816,6 +1816,16 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    void testDropHiddenMetadataColumn()
+    {
+        try (TestTable table = newTrinoTable("test_drop_metadata_column_", "(id int, col int)")) {
+            assertQueryFails("ALTER TABLE " + table.getName() + " DROP COLUMN \"$partition\"", "line 1:1: Cannot drop hidden column");
+            assertQueryFails("ALTER TABLE " + table.getName() + " DROP COLUMN \"$path\"", "line 1:1: Cannot drop hidden column");
+            assertQueryFails("ALTER TABLE " + table.getName() + " DROP COLUMN \"$file_modified_time\"", "line 1:1: Cannot drop hidden column");
+        }
+    }
+
+    @Test
     public void testDropColumnUsedInOlderPartitionSpecs()
     {
         String tableName = "test_drop_partition_column_" + randomNameSuffix();
