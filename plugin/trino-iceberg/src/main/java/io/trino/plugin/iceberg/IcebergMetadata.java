@@ -1007,6 +1007,7 @@ public class IcebergMetadata
                 .setType(column.getType())
                 .setNullable(column.isNullable())
                 .setComment(column.getComment())
+                .setHidden(isMetadataColumnId(column.getId()))
                 .build();
     }
 
