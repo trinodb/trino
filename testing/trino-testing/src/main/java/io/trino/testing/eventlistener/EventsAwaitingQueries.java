@@ -11,11 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.execution;
+package io.trino.testing.eventlistener;
 
 import io.airlift.units.Duration;
 import io.trino.Session;
-import io.trino.execution.EventsCollector.QueryEvents;
 import io.trino.spi.QueryId;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryFailedException;
@@ -31,32 +30,32 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Fail.fail;
 
-class EventsAwaitingQueries
+public class EventsAwaitingQueries
 {
     private final EventsCollector eventsCollector;
 
     private final QueryRunner queryRunner;
 
-    EventsAwaitingQueries(EventsCollector eventsCollector, QueryRunner queryRunner)
+    public EventsAwaitingQueries(EventsCollector eventsCollector, QueryRunner queryRunner)
     {
         this.eventsCollector = requireNonNull(eventsCollector, "eventsCollector is null");
         this.queryRunner = requireNonNull(queryRunner, "queryRunner is null");
     }
 
-    MaterializedResultWithEvents runQueryAndWaitForEvents(@Language("SQL") String sql, Session session)
+    public MaterializedResultWithEvents runQueryAndWaitForEvents(@Language("SQL") String sql, Session session)
             throws Exception
     {
         return runQueryAndWaitForEvents(sql, session, Optional.empty());
     }
 
-    MaterializedResultWithEvents runQueryAndWaitForEvents(@Language("SQL") String sql, Session session, boolean requireAnonymizedPlan)
+    public MaterializedResultWithEvents runQueryAndWaitForEvents(@Language("SQL") String sql, Session session, boolean requireAnonymizedPlan)
             throws Exception
     {
         eventsCollector.setRequiresAnonymizedPlan(requireAnonymizedPlan);
         return runQueryAndWaitForEvents(sql, session, Optional.empty());
     }
 
-    MaterializedResultWithEvents runQueryAndWaitForEvents(@Language("SQL") String sql, Session session, Optional<String> expectedExceptionRegEx)
+    public MaterializedResultWithEvents runQueryAndWaitForEvents(@Language("SQL") String sql, Session session, Optional<String> expectedExceptionRegEx)
             throws Exception
     {
         QueryId queryId = null;
