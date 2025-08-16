@@ -32,7 +32,7 @@ public class TestPinotMetadata
 {
     private final PinotConfig pinotConfig = new PinotConfig().setControllerUrls(ImmutableList.of("localhost:9000"));
     private final PinotMetadata metadata = new PinotMetadata(new MockPinotClient(pinotConfig), pinotConfig,
-            Executors.newSingleThreadExecutor(), new PinotTypeConverter(new TestingTypeManager()), new TestingNodeManager());
+            Executors.newSingleThreadExecutor(), new PinotTypeConverter(new TestingTypeManager()), TestingNodeManager.builder().build());
 
     @Test
     public void testTables()

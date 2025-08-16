@@ -49,7 +49,7 @@ public class TestPinotQueryBase
             pinotConfig,
             newCachedThreadPool(threadsNamed("mock-pinot-metadata-fetcher")),
             TESTING_TYPE_CONVERTER,
-            new TestingNodeManager());
+            TestingNodeManager.builder().build());
 
     protected List<String> getColumnNames(String table)
     {
