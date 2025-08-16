@@ -40,6 +40,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -59,6 +60,7 @@ public class EventListenerManager
     private static final Logger log = Logger.get(EventListenerManager.class);
     private static final File CONFIG_FILE = new File("etc/event-listener.properties");
     private static final String EVENT_LISTENER_NAME_PROPERTY = "event-listener.name";
+    private static final String EVENT_LISTENER_SHOULD_RUN_ON_WORKER = "event-listener.should-run-on-worker";
     private final List<File> configFiles;
     private final Map<String, EventListenerFactory> eventListenerFactories = new ConcurrentHashMap<>();
     private final List<EventListener> providedEventListeners = Collections.synchronizedList(new ArrayList<>());
@@ -96,17 +98,17 @@ public class EventListenerManager
         providedEventListeners.add(eventListener);
     }
 
-    public void loadEventListeners()
+    public void loadEventListeners(boolean isCoordinator)
     {
         checkState(loading.compareAndSet(false, true), "Event listeners already loaded");
 
         this.configuredEventListeners.set(ImmutableList.<EventListener>builder()
                 .addAll(providedEventListeners)
-                .addAll(configuredEventListeners())
+                .addAll(configuredEventListeners(isCoordinator))
                 .build());
     }
 
-    private List<EventListener> configuredEventListeners()
+    private List<EventListener> configuredEventListeners(boolean isCoordinator)
     {
         List<File> configFiles = this.configFiles;
         if (configFiles.isEmpty()) {
@@ -116,16 +118,27 @@ public class EventListenerManager
             configFiles = ImmutableList.of(CONFIG_FILE);
         }
         return configFiles.stream()
-                .map(this::createEventListener)
+                .map(configFile -> createEventListener(configFile, isCoordinator))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
                 .collect(toImmutableList());
     }
 
-    private EventListener createEventListener(File configFile)
+    private Optional<EventListener> createEventListener(File configFile, boolean isCoordinator)
     {
         log.info("-- Loading event listener %s --", configFile);
 
         configFile = configFile.getAbsoluteFile();
         Map<String, String> properties = loadEventListenerProperties(configFile);
+        String shouldRunOnWorker = properties.remove(EVENT_LISTENER_SHOULD_RUN_ON_WORKER);
+        if (isCoordinator || "true".equalsIgnoreCase(shouldRunOnWorker)) {
+            return createEventListener(configFile, properties);
+        }
+        return Optional.empty();
+    }
+
+    private Optional<EventListener> createEventListener(File configFile, Map<String, String> properties)
+    {
         String name = properties.remove(EVENT_LISTENER_NAME_PROPERTY);
         checkArgument(!isNullOrEmpty(name), "EventListener plugin configuration for %s does not contain %s", configFile, EVENT_LISTENER_NAME_PROPERTY);
 
@@ -138,7 +151,7 @@ public class EventListenerManager
         }
 
         log.info("-- Loaded event listener %s --", configFile);
-        return eventListener;
+        return Optional.of(eventListener);
     }
 
     private static Map<String, String> loadEventListenerProperties(File configFile)
