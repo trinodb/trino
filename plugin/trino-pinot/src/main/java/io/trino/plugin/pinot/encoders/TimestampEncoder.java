@@ -32,7 +32,7 @@ public class TimestampEncoder
     @Override
     protected Object encodeNonNull(Block block, int position)
     {
-        SqlTimestamp sqlTimestamp = (SqlTimestamp) timestampType.getObjectValue(null, block, position);
+        SqlTimestamp sqlTimestamp = (SqlTimestamp) timestampType.getObjectValue(block, position);
         return sqlTimestamp.getMillis();
     }
 }
