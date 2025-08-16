@@ -197,6 +197,9 @@ Hive connector documentation.
 * - `hive.non-managed-table-creates-enabled`
   - Enable creating non-managed (external) Hive tables.
   - `true`
+* - `hive.managed-table-creates-enabled`
+  - Enable creating managed (internal) Hive tables.
+  - `true`
 * - `hive.collect-column-statistics-on-write`
   - Enables automatic column level statistics collection on write. See
     [](hive-table-statistics) for details.
