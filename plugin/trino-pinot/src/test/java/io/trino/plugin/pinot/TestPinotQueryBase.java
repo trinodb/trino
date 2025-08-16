@@ -16,6 +16,8 @@ package io.trino.plugin.pinot;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.pinot.client.PinotClient;
+import io.trino.plugin.pinot.query.DynamicTable;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TestingTypeManager;
 import io.trino.testing.TestingNodeManager;
 import org.apache.pinot.spi.data.FieldSpec.DataType;
@@ -24,18 +26,20 @@ import org.apache.pinot.spi.data.Schema.SchemaBuilder;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.OptionalInt;
+import java.util.OptionalLong;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.Threads.threadsNamed;
-import static io.trino.plugin.pinot.TestPinotTableHandle.newTableHandle;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class TestPinotQueryBase
 {
     protected static final PinotTypeConverter TESTING_TYPE_CONVERTER = new PinotTypeConverter(new TestingTypeManager());
 
-    protected static PinotTableHandle realtimeOnlyTable = newTableHandle("schema", "realtimeOnly");
-    protected static PinotTableHandle hybridTable = newTableHandle("schema", "hybrid");
+    protected static PinotTableHandle realtimeOnlyTable = testingPinotTableHandle("schema", "realtimeOnly", Optional.empty());
+    protected static PinotTableHandle hybridTable = testingPinotTableHandle("schema", "hybrid", Optional.empty());
 
     protected final PinotConfig pinotConfig = new PinotConfig().setControllerUrls(ImmutableList.of("localhost:9000"));
 
@@ -53,6 +57,19 @@ public class TestPinotQueryBase
                 .map(PinotColumnHandle.class::cast)
                 .map(PinotColumnHandle::getColumnName)
                 .collect(toImmutableList());
+    }
+
+    public static PinotTableHandle testingPinotTableHandle(String schema, String table, Optional<DynamicTable> dynamicTable)
+    {
+        return new PinotTableHandle(schema,
+                table,
+                false,
+                TupleDomain.all(),
+                OptionalLong.empty(),
+                dynamicTable,
+                Optional.of(List.of("test_node")),
+                OptionalInt.of(1),
+                Optional.empty());
     }
 
     public static Map<String, Schema> getTestingMetadata()

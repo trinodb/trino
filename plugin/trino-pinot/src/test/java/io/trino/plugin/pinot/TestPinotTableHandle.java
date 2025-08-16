@@ -23,11 +23,12 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
+import static io.trino.plugin.pinot.TestPinotQueryBase.testingPinotTableHandle;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPinotTableHandle
 {
-    private final PinotTableHandle tableHandle = newTableHandle("schemaName", "tableName");
+    private final PinotTableHandle tableHandle = testingPinotTableHandle("schemaName", "tableName", Optional.empty());
 
     @Test
     public void testJsonRoundTrip()
@@ -43,14 +44,14 @@ public class TestPinotTableHandle
     {
         EquivalenceTester.equivalenceTester()
                 .addEquivalentGroup(
-                        newTableHandle("schema", "table"),
-                        newTableHandle("schema", "table"))
+                        testingPinotTableHandle("schema", "table", Optional.empty()),
+                        testingPinotTableHandle("schema", "table", Optional.empty()))
                 .addEquivalentGroup(
-                        newTableHandle("schemaX", "table"),
-                        newTableHandle("schemaX", "table"))
+                        testingPinotTableHandle("schemaX", "table", Optional.empty()),
+                        testingPinotTableHandle("schemaX", "table", Optional.empty()))
                 .addEquivalentGroup(
-                        newTableHandle("schema", "tableX"),
-                        newTableHandle("schema", "tableX"))
+                        testingPinotTableHandle("schema", "tableX", Optional.empty()),
+                        testingPinotTableHandle("schema", "tableX", Optional.empty()))
                 .check();
     }
 

@@ -253,7 +253,9 @@ public class PinotMetadata
             if (tableConfig.getIndexingConfig() != null &&
                     tableConfig.getIndexingConfig().getSegmentPartitionConfig() != null &&
                     tableConfig.getIndexingConfig().getSegmentPartitionConfig().getColumnPartitionMap() != null) {
-                return ImmutableList.copyOf(tableConfig.getIndexingConfig().getSegmentPartitionConfig().getColumnPartitionMap().keySet());
+                return tableConfig.getIndexingConfig().getSegmentPartitionConfig().getColumnPartitionMap().keySet().stream()
+                        .map(column -> column.toLowerCase(ENGLISH))
+                        .collect(toImmutableList());
             }
         }
         catch (Exception e) {
@@ -323,16 +325,21 @@ public class PinotMetadata
         // If the table has time-based partitioning, include it
         if (pinotTableHandle.dateTimeField().isPresent()) {
             PinotDateTimeField dateTimeField = pinotTableHandle.dateTimeField().get();
-            if (!partitionColumns.contains(dateTimeField.columnName())) {
+            String lowerCaseDateTimeColumn = dateTimeField.columnName().toLowerCase(ENGLISH);
+            if (!partitionColumns.contains(lowerCaseDateTimeColumn)) {
                 partitionColumns = ImmutableList.<String>builder()
                         .addAll(partitionColumns)
-                        .add(dateTimeField.columnName())
+                        .add(lowerCaseDateTimeColumn)
                         .build();
             }
         }
 
+        List<String> lowerCasePartitionColumns = partitionColumns.stream()
+                .map(column -> column.toLowerCase(ENGLISH))
+                .collect(toImmutableList());
+
         // If there are partition columns, create the layout
-        if (!partitionColumns.isEmpty()) {
+        if (!lowerCasePartitionColumns.isEmpty()) {
             PinotPartitioningHandle partitioningHandle = new PinotPartitioningHandle(
                     pinotTableHandle.nodes(),
                     pinotTableHandle.dateTimeField(),
@@ -340,7 +347,7 @@ public class PinotMetadata
 
             return Optional.of(new ConnectorTableLayout(
                     partitioningHandle,
-                    partitionColumns,
+                    lowerCasePartitionColumns,
                     false));  // Pinot doesn't support multiple writers per partition
         }
         return Optional.empty();

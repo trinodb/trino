@@ -131,7 +131,7 @@ public final class PinotQueryRunner
     {
         TestingKafka kafka = TestingKafka.createWithSchemaRegistry();
         kafka.start();
-        TestingPinotCluster pinot = new TestingPinotCluster(PINOT_LATEST_IMAGE_NAME, kafka.getNetwork(), false);
+        TestingPinotCluster pinot = new TestingPinotCluster(PINOT_LATEST_IMAGE_NAME, kafka.getNetwork(), false, false, Optional.empty());
         pinot.start();
         QueryRunner queryRunner = builder()
                 .setKafka(kafka)

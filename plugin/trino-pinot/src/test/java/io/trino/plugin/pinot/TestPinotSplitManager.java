@@ -20,7 +20,6 @@ import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.predicate.TupleDomain;
 import io.trino.testing.TestingConnectorSession;
 import org.junit.jupiter.api.Test;
 
@@ -28,13 +27,10 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalInt;
-import java.util.OptionalLong;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.plugin.pinot.PinotSplit.SplitType.BROKER;
 import static io.trino.plugin.pinot.PinotSplit.SplitType.SEGMENT;
-import static io.trino.plugin.pinot.TestPinotTableHandle.newTableHandle;
 import static io.trino.plugin.pinot.query.DynamicTableBuilder.buildFromPql;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static java.lang.String.format;
@@ -54,16 +50,10 @@ public class TestPinotSplitManager
         SchemaTableName schemaTableName = new SchemaTableName("default", format("SELECT %s, %s FROM %s LIMIT %d", "AirlineID", "OriginStateName", "airlineStats", 100));
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, schemaTableName, mockClusterInfoFetcher, TESTING_TYPE_CONVERTER);
 
-        PinotTableHandle pinotTableHandle = new PinotTableHandle(
+        PinotTableHandle pinotTableHandle = testingPinotTableHandle(
                 "default",
                 dynamicTable.tableName(),
-                false,
-                TupleDomain.all(),
-                OptionalLong.empty(),
-                Optional.of(dynamicTable),
-                Optional.empty(),
-                OptionalInt.empty(),
-                Optional.empty());
+                Optional.of(dynamicTable));
         List<PinotSplit> splits = getSplitsHelper(pinotTableHandle, 1, false);
         assertSplits(splits, 1, BROKER);
     }
@@ -72,7 +62,7 @@ public class TestPinotSplitManager
     public void testBrokerNonShortQuery()
     {
         assertThatThrownBy(() -> {
-            PinotTableHandle pinotTableHandle = newTableHandle(realtimeOnlyTable.schemaName(), realtimeOnlyTable.tableName());
+            PinotTableHandle pinotTableHandle = testingPinotTableHandle(realtimeOnlyTable.schemaName(), realtimeOnlyTable.tableName(), Optional.empty());
             List<PinotSplit> splits = getSplitsHelper(pinotTableHandle, 1, true);
             assertSplits(splits, 1, BROKER);
         })
@@ -87,7 +77,7 @@ public class TestPinotSplitManager
 
     private void testSegmentSplitsHelperNoFilter(PinotTableHandle table, int segmentsPerSplit, int expectedNumSplits)
     {
-        PinotTableHandle pinotTableHandle = newTableHandle(table.schemaName(), table.tableName());
+        PinotTableHandle pinotTableHandle = testingPinotTableHandle(table.schemaName(), table.tableName(), Optional.empty());
         List<PinotSplit> splits = getSplitsHelper(pinotTableHandle, segmentsPerSplit, false);
         assertSplits(splits, expectedNumSplits, SEGMENT);
         splits.forEach(this::assertSegmentSplitWellFormed);
@@ -95,7 +85,7 @@ public class TestPinotSplitManager
 
     private void testSegmentSplitsHelperWithFilter(PinotTableHandle table, int segmentsPerSplit, int expectedNumSplits)
     {
-        PinotTableHandle pinotTableHandle = newTableHandle(table.schemaName(), table.tableName());
+        PinotTableHandle pinotTableHandle = testingPinotTableHandle(table.schemaName(), table.tableName(), Optional.empty());
         List<PinotSplit> splits = getSplitsHelper(pinotTableHandle, segmentsPerSplit, false);
         assertSplits(splits, expectedNumSplits, SEGMENT);
         splits.forEach(this::assertSegmentSplitWellFormed);
