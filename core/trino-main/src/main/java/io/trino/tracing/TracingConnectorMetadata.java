@@ -1485,6 +1485,15 @@ public class TracingConnectorMetadata
         }
     }
 
+    @Override
+    public String canonicalize(ConnectorSession session, String identifier, boolean delimited)
+    {
+        Span span = startSpan("canonicalize");
+        try (var _ = scopedSpan(span)) {
+            return delegate.canonicalize(session, identifier, delimited);
+        }
+    }
+
     private Span startSpan(String methodName)
     {
         return tracer.spanBuilder("ConnectorMetadata." + methodName)

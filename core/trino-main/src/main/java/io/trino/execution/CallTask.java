@@ -102,7 +102,7 @@ public class CallTask
         }
 
         Session session = stateMachine.getSession();
-        QualifiedObjectName procedureName = createQualifiedObjectName(session, call, call.getName());
+        QualifiedObjectName procedureName = createQualifiedObjectName(session, call, call.getName(), plannerContext.getMetadata());
         CatalogHandle catalogHandle = getRequiredCatalogHandle(plannerContext.getMetadata(), stateMachine.getSession(), call, procedureName.catalogName());
         Procedure procedure = procedureRegistry.resolve(catalogHandle, procedureName.asSchemaTableName());
 

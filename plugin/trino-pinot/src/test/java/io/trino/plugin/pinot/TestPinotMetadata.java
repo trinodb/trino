@@ -38,9 +38,9 @@ public class TestPinotMetadata
         ConnectorSession session = TestPinotSplitManager.createSessionWithNumSplits(1, false, pinotConfig);
         List<SchemaTableName> schemaTableNames = metadata.listTables(session, Optional.empty());
         assertThat(ImmutableSet.copyOf(schemaTableNames)).isEqualTo(ImmutableSet.builder()
-                .add(new SchemaTableName("default", TestPinotSplitManager.realtimeOnlyTable.tableName()))
-                .add(new SchemaTableName("default", TestPinotSplitManager.hybridTable.tableName()))
-                .add(new SchemaTableName("default", TEST_TABLE))
+                .add(new SchemaTableName("default", metadata.canonicalize(session, TestPinotSplitManager.realtimeOnlyTable.tableName(), true)))
+                .add(new SchemaTableName("default", metadata.canonicalize(session, TestPinotSplitManager.hybridTable.tableName(), true)))
+                .add(new SchemaTableName("default", metadata.canonicalize(session, TEST_TABLE, true)))
                 .build());
         List<String> schemas = metadata.listSchemaNames(session);
         assertThat(ImmutableList.copyOf(schemas)).isEqualTo(ImmutableList.of("default"));
