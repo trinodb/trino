@@ -23,7 +23,7 @@ import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkReadablePosition;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
-import static io.trino.spi.block.BlockUtil.compactArray;
+import static io.trino.spi.block.BlockUtil.compactIsNull;
 import static io.trino.spi.block.BlockUtil.compactOffsets;
 import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
 import static io.trino.spi.block.BlockUtil.copyOffsetsAndAppendNull;
@@ -232,12 +232,15 @@ public final class ArrayBlock
 
         int[] newOffsets = new int[length + 1];
         newOffsets[0] = 0;
+        boolean hasNull = false;
         boolean[] newValueIsNull = valueIsNull == null ? null : new boolean[length];
 
         IntArrayList valuesPositions = new IntArrayList();
         for (int i = 0; i < length; i++) {
             int position = positions[offset + i];
-            if (newValueIsNull != null && isNull(position)) {
+            checkReadablePosition(this, position);
+            if (valueIsNull != null && valueIsNull[position + arrayOffset]) {
+                hasNull = true;
                 newValueIsNull[i] = true;
                 newOffsets[i + 1] = newOffsets[i];
             }
@@ -254,7 +257,7 @@ public final class ArrayBlock
             }
         }
         Block newValues = values.copyPositions(valuesPositions.elements(), 0, valuesPositions.size());
-        return createArrayBlockInternal(0, length, newValueIsNull, newOffsets, newValues);
+        return createArrayBlockInternal(0, length, hasNull ? newValueIsNull : null, newOffsets, newValues);
     }
 
     @Override
@@ -294,9 +297,7 @@ public final class ArrayBlock
         Block newValues = values.copyRegion(startValueOffset, endValueOffset - startValueOffset);
 
         int[] newOffsets = compactOffsets(offsets, position + arrayOffset, length);
-        boolean[] valueIsNull = this.valueIsNull;
-        boolean[] newValueIsNull;
-        newValueIsNull = valueIsNull == null ? null : compactArray(valueIsNull, position + arrayOffset, length);
+        boolean[] newValueIsNull = compactIsNull(valueIsNull, position + arrayOffset, length);
 
         if (newValues == values && newOffsets == offsets && newValueIsNull == valueIsNull) {
             return this;

@@ -13,6 +13,9 @@
  */
 package io.trino.plugin.deltalake;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
@@ -50,7 +53,47 @@ public final class TestingDeltaLakeUtils
         return ((DeltaLakeConnector) queryRunner.getCoordinator().getConnector(DELTA_CATALOG)).getInjector().getInstance(clazz);
     }
 
-    public static List<AddFileEntry> getTableActiveFiles(TransactionLogAccess transactionLogAccess, String tableLocation)
+    public static DeltaLakeTableHandle createTable(SchemaTableName schemaTableName, String tableLocation)
+    {
+        return new DeltaLakeTableHandle(
+                schemaTableName.getSchemaName(),
+                schemaTableName.getTableName(),
+                true,
+                tableLocation,
+                new MetadataEntry("id", "test", "description", null, "", ImmutableList.of(), ImmutableMap.of(), 0),
+                new ProtocolEntry(1, 2, Optional.empty(), Optional.empty()),
+                TupleDomain.none(),
+                TupleDomain.none(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                0,
+                false);
+    }
+
+    public static DeltaLakeTableHandle createTable(MetadataEntry metadataEntry, ProtocolEntry protocolEntry)
+    {
+        return new DeltaLakeTableHandle(
+                "schema",
+                "table",
+                true,
+                "",
+                metadataEntry,
+                protocolEntry,
+                TupleDomain.none(),
+                TupleDomain.none(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                0,
+                false);
+    }
+
+    public static List<AddFileEntry> getTableActiveFiles(TransactionLogAccess transactionLogAccess, TrinoFileSystemFactory fileSystemFactory, String tableLocation)
             throws IOException
     {
         SchemaTableName dummyTable = new SchemaTableName("dummy_schema_placeholder", "dummy_table_placeholder");
@@ -58,10 +101,10 @@ public final class TestingDeltaLakeUtils
         // force entries to have JSON serializable statistics
         transactionLogAccess.flushCache();
 
-        TableSnapshot snapshot = transactionLogAccess.loadSnapshot(SESSION, dummyTable, tableLocation, Optional.empty());
+        TableSnapshot snapshot = transactionLogAccess.loadSnapshot(SESSION, createTable(dummyTable, tableLocation), Optional.empty());
         MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(SESSION, snapshot);
         ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, snapshot);
-        try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(SESSION, snapshot, metadataEntry, protocolEntry, TupleDomain.all(), alwaysTrue())) {
+        try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(SESSION, createTable(metadataEntry, protocolEntry), snapshot, TupleDomain.all(), alwaysTrue())) {
             return addFileEntries.collect(toImmutableList());
         }
     }

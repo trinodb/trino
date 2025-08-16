@@ -280,6 +280,13 @@ public class InjectedConnectorAccessControl
     }
 
     @Override
+    public void checkCanRefreshView(ConnectorSecurityContext context, SchemaTableName viewName)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.checkCanRefreshView(securityContext, getQualifiedObjectName(viewName));
+    }
+
+    @Override
     public void checkCanDropView(ConnectorSecurityContext context, SchemaTableName viewName)
     {
         checkArgument(context == null, "context must be null");
@@ -319,6 +326,13 @@ public class InjectedConnectorAccessControl
     {
         checkArgument(context == null, "context must be null");
         accessControl.checkCanRenameMaterializedView(securityContext, getQualifiedObjectName(viewName), getQualifiedObjectName(newViewName));
+    }
+
+    @Override
+    public void checkCanSetMaterializedViewAuthorization(ConnectorSecurityContext context, SchemaTableName viewName, TrinoPrincipal principal)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.checkCanSetEntityAuthorization(securityContext, new EntityKindAndName("MATERIALIZED VIEW", getQualifiedObjectNameParts(viewName)), principal);
     }
 
     @Override
@@ -375,6 +389,27 @@ public class InjectedConnectorAccessControl
     {
         checkArgument(context == null, "context must be null");
         accessControl.checkCanRevokeTablePrivilege(securityContext, privilege, getQualifiedObjectName(tableName), revokee, grantOption);
+    }
+
+    @Override
+    public void checkCanGrantTableBranchPrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, String branchName, TrinoPrincipal grantee, boolean grantOption)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.checkCanGrantTableBranchPrivilege(securityContext, privilege, getQualifiedObjectName(tableName), branchName, grantee, grantOption);
+    }
+
+    @Override
+    public void checkCanDenyTableBranchPrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, String branchName, TrinoPrincipal grantee)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.checkCanDenyTableBranchPrivilege(securityContext, privilege, getQualifiedObjectName(tableName), branchName, grantee);
+    }
+
+    @Override
+    public void checkCanRevokeTableBranchPrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, String branchName, TrinoPrincipal revokee, boolean grantOption)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.checkCanRevokeTableBranchPrivilege(securityContext, privilege, getQualifiedObjectName(tableName), branchName, revokee, grantOption);
     }
 
     @Override
@@ -503,6 +538,30 @@ public class InjectedConnectorAccessControl
     public void checkCanShowCreateFunction(ConnectorSecurityContext context, SchemaRoutineName function)
     {
         accessControl.checkCanShowCreateFunction(securityContext, new QualifiedObjectName(catalogName, function.getSchemaName(), function.getRoutineName()));
+    }
+
+    @Override
+    public void checkCanShowBranches(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        accessControl.checkCanShowBranches(securityContext, new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName()));
+    }
+
+    @Override
+    public void checkCanCreateBranch(ConnectorSecurityContext context, SchemaTableName tableName, String branchName)
+    {
+        accessControl.checkCanCreateBranch(securityContext, new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName()), branchName);
+    }
+
+    @Override
+    public void checkCanDropBranch(ConnectorSecurityContext context, SchemaTableName tableName, String branchName)
+    {
+        accessControl.checkCanDropBranch(securityContext, new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName()), branchName);
+    }
+
+    @Override
+    public void checkCanFastForwardBranch(ConnectorSecurityContext context, SchemaTableName tableName, String sourceBranchName, String targetBranchName)
+    {
+        accessControl.checkCanFastForwardBranch(securityContext, new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName()), sourceBranchName, targetBranchName);
     }
 
     @Override

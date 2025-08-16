@@ -13,12 +13,9 @@
  */
 package io.trino.spi.function.table;
 
-import io.trino.spi.Experimental;
-
 import static io.trino.spi.function.table.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-@Experimental(eta = "2022-10-31")
 public class TableArgumentSpecification
         extends ArgumentSpecification
 {

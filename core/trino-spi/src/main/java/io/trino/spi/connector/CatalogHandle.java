@@ -15,7 +15,6 @@ package io.trino.spi.connector;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
-import io.trino.spi.Experimental;
 import io.trino.spi.catalog.CatalogName;
 
 import java.util.Objects;
@@ -28,7 +27,6 @@ import static io.trino.spi.connector.CatalogHandle.CatalogHandleType.SYSTEM;
 import static java.util.Locale.ROOT;
 import static java.util.Objects.requireNonNull;
 
-@Experimental(eta = "2023-02-01")
 public final class CatalogHandle
 {
     private static final int INSTANCE_SIZE = instanceSize(CatalogHandle.class);
@@ -169,7 +167,6 @@ public final class CatalogHandle
         }
     }
 
-    @Experimental(eta = "2023-02-01")
     public static final class CatalogVersion
     {
         private static final int INSTANCE_SIZE = instanceSize(CatalogVersion.class);

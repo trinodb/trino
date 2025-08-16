@@ -231,6 +231,9 @@ public class AllowAllSystemAccessControl
     public void checkCanDropView(SystemSecurityContext context, CatalogSchemaTableName view) {}
 
     @Override
+    public void checkCanRefreshView(SystemSecurityContext context, CatalogSchemaTableName view) {}
+
+    @Override
     public void checkCanCreateViewWithSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns) {}
 
     @Override
@@ -244,6 +247,9 @@ public class AllowAllSystemAccessControl
 
     @Override
     public void checkCanRenameMaterializedView(SystemSecurityContext context, CatalogSchemaTableName view, CatalogSchemaTableName newView) {}
+
+    @Override
+    public void checkCanSetMaterializedViewAuthorization(SystemSecurityContext context, CatalogSchemaTableName view, TrinoPrincipal principal) {}
 
     @Override
     public void checkCanSetMaterializedViewProperties(SystemSecurityContext context, CatalogSchemaTableName materializedView, Map<String, Optional<Object>> properties) {}
@@ -334,6 +340,27 @@ public class AllowAllSystemAccessControl
 
     @Override
     public void checkCanShowCreateFunction(SystemSecurityContext systemSecurityContext, CatalogSchemaRoutineName functionName) {}
+
+    @Override
+    public void checkCanShowBranches(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName tableName) {}
+
+    @Override
+    public void checkCanCreateBranch(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName tableName, String branchName) {}
+
+    @Override
+    public void checkCanDropBranch(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName tableName, String branchName) {}
+
+    @Override
+    public void checkCanFastForwardBranch(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName tableName, String sourceBranchName, String targetBranchName) {}
+
+    @Override
+    public void checkCanGrantTableBranchPrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaTableName table, String branchName, TrinoPrincipal grantee, boolean grantOption) {}
+
+    @Override
+    public void checkCanDenyTableBranchPrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaTableName table, String branchName, TrinoPrincipal grantee) {}
+
+    @Override
+    public void checkCanRevokeTableBranchPrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaTableName table, String branchName, TrinoPrincipal revokee, boolean grantOption) {}
 
     @Override
     public Iterable<EventListener> getEventListeners()

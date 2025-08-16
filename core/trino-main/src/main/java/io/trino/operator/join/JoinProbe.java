@@ -15,14 +15,10 @@ package io.trino.operator.join;
 
 import com.google.common.primitives.Ints;
 import io.trino.spi.Page;
-import io.trino.spi.block.Block;
-import jakarta.annotation.Nullable;
 
 import java.util.List;
-import java.util.OptionalInt;
 
 import static com.google.common.base.Verify.verify;
-import static io.trino.spi.type.BigintType.BIGINT;
 
 public class JoinProbe
 {
@@ -30,19 +26,17 @@ public class JoinProbe
     {
         private final int[] probeOutputChannels;
         private final int[] probeJoinChannels;
-        private final int probeHashChannel; // only valid when >= 0
 
-        public JoinProbeFactory(int[] probeOutputChannels, List<Integer> probeJoinChannels, OptionalInt probeHashChannel)
+        public JoinProbeFactory(int[] probeOutputChannels, List<Integer> probeJoinChannels)
         {
             this.probeOutputChannels = probeOutputChannels;
             this.probeJoinChannels = Ints.toArray(probeJoinChannels);
-            this.probeHashChannel = probeHashChannel.orElse(-1);
         }
 
         public JoinProbe createJoinProbe(Page page)
         {
             Page probePage = page.getColumns(probeJoinChannels);
-            return new JoinProbe(probeOutputChannels, page, probePage, probeHashChannel >= 0 ? page.getBlock(probeHashChannel) : null);
+            return new JoinProbe(probeOutputChannels, page, probePage);
         }
     }
 
@@ -50,18 +44,15 @@ public class JoinProbe
     private final int positionCount;
     private final Page page;
     private final Page probePage;
-    @Nullable
-    private final Block probeHashBlock;
     private final boolean probeMayHaveNull;
     private int position = -1;
 
-    private JoinProbe(int[] probeOutputChannels, Page page, Page probePage, @Nullable Block probeHashBlock)
+    private JoinProbe(int[] probeOutputChannels, Page page, Page probePage)
     {
         this.probeOutputChannels = probeOutputChannels;
         this.positionCount = page.getPositionCount();
         this.page = page;
         this.probePage = probePage;
-        this.probeHashBlock = probeHashBlock;
         this.probeMayHaveNull = probeMayHaveNull(probePage);
     }
 
@@ -85,10 +76,6 @@ public class JoinProbe
     {
         if (probeMayHaveNull && currentRowContainsNull()) {
             return -1;
-        }
-        if (probeHashBlock != null) {
-            long rawHash = BIGINT.getLong(probeHashBlock, position);
-            return lookupSource.getJoinPosition(position, probePage, page, rawHash);
         }
         return lookupSource.getJoinPosition(position, probePage, page);
     }

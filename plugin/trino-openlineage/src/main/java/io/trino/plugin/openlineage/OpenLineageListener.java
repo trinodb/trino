@@ -30,6 +30,7 @@ import io.openlineage.client.OpenLineage.RunEvent;
 import io.openlineage.client.OpenLineage.RunFacet;
 import io.openlineage.client.OpenLineage.RunFacetsBuilder;
 import io.openlineage.client.OpenLineageClient;
+import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.OutputColumnMetadata;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
@@ -45,6 +46,8 @@ import io.trino.spi.eventlistener.TableInfo;
 import io.trino.spi.resourcegroups.QueryType;
 
 import java.net.URI;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
@@ -52,6 +55,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.openlineage.client.utils.UUIDUtils.generateStaticUUID;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.ZoneOffset.UTC;
@@ -63,19 +67,22 @@ public class OpenLineageListener
     private static final Logger logger = Logger.get(OpenLineageListener.class);
     private static final ObjectMapper QUERY_STATISTICS_MAPPER = new ObjectMapperProvider().get();
 
-    private final OpenLineage openLineage = new OpenLineage(URI.create("https://github.com/trinodb/trino/plugin/trino-openlineage"));
+    private final OpenLineage openLineage;
     private final OpenLineageClient client;
+    private final URI trinoURI;
     private final String jobNamespace;
     private final String datasetNamespace;
     private final Set<QueryType> includeQueryTypes;
 
     @Inject
-    public OpenLineageListener(OpenLineageClient client, OpenLineageListenerConfig listenerConfig)
+    public OpenLineageListener(OpenLineage openLineage, OpenLineageClient client, OpenLineageListenerConfig listenerConfig)
     {
+        this.openLineage = requireNonNull(openLineage, "openLineage is null");
         this.client = requireNonNull(client, "client is null");
         requireNonNull(listenerConfig, "listenerConfig is null");
-        this.jobNamespace = listenerConfig.getNamespace().orElse(defaultNamespace(listenerConfig.getTrinoURI()));
-        this.datasetNamespace = defaultNamespace(listenerConfig.getTrinoURI());
+        this.trinoURI = defaultNamespace(listenerConfig.getTrinoURI());
+        this.jobNamespace = listenerConfig.getNamespace().orElse(trinoURI.toString());
+        this.datasetNamespace = trinoURI.toString();
         this.includeQueryTypes = ImmutableSet.copyOf(listenerConfig.getIncludeQueryTypes());
     }
 
@@ -83,9 +90,7 @@ public class OpenLineageListener
     public void queryCreated(QueryCreatedEvent queryCreatedEvent)
     {
         if (queryTypeSupported(queryCreatedEvent.getContext())) {
-            UUID runID = getQueryId(queryCreatedEvent.getMetadata());
-
-            RunEvent event = getStartEvent(runID, queryCreatedEvent);
+            RunEvent event = getStartEvent(queryCreatedEvent);
             client.emit(event);
             return;
         }
@@ -98,9 +103,7 @@ public class OpenLineageListener
     public void queryCompleted(QueryCompletedEvent queryCompletedEvent)
     {
         if (queryTypeSupported(queryCompletedEvent.getContext())) {
-            UUID runID = getQueryId(queryCompletedEvent.getMetadata());
-
-            RunEvent event = getCompletedEvent(runID, queryCompletedEvent);
+            RunEvent event = getCompletedEvent(queryCompletedEvent);
             client.emit(event);
             return;
         }
@@ -117,9 +120,13 @@ public class OpenLineageListener
                 .orElse(false);
     }
 
-    private UUID getQueryId(QueryMetadata queryMetadata)
+    /*
+     * Construct UUIDv7 from query creation time and queryId hash.
+     * UUIDv7 are both globally unique and ordered.
+     */
+    private UUID getRunId(Instant queryCreateTime, QueryMetadata queryMetadata)
     {
-        return UUID.nameUUIDFromBytes(queryMetadata.getQueryId().getBytes(UTF_8));
+        return generateStaticUUID(queryCreateTime, queryMetadata.getQueryId().getBytes(UTF_8));
     }
 
     private RunFacet getTrinoQueryContextFacet(QueryContext queryContext)
@@ -134,6 +141,27 @@ public class OpenLineageListener
         queryContext.getQueryType().ifPresent(queryType ->
                 properties.put("query_type", queryType.toString()));
 
+        properties.put("user", queryContext.getUser());
+        properties.put("original_user", queryContext.getOriginalUser());
+
+        queryContext.getPrincipal().ifPresent(principal ->
+                properties.put("principal", principal));
+
+        queryContext.getSource().ifPresent(source ->
+                properties.put("source", source));
+
+        queryContext.getClientInfo().ifPresent(clientInfo ->
+                properties.put("client_info", clientInfo));
+
+        queryContext.getRemoteClientAddress().ifPresent(remoteClientAddress ->
+                properties.put("remote_client_address", remoteClientAddress));
+
+        queryContext.getUserAgent().ifPresent(userAgent ->
+                properties.put("user_agent", userAgent));
+
+        queryContext.getTraceToken().ifPresent(traceToken ->
+                properties.put("trace_token", traceToken));
+
         queryContextFacet
                 .getAdditionalProperties()
                 .putAll(properties.buildOrThrow());
@@ -146,6 +174,8 @@ public class OpenLineageListener
         RunFacet trinoMetadataFacet = openLineage.newRunFacet();
 
         ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
+
+        properties.put("query_id", queryMetadata.getQueryId());
 
         queryMetadata.getPlan().ifPresent(
                 queryPlan -> properties.put("query_plan", queryPlan));
@@ -180,8 +210,9 @@ public class OpenLineageListener
         return trinoQueryStatisticsFacet;
     }
 
-    public RunEvent getStartEvent(UUID runID, QueryCreatedEvent queryCreatedEvent)
+    public RunEvent getStartEvent(QueryCreatedEvent queryCreatedEvent)
     {
+        UUID runID = getRunId(queryCreatedEvent.getCreateTime(), queryCreatedEvent.getMetadata());
         RunFacetsBuilder runFacetsBuilder = getBaseRunFacetsBuilder(queryCreatedEvent.getContext());
 
         runFacetsBuilder.put(OpenLineageTrinoFacet.TRINO_METADATA.asText(),
@@ -190,17 +221,16 @@ public class OpenLineageListener
                 getTrinoQueryContextFacet(queryCreatedEvent.getContext()));
 
         return openLineage.newRunEventBuilder()
-                    .eventType(RunEvent.EventType.START)
-                    .eventTime(queryCreatedEvent.getCreateTime().atZone(UTC))
-                    .run(openLineage.newRunBuilder().runId(runID).facets(runFacetsBuilder.build()).build())
-                    .job(getBaseJobBuilder(queryCreatedEvent.getMetadata()).build())
-                    .build();
+                .eventType(RunEvent.EventType.START)
+                .eventTime(queryCreatedEvent.getCreateTime().atZone(UTC))
+                .run(openLineage.newRunBuilder().runId(runID).facets(runFacetsBuilder.build()).build())
+                .job(getBaseJobBuilder(queryCreatedEvent.getMetadata()).build())
+                .build();
     }
 
-    public RunEvent getCompletedEvent(UUID runID, QueryCompletedEvent queryCompletedEvent)
+    public RunEvent getCompletedEvent(QueryCompletedEvent queryCompletedEvent)
     {
-        boolean failed = queryCompletedEvent.getMetadata().getQueryState().equals("FAILED");
-
+        UUID runID = getRunId(queryCompletedEvent.getCreateTime(), queryCompletedEvent.getMetadata());
         RunFacetsBuilder runFacetsBuilder = getBaseRunFacetsBuilder(queryCompletedEvent.getContext());
 
         runFacetsBuilder.put(OpenLineageTrinoFacet.TRINO_METADATA.asText(),
@@ -209,7 +239,12 @@ public class OpenLineageListener
                 getTrinoQueryContextFacet(queryCompletedEvent.getContext()));
         runFacetsBuilder.put(OpenLineageTrinoFacet.TRINO_QUERY_STATISTICS.asText(),
                 getTrinoQueryStatisticsFacet(queryCompletedEvent.getStatistics()));
+        runFacetsBuilder.nominalTime(
+                openLineage.newNominalTimeRunFacet(
+                        queryCompletedEvent.getCreateTime().atZone(ZoneOffset.UTC),
+                        queryCompletedEvent.getEndTime().atZone(ZoneOffset.UTC)));
 
+        boolean failed = queryCompletedEvent.getMetadata().getQueryState().equals("FAILED");
         if (failed) {
             queryCompletedEvent
                     .getFailureInfo()
@@ -250,7 +285,7 @@ public class OpenLineageListener
                 .name(queryMetadata.getQueryId())
                 .facets(openLineage.newJobFacetsBuilder()
                             .jobType(openLineage.newJobTypeJobFacet("BATCH", "TRINO", "QUERY"))
-                            .sql(openLineage.newSQLJobFacet(queryMetadata.getQuery()))
+                            .sql(openLineage.newSQLJobFacet(queryMetadata.getQuery(), "trino"))
                             .build());
     }
 
@@ -268,16 +303,19 @@ public class OpenLineageListener
                             .name(datasetName);
 
                     DatasetFacetsBuilder datasetFacetsBuilder = openLineage.newDatasetFacetsBuilder()
+                            .dataSource(openLineage.newDatasourceDatasetFacet(
+                                    toQualifiedSchemaName(table.getCatalog(), table.getSchema()),
+                                    trinoURI.resolve(toQualifiedSchemaName(table.getCatalog(), table.getSchema()))))
                             .schema(openLineage.newSchemaDatasetFacetBuilder()
-                            .fields(
-                                    table
-                                        .getColumns()
-                                        .stream()
-                                        .map(field -> openLineage.newSchemaDatasetFacetFieldsBuilder()
-                                                .name(field.getColumn())
-                                                .build()
-                                        ).toList())
-                            .build());
+                                    .fields(
+                                            table
+                                                    .getColumns()
+                                                    .stream()
+                                                    .map(field -> openLineage.newSchemaDatasetFacetFieldsBuilder()
+                                                            .name(field.getColumn())
+                                                            .build()
+                                                    ).toList())
+                                    .build());
 
                     return inputDatasetBuilder
                             .facets(datasetFacetsBuilder.build())
@@ -333,8 +371,11 @@ public class OpenLineageListener
                                                                     .type(column.getColumnType())
                                                                     .build())
                                                             .toList()
-                                            ).build()
-                                    ).build()
+                                            ).build())
+                                    .dataSource(openLineage.newDatasourceDatasetFacet(
+                                            toQualifiedSchemaName(outputMetadata.getCatalogName(), outputMetadata.getSchema()),
+                                            trinoURI.resolve(toQualifiedSchemaName(outputMetadata.getCatalogName(), outputMetadata.getSchema()))))
+                                    .build()
                             ).build());
         }
         return ImmutableList.of();
@@ -350,11 +391,16 @@ public class OpenLineageListener
         return format("%s.%s.%s", catalogName, schemaName, tableName);
     }
 
-    private static String defaultNamespace(URI uri)
+    private static URI defaultNamespace(URI uri)
     {
         if (!uri.getScheme().isEmpty()) {
-            return uri.toString().replace(uri.getScheme(), "trino");
+            return URI.create(uri.toString().replaceFirst(uri.getScheme(), "trino"));
         }
-        return "trino://" + uri;
+        return URI.create("trino://" + uri);
+    }
+
+    private static String toQualifiedSchemaName(String catalogName, String schemaName)
+    {
+        return new CatalogSchemaName(catalogName, schemaName).toString();
     }
 }

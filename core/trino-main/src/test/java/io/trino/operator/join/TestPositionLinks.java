@@ -25,7 +25,6 @@ import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
-import java.util.OptionalInt;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.operator.SyntheticAddress.encodeSyntheticAddress;
@@ -316,7 +315,6 @@ public class TestPositionLinks
                 ImmutableList.of(),
                 ImmutableList.of(new ObjectArrayList<>(ImmutableList.of(TEST_PAGE.getBlock(0)))),
                 ImmutableList.of(),
-                OptionalInt.empty(),
                 Optional.of(0),
                 new BlockTypeOperators(new TypeOperators()));
     }

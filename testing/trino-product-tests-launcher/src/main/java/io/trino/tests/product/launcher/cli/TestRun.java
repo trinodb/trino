@@ -328,6 +328,11 @@ public final class TestRun
                     .setLogsBaseDir(logsDirBase)
                     .setIpv6(ipv6);
 
+            if (isEnvSet("CONTINUOUS_INTEGRATION")) {
+                builder.configureContainers(container ->
+                        container.withEnv("CONTINUOUS_INTEGRATION", "true"));
+            }
+
             builder.configureContainer(TESTS, this::mountReportsDir);
             builder.configureContainer(TESTS, container -> {
                 List<String> temptoJavaOptions = Splitter.on(" ").omitEmptyStrings().splitToList(
@@ -337,10 +342,6 @@ public final class TestRun
                     temptoJavaOptions = new ArrayList<>(temptoJavaOptions);
                     temptoJavaOptions.add(format("-agentlib:jdwp=transport=dt_socket,server=y,suspend=%s,address=0.0.0.0:5007", debugSuspend ? "y" : "n"));
                     unsafelyExposePort(container, 5007); // debug port
-                }
-
-                if (isEnvSet("CONTINUOUS_INTEGRATION")) {
-                    container.withEnv("CONTINUOUS_INTEGRATION", "true");
                 }
 
                 // Install Java distribution if necessary

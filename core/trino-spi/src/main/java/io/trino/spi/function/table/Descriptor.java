@@ -15,7 +15,6 @@ package io.trino.spi.function.table;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.trino.spi.Experimental;
 import io.trino.spi.type.Type;
 
 import java.util.ArrayList;
@@ -28,7 +27,6 @@ import java.util.stream.Collectors;
 import static io.trino.spi.function.table.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-@Experimental(eta = "2022-10-31")
 public class Descriptor
 {
     private final List<Field> fields;

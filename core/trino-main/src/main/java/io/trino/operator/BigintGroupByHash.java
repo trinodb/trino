@@ -21,7 +21,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
-import io.trino.spi.type.AbstractLongType;
 import io.trino.spi.type.BigintType;
 
 import java.util.Arrays;
@@ -33,7 +32,6 @@ import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.type.TypeUtils.NULL_HASH_CODE;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static it.unimi.dsi.fastutil.HashCommon.murmurHash3;
 import static java.lang.Math.min;
@@ -47,8 +45,6 @@ public class BigintGroupByHash
     private static final int BATCH_SIZE = 1024;
 
     private static final float FILL_RATIO = 0.75f;
-
-    private final boolean outputRawHash;
 
     private int hashCapacity;
     private int maxFill;
@@ -72,11 +68,9 @@ public class BigintGroupByHash
     private long preallocatedMemoryInBytes;
     private long currentPageSizeInBytes;
 
-    public BigintGroupByHash(boolean outputRawHash, int expectedSize, UpdateMemory updateMemory)
+    public BigintGroupByHash(int expectedSize, UpdateMemory updateMemory)
     {
         checkArgument(expectedSize > 0, "expectedSize must be greater than zero");
-
-        this.outputRawHash = outputRawHash;
 
         hashCapacity = arraySize(expectedSize, FILL_RATIO);
 
@@ -95,7 +89,6 @@ public class BigintGroupByHash
 
     private BigintGroupByHash(BigintGroupByHash other)
     {
-        outputRawHash = other.outputRawHash;
         hashCapacity = other.hashCapacity;
         maxFill = other.maxFill;
         mask = other.mask;
@@ -127,6 +120,13 @@ public class BigintGroupByHash
     }
 
     @Override
+    public void startReleasingOutput()
+    {
+        dictionaryLookBack = null;
+        currentPageSizeInBytes = 0;
+    }
+
+    @Override
     public void appendValuesTo(int groupId, PageBuilder pageBuilder)
     {
         checkArgument(groupId >= 0, "groupId is negative");
@@ -136,16 +136,6 @@ public class BigintGroupByHash
         }
         else {
             BIGINT.writeLong(blockBuilder, valuesByGroupId[groupId]);
-        }
-
-        if (outputRawHash) {
-            BlockBuilder hashBlockBuilder = pageBuilder.getBlockBuilder(1);
-            if (groupId == nullGroupId) {
-                BIGINT.writeLong(hashBlockBuilder, NULL_HASH_CODE);
-            }
-            else {
-                BIGINT.writeLong(hashBlockBuilder, AbstractLongType.hash(valuesByGroupId[groupId]));
-            }
         }
     }
 

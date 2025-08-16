@@ -191,11 +191,7 @@ public class TpchRecordSet<E extends TpchEntity>
         public long getLong(int field)
         {
             checkState(row != null, "No current row");
-            return getLong(getTpchColumn(field));
-        }
-
-        private long getLong(TpchColumn<E> tpchColumn)
-        {
+            TpchColumn<E> tpchColumn = getTpchColumn(field);
             if (tpchColumn.getType().getBase() == TpchColumnType.Base.DATE) {
                 return tpchColumn.getDate(row);
             }
@@ -209,24 +205,14 @@ public class TpchRecordSet<E extends TpchEntity>
         public double getDouble(int field)
         {
             checkState(row != null, "No current row");
-            return getDouble(getTpchColumn(field));
-        }
-
-        private double getDouble(TpchColumn<E> tpchColumn)
-        {
-            return tpchColumn.getDouble(row);
+            return getTpchColumn(field).getDouble(row);
         }
 
         @Override
         public Slice getSlice(int field)
         {
             checkState(row != null, "No current row");
-            return getSlice(getTpchColumn(field));
-        }
-
-        private Slice getSlice(TpchColumn<E> tpchColumn)
-        {
-            return Slices.utf8Slice(tpchColumn.getString(row));
+            return Slices.utf8Slice(getTpchColumn(field).getString(row));
         }
 
         @Override
@@ -275,13 +261,13 @@ public class TpchRecordSet<E extends TpchEntity>
         private Object getTrinoObject(TpchColumn<E> column, Type type)
         {
             if (type.getJavaType() == long.class) {
-                return getLong(column);
+                return column.getInteger(row);
             }
             if (type.getJavaType() == double.class) {
-                return getDouble(column);
+                return column.getDouble(row);
             }
             if (type.getJavaType() == Slice.class) {
-                return getSlice(column);
+                return Slices.utf8Slice(column.getString(row));
             }
             throw new TrinoException(NOT_SUPPORTED, format("Unsupported column type %s", type.getDisplayName()));
         }

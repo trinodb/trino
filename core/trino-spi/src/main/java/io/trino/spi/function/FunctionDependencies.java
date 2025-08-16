@@ -13,13 +13,11 @@
  */
 package io.trino.spi.function;
 
-import io.trino.spi.Experimental;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 
 import java.util.List;
 
-@Experimental(eta = "2022-10-31")
 public interface FunctionDependencies
 {
     Type getType(TypeSignature typeSignature);

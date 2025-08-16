@@ -15,7 +15,6 @@ package io.trino.spi.block;
 
 import io.trino.spi.type.Type;
 
-import static io.trino.spi.block.TestingSession.SESSION;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class BlockTestUtils
@@ -25,7 +24,7 @@ public class BlockTestUtils
     public static void assertBlockEquals(Type type, Block actual, Block expected)
     {
         for (int position = 0; position < actual.getPositionCount(); position++) {
-            assertThat(type.getObjectValue(SESSION, actual, position)).isEqualTo(type.getObjectValue(SESSION, expected, position));
+            assertThat(type.getObjectValue(actual, position)).isEqualTo(type.getObjectValue(expected, position));
         }
     }
 }

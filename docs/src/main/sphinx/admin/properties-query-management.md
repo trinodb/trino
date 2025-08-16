@@ -159,6 +159,15 @@ The maximum number of bytes that can be scanned by a query during its execution.
 When this limit is reached, query processing is terminated to prevent excessive
 resource usage.
 
+## `query.max-write-physical-size`
+
+- **Type:** {ref}`prop-type-data-size`
+- **Session property:** `query_max_write_physical_size`
+
+The maximum physical size of data that can be written by a query during its execution.
+When this limit is reached, query processing is terminated to prevent excessive
+resource usage.
+
 ## `query.max-stage-count`
 
 - **Type:** {ref}`prop-type-integer`

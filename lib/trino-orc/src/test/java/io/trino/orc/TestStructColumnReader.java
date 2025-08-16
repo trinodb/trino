@@ -30,7 +30,6 @@ import io.trino.spi.type.RowFieldName;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignatureParameter;
-import io.trino.testing.TestingConnectorSession;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -96,7 +95,7 @@ public class TestStructColumnReader
 
         write(tempFile, writerType, writerData);
         RowBlock readBlock = read(tempFile, readerType);
-        List<?> actual = (List<?>) readerType.getObjectValue(TestingConnectorSession.SESSION, readBlock, 0);
+        List<?> actual = (List<?>) readerType.getObjectValue(readBlock, 0);
 
         assertThat(actual).hasSize(readerFields.size());
         assertThat(actual.get(0)).isEqualTo("field_a_value");
@@ -119,7 +118,7 @@ public class TestStructColumnReader
 
         write(tempFile, writerType, writerData);
         RowBlock readBlock = read(tempFile, readerType);
-        List<?> actual = (List<?>) readerType.getObjectValue(TestingConnectorSession.SESSION, readBlock, 0);
+        List<?> actual = (List<?>) readerType.getObjectValue(readBlock, 0);
 
         assertThat(actual).hasSize(readerFields.size());
         assertThat(actual.get(0)).isEqualTo("fieldAValue");
@@ -142,7 +141,7 @@ public class TestStructColumnReader
 
         write(tempFile, writerType, writerData);
         RowBlock readBlock = read(tempFile, readerType);
-        List<?> actual = (List<?>) readerType.getObjectValue(TestingConnectorSession.SESSION, readBlock, 0);
+        List<?> actual = (List<?>) readerType.getObjectValue(readBlock, 0);
 
         assertThat(actual).hasSize(readerFields.size());
         assertThat(actual.get(0)).isEqualTo("fieldAValue");
@@ -184,7 +183,7 @@ public class TestStructColumnReader
 
         write(tempFile, writerType, writerData);
         RowBlock readBlock = read(tempFile, readerType);
-        List<?> actual = (List<?>) readerType.getObjectValue(TestingConnectorSession.SESSION, readBlock, 0);
+        List<?> actual = (List<?>) readerType.getObjectValue(readBlock, 0);
 
         assertThat(actual).hasSize(readerFields.size());
         assertThat(actual.get(0)).isEqualTo("field_a_value");
@@ -208,7 +207,7 @@ public class TestStructColumnReader
 
         write(tempFile, writerType, writerData);
         RowBlock readBlock = read(tempFile, readerType);
-        List<?> actual = (List<?>) readerType.getObjectValue(TestingConnectorSession.SESSION, readBlock, 0);
+        List<?> actual = (List<?>) readerType.getObjectValue(readBlock, 0);
 
         assertThat(actual).hasSize(readerFields.size());
         assertThat(actual.get(0)).isEqualTo("field_a_value");

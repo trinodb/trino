@@ -65,7 +65,6 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
-import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.util.StructuralTestUtil.arrayBlockOf;
 import static io.trino.util.StructuralTestUtil.sqlMapOf;
 import static java.util.Collections.unmodifiableSortedMap;
@@ -344,7 +343,7 @@ public abstract class AbstractTestType
     {
         assertThat(block.isNull(position)).isEqualTo(expectedStackValue == null);
 
-        Object objectValue = type.getObjectValue(SESSION, block, position);
+        Object objectValue = type.getObjectValue(block, position);
         assertThat(objectValue).isEqualTo(expectedObjectValue);
         if (objectValue != null) {
             assertThat(objectValue).isInstanceOf(objectValueType);
@@ -483,11 +482,11 @@ public abstract class AbstractTestType
 
     private void verifyInvalidPositionHandling(Block block)
     {
-        assertThatThrownBy(() -> type.getObjectValue(SESSION, block, -1))
+        assertThatThrownBy(() -> type.getObjectValue(block, -1))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Invalid position -1 in block with %d positions", block.getPositionCount());
 
-        assertThatThrownBy(() -> type.getObjectValue(SESSION, block, block.getPositionCount()))
+        assertThatThrownBy(() -> type.getObjectValue(block, block.getPositionCount()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Invalid position %d in block with %d positions", block.getPositionCount(), block.getPositionCount());
 
@@ -728,7 +727,7 @@ public abstract class AbstractTestType
     {
         SortedMap<Integer, Object> values = new TreeMap<>();
         for (int position = 0; position < block.getPositionCount(); position++) {
-            values.put(position, type.getObjectValue(SESSION, block, position));
+            values.put(position, type.getObjectValue(block, position));
         }
         return unmodifiableSortedMap(values);
     }

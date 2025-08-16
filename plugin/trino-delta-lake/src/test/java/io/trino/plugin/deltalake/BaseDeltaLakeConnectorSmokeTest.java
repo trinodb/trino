@@ -23,6 +23,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.execution.QueryManager;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.HiveMetastore;
 import io.trino.operator.OperatorStats;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
@@ -139,6 +140,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     protected HiveHadoop hiveHadoop;
     private HiveMetastore metastore;
     private TransactionLogAccess transactionLogAccess;
+    private TrinoFileSystemFactory fileSystemFactory;
 
     protected void environmentSetup() {}
 
@@ -174,6 +176,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         QueryRunner queryRunner = createDeltaLakeQueryRunner();
         try {
             this.transactionLogAccess = getConnectorService(queryRunner, TransactionLogAccess.class);
+            this.fileSystemFactory = getConnectorService(queryRunner, TrinoFileSystemFactory.class);
 
             REQUIRED_TPCH_TABLES.forEach(table -> queryRunner.execute(format(
                     "CREATE TABLE %s WITH (location = '%s') AS SELECT * FROM tpch.tiny.%1$s",
@@ -1077,7 +1080,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
 
         // The first two entries created by Databricks have column stats.
         // The last one doesn't have column stats because the connector doesn't support collecting it on row columns.
-        List<AddFileEntry> addFileEntries = getTableActiveFiles(transactionLogAccess, tableLocation).stream()
+        List<AddFileEntry> addFileEntries = getTableActiveFiles(transactionLogAccess, fileSystemFactory, tableLocation).stream()
                 .sorted(comparing(AddFileEntry::getModificationTime))
                 .toList();
         assertThat(addFileEntries).hasSize(3);

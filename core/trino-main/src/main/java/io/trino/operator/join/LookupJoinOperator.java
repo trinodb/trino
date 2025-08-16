@@ -17,12 +17,14 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.operator.HashGenerator;
 import io.trino.operator.OperatorInfo;
 import io.trino.operator.ProcessorContext;
+import io.trino.operator.SpillMetrics;
 import io.trino.operator.WorkProcessor;
 import io.trino.operator.WorkProcessorOperator;
 import io.trino.operator.join.JoinProbe.JoinProbeFactory;
 import io.trino.operator.join.LookupJoinOperatorFactory.JoinType;
 import io.trino.operator.join.PageJoiner.PageJoinerFactory;
 import io.trino.spi.Page;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.type.Type;
 import io.trino.spiller.PartitioningSpillerFactory;
 
@@ -41,6 +43,7 @@ public class LookupJoinOperator
     private final WorkProcessor<Page> pages;
     private final SpillingJoinProcessor joinProcessor;
     private final JoinStatisticsCounter statisticsCounter;
+    private final SpillMetrics spillMetrics = new SpillMetrics("Probe");
 
     LookupJoinOperator(
             List<Type> probeTypes,
@@ -66,6 +69,7 @@ public class LookupJoinOperator
                         buildOutputTypes,
                         joinType,
                         outputSingleMatch,
+                        spillMetrics,
                         hashGenerator,
                         joinProbeFactory,
                         lookupSourceFactory,
@@ -80,6 +84,7 @@ public class LookupJoinOperator
                 lookupSourceFactory,
                 lookupSourceProviderFuture,
                 partitioningSpillerFactory,
+                spillMetrics,
                 pageJoinerFactory,
                 sourcePages);
         WorkProcessor<Page> pages = flatten(WorkProcessor.create(joinProcessor));
@@ -100,6 +105,12 @@ public class LookupJoinOperator
     public Optional<OperatorInfo> getOperatorInfo()
     {
         return Optional.of(statisticsCounter.get());
+    }
+
+    @Override
+    public Metrics getMetrics()
+    {
+        return spillMetrics.getMetrics();
     }
 
     @Override

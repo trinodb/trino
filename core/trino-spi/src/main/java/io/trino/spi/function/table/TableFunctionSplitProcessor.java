@@ -13,7 +13,7 @@
  */
 package io.trino.spi.function.table;
 
-import io.trino.spi.Experimental;
+import java.io.IOException;
 
 /**
  * Processes table functions splits, as returned from {@link io.trino.spi.connector.ConnectorSplitManager}
@@ -22,7 +22,6 @@ import io.trino.spi.Experimental;
  * Thread-safety: implementations do not have to be thread-safe. The {@link #process} method may be called from
  * multiple threads, but will never be called from two threads at the same time.
  */
-@Experimental(eta = "2023-07-31")
 public interface TableFunctionSplitProcessor
 {
     /**
@@ -32,4 +31,9 @@ public interface TableFunctionSplitProcessor
      * After the returned state is {@code FINISHED}, the method will not be called again.
      */
     TableFunctionProcessorState process();
+
+    default void close()
+            throws IOException
+    {
+    }
 }

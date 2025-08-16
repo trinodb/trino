@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.google.common.collect.Iterables;
 import io.trino.Session;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.filesystem.Location;
@@ -37,7 +36,6 @@ import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getParquetFileMetadata;
 import static io.trino.plugin.iceberg.IcebergTestUtils.withSmallRowGroups;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
-import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -189,19 +187,17 @@ public class TestIcebergParquetConnectorTest
 
     private String getOnlyTableFilePath(String tableName)
     {
-        return (String) Iterables.getOnlyElement(getQueryRunner().execute(format("SELECT file_path FROM \"%s$files\"", tableName)).getOnlyColumnAsSet());
+        return (String) computeScalar("SELECT file_path FROM \"" + tableName + "$files\"");
     }
 
     private long getMostRecentSnapshotId(String tableName)
     {
-        return (long) Iterables.getOnlyElement(getQueryRunner().execute(format("SELECT snapshot_id FROM \"%s$snapshots\" ORDER BY committed_at DESC LIMIT 1", tableName))
-                .getOnlyColumnAsSet());
+        return (long) computeScalar("SELECT snapshot_id FROM \"" + tableName + "$snapshots\" ORDER BY committed_at DESC LIMIT 1");
     }
 
     private ZonedDateTime getSnapshotTime(String tableName, long snapshotId)
     {
-        return (ZonedDateTime) Iterables.getOnlyElement(getQueryRunner().execute(format("SELECT committed_at FROM \"%s$snapshots\" WHERE snapshot_id = %s", tableName, snapshotId))
-                .getOnlyColumnAsSet());
+        return (ZonedDateTime) computeScalar("SELECT committed_at FROM \"" + tableName + "$snapshots\" WHERE snapshot_id = " + snapshotId);
     }
 
     @Override

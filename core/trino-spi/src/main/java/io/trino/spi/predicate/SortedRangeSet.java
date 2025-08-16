@@ -21,7 +21,6 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.ValueBlock;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
@@ -1342,22 +1341,16 @@ public final class SortedRangeSet
     @Override
     public String toString()
     {
-        return toString(ToStringSession.INSTANCE);
+        return toString(10);
     }
 
     @Override
-    public String toString(ConnectorSession session)
-    {
-        return toString(session, 10);
-    }
-
-    @Override
-    public String toString(ConnectorSession session, int limit)
+    public String toString(int limit)
     {
         return new StringJoiner(", ", SortedRangeSet.class.getSimpleName() + "[", "]")
                 .add("type=" + type)
                 .add("ranges=" + getRangeCount())
-                .add(formatRanges(session, limit))
+                .add(formatRanges(limit))
                 .toString();
     }
 
@@ -1413,27 +1406,27 @@ public final class SortedRangeSet
         return Optional.of(Collections.unmodifiableList(result));
     }
 
-    private String formatRanges(ConnectorSession session, int limit)
+    private String formatRanges(int limit)
     {
         if (isNone()) {
             return "{}";
         }
         if (getRangeCount() == 1) {
-            return "{" + getRangeView(0).formatRange(session) + "}";
+            return "{" + getRangeView(0).formatRange() + "}";
         }
         if (limit < 2) {
-            return format("{%s, ...}", getRangeView(0).formatRange(session));
+            return format("{%s, ...}", getRangeView(0).formatRange());
         }
         // Print first (limit - 1) elements, followed by last element
         // to provide a readable summary of the contents
         Stream<String> prefix = Stream.concat(
                 IntStream.range(0, min(getRangeCount(), limit) - 1)
                         .mapToObj(this::getRangeView)
-                        .map(rangeView -> rangeView.formatRange(session)),
+                        .map(rangeView -> rangeView.formatRange()),
                 limit < getRangeCount() ? Stream.of("...") : Stream.of());
 
         Stream<String> suffix = Stream.of(
-                getRangeView(getRangeCount() - 1).formatRange(session));
+                getRangeView(getRangeCount() - 1).formatRange());
 
         return Stream.concat(prefix, suffix)
                 .collect(joining(", ", "{", "}"));
@@ -1755,23 +1748,23 @@ public final class SortedRangeSet
         public String toString()
         {
             return new StringJoiner(", ", RangeView.class.getSimpleName() + "[", "]")
-                    .add(formatRange(ToStringSession.INSTANCE))
+                    .add(formatRange())
                     .add("type=" + type.getDisplayName())
                     .toString();
         }
 
-        public String formatRange(ConnectorSession session)
+        public String formatRange()
         {
             if (isSingleValue()) {
-                return format("[%s]", type.getObjectValue(session, lowValueBlock, lowValuePosition));
+                return format("[%s]", type.getObjectValue(lowValueBlock, lowValuePosition));
             }
 
             Object lowValue = isLowUnbounded()
                     ? "<min>"
-                    : type.getObjectValue(session, lowValueBlock, lowValuePosition);
+                    : type.getObjectValue(lowValueBlock, lowValuePosition);
             Object highValue = isHighUnbounded()
                     ? "<max>"
-                    : type.getObjectValue(session, highValueBlock, highValuePosition);
+                    : type.getObjectValue(highValueBlock, highValuePosition);
 
             return format(
                     "%s%s,%s%s",

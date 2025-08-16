@@ -37,8 +37,8 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.tracing.TrinoAttributes;
 import io.trino.util.Failures;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
-import org.joda.time.DateTime;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -90,7 +90,7 @@ public class StageStateMachine
     private final Span stageSpan;
     private final AtomicReference<ExecutionFailureInfo> failureCause = new AtomicReference<>();
 
-    private final AtomicReference<DateTime> schedulingComplete = new AtomicReference<>();
+    private final AtomicReference<Instant> schedulingComplete = new AtomicReference<>();
     private final Map<PlanNodeId, Distribution> getSplitDistribution = new ConcurrentHashMap<>();
     private final Map<PlanNodeId, Metrics> splitSourceMetrics = new ConcurrentHashMap<>();
 
@@ -171,7 +171,7 @@ public class StageStateMachine
 
     public boolean transitionToRunning()
     {
-        schedulingComplete.compareAndSet(null, DateTime.now());
+        schedulingComplete.compareAndSet(null, Instant.now());
         return stageState.setIf(RUNNING, currentState -> currentState != RUNNING && !currentState.isDone());
     }
 
@@ -351,10 +351,7 @@ public class StageStateMachine
                 rawInputPositions += taskStats.getRawInputPositions();
             }
 
-            spilledDataSize += taskStats.getPipelines().stream()
-                    .flatMap(pipeline -> pipeline.getOperatorSummaries().stream())
-                    .mapToLong(summary -> summary.getSpilledDataSize().toBytes())
-                    .sum();
+            spilledDataSize += taskStats.getSpilledDataSize().toBytes();
         }
 
         OptionalDouble progressPercentage = OptionalDouble.empty();
@@ -440,6 +437,8 @@ public class StageStateMachine
         long peakUserMemoryReservation = peakUserMemory.get();
         long peakRevocableMemoryReservation = peakRevocableMemory.get();
 
+        long spilledDataSize = 0;
+
         long totalScheduledTime = 0;
         long failedScheduledTime = 0;
         long totalCpuTime = 0;
@@ -521,6 +520,8 @@ public class StageStateMachine
             if (taskFailedOrFailing) {
                 failedCumulativeUserMemory += taskStats.getCumulativeUserMemory();
             }
+
+            spilledDataSize += taskStats.getSpilledDataSize().toBytes();
 
             totalScheduledTime += taskStats.getTotalScheduledTime().roundTo(NANOSECONDS);
             totalCpuTime += taskStats.getTotalCpuTime().roundTo(NANOSECONDS);
@@ -628,6 +629,7 @@ public class StageStateMachine
                 succinctBytes(totalMemoryReservation),
                 succinctBytes(peakUserMemoryReservation),
                 succinctBytes(peakRevocableMemoryReservation),
+                succinctBytes(spilledDataSize),
                 succinctDuration(totalScheduledTime, NANOSECONDS),
                 succinctDuration(failedScheduledTime, NANOSECONDS),
                 succinctDuration(totalCpuTime, NANOSECONDS),

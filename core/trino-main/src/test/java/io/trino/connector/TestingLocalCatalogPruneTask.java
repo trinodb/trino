@@ -13,23 +13,21 @@
  */
 package io.trino.connector;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.discovery.client.ServiceDescriptor;
-import io.airlift.discovery.client.ServiceSelector;
 import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.node.NodeInfo;
+import io.trino.client.NodeVersion;
 import io.trino.execution.SqlTaskManager;
 import io.trino.metadata.CatalogManager;
-import io.trino.server.InternalCommunicationConfig;
+import io.trino.node.InternalNode;
+import io.trino.node.TestingInternalNodeManager;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.transaction.TransactionManager;
 
+import java.net.URI;
 import java.util.List;
 import java.util.Set;
 
-import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Objects.requireNonNull;
 
 public class TestingLocalCatalogPruneTask
@@ -49,42 +47,17 @@ public class TestingLocalCatalogPruneTask
                 transactionManager,
                 catalogManager,
                 connectorServicesProvider,
-                nodeInfo,
-                new ServiceSelector() {
-                    @Override
-                    public String getType()
-                    {
-                        throw new UnsupportedOperationException("No services to select");
-                    }
-
-                    @Override
-                    public String getPool()
-                    {
-                        throw new UnsupportedOperationException("No pool");
-                    }
-
-                    @Override
-                    public List<ServiceDescriptor> selectAllServices()
-                    {
-                        return ImmutableList.of();
-                    }
-
-                    @Override
-                    public ListenableFuture<List<ServiceDescriptor>> refresh()
-                    {
-                        return immediateFuture(ImmutableList.of());
-                    }
-                },
+                new InternalNode(nodeInfo.getNodeId(), URI.create("https://example.com"), new NodeVersion("test"), false),
+                TestingInternalNodeManager.createDefault(),
                 new TestingHttpClient(request -> {
-                    throw new UnsupportedOperationException("Testing Locl Catalog Prune Task does not make http calls");
+                    throw new UnsupportedOperationException("Testing Local Catalog Prune Task does not make http calls");
                 }),
-                catalogPruneTaskConfig,
-                new InternalCommunicationConfig());
+                catalogPruneTaskConfig);
         this.sqlTaskManagerToPrune = requireNonNull(sqlTaskManagerToPrune, "sqlTaskManagerToPrune is null");
     }
 
     @Override
-    void pruneWorkerCatalogs(Set<ServiceDescriptor> online, List<CatalogHandle> activeCatalogs)
+    void pruneWorkerCatalogs(Set<URI> online, List<CatalogHandle> activeCatalogs)
     {
         sqlTaskManagerToPrune.pruneCatalogs(ImmutableSet.copyOf(activeCatalogs));
     }

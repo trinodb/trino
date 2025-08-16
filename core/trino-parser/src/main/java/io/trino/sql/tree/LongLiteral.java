@@ -13,10 +13,9 @@
  */
 package io.trino.sql.tree;
 
-import io.trino.sql.parser.ParsingException;
-
 import java.util.Optional;
 
+import static io.trino.sql.tree.NumericParser.parseNumeric;
 import static java.util.Objects.requireNonNull;
 
 public class LongLiteral
@@ -39,14 +38,8 @@ public class LongLiteral
     private LongLiteral(Optional<NodeLocation> location, String value)
     {
         super(location);
-        requireNonNull(value, "value is null");
-        try {
-            this.value = value;
-            this.parsedValue = parse(value);
-        }
-        catch (NumberFormatException e) {
-            throw new ParsingException("Invalid numeric literal: " + value, location.orElse(new NodeLocation(1, 1)));
-        }
+        this.value = requireNonNull(value, "value is null");
+        this.parsedValue = parseNumeric(value, location.orElse(new NodeLocation(1, 1)));
     }
 
     public String getValue()
@@ -98,32 +91,5 @@ public class LongLiteral
         }
 
         return parsedValue == ((LongLiteral) other).parsedValue;
-    }
-
-    private static long parse(String value)
-    {
-        value = value.replace("_", "");
-
-        if (value.startsWith("0x") || value.startsWith("0X")) {
-            return Long.parseLong(value.substring(2), 16);
-        }
-        else if (value.startsWith("-0x") || value.startsWith("-0X")) {
-            return Long.parseLong("-" + value.substring(3), 16);
-        }
-        else if (value.startsWith("0b") || value.startsWith("0B")) {
-            return Long.parseLong(value.substring(2), 2);
-        }
-        else if (value.startsWith("-0b") || value.startsWith("-0B")) {
-            return Long.parseLong("-" + value.substring(3), 2);
-        }
-        else if (value.startsWith("0o") || value.startsWith("0O")) {
-            return Long.parseLong(value.substring(2), 8);
-        }
-        else if (value.startsWith("-0o") || value.startsWith("-0O")) {
-            return Long.parseLong("-" + value.substring(3), 8);
-        }
-        else {
-            return Long.parseLong(value);
-        }
     }
 }

@@ -26,6 +26,7 @@ import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
+import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
@@ -45,6 +46,7 @@ public class TrinoHiveCatalogFactory
     private final CatalogName catalogName;
     private final HiveMetastoreFactory metastoreFactory;
     private final TrinoFileSystemFactory fileSystemFactory;
+    private final ForwardingFileIoFactory fileIoFactory;
     private final TypeManager typeManager;
     private final IcebergTableOperationsProvider tableOperationsProvider;
     private final String trinoVersion;
@@ -60,6 +62,7 @@ public class TrinoHiveCatalogFactory
             CatalogName catalogName,
             HiveMetastoreFactory metastoreFactory,
             TrinoFileSystemFactory fileSystemFactory,
+            ForwardingFileIoFactory fileIoFactory,
             TypeManager typeManager,
             IcebergTableOperationsProvider tableOperationsProvider,
             NodeVersion nodeVersion,
@@ -69,6 +72,7 @@ public class TrinoHiveCatalogFactory
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metastoreFactory = requireNonNull(metastoreFactory, "metastoreFactory is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
+        this.fileIoFactory = requireNonNull(fileIoFactory, "fileIoFactory is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.tableOperationsProvider = requireNonNull(tableOperationsProvider, "tableOperationProvider is null");
         this.trinoVersion = nodeVersion.toString();
@@ -93,6 +97,7 @@ public class TrinoHiveCatalogFactory
                 metastore,
                 new TrinoViewHiveMetastore(metastore, isUsingSystemSecurity, trinoVersion, TRINO_CREATED_BY_VALUE),
                 fileSystemFactory,
+                fileIoFactory,
                 typeManager,
                 tableOperationsProvider,
                 isUniqueTableLocation,

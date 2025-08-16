@@ -35,6 +35,7 @@ import io.trino.spi.function.table.TableFunctionSplitProcessor;
 import io.trino.spi.predicate.TupleDomain;
 import org.joda.time.DateTimeZone;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -217,5 +218,12 @@ public class TableChangesFunctionProcessor
                 split.path(),
                 split.fileSize(),
                 0);
+    }
+
+    @Override
+    public void close()
+            throws IOException
+    {
+        deltaLakePageSource.close();
     }
 }

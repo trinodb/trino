@@ -57,8 +57,8 @@ import io.trino.execution.buffer.OutputBuffers;
 import io.trino.execution.buffer.PipelinedBufferInfo;
 import io.trino.execution.buffer.PipelinedOutputBuffers;
 import io.trino.execution.buffer.SpoolingOutputStats;
-import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
+import io.trino.node.InternalNode;
 import io.trino.operator.RetryPolicy;
 import io.trino.operator.TaskStats;
 import io.trino.server.DynamicFilterService;
@@ -73,9 +73,9 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.tracing.TrinoAttributes;
 import jakarta.ws.rs.ServiceUnavailableException;
-import org.joda.time.DateTime;
 
 import java.net.URI;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -320,7 +320,7 @@ public final class HttpRemoteTask
                                 .collect(toImmutableList()));
             }
 
-            TaskInfo initialTask = createInitialTask(taskId, location, nodeId, this.speculative.get(), pipelinedBufferStates, new TaskStats(DateTime.now(), null));
+            TaskInfo initialTask = createInitialTask(taskId, location, nodeId, this.speculative.get(), pipelinedBufferStates, new TaskStats(Instant.now(), null));
 
             this.dynamicFiltersFetcher = new DynamicFiltersFetcher(
                     this::fatalUnacknowledgedFailure,

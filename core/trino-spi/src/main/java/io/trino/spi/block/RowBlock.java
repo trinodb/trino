@@ -26,7 +26,7 @@ import static io.trino.spi.block.BlockUtil.arraySame;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkReadablePosition;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
-import static io.trino.spi.block.BlockUtil.compactArray;
+import static io.trino.spi.block.BlockUtil.compactIsNull;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -238,9 +238,15 @@ public final class RowBlock
 
         boolean[] newRowIsNull = null;
         if (rowIsNull != null) {
+            boolean hasNull = false;
             newRowIsNull = new boolean[length];
             for (int i = 0; i < length; i++) {
-                newRowIsNull[i] = rowIsNull[positions[offset + i]];
+                boolean isNull = rowIsNull[positions[offset + i]];
+                newRowIsNull[i] = isNull;
+                hasNull |= isNull;
+            }
+            if (!hasNull) {
+                newRowIsNull = null;
             }
         }
 
@@ -255,7 +261,7 @@ public final class RowBlock
         // This copies the null array, but this dramatically simplifies this class.
         // Without a copy here, we would need a null array offset, and that would mean that the
         // null array would be offset while the field blocks are not offset, which is confusing.
-        boolean[] newRowIsNull = rowIsNull == null ? null : compactArray(rowIsNull, positionOffset, length);
+        boolean[] newRowIsNull = compactIsNull(rowIsNull, positionOffset, length);
         Block[] newBlocks = new Block[fieldBlocks.length];
         for (int i = 0; i < newBlocks.length; i++) {
             newBlocks[i] = fieldBlocks[i].getRegion(positionOffset, length);
@@ -285,7 +291,7 @@ public final class RowBlock
             newBlocks[i] = fieldBlocks[i].copyRegion(positionOffset, length);
         }
 
-        boolean[] newRowIsNull = rowIsNull == null ? null : compactArray(rowIsNull, positionOffset, length);
+        boolean[] newRowIsNull = compactIsNull(rowIsNull, positionOffset, length);
         if (newRowIsNull == rowIsNull && arraySame(newBlocks, fieldBlocks)) {
             return this;
         }

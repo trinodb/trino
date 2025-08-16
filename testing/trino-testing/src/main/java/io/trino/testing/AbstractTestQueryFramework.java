@@ -81,7 +81,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
-import static io.trino.execution.StageInfo.getAllStages;
+import static io.trino.execution.StagesInfo.getAllStages;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.sql.SqlFormatter.formatSql;
 import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
@@ -253,11 +253,11 @@ public abstract class AbstractTestQueryFramework
     private static String createQueryDebuggingSummary(BasicQueryInfo basicQueryInfo, QueryInfo queryInfo)
     {
         String queryDetails = format("Query %s [%s]: %s", basicQueryInfo.getQueryId(), basicQueryInfo.getState(), basicQueryInfo.getQuery());
-        if (queryInfo.getOutputStage().isEmpty()) {
+        if (queryInfo.getStages().isEmpty()) {
             return queryDetails + " -- <no output stage present>";
         }
         else {
-            return queryDetails + getAllStages(queryInfo.getOutputStage()).stream()
+            return queryDetails + getAllStages(queryInfo.getStages()).stream()
                     .map(stageInfo -> {
                         String stageDetail = format("Stage %s [%s]", stageInfo.getStageId(), stageInfo.getState());
                         if (stageInfo.getTasks().isEmpty()) {

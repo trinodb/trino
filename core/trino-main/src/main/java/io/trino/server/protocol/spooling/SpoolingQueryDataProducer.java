@@ -14,7 +14,6 @@
 package io.trino.server.protocol.spooling;
 
 import io.airlift.slice.Slice;
-import io.trino.Session;
 import io.trino.client.QueryData;
 import io.trino.client.spooling.DataAttributes;
 import io.trino.client.spooling.EncodedQueryData;
@@ -33,41 +32,46 @@ import static io.trino.client.spooling.DataAttribute.ROW_OFFSET;
 import static io.trino.client.spooling.Segment.inlined;
 import static io.trino.client.spooling.Segment.spooled;
 import static io.trino.server.protocol.spooling.CoordinatorSegmentResource.spooledSegmentUriBuilder;
+import static java.util.Objects.requireNonNull;
 
 public class SpoolingQueryDataProducer
         implements QueryDataProducer
 {
+    private final String encoding;
+
     private long currentOffset;
 
+    public SpoolingQueryDataProducer(String encoding)
+    {
+        this.encoding = requireNonNull(encoding, "encoding is null");
+    }
+
     @Override
-    public QueryData produce(ExternalUriInfo uriInfo, Session session, QueryResultRows rows, Consumer<TrinoException> throwableConsumer)
+    public QueryData produce(ExternalUriInfo uriInfo, QueryResultRows rows, Consumer<TrinoException> throwableConsumer)
     {
         if (rows.isEmpty()) {
             return null;
         }
-        EncodedQueryData.Builder builder = EncodedQueryData.builder(session.getQueryDataEncoding().orElseThrow());
+        EncodedQueryData.Builder builder = EncodedQueryData.builder(encoding);
         UriBuilder uriBuilder = spooledSegmentUriBuilder(uriInfo);
         for (Page page : rows.getPages()) {
-            SpooledMetadataBlock metadataBlock = SpooledMetadataBlockSerde.deserialize(page);
-            DataAttributes attributes = metadataBlock.attributes().toBuilder()
-                    .set(ROW_OFFSET, currentOffset)
-                    .build();
-            switch (metadataBlock) {
-                case SpooledMetadataBlock.Spooled spooled -> builder.withSegment(spooled(
-                        spooled.directUri().orElseGet(() -> buildSegmentDownloadURI(uriBuilder, spooled.identifier())),
-                        buildSegmentAckURI(uriBuilder, spooled.identifier()),
-                        attributes,
-                        spooled.headers()));
-                case SpooledMetadataBlock.Inlined inlined -> builder.withSegment(inlined(inlined.data().byteArray(), attributes));
+            for (SpooledMetadataBlock metadataBlock : SpooledMetadataBlockSerde.deserialize(page)) {
+                DataAttributes attributes = metadataBlock.attributes().toBuilder()
+                        .set(ROW_OFFSET, currentOffset)
+                        .build();
+                switch (metadataBlock) {
+                    case SpooledMetadataBlock.Spooled spooled -> builder.withSegment(spooled(
+                            spooled.directUri().orElseGet(() -> buildSegmentDownloadURI(uriBuilder, spooled.identifier())),
+                            buildSegmentAckURI(uriBuilder, spooled.identifier()),
+                            attributes,
+                            spooled.headers()));
+                    case SpooledMetadataBlock.Inlined inlined ->
+                            builder.withSegment(inlined(inlined.data().byteArray(), attributes));
+                }
+                currentOffset += attributes.get(ROWS_COUNT, Long.class);
             }
-            currentOffset += attributes.get(ROWS_COUNT, Long.class);
         }
         return builder.build();
-    }
-
-    @Override
-    public void close()
-    {
     }
 
     private URI buildSegmentDownloadURI(UriBuilder builder, Slice identifier)

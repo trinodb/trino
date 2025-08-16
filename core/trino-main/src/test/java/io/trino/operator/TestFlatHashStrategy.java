@@ -19,13 +19,11 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
-import io.trino.testing.TestingSession;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
@@ -224,14 +222,13 @@ class TestFlatHashStrategy
 
     private static String singleRowTypesAndValues(List<Type> types, Block[] blocks, int position)
     {
-        ConnectorSession connectorSession = TestingSession.testSessionBuilder().build().toConnectorSession();
         StringBuilder builder = new StringBuilder();
         int column = 0;
         for (Type type : types) {
             builder.append("\n\t");
             builder.append(type);
             builder.append(": ");
-            builder.append(type.getObjectValue(connectorSession, blocks[column], position));
+            builder.append(type.getObjectValue(blocks[column], position));
             column++;
         }
         return builder.toString();

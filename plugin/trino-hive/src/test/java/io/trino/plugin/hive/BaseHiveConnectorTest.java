@@ -142,6 +142,7 @@ import static io.trino.plugin.hive.HiveMetadata.TRINO_VERSION_NAME;
 import static io.trino.plugin.hive.HiveQueryRunner.HIVE_CATALOG;
 import static io.trino.plugin.hive.HiveQueryRunner.TPCH_SCHEMA;
 import static io.trino.plugin.hive.HiveQueryRunner.createBucketedSession;
+import static io.trino.plugin.hive.HiveStorageFormat.ESRI;
 import static io.trino.plugin.hive.HiveStorageFormat.ORC;
 import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.plugin.hive.HiveStorageFormat.REGEX;
@@ -252,9 +253,11 @@ public abstract class BaseHiveConnectorTest
             case SUPPORTS_ADD_COLUMN_WITH_POSITION,
                  SUPPORTS_ADD_FIELD,
                  SUPPORTS_CREATE_MATERIALIZED_VIEW,
+                 SUPPORTS_DEFAULT_COLUMN_VALUE,
                  SUPPORTS_DROP_FIELD,
                  SUPPORTS_MERGE,
                  SUPPORTS_NOT_NULL_CONSTRAINT,
+                 SUPPORTS_REFRESH_VIEW,
                  SUPPORTS_RENAME_FIELD,
                  SUPPORTS_SET_COLUMN_TYPE,
                  SUPPORTS_TOPN_PUSHDOWN,
@@ -5362,7 +5365,7 @@ public abstract class BaseHiveConnectorTest
                 queryStats -> {
                     assertThat(queryStats.getProcessedInputDataSize().toBytes()).isGreaterThan(0);
                 },
-                results -> { });
+                results -> {});
     }
 
     @Test
@@ -5409,7 +5412,7 @@ public abstract class BaseHiveConnectorTest
                 queryStats -> {
                     assertThat(queryStats.getProcessedInputDataSize().toBytes()).isGreaterThan(0);
                 },
-                results -> { });
+                results -> {});
     }
 
     private static String formatTimestamp(LocalDateTime timestamp)
@@ -5701,6 +5704,7 @@ public abstract class BaseHiveConnectorTest
             case TEXTFILE -> false;
             case CSV -> false;
             case REGEX -> false;
+            case ESRI -> true;
         };
     }
 
@@ -9503,6 +9507,10 @@ public abstract class BaseHiveConnectorTest
             }
             if (hiveStorageFormat == REGEX) {
                 // REGEX format is read-only
+                continue;
+            }
+            if (hiveStorageFormat == ESRI) {
+                // ESRI format is read-only
                 continue;
             }
 

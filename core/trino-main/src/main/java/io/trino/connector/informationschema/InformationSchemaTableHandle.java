@@ -32,4 +32,17 @@ public record InformationSchemaTableHandle(String catalogName, InformationSchema
         prefixes = ImmutableSet.copyOf(requireNonNull(prefixes, "prefixes is null"));
         requireNonNull(limit, "limit is null");
     }
+
+    @Override
+    public String toString()
+    {
+        StringBuilder builder = new StringBuilder();
+        builder.append("catalog=").append(catalogName);
+        builder.append(" table=").append(table);
+        if (!prefixes.isEmpty()) {
+            builder.append(" prefixes=").append(prefixes);
+        }
+        limit.ifPresent(limit -> builder.append(" limit=").append(limit));
+        return builder.toString();
+    }
 }

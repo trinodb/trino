@@ -15,6 +15,7 @@ package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.plugin.deltalake.metastore.DeltaMetastoreTable;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
@@ -31,7 +32,6 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.connector.FixedPageSource;
-import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.RowType;
@@ -83,21 +83,19 @@ public class DeltaLakePartitionsTable
 
     public DeltaLakePartitionsTable(
             ConnectorSession session,
-            SchemaTableName tableName,
-            String tableLocation,
+            DeltaMetastoreTable table,
             TransactionLogAccess transactionLogAccess,
             TypeManager typeManager)
     {
-        requireNonNull(tableName, "tableName is null");
-        requireNonNull(tableLocation, "tableLocation is null");
+        requireNonNull(table, "table is null");
         this.transactionLogAccess = requireNonNull(transactionLogAccess, "transactionLogAccess is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
 
         try {
-            this.tableSnapshot = transactionLogAccess.loadSnapshot(session, tableName, tableLocation, Optional.empty());
+            this.tableSnapshot = transactionLogAccess.loadSnapshot(session, table, Optional.empty());
         }
         catch (IOException e) {
-            throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Error getting snapshot from location: " + tableLocation, e);
+            throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Error getting snapshot from location: " + table.location(), e);
         }
 
         this.metadataEntry = transactionLogAccess.getMetadataEntry(session, tableSnapshot);
@@ -134,7 +132,7 @@ public class DeltaLakePartitionsTable
             this.columnMetricTypes = ImmutableList.of();
         }
 
-        this.tableMetadata = new ConnectorTableMetadata(tableName, columnMetadataBuilder.build());
+        this.tableMetadata = new ConnectorTableMetadata(table.schemaTableName(), columnMetadataBuilder.build());
     }
 
     @Override

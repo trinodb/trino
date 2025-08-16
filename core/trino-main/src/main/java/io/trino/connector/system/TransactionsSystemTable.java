@@ -31,8 +31,8 @@ import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.spi.type.VarcharType;
 import io.trino.transaction.TransactionInfo;
 import io.trino.transaction.TransactionManager;
-import org.joda.time.DateTime;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -116,9 +116,8 @@ public class TransactionsSystemTable
         return builder.build();
     }
 
-    private static Long toTimestampWithTimeZoneMillis(DateTime dateTime)
+    private static Long toTimestampWithTimeZoneMillis(Instant instant)
     {
-        // dateTime.getZone() is the server zone, should be of no interest to the user
-        return packDateTimeWithZone(dateTime.getMillis(), UTC_KEY);
+        return packDateTimeWithZone(instant.toEpochMilli(), UTC_KEY);
     }
 }

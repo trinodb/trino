@@ -15,19 +15,19 @@ package io.trino.sql.planner;
 
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.KeyDeserializer;
+import com.google.common.base.CharMatcher;
 import com.google.inject.Inject;
 import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeManager;
 
-import java.util.Base64;
-
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.lang.Integer.parseInt;
 
 public class SymbolKeyDeserializer
         extends KeyDeserializer
 {
-    private static final Base64.Decoder DECODER = Base64.getDecoder();
+    private static final CharMatcher DIGIT_MATCHER = CharMatcher.inRange('0', '9').precomputed();
+
     private final TypeManager typeManager;
 
     @Inject
@@ -39,11 +39,28 @@ public class SymbolKeyDeserializer
     @Override
     public Object deserializeKey(String key, DeserializationContext context)
     {
-        String[] parts = key.split(":");
-        checkArgument(parts.length == 2, "Expected two parts, found: " + parts.length);
+        int keyLength = key.length();
 
-        String name = new String(DECODER.decode(parts[0].getBytes(UTF_8)), UTF_8);
-        String type = new String(DECODER.decode(parts[1].getBytes(UTF_8)), UTF_8);
+        // Shortest valid key is "1|n|t", which has length 5
+        checkArgument(keyLength > 4, "Symbol key is malformed: %s", key);
+
+        int lastDigitIndex = getLeadingDigitsLength(key, keyLength);
+        checkArgument(lastDigitIndex > 0, "Symbol key is malformed: %s", key);
+
+        int length = parseInt(key.substring(0, lastDigitIndex));
+        checkArgument(lastDigitIndex + length + 2 < keyLength, "Symbol key is malformed: %s", key);
+
+        String type = key.substring(lastDigitIndex + 1, lastDigitIndex + length + 1);
+        String name = key.substring(lastDigitIndex + length + 2);
         return new Symbol(typeManager.getType(TypeId.of(type)), name);
+    }
+
+    public static int getLeadingDigitsLength(String input, int length)
+    {
+        int index = 0;
+        while (index < length && DIGIT_MATCHER.matches(input.charAt(index))) {
+            index++;
+        }
+        return index;
     }
 }

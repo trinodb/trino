@@ -15,14 +15,19 @@ package io.trino.server.protocol;
 
 import io.trino.Session;
 import io.trino.server.protocol.spooling.SpoolingQueryDataProducer;
+import io.trino.spi.type.Type;
+
+import java.util.List;
 
 public class QueryDataProducerFactory
 {
-    public QueryDataProducer create(Session session)
+    private QueryDataProducerFactory() {}
+
+    public static QueryDataProducer create(Session session, List<Type> types)
     {
         if (session.getQueryDataEncoding().isEmpty()) {
-            return new JsonBytesQueryDataProducer();
+            return new JsonBytesQueryDataProducer(session, types);
         }
-        return new SpoolingQueryDataProducer();
+        return new SpoolingQueryDataProducer(session.getQueryDataEncoding().orElseThrow());
     }
 }

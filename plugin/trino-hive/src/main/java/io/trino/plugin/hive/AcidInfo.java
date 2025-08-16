@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.hive;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ListMultimap;
@@ -23,10 +21,8 @@ import io.trino.filesystem.Location;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
@@ -36,159 +32,37 @@ import static java.util.Objects.requireNonNull;
 /**
  * Stores information about Acid properties of a partition.
  */
-public class AcidInfo
+public record AcidInfo(
+        String partitionLocation,
+        List<String> deleteDeltaDirectories,
+        List<OriginalFileInfo> originalFiles,
+        int bucketId,
+        boolean orcAcidVersionValidated)
 {
     private static final int INSTANCE_SIZE = instanceSize(AcidInfo.class);
 
-    private final String partitionLocation;
-    private final List<String> deleteDeltas;
-    private final List<OriginalFileInfo> originalFiles;
-    private final int bucketId;
-    private final boolean orcAcidVersionValidated;
-
-    @JsonCreator
-    public AcidInfo(
-            @JsonProperty("partitionLocation") String partitionLocation,
-            @JsonProperty("deleteDeltaDirectories") List<String> deleteDeltaDirectories,
-            @JsonProperty("originalFiles") List<OriginalFileInfo> originalFiles,
-            @JsonProperty("bucketId") int bucketId,
-            @JsonProperty("orcAcidVersionValidated") boolean orcAcidVersionValidated)
+    public AcidInfo
     {
-        this.partitionLocation = requireNonNull(partitionLocation, "partitionLocation is null");
-        this.deleteDeltas = ImmutableList.copyOf(requireNonNull(deleteDeltaDirectories, "deleteDeltaDirectories is null"));
-        this.originalFiles = ImmutableList.copyOf(requireNonNull(originalFiles, "originalFiles is null"));
-        this.bucketId = bucketId;
-        this.orcAcidVersionValidated = orcAcidVersionValidated;
+        requireNonNull(partitionLocation, "partitionLocation is null");
+        deleteDeltaDirectories = ImmutableList.copyOf(deleteDeltaDirectories);
+        originalFiles = ImmutableList.copyOf(originalFiles);
     }
 
-    @JsonProperty
-    public List<OriginalFileInfo> getOriginalFiles()
-    {
-        return originalFiles;
-    }
-
-    @JsonProperty
-    public int getBucketId()
-    {
-        return bucketId;
-    }
-
-    @JsonProperty
-    public String getPartitionLocation()
-    {
-        return partitionLocation;
-    }
-
-    @JsonProperty
-    public List<String> getDeleteDeltaDirectories()
-    {
-        return deleteDeltas;
-    }
-
-    @JsonProperty
-    public boolean isOrcAcidVersionValidated()
-    {
-        return orcAcidVersionValidated;
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        AcidInfo that = (AcidInfo) o;
-        return bucketId == that.bucketId &&
-                orcAcidVersionValidated == that.orcAcidVersionValidated &&
-                Objects.equals(partitionLocation, that.partitionLocation) &&
-                Objects.equals(deleteDeltas, that.deleteDeltas) &&
-                Objects.equals(originalFiles, that.originalFiles);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(partitionLocation, deleteDeltas, originalFiles, bucketId, orcAcidVersionValidated);
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("partitionLocation", partitionLocation)
-                .add("deleteDeltas", deleteDeltas)
-                .add("originalFiles", originalFiles)
-                .add("bucketId", bucketId)
-                .add("orcAcidVersionValidated", orcAcidVersionValidated)
-                .toString();
-    }
-
-    public long getRetainedSizeInBytes()
+    public long retainedSizeInBytes()
     {
         return INSTANCE_SIZE
                 + estimatedSizeOf(partitionLocation)
-                + estimatedSizeOf(deleteDeltas, SizeOf::estimatedSizeOf)
+                + estimatedSizeOf(deleteDeltaDirectories, SizeOf::estimatedSizeOf)
                 + estimatedSizeOf(originalFiles, OriginalFileInfo::getRetainedSizeInBytes);
     }
 
-    public static class OriginalFileInfo
+    public record OriginalFileInfo(String name, long fileSize)
     {
         private static final int INSTANCE_SIZE = instanceSize(OriginalFileInfo.class);
 
-        private final String name;
-        private final long fileSize;
-
-        @JsonCreator
-        public OriginalFileInfo(
-                @JsonProperty("name") String name,
-                @JsonProperty("fileSize") long fileSize)
+        public OriginalFileInfo
         {
-            this.name = requireNonNull(name, "name is null");
-            this.fileSize = fileSize;
-        }
-
-        @JsonProperty
-        public String getName()
-        {
-            return name;
-        }
-
-        @JsonProperty
-        public long getFileSize()
-        {
-            return fileSize;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            OriginalFileInfo that = (OriginalFileInfo) o;
-            return fileSize == that.fileSize &&
-                    name.equals(that.name);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(name, fileSize);
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("name", name)
-                    .add("fileSize", fileSize)
-                    .toString();
+            requireNonNull(name, "name is null");
         }
 
         public long getRetainedSizeInBytes()

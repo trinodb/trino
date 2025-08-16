@@ -4,12 +4,13 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>476</version>
+        <version>477-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-pinot</artifactId>
     <packaging>trino-plugin</packaging>
+    <name>${project.artifactId}</name>
     <description>Trino - Pinot connector</description>
 
     <properties>
@@ -31,12 +32,6 @@
                 <groupId>net.openhft</groupId>
                 <artifactId>posix</artifactId>
                 <version>2.27ea0</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.commons</groupId>
-                <artifactId>commons-text</artifactId>
-                <version>1.13.1</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -65,6 +60,7 @@
         <dependency>
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>
+            <classifier>classes</classifier>
         </dependency>
 
         <dependency>

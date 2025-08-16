@@ -316,14 +316,14 @@ public final class HiveFormatUtils
 
     public static String formatHiveTimestamp(Type type, Block block, int position)
     {
-        SqlTimestamp objectValue = (SqlTimestamp) type.getObjectValue(null, block, position);
+        SqlTimestamp objectValue = (SqlTimestamp) type.getObjectValue(block, position);
         LocalDateTime localDateTime = objectValue.toLocalDateTime();
         return TIMESTAMP_FORMATTER.format(localDateTime);
     }
 
     public static void formatHiveTimestamp(Type type, Block block, int position, StringBuilder builder)
     {
-        SqlTimestamp objectValue = (SqlTimestamp) type.getObjectValue(null, block, position);
+        SqlTimestamp objectValue = (SqlTimestamp) type.getObjectValue(block, position);
         LocalDateTime localDateTime = objectValue.toLocalDateTime();
         TIMESTAMP_FORMATTER.formatTo(localDateTime, builder);
     }

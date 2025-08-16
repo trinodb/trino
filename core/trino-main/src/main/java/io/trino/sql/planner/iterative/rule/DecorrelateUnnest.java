@@ -400,8 +400,7 @@ public class DecorrelateUnnest
                         ImmutableList.of(uniqueSymbol),
                         false,
                         rowNumberSymbol,
-                        Optional.of(2),
-                        Optional.empty());
+                        Optional.of(2));
             }
             Expression predicate = ifExpression(
                     new Comparison(
@@ -442,7 +441,6 @@ public class DecorrelateUnnest
                         ImmutableList.of(uniqueSymbol),
                         false,
                         rowNumberSymbol,
-                        Optional.empty(),
                         Optional.empty());
             }
 
@@ -473,7 +471,6 @@ public class DecorrelateUnnest
                     source.getPlan(),
                     new DataOrganizationSpecification(ImmutableList.of(uniqueSymbol), Optional.of(node.getOrderingScheme())),
                     ImmutableMap.of(rowNumberSymbol, rowNumberFunction),
-                    Optional.empty(),
                     ImmutableSet.of(),
                     0);
 

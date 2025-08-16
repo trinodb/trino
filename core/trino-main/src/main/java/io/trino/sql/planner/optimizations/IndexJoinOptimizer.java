@@ -138,10 +138,10 @@ public class IndexJoinOptimizer
                         // Prefer the right candidate over the left candidate
                         PlanNode indexJoinNode = null;
                         if (rightIndexCandidate.isPresent()) {
-                            indexJoinNode = new IndexJoinNode(idAllocator.getNextId(), IndexJoinNode.Type.INNER, leftRewritten, rightIndexCandidate.get(), createEquiJoinClause(leftJoinSymbols, rightJoinSymbols), Optional.empty(), Optional.empty());
+                            indexJoinNode = new IndexJoinNode(idAllocator.getNextId(), IndexJoinNode.Type.INNER, leftRewritten, rightIndexCandidate.get(), createEquiJoinClause(leftJoinSymbols, rightJoinSymbols));
                         }
                         else if (leftIndexCandidate.isPresent()) {
-                            indexJoinNode = new IndexJoinNode(idAllocator.getNextId(), IndexJoinNode.Type.INNER, rightRewritten, leftIndexCandidate.get(), createEquiJoinClause(rightJoinSymbols, leftJoinSymbols), Optional.empty(), Optional.empty());
+                            indexJoinNode = new IndexJoinNode(idAllocator.getNextId(), IndexJoinNode.Type.INNER, rightRewritten, leftIndexCandidate.get(), createEquiJoinClause(rightJoinSymbols, leftJoinSymbols));
                         }
 
                         if (indexJoinNode != null) {
@@ -193,8 +193,6 @@ public class IndexJoinOptimizer
                         node.getRightOutputSymbols(),
                         node.isMaySkipOutputDuplicates(),
                         node.getFilter(),
-                        node.getLeftHashSymbol(),
-                        node.getRightHashSymbol(),
                         node.getDistributionType(),
                         node.isSpillable(),
                         node.getDynamicFilters(),
@@ -205,7 +203,7 @@ public class IndexJoinOptimizer
 
         private static PlanNode createIndexJoinWithExpectedOutputs(List<Symbol> expectedOutputs, IndexJoinNode.Type type, PlanNode probe, PlanNode index, List<IndexJoinNode.EquiJoinClause> equiJoinClause, PlanNodeIdAllocator idAllocator)
         {
-            PlanNode result = new IndexJoinNode(idAllocator.getNextId(), type, probe, index, equiJoinClause, Optional.empty(), Optional.empty());
+            PlanNode result = new IndexJoinNode(idAllocator.getNextId(), type, probe, index, equiJoinClause);
             if (!result.getOutputSymbols().equals(expectedOutputs)) {
                 result = new ProjectNode(
                         idAllocator.getNextId(),
@@ -401,7 +399,7 @@ public class IndexJoinOptimizer
 
             PlanNode source = node;
             if (rewrittenProbeSource != node.getProbeSource()) {
-                source = new IndexJoinNode(node.getId(), node.getType(), rewrittenProbeSource, node.getIndexSource(), node.getCriteria(), node.getProbeHashSymbol(), node.getIndexHashSymbol());
+                source = new IndexJoinNode(node.getId(), node.getType(), rewrittenProbeSource, node.getIndexSource(), node.getCriteria());
             }
 
             return source;

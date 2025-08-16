@@ -48,6 +48,7 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutionException;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -115,6 +116,7 @@ public final class TypeRegistry
     private final ConcurrentMap<String, ParametricType> parametricTypes = new ConcurrentHashMap<>();
 
     private final NonEvictableCache<TypeSignature, Type> parametricTypeCache;
+    private final NonEvictableCache<String, Type> sqlTypeCache;
     private final TypeManager typeManager;
     private final TypeOperators typeOperators;
 
@@ -168,6 +170,7 @@ public final class TypeRegistry
         addParametricType(TIME_WITH_TIME_ZONE);
 
         parametricTypeCache = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(1000));
+        sqlTypeCache = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(1000));
 
         typeManager = new InternalTypeManager(this, typeOperators);
 
@@ -198,10 +201,16 @@ public final class TypeRegistry
     public Type fromSqlType(String sqlType)
     {
         try {
-            return getType(toTypeSignature(SQL_PARSER.createType(sqlType)));
+            return sqlTypeCache.get(sqlType, () -> getType(toTypeSignature(SQL_PARSER.createType(sqlType))));
         }
         catch (ParsingException e) {
             throw new TypeNotFoundException(sqlType, e);
+        }
+        catch (ExecutionException e) {
+            if (e.getCause() instanceof ParsingException parsingException) {
+                throw new TypeNotFoundException(sqlType, parsingException);
+            }
+            throw new RuntimeException("Could not get type from cache", e);
         }
     }
 

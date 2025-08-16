@@ -32,8 +32,8 @@ import io.trino.sql.planner.Plan;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Statement;
 import jakarta.annotation.Nullable;
-import org.joda.time.DateTime;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -102,25 +102,25 @@ public class DataDefinitionExecution<T extends Statement>
     }
 
     @Override
-    public DateTime getCreateTime()
+    public Instant getCreateTime()
     {
         return stateMachine.getCreateTime();
     }
 
     @Override
-    public Optional<DateTime> getExecutionStartTime()
+    public Optional<Instant> getExecutionStartTime()
     {
         return stateMachine.getExecutionStartTime();
     }
 
     @Override
-    public DateTime getLastHeartbeat()
+    public Instant getLastHeartbeat()
     {
         return stateMachine.getLastHeartbeat();
     }
 
     @Override
-    public Optional<DateTime> getEndTime()
+    public Optional<Instant> getEndTime()
     {
         return stateMachine.getEndTime();
     }

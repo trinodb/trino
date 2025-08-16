@@ -338,8 +338,6 @@ public class ExtractSpatialJoins
                 joinNode.getRightOutputSymbols(),
                 joinNode.isMaySkipOutputDuplicates(),
                 Optional.of(newFilter),
-                joinNode.getLeftHashSymbol(),
-                joinNode.getRightHashSymbol(),
                 joinNode.getDistributionType(),
                 joinNode.isSpillable(),
                 joinNode.getDynamicFilters(),

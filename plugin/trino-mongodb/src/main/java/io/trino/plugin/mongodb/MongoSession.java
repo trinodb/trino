@@ -25,6 +25,7 @@ import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.mongodb.DBRef;
+import com.mongodb.MongoCommandException;
 import com.mongodb.MongoNamespace;
 import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoClient;
@@ -91,6 +92,7 @@ import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.plugin.mongodb.MongoErrorCode.MONGODB_CLUSTER_ERROR;
 import static io.trino.plugin.mongodb.ObjectIdType.OBJECT_ID;
 import static io.trino.plugin.mongodb.ptf.Query.parseFilter;
 import static io.trino.spi.HostAddress.fromParts;
@@ -259,7 +261,13 @@ public class MongoSession
             return tableCache.get(tableName, () -> loadTableSchema(tableName));
         }
         catch (ExecutionException | UncheckedExecutionException e) {
-            throwIfInstanceOf(e.getCause(), TrinoException.class);
+            Throwable cause = e.getCause();
+            if (cause != null) {
+                throwIfInstanceOf(cause, TrinoException.class);
+                if (cause instanceof MongoCommandException) {
+                    throw new TrinoException(MONGODB_CLUSTER_ERROR, cause);
+                }
+            }
             throw new RuntimeException(e);
         }
     }

@@ -43,7 +43,6 @@ public final class RowNumberNode
     private final boolean orderSensitive;
     private final Optional<Integer> maxRowCountPerPartition;
     private final Symbol rowNumberSymbol;
-    private final Optional<Symbol> hashSymbol;
 
     @JsonCreator
     public RowNumberNode(
@@ -52,8 +51,7 @@ public final class RowNumberNode
             @JsonProperty("partitionBy") List<Symbol> partitionBy,
             @JsonProperty("orderSensitive") boolean orderSensitive,
             @JsonProperty("rowNumberSymbol") Symbol rowNumberSymbol,
-            @JsonProperty("maxRowCountPerPartition") Optional<Integer> maxRowCountPerPartition,
-            @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol)
+            @JsonProperty("maxRowCountPerPartition") Optional<Integer> maxRowCountPerPartition)
     {
         super(id);
 
@@ -63,14 +61,12 @@ public final class RowNumberNode
         requireNonNull(rowNumberSymbol, "rowNumberSymbol is null");
         requireNonNull(maxRowCountPerPartition, "maxRowCountPerPartition is null");
         checkArgument(maxRowCountPerPartition.isEmpty() || maxRowCountPerPartition.get() > 0, "maxRowCountPerPartition must be greater than zero");
-        requireNonNull(hashSymbol, "hashSymbol is null");
 
         this.source = source;
         this.partitionBy = ImmutableList.copyOf(partitionBy);
         this.orderSensitive = orderSensitive;
         this.rowNumberSymbol = rowNumberSymbol;
         this.maxRowCountPerPartition = maxRowCountPerPartition;
-        this.hashSymbol = hashSymbol;
     }
 
     @Override
@@ -115,12 +111,6 @@ public final class RowNumberNode
         return maxRowCountPerPartition;
     }
 
-    @JsonProperty
-    public Optional<Symbol> getHashSymbol()
-    {
-        return hashSymbol;
-    }
-
     @Override
     public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
@@ -130,6 +120,6 @@ public final class RowNumberNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new RowNumberNode(getId(), Iterables.getOnlyElement(newChildren), partitionBy, orderSensitive, rowNumberSymbol, maxRowCountPerPartition, hashSymbol);
+        return new RowNumberNode(getId(), Iterables.getOnlyElement(newChildren), partitionBy, orderSensitive, rowNumberSymbol, maxRowCountPerPartition);
     }
 }

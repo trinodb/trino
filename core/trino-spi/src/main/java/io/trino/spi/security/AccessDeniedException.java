@@ -455,6 +455,16 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot rename view from %s to %s%s", viewName, newViewName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denyRefreshView(String viewName)
+    {
+        denyRefreshView(viewName, null);
+    }
+
+    public static void denyRefreshView(String viewName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot refresh view %s%s", viewName, formatExtraInfo(extraInfo)));
+    }
+
     /**
      * @deprecated Use {@link #denySetEntityAuthorization(EntityKindAndName, TrinoPrincipal)}
      */
@@ -591,6 +601,36 @@ public class AccessDeniedException
     public static void denyRevokeTablePrivilege(String privilege, String tableName, String extraInfo)
     {
         throw new AccessDeniedException(format("Cannot revoke privilege %s on table %s%s", privilege, tableName, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyGrantTableBranchPrivilege(String privilege, String tableName, String branchName)
+    {
+        denyGrantTableBranchPrivilege(privilege, tableName, branchName, null);
+    }
+
+    public static void denyGrantTableBranchPrivilege(String privilege, String tableName, String branchName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot grant privilege %s on branch %s in table %s%s", privilege, branchName, tableName, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyDenyTableBranchPrivilege(String privilege, String tableName, String branchName)
+    {
+        denyDenyTableBranchPrivilege(privilege, tableName, branchName, null);
+    }
+
+    public static void denyDenyTableBranchPrivilege(String privilege, String tableName, String branchName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot deny privilege %s on branch %s in table %s%s", privilege, branchName, tableName, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyRevokeTableBranchPrivilege(String privilege, String tableName, String branchName)
+    {
+        denyRevokeTableBranchPrivilege(privilege, tableName, branchName, null);
+    }
+
+    public static void denyRevokeTableBranchPrivilege(String privilege, String tableName, String branchName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot revoke privilege %s on branch %s in table %s%s", privilege, branchName, tableName, formatExtraInfo(extraInfo)));
     }
 
     public static void denyGrantEntityPrivilege(String privilege, EntityKindAndName entity)
@@ -771,6 +811,46 @@ public class AccessDeniedException
     public static void denyShowCreateFunction(String functionName, String extraInfo)
     {
         throw new AccessDeniedException(format("Cannot show create function for %s%s", functionName, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyShowBranches(String tableName)
+    {
+        denyShowBranches(tableName, null);
+    }
+
+    public static void denyShowBranches(String tableName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot show branches of table %s%s", tableName, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyCreateBranch(String tableName)
+    {
+        denyCreateBranch(tableName, null);
+    }
+
+    public static void denyCreateBranch(String tableName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot create a branch in %s%s", tableName, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyDropBranch(String tableName)
+    {
+        denyDropBranch(tableName, null);
+    }
+
+    public static void denyDropBranch(String tableName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot drop a branch from %s%s", tableName, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyFastForwardBranch(String tableName)
+    {
+        denyFastForwardBranch(tableName, null);
+    }
+
+    public static void denyFastForwardBranch(String tableName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot fast-forward a branch in %s%s", tableName, formatExtraInfo(extraInfo)));
     }
 
     public static void denySetEntityAuthorization(EntityKindAndName entityKindAndName, TrinoPrincipal principal)

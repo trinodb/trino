@@ -204,8 +204,8 @@ public class TestThriftProjectionPushdown
         tester().assertThat(rule)
                 .withSession(SESSION)
                 .on(p -> {
-                    Symbol nationKey = p.symbol(nationKeyColumn.getColumnName(), VARCHAR);
-                    Symbol name = p.symbol(nameColumn.getColumnName(), VARCHAR);
+                    Symbol nationKey = p.symbol(nationKeyColumn.columnName(), VARCHAR);
+                    Symbol name = p.symbol(nameColumn.columnName(), VARCHAR);
                     return p.project(
                             Assignments.of(
                                     p.symbol("expr", VARCHAR),
@@ -219,7 +219,7 @@ public class TestThriftProjectionPushdown
                                             .buildOrThrow()));
                 })
                 .matches(project(
-                        ImmutableMap.of("expr", expression(new Reference(BIGINT, nationKeyColumn.getColumnName()))),
+                        ImmutableMap.of("expr", expression(new Reference(BIGINT, nationKeyColumn.columnName()))),
                         tableScan(
                                 new ThriftTableHandle(
                                         TINY_SCHEMA,
@@ -227,6 +227,6 @@ public class TestThriftProjectionPushdown
                                         TupleDomain.all(),
                                         Optional.of(ImmutableSet.of(nationKeyColumn)))::equals,
                                 TupleDomain.all(),
-                                ImmutableMap.of(nationKeyColumn.getColumnName(), nationKeyColumn::equals))));
+                                ImmutableMap.of(nationKeyColumn.columnName(), nationKeyColumn::equals))));
     }
 }

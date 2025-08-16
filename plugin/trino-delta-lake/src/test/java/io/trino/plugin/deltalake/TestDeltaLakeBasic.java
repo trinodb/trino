@@ -39,12 +39,14 @@ import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMap
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
+import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
 import io.trino.plugin.hive.parquet.TrinoParquetDataSource;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.SourcePage;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.SqlDate;
 import io.trino.spi.type.SqlTimestamp;
@@ -77,6 +79,7 @@ import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -87,6 +90,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterators.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.onlyElement;
@@ -99,6 +103,7 @@ import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.copyDirectoryConte
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractPartitionColumns;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getColumnsMetadata;
 import static io.trino.plugin.deltalake.transactionlog.TemporalTimeTravelUtil.findLatestVersionUsingTemporal;
+import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogJsonEntryPath;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
@@ -128,6 +133,7 @@ public class TestDeltaLakeBasic
             new ResourceTable("person_without_last_checkpoint", "databricks73/person_without_last_checkpoint"),
             new ResourceTable("person_without_old_jsons", "databricks73/person_without_old_jsons"),
             new ResourceTable("person_without_checkpoints", "databricks73/person_without_checkpoints"));
+
     private static final List<ResourceTable> OTHER_TABLES = ImmutableList.of(
             new ResourceTable("allow_column_defaults", "deltalake/allow_column_defaults"),
             new ResourceTable("stats_with_minmax_nulls", "deltalake/stats_with_minmax_nulls"),
@@ -399,14 +405,14 @@ public class TestDeltaLakeBasic
             assertThat(partitionValuesParsedType.getFields().stream().collect(onlyElement()).getName().orElseThrow()).isEqualTo(physicalColumnName);
 
             TrinoParquetDataSource dataSource = new TrinoParquetDataSource(new LocalInputFile(checkpoint.toFile()), ParquetReaderOptions.defaultOptions(), new FileFormatDataSourceStats());
-            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource);
             try (ParquetReader reader = createParquetReader(dataSource, parquetMetadata, ImmutableList.of(addEntryType), List.of("add"))) {
                 List<Object> actual = new ArrayList<>();
                 SourcePage page = reader.nextPage();
                 while (page != null) {
                     Block block = page.getBlock(0);
                     for (int i = 0; i < block.getPositionCount(); i++) {
-                        List<?> add = (List<?>) addEntryType.getObjectValue(SESSION, block, i);
+                        List<?> add = (List<?>) addEntryType.getObjectValue(block, i);
                         if (add == null) {
                             continue;
                         }
@@ -477,8 +483,7 @@ public class TestDeltaLakeBasic
         // Verify optimized parquet file contains the expected physical id and name
         TrinoInputFile inputFile = new LocalInputFile(tableLocation.resolve(addFileEntry.getPath()).toFile());
         ParquetMetadata parquetMetadata = MetadataReader.readFooter(
-                new TrinoParquetDataSource(inputFile, ParquetReaderOptions.defaultOptions(), new FileFormatDataSourceStats()),
-                Optional.empty());
+                new TrinoParquetDataSource(inputFile, ParquetReaderOptions.defaultOptions(), new FileFormatDataSourceStats()));
         FileMetadata fileMetaData = parquetMetadata.getFileMetaData();
         PrimitiveType physicalType = getOnlyElement(fileMetaData.getSchema().getColumns().iterator()).getPrimitiveType();
         assertThat(physicalType.getName()).isEqualTo(physicalName);
@@ -1273,6 +1278,57 @@ public class TestDeltaLakeBasic
         }
     }
 
+    @Test
+    void testDeletionVectorsEnabledWriteCheckpoint()
+            throws Exception
+    {
+        testDeletionVectorsEnabledWriteCheckpoint("(x int) WITH (deletion_vectors_enabled = true, checkpoint_interval = 2)");
+        testDeletionVectorsEnabledWriteCheckpoint("WITH (deletion_vectors_enabled = true, checkpoint_interval = 2) AS SELECT 1 x");
+    }
+
+    private void testDeletionVectorsEnabledWriteCheckpoint(String tableDefinition)
+            throws Exception
+    {
+        try (TestTable table = newTrinoTable("deletion_vectors", tableDefinition)) {
+            String tableLocation = getTableLocation(table.getName());
+            List<DeltaLakeTransactionLogEntry> transactionLogs = getEntriesFromJson(0, tableLocation + "/_delta_log");
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 2, 3", 2);
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE x = 2", 1);
+
+            assertThat(fileNamesIn(new URI(tableLocation).getPath(), false))
+                    .anyMatch(path -> path.matches(".*/deletion_vector_.*.bin"));
+
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE x > 1"))
+                    .matches("VALUES 3");
+
+            Location checkpointLocation = Location.of(new URI(tableLocation).getPath() + "/_delta_log").appendPath("%020d.checkpoint.parquet".formatted(2));
+            assertThat(fileNamesIn(new URI(tableLocation).getPath() + "/_delta_log", false))
+                    .anyMatch(path -> path.equals(checkpointLocation.toString()));
+
+            // Ensure the system can read the checkpoint correctly by reading all transaction logs from it,
+            // and verify that the written checkpoint is well-formed
+            TrinoInputFile checkpoint = FILE_SYSTEM.newInputFile(checkpointLocation);
+            CheckpointEntryIterator checkpointEntryIterator = new CheckpointEntryIterator(
+                    checkpoint,
+                    SESSION,
+                    checkpoint.length(),
+                    new CheckpointSchemaManager(TESTING_TYPE_MANAGER),
+                    TESTING_TYPE_MANAGER,
+                    Set.of(CheckpointEntryIterator.EntryType.values()),
+                    transactionLogs.stream().map(DeltaLakeTransactionLogEntry::getMetaData).filter(Objects::nonNull).findFirst(),
+                    Optional.of(transactionLogs.get(1).getProtocol()),
+                    new FileFormatDataSourceStats(),
+                    ParquetReaderOptions.defaultOptions(),
+                    true,
+                    new DeltaLakeConfig().getDomainCompactionThreshold(),
+                    TupleDomain.all(),
+                    Optional.of(alwaysTrue()));
+            while (checkpointEntryIterator.hasNext()) {
+                checkpointEntryIterator.next();
+            }
+        }
+    }
+
     /**
      * @see databricks122.deletion_vectors
      */
@@ -1423,6 +1479,18 @@ public class TestDeltaLakeBasic
     }
 
     @Test
+    void testDeletionVectorsRepeatWithSpecialCharsPartition()
+    {
+        try (TestTable table = newTrinoTable("test_dv", "(x bigint, y varchar) WITH (deletion_vectors_enabled = true, partitioned_by = ARRAY['y'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 'white spaces'), (2, 'white spaces'), (3, 'white spaces')", 3);
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE x = 1", 1);
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE x = 2", 1);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES (bigint '3', varchar 'white spaces')");
+        }
+    }
+
+    @Test
     void testDeletionVectorsPages()
             throws Exception
     {
@@ -1445,7 +1513,7 @@ public class TestDeltaLakeBasic
         assertQueryReturnsEmptyResult(session, "SELECT * FROM " + tableName + " WHERE id = 20001");
         assertThat(query(session, "SELECT * FROM " + tableName + " WHERE id = 99999")).matches("VALUES 99999");
 
-        assertThat(query(session, "SELECT id, _change_type, _commit_version FROM TABLE(system.table_changes('tpch', '" +tableName+ "')) WHERE id = 20001"))
+        assertThat(query(session, "SELECT id, _change_type, _commit_version FROM TABLE(system.table_changes('tpch', '" + tableName + "')) WHERE id = 20001"))
                 .matches("VALUES (20001, VARCHAR 'insert', BIGINT '1'), (20001, VARCHAR 'update_preimage', BIGINT '2')");
 
         assertUpdate("DROP TABLE " + tableName);
@@ -1543,6 +1611,26 @@ public class TestDeltaLakeBasic
                         "(4, JSON '1', JSON '2', JSON '3', JSON '4', 'test without fields')");
 
         assertQueryFails("INSERT INTO variant VALUES (2, null, null, null, null, 'new data')", "Unsupported writer features: .*");
+    }
+
+    @Test
+    public void testVariantReadNull()
+            throws Exception
+    {
+        String tableName = "test_variant_null_" + randomNameSuffix();
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource("databricks154/test_variant_null").toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+        assertThat(query("SELECT id FROM " + tableName + " WHERE x = JSON 'null'"))
+                .matches("VALUES 3");
+
+        assertThat(query("SELECT * FROM " + tableName + " WHERE id = 3"))
+                .matches("VALUES (3, JSON 'null')");
+        assertThat(query("SELECT * FROM " + tableName + " WHERE id = 4"))
+                .matches("VALUES (4, CAST(NULL AS JSON))");
+        assertThat(query("SELECT id FROM " + tableName + " WHERE x IS NULL"))
+                .matches("VALUES 4");
     }
 
     /**
@@ -1691,7 +1779,7 @@ public class TestDeltaLakeBasic
         assertQueryFails("TABLE " + tableName, "Metadata not found in transaction log for tpch." + tableName);
         assertQueryFails("SELECT * FROM \"" + tableName + "$history\"", "Metadata not found in transaction log for tpch." + tableName);
         assertQueryFails("SELECT * FROM \"" + tableName + "$properties\"", "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("SELECT * FROM \"" + tableName + "$partitions\"", "Metadata not found in transaction log for tpch." + tableName + "\\$partitions");
+        assertQueryFails("SELECT * FROM \"" + tableName + "$partitions\"", "Metadata not found in transaction log for tpch." + tableName);
         assertQueryFails("SELECT * FROM " + tableName + " WHERE false", "Metadata not found in transaction log for tpch." + tableName);
         assertQueryFails("SELECT 1 FROM " + tableName + " WHERE false", "Metadata not found in transaction log for tpch." + tableName);
         assertQueryFails("SHOW CREATE TABLE " + tableName, "Metadata not found in transaction log for tpch." + tableName);
@@ -2637,7 +2725,8 @@ public class TestDeltaLakeBasic
                             if (!content.equals(newContent)) {
                                 Files.write(file, newContent.getBytes(StandardCharsets.UTF_8), StandardOpenOption.TRUNCATE_EXISTING);
                             }
-                        } catch (IOException e) {
+                        }
+                        catch (IOException e) {
                             throw new RuntimeException(e);
                         }
                     });
@@ -2677,7 +2766,8 @@ public class TestDeltaLakeBasic
     private static List<DeltaLakeTransactionLogEntry> getEntriesFromJson(long entryNumber, String transactionLogDir)
             throws IOException
     {
-        return TransactionLogTail.getEntriesFromJson(entryNumber, transactionLogDir, FILE_SYSTEM, DEFAULT_TRANSACTION_LOG_MAX_CACHED_SIZE)
+
+        return TransactionLogTail.getEntriesFromJson(entryNumber, FILE_SYSTEM.newInputFile(getTransactionLogJsonEntryPath(transactionLogDir, entryNumber)), DEFAULT_TRANSACTION_LOG_MAX_CACHED_SIZE)
                 .orElseThrow()
                 .getEntriesList(FILE_SYSTEM);
     }

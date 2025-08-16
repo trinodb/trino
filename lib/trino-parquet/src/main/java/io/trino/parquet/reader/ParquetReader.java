@@ -515,23 +515,27 @@ public class ParquetReader
     private ColumnChunk readVariant(VariantField field)
             throws IOException
     {
-        ColumnChunk valueChunk = readColumnChunk(field.getValue());
+        ColumnChunk metadataChunk = readColumnChunk(field.getMetadata());
 
-        int positionCount = valueChunk.getBlock().getPositionCount();
+        int positionCount = metadataChunk.getBlock().getPositionCount();
         BlockBuilder variantBlock = VARCHAR.createBlockBuilder(null, max(1, positionCount));
         if (positionCount == 0) {
             variantBlock.appendNull();
         }
         else {
-            ColumnChunk metadataChunk = readColumnChunk(field.getMetadata());
+            ColumnChunk valueChunk = readColumnChunk(field.getValue());
             for (int position = 0; position < positionCount; position++) {
-                Slice value = VARBINARY.getSlice(valueChunk.getBlock(), position);
                 Slice metadata = VARBINARY.getSlice(metadataChunk.getBlock(), position);
+                if (metadata.length() == 0) {
+                    variantBlock.appendNull();
+                    continue;
+                }
+                Slice value = VARBINARY.getSlice(valueChunk.getBlock(), position);
                 Variant variant = new Variant(value.getBytes(), metadata.getBytes());
                 VARCHAR.writeSlice(variantBlock, utf8Slice(variant.toJson(zoneId)));
             }
         }
-        return new ColumnChunk(variantBlock.build(), valueChunk.getDefinitionLevels(), valueChunk.getRepetitionLevels());
+        return new ColumnChunk(variantBlock.build(), metadataChunk.getDefinitionLevels(), metadataChunk.getRepetitionLevels());
     }
 
     private ColumnChunk readArray(GroupField field)

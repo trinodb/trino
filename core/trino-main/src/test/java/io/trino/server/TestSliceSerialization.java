@@ -13,8 +13,6 @@
  */
 package io.trino.server;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
@@ -27,10 +25,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
-import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -93,47 +89,11 @@ public class TestSliceSerialization
         assertThat(actual).isEqualTo(expected);
     }
 
-    public static class Container
+    public record Container(Slice value)
     {
-        private final Slice value;
-
-        @JsonCreator
-        public Container(@JsonProperty("value") Slice value)
+        public Container
         {
-            this.value = requireNonNull(value, "value is null");
-        }
-
-        @JsonProperty
-        public Slice getValue()
-        {
-            return value;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            Container container = (Container) o;
-            return Objects.equals(value, container.value);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(value);
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("value", value)
-                    .toString();
+            requireNonNull(value, "value is null");
         }
     }
 }

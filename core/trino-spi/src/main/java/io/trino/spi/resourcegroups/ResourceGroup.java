@@ -49,6 +49,21 @@ public interface ResourceGroup
      */
     void setCpuQuotaGenerationMillisPerSecond(long rate);
 
+    long getHardPhysicalDataScanLimitBytes();
+
+    /**
+     * Threshold on total physical data scan usage after which new queries
+     * will queue instead of starting.
+     */
+    void setHardPhysicalDataScanLimitBytes(long limit);
+
+    long getPhysicalDataScanQuotaGenerationBytesPerSecond();
+
+    /**
+     * Rate at which physical data scan quota regenerates.
+     */
+    void setPhysicalDataScanQuotaGenerationBytesPerSecond(long rate);
+
     int getSoftConcurrencyLimit();
 
     /**

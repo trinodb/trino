@@ -133,7 +133,6 @@ public class ImplementLimitWithTies
                 source,
                 new DataOrganizationSpecification(partitionBy, limitNode.getTiesResolvingScheme()),
                 ImmutableMap.of(rankSymbol, rankFunction),
-                Optional.empty(),
                 ImmutableSet.of(),
                 0);
 

@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.hive.util;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -46,7 +44,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -356,39 +353,5 @@ public final class HiveBucketing
         throw new UnsupportedOperationException("Unknown type " + type);
     }
 
-    public static class HiveBucketFilter
-    {
-        private final Set<Integer> bucketsToKeep;
-
-        @JsonCreator
-        public HiveBucketFilter(@JsonProperty("bucketsToKeep") Set<Integer> bucketsToKeep)
-        {
-            this.bucketsToKeep = bucketsToKeep;
-        }
-
-        @JsonProperty
-        public Set<Integer> getBucketsToKeep()
-        {
-            return bucketsToKeep;
-        }
-
-        @Override
-        public boolean equals(Object obj)
-        {
-            if (this == obj) {
-                return true;
-            }
-            if (obj == null || getClass() != obj.getClass()) {
-                return false;
-            }
-            HiveBucketFilter other = (HiveBucketFilter) obj;
-            return Objects.equals(this.bucketsToKeep, other.bucketsToKeep);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(bucketsToKeep);
-        }
-    }
+    public record HiveBucketFilter(Set<Integer> bucketsToKeep) {}
 }

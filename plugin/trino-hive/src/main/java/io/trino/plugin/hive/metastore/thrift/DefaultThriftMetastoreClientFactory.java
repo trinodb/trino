@@ -17,7 +17,7 @@ import com.google.common.net.HostAndPort;
 import com.google.inject.Inject;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.metastore.thrift.ThriftHiveMetastoreClient.TransportSupplier;
-import io.trino.spi.NodeManager;
+import io.trino.spi.Node;
 import org.apache.thrift.transport.TTransport;
 import org.apache.thrift.transport.TTransportException;
 
@@ -75,7 +75,7 @@ public class DefaultThriftMetastoreClientFactory
     public DefaultThriftMetastoreClientFactory(
             ThriftMetastoreConfig config,
             HiveMetastoreAuthentication metastoreAuthentication,
-            NodeManager nodeManager)
+            Node currentNode)
     {
         this(
                 buildSslContext(
@@ -88,7 +88,7 @@ public class DefaultThriftMetastoreClientFactory
                 config.getConnectTimeout(),
                 config.getReadTimeout(),
                 metastoreAuthentication,
-                nodeManager.getCurrentNode().getHost(),
+                currentNode.getHost(),
                 config.getCatalogName());
     }
 

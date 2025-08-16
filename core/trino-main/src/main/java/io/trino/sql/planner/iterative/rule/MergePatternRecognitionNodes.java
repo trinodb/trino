@@ -279,7 +279,6 @@ public final class MergePatternRecognitionNodes
                 parent.getId(),
                 child.getSource(),
                 parent.getSpecification(),
-                parent.getHashSymbol(),
                 parent.getPrePartitionedInputs(),
                 parent.getPreSortedOrderPrefix(),
                 windowFunctions.buildOrThrow(),

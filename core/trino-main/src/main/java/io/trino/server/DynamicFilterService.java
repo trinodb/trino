@@ -29,7 +29,6 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.execution.DynamicFilterConfig;
-import io.trino.execution.SqlQueryExecution;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.metadata.FunctionManager;
@@ -38,7 +37,6 @@ import io.trino.operator.RetryPolicy;
 import io.trino.operator.join.JoinUtils;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.ColumnHandle;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
@@ -121,9 +119,8 @@ public class DynamicFilterService
         this.smallMaxSizePerFilter = dynamicFilterConfig.getSmallMaxSizePerFilter();
     }
 
-    public void registerQuery(SqlQueryExecution sqlQueryExecution, SubPlan fragmentedPlan)
+    public void registerQuery(Session session, PlanNode queryPlan, SubPlan fragmentedPlan)
     {
-        PlanNode queryPlan = sqlQueryExecution.getQueryPlan().orElseThrow().getRoot();
         Set<DynamicFilterId> dynamicFilters = getProducedDynamicFilters(queryPlan);
         Set<DynamicFilterId> replicatedDynamicFilters = getReplicatedDynamicFilters(queryPlan);
 
@@ -134,8 +131,8 @@ public class DynamicFilterService
         // register query only if it contains dynamic filters
         if (!dynamicFilters.isEmpty()) {
             registerQuery(
-                    sqlQueryExecution.getQueryId(),
-                    sqlQueryExecution.getSession(),
+                    session.getQueryId(),
+                    session,
                     dynamicFilters,
                     lazyDynamicFilters,
                     replicatedDynamicFilters);
@@ -182,7 +179,7 @@ public class DynamicFilterService
         dynamicFilterContexts.put(queryId, context.createContextForQueryRetry(attemptId));
     }
 
-    public DynamicFiltersStats getDynamicFilteringStats(QueryId queryId, Session session)
+    public DynamicFiltersStats getDynamicFilteringStats(QueryId queryId)
     {
         DynamicFilterContext context = dynamicFilterContexts.get(queryId);
         if (context == null) {
@@ -194,14 +191,13 @@ public class DynamicFilterService
         int replicatedFilters = context.getReplicatedDynamicFilters().size();
         int totalDynamicFilters = context.getTotalDynamicFilters();
 
-        ConnectorSession connectorSession = session.toConnectorSession();
         List<DynamicFilterDomainStats> dynamicFilterDomainStats = context.getDynamicFilterSummaries().entrySet().stream()
                 .map(entry -> {
                     DynamicFilterId dynamicFilterId = entry.getKey();
                     return new DynamicFilterDomainStats(
                             dynamicFilterId,
                             // use small limit for readability
-                            entry.getValue().toString(connectorSession, 2),
+                            entry.getValue().toString(2),
                             context.getDynamicFilterCollectionDuration(dynamicFilterId));
                 })
                 .collect(toImmutableList());

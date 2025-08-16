@@ -671,8 +671,7 @@ class PathEvaluationVisitor
                 builder.add(boundValue);
             }
             // recurse into child nodes
-            ImmutableList.copyOf(jsonNode.fields()).stream()
-                    .forEach(field -> descendants(field.getValue(), key, builder));
+            jsonNode.properties().forEach(field -> descendants(field.getValue(), key, builder));
         }
         if (object instanceof JsonNode jsonNode && jsonNode.isArray()) {
             for (int index = 0; index < jsonNode.size(); index++) {
@@ -852,7 +851,7 @@ class PathEvaluationVisitor
 
             // non-unique keys are not supported. if they were, we should follow the spec here on handling them.
             // see the comment in `visitIrMemberAccessor` method.
-            jsonNode.fields().forEachRemaining(
+            jsonNode.properties().forEach(
                     field -> outputSequence.add(new ObjectNode(
                             JsonNodeFactory.instance,
                             ImmutableMap.of(

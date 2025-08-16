@@ -105,7 +105,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
 
     private static final List<ColumnMetadata> ALL_COLUMNS = Stream.of(COLUMN_1_HANDLE, COLUMN_2_HANDLE, COLUMN_3_HANDLE, COLUMN_4_HANDLE, GROUPING_KEY_COLUMN_HANDLE, GROUPING_KEY2_COLUMN_HANDLE)
             .map(columnHandle -> (MockConnectorColumnHandle) columnHandle)
-            .map(column -> new ColumnMetadata(column.getName(), column.getType()))
+            .map(column -> new ColumnMetadata(column.name(), column.type()))
             .collect(toImmutableList());
 
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
@@ -169,27 +169,6 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                             ImmutableList.of(input1Symbol),
                                             ImmutableMap.of(
                                                     input1Symbol, COLUMN_1_HANDLE))));
-                })
-                .doesNotFire();
-
-        // hash symbol
-        ruleTester.assertThat(newMultipleDistinctAggregationsToSubqueries(ruleTester))
-                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "split_to_subqueries")
-                .on(p -> {
-                    Symbol input1Symbol = p.symbol("input1Symbol", BIGINT);
-                    Symbol input2Symbol = p.symbol("input2Symbol", BIGINT);
-                    return p.aggregation(builder -> builder
-                            .globalGrouping()
-                            .addAggregation(p.symbol("output1", BIGINT), PlanBuilder.aggregation("count", true, ImmutableList.of(new Reference(BIGINT, "input1Symbol"))), ImmutableList.of(BIGINT))
-                            .addAggregation(p.symbol("output2", BIGINT), PlanBuilder.aggregation("sum", true, ImmutableList.of(new Reference(BIGINT, "input2Symbol"))), ImmutableList.of(BIGINT))
-                            .hashSymbol(p.symbol("hashSymbol", BIGINT))
-                            .source(
-                                    p.tableScan(
-                                            testTableHandle(ruleTester),
-                                            ImmutableList.of(input1Symbol, input2Symbol),
-                                            ImmutableMap.of(
-                                                    input1Symbol, COLUMN_1_HANDLE,
-                                                    input2Symbol, COLUMN_2_HANDLE))));
                 })
                 .doesNotFire();
 

@@ -226,7 +226,7 @@ public class BenchmarkColumnarFilterParquetData
                         testData.getColumnNames(),
                         testData.getPages()),
                 ParquetReaderOptions.defaultOptions());
-        parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+        parquetMetadata = MetadataReader.readFooter(dataSource);
         columnNames = columns.stream()
                 .map(TpchColumn::getColumnName)
                 .collect(toImmutableList());

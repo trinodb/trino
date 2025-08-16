@@ -13,11 +13,8 @@
  */
 package io.trino.spi.spool;
 
-import io.trino.spi.Experimental;
-
 import java.util.Map;
 
-@Experimental(eta = "2025-05-31")
 public interface SpoolingManagerFactory
 {
     String getName();

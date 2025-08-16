@@ -48,7 +48,6 @@ public class WindowNode
     private final DataOrganizationSpecification specification;
     private final int preSortedOrderPrefix;
     private final Map<Symbol, Function> windowFunctions;
-    private final Optional<Symbol> hashSymbol;
 
     @JsonCreator
     public WindowNode(
@@ -56,7 +55,6 @@ public class WindowNode
             @JsonProperty("source") PlanNode source,
             @JsonProperty("specification") DataOrganizationSpecification specification,
             @JsonProperty("windowFunctions") Map<Symbol, Function> windowFunctions,
-            @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol,
             @JsonProperty("prePartitionedInputs") Set<Symbol> prePartitionedInputs,
             @JsonProperty("preSortedOrderPrefix") int preSortedOrderPrefix)
     {
@@ -65,7 +63,6 @@ public class WindowNode
         requireNonNull(source, "source is null");
         requireNonNull(specification, "specification is null");
         requireNonNull(windowFunctions, "windowFunctions is null");
-        requireNonNull(hashSymbol, "hashSymbol is null");
         requireNonNull(prePartitionedInputs, "prePartitionedInputs is null");
         // Make the defensive copy eagerly, so it can be used for both the validation checks and assigned directly to the field afterwards
         prePartitionedInputs = ImmutableSet.copyOf(prePartitionedInputs);
@@ -80,7 +77,6 @@ public class WindowNode
         this.prePartitionedInputs = prePartitionedInputs;
         this.specification = specification;
         this.windowFunctions = ImmutableMap.copyOf(windowFunctions);
-        this.hashSymbol = hashSymbol;
         this.preSortedOrderPrefix = preSortedOrderPrefix;
     }
 
@@ -137,12 +133,6 @@ public class WindowNode
     }
 
     @JsonProperty
-    public Optional<Symbol> getHashSymbol()
-    {
-        return hashSymbol;
-    }
-
-    @JsonProperty
     public Set<Symbol> getPrePartitionedInputs()
     {
         return prePartitionedInputs;
@@ -163,7 +153,7 @@ public class WindowNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new WindowNode(getId(), Iterables.getOnlyElement(newChildren), specification, windowFunctions, hashSymbol, prePartitionedInputs, preSortedOrderPrefix);
+        return new WindowNode(getId(), Iterables.getOnlyElement(newChildren), specification, windowFunctions, prePartitionedInputs, preSortedOrderPrefix);
     }
 
     @Immutable

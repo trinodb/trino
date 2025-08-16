@@ -154,8 +154,7 @@ public class MultipleDistinctAggregationToMarkDistinct
                             context.getIdAllocator().getNextId(),
                             subPlan,
                             marker,
-                            ImmutableList.copyOf(distinctSymbols.build()),
-                            Optional.empty());
+                            ImmutableList.copyOf(distinctSymbols.build()));
                 }
 
                 // remove the distinct flag and set the distinct marker

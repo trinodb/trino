@@ -30,6 +30,7 @@ import java.util.regex.Pattern;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.grammar.sql.SqlKeywords.sqlKeywords;
+import static java.util.Locale.ENGLISH;
 
 public final class ReservedIdentifiers
 {
@@ -40,6 +41,11 @@ public final class ReservedIdentifiers
     private static final SqlParser PARSER = new SqlParser();
 
     private ReservedIdentifiers() {}
+
+    private static final Set<String> RESERVED_IDENTIFIERS = sqlKeywords().stream()
+            .filter(ReservedIdentifiers::isNotIdentifier)
+            .sorted()
+            .collect(toImmutableSet());
 
     @SuppressWarnings("CallToPrintStackTrace")
     public static void main(String[] args)
@@ -110,13 +116,15 @@ public final class ReservedIdentifiers
 
     public static Set<String> reservedIdentifiers()
     {
-        return sqlKeywords().stream()
-                .filter(ReservedIdentifiers::reserved)
-                .sorted()
-                .collect(toImmutableSet());
+        return RESERVED_IDENTIFIERS;
     }
 
     public static boolean reserved(String name)
+    {
+        return RESERVED_IDENTIFIERS.contains(name.toUpperCase(ENGLISH));
+    }
+
+    private static boolean isNotIdentifier(String name)
     {
         try {
             return !(PARSER.createExpression(name) instanceof Identifier);

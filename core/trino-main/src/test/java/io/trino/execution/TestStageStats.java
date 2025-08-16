@@ -27,9 +27,9 @@ import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.spi.eventlistener.StageGcStatistics;
 import io.trino.spi.metrics.Metrics;
 import io.trino.sql.planner.plan.PlanNodeId;
-import org.joda.time.DateTime;
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
 import java.util.Optional;
 
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -38,7 +38,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestStageStats
 {
     private static final StageStats EXPECTED = new StageStats(
-            new DateTime(0),
+            Instant.EPOCH,
 
             ImmutableMap.of(new PlanNodeId("1"), getTestDistribution(1)),
             ImmutableMap.of(new PlanNodeId("2"), new Metrics(ImmutableMap.of("metric", new LongCount(2)))),
@@ -61,6 +61,7 @@ public class TestStageStats
             DataSize.ofBytes(16),
             DataSize.ofBytes(17),
             DataSize.ofBytes(18),
+            DataSize.ofBytes(19),
 
             new Duration(19, NANOSECONDS),
             new Duration(20, NANOSECONDS),
@@ -133,7 +134,7 @@ public class TestStageStats
 
     private static void assertExpectedStageStats(StageStats actual)
     {
-        assertThat(actual.getSchedulingComplete().getMillis()).isEqualTo(0);
+        assertThat(actual.getSchedulingComplete().toEpochMilli()).isEqualTo(0);
 
         assertThat(actual.getGetSplitDistribution().get(new PlanNodeId("1")).getCount()).isEqualTo(1.0);
 
@@ -155,6 +156,8 @@ public class TestStageStats
         assertThat(actual.getTotalMemoryReservation()).isEqualTo(DataSize.ofBytes(16));
         assertThat(actual.getPeakUserMemoryReservation()).isEqualTo(DataSize.ofBytes(17));
         assertThat(actual.getPeakRevocableMemoryReservation()).isEqualTo(DataSize.ofBytes(18));
+
+        assertThat(actual.getSpilledDataSize()).isEqualTo(DataSize.ofBytes(19));
 
         assertThat(actual.getTotalScheduledTime()).isEqualTo(new Duration(19, NANOSECONDS));
         assertThat(actual.getFailedScheduledTime()).isEqualTo(new Duration(20, NANOSECONDS));

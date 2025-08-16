@@ -22,8 +22,8 @@ import io.airlift.stats.Distribution.DistributionSnapshot;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import jakarta.annotation.Nullable;
-import org.joda.time.DateTime;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Set;
 
@@ -36,9 +36,9 @@ public class PipelineStats
 {
     private final int pipelineId;
 
-    private final DateTime firstStartTime;
-    private final DateTime lastStartTime;
-    private final DateTime lastEndTime;
+    private final Instant firstStartTime;
+    private final Instant lastStartTime;
+    private final Instant lastEndTime;
 
     private final boolean inputPipeline;
     private final boolean outputPipeline;
@@ -55,6 +55,8 @@ public class PipelineStats
 
     private final DataSize userMemoryReservation;
     private final DataSize revocableMemoryReservation;
+
+    private final DataSize spilledDataSize;
 
     private final DistributionSnapshot queuedTime;
     private final DistributionSnapshot elapsedTime;
@@ -94,9 +96,9 @@ public class PipelineStats
     public PipelineStats(
             @JsonProperty("pipelineId") int pipelineId,
 
-            @JsonProperty("firstStartTime") DateTime firstStartTime,
-            @JsonProperty("lastStartTime") DateTime lastStartTime,
-            @JsonProperty("lastEndTime") DateTime lastEndTime,
+            @JsonProperty("firstStartTime") Instant firstStartTime,
+            @JsonProperty("lastStartTime") Instant lastStartTime,
+            @JsonProperty("lastEndTime") Instant lastEndTime,
 
             @JsonProperty("inputPipeline") boolean inputPipeline,
             @JsonProperty("outputPipeline") boolean outputPipeline,
@@ -113,6 +115,8 @@ public class PipelineStats
 
             @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
             @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
+
+            @JsonProperty("spilledDataSize") DataSize spilledDataSize,
 
             @JsonProperty("queuedTime") DistributionSnapshot queuedTime,
             @JsonProperty("elapsedTime") DistributionSnapshot elapsedTime,
@@ -179,6 +183,8 @@ public class PipelineStats
         this.userMemoryReservation = requireNonNull(userMemoryReservation, "userMemoryReservation is null");
         this.revocableMemoryReservation = requireNonNull(revocableMemoryReservation, "revocableMemoryReservation is null");
 
+        this.spilledDataSize = requireNonNull(spilledDataSize, "spilledDataSize is null");
+
         this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
         this.elapsedTime = requireNonNull(elapsedTime, "elapsedTime is null");
         this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
@@ -227,21 +233,21 @@ public class PipelineStats
 
     @Nullable
     @JsonProperty
-    public DateTime getFirstStartTime()
+    public Instant getFirstStartTime()
     {
         return firstStartTime;
     }
 
     @Nullable
     @JsonProperty
-    public DateTime getLastStartTime()
+    public Instant getLastStartTime()
     {
         return lastStartTime;
     }
 
     @Nullable
     @JsonProperty
-    public DateTime getLastEndTime()
+    public Instant getLastEndTime()
     {
         return lastEndTime;
     }
@@ -322,6 +328,12 @@ public class PipelineStats
     public DataSize getRevocableMemoryReservation()
     {
         return revocableMemoryReservation;
+    }
+
+    @JsonProperty
+    public DataSize getSpilledDataSize()
+    {
+        return spilledDataSize;
     }
 
     @JsonProperty
@@ -482,6 +494,7 @@ public class PipelineStats
                 completedDrivers,
                 userMemoryReservation,
                 revocableMemoryReservation,
+                spilledDataSize,
                 queuedTime,
                 elapsedTime,
                 totalScheduledTime,
@@ -527,6 +540,7 @@ public class PipelineStats
                 completedDrivers,
                 userMemoryReservation,
                 revocableMemoryReservation,
+                spilledDataSize,
                 queuedTime,
                 elapsedTime,
                 totalScheduledTime,

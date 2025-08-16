@@ -123,7 +123,7 @@ public class TestColocatedJoin
                         WHERE
                             orders.column_a = t.column_a
                         AND orders.column_b = t.column_b
-                """,
+                    """,
                     prepareSession(20, colocatedJoinEnabled),
                     anyTree(
                             anyTree(

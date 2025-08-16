@@ -1106,6 +1106,7 @@ public class GlueHiveMetastore
 
         // statistics are created after partitions because it is not clear if ordering matters in Glue
         var createStatisticsTasks = partitionsWithStatistics.stream()
+                .filter(partitionWithStatistics -> partitionWithStatistics.getStatistics() != PartitionStatistics.empty())
                 .map(partitionWithStatistics -> createUpdatePartitionStatisticsTasks(
                         StatisticsUpdateMode.OVERWRITE_ALL,
                         partitionWithStatistics.getPartition(),

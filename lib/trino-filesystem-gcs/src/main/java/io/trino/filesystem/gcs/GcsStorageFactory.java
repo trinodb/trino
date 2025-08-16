@@ -20,13 +20,13 @@ import com.google.cloud.storage.StorageOptions;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.trino.spi.security.ConnectorIdentity;
-import org.threeten.bp.Duration;
 
 import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -76,10 +76,9 @@ public class GcsStorageFactory
         }
         this.maxRetries = config.getMaxRetries();
         this.backoffScaleFactor = config.getBackoffScaleFactor();
-        // To avoid name collision by importing io.airlift.Duration
-        this.maxRetryTime = Duration.ofMillis(config.getMaxRetryTime().toMillis());
-        this.minBackoffDelay = Duration.ofMillis(config.getMinBackoffDelay().toMillis());
-        this.maxBackoffDelay = Duration.ofMillis(config.getMaxBackoffDelay().toMillis());
+        this.maxRetryTime = config.getMaxRetryTime().toJavaTime();
+        this.minBackoffDelay = config.getMinBackoffDelay().toJavaTime();
+        this.maxBackoffDelay = config.getMaxBackoffDelay().toJavaTime();
         this.applicationId = config.getApplicationId();
     }
 
@@ -99,7 +98,8 @@ public class GcsStorageFactory
                         return GoogleCredentials.getApplicationDefault();
                     }
                     catch (IOException e) {
-                        throw new UncheckedIOException(e);
+                        // This is consistent with the GCP SDK when no credentials are available in the environment
+                        return null;
                     }
                 });
             }
@@ -108,19 +108,22 @@ public class GcsStorageFactory
                 storageOptionsBuilder.setProjectId(projectId);
             }
 
+            if (credentials != null) {
+                storageOptionsBuilder.setCredentials(credentials);
+            }
+
             endpoint.ifPresent(storageOptionsBuilder::setHost);
 
             // Note: without uniform strategy we cannot retry idempotent operations.
             // The trino-filesystem api does not violate the conditions for idempotency, see https://cloud.google.com/storage/docs/retry-strategy#java for details.
             return storageOptionsBuilder
-                    .setCredentials(credentials)
                     .setStorageRetryStrategy(getUniformStorageRetryStrategy())
                     .setRetrySettings(RetrySettings.newBuilder()
                             .setMaxAttempts(maxRetries + 1)
                             .setRetryDelayMultiplier(backoffScaleFactor)
-                            .setTotalTimeout(maxRetryTime)
-                            .setInitialRetryDelay(minBackoffDelay)
-                            .setMaxRetryDelay(maxBackoffDelay)
+                            .setTotalTimeoutDuration(maxRetryTime)
+                            .setInitialRetryDelayDuration(minBackoffDelay)
+                            .setMaxRetryDelayDuration(maxBackoffDelay)
                             .build())
                     .setHeaderProvider(() -> Map.of(USER_AGENT, StorageOptions.getLibraryName() + "/" + StorageOptions.version() + " " + applicationId))
                     .build()

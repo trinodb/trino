@@ -282,10 +282,10 @@ public class HiveWriterFactory
                 //           or a new unpartitioned table.
                 updateMode = UpdateMode.NEW;
                 schema.put(LIST_COLUMNS, dataColumns.stream()
-                        .map(DataColumn::getName)
+                        .map(DataColumn::name)
                         .collect(joining(",")));
                 schema.put(LIST_COLUMN_TYPES, dataColumns.stream()
-                        .map(DataColumn::getHiveType)
+                        .map(DataColumn::hiveType)
                         .map(HiveType::getHiveTypeName)
                         .map(HiveTypeName::toString)
                         .collect(joining(":")));
@@ -455,7 +455,7 @@ public class HiveWriterFactory
                 Optional<FileWriter> fileWriter = fileWriterFactory.createFileWriter(
                         path,
                         dataColumns.stream()
-                                .map(DataColumn::getName)
+                                .map(DataColumn::name)
                                 .collect(toList()),
                         outputStorageFormat,
                         compressionCodec,
@@ -489,12 +489,12 @@ public class HiveWriterFactory
             }
 
             List<Type> types = dataColumns.stream()
-                    .map(column -> getType(column.getHiveType(), typeManager, getTimestampPrecision(session)))
+                    .map(column -> getType(column.hiveType(), typeManager, getTimestampPrecision(session)))
                     .collect(toImmutableList());
 
             Map<String, Integer> columnIndexes = new HashMap<>();
             for (int i = 0; i < dataColumns.size(); i++) {
-                columnIndexes.put(dataColumns.get(i).getName(), i);
+                columnIndexes.put(dataColumns.get(i).name(), i);
             }
 
             List<Integer> sortFields = new ArrayList<>();
@@ -570,7 +570,7 @@ public class HiveWriterFactory
 
         // verify we can write all input columns to the file
         Map<String, DataColumn> inputColumnMap = dataColumns.stream()
-                .collect(toMap(DataColumn::getName, identity()));
+                .collect(toMap(DataColumn::name, identity()));
         Set<String> missingColumns = Sets.difference(inputColumnMap.keySet(), new HashSet<>(fileColumnNames));
         if (!missingColumns.isEmpty()) {
             throw new TrinoException(HIVE_INVALID_METADATA, format("Table '%s.%s' does not have columns %s", schemaName, tableName, missingColumns));
@@ -588,7 +588,7 @@ public class HiveWriterFactory
         for (int fileIndex = 0; fileIndex < fileColumnNames.size(); fileIndex++) {
             String columnName = fileColumnNames.get(fileIndex);
             HiveType fileColumnHiveType = fileColumnHiveTypes.get(fileIndex);
-            HiveType inputHiveType = inputColumnMap.get(columnName).getHiveType();
+            HiveType inputHiveType = inputColumnMap.get(columnName).hiveType();
 
             if (!fileColumnHiveType.equals(inputHiveType)) {
                 // todo this should be moved to a helper
@@ -690,25 +690,12 @@ public class HiveWriterFactory
         return Location.of("file:///" + location.path());
     }
 
-    private static class DataColumn
+    private record DataColumn(String name, HiveType hiveType)
     {
-        private final String name;
-        private final HiveType hiveType;
-
-        public DataColumn(String name, HiveType hiveType)
+        private DataColumn
         {
-            this.name = requireNonNull(name, "name is null");
-            this.hiveType = requireNonNull(hiveType, "hiveType is null");
-        }
-
-        public String getName()
-        {
-            return name;
-        }
-
-        public HiveType getHiveType()
-        {
-            return hiveType;
+            requireNonNull(name, "name is null");
+            requireNonNull(hiveType, "hiveType is null");
         }
     }
 }

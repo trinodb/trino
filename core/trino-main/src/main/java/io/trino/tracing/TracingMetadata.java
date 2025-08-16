@@ -32,6 +32,8 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.metadata.OutputTableHandle;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.QualifiedObjectPrefix;
+import io.trino.metadata.QualifiedSchemaPrefix;
 import io.trino.metadata.QualifiedTablePrefix;
 import io.trino.metadata.RedirectionAwareTableHandle;
 import io.trino.metadata.ResolvedFunction;
@@ -95,10 +97,13 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.security.FunctionAuthorization;
 import io.trino.spi.security.GrantInfo;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.RoleGrant;
+import io.trino.spi.security.SchemaAuthorization;
+import io.trino.spi.security.TableAuthorization;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
@@ -926,6 +931,15 @@ public class TracingMetadata
     }
 
     @Override
+    public void refreshView(Session session, QualifiedObjectName viewName, ViewDefinition viewDefinition)
+    {
+        Span span = startSpan("refreshView", viewName);
+        try (var _ = scopedSpan(span)) {
+            delegate.refreshView(session, viewName, viewDefinition);
+        }
+    }
+
+    @Override
     public void dropView(Session session, QualifiedObjectName viewName)
     {
         Span span = startSpan("dropView", viewName);
@@ -1192,6 +1206,33 @@ public class TracingMetadata
     }
 
     @Override
+    public void grantTableBranchPrivileges(Session session, QualifiedObjectName tableName, String branchName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
+    {
+        Span span = startSpan("grantTableBranchPrivileges", tableName);
+        try (var _ = scopedSpan(span)) {
+            delegate.grantTableBranchPrivileges(session, tableName, branchName, privileges, grantee, grantOption);
+        }
+    }
+
+    @Override
+    public void denyTableBranchPrivileges(Session session, QualifiedObjectName tableName, String branchName, Set<Privilege> privileges, TrinoPrincipal grantee)
+    {
+        Span span = startSpan("denyTableBranchPrivileges", tableName);
+        try (var _ = scopedSpan(span)) {
+            delegate.denyTableBranchPrivileges(session, tableName, branchName, privileges, grantee);
+        }
+    }
+
+    @Override
+    public void revokeTableBranchPrivileges(Session session, QualifiedObjectName tableName, String branchName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
+    {
+        Span span = startSpan("revokeTableBranchPrivileges", tableName);
+        try (var _ = scopedSpan(span)) {
+            delegate.revokeTableBranchPrivileges(session, tableName, branchName, privileges, grantee, grantOption);
+        }
+    }
+
+    @Override
     public Set<EntityPrivilege> getAllEntityKindPrivileges(String entityKind)
     {
         return delegate.getAllEntityKindPrivileges(entityKind);
@@ -1344,6 +1385,51 @@ public class TracingMetadata
         Span span = startSpan("dropLanguageFunction", name);
         try (var _ = scopedSpan(span)) {
             delegate.dropLanguageFunction(session, name, signatureToken);
+        }
+    }
+
+    @Override
+    public void createBranch(Session session, TableHandle tableHandle, String branch, Optional<String> fromBranch, SaveMode saveMode, Map<String, Object> properties)
+    {
+        Span span = startSpan("createBranch", tableHandle);
+        try (var _ = scopedSpan(span)) {
+            delegate.createBranch(session, tableHandle, branch, fromBranch, saveMode, properties);
+        }
+    }
+
+    @Override
+    public void dropBranch(Session session, TableHandle tableHandle, String branch)
+    {
+        Span span = startSpan("dropBranch", tableHandle);
+        try (var _ = scopedSpan(span)) {
+            delegate.dropBranch(session, tableHandle, branch);
+        }
+    }
+
+    @Override
+    public void fastForwardBranch(Session session, TableHandle tableHandle, String sourceBranch, String targetBranch)
+    {
+        Span span = startSpan("fastForwardBranch", tableHandle);
+        try (var _ = scopedSpan(span)) {
+            delegate.fastForwardBranch(session, tableHandle, sourceBranch, targetBranch);
+        }
+    }
+
+    @Override
+    public Collection<String> listBranches(Session session, QualifiedObjectName tableName)
+    {
+        Span span = startSpan("listBranches", tableName);
+        try (var _ = scopedSpan(span)) {
+            return delegate.listBranches(session, tableName);
+        }
+    }
+
+    @Override
+    public boolean branchExists(Session session, QualifiedObjectName tableName, String branch)
+    {
+        Span span = startSpan("branchExists", tableName);
+        try (var _ = scopedSpan(span)) {
+            return delegate.branchExists(session, tableName, branch);
         }
     }
 
@@ -1533,6 +1619,33 @@ public class TracingMetadata
         }
     }
 
+    @Override
+    public Set<SchemaAuthorization> getSchemasAuthorizationInfo(Session session, QualifiedSchemaPrefix prefix)
+    {
+        Span span = startSpan("getSchemasAuthorizationInfo", prefix);
+        try (var ignored = scopedSpan(span)) {
+            return delegate.getSchemasAuthorizationInfo(session, prefix);
+        }
+    }
+
+    @Override
+    public Set<TableAuthorization> getTablesAuthorizationInfo(Session session, QualifiedTablePrefix prefix)
+    {
+        Span span = startSpan("getTablesAuthorizationInfo", prefix);
+        try (var ignored = scopedSpan(span)) {
+            return delegate.getTablesAuthorizationInfo(session, prefix);
+        }
+    }
+
+    @Override
+    public Set<FunctionAuthorization> getFunctionsAuthorizationInfo(Session session, QualifiedObjectPrefix prefix)
+    {
+        Span span = startSpan("getFunctionsAuthorizationInfo", prefix);
+        try (var ignored = scopedSpan(span)) {
+            return delegate.getFunctionsAuthorizationInfo(session, prefix);
+        }
+    }
+
     private Span startSpan(String methodName)
     {
         return tracer.spanBuilder("Metadata." + methodName)
@@ -1584,6 +1697,21 @@ public class TracingMetadata
                 .setAttribute(TrinoAttributes.CATALOG, prefix.getCatalogName())
                 .setAttribute(TrinoAttributes.SCHEMA, prefix.getSchemaName().orElse(null))
                 .setAttribute(TrinoAttributes.TABLE, prefix.getTableName().orElse(null));
+    }
+
+    private Span startSpan(String methodName, QualifiedObjectPrefix prefix)
+    {
+        return startSpan(methodName)
+                .setAttribute(TrinoAttributes.CATALOG, prefix.catalogName())
+                .setAttribute(TrinoAttributes.SCHEMA, prefix.schemaName().orElse(null))
+                .setAttribute(TrinoAttributes.ENTITY, prefix.objectName().orElse(null));
+    }
+
+    private Span startSpan(String methodName, QualifiedSchemaPrefix prefix)
+    {
+        return startSpan(methodName)
+                .setAttribute(TrinoAttributes.CATALOG, prefix.catalogName())
+                .setAttribute(TrinoAttributes.SCHEMA, prefix.schemaName().orElse(null));
     }
 
     private Span startSpan(String methodName, String catalogName, ConnectorTableMetadata tableMetadata)

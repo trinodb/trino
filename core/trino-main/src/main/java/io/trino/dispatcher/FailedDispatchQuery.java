@@ -31,9 +31,9 @@ import io.trino.server.BasicQueryInfo;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.QueryId;
 import io.trino.spi.resourcegroups.ResourceGroupId;
-import org.joda.time.DateTime;
 
 import java.net.URI;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.concurrent.Executor;
@@ -163,19 +163,19 @@ public class FailedDispatchQuery
     public void recordHeartbeat() {}
 
     @Override
-    public DateTime getLastHeartbeat()
+    public Instant getLastHeartbeat()
     {
         return basicQueryInfo.getQueryStats().getEndTime();
     }
 
     @Override
-    public DateTime getCreateTime()
+    public Instant getCreateTime()
     {
         return basicQueryInfo.getQueryStats().getCreateTime();
     }
 
     @Override
-    public Optional<DateTime> getExecutionStartTime()
+    public Optional<Instant> getExecutionStartTime()
     {
         return getEndTime();
     }
@@ -187,7 +187,7 @@ public class FailedDispatchQuery
     }
 
     @Override
-    public Optional<DateTime> getEndTime()
+    public Optional<Instant> getEndTime()
     {
         return Optional.ofNullable(basicQueryInfo.getQueryStats().getEndTime());
     }
@@ -263,7 +263,7 @@ public class FailedDispatchQuery
 
     private static QueryStats immediateFailureQueryStats()
     {
-        DateTime now = DateTime.now();
+        Instant now = Instant.now();
         return new QueryStats(
                 now,
                 now,
@@ -290,6 +290,7 @@ public class FailedDispatchQuery
                 0,
                 0,
                 0,
+                DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),

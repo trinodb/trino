@@ -203,7 +203,14 @@ final class S3FileSystem
                 try {
                     DeleteObjectsResponse response = client.deleteObjects(request);
                     for (S3Error error : response.errors()) {
-                        failures.put("s3://%s/%s".formatted(bucket, error.key()), error.code());
+                        String filePath = "s3://%s/%s".formatted(bucket, error.key());
+                        if (error.message() == null) {
+                            // If the error message is null, we just use the error code
+                            failures.put(filePath, error.code());
+                        }
+                        else {
+                            failures.put(filePath, "%s (%s)".formatted(error.message(), error.code()));
+                        }
                     }
                 }
                 catch (SdkException e) {

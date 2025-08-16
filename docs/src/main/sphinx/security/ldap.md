@@ -105,9 +105,9 @@ ldap.user-bind-pattern=<Refer below for usage>
 * - `ldap.cache-ttl`
   - LDAP cache duration. Defaults to `1h`.
 * - `ldap.timeout.connect`
-  - Timeout for establishing an LDAP connection.
+  - Timeout for establishing an LDAP connection. Defaults to `1m`.
 * - `ldap.timeout.read`
-  - Timeout for reading data from an LDAP connection.
+  - Timeout for reading data from an LDAP connection. Defaults to `1m`.
 :::
 
 Based on the LDAP server implementation type, the property

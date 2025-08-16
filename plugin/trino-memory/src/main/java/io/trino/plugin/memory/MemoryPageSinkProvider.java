@@ -19,7 +19,7 @@ import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 import io.trino.plugin.memory.MemoryInsertTableHandle.InsertMode;
 import io.trino.spi.HostAddress;
-import io.trino.spi.NodeManager;
+import io.trino.spi.Node;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
@@ -45,9 +45,9 @@ public class MemoryPageSinkProvider
     private final HostAddress currentHostAddress;
 
     @Inject
-    public MemoryPageSinkProvider(MemoryPagesStore pagesStore, NodeManager nodeManager)
+    public MemoryPageSinkProvider(MemoryPagesStore pagesStore, Node currentNode)
     {
-        this(pagesStore, nodeManager.getCurrentNode().getHostAndPort());
+        this(pagesStore, currentNode.getHostAndPort());
     }
 
     @VisibleForTesting

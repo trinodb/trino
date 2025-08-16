@@ -128,11 +128,6 @@ public class PushPartialAggregationThroughExchange
             }
         }
 
-        // currently, we only support plans that don't use pre-computed hash functions
-        if (aggregationNode.getHashSymbol().isPresent() || exchangeNode.getPartitioningScheme().getHashColumn().isPresent()) {
-            return Result.empty();
-        }
-
         return switch (aggregationNode.getStep()) {
             case SINGLE -> Result.ofPlanNode(split(aggregationNode, context)); // Split it into a FINAL on top of a PARTIAL and
             case PARTIAL -> Result.ofPlanNode(pushPartial(aggregationNode, exchangeNode, context)); // Push it underneath each branch of the exchange
@@ -179,9 +174,9 @@ public class PushPartialAggregationThroughExchange
         PartitioningScheme partitioning = new PartitioningScheme(
                 exchange.getPartitioningScheme().getPartitioning(),
                 aggregation.getOutputSymbols(),
-                exchange.getPartitioningScheme().getHashColumn(),
                 exchange.getPartitioningScheme().isReplicateNullsAndAny(),
                 exchange.getPartitioningScheme().getBucketToPartition(),
+                exchange.getPartitioningScheme().getBucketCount(),
                 exchange.getPartitioningScheme().getPartitionCount());
 
         return new ExchangeNode(
@@ -246,7 +241,6 @@ public class PushPartialAggregationThroughExchange
                 // through the exchange may or may not preserve these properties. Hence, it is safest to drop preGroupedSymbols here.
                 ImmutableList.of(),
                 PARTIAL,
-                node.getHashSymbol(),
                 node.getGroupIdSymbol());
 
         return new AggregationNode(
@@ -258,7 +252,6 @@ public class PushPartialAggregationThroughExchange
                 // through the exchange may or may not preserve these properties. Hence, it is safest to drop preGroupedSymbols here.
                 ImmutableList.of(),
                 FINAL,
-                node.getHashSymbol(),
                 node.getGroupIdSymbol());
     }
 }

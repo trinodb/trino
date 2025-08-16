@@ -36,6 +36,7 @@ import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterators.transform;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static io.airlift.concurrent.MoreFutures.asVoid;
 import static io.airlift.concurrent.MoreFutures.checkSuccess;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.util.MergeSortedPages.mergeSortedPages;
@@ -147,6 +148,7 @@ public class OrderByOperator
     private final LocalMemoryContext localUserMemoryContext;
 
     private final PagesIndex pageIndex;
+    private final PagesIndexOrdering pagesIndexOrdering;
 
     private final List<Type> sourceTypes;
 
@@ -185,6 +187,7 @@ public class OrderByOperator
         this.revocableMemoryContext = operatorContext.localRevocableMemoryContext();
 
         this.pageIndex = pagesIndexFactory.newPagesIndex(sourceTypes, expectedPositions);
+        this.pagesIndexOrdering = pageIndex.createPagesIndexComparator(this.sortChannels, this.sortOrder);
         this.spillEnabled = spillEnabled;
         this.spillerFactory = requireNonNull(spillerFactory, "spillerFactory is null");
         this.orderingCompiler = requireNonNull(orderingCompiler, "orderingCompiler is null");
@@ -227,7 +230,7 @@ public class OrderByOperator
                 }
             }
 
-            pageIndex.sort(sortChannels, sortOrder);
+            pageIndex.sort(pagesIndexOrdering);
             Iterator<Page> sortedPagesIndex = pageIndex.getSortedPages();
 
             List<WorkProcessor<Page>> spilledPages = getSpilledPages();
@@ -314,8 +317,8 @@ public class OrderByOperator
                     operatorContext.newAggregateUserMemoryContext()));
         }
 
-        pageIndex.sort(sortChannels, sortOrder);
-        spillInProgress = spiller.get().spill(pageIndex.getSortedPages());
+        pageIndex.sort(pagesIndexOrdering);
+        spillInProgress = asVoid(spiller.get().spill(pageIndex.getSortedPages()));
         finishMemoryRevoke = Optional.of(() -> {
             pageIndex.clear();
             updateMemoryUsage();

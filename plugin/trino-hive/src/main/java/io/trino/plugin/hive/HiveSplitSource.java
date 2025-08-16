@@ -286,7 +286,7 @@ class HiveSplitSource
                 InternalHiveBlock block = internalSplit.currentBlock();
                 long splitBytes;
                 if (internalSplit.isSplittable()) {
-                    long remainingBlockBytes = block.getEnd() - internalSplit.getStart();
+                    long remainingBlockBytes = block.end() - internalSplit.getStart();
                     if (remainingBlockBytes <= maxSplitBytes) {
                         splitBytes = remainingBlockBytes;
                     }
@@ -311,7 +311,7 @@ class HiveSplitSource
                         internalSplit.getFileModifiedTime(),
                         internalSplit.getSchema(),
                         internalSplit.getPartitionKeys(),
-                        cachingHostAddressProvider.getHosts(internalSplit.getPath(), block.getAddresses()),
+                        cachingHostAddressProvider.getHosts(internalSplit.getPath(), block.addresses()),
                         internalSplit.getReadBucketNumber(),
                         internalSplit.getTableBucketNumber(),
                         internalSplit.isForceLocalScheduling(),

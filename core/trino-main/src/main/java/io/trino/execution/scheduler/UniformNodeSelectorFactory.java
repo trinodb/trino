@@ -24,15 +24,13 @@ import io.trino.Session;
 import io.trino.cache.NonEvictableCache;
 import io.trino.execution.NodeTaskMap;
 import io.trino.execution.scheduler.NodeSchedulerConfig.SplitsBalancingPolicy;
-import io.trino.metadata.InternalNode;
-import io.trino.metadata.InternalNodeManager;
+import io.trino.node.InternalNode;
+import io.trino.node.InternalNodeManager;
 import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
-import io.trino.spi.connector.CatalogHandle;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
@@ -42,7 +40,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.SystemSessionProperties.getMaxUnacknowledgedSplitsPerTask;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
-import static io.trino.metadata.NodeState.ACTIVE;
+import static io.trino.node.NodeState.ACTIVE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -56,6 +54,7 @@ public class UniformNodeSelectorFactory
             CacheBuilder.newBuilder()
                     .expireAfterWrite(30, TimeUnit.SECONDS));
 
+    private final InternalNode currentNode;
     private final InternalNodeManager nodeManager;
     private final int minCandidates;
     private final boolean includeCoordinator;
@@ -69,20 +68,23 @@ public class UniformNodeSelectorFactory
 
     @Inject
     public UniformNodeSelectorFactory(
+            InternalNode currentNode,
             InternalNodeManager nodeManager,
             NodeSchedulerConfig config,
             NodeTaskMap nodeTaskMap)
     {
-        this(nodeManager, config, nodeTaskMap, new Duration(5, SECONDS));
+        this(currentNode, nodeManager, config, nodeTaskMap, new Duration(5, SECONDS));
     }
 
     @VisibleForTesting
     UniformNodeSelectorFactory(
+            InternalNode currentNode,
             InternalNodeManager nodeManager,
             NodeSchedulerConfig config,
             NodeTaskMap nodeTaskMap,
             Duration nodeMapMemoizationDuration)
     {
+        this.currentNode = requireNonNull(currentNode, "currentNode is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.minCandidates = config.getMinCandidates();
         this.includeCoordinator = config.isIncludeCoordinator();
@@ -101,24 +103,22 @@ public class UniformNodeSelectorFactory
     }
 
     @Override
-    public NodeSelector createNodeSelector(Session session, Optional<CatalogHandle> catalogHandle)
+    public NodeSelector createNodeSelector(Session session)
     {
-        requireNonNull(catalogHandle, "catalogHandle is null");
-
         // this supplier is thread-safe. TODO: this logic should probably move to the scheduler since the choice of which node to run in should be
         // done as close to when the split is about to be scheduled
         Supplier<NodeMap> nodeMap;
         if (nodeMapMemoizationDuration.toMillis() > 0) {
             nodeMap = Suppliers.memoizeWithExpiration(
-                    () -> createNodeMap(catalogHandle),
+                    this::createNodeMap,
                     nodeMapMemoizationDuration.toMillis(), MILLISECONDS);
         }
         else {
-            nodeMap = () -> createNodeMap(catalogHandle);
+            nodeMap = this::createNodeMap;
         }
 
         return new UniformNodeSelector(
-                nodeManager,
+                currentNode,
                 nodeTaskMap,
                 includeCoordinator,
                 nodeMap,
@@ -131,11 +131,9 @@ public class UniformNodeSelectorFactory
                 optimizedLocalScheduling);
     }
 
-    private NodeMap createNodeMap(Optional<CatalogHandle> catalogHandle)
+    private NodeMap createNodeMap()
     {
-        Set<InternalNode> nodes = catalogHandle
-                .map(nodeManager::getActiveCatalogNodes)
-                .orElseGet(() -> nodeManager.getNodes(ACTIVE));
+        Set<InternalNode> nodes = nodeManager.getNodes(ACTIVE);
 
         Set<String> coordinatorNodeIds = nodeManager.getCoordinators().stream()
                 .map(InternalNode::getNodeIdentifier)

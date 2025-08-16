@@ -238,6 +238,9 @@ public class JdbcPageSink
                 connection.close();
             }
         }
+        catch (ConnectionAlreadyClosedException e) {
+            // the connection already closed
+        }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
         }

@@ -65,6 +65,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -224,10 +225,11 @@ public class PlanFragmenter
                 new PartitioningScheme(
                         newOutputPartitioning,
                         outputPartitioningScheme.getOutputLayout(),
-                        outputPartitioningScheme.getHashColumn(),
                         outputPartitioningScheme.isReplicateNullsAndAny(),
                         outputPartitioningScheme.getBucketToPartition(),
+                        outputPartitioningScheme.getBucketCount(),
                         outputPartitioningScheme.getPartitionCount()),
+                OptionalInt.empty(),
                 fragment.getStatsAndCosts(),
                 fragment.getActiveCatalogs(),
                 fragment.getLanguageFunctions(),
@@ -295,6 +297,7 @@ public class PlanFragmenter
                     properties.getPartitionCount(),
                     schedulingOrder,
                     properties.getPartitioningScheme(),
+                    OptionalInt.empty(),
                     statsAndCosts.getForSubplan(root),
                     activeCatalogs,
                     languageFunctions,

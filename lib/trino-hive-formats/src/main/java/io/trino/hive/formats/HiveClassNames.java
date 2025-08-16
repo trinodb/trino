@@ -45,6 +45,8 @@ public final class HiveClassNames
     public static final String SEQUENCEFILE_INPUT_FORMAT_CLASS = "org.apache.hadoop.mapred.SequenceFileInputFormat";
     public static final String SYMLINK_TEXT_INPUT_FORMAT_CLASS = "org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat";
     public static final String TEXT_INPUT_FORMAT_CLASS = "org.apache.hadoop.mapred.TextInputFormat";
+    public static final String ESRI_SERDE_CLASS = "com.esri.hadoop.hive.serde.EsriJsonSerDe";
+    public static final String ESRI_INPUT_FORMAT_CLASS = "com.esri.json.hadoop.EnclosedEsriJsonInputFormat";
 
     private HiveClassNames() {}
 }

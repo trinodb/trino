@@ -13,16 +13,26 @@
  */
 package io.trino.server.protocol;
 
-import io.trino.Session;
 import io.trino.client.QueryData;
 import io.trino.server.ExternalUriInfo;
 import io.trino.spi.TrinoException;
 
 import java.util.function.Consumer;
 
+import static io.trino.spi.StandardErrorCode.SERIALIZATION_ERROR;
+
 public interface QueryDataProducer
 {
-    QueryData produce(ExternalUriInfo uriInfo, Session session, QueryResultRows rows, Consumer<TrinoException> throwableConsumer);
+    QueryData produce(ExternalUriInfo uriInfo, QueryResultRows rows, Consumer<TrinoException> throwableConsumer);
 
-    void close();
+    default void close()
+    {
+    }
+
+    QueryDataProducer THROWING = (uriInfo, rows, throwableConsumer) -> {
+        if (!rows.isEmpty()) {
+            throwableConsumer.accept(new TrinoException(SERIALIZATION_ERROR, "Protocol violation: query data producer is not initialized"));
+        }
+        return QueryData.NULL;
+    };
 }

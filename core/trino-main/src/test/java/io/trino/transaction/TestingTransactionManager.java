@@ -23,8 +23,8 @@ import io.trino.metadata.CatalogMetadata;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.transaction.IsolationLevel;
-import org.joda.time.DateTime;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -56,7 +56,7 @@ public class TestingTransactionManager
                 IsolationLevel.READ_UNCOMMITTED,
                 false, //read only
                 false, // auto commit
-                DateTime.now(), // created
+                Instant.now(), // created
                 Duration.succinctNanos(0), // idle
                 ImmutableList.of(), // catalogs
                 Optional.empty(),  // write catalog

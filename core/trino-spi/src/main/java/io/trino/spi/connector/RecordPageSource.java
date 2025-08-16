@@ -81,8 +81,7 @@ public class RecordPageSource
     }
 
     @Override
-    @SuppressWarnings("removal")
-    public Page getNextPage()
+    public SourcePage getNextSourcePage()
     {
         if (!closed) {
             for (int i = 0; i < ROWS_PER_REQUEST && !pageBuilder.isFull(); i++) {
@@ -125,7 +124,7 @@ public class RecordPageSource
         if ((closed && !pageBuilder.isEmpty()) || pageBuilder.isFull()) {
             Page page = pageBuilder.build();
             pageBuilder.reset();
-            return page;
+            return SourcePage.create(page);
         }
 
         return null;

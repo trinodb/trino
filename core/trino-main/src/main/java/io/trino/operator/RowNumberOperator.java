@@ -49,7 +49,6 @@ public class RowNumberOperator
         private final List<Integer> outputChannels;
         private final List<Integer> partitionChannels;
         private final List<Type> partitionTypes;
-        private final Optional<Integer> hashChannel;
         private final int expectedPositions;
         private boolean closed;
         private final FlatHashStrategyCompiler hashStrategyCompiler;
@@ -62,7 +61,6 @@ public class RowNumberOperator
                 List<Integer> partitionChannels,
                 List<? extends Type> partitionTypes,
                 Optional<Integer> maxRowsPerPartition,
-                Optional<Integer> hashChannel,
                 int expectedPositions,
                 FlatHashStrategyCompiler hashStrategyCompiler)
         {
@@ -74,7 +72,6 @@ public class RowNumberOperator
             this.partitionTypes = ImmutableList.copyOf(requireNonNull(partitionTypes, "partitionTypes is null"));
             this.maxRowsPerPartition = requireNonNull(maxRowsPerPartition, "maxRowsPerPartition is null");
 
-            this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
             checkArgument(expectedPositions > 0, "expectedPositions < 0");
             this.expectedPositions = expectedPositions;
             this.hashStrategyCompiler = requireNonNull(hashStrategyCompiler, "hashStrategyCompiler is null");
@@ -93,7 +90,6 @@ public class RowNumberOperator
                     partitionChannels,
                     partitionTypes,
                     maxRowsPerPartition,
-                    hashChannel,
                     expectedPositions,
                     hashStrategyCompiler);
         }
@@ -115,7 +111,6 @@ public class RowNumberOperator
                     partitionChannels,
                     partitionTypes,
                     maxRowsPerPartition,
-                    hashChannel,
                     expectedPositions,
                     hashStrategyCompiler);
         }
@@ -149,7 +144,6 @@ public class RowNumberOperator
             List<Integer> partitionChannels,
             List<Type> partitionTypes,
             Optional<Integer> maxRowsPerPartition,
-            Optional<Integer> hashChannel,
             int expectedPositions,
             FlatHashStrategyCompiler hashStrategyCompiler)
     {
@@ -171,20 +165,10 @@ public class RowNumberOperator
             this.groupByHash = Optional.empty();
         }
         else {
-            if (hashChannel.isPresent()) {
-                this.groupByChannels = new int[partitionChannels.size() + 1];
-                for (int i = 0; i < partitionChannels.size(); i++) {
-                    this.groupByChannels[i] = partitionChannels.get(i);
-                }
-                this.groupByChannels[partitionChannels.size()] = hashChannel.get();
-            }
-            else {
-                this.groupByChannels = Ints.toArray(partitionChannels);
-            }
+            this.groupByChannels = Ints.toArray(partitionChannels);
             this.groupByHash = Optional.of(createGroupByHash(
                     operatorContext.getSession(),
                     partitionTypes,
-                    hashChannel.isPresent(),
                     false,
                     expectedPositions,
                     hashStrategyCompiler,

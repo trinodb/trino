@@ -34,6 +34,7 @@ import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.testing.TestingMetadata;
 
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
@@ -91,8 +92,6 @@ final class PlanUtils
                 remote.getOutputSymbols(),
                 false,
                 Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
                 Optional.of(REPLICATED),
                 Optional.empty(),
                 ImmutableMap.of(),
@@ -120,8 +119,6 @@ final class PlanUtils
                 build.getOutputSymbols(),
                 false,
                 Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
                 Optional.of(distributionType),
                 Optional.empty(),
                 ImmutableMap.of(),
@@ -148,8 +145,6 @@ final class PlanUtils
                 broadcastBuild.getOutputSymbols(),
                 false,
                 Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
                 Optional.of(REPLICATED),
                 Optional.empty(),
                 ImmutableMap.of(),
@@ -163,8 +158,6 @@ final class PlanUtils
                 broadcastPlanNode.getOutputSymbols(),
                 partitionedBuild.getOutputSymbols(),
                 false,
-                Optional.empty(),
-                Optional.empty(),
                 Optional.empty(),
                 Optional.of(PARTITIONED),
                 Optional.empty(),
@@ -200,6 +193,7 @@ final class PlanUtils
                 Optional.empty(),
                 ImmutableList.of(planNode.getId()),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), planNode.getOutputSymbols()),
+                OptionalInt.empty(),
                 StatsAndCosts.empty(),
                 ImmutableList.of(),
                 ImmutableMap.of(),

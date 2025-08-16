@@ -32,7 +32,7 @@ import io.trino.metastore.RawHiveMetastoreFactory;
 import io.trino.metastore.cache.CachingHiveMetastoreConfig;
 import io.trino.plugin.hive.AllowHiveTableRename;
 import io.trino.plugin.hive.HideDeltaLakeTables;
-import io.trino.spi.NodeManager;
+import io.trino.spi.Node;
 import io.trino.spi.catalog.CatalogName;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
@@ -49,7 +49,6 @@ import software.amazon.awssdk.services.sts.StsClientBuilder;
 import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
 import software.amazon.awssdk.services.sts.auth.StsWebIdentityTokenFileCredentialsProvider;
 
-import java.net.URI;
 import java.util.EnumSet;
 import java.util.Optional;
 import java.util.Set;
@@ -115,7 +114,7 @@ public final class GlueMetastoreModule
 
     @Provides
     @Singleton
-    public static GlueCache createGlueCache(CachingHiveMetastoreConfig config, CatalogName catalogName, NodeManager nodeManager)
+    public static GlueCache createGlueCache(CachingHiveMetastoreConfig config, CatalogName catalogName, Node currentNode)
     {
         Duration metadataCacheTtl = config.getMetastoreCacheTtl();
         Duration statsCacheTtl = config.getStatsCacheTtl();
@@ -123,7 +122,7 @@ public final class GlueMetastoreModule
         // Disable caching on workers, because there currently is no way to invalidate such a cache.
         // Note: while we could skip CachingHiveMetastoreModule altogether on workers, we retain it so that catalog
         // configuration can remain identical for all nodes, making cluster configuration easier.
-        boolean enabled = nodeManager.getCurrentNode().isCoordinator() &&
+        boolean enabled = currentNode.isCoordinator() &&
                           (metadataCacheTtl.toMillis() > 0 || statsCacheTtl.toMillis() > 0);
 
         checkState(config.isPartitionCacheEnabled(), "Disabling partitions cache is not supported with Glue v2");
@@ -186,7 +185,7 @@ public final class GlueMetastoreModule
         if (config.getGlueEndpointUrl().isPresent()) {
             checkArgument(config.getGlueRegion().isPresent(), "Glue region must be set when Glue endpoint URL is set");
             glue.region(Region.of(config.getGlueRegion().get()));
-            glue.endpointOverride(URI.create(config.getGlueEndpointUrl().get()));
+            glue.endpointOverride(config.getGlueEndpointUrl().get());
         }
         else if (config.getGlueRegion().isPresent()) {
             glue.region(Region.of(config.getGlueRegion().get()));
@@ -215,7 +214,7 @@ public final class GlueMetastoreModule
         staticCredentialsProvider.ifPresent(sts::credentialsProvider);
 
         if (config.getGlueStsEndpointUrl().isPresent() && config.getGlueStsRegion().isPresent()) {
-            sts.endpointOverride(URI.create(config.getGlueStsEndpointUrl().get()))
+            sts.endpointOverride(config.getGlueStsEndpointUrl().get())
                     .region(Region.of(config.getGlueStsRegion().get()));
         }
         else if (config.getGlueStsRegion().isPresent()) {

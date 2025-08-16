@@ -26,15 +26,13 @@ import io.trino.client.StatementStats;
 import io.trino.client.TypedQueryData;
 import io.trino.server.protocol.spooling.ServerQueryDataJacksonModule;
 import io.trino.spi.type.StandardTypes;
-import okhttp3.mockwebserver.MockResponse;
-import okhttp3.mockwebserver.MockWebServer;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
+import mockwebserver3.MockResponse;
+import mockwebserver3.MockWebServer;
+import mockwebserver3.junit5.StartStop;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
-import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -61,23 +59,8 @@ public class TestProgressMonitor
             .withModules(ImmutableSet.of(new ServerQueryDataJacksonModule())))
             .jsonCodec(QueryResults.class);
 
-    private MockWebServer server;
-
-    @BeforeEach
-    public void setup()
-            throws IOException
-    {
-        server = new MockWebServer();
-        server.start();
-    }
-
-    @AfterEach
-    public void teardown()
-            throws IOException
-    {
-        server.close();
-        server = null;
-    }
+    @StartStop
+    private final MockWebServer server = new MockWebServer();
 
     private List<String> createResults()
     {
@@ -115,9 +98,10 @@ public class TestProgressMonitor
             throws SQLException
     {
         for (String result : createResults()) {
-            server.enqueue(new MockResponse()
+            server.enqueue(new MockResponse.Builder()
                     .addHeader(CONTENT_TYPE, "application/json")
-                    .setBody(result));
+                    .body(result)
+                    .build());
         }
 
         try (Connection connection = createConnection()) {

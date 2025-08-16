@@ -111,14 +111,15 @@ public class PagesSpatialIndexSupplier
             int blockIndex = decodeSliceIndex(pageAddress);
             Block chennelBlock = channels.get(geometryChannel).get(blockIndex);
             VariableWidthBlock block = (VariableWidthBlock) chennelBlock.getUnderlyingValueBlock();
-            int blockPosition = chennelBlock.getUnderlyingValuePosition(decodePosition(pageAddress));
+            int blockPosition = decodePosition(pageAddress);
+            int valueBlockPosition = chennelBlock.getUnderlyingValuePosition(blockPosition);
 
             // TODO Consider pushing is-null and is-empty checks into a filter below the join
-            if (block.isNull(blockPosition)) {
+            if (block.isNull(valueBlockPosition)) {
                 continue;
             }
 
-            Slice slice = block.getSlice(blockPosition);
+            Slice slice = block.getSlice(valueBlockPosition);
             OGCGeometry ogcGeometry = deserialize(slice);
             verifyNotNull(ogcGeometry);
             if (ogcGeometry.isEmpty()) {

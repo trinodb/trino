@@ -45,7 +45,7 @@ public final class PlanAssert
 
     public static void assertPlan(Session session, Metadata metadata, FunctionManager functionManager, StatsCalculator statsCalculator, Plan actual, Lookup lookup, PlanMatchPattern pattern)
     {
-        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, new CachingTableStatsProvider(metadata, session));
+        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, new CachingTableStatsProvider(metadata, session, () -> false));
         assertPlan(session, metadata, functionManager, statsProvider, actual, lookup, pattern);
     }
 

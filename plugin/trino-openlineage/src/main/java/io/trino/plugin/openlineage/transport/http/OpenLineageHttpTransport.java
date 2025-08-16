@@ -18,7 +18,7 @@ import io.openlineage.client.transports.HttpConfig;
 import io.openlineage.client.transports.HttpSslContextConfig;
 import io.openlineage.client.transports.HttpTransport;
 import io.openlineage.client.transports.TokenProvider;
-import io.trino.plugin.openlineage.transport.OpenLineageTransport;
+import io.trino.plugin.openlineage.transport.OpenLineageTransportCreator;
 
 import java.net.URI;
 import java.util.Map;
@@ -26,7 +26,7 @@ import java.util.Map;
 import static java.lang.Math.toIntExact;
 
 public class OpenLineageHttpTransport
-        implements OpenLineageTransport
+        implements OpenLineageTransportCreator
 {
     private final URI url;
     private final String endpoint;

@@ -83,8 +83,6 @@ public class TransformUncorrelatedInPredicateSubqueryToSemiJoin
                 inPredicate.reference(),
                 semiJoinSymbol,
                 Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
                 Optional.empty());
 
         return Result.ofPlanNode(replacement);

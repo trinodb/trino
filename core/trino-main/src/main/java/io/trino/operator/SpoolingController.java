@@ -70,8 +70,8 @@ public interface SpoolingController
 
         public void recordPage(long positions, long size)
         {
-            verify(positions > 0, "Expected positions to be non-negative");
-            verify(size > 0, "Expected size to be non-negative");
+            verify(positions >= 0, "Expected positions to be non-negative");
+            verify(size >= 0, "Expected size to be non-negative");
             this.pages++;
             this.positions += positions;
             this.size += size;

@@ -11,32 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.trino.plugin.deltalake.transactionlog.writer;
 
-import com.google.inject.Inject;
+import io.trino.plugin.deltalake.DeltaLakeTableHandle;
+import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
+import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.spi.connector.ConnectorSession;
 
-import static java.util.Objects.requireNonNull;
-
-public class TransactionLogWriterFactory
+public interface TransactionLogWriterFactory
 {
-    private final TransactionLogSynchronizerManager synchronizerManager;
+    TransactionLogWriter createWriter(ConnectorSession session, DeltaLakeTableHandle tableHandle);
 
-    @Inject
-    public TransactionLogWriterFactory(TransactionLogSynchronizerManager synchronizerManager)
-    {
-        this.synchronizerManager = requireNonNull(synchronizerManager, "synchronizerManager is null");
-    }
+    TransactionLogWriter createWriter(ConnectorSession session, String tableLocation, MetadataEntry metadataEntry, ProtocolEntry protocolEntry);
 
-    public TransactionLogWriter newWriter(ConnectorSession session, String tableLocation)
-    {
-        TransactionLogSynchronizer synchronizer = synchronizerManager.getSynchronizer(tableLocation);
-        return new TransactionLogWriter(synchronizer, session, tableLocation);
-    }
+    TransactionLogWriter createFileSystemWriter(ConnectorSession session, String tableLocation);
 
-    public TransactionLogWriter newWriterWithoutTransactionIsolation(ConnectorSession session, String tableLocation)
-    {
-        return new TransactionLogWriter(synchronizerManager.getNoIsolationSynchronizer(), session, tableLocation);
-    }
+    TransactionLogWriter newWriterWithoutTransactionIsolation(ConnectorSession session, String tableLocation);
 }

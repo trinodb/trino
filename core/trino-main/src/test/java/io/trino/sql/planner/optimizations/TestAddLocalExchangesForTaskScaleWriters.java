@@ -118,7 +118,7 @@ public class TestAddLocalExchangesForTaskScaleWriters
                 })
                 .withGetLayoutForTableExecute((session, tableHandle) -> {
                     MockConnector.MockConnectorTableExecuteHandle tableExecuteHandle = (MockConnector.MockConnectorTableExecuteHandle) tableHandle;
-                    if (tableExecuteHandle.getSchemaTableName().getTableName().equals("system_partitioned_table")) {
+                    if (tableExecuteHandle.schemaTableName().getTableName().equals("system_partitioned_table")) {
                         return Optional.of(new ConnectorTableLayout(ImmutableList.of("year")));
                     }
                     return Optional.empty();

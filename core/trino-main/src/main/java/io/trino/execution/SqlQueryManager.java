@@ -26,6 +26,7 @@ import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
 import io.trino.ExceededCpuLimitException;
 import io.trino.ExceededScanLimitException;
+import io.trino.ExceededWriteLimitException;
 import io.trino.Session;
 import io.trino.execution.QueryExecution.QueryOutputInfo;
 import io.trino.execution.StateMachine.StateChangeListener;
@@ -56,6 +57,8 @@ import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.trino.SystemSessionProperties.getQueryMaxCpuTime;
 import static io.trino.SystemSessionProperties.getQueryMaxScanPhysicalBytes;
+import static io.trino.SystemSessionProperties.getQueryMaxWritePhysicalSize;
+import static io.trino.execution.QueryState.FINISHING;
 import static io.trino.execution.QueryState.RUNNING;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.tracing.ScopedSpan.scopedSpan;
@@ -76,6 +79,7 @@ public class SqlQueryManager
 
     private final Duration maxQueryCpuTime;
     private final Optional<DataSize> maxQueryScanPhysicalBytes;
+    private final Optional<DataSize> maxQueryWritePhysicalSize;
 
     private final ExecutorService queryExecutor;
     private final ThreadPoolExecutorMBean queryExecutorMBean;
@@ -91,6 +95,7 @@ public class SqlQueryManager
 
         this.maxQueryCpuTime = queryManagerConfig.getQueryMaxCpuTime();
         this.maxQueryScanPhysicalBytes = queryManagerConfig.getQueryMaxScanPhysicalBytes();
+        this.maxQueryWritePhysicalSize = queryManagerConfig.getQueryMaxWritePhysicalSize();
 
         this.queryExecutor = newCachedThreadPool(threadsNamed("query-scheduler-%s"));
         this.queryExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) queryExecutor);
@@ -125,6 +130,13 @@ public class SqlQueryManager
             }
             catch (Throwable e) {
                 log.error(e, "Error enforcing query scan bytes limits");
+            }
+
+            try {
+                enforceWriteLimits();
+            }
+            catch (Throwable e) {
+                log.error(e, "Error enforcing query write bytes limits");
             }
         }, 1, 1, TimeUnit.SECONDS);
     }
@@ -367,6 +379,31 @@ public class SqlQueryManager
                 DataSize scan = query.getBasicQueryInfo().getQueryStats().getPhysicalInputDataSize();
                 if (scan.compareTo(limit) > 0) {
                     query.fail(new ExceededScanLimitException(limit));
+                }
+            });
+        }
+    }
+
+    /**
+     * Enforce query write physical bytes limits
+     */
+    private void enforceWriteLimits()
+    {
+        for (QueryExecution query : queryTracker.getAllQueries()) {
+            if (query.isDone() || query.getState() == FINISHING) {
+                continue;
+            }
+            Optional<DataSize> limitOpt = getQueryMaxWritePhysicalSize(query.getSession());
+            if (maxQueryWritePhysicalSize.isPresent()) {
+                limitOpt = limitOpt
+                        .flatMap(sessionLimit -> maxQueryWritePhysicalSize.map(serverLimit -> Ordering.natural().min(serverLimit, sessionLimit)))
+                        .or(() -> maxQueryWritePhysicalSize);
+            }
+
+            limitOpt.ifPresent(writeLimit -> {
+                DataSize queryWriteBytes = query.getQueryInfo().getQueryStats().getPhysicalWrittenDataSize();
+                if (queryWriteBytes.compareTo(writeLimit) > 0) {
+                    query.fail(new ExceededWriteLimitException(writeLimit));
                 }
             });
         }

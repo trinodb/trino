@@ -169,8 +169,6 @@ public final class PlanCopier
                     node.getRightOutputSymbols(),
                     node.isMaySkipOutputDuplicates(),
                     node.getFilter(),
-                    node.getLeftHashSymbol(),
-                    node.getRightHashSymbol(),
                     node.getDistributionType(),
                     node.isSpillable(),
                     node.getDynamicFilters(),
@@ -192,7 +190,7 @@ public final class PlanCopier
         @Override
         public PlanNode visitWindow(WindowNode node, RewriteContext<Void> context)
         {
-            return new WindowNode(idAllocator.getNextId(), context.rewrite(node.getSource()), node.getSpecification(), node.getWindowFunctions(), node.getHashSymbol(), node.getPrePartitionedInputs(), node.getPreSortedOrderPrefix());
+            return new WindowNode(idAllocator.getNextId(), context.rewrite(node.getSource()), node.getSpecification(), node.getWindowFunctions(), node.getPrePartitionedInputs(), node.getPreSortedOrderPrefix());
         }
 
         @Override
@@ -202,7 +200,6 @@ public final class PlanCopier
                     idAllocator.getNextId(),
                     context.rewrite(node.getSource()),
                     node.getSpecification(),
-                    node.getHashSymbol(),
                     node.getPrePartitionedInputs(),
                     node.getPreSortedOrderPrefix(),
                     node.getWindowFunctions(),

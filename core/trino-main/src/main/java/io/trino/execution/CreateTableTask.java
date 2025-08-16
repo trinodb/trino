@@ -78,7 +78,9 @@ import static io.trino.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TYPE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
+import static io.trino.spi.connector.ConnectorCapabilities.DEFAULT_COLUMN_VALUE;
 import static io.trino.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
+import static io.trino.sql.analyzer.ExpressionAnalyzer.analyzeDefaultColumnValue;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.trino.sql.tree.LikeClause.PropertiesOption.EXCLUDING;
@@ -123,11 +125,11 @@ public class CreateTableTask
             List<Expression> parameters,
             WarningCollector warningCollector)
     {
-        return internalExecute(statement, stateMachine.getSession(), parameters, output -> stateMachine.setOutput(Optional.of(output)));
+        return internalExecute(statement, stateMachine.getSession(), parameters, output -> stateMachine.setOutput(Optional.of(output)), warningCollector);
     }
 
     @VisibleForTesting
-    ListenableFuture<Void> internalExecute(CreateTable statement, Session session, List<Expression> parameters, Consumer<Output> outputConsumer)
+    ListenableFuture<Void> internalExecute(CreateTable statement, Session session, List<Expression> parameters, Consumer<Output> outputConsumer, WarningCollector warningCollector)
     {
         checkArgument(!statement.getElements().isEmpty(), "no columns for table");
 
@@ -166,6 +168,7 @@ public class CreateTableTask
         LinkedHashMap<String, ColumnMetadata> columns = new LinkedHashMap<>();
         Map<String, Object> inheritedProperties = ImmutableMap.of();
         boolean includingProperties = false;
+        boolean supportsDefaultColumnValue = plannerContext.getMetadata().getConnectorCapabilities(session, catalogHandle).contains(DEFAULT_COLUMN_VALUE);
         for (TableElement element : statement.getElements()) {
             if (element instanceof ColumnDefinition column) {
                 if (column.getName().getParts().size() != 1) {
@@ -185,6 +188,9 @@ public class CreateTableTask
                 if (columns.containsKey(name.getValue().toLowerCase(ENGLISH))) {
                     throw semanticException(DUPLICATE_COLUMN_NAME, column, "Column name '%s' specified more than once", name);
                 }
+                if (column.getDefaultValue().isPresent() && !supportsDefaultColumnValue) {
+                    throw semanticException(NOT_SUPPORTED, column, "Catalog '%s' does not support default value for column name '%s'", catalogName, name);
+                }
                 if (!column.isNullable() && !plannerContext.getMetadata().getConnectorCapabilities(session, catalogHandle).contains(NOT_NULL_COLUMN_CONSTRAINT)) {
                     throw semanticException(NOT_SUPPORTED, column, "Catalog '%s' does not support non-null column for column name '%s'", catalogName, name);
                 }
@@ -198,9 +204,12 @@ public class CreateTableTask
                         parameterLookup,
                         true);
 
+                Type supportedType = getSupportedType(session, catalogHandle, properties, type);
+                column.getDefaultValue().ifPresent(value -> analyzeDefaultColumnValue(session, plannerContext, accessControl, parameterLookup, warningCollector, supportedType, value));
                 columns.put(name.getValue().toLowerCase(ENGLISH), ColumnMetadata.builder()
                         .setName(name.getValue().toLowerCase(ENGLISH))
-                        .setType(getSupportedType(session, catalogHandle, properties, type))
+                        .setType(supportedType)
+                        .setDefaultValue(column.getDefaultValue().map(Expression::toString))
                         .setNullable(column.isNullable())
                         .setComment(column.getComment())
                         .setProperties(columnProperties)

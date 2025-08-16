@@ -230,7 +230,7 @@ public class ParquetPageSourceFactory
             AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
             dataSource = createDataSource(inputFile, estimatedFileSize, options, memoryContext, stats);
 
-            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, parquetWriteValidation);
+            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.of(options.getMaxFooterReadSize()), parquetWriteValidation);
             FileMetadata fileMetaData = parquetMetadata.getFileMetaData();
             fileSchema = fileMetaData.getSchema();
 
@@ -526,7 +526,7 @@ public class ParquetPageSourceFactory
                         coercer.map(Function.identity()));
             }
         }
-        ParquetReader parquetReader = parquetReaderProvider.createParquetReader(parquetColumnFieldsBuilder, appendRowNumberColumn);
+        ParquetReader parquetReader = parquetReaderProvider.createParquetReader(ImmutableList.copyOf(parquetColumnFieldsBuilder), appendRowNumberColumn);
         ConnectorPageSource pageSource = new ParquetPageSource(parquetReader);
         return transforms.build(pageSource);
     }

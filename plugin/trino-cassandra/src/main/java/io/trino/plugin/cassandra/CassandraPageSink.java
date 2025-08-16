@@ -195,7 +195,7 @@ public class CassandraPageSink
             values.add(trinoUuidToJavaUuid(UuidType.UUID.getSlice(block, position)));
         }
         else if (cassandraTypeManager.isIpAddressType(type)) {
-            values.add(InetAddresses.forString((String) type.getObjectValue(null, block, position)));
+            values.add(InetAddresses.forString((String) type.getObjectValue(block, position)));
         }
         else {
             throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());

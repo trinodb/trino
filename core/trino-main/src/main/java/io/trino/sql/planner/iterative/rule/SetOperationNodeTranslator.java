@@ -213,7 +213,6 @@ public class SetOperationNodeTranslator
                 sourceNode,
                 new DataOrganizationSpecification(originalColumns, Optional.empty()),
                 functions.buildOrThrow(),
-                Optional.empty(),
                 ImmutableSet.of(),
                 0);
     }

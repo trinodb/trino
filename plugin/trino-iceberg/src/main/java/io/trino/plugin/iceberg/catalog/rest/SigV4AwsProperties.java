@@ -36,7 +36,7 @@ import static org.apache.iceberg.aws.AwsProperties.REST_SIGNER_REGION;
 import static org.apache.iceberg.aws.AwsProperties.REST_SIGNING_NAME;
 
 public class SigV4AwsProperties
-        implements AwsProperties
+        implements SecurityProperties
 {
     // Copy of `org.apache.iceberg.aws.AwsClientProperties.CLIENT_CREDENTIAL_PROVIDER_PREFIX` https://github.com/apache/iceberg/blob/ab6fc83ec0269736355a0a89c51e44e822264da8/aws/src/main/java/org/apache/iceberg/aws/AwsClientProperties.java#L69
     private static final String CLIENT_CREDENTIAL_PROVIDER_PREFIX = "client.credentials-provider.";

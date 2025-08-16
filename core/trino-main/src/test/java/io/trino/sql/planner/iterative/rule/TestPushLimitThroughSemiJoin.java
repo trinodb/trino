@@ -20,8 +20,6 @@ import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.PlanNode;
 import org.junit.jupiter.api.Test;
 
-import java.util.Optional;
-
 import static io.trino.sql.planner.assertions.PlanMatchPattern.limit;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.sort;
@@ -91,8 +89,6 @@ public class TestPushLimitThroughSemiJoin
                                 p.symbol("leftKey"),
                                 p.symbol("rightKey"),
                                 p.symbol("output"),
-                                Optional.empty(),
-                                Optional.empty(),
                                 p.values(p.symbol("leftKey")),
                                 p.limit(1,
                                         p.values(p.symbol("rightKey")))))
@@ -123,8 +119,6 @@ public class TestPushLimitThroughSemiJoin
                 leftKey,
                 rightKey,
                 p.symbol("match"),
-                Optional.empty(),
-                Optional.empty(),
                 p.values(leftKey),
                 p.values(rightKey));
     }

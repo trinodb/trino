@@ -166,7 +166,7 @@ public class CallTask
             Type type = argument.getType();
             Object value = evaluateConstant(expression, type, plannerContext, session, accessControl);
 
-            values[index] = toTypeObjectValue(session, type, value);
+            values[index] = toTypeObjectValue(type, value);
         }
 
         // fill values with optional arguments defaults
@@ -175,7 +175,7 @@ public class CallTask
 
             if (!names.containsKey(argument.getName())) {
                 verify(argument.isOptional());
-                values[i] = toTypeObjectValue(session, argument.getType(), argument.getDefaultValue());
+                values[i] = toTypeObjectValue(argument.getType(), argument.getDefaultValue());
             }
         }
 
@@ -220,9 +220,9 @@ public class CallTask
         return immediateVoidFuture();
     }
 
-    private static Object toTypeObjectValue(Session session, Type type, Object value)
+    private static Object toTypeObjectValue(Type type, Object value)
     {
         Block block = writeNativeValue(type, value);
-        return type.getObjectValue(session.toConnectorSession(), block, 0);
+        return type.getObjectValue(block, 0);
     }
 }

@@ -19,6 +19,7 @@ import com.google.common.io.Closer;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.ThreadSafe;
+import io.airlift.units.DataSize;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.operator.PartitionFunction;
 import io.trino.operator.SpillContext;
@@ -40,7 +41,7 @@ import java.util.function.Predicate;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static java.util.Objects.requireNonNull;
@@ -114,7 +115,7 @@ public class GenericPartitioningSpiller
 
         checkState(!readingStarted, "reading already started");
         IntArrayList unspilledPositions = partitionPage(page, spillPartitionMask);
-        ListenableFuture<Void> future = flushFullBuilders();
+        ListenableFuture<DataSize> future = flushFullBuilders();
 
         return new PartitioningSpillResult(future, page.getPositions(unspilledPositions.elements(), 0, unspilledPositions.size()));
     }
@@ -143,21 +144,21 @@ public class GenericPartitioningSpiller
         return unspilledPositions;
     }
 
-    private ListenableFuture<Void> flushFullBuilders()
+    private ListenableFuture<DataSize> flushFullBuilders()
     {
         return flush(PageBuilder::isFull);
     }
 
     @VisibleForTesting
-    ListenableFuture<Void> flush()
+    ListenableFuture<DataSize> flush()
     {
         return flush(pageBuilder -> true);
     }
 
-    private synchronized ListenableFuture<Void> flush(Predicate<PageBuilder> flushCondition)
+    private synchronized ListenableFuture<DataSize> flush(Predicate<PageBuilder> flushCondition)
     {
         requireNonNull(flushCondition, "flushCondition is null");
-        ImmutableList.Builder<ListenableFuture<Void>> futures = ImmutableList.builder();
+        ImmutableList.Builder<ListenableFuture<DataSize>> futures = ImmutableList.builder();
 
         for (int partition = 0; partition < spillers.size(); partition++) {
             PageBuilder pageBuilder = pageBuilders.get(partition);
@@ -166,19 +167,21 @@ public class GenericPartitioningSpiller
             }
         }
 
-        return asVoid(Futures.allAsList(futures.build()));
+        return Futures.transform(Futures.allAsList(futures.build()),
+                result -> {
+                    long totalBytes = 0;
+                    for (DataSize size : result) {
+                        totalBytes += size.toBytes();
+                    }
+                    return DataSize.ofBytes(totalBytes);
+                }, directExecutor());
     }
 
-    private static <T> ListenableFuture<Void> asVoid(ListenableFuture<T> future)
-    {
-        return Futures.transform(future, v -> null, directExecutor());
-    }
-
-    private synchronized ListenableFuture<Void> flush(int partition)
+    private synchronized ListenableFuture<DataSize> flush(int partition)
     {
         PageBuilder pageBuilder = pageBuilders.get(partition);
         if (pageBuilder.isEmpty()) {
-            return immediateVoidFuture();
+            return immediateFuture(DataSize.ofBytes(0));
         }
         Page page = pageBuilder.build();
         pageBuilder.reset();

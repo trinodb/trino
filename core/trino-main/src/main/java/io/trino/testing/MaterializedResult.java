@@ -78,14 +78,9 @@ public class MaterializedResult
     private final List<Warning> warnings;
     private final Optional<StatementStats> statementStats;
 
-    public MaterializedResult(Optional<Session> session, List<MaterializedRow> rows, List<? extends Type> types)
+    public MaterializedResult(Optional<Session> session, List<MaterializedRow> rows, List<? extends Type> types, List<String> columnNames)
     {
-        this(session, rows, types, Optional.empty(), Optional.empty());
-    }
-
-    public MaterializedResult(Optional<Session> session, List<MaterializedRow> rows, List<? extends Type> types, Optional<List<String>> columnNames, Optional<String> queryDataEncoding)
-    {
-        this(session, rows, types, columnNames.orElse(ImmutableList.of()), queryDataEncoding, ImmutableMap.of(), ImmutableSet.of(), Optional.empty(), OptionalLong.empty(), ImmutableList.of(), Optional.empty());
+        this(session, rows, types, columnNames, Optional.empty(), ImmutableMap.of(), ImmutableSet.of(), Optional.empty(), OptionalLong.empty(), ImmutableList.of(), Optional.empty());
     }
 
     public MaterializedResult(
@@ -264,7 +259,8 @@ public class MaterializedResult
                         .collect(toImmutableList()),
                 columnsIndexToNameMap.keySet().stream()
                         .map(getTypes()::get)
-                        .collect(toImmutableList()));
+                        .collect(toImmutableList()),
+                ImmutableList.of());
     }
 
     public Stream<Object> getOnlyColumn()
@@ -371,7 +367,7 @@ public class MaterializedResult
         private final ConnectorSession session;
         private final List<Type> types;
         private final ImmutableList.Builder<MaterializedRow> rows = ImmutableList.builder();
-        private Optional<List<String>> columnNames = Optional.empty();
+        private List<String> columnNames = ImmutableList.of();
 
         Builder(ConnectorSession session, List<Type> types)
         {
@@ -418,7 +414,7 @@ public class MaterializedResult
                 for (int channel = 0; channel < page.getChannelCount(); channel++) {
                     Type type = types.get(channel);
                     Block block = page.getBlock(channel);
-                    values.add(type.getObjectValue(session, block, position));
+                    values.add(type.getObjectValue(block, position));
                 }
                 values = Collections.unmodifiableList(values);
 
@@ -429,18 +425,18 @@ public class MaterializedResult
 
         public synchronized Builder columnNames(List<String> columnNames)
         {
-            this.columnNames = Optional.of(ImmutableList.copyOf(requireNonNull(columnNames, "columnNames is null")));
+            this.columnNames = ImmutableList.copyOf(requireNonNull(columnNames, "columnNames is null"));
             return this;
         }
 
         public synchronized MaterializedResult build()
         {
             if ((session instanceof FullConnectorSession fullConnectorSession)) {
-                return new MaterializedResult(Optional.of(fullConnectorSession.getSession()), rows.build(), types, columnNames, Optional.empty());
+                return new MaterializedResult(Optional.of(fullConnectorSession.getSession()), rows.build(), types, columnNames);
             }
 
             // For TestingConnectorSession we are unable to retrieve full Session which makes the effective session empty in that case
-            return new MaterializedResult(Optional.empty(), rows.build(), types, columnNames, Optional.empty());
+            return new MaterializedResult(Optional.empty(), rows.build(), types, columnNames);
         }
     }
 }

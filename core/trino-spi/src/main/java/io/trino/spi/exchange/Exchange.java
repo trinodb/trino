@@ -14,13 +14,11 @@
 package io.trino.spi.exchange;
 
 import com.google.errorprone.annotations.ThreadSafe;
-import io.trino.spi.Experimental;
 
 import java.io.Closeable;
 import java.util.concurrent.CompletableFuture;
 
 @ThreadSafe
-@Experimental(eta = "2024-03-01")
 public interface Exchange
         extends Closeable
 {

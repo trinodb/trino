@@ -33,7 +33,7 @@ public final class SparkDeltaLake
         hiveMinio = closer.register(new Hive3MinioDataLake(bucketName));
         hiveMinio.start();
 
-        closer.register(new GenericContainer<>("ghcr.io/trinodb/testing/spark3-delta:" + getDockerImagesVersion()))
+        closer.register(new GenericContainer<>("ghcr.io/trinodb/testing/spark4-delta:" + getDockerImagesVersion()))
                 .withCopyFileToContainer(forClasspathResource("spark-defaults.conf"), "/spark/conf/spark-defaults.conf")
                 .withNetwork(hiveMinio.getNetwork())
                 .start();

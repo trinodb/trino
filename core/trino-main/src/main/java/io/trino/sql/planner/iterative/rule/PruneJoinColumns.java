@@ -48,8 +48,6 @@ public class PruneJoinColumns
                         filteredCopy(joinNode.getRightOutputSymbols(), referencedOutputs::contains),
                         joinNode.isMaySkipOutputDuplicates(),
                         joinNode.getFilter(),
-                        joinNode.getLeftHashSymbol(),
-                        joinNode.getRightHashSymbol(),
                         joinNode.getDistributionType(),
                         joinNode.isSpillable(),
                         joinNode.getDynamicFilters(),

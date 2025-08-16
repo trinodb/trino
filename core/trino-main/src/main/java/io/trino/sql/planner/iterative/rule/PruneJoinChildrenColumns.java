@@ -57,7 +57,6 @@ public class PruneJoinChildrenColumns
                         joinNode.getCriteria().stream()
                                 .map(JoinNode.EquiJoinClause::getLeft)
                                 .iterator())
-                .addAll(joinNode.getLeftHashSymbol().map(ImmutableSet::of).orElse(ImmutableSet.of()))
                 .build();
 
         Set<Symbol> rightUsableInputs = ImmutableSet.<Symbol>builder()
@@ -66,7 +65,6 @@ public class PruneJoinChildrenColumns
                         joinNode.getCriteria().stream()
                                 .map(JoinNode.EquiJoinClause::getRight)
                                 .iterator())
-                .addAll(joinNode.getRightHashSymbol().map(ImmutableSet::of).orElse(ImmutableSet.of()))
                 .build();
 
         return restrictChildOutputs(context.getIdAllocator(), joinNode, leftUsableInputs, rightUsableInputs)

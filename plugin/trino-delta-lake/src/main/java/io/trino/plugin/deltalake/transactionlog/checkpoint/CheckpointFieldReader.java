@@ -23,7 +23,6 @@ import io.trino.spi.block.MapBlock;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.block.VariableWidthBlock;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
@@ -42,13 +41,11 @@ import static java.util.Objects.requireNonNull;
 
 public class CheckpointFieldReader
 {
-    private final ConnectorSession session;
     private final SqlRow row;
     private final Map<String, Integer> fieldNameToIndex;
 
-    public CheckpointFieldReader(ConnectorSession session, SqlRow row, RowType type)
+    public CheckpointFieldReader(SqlRow row, RowType type)
     {
-        this.session = requireNonNull(session, "session is null");
         this.row = requireNonNull(row, "row is null");
         checkArgument(row.getFieldCount() == type.getFields().size(), "row and type sizes don't match");
         Map<String, Integer> fieldNames = new HashMap<>();
@@ -113,7 +110,7 @@ public class CheckpointFieldReader
     {
         int field = requireField(fieldName);
         ArrayBlock valueBlock = (ArrayBlock) row.getUnderlyingFieldBlock(field);
-        return (List<String>) stringList.getObjectValue(session, valueBlock, row.getUnderlyingFieldPosition(field));
+        return (List<String>) stringList.getObjectValue(valueBlock, row.getUnderlyingFieldPosition(field));
     }
 
     @SuppressWarnings("unchecked")
@@ -128,7 +125,7 @@ public class CheckpointFieldReader
         if (valueBlock.isNull(position)) {
             return Optional.empty();
         }
-        List<String> list = (List<String>) stringList.getObjectValue(session, valueBlock, position);
+        List<String> list = (List<String>) stringList.getObjectValue(valueBlock, position);
         return Optional.of(ImmutableSet.copyOf(list));
     }
 
@@ -137,7 +134,7 @@ public class CheckpointFieldReader
     {
         int field = requireField(fieldName);
         MapBlock valueBlock = (MapBlock) row.getUnderlyingFieldBlock(field);
-        return (Map<String, String>) stringMap.getObjectValue(session, valueBlock, row.getUnderlyingFieldPosition(field));
+        return (Map<String, String>) stringMap.getObjectValue(valueBlock, row.getUnderlyingFieldPosition(field));
     }
 
     @Nullable

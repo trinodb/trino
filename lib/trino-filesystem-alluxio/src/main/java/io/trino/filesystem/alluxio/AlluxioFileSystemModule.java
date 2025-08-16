@@ -13,8 +13,13 @@
  */
 package io.trino.filesystem.alluxio;
 
+import alluxio.client.file.FileSystem;
+import alluxio.client.file.FileSystemContext;
+import alluxio.conf.Configuration;
 import com.google.inject.Binder;
 import com.google.inject.Module;
+import com.google.inject.Provides;
+import com.google.inject.Singleton;
 
 import static com.google.inject.Scopes.SINGLETON;
 
@@ -25,5 +30,13 @@ public class AlluxioFileSystemModule
     public void configure(Binder binder)
     {
         binder.bind(AlluxioFileSystemFactory.class).in(SINGLETON);
+    }
+
+    @Provides
+    @Singleton
+    public FileSystem createAlluxioFileSystem()
+    {
+        FileSystemContext fsContext = FileSystemContext.create(Configuration.global());
+        return FileSystem.Factory.create(fsContext);
     }
 }

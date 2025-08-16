@@ -74,28 +74,6 @@ public class TestPruneExchangeColumns
     }
 
     @Test
-    public void testDoNotPruneHashSymbol()
-    {
-        tester().assertThat(new PruneExchangeColumns())
-                .on(p -> {
-                    Symbol a = p.symbol("a");
-                    Symbol h = p.symbol("h");
-                    Symbol b = p.symbol("b");
-                    Symbol h1 = p.symbol("h_1");
-                    return p.project(
-                            Assignments.identity(a),
-                            p.exchange(e -> e
-                                    .addSource(p.values(b, h1))
-                                    .addInputsSet(b, h1)
-                                    .fixedHashDistributionPartitioningScheme(
-                                            ImmutableList.of(a, h),
-                                            ImmutableList.of(a),
-                                            h)));
-                })
-                .doesNotFire();
-    }
-
-    @Test
     public void testDoNotPruneOrderingSymbol()
     {
         tester().assertThat(new PruneExchangeColumns())

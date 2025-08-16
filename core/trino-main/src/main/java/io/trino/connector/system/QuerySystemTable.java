@@ -35,8 +35,8 @@ import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.type.ArrayType;
-import org.joda.time.DateTime;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -157,12 +157,11 @@ public class QuerySystemTable
         return duration.toMillis();
     }
 
-    private static Long toTimestampWithTimeZoneMillis(DateTime dateTime)
+    private static Long toTimestampWithTimeZoneMillis(Instant instant)
     {
-        if (dateTime == null) {
+        if (instant == null) {
             return null;
         }
-        // dateTime.getZone() is the server zone, should be of no interest to the user
-        return packDateTimeWithZone(dateTime.getMillis(), UTC_KEY);
+        return packDateTimeWithZone(instant.toEpochMilli(), UTC_KEY);
     }
 }

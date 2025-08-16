@@ -48,9 +48,9 @@ import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.tracing.TrinoAttributes;
 import jakarta.annotation.Nullable;
-import org.joda.time.DateTime;
 
 import java.net.URI;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -97,7 +97,7 @@ public class SqlTask
     private final SqlTaskExecutionFactory sqlTaskExecutionFactory;
     private final Executor taskNotificationExecutor;
 
-    private final AtomicReference<DateTime> lastHeartbeat = new AtomicReference<>(DateTime.now());
+    private final AtomicReference<Instant> lastHeartbeat = new AtomicReference<>(Instant.now());
     private final AtomicLong taskStatusVersion = new AtomicLong(TaskStatus.STARTING_VERSION);
     private final FutureStateChange<?> taskStatusVersionChange = new FutureStateChange<>();
     // Must be synchronized when updating the current task holder reference, but not when only reading the current reference value
@@ -247,7 +247,7 @@ public class SqlTask
         return taskStateMachine.getState();
     }
 
-    public DateTime getTaskCreatedTime()
+    public Instant getTaskCreatedTime()
     {
         return taskStateMachine.getCreatedTime();
     }
@@ -264,7 +264,7 @@ public class SqlTask
 
     public void recordHeartbeat()
     {
-        lastHeartbeat.set(DateTime.now());
+        lastHeartbeat.set(Instant.now());
     }
 
     public TaskInfo getTaskInfo()
@@ -426,7 +426,7 @@ public class SqlTask
             return taskExecution.getTaskContext().getTaskStats();
         }
         // if the task completed without creation, set end time
-        DateTime endTime = taskStateMachine.getState().isDone() ? DateTime.now() : null;
+        Instant endTime = taskStateMachine.getState().isDone() ? Instant.now() : null;
         return new TaskStats(taskStateMachine.getCreatedTime(), endTime);
     }
 

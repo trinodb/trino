@@ -29,8 +29,8 @@ import io.trino.memory.QueryContextVisitor;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.spi.metrics.Metrics;
-import org.joda.time.DateTime;
 
+import java.time.Instant;
 import java.util.Iterator;
 import java.util.List;
 import java.util.TreeMap;
@@ -70,9 +70,11 @@ public class PipelineContext
     private final AtomicInteger completedDrivers = new AtomicInteger();
     private final AtomicLong completedSplitsWeight = new AtomicLong();
 
-    private final AtomicReference<DateTime> executionStartTime = new AtomicReference<>();
-    private final AtomicReference<DateTime> lastExecutionStartTime = new AtomicReference<>();
-    private final AtomicReference<DateTime> lastExecutionEndTime = new AtomicReference<>();
+    private final AtomicReference<Instant> executionStartTime = new AtomicReference<>();
+    private final AtomicReference<Instant> lastExecutionStartTime = new AtomicReference<>();
+    private final AtomicReference<Instant> lastExecutionEndTime = new AtomicReference<>();
+
+    private final CounterStat spilledDataSize = new CounterStat();
 
     private final Distribution queuedTime = new Distribution();
     private final Distribution elapsedTime = new Distribution();
@@ -199,7 +201,7 @@ public class PipelineContext
         }
 
         // always update last execution end time
-        lastExecutionEndTime.set(DateTime.now());
+        lastExecutionEndTime.set(Instant.now());
 
         DriverStats driverStats = driverContext.getDriverStats();
 
@@ -207,6 +209,8 @@ public class PipelineContext
         if (partitioned) {
             completedSplitsWeight.addAndGet(driverContext.getSplitWeight());
         }
+
+        spilledDataSize.update(driverStats.getSpilledDataSize().toBytes());
 
         queuedTime.add(driverStats.getQueuedTime().roundTo(NANOSECONDS));
         elapsedTime.add(driverStats.getElapsedTime().roundTo(NANOSECONDS));
@@ -248,7 +252,7 @@ public class PipelineContext
 
     public void start()
     {
-        DateTime now = DateTime.now();
+        Instant now = Instant.now();
         executionStartTime.compareAndSet(null, now);
         // always update last execution start time
         lastExecutionStartTime.set(now);
@@ -379,7 +383,7 @@ public class PipelineContext
     {
         // check for end state to avoid callback ordering problems
         if (taskContext.getState().isDone()) {
-            DateTime now = DateTime.now();
+            Instant now = Instant.now();
             executionStartTime.compareAndSet(null, now);
             lastExecutionStartTime.compareAndSet(null, now);
             lastExecutionEndTime.compareAndSet(null, now);
@@ -391,6 +395,8 @@ public class PipelineContext
         PipelineStatusBuilder pipelineStatusBuilder = new PipelineStatusBuilder(totalSplits, completedDrivers, getActivePartitionedSplitsWeight(), partitioned);
 
         int totalDrivers = completedDrivers + driverContexts.size();
+
+        long spilledDataSize = this.spilledDataSize.getTotalCount();
 
         Distribution queuedTime = this.queuedTime.duplicate();
         Distribution elapsedTime = this.elapsedTime.duplicate();
@@ -439,6 +445,8 @@ public class PipelineContext
                 unfinishedDriversFullyBlocked &= driverStats.isFullyBlocked();
                 blockedReasons.addAll(driverStats.getBlockedReasons());
             }
+
+            spilledDataSize += driverStats.getSpilledDataSize().toBytes();
 
             queuedTime.add(driverStats.getQueuedTime().roundTo(NANOSECONDS));
             elapsedTime.add(driverStats.getElapsedTime().roundTo(NANOSECONDS));
@@ -524,6 +532,8 @@ public class PipelineContext
 
                 succinctBytes(pipelineMemoryContext.getUserMemory()),
                 succinctBytes(pipelineMemoryContext.getRevocableMemory()),
+
+                succinctBytes(spilledDataSize),
 
                 queuedTime.snapshot(),
                 elapsedTime.snapshot(),

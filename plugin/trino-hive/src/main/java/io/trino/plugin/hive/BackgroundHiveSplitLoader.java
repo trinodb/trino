@@ -916,7 +916,7 @@ public class BackgroundHiveSplitLoader
 
             List<HiveColumnHandle> bucketColumns = tablePartitioning.get().columns();
             IntPredicate predicate = bucketFilter
-                    .<IntPredicate>map(filter -> filter.getBucketsToKeep()::contains)
+                    .<IntPredicate>map(filter -> filter.bucketsToKeep()::contains)
                     .orElse(bucket -> true);
             return Optional.of(new BucketSplitInfo(bucketingVersion, bucketColumns, tableBucketCount, readBucketCount, predicate));
         }

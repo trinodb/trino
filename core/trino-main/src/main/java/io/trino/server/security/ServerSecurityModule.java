@@ -20,9 +20,6 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.MapBinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.airlift.discovery.server.DynamicAnnouncementResource;
-import io.airlift.discovery.server.ServiceResource;
-import io.airlift.discovery.store.StoreResource;
 import io.airlift.http.server.HttpServer.ClientCertificate;
 import io.airlift.http.server.HttpServerConfig;
 import io.airlift.jmx.MBeanResource;
@@ -59,11 +56,8 @@ public class ServerSecurityModule
         jaxrsBinder(binder).bind(ResourceSecurityDynamicFeature.class);
 
         resourceSecurityBinder(binder)
-                .managementReadResource(ServiceResource.class)
                 .managementReadResource(MBeanResource.class)
-                .managementReadResource(MetricsResource.class)
-                .internalOnlyResource(DynamicAnnouncementResource.class)
-                .internalOnlyResource(StoreResource.class);
+                .managementReadResource(MetricsResource.class);
 
         newOptionalBinder(binder, PasswordAuthenticatorManager.class);
         binder.bind(CertificateAuthenticatorManager.class).in(Scopes.SINGLETON);

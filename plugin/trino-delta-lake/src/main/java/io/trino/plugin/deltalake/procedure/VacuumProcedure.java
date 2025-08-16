@@ -205,7 +205,7 @@ public class VacuumProcedure
                 throw new TrinoException(NOT_SUPPORTED, "Cannot execute vacuum procedure with %s writer features".formatted(DELETION_VECTORS_FEATURE_NAME));
             }
 
-            TableSnapshot tableSnapshot = metadata.getSnapshot(session, tableName, handle.getLocation(), Optional.of(handle.getReadVersion()));
+            TableSnapshot tableSnapshot = metadata.getSnapshot(session, handle, Optional.of(handle.getReadVersion()));
             String tableLocation = tableSnapshot.getTableLocation();
             String transactionLogDir = getTransactionLogDir(tableLocation);
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
@@ -218,9 +218,8 @@ public class VacuumProcedure
             Set<String> retainedPaths;
             try (Stream<AddFileEntry> activeAddEntries = transactionLogAccess.getActiveFiles(
                     session,
+                    handle,
                     tableSnapshot,
-                    handle.getMetadataEntry(),
-                    handle.getProtocolEntry(),
                     TupleDomain.all(),
                     alwaysFalse())) {
                 try (Stream<String> pathEntries = Stream.concat(

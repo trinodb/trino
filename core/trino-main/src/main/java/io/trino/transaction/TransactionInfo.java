@@ -18,8 +18,8 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.transaction.IsolationLevel;
-import org.joda.time.DateTime;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -32,7 +32,7 @@ public class TransactionInfo
     private final IsolationLevel isolationLevel;
     private final boolean readOnly;
     private final boolean autoCommitContext;
-    private final DateTime createTime;
+    private final Instant createTime;
     private final Duration idleTime;
     private final List<String> catalogNames;
     private final Optional<String> writtenCatalogName;
@@ -43,7 +43,7 @@ public class TransactionInfo
             IsolationLevel isolationLevel,
             boolean readOnly,
             boolean autoCommitContext,
-            DateTime createTime,
+            Instant createTime,
             Duration idleTime,
             List<String> catalogNames,
             Optional<String> writtenCatalogName,
@@ -80,7 +80,7 @@ public class TransactionInfo
         return autoCommitContext;
     }
 
-    public DateTime getCreateTime()
+    public Instant getCreateTime()
     {
         return createTime;
     }

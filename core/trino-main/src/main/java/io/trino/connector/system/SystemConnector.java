@@ -13,10 +13,12 @@
  */
 package io.trino.connector.system;
 
-import io.trino.metadata.InternalNodeManager;
+import io.trino.node.InternalNode;
+import io.trino.node.InternalNodeManager;
 import io.trino.security.AccessControl;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
+import io.trino.spi.connector.ConnectorPageSourceProviderFactory;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorTransactionHandle;
@@ -24,6 +26,7 @@ import io.trino.spi.transaction.IsolationLevel;
 import io.trino.transaction.InternalConnector;
 import io.trino.transaction.TransactionId;
 
+import java.util.Optional;
 import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
@@ -37,12 +40,15 @@ public class SystemConnector
     private final Function<TransactionId, ConnectorTransactionHandle> transactionHandleFunction;
 
     public SystemConnector(
+            InternalNode currentNode,
             InternalNodeManager nodeManager,
             SystemTablesProvider tables,
             Function<TransactionId, ConnectorTransactionHandle> transactionHandleFunction,
             AccessControl accessControl,
-            String catalogName)
+            String catalogName,
+            Optional<ConnectorPageSourceProviderFactory> pageSourceProviderFactory)
     {
+        requireNonNull(currentNode, "currentNode is null");
         requireNonNull(nodeManager, "nodeManager is null");
         requireNonNull(tables, "tables is null");
         requireNonNull(transactionHandleFunction, "transactionHandleFunction is null");
@@ -50,8 +56,8 @@ public class SystemConnector
         requireNonNull(catalogName, "catalogName is null");
 
         this.metadata = new SystemTablesMetadata(tables);
-        this.splitManager = new SystemSplitManager(nodeManager, tables);
-        this.pageSourceProvider = new SystemPageSourceProvider(tables, accessControl, catalogName);
+        this.splitManager = new SystemSplitManager(currentNode, nodeManager, tables);
+        this.pageSourceProvider = new SystemPageSourceProvider(tables, accessControl, catalogName, pageSourceProviderFactory);
         this.transactionHandleFunction = transactionHandleFunction;
     }
 

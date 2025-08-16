@@ -429,9 +429,7 @@ public class ElasticsearchClient
                 ImmutableMap.Builder<String, List<String>> result = ImmutableMap.builder();
                 JsonNode root = OBJECT_MAPPER.readTree(body);
 
-                Iterator<Map.Entry<String, JsonNode>> elements = root.fields();
-                while (elements.hasNext()) {
-                    Map.Entry<String, JsonNode> element = elements.next();
+                for (Map.Entry<String, JsonNode> element : root.properties()) {
                     JsonNode aliases = element.getValue().get("aliases");
                     Iterator<String> aliasNames = aliases.fieldNames();
                     if (aliasNames.hasNext()) {
@@ -489,12 +487,8 @@ public class ElasticsearchClient
 
     private IndexMetadata.ObjectType parseType(JsonNode properties, JsonNode metaProperties)
     {
-        Iterator<Map.Entry<String, JsonNode>> entries = properties.fields();
-
         ImmutableList.Builder<IndexMetadata.Field> result = ImmutableList.builder();
-        while (entries.hasNext()) {
-            Map.Entry<String, JsonNode> field = entries.next();
-
+        for (Map.Entry<String, JsonNode> field : properties.properties()) {
             String name = field.getKey();
             JsonNode value = field.getValue();
 

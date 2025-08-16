@@ -29,6 +29,7 @@ import io.trino.spi.function.table.TableFunctionSplitProcessor;
 import io.trino.split.EmptySplit;
 import io.trino.sql.planner.plan.PlanNodeId;
 
+import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.Deque;
 
@@ -115,6 +116,14 @@ public class LeafTableFunctionOperator
 
     private void resetProcessor(ConnectorSplit nextSplit)
     {
+        if (this.processor != null) {
+            try {
+                this.processor.close();
+            }
+            catch (IOException ignored) {
+                // ignore close exceptions, as this is a best-effort cleanup
+            }
+        }
         this.processor = tableFunctionProvider.getSplitProcessor(session, functionHandle, nextSplit);
         this.processorFinishedSplit = false;
         this.processorBlocked = NOT_BLOCKED;
@@ -211,6 +220,8 @@ public class LeafTableFunctionOperator
     public void close()
             throws Exception
     {
-        // TODO
+        if (processor != null) {
+            processor.close();
+        }
     }
 }

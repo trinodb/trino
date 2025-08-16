@@ -126,8 +126,7 @@ public class PushPredicateThroughProjectIntoRowNumber
                     rowNumber.getPartitionBy(),
                     rowNumber.isOrderSensitive(),
                     rowNumber.getRowNumberSymbol(),
-                    Optional.of(upperBound.getAsInt()),
-                    rowNumber.getHashSymbol());
+                    Optional.of(upperBound.getAsInt()));
             project = (ProjectNode) project.replaceChildren(ImmutableList.of(rowNumber));
             updatedMaxRowCountPerPartition = true;
         }

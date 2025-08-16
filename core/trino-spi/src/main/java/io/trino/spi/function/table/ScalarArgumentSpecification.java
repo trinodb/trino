@@ -13,14 +13,12 @@
  */
 package io.trino.spi.function.table;
 
-import io.trino.spi.Experimental;
 import io.trino.spi.type.Type;
 
 import static io.trino.spi.function.table.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-@Experimental(eta = "2022-10-31")
 public class ScalarArgumentSpecification
         extends ArgumentSpecification
 {

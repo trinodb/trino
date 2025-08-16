@@ -330,7 +330,7 @@ public final class ColumnReaderFactory
                 .orElse(FALSE);
     }
 
-    private static boolean isDecimalRescaled(DecimalLogicalTypeAnnotation decimalAnnotation, DecimalType trinoType)
+    public static boolean isDecimalRescaled(DecimalLogicalTypeAnnotation decimalAnnotation, DecimalType trinoType)
     {
         return decimalAnnotation.getPrecision() != trinoType.getPrecision()
                 || decimalAnnotation.getScale() != trinoType.getScale();

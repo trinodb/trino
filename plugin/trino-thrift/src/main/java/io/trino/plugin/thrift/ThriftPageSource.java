@@ -72,8 +72,8 @@ public class ThriftPageSource
         ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
         for (ColumnHandle columnHandle : columns) {
             ThriftColumnHandle thriftColumnHandle = (ThriftColumnHandle) columnHandle;
-            columnNames.add(thriftColumnHandle.getColumnName());
-            columnTypes.add(thriftColumnHandle.getColumnType());
+            columnNames.add(thriftColumnHandle.columnName());
+            columnTypes.add(thriftColumnHandle.columnType());
         }
         this.columnNames = columnNames.build();
         this.columnTypes = columnTypes.build();
@@ -86,7 +86,7 @@ public class ThriftPageSource
 
         // init split
         requireNonNull(split, "split is null");
-        this.splitId = split.getSplitId();
+        this.splitId = split.splitId();
 
         // init client
         requireNonNull(client, "client is null");

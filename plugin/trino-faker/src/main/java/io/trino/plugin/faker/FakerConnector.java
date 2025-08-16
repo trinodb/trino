@@ -15,6 +15,7 @@
 package io.trino.plugin.faker;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.Connector;
@@ -29,7 +30,6 @@ import io.trino.spi.function.FunctionProvider;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.transaction.IsolationLevel;
 import io.trino.spi.type.ArrayType;
-import jakarta.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;

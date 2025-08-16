@@ -13,8 +13,6 @@
  */
 package io.trino.spi.connector;
 
-import io.trino.spi.Page;
-
 public class EmptyPageSource
         implements ConnectorPageSource
 {
@@ -34,13 +32,6 @@ public class EmptyPageSource
     public boolean isFinished()
     {
         return true;
-    }
-
-    @Override
-    @SuppressWarnings("removal")
-    public Page getNextPage()
-    {
-        return null;
     }
 
     @Override

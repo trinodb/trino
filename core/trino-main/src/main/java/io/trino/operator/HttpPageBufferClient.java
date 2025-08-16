@@ -41,13 +41,13 @@ import io.trino.server.remotetask.Backoff;
 import io.trino.spi.TrinoException;
 import io.trino.spi.TrinoTransportException;
 import jakarta.annotation.Nullable;
-import org.joda.time.DateTime;
 
 import java.io.BufferedReader;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URI;
+import java.time.Instant;
 import java.util.List;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
@@ -135,7 +135,7 @@ public final class HttpPageBufferClient
     @GuardedBy("this")
     private HttpResponseFuture<?> future;
     @GuardedBy("this")
-    private DateTime lastUpdate = DateTime.now();
+    private Instant lastUpdate = Instant.now();
     @GuardedBy("this")
     private long token;
     @GuardedBy("this")
@@ -291,7 +291,7 @@ public final class HttpPageBufferClient
 
             this.future = null;
 
-            lastUpdate = DateTime.now();
+            lastUpdate = Instant.now();
         }
 
         if (future != null && !future.isDone()) {
@@ -326,7 +326,7 @@ public final class HttpPageBufferClient
             }
         }, delayNanos, NANOSECONDS);
 
-        lastUpdate = DateTime.now();
+        lastUpdate = Instant.now();
         requestsScheduled.incrementAndGet();
     }
 
@@ -349,7 +349,7 @@ public final class HttpPageBufferClient
             sendGetResults();
         }
 
-        lastUpdate = DateTime.now();
+        lastUpdate = Instant.now();
     }
 
     private synchronized void sendGetResults()
@@ -465,7 +465,7 @@ public final class HttpPageBufferClient
                     if (future == resultFuture) {
                         future = null;
                     }
-                    lastUpdate = DateTime.now();
+                    lastUpdate = Instant.now();
                 }
                 clientCallback.requestComplete(HttpPageBufferClient.this);
             }
@@ -542,7 +542,7 @@ public final class HttpPageBufferClient
                     if (future == resultFuture) {
                         future = null;
                     }
-                    lastUpdate = DateTime.now();
+                    lastUpdate = Instant.now();
                 }
                 requestsCompleted.incrementAndGet();
                 clientCallback.clientFinished(HttpPageBufferClient.this);
@@ -590,7 +590,7 @@ public final class HttpPageBufferClient
             if (future == expectedFuture) {
                 future = null;
             }
-            lastUpdate = DateTime.now();
+            lastUpdate = Instant.now();
         }
         clientCallback.requestComplete(HttpPageBufferClient.this);
     }

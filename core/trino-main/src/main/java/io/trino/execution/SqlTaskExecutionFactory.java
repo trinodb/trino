@@ -84,6 +84,7 @@ public class SqlTaskExecutionFactory
                         taskContext,
                         fragment.getRoot(),
                         fragment.getOutputPartitioningScheme(),
+                        fragment.getOutputSkewedBucketCount(),
                         fragment.getPartitionedSources(),
                         outputBuffer);
             }

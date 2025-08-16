@@ -223,6 +223,7 @@ final class S3InputStream
             in = client.getObject(rangeRequest);
             // a workaround for https://github.com/aws/aws-sdk-java-v2/issues/3538
             if (in.response().contentLength() != null && in.response().contentLength() == 0) {
+                in.close();
                 in = new ResponseInputStream<>(in.response(), nullInputStream());
             }
             streamPosition = nextReadPosition;

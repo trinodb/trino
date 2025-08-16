@@ -27,6 +27,7 @@ import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkReadablePosition;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactArray;
+import static io.trino.spi.block.BlockUtil.compactIsNull;
 import static io.trino.spi.block.BlockUtil.compactOffsets;
 import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
 import static io.trino.spi.block.BlockUtil.copyOffsetsAndAppendNull;
@@ -328,13 +329,18 @@ public final class MapBlock
         checkArrayRange(positions, offset, length);
 
         int[] newOffsets = new int[length + 1];
-        boolean[] newMapIsNull = new boolean[length];
+        boolean hasNull = false;
+        boolean[] newMapIsNull = null;
+        if (mapIsNull != null) {
+            newMapIsNull = new boolean[length];
+        }
 
         IntArrayList entriesPositions = new IntArrayList();
         int newPosition = 0;
         for (int i = offset; i < offset + length; ++i) {
             int position = positions[i];
-            if (isNull(position)) {
+            if (mapIsNull != null && mapIsNull[position + startOffset]) {
+                hasNull = true;
                 newMapIsNull[newPosition] = true;
                 newOffsets[newPosition + 1] = newOffsets[newPosition];
             }
@@ -350,6 +356,9 @@ public final class MapBlock
                 }
             }
             newPosition++;
+        }
+        if (!hasNull) {
+            newMapIsNull = null;
         }
 
         int[] rawHashTables = hashTables.tryGet().orElse(null);
@@ -375,7 +384,7 @@ public final class MapBlock
                 mapType,
                 0,
                 length,
-                Optional.of(newMapIsNull),
+                Optional.ofNullable(newMapIsNull),
                 newOffsets,
                 newKeys,
                 newValues,
@@ -427,9 +436,7 @@ public final class MapBlock
         Block newValues = valueBlock.copyRegion(startValueOffset, endValueOffset - startValueOffset);
 
         int[] newOffsets = compactOffsets(offsets, position + startOffset, length);
-        boolean[] mapIsNull = this.mapIsNull;
-        boolean[] newMapIsNull;
-        newMapIsNull = mapIsNull == null ? null : compactArray(mapIsNull, position + startOffset, length);
+        boolean[] newMapIsNull = compactIsNull(mapIsNull, position + startOffset, length);
         int[] rawHashTables = hashTables.tryGet().orElse(null);
         int[] newRawHashTables = null;
         int expectedNewHashTableEntries = (endValueOffset - startValueOffset) * HASH_MULTIPLIER;

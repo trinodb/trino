@@ -229,7 +229,7 @@ public class TestTimeZoneKey
         // Zone file should not (normally) be changed, so let's make this more difficult
         assertThat(hasher.hash().asLong())
                 .describedAs("zone-index.properties file contents changed!")
-                .isEqualTo(4825838578917475630L);
+                .isEqualTo(3765670086753811806L);
     }
 
     @Test

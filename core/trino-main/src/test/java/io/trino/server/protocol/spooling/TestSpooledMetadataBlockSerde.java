@@ -27,7 +27,9 @@ import java.util.Optional;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.client.spooling.DataAttribute.ROWS_COUNT;
 import static io.trino.client.spooling.DataAttribute.SEGMENT_SIZE;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static io.trino.server.protocol.spooling.SpooledMetadataBlockSerde.deserialize;
+import static io.trino.server.protocol.spooling.SpooledMetadataBlockSerde.serialize;
+import static org.assertj.core.api.Assertions.assertThat;
 
 class TestSpooledMetadataBlockSerde
 {
@@ -47,13 +49,13 @@ class TestSpooledMetadataBlockSerde
     public void verifySerializationRoundTrip(Slice identifier, Optional<URI> directUri, Map<String, List<String>> headers)
     {
         SpooledMetadataBlock metadata = new SpooledMetadataBlock.Spooled(createDataAttributes(10, 1200), identifier, directUri, headers);
-        assertThat(metadata).isEqualTo(SpooledMetadataBlockSerde.deserialize(metadata.serialize()));
+        assertThat(List.of(metadata)).isEqualTo(deserialize(serialize(metadata)));
     }
 
     private void verifySerializationRoundTripWithNonEmptyPage(Slice identifier, Optional<URI> directUri, Map<String, List<String>> headers)
     {
         SpooledMetadataBlock metadata = new SpooledMetadataBlock.Spooled(createDataAttributes(10, 1100), identifier, directUri, headers);
-        assertThat(metadata).isEqualTo(SpooledMetadataBlockSerde.deserialize(metadata.serialize()));
+        assertThat(List.of(metadata)).isEqualTo(deserialize(serialize(metadata)));
     }
 
     private static DataAttributes createDataAttributes(long rows, int segmentSize)

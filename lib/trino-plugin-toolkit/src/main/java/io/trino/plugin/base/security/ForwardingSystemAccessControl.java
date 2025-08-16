@@ -336,6 +336,12 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanRefreshView(SystemSecurityContext context, CatalogSchemaTableName viewName)
+    {
+        delegate().checkCanRefreshView(context, viewName);
+    }
+
+    @Override
     public void checkCanDropView(SystemSecurityContext context, CatalogSchemaTableName view)
     {
         delegate().checkCanDropView(context, view);
@@ -369,6 +375,12 @@ public abstract class ForwardingSystemAccessControl
     public void checkCanRenameMaterializedView(SystemSecurityContext context, CatalogSchemaTableName view, CatalogSchemaTableName newView)
     {
         delegate().checkCanRenameMaterializedView(context, view, newView);
+    }
+
+    @Override
+    public void checkCanSetMaterializedViewAuthorization(SystemSecurityContext context, CatalogSchemaTableName view, TrinoPrincipal principal)
+    {
+        delegate().checkCanSetMaterializedViewAuthorization(context, view, principal);
     }
 
     @Override
@@ -531,6 +543,48 @@ public abstract class ForwardingSystemAccessControl
     public void checkCanShowCreateFunction(SystemSecurityContext systemSecurityContext, CatalogSchemaRoutineName functionName)
     {
         delegate().checkCanShowCreateFunction(systemSecurityContext, functionName);
+    }
+
+    @Override
+    public void checkCanShowBranches(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName tableName)
+    {
+        delegate().checkCanShowBranches(systemSecurityContext, tableName);
+    }
+
+    @Override
+    public void checkCanCreateBranch(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName tableName, String branchName)
+    {
+        delegate().checkCanCreateBranch(systemSecurityContext, tableName, branchName);
+    }
+
+    @Override
+    public void checkCanDropBranch(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName tableName, String branchName)
+    {
+        delegate().checkCanDropBranch(systemSecurityContext, tableName, branchName);
+    }
+
+    @Override
+    public void checkCanFastForwardBranch(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName tableName, String sourceBranchName, String targetBranchName)
+    {
+        delegate().checkCanFastForwardBranch(systemSecurityContext, tableName, sourceBranchName, targetBranchName);
+    }
+
+    @Override
+    public void checkCanGrantTableBranchPrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaTableName table, String branchName, TrinoPrincipal grantee, boolean grantOption)
+    {
+        delegate().checkCanGrantTableBranchPrivilege(context, privilege, table, branchName, grantee, grantOption);
+    }
+
+    @Override
+    public void checkCanDenyTableBranchPrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaTableName table, String branchName, TrinoPrincipal grantee)
+    {
+        delegate().checkCanDenyTableBranchPrivilege(context, privilege, table, branchName, grantee);
+    }
+
+    @Override
+    public void checkCanRevokeTableBranchPrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaTableName table, String branchName, TrinoPrincipal revokee, boolean grantOption)
+    {
+        delegate().checkCanRevokeTableBranchPrivilege(context, privilege, table, branchName, revokee, grantOption);
     }
 
     @Override

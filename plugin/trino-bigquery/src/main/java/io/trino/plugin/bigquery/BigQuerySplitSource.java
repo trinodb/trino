@@ -24,7 +24,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.protobuf.ByteString;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
-import io.trino.spi.NodeManager;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
@@ -42,6 +41,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.IntSupplier;
 
 import static com.google.cloud.bigquery.TableDefinition.Type.MATERIALIZED_VIEW;
 import static com.google.cloud.bigquery.TableDefinition.Type.VIEW;
@@ -70,7 +70,7 @@ public class BigQuerySplitSource
     private final boolean viewEnabled;
     private final boolean arrowSerializationEnabled;
     private final Duration viewExpiration;
-    private final NodeManager nodeManager;
+    private final IntSupplier workerCountSupplier;
     private final int maxReadRowsRetries;
 
     @Nullable
@@ -84,7 +84,7 @@ public class BigQuerySplitSource
             boolean viewEnabled,
             boolean arrowSerializationEnabled,
             Duration viewExpiration,
-            NodeManager nodeManager,
+            IntSupplier workerCountSupplier,
             int maxReadRowsRetries)
     {
         this.session = requireNonNull(session, "session is null");
@@ -94,7 +94,7 @@ public class BigQuerySplitSource
         this.viewEnabled = viewEnabled;
         this.arrowSerializationEnabled = arrowSerializationEnabled;
         this.viewExpiration = requireNonNull(viewExpiration, "viewExpiration is null");
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager cannot be null");
+        this.workerCountSupplier = requireNonNull(workerCountSupplier, "workerCountSupplier cannot be null");
         this.maxReadRowsRetries = maxReadRowsRetries;
     }
 
@@ -216,7 +216,7 @@ public class BigQuerySplitSource
     ReadSession createReadSession(ConnectorSession session, TableId remoteTableId, List<BigQueryColumnHandle> columns, Optional<String> filter)
     {
         ReadSessionCreator readSessionCreator = new ReadSessionCreator(bigQueryClientFactory, bigQueryReadClientFactory, viewEnabled, arrowSerializationEnabled, viewExpiration, maxReadRowsRetries, getMaxParallelism(session));
-        return readSessionCreator.create(session, remoteTableId, columns, filter, nodeManager.getRequiredWorkerNodes().size());
+        return readSessionCreator.create(session, remoteTableId, columns, filter, workerCountSupplier.getAsInt());
     }
 
     private static List<String> getProjectedColumnNames(List<BigQueryColumnHandle> columns)

@@ -82,9 +82,9 @@ public class SplitMonitor
                             taskId.getStageId().toString(),
                             taskId.toString(),
                             catalogName.map(CatalogName::toString),
-                            driverStats.getCreateTime().toDate().toInstant(),
-                            Optional.ofNullable(driverStats.getStartTime()).map(startTime -> startTime.toDate().toInstant()),
-                            Optional.ofNullable(driverStats.getEndTime()).map(endTime -> endTime.toDate().toInstant()),
+                            driverStats.getCreateTime(),
+                            Optional.ofNullable(driverStats.getStartTime()),
+                            Optional.ofNullable(driverStats.getEndTime()),
                             new SplitStatistics(
                                     ofMillis(driverStats.getTotalCpuTime().toMillis()),
                                     elapsedTime,

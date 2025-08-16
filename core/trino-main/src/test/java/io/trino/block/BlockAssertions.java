@@ -71,7 +71,6 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.type.ColorType.COLOR;
 import static io.trino.type.IpAddressType.IPADDRESS;
 import static java.lang.Float.floatToRawIntBits;
@@ -95,7 +94,7 @@ public final class BlockAssertions
         assertThat(block.getPositionCount())
                 .describedAs("Block positions")
                 .isEqualTo(1);
-        return type.getObjectValue(SESSION, block, 0);
+        return type.getObjectValue(block, 0);
     }
 
     public static List<Object> toValues(Type type, Iterable<Block> blocks)
@@ -103,7 +102,7 @@ public final class BlockAssertions
         List<Object> values = new ArrayList<>();
         for (Block block : blocks) {
             for (int position = 0; position < block.getPositionCount(); position++) {
-                values.add(type.getObjectValue(SESSION, block, position));
+                values.add(type.getObjectValue(block, position));
             }
         }
         return unmodifiableList(values);
@@ -113,7 +112,7 @@ public final class BlockAssertions
     {
         List<Object> values = new ArrayList<>();
         for (int position = 0; position < block.getPositionCount(); position++) {
-            values.add(type.getObjectValue(SESSION, block, position));
+            values.add(type.getObjectValue(block, position));
         }
         return unmodifiableList(values);
     }
@@ -122,9 +121,9 @@ public final class BlockAssertions
     {
         assertThat(actual.getPositionCount()).isEqualTo(expected.getPositionCount());
         for (int position = 0; position < actual.getPositionCount(); position++) {
-            assertThat(type.getObjectValue(SESSION, actual, position))
+            assertThat(type.getObjectValue(actual, position))
                     .describedAs("position " + position)
-                    .isEqualTo(type.getObjectValue(SESSION, expected, position));
+                    .isEqualTo(type.getObjectValue(expected, position));
         }
     }
 

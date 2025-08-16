@@ -13,8 +13,6 @@
  */
 package io.trino.spi.function.table;
 
-import io.trino.spi.Experimental;
-
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -39,7 +37,6 @@ import static java.util.stream.Collectors.toMap;
  * gathered at analysis time. Typically, these are the values of the constant arguments, and results
  * of pre-processing arguments.
  */
-@Experimental(eta = "2022-10-31")
 public final class TableFunctionAnalysis
 {
     private final Optional<Descriptor> returnedType;

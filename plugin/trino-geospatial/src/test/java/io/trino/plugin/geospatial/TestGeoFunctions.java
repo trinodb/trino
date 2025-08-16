@@ -136,7 +136,7 @@ public class TestGeoFunctions
         GEOMETRY.writeSlice(builder, GeoFunctions.stPoint(1.2, 3.4));
         Block block = builder.build();
 
-        assertThat("POINT (1.2 3.4)").isEqualTo(GEOMETRY.getObjectValue(null, block, 0));
+        assertThat("POINT (1.2 3.4)").isEqualTo(GEOMETRY.getObjectValue(block, 0));
     }
 
     @Test

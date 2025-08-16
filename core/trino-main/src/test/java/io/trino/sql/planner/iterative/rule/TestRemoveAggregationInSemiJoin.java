@@ -21,8 +21,6 @@ import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.PlanNode;
 import org.junit.jupiter.api.Test;
 
-import java.util.Optional;
-
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
@@ -58,8 +56,6 @@ public class TestRemoveAggregationInSemiJoin
                 leftKey,
                 rightKey,
                 p.symbol("match"),
-                Optional.empty(),
-                Optional.empty(),
                 p.values(leftKey),
                 p.aggregation(builder -> builder
                         .singleGroupingSet(rightKey)
@@ -74,8 +70,6 @@ public class TestRemoveAggregationInSemiJoin
                 leftKey,
                 rightKey,
                 p.symbol("match"),
-                Optional.empty(),
-                Optional.empty(),
                 p.values(leftKey),
                 p.aggregation(builder -> builder
                         .globalGrouping()

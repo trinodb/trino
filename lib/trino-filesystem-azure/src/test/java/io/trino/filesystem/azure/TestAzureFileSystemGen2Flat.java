@@ -30,6 +30,6 @@ class TestAzureFileSystemGen2Flat
     void setup()
             throws IOException
     {
-        initializeWithAccessKey(requireEnv("ABFS_FLAT_ACCOUNT"), requireEnv("ABFS_FLAT_ACCESS_KEY"), FLAT);
+        initializeWithAccessKeyAndMultipartWrites(requireEnv("ABFS_FLAT_ACCOUNT"), requireEnv("ABFS_FLAT_ACCESS_KEY"), FLAT);
     }
 }

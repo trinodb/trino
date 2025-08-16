@@ -27,6 +27,7 @@ import io.trino.spi.connector.EntityPrivilege;
 import io.trino.spi.security.Privilege;
 import io.trino.sql.tree.Deny;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.Identifier;
 
 import java.util.List;
 import java.util.Optional;
@@ -82,6 +83,10 @@ public class DenyTask
 
     private static void executeDenyOnSchema(Session session, Deny statement, Metadata metadata, AccessControl accessControl)
     {
+        if (statement.getGrantObject().getBranch().isPresent()) {
+            throw semanticException(NOT_SUPPORTED, statement, "Denying on branch is not supported");
+        }
+
         CatalogSchemaName schemaName = createCatalogSchemaName(session, statement, Optional.of(statement.getGrantObject().getName()));
 
         if (!metadata.schemaExists(session, schemaName)) {
@@ -99,6 +104,7 @@ public class DenyTask
     private static void executeDenyOnTable(Session session, Deny statement, Metadata metadata, AccessControl accessControl)
     {
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getGrantObject().getName());
+        Optional<Identifier> branch = statement.getGrantObject().getBranch();
 
         if (!metadata.isMaterializedView(session, tableName) && !metadata.isView(session, tableName)) {
             RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, tableName);
@@ -112,15 +118,23 @@ public class DenyTask
 
         Set<Privilege> privileges = parseStatementPrivileges(statement, statement.getPrivileges());
 
-        for (Privilege privilege : privileges) {
-            accessControl.checkCanDenyTablePrivilege(session.toSecurityContext(), privilege, tableName, createPrincipal(statement.getGrantee()));
+        if (branch.isEmpty()) {
+            privileges.forEach(privilege -> accessControl.checkCanDenyTablePrivilege(session.toSecurityContext(), privilege, tableName, createPrincipal(statement.getGrantee())));
+            metadata.denyTablePrivileges(session, tableName, privileges, createPrincipal(statement.getGrantee()));
         }
-
-        metadata.denyTablePrivileges(session, tableName, privileges, createPrincipal(statement.getGrantee()));
+        else {
+            String branchName = branch.get().getValue();
+            privileges.forEach(privilege -> accessControl.checkCanDenyTableBranchPrivilege(session.toSecurityContext(), privilege, tableName, branchName, createPrincipal(statement.getGrantee())));
+            metadata.denyTableBranchPrivileges(session, tableName, branchName, privileges, createPrincipal(statement.getGrantee()));
+        }
     }
 
     private static void executeDenyOnEntity(Session session, Deny statement, Metadata metadata, String entityKind, AccessControl accessControl)
     {
+        if (statement.getGrantObject().getBranch().isPresent()) {
+            throw semanticException(NOT_SUPPORTED, statement, "Denying on branch is not supported");
+        }
+
         EntityKindAndName entity = createEntityKindAndName(entityKind, statement.getGrantObject().getName());
         Set<EntityPrivilege> privileges = fetchEntityKindPrivileges(entityKind, metadata, statement.getPrivileges());
 

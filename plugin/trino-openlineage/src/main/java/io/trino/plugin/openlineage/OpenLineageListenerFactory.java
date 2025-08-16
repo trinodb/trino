@@ -38,6 +38,6 @@ public class OpenLineageListenerFactory
                 .setRequiredConfigurationProperties(config)
                 .initialize();
 
-        return injector.getInstance(OpenLineageListener.class);
+        return injector.getInstance(EventListener.class);
     }
 }

@@ -19,7 +19,7 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.trino.spi.NodeManager;
+import io.trino.spi.Node;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 
@@ -43,11 +43,11 @@ public final class ReusableConnectionFactoryModule
     @Provides
     @Singleton
     public static ConnectionFactory getReusableConnectionFactory(
-            NodeManager nodeManager,
+            Node currentNode,
             @ForReusableConnectionFactory ConnectionFactory delegate,
             ReusableConnectionFactory reusableConnectionFactory)
     {
-        if (nodeManager.getCurrentNode().isCoordinator()) {
+        if (currentNode.isCoordinator()) {
             return reusableConnectionFactory;
         }
 

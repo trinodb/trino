@@ -25,7 +25,6 @@ import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
 import static io.trino.plugin.hive.coercions.CoercionUtils.createCoercer;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
-import static io.trino.spi.block.TestingSession.SESSION;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -150,7 +149,7 @@ public class TestIntegerNumberToVarcharCoercer
     {
         Block coercedBlock = createCoercer(TESTING_TYPE_MANAGER, toHiveType(actualType), toHiveType(expectedType), new CoercionContext(DEFAULT_PRECISION, storageFormat)).orElseThrow()
                 .apply(nativeValueToBlock(actualType, actualValue));
-        Object coercedValue = coercedBlock.isNull(0) ? null : expectedType.getObjectValue(SESSION, coercedBlock, 0);
+        Object coercedValue = coercedBlock.isNull(0) ? null : expectedType.getObjectValue(coercedBlock, 0);
         assertThat(coercedValue).isEqualTo(expectedValue);
     }
 }

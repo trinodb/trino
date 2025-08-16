@@ -448,8 +448,8 @@ public class CheckpointWriter
             writeString(builders.get(0), type, 0, "storageType", deletionVector.get().storageType());
             writeString(builders.get(1), type, 1, "pathOrInlineDv", deletionVector.get().pathOrInlineDv());
             writeLong(builders.get(2), type, 2, "offset", (long) deletionVector.get().offset().orElse(0));
-            writeLong(builders.get(4), type, 4, "sizeInBytes", (long) deletionVector.get().sizeInBytes());
-            writeLong(builders.get(5), type, 5, "cardinality", deletionVector.get().cardinality());
+            writeLong(builders.get(3), type, 3, "sizeInBytes", (long) deletionVector.get().sizeInBytes());
+            writeLong(builders.get(4), type, 4, "cardinality", deletionVector.get().cardinality());
         });
     }
 

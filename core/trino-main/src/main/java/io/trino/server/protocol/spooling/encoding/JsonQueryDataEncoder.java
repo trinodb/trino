@@ -25,7 +25,6 @@ import io.trino.server.protocol.spooling.QueryDataEncoder;
 import io.trino.server.protocol.spooling.QueryDataEncodingConfig;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.ConnectorSession;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -33,6 +32,7 @@ import java.util.List;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.client.spooling.DataAttribute.SEGMENT_SIZE;
 import static io.trino.plugin.base.util.JsonUtils.jsonFactory;
 import static io.trino.server.protocol.JsonEncodingUtils.createTypeEncoders;
@@ -47,14 +47,15 @@ public class JsonQueryDataEncoder
 
     private static final JsonFactory JSON_FACTORY = jsonFactory();
     private static final String ENCODING = "json";
-    private final Session session;
     private TypeEncoder[] typeEncoders;
     private int[] sourcePageChannels;
 
     public JsonQueryDataEncoder(Session session, List<OutputColumn> columns)
     {
-        this.session = requireNonNull(session, "session is null");
-        this.typeEncoders = createTypeEncoders(session, requireNonNull(columns, "columns is null"));
+        this.typeEncoders = createTypeEncoders(session, requireNonNull(columns, "columns is null")
+                .stream()
+                .map(OutputColumn::type)
+                .collect(toImmutableList()));
         this.sourcePageChannels = requireNonNull(columns, "columns is null").stream()
             .mapToInt(OutputColumn::sourcePageChannel)
             .toArray();
@@ -65,9 +66,8 @@ public class JsonQueryDataEncoder
             throws IOException
     {
         verify(!closed, "JsonQueryDataEncoder is already closed");
-        ConnectorSession connectorSession = session.toConnectorSession();
         try (CountingOutputStream wrapper = new CountingOutputStream(output); JsonGenerator generator = JSON_FACTORY.createGenerator(wrapper)) {
-            writePagesToJsonGenerator(connectorSession, e -> { throw e; }, generator, typeEncoders, sourcePageChannels, pages);
+            writePagesToJsonGenerator(e -> { throw e; }, generator, typeEncoders, sourcePageChannels, pages);
             return DataAttributes.builder()
                     .set(SEGMENT_SIZE, toIntExact(wrapper.getCount()))
                     .build();

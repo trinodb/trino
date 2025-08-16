@@ -42,7 +42,6 @@ import io.trino.type.BlockTypeOperators.BlockPositionEqual;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -70,7 +69,6 @@ public class IndexLoader
     private final AtomicReference<TaskContext> taskContextReference = new AtomicReference<>();
     private final Set<Integer> lookupSourceInputChannels;
     private final List<Integer> keyOutputChannels;
-    private final OptionalInt keyOutputHashChannel;
     private final List<Type> keyTypes;
     private final List<BlockPositionEqual> keyEqualOperators;
     private final PagesIndex.Factory pagesIndexFactory;
@@ -87,7 +85,6 @@ public class IndexLoader
     public IndexLoader(
             Set<Integer> lookupSourceInputChannels,
             List<Integer> keyOutputChannels,
-            OptionalInt keyOutputHashChannel,
             List<Type> outputTypes,
             IndexBuildDriverFactoryProvider indexBuildDriverFactoryProvider,
             int expectedPositions,
@@ -101,7 +98,6 @@ public class IndexLoader
         checkArgument(!lookupSourceInputChannels.isEmpty(), "lookupSourceInputChannels must not be empty");
         requireNonNull(keyOutputChannels, "keyOutputChannels is null");
         checkArgument(!keyOutputChannels.isEmpty(), "keyOutputChannels must not be empty");
-        requireNonNull(keyOutputHashChannel, "keyOutputHashChannel is null");
         checkArgument(lookupSourceInputChannels.size() <= keyOutputChannels.size(), "Lookup channels must supply a subset of the actual index columns");
         requireNonNull(outputTypes, "outputTypes is null");
         requireNonNull(indexBuildDriverFactoryProvider, "indexBuildDriverFactoryProvider is null");
@@ -112,7 +108,6 @@ public class IndexLoader
 
         this.lookupSourceInputChannels = ImmutableSet.copyOf(lookupSourceInputChannels);
         this.keyOutputChannels = ImmutableList.copyOf(keyOutputChannels);
-        this.keyOutputHashChannel = keyOutputHashChannel;
         this.outputTypes = ImmutableList.copyOf(outputTypes);
         this.indexBuildDriverFactoryProvider = indexBuildDriverFactoryProvider;
         this.expectedPositions = expectedPositions;
@@ -260,7 +255,6 @@ public class IndexLoader
                     lookupSourceInputChannels,
                     keyTypes,
                     keyOutputChannels,
-                    keyOutputHashChannel,
                     expectedPositions,
                     maxIndexMemorySize,
                     pagesIndexFactory,
@@ -288,7 +282,6 @@ public class IndexLoader
                 Set<Integer> lookupSourceInputChannels,
                 List<Type> indexTypes,
                 List<Integer> keyOutputChannels,
-                OptionalInt keyOutputHashChannel,
                 int expectedPositions,
                 DataSize maxIndexMemorySize,
                 PagesIndex.Factory pagesIndexFactory,
@@ -304,7 +297,6 @@ public class IndexLoader
             this.indexSnapshotBuilder = new IndexSnapshotBuilder(
                     outputTypes,
                     keyOutputChannels,
-                    keyOutputHashChannel,
                     pipelineContext.addDriverContext(),
                     maxIndexMemorySize,
                     expectedPositions,

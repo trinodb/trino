@@ -799,6 +799,15 @@ public class TracingConnectorMetadata
     }
 
     @Override
+    public void refreshView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition)
+    {
+        Span span = startSpan("refreshView", viewName);
+        try (var _ = scopedSpan(span)) {
+            delegate.refreshView(session, viewName, definition);
+        }
+    }
+
+    @Override
     public void dropView(ConnectorSession session, SchemaTableName viewName)
     {
         Span span = startSpan("dropView", viewName);
@@ -1011,6 +1020,51 @@ public class TracingConnectorMetadata
     }
 
     @Override
+    public void createBranch(ConnectorSession session, ConnectorTableHandle tableHandle, String branch, Optional<String> fromBranch, SaveMode saveMode, Map<String, Object> properties)
+    {
+        Span span = startSpan("createBranch", tableHandle);
+        try (var _ = scopedSpan(span)) {
+            delegate.createBranch(session, tableHandle, branch, fromBranch, saveMode, properties);
+        }
+    }
+
+    @Override
+    public void dropBranch(ConnectorSession session, ConnectorTableHandle tableHandle, String branch)
+    {
+        Span span = startSpan("dropBranch", tableHandle);
+        try (var _ = scopedSpan(span)) {
+            delegate.dropBranch(session, tableHandle, branch);
+        }
+    }
+
+    @Override
+    public void fastForwardBranch(ConnectorSession session, ConnectorTableHandle tableHandle, String sourceBranch, String targetBranch)
+    {
+        Span span = startSpan("fastForwardBranch", tableHandle);
+        try (var _ = scopedSpan(span)) {
+            delegate.fastForwardBranch(session, tableHandle, sourceBranch, targetBranch);
+        }
+    }
+
+    @Override
+    public Collection<String> listBranches(ConnectorSession session, SchemaTableName tableName)
+    {
+        Span span = startSpan("listBranches", tableName);
+        try (var _ = scopedSpan(span)) {
+            return delegate.listBranches(session, tableName);
+        }
+    }
+
+    @Override
+    public boolean branchExists(ConnectorSession session, SchemaTableName tableName, String branch)
+    {
+        Span span = startSpan("branchExists", tableName);
+        try (var _ = scopedSpan(span)) {
+            return delegate.branchExists(session, tableName, branch);
+        }
+    }
+
+    @Override
     public boolean roleExists(ConnectorSession session, String role)
     {
         Span span = startSpan("roleExists");
@@ -1151,6 +1205,33 @@ public class TracingConnectorMetadata
         Span span = startSpan("listTablePrivileges", prefix);
         try (var _ = scopedSpan(span)) {
             return delegate.listTablePrivileges(session, prefix);
+        }
+    }
+
+    @Override
+    public void grantTableBranchPrivileges(ConnectorSession session, SchemaTableName tableName, String branchName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
+    {
+        Span span = startSpan("grantTableBranchPrivileges", tableName);
+        try (var _ = scopedSpan(span)) {
+            delegate.grantTableBranchPrivileges(session, tableName, branchName, privileges, grantee, grantOption);
+        }
+    }
+
+    @Override
+    public void denyTableBranchPrivileges(ConnectorSession session, SchemaTableName tableName, String branchName, Set<Privilege> privileges, TrinoPrincipal grantee)
+    {
+        Span span = startSpan("denyTableBranchPrivileges", tableName);
+        try (var _ = scopedSpan(span)) {
+            delegate.denyTableBranchPrivileges(session, tableName, branchName, privileges, grantee);
+        }
+    }
+
+    @Override
+    public void revokeTableBranchPrivileges(ConnectorSession session, SchemaTableName tableName, String branchName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
+    {
+        Span span = startSpan("revokeTableBranchPrivileges", tableName);
+        try (var _ = scopedSpan(span)) {
+            delegate.revokeTableBranchPrivileges(session, tableName, branchName, privileges, grantee, grantOption);
         }
     }
 
@@ -1329,6 +1410,15 @@ public class TracingConnectorMetadata
         Span span = startSpan("renameMaterializedView", source);
         try (var _ = scopedSpan(span)) {
             delegate.renameMaterializedView(session, source, target);
+        }
+    }
+
+    @Override
+    public void setMaterializedViewAuthorization(ConnectorSession session, SchemaTableName viewName, TrinoPrincipal principal)
+    {
+        Span span = startSpan("setMaterializedViewAuthorization", viewName);
+        try (var _ = scopedSpan(span)) {
+            delegate.setMaterializedViewAuthorization(session, viewName, principal);
         }
     }
 

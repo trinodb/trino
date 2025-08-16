@@ -112,7 +112,7 @@ public class TestInt96Timestamp
         ParquetDataSource dataSource = new FileParquetDataSource(
                 new File(Resources.getResource("int96_timestamps_nanos_outside_day_range.parquet").toURI()),
                 ParquetReaderOptions.defaultOptions());
-        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource);
         ParquetReader reader = createParquetReader(dataSource, parquetMetadata, newSimpleAggregatedMemoryContext(), types, columnNames);
 
         SourcePage page = reader.nextPage();

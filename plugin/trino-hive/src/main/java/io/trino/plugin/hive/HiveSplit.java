@@ -278,7 +278,7 @@ public class HiveSplit
                 + estimatedSizeOf(hiveColumnCoercions, (Integer key) -> INTEGER_INSTANCE_SIZE, HiveTypeName::getEstimatedSizeInBytes)
                 + sizeOf(bucketConversion, BucketConversion::getRetainedSizeInBytes)
                 + sizeOf(bucketValidation, BucketValidation::getRetainedSizeInBytes)
-                + sizeOf(acidInfo, AcidInfo::getRetainedSizeInBytes)
+                + sizeOf(acidInfo, AcidInfo::retainedSizeInBytes)
                 + splitWeight.getRetainedSizeInBytes();
     }
 

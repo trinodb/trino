@@ -31,8 +31,8 @@ import io.trino.server.BasicQueryInfo;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
-import org.joda.time.DateTime;
 
+import java.time.Instant;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -171,7 +171,7 @@ public class LocalDispatchQuery
     }
 
     @Override
-    public DateTime getLastHeartbeat()
+    public Instant getLastHeartbeat()
     {
         return stateMachine.getLastHeartbeat();
     }
@@ -213,13 +213,13 @@ public class LocalDispatchQuery
     }
 
     @Override
-    public DateTime getCreateTime()
+    public Instant getCreateTime()
     {
         return stateMachine.getCreateTime();
     }
 
     @Override
-    public Optional<DateTime> getExecutionStartTime()
+    public Optional<Instant> getExecutionStartTime()
     {
         return stateMachine.getExecutionStartTime();
     }
@@ -231,7 +231,7 @@ public class LocalDispatchQuery
     }
 
     @Override
-    public Optional<DateTime> getEndTime()
+    public Optional<Instant> getEndTime()
     {
         return stateMachine.getEndTime();
     }

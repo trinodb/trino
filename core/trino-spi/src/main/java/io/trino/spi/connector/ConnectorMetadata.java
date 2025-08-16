@@ -14,7 +14,6 @@
 package io.trino.spi.connector;
 
 import io.airlift.slice.Slice;
-import io.trino.spi.Experimental;
 import io.trino.spi.RefreshType;
 import io.trino.spi.TrinoException;
 import io.trino.spi.expression.Call;
@@ -333,7 +332,6 @@ public interface ConnectorMetadata
      * (e.g. for all relations that would be returned by {@link #listTables(ConnectorSession, Optional)}).
      * Redirected table names are included, but the comment for them is not.
      */
-    @Experimental(eta = "2024-01-01")
     default Iterator<RelationColumnsMetadata> streamRelationColumns(
             ConnectorSession session,
             Optional<String> schemaName,
@@ -372,7 +370,6 @@ public interface ConnectorMetadata
      * (e.g. for all relations that would be returned by {@link #listTables(ConnectorSession, Optional)}).
      * Redirected table names are included, but the comment for them is not.
      */
-    @Experimental(eta = "2024-01-01")
     default Iterator<RelationCommentMetadata> streamRelationComments(ConnectorSession session, Optional<String> schemaName, UnaryOperator<Set<SchemaTableName>> relationFilter)
     {
         List<RelationCommentMetadata> materializedViews = getMaterializedViews(session, schemaName).entrySet().stream()
@@ -573,7 +570,7 @@ public interface ConnectorMetadata
      *
      * @param parentPath path to a field within the column, without leaf field name.
      */
-    @Experimental(eta = "2023-06-01") // TODO add support for rows inside arrays and maps and for anonymous row fields
+    // TODO add support for rows inside arrays and maps and for anonymous row fields
     default void addField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> parentPath, String fieldName, Type type, boolean ignoreExisting)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding fields");
@@ -582,7 +579,6 @@ public interface ConnectorMetadata
     /**
      * Set the specified column type
      */
-    @Experimental(eta = "2023-04-01")
     default void setColumnType(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, Type type)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting column types");
@@ -593,7 +589,6 @@ public interface ConnectorMetadata
      *
      * @param fieldPath path starting with column name. The path is always lower-cased. It cannot be an empty or a single element.
      */
-    @Experimental(eta = "2023-09-01")
     default void setFieldType(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> fieldPath, Type type)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting field types");
@@ -629,7 +624,7 @@ public interface ConnectorMetadata
      * @param fieldPath path starting with column name.
      * @param target the new field name. The field position and nested level shouldn't be changed.
      */
-    @Experimental(eta = "2023-09-01") // TODO add support for rows inside arrays and maps and for anonymous row fields
+    // TODO add support for rows inside arrays and maps and for anonymous row fields
     default void renameField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> fieldPath, String target)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming fields");
@@ -648,7 +643,7 @@ public interface ConnectorMetadata
      *
      * @param fieldPath path to a field within the column, without leading column name.
      */
-    @Experimental(eta = "2023-05-01") // TODO add support for rows inside arrays and maps and for anonymous row fields
+    // TODO add support for rows inside arrays and maps and for anonymous row fields
     default void dropField(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, List<String> fieldPath)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping fields");
@@ -667,7 +662,6 @@ public interface ConnectorMetadata
      * If {@link Optional#empty()} is returned, the type will be used as is during table creation which may or may not be supported by the connector.
      * The effective type shall be a type that is cast-compatible with the input type.
      */
-    @Experimental(eta = "2024-01-31")
     default Optional<Type> getSupportedType(ConnectorSession session, Map<String, Object> tableProperties, Type type)
     {
         return Optional.empty();
@@ -920,6 +914,14 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Refreshes an existing view definition.
+     */
+    default void refreshView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition viewDefinition)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support refreshing view definition");
+    }
+
+    /**
      * Drop the specified view.
      */
     default void dropView(ConnectorSession session, SchemaTableName viewName)
@@ -975,7 +977,6 @@ public interface ConnectorMetadata
     /**
      * Gets the view properties for the specified view.
      */
-    @Experimental(eta = "2024-06-01")
     default Map<String, Object> getViewProperties(ConnectorSession session, SchemaTableName viewName)
     {
         return Map.of();
@@ -1130,6 +1131,46 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Creates the specified branch.
+     */
+    default void createBranch(ConnectorSession session, ConnectorTableHandle tableHandle, String branch, Optional<String> fromBranch, SaveMode saveMode, Map<String, Object> properties)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating branches");
+    }
+
+    /**
+     * Drops the specified branch.
+     */
+    default void dropBranch(ConnectorSession session, ConnectorTableHandle tableHandle, String branch)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping branches");
+    }
+
+    /**
+     * Fast-forwards the specified branch.
+     */
+    default void fastForwardBranch(ConnectorSession session, ConnectorTableHandle tableHandle, String sourceBranch, String targetBranch)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support fast-forwarding branches");
+    }
+
+    /**
+     * Get all branches.
+     */
+    default Collection<String> listBranches(ConnectorSession session, SchemaTableName tableName)
+    {
+        return List.of();
+    }
+
+    /**
+     * Does the specified branch exist.
+     */
+    default boolean branchExists(ConnectorSession session, SchemaTableName tableName, String branch)
+    {
+        return listBranches(session, tableName).contains(branch);
+    }
+
+    /**
      * Does the specified role exist.
      */
     default boolean roleExists(ConnectorSession session, String role)
@@ -1261,6 +1302,30 @@ public interface ConnectorMetadata
     default List<GrantInfo> listTablePrivileges(ConnectorSession session, SchemaTablePrefix prefix)
     {
         return emptyList();
+    }
+
+    /**
+     * Grants the specified privilege to the specified user on the specified branch
+     */
+    default void grantTableBranchPrivileges(ConnectorSession session, SchemaTableName tableName, String branchName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support grants on branches in tables");
+    }
+
+    /**
+     * Denys the specified privilege to the specified user on the specified branch
+     */
+    default void denyTableBranchPrivileges(ConnectorSession session, SchemaTableName tableName, String branchName, Set<Privilege> privileges, TrinoPrincipal grantee)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support denys on branches in tables");
+    }
+
+    /**
+     * Revokes the specified privilege on the specified branch from the specified user
+     */
+    default void revokeTableBranchPrivileges(ConnectorSession session, SchemaTableName tableName, String branchName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support revokes on branches in tables");
     }
 
     default ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
@@ -1653,6 +1718,14 @@ public interface ConnectorMetadata
     default List<SchemaTableName> listMaterializedViews(ConnectorSession session, Optional<String> schemaName)
     {
         return List.of();
+    }
+
+    /**
+     * Sets the user/role on the specified materialized view.
+     */
+    default void setMaterializedViewAuthorization(ConnectorSession session, SchemaTableName viewName, TrinoPrincipal principal)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting an owner on a materialized view");
     }
 
     /**

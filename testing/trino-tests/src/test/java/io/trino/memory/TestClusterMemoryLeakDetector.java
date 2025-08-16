@@ -24,10 +24,10 @@ import io.trino.server.BasicQueryInfo;
 import io.trino.server.BasicQueryStats;
 import io.trino.spi.QueryId;
 import io.trino.spi.resourcegroups.ResourceGroupId;
-import org.joda.time.DateTime;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.OptionalDouble;
 
@@ -79,8 +79,8 @@ public class TestClusterMemoryLeakDetector
                 Optional.empty(),
                 Optional.empty(),
                 new BasicQueryStats(
-                        DateTime.parse("1991-09-06T05:00-05:30"),
-                        DateTime.parse("1991-09-06T05:01-05:30"),
+                        Instant.parse("2025-05-11T13:32:17.751968Z"),
+                        Instant.parse("2025-05-11T13:32:17.751968Z"),
                         new Duration(8, MINUTES),
                         new Duration(7, MINUTES),
                         new Duration(34, MINUTES),
