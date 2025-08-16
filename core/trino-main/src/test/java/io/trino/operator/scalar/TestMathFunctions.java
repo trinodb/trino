@@ -144,22 +144,22 @@ public class TestMathFunctions
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertThat(assertions.function("abs", "DECIMAL '123.45'"))
-                .isEqualTo(decimal("12345", createDecimalType(5, 2)));
+                .isEqualTo(decimal("123.45", createDecimalType(5, 2)));
 
         assertThat(assertions.function("abs", "DECIMAL '-123.45'"))
-                .isEqualTo(decimal("12345", createDecimalType(5, 2)));
+                .isEqualTo(decimal("123.45", createDecimalType(5, 2)));
 
         assertThat(assertions.function("abs", "DECIMAL '1234567890123456.78'"))
-                .isEqualTo(decimal("123456789012345678", createDecimalType(18, 2)));
+                .isEqualTo(decimal("1234567890123456.78", createDecimalType(18, 2)));
 
         assertThat(assertions.function("abs", "DECIMAL '-1234567890123456.78'"))
-                .isEqualTo(decimal("123456789012345678", createDecimalType(18, 2)));
+                .isEqualTo(decimal("1234567890123456.78", createDecimalType(18, 2)));
 
         assertThat(assertions.function("abs", "DECIMAL '12345678901234560.78'"))
-                .isEqualTo(decimal("1234567890123456078", createDecimalType(19, 2)));
+                .isEqualTo(decimal("12345678901234560.78", createDecimalType(19, 2)));
 
         assertThat(assertions.function("abs", "DECIMAL '-12345678901234560.78'"))
-                .isEqualTo(decimal("1234567890123456078", createDecimalType(19, 2)));
+                .isEqualTo(decimal("12345678901234560.78", createDecimalType(19, 2)));
 
         assertThat(assertions.function("abs", "CAST(NULL AS DECIMAL(1,0))"))
                 .isNull(createDecimalType(1, 0));
@@ -1067,7 +1067,7 @@ public class TestMathFunctions
     public void testMod()
     {
         assertThat(assertions.function("mod", "DECIMAL '0.0'", "DECIMAL '2.0'"))
-                .isEqualTo(decimal("0", createDecimalType(1, 1)));
+                .isEqualTo(decimal("0.0", createDecimalType(1, 1)));
 
         for (int left : intLefts) {
             for (int right : intRights) {
@@ -1139,7 +1139,7 @@ public class TestMathFunctions
                 .isNull(DOUBLE);
 
         assertThat(assertions.function("mod", "DECIMAL '0.0'", "DECIMAL '2.0'"))
-                .isEqualTo(decimal("0", createDecimalType(1, 1)));
+                .isEqualTo(decimal("0.0", createDecimalType(1, 1)));
 
         assertThat(assertions.function("mod", "DECIMAL '13.0'", "DECIMAL '5.0'"))
                 .isEqualTo(decimal("3.0", createDecimalType(2, 1)));
@@ -1166,7 +1166,7 @@ public class TestMathFunctions
                 .isEqualTo(decimal("2.4501", createDecimalType(5, 4)));
 
         assertThat(assertions.function("mod", "DECIMAL '123456789012345670'", "DECIMAL '123456789012345669'"))
-                .isEqualTo(decimal("0.01", createDecimalType(18)));
+                .isEqualTo(decimal("1", createDecimalType(18)));
 
         assertThat(assertions.function("mod", "DECIMAL '12345678901234567.90'", "DECIMAL '12345678901234567.89'"))
                 .isEqualTo(decimal("0.01", createDecimalType(19, 2)));

@@ -123,6 +123,8 @@ public class FeaturesConfig
 
     private boolean faultTolerantExecutionExchangeEncryptionEnabled = true;
 
+    private boolean legacyArithmeticDecimalOperators;
+
     public enum DataIntegrityVerification
     {
         NONE,
@@ -522,5 +524,17 @@ public class FeaturesConfig
     public void applyFaultTolerantExecutionDefaults()
     {
         exchangeCompressionCodec = LZ4;
+    }
+
+    public boolean isLegacyArithmeticDecimalOperators()
+    {
+        return legacyArithmeticDecimalOperators;
+    }
+
+    @Config("deprecated.legacy-arithmetic-decimal-operators")
+    public FeaturesConfig setLegacyArithmeticDecimalOperators(boolean value)
+    {
+        this.legacyArithmeticDecimalOperators = value;
+        return this;
     }
 }

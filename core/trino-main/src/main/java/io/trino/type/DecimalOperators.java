@@ -26,6 +26,7 @@ import io.trino.spi.function.SqlType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
+import io.trino.spi.type.Int128Math;
 import io.trino.spi.type.TypeSignature;
 
 import java.util.List;
@@ -55,29 +56,47 @@ import static java.util.Objects.requireNonNull;
 
 public final class DecimalOperators
 {
-    public static final SqlScalarFunction DECIMAL_ADD_OPERATOR = decimalAddOperator();
-    public static final SqlScalarFunction DECIMAL_SUBTRACT_OPERATOR = decimalSubtractOperator();
-    public static final SqlScalarFunction DECIMAL_MULTIPLY_OPERATOR = decimalMultiplyOperator();
-    public static final SqlScalarFunction DECIMAL_DIVIDE_OPERATOR = decimalDivideOperator();
+    public static final SqlScalarFunction LEGACY_DECIMAL_ADD_OPERATOR = decimalAddOperator(true);
+    public static final SqlScalarFunction LEGACY_DECIMAL_SUBTRACT_OPERATOR = decimalSubtractOperator(true);
+    public static final SqlScalarFunction LEGACY_DECIMAL_MULTIPLY_OPERATOR = decimalMultiplyOperator(true);
+    public static final SqlScalarFunction LEGACY_DECIMAL_DIVIDE_OPERATOR = decimalDivideOperator(true);
+    public static final SqlScalarFunction DECIMAL_ADD_OPERATOR = decimalAddOperator(false);
+    public static final SqlScalarFunction DECIMAL_SUBTRACT_OPERATOR = decimalSubtractOperator(false);
+    public static final SqlScalarFunction DECIMAL_MULTIPLY_OPERATOR = decimalMultiplyOperator(false);
+    public static final SqlScalarFunction DECIMAL_DIVIDE_OPERATOR = decimalDivideOperator(false);
     public static final SqlScalarFunction DECIMAL_MODULUS_OPERATOR = decimalModulusOperator();
 
     private DecimalOperators() {}
 
-    private static SqlScalarFunction decimalAddOperator()
+    private static SqlScalarFunction decimalAddOperator(boolean legacyTypeCalculation)
     {
         TypeSignature decimalLeftSignature = new TypeSignature("decimal", typeVariable("a_precision"), typeVariable("a_scale"));
         TypeSignature decimalRightSignature = new TypeSignature("decimal", typeVariable("b_precision"), typeVariable("b_scale"));
         TypeSignature decimalResultSignature = new TypeSignature("decimal", typeVariable("r_precision"), typeVariable("r_scale"));
 
-        Signature signature = Signature.builder()
-                .longVariable("r_precision", "min(38, max(a_precision - a_scale, b_precision - b_scale) + max(a_scale, b_scale) + 1)")
-                .longVariable("r_scale", "max(a_scale, b_scale)")
-                .argumentType(decimalLeftSignature)
-                .argumentType(decimalRightSignature)
-                .returnType(decimalResultSignature)
-                .build();
+        Signature.Builder signature = Signature.builder();
+
+        if (legacyTypeCalculation) {
+            signature.longVariable("r_precision", "min(38, max(a_precision - a_scale, b_precision - b_scale) + max(a_scale, b_scale) + 1)")
+                    .longVariable("r_scale", "max(a_scale, b_scale)");
+        }
+        else {
+            // The precision and scale calculations are modeled after MSSQL (https://learn.microsoft.com/en-us/sql/t-sql/data-types/precision-scale-and-length-transact-sql),
+            // as follows, with all expressions inlined:
+            //    integral = max(a_precision - a_scale, b_precision - b_scale);
+            //    raw_scale = max(a_scale, b_scale);
+            //    r_precision = min(raw_scale + integral + 1, 38);
+            //    r_scale = min(raw_scale, precision - integral);
+            signature.longVariable("r_precision", "min(max(a_scale, b_scale) + max(a_precision - a_scale, b_precision - b_scale) + 1, 38)")
+                    .longVariable("r_scale", "min(max(a_scale, b_scale), min(max(a_scale, b_scale) + max(a_precision - a_scale, b_precision - b_scale) + 1, 38) - max(a_precision - a_scale, b_precision - b_scale))");
+        }
+
         return new PolymorphicScalarFunctionBuilder(ADD, DecimalOperators.class)
-                .signature(signature)
+                .signature(signature
+                        .argumentType(decimalLeftSignature)
+                        .argumentType(decimalRightSignature)
+                        .returnType(decimalResultSignature)
+                        .build())
                 .deterministic(true)
                 .choice(choice -> choice
                         .implementation(methodsGroup -> methodsGroup
@@ -96,30 +115,30 @@ public final class DecimalOperators
     }
 
     @UsedByGeneratedCode
-    public static Int128 addShortShortLong(long a, long b, int rescale, boolean left)
+    public static Int128 addShortShortLong(long a, long b, int rescale, boolean left, int resultRescale)
     {
-        return internalAddLongLongLong(a >> 63, a, b >> 63, b, rescale, left);
+        return internalAddLongLongLong(a >> 63, a, b >> 63, b, rescale, left, resultRescale);
     }
 
     @UsedByGeneratedCode
-    public static Int128 addLongLongLong(Int128 a, Int128 b, int rescale, boolean left)
+    public static Int128 addLongLongLong(Int128 a, Int128 b, int rescale, boolean left, int resultRescale)
     {
-        return internalAddLongLongLong(a.getHigh(), a.getLow(), b.getHigh(), b.getLow(), rescale, left);
+        return internalAddLongLongLong(a.getHigh(), a.getLow(), b.getHigh(), b.getLow(), rescale, left, resultRescale);
     }
 
     @UsedByGeneratedCode
-    public static Int128 addShortLongLong(long a, Int128 b, int rescale, boolean left)
+    public static Int128 addShortLongLong(long a, Int128 b, int rescale, boolean left, int resultRescale)
     {
-        return addLongShortLong(b, a, rescale, !left);
+        return addLongShortLong(b, a, rescale, !left, resultRescale);
     }
 
     @UsedByGeneratedCode
-    public static Int128 addLongShortLong(Int128 a, long b, int rescale, boolean rescaleLeft)
+    public static Int128 addLongShortLong(Int128 a, long b, int rescale, boolean rescaleLeft, int resultRescale)
     {
-        return internalAddLongLongLong(a.getHigh(), a.getLow(), b >> 63, b, rescale, rescaleLeft);
+        return internalAddLongLongLong(a.getHigh(), a.getLow(), b >> 63, b, rescale, rescaleLeft, resultRescale);
     }
 
-    private static Int128 internalAddLongLongLong(long leftHigh, long leftLow, long rightHigh, long rightLow, int rescale, boolean rescaleLeft)
+    private static Int128 internalAddLongLongLong(long leftHigh, long leftLow, long rightHigh, long rightLow, int rescale, boolean rescaleLeft, int resultRescale)
     {
         // TODO: specialize implementation for rescale == 0 vs rescale > 0, and rescale left vs rescale right to avoid branch pollution
         try {
@@ -133,6 +152,8 @@ public final class DecimalOperators
                 add(leftHigh, leftLow, result[0], result[1], result, 0);
             }
 
+            rescale(result[0], result[1], resultRescale, result, 0);
+
             if (Decimals.overflows(result[0], result[1])) {
                 throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow");
             }
@@ -144,21 +165,34 @@ public final class DecimalOperators
         }
     }
 
-    private static SqlScalarFunction decimalSubtractOperator()
+    private static SqlScalarFunction decimalSubtractOperator(boolean legacyTypeCalculation)
     {
         TypeSignature decimalLeftSignature = new TypeSignature("decimal", typeVariable("a_precision"), typeVariable("a_scale"));
         TypeSignature decimalRightSignature = new TypeSignature("decimal", typeVariable("b_precision"), typeVariable("b_scale"));
         TypeSignature decimalResultSignature = new TypeSignature("decimal", typeVariable("r_precision"), typeVariable("r_scale"));
 
-        Signature signature = Signature.builder()
-                .longVariable("r_precision", "min(38, max(a_precision - a_scale, b_precision - b_scale) + max(a_scale, b_scale) + 1)")
-                .longVariable("r_scale", "max(a_scale, b_scale)")
-                .argumentType(decimalLeftSignature)
-                .argumentType(decimalRightSignature)
-                .returnType(decimalResultSignature)
-                .build();
+        Signature.Builder signature = Signature.builder();
+
+        if (legacyTypeCalculation) {
+            signature.longVariable("r_precision", "min(38, max(a_precision - a_scale, b_precision - b_scale) + max(a_scale, b_scale) + 1)")
+                    .longVariable("r_scale", "max(a_scale, b_scale)");
+        }
+        else {
+            // The precision and scale calculations are modeled after MSSQL (https://learn.microsoft.com/en-us/sql/t-sql/data-types/precision-scale-and-length-transact-sql),
+            // as follows, with all expressions inlined:
+            //    integral = max(a_precision - a_scale, b_precision - b_scale);
+            //    raw_scale = max(a_scale, b_scale);
+            //    r_precision = min(raw_scale + integral + 1, 38);
+            //    r_scale = min(raw_scale, precision - integral);
+            signature.longVariable("r_precision", "min(max(a_scale, b_scale) + max(a_precision - a_scale, b_precision - b_scale) + 1, 38)")
+                    .longVariable("r_scale", "min(max(a_scale, b_scale), min(max(a_scale, b_scale) + max(a_precision - a_scale, b_precision - b_scale) + 1, 38) - max(a_precision - a_scale, b_precision - b_scale))");
+        }
+
         return new PolymorphicScalarFunctionBuilder(SUBTRACT, DecimalOperators.class)
-                .signature(signature)
+                .signature(signature.argumentType(decimalLeftSignature)
+                        .argumentType(decimalRightSignature)
+                        .returnType(decimalResultSignature)
+                        .build())
                 .deterministic(true)
                 .choice(choice -> choice
                         .implementation(methodsGroup -> methodsGroup
@@ -177,30 +211,30 @@ public final class DecimalOperators
     }
 
     @UsedByGeneratedCode
-    public static Int128 subtractShortShortLong(long a, long b, int rescale, boolean left)
+    public static Int128 subtractShortShortLong(long a, long b, int rescale, boolean left, int resultRescale)
     {
-        return internalSubtractLongLongLong(a >> 63, a, b >> 63, b, rescale, left);
+        return internalSubtractLongLongLong(a >> 63, a, b >> 63, b, rescale, left, resultRescale);
     }
 
     @UsedByGeneratedCode
-    public static Int128 subtractLongLongLong(Int128 a, Int128 b, int rescale, boolean left)
+    public static Int128 subtractLongLongLong(Int128 a, Int128 b, int rescale, boolean left, int resultRescale)
     {
-        return internalSubtractLongLongLong(a.getHigh(), a.getLow(), b.getHigh(), b.getLow(), rescale, left);
+        return internalSubtractLongLongLong(a.getHigh(), a.getLow(), b.getHigh(), b.getLow(), rescale, left, resultRescale);
     }
 
     @UsedByGeneratedCode
-    public static Int128 subtractShortLongLong(long a, Int128 b, int rescale, boolean left)
+    public static Int128 subtractShortLongLong(long a, Int128 b, int rescale, boolean left, int resultRescale)
     {
-        return internalSubtractLongLongLong(a >> 63, a, b.getHigh(), b.getLow(), rescale, left);
+        return internalSubtractLongLongLong(a >> 63, a, b.getHigh(), b.getLow(), rescale, left, resultRescale);
     }
 
     @UsedByGeneratedCode
-    public static Int128 subtractLongShortLong(Int128 a, long b, int rescale, boolean left)
+    public static Int128 subtractLongShortLong(Int128 a, long b, int rescale, boolean left, int resultRescale)
     {
-        return internalSubtractLongLongLong(a.getHigh(), a.getLow(), b >> 63, b, rescale, left);
+        return internalSubtractLongLongLong(a.getHigh(), a.getLow(), b >> 63, b, rescale, left, resultRescale);
     }
 
-    private static Int128 internalSubtractLongLongLong(long leftHigh, long leftLow, long rightHigh, long rightLow, int rescale, boolean rescaleLeft)
+    private static Int128 internalSubtractLongLongLong(long leftHigh, long leftLow, long rightHigh, long rightLow, int rescale, boolean rescaleLeft, int resultRescale)
     {
         try {
             long[] result = new long[2];
@@ -213,6 +247,8 @@ public final class DecimalOperators
                 subtract(leftHigh, leftLow, result[0], result[1], result, 0);
             }
 
+            rescale(result[0], result[1], resultRescale, result, 0);
+
             if (Decimals.overflows(result[0], result[1])) {
                 throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow");
             }
@@ -224,25 +260,45 @@ public final class DecimalOperators
         }
     }
 
-    private static SqlScalarFunction decimalMultiplyOperator()
+    private static SqlScalarFunction decimalMultiplyOperator(boolean legacyTypeCalculation)
     {
         TypeSignature decimalLeftSignature = new TypeSignature("decimal", typeVariable("a_precision"), typeVariable("a_scale"));
         TypeSignature decimalRightSignature = new TypeSignature("decimal", typeVariable("b_precision"), typeVariable("b_scale"));
         TypeSignature decimalResultSignature = new TypeSignature("decimal", typeVariable("r_precision"), typeVariable("r_scale"));
 
-        Signature signature = Signature.builder()
-                .longVariable("r_precision", "min(38, a_precision + b_precision)")
-                .longVariable("r_scale", "a_scale + b_scale")
-                .argumentType(decimalLeftSignature)
-                .argumentType(decimalRightSignature)
-                .returnType(decimalResultSignature)
-                .build();
+        Signature.Builder signature = Signature.builder();
+
+        if (legacyTypeCalculation) {
+            signature
+                    .longVariable("r_precision", "min(38, a_precision + b_precision)")
+                    .longVariable("r_scale", "a_scale + b_scale");
+        }
+        else {
+            // The precision and scale calculations are modeled after MSSQL (https://learn.microsoft.com/en-us/sql/t-sql/data-types/precision-scale-and-length-transact-sql),
+            // as follows, with all expressions inlined:
+            //     raw_precision = a_precision + b_precision + 1;
+            //     raw_scale = a_scale + b_scale;
+            //
+            // Adjustment if precision doesn't fit into 38 digits:
+            //     integral = raw_precision - raw_scale;
+            //     precision = min(raw_precision, 38);
+            //     scale = min(raw_scale, integral > 32 ? 6 : 38 - integral);
+            signature
+                    .longVariable("r_precision", "min(a_precision + b_precision + 1, 38)")
+                    .longVariable("r_scale", "min(a_scale + b_scale, if(a_precision + b_precision + 1 - (a_scale + b_scale) > 32, 6, 38 - (a_precision + b_precision + 1 - (a_scale + b_scale))))");
+        }
+
         return new PolymorphicScalarFunctionBuilder(MULTIPLY, DecimalOperators.class)
-                .signature(signature)
+                .signature(signature.argumentType(decimalLeftSignature)
+                        .argumentType(decimalRightSignature)
+                        .returnType(decimalResultSignature)
+                        .build())
                 .deterministic(true)
                 .choice(choice -> choice
+                        .implementation(methodsGroup -> methodsGroup.methods("multiplyLongLongLong", "multiplyShortLongLong", "multiplyLongShortLong")
+                                .withExtraParameters(DecimalOperators::calculateMultiplicativeResultRescale))
                         .implementation(methodsGroup -> methodsGroup
-                                .methods("multiplyShortShortShort", "multiplyShortShortLong", "multiplyLongLongLong", "multiplyShortLongLong", "multiplyLongShortLong")))
+                                .methods("multiplyShortShortShort", "multiplyShortShortLong")))
                 .build();
     }
 
@@ -264,16 +320,18 @@ public final class DecimalOperators
     }
 
     @UsedByGeneratedCode
-    public static Int128 multiplyLongLongLong(Int128 a, Int128 b)
+    public static Int128 multiplyLongLongLong(Int128 a, Int128 b, int resultRescale)
     {
         try {
-            Int128 result = multiply(a, b);
+            long[] result = new long[2];
+            multiply(a.getHigh(), a.getLow(), b.getHigh(), b.getLow(), result, 0);
+            rescale(result[0], result[1], resultRescale, result, 0);
 
-            if (Decimals.overflows(result)) {
+            if (Decimals.overflows(result[0], result[1])) {
                 throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow");
             }
 
-            return result;
+            return Int128.valueOf(result);
         }
         catch (ArithmeticException e) {
             throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
@@ -281,47 +339,61 @@ public final class DecimalOperators
     }
 
     @UsedByGeneratedCode
-    public static Int128 multiplyShortLongLong(long a, Int128 b)
+    public static Int128 multiplyShortLongLong(long a, Int128 b, int resultRescale)
     {
-        return multiplyLongShortLong(b, a);
+        return multiplyLongShortLong(b, a, resultRescale);
     }
 
     @UsedByGeneratedCode
-    public static Int128 multiplyLongShortLong(Int128 a, long b)
+    public static Int128 multiplyLongShortLong(Int128 a, long b, int resultRescale)
     {
         try {
-            Int128 result = multiply(a, b);
+            long[] result = new long[2];
+            multiply(a.getHigh(), a.getLow(), Int128Math.signExtension(b), b, result, 0);
+            rescale(result[0], result[1], resultRescale, result, 0);
 
-            if (Decimals.overflows(result)) {
+            if (Decimals.overflows(result[0], result[1])) {
                 throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow");
             }
 
-            return result;
+            return Int128.valueOf(result);
         }
         catch (ArithmeticException e) {
             throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
         }
     }
 
-    private static SqlScalarFunction decimalDivideOperator()
+    private static SqlScalarFunction decimalDivideOperator(boolean legacyTypeCalculation)
     {
         TypeSignature decimalLeftSignature = new TypeSignature("decimal", typeVariable("a_precision"), typeVariable("a_scale"));
         TypeSignature decimalRightSignature = new TypeSignature("decimal", typeVariable("b_precision"), typeVariable("b_scale"));
         TypeSignature decimalResultSignature = new TypeSignature("decimal", typeVariable("r_precision"), typeVariable("r_scale"));
 
-        // we extend target precision by b_scale. This is upper bound on how much division result will grow.
-        // pessimistic case is a / 0.0000001
-        // if scale of divisor is greater than scale of dividend we extend scale further as we
-        // want result scale to be maximum of scales of divisor and dividend.
-        Signature signature = Signature.builder()
-                .longVariable("r_precision", "min(38, a_precision + b_scale + max(b_scale - a_scale, 0))")
-                .longVariable("r_scale", "max(a_scale, b_scale)")
-                .argumentType(decimalLeftSignature)
-                .argumentType(decimalRightSignature)
-                .returnType(decimalResultSignature)
-                .build();
+        Signature.Builder signature = Signature.builder();
+
+        if (legacyTypeCalculation) {
+            signature.longVariable("r_precision", "min(38, a_precision + b_scale + max(b_scale - a_scale, 0))")
+                    .longVariable("r_scale", "max(a_scale, b_scale)");
+        }
+        else {
+            // The precision and scale calculations are modeled after MSSQL (https://learn.microsoft.com/en-us/sql/t-sql/data-types/precision-scale-and-length-transact-sql),
+            // as follows, with all expressions inlined:
+            //     raw_precision = a_precision - a_scale + b_scale + max(6, a_scale + b_precision + 1);
+            //     raw_scale = max(6, a_scale + b_precision + 1);
+            //
+            // Adjustment if precision doesn't fit into 38 digits:
+            //     integral = raw_precision - raw_scale;
+            //     precision = min(raw_precision, 38);
+            //     scale = min(raw_scale, integral > 32 ? 6 : 38 - integral);
+            signature.longVariable("r_precision", "min(a_precision - a_scale + b_scale + max(6, a_scale + b_precision + 1), 38)")
+                    .longVariable("r_scale", "min(max(6, a_scale + b_precision + 1), if(a_precision - a_scale + b_scale + max(6, a_scale + b_precision + 1) - max(6, a_scale + b_precision + 1) > 32, 6, 38 - (a_precision - a_scale + b_scale + max(6, a_scale + b_precision + 1) - max(6, a_scale + b_precision + 1))))");
+        }
+
         return new PolymorphicScalarFunctionBuilder(DIVIDE, DecimalOperators.class)
-                .signature(signature)
+                .signature(signature.argumentType(decimalLeftSignature)
+                        .argumentType(decimalRightSignature)
+                        .returnType(decimalResultSignature)
+                        .build())
                 .deterministic(true)
                 .choice(choice -> choice
                         .implementation(methodsGroup -> methodsGroup
@@ -513,12 +585,23 @@ public final class DecimalOperators
         return ImmutableList.of(aRescale, bRescale);
     }
 
+    private static List<Object> calculateMultiplicativeResultRescale(SpecializeContext context)
+    {
+        long aScale = context.getLiteral("a_scale");
+        long bScale = context.getLiteral("b_scale");
+        long resultScale = context.getLiteral("r_scale");
+        long rescaleFactor = resultScale - (aScale + bScale);
+        return ImmutableList.of((int) rescaleFactor);
+    }
+
     private static List<Object> calculateLongRescaleParameters(SpecializeContext context)
     {
         long aScale = context.getLiteral("a_scale");
         long bScale = context.getLiteral("b_scale");
+        long resultScale = context.getLiteral("r_scale");
         int aRescale = rescaleFactor(aScale, bScale);
         int bRescale = rescaleFactor(bScale, aScale);
+        int resultRescale = (int) (resultScale - Math.max(aScale, bScale));
 
         int rescale;
         boolean left;
@@ -533,7 +616,7 @@ public final class DecimalOperators
         else {
             throw new IllegalStateException();
         }
-        return ImmutableList.of(rescale, left);
+        return ImmutableList.of(rescale, left, resultRescale);
     }
 
     private static List<Object> modulusRescaleParameters(PolymorphicScalarFunctionBuilder.SpecializeContext context)
