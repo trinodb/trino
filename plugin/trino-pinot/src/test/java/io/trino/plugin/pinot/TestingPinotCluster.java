@@ -16,7 +16,7 @@ package io.trino.plugin.pinot;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import com.google.common.io.Closer;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
 import com.google.common.net.HttpHeaders;
 import io.airlift.http.client.HttpClient;
@@ -24,7 +24,10 @@ import io.airlift.http.client.Request;
 import io.airlift.http.client.StaticBodyGenerator;
 import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.json.JsonCodec;
+import io.trino.plugin.base.util.AutoCloseableCloser;
 import io.trino.plugin.pinot.auth.password.PinotPasswordAuthenticationProvider;
+import io.trino.testing.containers.Minio;
+import io.trino.testing.minio.MinioClient;
 import org.apache.hc.core5.http.Header;
 import org.apache.hc.core5.http.NameValuePair;
 import org.apache.hc.core5.http.message.BasicHeader;
@@ -39,7 +42,6 @@ import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
@@ -47,6 +49,7 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -62,9 +65,20 @@ import static org.apache.pinot.common.utils.http.HttpClient.DEFAULT_SOCKET_TIMEO
 import static org.testcontainers.utility.DockerImageName.parse;
 
 public class TestingPinotCluster
-        implements Closeable
+        implements AutoCloseable
 {
     public static final String PINOT_LATEST_IMAGE_NAME = "apachepinot/pinot:1.2.0";
+
+    @Deprecated
+    public static final String MINIO_ACCESS_KEY = Minio.MINIO_ACCESS_KEY;
+    @Deprecated
+    public static final String MINIO_SECRET_KEY = Minio.MINIO_SECRET_KEY;
+    /**
+     * In S3 this region is implicitly the default one. In Minio, however,
+     * if we set an empty region, it will accept any.
+     * So setting it by default to `us-east-1` simulates S3 better
+     */
+    public static final String MINIO_DEFAULT_REGION = "us-east-1";
     private static final String ZOOKEEPER_INTERNAL_HOST = "zookeeper";
     private static final JsonCodec<List<String>> LIST_JSON_CODEC = listJsonCodec(String.class);
     private static final JsonCodec<PinotSuccessResponse> PINOT_SUCCESS_RESPONSE_JSON_CODEC = jsonCodec(PinotSuccessResponse.class);
@@ -81,13 +95,21 @@ public class TestingPinotCluster
     private final GenericContainer<?> broker;
     private final GenericContainer<?> server;
     private final GenericContainer<?> zookeeper;
+    private final Minio minio;
     private final HttpClient httpClient;
-    private final Closer closer = Closer.create();
+    private final AutoCloseableCloser closer = AutoCloseableCloser.create();
     private final boolean secured;
+    private final boolean deepStoreEnabled;
+    private State state = State.INITIAL;
+    private MinioClient minioClient;
+    private final Optional<String> bucket;
 
-    public TestingPinotCluster(String version, Network network, boolean secured)
+    public TestingPinotCluster(String version, Network network, boolean secured, boolean deepStoreEnabled, Optional<String> bucket)
     {
+        this.deepStoreEnabled = deepStoreEnabled;
         httpClient = closer.register(new JettyHttpClient());
+        this.bucket = bucket;
+
         zookeeper = new GenericContainer<>(parse("zookeeper:3.9"))
                 .withStartupAttempts(3)
                 .withNetwork(network)
@@ -96,7 +118,35 @@ public class TestingPinotCluster
                 .withExposedPorts(ZOOKEEPER_PORT);
         closer.register(zookeeper::stop);
 
-        String controllerConfig = secured ? "/var/pinot/controller/config/pinot-controller-secured.conf" : "/var/pinot/controller/config/pinot-controller.conf";
+        this.minio = closer.register(
+                Minio.builder()
+                        .withNetwork(network)
+                        .withEnvVars(ImmutableMap.<String, String>builder()
+                                .put("MINIO_ACCESS_KEY", MINIO_ACCESS_KEY)
+                                .put("MINIO_SECRET_KEY", MINIO_SECRET_KEY)
+                                .put("MINIO_REGION", MINIO_DEFAULT_REGION)
+                                .buildOrThrow())
+                        .build());
+        String controllerConfig;
+        String brokerConfig;
+        String serverConfig;
+        if (secured) {
+            controllerConfig = "/var/pinot/controller/config/pinot-controller-secured.conf";
+            brokerConfig = "/var/pinot/broker/config/pinot-broker-secured.conf";
+            serverConfig = "/var/pinot/server/config/pinot-server-secured.conf";
+        }
+        else {
+            brokerConfig = "/var/pinot/broker/config/pinot-broker.conf";
+            if (deepStoreEnabled) {
+                controllerConfig = "/var/pinot/controller/config/pinot-controller-s3.conf";
+                serverConfig = "/var/pinot/server/config/pinot-server-s3.conf";
+            }
+            else {
+                controllerConfig = "/var/pinot/controller/config/pinot-controller.conf";
+                serverConfig = "/var/pinot/server/config/pinot-server.conf";
+            }
+        }
+
         controller = new GenericContainer<>(parse(version))
                 .withStartupAttempts(3)
                 .withNetwork(network)
@@ -107,7 +157,6 @@ public class TestingPinotCluster
                 .withExposedPorts(CONTROLLER_PORT);
         closer.register(controller::stop);
 
-        String brokerConfig = secured ? "/var/pinot/broker/config/pinot-broker-secured.conf" : "/var/pinot/broker/config/pinot-broker.conf";
         broker = new GenericContainer<>(parse(version))
                 .withStartupAttempts(3)
                 .withNetwork(network)
@@ -118,7 +167,6 @@ public class TestingPinotCluster
                 .withExposedPorts(BROKER_PORT);
         closer.register(broker::stop);
 
-        String serverConfig = secured ? "/var/pinot/server/config/pinot-server-secured.conf" : "/var/pinot/server/config/pinot-server.conf";
         server = new GenericContainer<>(parse(version))
                 .withStartupAttempts(3)
                 .withNetwork(network)
@@ -134,6 +182,13 @@ public class TestingPinotCluster
 
     public void start()
     {
+        checkState(state == State.INITIAL, "Already started: %s", state);
+        state = State.STARTING;
+        minio.start();
+        minioClient = closer.register(minio.createMinioClient());
+        if (deepStoreEnabled) {
+            minioClient.makeBucket(bucket.orElseThrow());
+        }
         zookeeper.start();
         controller.start();
         broker.start();
@@ -142,9 +197,10 @@ public class TestingPinotCluster
 
     @Override
     public void close()
-            throws IOException
+            throws Exception
     {
         closer.close();
+        state = State.STOPPED;
     }
 
     private static String getZookeeperInternalHostPort()
@@ -170,6 +226,12 @@ public class TestingPinotCluster
     public HostAndPort getServerGrpcHostAndPort()
     {
         return HostAndPort.fromParts(server.getHost(), server.getMappedPort(GRPC_PORT));
+    }
+
+    public MinioClient getMinioClient()
+    {
+        checkState(state == State.STARTED, "Can't provide client when MinIO state is: %s", state);
+        return minioClient;
     }
 
     public void createSchema(String resourceName, String tableName)
@@ -327,5 +389,13 @@ public class TestingPinotCluster
         {
             return status;
         }
+    }
+
+    private enum State
+    {
+        INITIAL,
+        STARTING,
+        STARTED,
+        STOPPED,
     }
 }
