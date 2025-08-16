@@ -77,7 +77,8 @@ public class TestS3FileSystemConfig
                 .setHttpProxyPreemptiveBasicProxyAuth(false)
                 .setSupportsExclusiveCreate(true)
                 .setCrossRegionAccessEnabled(false)
-                .setApplicationId("Trino"));
+                .setApplicationId("Trino")
+                .setEnableCrtClient(false));
     }
 
     @Test
@@ -120,6 +121,7 @@ public class TestS3FileSystemConfig
                 .put("s3.exclusive-create", "false")
                 .put("s3.application-id", "application id")
                 .put("s3.cross-region-access", "true")
+                .put("s3.use-crt-client", "true")
                 .buildOrThrow();
 
         S3FileSystemConfig expected = new S3FileSystemConfig()
@@ -158,7 +160,8 @@ public class TestS3FileSystemConfig
                 .setHttpProxyPreemptiveBasicProxyAuth(true)
                 .setSupportsExclusiveCreate(false)
                 .setCrossRegionAccessEnabled(true)
-                .setApplicationId("application id");
+                .setApplicationId("application id")
+                .setEnableCrtClient(true);
 
         assertFullMapping(properties, expected);
     }
