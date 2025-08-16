@@ -15,6 +15,7 @@ package io.trino.plugin.httpquery;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.trino.operator.RetryPolicy;
@@ -222,6 +223,7 @@ final class TestHttpEventListener
                 queryStatistics,
                 queryContext,
                 queryIOMetadata,
+                ImmutableList.of(),
                 Optional.empty(),
                 Collections.emptyList(),
                 Instant.now(),
