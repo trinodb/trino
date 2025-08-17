@@ -329,6 +329,7 @@ public class TestQueryInfo
                 succinctBytes(value),
                 value,
                 value,
+                value,
                 Metrics.EMPTY,
                 Duration.succinctDuration(value, NANOSECONDS),
                 Duration.succinctDuration(value, NANOSECONDS),

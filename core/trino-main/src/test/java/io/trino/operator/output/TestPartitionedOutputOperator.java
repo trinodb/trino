@@ -69,6 +69,7 @@ public class TestPartitionedOutputOperator
 
         OperatorContext operatorContext = partitionedOutputOperator.getOperatorContext();
         assertThat(operatorContext.getOutputDataSize().getTotalCount()).isEqualTo(0);
+        assertThat(operatorContext.getUpdatedPositions().getTotalCount()).isEqualTo(0);
         assertThat(operatorContext.getOutputPositions().getTotalCount()).isEqualTo(page.getPositionCount());
 
         partitionedOutputOperator.finish();
