@@ -2282,7 +2282,8 @@ public class IcebergMetadata
         // Similarly to issues like https://github.com/trinodb/trino/issues/13759, equivalent paths may have different String
         // representations due to things like double slashes. Using file names may result in retaining files which could be removed.
         // However, in practice Iceberg metadata and data files have UUIDs in their names which makes this unlikely.
-        ImmutableSet.Builder<String> validFileNames = ImmutableSet.builder();
+        Set<String> validFileNames = Sets.newConcurrentHashSet();
+        List<Future<?>> manifestScanFutures = new ArrayList<>();
 
         for (Snapshot snapshot : table.snapshots()) {
             String manifestListLocation = snapshot.manifestListLocation();
@@ -2303,17 +2304,19 @@ public class IcebergMetadata
                 }
 
                 validFileNames.add(fileName(manifest.path()));
-                try (ManifestReader<? extends ContentFile<?>> manifestReader = readerForManifest(manifest, table)) {
-                    for (ContentFile<?> contentFile : manifestReader.select(ImmutableList.of("file_path"))) {
-                        validFileNames.add(fileName(contentFile.location()));
+                manifestScanFutures.add(icebergScanExecutor.submit(() -> {
+                    try (ManifestReader<? extends ContentFile<?>> manifestReader = readerForManifest(manifest, table)) {
+                        for (ContentFile<?> contentFile : manifestReader.select(ImmutableList.of("file_path"))) {
+                            validFileNames.add(fileName(contentFile.location()));
+                        }
                     }
-                }
-                catch (IOException | UncheckedIOException e) {
-                    throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Unable to list manifest file content from " + manifest.path(), e);
-                }
-                catch (NotFoundException e) {
-                    throw new TrinoException(ICEBERG_INVALID_METADATA, "Manifest file does not exist: " + manifest.path());
-                }
+                    catch (IOException | UncheckedIOException e) {
+                        throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Unable to list manifest file content from " + manifest.path(), e);
+                    }
+                    catch (NotFoundException e) {
+                        throw new TrinoException(ICEBERG_INVALID_METADATA, "Manifest file does not exist: " + manifest.path());
+                    }
+                }));
             }
         }
 
@@ -2327,7 +2330,16 @@ public class IcebergMetadata
 
         validFileNames.add("version-hint.text");
 
-        scanAndDeleteInvalidFiles(table, session, schemaTableName, expiration, validFileNames.build(), fileIoProperties);
+        try {
+            manifestScanFutures.forEach(MoreFutures::getFutureValue);
+            // All futures completed normally
+            manifestScanFutures.clear();
+        }
+        finally {
+            // Ensure any futures still running are canceled in case of failure
+            manifestScanFutures.forEach(future -> future.cancel(true));
+        }
+        scanAndDeleteInvalidFiles(table, session, schemaTableName, expiration, validFileNames, fileIoProperties);
     }
 
     public void executeAddFiles(ConnectorSession session, IcebergTableExecuteHandle executeHandle)
