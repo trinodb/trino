@@ -207,6 +207,12 @@ public final class MapBlock
         return valueBlock;
     }
 
+    @Nullable
+    boolean[] getRawMapIsNull()
+    {
+        return mapIsNull;
+    }
+
     MapHashTables getHashTables()
     {
         return hashTables;
