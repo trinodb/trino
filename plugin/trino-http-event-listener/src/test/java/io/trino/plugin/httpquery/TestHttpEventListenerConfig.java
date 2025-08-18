@@ -39,8 +39,7 @@ final class TestHttpEventListenerConfig
                 .setBackoffBase(2.0)
                 .setHttpMethod(HttpEventListenerHttpMethod.POST)
                 .setLogCompleted(false)
-                .setLogCreated(false)
-                .setLogSplit(false));
+                .setLogCreated(false));
     }
 
     @Test
@@ -50,7 +49,6 @@ final class TestHttpEventListenerConfig
         Map<String, String> properties = Map.of(
                 "http-event-listener.log-created", "true",
                 "http-event-listener.log-completed", "true",
-                "http-event-listener.log-split", "true",
                 "http-event-listener.connect-ingest-uri", "http://example.com:8080/api",
                 "http-event-listener.connect-http-headers", "Authorization: Trust Me, Cache-Control: no-cache",
                 "http-event-listener.connect-retry-count", "2",
@@ -62,7 +60,6 @@ final class TestHttpEventListenerConfig
         HttpEventListenerConfig expected = new HttpEventListenerConfig()
                 .setLogCompleted(true)
                 .setLogCreated(true)
-                .setLogSplit(true)
                 .setIngestUri("http://example.com:8080/api")
                 .setHttpHeaders(List.of("Authorization: Trust Me", "Cache-Control: no-cache"))
                 .setRetryCount(2)

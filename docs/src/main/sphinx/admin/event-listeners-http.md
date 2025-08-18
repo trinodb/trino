@@ -62,10 +62,6 @@ event-listener.config-files=etc/http-event-listener.properties,...
   - Enable the plugin to log `QueryCompletedEvent` events
   - `false`
 
-* - http-event-listener.log-split
-  - Enable the plugin to log `SplitCompletedEvent` events
-  - `false`
-
 * - http-event-listener.connect-ingest-uri
   - The URI that the plugin will POST events to
   - None. See the [requirements](http-event-listener-requirements) section.
