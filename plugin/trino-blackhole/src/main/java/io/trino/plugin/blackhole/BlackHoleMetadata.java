@@ -438,13 +438,19 @@ public class BlackHoleMetadata
     @Override
     public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
     {
-        return ImmutableList.copyOf(views.keySet());
+        return schemaName.map(schema -> views.keySet().stream()
+                        .filter(view -> view.getSchemaName().equals(schema))
+                        .collect(toImmutableList()))
+                .orElseGet(() -> ImmutableList.copyOf(views.keySet()));
     }
 
     @Override
     public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, Optional<String> schemaName)
     {
-        return ImmutableMap.copyOf(views);
+        return schemaName.map(schema -> views.entrySet().stream()
+                        .filter(view -> view.getKey().getSchemaName().equals(schema))
+                        .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)))
+                .orElseGet(() -> ImmutableMap.copyOf(views));
     }
 
     @Override
