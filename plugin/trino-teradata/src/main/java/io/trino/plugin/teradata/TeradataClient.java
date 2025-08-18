@@ -1071,9 +1071,7 @@ public class TeradataClient
             return mapping;
         }
 
-        // switch by names as some types overlap other types going by jdbc type alone
         String jdbcTypeName = typeHandle.jdbcTypeName().orElse("VARCHAR");
-        System.out.println(jdbcTypeName);
         switch (jdbcTypeName.toUpperCase()) {
             case "TIMESTAMP WITH TIME ZONE":
                 return Optional.of(timestampWithTimeZoneColumnMapping(typeHandle.requiredDecimalDigits()));
@@ -1082,9 +1080,9 @@ public class TeradataClient
             case "JSON":
                 return Optional.of(jsonColumnMapping());
             case "NUMBER":
-                return Optional.of(numberColumnMapping(typeHandle));
+                return numberMapping(typeHandle);
             case "CHARACTER":
-                return Optional.of(characterColumnMapping(typeHandle));
+                return Optional.of(charColumnMapping(typeHandle.requiredColumnSize(), deriveCaseSensitivity(typeHandle.caseSensitivity())));
             case "ARRAY":
                 return Optional.of(arrayColumnMapping(session, connection, typeHandle));
         }
@@ -1108,15 +1106,8 @@ public class TeradataClient
             case Types.DECIMAL:
                 // also applies to teradata number type
                 // this is roughly logic see used by sql server
-                int precision = typeHandle.requiredColumnSize();
-                int scale = typeHandle.requiredDecimalDigits();
-                if (precision > Decimals.MAX_PRECISION) {
-                    // this will trigger for number(*) as precision is 40
-                    break;
-                }
-                return Optional.of(decimalColumnMapping(createDecimalType(precision, scale)));
+                return numberMapping(typeHandle);
             case Types.CHAR:
-                CharType charType = createCharType(typeHandle.requiredColumnSize());
                 return Optional.of(charColumnMapping(typeHandle.requiredColumnSize(), deriveCaseSensitivity(typeHandle.caseSensitivity())));
             case Types.VARCHAR:
                 // see prior note on trino case sensitivity
@@ -1145,6 +1136,18 @@ public class TeradataClient
         }
 
         return Optional.empty();
+    }
+
+    private Optional<ColumnMapping> numberMapping(JdbcTypeHandle typeHandle)
+    {
+        int precision = typeHandle.requiredColumnSize();
+        int scale = typeHandle.requiredDecimalDigits();
+        if (precision > Decimals.MAX_PRECISION) {
+            // this will trigger for number(*) as precision is 40
+            return Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, scale)));
+        }
+        System.out.println("number mapping 2 is called");
+        return Optional.of(decimalColumnMapping(createDecimalType(precision, scale)));
     }
 
     /**
@@ -1295,30 +1298,6 @@ public class TeradataClient
         }
 
         public record ColumnIndexStatistics(boolean nullable, long distinctValues, long nullCount) {}
-    }
-
-    private static ColumnMapping numberColumnMapping(JdbcTypeHandle typeHandle)
-    {
-        int precision = typeHandle.columnSize().orElse(38); // Default to max precision for NUMBER
-        int scale = typeHandle.decimalDigits().orElse(0);
-
-        if (precision > Decimals.MAX_PRECISION) {
-            precision = Decimals.MAX_PRECISION;
-            scale = Math.min(scale, Decimals.MAX_PRECISION);
-        }
-
-        DecimalType decimalType = createDecimalType(precision, scale);
-        return decimalColumnMapping(decimalType);
-    }
-
-    private static ColumnMapping characterColumnMapping(JdbcTypeHandle typeHandle)
-    {
-        int characterLength = typeHandle.columnSize().orElse(1); // Default to length 1 for CHARACTER
-
-        // Use existing char column mapping logic with case sensitivity
-        boolean isCaseSensitive = typeHandle.caseSensitivity().orElse(CASE_INSENSITIVE) == CASE_SENSITIVE;
-
-        return charColumnMapping(characterLength, isCaseSensitive);
     }
 
     private ColumnMapping arrayColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
