@@ -2282,14 +2282,13 @@ public class IcebergMetadata
         // Similarly to issues like https://github.com/trinodb/trino/issues/13759, equivalent paths may have different String
         // representations due to things like double slashes. Using file names may result in retaining files which could be removed.
         // However, in practice Iceberg metadata and data files have UUIDs in their names which makes this unlikely.
-        ImmutableSet.Builder<String> validMetadataFileNames = ImmutableSet.builder();
-        ImmutableSet.Builder<String> validDataFileNames = ImmutableSet.builder();
+        ImmutableSet.Builder<String> validFileNames = ImmutableSet.builder();
 
         for (Snapshot snapshot : table.snapshots()) {
             String manifestListLocation = snapshot.manifestListLocation();
             List<ManifestFile> allManifests;
             if (manifestListLocation != null) {
-                validMetadataFileNames.add(fileName(manifestListLocation));
+                validFileNames.add(fileName(manifestListLocation));
                 allManifests = loadAllManifestsFromManifestList(table, manifestListLocation);
             }
             else {
@@ -2303,10 +2302,10 @@ public class IcebergMetadata
                     continue;
                 }
 
-                validMetadataFileNames.add(fileName(manifest.path()));
+                validFileNames.add(fileName(manifest.path()));
                 try (ManifestReader<? extends ContentFile<?>> manifestReader = readerForManifest(manifest, table)) {
                     for (ContentFile<?> contentFile : manifestReader.select(ImmutableList.of("file_path"))) {
-                        validDataFileNames.add(fileName(contentFile.location()));
+                        validFileNames.add(fileName(contentFile.location()));
                     }
                 }
                 catch (IOException | UncheckedIOException e) {
@@ -2320,16 +2319,15 @@ public class IcebergMetadata
 
         metadataFileLocations(table, false).stream()
                 .map(IcebergUtil::fileName)
-                .forEach(validMetadataFileNames::add);
+                .forEach(validFileNames::add);
 
         statisticsFilesLocations(table).stream()
                 .map(IcebergUtil::fileName)
-                .forEach(validMetadataFileNames::add);
+                .forEach(validFileNames::add);
 
-        validMetadataFileNames.add("version-hint.text");
+        validFileNames.add("version-hint.text");
 
-        scanAndDeleteInvalidFiles(table, session, schemaTableName, expiration, validDataFileNames.build(), "data", fileIoProperties);
-        scanAndDeleteInvalidFiles(table, session, schemaTableName, expiration, validMetadataFileNames.build(), "metadata", fileIoProperties);
+        scanAndDeleteInvalidFiles(table, session, schemaTableName, expiration, validFileNames.build(), fileIoProperties);
     }
 
     public void executeAddFiles(ConnectorSession session, IcebergTableExecuteHandle executeHandle)
@@ -2364,13 +2362,13 @@ public class IcebergMetadata
                 icebergScanExecutor);
     }
 
-    private void scanAndDeleteInvalidFiles(Table table, ConnectorSession session, SchemaTableName schemaTableName, Instant expiration, Set<String> validFiles, String subfolder, Map<String, String> fileIoProperties)
+    private void scanAndDeleteInvalidFiles(Table table, ConnectorSession session, SchemaTableName schemaTableName, Instant expiration, Set<String> validFiles, Map<String, String> fileIoProperties)
     {
         List<Future<?>> deleteFutures = new ArrayList<>();
         try {
             List<Location> filesToDelete = new ArrayList<>(DELETE_BATCH_SIZE);
             TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), fileIoProperties);
-            FileIterator allFiles = fileSystem.listFiles(Location.of(table.location()).appendPath(subfolder));
+            FileIterator allFiles = fileSystem.listFiles(Location.of(table.location()));
             while (allFiles.hasNext()) {
                 FileEntry entry = allFiles.next();
                 if (entry.lastModified().isBefore(expiration) && !validFiles.contains(entry.location().fileName())) {
