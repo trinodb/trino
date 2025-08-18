@@ -15,11 +15,13 @@ package io.trino.spi.block;
 
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
+import jakarta.annotation.Nullable;
 
 import static io.trino.spi.block.EncoderUtil.decodeNullBits;
 import static io.trino.spi.block.EncoderUtil.encodeNullsAsBits;
 import static io.trino.spi.block.EncoderUtil.retrieveNullBits;
 import static java.lang.System.arraycopy;
+import static java.util.Objects.checkFromIndexSize;
 
 public class LongArrayBlockEncoding
         implements BlockEncoding
@@ -45,19 +47,23 @@ public class LongArrayBlockEncoding
         int positionCount = longArrayBlock.getPositionCount();
         sliceOutput.appendInt(positionCount);
 
-        encodeNullsAsBits(sliceOutput, longArrayBlock);
+        int rawOffset = longArrayBlock.getRawValuesOffset();
+        @Nullable
+        boolean[] isNull = longArrayBlock.getRawValueIsNull();
+        long[] rawValues = longArrayBlock.getRawValues();
+        checkFromIndexSize(rawOffset, positionCount, rawValues.length);
 
-        if (!longArrayBlock.mayHaveNull()) {
-            sliceOutput.writeLongs(longArrayBlock.getRawValues(), longArrayBlock.getRawValuesOffset(), longArrayBlock.getPositionCount());
+        encodeNullsAsBits(sliceOutput, isNull, rawOffset, positionCount);
+
+        if (isNull == null) {
+            sliceOutput.writeLongs(rawValues, rawOffset, positionCount);
         }
         else {
             long[] valuesWithoutNull = new long[positionCount];
             int nonNullPositionCount = 0;
             for (int i = 0; i < positionCount; i++) {
-                valuesWithoutNull[nonNullPositionCount] = longArrayBlock.getLong(i);
-                if (!longArrayBlock.isNull(i)) {
-                    nonNullPositionCount++;
-                }
+                valuesWithoutNull[nonNullPositionCount] = rawValues[i + rawOffset];
+                nonNullPositionCount += isNull[i + rawOffset] ? 0 : 1;
             }
 
             sliceOutput.writeInt(nonNullPositionCount);
