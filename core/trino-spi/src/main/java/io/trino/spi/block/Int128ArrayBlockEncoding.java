@@ -15,9 +15,11 @@ package io.trino.spi.block;
 
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
+import jakarta.annotation.Nullable;
 
 import static io.trino.spi.block.EncoderUtil.decodeNullBits;
 import static io.trino.spi.block.EncoderUtil.encodeNullsAsBits;
+import static java.util.Objects.checkFromIndexSize;
 
 public class Int128ArrayBlockEncoding
         implements BlockEncoding
@@ -43,20 +45,25 @@ public class Int128ArrayBlockEncoding
         int positionCount = int128ArrayBlock.getPositionCount();
         sliceOutput.appendInt(positionCount);
 
-        encodeNullsAsBits(sliceOutput, int128ArrayBlock);
+        int rawArrayOffset = int128ArrayBlock.getRawOffset();
+        @Nullable
+        boolean[] isNull = int128ArrayBlock.getRawValueIsNull();
+        long[] rawValues = int128ArrayBlock.getRawValues();
+        checkFromIndexSize(rawArrayOffset * 2, positionCount * 2, rawValues.length);
 
-        if (!int128ArrayBlock.mayHaveNull()) {
-            sliceOutput.writeLongs(int128ArrayBlock.getRawValues(), int128ArrayBlock.getRawOffset() * 2, int128ArrayBlock.getPositionCount() * 2);
+        encodeNullsAsBits(sliceOutput, isNull, rawArrayOffset, positionCount);
+
+        if (isNull == null) {
+            sliceOutput.writeLongs(rawValues, rawArrayOffset * 2, positionCount * 2);
         }
         else {
             long[] valuesWithoutNull = new long[positionCount * 2];
             int nonNullPositionCount = 0;
             for (int i = 0; i < positionCount; i++) {
-                valuesWithoutNull[nonNullPositionCount] = int128ArrayBlock.getInt128High(i);
-                valuesWithoutNull[nonNullPositionCount + 1] = int128ArrayBlock.getInt128Low(i);
-                if (!int128ArrayBlock.isNull(i)) {
-                    nonNullPositionCount += 2;
-                }
+                int rawValuesIndex = (i + rawArrayOffset) * 2;
+                valuesWithoutNull[nonNullPositionCount] = rawValues[rawValuesIndex];
+                valuesWithoutNull[nonNullPositionCount + 1] = rawValues[rawValuesIndex + 1];
+                nonNullPositionCount += isNull[i + rawArrayOffset] ? 0 : 2;
             }
 
             sliceOutput.writeInt(nonNullPositionCount / 2);
