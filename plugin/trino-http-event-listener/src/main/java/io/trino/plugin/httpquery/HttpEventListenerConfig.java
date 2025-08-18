@@ -16,6 +16,7 @@ package io.trino.plugin.httpquery;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.Duration;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
@@ -25,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+@DefunctConfig("http-event-listener.log-split")
 public class HttpEventListenerConfig
 {
     private int retryCount;
@@ -64,21 +66,6 @@ public class HttpEventListenerConfig
     public boolean getLogCompleted()
     {
         return loggedEvents.contains(HttpEventListenerEventType.QUERY_COMPLETED);
-    }
-
-    @ConfigDescription("Will log io.trino.spi.eventlistener.SplitCompletedEvent")
-    @Config("http-event-listener.log-split")
-    public HttpEventListenerConfig setLogSplit(boolean logSplit)
-    {
-        if (logSplit) {
-            loggedEvents.add(HttpEventListenerEventType.QUERY_SPLIT);
-        }
-        return this;
-    }
-
-    public boolean getLogSplit()
-    {
-        return loggedEvents.contains(HttpEventListenerEventType.QUERY_SPLIT);
     }
 
     @NotNull
