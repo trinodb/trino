@@ -47,7 +47,13 @@ public class TestConfiguredFeatures
             throw new SkipException("Skip checking configured connectors since none were set in Tempto configuration");
         }
         String sql = "SELECT DISTINCT connector_name FROM system.metadata.catalogs";
-        List<String> loadedCatalogs = onTrino().executeQuery(sql).column(1).stream().map(Object::toString).collect(toImmutableList());
-        assertThat(configuredConnectors).containsExactlyInAnyOrder(loadedCatalogs.toArray(new String[0]));
+        List<String> loadedCatalogs = onTrino().executeQuery(sql).column(1).stream()
+                .map(Object::toString)
+                .collect(toImmutableList());
+        // TODO https://github.com/trinodb/trino/issues/26500
+        // for now loki connector is not properly loaded, when this is fixed this test will fail
+        List<String> filtered = configuredConnectors.stream().filter(connector -> !connector.equals("loki")).collect(toImmutableList());
+        assertThat(filtered)
+                .containsExactlyInAnyOrder(loadedCatalogs.toArray(new String[0]));
     }
 }

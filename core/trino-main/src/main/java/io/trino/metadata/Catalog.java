@@ -38,6 +38,7 @@ public class Catalog
     private final ConnectorServices catalogConnector;
     private final ConnectorServices informationSchemaConnector;
     private final ConnectorServices systemConnector;
+    private final boolean loaded;
 
     public Catalog(
             CatalogName catalogName,
@@ -45,7 +46,8 @@ public class Catalog
             ConnectorName connectorName,
             ConnectorServices catalogConnector,
             ConnectorServices informationSchemaConnector,
-            ConnectorServices systemConnector)
+            ConnectorServices systemConnector,
+            boolean loaded)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
@@ -54,14 +56,15 @@ public class Catalog
         this.catalogConnector = requireNonNull(catalogConnector, "catalogConnector is null");
         this.informationSchemaConnector = requireNonNull(informationSchemaConnector, "informationSchemaConnector is null");
         this.systemConnector = requireNonNull(systemConnector, "systemConnector is null");
+        this.loaded = loaded;
     }
 
     public static Catalog failedCatalog(CatalogName catalogName, CatalogHandle catalogHandle, ConnectorName connectorName)
     {
-        return new Catalog(catalogName, catalogHandle, connectorName);
+        return new Catalog(catalogName, catalogHandle, connectorName, false);
     }
 
-    private Catalog(CatalogName catalogName, CatalogHandle catalogHandle, ConnectorName connectorName)
+    private Catalog(CatalogName catalogName, CatalogHandle catalogHandle, ConnectorName connectorName, boolean loaded)
     {
         this.catalogName = catalogName;
         this.catalogHandle = catalogHandle;
@@ -69,6 +72,7 @@ public class Catalog
         this.catalogConnector = null;
         this.informationSchemaConnector = null;
         this.systemConnector = null;
+        this.loaded = loaded;
     }
 
     public CatalogName getCatalogName()
@@ -84,6 +88,11 @@ public class Catalog
     public ConnectorName getConnectorName()
     {
         return connectorName;
+    }
+
+    public boolean isLoaded()
+    {
+        return loaded;
     }
 
     public boolean isFailed()
