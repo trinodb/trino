@@ -206,6 +206,79 @@ export interface Session {
     catalogProperties: { [key: string]: string | number | boolean }
 }
 
+export interface QueryStagePlan {
+    id: string
+    jsonRepresentation: string
+    root: {
+        id: string
+    }
+}
+
+export interface QueryStageStats {
+    completedDrivers: number
+    fullyBlocked: boolean
+    totalCpuTime: string
+    userMemoryReservation: string
+    queuedDrivers: number
+    runningDrivers: number
+    rawInputDataSize: string
+    rawInputPositions: number
+    bufferedDataSize: string
+    totalBlockedTime: string
+    outputDataSize: string
+    outputPositions: number
+    totalScheduledTime: string
+    failedScheduledTime: string
+    failedCpuTime: string
+    cumulativeUserMemory: number
+    totalBufferedBytes: number
+    failedCumulativeUserMemory: number
+    peakUserMemoryReservation: string
+}
+
+export interface QueryTask {
+    lastHeartbeat: string
+    needsPlan: boolean
+    estimatedMemory: string
+    outputBuffers: {
+        totalBufferedBytes: number
+    }
+    stats: {
+        createTime: string
+        elapsedTime: string
+        fullyBlocked: boolean
+        blockedDrivers: number
+        completedDrivers: number
+        queuedDrivers: number
+        peakUserMemoryReservation: string
+        runningDrivers: number
+        rawInputDataSize: string
+        rawInputPositions: number
+        totalCpuTime: string
+        userMemoryReservation: string
+    }
+    taskStatus: {
+        nodeId: string
+        taskId: string
+        self: string
+        state: string
+    }
+}
+
+export interface QueryStage {
+    coordinatorOnly: boolean
+    plan: QueryStagePlan
+    stageId: string
+    state: string
+    stageStats: QueryStageStats
+    tasks: QueryTask[]
+}
+
+export interface QueryStages {
+    outputStageId: string
+    stages: QueryStage[]
+}
+
 export interface QueryStatusInfo extends QueryInfoBase {
     session: Session
     query: string
@@ -214,6 +287,11 @@ export interface QueryStatusInfo extends QueryInfoBase {
     retryPolicy: string
     pruned: boolean
     finalQueryInfo: boolean
+    stages: QueryStages
+}
+
+export interface WorkerTaskInfo {
+    dummy: string
 }
 
 export async function statsApi(): Promise<ApiResponse<Stats>> {
@@ -226,6 +304,10 @@ export async function workerApi(): Promise<ApiResponse<Worker[]>> {
 
 export async function workerStatusApi(nodeId: string): Promise<ApiResponse<WorkerStatusInfo>> {
     return await api.get<WorkerStatusInfo>(`/ui/api/worker/${nodeId}/status`)
+}
+
+export async function workerTaskApi(nodeId: string, taskId: string): Promise<ApiResponse<WorkerTaskInfo>> {
+    return await api.get<WorkerTaskInfo>(`/ui/api/worker/${nodeId}/task/${taskId}`)
 }
 
 export async function queryApi(): Promise<ApiResponse<QueryInfo[]>> {
