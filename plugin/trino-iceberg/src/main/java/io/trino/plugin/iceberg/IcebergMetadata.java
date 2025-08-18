@@ -3825,7 +3825,7 @@ public class IcebergMetadata
                         icebergTable.schema().findType(field.sourceId())))
                 .toArray(Type[]::new);
 
-        AppendFiles appendFiles = transaction.newFastAppend();
+        AppendFiles appendFiles = isMergeManifestsOnWrite(session) ? transaction.newAppend() : transaction.newFastAppend();
         ImmutableSet.Builder<String> writtenFiles = ImmutableSet.builder();
         for (CommitTaskData task : commitTasks) {
             DataFiles.Builder builder = DataFiles.builder(icebergTable.spec())
