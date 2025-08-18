@@ -1307,7 +1307,7 @@ public class HiveConfig
         return protobufDescriptors;
     }
 
-    @ConfigDescription("Directory where protobuf descriptors are stored to use for deserializing Twitter Elephant protobufs")
+    @ConfigDescription("Directory where protobuf descriptors are stored to use for deserializing protobufs")
     @Config("hive.protobufs.descriptors.location")
     public HiveConfig setProtobufDescriptors(Path protobufDescriptors)
     {

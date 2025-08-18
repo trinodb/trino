@@ -57,14 +57,13 @@ public class ProtobufDeserializerFactory
 
     public ProtobufDeserializerFactory(Path descriptorsDirectory, Duration updateInterval)
     {
-        if (descriptorsDirectory == null) {
-            // Factory will fail when create() is used
-            return;
+        if (descriptorsDirectory != null) {
+            // When no directory is set in the config, the factory will fail when create() is used
+            // as the cache is null
+            cache = newBuilder()
+                    .refreshAfterWrite(updateInterval.toJavaTime())
+                    .build(new DescriptorCacheLoader(descriptorsDirectory));
         }
-
-        cache = newBuilder()
-                .refreshAfterWrite(updateInterval.toJavaTime())
-                .build(new DescriptorCacheLoader(descriptorsDirectory));
     }
 
     @Override
