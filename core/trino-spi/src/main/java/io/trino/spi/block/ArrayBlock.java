@@ -175,6 +175,7 @@ public final class ArrayBlock
         return offsets;
     }
 
+    @Nullable
     boolean[] getRawValueIsNull()
     {
         return valueIsNull;
