@@ -19,6 +19,7 @@ public interface EventListener
 
     default void queryCompleted(QueryCompletedEvent queryCompletedEvent) {}
 
+    @Deprecated(forRemoval = true)
     default void splitCompleted(SplitCompletedEvent splitCompletedEvent)
     {
         throw new UnsupportedOperationException();
