@@ -70,7 +70,10 @@ final class EncoderUtil
 
     /**
      * Append null values for the block as a stream of bits.
+     *
+     * @deprecated Use {@link EncoderUtil#encodeNullsAsBits(SliceOutput, boolean[], int, int)} instead
      */
+    @Deprecated(forRemoval = true)
     @SuppressWarnings({"NarrowingCompoundAssignment", "ImplicitNumericConversion"})
     public static void encodeNullsAsBits(SliceOutput sliceOutput, Block block)
     {
