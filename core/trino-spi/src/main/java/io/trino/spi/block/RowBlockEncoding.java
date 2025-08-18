@@ -49,7 +49,7 @@ public class RowBlockEncoding
             blockEncodingSerde.writeBlock(sliceOutput, rawFieldBlock);
         }
 
-        EncoderUtil.encodeNullsAsBits(sliceOutput, block);
+        EncoderUtil.encodeNullsAsBits(sliceOutput, rowBlock.getRawRowIsNull(), 0, rowBlock.getPositionCount());
     }
 
     @Override
