@@ -75,7 +75,7 @@ public class MapBlockEncoding
         for (int position = 0; position < positionCount + 1; position++) {
             sliceOutput.writeInt(offsets[offsetBase + position] - entriesStartOffset);
         }
-        EncoderUtil.encodeNullsAsBits(sliceOutput, block);
+        EncoderUtil.encodeNullsAsBits(sliceOutput, mapBlock.getRawMapIsNull(), offsetBase, positionCount);
     }
 
     @Override
