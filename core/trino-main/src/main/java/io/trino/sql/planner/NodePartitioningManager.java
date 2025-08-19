@@ -13,6 +13,7 @@
  */
 package io.trino.sql.planner;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
@@ -35,6 +36,7 @@ import io.trino.split.EmptySplit;
 import io.trino.sql.planner.NodePartitionMap.BucketToPartition;
 import io.trino.sql.planner.SystemPartitioningHandle.SystemPartitioning;
 
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -299,29 +301,36 @@ public class NodePartitioningManager
                 new IllegalStateException("No catalog handle for partitioning handle: " + partitioningHandle));
     }
 
-    private static List<InternalNode> createArbitraryBucketToNode(long seed, List<InternalNode> nodes, int bucketCount)
+    @VisibleForTesting
+    static List<InternalNode> createArbitraryBucketToNode(long seed, List<InternalNode> nodes, int bucketCount)
     {
+        // Assign each bucket to the machine with the highest weight (hash) and keep the number of buckets per node balanced.
+        // This is Rendezvous Hashing (Highest Random Weight) algorithm with cap on max buckets per node.
         requireNonNull(nodes, "nodes is null");
         checkArgument(!nodes.isEmpty(), "nodes is empty");
         checkArgument(bucketCount > 0, "bucketCount must be greater than zero");
 
-        // Assign each bucket to the machine with the highest weight (hash)
-        // This is simple Rendezvous Hashing (Highest Random Weight) algorithm
+        int maxPerNode = Math.ceilDiv(bucketCount, nodes.size());
+
+        Map<InternalNode, Integer> nodeBucketCounts = new HashMap<>();
+        for (InternalNode node : nodes) {
+            nodeBucketCounts.put(node, 0);
+        }
+
         ImmutableList.Builder<InternalNode> bucketAssignments = ImmutableList.builderWithExpectedSize(bucketCount);
+
         for (int bucket = 0; bucket < bucketCount; bucket++) {
             long bucketHash = XxHash64.hash(seed, bucket);
 
-            InternalNode bestNode = null;
-            long highestWeight = Long.MIN_VALUE;
-            for (InternalNode node : nodes) {
-                long weight = XxHash64.hash(node.longHashCode(), bucketHash);
-                if (weight >= highestWeight) {
-                    highestWeight = weight;
-                    bestNode = node;
-                }
-            }
+            InternalNode node = nodeBucketCounts.keySet().stream()
+                    .max(Comparator.comparingLong(n -> XxHash64.hash(n.longHashCode(), bucketHash)))
+                    .orElseThrow(() -> new IllegalStateException("No node available"));
 
-            bucketAssignments.add(requireNonNull(bestNode));
+            nodeBucketCounts.put(node, nodeBucketCounts.get(node) + 1);
+            if (nodeBucketCounts.get(node) == maxPerNode) {
+                nodeBucketCounts.remove(node);
+            }
+            bucketAssignments.add(requireNonNull(node));
         }
 
         return bucketAssignments.build();
