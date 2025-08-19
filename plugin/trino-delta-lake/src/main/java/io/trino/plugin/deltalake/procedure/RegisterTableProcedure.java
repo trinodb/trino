@@ -172,7 +172,7 @@ public class RegisterTableProcedure
             TableSnapshot tableSnapshot;
             MetadataEntry metadataEntry;
             try {
-                VendedCredentialsHandle credentialsHandle = VendedCredentialsHandle.empty(false, false, Optional.empty(), tableLocation);
+                VendedCredentialsHandle credentialsHandle = VendedCredentialsHandle.empty(tableLocation);
                 tableSnapshot = transactionLogAccess.loadSnapshot(session, new FileSystemTransactionLogReader(tableLocation, credentialsHandle, fileSystemFactory), schemaTableName, tableLocation, Optional.empty(), credentialsHandle);
                 metadataEntry = transactionLogAccess.getMetadataEntry(session, fileSystem, tableSnapshot);
             }

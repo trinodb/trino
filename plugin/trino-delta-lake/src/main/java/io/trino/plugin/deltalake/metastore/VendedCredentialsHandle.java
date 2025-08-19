@@ -34,13 +34,8 @@ public record VendedCredentialsHandle(
         }
     }
 
-    public VendedCredentialsHandle withVendedCredentials(VendedCredentials vendedCredentials)
+    public static VendedCredentialsHandle empty(String tableLocation)
     {
-        return new VendedCredentialsHandle(catalogOwned, managed, tableLocation, Optional.of(vendedCredentials));
-    }
-
-    public static VendedCredentialsHandle empty(boolean catalogOwned, boolean managed, Optional<String> tableId, String tableLocation)
-    {
-        return new VendedCredentialsHandle(catalogOwned, managed, tableLocation, Optional.empty());
+        return new VendedCredentialsHandle(false, false, tableLocation, Optional.empty());
     }
 }

@@ -3845,7 +3845,7 @@ public class DeltaLakeMetadata
         if (tableLocation != null) {
             LocatedTableHandle table = getTableHandle(session, tableMetadata.getTable(), Optional.empty(), Optional.empty());
             VendedCredentialsHandle credentialsHandle = Optional.ofNullable(table).map(LocatedTableHandle::toCredentialsHandle)
-                    .orElseGet(() -> VendedCredentialsHandle.empty(false, false, Optional.empty(), tableLocation));
+                    .orElseGet(() -> VendedCredentialsHandle.empty(tableLocation));
             existingStatistics = statisticsAccess.readExtendedStatistics(session, tableMetadata.getTable(), tableLocation, credentialsHandle);
             analyzeColumnNames = existingStatistics.flatMap(ExtendedStatistics::getAnalyzedColumns);
         }

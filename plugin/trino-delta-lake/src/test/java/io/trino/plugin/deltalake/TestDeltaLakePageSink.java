@@ -182,7 +182,7 @@ public class TestDeltaLakePageSink
                 false,
                 OptionalLong.empty(),
                 new ProtocolEntry(DEFAULT_READER_VERSION, DEFAULT_WRITER_VERSION, Optional.empty(), Optional.empty()),
-                VendedCredentialsHandle.empty(false, false, Optional.empty(), outputPath));
+                VendedCredentialsHandle.empty(outputPath));
 
         DeltaLakePageSinkProvider provider = new DeltaLakePageSinkProvider(
                 new GroupByHashPageIndexerFactory(new FlatHashStrategyCompiler(new TypeOperators())),
