@@ -26,6 +26,7 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.junit.jupiter.api.parallel.ResourceLock;
 
 import java.util.Map;
 
@@ -40,6 +41,7 @@ import static io.trino.plugin.hudi.util.FileOperationUtils.FileType.TABLE_PROPER
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
 import static java.util.stream.Collectors.toCollection;
 
+@ResourceLock("HUDI_CACHE_SYSTEM")
 @Execution(ExecutionMode.SAME_THREAD)
 public class TestHudiNoCacheFileOperations
         extends AbstractTestQueryFramework
@@ -63,6 +65,7 @@ public class TestHudiNoCacheFileOperations
 
     @Test
     public void testSelectWithFilter()
+            throws InterruptedException
     {
         @Language("SQL") String query = "SELECT * FROM " + HUDI_MULTI_FG_PT_V8_MOR + " WHERE country='SG'";
         assertFileSystemAccesses(
@@ -92,6 +95,7 @@ public class TestHudiNoCacheFileOperations
 
     @Test
     public void testJoin()
+            throws InterruptedException
     {
         @Language("SQL") String query = "SELECT t1.id, t1.name, t1.price, t1.ts FROM " +
                 HUDI_MULTI_FG_PT_V8_MOR + " t1 " +
@@ -122,9 +126,12 @@ public class TestHudiNoCacheFileOperations
     }
 
     private void assertFileSystemAccesses(@Language("SQL") String query, Multiset<FileOperationUtils.FileOperation> expectedCacheAccesses)
+               throws InterruptedException
     {
         DistributedQueryRunner queryRunner = getDistributedQueryRunner();
         queryRunner.executeWithPlan(queryRunner.getDefaultSession(), query);
+        // Allow time for table stats computation to finish before validation.
+        Thread.sleep(1000L);
         assertMultisetsEqual(getFileOperations(queryRunner), expectedCacheAccesses);
     }
 

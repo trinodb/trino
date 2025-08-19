@@ -75,6 +75,7 @@ public class TestHudiAlluxioCacheFileOperations
 
     @Test
     public void testSelectWithFilter()
+            throws InterruptedException
     {
         @Language("SQL") String query = "SELECT * FROM " + HUDI_MULTI_FG_PT_V8_MOR + " WHERE country='SG'";
         assertFileSystemAccesses(
@@ -104,6 +105,7 @@ public class TestHudiAlluxioCacheFileOperations
 
     @Test
     public void testJoin()
+            throws InterruptedException
     {
         @Language("SQL") String query = "SELECT t1.id, t1.name, t1.price, t1.ts FROM " +
                 HUDI_MULTI_FG_PT_V8_MOR + " t1 " +
@@ -134,9 +136,12 @@ public class TestHudiAlluxioCacheFileOperations
     }
 
     private void assertFileSystemAccesses(@Language("SQL") String query, Multiset<FileOperation> expectedCacheAccesses)
+            throws InterruptedException
     {
         DistributedQueryRunner queryRunner = getDistributedQueryRunner();
         queryRunner.executeWithPlan(queryRunner.getDefaultSession(), query);
+        // Allow time for table stats computation to finish before validation.
+        Thread.sleep(1000L);
         assertMultisetsEqual(getFileOperations(queryRunner), expectedCacheAccesses);
     }
 
