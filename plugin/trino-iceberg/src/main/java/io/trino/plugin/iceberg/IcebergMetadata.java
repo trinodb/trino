@@ -2401,11 +2401,14 @@ public class IcebergMetadata
             }
 
             deleteFutures.forEach(MoreFutures::getFutureValue);
+            // All futures completed normally
+            deleteFutures.clear();
         }
         catch (IOException | UncheckedIOException e) {
             throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed removing orphan files for table: " + schemaTableName, e);
         }
         finally {
+            // Ensure any futures still running are canceled in case of failure
             deleteFutures.forEach(future -> future.cancel(true));
         }
     }
