@@ -1146,7 +1146,6 @@ public class TeradataClient
             // this will trigger for number(*) as precision is 40
             return Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, scale)));
         }
-        System.out.println("number mapping 2 is called");
         return Optional.of(decimalColumnMapping(createDecimalType(precision, scale)));
     }
 
