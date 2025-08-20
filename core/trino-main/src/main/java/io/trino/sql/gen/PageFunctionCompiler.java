@@ -184,7 +184,7 @@ public class PageFunctionCompiler
         requireNonNull(projection, "projection is null");
 
         if (projection instanceof InputReferenceExpression input) {
-            InputPageProjection projectionFunction = new InputPageProjection(input.field(), input.type());
+            InputPageProjection projectionFunction = new InputPageProjection(input.field());
             return () -> projectionFunction;
         }
 

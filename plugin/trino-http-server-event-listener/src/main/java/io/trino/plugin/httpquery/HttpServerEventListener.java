@@ -24,7 +24,6 @@ import io.trino.cache.SafeCaches;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
 import io.trino.spi.eventlistener.QueryCreatedEvent;
-import io.trino.spi.eventlistener.SplitCompletedEvent;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.Path;
@@ -92,12 +91,6 @@ public class HttpServerEventListener
     public void queryCompleted(QueryCompletedEvent queryCompletedEvent)
     {
         events.put(queryCompletedEvent.getMetadata().getQueryId(), queryCompletedEvent);
-    }
-
-    @Override
-    public void splitCompleted(SplitCompletedEvent splitCompletedEvent)
-    {
-        // split completion events not supported
     }
 
     @VisibleForTesting

@@ -75,7 +75,6 @@ import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY_PER_NODE;
 import static io.trino.execution.TaskTestUtils.PLAN_FRAGMENT;
 import static io.trino.execution.TaskTestUtils.SPLIT;
 import static io.trino.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
-import static io.trino.execution.TaskTestUtils.createTestSplitMonitor;
 import static io.trino.execution.TaskTestUtils.createTestingPlanner;
 import static io.trino.execution.buffer.PagesSerdeUtil.getSerializedPagePositionCount;
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.PARTITIONED;
@@ -329,7 +328,6 @@ public abstract class BaseTestSqlTaskManager
                 new WorkerLanguageFunctionProvider(new LanguageFunctionEngineManager()),
                 new MockLocationFactory(),
                 taskExecutor,
-                createTestSplitMonitor(),
                 new NodeInfo("test"),
                 new LocalMemoryManager(nodeMemoryConfig),
                 taskManagementExecutor,

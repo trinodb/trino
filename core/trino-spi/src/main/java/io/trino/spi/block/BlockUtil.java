@@ -109,6 +109,31 @@ final class BlockUtil
     }
 
     /**
+     * Returns an array containing elements in the specified range of the specified <code>isNull</code> array.
+     * If the input array is null, null is returned. If the range matches the entire array, the input array
+     * will be returned. Otherwise, a copy will be returned.
+     */
+    static boolean[] compactIsNull(@Nullable boolean[] isNull, int index, int length)
+    {
+        if (isNull == null) {
+            return null;
+        }
+        checkArrayRange(isNull, index, length);
+        if (index == 0 && length == isNull.length) {
+            return isNull;
+        }
+        for (int i = 0; i < length; i++) {
+            if (isNull[i + index]) {
+                boolean[] result = new boolean[length];
+                System.arraycopy(isNull, i + index, result, i, length - i);
+                return result;
+            }
+        }
+        // No nulls encountered, return null as the result
+        return null;
+    }
+
+    /**
      * Recalculate the <code>offsets</code> array for the specified range.
      * The returned <code>offsets</code> array contains <code>length + 1</code> integers
      * with the first value set to 0.

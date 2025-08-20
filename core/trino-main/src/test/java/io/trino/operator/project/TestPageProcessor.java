@@ -30,7 +30,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SourcePage;
-import io.trino.spi.type.Type;
 import io.trino.sql.gen.ExpressionProfiler;
 import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.gen.columnar.PageFilterEvaluator;
@@ -131,7 +130,7 @@ public class TestPageProcessor
         PageProcessor pageProcessor = new PageProcessor(
                 Optional.of(new PageFilterEvaluator(new TestingPageFilter(positionsRange(25, 50)))),
                 Optional.empty(),
-                ImmutableList.of(new InputPageProjection(0, BIGINT)),
+                ImmutableList.of(new InputPageProjection(0)),
                 OptionalInt.of(MAX_BATCH_SIZE));
 
         SourcePage inputPage = SourcePage.create(createLongSequenceBlock(0, 100));
@@ -149,7 +148,7 @@ public class TestPageProcessor
         PageProcessor pageProcessor = new PageProcessor(
                 Optional.of(new PageFilterEvaluator(new SelectAllFilter())),
                 Optional.empty(),
-                ImmutableList.of(new InputPageProjection(0, BIGINT)),
+                ImmutableList.of(new InputPageProjection(0)),
                 OptionalInt.of(MAX_BATCH_SIZE));
 
         SourcePage inputPage = SourcePage.create(createLongSequenceBlock(0, 100));
@@ -164,7 +163,7 @@ public class TestPageProcessor
     @Test
     public void testSelectNoneFilter()
     {
-        PageProcessor pageProcessor = new PageProcessor(Optional.of(new PageFilterEvaluator(new SelectNoneFilter())), ImmutableList.of(new InputPageProjection(0, BIGINT)));
+        PageProcessor pageProcessor = new PageProcessor(Optional.of(new PageFilterEvaluator(new SelectNoneFilter())), ImmutableList.of(new InputPageProjection(0)));
 
         SourcePage inputPage = SourcePage.create(createLongSequenceBlock(0, 100));
 
@@ -179,7 +178,7 @@ public class TestPageProcessor
     @Test
     public void testProjectEmptyPage()
     {
-        PageProcessor pageProcessor = new PageProcessor(Optional.of(new PageFilterEvaluator(new SelectAllFilter())), ImmutableList.of(new InputPageProjection(0, BIGINT)));
+        PageProcessor pageProcessor = new PageProcessor(Optional.of(new PageFilterEvaluator(new SelectAllFilter())), ImmutableList.of(new InputPageProjection(0)));
 
         SourcePage inputPage = SourcePage.create(createLongSequenceBlock(0, 0));
 
@@ -195,7 +194,7 @@ public class TestPageProcessor
     @Test
     public void testSelectNoneFilterLazyLoad()
     {
-        PageProcessor pageProcessor = new PageProcessor(Optional.of(new PageFilterEvaluator(new SelectNoneFilter())), ImmutableList.of(new InputPageProjection(1, BIGINT)));
+        PageProcessor pageProcessor = new PageProcessor(Optional.of(new PageFilterEvaluator(new SelectNoneFilter())), ImmutableList.of(new InputPageProjection(1)));
 
         // if channel 1 is loaded, test will fail
         SourcePage inputPage = new TestingSourcePage(100, createLongSequenceBlock(0, 100), null);
@@ -233,7 +232,7 @@ public class TestPageProcessor
         PageProcessor pageProcessor = new PageProcessor(
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableList.of(new InputPageProjection(0, BIGINT)),
+                ImmutableList.of(new InputPageProjection(0)),
                 OptionalInt.of(MAX_BATCH_SIZE));
 
         SourcePage inputPage = SourcePage.create(createLongSequenceBlock(0, (int) (MAX_BATCH_SIZE * 2.5)));
@@ -256,7 +255,7 @@ public class TestPageProcessor
         PageProcessor pageProcessor = new PageProcessor(
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableList.of(new InputPageProjection(0, VARCHAR)),
+                ImmutableList.of(new InputPageProjection(0)),
                 OptionalInt.of(MAX_BATCH_SIZE));
 
         // process large page which will reduce batch size
@@ -297,8 +296,8 @@ public class TestPageProcessor
     @Test
     public void testOptimisticProcessing()
     {
-        InvocationCountPageProjection firstProjection = new InvocationCountPageProjection(new InputPageProjection(0, VARCHAR));
-        InvocationCountPageProjection secondProjection = new InvocationCountPageProjection(new InputPageProjection(0, VARCHAR));
+        InvocationCountPageProjection firstProjection = new InvocationCountPageProjection(new InputPageProjection(0));
+        InvocationCountPageProjection secondProjection = new InvocationCountPageProjection(new InputPageProjection(0));
         PageProcessor pageProcessor = new PageProcessor(
                 Optional.empty(),
                 Optional.empty(),
@@ -345,7 +344,7 @@ public class TestPageProcessor
         PageProcessor pageProcessor = new PageProcessor(
                 Optional.of(new PageFilterEvaluator(new SelectAllFilter())),
                 Optional.empty(),
-                ImmutableList.of(new InputPageProjection(0, VARCHAR), new InputPageProjection(1, VARCHAR)),
+                ImmutableList.of(new InputPageProjection(0), new InputPageProjection(1)),
                 OptionalInt.of(MAX_BATCH_SIZE));
 
         // create 2 columns X 800 rows of strings with each string's size = 30KB
@@ -377,7 +376,7 @@ public class TestPageProcessor
         PageProcessor pageProcessor = new PageProcessor(
                 Optional.empty(),
                 Optional.empty(),
-                Collections.nCopies(columns, new YieldPageProjection(new InputPageProjection(0, VARCHAR))),
+                Collections.nCopies(columns, new YieldPageProjection(new InputPageProjection(0))),
                 OptionalInt.of(MAX_BATCH_SIZE));
 
         Slice[] slices = new Slice[rows];
@@ -454,7 +453,7 @@ public class TestPageProcessor
         PageProcessor pageProcessor = new PageProcessor(
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableList.of(new InputPageProjection(0, BIGINT)),
+                ImmutableList.of(new InputPageProjection(0)),
                 OptionalInt.of(1),
                 profiler);
 
@@ -489,7 +488,7 @@ public class TestPageProcessor
         PageProcessor pageProcessor = new PageProcessor(
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableList.of(new InputPageProjection(0, BIGINT)),
+                ImmutableList.of(new InputPageProjection(0)),
                 OptionalInt.of(512),
                 profiler);
 
@@ -543,12 +542,6 @@ public class TestPageProcessor
         public InvocationCountPageProjection(PageProjection delegate)
         {
             this.delegate = delegate;
-        }
-
-        @Override
-        public Type getType()
-        {
-            return delegate.getType();
         }
 
         @Override
@@ -627,12 +620,6 @@ public class TestPageProcessor
     public static class LazyPagePageProjection
             implements PageProjection
     {
-        @Override
-        public Type getType()
-        {
-            return BIGINT;
-        }
-
         @Override
         public boolean isDeterministic()
         {

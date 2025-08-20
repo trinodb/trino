@@ -110,13 +110,6 @@ Use the following properties for further configuration.
 * - `kafka-event-listener.created-event.topic`
   - Name of the Kafka topic for the query creation event data.
   - 
-* - `kafka-event-listener.publish-split-completed-event`
-  - [Boolean](prop-type-boolean) switch to control publishing of
-    [split](trino-concept-splits) completion events.
-  - `false`
-* - `kafka-event-listener.split-completed-event.topic`
-  - Name of the Kafka topic for the split completion event data.
-  - 
 * - `kafka-event-listener.publish-completed-event`
   - [Boolean](prop-type-boolean) switch to control publishing of query
     completion events.

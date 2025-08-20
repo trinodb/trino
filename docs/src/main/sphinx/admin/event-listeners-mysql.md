@@ -67,4 +67,8 @@ string, user, catalog, and others with information about the query processing.
   - Description
 * - `mysql-event-listener.db.url`
   - JDBC connection URL to the database including credentials
-:::
+* - `mysql-event-listener.terminate-on-initialization-failure`
+  - MySQL event listener initialization can fail if the database is unavailable.
+    This [boolean](prop-type-boolean) switch controls whether to throw an 
+    exception in such cases. Defaults to `true`.
+  :::

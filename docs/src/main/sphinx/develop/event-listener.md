@@ -5,7 +5,6 @@ events:
 
 - Query creation
 - Query completion (success or failure)
-- Split completion (success or failure)
 
 Event details include session, query execution, resource utilization, timeline,
 and more.

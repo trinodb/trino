@@ -63,6 +63,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
 import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -168,7 +169,8 @@ public final class MigrationUtils
             SchemaTableName targetName,
             String location,
             HiveStorageFormat format,
-            RecursiveDirectory recursiveDirectory)
+            RecursiveDirectory recursiveDirectory,
+            ExecutorService icebergScanExecutor)
     {
         Table table = catalog.loadTable(session, targetName);
         PartitionSpec partitionSpec = table.spec();
@@ -177,7 +179,7 @@ public final class MigrationUtils
 
         try {
             List<DataFile> dataFiles = buildDataFilesFromLocation(fileSystem, recursiveDirectory, format, location, partitionSpec, Optional.empty(), table.schema());
-            addFiles(session, table, dataFiles);
+            addFiles(session, table, dataFiles, icebergScanExecutor);
         }
         catch (Exception e) {
             throw new TrinoException(ICEBERG_COMMIT_ERROR, "Failed to add files: " + firstNonNull(e.getMessage(), e), e);
@@ -214,7 +216,8 @@ public final class MigrationUtils
             Table targetTable,
             io.trino.metastore.Table sourceTable,
             Map<String, String> partitionFilter,
-            RecursiveDirectory recursiveDirectory)
+            RecursiveDirectory recursiveDirectory,
+            ExecutorService icebergScanExecutor)
     {
         HiveMetastore metastore = metastoreFactory.createMetastore(Optional.of(session.getIdentity()));
 
@@ -251,7 +254,7 @@ public final class MigrationUtils
                         .set(DEFAULT_NAME_MAPPING, toJson(nameMapping))
                         .commit();
             }
-            addFiles(session, targetTable, dataFilesBuilder.build());
+            addFiles(session, targetTable, dataFilesBuilder.build(), icebergScanExecutor);
         }
         catch (Exception e) {
             throw new TrinoException(ICEBERG_COMMIT_ERROR, "Failed to add files: " + firstNonNull(e.getMessage(), e), e);
@@ -269,7 +272,7 @@ public final class MigrationUtils
         return dataFile.build();
     }
 
-    public static void addFiles(ConnectorSession session, Table table, List<DataFile> dataFiles)
+    public static void addFiles(ConnectorSession session, Table table, List<DataFile> dataFiles, ExecutorService icebergScanExecutor)
     {
         Schema schema = table.schema();
         Set<Integer> requiredFields = schema.columns().stream()
@@ -318,6 +321,7 @@ public final class MigrationUtils
                 }
                 appendFiles.appendFile(dataFile);
             }
+            appendFiles.scanManifestsWith(icebergScanExecutor);
             appendFiles.commit();
             transaction.commitTransaction();
             log.debug("Successfully added files to %s table", table.name());

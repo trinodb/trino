@@ -19,7 +19,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SourcePage;
-import io.trino.spi.type.Type;
 import io.trino.sql.relational.RowExpression;
 
 import java.lang.invoke.MethodHandle;
@@ -44,12 +43,6 @@ public class GeneratedPageProjection
         this.inputChannels = requireNonNull(inputChannels, "inputChannels is null");
         this.pageProjectionWorkFactory = requireNonNull(pageProjectionWorkFactory, "pageProjectionWorkFactory is null");
         this.blockBuilder = projection.type().createBlockBuilder(null, 1);
-    }
-
-    @Override
-    public Type getType()
-    {
-        return projection.type();
     }
 
     @Override

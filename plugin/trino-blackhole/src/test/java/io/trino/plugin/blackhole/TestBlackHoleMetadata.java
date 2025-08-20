@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.TrinoPrincipal;
 import org.junit.jupiter.api.Test;
@@ -29,8 +30,10 @@ import java.util.Optional;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.security.PrincipalType.USER;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
+import static java.util.Map.entry;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -82,6 +85,44 @@ final class TestBlackHoleMetadata
         assertTrinoExceptionThrownBy(() -> metadata.beginCreateTable(SESSION, new ConnectorTableMetadata(schemaTableName, ImmutableList.of(), tableProperties), Optional.empty(), NO_RETRIES, false))
                 .hasErrorCode(NOT_FOUND)
                 .hasMessage("Schema schema1 not found");
+    }
+
+    @Test
+    void testGetView()
+    {
+        ConnectorViewDefinition viewDefinition = createViewDefinition();
+        Map<SchemaTableName, ConnectorViewDefinition> views = ImmutableMap.<SchemaTableName, ConnectorViewDefinition>builder()
+                .put(new SchemaTableName("default", "test_view"), viewDefinition)
+                .put(new SchemaTableName("default", "test_view2"), viewDefinition)
+                .put(new SchemaTableName("default2", "test_view2"), viewDefinition)
+                .buildOrThrow();
+
+        for (Map.Entry<SchemaTableName, ConnectorViewDefinition> entry : views.entrySet()) {
+            metadata.createView(SESSION, entry.getKey(), entry.getValue(), ImmutableMap.of(), false);
+        }
+
+        assertThat(metadata.listViews(SESSION, Optional.empty()))
+                .containsExactlyElementsOf(views.keySet());
+        assertThat(metadata.listViews(SESSION, Optional.of("default")))
+                .containsExactly(new SchemaTableName("default", "test_view"), new SchemaTableName("default", "test_view2"));
+
+        assertThat(metadata.getViews(SESSION, Optional.empty()))
+                .containsExactlyEntriesOf(views);
+        assertThat(metadata.getViews(SESSION, Optional.of("default2")))
+                .containsExactly(entry(new SchemaTableName("default2", "test_view2"), viewDefinition));
+    }
+
+    private static ConnectorViewDefinition createViewDefinition()
+    {
+        return new ConnectorViewDefinition(
+                "SELECT * FROM test_table",
+                Optional.of("blackhole"),
+                Optional.of("default"),
+                ImmutableList.of(new ConnectorViewDefinition.ViewColumn("col1", BIGINT.getTypeId(), Optional.empty())),
+                Optional.empty(),
+                Optional.empty(),
+                true,
+                ImmutableList.of());
     }
 
     private void assertThatNoTableIsCreated()

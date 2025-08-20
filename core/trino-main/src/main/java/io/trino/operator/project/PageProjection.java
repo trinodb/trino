@@ -18,12 +18,9 @@ import io.trino.operator.Work;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SourcePage;
-import io.trino.spi.type.Type;
 
 public interface PageProjection
 {
-    Type getType();
-
     boolean isDeterministic();
 
     InputChannels getInputChannels();

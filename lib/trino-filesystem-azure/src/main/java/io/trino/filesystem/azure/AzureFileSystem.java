@@ -14,6 +14,7 @@
 package io.trino.filesystem.azure;
 
 import com.azure.core.http.HttpClient;
+import com.azure.core.http.policy.HttpPipelinePolicy;
 import com.azure.core.http.rest.PagedIterable;
 import com.azure.core.util.ClientOptions;
 import com.azure.core.util.TracingOptions;
@@ -80,6 +81,7 @@ public class AzureFileSystem
         implements TrinoFileSystem
 {
     private final HttpClient httpClient;
+    private final HttpPipelinePolicy concurrencyPolicy;
     private final ExecutorService uploadExecutor;
     private final TracingOptions tracingOptions;
     private final AzureAuth azureAuth;
@@ -92,6 +94,7 @@ public class AzureFileSystem
 
     public AzureFileSystem(
             HttpClient httpClient,
+            HttpPipelinePolicy concurrencyPolicy,
             ExecutorService uploadExecutor,
             TracingOptions tracingOptions,
             AzureAuth azureAuth,
@@ -103,6 +106,7 @@ public class AzureFileSystem
             boolean multipartWriteEnabled)
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
+        this.concurrencyPolicy = requireNonNull(concurrencyPolicy, "concurrencyPolicy is null");
         this.uploadExecutor = requireNonNull(uploadExecutor, "uploadExecutor is null");
         this.tracingOptions = requireNonNull(tracingOptions, "tracingOptions is null");
         this.azureAuth = requireNonNull(azureAuth, "azureAuth is null");
@@ -627,6 +631,7 @@ public class AzureFileSystem
 
         BlobContainerClientBuilder builder = new BlobContainerClientBuilder()
                 .httpClient(httpClient)
+                .addPolicy(concurrencyPolicy)
                 .clientOptions(new ClientOptions().setTracingOptions(tracingOptions))
                 .endpoint("https://%s.blob.%s".formatted(location.account(), validatedEndpoint(location)));
 
@@ -643,6 +648,7 @@ public class AzureFileSystem
 
         DataLakeServiceClientBuilder builder = new DataLakeServiceClientBuilder()
                 .httpClient(httpClient)
+                .addPolicy(concurrencyPolicy)
                 .clientOptions(new ClientOptions().setTracingOptions(tracingOptions))
                 .endpoint("https://%s.dfs.%s".formatted(location.account(), validatedEndpoint(location)));
         key.ifPresent(encryption -> builder.customerProvidedKey(lakeCustomerProvidedKey(encryption)));

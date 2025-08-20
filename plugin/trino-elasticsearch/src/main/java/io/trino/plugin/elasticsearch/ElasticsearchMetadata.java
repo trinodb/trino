@@ -56,6 +56,7 @@ import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.ProjectionApplicationResult;
+import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.TableColumnsMetadata;
@@ -93,6 +94,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -103,7 +105,6 @@ import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterators.singletonIterator;
 import static io.airlift.slice.SliceUtf8.getCodePointAt;
 import static io.airlift.slice.SliceUtf8.lengthOfCodePoint;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.extractSupportedProjectedColumns;
@@ -440,16 +441,21 @@ public class ElasticsearchMetadata
     @Override
     public Iterator<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        if (prefix.getSchema().isPresent() && !prefix.getSchema().get().equals(schemaName)) {
+        throw new UnsupportedOperationException("The deprecated streamTableColumns is not supported because streamRelationColumns is implemented instead");
+    }
+
+    @Override
+    public Iterator<RelationColumnsMetadata> streamRelationColumns(
+            ConnectorSession session,
+            Optional<String> schemaName,
+            UnaryOperator<Set<SchemaTableName>> relationFilter)
+    {
+        if (schemaName.isPresent() && !schemaName.get().equals(this.schemaName)) {
             return emptyIterator();
         }
 
-        if (prefix.getSchema().isPresent() && prefix.getTable().isPresent()) {
-            ConnectorTableMetadata metadata = getTableMetadata(prefix.getSchema().get(), prefix.getTable().get());
-            return singletonIterator(TableColumnsMetadata.forTable(metadata.getTable(), metadata.getColumns()));
-        }
-
-        return listTables(session, prefix.getSchema()).stream()
+        Map<SchemaTableName, RelationColumnsMetadata> relationColumns = new HashMap<>();
+        listTables(session, schemaName).stream()
                 .flatMap(name -> {
                     try {
                         ConnectorTableMetadata tableMetadata = getTableMetadata(name.getSchemaName(), name.getTableName());
@@ -463,6 +469,15 @@ public class ElasticsearchMetadata
                         throw e;
                     }
                 })
+                .forEach(columnsMetadata -> {
+                    SchemaTableName name = columnsMetadata.getTable();
+                    relationColumns.put(name, columnsMetadata.getColumns()
+                            .map(columns -> RelationColumnsMetadata.forTable(name, columns))
+                            .orElseGet(() -> RelationColumnsMetadata.forRedirectedTable(name)));
+                });
+
+        return relationFilter.apply(relationColumns.keySet()).stream()
+                .map(relationColumns::get)
                 .iterator();
     }
 

@@ -13,14 +13,12 @@
  */
 package io.trino.execution;
 
-import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.units.Duration;
 import io.trino.spi.QueryId;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
 import io.trino.spi.eventlistener.QueryCreatedEvent;
-import io.trino.spi.eventlistener.SplitCompletedEvent;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -48,11 +46,6 @@ final class EventsCollector
         getQueryEvents(new QueryId(event.getMetadata().getQueryId())).addQueryCompleted(event);
     }
 
-    public synchronized void addSplitCompleted(SplitCompletedEvent event)
-    {
-        getQueryEvents(new QueryId(event.getQueryId())).addSplitCompleted(event);
-    }
-
     public void setRequiresAnonymizedPlan(boolean value)
     {
         requiresAnonymizedPlan.set(value);
@@ -77,11 +70,6 @@ final class EventsCollector
         private QueryCompletedEvent queryCompletedEvent;
         @GuardedBy("this")
         private final CountDownLatch queryCompleteLatch = new CountDownLatch(1);
-
-        @GuardedBy("this")
-        private final List<SplitCompletedEvent> splitCompletedEvents = new ArrayList<>();
-        @GuardedBy("this")
-        private CountDownLatch splitEventLatch;
 
         @GuardedBy("this")
         private final List<Exception> failures = new ArrayList<>();
@@ -132,14 +120,6 @@ final class EventsCollector
             }
         }
 
-        private synchronized void addSplitCompleted(SplitCompletedEvent event)
-        {
-            splitCompletedEvents.add(event);
-            if (splitEventLatch != null) {
-                splitEventLatch.countDown();
-            }
-        }
-
         public void waitForQueryCompletion(Duration timeout)
                 throws InterruptedException, TimeoutException
         {
@@ -156,36 +136,6 @@ final class EventsCollector
                     failures.forEach(exception::addSuppressed);
                     throw exception;
                 }
-            }
-        }
-
-        public synchronized List<SplitCompletedEvent> waitForSplitCompletedEvents(int numberOfSplitEvents, Duration timeout)
-                throws InterruptedException, TimeoutException
-        {
-            CountDownLatch latch;
-            synchronized (this) {
-                checkFailure();
-
-                if (splitCompletedEvents.size() >= numberOfSplitEvents) {
-                    return ImmutableList.copyOf(splitCompletedEvents);
-                }
-
-                if (splitEventLatch != null) {
-                    // support for waiting multiple times is complex and currently not needed, so it has not been implemented
-                    throw new IllegalStateException("Wait for split completion already triggered for this query");
-                }
-                splitEventLatch = new CountDownLatch(numberOfSplitEvents - splitCompletedEvents.size());
-                latch = splitEventLatch;
-            }
-
-            boolean finished = latch.await(timeout.toMillis(), MILLISECONDS);
-            if (!finished) {
-                throw new TimeoutException("Split events did not complete in " + timeout);
-            }
-
-            synchronized (this) {
-                checkFailure();
-                return ImmutableList.copyOf(splitCompletedEvents);
             }
         }
 

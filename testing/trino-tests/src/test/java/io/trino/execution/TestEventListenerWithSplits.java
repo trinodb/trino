@@ -15,8 +15,6 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.execution.EventsAwaitingQueries.MaterializedResultWithEvents;
@@ -29,7 +27,6 @@ import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
 import io.trino.spi.eventlistener.QueryCreatedEvent;
 import io.trino.spi.eventlistener.QueryStatistics;
-import io.trino.spi.eventlistener.SplitCompletedEvent;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
@@ -38,15 +35,11 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 
-import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.execution.TestQueues.createResourceGroupId;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.util.concurrent.TimeUnit.SECONDS;
-import static java.util.stream.Collectors.toSet;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
@@ -129,24 +122,8 @@ public class TestEventListenerWithSplits
         assertThat(queryCompletedEvent.getMetadata().getPreparedQuery()).isEmpty();
         assertThat(queryCompletedEvent.getStatistics().getCompletedSplits()).isEqualTo(SPLITS_PER_NODE + 2);
 
-        List<SplitCompletedEvent> splitCompletedEvents = queryEvents.waitForSplitCompletedEvents(SPLITS_PER_NODE + 2, new Duration(30, SECONDS));
-        assertThat(splitCompletedEvents).hasSize(SPLITS_PER_NODE + 2); // leaf splits + aggregation split
-
-        // All splits must have the same query ID
-        Set<String> actual = splitCompletedEvents.stream()
-                .map(SplitCompletedEvent::getQueryId)
-                .collect(toSet());
-        assertThat(actual).isEqualTo(ImmutableSet.of(queryCompletedEvent.getMetadata().getQueryId()));
-
-        // Sum of row count processed by all leaf stages is equal to the number of rows in the table
-        long actualCompletedPositions = splitCompletedEvents.stream()
-                .filter(e -> !e.getStageId().endsWith(".0"))    // filter out the root stage
-                .mapToLong(e -> e.getStatistics().getCompletedPositions())
-                .sum();
-
         MaterializedResultWithEvents result = runQueryAndWaitForEvents("SELECT count(*) FROM lineitem");
         long expectedCompletedPositions = (long) result.getMaterializedResult().getMaterializedRows().get(0).getField(0);
-        assertThat(actualCompletedPositions).isEqualTo(expectedCompletedPositions);
 
         QueryStatistics statistics = queryCompletedEvent.getStatistics();
         // Aggregation can have memory pool usage
@@ -210,10 +187,6 @@ public class TestEventListenerWithSplits
         assertThat(queryCreatedEvent.getMetadata().getQueryId()).isEqualTo(queryCompletedEvent.getMetadata().getQueryId());
         assertThat(queryCompletedEvent.getMetadata().getPreparedQuery()).isEmpty();
         assertThat(queryCompletedEvent.getContext().getQueryType().get()).isEqualTo(QueryType.SELECT);
-
-        List<SplitCompletedEvent> splitCompletedEvents = queryEvents.waitForSplitCompletedEvents(1, new Duration(30, SECONDS));
-        assertThat(splitCompletedEvents.get(0).getQueryId()).isEqualTo(queryCompletedEvent.getMetadata().getQueryId());
-        assertThat(splitCompletedEvents.get(0).getStatistics().getCompletedPositions()).isEqualTo(1);
     }
 
     private MaterializedResultWithEvents runQueryAndWaitForEvents(@Language("SQL") String sql)

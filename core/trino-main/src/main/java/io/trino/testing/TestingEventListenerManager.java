@@ -27,7 +27,6 @@ import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.EventListenerFactory;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
 import io.trino.spi.eventlistener.QueryCreatedEvent;
-import io.trino.spi.eventlistener.SplitCompletedEvent;
 
 import java.util.Collections;
 import java.util.HashSet;
@@ -74,14 +73,6 @@ public class TestingEventListenerManager
     {
         for (EventListener listener : configuredEventListeners) {
             listener.queryCreated(queryCreatedEvent);
-        }
-    }
-
-    @Override
-    public void splitCompleted(SplitCompletedEvent splitCompletedEvent)
-    {
-        for (EventListener listener : configuredEventListeners) {
-            listener.splitCompleted(splitCompletedEvent);
         }
     }
 

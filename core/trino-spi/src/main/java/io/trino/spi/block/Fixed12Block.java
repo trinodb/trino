@@ -24,6 +24,7 @@ import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkReadablePosition;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactArray;
+import static io.trino.spi.block.BlockUtil.compactIsNull;
 import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
 import static io.trino.spi.block.BlockUtil.ensureCapacity;
 
@@ -182,6 +183,7 @@ public final class Fixed12Block
         checkArrayRange(positions, offset, length);
 
         boolean[] newValueIsNull = null;
+        boolean hasNull = false;
         if (valueIsNull != null) {
             newValueIsNull = new boolean[length];
         }
@@ -190,7 +192,9 @@ public final class Fixed12Block
             int position = positions[offset + i];
             checkReadablePosition(this, position);
             if (valueIsNull != null) {
-                newValueIsNull[i] = valueIsNull[position + positionOffset];
+                boolean isNull = valueIsNull[position + positionOffset];
+                newValueIsNull[i] = isNull;
+                hasNull |= isNull;
             }
             int valuesIndex = (position + positionOffset) * 3;
             int newValuesIndex = i * 3;
@@ -198,7 +202,7 @@ public final class Fixed12Block
             newValues[newValuesIndex + 1] = values[valuesIndex + 1];
             newValues[newValuesIndex + 2] = values[valuesIndex + 2];
         }
-        return new Fixed12Block(0, length, newValueIsNull, newValues);
+        return new Fixed12Block(0, length, hasNull ? newValueIsNull : null, newValues);
     }
 
     @Override
@@ -215,7 +219,7 @@ public final class Fixed12Block
         checkValidRegion(getPositionCount(), positionOffset, length);
 
         positionOffset += this.positionOffset;
-        boolean[] newValueIsNull = valueIsNull == null ? null : compactArray(valueIsNull, positionOffset, length);
+        boolean[] newValueIsNull = compactIsNull(valueIsNull, positionOffset, length);
         int[] newValues = compactArray(values, positionOffset * 3, length * 3);
 
         if (newValueIsNull == valueIsNull && newValues == values) {

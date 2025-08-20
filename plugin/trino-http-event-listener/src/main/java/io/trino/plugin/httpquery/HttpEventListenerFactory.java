@@ -22,7 +22,6 @@ import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.EventListenerFactory;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
 import io.trino.spi.eventlistener.QueryCreatedEvent;
-import io.trino.spi.eventlistener.SplitCompletedEvent;
 
 import java.util.Map;
 
@@ -49,7 +48,6 @@ public class HttpEventListenerFactory
                     binder.bind(Tracer.class).toInstance(context.getTracer());
                     jsonCodecBinder(binder).bindJsonCodec(QueryCompletedEvent.class);
                     jsonCodecBinder(binder).bindJsonCodec(QueryCreatedEvent.class);
-                    jsonCodecBinder(binder).bindJsonCodec(SplitCompletedEvent.class);
                     configBinder(binder).bindConfig(HttpEventListenerConfig.class);
                     httpClientBinder(binder).bindHttpClient("http-event-listener", ForHttpEventListener.class);
                     binder.bind(HttpEventListener.class).in(Scopes.SINGLETON);

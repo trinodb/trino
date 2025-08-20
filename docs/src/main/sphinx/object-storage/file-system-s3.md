@@ -105,7 +105,7 @@ support:
     throttling.
 * - `s3.max-error-retries`
   - Specifies maximum number of retries the client will make on errors.
-    Defaults to `10`.
+    Defaults to `20`.
 * - `s3.use-web-identity-token-credentials-provider`
   - Set to `true` to only use the web identity token credentials provider,
     instead of the default providers chain. This can be useful when running

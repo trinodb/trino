@@ -546,6 +546,42 @@ public class TestSimpleFormat
     }
 
     @Test
+    public void testExtendedBooleanLiterals()
+            throws Exception
+    {
+        TextEncodingOptions textEncodingOptions = TextEncodingOptions.builder()
+                .extendedBooleanLiteral()
+                .build();
+
+        assertValue(BOOLEAN, "\\N", null, textEncodingOptions);
+        assertValue(BOOLEAN, "NOPE", null, textEncodingOptions);
+
+        // empty value is not allowed
+        assertValue(BOOLEAN, "", null, textEncodingOptions);
+
+        assertValue(BOOLEAN, "true", true, textEncodingOptions);
+        assertValue(BOOLEAN, "TRUE", true, textEncodingOptions);
+        assertValue(BOOLEAN, "tRuE", true, textEncodingOptions);
+
+        assertValue(BOOLEAN, "false", false, textEncodingOptions);
+        assertValue(BOOLEAN, "FALSE", false, textEncodingOptions);
+        assertValue(BOOLEAN, "fAlSe", false, textEncodingOptions);
+
+        assertValueTrino(BOOLEAN, "t", true, textEncodingOptions, true);
+        assertValueTrino(BOOLEAN, "T", true, textEncodingOptions, true);
+        assertValueTrino(BOOLEAN, "1", true, textEncodingOptions, true);
+        assertValueTrino(BOOLEAN, "f", false, textEncodingOptions, true);
+        assertValueTrino(BOOLEAN, "F", false, textEncodingOptions, true);
+        assertValueTrino(BOOLEAN, "0", false, textEncodingOptions, true);
+
+        assertValue(BOOLEAN, "unknown", null);
+        assertValue(BOOLEAN, "null", null);
+        assertValue(BOOLEAN, "-1", null);
+        assertValue(BOOLEAN, "1.23", null);
+        assertValue(BOOLEAN, "1.23e45", null);
+    }
+
+    @Test
     public void testBigint()
             throws Exception
     {
