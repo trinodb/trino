@@ -23,6 +23,7 @@ import io.trino.decoder.csv.CsvRowDecoder;
 import io.trino.decoder.csv.CsvRowDecoderFactory;
 import io.trino.decoder.dummy.DummyRowDecoder;
 import io.trino.decoder.dummy.DummyRowDecoderFactory;
+import io.trino.decoder.json.JsonDecoderModule;
 import io.trino.decoder.json.JsonRowDecoder;
 import io.trino.decoder.json.JsonRowDecoderFactory;
 import io.trino.decoder.raw.RawRowDecoder;
@@ -48,6 +49,7 @@ public class RedisDecoderModule
         decoderFactoriesByName.addBinding(ZsetRedisRowDecoder.NAME).to(ZsetRedisRowDecoderFactory.class).in(SINGLETON);
         decoderFactoriesByName.addBinding(HashRedisRowDecoder.NAME).to(HashRedisRowDecoderFactory.class).in(SINGLETON);
         binder.install(new AvroDecoderModule());
+        binder.install(new JsonDecoderModule());
         binder.bind(DispatchingRowDecoderFactory.class).in(SINGLETON);
     }
 }

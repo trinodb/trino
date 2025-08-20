@@ -100,7 +100,7 @@ public class TestCustomDateTimeJsonFieldDecoder
                 false,
                 false,
                 false);
-        assertThatThrownBy(() -> new JsonRowDecoderFactory(new ObjectMapperProvider().get()).create(TESTING_SESSION, new RowDecoderSpec(JsonRowDecoder.NAME, emptyMap(), ImmutableSet.of(columnHandle))))
+        assertThatThrownBy(() -> new JsonRowDecoderFactory(new NoOpJsonPayloadProvider(new ObjectMapperProvider().get())).create(TESTING_SESSION, new RowDecoderSpec(JsonRowDecoder.NAME, emptyMap(), ImmutableSet.of(columnHandle))))
                 .isInstanceOf(TrinoException.class)
                 .hasMessageMatching("invalid Joda Time pattern 'XXMM/yyyy/dd H:m:sXX' passed as format hint for column 'some_column'");
     }

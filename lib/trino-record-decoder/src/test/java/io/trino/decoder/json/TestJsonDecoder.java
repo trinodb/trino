@@ -56,7 +56,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestJsonDecoder
 {
-    private static final JsonRowDecoderFactory DECODER_FACTORY = new JsonRowDecoderFactory(new ObjectMapperProvider().get());
+    private static final JsonRowDecoderFactory DECODER_FACTORY = new JsonRowDecoderFactory(new NoOpJsonPayloadProvider(new ObjectMapperProvider().get()));
 
     @Test
     public void testSimple()

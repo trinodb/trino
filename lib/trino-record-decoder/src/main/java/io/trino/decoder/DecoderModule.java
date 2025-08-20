@@ -21,6 +21,7 @@ import io.trino.decoder.csv.CsvRowDecoder;
 import io.trino.decoder.csv.CsvRowDecoderFactory;
 import io.trino.decoder.dummy.DummyRowDecoder;
 import io.trino.decoder.dummy.DummyRowDecoderFactory;
+import io.trino.decoder.json.JsonDecoderModule;
 import io.trino.decoder.json.JsonRowDecoder;
 import io.trino.decoder.json.JsonRowDecoderFactory;
 import io.trino.decoder.protobuf.ProtobufDecoderModule;
@@ -45,6 +46,7 @@ public class DecoderModule
         decoderFactoriesByName.addBinding(RawRowDecoder.NAME).to(RawRowDecoderFactory.class).in(SINGLETON);
         binder.install(new AvroDecoderModule());
         binder.install(new ProtobufDecoderModule());
+        binder.install(new JsonDecoderModule());
         binder.bind(DispatchingRowDecoderFactory.class).in(SINGLETON);
     }
 }

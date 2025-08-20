@@ -13,7 +13,6 @@
  */
 package io.trino.decoder.json;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Inject;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.RowDecoder;
@@ -36,18 +35,18 @@ import static java.util.function.Function.identity;
 public class JsonRowDecoderFactory
         implements RowDecoderFactory
 {
-    private final ObjectMapper objectMapper;
+    private final JsonPayloadProvider jsonPayloadProvider;
 
     @Inject
-    public JsonRowDecoderFactory(ObjectMapper objectMapper)
+    public JsonRowDecoderFactory(JsonPayloadProvider jsonPayloadProvider)
     {
-        this.objectMapper = requireNonNull(objectMapper, "objectMapper is null");
+        this.jsonPayloadProvider = requireNonNull(jsonPayloadProvider, "jsonPayloadProvider is null");
     }
 
     @Override
     public RowDecoder create(ConnectorSession session, RowDecoderSpec rowDecoderSpec)
     {
-        return new JsonRowDecoder(objectMapper, chooseFieldDecoders(rowDecoderSpec.columns()));
+        return new JsonRowDecoder(chooseFieldDecoders(rowDecoderSpec.columns()), jsonPayloadProvider);
     }
 
     private Map<DecoderColumnHandle, JsonFieldDecoder> chooseFieldDecoders(Set<DecoderColumnHandle> columns)
