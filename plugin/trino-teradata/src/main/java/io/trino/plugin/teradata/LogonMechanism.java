@@ -3,7 +3,8 @@ package io.trino.plugin.teradata;
 public enum LogonMechanism
 {
     TD2("TD2"),
-    JWT("JWT");
+    JWT("JWT"),
+    SECRET("SECRET");
 
     private final String mechanism;
 
