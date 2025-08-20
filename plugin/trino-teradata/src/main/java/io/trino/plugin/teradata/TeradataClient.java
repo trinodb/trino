@@ -160,6 +160,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timestampColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timestampWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
@@ -226,11 +227,6 @@ public class TeradataClient
             return FULL_PUSHDOWN.apply(session, domain);
         }
 
-        // 2. If pushdown is explicitly enabled via session
-        if (isEnableTeradataStringPushdown(session)) {
-            return FULL_PUSHDOWN.apply(session, domain);
-        }
-
         Domain simplifiedDomain = domain.simplify(getDomainCompactionThreshold(session));
         if (!simplifiedDomain.getValues().isDiscreteSet()) {
             // Push down inequality predicate
@@ -290,11 +286,6 @@ public class TeradataClient
                 domain.getValues().getRanges().getOrderedRanges().size() > 1 &&
                 !domain.getValues().isAll() &&
                 !domain.getValues().isNone();
-    }
-
-    private static boolean isEnableTeradataStringPushdown(ConnectorSession session)
-    {
-        return session.getProperty("string_pushdown_enabled", Boolean.class);
     }
 
     /**
@@ -1081,6 +1072,7 @@ public class TeradataClient
 
         switch (typeHandle.jdbcType()) {
             case Types.TINYINT:
+                return Optional.of(tinyintColumnMapping());
             case Types.SMALLINT:
                 return Optional.of(smallintColumnMapping());
             case Types.INTEGER:
