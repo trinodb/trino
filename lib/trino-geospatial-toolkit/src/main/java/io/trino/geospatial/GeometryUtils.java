@@ -179,6 +179,8 @@ public final class GeometryUtils
 
     public static String jsonFromJtsGeometry(org.locationtech.jts.geom.Geometry geometry)
     {
-        return new GeoJsonWriter().write(geometry);
+        GeoJsonWriter geoJsonWriter = new GeoJsonWriter();
+        geoJsonWriter.setEncodeCRS(false);
+        return geoJsonWriter.write(geometry);
     }
 }
