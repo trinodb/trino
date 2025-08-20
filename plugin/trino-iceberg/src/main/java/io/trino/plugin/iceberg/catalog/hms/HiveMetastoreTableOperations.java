@@ -113,13 +113,10 @@ public class HiveMetastoreTableOperations
 
             Table updatedTable = tableUpdateFunction.apply(table, newMetadataLocation);
 
-            // Passing environment context causes redundant operations if Hive locking is enabled
-            Map<String, String> environmentContext = lockingEnabled ? ImmutableMap.of() : environmentContext(metadataLocation);
-
             // todo privileges should not be replaced for an alter
             PrincipalPrivileges privileges = table.getOwner().map(MetastoreUtil::buildInitialPrivilegeSet).orElse(NO_PRIVILEGES);
             try {
-                metastore.replaceTable(table.getDatabaseName(), table.getTableName(), updatedTable, privileges, environmentContext);
+                metastore.replaceTable(table.getDatabaseName(), table.getTableName(), updatedTable, privileges, environmentContext(metadataLocation));
             }
             catch (RuntimeException e) {
                 // Cannot determine whether the `replaceTable` operation was successful,

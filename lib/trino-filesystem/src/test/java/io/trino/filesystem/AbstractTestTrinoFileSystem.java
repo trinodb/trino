@@ -1214,7 +1214,7 @@ public abstract class AbstractTestTrinoFileSystem
             throws IOException
     {
         try (Closer closer = Closer.create()) {
-            List<TempBlob> blobs = randomBlobs(closer, 100);
+            List<TempBlob> blobs = randomBlobs(closer);
 
             List<Location> sortedLocations = blobs.stream()
                         .map(TempBlob::location)
@@ -1538,11 +1538,11 @@ public abstract class AbstractTestTrinoFileSystem
         return tempBlob;
     }
 
-    protected List<TempBlob> randomBlobs(Closer closer, int count)
+    private List<TempBlob> randomBlobs(Closer closer)
     {
         char[] chars = new char[] {'a', 'b', 'c', 'd', 'A', 'B', 'C', 'D'};
         ImmutableList.Builder<TempBlob> names = ImmutableList.builder();
-        for (int i = 0; i < count; i++) {
+        for (int i = 0; i < 100; i++) {
             StringBuilder name = new StringBuilder();
             for (int j = 0; j < 10; j++) {
                 name.append(chars[ThreadLocalRandom.current().nextInt(chars.length)]);

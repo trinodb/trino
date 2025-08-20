@@ -24,6 +24,7 @@ import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SourcePage;
+import io.trino.spi.type.Type;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -63,6 +64,7 @@ public class TestDictionaryAwarePageProjection
         DictionaryAwarePageProjection projection = createProjection();
         assertThat(projection.isDeterministic()).isEqualTo(true);
         assertThat(projection.getInputChannels().getInputChannels()).isEqualTo(ImmutableList.of(3));
+        assertThat(projection.getType()).isEqualTo(BIGINT);
     }
 
     @Test
@@ -180,7 +182,7 @@ public class TestDictionaryAwarePageProjection
     public void testPreservesDictionaryInstance()
     {
         DictionaryAwarePageProjection projection = new DictionaryAwarePageProjection(
-                new InputPageProjection(0),
+                new InputPageProjection(0, BIGINT),
                 block -> randomDictionaryId());
         Block dictionary = createLongsBlock(0, 1);
         Block firstDictionaryBlock = DictionaryBlock.create(4, dictionary, new int[] {0, 1, 2, 3});
@@ -334,6 +336,12 @@ public class TestDictionaryAwarePageProjection
     private static class TestPageProjection
             implements PageProjection
     {
+        @Override
+        public Type getType()
+        {
+            return BIGINT;
+        }
+
         @Override
         public boolean isDeterministic()
         {

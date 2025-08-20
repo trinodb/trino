@@ -17,6 +17,7 @@ import io.airlift.concurrent.SetThreadName;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.Session;
+import io.trino.event.SplitMonitor;
 import io.trino.execution.buffer.OutputBuffer;
 import io.trino.execution.executor.TaskExecutor;
 import io.trino.memory.QueryContext;
@@ -38,6 +39,7 @@ public class SqlTaskExecutionFactory
     private final TaskExecutor taskExecutor;
 
     private final LocalExecutionPlanner planner;
+    private final SplitMonitor splitMonitor;
     private final Tracer tracer;
     private final boolean perOperatorCpuTimerEnabled;
     private final boolean cpuTimerEnabled;
@@ -46,12 +48,14 @@ public class SqlTaskExecutionFactory
             Executor taskNotificationExecutor,
             TaskExecutor taskExecutor,
             LocalExecutionPlanner planner,
+            SplitMonitor splitMonitor,
             Tracer tracer,
             TaskManagerConfig config)
     {
         this.taskNotificationExecutor = requireNonNull(taskNotificationExecutor, "taskNotificationExecutor is null");
         this.taskExecutor = requireNonNull(taskExecutor, "taskExecutor is null");
         this.planner = requireNonNull(planner, "planner is null");
+        this.splitMonitor = requireNonNull(splitMonitor, "splitMonitor is null");
         this.tracer = requireNonNull(tracer, "tracer is null");
         this.perOperatorCpuTimerEnabled = config.isPerOperatorCpuTimerEnabled();
         this.cpuTimerEnabled = config.isTaskCpuTimerEnabled();
@@ -98,6 +102,7 @@ public class SqlTaskExecutionFactory
                 outputBuffer,
                 localExecutionPlan,
                 taskExecutor,
+                splitMonitor,
                 tracer,
                 taskNotificationExecutor);
     }

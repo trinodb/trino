@@ -62,6 +62,10 @@ event-listener.config-files=etc/http-event-listener.properties,...
   - Enable the plugin to log `QueryCompletedEvent` events
   - `false`
 
+* - http-event-listener.log-split
+  - Enable the plugin to log `SplitCompletedEvent` events
+  - `false`
+
 * - http-event-listener.connect-ingest-uri
   - The URI that the plugin will POST events to
   - None. See the [requirements](http-event-listener-requirements) section.
@@ -69,6 +73,12 @@ event-listener.config-files=etc/http-event-listener.properties,...
 * - http-event-listener.connect-http-headers
   - List of custom HTTP headers to be sent along with the events. See
     [](http-event-listener-custom-headers) for more details
+  - Empty
+
+* - http-event-listener.connect-http-headers.config-file
+  - Path of the config file containing a list of custom HTTP headers to be sent
+    along with the events. See [](http-event-listener-custom-headers) for more
+    details
   - Empty
 
 * - http-event-listener.connect-http-method
@@ -115,8 +125,23 @@ Providing headers follows the pattern of `key:value` pairs separated by commas:
 http-event-listener.connect-http-headers="Header-Name-1:header value 1,Header-Value-2:header value 2,..."
 ```
 
-If you need to use a comma(`,`) or colon(`:`) in a header name or value,
-escape it using a backslash (`\`).
+If your header names or values need to include special characters such as commas 
+(`,`) or colons (`:`),define them in an external configuration file using:
 
-Keep in mind that these are static, so they can not carry information
-taken from the event itself.
+```text
+http-event-listener.connect-http-headers.config-file=/path/to/headers.conf
+```
+
+The configuration file should contain one `key=value` pair per line, for example:
+
+```text
+Header-Name-1=header value 1
+Header-Name-2=header value with : colon and , comma
+```
+
+Only one of `http-event-listener.connect-http-headers` **or**
+`http-event-listener.connect-http-headers.config-file` can be used at a time.
+If both properties are set, the system will raise an exception during startup.
+
+Keep in mind that these headers are static—they cannot include information
+dynamically taken from the event itself.

@@ -53,6 +53,7 @@ import java.util.function.Predicate;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.tracing.Tracing.noopTracer;
+import static io.trino.execution.TaskTestUtils.createTestSplitMonitor;
 import static io.trino.execution.TaskTestUtils.createTestingPlanner;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -129,6 +130,7 @@ public class TestTaskExecutorStuckSplits
                 new WorkerLanguageFunctionProvider(new LanguageFunctionEngineManager()),
                 new BaseTestSqlTaskManager.MockLocationFactory(),
                 taskExecutor,
+                createTestSplitMonitor(),
                 new NodeInfo("test"),
                 new LocalMemoryManager(new NodeMemoryConfig()),
                 taskManagementExecutor,

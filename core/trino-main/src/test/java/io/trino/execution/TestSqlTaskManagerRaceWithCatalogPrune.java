@@ -81,6 +81,7 @@ import static io.airlift.tracing.Tracing.noopTracer;
 import static io.trino.execution.BaseTestSqlTaskManager.OUT;
 import static io.trino.execution.TaskTestUtils.PLAN_FRAGMENT;
 import static io.trino.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
+import static io.trino.execution.TaskTestUtils.createTestSplitMonitor;
 import static io.trino.execution.TaskTestUtils.createTestingPlanner;
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.PARTITIONED;
 import static io.trino.metadata.CatalogManager.NO_CATALOGS;
@@ -259,6 +260,7 @@ public class TestSqlTaskManagerRaceWithCatalogPrune
                 new WorkerLanguageFunctionProvider(new LanguageFunctionEngineManager()),
                 new BaseTestSqlTaskManager.MockLocationFactory(),
                 NOOP_TASK_EXECUTOR,
+                createTestSplitMonitor(),
                 new NodeInfo("testversion"),
                 new LocalMemoryManager(new NodeMemoryConfig()),
                 new TaskManagementExecutor(),

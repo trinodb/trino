@@ -11,22 +11,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.trino.plugin.httpquery;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
-import io.airlift.configuration.DefunctConfig;
+import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.Duration;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
+import java.io.File;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
-@DefunctConfig("http-event-listener.log-split")
 public class HttpEventListenerConfig
 {
     private int retryCount;
@@ -37,6 +40,7 @@ public class HttpEventListenerConfig
     private String ingestUri;
     private HttpEventListenerHttpMethod httpMethod = HttpEventListenerHttpMethod.POST;
     private Map<String, String> httpHeaders = ImmutableMap.of();
+    private File httpHeadersConfigFile;
 
     @ConfigDescription("Will log io.trino.spi.eventlistener.QueryCreatedEvent")
     @Config("http-event-listener.log-created")
@@ -66,6 +70,21 @@ public class HttpEventListenerConfig
     public boolean getLogCompleted()
     {
         return loggedEvents.contains(HttpEventListenerEventType.QUERY_COMPLETED);
+    }
+
+    @ConfigDescription("Will log io.trino.spi.eventlistener.SplitCompletedEvent")
+    @Config("http-event-listener.log-split")
+    public HttpEventListenerConfig setLogSplit(boolean logSplit)
+    {
+        if (logSplit) {
+            loggedEvents.add(HttpEventListenerEventType.QUERY_SPLIT);
+        }
+        return this;
+    }
+
+    public boolean getLogSplit()
+    {
+        return loggedEvents.contains(HttpEventListenerEventType.QUERY_SPLIT);
     }
 
     @NotNull
@@ -114,6 +133,20 @@ public class HttpEventListenerConfig
             throw new IllegalArgumentException(String.format("Cannot parse http headers from property http-event-listener.connect-http-headers; value provided was %s, " +
                     "expected format is \"Header-Name-1: header value 1, Header-Value-2: header value 2, ...\"", String.join(", ", httpHeaders)), e);
         }
+        return this;
+    }
+
+    public Optional<@FileExists File> getHttpHeadersConfigFile()
+    {
+        return Optional.ofNullable(httpHeadersConfigFile);
+    }
+
+    @Config("http-event-listener.connect-http-headers.config-file")
+    @ConfigDescription("Path to a properties file containing custom HTTP headers, " +
+            "specified as key-value pairs (one per line, e.g., Header-Name=Header Value)")
+    public HttpEventListenerConfig setHttpHeadersConfigFile(File httpHeadersConfigFile)
+    {
+        this.httpHeadersConfigFile = httpHeadersConfigFile;
         return this;
     }
 
@@ -170,5 +203,12 @@ public class HttpEventListenerConfig
     public Duration getMaxDelay()
     {
         return this.maxDelay;
+    }
+
+    @AssertTrue(message = "Exactly one of http-event-listener.connect-http-headers.config-file or " +
+            "http-event-listener.connect-http-headers must be set")
+    public boolean validateHeaderConfigRedundant()
+    {
+        return !(httpHeadersConfigFile != null && !httpHeaders.isEmpty());
     }
 }

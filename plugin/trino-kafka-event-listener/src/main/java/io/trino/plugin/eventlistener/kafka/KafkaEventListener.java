@@ -21,6 +21,7 @@ import io.trino.plugin.eventlistener.kafka.producer.KafkaProducerFactory;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
 import io.trino.spi.eventlistener.QueryCreatedEvent;
+import io.trino.spi.eventlistener.SplitCompletedEvent;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 
@@ -34,6 +35,7 @@ public class KafkaEventListener
     private final KafkaEventListenerJmxStats stats = new KafkaEventListenerJmxStats();
     private final boolean publishCreatedEvent;
     private final boolean publishCompletedEvent;
+    private final boolean publishSplitCompletedEvent;
     private final boolean isAnonymizationEnabled;
     @Nullable
     private KafkaEventPublisher kafkaPublisher;
@@ -44,6 +46,7 @@ public class KafkaEventListener
     {
         publishCreatedEvent = config.getPublishCreatedEvent();
         publishCompletedEvent = config.getPublishCompletedEvent();
+        publishSplitCompletedEvent = config.getPublishSplitCompletedEvent();
         isAnonymizationEnabled = config.isAnonymizationEnabled();
 
         try {
@@ -83,6 +86,14 @@ public class KafkaEventListener
     {
         if (kafkaPublisher != null && publishCompletedEvent) {
             kafkaPublisher.publishCompletedEvent(event);
+        }
+    }
+
+    @Override
+    public void splitCompleted(SplitCompletedEvent event)
+    {
+        if (kafkaPublisher != null && publishSplitCompletedEvent) {
+            kafkaPublisher.publishSplitCompletedEvent(event);
         }
     }
 

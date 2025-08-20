@@ -30,11 +30,19 @@ public class ConstantPageProjection
 {
     private static final InputChannels INPUT_PARAMETERS = new InputChannels(ImmutableList.of());
 
+    private final Type type;
     private final Block value;
 
     public ConstantPageProjection(Object value, Type type)
     {
+        this.type = type;
         this.value = writeNativeValue(type, value);
+    }
+
+    @Override
+    public Type getType()
+    {
+        return type;
     }
 
     @Override

@@ -24,19 +24,14 @@ typeCalculation
     ;
 
 expression
-    : NULL                                                                         #nullLiteral
-    | INTEGER_VALUE                                                                #numericLiteral
-    | binaryFunctionName '(' left=expression ',' right=expression ')'              #binaryFunction
-    | IDENTIFIER                                                                   #identifier
-    | '(' expression ')'                                                           #parenthesizedExpression
-    | operator=(MINUS | PLUS) expression                                           #arithmeticUnary
-    | left=expression operator=(ASTERISK | SLASH) right=expression                 #arithmeticBinary
-    | left=expression operator=(PLUS | MINUS) right=expression                     #arithmeticBinary
-    | IF '('
-        left=expression operator=(LT | GT | LE | GE | EQ | NE) right=expression ','
-        ifTrue=expression ','
-        ifFalse=expression
-      ')'                                                                          #ifExpression
+    : NULL                                                              #nullLiteral
+    | INTEGER_VALUE                                                     #numericLiteral
+    | binaryFunctionName '(' left=expression ',' right=expression ')'   #binaryFunction
+    | IDENTIFIER                                                        #identifier
+    | '(' expression ')'                                                #parenthesizedExpression
+    | operator=(MINUS | PLUS) expression                                #arithmeticUnary
+    | left=expression operator=(ASTERISK | SLASH) right=expression      #arithmeticBinary
+    | left=expression operator=(PLUS | MINUS) right=expression          #arithmeticBinary
     ;
 
 binaryFunctionName
@@ -50,13 +45,6 @@ SLASH: '/';
 NULL: 'NULL';
 MIN: 'MIN';
 MAX: 'MAX';
-LT: '<';
-GT: '>';
-LE: '<=';
-GE: '>=';
-EQ: '=';
-NE: '!=';
-IF: 'IF';
 
 IDENTIFIER
     : (LETTER | '_') (LETTER | DIGIT | '_' )*

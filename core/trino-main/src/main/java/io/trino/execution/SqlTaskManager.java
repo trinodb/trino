@@ -32,6 +32,7 @@ import io.opentelemetry.api.trace.Tracer;
 import io.trino.Session;
 import io.trino.cache.NonEvictableLoadingCache;
 import io.trino.connector.ConnectorServicesProvider;
+import io.trino.event.SplitMonitor;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.trino.execution.StateMachine.StateChangeListener;
@@ -148,6 +149,7 @@ public class SqlTaskManager
             LanguageFunctionProvider languageFunctionProvider,
             LocationFactory locationFactory,
             TaskExecutor taskExecutor,
+            SplitMonitor splitMonitor,
             NodeInfo nodeInfo,
             LocalMemoryManager localMemoryManager,
             TaskManagementExecutor taskManagementExecutor,
@@ -165,6 +167,7 @@ public class SqlTaskManager
                 languageFunctionProvider,
                 locationFactory,
                 taskExecutor,
+                splitMonitor,
                 nodeInfo,
                 localMemoryManager,
                 taskManagementExecutor,
@@ -186,6 +189,7 @@ public class SqlTaskManager
             LanguageFunctionProvider languageFunctionProvider,
             LocationFactory locationFactory,
             TaskExecutor taskExecutor,
+            SplitMonitor splitMonitor,
             NodeInfo nodeInfo,
             LocalMemoryManager localMemoryManager,
             TaskManagementExecutor taskManagementExecutor,
@@ -216,7 +220,7 @@ public class SqlTaskManager
         this.driverYieldExecutor = newScheduledThreadPool(config.getTaskYieldThreads(), threadsNamed("task-yield-%s"));
         this.driverTimeoutExecutor = newScheduledThreadPool(config.getDriverTimeoutThreads(), threadsNamed("task-driver-timeout-%s"));
 
-        SqlTaskExecutionFactory sqlTaskExecutionFactory = new SqlTaskExecutionFactory(taskNotificationExecutor, taskExecutor, planner, tracer, config);
+        SqlTaskExecutionFactory sqlTaskExecutionFactory = new SqlTaskExecutionFactory(taskNotificationExecutor, taskExecutor, planner, splitMonitor, tracer, config);
 
         DataSize maxQueryMemoryPerNode = nodeMemoryConfig.getMaxQueryMemoryPerNode();
         DataSize maxQuerySpillPerNode = nodeSpillConfig.getQueryMaxSpillPerNode();

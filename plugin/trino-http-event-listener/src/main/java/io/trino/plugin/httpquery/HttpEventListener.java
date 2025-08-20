@@ -19,29 +19,38 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.inject.Inject;
 import io.airlift.bootstrap.LifeCycleManager;
+import io.airlift.configuration.validation.FileExists;
 import io.airlift.http.client.BodyGenerator;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
+import io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
 import io.trino.spi.eventlistener.QueryCreatedEvent;
+import io.trino.spi.eventlistener.SplitCompletedEvent;
 import jakarta.annotation.PreDestroy;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Properties;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.net.MediaType.JSON_UTF_8;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
-import static io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
@@ -60,16 +69,19 @@ public class HttpEventListener
 
     private final JsonCodec<QueryCompletedEvent> queryCompletedEventJsonCodec;
     private final JsonCodec<QueryCreatedEvent> queryCreatedEventJsonCodec;
+    private final JsonCodec<SplitCompletedEvent> splitCompletedEventJsonCodec;
 
     private final HttpClient client;
 
     private final boolean logCreated;
     private final boolean logCompleted;
+    private final boolean logSplit;
     private final int retryCount;
     private final Duration retryDelay;
     private final Duration maxDelay;
     private final double backoffBase;
     private final Map<String, String> httpHeaders;
+    private final Optional<@FileExists File> httpHeadersConfigFile;
     private final URI ingestUri;
     private final HttpEventListenerHttpMethod httpMethod;
     private final ScheduledExecutorService executor;
@@ -79,6 +91,7 @@ public class HttpEventListener
             LifeCycleManager lifecycleManager,
             JsonCodec<QueryCompletedEvent> queryCompletedEventJsonCodec,
             JsonCodec<QueryCreatedEvent> queryCreatedEventJsonCodec,
+            JsonCodec<SplitCompletedEvent> splitCompletedEventJsonCodec,
             HttpEventListenerConfig config,
             @ForHttpEventListener HttpClient httpClient)
     {
@@ -88,14 +101,17 @@ public class HttpEventListener
 
         this.queryCompletedEventJsonCodec = requireNonNull(queryCompletedEventJsonCodec, "queryCompletedEventJsonCodec is null");
         this.queryCreatedEventJsonCodec = requireNonNull(queryCreatedEventJsonCodec, "queryCreatedEventJsonCodec is null");
+        this.splitCompletedEventJsonCodec = requireNonNull(splitCompletedEventJsonCodec, "splitCompletedEventJsonCodec is null");
         this.logCreated = config.getLogCreated();
         this.logCompleted = config.getLogCompleted();
+        this.logSplit = config.getLogSplit();
         this.retryCount = config.getRetryCount();
         this.retryDelay = config.getRetryDelay();
         this.maxDelay = config.getMaxDelay();
         this.backoffBase = config.getBackoffBase();
         this.httpMethod = config.getHttpMethod();
         this.httpHeaders = ImmutableMap.copyOf(config.getHttpHeaders());
+        this.httpHeadersConfigFile = config.getHttpHeadersConfigFile();
 
         try {
             ingestUri = new URI(config.getIngestUri());
@@ -129,15 +145,32 @@ public class HttpEventListener
         }
     }
 
+    @Override
+    public void splitCompleted(SplitCompletedEvent splitCompletedEvent)
+    {
+        if (logSplit) {
+            sendLog(jsonBodyGenerator(splitCompletedEventJsonCodec, splitCompletedEvent), splitCompletedEvent.getQueryId());
+        }
+    }
+
     private void sendLog(BodyGenerator eventBodyGenerator, String queryId)
     {
-        Request request = Request.builder()
+        Request.Builder requestBuilder = Request.builder()
                 .setMethod(httpMethod.name())
-                .addHeaders(Multimaps.forMap(httpHeaders))
                 .addHeader(CONTENT_TYPE, JSON_UTF_8.toString())
                 .setUri(ingestUri)
-                .setBodyGenerator(eventBodyGenerator)
-                .build();
+                .setBodyGenerator(eventBodyGenerator);
+
+        httpHeadersConfigFile.ifPresentOrElse(
+                file -> {
+                    Map<String, String> fileHeaders = loadHttpHeadersFromFile(file);
+                    requestBuilder.addHeaders(Multimaps.forMap(fileHeaders));
+                },
+                () -> {
+                    requestBuilder.addHeaders(Multimaps.forMap(httpHeaders));
+                });
+
+        Request request = requestBuilder.build();
 
         attemptToSend(request, 0, Duration.valueOf("0s"), queryId);
     }
@@ -233,6 +266,22 @@ public class HttpEventListener
             return maxDelay;
         }
         return newDuration;
+    }
+
+    public static Map<String, String> loadHttpHeadersFromFile(File file)
+    {
+        Properties properties = new Properties();
+        try (FileInputStream fis = new FileInputStream(file)) {
+            properties.load(fis);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException("Failed to read HTTP headers config file: " + file, e);
+        }
+
+        return properties.entrySet().stream()
+                .collect(toImmutableMap(
+                        e -> e.getKey().toString(),
+                        e -> e.getValue().toString()));
     }
 
     @Override

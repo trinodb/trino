@@ -19,17 +19,26 @@ import io.trino.operator.Work;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SourcePage;
+import io.trino.spi.type.Type;
 
 import static java.util.Objects.requireNonNull;
 
 public class InputPageProjection
         implements PageProjection
 {
+    private final Type type;
     private final InputChannels inputChannels;
 
-    public InputPageProjection(int inputChannel)
+    public InputPageProjection(int inputChannel, Type type)
     {
+        this.type = type;
         this.inputChannels = new InputChannels(inputChannel);
+    }
+
+    @Override
+    public Type getType()
+    {
+        return type;
     }
 
     @Override

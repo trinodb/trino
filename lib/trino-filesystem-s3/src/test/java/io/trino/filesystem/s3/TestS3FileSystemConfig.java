@@ -57,7 +57,7 @@ public class TestS3FileSystemConfig
                 .setCannedAcl(ObjectCannedAcl.NONE)
                 .setSseType(S3SseType.NONE)
                 .setRetryMode(LEGACY)
-                .setMaxErrorRetries(20)
+                .setMaxErrorRetries(10)
                 .setSseKmsKeyId(null)
                 .setUseWebIdentityTokenCredentialsProvider(false)
                 .setSseCustomerKey(null)
