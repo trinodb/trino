@@ -89,12 +89,20 @@ public class TeradataClientModule
         switch (longMech) {
             case "TD2":
                 break;
+            case "BEARER":
+                Optional<String> clientId = teradataConfig.getOidcClientId();
+                clientId.ifPresent(s -> connectionProperties.put("oidc_clientid", s));
+                Optional<String> privateKey = teradataConfig.getOidcJWSPrivateKey();
+                privateKey.ifPresent(s -> connectionProperties.put("jws_private_key", s));
+                Optional<String> certificate = teradataConfig.getOidcJWSCertificate();
+                certificate.ifPresent(s -> connectionProperties.put("jws_cert", s));
+                break;
             case "JWT":
                 Optional<String> token = teradataConfig.getOidcJwtToken();
                 token.ifPresent(s -> connectionProperties.put("LOGDATA", token.get()));
                 break;
             case "SECRET":
-                Optional<String> clientId = teradataConfig.getOidcClientId();
+                clientId = teradataConfig.getOidcClientId();
                 clientId.ifPresent(s -> connectionProperties.put("oidc_clientid", s));
                 Optional<String> clientSecret = teradataConfig.getOidcClientSecret();
                 clientSecret.ifPresent(s -> connectionProperties.put("LOGDATA", clientSecret.get()));
