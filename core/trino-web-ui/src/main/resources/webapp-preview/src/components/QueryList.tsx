@@ -171,6 +171,7 @@ export const QueryList = () => {
                       query.resourceGroupId?.join('.'),
                       query.errorCode?.name,
                       ...(query.clientTags || []),
+                      query.traceToken,
                   ].some((value) => value?.toLowerCase().includes(term))
               })
     }
