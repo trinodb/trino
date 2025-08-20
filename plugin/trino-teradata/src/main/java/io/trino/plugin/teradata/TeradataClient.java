@@ -62,6 +62,8 @@ import io.trino.plugin.jdbc.expression.RewriteLikeEscapeWithCaseSensitivity;
 import io.trino.plugin.jdbc.expression.RewriteLikeWithCaseSensitivity;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -77,6 +79,7 @@ import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -94,6 +97,7 @@ import org.jdbi.v3.core.Jdbi;
 import org.weakref.jmx.$internal.guava.collect.ImmutableMap;
 import org.weakref.jmx.$internal.guava.collect.ImmutableSet;
 
+import java.sql.Array;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
@@ -1058,9 +1062,7 @@ public class TeradataClient
             return mapping;
         }
 
-        // switch by names as some types overlap other types going by jdbc type alone
         String jdbcTypeName = typeHandle.jdbcTypeName().orElse("VARCHAR");
-        System.out.println(jdbcTypeName);
         switch (jdbcTypeName.toUpperCase()) {
             case "TIMESTAMP WITH TIME ZONE":
                 return Optional.of(timestampWithTimeZoneColumnMapping(typeHandle.requiredDecimalDigits()));
@@ -1068,6 +1070,12 @@ public class TeradataClient
                 return Optional.of(timeWithTimeZoneColumnMapping(typeHandle.requiredDecimalDigits()));
             case "JSON":
                 return Optional.of(jsonColumnMapping());
+            case "NUMBER":
+                return numberMapping(typeHandle);
+            case "CHARACTER":
+                return Optional.of(charColumnMapping(typeHandle.requiredColumnSize(), deriveCaseSensitivity(typeHandle.caseSensitivity())));
+            case "ARRAY":
+                return Optional.of(arrayColumnMapping(session, connection, typeHandle));
         }
 
         switch (typeHandle.jdbcType()) {
@@ -1090,15 +1098,8 @@ public class TeradataClient
             case Types.DECIMAL:
                 // also applies to teradata number type
                 // this is roughly logic see used by sql server
-                int precision = typeHandle.requiredColumnSize();
-                int scale = typeHandle.requiredDecimalDigits();
-                if (precision > Decimals.MAX_PRECISION) {
-                    // this will trigger for number(*) as precision is 40
-                    break;
-                }
-                return Optional.of(decimalColumnMapping(createDecimalType(precision, scale)));
+                return numberMapping(typeHandle);
             case Types.CHAR:
-                CharType charType = createCharType(typeHandle.requiredColumnSize());
                 return Optional.of(charColumnMapping(typeHandle.requiredColumnSize(), deriveCaseSensitivity(typeHandle.caseSensitivity())));
             case Types.VARCHAR:
                 // see prior note on trino case sensitivity
@@ -1127,6 +1128,17 @@ public class TeradataClient
         }
 
         return Optional.empty();
+    }
+
+    private Optional<ColumnMapping> numberMapping(JdbcTypeHandle typeHandle)
+    {
+        int precision = typeHandle.requiredColumnSize();
+        int scale = typeHandle.requiredDecimalDigits();
+        if (precision > Decimals.MAX_PRECISION) {
+            // this will trigger for number(*) as precision is 40
+            return Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, scale)));
+        }
+        return Optional.of(decimalColumnMapping(createDecimalType(precision, scale)));
     }
 
     /**
@@ -1277,5 +1289,65 @@ public class TeradataClient
         }
 
         public record ColumnIndexStatistics(boolean nullable, long distinctValues, long nullCount) {}
+    }
+
+    private ColumnMapping arrayColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
+    {
+        // Default to VARCHAR element type - you can enhance this to detect actual element type
+        Type elementType = createUnboundedVarcharType();
+        Type arrayType = new ArrayType(elementType);
+
+        return ColumnMapping.objectMapping(
+                arrayType,
+                arrayReadFunction(elementType),
+                arrayWriteFunction(elementType),
+                DISABLE_PUSHDOWN);
+    }
+
+    private ObjectReadFunction arrayReadFunction(Type elementType)
+    {
+        return ObjectReadFunction.of(Block.class, (resultSet, columnIndex) -> {
+            Array sqlArray = resultSet.getArray(columnIndex);
+            if (sqlArray == null) {
+                return null;
+            }
+
+            Object[] elements = (Object[]) sqlArray.getArray();
+            BlockBuilder blockBuilder = elementType.createBlockBuilder(null, elements.length);
+
+            for (Object element : elements) {
+                if (element == null) {
+                    blockBuilder.appendNull();
+                }
+                else {
+                    elementType.writeSlice(blockBuilder, utf8Slice(element.toString()));
+                }
+            }
+
+            return blockBuilder.build();
+        });
+    }
+
+    private ObjectWriteFunction arrayWriteFunction(Type elementType)
+    {
+        return ObjectWriteFunction.of(Block.class, (statement, index, block) -> {
+            if (block == null) {
+                statement.setNull(index, Types.ARRAY);
+                return;
+            }
+
+            Object[] elements = new Object[block.getPositionCount()];
+            for (int i = 0; i < block.getPositionCount(); i++) {
+                if (block.isNull(i)) {
+                    elements[i] = null;
+                }
+                else {
+                    elements[i] = elementType.getSlice(block, i).toStringUtf8();
+                }
+            }
+
+            Array sqlArray = statement.getConnection().createArrayOf("VARCHAR", elements);
+            statement.setArray(index, sqlArray);
+        });
     }
 }

@@ -84,43 +84,13 @@ public class TeradataJdbcConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
-            case SUPPORTS_CREATE_VIEW,
-                 SUPPORTS_CREATE_MATERIALIZED_VIEW,
-                 SUPPORTS_DELETE,
-                 SUPPORTS_INSERT,
-                 SUPPORTS_UPDATE,
-                 SUPPORTS_ADD_COLUMN,
-                 SUPPORTS_DROP_COLUMN,
-                 SUPPORTS_RENAME_COLUMN,
-                 SUPPORTS_RENAME_TABLE,
-                 SUPPORTS_TRUNCATE,
-                 SUPPORTS_MERGE,
-                 SUPPORTS_COMMENT_ON_TABLE,
-                 SUPPORTS_COMMENT_ON_COLUMN,
-                 SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT,
-                 SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
-                 SUPPORTS_RENAME_SCHEMA,
-                 SUPPORTS_SET_COLUMN_TYPE,
-                 SUPPORTS_ROW_LEVEL_DELETE,
-                 SUPPORTS_DROP_SCHEMA_CASCADE,
-                 SUPPORTS_NATIVE_QUERY,
-                 SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM,
-                 SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_INEQUALITY,
-                 SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY,
-                 SUPPORTS_ROW_TYPE,
-                 SUPPORTS_MAP_TYPE,
-                 SUPPORTS_DEREFERENCE_PUSHDOWN,
-                 SUPPORTS_NEGATIVE_DATE -> false;
-            case SUPPORTS_CREATE_SCHEMA,
-                 SUPPORTS_CREATE_TABLE,
-                 SUPPORTS_TOPN_PUSHDOWN,
-                 SUPPORTS_PREDICATE_PUSHDOWN,
-                 SUPPORTS_AGGREGATION_PUSHDOWN,
-                 SUPPORTS_JOIN_PUSHDOWN,
-                 SUPPORTS_LIMIT_PUSHDOWN,
-                 SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR,
-                 SUPPORTS_PREDICATE_ARITHMETIC_EXPRESSION_PUSHDOWN,
-                 SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN -> true;
+            case SUPPORTS_CREATE_VIEW, SUPPORTS_CREATE_MATERIALIZED_VIEW, SUPPORTS_DELETE, SUPPORTS_INSERT, SUPPORTS_UPDATE, SUPPORTS_ADD_COLUMN, SUPPORTS_DROP_COLUMN,
+                 SUPPORTS_RENAME_COLUMN, SUPPORTS_RENAME_TABLE, SUPPORTS_TRUNCATE, SUPPORTS_MERGE, SUPPORTS_COMMENT_ON_TABLE, SUPPORTS_COMMENT_ON_COLUMN,
+                 SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT, SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT, SUPPORTS_RENAME_SCHEMA, SUPPORTS_SET_COLUMN_TYPE, SUPPORTS_ROW_LEVEL_DELETE,
+                 SUPPORTS_DROP_SCHEMA_CASCADE, SUPPORTS_NATIVE_QUERY, SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM, SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_INEQUALITY,
+                 SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY, SUPPORTS_ROW_TYPE, SUPPORTS_MAP_TYPE, SUPPORTS_DEREFERENCE_PUSHDOWN, SUPPORTS_NEGATIVE_DATE -> false;
+            case SUPPORTS_CREATE_SCHEMA, SUPPORTS_CREATE_TABLE, SUPPORTS_TOPN_PUSHDOWN, SUPPORTS_PREDICATE_PUSHDOWN, SUPPORTS_AGGREGATION_PUSHDOWN, SUPPORTS_JOIN_PUSHDOWN,
+                 SUPPORTS_LIMIT_PUSHDOWN, SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR, SUPPORTS_PREDICATE_ARITHMETIC_EXPRESSION_PUSHDOWN, SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN -> true;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
@@ -177,10 +147,7 @@ public class TeradataJdbcConnectorTest
     {
         assertQuery("SELECT COUNT(*) FROM (SELECT DISTINCT orderstatus, custkey FROM orders LIMIT 10)");
         assertQuery("SELECT DISTINCT custkey, orderstatus FROM orders WHERE custkey = 1268 LIMIT 2");
-        assertQuery("SELECT DISTINCT x " +
-                        "FROM (VALUES 1) t(x) JOIN (VALUES 10, 20) u(a) ON t.x < u.a " +
-                        "LIMIT 100",
-                "SELECT 1");
+        assertQuery("SELECT DISTINCT x " + "FROM (VALUES 1) t(x) JOIN (VALUES 10, 20) u(a) ON t.x < u.a " + "LIMIT 100", "SELECT 1");
     }
 
     /* Overriding the method as Teradata avg calculations are slightly different than trino so Skipping the results check for avg
@@ -223,63 +190,24 @@ public class TeradataJdbcConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
         String tableName = "varchar_as_date_pred";
-        try (TestTable table = newTrinoTable(
-                tableName,
-                "(a varchar(50))",
-                List.of(
-                        "'999-09-09'",
-                        "'1005-09-09'",
-                        "'2005-06-06'", "'2005-06-6'", "'2005-6-06'", "'2005-6-6'", "' 2005-06-06'", "'2005-06-06 '", "' +2005-06-06'", "'02005-06-06'",
-                        "'2005-09-06'", "'2005-09-6'", "'2005-9-06'", "'2005-9-6'", "' 2005-09-06'", "'2005-09-06 '", "' +2005-09-06'", "'02005-09-06'",
-                        "'2005-09-09'", "'2005-09-9'", "'2005-9-09'", "'2005-9-9'", "' 2005-09-09'", "'2005-09-09 '", "' +2005-09-09'", "'02005-09-09'",
-                        "'2005-09-10'", "'2005-9-10'", "' 2005-09-10'", "'2005-09-10 '", "' +2005-09-10'", "'02005-09-10'",
-                        "'2005-09-20'", "'2005-9-20'", "' 2005-09-20'", "'2005-09-20 '", "' +2005-09-20'", "'02005-09-20'",
-                        "'9999-09-09'",
-                        "'99999-09-09'"))) {
+        try (TestTable table = newTrinoTable(tableName, "(a varchar(50))", List.of("'999-09-09'", "'1005-09-09'", "'2005-06-06'", "'2005-06-6'", "'2005-6-06'", "'2005-6-6'", "' 2005-06-06'", "'2005-06-06 '", "' +2005-06-06'", "'02005-06-06'", "'2005-09-06'", "'2005-09-6'", "'2005-9-06'", "'2005-9-6'", "' 2005-09-06'", "'2005-09-06 '", "' +2005-09-06'", "'02005-09-06'", "'2005-09-09'", "'2005-09-9'", "'2005-9-09'", "'2005-9-9'", "' 2005-09-09'", "'2005-09-09 '", "' +2005-09-09'", "'02005-09-09'", "'2005-09-10'", "'2005-9-10'", "' 2005-09-10'", "'2005-09-10 '", "' +2005-09-10'", "'02005-09-10'", "'2005-09-20'", "'2005-9-20'", "' 2005-09-20'", "'2005-09-20 '", "' +2005-09-20'", "'02005-09-20'", "'9999-09-09'", "'99999-09-09'"))) {
             for (String date : List.of("2005-09-06", "2005-09-09", "2005-09-10")) {
                 for (String operator : List.of("=", "<=", "<", ">", ">=", "!=", "IS DISTINCT FROM", "IS NOT DISTINCT FROM")) {
-                    assertThat(query("SELECT a FROM %s WHERE CAST(a AS date) %s DATE '%s'".formatted(table.getName(), operator, date)))
-                            .hasCorrectResultsRegardlessOfPushdown();
+                    assertThat(query("SELECT a FROM %s WHERE CAST(a AS date) %s DATE '%s'".formatted(table.getName(), operator, date))).hasCorrectResultsRegardlessOfPushdown();
                 }
             }
         }
-        try (TestTable table = newTrinoTable(tableName,
-                "(a varchar(50))",
-                List.of("'2005-06-bad-date'", "'2005-09-10'"))) {
-            assertThat(query("SELECT a FROM %s WHERE CAST(a AS date) < DATE '2005-09-10'".formatted(table.getName())))
-                    .failure().hasMessage("Value cannot be cast to date: 2005-06-bad-date");
-            verifyResultOrFailure(
-                    query("SELECT a FROM %s WHERE CAST(a AS date) = DATE '2005-09-10'".formatted(table.getName())),
-                    queryAssert -> queryAssert
-                            .skippingTypesCheck()
-                            .matches("VALUES '2005-09-10'"),
-                    failureAssert -> failureAssert
-                            .hasMessage("Value cannot be cast to date: 2005-06-bad-date"));
+        try (TestTable table = newTrinoTable(tableName, "(a varchar(50))", List.of("'2005-06-bad-date'", "'2005-09-10'"))) {
+            assertThat(query("SELECT a FROM %s WHERE CAST(a AS date) < DATE '2005-09-10'".formatted(table.getName()))).failure().hasMessage("Value cannot be cast to date: 2005-06-bad-date");
+            verifyResultOrFailure(query("SELECT a FROM %s WHERE CAST(a AS date) = DATE '2005-09-10'".formatted(table.getName())), queryAssert -> queryAssert.skippingTypesCheck().matches("VALUES '2005-09-10'"), failureAssert -> failureAssert.hasMessage("Value cannot be cast to date: 2005-06-bad-date"));
             // This failure isn't guaranteed: a row may be filtered out on the connector side with a derived predicate on a varchar column.
-            verifyResultOrFailure(
-                    query("SELECT a FROM %s WHERE CAST(a AS date) != DATE '2005-9-1'".formatted(table.getName())),
-                    queryAssert -> queryAssert
-                            .skippingTypesCheck()
-                            .matches("VALUES '2005-09-10'"),
-                    failureAssert -> failureAssert
-                            .hasMessage("Value cannot be cast to date: 2005-06-bad-date"));
+            verifyResultOrFailure(query("SELECT a FROM %s WHERE CAST(a AS date) != DATE '2005-9-1'".formatted(table.getName())), queryAssert -> queryAssert.skippingTypesCheck().matches("VALUES '2005-09-10'"), failureAssert -> failureAssert.hasMessage("Value cannot be cast to date: 2005-06-bad-date"));
             // This failure isn't guaranteed: a row may be filtered out on the connector side with a derived predicate on a varchar column.
-            verifyResultOrFailure(
-                    query("SELECT a FROM %s WHERE CAST(a AS date) > DATE '2022-08-10'".formatted(table.getName())),
-                    queryAssert -> queryAssert
-                            .skippingTypesCheck()
-                            .returnsEmptyResult(),
-                    failureAssert -> failureAssert
-                            .hasMessage("Value cannot be cast to date: 2005-06-bad-date"));
+            verifyResultOrFailure(query("SELECT a FROM %s WHERE CAST(a AS date) > DATE '2022-08-10'".formatted(table.getName())), queryAssert -> queryAssert.skippingTypesCheck().returnsEmptyResult(), failureAssert -> failureAssert.hasMessage("Value cannot be cast to date: 2005-06-bad-date"));
         }
-        try (TestTable table = newTrinoTable(
-                tableName,
-                "(a varchar(50))",
-                List.of("'2005-09-10'"))) {
+        try (TestTable table = newTrinoTable(tableName, "(a varchar(50))", List.of("'2005-09-10'"))) {
             // 2005-09-01, when written as 2005-09-1, is a prefix of an existing data point: 2005-09-10
-            assertThat(query("SELECT a FROM %s WHERE CAST(a AS date) != DATE '2005-09-01'".formatted(table.getName())))
-                    .skippingTypesCheck()
-                    .matches("VALUES '2005-09-10'");
+            assertThat(query("SELECT a FROM %s WHERE CAST(a AS date) != DATE '2005-09-01'".formatted(table.getName()))).skippingTypesCheck().matches("VALUES '2005-09-10'");
         }
     }
 
@@ -316,45 +244,21 @@ public class TeradataJdbcConnectorTest
         assertUpdate("CREATE TABLE IF NOT EXISTS nation AS SELECT nationkey, regionkey FROM nation", 0);
         assertTableColumnNames("nation", "nationkey", "name", "regionkey", "comment");
 
-        assertCreateTableAsSelect(
-                "SELECT nationkey, name, regionkey FROM nation",
-                "SELECT count(*) FROM nation");
+        assertCreateTableAsSelect("SELECT nationkey, name, regionkey FROM nation", "SELECT count(*) FROM nation");
 
-        assertCreateTableAsSelect(
-                "SELECT mktsegment, sum(acctbal) x FROM customer GROUP BY mktsegment",
-                "SELECT count(DISTINCT mktsegment) FROM customer");
+        assertCreateTableAsSelect("SELECT mktsegment, sum(acctbal) x FROM customer GROUP BY mktsegment", "SELECT count(DISTINCT mktsegment) FROM customer");
 
-        assertCreateTableAsSelect(
-                "SELECT count(*) x FROM nation JOIN region ON nation.regionkey = region.regionkey",
-                "SELECT 1");
+        assertCreateTableAsSelect("SELECT count(*) x FROM nation JOIN region ON nation.regionkey = region.regionkey", "SELECT 1");
 
-        assertCreateTableAsSelect(
-                "SELECT nationkey FROM nation ORDER BY nationkey LIMIT 10",
-                "SELECT 10");
+        assertCreateTableAsSelect("SELECT nationkey FROM nation ORDER BY nationkey LIMIT 10", "SELECT 10");
 
         // Tests for CREATE TABLE with UNION ALL: exercises PushTableWriteThroughUnion optimizer
 
-        assertCreateTableAsSelect(
-                "SELECT name, nationkey, regionkey FROM nation WHERE nationkey % 2 = 0 UNION ALL " +
-                        "SELECT name, nationkey, regionkey FROM nation WHERE nationkey % 2 = 1",
-                "SELECT name, nationkey, regionkey FROM nation",
-                "SELECT count(*) FROM nation");
+        assertCreateTableAsSelect("SELECT name, nationkey, regionkey FROM nation WHERE nationkey % 2 = 0 UNION ALL " + "SELECT name, nationkey, regionkey FROM nation WHERE nationkey % 2 = 1", "SELECT name, nationkey, regionkey FROM nation", "SELECT count(*) FROM nation");
 
-        assertCreateTableAsSelect(
-                Session.builder(getSession()).setSystemProperty("redistribute_writes", "true").build(),
-                "SELECT CAST(nationkey AS BIGINT) nationkey, regionkey FROM nation UNION ALL " +
-                        "SELECT 1234567890, 123",
-                "SELECT nationkey, regionkey FROM nation UNION ALL " +
-                        "SELECT 1234567890, 123",
-                "SELECT count(*) + 1 FROM nation");
+        assertCreateTableAsSelect(Session.builder(getSession()).setSystemProperty("redistribute_writes", "true").build(), "SELECT CAST(nationkey AS BIGINT) nationkey, regionkey FROM nation UNION ALL " + "SELECT 1234567890, 123", "SELECT nationkey, regionkey FROM nation UNION ALL " + "SELECT 1234567890, 123", "SELECT count(*) + 1 FROM nation");
 
-        assertCreateTableAsSelect(
-                Session.builder(getSession()).setSystemProperty("redistribute_writes", "false").build(),
-                "SELECT CAST(nationkey AS BIGINT) nationkey, regionkey FROM nation UNION ALL " +
-                        "SELECT 1234567890, 123",
-                "SELECT nationkey, regionkey FROM nation UNION ALL " +
-                        "SELECT 1234567890, 123",
-                "SELECT count(*) + 1 FROM nation");
+        assertCreateTableAsSelect(Session.builder(getSession()).setSystemProperty("redistribute_writes", "false").build(), "SELECT CAST(nationkey AS BIGINT) nationkey, regionkey FROM nation UNION ALL " + "SELECT 1234567890, 123", "SELECT nationkey, regionkey FROM nation UNION ALL " + "SELECT 1234567890, 123", "SELECT count(*) + 1 FROM nation");
 
         tableName = "test_ctas" + randomNameSuffix();
         assertExplainAnalyze("EXPLAIN ANALYZE CREATE TABLE " + tableName + " AS SELECT name FROM nation");
@@ -449,21 +353,12 @@ public class TeradataJdbcConnectorTest
         String testTableName = "test_json_table";
         try (TestTable table = newTrinoTable(testTableName, "(id INTEGER, json_data JSON)", List.of("1, '{\"name\": \"Alice\", \"age\": 30}'", "2, '{\"name\": \"Bob\", \"age\": 25, \"active\": true}'", "3, NULL"))) {
             // Test JSON reading
-            assertQuery(
-                    format("SELECT id, json_data FROM %s ORDER BY id", table.getName()),
-                    "VALUES " +
-                            "(1, JSON '{\"name\": \"Alice\", \"age\": 30}'), " +
-                            "(2, JSON '{\"name\": \"Bob\", \"age\": 25, \"active\": true}'), " +
-                            "(3, CAST(NULL AS JSON))");
+            assertQuery(format("SELECT id, json_data FROM %s ORDER BY id", table.getName()), "VALUES " + "(1, JSON '{\"name\": \"Alice\", \"age\": 30}'), " + "(2, JSON '{\"name\": \"Bob\", \"age\": 25, \"active\": true}'), " + "(3, CAST(NULL AS JSON))");
 
             // Test JSON extraction
-            assertQuery(
-                    format("SELECT JSON_EXTRACT_SCALAR(json_data, '$.name') FROM %s WHERE id = 1", table.getName()),
-                    "VALUES 'Alice'");
+            assertQuery(format("SELECT JSON_EXTRACT_SCALAR(json_data, '$.name') FROM %s WHERE id = 1", table.getName()), "VALUES 'Alice'");
 
-            assertQuery(
-                    format("SELECT JSON_EXTRACT_SCALAR(json_data, '$.age') FROM %s WHERE id = 2", table.getName()),
-                    "VALUES '25'");
+            assertQuery(format("SELECT JSON_EXTRACT_SCALAR(json_data, '$.age') FROM %s WHERE id = 2", table.getName()), "VALUES '25'");
         }
     }
 
@@ -494,29 +389,18 @@ public class TeradataJdbcConnectorTest
     public void testJsonColumnMappingComplexData()
     {
         String testTableName = "test_json_complex";
-        try (TestTable table = newTrinoTable(testTableName, "(id INTEGER, json_data JSON)",
-                List.of("1, '{\"user\": {\"name\": \"John\", \"addresses\": [{\"city\": \"NYC\", \"zip\": \"10001\"}, {\"city\": \"LA\", \"zip\": \"90210\"}]}}'",
-                        "2, '{\"numbers\": [1, 2, 3, 4, 5], \"mixed\": [\"text\", 42, true, null]}'",
-                        "3, '{\"empty_object\": {}, \"empty_array\": [], \"null_value\": null}'"))) {
+        try (TestTable table = newTrinoTable(testTableName, "(id INTEGER, json_data JSON)", List.of("1, '{\"user\": {\"name\": \"John\", \"addresses\": [{\"city\": \"NYC\", \"zip\": \"10001\"}, {\"city\": \"LA\", \"zip\": \"90210\"}]}}'", "2, '{\"numbers\": [1, 2, 3, 4, 5], \"mixed\": [\"text\", 42, true, null]}'", "3, '{\"empty_object\": {}, \"empty_array\": [], \"null_value\": null}'"))) {
             // Test nested object extraction
-            assertQuery(
-                    format("SELECT JSON_EXTRACT_SCALAR(json_data, '$.user.name') FROM %s WHERE id = 1", table.getName()),
-                    "VALUES 'John'");
+            assertQuery(format("SELECT JSON_EXTRACT_SCALAR(json_data, '$.user.name') FROM %s WHERE id = 1", table.getName()), "VALUES 'John'");
 
             // Test array element extraction
-            assertQuery(
-                    format("SELECT JSON_EXTRACT_SCALAR(json_data, '$.user.addresses[0].city') FROM %s WHERE id = 1", table.getName()),
-                    "VALUES 'NYC'");
+            assertQuery(format("SELECT JSON_EXTRACT_SCALAR(json_data, '$.user.addresses[0].city') FROM %s WHERE id = 1", table.getName()), "VALUES 'NYC'");
 
             // Test array element from numbers array
-            assertQuery(
-                    format("SELECT JSON_EXTRACT_SCALAR(json_data, '$.numbers[2]') FROM %s WHERE id = 2", table.getName()),
-                    "VALUES '3'");
+            assertQuery(format("SELECT JSON_EXTRACT_SCALAR(json_data, '$.numbers[2]') FROM %s WHERE id = 2", table.getName()), "VALUES '3'");
 
             // Test JSON_EXTRACT for object/array values
-            assertQuery(
-                    format("SELECT JSON_EXTRACT(json_data, '$.user.addresses') FROM %s WHERE id = 1", table.getName()),
-                    "VALUES JSON '[{\"city\": \"NYC\", \"zip\": \"10001\"}, {\"city\": \"LA\", \"zip\": \"90210\"}]'");
+            assertQuery(format("SELECT JSON_EXTRACT(json_data, '$.user.addresses') FROM %s WHERE id = 1", table.getName()), "VALUES JSON '[{\"city\": \"NYC\", \"zip\": \"10001\"}, {\"city\": \"LA\", \"zip\": \"90210\"}]'");
         }
     }
 
@@ -525,21 +409,14 @@ public class TeradataJdbcConnectorTest
     {
         String testTableName = "test_json_array_nulls";
 
-        try (TestTable table = newTrinoTable(testTableName, "(id INTEGER, json_data JSON)",
-                List.of("1, '{\"array\": [1, null, 3, null]}'"))) {
+        try (TestTable table = newTrinoTable(testTableName, "(id INTEGER, json_data JSON)", List.of("1, '{\"array\": [1, null, 3, null]}'"))) {
             // Extract specific array elements
-            assertQuery(
-                    format("SELECT JSON_EXTRACT_SCALAR(json_data, '$.array[1]') FROM %s WHERE id = 1", table.getName()),
-                    "VALUES CAST(NULL AS VARCHAR)"); // Second element is null
+            assertQuery(format("SELECT JSON_EXTRACT_SCALAR(json_data, '$.array[1]') FROM %s WHERE id = 1", table.getName()), "VALUES CAST(NULL AS VARCHAR)"); // Second element is null
 
-            assertQuery(
-                    format("SELECT JSON_EXTRACT_SCALAR(json_data, '$.array[2]') FROM %s WHERE id = 1", table.getName()),
-                    "VALUES '3'"); // Third element is 3
+            assertQuery(format("SELECT JSON_EXTRACT_SCALAR(json_data, '$.array[2]') FROM %s WHERE id = 1", table.getName()), "VALUES '3'"); // Third element is 3
 
             // Extract the entire array
-            assertQuery(
-                    format("SELECT JSON_EXTRACT(json_data, '$.array') FROM %s WHERE id = 1", table.getName()),
-                    "VALUES JSON '[1, null, 3, null]'");
+            assertQuery(format("SELECT JSON_EXTRACT(json_data, '$.array') FROM %s WHERE id = 1", table.getName()), "VALUES JSON '[1, null, 3, null]'");
         }
     }
 
@@ -564,11 +441,7 @@ public class TeradataJdbcConnectorTest
 
         TestTable table;
         try {
-            table = this.newTrinoTable("timestamptz_to_date", "(i varchar(20), t TIMESTAMP)",
-                    List.of(
-                            "'UTC', CAST(TIMESTAMP '2005-09-10 00:12:34.000+00:00' AT TIME ZONE INTERVAL '0:00' HOUR TO MINUTE AS TIMESTAMP)",
-                            "'Warsaw', CAST(TIMESTAMP '2005-09-10 00:12:34.000+02:00' AT TIME ZONE INTERVAL '2:00' HOUR TO MINUTE AS TIMESTAMP)",
-                            "'Los Angeles', CAST(TIMESTAMP '2005-09-10 00:12:34.000-07:00' AT TIME ZONE - INTERVAL '7:00' HOUR TO MINUTE AS TIMESTAMP)"));
+            table = this.newTrinoTable("timestamptz_to_date", "(i varchar(20), t TIMESTAMP)", List.of("'UTC', CAST(TIMESTAMP '2005-09-10 00:12:34.000+00:00' AT TIME ZONE INTERVAL '0:00' HOUR TO MINUTE AS TIMESTAMP)", "'Warsaw', CAST(TIMESTAMP '2005-09-10 00:12:34.000+02:00' AT TIME ZONE INTERVAL '2:00' HOUR TO MINUTE AS TIMESTAMP)", "'Los Angeles', CAST(TIMESTAMP '2005-09-10 00:12:34.000-07:00' AT TIME ZONE - INTERVAL '7:00' HOUR TO MINUTE AS TIMESTAMP)"));
         }
         catch (QueryFailedException e) {
             this.verifyUnsupportedTypeException(e, "timestamp(3) with time zone");
@@ -605,13 +478,7 @@ public class TeradataJdbcConnectorTest
 
         TestTable table;
         try {
-            table = this.newTrinoTable(
-                    "timestamptz_to_ts",
-                    "(i varchar(20), t TIMESTAMP)",
-                    List.of(
-                            "'UTC', CAST(TIMESTAMP '2005-09-10 13:00:00.000+00:00' AT TIME ZONE INTERVAL '0:00' HOUR TO MINUTE AS TIMESTAMP)",
-                            "'Warsaw', CAST(TIMESTAMP '2005-09-10 13:00:00.000+02:00' AT TIME ZONE INTERVAL '2:00' HOUR TO MINUTE AS TIMESTAMP)",
-                            "'Los Angeles', CAST(TIMESTAMP '2005-09-10 13:00:00.000-07:00' AT TIME ZONE - INTERVAL '7:00' HOUR TO MINUTE AS TIMESTAMP)"));
+            table = this.newTrinoTable("timestamptz_to_ts", "(i varchar(20), t TIMESTAMP)", List.of("'UTC', CAST(TIMESTAMP '2005-09-10 13:00:00.000+00:00' AT TIME ZONE INTERVAL '0:00' HOUR TO MINUTE AS TIMESTAMP)", "'Warsaw', CAST(TIMESTAMP '2005-09-10 13:00:00.000+02:00' AT TIME ZONE INTERVAL '2:00' HOUR TO MINUTE AS TIMESTAMP)", "'Los Angeles', CAST(TIMESTAMP '2005-09-10 13:00:00.000-07:00' AT TIME ZONE - INTERVAL '7:00' HOUR TO MINUTE AS TIMESTAMP)"));
         }
         catch (QueryFailedException e) {
             this.verifyUnsupportedTypeException(e, "timestamp(3) with time zone");
@@ -649,8 +516,7 @@ public class TeradataJdbcConnectorTest
         int maxLength = this.maxColumnNameLength().orElse(65541);
         String validColumnName = "z".repeat(maxLength - 5);
 
-        try (TestTable left = this.newTrinoTable("test_long_id_l", String.format("(%s BIGINT)", validColumnName));
-                TestTable right = this.newTrinoTable("test_long_id_r", String.format("(%s BIGINT)", validColumnName))) {
+        try (TestTable left = this.newTrinoTable("test_long_id_l", String.format("(%s BIGINT)", validColumnName)); TestTable right = this.newTrinoTable("test_long_id_r", String.format("(%s BIGINT)", validColumnName))) {
             Assertions.assertThat(this.query(this.joinPushdownEnabled(this.getSession()), "SELECT l.%1$s, r.%1$s\nFROM %2$s l JOIN %3$s r ON l.%1$s = r.%1$s".formatted(validColumnName, left.getName(), right.getName()))).isFullyPushedDown();
         }
     }
@@ -662,8 +528,8 @@ public class TeradataJdbcConnectorTest
         return switch (typeName) {
             // skipping date as during julian->gregorian date is handled differently in Teradata. tinyint, double and varchar with unbounded (need to handle special characters) is skipped and will handle it while improving
             // write functionalities.
-            case "boolean", "tinyint", "date", "real", "double", "varchar", "timestamp(3) with time zone", "timestamp(6) with time zone",
-                 "U&'a \\000a newline'" -> Optional.empty();
+            case "boolean", "tinyint", "date", "real", "double", "varchar", "timestamp(3) with time zone", "timestamp(6) with time zone", "U&'a \\000a newline'" ->
+                    Optional.empty();
             default -> Optional.of(dataMappingTestSetup);
         };
     }
@@ -766,8 +632,7 @@ public class TeradataJdbcConnectorTest
     {
         return Session.builder(super.joinPushdownEnabled(session))
                 // strategy is AUTOMATIC by default and would not work for certain test cases (even if statistics are collected)
-                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "join_pushdown_strategy", "EAGER")
-                .build();
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "join_pushdown_strategy", "EAGER").build();
     }
 
     protected TestTable newTrinoTable(String namePrefix, @Language("SQL") String tableDefinition, List<String> rowsToInsert)
@@ -827,5 +692,75 @@ public class TeradataJdbcConnectorTest
         String typeNameBase = trinoTypeName.replaceFirst("\\(.*", "");
         String expectedMessagePart = String.format("(%1$s.*not (yet )?supported)|((?i)unsupported.*%1$s)|((?i)not supported.*%1$s)", Pattern.quote(typeNameBase));
         Assertions.assertThat(exception).hasMessageFindingMatch(expectedMessagePart).satisfies((e) -> Assertions.assertThat(io.trino.testing.QueryAssertions.getTrinoExceptionCause(e)).hasMessageFindingMatch(expectedMessagePart));
+    }
+
+    @Test
+    public void testTeradataNumberDataType()
+    {
+        try (TestTable table = newTrinoTable("test_number", "(id INTEGER, " + "number_col NUMBER(10,2), " + "number_default NUMBER, " + "number_large NUMBER(38,10))", List.of("1, CAST(12345.67 AS NUMBER(10,2)), CAST(999999999999999 AS NUMBER), CAST(1234567890123456789012345678.1234567890 AS NUMBER(38,10))", "2, CAST(-99999.99 AS NUMBER(10,2)), CAST(-123456789012345 AS NUMBER), CAST(-9999999999999999999999999999.9999999999 AS NUMBER(38,10))", "3, CAST(0.00 AS NUMBER(10,2)), CAST(0 AS NUMBER), CAST(0.0000000000 AS NUMBER(38,10))"))) {
+            assertThat(query(format("SELECT number_col FROM %s WHERE id = 1", table.getName()))).matches("VALUES CAST(12345.67 AS DECIMAL(10,2))");
+            assertThat(query(format("SELECT number_default FROM %s WHERE id = 1", table.getName()))).matches("VALUES CAST(999999999999999 AS DECIMAL(38,0))");
+            assertThat(query(format("SELECT number_large FROM %s WHERE id = 1", table.getName()))).matches("VALUES CAST(1234567890123456789012345678.1234567890 AS DECIMAL(38,10))");
+            assertThat(query(format("SELECT number_col FROM %s WHERE id = 2", table.getName()))).matches("VALUES CAST(-99999.99 AS DECIMAL(10,2))");
+            assertThat(query(format("SELECT number_col FROM %s WHERE id = 3", table.getName()))).matches("VALUES CAST(0.00 AS DECIMAL(10,2))");
+        }
+    }
+
+    @Test
+    public void testTeradataCharacterDataType()
+    {
+        try (TestTable table = newTrinoTable("test_character", "(id INTEGER, " + "char_col CHARACTER(5), " + "char_default CHARACTER, " + "char_large CHARACTER(100))", List.of("1, CAST('HELLO' AS CHARACTER(5)), CAST('A' AS CHARACTER), CAST('TERADATA' AS CHARACTER(100))", "2, CAST('WORLD' AS CHARACTER(5)), CAST('B' AS CHARACTER), CAST('CHARACTER' AS CHARACTER(100))", "3, CAST('' AS CHARACTER(5)), CAST('C' AS CHARACTER), CAST('' AS CHARACTER(100))"))) {
+            assertThat(query(format("SELECT char_col FROM %s WHERE id = 1", table.getName()))).matches("VALUES CAST('HELLO' AS CHAR(5))");
+            assertThat(query(format("SELECT char_default FROM %s WHERE id = 1", table.getName()))).matches("VALUES CAST('A' AS CHAR(1))");
+            assertThat(query(format("SELECT char_large FROM %s WHERE id = 1", table.getName()))).matches("VALUES CAST('TERADATA' AS CHAR(100))");
+            assertThat(query(format("SELECT char_col FROM %s WHERE id = 3", table.getName()))).matches("VALUES CAST('' AS CHAR(5))");
+        }
+    }
+
+    @Test
+    public void testTeradataTimeWithTimeZoneDataType()
+    {
+        try (TestTable table = newTrinoTable("test_time_with_timezone", "(id INTEGER, " + "time_tz_default TIME WITH TIME ZONE, " + "time_tz_precision TIME(3) WITH TIME ZONE, " + "time_tz_max TIME(6) WITH TIME ZONE)", List.of("1, CAST('10:30:45.000000+05:30' AS TIME WITH TIME ZONE), CAST('14:25:30.123+00:00' AS TIME(3) WITH TIME ZONE), CAST('09:15:20.123456-08:00' AS TIME(6) WITH TIME ZONE)", "2, CAST('23:59:59.000000-07:00' AS TIME WITH TIME ZONE), CAST('00:00:00.000+01:00' AS TIME(3) WITH TIME ZONE), CAST('12:30:45.999999+09:00' AS TIME(6) WITH TIME ZONE)", "3, CAST('06:45:30.000000+00:00' AS TIME WITH TIME ZONE), CAST('18:20:15.567+03:00' AS TIME(3) WITH TIME ZONE), CAST('21:10:05.000001-05:00' AS TIME(6) WITH TIME ZONE)"))) {
+            assertThat(query(format("SELECT time_tz_default FROM %s WHERE id = 1", table.getName()))).matches("VALUES CAST('10:30:45.000000+05:30' AS TIME(6) WITH TIME ZONE)");
+        }
+    }
+
+    @Test
+    public void testTeradataTimestampWithTimeZoneDataType()
+    {
+        try (TestTable table = newTrinoTable("test_timestamp_with_timezone", "(id INTEGER, " + "ts_tz_default TIMESTAMP WITH TIME ZONE, " + "ts_tz_precision TIMESTAMP(3) WITH TIME ZONE, " + "ts_tz_max TIMESTAMP(6) WITH TIME ZONE)", List.of("1, CAST('2023-05-15 10:30:45.000000+05:30' AS TIMESTAMP WITH TIME ZONE), CAST('2023-05-15 14:25:30.123+00:00' AS TIMESTAMP(3) WITH TIME ZONE), CAST('2023-05-15 09:15:20.123456-08:00' AS TIMESTAMP(6) WITH TIME ZONE)", "2, CAST('2023-12-31 23:59:59.000000-07:00' AS TIMESTAMP WITH TIME ZONE), CAST('2023-01-01 00:00:00.000+01:00' AS TIMESTAMP(3) WITH TIME ZONE), CAST('2023-06-15 12:30:45.999999+09:00' AS TIMESTAMP(6) WITH TIME ZONE)", "3, CAST('2023-07-04 06:45:30.000000+00:00' AS TIMESTAMP WITH TIME ZONE), CAST('2023-11-25 18:20:15.567+03:00' AS TIMESTAMP(3) WITH TIME ZONE), CAST('2023-03-10 21:10:05.000001-05:00' AS TIMESTAMP(6) WITH TIME ZONE)"))) {
+            assertThat(query(format("SELECT ts_tz_default FROM %s WHERE id = 1", table.getName()))).matches("VALUES CAST('2023-05-15 10:30:45.000000+05:30' AS TIMESTAMP(6) WITH TIME ZONE)");
+            assertThat(query(format("SELECT ts_tz_precision FROM %s WHERE id = 1", table.getName()))).matches("VALUES CAST('2023-05-15 14:25:30.123+00:00' AS TIMESTAMP(3) WITH TIME ZONE)");
+            assertThat(query(format("SELECT ts_tz_max FROM %s WHERE id = 1", table.getName()))).matches("VALUES CAST('2023-05-15 09:15:20.123456-08:00' AS TIMESTAMP(6) WITH TIME ZONE)");
+            assertThat(query(format("SELECT ts_tz_default FROM %s WHERE id = 2", table.getName()))).matches("VALUES CAST('2023-12-31 23:59:59.000000-07:00' AS TIMESTAMP(6) WITH TIME ZONE)");
+            assertThat(query(format("SELECT ts_tz_precision FROM %s WHERE id = 2", table.getName()))).matches("VALUES CAST('2023-01-01 00:00:00.000+01:00' AS TIMESTAMP(3) WITH TIME ZONE)");
+            assertThat(query(format("SELECT ts_tz_max FROM %s WHERE id = 3", table.getName()))).matches("VALUES CAST('2023-03-10 21:10:05.000001-05:00' AS TIMESTAMP(6) WITH TIME ZONE)");
+            assertThat(query(format("SELECT ts_tz_default FROM %s WHERE id = 3", table.getName()))).matches("VALUES CAST('2023-07-04 06:45:30.000000+00:00' AS TIMESTAMP(6) WITH TIME ZONE)");
+        }
+    }
+
+    @Test
+    public void testArrayAsVarcharColumnMapping()
+    {
+        String testTableName = "test_array_table";
+
+        try (TestTable table = newTrinoTable(testTableName, "(id INTEGER, array_data VARCHAR(1000))", List.of("1, 'ARRAY[\"Alice\", \"Bob\", \"Charlie\"]'", "2, 'ARRAY[\"John\", \"Jane\"]'", "3, NULL", "4, 'ARRAY[]'"))) {
+            assertQuery(format("SELECT id, array_data FROM %s ORDER BY id", table.getName()), "VALUES " + "(1, 'ARRAY[\"Alice\", \"Bob\", \"Charlie\"]'), " + "(2, 'ARRAY[\"John\", \"Jane\"]'), " + "(3, CAST(NULL AS VARCHAR)), " + "(4, 'ARRAY[]')");
+            assertQuery(format("SELECT array_data FROM %s WHERE id = 1", table.getName()), "VALUES 'ARRAY[\"Alice\", \"Bob\", \"Charlie\"]'");
+            assertQuery(format("SELECT array_data FROM %s WHERE id = 2", table.getName()), "VALUES 'ARRAY[\"John\", \"Jane\"]'");
+        }
+    }
+
+    @Test
+    public void testArrayAsVarcharColumnMappingWithNullElements()
+    {
+        String testTableName = "test_array_nulls";
+
+        try (TestTable table = newTrinoTable(testTableName, "(id INTEGER, array_data VARCHAR(1000))", List.of("1, 'ARRAY[\"first\", null, \"third\", null]'", "2, 'ARRAY[null, \"second\"]'", "3, 'ARRAY[null, null, null]'"))) {
+            assertQuery(format("SELECT id, array_data FROM %s ORDER BY id", table.getName()), "VALUES " + "(1, 'ARRAY[\"first\", null, \"third\", null]'), " + "(2, 'ARRAY[null, \"second\"]'), " + "(3, 'ARRAY[null, null, null]')");
+            assertQuery(format("SELECT array_data FROM %s WHERE id = 1", table.getName()), "VALUES 'ARRAY[\"first\", null, \"third\", null]'");
+            assertQuery(format("SELECT array_data FROM %s WHERE id = 2", table.getName()), "VALUES 'ARRAY[null, \"second\"]'");
+            assertQuery(format("SELECT array_data FROM %s WHERE id = 3", table.getName()), "VALUES 'ARRAY[null, null, null]'");
+        }
     }
 }
