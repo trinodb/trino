@@ -41,6 +41,7 @@ import io.trino.plugin.jdbc.aggregation.ImplementAvgDecimal;
 import io.trino.plugin.jdbc.aggregation.ImplementAvgFloatingPoint;
 import io.trino.plugin.jdbc.aggregation.ImplementCorr;
 import io.trino.plugin.jdbc.aggregation.ImplementCount;
+import io.trino.plugin.jdbc.aggregation.ImplementCountAll;
 import io.trino.plugin.jdbc.aggregation.ImplementCountDistinct;
 import io.trino.plugin.jdbc.aggregation.ImplementCovariancePop;
 import io.trino.plugin.jdbc.aggregation.ImplementCovarianceSamp;
@@ -58,6 +59,7 @@ import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.plugin.jdbc.expression.RewriteCaseSensitiveComparison;
 import io.trino.plugin.jdbc.expression.RewriteIn;
 import io.trino.plugin.jdbc.expression.RewriteLikeEscapeWithCaseSensitivity;
+import io.trino.plugin.jdbc.expression.RewriteLikeWithCaseSensitivity;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
@@ -914,6 +916,7 @@ public class TeradataClient
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
                 .addStandardRules(this::quoted)
                 .add(new RewriteIn())
+                .add(new RewriteLikeWithCaseSensitivity())
                 .add(new RewriteLikeEscapeWithCaseSensitivity())
                 .withTypeClass("integer_type", ImmutableSet.of("tinyint", "smallint", "integer", "bigint"))
                 .withTypeClass("numeric_type", ImmutableSet.of("tinyint", "smallint", "integer", "bigint", "decimal", "real", "double"))
@@ -930,6 +933,7 @@ public class TeradataClient
                 .map("$divide(left: integer_type, right: integer_type)").to("left / right")
                 .map("$modulus(left: integer_type, right: integer_type)").to("MOD(left, right)")
                 .map("$negate(value: integer_type)").to("-value")
+                .map("$not($is_null(value))").to("value IS NOT NULL")
                 .map("$not(value: boolean)").to("NOT value")
                 .map("$is_null(value)").to("value IS NULL")
                 .map("$nullif(first, second)").to("NULLIF(first, second)")
@@ -944,6 +948,7 @@ public class TeradataClient
                 this.connectorExpressionRewriter,
                 ImmutableSet.<AggregateFunctionRule<JdbcExpression, ParameterizedExpression>>builder()
                         // Basic aggregates
+                        .add(new ImplementCountAll(bigintTypeHandle))
                         .add(new ImplementCount(bigintTypeHandle))
                         .add(new ImplementCountDistinct(bigintTypeHandle, false))
                         .add(new ImplementMinMax(false))
