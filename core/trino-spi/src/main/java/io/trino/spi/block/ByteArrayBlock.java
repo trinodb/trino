@@ -26,7 +26,6 @@ import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkReadablePosition;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactArray;
-import static io.trino.spi.block.BlockUtil.compactIsNull;
 import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
 import static io.trino.spi.block.BlockUtil.ensureCapacity;
 
@@ -178,7 +177,6 @@ public final class ByteArrayBlock
     {
         checkArrayRange(positions, offset, length);
 
-        boolean hasNull = false;
         boolean[] newValueIsNull = null;
         if (valueIsNull != null) {
             newValueIsNull = new boolean[length];
@@ -188,13 +186,11 @@ public final class ByteArrayBlock
             int position = positions[offset + i];
             checkReadablePosition(this, position);
             if (valueIsNull != null) {
-                boolean isNull = valueIsNull[position + arrayOffset];
-                newValueIsNull[i] = isNull;
-                hasNull |= isNull;
+                newValueIsNull[i] = valueIsNull[position + arrayOffset];
             }
             newValues[i] = values[position + arrayOffset];
         }
-        return new ByteArrayBlock(0, length, hasNull ? newValueIsNull : null, newValues);
+        return new ByteArrayBlock(0, length, newValueIsNull, newValues);
     }
 
     @Override
@@ -211,7 +207,7 @@ public final class ByteArrayBlock
         checkValidRegion(getPositionCount(), positionOffset, length);
 
         positionOffset += arrayOffset;
-        boolean[] newValueIsNull = compactIsNull(valueIsNull, positionOffset, length);
+        boolean[] newValueIsNull = valueIsNull == null ? null : compactArray(valueIsNull, positionOffset, length);
         byte[] newValues = compactArray(values, positionOffset, length);
 
         if (newValueIsNull == valueIsNull && newValues == values) {

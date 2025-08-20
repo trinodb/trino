@@ -35,7 +35,6 @@ import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.ConnectorViewDefinition;
-import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SaveMode;
@@ -55,7 +54,6 @@ import io.trino.spi.type.Type;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -64,7 +62,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
-import java.util.function.UnaryOperator;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -188,32 +185,9 @@ public class BlackHoleMetadata
     @Override
     public Iterator<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        throw new UnsupportedOperationException("The deprecated streamTableColumns is not supported because streamRelationColumns is implemented instead");
-    }
-
-    @Override
-    public Iterator<RelationColumnsMetadata> streamRelationColumns(
-            ConnectorSession session,
-            Optional<String> schemaName,
-            UnaryOperator<Set<SchemaTableName>> relationFilter)
-    {
-        Map<SchemaTableName, RelationColumnsMetadata> relationColumns = new HashMap<>();
-        SchemaTablePrefix prefix = schemaName.map(SchemaTablePrefix::new).orElseGet(SchemaTablePrefix::new);
-
-        tables.values().stream()
+        return tables.values().stream()
                 .filter(table -> prefix.matches(table.toSchemaTableName()))
-                .map(BlackHoleTableHandle::toTableMetadata)
-                .forEach(columnsMetadata -> {
-                    SchemaTableName name = columnsMetadata.getTable();
-                    relationColumns.put(name, RelationColumnsMetadata.forTable(name, columnsMetadata.getColumns()));
-                });
-
-        for (Map.Entry<SchemaTableName, ConnectorViewDefinition> entry : getViews(session, schemaName).entrySet()) {
-            relationColumns.put(entry.getKey(), RelationColumnsMetadata.forView(entry.getKey(), entry.getValue().getColumns()));
-        }
-
-        return relationFilter.apply(relationColumns.keySet()).stream()
-                .map(relationColumns::get)
+                .map(handle -> TableColumnsMetadata.forTable(handle.toSchemaTableName(), handle.toTableMetadata().getColumns()))
                 .iterator();
     }
 
@@ -464,19 +438,13 @@ public class BlackHoleMetadata
     @Override
     public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
     {
-        return schemaName.map(schema -> views.keySet().stream()
-                        .filter(view -> view.getSchemaName().equals(schema))
-                        .collect(toImmutableList()))
-                .orElseGet(() -> ImmutableList.copyOf(views.keySet()));
+        return ImmutableList.copyOf(views.keySet());
     }
 
     @Override
     public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, Optional<String> schemaName)
     {
-        return schemaName.map(schema -> views.entrySet().stream()
-                        .filter(view -> view.getKey().getSchemaName().equals(schema))
-                        .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)))
-                .orElseGet(() -> ImmutableMap.copyOf(views));
+        return ImmutableMap.copyOf(views);
     }
 
     @Override

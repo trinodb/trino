@@ -48,7 +48,7 @@ final class TestKafkaRecordBuilder
     void testBuildKafkaRecord()
             throws IOException
     {
-        KafkaRecordBuilder builder = new KafkaRecordBuilder("TestQueryStartedEvent", "TestQueryCompletedEvent", EXCLUDED_FIELDS, TEST_PROVIDER);
+        KafkaRecordBuilder builder = new KafkaRecordBuilder("TestQueryStartedEvent", "TestQueryCompletedEvent", "TestSplitCompletedEvent", EXCLUDED_FIELDS, TEST_PROVIDER);
         QueryCompletedEvent queryCompletedEvent = TestUtils.queryCompletedEvent;
 
         ProducerRecord<String, String> record = builder.buildCompletedRecord(queryCompletedEvent);
@@ -65,7 +65,7 @@ final class TestKafkaRecordBuilder
             throws IOException
     {
         Set<String> exclude = Sets.union(EXCLUDED_FIELDS, Set.of("query", "principal", "analysisTime", "writtenBytes"));
-        KafkaRecordBuilder builder = new KafkaRecordBuilder("TestQueryStartedEvent", "TestQueryCompletedEvent", exclude, TEST_PROVIDER);
+        KafkaRecordBuilder builder = new KafkaRecordBuilder("TestQueryStartedEvent", "TestQueryCompletedEvent", "TestSplitCompletedEvent", exclude, TEST_PROVIDER);
         QueryCompletedEvent queryCompletedEvent = TestUtils.queryCompletedEvent;
 
         ProducerRecord<String, String> record = builder.buildCompletedRecord(queryCompletedEvent);
@@ -86,7 +86,7 @@ final class TestKafkaRecordBuilder
             throws IOException
     {
         Set<String> exclude = Sets.union(EXCLUDED_FIELDS, Set.of("context", "payload", "analysisTime"));
-        KafkaRecordBuilder builder = new KafkaRecordBuilder("TestQueryStartedEvent", "TestQueryCompletedEvent", exclude, TEST_PROVIDER);
+        KafkaRecordBuilder builder = new KafkaRecordBuilder("TestQueryStartedEvent", "TestQueryCompletedEvent", "TestSplitCompletedEvent", exclude, TEST_PROVIDER);
         QueryCompletedEvent queryCompletedEvent = TestUtils.queryCompletedEvent;
 
         ProducerRecord<String, String> record = builder.buildCompletedRecord(queryCompletedEvent);

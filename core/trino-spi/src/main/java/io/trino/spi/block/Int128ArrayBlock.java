@@ -25,7 +25,6 @@ import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkReadablePosition;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactArray;
-import static io.trino.spi.block.BlockUtil.compactIsNull;
 import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
 import static io.trino.spi.block.BlockUtil.ensureCapacity;
 
@@ -177,7 +176,6 @@ public final class Int128ArrayBlock
     {
         checkArrayRange(positions, offset, length);
 
-        boolean hasNull = false;
         boolean[] newValueIsNull = null;
         if (valueIsNull != null) {
             newValueIsNull = new boolean[length];
@@ -187,14 +185,12 @@ public final class Int128ArrayBlock
             int position = positions[offset + i];
             checkReadablePosition(this, position);
             if (valueIsNull != null) {
-                boolean isNull = valueIsNull[position + positionOffset];
-                newValueIsNull[i] = isNull;
-                hasNull |= isNull;
+                newValueIsNull[i] = valueIsNull[position + positionOffset];
             }
             newValues[i * 2] = values[(position + positionOffset) * 2];
             newValues[(i * 2) + 1] = values[((position + positionOffset) * 2) + 1];
         }
-        return new Int128ArrayBlock(0, length, hasNull ? newValueIsNull : null, newValues);
+        return new Int128ArrayBlock(0, length, newValueIsNull, newValues);
     }
 
     @Override
@@ -211,7 +207,7 @@ public final class Int128ArrayBlock
         checkValidRegion(getPositionCount(), positionOffset, length);
 
         positionOffset += this.positionOffset;
-        boolean[] newValueIsNull = compactIsNull(valueIsNull, positionOffset, length);
+        boolean[] newValueIsNull = valueIsNull == null ? null : compactArray(valueIsNull, positionOffset, length);
         long[] newValues = compactArray(values, positionOffset * 2, length * 2);
 
         if (newValueIsNull == valueIsNull && newValues == values) {

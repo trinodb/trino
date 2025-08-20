@@ -50,7 +50,6 @@ public class MysqlEventListener
 
     private static final long MAX_OPERATOR_SUMMARIES_JSON_LENGTH = 16 * 1024 * 1024;
 
-    private final boolean terminateOnInitializationFailure;
     private final QueryDao dao;
     private final JsonCodec<Set<String>> clientTagsJsonCodec;
     private final JsonCodec<Map<String, String>> sessionPropertiesJsonCodec;
@@ -60,7 +59,6 @@ public class MysqlEventListener
 
     @Inject
     public MysqlEventListener(
-            MysqlEventListenerConfig config,
             QueryDao dao,
             JsonCodec<Set<String>> clientTagsJsonCodec,
             JsonCodec<Map<String, String>> sessionPropertiesJsonCodec,
@@ -68,7 +66,6 @@ public class MysqlEventListener
             JsonCodec<QueryOutputMetadata> outputJsonCodec,
             JsonCodec<List<TrinoWarning>> warningsJsonCodec)
     {
-        this.terminateOnInitializationFailure = config.getTerminateOnInitializationFailure();
         this.dao = requireNonNull(dao, "dao is null");
         this.clientTagsJsonCodec = requireNonNull(clientTagsJsonCodec, "clientTagsJsonCodec is null");
         this.sessionPropertiesJsonCodec = requireNonNull(sessionPropertiesJsonCodec, "sessionPropertiesJsonCodec is null");
@@ -80,16 +77,7 @@ public class MysqlEventListener
     @PostConstruct
     public void createTable()
     {
-        try {
-            dao.createTable();
-        }
-        catch (Exception e) {
-            if (terminateOnInitializationFailure) {
-                throw e;
-            }
-            // Log the error but do not terminate, allowing the listener to continue functioning
-            log.warn(e, "Unexpected error while creating MySQL event listener schema at startup. Ignoring error.");
-        }
+        dao.createTable();
     }
 
     @Override

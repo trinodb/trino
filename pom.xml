@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>288</version>
+        <version>285</version>
     </parent>
 
     <groupId>io.trino</groupId>
@@ -181,7 +181,7 @@
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}</air.test.jvm.additional-arguments>
 
         <!-- keep dependency properties sorted -->
-        <dep.airlift.version>347</dep.airlift.version>
+        <dep.airlift.version>345</dep.airlift.version>
         <dep.alluxio.version>2.9.6</dep.alluxio.version>
         <dep.antlr.version>4.13.2</dep.antlr.version>
         <dep.avro.version>1.12.0</dep.avro.version>
@@ -189,9 +189,9 @@
         <dep.cassandra.version>4.17.0</dep.cassandra.version>
         <dep.checkstyle.version>10.23.1</dep.checkstyle.version>
         <dep.confluent.version>7.8.0</dep.confluent.version>
-        <dep.docker.images.version>119</dep.docker.images.version>
+        <dep.docker.images.version>116</dep.docker.images.version>
         <dep.drift.version>1.23</dep.drift.version>
-        <dep.flyway.version>11.11.1</dep.flyway.version>
+        <dep.flyway.version>11.11.0</dep.flyway.version>
         <dep.frontend-maven-plugin.version>1.15.1</dep.frontend-maven-plugin.version>
         <dep.frontend-node.version>v22.14.0</dep.frontend-node.version>
         <dep.frontend-npm.version>11.2.0</dep.frontend-npm.version>
@@ -199,18 +199,16 @@
         <dep.httpcore5.version>5.3.4</dep.httpcore5.version>
         <dep.iceberg.version>1.9.2</dep.iceberg.version>
         <dep.jna.version>5.17.0</dep.jna.version>
-        <dep.jsonwebtoken.version>0.12.7</dep.jsonwebtoken.version>
+        <dep.jsonwebtoken.version>0.12.6</dep.jsonwebtoken.version>
         <dep.jts.version>1.20.0</dep.jts.version>
         <dep.kafka-clients.version>4.0.0</dep.kafka-clients.version>
         <dep.okhttp.version>5.1.0</dep.okhttp.version>
         <dep.okio.version>3.16.0</dep.okio.version>
         <dep.parquet.version>1.15.2</dep.parquet.version>
         <dep.plugin.failsafe.version>${dep.plugin.surefire.version}</dep.plugin.failsafe.version>
-        <!-- TODO: https://github.com/apache/maven-javadoc-plugin/issues/1241 -->
-        <dep.plugin.javadoc.version>3.11.2</dep.plugin.javadoc.version>
         <dep.protobuf.version>3.25.8</dep.protobuf.version>
-        <dep.snowflake.version>3.26.0</dep.snowflake.version>
-        <dep.swagger.version>2.2.36</dep.swagger.version>
+        <dep.snowflake.version>3.25.1</dep.snowflake.version>
+        <dep.swagger.version>2.2.35</dep.swagger.version>
         <dep.takari.version>2.3.2</dep.takari.version>
         <dep.tcnative.version>2.0.72.Final</dep.tcnative.version>
         <dep.tempto.version>202</dep.tempto.version>
@@ -238,7 +236,7 @@
             <dependency>
                 <groupId>com.google.cloud</groupId>
                 <artifactId>libraries-bom</artifactId>
-                <version>26.66.0</version>
+                <version>26.65.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -270,7 +268,7 @@
             <dependency>
                 <groupId>io.netty</groupId>
                 <artifactId>netty-bom</artifactId>
-                <version>4.2.4.Final</version>
+                <version>4.2.3.Final</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -302,7 +300,7 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.32.25</version>
+                <version>2.32.20</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -459,7 +457,7 @@
             <dependency>
                 <groupId>com.github.oshi</groupId>
                 <artifactId>oshi-core</artifactId>
-                <version>6.8.3</version>
+                <version>6.8.2</version>
             </dependency>
 
             <dependency>
@@ -545,13 +543,13 @@
             <dependency>
                 <groupId>com.nimbusds</groupId>
                 <artifactId>nimbus-jose-jwt</artifactId>
-                <version>10.4.2</version>
+                <version>10.4.1</version>
             </dependency>
 
             <dependency>
                 <groupId>com.nimbusds</groupId>
                 <artifactId>oauth2-oidc-sdk</artifactId>
-                <version>11.27.1</version>
+                <version>11.27</version>
                 <classifier>jdk11</classifier>
             </dependency>
 
@@ -919,7 +917,7 @@
             <dependency>
                 <groupId>io.projectreactor</groupId>
                 <artifactId>reactor-core</artifactId>
-                <version>3.7.9</version>
+                <version>3.7.8</version>
             </dependency>
 
             <dependency>
@@ -2070,7 +2068,7 @@
             <dependency>
                 <groupId>org.apache.orc</groupId>
                 <artifactId>orc-format</artifactId>
-                <version>1.1.1</version>
+                <version>1.1.0</version>
                 <classifier>shaded-protobuf</classifier>
             </dependency>
 

@@ -11,11 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.httpquery;
 
-public enum HttpEventListenerEventType
+package io.trino.plugin.eventlistener.kafka.model;
+
+import com.google.common.collect.ImmutableMap;
+import io.trino.spi.eventlistener.SplitCompletedEvent;
+
+import java.util.Map;
+
+import static java.util.Objects.requireNonNull;
+
+public record SplitCompletedEventWrapper(SplitCompletedEvent eventPayload, Map<String, String> eventMetadata)
 {
-    QUERY_CREATED,
-    QUERY_COMPLETED,
-    QUERY_SPLIT
+    public SplitCompletedEventWrapper
+    {
+        requireNonNull(eventPayload, "eventPayload is null");
+        eventMetadata = ImmutableMap.copyOf(requireNonNull(eventMetadata, "eventMetadata is null"));
+    }
 }

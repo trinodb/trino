@@ -72,7 +72,7 @@ public class DirectTrinoClient
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
         this.directExchangeClientSupplier = requireNonNull(directExchangeClientSupplier, "directExchangeClientSupplier is null");
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
-        this.heartBeatIntervalMillis = queryManagerConfig.getClientTimeout().toMillis() / 2;
+        this.heartBeatIntervalMillis = requireNonNull(queryManagerConfig, "queryManagerConfig is null").getClientTimeout().toMillis() / 2;
     }
 
     public DispatchQuery execute(SessionContext sessionContext, @Language("SQL") String sql, QueryResultsListener queryResultsListener)
@@ -117,7 +117,23 @@ public class DirectTrinoClient
                 ListenableFuture<Object> anyCompleteFuture = whenAnyComplete(ImmutableList.of(
                         queryManager.getStateChange(queryId, state),
                         exchangeClient.isBlocked()));
-                getQueryFutureWithHeartbeats(anyCompleteFuture, dispatchQuery);
+                while (!anyCompleteFuture.isDone()) {
+                    try {
+                        anyCompleteFuture.get(heartBeatIntervalMillis, TimeUnit.MILLISECONDS);
+                    }
+                    catch (TimeoutException e) {
+                        // continue waiting until the query state changes or the exchange client is blocked.
+                        // we need to periodically record the heartbeat to prevent the query from being canceled
+                        dispatchQuery.recordHeartbeat();
+                    }
+                    catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        throw new TrinoException(GENERIC_INTERNAL_ERROR, "Thread interrupted", e);
+                    }
+                    catch (ExecutionException e) {
+                        throw new TrinoException(GENERIC_INTERNAL_ERROR, "Error processing query", e.getCause());
+                    }
+                }
             }
         }
 
@@ -139,27 +155,6 @@ public class DirectTrinoClient
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "Query"),
                 queryManager::outputTaskFailed,
                 getRetryPolicy(dispatchQuery.getSession()));
-    }
-
-    private void getQueryFutureWithHeartbeats(ListenableFuture<Object> anyCompleteFuture, DispatchQuery dispatchQuery)
-    {
-        while (!anyCompleteFuture.isDone()) {
-            try {
-                anyCompleteFuture.get(heartBeatIntervalMillis, TimeUnit.MILLISECONDS);
-            }
-            catch (TimeoutException e) {
-                // continue waiting until the query state changes or the exchange client is blocked.
-                // we need to periodically record the heartbeat to prevent the query from being canceled
-                dispatchQuery.recordHeartbeat();
-            }
-            catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Thread interrupted", e);
-            }
-            catch (ExecutionException e) {
-                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Error processing query", e.getCause());
-            }
-        }
     }
 
     private static <T> void getQueryFuture(ListenableFuture<T> future)

@@ -30,6 +30,7 @@ import io.airlift.units.Duration;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
 import io.trino.spi.eventlistener.QueryCreatedEvent;
+import io.trino.spi.eventlistener.SplitCompletedEvent;
 import jakarta.annotation.PreDestroy;
 
 import java.io.File;
@@ -68,11 +69,13 @@ public class HttpEventListener
 
     private final JsonCodec<QueryCompletedEvent> queryCompletedEventJsonCodec;
     private final JsonCodec<QueryCreatedEvent> queryCreatedEventJsonCodec;
+    private final JsonCodec<SplitCompletedEvent> splitCompletedEventJsonCodec;
 
     private final HttpClient client;
 
     private final boolean logCreated;
     private final boolean logCompleted;
+    private final boolean logSplit;
     private final int retryCount;
     private final Duration retryDelay;
     private final Duration maxDelay;
@@ -88,6 +91,7 @@ public class HttpEventListener
             LifeCycleManager lifecycleManager,
             JsonCodec<QueryCompletedEvent> queryCompletedEventJsonCodec,
             JsonCodec<QueryCreatedEvent> queryCreatedEventJsonCodec,
+            JsonCodec<SplitCompletedEvent> splitCompletedEventJsonCodec,
             HttpEventListenerConfig config,
             @ForHttpEventListener HttpClient httpClient)
     {
@@ -97,8 +101,10 @@ public class HttpEventListener
 
         this.queryCompletedEventJsonCodec = requireNonNull(queryCompletedEventJsonCodec, "queryCompletedEventJsonCodec is null");
         this.queryCreatedEventJsonCodec = requireNonNull(queryCreatedEventJsonCodec, "queryCreatedEventJsonCodec is null");
+        this.splitCompletedEventJsonCodec = requireNonNull(splitCompletedEventJsonCodec, "splitCompletedEventJsonCodec is null");
         this.logCreated = config.getLogCreated();
         this.logCompleted = config.getLogCompleted();
+        this.logSplit = config.getLogSplit();
         this.retryCount = config.getRetryCount();
         this.retryDelay = config.getRetryDelay();
         this.maxDelay = config.getMaxDelay();
@@ -136,6 +142,14 @@ public class HttpEventListener
     {
         if (logCompleted) {
             sendLog(jsonBodyGenerator(queryCompletedEventJsonCodec, queryCompletedEvent), queryCompletedEvent.getMetadata().getQueryId());
+        }
+    }
+
+    @Override
+    public void splitCompleted(SplitCompletedEvent splitCompletedEvent)
+    {
+        if (logSplit) {
+            sendLog(jsonBodyGenerator(splitCompletedEventJsonCodec, splitCompletedEvent), splitCompletedEvent.getQueryId());
         }
     }
 

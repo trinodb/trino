@@ -96,7 +96,8 @@ final class TestHttpEventListenerConfig
                 .setBackoffBase(2.0)
                 .setHttpMethod(HttpEventListenerHttpMethod.POST)
                 .setLogCompleted(false)
-                .setLogCreated(false));
+                .setLogCreated(false)
+                .setLogSplit(false));
     }
 
     @Test
@@ -118,11 +119,11 @@ final class TestHttpEventListenerConfig
                 .put("http-event-listener.connect-max-delay", "10m")
                 .buildOrThrow();
 
-
         HttpEventListenerConfig expected = new HttpEventListenerConfig()
                 .setHttpHeadersConfigFile(httpHeadersConfigFile.toFile())
                 .setLogCompleted(true)
                 .setLogCreated(true)
+                .setLogSplit(true)
                 .setIngestUri("http://example.com:8080/api")
                 .setRetryCount(2)
                 .setHttpMethod(HttpEventListenerHttpMethod.PUT)

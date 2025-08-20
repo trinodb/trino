@@ -54,8 +54,9 @@ public class ClassLoaderSafeEventListener
     @Override
     public void splitCompleted(SplitCompletedEvent splitCompletedEvent)
     {
-        // Implemented to satisfy TestClassLoaderSafeWrappers
-        throw new UnsupportedOperationException();
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            delegate.splitCompleted(splitCompletedEvent);
+        }
     }
 
     @Override
