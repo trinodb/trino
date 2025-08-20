@@ -174,9 +174,6 @@ public final class GeoFunctions
     private static final EnumSet<Type> GEOMETRY_TYPES_FOR_SPHERICAL_GEOGRAPHY = EnumSet.of(
             Type.Point, Type.Polyline, Type.Polygon, Type.MultiPoint);
 
-    private static final EnumSet<GeometryType> COLLECTION_TYPES = EnumSet.of(
-            MULTI_POINT, MULTI_LINE_STRING, MULTI_POLYGON);
-
     private static final EnumSet<GeometryType> VALID_TYPES_FOR_ST_POINTS = EnumSet.of(
             LINE_STRING, POLYGON, POINT, MULTI_POINT, MULTI_LINE_STRING, MULTI_POLYGON, GEOMETRY_COLLECTION);
 
