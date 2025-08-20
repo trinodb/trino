@@ -93,6 +93,12 @@ public class TeradataClientModule
                 Optional<String> token = teradataConfig.getOidcJwtToken();
                 token.ifPresent(s -> connectionProperties.put("LOGDATA", token.get()));
                 break;
+            case "SECRET":
+                Optional<String> clientId = teradataConfig.getOidcClientId();
+                clientId.ifPresent(s -> connectionProperties.put("oidc_clientid", s));
+                Optional<String> clientSecret = teradataConfig.getOidcClientSecret();
+                clientSecret.ifPresent(s -> connectionProperties.put("LOGDATA", clientSecret.get()));
+                break;
             default:
                 throw new IllegalArgumentException("Unsupported logon mechanism: " + longMech);
         }
