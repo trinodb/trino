@@ -108,6 +108,7 @@ import static io.trino.geospatial.GeometryUtils.jtsGeometryFromJson;
 import static io.trino.geospatial.serde.GeometrySerde.deserialize;
 import static io.trino.geospatial.serde.GeometrySerde.deserializeEnvelope;
 import static io.trino.geospatial.serde.GeometrySerde.deserializeType;
+import static io.trino.geospatial.serde.GeometrySerde.isMultiCollectionType;
 import static io.trino.geospatial.serde.GeometrySerde.serialize;
 import static io.trino.geospatial.serde.JtsGeometrySerde.serialize;
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
@@ -269,18 +270,15 @@ public final class GeoFunctions
     }
 
     @SqlNullable
-    @Description("Returns a multi geometry formed from input geometry. If the geometry is already a collection, it is returned unchanged.")
+    @Description("Returns a geometry as multi geometry collection. If the geometry is already a collection, it is returned unchanged.")
     @ScalarFunction("ST_Multi")
     @SqlType(StandardTypes.GEOMETRY)
     public static Slice stMulti(@SqlType(StandardTypes.GEOMETRY) Slice input)
     {
-        OGCGeometry geometry = deserialize(input);
-        GeometryType type = GeometryType.getForEsriGeometryType(geometry.geometryType());
-        // We can immediately return the shapes if they are already multi types
-        if (COLLECTION_TYPES.contains(type)) {
-            return serialize(geometry);
+        if (isMultiCollectionType(input)) {
+            return input;
         }
-        return serialize(geometry.convertToMulti());
+        return serialize(deserialize(input).convertToMulti());
     }
 
     @Description("Returns a Geometry type Polygon object from Well-Known Text representation (WKT)")
