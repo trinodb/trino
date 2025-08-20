@@ -36,6 +36,18 @@ public class DatabaseConfig
         return clearScapeManager;
     }
 
+    /**
+     * Sets the ClearScapeManager instance for this database configuration.
+     * The ClearScapeManager handles the lifecycle of ClearScape instances
+     * for testing purposes.
+     *
+     * @param clearScapeManager the ClearScapeManager instance to set, can be null
+     */
+    public void setClearScapeManager(ClearScapeManager clearScapeManager)
+    {
+        this.clearScapeManager = clearScapeManager;
+    }
+
     public boolean isUseClearScape()
     {
         return useClearScape;
