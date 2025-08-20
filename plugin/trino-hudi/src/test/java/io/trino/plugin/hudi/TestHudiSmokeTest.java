@@ -75,6 +75,7 @@ import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.Testing
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_COW_PT_TBL;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_CUSTOM_KEYGEN_PT_V8_MOR;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_MULTI_PT_V8_MOR;
+import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_NON_EXTRACTABLE_PARTITION_PATH;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_NON_PART_COW;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_STOCK_TICKS_COW;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_STOCK_TICKS_MOR;
@@ -132,6 +133,20 @@ public class TestHudiSmokeTest
     }
 
     @Test
+    public void testReadNonExtractablePartitionPathTable()
+    {
+        Session session = SessionBuilder.from(getSession())
+                .withMdtEnabled(true)
+                .build();
+        String res = getQueryRunner().execute(session, "SELECT * FROM " + HUDI_NON_EXTRACTABLE_PARTITION_PATH).toString();
+        System.out.println(res);
+        assertQuery(session, "SELECT name FROM " + HUDI_NON_EXTRACTABLE_PARTITION_PATH + " where dt='2018-10-05'",
+                "SELECT * FROM VALUES ('Alice'), ('Bob')");
+        assertQuery(session, "SELECT name FROM " + HUDI_NON_EXTRACTABLE_PARTITION_PATH + " where dt='2018-10-05' and hh='10'",
+                "SELECT * FROM VALUES ('Alice'), ('Bob')");
+    }
+
+    @Test
     public void testReadPartitionedCOWTableVer8()
     {
         String res = getQueryRunner().execute(getSession(), "SELECT * FROM " + HUDI_STOCK_TICKS_COW).toString();
@@ -142,6 +157,11 @@ public class TestHudiSmokeTest
                 "SELECT * FROM VALUES ('2018-08-31', '99')");
     }
 
+    // Verifies query results on a partitioned COW table (Ver8).
+    // Since the table defines only a single partition column, its partition
+    // values can be correctly parsed by Hudi's PartitionValueExtractor.
+    // This test asserts that grouping and aggregations on the partition column
+    // return the expected results.
     @Test
     public void testReadPartitionedMORTableVer8()
     {

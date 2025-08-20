@@ -259,6 +259,15 @@ public class HivePartitionManager
             List<HiveColumnHandle> partitionColumns)
     {
         List<String> partitionValues = extractPartitionValues(partitionName);
+        return parsePartition(tableName, partitionName, partitionColumns, partitionValues);
+    }
+
+    public static HivePartition parsePartition(
+            SchemaTableName tableName,
+            String partitionName,
+            List<HiveColumnHandle> partitionColumns,
+            List<String> partitionValues)
+    {
         ImmutableMap.Builder<ColumnHandle, NullableValue> builder = ImmutableMap.builderWithExpectedSize(partitionColumns.size());
         for (int i = 0; i < partitionColumns.size(); i++) {
             HiveColumnHandle column = partitionColumns.get(i);

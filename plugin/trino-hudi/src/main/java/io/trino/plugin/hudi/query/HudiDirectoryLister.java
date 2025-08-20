@@ -18,12 +18,9 @@ import org.apache.hudi.common.model.FileSlice;
 
 import java.io.Closeable;
 import java.util.List;
-import java.util.Optional;
 
 public interface HudiDirectoryLister
         extends Closeable
 {
     List<FileSlice> listStatus(HudiPartitionInfo partitionInfo, boolean useIndex);
-
-    Optional<HudiPartitionInfo> getPartitionInfo(String partition);
 }

@@ -113,10 +113,11 @@ public final class HudiUtil
             SchemaTableName tableName,
             String hivePartitionName,
             List<HiveColumnHandle> partitionColumnHandles,
+            List<String> partitionValues,
             TupleDomain<HiveColumnHandle> constraintSummary)
     {
         HivePartition partition = HivePartitionManager.parsePartition(
-                tableName, hivePartitionName, partitionColumnHandles);
+                tableName, hivePartitionName, partitionColumnHandles, partitionValues);
 
         return partitionMatches(partitionColumnHandles, constraintSummary, partition);
     }

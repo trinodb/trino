@@ -73,6 +73,7 @@ public class HudiSessionProperties
     static final String COLUMN_STATS_WAIT_TIMEOUT = "column_stats_wait_timeout";
     static final String RECORD_INDEX_WAIT_TIMEOUT = "record_index_wait_timeout";
     static final String SECONDARY_INDEX_WAIT_TIMEOUT = "secondary_index_wait_timeout";
+    static final String METADATA_PARTITION_LISTING_ENABLED = "metadata_partition_listing_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -238,6 +239,11 @@ public class HudiSessionProperties
                         DYNAMIC_FILTERING_WAIT_TIMEOUT,
                         "Duration to wait for completion of dynamic filters during split generation",
                         hudiConfig.getDynamicFilteringWaitTimeout(),
+                        false),
+                booleanProperty(
+                        METADATA_PARTITION_LISTING_ENABLED,
+                        "Enable metadata table based partition listing",
+                        hudiConfig.isMetadataPartitionListingEnabled(),
                         false));
     }
 
@@ -391,5 +397,10 @@ public class HudiSessionProperties
     public static Duration getSecondaryIndexWaitTimeout(ConnectorSession session)
     {
         return session.getProperty(SECONDARY_INDEX_WAIT_TIMEOUT, Duration.class);
+    }
+
+    public static boolean isMetadataPartitionListingEnabled(ConnectorSession session)
+    {
+        return session.getProperty(METADATA_PARTITION_LISTING_ENABLED, Boolean.class);
     }
 }

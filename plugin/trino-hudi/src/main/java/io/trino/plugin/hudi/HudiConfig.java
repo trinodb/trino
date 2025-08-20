@@ -65,6 +65,7 @@ public class HudiConfig
     private Duration recordIndexWaitTimeout = new Duration(2, SECONDS);
     private Duration secondaryIndexWaitTimeout = new Duration(2, SECONDS);
     private boolean metadataCacheEnabled = true;
+    private boolean metadataPartitionListingEnabled = true;
 
     public List<String> getColumnsToHide()
     {
@@ -419,6 +420,19 @@ public class HudiConfig
     public HudiConfig setMetadataCacheEnabled(boolean metadataCacheEnabled)
     {
         this.metadataCacheEnabled = metadataCacheEnabled;
+        return this;
+    }
+
+    public boolean isMetadataPartitionListingEnabled()
+    {
+        return metadataPartitionListingEnabled;
+    }
+
+    @Config("hudi.metadata.partition-listing.enabled")
+    @ConfigDescription("Enables listing table partitions through the metadata table.")
+    public HudiConfig setMetadataPartitionListingEnabled(boolean metadataPartitionListingEnabled)
+    {
+        this.metadataPartitionListingEnabled = metadataPartitionListingEnabled;
         return this;
     }
 }

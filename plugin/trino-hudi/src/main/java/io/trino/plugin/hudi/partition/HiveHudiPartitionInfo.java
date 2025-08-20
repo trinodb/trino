@@ -30,13 +30,13 @@ public class HiveHudiPartitionInfo
         implements HudiPartitionInfo
 {
     public static final String NON_PARTITION = "";
-
-    private final SchemaTableName schemaTableName;
     private final List<HiveColumnHandle> partitionColumnHandles;
     private final TupleDomain<HiveColumnHandle> constraintSummary;
     private final String hivePartitionName;
     private final String relativePartitionPath;
     private final List<HivePartitionKey> hivePartitionKeys;
+    private final SchemaTableName schemaTableName;
+    private final List<String> partitionValues;
 
     public HiveHudiPartitionInfo(
             SchemaTableName schemaTableName,
@@ -55,6 +55,7 @@ public class HiveHudiPartitionInfo
                 Location.of(partition.getStorage().getLocation()));
         this.hivePartitionKeys = buildPartitionKeys(
                 partitionColumnHandles, partition.getValues());
+        this.partitionValues = partition.getValues();
     }
 
     @Override
@@ -75,7 +76,7 @@ public class HiveHudiPartitionInfo
         if (hivePartitionName.equals(NON_PARTITION)) {
             return true;
         }
-        return partitionMatchesPredicates(schemaTableName, hivePartitionName, partitionColumnHandles, constraintSummary);
+        return partitionMatchesPredicates(schemaTableName, hivePartitionName, partitionColumnHandles, partitionValues, constraintSummary);
     }
 
     public String getHivePartitionName()
@@ -89,7 +90,7 @@ public class HiveHudiPartitionInfo
         String fullPartitionPath = fullPartitionLocation.path();
 
         if (!fullPartitionPath.startsWith(basePath)) {
-            throw new IllegalArgumentException("Partition location does not belong to base-location");
+            throw new IllegalArgumentException("Partition [" + fullPartitionPath + "] does not belong to base-location " + basePath);
         }
 
         String baseLocationParent = baseLocation.parentDirectory().path();
