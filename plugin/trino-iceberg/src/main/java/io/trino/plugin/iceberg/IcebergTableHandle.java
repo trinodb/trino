@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.DoNotCall;
 import io.airlift.units.DataSize;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
@@ -38,7 +37,6 @@ import static java.util.stream.Collectors.joining;
 public class IcebergTableHandle
         implements ConnectorTableHandle
 {
-    private final CatalogHandle catalog;
     private final String schemaName;
     private final String tableName;
     private final TableType tableType;
@@ -78,7 +76,6 @@ public class IcebergTableHandle
     @JsonCreator
     @DoNotCall // For JSON deserialization only
     public static IcebergTableHandle fromJsonForDeserializationOnly(
-            @JsonProperty("catalog") CatalogHandle catalog,
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("tableType") TableType tableType,
@@ -95,7 +92,6 @@ public class IcebergTableHandle
             @JsonProperty("storageProperties") Map<String, String> storageProperties)
     {
         return new IcebergTableHandle(
-                catalog,
                 schemaName,
                 tableName,
                 tableType,
@@ -118,7 +114,6 @@ public class IcebergTableHandle
     }
 
     public IcebergTableHandle(
-            CatalogHandle catalog,
             String schemaName,
             String tableName,
             TableType tableType,
@@ -139,7 +134,6 @@ public class IcebergTableHandle
             Set<IcebergColumnHandle> constraintColumns,
             Optional<Boolean> forAnalyze)
     {
-        this.catalog = requireNonNull(catalog, "catalog is null");
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.tableType = requireNonNull(tableType, "tableType is null");
@@ -159,12 +153,6 @@ public class IcebergTableHandle
         this.maxScannedFileSize = requireNonNull(maxScannedFileSize, "maxScannedFileSize is null");
         this.constraintColumns = ImmutableSet.copyOf(requireNonNull(constraintColumns, "constraintColumns is null"));
         this.forAnalyze = requireNonNull(forAnalyze, "forAnalyze is null");
-    }
-
-    @JsonProperty
-    public CatalogHandle getCatalog()
-    {
-        return catalog;
     }
 
     @JsonProperty
@@ -298,7 +286,6 @@ public class IcebergTableHandle
     public IcebergTableHandle withProjectedColumns(Set<IcebergColumnHandle> projectedColumns)
     {
         return new IcebergTableHandle(
-                catalog,
                 schemaName,
                 tableName,
                 tableType,
@@ -323,7 +310,6 @@ public class IcebergTableHandle
     public IcebergTableHandle forAnalyze()
     {
         return new IcebergTableHandle(
-                catalog,
                 schemaName,
                 tableName,
                 tableType,
@@ -348,7 +334,6 @@ public class IcebergTableHandle
     public IcebergTableHandle forOptimize(boolean recordScannedFiles, DataSize maxScannedFileSize)
     {
         return new IcebergTableHandle(
-                catalog,
                 schemaName,
                 tableName,
                 tableType,
@@ -373,7 +358,6 @@ public class IcebergTableHandle
     public IcebergTableHandle withTablePartitioning(Optional<IcebergTablePartitioning> requiredTablePartitioning)
     {
         return new IcebergTableHandle(
-                catalog,
                 schemaName,
                 tableName,
                 tableType,
@@ -407,7 +391,6 @@ public class IcebergTableHandle
 
         IcebergTableHandle that = (IcebergTableHandle) o;
         return recordScannedFiles == that.recordScannedFiles &&
-                Objects.equals(catalog, that.catalog) &&
                 Objects.equals(schemaName, that.schemaName) &&
                 Objects.equals(tableName, that.tableName) &&
                 tableType == that.tableType &&
@@ -431,7 +414,6 @@ public class IcebergTableHandle
     public int hashCode()
     {
         return Objects.hash(
-                catalog,
                 schemaName,
                 tableName,
                 tableType,
