@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.airlift.slice.Slices;
 import io.trino.plugin.base.mapping.IdentifierMapping;
+import io.trino.plugin.exasol.type.interval.ExasolIntervalDayTimeParser;
+import io.trino.plugin.exasol.type.interval.ExasolIntervalYearMonthParser;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
@@ -67,6 +69,7 @@ import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsuppor
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -79,6 +82,9 @@ public class ExasolClient
             .add("EXA_STATISTICS")
             .add("SYS")
             .build();
+
+    private static final int EXASOL_INTERVAL_DAY_TO_SECOND = -104;
+    private static final int EXASOL_INTERVAL_YEAR_TO_MONTH = -103;
 
     @Inject
     public ExasolClient(
@@ -237,6 +243,10 @@ public class ExasolClient
                 return Optional.of(defaultVarcharColumnMapping(typeHandle.requiredColumnSize(), true));
             case Types.DATE:
                 return Optional.of(dateColumnMapping());
+            case EXASOL_INTERVAL_YEAR_TO_MONTH:
+                return Optional.of(intervalYearMonthColumnMapping());
+            case EXASOL_INTERVAL_DAY_TO_SECOND:
+                return Optional.of(intervalDayTimeColumnMapping());
         }
 
         if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
@@ -300,6 +310,54 @@ public class ExasolClient
             byte[] bytes = slice.getBytes();
             String hex = HexFormat.of().formatHex(bytes);
             statement.setString(index, hex);
+        });
+    }
+
+    private static ColumnMapping intervalYearMonthColumnMapping()
+    {
+        return ColumnMapping.longMapping(
+                BIGINT,
+                intervalYearMonthReadFunction(),
+                intervalYearMonthWriteFunction());
+    }
+
+    private static LongReadFunction intervalYearMonthReadFunction()
+    {
+        return (resultSet, columnIndex) -> {
+            String intervalString = resultSet.getString(columnIndex);
+            return ExasolIntervalYearMonthParser.parse(intervalString);
+        };
+    }
+
+    private static LongWriteFunction intervalYearMonthWriteFunction()
+    {
+        return LongWriteFunction.of(EXASOL_INTERVAL_YEAR_TO_MONTH, (statement, index, value) -> {
+            String intervalString = ExasolIntervalYearMonthParser.formatMonths((int) value);
+            statement.setString(index, intervalString);
+        });
+    }
+
+    private static ColumnMapping intervalDayTimeColumnMapping()
+    {
+        return ColumnMapping.longMapping(
+                BIGINT,
+                intervalDayTimeReadFunction(),
+                intervalDayTimeWriteFunction());
+    }
+
+    private static LongReadFunction intervalDayTimeReadFunction()
+    {
+        return (resultSet, columnIndex) -> {
+            String intervalString = resultSet.getString(columnIndex);
+            return ExasolIntervalDayTimeParser.parse(intervalString);
+        };
+    }
+
+    private static LongWriteFunction intervalDayTimeWriteFunction()
+    {
+        return LongWriteFunction.of(EXASOL_INTERVAL_DAY_TO_SECOND, (statement, index, value) -> {
+            String intervalString = ExasolIntervalDayTimeParser.formatMillis(value);
+            statement.setString(index, intervalString);
         });
     }
 
