@@ -76,6 +76,10 @@ public class DatabaseTestUtil
 
         DatabaseConfig config = new DatabaseConfig(jdbcUrl, username, password, databaseName);
         config.setUseClearScape(useClearScape);
+        // If ClearScapeManager is initialized, set it in the config
+        // This allows the config to be used in tests that require ClearScape functionality
+        // without needing to pass it separately.
+        // If not using ClearScape, this will be null.
         if (clearScapeManager != null) {
             config.setClearScapeManager(clearScapeManager);
         }
