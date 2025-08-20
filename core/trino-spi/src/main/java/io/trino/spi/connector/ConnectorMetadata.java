@@ -787,6 +787,7 @@ public interface ConnectorMetadata
     /**
      * Returns true if materialized view refresh should be delegated to connector using {@link ConnectorMetadata#refreshMaterializedView}
      */
+    @Deprecated(since = "477", forRemoval = true)
     default boolean delegateMaterializedViewRefreshToConnector(ConnectorSession session, SchemaTableName viewName)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support materialized views");
@@ -795,6 +796,7 @@ public interface ConnectorMetadata
     /**
      * Refresh materialized view
      */
+    @Deprecated(since = "477", forRemoval = true)
     default CompletableFuture<?> refreshMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support materialized views");
