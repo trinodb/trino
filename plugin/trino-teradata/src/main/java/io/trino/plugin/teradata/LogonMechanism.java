@@ -4,6 +4,7 @@ public enum LogonMechanism
 {
     TD2("TD2"),
     JWT("JWT"),
+    BEARER("BEARER"),
     SECRET("SECRET");
 
     private final String mechanism;

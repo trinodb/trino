@@ -28,6 +28,8 @@ public class TeradataConfig
 {
     private Optional<String> oidcJWTToken = Optional.empty();
     private Optional<String> oidcClientSecret = Optional.empty();
+    private Optional<String> oidcJWSCertificate = Optional.empty();
+    private Optional<String> oidcJWSPrivateKey = Optional.empty();
     private Optional<String> oidcClientId = Optional.empty();
     private String logMech = "TD2";
     private TeradataCaseSensitivity teradataCaseSensitivity = TeradataCaseSensitivity.CASE_SPECIFIC;
@@ -44,6 +46,33 @@ public class TeradataConfig
         this.oidcClientId = Optional.ofNullable(clientId);
         return this;
     }
+
+    public Optional<String> getOidcJWSPrivateKey()
+    {
+        return oidcJWSPrivateKey;
+    }
+
+    @Config("oidc.jws-private-key")
+    public TeradataConfig setOidcJWSPrivateKey(String privateKey)
+    {
+        System.out.println("Getting privateKey: " + privateKey);
+        this.oidcJWSPrivateKey = Optional.ofNullable(privateKey);
+        return this;
+    }
+
+    public Optional<String> getOidcJWSCertificate()
+    {
+        return oidcJWSCertificate;
+    }
+
+    @Config("oidc.jws-certificate")
+    public TeradataConfig setOidcJWSCertificate(String certificate)
+    {
+        System.out.println("Getting jwsCertificate: " + certificate);
+        this.oidcJWSCertificate = Optional.ofNullable(certificate);
+        return this;
+    }
+
     public Optional<String> getOidcClientSecret()
     {
         return oidcClientSecret;
