@@ -26,32 +26,34 @@ import java.util.Optional;
 public class TeradataConfig
         extends BaseJdbcConfig
 {
-    private Boolean stringPushdownEnabled = false;
-    private Optional<String> jwtCredentialsFile = Optional.empty();
-    private Optional<String> jwtToken = Optional.empty();
+    private Optional<String> oidcJWTToken = Optional.empty();
+    private String logMech = "TD2";
     private TeradataCaseSensitivity teradataCaseSensitivity = TeradataCaseSensitivity.CASE_SPECIFIC;
 
-    public Optional<String> getJwtCredentialsFile()
+    public Optional<String> getOidcJwtToken()
     {
-        return jwtCredentialsFile;
-    }
-
-    @Config("jwt.credentials-file")
-    public TeradataConfig setJwtCredentialsFile(String jwtCredentialsFile)
-    {
-        this.jwtCredentialsFile = Optional.ofNullable(jwtCredentialsFile);
-        return this;
-    }
-
-    public Optional<String> getJwtToken()
-    {
-        return jwtToken;
+        return oidcJWTToken;
     }
 
     @Config("jwt.token")
-    public TeradataConfig setJwtToken(String jwtToken)
+    public TeradataConfig setOidcJwtToken(String jwtToken)
     {
-        this.jwtToken = Optional.ofNullable(jwtToken);
+        System.out.println("Getting jwtToken: " + jwtToken);
+        this.oidcJWTToken = Optional.ofNullable(jwtToken);
+        return this;
+    }
+
+    public String getLogMech()
+    {
+        return logMech;
+    }
+
+    @Config("logon-mechanism")
+    @ConfigDescription("Specifies the logon mechanism for Teradata (default: TD2). Use 'TD2' for TD2 authentication.")
+    public TeradataConfig setLogMech(String logMech)
+    {
+        System.out.println("Getting logMech: " + logMech);
+        this.logMech = logMech;
         return this;
     }
 
@@ -62,6 +64,7 @@ public class TeradataConfig
      */
     public TeradataCaseSensitivity getTeradataCaseSensitivity()
     {
+        System.out.println("Getting Teradata Case Sensitivity: " + teradataCaseSensitivity);
         return teradataCaseSensitivity;
     }
 
@@ -75,20 +78,8 @@ public class TeradataConfig
     @ConfigDescription("How char/varchar columns' case sensitivity will be exposed to Trino (default: CASESPECIFIC).")
     public TeradataConfig setTeradataCaseSensitivity(TeradataCaseSensitivity teradataCaseSensitivity)
     {
+        System.out.println("Setting Teradata Case Sensitivity: " + teradataCaseSensitivity);
         this.teradataCaseSensitivity = teradataCaseSensitivity;
-        return this;
-    }
-
-    public Boolean isStringPushdownEnabled()
-    {
-        return stringPushdownEnabled;
-    }
-
-    @Config("teradata.string-pushdown-enabled")
-    @ConfigDescription("Enable pushdown of string predicates (VARCHAR, CHAR) to Teradata")
-    public TeradataConfig setStringPushdownEnabled(boolean enabled)
-    {
-        this.stringPushdownEnabled = enabled;
         return this;
     }
 

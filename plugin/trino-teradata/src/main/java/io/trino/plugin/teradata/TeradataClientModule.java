@@ -21,8 +21,10 @@ import io.trino.plugin.jdbc.JdbcJoinPushdownSupportModule;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 
+import java.sql.Driver;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.Optional;
 import java.util.Properties;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -81,12 +83,22 @@ public class TeradataClientModule
             throws SQLException
     {
         Properties connectionProperties = new Properties();
+        Driver driver = DriverManager.getDriver(config.getConnectionUrl());
+        String longMech = LogonMechanism.fromString(teradataConfig.getLogMech()).getMechanism();
+        connectionProperties.put("LOGMECH", longMech);
+        switch (longMech) {
+            case "TD2":
+                break;
+            case "JWT":
+                Optional<String> token = teradataConfig.getOidcJwtToken();
+                token.ifPresent(s -> connectionProperties.put("LOGDATA", token.get()));
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported logon mechanism: " + longMech);
+        }
+        DriverConnectionFactory factory = DriverConnectionFactory.builder(driver, config.getConnectionUrl(), credentialProvider).setConnectionProperties(connectionProperties).setOpenTelemetry(openTelemetry).build();
 
-        // Set Teradata JDBC-specific connection properties
-        // TODO: Retire all properties that could be included in the connection URL instead
-        // TODO: Incorporate query banding support if needed
-
-        return DriverConnectionFactory.builder(DriverManager.getDriver(config.getConnectionUrl()), config.getConnectionUrl(), credentialProvider).setConnectionProperties(connectionProperties).setOpenTelemetry(openTelemetry).build();
+        return factory;
     }
 
     /**
