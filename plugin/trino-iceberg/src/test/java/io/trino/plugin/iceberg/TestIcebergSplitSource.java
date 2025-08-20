@@ -32,7 +32,6 @@ import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog;
 import io.trino.plugin.iceberg.catalog.rest.DefaultIcebergFileSystemFactory;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.catalog.CatalogName;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.DynamicFilter;
@@ -458,7 +457,6 @@ public class TestIcebergSplitSource
     private static IcebergTableHandle createTableHandle(SchemaTableName schemaTableName, Table nationTable, TupleDomain<IcebergColumnHandle> unenforcedPredicate)
     {
         return new IcebergTableHandle(
-                CatalogHandle.fromId("iceberg:NORMAL:v12345"),
                 schemaTableName.getSchemaName(),
                 schemaTableName.getTableName(),
                 TableType.DATA,

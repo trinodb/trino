@@ -38,7 +38,6 @@ import io.trino.plugin.iceberg.catalog.rest.DefaultIcebergFileSystemFactory;
 import io.trino.spi.Page;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.DynamicFilter;
@@ -158,7 +157,6 @@ public class TestIcebergNodeLocalDynamicSplitPruning
             TableHandle tableHandle = new TableHandle(
                     TEST_CATALOG_HANDLE,
                     new IcebergTableHandle(
-                            CatalogHandle.fromId("iceberg:NORMAL:v12345"),
                             "test_schema",
                             tableName,
                             TableType.DATA,
@@ -219,7 +217,6 @@ public class TestIcebergNodeLocalDynamicSplitPruning
             tableHandle = new TableHandle(
                     TEST_CATALOG_HANDLE,
                     new IcebergTableHandle(
-                            CatalogHandle.fromId("iceberg:NORMAL:v12345"),
                             "test_schema",
                             tableName,
                             TableType.DATA,
@@ -330,7 +327,6 @@ public class TestIcebergNodeLocalDynamicSplitPruning
             TableHandle tableHandle = new TableHandle(
                     TEST_CATALOG_HANDLE,
                     new IcebergTableHandle(
-                            CatalogHandle.fromId("iceberg:NORMAL:v12345"),
                             "test_schema",
                             tableName,
                             TableType.DATA,
@@ -486,7 +482,6 @@ public class TestIcebergNodeLocalDynamicSplitPruning
             TableHandle tableHandle = new TableHandle(
                     TEST_CATALOG_HANDLE,
                     new IcebergTableHandle(
-                            CatalogHandle.fromId("iceberg:NORMAL:v12345"),
                             "test_schema",
                             tableName,
                             TableType.DATA,
