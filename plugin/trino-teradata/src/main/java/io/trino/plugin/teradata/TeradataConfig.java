@@ -26,32 +26,53 @@ import java.util.Optional;
 public class TeradataConfig
         extends BaseJdbcConfig
 {
-    private Boolean stringPushdownEnabled = false;
-    private Optional<String> jwtCredentialsFile = Optional.empty();
-    private Optional<String> jwtToken = Optional.empty();
+    private Optional<String> oidcJWTToken = Optional.empty();
+    private String logMech = "TD2";
     private TeradataCaseSensitivity teradataCaseSensitivity = TeradataCaseSensitivity.CASE_SPECIFIC;
-
-    public Optional<String> getJwtCredentialsFile()
+    /**
+     * Gets the OIDC JWT token used for authentication.
+     *
+     * @return an Optional containing the JWT token if set, empty otherwise
+     */
+    public Optional<String> getOidcJwtToken()
     {
-        return jwtCredentialsFile;
+        return oidcJWTToken;
     }
 
-    @Config("jwt.credentials-file")
-    public TeradataConfig setJwtCredentialsFile(String jwtCredentialsFile)
+    /**
+     * Sets the OIDC JWT token for authentication with Teradata.
+     *
+     * @param jwtToken the JWT token string, can be null
+     * @return this {@link TeradataConfig} instance for method chaining
+     */
+    @Config("jwt.token")
+    public TeradataConfig setOidcJwtToken(String jwtToken)
     {
-        this.jwtCredentialsFile = Optional.ofNullable(jwtCredentialsFile);
+        this.oidcJWTToken = Optional.ofNullable(jwtToken);
         return this;
     }
-
-    public Optional<String> getJwtToken()
+    /**
+     * Gets the current logon mechanism for Teradata authentication.
+     *
+     * @return the logon mechanism string (default: "TD2")
+     */
+    public String getLogMech()
     {
-        return jwtToken;
+        return logMech;
     }
-
-    @Config("jwt.token")
-    public TeradataConfig setJwtToken(String jwtToken)
+    /**
+     * Sets the logon mechanism for Teradata authentication.
+     * Common values include "TD2" for standard authentication,
+     * "LDAP" for LDAP authentication, and "JWT" for JWT authentication.
+     *
+     * @param logMech the logon mechanism identifier
+     * @return this {@link TeradataConfig} instance for method chaining
+     */
+    @Config("logon-mechanism")
+    @ConfigDescription("Specifies the logon mechanism for Teradata (default: TD2). Use 'TD2' for TD2 authentication.")
+    public TeradataConfig setLogMech(String logMech)
     {
-        this.jwtToken = Optional.ofNullable(jwtToken);
+        this.logMech = logMech;
         return this;
     }
 
@@ -76,19 +97,6 @@ public class TeradataConfig
     public TeradataConfig setTeradataCaseSensitivity(TeradataCaseSensitivity teradataCaseSensitivity)
     {
         this.teradataCaseSensitivity = teradataCaseSensitivity;
-        return this;
-    }
-
-    public Boolean isStringPushdownEnabled()
-    {
-        return stringPushdownEnabled;
-    }
-
-    @Config("teradata.string-pushdown-enabled")
-    @ConfigDescription("Enable pushdown of string predicates (VARCHAR, CHAR) to Teradata")
-    public TeradataConfig setStringPushdownEnabled(boolean enabled)
-    {
-        this.stringPushdownEnabled = enabled;
         return this;
     }
 
