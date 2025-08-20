@@ -52,7 +52,7 @@ public class TestAnthropicFunctions
                 .hasSize(1).first()
                 .extracting(SpanData::getAttributes, ATTRIBUTES)
                 .containsEntry("gen_ai.operation.name", "chat")
-                .containsEntry("gen_ai.system", "anthropic")
+                .containsEntry("gen_ai.provider.name", "anthropic")
                 .containsEntry("gen_ai.request.model", "claude-3-5-sonnet-latest")
                 .containsEntry("gen_ai.response.id", "msg_014mmUArhqd4VHpeHVuPKCVe")
                 .containsEntry("gen_ai.response.model", "claude-3-5-sonnet-20241022")
