@@ -19,7 +19,6 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.orc.OrcWriteValidation.OrcWriteValidationMode;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
-import io.trino.plugin.hive.HiveCompressionOption;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
@@ -65,7 +64,6 @@ public final class IcebergSessionProperties
         implements SessionPropertiesProvider
 {
     public static final String SPLIT_SIZE = "experimental_split_size";
-    private static final String COMPRESSION_CODEC = "compression_codec";
     private static final String USE_FILE_SIZE_FROM_METADATA = "use_file_size_from_metadata";
     private static final String ORC_BLOOM_FILTERS_ENABLED = "orc_bloom_filters_enabled";
     private static final String ORC_MAX_MERGE_DISTANCE = "orc_max_merge_distance";
@@ -131,12 +129,6 @@ public final class IcebergSessionProperties
                         // See https://github.com/trinodb/trino/issues/9018#issuecomment-1752929193 for further discussion.
                         null,
                         true))
-                .add(enumProperty(
-                        COMPRESSION_CODEC,
-                        "Compression codec to use when writing files",
-                        HiveCompressionOption.class,
-                        icebergConfig.getCompressionCodec(),
-                        false))
                 .add(booleanProperty(
                         USE_FILE_SIZE_FROM_METADATA,
                         "Use file size stored in Iceberg metadata",
@@ -516,11 +508,6 @@ public final class IcebergSessionProperties
     public static Optional<DataSize> getSplitSize(ConnectorSession session)
     {
         return Optional.ofNullable(session.getProperty(SPLIT_SIZE, DataSize.class));
-    }
-
-    public static HiveCompressionOption getCompressionCodec(ConnectorSession session)
-    {
-        return session.getProperty(COMPRESSION_CODEC, HiveCompressionOption.class);
     }
 
     public static boolean isUseFileSizeFromMetadata(ConnectorSession session)

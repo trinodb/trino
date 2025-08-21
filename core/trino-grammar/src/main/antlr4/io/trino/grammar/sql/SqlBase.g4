@@ -70,8 +70,10 @@ statement
          (COMMENT string)?
          (WITH properties)?                                            #createTable
     | DROP TABLE (IF EXISTS)? qualifiedName                            #dropTable
-    | INSERT INTO qualifiedName columnAliases? rootQuery               #insertInto
-    | DELETE FROM qualifiedName (WHERE booleanExpression)?             #delete
+    | INSERT INTO qualifiedName ('@' branch=identifier)?
+       columnAliases? rootQuery                                        #insertInto
+    | DELETE FROM qualifiedName ('@' branch=identifier)?
+         (WHERE booleanExpression)?                                    #delete
     | TRUNCATE TABLE qualifiedName                                     #truncateTable
     | COMMENT ON TABLE qualifiedName IS (string | NULL)                #commentTable
     | COMMENT ON VIEW qualifiedName IS (string | NULL)                 #commentView
@@ -114,11 +116,13 @@ statement
         SET PROPERTIES propertyAssignments                             #setMaterializedViewProperties
     | DROP VIEW (IF EXISTS)? qualifiedName                             #dropView
     | ALTER VIEW from=qualifiedName RENAME TO to=qualifiedName         #renameView
+    | ALTER VIEW viewName=qualifiedName REFRESH                        #refreshView
     | CALL qualifiedName '(' (callArgument (',' callArgument)*)? ')'   #call
     | CREATE (OR REPLACE)? functionSpecification                       #createFunction
     | DROP FUNCTION (IF EXISTS)? functionDeclaration                   #dropFunction
-    | CREATE (OR REPLACE)? BRANCH (IF NOT EXISTS)? identifier
-        (WITH properties)? IN TABLE qualifiedName                      #createBranch
+    | CREATE (OR REPLACE)? BRANCH (IF NOT EXISTS)? branch=identifier
+        (WITH properties)? IN TABLE qualifiedName
+        (FROM from=identifier)?                                        #createBranch
     | DROP BRANCH (IF EXISTS)? identifier
         IN TABLE qualifiedName                                         #dropBranch
     | ALTER BRANCH source=identifier IN TABLE qualifiedName
@@ -197,10 +201,11 @@ statement
     | DESCRIBE OUTPUT identifier                                       #describeOutput
     | SET PATH pathSpecification                                       #setPath
     | SET TIME ZONE (LOCAL | expression)                               #setTimeZone
-    | UPDATE qualifiedName
+    | UPDATE qualifiedName ('@' branch=identifier)?
         SET updateAssignment (',' updateAssignment)*
         (WHERE where=booleanExpression)?                               #update
-    | MERGE INTO qualifiedName (AS? identifier)?
+    | MERGE INTO
+        qualifiedName ('@' branch=identifier)? (AS? alias=identifier)?
         USING relation ON expression mergeCase+                        #merge
     ;
 
@@ -952,7 +957,7 @@ sqlStatementList
     ;
 
 privilege
-    : CREATE | SELECT | DELETE | INSERT | UPDATE | identifier
+    : CREATE | SELECT | DELETE | INSERT | UPDATE | identifier | CREATE BRANCH
     ;
 
 entityKind
@@ -960,7 +965,7 @@ entityKind
     ;
 
 grantObject
-    : entityKind? qualifiedName
+    : (BRANCH branch=identifier IN)? entityKind? qualifiedName
     ;
 
 ownedEntityKind
@@ -993,7 +998,7 @@ principal
     ;
 
 privilegeOrRole
-    : CREATE | SELECT | DELETE | INSERT | UPDATE | identifier
+    : CREATE | SELECT | DELETE | INSERT | UPDATE | identifier | CREATE BRANCH
     ;
 
 identifier

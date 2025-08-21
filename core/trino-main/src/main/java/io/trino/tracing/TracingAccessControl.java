@@ -414,6 +414,15 @@ public class TracingAccessControl
     }
 
     @Override
+    public void checkCanRefreshView(SecurityContext context, QualifiedObjectName viewName)
+    {
+        Span span = startSpan("checkCanRefreshView");
+        try (var _ = scopedSpan(span)) {
+            delegate.checkCanRefreshView(context, viewName);
+        }
+    }
+
+    @Override
     public void checkCanDropView(SecurityContext context, QualifiedObjectName viewName)
     {
         Span span = startSpan("checkCanDropView");
@@ -527,6 +536,33 @@ public class TracingAccessControl
         Span span = startSpan("checkCanRevokeTablePrivilege");
         try (var _ = scopedSpan(span)) {
             delegate.checkCanRevokeTablePrivilege(context, privilege, tableName, revokee, grantOption);
+        }
+    }
+
+    @Override
+    public void checkCanGrantTableBranchPrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, String branchName, TrinoPrincipal grantee, boolean grantOption)
+    {
+        Span span = startSpan("checkCanGrantTableBranchPrivilege");
+        try (var _ = scopedSpan(span)) {
+            delegate.checkCanGrantTableBranchPrivilege(context, privilege, tableName, branchName, grantee, grantOption);
+        }
+    }
+
+    @Override
+    public void checkCanDenyTableBranchPrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, String branchName, TrinoPrincipal grantee)
+    {
+        Span span = startSpan("checkCanDenyTableBranchPrivilege");
+        try (var _ = scopedSpan(span)) {
+            delegate.checkCanDenyTableBranchPrivilege(context, privilege, tableName, branchName, grantee);
+        }
+    }
+
+    @Override
+    public void checkCanRevokeTableBranchPrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, String branchName, TrinoPrincipal revokee, boolean grantOption)
+    {
+        Span span = startSpan("checkCanRevokeTableBranchPrivilege");
+        try (var _ = scopedSpan(span)) {
+            delegate.checkCanRevokeTableBranchPrivilege(context, privilege, tableName, branchName, revokee, grantOption);
         }
     }
 

@@ -231,6 +231,9 @@ public class AllowAllSystemAccessControl
     public void checkCanDropView(SystemSecurityContext context, CatalogSchemaTableName view) {}
 
     @Override
+    public void checkCanRefreshView(SystemSecurityContext context, CatalogSchemaTableName view) {}
+
+    @Override
     public void checkCanCreateViewWithSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns) {}
 
     @Override
@@ -349,6 +352,15 @@ public class AllowAllSystemAccessControl
 
     @Override
     public void checkCanFastForwardBranch(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName tableName, String sourceBranchName, String targetBranchName) {}
+
+    @Override
+    public void checkCanGrantTableBranchPrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaTableName table, String branchName, TrinoPrincipal grantee, boolean grantOption) {}
+
+    @Override
+    public void checkCanDenyTableBranchPrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaTableName table, String branchName, TrinoPrincipal grantee) {}
+
+    @Override
+    public void checkCanRevokeTableBranchPrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaTableName table, String branchName, TrinoPrincipal revokee, boolean grantOption) {}
 
     @Override
     public Iterable<EventListener> getEventListeners()

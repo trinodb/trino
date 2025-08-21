@@ -24,6 +24,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.type.Type;
+import jakarta.annotation.Nullable;
 
 import java.util.List;
 import java.util.Optional;
@@ -101,7 +102,8 @@ public class DistinctAccumulatorFactory
             implements Accumulator
     {
         private final Accumulator accumulator;
-        private final MarkDistinctHash hash;
+        @Nullable
+        private MarkDistinctHash hash; // null after evaluateFinal() is called
 
         private DistinctAccumulator(
                 Accumulator accumulator,
@@ -120,7 +122,11 @@ public class DistinctAccumulatorFactory
         @Override
         public long getEstimatedSize()
         {
-            return hash.getEstimatedSize() + accumulator.getEstimatedSize();
+            long estimatedSize = accumulator.getEstimatedSize();
+            if (hash != null) {
+                estimatedSize += hash.getEstimatedSize();
+            }
+            return estimatedSize;
         }
 
         @Override
@@ -132,6 +138,7 @@ public class DistinctAccumulatorFactory
         @Override
         public void addInput(Page arguments, AggregationMask mask)
         {
+            checkState(hash != null, "evaluateFinal() has already been called");
             // 1. filter out positions based on mask, if present
             Page filtered = mask.filterPage(arguments);
 
@@ -166,6 +173,8 @@ public class DistinctAccumulatorFactory
         @Override
         public void evaluateFinal(BlockBuilder blockBuilder)
         {
+            // release hash memory since it's no longer needed
+            hash = null;
             accumulator.evaluateFinal(blockBuilder);
         }
     }
@@ -174,7 +183,8 @@ public class DistinctAccumulatorFactory
             implements GroupedAccumulator
     {
         private final GroupedAccumulator accumulator;
-        private final MarkDistinctHash hash;
+        @Nullable
+        private MarkDistinctHash hash; // null after prepareFinal() is called
 
         private DistinctGroupedAccumulator(
                 GroupedAccumulator accumulator,
@@ -196,7 +206,11 @@ public class DistinctAccumulatorFactory
         @Override
         public long getEstimatedSize()
         {
-            return hash.getEstimatedSize() + accumulator.getEstimatedSize();
+            long estimatedSize = accumulator.getEstimatedSize();
+            if (hash != null) {
+                estimatedSize += hash.getEstimatedSize();
+            }
+            return estimatedSize;
         }
 
         @Override
@@ -208,6 +222,7 @@ public class DistinctAccumulatorFactory
         @Override
         public void addInput(int[] groupIds, Page page, AggregationMask mask)
         {
+            checkState(hash != null, "prepareFinal() has already been called");
             // 1. filter out positions based on mask
             groupIds = maskGroupIds(groupIds, mask);
             page = mask.filterPage(page);
@@ -261,6 +276,10 @@ public class DistinctAccumulatorFactory
         }
 
         @Override
-        public void prepareFinal() {}
+        public void prepareFinal()
+        {
+            // release hash memory after all inputs have been added
+            hash = null;
+        }
     }
 }

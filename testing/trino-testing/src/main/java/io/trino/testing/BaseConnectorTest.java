@@ -140,6 +140,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_MERGE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_MULTI_STATEMENT_WRITES;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_NEGATIVE_DATE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_NOT_NULL_CONSTRAINT;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_REFRESH_VIEW;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_COLUMN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_FIELD;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_MATERIALIZED_VIEW;
@@ -987,6 +988,65 @@ public abstract class BaseConnectorTest
         assertUpdate("DROP VIEW " + testView);
         assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet())
                 .doesNotContain(testView);
+    }
+
+    @Test
+    public void testRefreshView()
+    {
+        if (!hasBehavior(SUPPORTS_REFRESH_VIEW)) {
+            if (hasBehavior(SUPPORTS_CREATE_VIEW)) {
+                try (TestView testView = new TestView(getQueryRunner()::execute, "test_view", " SELECT * FROM nation")) {
+                    assertQueryFails("ALTER VIEW %s REFRESH".formatted(testView.getName()), "This connector does not support refreshing view definition");
+                }
+            }
+            return;
+        }
+
+        if (!hasBehavior(SUPPORTS_CREATE_TABLE) && !hasBehavior(SUPPORTS_ADD_COLUMN)) {
+            throw new AssertionError("Cannot test ALTER VIEW REFRESH without CREATE TABLE, the test needs to be implemented in a connector-specific way");
+        }
+
+        try (TestTable table = newTrinoTable("test_table", "(id BIGINT, column_to_dropped BIGINT, column_to_be_renamed BIGINT, column_with_comment BIGINT)", ImmutableList.of("1, 2, 3, 4"));
+                TestView view = new TestView(getQueryRunner()::execute, "test_view", " SELECT * FROM %s".formatted(table.getName()))) {
+            assertQueryReturnsEmptyResult("SELECT * FROM " + view.getName() + " EXCEPT CORRESPONDING SELECT * FROM " + table.getName());
+
+            assertUpdate("ALTER TABLE %s ADD COLUMN new_column BIGINT".formatted(table.getName()));
+            assertQueryFails(
+                    "SELECT * FROM " + view.getName(),
+                    ".*is stale or in invalid state: stored view column count \\(4\\) does not match column count derived from the view query analysis \\(5\\)");
+
+            assertUpdate("ALTER VIEW %s REFRESH".formatted(view.getName()));
+            assertQueryReturnsEmptyResult("SELECT * FROM " + view.getName() + " EXCEPT CORRESPONDING SELECT * FROM " + table.getName());
+
+            if (hasBehavior(SUPPORTS_RENAME_COLUMN)) {
+                assertUpdate("ALTER TABLE %s RENAME COLUMN column_to_be_renamed TO renamed_column".formatted(table.getName()));
+                assertQueryFails(
+                        "SELECT * FROM %s".formatted(view.getName()),
+                        ".*is stale or in invalid state: column \\[renamed_column] of type bigint projected from query view at position 2 has a different name from column \\[column_to_be_renamed] of type bigint stored in view definition");
+                assertUpdate("ALTER VIEW %s REFRESH".formatted(view.getName()));
+                assertQueryReturnsEmptyResult("SELECT * FROM " + view.getName() + " EXCEPT CORRESPONDING SELECT * FROM " + table.getName());
+            }
+
+            if (hasBehavior(SUPPORTS_COMMENT_ON_COLUMN)) {
+                assertUpdate("COMMENT ON COLUMN %s.column_with_comment IS 'test comment'".formatted(view.getName()));
+                assertThat(getColumnComment(view.getName(), "column_with_comment")).isEqualTo("test comment");
+
+                // Add another column
+                assertUpdate("ALTER TABLE %s ADD COLUMN new_column_2 BIGINT".formatted(table.getName()));
+                assertUpdate("ALTER VIEW %s REFRESH".formatted(view.getName()));
+                assertThat(getColumnComment(view.getName(), "column_with_comment")).isEqualTo("test comment");
+            }
+
+            if (hasBehavior(SUPPORTS_DROP_COLUMN)) {
+                assertUpdate("ALTER TABLE %s DROP COLUMN column_to_dropped".formatted(table.getName()));
+                assertQueryFails(
+                        "SELECT * FROM " + view.getName(),
+                        ".*is stale or in invalid state: stored view column count \\(\\d\\) does not match column count derived from the view query analysis \\(\\d\\)");
+
+                assertUpdate("ALTER VIEW %s REFRESH".formatted(view.getName()));
+                assertQueryReturnsEmptyResult("SELECT * FROM " + view.getName() + " EXCEPT CORRESPONDING SELECT * FROM " + table.getName());
+            }
+        }
     }
 
     @Test
@@ -2553,7 +2613,6 @@ public abstract class BaseConnectorTest
         try (TestTable table = newTrinoTable(
                 "test_add_field_in_array_nested_",
                 "AS SELECT CAST(array[array[row(1, row(10), array[row(11)])]] AS array(array(row(a integer, b row(x integer), c array(row(v integer)))))) AS col")) {
-
             assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(array(row(a integer, b row(x integer), c array(row(v integer)))))");
 
             assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN col.element.element.d integer");
@@ -2719,7 +2778,6 @@ public abstract class BaseConnectorTest
         try (TestTable table = newTrinoTable(
                 "test_drop_field_in_array_nested_",
                 "AS SELECT CAST(array[array[row(1, 2, row(10, 20), array[row(30, 40)])]] AS array(array(row(a integer, b integer, c row(x integer, y integer), d array(row(v integer, w integer)))))) AS col")) {
-
             // Use path ending with element
             assertQueryFails(
                     "ALTER TABLE " + table.getName() + " DROP COLUMN col.element.element",
@@ -3566,7 +3624,8 @@ public abstract class BaseConnectorTest
         try {
             assertUpdate("CREATE OR REPLACE TABLE " + table + " (a bigint, b double, c varchar(50))");
             assertQueryReturnsEmptyResult("SELECT * FROM " + table);
-        } finally {
+        }
+        finally {
             assertUpdate("DROP TABLE IF EXISTS " + table);
         }
     }
@@ -3586,7 +3645,8 @@ public abstract class BaseConnectorTest
         try {
             assertUpdate("CREATE OR REPLACE TABLE " + table + " AS " + query, rowCountQuery);
             assertQuery("SELECT * FROM " + table, query);
-        } finally {
+        }
+        finally {
             assertUpdate("DROP TABLE IF EXISTS " + table);
         }
     }
@@ -4622,7 +4682,7 @@ public abstract class BaseConnectorTest
         try (TestTable table = newTrinoTable("test_insert_map_", "(col map(integer, integer))")) {
             assertUpdate("INSERT INTO " + table.getName() + " VALUES map(ARRAY[1], ARRAY[2])", 1);
             assertThat(query("SELECT * FROM " + table.getName()))
-                .matches("VALUES map(ARRAY[1], ARRAY[2])");
+                        .matches("VALUES map(ARRAY[1], ARRAY[2])");
         }
     }
 
@@ -5380,11 +5440,13 @@ public abstract class BaseConnectorTest
                 IntStream.range(0, numOfCreateOrReplaceStatements).forEach(index -> {
                     try {
                         getQueryRunner().execute("CREATE OR REPLACE TABLE " + tableName + " AS SELECT * FROM (VALUES (1), (2)) AS t(a) ");
-                    } catch (Exception e) {
+                    }
+                    catch (Exception e) {
                         RuntimeException trinoException = getTrinoExceptionCause(e);
                         try {
                             throw new AssertionError("Unexpected concurrent CREATE OR REPLACE failure", trinoException);
-                        } catch (Throwable verifyFailure) {
+                        }
+                        catch (Throwable verifyFailure) {
                             if (verifyFailure != e) {
                                 verifyFailure.addSuppressed(e);
                             }

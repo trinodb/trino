@@ -663,7 +663,7 @@ public class TransactionLogAccess
         return forVersions.stream()
                 .flatMap(version -> {
                     try {
-                        Optional<TransactionLogEntries> entriesFromJson = getEntriesFromJson(version, transactionLogDir, fileSystem, transactionLogMaxCachedFileSize);
+                        Optional<TransactionLogEntries> entriesFromJson = getEntriesFromJson(version, fileSystem.newInputFile(getTransactionLogJsonEntryPath(transactionLogDir, version)), transactionLogMaxCachedFileSize);
                         return entriesFromJson.map(entries -> entries.getEntries(fileSystem))
                                 // transaction log does not exist. Might have been expired.
                                 .orElseGet(Stream::of);

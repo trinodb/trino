@@ -83,7 +83,7 @@ public abstract class AbstractFileSystemSpoolingManagerTest
             throws IOException
     {
         EncryptionKey key = randomAes256();
-        FileSystemSpooledSegmentHandle handle = new FileSystemSpooledSegmentHandle("json", ULID.randomBinary(), Optional.of(key));
+        FileSystemSpooledSegmentHandle handle = new FileSystemSpooledSegmentHandle("json", ULID.randomBinary(), "nodeId", Optional.of(key));
         SpooledLocation location = getSpoolingManager().location(handle);
         FileSystemSpooledSegmentHandle handle2 = (FileSystemSpooledSegmentHandle) getSpoolingManager().handle(location.identifier(), location.headers());
 

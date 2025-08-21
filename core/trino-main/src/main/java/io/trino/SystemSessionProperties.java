@@ -220,6 +220,7 @@ public final class SystemSessionProperties
     public static final String CLOSE_IDLE_WRITERS_TRIGGER_DURATION = "close_idle_writers_trigger_duration";
     public static final String COLUMNAR_FILTER_EVALUATION_ENABLED = "columnar_filter_evaluation_enabled";
     public static final String SPOOLING_ENABLED = "spooling_enabled";
+    public static final String DEBUG_ADAPTIVE_PLANNER = "debug_adaptive_planner";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -1134,6 +1135,11 @@ public final class SystemSessionProperties
                         SPOOLING_ENABLED,
                         "Enable client spooling protocol",
                         true,
+                        true),
+                booleanProperty(
+                        DEBUG_ADAPTIVE_PLANNER,
+                        "Enable debug information for the adaptive planner",
+                        false,
                         true));
     }
 
@@ -2032,5 +2038,10 @@ public final class SystemSessionProperties
     public static boolean isUnsafePushdownAllowed(Session session)
     {
         return session.getSystemProperty(ALLOW_UNSAFE_PUSHDOWN, Boolean.class);
+    }
+
+    public static boolean isDebugAdaptivePlannerEnabled(Session session)
+    {
+        return session.getSystemProperty(DEBUG_ADAPTIVE_PLANNER, Boolean.class);
     }
 }

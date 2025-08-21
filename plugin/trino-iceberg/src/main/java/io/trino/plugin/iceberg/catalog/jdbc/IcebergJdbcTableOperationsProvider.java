@@ -18,7 +18,7 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
-import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
+import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.spi.connector.ConnectorSession;
 
 import java.util.Optional;
@@ -30,13 +30,18 @@ public class IcebergJdbcTableOperationsProvider
         implements IcebergTableOperationsProvider
 {
     private final TrinoFileSystemFactory fileSystemFactory;
+    private final ForwardingFileIoFactory fileIoFactory;
     private final IcebergJdbcClient jdbcClient;
 
     @Inject
-    public IcebergJdbcTableOperationsProvider(IcebergJdbcClient jdbcClient, TrinoFileSystemFactory fileSystemFactory)
+    public IcebergJdbcTableOperationsProvider(
+            TrinoFileSystemFactory fileSystemFactory,
+            ForwardingFileIoFactory fileIoFactory,
+            IcebergJdbcClient jdbcClient)
     {
-        this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
+        this.fileIoFactory = requireNonNull(fileIoFactory, "fileIoFactory is null");
+        this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
     }
 
     @Override
@@ -49,7 +54,7 @@ public class IcebergJdbcTableOperationsProvider
             Optional<String> location)
     {
         return new IcebergJdbcTableOperations(
-                new ForwardingFileIo(fileSystemFactory.create(session), isUseFileSizeFromMetadata(session)),
+                fileIoFactory.create(fileSystemFactory.create(session), isUseFileSizeFromMetadata(session)),
                 jdbcClient,
                 session,
                 database,

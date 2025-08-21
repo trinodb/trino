@@ -79,8 +79,8 @@ support:
 * - `s3.socket-connect-timeout`
   - Maximum time [duration](prop-type-duration) allowed for socket connection
     requests to complete before timing out.
-* - `s3.socket-read-timeout`
-  - Maximum time [duration](prop-type-duration) for socket read operations
+* - `s3.socket-timeout`
+  - Maximum time [duration](prop-type-duration) for socket read/write operations
     before timing out.
 * - `s3.tcp-keep-alive`
   - Enable TCP keep alive on created connections. Defaults to `false`.
@@ -105,7 +105,7 @@ support:
     throttling.
 * - `s3.max-error-retries`
   - Specifies maximum number of retries the client will make on errors.
-    Defaults to `10`.
+    Defaults to `20`.
 * - `s3.use-web-identity-token-credentials-provider`
   - Set to `true` to only use the web identity token credentials provider,
     instead of the default providers chain. This can be useful when running
@@ -383,7 +383,7 @@ the following edits to your catalog configuration:
      - Also see `s3.connection-max-idle-time` in preceding section for more
        connection keep-alive options.
    * - `hive.s3.socket-timeout`
-     - `s3.socket-read-timeout`
+     - `s3.socket-timeout`
      - Also see `s3.tcp-keep-alive` in preceding sections for more socket
        connection keep-alive options.
    * - `hive.s3.max-connections`

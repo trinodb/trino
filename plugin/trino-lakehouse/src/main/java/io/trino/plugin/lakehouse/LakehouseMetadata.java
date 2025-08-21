@@ -543,15 +543,23 @@ public class LakehouseMetadata
     }
 
     @Override
-    public ConnectorInsertTableHandle beginRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, List<ConnectorTableHandle> sourceTableHandles, RetryMode retryMode, RefreshType refreshType)
+    public ConnectorInsertTableHandle beginRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, List<ConnectorTableHandle> sourceTableHandles, boolean hasForeignSourceTables, RetryMode retryMode, RefreshType refreshType)
     {
-        return icebergMetadata.beginRefreshMaterializedView(session, tableHandle, sourceTableHandles, retryMode, refreshType);
+        List<ConnectorTableHandle> icebergSourceHandles = sourceTableHandles.stream()
+                .filter(IcebergTableHandle.class::isInstance)
+                .toList();
+        hasForeignSourceTables |= icebergSourceHandles.size() < sourceTableHandles.size();
+        return icebergMetadata.beginRefreshMaterializedView(session, tableHandle, icebergSourceHandles, hasForeignSourceTables, retryMode, refreshType);
     }
 
     @Override
-    public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics, List<ConnectorTableHandle> sourceTableHandles, List<String> sourceTableFunctions)
+    public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics, List<ConnectorTableHandle> sourceTableHandles, boolean hasForeignSourceTables, boolean hasSourceTableFunctions)
     {
-        return icebergMetadata.finishRefreshMaterializedView(session, tableHandle, insertHandle, fragments, computedStatistics, sourceTableHandles, sourceTableFunctions);
+        List<ConnectorTableHandle> icebergSourceHandles = sourceTableHandles.stream()
+                .filter(IcebergTableHandle.class::isInstance)
+                .toList();
+        hasForeignSourceTables |= icebergSourceHandles.size() < sourceTableHandles.size();
+        return icebergMetadata.finishRefreshMaterializedView(session, tableHandle, insertHandle, fragments, computedStatistics, icebergSourceHandles, hasForeignSourceTables, hasSourceTableFunctions);
     }
 
     @Override
@@ -600,6 +608,12 @@ public class LakehouseMetadata
     public void setViewAuthorization(ConnectorSession session, SchemaTableName viewName, TrinoPrincipal principal)
     {
         hiveMetadata.setViewAuthorization(session, viewName, principal);
+    }
+
+    @Override
+    public void refreshView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition viewDefinition)
+    {
+        hiveMetadata.refreshView(session, viewName, viewDefinition);
     }
 
     @Override

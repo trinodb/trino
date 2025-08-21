@@ -732,6 +732,11 @@ public abstract class AstVisitor<R, C>
         return visitStatement(node, context);
     }
 
+    protected R visitRefreshView(RefreshView node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
     protected R visitCall(Call node, C context)
     {
         return visitStatement(node, context);

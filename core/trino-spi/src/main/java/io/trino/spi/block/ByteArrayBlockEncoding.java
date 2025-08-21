@@ -16,11 +16,13 @@ package io.trino.spi.block;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
+import jakarta.annotation.Nullable;
 
 import static io.trino.spi.block.EncoderUtil.decodeNullBits;
 import static io.trino.spi.block.EncoderUtil.encodeNullsAsBits;
 import static io.trino.spi.block.EncoderUtil.retrieveNullBits;
 import static java.lang.System.arraycopy;
+import static java.util.Objects.checkFromIndexSize;
 
 public class ByteArrayBlockEncoding
         implements BlockEncoding
@@ -46,23 +48,27 @@ public class ByteArrayBlockEncoding
         int positionCount = byteArrayBlock.getPositionCount();
         sliceOutput.appendInt(positionCount);
 
-        encodeNullsAsBits(sliceOutput, byteArrayBlock);
+        int rawOffset = byteArrayBlock.getRawValuesOffset();
+        @Nullable
+        boolean[] isNull = byteArrayBlock.getRawValueIsNull();
+        byte[] rawValues = byteArrayBlock.getRawValues();
+        checkFromIndexSize(rawOffset, positionCount, rawValues.length);
 
-        if (!byteArrayBlock.mayHaveNull()) {
-            sliceOutput.writeBytes(byteArrayBlock.getValuesSlice());
+        encodeNullsAsBits(sliceOutput, isNull, rawOffset, positionCount);
+
+        if (isNull == null) {
+            sliceOutput.writeBytes(rawValues, rawOffset, positionCount);
         }
         else {
             byte[] valuesWithoutNull = new byte[positionCount];
             int nonNullPositionCount = 0;
             for (int i = 0; i < positionCount; i++) {
-                valuesWithoutNull[nonNullPositionCount] = byteArrayBlock.getByte(i);
-                if (!byteArrayBlock.isNull(i)) {
-                    nonNullPositionCount++;
-                }
+                valuesWithoutNull[nonNullPositionCount] = rawValues[i + rawOffset];
+                nonNullPositionCount += isNull[i + rawOffset] ? 0 : 1;
             }
 
             sliceOutput.writeInt(nonNullPositionCount);
-            sliceOutput.writeBytes(Slices.wrappedBuffer(valuesWithoutNull, 0, nonNullPositionCount));
+            sliceOutput.writeBytes(valuesWithoutNull, 0, nonNullPositionCount);
         }
     }
 

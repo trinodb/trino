@@ -115,7 +115,7 @@ public class ThriftMetadata
 
         return tableCache.getUnchecked(tableName)
                 .map(ThriftTableMetadata::getSchemaTableName)
-                .map(ThriftTableHandle::new)
+                .map(ThriftTableHandle::toThriftTableHandle)
                 .orElse(null);
     }
 
@@ -123,7 +123,7 @@ public class ThriftMetadata
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         ThriftTableHandle handle = ((ThriftTableHandle) tableHandle);
-        return getRequiredTableMetadata(new SchemaTableName(handle.getSchemaName(), handle.getTableName())).toConnectorTableMetadata();
+        return getRequiredTableMetadata(new SchemaTableName(handle.schemaName(), handle.tableName())).toConnectorTableMetadata();
     }
 
     @Override
@@ -142,7 +142,7 @@ public class ThriftMetadata
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return getTableMetadata(session, tableHandle).getColumns().stream().collect(toImmutableMap(ColumnMetadata::getName, ThriftColumnHandle::new));
+        return getTableMetadata(session, tableHandle).getColumns().stream().collect(toImmutableMap(ColumnMetadata::getName, ThriftColumnHandle::toColumnHandle));
     }
 
     @Override
@@ -161,7 +161,7 @@ public class ThriftMetadata
     public Optional<ConnectorResolvedIndex> resolveIndex(ConnectorSession session, ConnectorTableHandle tableHandle, Set<ColumnHandle> indexableColumns, Set<ColumnHandle> outputColumns, TupleDomain<ColumnHandle> tupleDomain)
     {
         ThriftTableHandle table = (ThriftTableHandle) tableHandle;
-        ThriftTableMetadata tableMetadata = getRequiredTableMetadata(new SchemaTableName(table.getSchemaName(), table.getTableName()));
+        ThriftTableMetadata tableMetadata = getRequiredTableMetadata(new SchemaTableName(table.schemaName(), table.tableName()));
         if (tableMetadata.containsIndexableColumns(indexableColumns)) {
             return Optional.of(new ConnectorResolvedIndex(new ThriftIndexHandle(tableMetadata.getSchemaTableName(), tupleDomain), tupleDomain));
         }
@@ -173,17 +173,17 @@ public class ThriftMetadata
     {
         ThriftTableHandle handle = (ThriftTableHandle) table;
 
-        TupleDomain<ColumnHandle> oldDomain = handle.getConstraint();
+        TupleDomain<ColumnHandle> oldDomain = handle.constraint();
         TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary());
         if (oldDomain.equals(newDomain)) {
             return Optional.empty();
         }
 
         handle = new ThriftTableHandle(
-                handle.getSchemaName(),
-                handle.getTableName(),
+                handle.schemaName(),
+                handle.tableName(),
                 newDomain,
-                handle.getDesiredColumns());
+                handle.desiredColumns());
 
         return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary(), constraint.getExpression(), false));
     }
@@ -193,7 +193,7 @@ public class ThriftMetadata
     {
         ThriftTableHandle handle = (ThriftTableHandle) table;
 
-        if (handle.getDesiredColumns().isPresent()) {
+        if (handle.desiredColumns().isPresent()) {
             return Optional.empty();
         }
 
@@ -201,13 +201,13 @@ public class ThriftMetadata
         ImmutableList.Builder<Assignment> assignmentList = ImmutableList.builder();
         assignments.forEach((name, column) -> {
             desiredColumns.add(column);
-            assignmentList.add(new Assignment(name, column, ((ThriftColumnHandle) column).getColumnType()));
+            assignmentList.add(new Assignment(name, column, ((ThriftColumnHandle) column).columnType()));
         });
 
         handle = new ThriftTableHandle(
-                handle.getSchemaName(),
-                handle.getTableName(),
-                handle.getConstraint(),
+                handle.schemaName(),
+                handle.tableName(),
+                handle.constraint(),
                 Optional.of(desiredColumns.build()));
 
         return Optional.of(new ProjectionApplicationResult<>(handle, projections, assignmentList.build(), false));

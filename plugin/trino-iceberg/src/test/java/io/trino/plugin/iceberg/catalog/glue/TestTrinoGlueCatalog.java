@@ -27,7 +27,6 @@ import io.trino.plugin.iceberg.TableStatisticsWriter;
 import io.trino.plugin.iceberg.catalog.BaseTrinoCatalogTest;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.spi.catalog.CatalogName;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
@@ -55,6 +54,7 @@ import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 import static io.trino.plugin.iceberg.IcebergSchemaProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FORMAT_VERSION_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -80,12 +80,14 @@ public class TestTrinoGlueCatalog
         return new TrinoGlueCatalog(
                 new CatalogName("catalog_name"),
                 HDFS_FILE_SYSTEM_FACTORY,
+                FILE_IO_FACTORY,
                 new TestingTypeManager(),
                 catalogConfig.isCacheTableMetadata(),
                 new GlueIcebergTableOperationsProvider(
+                        HDFS_FILE_SYSTEM_FACTORY,
+                        FILE_IO_FACTORY,
                         TESTING_TYPE_MANAGER,
                         catalogConfig,
-                        HDFS_FILE_SYSTEM_FACTORY,
                         new GlueMetastoreStats(),
                         glueClient),
                 "test",
@@ -127,7 +129,6 @@ public class TestTrinoGlueCatalog
             // Test with IcebergMetadata, should the ConnectorMetadata implementation behavior depend on that class
             ConnectorMetadata icebergMetadata = new IcebergMetadata(
                     PLANNER_CONTEXT.getTypeManager(),
-                    CatalogHandle.fromId("iceberg:NORMAL:v12345"),
                     jsonCodec(CommitTaskData.class),
                     catalog,
                     (connectorIdentity, fileIoProperties) -> {
@@ -139,6 +140,7 @@ public class TestTrinoGlueCatalog
                     _ -> false,
                     newDirectExecutorService(),
                     directExecutor(),
+                    newDirectExecutorService(),
                     newDirectExecutorService());
             assertThat(icebergMetadata.schemaExists(SESSION, databaseName)).as("icebergMetadata.schemaExists(databaseName)")
                     .isFalse();
@@ -218,12 +220,14 @@ public class TestTrinoGlueCatalog
         TrinoCatalog catalogWithDefaultLocation = new TrinoGlueCatalog(
                 new CatalogName("catalog_name"),
                 fileSystemFactory,
+                FILE_IO_FACTORY,
                 new TestingTypeManager(),
                 catalogConfig.isCacheTableMetadata(),
                 new GlueIcebergTableOperationsProvider(
+                        fileSystemFactory,
+                        FILE_IO_FACTORY,
                         TESTING_TYPE_MANAGER,
                         catalogConfig,
-                        fileSystemFactory,
                         new GlueMetastoreStats(),
                         glueClient),
                 "test",

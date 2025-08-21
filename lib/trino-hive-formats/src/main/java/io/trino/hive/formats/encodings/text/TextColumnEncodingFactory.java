@@ -88,7 +88,7 @@ public class TextColumnEncodingFactory
     private TextColumnEncoding getEncoding(Type type, int depth)
     {
         if (BOOLEAN.equals(type)) {
-            return new BooleanEncoding(type, textEncodingOptions.getNullSequence());
+            return new BooleanEncoding(type, textEncodingOptions.getNullSequence(), textEncodingOptions.isExtendedBooleanLiteral());
         }
         if (TINYINT.equals(type) || SMALLINT.equals(type) || INTEGER.equals(type) || BIGINT.equals(type)) {
             return new LongEncoding(type, textEncodingOptions.getNullSequence());

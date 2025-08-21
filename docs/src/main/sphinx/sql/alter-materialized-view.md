@@ -5,6 +5,7 @@
 ```text
 ALTER MATERIALIZED VIEW [ IF EXISTS ] name RENAME TO new_name
 ALTER MATERIALIZED VIEW name SET PROPERTIES property_name = expression [, ...]
+ALTER MATERIALIZED VIEW name SET AUTHORIZATION ( user | USER user | ROLE role )
 ```
 
 ## Description
@@ -62,6 +63,12 @@ Set view property `x` to its default value in materialized view `people`:
 
 ```
 ALTER MATERIALIZED VIEW people SET PROPERTIES x = DEFAULT;
+```
+
+Change owner of materialized view `people` to user `alice`:
+
+```
+ALTER MATERIALIZED VIEW people SET AUTHORIZATION alice
 ```
 
 ## See also

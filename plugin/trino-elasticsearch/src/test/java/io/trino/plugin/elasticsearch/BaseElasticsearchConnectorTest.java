@@ -2091,7 +2091,7 @@ public abstract class BaseElasticsearchConnectorTest
 
         Map<String, Object> record2 = new HashMap<>();
         record2.put("id", 2L);
-        record2.put( "root", null);
+        record2.put("root", null);
         index(tableName, record2);
 
         Map<String, Object> record32 = new HashMap<>();
@@ -2118,7 +2118,7 @@ public abstract class BaseElasticsearchConnectorTest
     void testProjectionPushdownWithCaseSensitiveField()
             throws IOException
     {
-        String tableName = "test_projection_with_case_sensitive_field_" + randomNameSuffix();;
+        String tableName = "test_projection_with_case_sensitive_field_" + randomNameSuffix();
         @Language("JSON")
         String properties =
                 """
@@ -2568,7 +2568,7 @@ public abstract class BaseElasticsearchConnectorTest
         try {
             assertThat(query("DESCRIBE \"" + wildcardTable + "\""))
                     .skippingTypesCheck()
-                    .matches( "VALUES ('long_column', 'bigint', '', ''), ('text_column', 'varchar', '', '')");
+                    .matches("VALUES ('long_column', 'bigint', '', ''), ('text_column', 'varchar', '', '')");
             assertThat(query("SELECT * FROM \"" + wildcardTable + "\""))
                     .matches("VALUES (BIGINT '1', VARCHAR 'Trino'), (BIGINT '2', VARCHAR 'rocks')");
 

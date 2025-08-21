@@ -560,6 +560,18 @@ public class MemoryMetadata
     }
 
     @Override
+    public synchronized void refreshView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition viewDefinition)
+    {
+        checkSchemaExists(viewName.getSchemaName());
+
+        if (!tableIds.containsKey(viewName)) {
+            throw new TrinoException(NOT_FOUND, "View not found: " + viewName);
+        }
+
+        views.replace(viewName, viewDefinition);
+    }
+
+    @Override
     public synchronized void dropView(ConnectorSession session, SchemaTableName viewName)
     {
         if (views.remove(viewName) == null) {

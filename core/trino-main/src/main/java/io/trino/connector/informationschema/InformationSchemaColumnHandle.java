@@ -24,4 +24,10 @@ public record InformationSchemaColumnHandle(String columnName)
     {
         requireNonNull(columnName, "columnName is null");
     }
+
+    @Override
+    public String toString()
+    {
+        return columnName;
+    }
 }

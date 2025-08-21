@@ -76,6 +76,7 @@ import static io.trino.plugin.deltalake.DeltaLakeColumnType.SYNTHESIZED;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_BAD_WRITE;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_FILESYSTEM_ERROR;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.relativePath;
+import static io.trino.plugin.deltalake.DeltaLakeMetadata.toUriFormat;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getCompressionCodec;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterBlockSize;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterPageSize;
@@ -413,8 +414,8 @@ public class DeltaLakeMergeSink
     {
         String tablePath = rootTableLocation.toString();
         String sourceReferencePath = getReferencedPath(tablePath, sourcePath);
-        DeletionVectorEntry oldDeletionVector = deletionVectors.get(sourceReferencePath);
-
+        // The deletionVectors key is the path in AddFileEntry, which is the URI-formatted sourceReferencePath
+        DeletionVectorEntry oldDeletionVector = deletionVectors.get(uriFormatReferencedPath(tablePath, sourcePath));
         DeletionVectorEntry deletionVectorEntry;
         try {
             deletionVectorEntry = writeDeletionVectors(fileSystem, rootTableLocation, deletedRows, randomPrefixLength);
@@ -451,7 +452,7 @@ public class DeltaLakeMergeSink
     private Slice onlySourceFile(String sourcePath, FileDeletion deletion)
     {
         String sourceReferencePath = getReferencedPath(rootTableLocation.toString(), sourcePath);
-        DeletionVectorEntry deletionVector = deletionVectors.get(sourceReferencePath);
+        DeletionVectorEntry deletionVector = deletionVectors.get(uriFormatReferencedPath(rootTableLocation.toString(), sourcePath));
         DeltaLakeMergeResult result = new DeltaLakeMergeResult(deletion.partitionValues(), Optional.of(sourceReferencePath), Optional.ofNullable(deletionVector), Optional.empty());
         return utf8Slice(mergeResultJsonCodec.toJson(result));
     }
@@ -538,8 +539,7 @@ public class DeltaLakeMergeSink
 
     private RoaringBitmapArray loadDeletionVector(Location path)
     {
-        String referencedPath = getReferencedPath(rootTableLocation.toString(), path.toString());
-        DeletionVectorEntry deletionVector = deletionVectors.get(referencedPath);
+        DeletionVectorEntry deletionVector = deletionVectors.get(uriFormatReferencedPath(rootTableLocation.toString(), path.toString()));
         if (deletionVector == null) {
             return new RoaringBitmapArray();
         }
@@ -701,6 +701,16 @@ public class DeltaLakeMergeSink
         }
 
         return relativePath(basePath, sourcePath);
+    }
+
+    private String uriFormatReferencedPath(String basePath, String sourcePath)
+    {
+        if (shallowCloneSourceTableLocation.isPresent() && sourcePath.startsWith(shallowCloneSourceTableLocation.get())) {
+            // It's the absolute path of shallow clone source table file
+            return sourcePath;
+        }
+
+        return toUriFormat(relativePath(basePath, sourcePath));
     }
 
     @Override

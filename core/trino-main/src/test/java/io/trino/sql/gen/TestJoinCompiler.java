@@ -51,6 +51,36 @@ public class TestJoinCompiler
     private final JoinCompiler joinCompiler = new JoinCompiler(typeOperators);
 
     @Test
+    void testEmptyChannels()
+    {
+        // compile hash strategy with empty join channels
+        PagesHashStrategyFactory pagesHashStrategyFactory = joinCompiler.compilePagesHashStrategyFactory(ImmutableList.of(BIGINT), ImmutableList.of());
+
+        // create hash strategy with a single channel blocks
+        ObjectArrayList<Block> channel = new ObjectArrayList<>();
+        channel.add(BlockAssertions.createStringSequenceBlock(10, 20));
+        channel.add(BlockAssertions.createStringSequenceBlock(20, 30));
+        channel.add(BlockAssertions.createStringSequenceBlock(15, 25));
+
+        List<ObjectArrayList<Block>> channels = ImmutableList.of(channel);
+        PagesHashStrategy hashStrategy = pagesHashStrategyFactory.createPagesHashStrategy(channels);
+
+        assertThat(hashStrategy.getChannelCount()).isEqualTo(1);
+        assertThat(hashStrategy.getSizeInBytes()).isGreaterThan(0L);
+        assertThat(hashStrategy.hashRow(0, new Page(channel.get(0)))).isEqualTo(0L);
+        assertThat(hashStrategy.hashPosition(0, 5)).isEqualTo(0L);
+        assertThat(hashStrategy.positionEqualsPositionIgnoreNulls(0, 5, 0, 5)).isTrue();
+        assertThat(hashStrategy.positionEqualsPosition(0, 5, 0, 5)).isTrue();
+        assertThat(hashStrategy.positionIdenticalToPosition(0, 5, 0, 5)).isTrue();
+        assertThat(hashStrategy.positionEqualsRow(0, 5, 5, new Page(channel.get(0)))).isTrue();
+        assertThat(hashStrategy.positionIdenticalToRow(0, 5, 5, new Page(channel.get(0)))).isTrue();
+        assertThat(hashStrategy.rowEqualsRow(5, new Page(channel.get(0)), 5, new Page(channel.get(0)))).isTrue();
+        assertThat(hashStrategy.rowIdenticalToRow(5, new Page(channel.get(0)), 5, new Page(channel.get(0)))).isTrue();
+        assertThat(hashStrategy.positionEqualsRowIgnoreNulls(0, 5, 5, new Page(channel.get(0)))).isTrue();
+        assertThat(hashStrategy.positionEqualsPositionIgnoreNulls(0, 5, 0, 5)).isTrue();
+    }
+
+    @Test
     public void testSingleChannel()
     {
         List<Type> joinTypes = ImmutableList.of(VARCHAR);

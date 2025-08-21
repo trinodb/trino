@@ -32,9 +32,11 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.spi.StandardErrorCode.BRANCH_ALREADY_EXISTS;
+import static io.trino.spi.StandardErrorCode.BRANCH_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.INVALID_BRANCH_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
@@ -55,7 +57,7 @@ final class TestCreateBranchTask
         TableHandle table = metadata.getTableHandle(testSession, tableName).orElseThrow();
         assertBranches(tableName, "main");
 
-        metadata.createBranch(testSession, table, "dev", FAIL, Map.of());
+        metadata.createBranch(testSession, table, "dev", Optional.empty(), FAIL, Map.of());
         assertBranches(tableName, "main", "dev");
     }
 
@@ -66,7 +68,7 @@ final class TestCreateBranchTask
         metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), FAIL);
         assertBranches(tableName, "main");
 
-        getFutureValue(executeCreateBranch(asQualifiedName(tableName), SaveMode.REPLACE, "main", List.of()));
+        getFutureValue(executeCreateBranch(asQualifiedName(tableName), SaveMode.REPLACE, "main", Optional.empty(), List.of()));
         assertBranches(tableName, "main");
     }
 
@@ -77,8 +79,32 @@ final class TestCreateBranchTask
         metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), FAIL);
         assertBranches(tableName, "main");
 
-        getFutureValue(executeCreateBranch(asQualifiedName(tableName), SaveMode.IGNORE, "main", List.of()));
+        getFutureValue(executeCreateBranch(asQualifiedName(tableName), SaveMode.IGNORE, "main", Optional.empty(), List.of()));
         assertBranches(tableName, "main");
+    }
+
+    @Test
+    void testCreateBranchFromOtherBranch()
+    {
+        QualifiedObjectName tableName = qualifiedObjectName("existing_table");
+        metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), FAIL);
+        TableHandle table = metadata.getTableHandle(testSession, tableName).orElseThrow();
+        metadata.createBranch(testSession, table, "tmp", Optional.empty(), FAIL, Map.of());
+        assertBranches(tableName, "main", "tmp");
+
+        metadata.createBranch(testSession, table, "dev", Optional.of("tmp"), FAIL, Map.of());
+        assertBranches(tableName, "main", "tmp", "dev");
+    }
+
+    @Test
+    void testCreateBranchFromNonExistentBranch()
+    {
+        QualifiedObjectName tableName = qualifiedObjectName("existing_table");
+        metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), FAIL);
+
+        assertTrinoExceptionThrownBy(() -> getFutureValue(executeCreateBranch(asQualifiedName(tableName), SaveMode.FAIL, "dev", Optional.of("non-existent"), List.of())))
+                .hasErrorCode(BRANCH_NOT_FOUND)
+                .hasMessage("line 1:1: Branch 'non-existent' does not exist");
     }
 
     @Test
@@ -89,7 +115,7 @@ final class TestCreateBranchTask
         assertBranches(tableName, "main");
 
         Property unknownProperty = new Property(new NodeLocation(1, 1), new Identifier("unknown_property"), new StringLiteral(new NodeLocation(1, 1), "unknown"));
-        assertTrinoExceptionThrownBy(() -> getFutureValue(executeCreateBranch(asQualifiedName(tableName), SaveMode.FAIL, "dev", List.of(unknownProperty))))
+        assertTrinoExceptionThrownBy(() -> getFutureValue(executeCreateBranch(asQualifiedName(tableName), SaveMode.FAIL, "dev", Optional.empty(), List.of(unknownProperty))))
                 .hasErrorCode(INVALID_BRANCH_PROPERTY)
                 .hasMessage("line 1:1: Catalog 'test_catalog' branch property 'unknown_property' does not exist");
         assertBranches(tableName, "main");
@@ -103,7 +129,7 @@ final class TestCreateBranchTask
         assertBranches(tableName, "main");
 
         Property unknownProperty = new Property(new NodeLocation(1, 1), new Identifier("boolean_property"), new StringLiteral(new NodeLocation(1, 1), "unknown"));
-        assertTrinoExceptionThrownBy(() -> getFutureValue(executeCreateBranch(asQualifiedName(tableName), SaveMode.FAIL, "dev", List.of(unknownProperty))))
+        assertTrinoExceptionThrownBy(() -> getFutureValue(executeCreateBranch(asQualifiedName(tableName), SaveMode.FAIL, "dev", Optional.empty(), List.of(unknownProperty))))
                 .hasErrorCode(INVALID_BRANCH_PROPERTY)
                 .hasMessage("line 1:1: Invalid value for catalog 'test_catalog' branch property 'boolean_property': Cannot convert ['unknown'] to boolean");
         assertBranches(tableName, "main");
@@ -116,7 +142,7 @@ final class TestCreateBranchTask
         metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), FAIL);
         assertBranches(tableName, "main");
 
-        assertTrinoExceptionThrownBy(() -> getFutureValue(executeCreateBranch(asQualifiedName(tableName), SaveMode.FAIL, "main", List.of())))
+        assertTrinoExceptionThrownBy(() -> getFutureValue(executeCreateBranch(asQualifiedName(tableName), SaveMode.FAIL, "main", Optional.empty(), List.of())))
                 .hasErrorCode(BRANCH_ALREADY_EXISTS)
                 .hasMessage("line 1:1: Branch 'main' already exists");
         assertBranches(tableName, "main");
@@ -127,7 +153,7 @@ final class TestCreateBranchTask
     {
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
 
-        assertTrinoExceptionThrownBy(() -> getFutureValue(executeCreateBranch(asQualifiedName(tableName), SaveMode.FAIL, "not_found", List.of())))
+        assertTrinoExceptionThrownBy(() -> getFutureValue(executeCreateBranch(asQualifiedName(tableName), SaveMode.FAIL, "not_found", Optional.empty(), List.of())))
                 .hasErrorCode(TABLE_NOT_FOUND)
                 .hasMessage("line 1:1: Table 'test_catalog.schema.existing_table' does not exist");
     }
@@ -138,7 +164,7 @@ final class TestCreateBranchTask
         QualifiedObjectName viewName = qualifiedObjectName("existing_view");
         metadata.createView(testSession, viewName, someView(), ImmutableMap.of(), false);
 
-        assertTrinoExceptionThrownBy(() -> getFutureValue(executeCreateBranch(asQualifiedName(viewName), SaveMode.FAIL, "main", List.of())))
+        assertTrinoExceptionThrownBy(() -> getFutureValue(executeCreateBranch(asQualifiedName(viewName), SaveMode.FAIL, "main", Optional.empty(), List.of())))
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:1: Creating branch from view is not supported");
     }
@@ -149,14 +175,14 @@ final class TestCreateBranchTask
         QualifiedName viewName = qualifiedName("existing_materialized_view");
         metadata.createMaterializedView(testSession, QualifiedObjectName.valueOf(viewName.toString()), someMaterializedView(), MATERIALIZED_VIEW_PROPERTIES, false, false);
 
-        assertTrinoExceptionThrownBy(() -> getFutureValue(executeCreateBranch(viewName, SaveMode.FAIL, "main", List.of())))
+        assertTrinoExceptionThrownBy(() -> getFutureValue(executeCreateBranch(viewName, SaveMode.FAIL, "main", Optional.empty(), List.of())))
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:1: Creating branch from materialized view is not supported");
     }
 
-    private ListenableFuture<Void> executeCreateBranch(QualifiedName tableName, SaveMode saveMode, String branchName, List<Property> properties)
+    private ListenableFuture<Void> executeCreateBranch(QualifiedName tableName, SaveMode saveMode, String branchName, Optional<String> fromBranch, List<Property> properties)
     {
-        CreateBranch createBranch = new CreateBranch(new NodeLocation(1, 1), tableName, new Identifier(branchName), saveMode, properties);
+        CreateBranch createBranch = new CreateBranch(new NodeLocation(1, 1), tableName, new Identifier(branchName), fromBranch.map(Identifier::new), saveMode, properties);
         BranchPropertyManager propertyManager = new BranchPropertyManager(_ -> ImmutableMap.of("boolean_property", booleanProperty("boolean_property", "Mock description", false, false)));
         return new CreateBranchTask(plannerContext, metadata, new AllowAllAccessControl(), propertyManager)
                 .execute(createBranch, queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);

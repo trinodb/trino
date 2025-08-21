@@ -13,67 +13,21 @@
  */
 package io.trino.plugin.thrift;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.Type;
-import jakarta.annotation.Nullable;
 
-import java.util.Objects;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public final class ThriftColumnHandle
+public record ThriftColumnHandle(String columnName, Type columnType, String comment, boolean hidden)
         implements ColumnHandle
 {
-    private final String columnName;
-    private final Type columnType;
-    private final String comment;
-    private final boolean hidden;
-
-    @JsonCreator
-    public ThriftColumnHandle(
-            @JsonProperty("columnName") String columnName,
-            @JsonProperty("columnType") Type columnType,
-            @JsonProperty("comment") @Nullable String comment,
-            @JsonProperty("hidden") boolean hidden)
+    public ThriftColumnHandle
     {
-        this.columnName = requireNonNull(columnName, "columnName is null");
-        this.columnType = requireNonNull(columnType, "columnType is null");
-        this.comment = comment;
-        this.hidden = hidden;
-    }
-
-    public ThriftColumnHandle(ColumnMetadata columnMetadata)
-    {
-        this(columnMetadata.getName(), columnMetadata.getType(), columnMetadata.getComment(), columnMetadata.isHidden());
-    }
-
-    @JsonProperty
-    public String getColumnName()
-    {
-        return columnName;
-    }
-
-    @JsonProperty
-    public Type getColumnType()
-    {
-        return columnType;
-    }
-
-    @Nullable
-    @JsonProperty
-    public String getComment()
-    {
-        return comment;
-    }
-
-    @JsonProperty
-    public boolean isHidden()
-    {
-        return hidden;
+        requireNonNull(columnName, "columnName is null");
+        requireNonNull(columnType, "columnType is null");
     }
 
     public ColumnMetadata toColumnMetadata()
@@ -86,26 +40,9 @@ public final class ThriftColumnHandle
                 .build();
     }
 
-    @Override
-    public boolean equals(Object obj)
+    public static ThriftColumnHandle toColumnHandle(ColumnMetadata columnMetadata)
     {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        ThriftColumnHandle other = (ThriftColumnHandle) obj;
-        return Objects.equals(this.columnName, other.columnName) &&
-                Objects.equals(this.columnType, other.columnType) &&
-                Objects.equals(this.comment, other.comment) &&
-                this.hidden == other.hidden;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(columnName, columnType, comment, hidden);
+        return new ThriftColumnHandle(columnMetadata.getName(), columnMetadata.getType(), columnMetadata.getComment(), columnMetadata.isHidden());
     }
 
     @Override

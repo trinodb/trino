@@ -28,6 +28,7 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
+import io.trino.spi.connector.ConnectorPageSourceProviderFactory;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableHandle;
@@ -38,6 +39,7 @@ import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordPageSource;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SystemColumnHandle;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
@@ -45,6 +47,7 @@ import io.trino.spi.type.Type;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -60,12 +63,15 @@ public class SystemPageSourceProvider
     private final SystemTablesProvider tables;
     private final AccessControl accessControl;
     private final String catalogName;
+    private final Optional<ConnectorPageSourceProvider> connectorPageSourceProvider;
 
-    public SystemPageSourceProvider(SystemTablesProvider tables, AccessControl accessControl, String catalogName)
+    public SystemPageSourceProvider(SystemTablesProvider tables, AccessControl accessControl, String catalogName, Optional<ConnectorPageSourceProviderFactory> pageSourceProviderFactory)
     {
         this.tables = requireNonNull(tables, "tables is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        this.connectorPageSourceProvider = requireNonNull(pageSourceProviderFactory, "pageSourceProviderFactory is null")
+                .map(ConnectorPageSourceProviderFactory::createPageSourceProvider);
     }
 
     @Override
@@ -79,7 +85,13 @@ public class SystemPageSourceProvider
     {
         requireNonNull(columns, "columns is null");
         SystemTransactionHandle systemTransaction = (SystemTransactionHandle) transaction;
-        SystemSplit systemSplit = (SystemSplit) split;
+
+        // if the split is not a SystemSplit, we immediately delegate to the Connector to build a PageSource
+        if (!(split instanceof SystemSplit systemSplit)) {
+            return connectorPageSourceProvider.orElseThrow()
+                    .createPageSource(systemTransaction.getConnectorTransactionHandle(), session, split, table, columns, dynamicFilter);
+        }
+
         SchemaTableName tableName = ((SystemTableHandle) table).schemaTableName();
         SystemTable systemTable = tables.getSystemTable(session, tableName)
                 // table might disappear in the meantime

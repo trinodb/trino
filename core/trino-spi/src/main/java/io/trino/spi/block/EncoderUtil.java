@@ -29,6 +29,52 @@ final class EncoderUtil
      * Append null values for the block as a stream of bits.
      */
     @SuppressWarnings({"NarrowingCompoundAssignment", "ImplicitNumericConversion"})
+    public static void encodeNullsAsBits(SliceOutput sliceOutput, @Nullable boolean[] isNull, int offset, int length)
+    {
+        sliceOutput.writeBoolean(isNull != null);
+        if (isNull == null) {
+            return;
+        }
+        // inlined from Objects.checkFromIndexSize
+        if ((length | offset) < 0 || length > isNull.length - offset) {
+            throw new IndexOutOfBoundsException("Invalid offset: %s, length: %s for size: %s".formatted(offset, length, isNull.length));
+        }
+        byte[] packedIsNull = new byte[(length + 7) / 8];
+        int currentByte = 0;
+        for (int position = 0; position < (length & ~0b111); position += 8) {
+            byte value = 0;
+            value |= (isNull[position + offset] ? 1 : 0) << 7;
+            value |= (isNull[position + offset + 1] ? 1 : 0) << 6;
+            value |= (isNull[position + offset + 2] ? 1 : 0) << 5;
+            value |= (isNull[position + offset + 3] ? 1 : 0) << 4;
+            value |= (isNull[position + offset + 4] ? 1 : 0) << 3;
+            value |= (isNull[position + offset + 5] ? 1 : 0) << 2;
+            value |= (isNull[position + offset + 6] ? 1 : 0) << 1;
+            value |= (isNull[position + offset + 7] ? 1 : 0);
+            packedIsNull[currentByte++] = value;
+        }
+
+        // write last null bits
+        if ((length & 0b111) > 0) {
+            byte value = 0;
+            int mask = 0b1000_0000;
+            for (int position = length & ~0b111; position < length; position++) {
+                value |= isNull[position + offset] ? mask : 0;
+                mask >>>= 1;
+            }
+            packedIsNull[currentByte++] = value;
+        }
+
+        sliceOutput.writeBytes(packedIsNull, 0, currentByte);
+    }
+
+    /**
+     * Append null values for the block as a stream of bits.
+     *
+     * @deprecated Use {@link EncoderUtil#encodeNullsAsBits(SliceOutput, boolean[], int, int)} instead
+     */
+    @Deprecated(forRemoval = true)
+    @SuppressWarnings({"NarrowingCompoundAssignment", "ImplicitNumericConversion"})
     public static void encodeNullsAsBits(SliceOutput sliceOutput, Block block)
     {
         boolean mayHaveNull = block.mayHaveNull();

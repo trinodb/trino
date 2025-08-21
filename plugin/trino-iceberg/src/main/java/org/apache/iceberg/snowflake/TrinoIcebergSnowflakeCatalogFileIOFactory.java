@@ -14,7 +14,7 @@
 package org.apache.iceberg.snowflake;
 
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
+import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.spi.security.ConnectorIdentity;
 import org.apache.iceberg.io.FileIO;
 
@@ -26,17 +26,19 @@ public class TrinoIcebergSnowflakeCatalogFileIOFactory
         extends SnowflakeCatalog.FileIOFactory
 {
     private final TrinoFileSystemFactory trinoFileSystemFactory;
+    private final ForwardingFileIoFactory fileIoFactory;
     private final ConnectorIdentity identity;
 
-    public TrinoIcebergSnowflakeCatalogFileIOFactory(TrinoFileSystemFactory trinoFileSystemFactory, ConnectorIdentity identity)
+    public TrinoIcebergSnowflakeCatalogFileIOFactory(TrinoFileSystemFactory trinoFileSystemFactory, ForwardingFileIoFactory fileIoFactory, ConnectorIdentity identity)
     {
         this.trinoFileSystemFactory = requireNonNull(trinoFileSystemFactory, "trinoFileSystemFactory is null");
+        this.fileIoFactory = requireNonNull(fileIoFactory, "fileIoFactory is null");
         this.identity = requireNonNull(identity, "identity is null");
     }
 
     @Override
     public FileIO newFileIO(String impl, Map<String, String> properties, Object hadoopConf)
     {
-        return new ForwardingFileIo(trinoFileSystemFactory.create(identity));
+        return fileIoFactory.create(trinoFileSystemFactory.create(identity));
     }
 }

@@ -416,6 +416,12 @@ public class TestSpoolingExchangeOutputBuffer
         }
 
         @Override
+        public ListenableFuture<Void> addBytes(long delta)
+        {
+            return immediateVoidFuture();
+        }
+
+        @Override
         public boolean trySetBytes(long bytes)
         {
             return true;

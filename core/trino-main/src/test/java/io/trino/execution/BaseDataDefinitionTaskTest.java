@@ -88,9 +88,11 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.metadata.TestMetadataManager.createTestMetadataManager;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
+import static io.trino.spi.StandardErrorCode.BRANCH_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static io.trino.spi.connector.SaveMode.IGNORE;
 import static io.trino.spi.connector.SaveMode.REPLACE;
+import static io.trino.spi.security.PrincipalType.ROLE;
 import static io.trino.spi.session.PropertyMetadata.longProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -146,6 +148,7 @@ public abstract class BaseDataDefinitionTaskTest
                 MATERIALIZED_VIEW_PROPERTY_2_NAME, stringProperty(MATERIALIZED_VIEW_PROPERTY_2_NAME, "property 2", MATERIALIZED_VIEW_PROPERTY_2_DEFAULT_VALUE, false));
         materializedViewPropertyManager = new MaterializedViewPropertyManager(CatalogServiceProvider.singleton(TEST_CATALOG_HANDLE, properties));
         queryStateMachine = stateMachine(transactionManager, createTestMetadataManager(), new AllowAllAccessControl(), testSession);
+        metadata.createSchema(testSession, new CatalogSchemaName(TEST_CATALOG_NAME, SCHEMA), ImmutableMap.of(), new TrinoPrincipal(ROLE, "role"));
     }
 
     @AfterEach
@@ -596,6 +599,12 @@ public abstract class BaseDataDefinitionTaskTest
         }
 
         @Override
+        public void refreshView(Session session, QualifiedObjectName viewName, ViewDefinition viewDefinition)
+        {
+            views.replace(viewName.asSchemaTableName(), viewDefinition);
+        }
+
+        @Override
         public void setTableComment(Session session, TableHandle tableHandle, Optional<String> comment)
         {
             ConnectorTableMetadata tableMetadata = getTableMetadata(tableHandle);
@@ -671,11 +680,16 @@ public abstract class BaseDataDefinitionTaskTest
         }
 
         @Override
-        public void createBranch(Session session, TableHandle tableHandle, String branch, SaveMode saveMode, Map<String, Object> properties)
+        public void createBranch(Session session, TableHandle tableHandle, String branch, Optional<String> fromBranch, SaveMode saveMode, Map<String, Object> properties)
         {
             SchemaTableName tableName = getTableName(tableHandle);
             MockConnectorTableMetadata table = tables.get(tableName);
             requireNonNull(table, "table is null");
+            fromBranch.ifPresent(name -> {
+                if (!table.branches.contains(name)) {
+                    throw new TrinoException(BRANCH_NOT_FOUND, "Branch '%s' does not exist".formatted(name));
+                }
+            });
             tables.put(tableName, table.addBranch(branch));
         }
 
