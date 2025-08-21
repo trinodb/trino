@@ -42,7 +42,6 @@ public class TeradataConfig
     @Config("oidc.client-id")
     public TeradataConfig setOidcClientId(String clientId)
     {
-        System.out.println("Getting oidcClientId: " + clientId);
         this.oidcClientId = Optional.ofNullable(clientId);
         return this;
     }
@@ -55,7 +54,6 @@ public class TeradataConfig
     @Config("oidc.jws-private-key")
     public TeradataConfig setOidcJWSPrivateKey(String privateKey)
     {
-        System.out.println("Getting privateKey: " + privateKey);
         this.oidcJWSPrivateKey = Optional.ofNullable(privateKey);
         return this;
     }
@@ -68,7 +66,6 @@ public class TeradataConfig
     @Config("oidc.jws-certificate")
     public TeradataConfig setOidcJWSCertificate(String certificate)
     {
-        System.out.println("Getting jwsCertificate: " + certificate);
         this.oidcJWSCertificate = Optional.ofNullable(certificate);
         return this;
     }
@@ -81,7 +78,6 @@ public class TeradataConfig
     @Config("oidc.client-secret")
     public TeradataConfig setOidcClientSecret(String clientSecret)
     {
-        System.out.println("Getting clientSecret: " + clientSecret);
         this.oidcClientSecret = Optional.ofNullable(clientSecret);
         return this;
     }
@@ -94,7 +90,6 @@ public class TeradataConfig
     @Config("jwt.token")
     public TeradataConfig setOidcJwtToken(String jwtToken)
     {
-        System.out.println("Getting jwtToken: " + jwtToken);
         this.oidcJWTToken = Optional.ofNullable(jwtToken);
         return this;
     }
@@ -108,7 +103,6 @@ public class TeradataConfig
     @ConfigDescription("Specifies the logon mechanism for Teradata (default: TD2). Use 'TD2' for TD2 authentication.")
     public TeradataConfig setLogMech(String logMech)
     {
-        System.out.println("Getting logMech: " + logMech);
         this.logMech = logMech;
         return this;
     }
@@ -120,7 +114,6 @@ public class TeradataConfig
      */
     public TeradataCaseSensitivity getTeradataCaseSensitivity()
     {
-        System.out.println("Getting Teradata Case Sensitivity: " + teradataCaseSensitivity);
         return teradataCaseSensitivity;
     }
 
@@ -131,10 +124,9 @@ public class TeradataConfig
      * @return this {@link TeradataConfig} instance for method chaining
      */
     @Config("teradata.case-sensitivity")
-    @ConfigDescription("How char/varchar columns' case sensitivity will be exposed to Trino (default: CASESPECIFIC).")
+    @ConfigDescription("How char/varchar columns' case sensitivity will be exposed to Trino (default: CASE_SPECIFIC). Possible values: NOT_CASE_SPECIFIC, CASE_SPECIFIC, AS_DEFINED.")
     public TeradataConfig setTeradataCaseSensitivity(TeradataCaseSensitivity teradataCaseSensitivity)
     {
-        System.out.println("Setting Teradata Case Sensitivity: " + teradataCaseSensitivity);
         this.teradataCaseSensitivity = teradataCaseSensitivity;
         return this;
     }

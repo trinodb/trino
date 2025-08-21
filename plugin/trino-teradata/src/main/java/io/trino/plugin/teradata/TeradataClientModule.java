@@ -28,7 +28,6 @@ import java.util.Optional;
 import java.util.Properties;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
 
 /**
  * Guice module for configuring the Teradata JDBC client integration.
@@ -131,7 +130,6 @@ public class TeradataClientModule
         configBinder(binder).bindConfig(TeradataConfig.class);
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(TeradataClient.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
-        bindSessionPropertiesProvider(binder, TeradataSessionProperties.class);
         install(new JdbcJoinPushdownSupportModule());
     }
 }

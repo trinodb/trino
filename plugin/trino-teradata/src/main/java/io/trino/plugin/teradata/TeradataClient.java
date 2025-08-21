@@ -275,23 +275,6 @@ public class TeradataClient
         buildAggregateRewriter();
     }
 
-    private static boolean isRangePredicate(Domain domain)
-    {
-        return !domain.isSingleValue() &&
-                !domain.isAll() &&
-                !domain.getValues().isDiscreteSet() &&
-                !domain.getValues().isNone() &&
-                domain.getValues().getRanges().getOrderedRanges().size() == 1;
-    }
-
-    private static boolean isMultiRangePredicate(Domain domain)
-    {
-        return !domain.getValues().isDiscreteSet() &&
-                domain.getValues().getRanges().getOrderedRanges().size() > 1 &&
-                !domain.getValues().isAll() &&
-                !domain.getValues().isNone();
-    }
-
     /**
      * Creates a ColumnMapping for Teradata TIME type with specified precision.
      *
@@ -1062,6 +1045,7 @@ public class TeradataClient
             return mapping;
         }
 
+        // switch by names as some types overlap other types going by jdbc type alone
         String jdbcTypeName = typeHandle.jdbcTypeName().orElse("VARCHAR");
         switch (jdbcTypeName.toUpperCase()) {
             case "TIMESTAMP WITH TIME ZONE":
@@ -1096,8 +1080,6 @@ public class TeradataClient
                 return Optional.of(doubleColumnMapping());
             case Types.NUMERIC:
             case Types.DECIMAL:
-                // also applies to teradata number type
-                // this is roughly logic see used by sql server
                 return numberMapping(typeHandle);
             case Types.CHAR:
                 return Optional.of(charColumnMapping(typeHandle.requiredColumnSize(), deriveCaseSensitivity(typeHandle.caseSensitivity())));
@@ -1207,6 +1189,66 @@ public class TeradataClient
         };
     }
 
+    private ColumnMapping arrayColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
+    {
+        // Default to VARCHAR element type - you can enhance this to detect actual element type
+        Type elementType = createUnboundedVarcharType();
+        Type arrayType = new ArrayType(elementType);
+
+        return ColumnMapping.objectMapping(
+                arrayType,
+                arrayReadFunction(elementType),
+                arrayWriteFunction(elementType),
+                DISABLE_PUSHDOWN);
+    }
+
+    private ObjectReadFunction arrayReadFunction(Type elementType)
+    {
+        return ObjectReadFunction.of(Block.class, (resultSet, columnIndex) -> {
+            Array sqlArray = resultSet.getArray(columnIndex);
+            if (sqlArray == null) {
+                return null;
+            }
+
+            Object[] elements = (Object[]) sqlArray.getArray();
+            BlockBuilder blockBuilder = elementType.createBlockBuilder(null, elements.length);
+
+            for (Object element : elements) {
+                if (element == null) {
+                    blockBuilder.appendNull();
+                }
+                else {
+                    elementType.writeSlice(blockBuilder, utf8Slice(element.toString()));
+                }
+            }
+
+            return blockBuilder.build();
+        });
+    }
+
+    private ObjectWriteFunction arrayWriteFunction(Type elementType)
+    {
+        return ObjectWriteFunction.of(Block.class, (statement, index, block) -> {
+            if (block == null) {
+                statement.setNull(index, Types.ARRAY);
+                return;
+            }
+
+            Object[] elements = new Object[block.getPositionCount()];
+            for (int i = 0; i < block.getPositionCount(); i++) {
+                if (block.isNull(i)) {
+                    elements[i] = null;
+                }
+                else {
+                    elements[i] = elementType.getSlice(block, i).toStringUtf8();
+                }
+            }
+
+            Array sqlArray = statement.getConnection().createArrayOf("VARCHAR", elements);
+            statement.setArray(index, sqlArray);
+        });
+    }
+
     private static class TeradataStatisticsDao
     {
         private final Handle handle;
@@ -1289,65 +1331,5 @@ public class TeradataClient
         }
 
         public record ColumnIndexStatistics(boolean nullable, long distinctValues, long nullCount) {}
-    }
-
-    private ColumnMapping arrayColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
-    {
-        // Default to VARCHAR element type - you can enhance this to detect actual element type
-        Type elementType = createUnboundedVarcharType();
-        Type arrayType = new ArrayType(elementType);
-
-        return ColumnMapping.objectMapping(
-                arrayType,
-                arrayReadFunction(elementType),
-                arrayWriteFunction(elementType),
-                DISABLE_PUSHDOWN);
-    }
-
-    private ObjectReadFunction arrayReadFunction(Type elementType)
-    {
-        return ObjectReadFunction.of(Block.class, (resultSet, columnIndex) -> {
-            Array sqlArray = resultSet.getArray(columnIndex);
-            if (sqlArray == null) {
-                return null;
-            }
-
-            Object[] elements = (Object[]) sqlArray.getArray();
-            BlockBuilder blockBuilder = elementType.createBlockBuilder(null, elements.length);
-
-            for (Object element : elements) {
-                if (element == null) {
-                    blockBuilder.appendNull();
-                }
-                else {
-                    elementType.writeSlice(blockBuilder, utf8Slice(element.toString()));
-                }
-            }
-
-            return blockBuilder.build();
-        });
-    }
-
-    private ObjectWriteFunction arrayWriteFunction(Type elementType)
-    {
-        return ObjectWriteFunction.of(Block.class, (statement, index, block) -> {
-            if (block == null) {
-                statement.setNull(index, Types.ARRAY);
-                return;
-            }
-
-            Object[] elements = new Object[block.getPositionCount()];
-            for (int i = 0; i < block.getPositionCount(); i++) {
-                if (block.isNull(i)) {
-                    elements[i] = null;
-                }
-                else {
-                    elements[i] = elementType.getSlice(block, i).toStringUtf8();
-                }
-            }
-
-            Array sqlArray = statement.getConnection().createArrayOf("VARCHAR", elements);
-            statement.setArray(index, sqlArray);
-        });
     }
 }

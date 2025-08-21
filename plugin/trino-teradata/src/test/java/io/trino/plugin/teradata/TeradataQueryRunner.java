@@ -7,19 +7,17 @@ import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.plugin.teradata.clearscape.ClearScapeEnvironmentUtils;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.sql.SqlExecutor;
 import io.trino.tpch.TpchTable;
 import org.assertj.core.api.Assertions;
 import org.assertj.core.api.ObjectAssert;
 import org.intellij.lang.annotations.Language;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -30,31 +28,14 @@ import static java.util.Objects.requireNonNull;
  */
 public final class TeradataQueryRunner
 {
-    private static TestTeradataDatabase database;
-
     private TeradataQueryRunner()
     {
         // private constructor to prevent instantiation
     }
 
-    /**
-     * Returns the singleton TestTeradataDatabase instance.
-     *
-     * @return SqlExecutor instance
-     */
-    public static SqlExecutor getSqlExecutor()
+    public static Builder builder(TestingTeradataServer server)
     {
-        return database;
-    }
-
-    public static void setTeradataDatabase(TestTeradataDatabase database)
-    {
-        TeradataQueryRunner.database = requireNonNull(database, "database is null");
-    }
-
-    public static Builder builder()
-    {
-        return new Builder();
+        return new Builder(server);
     }
 
     /**
@@ -69,10 +50,8 @@ public final class TeradataQueryRunner
         Logging logger = Logging.initialize();
         logger.setLevel("io.trino.plugin.teradata", Level.DEBUG);
         logger.setLevel("io.trino", Level.INFO);
-        DatabaseConfig dbConfig = DatabaseTestUtil.getDatabaseConfig();
-        database = new TestTeradataDatabase(dbConfig);
-        TeradataQueryRunner.setTeradataDatabase(database);
-        QueryRunner queryRunner = builder().addCoordinatorProperty("http-server.http.port", "8080").setInitialTables(TpchTable.getTables()).build();
+        TestingTeradataServer server = new TestingTeradataServer(ClearScapeEnvironmentUtils.generateUniqueEnvName(TeradataQueryRunner.class));
+        QueryRunner queryRunner = builder(server).addCoordinatorProperty("http-server.http.port", "8080").setInitialTables(TpchTable.getTables()).build();
 
         Logger log = Logger.get(TeradataQueryRunner.class);
         log.info("======== SERVER STARTED ========");
@@ -85,55 +64,41 @@ public final class TeradataQueryRunner
     public static class Builder
             extends DistributedQueryRunner.Builder<Builder>
     {
-        private final Map<String, String> connectorProperties = new HashMap<>();
+        private final TestingTeradataServer server;
         private List<TpchTable<?>> initialTables = ImmutableList.of();
 
-        protected Builder()
+        protected Builder(TestingTeradataServer server)
         {
-            super(testSessionBuilder().setCatalog("teradata").setSchema(database.getDatabaseName()).build());
+            super(testSessionBuilder().setCatalog("teradata").setSchema(server.getDatabaseName()).build());
+            this.server = requireNonNull(server, "server is null");
         }
 
-        public static void copyTable(QueryRunner queryRunner, QualifiedObjectName table, Session session)
+        public void copyTable(QueryRunner queryRunner, QualifiedObjectName table, Session session)
         {
-            long start = System.nanoTime();
             @Language("SQL") String sql = String.format("CREATE TABLE %s AS SELECT * FROM %s", table.objectName(), table);
-            long rows = (Long) queryRunner.execute(session, sql).getMaterializedRows().get(0).getField(0);
-
+            queryRunner.execute(session, sql);
             ((ObjectAssert) Assertions.assertThat(queryRunner.execute(session, "SELECT count(*) FROM " + table.objectName()).getOnlyValue()).as("Table is not loaded properly: %s", new Object[] {
                     table.objectName()})).isEqualTo(queryRunner.execute(session, "SELECT count(*) FROM " + table).getOnlyValue());
         }
 
-        public static void copyTable(QueryRunner queryRunner, String sourceCatalog, String sourceSchema, String sourceTable, Session session)
-        {
-            QualifiedObjectName table = new QualifiedObjectName(sourceCatalog, sourceSchema, sourceTable);
-            if (!database.isTableExists(sourceTable)) {
-                copyTable(queryRunner, table, session);
-            }
-        }
-
-        public static void copyTpchTables(QueryRunner queryRunner, String sourceCatalog, String sourceSchema, Session session, Iterable<TpchTable<?>> tables)
+        public void copyTpchTables(QueryRunner queryRunner, String sourceCatalog, String sourceSchema, Session session, Iterable<TpchTable<?>> tables)
         {
             for (TpchTable<?> table : tables) {
                 copyTable(queryRunner, sourceCatalog, sourceSchema, table.getTableName().toLowerCase(Locale.ENGLISH), session);
             }
         }
 
-        public static void copyTpchTables(QueryRunner queryRunner, String sourceCatalog, String sourceSchema, Iterable<TpchTable<?>> tables)
+        public void copyTpchTables(QueryRunner queryRunner, String sourceCatalog, String sourceSchema, Iterable<TpchTable<?>> tables)
         {
             copyTpchTables(queryRunner, sourceCatalog, sourceSchema, queryRunner.getDefaultSession(), tables);
         }
 
-        /**
-         * Adds connector properties to the builder.
-         *
-         * @param connectorProperties key-value properties
-         * @return this Builder
-         */
-        @CanIgnoreReturnValue
-        public Builder addConnectorProperties(Map<String, String> connectorProperties)
+        public void copyTable(QueryRunner queryRunner, String sourceCatalog, String sourceSchema, String sourceTable, Session session)
         {
-            this.connectorProperties.putAll(connectorProperties);
-            return this;
+            QualifiedObjectName table = new QualifiedObjectName(sourceCatalog, sourceSchema, sourceTable);
+            if (!server.isTableExists(sourceTable)) {
+                copyTable(queryRunner, table, session);
+            }
         }
 
         @CanIgnoreReturnValue
@@ -152,8 +117,7 @@ public final class TeradataQueryRunner
                 runner.createCatalog("tpch", "tpch");
 
                 runner.installPlugin(new TeradataPlugin());
-                runner.createCatalog("teradata", "teradata", database.getConnectionProperties());
-                database.createTestDatabaseIfAbsent();
+                runner.createCatalog("teradata", "teradata", server.getCatalogProperties());
 
                 copyTpchTables(runner, "tpch", TINY_SCHEMA_NAME, initialTables);
             });

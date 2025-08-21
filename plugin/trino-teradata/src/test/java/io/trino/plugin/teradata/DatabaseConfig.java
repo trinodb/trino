@@ -1,76 +1,52 @@
 package io.trino.plugin.teradata;
 
-import io.trino.plugin.teradata.clearscape.ClearScapeManager;
+import java.util.Map;
 
-/**
- * Holds Teradata database connection configuration,
- * typically loaded from environment variables.
- */
 public class DatabaseConfig
 {
-    private static final String TMODE = System.getenv("TMODE");
-    private static final String CHARSET = System.getenv("CHARSET");
     private final String jdbcUrl;
-    private final String username;
-    private final String password;
-    private String databaseName;
-    private boolean useClearScape;
-    private ClearScapeManager clearScapeManager;
+    private final String hostName;
+    private final String databaseName;
+    private final boolean useClearScape;
+    private final LogonMechanism logMech;
+    private final AuthenticationConfig authConfig;
+    private final String clearScapeEnvName;
+    private final Map<String, String> jdbcProperties;
 
-    public DatabaseConfig(String jdbcUrl, String username, String password, String databaseName)
+    private DatabaseConfig(Builder builder)
     {
-        this.jdbcUrl = jdbcUrl;
-        this.username = username;
-        this.password = password;
-        this.databaseName = databaseName;
+        this.jdbcUrl = builder.jdbcUrl;
+        this.hostName = builder.hostName;
+        this.databaseName = builder.databaseName;
+        this.useClearScape = builder.useClearScape;
+        this.logMech = builder.logMech;
+        this.authConfig = builder.authConfig;
+        this.clearScapeEnvName = builder.clearScapeEnvName;
+        this.jdbcProperties = builder.jdbcProperties;
     }
 
-    /**
-     * Loads config from environment variables:
-     * hostname, user, password
-     *
-     * @throws IllegalStateException if required env vars are missing.
-     */
-    public ClearScapeManager getClearScapeManager()
+    public static Builder builder()
     {
-        return clearScapeManager;
+        return new Builder();
     }
 
-    /**
-     * Sets the ClearScapeManager instance for this database configuration.
-     * The ClearScapeManager handles the lifecycle of ClearScape instances
-     * for testing purposes.
-     *
-     * @param clearScapeManager the ClearScapeManager instance to set, can be null
-     */
-    public void setClearScapeManager(ClearScapeManager clearScapeManager)
+    public Builder toBuilder()
     {
-        this.clearScapeManager = clearScapeManager;
+        return builder()
+                .jdbcUrl(this.jdbcUrl)
+                .hostName(this.hostName)
+                .databaseName(this.databaseName)
+                .useClearScape(this.useClearScape)
+                .logMech(this.logMech)
+                .authConfig(this.authConfig)
+                .clearScapeEnvName(this.clearScapeEnvName)
+                .jdbcProperties(this.jdbcProperties);
     }
 
-    public boolean isUseClearScape()
-    {
-        return useClearScape;
-    }
-
-    public void setUseClearScape(boolean useClearScape)
-    {
-        this.useClearScape = useClearScape;
-    }
-
+    // Getters
     public String getJdbcUrl()
     {
         return jdbcUrl;
-    }
-
-    public String getUsername()
-    {
-        return username;
-    }
-
-    public String getPassword()
-    {
-        return password;
     }
 
     public String getDatabaseName()
@@ -78,8 +54,106 @@ public class DatabaseConfig
         return databaseName;
     }
 
-    public void setDatabaseName(String databaseName)
+    public boolean isUseClearScape()
     {
-        this.databaseName = databaseName;
+        return useClearScape;
+    }
+
+    public LogonMechanism getLogMech()
+    {
+        return logMech;
+    }
+
+    public AuthenticationConfig getAuthConfig()
+    {
+        return authConfig;
+    }
+
+    public String getClearScapeEnvName()
+    {
+        return clearScapeEnvName;
+    }
+
+    public Map<String, String> getJdbcProperties()
+    {
+        return jdbcProperties;
+    }
+
+    public String getHostName()
+    {
+        return hostName;
+    }
+
+    public String getTMode()
+    {
+        if (jdbcProperties != null && jdbcProperties.containsKey("TMODE")) {
+            return jdbcProperties.get("TMODE");
+        }
+        return "ANSI";
+    }
+
+    public static class Builder
+    {
+        private String jdbcUrl;
+        private String hostName;
+        private String databaseName = "trino";
+        private boolean useClearScape;
+        private LogonMechanism logMech = LogonMechanism.TD2;
+        private AuthenticationConfig authConfig = new AuthenticationConfig();
+        private String clearScapeEnvName;
+        private Map<String, String> jdbcProperties;
+
+        public Builder jdbcUrl(String jdbcUrl)
+        {
+            this.jdbcUrl = jdbcUrl;
+            return this;
+        }
+
+        public Builder databaseName(String databaseName)
+        {
+            this.databaseName = databaseName;
+            return this;
+        }
+
+        public Builder useClearScape(boolean useClearScape)
+        {
+            this.useClearScape = useClearScape;
+            return this;
+        }
+
+        public Builder logMech(LogonMechanism logMech)
+        {
+            this.logMech = logMech;
+            return this;
+        }
+
+        public Builder authConfig(AuthenticationConfig authConfig)
+        {
+            this.authConfig = authConfig;
+            return this;
+        }
+
+        public Builder clearScapeEnvName(String clearScapeEnvName)
+        {
+            this.clearScapeEnvName = clearScapeEnvName;
+            return this;
+        }
+
+        public Builder jdbcProperties(Map<String, String> jdbcProperties)
+        {
+            this.jdbcProperties = jdbcProperties;
+            return this;
+        }
+
+        public Builder hostName(String hostName)
+        {
+            this.hostName = hostName;
+            return this;
+        }
+
+        public DatabaseConfig build()
+        {
+            return new DatabaseConfig(this);
+        }
     }
 }
