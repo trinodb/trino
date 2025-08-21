@@ -35,7 +35,7 @@ import io.trino.security.AccessControl;
 import io.trino.security.SecurityContext;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.CatalogHandle;
-import io.trino.spi.connector.CatalogHandle.CatalogVersion;
+import io.trino.spi.connector.CatalogVersion;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.ConnectorTableMetadata;

@@ -17,7 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.Immutable;
-import io.trino.spi.connector.CatalogHandle.CatalogVersion;
+import io.trino.spi.connector.CatalogVersion;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
 

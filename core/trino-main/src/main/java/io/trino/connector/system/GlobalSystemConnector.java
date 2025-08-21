@@ -18,7 +18,7 @@ import com.google.inject.Inject;
 import io.trino.operator.table.SequenceFunction.SequenceFunctionHandle;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.CatalogHandle;
-import io.trino.spi.connector.CatalogHandle.CatalogVersion;
+import io.trino.spi.connector.CatalogVersion;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;

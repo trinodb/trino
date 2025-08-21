@@ -27,7 +27,7 @@ import io.trino.metadata.Split;
 import io.trino.spi.Page;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.CatalogHandle;
-import io.trino.spi.connector.CatalogHandle.CatalogVersion;
+import io.trino.spi.connector.CatalogVersion;
 import io.trino.spi.exchange.ExchangeId;
 import io.trino.split.RemoteSplit;
 import io.trino.sql.planner.plan.PlanNodeId;

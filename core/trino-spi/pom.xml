@@ -754,6 +754,39 @@
                                     <code>java.method.removed</code>
                                     <old>method io.trino.spi.connector.CatalogHandle io.trino.spi.connector.ConnectorContext::getCatalogHandle()</old>
                                 </item>
+                                <item>
+                                    <code>java.method.parameterTypeChanged</code>
+                                    <old>parameter io.trino.spi.connector.CatalogHandle io.trino.spi.connector.CatalogHandle::createRootCatalogHandle(io.trino.spi.catalog.CatalogName, ===io.trino.spi.connector.CatalogHandle.CatalogVersion===)</old>
+                                    <new>parameter io.trino.spi.connector.CatalogHandle io.trino.spi.connector.CatalogHandle::createRootCatalogHandle(io.trino.spi.catalog.CatalogName, ===io.trino.spi.connector.CatalogVersion===)</new>
+                                    <parameterIndex>1</parameterIndex>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChanged</code>
+                                    <old>method io.trino.spi.connector.CatalogHandle.CatalogVersion io.trino.spi.connector.CatalogHandle::getVersion()</old>
+                                    <new>method io.trino.spi.connector.CatalogVersion io.trino.spi.connector.CatalogHandle::getVersion()</new>
+                                </item>
+                                <item>
+                                    <code>java.method.parameterTypeChanged</code>
+                                    <old>parameter void io.trino.spi.eventlistener.QueryInputMetadata::&lt;init&gt;(java.util.Optional&lt;java.lang.String&gt;, java.lang.String, ===io.trino.spi.connector.CatalogHandle.CatalogVersion===, java.lang.String, java.lang.String, java.util.List&lt;io.trino.spi.eventlistener.QueryInputMetadata.Column&gt;, java.util.Optional&lt;java.lang.Object&gt;, io.trino.spi.metrics.Metrics, java.util.OptionalLong, java.util.OptionalLong)</old>
+                                    <new>parameter void io.trino.spi.eventlistener.QueryInputMetadata::&lt;init&gt;(java.util.Optional&lt;java.lang.String&gt;, java.lang.String, ===io.trino.spi.connector.CatalogVersion===, java.lang.String, java.lang.String, java.util.List&lt;io.trino.spi.eventlistener.QueryInputMetadata.Column&gt;, java.util.Optional&lt;java.lang.Object&gt;, io.trino.spi.metrics.Metrics, java.util.OptionalLong, java.util.OptionalLong)</new>
+                                    <parameterIndex>2</parameterIndex>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChanged</code>
+                                    <old>method io.trino.spi.connector.CatalogHandle.CatalogVersion io.trino.spi.eventlistener.QueryInputMetadata::getCatalogVersion()</old>
+                                    <new>method io.trino.spi.connector.CatalogVersion io.trino.spi.eventlistener.QueryInputMetadata::getCatalogVersion()</new>
+                                </item>
+                                <item>
+                                    <code>java.method.parameterTypeChanged</code>
+                                    <old>parameter void io.trino.spi.eventlistener.QueryOutputMetadata::&lt;init&gt;(java.lang.String, ===io.trino.spi.connector.CatalogHandle.CatalogVersion===, java.lang.String, java.lang.String, java.util.Optional&lt;java.util.List&lt;io.trino.spi.eventlistener.OutputColumnMetadata&gt;&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.Boolean&gt;)</old>
+                                    <new>parameter void io.trino.spi.eventlistener.QueryOutputMetadata::&lt;init&gt;(java.lang.String, ===io.trino.spi.connector.CatalogVersion===, java.lang.String, java.lang.String, java.util.Optional&lt;java.util.List&lt;io.trino.spi.eventlistener.OutputColumnMetadata&gt;&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.Boolean&gt;)</new>
+                                    <parameterIndex>1</parameterIndex>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChanged</code>
+                                    <old>method io.trino.spi.connector.CatalogHandle.CatalogVersion io.trino.spi.eventlistener.QueryOutputMetadata::getCatalogVersion()</old>
+                                    <new>method io.trino.spi.connector.CatalogVersion io.trino.spi.eventlistener.QueryOutputMetadata::getCatalogVersion()</new>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
