@@ -750,6 +750,10 @@
                                     <old>method long io.trino.spi.eventlistener.QueryStatistics::getTotalBytes()</old>
                                     <justification>Redundant with QueryStatistics::getInternalNetworkBytes() + QueryStatistics::getPhysicalInputBytes()</justification>
                                 </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.connector.CatalogHandle io.trino.spi.connector.ConnectorContext::getCatalogHandle()</old>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

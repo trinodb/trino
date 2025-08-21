@@ -24,11 +24,6 @@ import io.trino.spi.type.TypeManager;
 
 public interface ConnectorContext
 {
-    default CatalogHandle getCatalogHandle()
-    {
-        throw new UnsupportedOperationException();
-    }
-
     default OpenTelemetry getOpenTelemetry()
     {
         throw new UnsupportedOperationException();
