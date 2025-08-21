@@ -15,8 +15,6 @@ package io.trino.testing;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
-import io.trino.client.IntervalDayTime;
-import io.trino.client.IntervalYearMonth;
 import io.trino.client.QueryStatusInfo;
 import io.trino.client.ResultRows;
 import io.trino.client.Row;
@@ -35,6 +33,8 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
+import io.trino.spi.type.interval.IntervalDayTime;
+import io.trino.spi.type.interval.IntervalYearMonth;
 import io.trino.type.SqlIntervalDayTime;
 import io.trino.type.SqlIntervalYearMonth;
 import okhttp3.OkHttpClient;

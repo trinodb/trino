@@ -15,9 +15,9 @@ package io.trino.client;
 
 import org.junit.jupiter.api.Test;
 
-import static io.trino.client.IntervalYearMonth.formatMonths;
-import static io.trino.client.IntervalYearMonth.parseMonths;
-import static io.trino.client.IntervalYearMonth.toMonths;
+import static io.trino.spi.type.interval.IntervalYearMonth.formatMonths;
+import static io.trino.spi.type.interval.IntervalYearMonth.parseMonths;
+import static io.trino.spi.type.interval.IntervalYearMonth.toMonths;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 

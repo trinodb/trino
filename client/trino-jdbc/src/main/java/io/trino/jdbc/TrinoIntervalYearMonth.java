@@ -15,8 +15,8 @@ package io.trino.jdbc;
 
 import java.util.Objects;
 
-import static io.trino.client.IntervalYearMonth.formatMonths;
-import static io.trino.client.IntervalYearMonth.toMonths;
+import static io.trino.spi.type.interval.IntervalYearMonth.formatMonths;
+import static io.trino.spi.type.interval.IntervalYearMonth.toMonths;
 
 public class TrinoIntervalYearMonth
         implements Comparable<TrinoIntervalYearMonth>

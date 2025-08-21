@@ -21,7 +21,6 @@ import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.client.IntervalDayTime.formatMillis;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.CAST;
@@ -29,6 +28,7 @@ import static io.trino.spi.function.OperatorType.DIVIDE;
 import static io.trino.spi.function.OperatorType.MULTIPLY;
 import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
+import static io.trino.spi.type.interval.IntervalDayTime.formatMillis;
 import static java.lang.String.format;
 
 public final class IntervalDayTimeOperators

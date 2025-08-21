@@ -14,12 +14,12 @@
 package io.trino.type;
 
 import io.airlift.slice.Slice;
-import io.trino.client.IntervalYearMonth;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.interval.IntervalYearMonth;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;

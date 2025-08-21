@@ -15,8 +15,8 @@ package io.trino.type;
 
 import java.util.Objects;
 
-import static io.trino.client.IntervalDayTime.formatMillis;
-import static io.trino.client.IntervalDayTime.toMillis;
+import static io.trino.spi.type.interval.IntervalDayTime.formatMillis;
+import static io.trino.spi.type.interval.IntervalDayTime.toMillis;
 
 public class SqlIntervalDayTime
 {

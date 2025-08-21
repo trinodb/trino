@@ -15,9 +15,9 @@ package io.trino.client;
 
 import org.junit.jupiter.api.Test;
 
-import static io.trino.client.IntervalDayTime.formatMillis;
-import static io.trino.client.IntervalDayTime.parseMillis;
-import static io.trino.client.IntervalDayTime.toMillis;
+import static io.trino.spi.type.interval.IntervalDayTime.formatMillis;
+import static io.trino.spi.type.interval.IntervalDayTime.parseMillis;
+import static io.trino.spi.type.interval.IntervalDayTime.toMillis;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
