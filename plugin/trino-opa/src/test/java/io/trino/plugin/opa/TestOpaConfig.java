@@ -16,6 +16,7 @@ package io.trino.plugin.opa;
 import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.Test;
 
+import java.io.File;
 import java.net.URI;
 import java.util.Map;
 
@@ -36,7 +37,8 @@ public class TestOpaConfig
                 .setOpaBatchColumnMaskingUri(null)
                 .setLogRequests(false)
                 .setLogResponses(false)
-                .setAllowPermissionManagementOperations(false));
+                .setAllowPermissionManagementOperations(false)
+                .setAdditionalContextFile(null));
     }
 
     @Test
@@ -51,6 +53,7 @@ public class TestOpaConfig
                 .put("opa.log-requests", "true")
                 .put("opa.log-responses", "true")
                 .put("opa.allow-permission-management-operations", "true")
+                .put("opa.additional-context-file", "src/test/resources/additional-context.json")
                 .buildOrThrow();
 
         OpaConfig expected = new OpaConfig()
@@ -61,7 +64,8 @@ public class TestOpaConfig
                 .setOpaBatchColumnMaskingUri(URI.create("https://opa-column-masking.example.com"))
                 .setLogRequests(true)
                 .setLogResponses(true)
-                .setAllowPermissionManagementOperations(true);
+                .setAllowPermissionManagementOperations(true)
+                .setAdditionalContextFile(new File("src/test/resources/additional-context.json"));
 
         assertFullMapping(properties, expected);
     }
