@@ -307,7 +307,7 @@ public abstract class AbstractIcebergTableOperations
                 .map(column -> new Column(
                         column.name(),
                         HiveType.fromTypeInfo(HiveSchemaUtil.convert(column.type())),
-                        Optional.empty(),
+                        Optional.ofNullable(column.doc()),
                         Map.of()))
                 .collect(toImmutableList());
     }
