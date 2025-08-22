@@ -19,7 +19,6 @@ import org.junit.jupiter.api.TestInstance;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-import java.io.IOException;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -28,7 +27,7 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @Testcontainers
 @TestInstance(PER_CLASS)
-public class TestOpaAccessControlSystem
+final class TestOpaAccessControlSystem
 {
     private static final String OPA_ALLOW_POLICY_NAME = "allow";
     private static final String OPA_BATCH_ALLOW_POLICY_NAME = "batchAllow";
@@ -36,8 +35,8 @@ public class TestOpaAccessControlSystem
     private static final OpaContainer OPA_CONTAINER = new OpaContainer();
 
     @Test
-    public void testAllowsQueryAndFilters()
-            throws IOException, InterruptedException
+    void testAllowsQueryAndFilters()
+            throws Exception
     {
         QueryRunnerHelper runner = setupTrinoWithOpa(new OpaConfig().setOpaUri(OPA_CONTAINER.getOpaUriForPolicyPath(OPA_ALLOW_POLICY_NAME)));
         OPA_CONTAINER.submitPolicy(
@@ -75,8 +74,8 @@ public class TestOpaAccessControlSystem
     }
 
     @Test
-    public void testShouldDenyQueryIfDirected()
-            throws IOException, InterruptedException
+    void testShouldDenyQueryIfDirected()
+            throws Exception
     {
         QueryRunnerHelper runner = setupTrinoWithOpa(new OpaConfig().setOpaUri(OPA_CONTAINER.getOpaUriForPolicyPath(OPA_ALLOW_POLICY_NAME)));
         OPA_CONTAINER.submitPolicy(
@@ -98,8 +97,8 @@ public class TestOpaAccessControlSystem
     }
 
     @Test
-    public void testFilterOutItemsBatch()
-            throws IOException, InterruptedException
+    void testFilterOutItemsBatch()
+            throws Exception
     {
         QueryRunnerHelper runner = setupTrinoWithOpa(new OpaConfig()
                 .setOpaUri(OPA_CONTAINER.getOpaUriForPolicyPath(OPA_ALLOW_POLICY_NAME))
@@ -147,8 +146,8 @@ public class TestOpaAccessControlSystem
     }
 
     @Test
-    public void testDenyUnbatchedQuery()
-            throws IOException, InterruptedException
+    void testDenyUnbatchedQuery()
+            throws Exception
     {
         QueryRunnerHelper runner = setupTrinoWithOpa(new OpaConfig()
                 .setOpaUri(OPA_CONTAINER.getOpaUriForPolicyPath(OPA_ALLOW_POLICY_NAME))
@@ -166,8 +165,8 @@ public class TestOpaAccessControlSystem
     }
 
     @Test
-    public void testAllowUnbatchedQuery()
-            throws IOException, InterruptedException
+    void testAllowUnbatchedQuery()
+            throws Exception
     {
         QueryRunnerHelper runner = setupTrinoWithOpa(new OpaConfig()
                 .setOpaUri(OPA_CONTAINER.getOpaUriForPolicyPath(OPA_ALLOW_POLICY_NAME))
