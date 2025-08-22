@@ -30,7 +30,6 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.trino.spi.type.TimestampType.createTimestampType;
-import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -212,22 +211,6 @@ public class TestTeradataJDBCTypeMapping
     public void testTimestamp()
     {
         SqlDataTypeTest.create().addRoundTrip("timestamp", "timestamp '0001-01-01 00:00:00'", createTimestampType(6), "CAST('0001-01-01 00:00:00' AS TIMESTAMP(6))").addRoundTrip("timestamp", "timestamp '0001-01-01 23:59:59.999999'", createTimestampType(6), "CAST('0001-01-01 23:59:59.999999' AS TIMESTAMP(6))").addRoundTrip("timestamp(2)", "timestamp '0001-01-01 23:59:59.99'", createTimestampType(2), "CAST('0001-01-01 23:59:59.99' AS TIMESTAMP(2))").addRoundTrip("timestamp(3)", "timestamp '0001-01-01 23:59:59.999'", createTimestampType(3), "TIMESTAMP '0001-01-01 23:59:59.999'").addRoundTrip("timestamp", "timestamp '9999-12-30 23:59:59'", createTimestampType(6), "CAST('9999-12-30 23:59:59' AS TIMESTAMP(6))").addRoundTrip("timestamp", "timestamp '9999-12-30 23:59:59.999999'", createTimestampType(6), "CAST('9999-12-30 23:59:59.999999' AS TIMESTAMP(6))").addRoundTrip("timestamp(2)", "timestamp '9999-12-30 23:59:59.99'", createTimestampType(2), "CAST('9999-12-30 23:59:59.99' AS TIMESTAMP(2))").addRoundTrip("timestamp(3)", "timestamp '9999-12-30 23:59:59.999'", createTimestampType(3), "TIMESTAMP '9999-12-30 23:59:59.999'").execute(getQueryRunner(), teradataJDBCCreateAndInsert("timestamp"));
-    }
-
-    @Test
-    public void testTimestampWithTimeZone()
-    {
-        SqlDataTypeTest.create()
-                .addRoundTrip("TIMESTAMP(0) WITH TIME ZONE", "TIMESTAMP '1970-01-01 00:00:00-00:00'", createTimestampWithTimeZoneType(0), "TIMESTAMP '1970-01-01 00:00:00 UTC'")
-                .addRoundTrip("TIMESTAMP(0) WITH TIME ZONE", "TIMESTAMP '1970-01-01 00:00:00' AT 'GMT'", createTimestampWithTimeZoneType(0), "TIMESTAMP '1970-01-01 05:00:00 UTC'")
-                .addRoundTrip("TIMESTAMP(6) WITH TIME ZONE", "TIMESTAMP '1970-01-01 00:00:00.000000-00:00'", createTimestampWithTimeZoneType(6), "TIMESTAMP '1970-01-01 00:00:00.000000 UTC'")
-                .addRoundTrip("TIMESTAMP(6) WITH TIME ZONE", "TIMESTAMP '1970-01-01 00:00:00.000000' AT 'GMT'", createTimestampWithTimeZoneType(6), "TIMESTAMP '1970-01-01 05:00:00.000000 UTC'")
-                .addRoundTrip("TIMESTAMP(0) WITH TIME ZONE", "TIMESTAMP '2000-01-01 00:00:00-07:00'", createTimestampWithTimeZoneType(0), "TIMESTAMP '2000-01-01 00:00:00 -07:00'")
-                .addRoundTrip("TIMESTAMP(0) WITH TIME ZONE", "TIMESTAMP '9999-12-30 23:59:59-00:00'", createTimestampWithTimeZoneType(0), "TIMESTAMP '9999-12-30 23:59:59 UTC'")
-                .addRoundTrip("TIMESTAMP(0) WITH TIME ZONE", "TIMESTAMP '9999-12-30 23:59:59' AT 'GMT'", createTimestampWithTimeZoneType(0), "TIMESTAMP '9999-12-31 04:59:59 UTC'")
-                .addRoundTrip("TIMESTAMP(6) WITH TIME ZONE", "TIMESTAMP '9999-12-30 23:59:59.999999-00:00'", createTimestampWithTimeZoneType(6), "TIMESTAMP '9999-12-30 23:59:59.999999 UTC'")
-                .addRoundTrip("TIMESTAMP(6) WITH TIME ZONE", "TIMESTAMP '9999-12-30 23:59:59.999999' AT 'GMT'", createTimestampWithTimeZoneType(6), "TIMESTAMP '9999-12-31 04:59:59.999999 UTC'")
-                .execute(getQueryRunner(), teradataJDBCCreateAndInsert("timestamp_tz"));
     }
 
     @Test

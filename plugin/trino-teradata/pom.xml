@@ -1,16 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://maven.apache.org/POM/4.0.0" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>474</version>
+        <version>476</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-teradata</artifactId>
     <packaging>trino-plugin</packaging>
-    <description>Trino - Prototype Teradata JDBC connector</description>
+    <name>${project.artifactId}</name>
+    <description>Trino - Teradata connector</description>
 
     <dependencies>
         <dependency>
@@ -98,7 +99,7 @@
         <dependency>
             <groupId>com.teradata.jdbc</groupId>
             <artifactId>terajdbc</artifactId>
-            <version>20.00.00.43</version>
+            <version>20.00.00.49</version>
             <scope>runtime</scope>
         </dependency>
 
