@@ -17,12 +17,14 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
+import jakarta.annotation.Nullable;
 
 import java.util.Arrays;
 
 import static io.trino.spi.block.EncoderUtil.decodeNullBits;
 import static io.trino.spi.block.EncoderUtil.encodeNullsAsBits;
 import static java.lang.String.format;
+import static java.util.Objects.checkFromIndexSize;
 
 public class VariableWidthBlockEncoding
         implements BlockEncoding
@@ -49,23 +51,29 @@ public class VariableWidthBlockEncoding
         int positionCount = variableWidthBlock.getPositionCount();
         sliceOutput.appendInt(positionCount);
 
+        int arrayBaseOffset = variableWidthBlock.getRawArrayBase();
+        @Nullable
+        boolean[] isNull = variableWidthBlock.getRawValueIsNull();
+        int[] rawOffsets = variableWidthBlock.getRawOffsets();
+        checkFromIndexSize(arrayBaseOffset, positionCount + 1, rawOffsets.length);
+
         // lengths
         int[] lengths = new int[positionCount];
         int totalLength = 0;
         int nonNullsCount = 0;
 
         for (int position = 0; position < positionCount; position++) {
-            int length = variableWidthBlock.getSliceLength(position);
+            int length = rawOffsets[position + arrayBaseOffset + 1] - rawOffsets[position + arrayBaseOffset];
             totalLength += length;
             lengths[nonNullsCount] = length;
-            nonNullsCount += variableWidthBlock.isNull(position) ? 0 : 1;
+            nonNullsCount += isNull != null && isNull[position + arrayBaseOffset] ? 0 : 1;
         }
 
         sliceOutput
                 .appendInt(nonNullsCount)
                 .writeInts(lengths, 0, nonNullsCount);
 
-        encodeNullsAsBits(sliceOutput, variableWidthBlock);
+        encodeNullsAsBits(sliceOutput, isNull, arrayBaseOffset, positionCount);
 
         sliceOutput
                 .appendInt(totalLength)

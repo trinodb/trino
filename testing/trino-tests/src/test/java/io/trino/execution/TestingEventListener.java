@@ -16,7 +16,6 @@ package io.trino.execution;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
 import io.trino.spi.eventlistener.QueryCreatedEvent;
-import io.trino.spi.eventlistener.SplitCompletedEvent;
 
 class TestingEventListener
         implements EventListener
@@ -38,12 +37,6 @@ class TestingEventListener
     public void queryCompleted(QueryCompletedEvent queryCompletedEvent)
     {
         eventsCollector.addQueryCompleted(queryCompletedEvent);
-    }
-
-    @Override
-    public void splitCompleted(SplitCompletedEvent splitCompletedEvent)
-    {
-        eventsCollector.addSplitCompleted(splitCompletedEvent);
     }
 
     @Override

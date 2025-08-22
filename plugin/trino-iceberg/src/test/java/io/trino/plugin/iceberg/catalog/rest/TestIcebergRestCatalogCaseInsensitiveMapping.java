@@ -159,7 +159,7 @@ final class TestIcebergRestCatalogCaseInsensitiveMapping
                         """.formatted(LOWERCASE_SCHEMA, lowercaseTableName1, lowercaseTableName2));
 
         // Add table comment
-        assertUpdate("COMMENT ON TABLE " +  tableName1 + " IS 'test comment' ");
+        assertUpdate("COMMENT ON TABLE " + tableName1 + " IS 'test comment' ");
         assertThat(getTableComment(lowercaseTableName1)).isEqualTo("test comment");
 
         // Add table column comment

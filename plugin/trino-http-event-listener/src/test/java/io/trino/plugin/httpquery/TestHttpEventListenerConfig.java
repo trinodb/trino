@@ -37,9 +37,9 @@ final class TestHttpEventListenerConfig
                 .setRetryDelay(Duration.succinctDuration(1, TimeUnit.SECONDS))
                 .setMaxDelay(Duration.succinctDuration(1, TimeUnit.MINUTES))
                 .setBackoffBase(2.0)
+                .setHttpMethod(HttpEventListenerHttpMethod.POST)
                 .setLogCompleted(false)
-                .setLogCreated(false)
-                .setLogSplit(false));
+                .setLogCreated(false));
     }
 
     @Test
@@ -49,10 +49,10 @@ final class TestHttpEventListenerConfig
         Map<String, String> properties = Map.of(
                 "http-event-listener.log-created", "true",
                 "http-event-listener.log-completed", "true",
-                "http-event-listener.log-split", "true",
                 "http-event-listener.connect-ingest-uri", "http://example.com:8080/api",
                 "http-event-listener.connect-http-headers", "Authorization: Trust Me, Cache-Control: no-cache",
                 "http-event-listener.connect-retry-count", "2",
+                "http-event-listener.connect-http-method", "PUT",
                 "http-event-listener.connect-retry-delay", "101s",
                 "http-event-listener.connect-backoff-base", "1.5",
                 "http-event-listener.connect-max-delay", "10m");
@@ -60,10 +60,10 @@ final class TestHttpEventListenerConfig
         HttpEventListenerConfig expected = new HttpEventListenerConfig()
                 .setLogCompleted(true)
                 .setLogCreated(true)
-                .setLogSplit(true)
                 .setIngestUri("http://example.com:8080/api")
                 .setHttpHeaders(List.of("Authorization: Trust Me", "Cache-Control: no-cache"))
                 .setRetryCount(2)
+                .setHttpMethod(HttpEventListenerHttpMethod.PUT)
                 .setRetryDelay(Duration.succinctDuration(101, TimeUnit.SECONDS))
                 .setBackoffBase(1.5)
                 .setMaxDelay(Duration.succinctDuration(10, TimeUnit.MINUTES));

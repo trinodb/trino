@@ -30,7 +30,6 @@ import io.trino.metastore.Storage;
 import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.plugin.hive.TestingHivePlugin;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
-import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
@@ -93,6 +92,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
+import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.SESSION;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
@@ -117,6 +117,7 @@ import static org.apache.iceberg.TableProperties.DEFAULT_NAME_MAPPING;
 import static org.apache.iceberg.TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED;
 import static org.apache.iceberg.TableProperties.METADATA_PREVIOUS_VERSIONS_MAX;
 import static org.apache.iceberg.TableProperties.SPLIT_SIZE;
+import static org.apache.iceberg.TableUtil.formatVersion;
 import static org.apache.iceberg.mapping.NameMappingParser.toJson;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -154,11 +155,11 @@ public class TestIcebergV2
     {
         String tableName = "test_seting_format_version_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 2) AS SELECT * FROM tpch.tiny.nation", 25);
-        assertThat(loadTable(tableName).operations().current().formatVersion()).isEqualTo(2);
+        assertThat(formatVersion(loadTable(tableName))).isEqualTo(2);
         assertUpdate("DROP TABLE " + tableName);
 
         assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 1) AS SELECT * FROM tpch.tiny.nation", 25);
-        assertThat(loadTable(tableName).operations().current().formatVersion()).isEqualTo(1);
+        assertThat(formatVersion(loadTable(tableName))).isEqualTo(1);
         assertUpdate("DROP TABLE " + tableName);
     }
 
@@ -167,7 +168,7 @@ public class TestIcebergV2
     {
         String tableName = "test_default_format_version_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation", 25);
-        assertThat(loadTable(tableName).operations().current().formatVersion()).isEqualTo(2);
+        assertThat(formatVersion(loadTable(tableName))).isEqualTo(2);
         assertUpdate("DROP TABLE " + tableName);
     }
 
@@ -230,7 +231,7 @@ public class TestIcebergV2
 
         String dataFilePath = (String) computeActual("SELECT file_path FROM \"" + tableName + "$files\" LIMIT 1").getOnlyValue();
 
-        FileIO fileIo = new ForwardingFileIo(fileSystemFactory.create(SESSION));
+        FileIO fileIo = FILE_IO_FACTORY.create(fileSystemFactory.create(SESSION));
 
         PositionDeleteWriter<Record> writer = Parquet.writeDeletes(fileIo.newOutputFile("local:///delete_file_" + UUID.randomUUID()))
                 .createWriterFunc(GenericParquetWriter::create)
@@ -687,9 +688,9 @@ public class TestIcebergV2
     {
         String tableName = "test_upgrade_table_to_v2_from_trino_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 1) AS SELECT * FROM tpch.tiny.nation", 25);
-        assertThat(loadTable(tableName).operations().current().formatVersion()).isEqualTo(1);
+        assertThat(formatVersion(loadTable(tableName))).isEqualTo(1);
         assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES format_version = 2");
-        assertThat(loadTable(tableName).operations().current().formatVersion()).isEqualTo(2);
+        assertThat(formatVersion(loadTable(tableName))).isEqualTo(2);
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
     }
 
@@ -698,7 +699,7 @@ public class TestIcebergV2
     {
         String tableName = "test_downgrading_v2_table_to_v1_fails_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 2) AS SELECT * FROM tpch.tiny.nation", 25);
-        assertThat(loadTable(tableName).operations().current().formatVersion()).isEqualTo(2);
+        assertThat(formatVersion(loadTable(tableName))).isEqualTo(2);
         assertThat(query("ALTER TABLE " + tableName + " SET PROPERTIES format_version = 1"))
                 .failure()
                 .hasMessage("Failed to set new property values")
@@ -711,7 +712,7 @@ public class TestIcebergV2
     {
         String tableName = "test_upgrading_to_invalid_version_fails_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 2) AS SELECT * FROM tpch.tiny.nation", 25);
-        assertThat(loadTable(tableName).operations().current().formatVersion()).isEqualTo(2);
+        assertThat(formatVersion(loadTable(tableName))).isEqualTo(2);
         assertThat(query("ALTER TABLE " + tableName + " SET PROPERTIES format_version = 42"))
                 .failure().hasMessage("line 1:79: Unable to set catalog 'iceberg' table property 'format_version' to [42]: format_version must be between 1 and 2");
     }
@@ -722,13 +723,13 @@ public class TestIcebergV2
         String tableName = "test_updating_all_table_properties_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 1, format = 'ORC') AS SELECT * FROM tpch.tiny.nation", 25);
         BaseTable table = loadTable(tableName);
-        assertThat(table.operations().current().formatVersion()).isEqualTo(1);
+        assertThat(formatVersion(table)).isEqualTo(1);
         assertThat(table.properties().get(TableProperties.DEFAULT_FILE_FORMAT).equalsIgnoreCase("ORC")).isTrue();
         assertThat(table.spec().isUnpartitioned()).isTrue();
 
         assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES format_version = 2, partitioning = ARRAY['regionkey'], format = 'PARQUET', sorted_by = ARRAY['comment']");
         table = loadTable(tableName);
-        assertThat(table.operations().current().formatVersion()).isEqualTo(2);
+        assertThat(formatVersion(table)).isEqualTo(2);
         assertThat(table.properties().get(TableProperties.DEFAULT_FILE_FORMAT).equalsIgnoreCase("PARQUET")).isTrue();
         assertThat(table.spec().isPartitioned()).isTrue();
         List<PartitionField> partitionFields = table.spec().fields();
@@ -749,7 +750,7 @@ public class TestIcebergV2
         assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 1, format = 'PARQUET', partitioning = ARRAY['regionkey'], sorted_by = ARRAY['comment']) " +
                 "AS SELECT * FROM tpch.tiny.nation", 25);
         BaseTable table = loadTable(tableName);
-        assertThat(table.operations().current().formatVersion()).isEqualTo(1);
+        assertThat(formatVersion(table)).isEqualTo(1);
         assertThat(table.properties().get(TableProperties.DEFAULT_FILE_FORMAT).equalsIgnoreCase("PARQUET")).isTrue();
         assertThat(table.spec().isPartitioned()).isTrue();
         List<PartitionField> partitionFields = table.spec().fields();
@@ -759,7 +760,7 @@ public class TestIcebergV2
 
         assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES format_version = DEFAULT, format = DEFAULT, partitioning = DEFAULT, sorted_by = DEFAULT");
         table = loadTable(tableName);
-        assertThat(table.operations().current().formatVersion()).isEqualTo(2);
+        assertThat(formatVersion(table)).isEqualTo(2);
         assertThat(table.properties().get(TableProperties.DEFAULT_FILE_FORMAT).equalsIgnoreCase("PARQUET")).isTrue();
         assertThat(table.spec().isUnpartitioned()).isTrue();
         assertThat(table.sortOrder().isUnsorted()).isTrue();
@@ -931,7 +932,7 @@ public class TestIcebergV2
                                         (2,
                                         'PARQUET',
                                         1L,
-                                        JSON '{"3":49}',
+                                        JSON '{"3":52}',
                                         JSON '{"3":1}',
                                         JSON '{"3":0}',
                                         JSON '{}',

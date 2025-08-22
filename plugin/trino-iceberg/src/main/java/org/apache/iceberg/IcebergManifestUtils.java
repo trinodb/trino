@@ -11,21 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.iceberg;
 
-package io.trino.plugin.eventlistener.kafka.model;
+import org.apache.iceberg.io.FileIO;
 
-import com.google.common.collect.ImmutableMap;
-import io.trino.spi.eventlistener.SplitCompletedEvent;
+import java.util.List;
 
-import java.util.Map;
-
-import static java.util.Objects.requireNonNull;
-
-public record SplitCompletedEventWrapper(SplitCompletedEvent eventPayload, Map<String, String> eventMetadata)
+public class IcebergManifestUtils
 {
-    public SplitCompletedEventWrapper
+    private IcebergManifestUtils() {}
+
+    public static List<ManifestFile> read(FileIO fileIO, String manifestListLocation)
     {
-        requireNonNull(eventPayload, "eventPayload is null");
-        eventMetadata = ImmutableMap.copyOf(requireNonNull(eventMetadata, "eventMetadata is null"));
+        // Avoid using snapshot.allManifests() when processing multiple snapshots,
+        // as each Snapshot instance internally caches `org.apache.iceberg.BaseSnapshot.allManifests`
+        // and leads to high memory usage
+        return ManifestLists.read(fileIO.newInputFile(manifestListLocation));
     }
 }

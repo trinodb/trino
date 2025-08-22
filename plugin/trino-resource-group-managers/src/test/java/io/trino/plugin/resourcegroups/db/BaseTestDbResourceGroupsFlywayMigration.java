@@ -95,6 +95,25 @@ public abstract class BaseTestDbResourceGroupsFlywayMigration
         assertThat(tableExists("resource_groups_global_properties")).isFalse();
     }
 
+    @Test
+    public void testMigrationForConstraints()
+    {
+        DbResourceGroupConfig config = new DbResourceGroupConfig()
+                .setConfigDbUrl(container.getJdbcUrl())
+                .setConfigDbUser(container.getUsername())
+                .setConfigDbPassword(container.getPassword());
+        FlywayMigration.migrate(config);
+        String cpuInsert = "INSERT INTO resource_groups_global_properties VALUES ('cpu_quota_period', '1h')";
+        String dataInsert = "INSERT INTO resource_groups_global_properties VALUES ('physical_data_scan_quota_period', '1h')";
+        Handle handle = jdbi.open();
+        handle.execute(cpuInsert);
+        handle.execute(dataInsert);
+        handle.close();
+        verifyResourceGroupsSchema(2);
+
+        dropAllTables();
+    }
+
     protected void verifyResourceGroupsSchema(int expectedPropertiesCount)
     {
         verifyResultSetCount("SELECT name FROM resource_groups_global_properties", expectedPropertiesCount);

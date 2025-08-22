@@ -56,7 +56,7 @@ public class ArrayBlockEncoding
         for (int position = 0; position < positionCount + 1; position++) {
             sliceOutput.writeInt(offsets[offsetBase + position] - valuesStartOffset);
         }
-        encodeNullsAsBits(sliceOutput, arrayBlock);
+        encodeNullsAsBits(sliceOutput, arrayBlock.getRawValueIsNull(), offsetBase, positionCount);
     }
 
     @Override

@@ -27,6 +27,7 @@ import io.trino.spi.connector.EntityPrivilege;
 import io.trino.spi.security.Privilege;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Grant;
+import io.trino.sql.tree.Identifier;
 
 import java.util.List;
 import java.util.Optional;
@@ -86,6 +87,10 @@ public class GrantTask
 
     private void executeGrantOnSchema(Session session, Grant statement)
     {
+        if (statement.getGrantObject().getBranch().isPresent()) {
+            throw semanticException(NOT_SUPPORTED, statement, "Granting on branch is not supported");
+        }
+
         CatalogSchemaName schemaName = createCatalogSchemaName(session, statement, Optional.of(statement.getGrantObject().getName()));
 
         if (!metadata.schemaExists(session, schemaName)) {
@@ -103,6 +108,7 @@ public class GrantTask
     private void executeGrantOnTable(Session session, Grant statement)
     {
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getGrantObject().getName());
+        Optional<Identifier> branch = statement.getGrantObject().getBranch();
 
         if (!metadata.isMaterializedView(session, tableName) && !metadata.isView(session, tableName)) {
             RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, tableName);
@@ -116,15 +122,23 @@ public class GrantTask
 
         Set<Privilege> privileges = parseStatementPrivileges(statement, statement.getPrivileges());
 
-        for (Privilege privilege : privileges) {
-            accessControl.checkCanGrantTablePrivilege(session.toSecurityContext(), privilege, tableName, createPrincipal(statement.getGrantee()), statement.isWithGrantOption());
+        if (branch.isEmpty()) {
+            privileges.forEach(privilege -> accessControl.checkCanGrantTablePrivilege(session.toSecurityContext(), privilege, tableName, createPrincipal(statement.getGrantee()), statement.isWithGrantOption()));
+            metadata.grantTablePrivileges(session, tableName, privileges, createPrincipal(statement.getGrantee()), statement.isWithGrantOption());
         }
-
-        metadata.grantTablePrivileges(session, tableName, privileges, createPrincipal(statement.getGrantee()), statement.isWithGrantOption());
+        else {
+            String branchName = branch.get().getValue();
+            privileges.forEach(privilege -> accessControl.checkCanGrantTableBranchPrivilege(session.toSecurityContext(), privilege, tableName, branchName, createPrincipal(statement.getGrantee()), statement.isWithGrantOption()));
+            metadata.grantTableBranchPrivileges(session, tableName, branchName, privileges, createPrincipal(statement.getGrantee()), statement.isWithGrantOption());
+        }
     }
 
     private void executeGrantOnEntity(Session session, String entityKind, Metadata metadata, Grant statement)
     {
+        if (statement.getGrantObject().getBranch().isPresent()) {
+            throw semanticException(NOT_SUPPORTED, statement, "Granting on branch is not supported");
+        }
+
         EntityKindAndName entity = createEntityKindAndName(entityKind, statement.getGrantObject().getName());
         Set<EntityPrivilege> privileges = fetchEntityKindPrivileges(entityKind, metadata, statement.getPrivileges());
 

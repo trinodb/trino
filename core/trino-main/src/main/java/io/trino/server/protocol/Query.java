@@ -560,7 +560,8 @@ class Query
                 startedTransactionId,
                 clearTransactionId,
                 session.getProtocolHeaders(),
-                queryResults);
+                queryResults,
+                session.getQueryDataEncoding());
     }
 
     private synchronized QueryResultRows removePagesFromExchange(ResultQueryInfo queryInfo)

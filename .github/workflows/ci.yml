@@ -1028,7 +1028,7 @@ jobs:
           # The job doesn't build anything, so the ~/.m2/repository cache isn't useful
           cache: 'false'
       - name: Product tests artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: product tests and server tarball
       - name: Fix artifact permissions

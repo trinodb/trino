@@ -27,8 +27,6 @@ import io.trino.spi.eventlistener.QueryCreatedEvent;
 import io.trino.spi.eventlistener.QueryIOMetadata;
 import io.trino.spi.eventlistener.QueryMetadata;
 import io.trino.spi.eventlistener.QueryStatistics;
-import io.trino.spi.eventlistener.SplitCompletedEvent;
-import io.trino.spi.eventlistener.SplitStatistics;
 import io.trino.spi.eventlistener.StageOutputBufferUtilization;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
@@ -70,7 +68,6 @@ import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static java.lang.String.format;
-import static java.time.Duration.ofMillis;
 import static java.time.Duration.ofSeconds;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
@@ -85,20 +82,16 @@ final class TestHttpEventListener
 
     private static final JsonCodec<QueryCompletedEvent> queryCompleteEventJsonCodec = jsonCodec(QueryCompletedEvent.class);
     private static final JsonCodec<QueryCreatedEvent> queryCreateEventJsonCodec = jsonCodec(QueryCreatedEvent.class);
-    private static final JsonCodec<SplitCompletedEvent> splitCompleteEventJsonCodec = jsonCodec(SplitCompletedEvent.class);
 
     private static final QueryIOMetadata queryIOMetadata;
     private static final QueryContext queryContext;
     private static final QueryMetadata queryMetadata;
-    private static final SplitStatistics splitStatistics;
     private static final QueryStatistics queryStatistics;
-    private static final SplitCompletedEvent splitCompleteEvent;
     private static final QueryCreatedEvent queryCreatedEvent;
     private static final QueryCompletedEvent queryCompleteEvent;
 
     private static final String queryCreatedEventJson;
     private static final String queryCompleteEventJson;
-    private static final String splitCompleteEventJson;
 
     static {
         queryIOMetadata = new QueryIOMetadata(Collections.emptyList(), Optional.empty());
@@ -141,16 +134,6 @@ final class TestHttpEventListener
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
-
-        splitStatistics = new SplitStatistics(
-                ofMillis(1000),
-                ofMillis(2000),
-                ofMillis(3000),
-                ofMillis(4000),
-                1,
-                2,
-                Optional.of(ofMillis(100)),
-                Optional.of(ofMillis(200)));
 
         queryStatistics = new QueryStatistics(
                 ofSeconds(1),
@@ -200,18 +183,6 @@ final class TestHttpEventListener
                 Collections.emptyList(),
                 Optional.empty());
 
-        splitCompleteEvent = new SplitCompletedEvent(
-                "queryId",
-                "stageId",
-                "taskId",
-                Optional.of("catalogName"),
-                Instant.now(),
-                Optional.of(Instant.now()),
-                Optional.of(Instant.now()),
-                splitStatistics,
-                Optional.empty(),
-                "payload");
-
         queryCreatedEvent = new QueryCreatedEvent(
                 Instant.now(),
                 queryContext,
@@ -230,7 +201,6 @@ final class TestHttpEventListener
 
         queryCompleteEventJson = queryCompleteEventJsonCodec.toJson(queryCompleteEvent);
         queryCreatedEventJson = queryCreateEventJsonCodec.toJson(queryCreatedEvent);
-        splitCompleteEventJson = splitCompleteEventJsonCodec.toJson(splitCompleteEvent);
     }
 
     /**
@@ -249,7 +219,6 @@ final class TestHttpEventListener
 
         eventListener.queryCreated(null);
         eventListener.queryCompleted(null);
-        eventListener.splitCompleted(null);
 
         assertThat(server.takeRequest(5, TimeUnit.SECONDS)).isNull();
     }
@@ -261,8 +230,7 @@ final class TestHttpEventListener
         EventListener eventListener = createEventListener(Map.of(
                 "http-event-listener.connect-ingest-uri", server.url("/").toString(),
                 "http-event-listener.log-completed", "true",
-                "http-event-listener.log-created", "true",
-                "http-event-listener.log-split", "true"));
+                "http-event-listener.log-created", "true"));
 
         server.enqueue(new MockResponse.Builder().code(200).build());
         server.enqueue(new MockResponse.Builder().code(200).build());
@@ -273,9 +241,6 @@ final class TestHttpEventListener
 
         eventListener.queryCompleted(queryCompleteEvent);
         checkRequest(server.takeRequest(5, TimeUnit.SECONDS), queryCompleteEventJson);
-
-        eventListener.splitCompleted(splitCompleteEvent);
-        checkRequest(server.takeRequest(5, TimeUnit.SECONDS), splitCompleteEventJson);
     }
 
     @Test

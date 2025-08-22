@@ -1,3 +1,54 @@
+@font-face {
+    font-family: 'Roboto';
+    src:
+        url('fonts/Roboto-VariableFont_wdth,wght.woff2') format('woff2'),
+        url('fonts/Roboto-VariableFont_wdth,wght.ttf')   format('truetype');
+    font-display: swap;
+    font-weight: 100 900;
+    font-stretch: 75% 100%;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'Roboto Mono';
+    src:
+        url('fonts/RobotoMono-VariableFont_wght.woff2') format('woff2'),
+        url('fonts/RobotoMono-VariableFont_wght.ttf')   format('truetype');
+    font-display: swap;
+    font-weight: 100 900;
+    font-stretch: 75% 100%;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'Alata';
+    src:
+        url('fonts/Alata-Regular.woff2') format('woff2'),
+        url('fonts/Alata-Regular.ttf')   format('truetype');
+    font-display: swap;
+    font-weight: 100 900;
+    font-stretch: 75% 100%;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'Material Icons';
+    src:
+        url("fonts/MaterialIcons-Regular.woff2") format("woff2"),
+        url("fonts/MaterialIcons-Regular.ttf")   format("truetype");
+    font-display: swap;
+    font-style: normal;
+    font-weight: 400;
+}
+
+body, input {
+    font-family: "Roboto", "Helvetica Neue", Helvetica, Arial, sans-serif
+}
+
+code, kbd, pre {
+    font-family: "Roboto Mono", "Courier New", Courier, monospace
+}
+
 :root {
     --trino-black: #212121;
     --trino-dark-blue: #000033;

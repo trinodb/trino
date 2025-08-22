@@ -36,6 +36,7 @@ public class TextEncodingOptions
     private static final String LAST_COLUMN_TAKES_REST_KEY = "serialization.last.column.takes.rest";
 
     private static final String FIELD_DELIMITER_KEY = "field.delim";
+    private static final String EXTENDED_BOOLEAN_LITERAL = "extended_boolean_literal";
     private static final String COLLECTION_DELIMITER_KEY = "collection.delim";
     private static final String MAP_KEY_DELIMITER_KEY = "mapkey.delim";
     private static final String ESCAPE_CHAR_KEY = "escape.delim";
@@ -126,6 +127,7 @@ public class TextEncodingOptions
     private final Slice separators;
     private final Byte escapeByte;
     private final boolean lastColumnTakesRest;
+    private final boolean extendedBooleanLiteral;
     private final List<String> timestampFormats;
 
     private TextEncodingOptions(
@@ -134,7 +136,8 @@ public class TextEncodingOptions
             Slice separators,
             Byte escapeByte,
             boolean lastColumnTakesRest,
-            List<String> timestampFormats)
+            List<String> timestampFormats,
+            boolean extendedBooleanLiteral)
     {
         this.nullSequence = nullSequence;
         this.nestingLevels = nestingLevels;
@@ -142,6 +145,7 @@ public class TextEncodingOptions
         this.escapeByte = escapeByte;
         this.lastColumnTakesRest = lastColumnTakesRest;
         this.timestampFormats = timestampFormats;
+        this.extendedBooleanLiteral = extendedBooleanLiteral;
     }
 
     public Slice getNullSequence()
@@ -169,6 +173,11 @@ public class TextEncodingOptions
         return lastColumnTakesRest;
     }
 
+    public boolean isExtendedBooleanLiteral()
+    {
+        return extendedBooleanLiteral;
+    }
+
     public List<String> getTimestampFormats()
     {
         return timestampFormats;
@@ -192,6 +201,9 @@ public class TextEncodingOptions
         }
         if (lastColumnTakesRest) {
             schema.put(LAST_COLUMN_TAKES_REST_KEY, "true");
+        }
+        if (extendedBooleanLiteral) {
+            schema.put(EXTENDED_BOOLEAN_LITERAL, "true");
         }
         if (escapeByte != null) {
             schema.put(ESCAPE_CHAR_KEY, String.valueOf(escapeByte));
@@ -242,6 +254,11 @@ public class TextEncodingOptions
             builder.lastColumnTakesRest();
         }
 
+        String extendedBooleanLiteral = serdeProperties.get(EXTENDED_BOOLEAN_LITERAL);
+        if ("true".equalsIgnoreCase(extendedBooleanLiteral)) {
+            builder.extendedBooleanLiteral();
+        }
+
         // escaped
         String escapeProperty = serdeProperties.get(ESCAPE_CHAR_KEY);
         if (escapeProperty != null) {
@@ -287,6 +304,7 @@ public class TextEncodingOptions
         private byte mapKeyDelimiter = DEFAULT_SEPARATORS[2];
         private Byte escapeByte;
         private boolean lastColumnTakesRest;
+        private boolean extendedBooleanLiteral;
         private List<String> timestampFormats = ImmutableList.of();
 
         public Builder() {}
@@ -301,6 +319,7 @@ public class TextEncodingOptions
             escapeByte = textEncodingOptions.getEscapeByte();
             lastColumnTakesRest = textEncodingOptions.isLastColumnTakesRest();
             timestampFormats = textEncodingOptions.getTimestampFormats();
+            extendedBooleanLiteral = textEncodingOptions.isExtendedBooleanLiteral();
         }
 
         public Builder nullSequence(Slice nullSequence)
@@ -355,6 +374,12 @@ public class TextEncodingOptions
             return this;
         }
 
+        public Builder extendedBooleanLiteral()
+        {
+            this.extendedBooleanLiteral = true;
+            return this;
+        }
+
         public Builder timestampFormats(String... timestampFormats)
         {
             return timestampFormats(ImmutableList.copyOf(timestampFormats));
@@ -369,7 +394,7 @@ public class TextEncodingOptions
         public TextEncodingOptions build()
         {
             Slice separators = nestingLevels.getSeparators(fieldDelimiter, collectionDelimiter, mapKeyDelimiter);
-            return new TextEncodingOptions(nullSequence, nestingLevels, separators, escapeByte, lastColumnTakesRest, timestampFormats);
+            return new TextEncodingOptions(nullSequence, nestingLevels, separators, escapeByte, lastColumnTakesRest, timestampFormats, extendedBooleanLiteral);
         }
     }
 }

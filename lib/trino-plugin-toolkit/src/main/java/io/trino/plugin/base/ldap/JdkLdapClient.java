@@ -16,7 +16,6 @@ package io.trino.plugin.base.ldap;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
-import io.airlift.units.Duration;
 import io.trino.plugin.base.ssl.SslUtils;
 import io.trino.spi.security.AccessDeniedException;
 
@@ -65,15 +64,9 @@ public class JdkLdapClient
                 .put(PROVIDER_URL, ldapUrl)
                 .put(REFERRAL, ldapConfig.isIgnoreReferrals() ? "ignore" : "follow");
 
-        ldapConfig.getLdapConnectionTimeout()
-                .map(Duration::toMillis)
-                .map(String::valueOf)
-                .ifPresent(timeout -> builder.put("com.sun.jndi.ldap.connect.timeout", timeout));
+        builder.put("com.sun.jndi.ldap.connect.timeout", String.valueOf(ldapConfig.getLdapConnectionTimeout().toMillis()));
 
-        ldapConfig.getLdapReadTimeout()
-                .map(Duration::toMillis)
-                .map(String::valueOf)
-                .ifPresent(timeout -> builder.put("com.sun.jndi.ldap.read.timeout", timeout));
+        builder.put("com.sun.jndi.ldap.read.timeout", String.valueOf(ldapConfig.getLdapReadTimeout().toMillis()));
 
         this.basicEnvironment = builder.buildOrThrow();
 

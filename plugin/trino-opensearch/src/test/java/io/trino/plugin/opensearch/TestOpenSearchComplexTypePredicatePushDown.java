@@ -78,7 +78,7 @@ final class TestOpenSearchComplexTypePredicatePushDown
             Map<String, Object> document = new HashMap<>();
             document.put("col", null);
             Map<String, Object> indexPayload = ImmutableMap.of("index", ImmutableMap.of("_index", tableName, "_id", String.valueOf(System.nanoTime())));
-            String jsonDocument = OBJECT_MAPPER.writeValueAsString(document);;
+            String jsonDocument = OBJECT_MAPPER.writeValueAsString(document);
             String jsonIndex = OBJECT_MAPPER.writeValueAsString(indexPayload);
             payload.append(jsonIndex).append("\n").append(jsonDocument).append("\n");
         }
@@ -221,7 +221,7 @@ final class TestOpenSearchComplexTypePredicatePushDown
         int c22 = 6;
 
         StringBuilder payload = new StringBuilder();
-        for (int i=0; i<10000; i++) {
+        for (int i = 0; i < 10000; i++) {
             Map<String, Object> document = ImmutableMap.<String, Object>builder()
                     .put("col1Row", ImmutableMap.<String, Object>builder()
                             .put("a", a)
@@ -313,7 +313,7 @@ final class TestOpenSearchComplexTypePredicatePushDown
                   """;
 
         StringBuilder payload = new StringBuilder();
-        for (int i=0; i<10000; i++) {
+        for (int i = 0; i < 10000; i++) {
             Map<String, Object> document = ImmutableMap.<String, Object>builder()
                     .put("colArray", ImmutableList.<Long>builder()
                             .add(100L)
@@ -377,7 +377,7 @@ final class TestOpenSearchComplexTypePredicatePushDown
     private void deleteIndex(String indexName)
             throws IOException
     {
-        Request request = new Request("DELETE",  "/" + indexName);
+        Request request = new Request("DELETE", "/" + indexName);
         client.getLowLevelClient().performRequest(request);
     }
 }
