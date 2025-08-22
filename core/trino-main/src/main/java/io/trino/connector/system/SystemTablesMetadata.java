@@ -28,6 +28,7 @@ import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
+import io.trino.spi.connector.SystemColumnHandle;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
 
@@ -37,7 +38,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.connector.system.SystemColumnHandle.toSystemColumnHandles;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.metadata.MetadataUtil.findColumnMetadata;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -111,7 +112,9 @@ public class SystemTablesMetadata
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         ConnectorTableMetadata tableMetadata = checkAndGetTable(session, tableHandle).getTableMetadata();
-        return toSystemColumnHandles(tableMetadata);
+        return tableMetadata.getColumns().stream().collect(toImmutableMap(
+                ColumnMetadata::getName,
+                column -> new SystemColumnHandle(column.getName())));
     }
 
     private SystemTable checkAndGetTable(ConnectorSession session, ConnectorTableHandle tableHandle)

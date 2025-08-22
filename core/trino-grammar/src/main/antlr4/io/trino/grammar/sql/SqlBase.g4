@@ -120,8 +120,9 @@ statement
     | CALL qualifiedName '(' (callArgument (',' callArgument)*)? ')'   #call
     | CREATE (OR REPLACE)? functionSpecification                       #createFunction
     | DROP FUNCTION (IF EXISTS)? functionDeclaration                   #dropFunction
-    | CREATE (OR REPLACE)? BRANCH (IF NOT EXISTS)? identifier
-        (WITH properties)? IN TABLE qualifiedName                      #createBranch
+    | CREATE (OR REPLACE)? BRANCH (IF NOT EXISTS)? branch=identifier
+        (WITH properties)? IN TABLE qualifiedName
+        (FROM from=identifier)?                                        #createBranch
     | DROP BRANCH (IF EXISTS)? identifier
         IN TABLE qualifiedName                                         #dropBranch
     | ALTER BRANCH source=identifier IN TABLE qualifiedName
@@ -956,7 +957,7 @@ sqlStatementList
     ;
 
 privilege
-    : CREATE | SELECT | DELETE | INSERT | UPDATE | identifier
+    : CREATE | SELECT | DELETE | INSERT | UPDATE | identifier | CREATE BRANCH
     ;
 
 entityKind
@@ -964,7 +965,7 @@ entityKind
     ;
 
 grantObject
-    : entityKind? qualifiedName
+    : (BRANCH branch=identifier IN)? entityKind? qualifiedName
     ;
 
 ownedEntityKind
@@ -997,7 +998,7 @@ principal
     ;
 
 privilegeOrRole
-    : CREATE | SELECT | DELETE | INSERT | UPDATE | identifier
+    : CREATE | SELECT | DELETE | INSERT | UPDATE | identifier | CREATE BRANCH
     ;
 
 identifier

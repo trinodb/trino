@@ -362,7 +362,6 @@ public class TestLakehouseConnectorTest
                    format = 'PARQUET',
                    format_version = 2,
                    location = \\E's3://test-bucket-.*/tpch/orders-.*'\\Q,
-                   max_commit_retry = 4,
                    type = 'ICEBERG'
                 )\\E""");
     }

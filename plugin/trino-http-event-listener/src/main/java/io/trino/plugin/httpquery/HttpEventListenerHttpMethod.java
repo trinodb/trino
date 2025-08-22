@@ -11,20 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg;
+package io.trino.plugin.httpquery;
 
-import com.google.common.collect.ImmutableList;
-import io.trino.spi.type.RowType;
-
-import java.util.List;
-
-import static java.util.Objects.requireNonNull;
-
-public record IcebergPartitionColumn(RowType rowType, List<Integer> fieldIds)
+public enum HttpEventListenerHttpMethod
 {
-    public IcebergPartitionColumn
-    {
-        requireNonNull(rowType, "rowType is null");
-        fieldIds = ImmutableList.copyOf(requireNonNull(fieldIds, "fieldIds is null"));
-    }
+    POST,
+    PUT
 }

@@ -101,6 +101,10 @@ public class InternalResourceGroup
     @GuardedBy("root")
     private long cpuQuotaGenerationMillisPerSecond = Long.MAX_VALUE;
     @GuardedBy("root")
+    private long hardPhysicalDataScanLimitBytes = Long.MAX_VALUE;
+    @GuardedBy("root")
+    private long physicalDataScanQuotaGenerationBytesPerSecond = Long.MAX_VALUE;
+    @GuardedBy("root")
     private int schedulingWeight = DEFAULT_WEIGHT;
     @GuardedBy("root")
     private SchedulingPolicy schedulingPolicy = FAIR;
@@ -128,9 +132,9 @@ public class InternalResourceGroup
     private int descendantRunningQueries;
     @GuardedBy("root")
     private int descendantQueuedQueries;
-    // CPU and memory usage is cached because it changes very rapidly while queries are running, and would be expensive to track continuously
+    // CPU, memory and physical data input usage is cached because it changes very rapidly while queries are running, and would be expensive to track continuously
     @GuardedBy("root")
-    private ResourceUsage cachedResourceUsage = new ResourceUsage(0, 0);
+    private ResourceUsage cachedResourceUsage = new ResourceUsage(0, 0, 0);
     @GuardedBy("root")
     private long lastStartMillis;
     private final CounterStat timeBetweenStartsSec = new CounterStat();
@@ -168,9 +172,11 @@ public class InternalResourceGroup
                     succinctBytes(softMemoryLimitBytes),
                     softConcurrencyLimit,
                     hardConcurrencyLimit,
+                    succinctBytes(hardPhysicalDataScanLimitBytes),
                     maxQueuedQueries,
                     succinctBytes(cachedResourceUsage.getMemoryUsageBytes()),
                     succinctDuration(cachedResourceUsage.getCpuUsageMillis(), MILLISECONDS),
+                    succinctBytes(cachedResourceUsage.getPhysicalInputDataUsageBytes()),
                     getQueuedQueries(),
                     getRunningQueries(),
                     eligibleSubGroups.size(),
@@ -193,9 +199,11 @@ public class InternalResourceGroup
                     succinctBytes(softMemoryLimitBytes),
                     softConcurrencyLimit,
                     hardConcurrencyLimit,
+                    succinctBytes(hardPhysicalDataScanLimitBytes),
                     maxQueuedQueries,
                     succinctBytes(cachedResourceUsage.getMemoryUsageBytes()),
                     succinctDuration(cachedResourceUsage.getCpuUsageMillis(), MILLISECONDS),
+                    succinctBytes(cachedResourceUsage.getPhysicalInputDataUsageBytes()),
                     getQueuedQueries(),
                     getRunningQueries(),
                     eligibleSubGroups.size(),
@@ -218,9 +226,11 @@ public class InternalResourceGroup
                     succinctBytes(softMemoryLimitBytes),
                     softConcurrencyLimit,
                     hardConcurrencyLimit,
+                    succinctBytes(hardPhysicalDataScanLimitBytes),
                     maxQueuedQueries,
                     succinctBytes(cachedResourceUsage.getMemoryUsageBytes()),
                     succinctDuration(cachedResourceUsage.getCpuUsageMillis(), MILLISECONDS),
+                    succinctBytes(cachedResourceUsage.getPhysicalInputDataUsageBytes()),
                     getQueuedQueries(),
                     getRunningQueries(),
                     eligibleSubGroups.size(),
@@ -343,6 +353,12 @@ public class InternalResourceGroup
     }
 
     @Managed
+    public long getPhysicalInputDataUsageBytes()
+    {
+        return getResourceUsageSnapshot().getPhysicalInputDataUsageBytes();
+    }
+
+    @Managed
     @Override
     public long getSoftMemoryLimitBytes()
     {
@@ -440,6 +456,45 @@ public class InternalResourceGroup
         checkArgument(rate > 0, "Cpu quota generation must be positive");
         synchronized (root) {
             cpuQuotaGenerationMillisPerSecond = rate;
+        }
+    }
+
+    @Managed
+    @Override
+    public long getHardPhysicalDataScanLimitBytes()
+    {
+        synchronized (root) {
+            return hardPhysicalDataScanLimitBytes;
+        }
+    }
+
+    @Override
+    public void setHardPhysicalDataScanLimitBytes(long limit)
+    {
+        synchronized (root) {
+            boolean oldCanRun = canRunMore();
+            this.hardPhysicalDataScanLimitBytes = limit;
+            if (canRunMore() != oldCanRun) {
+                updateEligibility();
+            }
+        }
+    }
+
+    @Managed
+    @Override
+    public long getPhysicalDataScanQuotaGenerationBytesPerSecond()
+    {
+        synchronized (root) {
+            return physicalDataScanQuotaGenerationBytesPerSecond;
+        }
+    }
+
+    @Override
+    public void setPhysicalDataScanQuotaGenerationBytesPerSecond(long rate)
+    {
+        checkArgument(rate > 0, "Physical data scan quota generation must be positive");
+        synchronized (root) {
+            physicalDataScanQuotaGenerationBytesPerSecond = rate;
         }
     }
 
@@ -731,7 +786,7 @@ public class InternalResourceGroup
     {
         checkState(Thread.holdsLock(root), "Must hold lock to start a query");
         synchronized (root) {
-            runningQueries.put(query, new ResourceUsage(0, 0));
+            runningQueries.put(query, new ResourceUsage(0, 0, 0));
             InternalResourceGroup group = this;
             group.getStartedQueries().update(1);
             while (group.parent.isPresent()) {
@@ -757,11 +812,11 @@ public class InternalResourceGroup
         }
     }
 
-    public void generateCpuQuota(long elapsedSeconds)
+    public void generateQuotas(long elapsedSeconds)
     {
         synchronized (root) {
             if (elapsedSeconds > 0) {
-                internalGenerateCpuQuota(elapsedSeconds);
+                internalGenerateQuotas(elapsedSeconds);
             }
         }
     }
@@ -784,12 +839,12 @@ public class InternalResourceGroup
 
             // The query is present in runningQueries
             if (lastUsage != null) {
-                // CPU is measured cumulatively (i.e. total CPU used until this moment by the query). Memory is measured
-                // instantaneously (how much memory the query is using at this moment). At query completion, memory usage
-                // drops to zero.
+                // CPU and data scan are measured cumulatively (i.e. total CPU & physical input data used until this moment by the query).
+                // Memory is measured instantaneously (how much memory the query is using at this moment). At query completion, memory usage drops to zero.
                 ResourceUsage finalUsage = new ResourceUsage(
                         query.getTotalCpuTime().toMillis(),
-                        0L);
+                        0L,
+                        query.getBasicQueryInfo().getQueryStats().getPhysicalInputDataSize().toBytes());
                 ResourceUsage delta = finalUsage.subtract(lastUsage);
 
                 runningQueries.remove(query);
@@ -827,7 +882,7 @@ public class InternalResourceGroup
     {
         checkState(Thread.holdsLock(root), "Must hold lock to refresh stats");
         synchronized (root) {
-            ResourceUsage groupUsageDelta = new ResourceUsage(0, 0);
+            ResourceUsage groupUsageDelta = new ResourceUsage(0, 0, 0);
 
             for (Map.Entry<ManagedQueryExecution, ResourceUsage> entry : runningQueries.entrySet()) {
                 ManagedQueryExecution query = entry.getKey();
@@ -835,7 +890,8 @@ public class InternalResourceGroup
 
                 ResourceUsage newResourceUsage = new ResourceUsage(
                         query.getTotalCpuTime().toMillis(),
-                        query.getTotalMemoryReservation().toBytes());
+                        query.getTotalMemoryReservation().toBytes(),
+                        query.getBasicQueryInfo().getQueryStats().getPhysicalInputDataSize().toBytes());
 
                 // Compute delta and update usage
                 ResourceUsage queryUsageDelta = newResourceUsage.subtract(oldResourceUsage);
@@ -850,7 +906,7 @@ public class InternalResourceGroup
                 groupUsageDelta = groupUsageDelta.add(subGroupUsageDelta);
                 cachedResourceUsage = cachedResourceUsage.add(subGroupUsageDelta);
 
-                if (!subGroupUsageDelta.equals(new ResourceUsage(0, 0))) {
+                if (!subGroupUsageDelta.equals(new ResourceUsage(0, 0, 0))) {
                     subGroup.updateEligibility();
                 }
             }
@@ -859,30 +915,38 @@ public class InternalResourceGroup
         }
     }
 
-    private void internalGenerateCpuQuota(long elapsedSeconds)
+    private void internalGenerateQuotas(long elapsedSeconds)
     {
-        checkState(Thread.holdsLock(root), "Must hold lock to generate cpu quota");
+        checkState(Thread.holdsLock(root), "Must hold lock to generate quotas");
         synchronized (root) {
-            long newQuota = saturatedMultiply(elapsedSeconds, cpuQuotaGenerationMillisPerSecond);
+            long oldCpuUsageMillis = cachedResourceUsage.getCpuUsageMillis();
+            long oldDataScanBytes = cachedResourceUsage.getPhysicalInputDataUsageBytes();
 
-            long oldUsageMillis = cachedResourceUsage.getCpuUsageMillis();
-            long newCpuUsageMillis = saturatedSubtract(oldUsageMillis, newQuota);
+            long newCpuUsageMillis = computeNewUsage(oldCpuUsageMillis, elapsedSeconds, cpuQuotaGenerationMillisPerSecond);
+            long newDataScanBytes = computeNewUsage(oldDataScanBytes, elapsedSeconds, physicalDataScanQuotaGenerationBytesPerSecond);
+            cachedResourceUsage = new ResourceUsage(newCpuUsageMillis, cachedResourceUsage.getMemoryUsageBytes(), newDataScanBytes);
 
-            if (newCpuUsageMillis < 0 || newCpuUsageMillis == Long.MAX_VALUE) {
-                newCpuUsageMillis = 0;
-            }
-
-            cachedResourceUsage = new ResourceUsage(newCpuUsageMillis, cachedResourceUsage.getMemoryUsageBytes());
-
-            if ((newCpuUsageMillis < hardCpuLimitMillis && oldUsageMillis >= hardCpuLimitMillis) ||
-                    (newCpuUsageMillis < softCpuLimitMillis && oldUsageMillis >= softCpuLimitMillis)) {
+            if ((newCpuUsageMillis < hardCpuLimitMillis && oldCpuUsageMillis >= hardCpuLimitMillis) ||
+                    (newCpuUsageMillis < softCpuLimitMillis && oldCpuUsageMillis >= softCpuLimitMillis) ||
+                    (newDataScanBytes < hardPhysicalDataScanLimitBytes && oldDataScanBytes >= hardPhysicalDataScanLimitBytes)) {
                 updateEligibility();
             }
 
             for (InternalResourceGroup group : subGroups.values()) {
-                group.internalGenerateCpuQuota(elapsedSeconds);
+                group.internalGenerateQuotas(elapsedSeconds);
             }
         }
+    }
+
+    private static long computeNewUsage(long currentUsage, long elapsedSeconds, long generationRate)
+    {
+        long quotaToRegenerate = saturatedMultiply(elapsedSeconds, generationRate);
+        long newUsage = saturatedSubtract(currentUsage, quotaToRegenerate);
+
+        if (newUsage < 0 || newUsage == Long.MAX_VALUE) {
+            newUsage = 0;
+        }
+        return newUsage;
     }
 
     private boolean internalStartNext()
@@ -996,8 +1060,8 @@ public class InternalResourceGroup
         synchronized (root) {
             long cpuUsageMillis = cachedResourceUsage.getCpuUsageMillis();
             long memoryUsageBytes = cachedResourceUsage.getMemoryUsageBytes();
-
-            if ((cpuUsageMillis >= hardCpuLimitMillis) || (memoryUsageBytes > softMemoryLimitBytes)) {
+            long physicalInputDataUsageBytes = cachedResourceUsage.getPhysicalInputDataUsageBytes();
+            if ((cpuUsageMillis >= hardCpuLimitMillis) || (memoryUsageBytes > softMemoryLimitBytes) || (physicalInputDataUsageBytes >= hardPhysicalDataScanLimitBytes)) {
                 return false;
             }
 

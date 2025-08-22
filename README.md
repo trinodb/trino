@@ -114,7 +114,7 @@ Trino comes with sample configuration that should work out-of-the-box for
 development. Use the following options to create a run configuration:
 
 * Main Class: `io.trino.server.DevelopmentServer`
-* VM Options: `-ea -Dconfig=etc/config.properties -Dlog.levels-file=etc/log.properties -Djdk.attach.allowAttachSelf=true`
+* VM Options: `-ea -Dconfig=etc/config.properties -Dlog.levels-file=etc/log.properties -Djdk.attach.allowAttachSelf=true --sun-misc-unsafe-memory-access=allow`
 * Working directory: `$MODULE_DIR$`
 * Use classpath of module: `trino-server-dev`
 

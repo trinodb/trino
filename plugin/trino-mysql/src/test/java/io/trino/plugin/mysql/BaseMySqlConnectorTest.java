@@ -778,14 +778,14 @@ public abstract class BaseMySqlConnectorTest
             assertThatThrownBy(() -> {
                 // Insert via prepared statement fails too
                 try (Connection connection = mySqlServer.createConnection();
-                     PreparedStatement insert = connection.prepareStatement("INSERT INTO " + table.getName() + " VALUES (?)")) {
+                        PreparedStatement insert = connection.prepareStatement("INSERT INTO " + table.getName() + " VALUES (?)")) {
                     insert.setObject(1, negativeDate);
                     int affectedRows = insert.executeUpdate();
                     assertThat(affectedRows).isEqualTo(1);
                 }
             })
-            .isInstanceOf(MysqlDataTruncation.class)
-            .hasMessageContaining("Incorrect date value: '-0001-01-01'");
+                    .isInstanceOf(MysqlDataTruncation.class)
+                    .hasMessageContaining("Incorrect date value: '-0001-01-01'");
         }
     }
 

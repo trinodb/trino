@@ -38,7 +38,6 @@ import io.trino.plugin.iceberg.catalog.rest.DefaultIcebergFileSystemFactory;
 import io.trino.spi.Page;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.DynamicFilter;
@@ -74,6 +73,7 @@ import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.PRIMITIVE;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
+import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.plugin.iceberg.util.OrcTypeConverter.toOrcType;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.Decimals.writeShortDecimal;
@@ -157,7 +157,6 @@ public class TestIcebergNodeLocalDynamicSplitPruning
             TableHandle tableHandle = new TableHandle(
                     TEST_CATALOG_HANDLE,
                     new IcebergTableHandle(
-                            CatalogHandle.fromId("iceberg:NORMAL:v12345"),
                             "test_schema",
                             tableName,
                             TableType.DATA,
@@ -218,7 +217,6 @@ public class TestIcebergNodeLocalDynamicSplitPruning
             tableHandle = new TableHandle(
                     TEST_CATALOG_HANDLE,
                     new IcebergTableHandle(
-                            CatalogHandle.fromId("iceberg:NORMAL:v12345"),
                             "test_schema",
                             tableName,
                             TableType.DATA,
@@ -329,7 +327,6 @@ public class TestIcebergNodeLocalDynamicSplitPruning
             TableHandle tableHandle = new TableHandle(
                     TEST_CATALOG_HANDLE,
                     new IcebergTableHandle(
-                            CatalogHandle.fromId("iceberg:NORMAL:v12345"),
                             "test_schema",
                             tableName,
                             TableType.DATA,
@@ -485,7 +482,6 @@ public class TestIcebergNodeLocalDynamicSplitPruning
             TableHandle tableHandle = new TableHandle(
                     TEST_CATALOG_HANDLE,
                     new IcebergTableHandle(
-                            CatalogHandle.fromId("iceberg:NORMAL:v12345"),
                             "test_schema",
                             tableName,
                             TableType.DATA,
@@ -578,6 +574,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
         IcebergPageSourceProviderFactory factory = new IcebergPageSourceProviderFactory(
                 new DefaultIcebergFileSystemFactory(new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS)),
+                FILE_IO_FACTORY,
                 stats,
                 ORC_READER_CONFIG,
                 PARQUET_READER_CONFIG,

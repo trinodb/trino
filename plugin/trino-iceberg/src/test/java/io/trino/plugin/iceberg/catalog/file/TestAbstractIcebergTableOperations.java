@@ -47,7 +47,7 @@ public class TestAbstractIcebergTableOperations
         HiveMetastore metastore = createTestingFileHiveMetastore(fileSystemFactory, Location.of("local:///"));
 
         FileMetastoreTableOperations fileMetastoreTableOperations = new FileMetastoreTableOperations(
-                new ForwardingFileIo(fileSystemFactory.create(SESSION))
+                new ForwardingFileIo(fileSystemFactory.create(SESSION), true)
                 {
                     @Override
                     public InputFile newInputFile(String path)

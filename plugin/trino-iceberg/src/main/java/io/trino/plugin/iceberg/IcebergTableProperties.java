@@ -13,9 +13,13 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
+import io.trino.plugin.hive.HiveCompressionCodec;
+import io.trino.plugin.hive.HiveCompressionCodecs;
+import io.trino.plugin.hive.HiveCompressionOption;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.spi.TrinoException;
 import io.trino.spi.session.PropertyMetadata;
@@ -33,7 +37,10 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.iceberg.IcebergConfig.FORMAT_VERSION_SUPPORT_MAX;
 import static io.trino.plugin.iceberg.IcebergConfig.FORMAT_VERSION_SUPPORT_MIN;
+import static io.trino.plugin.iceberg.IcebergFileFormat.AVRO;
+import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.doubleProperty;
 import static io.trino.spi.session.PropertyMetadata.enumProperty;
@@ -42,7 +49,6 @@ import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
-import static org.apache.iceberg.TableProperties.COMMIT_NUM_RETRIES_DEFAULT;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
 import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
 import static org.apache.iceberg.TableProperties.ORC_BLOOM_FILTER_COLUMNS;
@@ -56,6 +62,7 @@ public class IcebergTableProperties
     public static final String SORTED_BY_PROPERTY = "sorted_by";
     public static final String LOCATION_PROPERTY = "location";
     public static final String FORMAT_VERSION_PROPERTY = "format_version";
+    public static final String COMPRESSION_CODEC = "compression_codec";
     public static final String MAX_COMMIT_RETRY = "max_commit_retry";
     public static final String ORC_BLOOM_FILTER_COLUMNS_PROPERTY = "orc_bloom_filter_columns";
     public static final String ORC_BLOOM_FILTER_FPP_PROPERTY = "orc_bloom_filter_fpp";
@@ -66,6 +73,7 @@ public class IcebergTableProperties
 
     public static final Set<String> SUPPORTED_PROPERTIES = ImmutableSet.<String>builder()
             .add(FILE_FORMAT_PROPERTY)
+            .add(COMPRESSION_CODEC)
             .add(PARTITIONING_PROPERTY)
             .add(SORTED_BY_PROPERTY)
             .add(LOCATION_PROPERTY)
@@ -103,6 +111,12 @@ public class IcebergTableProperties
                         IcebergFileFormat.class,
                         icebergConfig.getFileFormat(),
                         false))
+                .add(enumProperty(
+                        COMPRESSION_CODEC,
+                        "Write compression codec for the table",
+                        HiveCompressionOption.class,
+                        null,
+                        false))
                 .add(new PropertyMetadata<>(
                         PARTITIONING_PROPERTY,
                         "Partition transforms",
@@ -135,7 +149,7 @@ public class IcebergTableProperties
                 .add(integerProperty(
                         MAX_COMMIT_RETRY,
                         "Number of times to retry a commit before failing",
-                        icebergConfig.getMaxCommitRetry(),
+                        icebergConfig.getMaxCommitRetry().orElse(null),
                         value -> {
                             if (value < 0) {
                                 throw new TrinoException(INVALID_TABLE_PROPERTY, "max_commit_retry must be greater than or equal to 0");
@@ -220,6 +234,12 @@ public class IcebergTableProperties
         return (IcebergFileFormat) tableProperties.get(FILE_FORMAT_PROPERTY);
     }
 
+    public static Optional<HiveCompressionCodec> getCompressionCodec(Map<String, Object> inputProperties)
+    {
+        return Optional.ofNullable((HiveCompressionOption) inputProperties.get(COMPRESSION_CODEC))
+                .map(HiveCompressionCodecs::toCompressionCodec);
+    }
+
     @SuppressWarnings("unchecked")
     public static List<String> getPartitioning(Map<String, Object> tableProperties)
     {
@@ -252,9 +272,27 @@ public class IcebergTableProperties
         }
     }
 
-    public static int getMaxCommitRetry(Map<String, Object> tableProperties)
+    public static void validateCompression(IcebergFileFormat fileFormat, Optional<HiveCompressionCodec> compressionCodec)
     {
-        return (int) tableProperties.getOrDefault(MAX_COMMIT_RETRY, COMMIT_NUM_RETRIES_DEFAULT);
+        if (compressionCodec.isPresent()) {
+            if (!isCompressionCodecSupportedForFormat(fileFormat, compressionCodec.get())) {
+                throw new TrinoException(NOT_SUPPORTED, format("Compression codec %s not supported for %s", compressionCodec.get(), fileFormat.humanName()));
+            }
+        }
+    }
+
+    @VisibleForTesting
+    static boolean isCompressionCodecSupportedForFormat(IcebergFileFormat fileFormat, HiveCompressionCodec codec)
+    {
+        return switch (codec) {
+            case LZ4 -> !(fileFormat == AVRO || fileFormat == PARQUET);
+            default -> true;
+        };
+    }
+
+    public static Optional<Integer> getMaxCommitRetry(Map<String, Object> tableProperties)
+    {
+        return Optional.ofNullable((Integer) tableProperties.get(MAX_COMMIT_RETRY));
     }
 
     public static List<String> getOrcBloomFilterColumns(Map<String, Object> tableProperties)

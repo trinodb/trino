@@ -19,7 +19,6 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDuration;
 import io.airlift.units.MinDuration;
-import io.trino.plugin.kafka.schema.confluent.AvroSchemaConverter.EmptyFieldStrategy;
 import io.trino.spi.HostAddress;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -28,7 +27,7 @@ import jakarta.validation.constraints.Size;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.plugin.kafka.schema.confluent.AvroSchemaConverter.EmptyFieldStrategy.IGNORE;
+import static io.trino.plugin.kafka.schema.confluent.EmptyFieldStrategy.IGNORE;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class ConfluentSchemaRegistryConfig

@@ -17,14 +17,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.secrets.SecretsResolver;
-import io.airlift.json.ObjectMapperProvider;
 import io.opentelemetry.api.trace.Span;
 import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.cost.StatsAndCosts;
-import io.trino.event.SplitMonitor;
-import io.trino.eventlistener.EventListenerConfig;
-import io.trino.eventlistener.EventListenerManager;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.BaseTestSqlTaskManager.MockDirectExchangeClientSupplier;
 import io.trino.execution.buffer.OutputBuffers;
@@ -194,12 +190,5 @@ public final class TaskTestUtils
     public static TaskInfo updateTask(SqlTask sqlTask, List<SplitAssignment> splitAssignments, OutputBuffers outputBuffers)
     {
         return sqlTask.updateTask(TEST_SESSION, Span.getInvalid(), Optional.of(PLAN_FRAGMENT), splitAssignments, outputBuffers, ImmutableMap.of(), false);
-    }
-
-    public static SplitMonitor createTestSplitMonitor()
-    {
-        return new SplitMonitor(
-                new EventListenerManager(new EventListenerConfig(), new SecretsResolver(ImmutableMap.of()), noop(), noopTracer(), new NodeVersion("test")),
-                new ObjectMapperProvider().get());
     }
 }

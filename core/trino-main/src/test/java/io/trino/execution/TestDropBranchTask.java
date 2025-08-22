@@ -27,6 +27,7 @@ import io.trino.sql.tree.QualifiedName;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
+import java.util.Optional;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.spi.StandardErrorCode.BRANCH_NOT_FOUND;
@@ -46,7 +47,7 @@ final class TestDropBranchTask
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
         metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), FAIL);
         TableHandle table = metadata.getTableHandle(testSession, tableName).orElseThrow();
-        metadata.createBranch(testSession, table, "dev", FAIL, Map.of());
+        metadata.createBranch(testSession, table, "dev", Optional.empty(), FAIL, Map.of());
         assertBranches(tableName, "main", "dev");
 
         getFutureValue(executeDropBranch(asQualifiedName(tableName), false, "dev"));

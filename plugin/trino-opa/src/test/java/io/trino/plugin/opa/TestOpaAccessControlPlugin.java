@@ -21,10 +21,10 @@ import org.junit.jupiter.api.Test;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 
-public class TestOpaAccessControlPlugin
+final class TestOpaAccessControlPlugin
 {
     @Test
-    public void testCreatePlugin()
+    void testCreatePlugin()
     {
         Plugin opaPlugin = new OpaAccessControlPlugin();
         SystemAccessControlFactory factory = getOnlyElement(opaPlugin.getSystemAccessControlFactories());

@@ -70,7 +70,6 @@ import static io.trino.execution.TaskTestUtils.PLAN_FRAGMENT;
 import static io.trino.execution.TaskTestUtils.PLAN_FRAGMENT_WITH_DYNAMIC_FILTER_SOURCE;
 import static io.trino.execution.TaskTestUtils.SPLIT;
 import static io.trino.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
-import static io.trino.execution.TaskTestUtils.createTestSplitMonitor;
 import static io.trino.execution.TaskTestUtils.createTestingPlanner;
 import static io.trino.execution.TaskTestUtils.updateTask;
 import static io.trino.execution.buffer.PagesSerdeUtil.getSerializedPagePositionCount;
@@ -114,7 +113,6 @@ public class TestSqlTask
                 taskNotificationExecutor,
                 taskExecutor,
                 planner,
-                createTestSplitMonitor(),
                 noopTracer(),
                 new TaskManagerConfig());
     }

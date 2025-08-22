@@ -2363,6 +2363,9 @@ public final class SqlFormatter
             builder.append(formatPropertiesMultiLine(node.getProperties()));
             builder.append(" IN TABLE ");
             builder.append(formatName(node.getTableName()));
+            if (node.getFromBranch().isPresent()) {
+                builder.append(" FROM " + formatName(node.getFromBranch().get()));
+            }
             return null;
         }
 
@@ -2748,7 +2751,8 @@ public final class SqlFormatter
 
     private static String formatGrantScope(GrantObject grantObject)
     {
-        return String.format("%s%s",
+        return String.format("%s%s%s",
+                grantObject.getBranch().isPresent() ? "BRANCH " + formatName(grantObject.getBranch().get()) + " IN " : "",
                 grantObject.getEntityKind().isPresent() ? grantObject.getEntityKind().get() + " " : "",
                 formatName(grantObject.getName()));
     }

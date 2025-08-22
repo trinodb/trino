@@ -32,14 +32,14 @@ class TestSimpleFileSystemLayout
     @Test
     public void testStorageLocation()
     {
-        FileSystemSpooledSegmentHandle handle = new FileSystemSpooledSegmentHandle("json", ULID.generateBinary(21370000, STATIC_ENTROPY), Optional.empty());
+        FileSystemSpooledSegmentHandle handle = new FileSystemSpooledSegmentHandle("json", ULID.generateBinary(21370000, STATIC_ENTROPY), "nodeId", Optional.empty());
 
         assertThat(handle.identifier()).isEqualTo("00000MC54GDSQQ8RBJC5Q68VVD");
 
         Location segmentLocation = LAYOUT.location(ROOT_LOCATION, handle);
 
-        assertThat(segmentLocation).isEqualTo(ROOT_LOCATION.appendPath("00000MC54GDSQQ8RBJC5Q68VVD.json"));
-        assertThat(segmentLocation.fileName()).isEqualTo("00000MC54GDSQQ8RBJC5Q68VVD.json");
+        assertThat(segmentLocation).isEqualTo(ROOT_LOCATION.appendPath("00000MC54GDSQQ8RBJC5Q68VVDA3C995C2DAF8B753.json"));
+        assertThat(segmentLocation.fileName()).isEqualTo("00000MC54GDSQQ8RBJC5Q68VVDA3C995C2DAF8B753.json");
         assertThat(LAYOUT.getExpiration(segmentLocation)).hasValue(Instant.ofEpochMilli(21370000));
     }
 

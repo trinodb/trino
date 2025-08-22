@@ -133,7 +133,6 @@ public abstract class BaseLakehouseConnectorSmokeTest
                    format = 'ORC',
                    format_version = 2,
                    location = \\E's3://test-bucket-.*/tpch/create_iceberg-.*'\\Q,
-                   max_commit_retry = 4,
                    type = 'ICEBERG'
                 )\\E""");
 

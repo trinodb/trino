@@ -11,9 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg;
+package io.trino.plugin.iceberg.system;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.plugin.iceberg.IcebergStatistics;
+import io.trino.plugin.iceberg.StructLikeWrapperWithFieldIdToIndex;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
@@ -29,19 +31,16 @@ import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.PartitionField;
-import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.types.Type;
-import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.types.Types.NestedField;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -56,6 +55,9 @@ import static io.trino.plugin.iceberg.IcebergUtil.getIdentityPartitions;
 import static io.trino.plugin.iceberg.IcebergUtil.primitiveFieldTypes;
 import static io.trino.plugin.iceberg.StructLikeWrapperWithFieldIdToIndex.createStructLikeWrapper;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
+import static io.trino.plugin.iceberg.util.SystemTableUtil.getAllPartitionFields;
+import static io.trino.plugin.iceberg.util.SystemTableUtil.getPartitionColumnType;
+import static io.trino.plugin.iceberg.util.SystemTableUtil.partitionTypes;
 import static io.trino.spi.block.RowValueBuilder.buildRowValue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
@@ -90,9 +92,9 @@ public class PartitionsTable
 
         ImmutableList.Builder<ColumnMetadata> columnMetadataBuilder = ImmutableList.builder();
 
-        this.partitionColumnType = getPartitionColumnType(partitionFields, icebergTable.schema());
+        this.partitionColumnType = getPartitionColumnType(typeManager, partitionFields, icebergTable.schema());
         partitionColumnType.ifPresent(icebergPartitionColumn ->
-                columnMetadataBuilder.add(new ColumnMetadata("partition", icebergPartitionColumn.rowType)));
+                columnMetadataBuilder.add(new ColumnMetadata("partition", icebergPartitionColumn.rowType())));
 
         Stream.of("record_count", "file_count", "total_size")
                 .forEach(metric -> columnMetadataBuilder.add(new ColumnMetadata(metric, BIGINT)));
@@ -105,7 +107,7 @@ public class PartitionsTable
                 .filter(column -> !identityPartitionIds.contains(column.fieldId()) && column.type().isPrimitiveType())
                 .collect(toImmutableList());
 
-        this.dataColumnType = getMetricsColumnType(this.nonPartitionPrimitiveColumns);
+        this.dataColumnType = getMetricsColumnType(typeManager, this.nonPartitionPrimitiveColumns);
         if (dataColumnType.isPresent()) {
             columnMetadataBuilder.add(new ColumnMetadata("data", dataColumnType.get()));
             this.columnMetricTypes = dataColumnType.get().getFields().stream()
@@ -137,50 +139,7 @@ public class PartitionsTable
         return connectorTableMetadata;
     }
 
-    static List<PartitionField> getAllPartitionFields(Table icebergTable)
-    {
-        Set<Integer> existingColumnsIds = TypeUtil.indexById(icebergTable.schema().asStruct()).keySet();
-
-        List<PartitionField> visiblePartitionFields = icebergTable.specs()
-                .values().stream()
-                .flatMap(partitionSpec -> partitionSpec.fields().stream())
-                // skip columns that were dropped
-                .filter(partitionField -> existingColumnsIds.contains(partitionField.sourceId()))
-                .collect(toImmutableList());
-
-        return filterOutDuplicates(visiblePartitionFields);
-    }
-
-    private static List<PartitionField> filterOutDuplicates(List<PartitionField> visiblePartitionFields)
-    {
-        Set<Integer> alreadyExistingFieldIds = new HashSet<>();
-        List<PartitionField> result = new ArrayList<>();
-        for (PartitionField partitionField : visiblePartitionFields) {
-            if (!alreadyExistingFieldIds.contains(partitionField.fieldId())) {
-                alreadyExistingFieldIds.add(partitionField.fieldId());
-                result.add(partitionField);
-            }
-        }
-        return result;
-    }
-
-    private Optional<IcebergPartitionColumn> getPartitionColumnType(List<PartitionField> fields, Schema schema)
-    {
-        if (fields.isEmpty()) {
-            return Optional.empty();
-        }
-        List<RowType.Field> partitionFields = fields.stream()
-                .map(field -> RowType.field(
-                        field.name(),
-                        toTrinoType(field.transform().getResultType(schema.findType(field.sourceId())), typeManager)))
-                .collect(toImmutableList());
-        List<Integer> fieldIds = fields.stream()
-                .map(PartitionField::fieldId)
-                .collect(toImmutableList());
-        return Optional.of(new IcebergPartitionColumn(RowType.from(partitionFields), fieldIds));
-    }
-
-    private Optional<RowType> getMetricsColumnType(List<NestedField> columns)
+    private static Optional<RowType> getMetricsColumnType(TypeManager typeManager, List<NestedField> columns)
     {
         List<RowType.Field> metricColumns = columns.stream()
                 .map(column -> RowType.field(
@@ -235,7 +194,7 @@ public class PartitionsTable
 
     private RecordCursor buildRecordCursor(Map<StructLikeWrapperWithFieldIdToIndex, IcebergStatistics> partitionStatistics)
     {
-        List<Type> partitionTypes = partitionTypes();
+        List<Type> partitionTypes = partitionTypes(partitionFields, idToTypeMapping);
         List<? extends Class<?>> partitionColumnClass = partitionTypes.stream()
                 .map(type -> type.typeId().javaClass())
                 .collect(toImmutableList());
@@ -249,14 +208,14 @@ public class PartitionsTable
 
             // add data for partition columns
             partitionColumnType.ifPresent(partitionColumnType -> {
-                row.add(buildRowValue(partitionColumnType.rowType, fields -> {
-                    List<io.trino.spi.type.Type> partitionColumnTypes = partitionColumnType.rowType.getFields().stream()
+                row.add(buildRowValue(partitionColumnType.rowType(), fields -> {
+                    List<io.trino.spi.type.Type> partitionColumnTypes = partitionColumnType.rowType().getFields().stream()
                             .map(RowType.Field::getType)
                             .collect(toImmutableList());
                     for (int i = 0; i < partitionColumnTypes.size(); i++) {
-                        io.trino.spi.type.Type trinoType = partitionColumnType.rowType.getFields().get(i).getType();
+                        io.trino.spi.type.Type trinoType = partitionColumnType.rowType().getFields().get(i).getType();
                         Object value = null;
-                        Integer fieldId = partitionColumnType.fieldIds.get(i);
+                        Integer fieldId = partitionColumnType.fieldIds().get(i);
                         if (partitionStruct.getFieldIdToIndex().containsKey(fieldId)) {
                             value = convertIcebergValueToTrino(
                                     partitionTypes.get(i),
@@ -298,17 +257,6 @@ public class PartitionsTable
         return new InMemoryRecordSet(resultTypes, records.build()).cursor();
     }
 
-    private List<Type> partitionTypes()
-    {
-        ImmutableList.Builder<Type> partitionTypeBuilder = ImmutableList.builder();
-        for (PartitionField partitionField : partitionFields) {
-            Type.PrimitiveType sourceType = idToTypeMapping.get(partitionField.sourceId());
-            Type type = partitionField.transform().getResultType(sourceType);
-            partitionTypeBuilder.add(type);
-        }
-        return partitionTypeBuilder.build();
-    }
-
     private static SqlRow getColumnMetricBlock(RowType columnMetricType, Object min, Object max, Long nullCount, Long nanCount)
     {
         return buildRowValue(columnMetricType, fieldBuilders -> {
@@ -319,6 +267,4 @@ public class PartitionsTable
             writeNativeValue(fields.get(3).getType(), fieldBuilders.get(3), nanCount);
         });
     }
-
-    private record IcebergPartitionColumn(RowType rowType, List<Integer> fieldIds) {}
 }
