@@ -20,6 +20,8 @@ import java.io.IOException;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.NoSuchFileException;
 
+import static java.util.Objects.requireNonNullElse;
+
 final class LocalUtils
 {
     private LocalUtils() {}
@@ -33,7 +35,8 @@ final class LocalUtils
         if (exception instanceof FileAlreadyExistsException) {
             throw withCause(new FileAlreadyExistsException(location.toString()), exception);
         }
-        throw new IOException(exception.getMessage() + ": " + location, exception);
+        String message = requireNonNullElse(exception.getMessage(), exception.getClass().getSimpleName());
+        throw new IOException(message + ": " + location, exception);
     }
 
     private static <T extends Throwable> T withCause(T throwable, Throwable cause)
