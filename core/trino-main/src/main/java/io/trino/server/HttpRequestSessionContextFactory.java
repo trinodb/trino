@@ -218,6 +218,7 @@ public class HttpRequestSessionContextFactory
                 // load enabled roles for authenticated identity, so impersonation permissions can be assigned to roles
                 authenticatedIdentity = Identity.from(authenticatedIdentity)
                         .withEnabledRoles(metadata.listEnabledRoles(authenticatedIdentity))
+                        .withGroups(groupProvider.getGroups(authenticatedIdentity.getUser()))
                         .build();
                 accessControl.checkCanImpersonateUser(authenticatedIdentity, originalIdentity.getUser());
             }

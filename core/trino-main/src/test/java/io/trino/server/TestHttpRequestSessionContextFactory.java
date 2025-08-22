@@ -16,19 +16,27 @@ package io.trino.server;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.configuration.secrets.SecretsResolver;
 import io.airlift.jaxrs.testing.GuavaMultivaluedMap;
 import io.trino.client.ProtocolHeaders;
+import io.trino.security.AccessControl;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.server.protocol.PreparedStatementEncoder;
 import io.trino.server.protocol.spooling.QueryDataEncoder;
+import io.trino.spi.security.GroupProvider;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SelectedRole;
+import io.trino.testing.TestingAccessControlManager;
+import io.trino.testing.TestingGroupProvider;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MultivaluedHashMap;
 import jakarta.ws.rs.core.MultivaluedMap;
 import org.assertj.core.api.AbstractThrowableAssert;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
+import java.util.HashSet;
 import java.util.Optional;
 
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
@@ -37,9 +45,15 @@ import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.client.ProtocolHeaders.createProtocolHeaders;
 import static io.trino.metadata.TestMetadataManager.createTestMetadataManager;
+import static io.trino.testing.TestingEventListenerManager.emptyEventListenerManager;
+import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
+@TestInstance(PER_CLASS)
+@Execution(SAME_THREAD)
 public class TestHttpRequestSessionContextFactory
 {
     @Test
@@ -189,6 +203,53 @@ public class TestHttpRequestSessionContextFactory
                 .hasMessage("Invalid extra credential name: internal$abc");
     }
 
+    @Test
+    public void testImpersonation()
+    {
+        TestingGroupProvider groupProvider = new TestingGroupProvider();
+        groupProvider.setUserGroups(ImmutableMap.of(
+                "alice", ImmutableSet.of("aliceGroup"),
+                "bob", ImmutableSet.of("bobGroup"),
+                "otis", ImmutableSet.of("otisGroup")));
+        TestingAccessControlManager accessControl = new TestingAccessControlManager(
+                createTestTransactionManager(),
+                emptyEventListenerManager(),
+                new SecretsResolver(ImmutableMap.of()));
+
+        accessControl.loadSystemAccessControl("allow-all", ImmutableMap.of());
+
+        HttpRequestSessionContextFactory sessionContextFactory = sessionContextFactory(TRINO_HEADERS, groupProvider, accessControl);
+
+        HashSet<String> impersonatedUsers = new HashSet<>();
+        accessControl.denyImpersonation((identity, targetUser) -> {
+            impersonatedUsers.add(targetUser);
+            if ("alice".equals(identity.getUser())) {
+                assertThat(targetUser).isEqualTo("otis");
+                assertThat(identity.getEnabledRoles()).containsExactlyInAnyOrder("system-role");
+                assertThat(identity.getGroups()).containsExactlyInAnyOrder("aliceGroup");
+            }
+            if ("otis".equals(identity.getUser())) {
+                assertThat(targetUser).isEqualTo("bob");
+                assertThat(identity.getEnabledRoles()).containsExactlyInAnyOrder("system-role");
+                assertThat(identity.getGroups()).containsExactlyInAnyOrder("otisGroup");
+            }
+            return true;
+        });
+
+        MultivaluedMap<String, String> headers = new GuavaMultivaluedMap<>(ImmutableListMultimap.of(
+                TRINO_HEADERS.requestUser(), "bob",
+                TRINO_HEADERS.requestOriginalUser(), "otis"));
+
+        Identity authenticatedIdentity = Identity.forUser("alice").build();
+
+        Identity authorizedIdentity = sessionContextFactory.extractAuthorizedIdentity(Optional.of(authenticatedIdentity), headers);
+
+        assertThat(impersonatedUsers).containsExactlyInAnyOrder("otis", "bob");
+        assertThat(authorizedIdentity.getUser()).isEqualTo("bob");
+        assertThat(authorizedIdentity.getEnabledRoles()).containsExactlyInAnyOrder("system-role");
+        assertThat(authorizedIdentity.getGroups()).containsExactlyInAnyOrder("bobGroup");
+    }
+
     private static AbstractThrowableAssert<?, ? extends Throwable> assertInvalidSession(ProtocolHeaders protocolHeaders, MultivaluedMap<String, String> headers)
     {
         return assertThatThrownBy(
@@ -199,11 +260,18 @@ public class TestHttpRequestSessionContextFactory
 
     private static HttpRequestSessionContextFactory sessionContextFactory(ProtocolHeaders headers)
     {
+        return sessionContextFactory(headers, ImmutableSet::of, new AllowAllAccessControl());
+    }
+
+    private static HttpRequestSessionContextFactory sessionContextFactory(ProtocolHeaders headers,
+                                                                          GroupProvider groupProvider,
+                                                                          AccessControl accessControl)
+    {
         return new HttpRequestSessionContextFactory(
                 new PreparedStatementEncoder(new ProtocolConfig()),
                 createTestMetadataManager(),
-                ImmutableSet::of,
-                new AllowAllAccessControl(),
+                groupProvider,
+                accessControl,
                 new ProtocolConfig()
                         .setAlternateHeaderName(headers.getProtocolName()),
                 QueryDataEncoder.EncoderSelector.noEncoder());
