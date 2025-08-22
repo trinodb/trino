@@ -222,8 +222,7 @@ class Query
             // Wait for the query info to become available and close the exchange client if there is no output stage for the query results to be pulled from.
             // This listener also makes sure the exchange client is always properly closed upon query failure.
             if (state.isDone() || state == FINISHING) {
-                QueryInfo queryInfo = queryManager.getFullQueryInfo(result.getQueryId());
-                result.closeExchangeIfNecessary(new ResultQueryInfo(queryInfo));
+                result.closeExchangeIfNecessary(queryManager.getResultQueryInfo(result.getQueryId()));
             }
         });
 
