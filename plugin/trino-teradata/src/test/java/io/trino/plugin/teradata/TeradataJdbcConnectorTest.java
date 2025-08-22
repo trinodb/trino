@@ -140,7 +140,7 @@ public class TeradataJdbcConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        database = closeAfterClass(new TestingTeradataServer(ClearScapeEnvironmentUtils.generateUniqueEnvName(this.getClass())));
+        database = new TestingTeradataServer(ClearScapeEnvironmentUtils.generateUniqueEnvName(this.getClass()));
         // Register this specific instance for this test class
         return TeradataQueryRunner.builder(database).setInitialTables(REQUIRED_TPCH_TABLES).build();
     }

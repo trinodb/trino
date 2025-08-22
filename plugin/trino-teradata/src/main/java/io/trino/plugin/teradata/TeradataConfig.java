@@ -40,7 +40,7 @@ public class TeradataConfig
     private Optional<String> oidcJWSPrivateKey = Optional.empty();
     private Optional<String> oidcClientId = Optional.empty();
     private String logMech = "TD2";
-    private TeradataCaseSensitivity teradataCaseSensitivity = TeradataCaseSensitivity.CASE_SPECIFIC;
+    private TeradataCaseSensitivity teradataCaseSensitivity = TeradataCaseSensitivity.CASE_SENSITIVE;
 
     public Optional<String> getOidcClientId()
     {
@@ -132,7 +132,7 @@ public class TeradataConfig
      * @return this {@link TeradataConfig} instance for method chaining
      */
     @Config("teradata.case-sensitivity")
-    @ConfigDescription("How char/varchar columns' case sensitivity will be exposed to Trino (default: CASE_SPECIFIC). Possible values: NOT_CASE_SPECIFIC, CASE_SPECIFIC, AS_DEFINED.")
+    @ConfigDescription("How char/varchar columns' case sensitivity will be exposed to Trino (default: CASE_SENSITIVE). Possible values: CASE_INSENSITIVE, CASE_SENSITIVE, AS_DEFINED.")
     public TeradataConfig setTeradataCaseSensitivity(TeradataCaseSensitivity teradataCaseSensitivity)
     {
         this.teradataCaseSensitivity = teradataCaseSensitivity;
@@ -142,13 +142,13 @@ public class TeradataConfig
     /**
      * Enum representing Teradata case sensitivity modes for char/varchar columns.
      * <ul>
-     *   <li>NOT_CASE_SPECIFIC - case insensitive</li>
-     *   <li>CASE_SPECIFIC - case sensitive</li>
+     *   <li>CASE_INSENSITIVE - case insensitive</li>
+     *   <li>CASE_SENSITIVE - case sensitive</li>
      *   <li>AS_DEFINED - as defined by Teradata</li>
      * </ul>
      */
     enum TeradataCaseSensitivity
     {
-        NOT_CASE_SPECIFIC, CASE_SPECIFIC, AS_DEFINED
+        CASE_INSENSITIVE, CASE_SENSITIVE, AS_DEFINED
     }
 }

@@ -496,6 +496,49 @@ public class TeradataClient
         };
     }
 
+    protected boolean isTextualAggregationPushdownAllowed(List<List<ColumnHandle>> groupingSets)
+    {
+        switch (teradataJDBCCaseSensitivity) {
+            case CASE_INSENSITIVE:
+                return false;
+            case CASE_SENSITIVE:
+                return true;
+            case AS_DEFINED:
+            default:
+                for (List<ColumnHandle> groupingSet : groupingSets) {
+                    for (ColumnHandle columnHandle : groupingSet) {
+                        JdbcColumnHandle jdbcColumnHandle = (JdbcColumnHandle) columnHandle;
+                        if ((jdbcColumnHandle.getColumnType() instanceof VarcharType || jdbcColumnHandle.getColumnType() instanceof CharType)
+                                && jdbcColumnHandle.getJdbcTypeHandle().caseSensitivity().orElse(CASE_INSENSITIVE) == CASE_INSENSITIVE) {
+                            // Found a case-insensitive textual column, disallow pushdown
+                            return false;
+                        }
+                    }
+                }
+                // All textual columns are case-sensitive, allow pushdown
+                return true;
+        }
+    }
+
+    /**
+     * Determines the case sensitivity for a type based on Teradata configuration.
+     *
+     * @param typeHandleCaseSensitivity optional case sensitivity from type metadata
+     * @return true if case sensitive, false otherwise
+     */
+    private boolean deriveCaseSensitivity(Optional<CaseSensitivity> typeHandleCaseSensitivity)
+    {
+        switch (teradataJDBCCaseSensitivity) {
+            case CASE_INSENSITIVE:
+                return false;
+            case CASE_SENSITIVE:
+                return true;
+            case AS_DEFINED:
+            default:
+                return typeHandleCaseSensitivity.orElse(CASE_INSENSITIVE) == CASE_SENSITIVE;
+        }
+    }
+
     @Override
     protected Optional<BiFunction<String, Long, String>> limitFunction()
     {
@@ -959,8 +1002,7 @@ public class TeradataClient
     @Override
     public boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<AggregateFunction> aggregates, Map<String, ColumnHandle> assignments, List<List<ColumnHandle>> groupingSets)
     {
-        // Remote database can be case insensitive.
-        return preventTextualTypeAggregationPushdown(groupingSets);
+        return isTextualAggregationPushdownAllowed(groupingSets);
     }
 
     /**
@@ -992,25 +1034,6 @@ public class TeradataClient
         catch (SQLException e) {
             // behavior of base jdbc
             return ImmutableMap.of();
-        }
-    }
-
-    /**
-     * Determines the case sensitivity for a type based on Teradata configuration.
-     *
-     * @param typeHandleCaseSensitivity optional case sensitivity from type metadata
-     * @return true if case sensitive, false otherwise
-     */
-    private boolean deriveCaseSensitivity(Optional<CaseSensitivity> typeHandleCaseSensitivity)
-    {
-        switch (teradataJDBCCaseSensitivity) {
-            case NOT_CASE_SPECIFIC:
-                return false;
-            case CASE_SPECIFIC:
-                return true;
-            case AS_DEFINED:
-            default:
-                return typeHandleCaseSensitivity.orElse(CASE_INSENSITIVE) == CASE_SENSITIVE;
         }
     }
 
