@@ -537,7 +537,8 @@ public class PipelinedStageExecution
     @Override
     public boolean isAnyTaskBlocked()
     {
-        return getTaskStatuses().stream()
+        return tasks.values().stream()
+                .map(RemoteTask::getTaskStatus)
                 .map(TaskStatus::getOutputBufferStatus)
                 .anyMatch(OutputBufferStatus::isOverutilized);
     }
