@@ -32,7 +32,7 @@ import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestAvroConfluentContentSchemaProvider
+public class TestConfluentContentSchemaProvider
 {
     private static final String TOPIC = "test";
     private static final String SUBJECT_NAME = format("%s-value", TOPIC);
@@ -44,7 +44,7 @@ public class TestAvroConfluentContentSchemaProvider
         MockSchemaRegistryClient mockSchemaRegistryClient = new MockSchemaRegistryClient();
         AvroSchema schema = getAvroSchema();
         mockSchemaRegistryClient.register(SUBJECT_NAME, schema);
-        AvroConfluentContentSchemaProvider avroConfluentSchemaProvider = new AvroConfluentContentSchemaProvider(mockSchemaRegistryClient);
+        ConfluentContentSchemaProvider avroConfluentSchemaProvider = new ConfluentContentSchemaProvider(mockSchemaRegistryClient);
         KafkaTableHandle tableHandle = new KafkaTableHandle("default", TOPIC, TOPIC, AvroRowDecoderFactory.NAME, AvroRowDecoderFactory.NAME, Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(SUBJECT_NAME), ImmutableList.of(), TupleDomain.all());
         assertThat(avroConfluentSchemaProvider.getMessage(tableHandle)).isEqualTo(Optional.of(schema).map(AvroSchema::toString));
         assertThat(avroConfluentSchemaProvider.getKey(tableHandle)).isEqualTo(Optional.empty());
@@ -64,7 +64,7 @@ public class TestAvroConfluentContentSchemaProvider
                 .orElseThrow();
         mockSchemaRegistryClient.register(SUBJECT_NAME, schemaWithReference);
 
-        AvroConfluentContentSchemaProvider avroConfluentSchemaProvider = new AvroConfluentContentSchemaProvider(mockSchemaRegistryClient);
+        ConfluentContentSchemaProvider avroConfluentSchemaProvider = new ConfluentContentSchemaProvider(mockSchemaRegistryClient);
         assertThat(avroConfluentSchemaProvider.readSchema(Optional.empty(), Optional.of(SUBJECT_NAME)).map(schema -> new Parser().parse(schema))).isPresent();
     }
 
