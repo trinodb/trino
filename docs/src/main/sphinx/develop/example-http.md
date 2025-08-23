@@ -14,7 +14,7 @@ image](/installation/containers).
 Follow the [plugin installation instructions](plugins-installation) and
 optionally use the [trino-packages
 project](https://github.com/trinodb/trino-packages) or manually download the
-plugin archive {maven_download}`example-http`.
+plugin archive {github_release_download}`example-http`.
 
 ## Code
 

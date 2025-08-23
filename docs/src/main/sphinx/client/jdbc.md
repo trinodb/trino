@@ -27,7 +27,7 @@ Versions before 350 are not supported.
 (jdbc-installation)=
 ## Installation
 
-Download {maven_download}`jdbc` and add it to the classpath of your Java application.
+Download {github_release_download}`jdbc` and add it to the classpath of your Java application.
 
 The driver is also available from Maven Central:
 
