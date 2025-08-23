@@ -29,13 +29,13 @@ import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class AvroConfluentContentSchemaProvider
+public class ConfluentContentSchemaProvider
         extends AbstractContentSchemaProvider
 {
     private final SchemaRegistryClient schemaRegistryClient;
 
     @Inject
-    public AvroConfluentContentSchemaProvider(SchemaRegistryClient schemaRegistryClient)
+    public ConfluentContentSchemaProvider(SchemaRegistryClient schemaRegistryClient)
     {
         this.schemaRegistryClient = requireNonNull(schemaRegistryClient, "schemaRegistryClient is null");
     }
