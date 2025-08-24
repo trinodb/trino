@@ -43,7 +43,7 @@ public final class InterfaceTestUtils
         checkArgument(iface.isAssignableFrom(clazz), "%s is not supertype of %s", iface, clazz);
         exclusions = new HashSet<>(exclusions);
         for (Method method : iface.getMethods()) {
-            if (Modifier.isStatic(method.getModifiers())) {
+            if (Modifier.isStatic(method.getModifiers()) || Modifier.isFinal(method.getModifiers())) {
                 continue;
             }
             if (method.getDeclaringClass() == Object.class) {
