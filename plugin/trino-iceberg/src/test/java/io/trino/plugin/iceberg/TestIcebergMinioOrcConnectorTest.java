@@ -128,6 +128,13 @@ public class TestIcebergMinioOrcConnectorTest
         testReadSingleIntegerColumnOrcFile("single-smallint-column.orc", 32767);
     }
 
+    @Test
+    public void testReadOrcFileWithoutIcebergId()
+            throws Exception
+    {
+        testReadSingleIntegerColumnOrcFile("missing-iceberg-id.orc", 1000);
+    }
+
     private void testReadSingleIntegerColumnOrcFile(String orcFileResourceName, int expectedValue)
             throws Exception
     {
