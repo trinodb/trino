@@ -49,6 +49,7 @@ public final class EnvMultinodeAllConnectors
                         "bigquery",
                         "cassandra",
                         "clickhouse",
+                        "databend",
                         "delta_lake",
                         "druid",
                         "duckdb",
