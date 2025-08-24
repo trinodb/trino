@@ -64,7 +64,7 @@ public class HudiSnapshotDirectoryLister
 
         Lazy<HoodieTableMetaClient> lazyMetaClient = Lazy.lazily(tableHandle::getMetaClient);
         this.indexSupportOpt = enableMetadataTable ?
-                IndexSupportFactory.createIndexSupport(schemaTableName, lazyMetaClient, lazyTableMetadata, tableHandle.getRegularPredicates(), session) : Optional.empty();
+                IndexSupportFactory.createIndexSupport(tableHandle, lazyMetaClient, lazyTableMetadata, tableHandle.getRegularPredicates(), session) : Optional.empty();
     }
 
     @Override

@@ -14,7 +14,6 @@
 package io.trino.plugin.hudi.query.index;
 
 import io.airlift.log.Logger;
-import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hudi.util.TupleDomainUtils;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
@@ -44,7 +43,7 @@ public class HudiPartitionStatsIndexSupport
     private static final Logger log = Logger.get(HudiColumnStatsIndexSupport.class);
     private final Lazy<HoodieTableMetadata> lazyMetadataTable;
 
-    public HudiPartitionStatsIndexSupport(ConnectorSession session, SchemaTableName schemaTableName, Lazy<HoodieTableMetaClient> lazyMetaClient, Lazy<HoodieTableMetadata> lazyTableMetadata, TupleDomain<HiveColumnHandle> regularColumnPredicates)
+    public HudiPartitionStatsIndexSupport(ConnectorSession session, SchemaTableName schemaTableName, Lazy<HoodieTableMetaClient> lazyMetaClient, Lazy<HoodieTableMetadata> lazyTableMetadata, TupleDomain<String> regularColumnPredicates)
     {
         super(log, session, schemaTableName, lazyMetaClient, lazyTableMetadata, regularColumnPredicates);
         this.lazyMetadataTable = lazyTableMetadata;
@@ -67,8 +66,7 @@ public class HudiPartitionStatsIndexSupport
         List<String> regularColumns = new ArrayList<>(filteredRegularPredicates.getDomains().get().keySet());
 
         // Get columns to filter on
-        List<String> encodedTargetColumnNames = regularColumns
-                .stream()
+        List<String> encodedTargetColumnNames = regularColumns.stream()
                 .map(col -> new ColumnIndexID(col).asBase64EncodedString()).toList();
 
         Map<String, Type> columnTypes = regularColumnPredicates.getDomains().get().entrySet().stream()

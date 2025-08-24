@@ -15,7 +15,6 @@ package io.trino.plugin.hudi.query.index;
 
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
-import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hudi.util.TupleDomainUtils;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
@@ -51,11 +50,10 @@ public class HudiSecondaryIndexSupport
     private final Duration secondaryIndexWaitTimeout;
     private final long futureStartTimeMs;
 
-    public HudiSecondaryIndexSupport(ConnectorSession session, SchemaTableName schemaTableName, Lazy<HoodieTableMetaClient> lazyMetaClient, Lazy<HoodieTableMetadata> lazyTableMetadata, TupleDomain<HiveColumnHandle> regularColumnPredicates)
+    public HudiSecondaryIndexSupport(ConnectorSession session, SchemaTableName schemaTableName, Lazy<HoodieTableMetaClient> lazyMetaClient, Lazy<HoodieTableMetadata> lazyTableMetadata, TupleDomain<String> regularColumnPredicates)
     {
         super(log, schemaTableName, lazyMetaClient);
         this.secondaryIndexWaitTimeout = getSecondaryIndexWaitTimeout(session);
-        TupleDomain<String> regularPredicatesTransformed = regularColumnPredicates.transformKeys(HiveColumnHandle::getName);
         this.relevantFileIdsFuture = CompletableFuture.supplyAsync(() -> {
             HoodieTimer timer = HoodieTimer.start();
             if (regularColumnPredicates.isAll() || lazyMetaClient.get().getIndexMetadata().isEmpty()) {
@@ -63,7 +61,7 @@ public class HudiSecondaryIndexSupport
                 return Optional.empty();
             }
 
-            Optional<Map.Entry<String, HoodieIndexDefinition>> firstApplicableIndex = findFirstApplicableSecondaryIndex(regularPredicatesTransformed);
+            Optional<Map.Entry<String, HoodieIndexDefinition>> firstApplicableIndex = findFirstApplicableSecondaryIndex(regularColumnPredicates);
             if (firstApplicableIndex.isEmpty()) {
                 log.debug("Took %s ms but no secondary index definition found matching the query's referenced columns for table %s",
                         timer.endTimer(), schemaTableName);
@@ -75,7 +73,7 @@ public class HudiSecondaryIndexSupport
             // `indexedColumns` should only contain one element as secondary indices only support one column
             List<String> indexedColumns = applicableIndexEntry.getValue().getSourceFields();
             log.debug(String.format("Using secondary index '%s' on columns %s for pruning.", indexName, indexedColumns));
-            TupleDomain<String> indexPredicates = extractPredicatesForColumns(regularPredicatesTransformed, indexedColumns);
+            TupleDomain<String> indexPredicates = extractPredicatesForColumns(regularColumnPredicates, indexedColumns);
 
             List<String> secondaryKeys = constructRecordKeys(indexPredicates, indexedColumns);
             if (secondaryKeys.isEmpty()) {

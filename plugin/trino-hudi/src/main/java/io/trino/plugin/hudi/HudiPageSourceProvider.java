@@ -56,7 +56,6 @@ import org.apache.avro.Schema;
 import org.apache.avro.generic.IndexedRecord;
 import org.apache.hudi.common.model.HoodieTableType;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
-import org.apache.hudi.common.table.TableSchemaResolver;
 import org.apache.hudi.common.table.read.HoodieFileGroupReader;
 import org.apache.hudi.common.util.Option;
 import org.apache.hudi.common.util.ValidationUtils;
@@ -93,7 +92,6 @@ import static io.trino.plugin.hive.parquet.ParquetPageSourceFactory.getParquetTu
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_BAD_DATA;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_CANNOT_OPEN_SPLIT;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_CURSOR_ERROR;
-import static io.trino.plugin.hudi.HudiErrorCode.HUDI_FILESYSTEM_ERROR;
 import static io.trino.plugin.hudi.HudiSessionProperties.getParquetMaxReadBlockRowCount;
 import static io.trino.plugin.hudi.HudiSessionProperties.getParquetMaxReadBlockSize;
 import static io.trino.plugin.hudi.HudiSessionProperties.getParquetSmallFileThreshold;
@@ -105,6 +103,7 @@ import static io.trino.plugin.hudi.HudiSessionProperties.useParquetBloomFilter;
 import static io.trino.plugin.hudi.HudiUtil.buildTableMetaClient;
 import static io.trino.plugin.hudi.HudiUtil.constructSchema;
 import static io.trino.plugin.hudi.HudiUtil.convertToFileSlice;
+import static io.trino.plugin.hudi.HudiUtil.getLatestTableSchema;
 import static io.trino.plugin.hudi.HudiUtil.prependHudiMetaColumns;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -221,20 +220,15 @@ public class HudiPageSourceProvider
         HoodieTableMetaClient metaClient = buildTableMetaClient(
                 fileSystemFactory.create(session), hudiTableHandle.getSchemaTableName().toString(), hudiTableHandle.getBasePath());
         String latestCommitTime = metaClient.getCommitsTimeline().lastInstant().get().requestedTime();
-        Schema dataSchema;
-        try {
-            dataSchema = new TableSchemaResolver(metaClient).getTableAvroSchema(latestCommitTime);
-        }
-        catch (Throwable e) {
-            // Unable to find table schema
-            throw new TrinoException(HUDI_FILESYSTEM_ERROR, e);
-        }
 
         HudiTrinoReaderContext readerContext = new HudiTrinoReaderContext(
                 dataPageSource,
                 dataColumnHandles,
                 hudiMetaAndDataColumnHandles,
                 synthesizedColumnHandler);
+        Schema dataSchema =
+                Optional.ofNullable(hudiTableHandle.getTableSchema())
+                        .orElseGet(() -> getLatestTableSchema(metaClient, hudiTableHandle.getTableName()));
 
         // Construct an Avro schema for log file reader
         Schema requestedSchema = constructSchema(dataSchema, hudiMetaAndDataColumnHandles.stream().map(HiveColumnHandle::getName).toList());

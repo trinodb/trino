@@ -63,6 +63,7 @@ import java.util.Map;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.hudi.HudiUtil.constructSchema;
+import static io.trino.plugin.hudi.HudiUtil.getFieldFromSchema;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -149,7 +150,7 @@ public class HudiAvroSerializer
             }
             else {
                 // Record may not be projected, get index from it
-                int fieldPosInSchema = record.getSchema().getField(columnHandle.getName()).pos();
+                int fieldPosInSchema = getFieldFromSchema(columnHandle.getName(), record.getSchema()).pos();
                 appendTo(columnTypes.get(channel), record.get(fieldPosInSchema), output);
             }
         }

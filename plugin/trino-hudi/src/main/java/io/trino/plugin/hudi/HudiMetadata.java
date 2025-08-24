@@ -47,6 +47,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.TypeManager;
+import org.apache.avro.Schema;
 import org.apache.hudi.common.model.HoodieTableType;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.common.table.timeline.HoodieInstant;
@@ -84,10 +85,12 @@ import static io.trino.plugin.hive.util.HiveUtil.isHudiTable;
 import static io.trino.plugin.hudi.HudiSessionProperties.getColumnsToHide;
 import static io.trino.plugin.hudi.HudiSessionProperties.isHudiMetadataTableEnabled;
 import static io.trino.plugin.hudi.HudiSessionProperties.isQueryPartitionFilterRequired;
+import static io.trino.plugin.hudi.HudiSessionProperties.isResolveColumnNameCasingEnabled;
 import static io.trino.plugin.hudi.HudiSessionProperties.isTableStatisticsEnabled;
 import static io.trino.plugin.hudi.HudiTableProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.hudi.HudiTableProperties.PARTITIONED_BY_PROPERTY;
 import static io.trino.plugin.hudi.HudiUtil.buildTableMetaClient;
+import static io.trino.plugin.hudi.HudiUtil.getLatestTableSchema;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.QUERY_REJECTED;
 import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
@@ -158,10 +161,13 @@ public class HudiMetadata
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         String inputFormat = table.getStorage().getStorageFormat().getInputFormat();
         HoodieTableType hoodieTableType = HudiTableTypeUtils.fromInputFormat(inputFormat);
+        Lazy<HoodieTableMetaClient> lazyMetaClient = Lazy.lazily(() -> buildTableMetaClient(fileSystem, tableName.toString(), basePath));
+        Optional<Lazy<Schema>> hudiTableSchema = isResolveColumnNameCasingEnabled(session) ?
+                Optional.of(Lazy.lazily(() -> getLatestTableSchema(lazyMetaClient.get(), tableName.getTableName()))) : Optional.empty();
 
         return new HudiTableHandle(
                 Optional.of(table),
-                Optional.of(Lazy.lazily(() -> buildTableMetaClient(fileSystem, tableName.toString(), basePath))),
+                Optional.of(lazyMetaClient),
                 tableName.getSchemaName(),
                 tableName.getTableName(),
                 table.getStorage().getLocation(),
@@ -169,7 +175,8 @@ public class HudiMetadata
                 getPartitionKeyColumnHandles(table, typeManager),
                 ImmutableSet.of(),
                 TupleDomain.all(),
-                TupleDomain.all());
+                TupleDomain.all(),
+                hudiTableSchema);
     }
 
     @Override

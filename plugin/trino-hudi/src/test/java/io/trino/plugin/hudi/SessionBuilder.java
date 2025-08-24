@@ -23,6 +23,7 @@ import static io.trino.plugin.hudi.HudiSessionProperties.DYNAMIC_FILTERING_WAIT_
 import static io.trino.plugin.hudi.HudiSessionProperties.METADATA_TABLE_ENABLED;
 import static io.trino.plugin.hudi.HudiSessionProperties.PARTITION_STATS_INDEX_ENABLED;
 import static io.trino.plugin.hudi.HudiSessionProperties.QUERY_PARTITION_FILTER_REQUIRED;
+import static io.trino.plugin.hudi.HudiSessionProperties.RECORD_INDEX_WAIT_TIMEOUT;
 import static io.trino.plugin.hudi.HudiSessionProperties.RECORD_LEVEL_INDEX_ENABLED;
 import static io.trino.plugin.hudi.HudiSessionProperties.SECONDARY_INDEX_ENABLED;
 import static io.trino.plugin.hudi.HudiSessionProperties.SECONDARY_INDEX_WAIT_TIMEOUT;
@@ -133,5 +134,10 @@ public class SessionBuilder
     public SessionBuilder withSecondaryIndexTimeout(String durationProp)
     {
         return setCatalogProperty(SECONDARY_INDEX_WAIT_TIMEOUT, durationProp);
+    }
+
+    public SessionBuilder withRecordIndexTimeout(String durationProp)
+    {
+        return setCatalogProperty(RECORD_INDEX_WAIT_TIMEOUT, durationProp);
     }
 }

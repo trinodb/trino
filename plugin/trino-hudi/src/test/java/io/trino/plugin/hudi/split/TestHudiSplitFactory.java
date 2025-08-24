@@ -176,13 +176,14 @@ public class TestHudiSplitFactory
     private static HudiTableHandle createTableHandle()
     {
         return new HudiTableHandle(
-            "test_schema",
-            "test_table",
-            "/test/path",
-            HoodieTableType.MERGE_ON_READ,
-            ImmutableList.of(),
-            TupleDomain.all(),
-            TupleDomain.all());
+                "test_schema",
+                "test_table",
+                "/test/path",
+                HoodieTableType.MERGE_ON_READ,
+                ImmutableList.of(),
+                TupleDomain.all(),
+                TupleDomain.all(),
+                "");
     }
 
     private static FileSlice createFileSlice(DataSize baseFileSize, Option<DataSize> logFileSize)

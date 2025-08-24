@@ -19,7 +19,6 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.Duration;
 import io.trino.parquet.predicate.TupleDomainParquetPredicate;
-import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hudi.util.TupleDomainUtils;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
@@ -75,17 +74,17 @@ public class HudiColumnStatsIndexSupport
     private final Duration columnStatsWaitTimeout;
     private final long futureStartTimeMs;
 
-    public HudiColumnStatsIndexSupport(ConnectorSession session, SchemaTableName schemaTableName, Lazy<HoodieTableMetaClient> lazyMetaClient, Lazy<HoodieTableMetadata> lazyTableMetadata, TupleDomain<HiveColumnHandle> regularColumnPredicates)
+    public HudiColumnStatsIndexSupport(ConnectorSession session, SchemaTableName schemaTableName, Lazy<HoodieTableMetaClient> lazyMetaClient, Lazy<HoodieTableMetadata> lazyTableMetadata, TupleDomain<String> regularColumnPredicates)
     {
         this(log, session, schemaTableName, lazyMetaClient, lazyTableMetadata, regularColumnPredicates);
     }
 
-    public HudiColumnStatsIndexSupport(Logger log, ConnectorSession session, SchemaTableName schemaTableName, Lazy<HoodieTableMetaClient> lazyMetaClient, Lazy<HoodieTableMetadata> lazyTableMetadata, TupleDomain<HiveColumnHandle> regularColumnPredicates)
+    public HudiColumnStatsIndexSupport(Logger log, ConnectorSession session, SchemaTableName schemaTableName, Lazy<HoodieTableMetaClient> lazyMetaClient, Lazy<HoodieTableMetadata> lazyTableMetadata, TupleDomain<String> regularColumnPredicates)
     {
         super(log, schemaTableName, lazyMetaClient);
         this.columnStatsWaitTimeout = getColumnStatsWaitTimeout(session);
-        this.regularColumnPredicates = regularColumnPredicates.transformKeys(HiveColumnHandle::getName);
-        this.regularColumns = this.regularColumnPredicates.getDomains()
+        this.regularColumnPredicates = regularColumnPredicates;
+        this.regularColumns = regularColumnPredicates.getDomains()
                 .map(domains -> new ArrayList<>(domains.keySet()))
                 .orElse(new ArrayList<>());
         if (regularColumnPredicates.isAll() || regularColumnPredicates.getDomains().isEmpty()) {
@@ -98,7 +97,7 @@ public class HudiColumnStatsIndexSupport
                     .map(col -> new ColumnIndexID(col).asBase64EncodedString()).collect(Collectors.toList());
 
             Map<String, Type> columnTypes = regularColumnPredicates.getDomains().get().entrySet().stream()
-                    .collect(Collectors.toMap(entry -> entry.getKey().getName(), entry -> entry.getValue().getType()));
+                    .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().getType()));
 
             domainsWithStatsFuture = CompletableFuture.supplyAsync(() -> {
                 HoodieTimer timer = HoodieTimer.start();

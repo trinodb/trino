@@ -55,6 +55,7 @@ public class HudiConfig
     private boolean queryPartitionFilterRequired;
     private boolean ignoreAbsentPartitions;
     private Duration dynamicFilteringWaitTimeout = new Duration(1, SECONDS);
+    private boolean resolveColumnNameCasingEnabled = true;
 
     // Internal configuration for debugging and testing
     private boolean isRecordLevelIndexEnabled = true;
@@ -433,6 +434,19 @@ public class HudiConfig
     public HudiConfig setMetadataPartitionListingEnabled(boolean metadataPartitionListingEnabled)
     {
         this.metadataPartitionListingEnabled = metadataPartitionListingEnabled;
+        return this;
+    }
+
+    public boolean isResolveColumnNameCasingEnabled()
+    {
+        return resolveColumnNameCasingEnabled;
+    }
+
+    @Config("hudi.table.resolve-column-name-casing.enabled")
+    @ConfigDescription("Reconcile column names between the catalog schema and the Hudi table to handle case differences")
+    public HudiConfig setResolveColumnNameCasingEnabled(boolean resolveColumnNameCasingEnabled)
+    {
+        this.resolveColumnNameCasingEnabled = resolveColumnNameCasingEnabled;
         return this;
     }
 }

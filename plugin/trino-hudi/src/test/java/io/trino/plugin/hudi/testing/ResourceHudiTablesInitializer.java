@@ -334,6 +334,10 @@ public class ResourceHudiTablesInitializer
     {
         HUDI_NON_PART_COW(nonPartitionRegularColumns()),
         HUDI_TRIPS_COW_V8(tripsRegularColumns()),
+        HUDI_COW_TABLE_WITH_FIELD_NAMES_IN_CAPS(hudiTableWithFieldNamesInCapsRegularColumns()),
+        HUDI_COW_PT_TABLE_WITH_FIELD_NAMES_IN_CAPS(hudiTableWithFieldNamesInCapsRegularColumns(), hudiTableWithFieldNamesInCapsPartitionColumns(), hudiTableWithFieldNamesInCapsPartitions(), false), // delete
+        HUDI_COW_TABLE_WITH_MULTI_KEYS_AND_FIELD_NAMES_IN_CAPS(hudiTableWithFieldNamesInCapsRegularColumns()),
+        HUDI_MOR_TABLE_WITH_FIELD_NAMES_IN_CAPS(hudiTableWithFieldNamesInCapsRegularColumns(), ImmutableList.of(), ImmutableMap.of(), true),
         HUDI_COW_PT_TBL(multiPartitionRegularColumns(), multiPartitionColumns(), multiPartitions(), false),
         STOCK_TICKS_COW(stockTicksRegularColumns(), stockTicksPartitionColumns(), stockTicksPartitions(), false),
         STOCK_TICKS_MOR(stockTicksRegularColumns(), stockTicksPartitionColumns(), stockTicksPartitions(), false),
@@ -436,6 +440,32 @@ public class ResourceHudiTablesInitializer
                     column("ts", HIVE_LONG),
                     column("dt", HIVE_STRING),
                     column("hh", HIVE_STRING));
+        }
+
+        // Table schema has capitalized column names, but the catalog returns them in lowercase.
+        // Using lowercase here to match the catalog for testing.
+        private static List<Column> hudiTableWithFieldNamesInCapsRegularColumns()
+        {
+            return ImmutableList.of(
+                    column("id", HIVE_STRING),
+                    column("name", HIVE_STRING),
+                    column("age", HIVE_INT));
+        }
+
+        // The actual Hudi table has "Country" as the partition field name, but the catalog provides it in lowercase.
+        // Using lowercase here to stay consistent with the catalog for testing.
+        private static Map<String, String> hudiTableWithFieldNamesInCapsPartitions()
+        {
+            return ImmutableMap.of(
+                    "country=IND", "IND",
+                    "country=US", "US");
+        }
+
+        // The actual Hudi table has "Country" as the partition field name, but the catalog provides it in lowercase.
+        // Using lowercase here to stay consistent with the catalog for testing.
+        private static List<Column> hudiTableWithFieldNamesInCapsPartitionColumns()
+        {
+            return ImmutableList.of(column("country", HIVE_STRING));
         }
 
         private static List<Column> tripsRegularColumns()

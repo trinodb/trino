@@ -16,7 +16,6 @@ package io.trino.plugin.hudi.query.index;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
-import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hudi.util.TupleDomainUtils;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
@@ -61,7 +60,7 @@ public class HudiRecordLevelIndexSupport
     private final Duration recordIndexWaitTimeout;
     private final long futureStartTimeMs;
 
-    public HudiRecordLevelIndexSupport(ConnectorSession session, SchemaTableName schemaTableName, Lazy<HoodieTableMetaClient> lazyMetaClient, Lazy<HoodieTableMetadata> lazyTableMetadata, TupleDomain<HiveColumnHandle> regularColumnPredicates)
+    public HudiRecordLevelIndexSupport(ConnectorSession session, SchemaTableName schemaTableName, Lazy<HoodieTableMetaClient> lazyMetaClient, Lazy<HoodieTableMetadata> lazyTableMetadata, TupleDomain<String> regularColumnPredicates)
     {
         super(log, schemaTableName, lazyMetaClient);
         this.recordIndexWaitTimeout = getRecordIndexWaitTimeout(session);
@@ -79,9 +78,8 @@ public class HudiRecordLevelIndexSupport
                 }
                 List<String> recordKeyFields = Arrays.asList(recordKeyFieldsOpt.get());
 
-                TupleDomain<String> regularPredicatesTransformed = regularColumnPredicates.transformKeys(HiveColumnHandle::getName);
                 // Only extract the predicates relevant to the record key fields
-                TupleDomain<String> filteredDomains = extractPredicatesForColumns(regularPredicatesTransformed, recordKeyFields);
+                TupleDomain<String> filteredDomains = extractPredicatesForColumns(regularColumnPredicates, recordKeyFields);
 
                 // Construct the actual record keys based on the filtered predicates using Hudi's encoding scheme
                 List<String> recordKeys = constructRecordKeys(filteredDomains, recordKeyFields);

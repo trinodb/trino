@@ -34,6 +34,7 @@ public enum HudiErrorCode
     HUDI_UNSUPPORTED_TABLE_TYPE(9, EXTERNAL),
     HUDI_NO_VALID_COMMIT(10, EXTERNAL),
     HUDI_META_CLIENT_ERROR(11, EXTERNAL),
+    HUDI_SCHEMA_ERROR(12, EXTERNAL)
     /**/;
 
     private final ErrorCode errorCode;
