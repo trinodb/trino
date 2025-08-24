@@ -32,11 +32,13 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import org.joda.time.DateTimeZone;
 
+import java.nio.file.Path;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TimeZone;
+import java.util.concurrent.TimeUnit;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
@@ -176,6 +178,9 @@ public class HiveConfig
     private S3GlacierFilter s3GlacierFilter = S3GlacierFilter.READ_ALL;
 
     private int metadataParallelism = 8;
+
+    private Path protobufDescriptors;
+    private Duration protobufDescriptorsUpdateInterval = new Duration(1, TimeUnit.HOURS);
 
     public boolean isSingleStatementWritesOnly()
     {
@@ -1294,6 +1299,32 @@ public class HiveConfig
     public HiveConfig setMetadataParallelism(int metadataParallelism)
     {
         this.metadataParallelism = metadataParallelism;
+        return this;
+    }
+
+    public Path getProtobufDescriptors()
+    {
+        return protobufDescriptors;
+    }
+
+    @ConfigDescription("Directory where protobuf descriptors are stored to use for deserializing protobufs")
+    @Config("hive.protobufs.descriptors.location")
+    public HiveConfig setProtobufDescriptors(Path protobufDescriptors)
+    {
+        this.protobufDescriptors = protobufDescriptors;
+        return this;
+    }
+
+    public Duration getProtobufDescriptorsUpdateInterval()
+    {
+        return protobufDescriptorsUpdateInterval;
+    }
+
+    @ConfigDescription("Periodic refresh period of the \"hive.protobufs.descriptors\" location in seconds")
+    @Config("hive.protobufs.descriptors.refresh-interval")
+    public HiveConfig setProtobufDescriptorsUpdateInterval(Duration updateInterval)
+    {
+        this.protobufDescriptorsUpdateInterval = updateInterval;
         return this;
     }
 }

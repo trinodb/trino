@@ -23,6 +23,7 @@ import io.trino.spi.type.CharType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
+import java.io.DataInput;
 import java.io.IOException;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -67,7 +68,7 @@ public final class ReadWriteUtils
         return value < -120 || (value >= -112 && value < 0);
     }
 
-    public static long readVInt(TrinoDataInputStream in)
+    public static long readVInt(DataInput in)
             throws IOException
     {
         byte firstByte = in.readByte();
