@@ -49,12 +49,6 @@
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.jspecify</groupId>
-                    <artifactId>jspecify</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
@@ -224,12 +218,6 @@
         <dependency>
             <groupId>org.apache.iceberg</groupId>
             <artifactId>iceberg-aws</artifactId>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.jspecify</groupId>
-                    <artifactId>jspecify</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
@@ -448,6 +436,12 @@
             <!-- Docs promise that PostgreSQL driver will be on the classpath, for JDBC catalog's sake-->
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>kms</artifactId>
             <scope>runtime</scope>
         </dependency>
 
