@@ -318,7 +318,7 @@ public final class JoinTestUtils
         }
 
         @Override
-        public SingleStreamSpiller create(List<Type> types, SpillContext spillContext, LocalMemoryContext memoryContext)
+        public SingleStreamSpiller create(List<Type> types, SpillContext spillContext, LocalMemoryContext memoryContext, boolean parallelSpill)
         {
             return new SingleStreamSpiller()
             {
