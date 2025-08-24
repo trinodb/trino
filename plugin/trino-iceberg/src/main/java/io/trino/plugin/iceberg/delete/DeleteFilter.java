@@ -14,10 +14,11 @@
 package io.trino.plugin.iceberg.delete;
 
 import io.trino.plugin.iceberg.IcebergColumnHandle;
+import io.trino.spi.connector.ConnectorSession;
 
 import java.util.List;
 
 public interface DeleteFilter
 {
-    RowPredicate createPredicate(List<IcebergColumnHandle> columns, long dataSequenceNumber);
+    RowPredicate createPredicate(ConnectorSession session, List<IcebergColumnHandle> columns, long dataSequenceNumber);
 }

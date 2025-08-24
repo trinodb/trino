@@ -13,13 +13,14 @@
  */
 package io.trino.plugin.iceberg.delete;
 
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.Type;
 import org.apache.iceberg.StructLike;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkElementIndex;
-import static io.trino.plugin.iceberg.IcebergPageSink.getIcebergValue;
+import static io.trino.plugin.iceberg.delete.TrinoRow.getObjectValue;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -28,13 +29,15 @@ import static java.util.Objects.requireNonNull;
 final class LazyTrinoRow
         implements StructLike
 {
+    private final ConnectorSession session;
     private final Type[] types;
     private final SourcePage page;
     private final int position;
     private final Object[] values;
 
-    public LazyTrinoRow(Type[] types, SourcePage page, int position)
+    public LazyTrinoRow(ConnectorSession session, Type[] types, SourcePage page, int position)
     {
+        this.session = requireNonNull(session, "session is null");
         checkArgument(types.length == page.getChannelCount(), "mismatched types for page");
         this.types = requireNonNull(types, "types is null");
         this.page = requireNonNull(page, "page is null");
@@ -68,7 +71,7 @@ final class LazyTrinoRow
             return value;
         }
 
-        value = getIcebergValue(page.getBlock(i), position, types[i]);
+        value = getObjectValue(session, page.getBlock(i), position, types[i]);
         values[i] = value;
         return value;
     }
