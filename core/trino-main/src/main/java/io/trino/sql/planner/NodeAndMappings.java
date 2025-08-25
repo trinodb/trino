@@ -13,30 +13,18 @@
  */
 package io.trino.sql.planner;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.sql.planner.plan.PlanNode;
 
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
-public class NodeAndMappings
+public record NodeAndMappings(PlanNode node, List<Symbol> fields)
 {
-    private final PlanNode node;
-    private final List<Symbol> fields;
-
-    public NodeAndMappings(PlanNode node, List<Symbol> fields)
+    public NodeAndMappings
     {
-        this.node = requireNonNull(node, "node is null");
-        this.fields = requireNonNull(fields, "fields is null");
-    }
-
-    public PlanNode getNode()
-    {
-        return node;
-    }
-
-    public List<Symbol> getFields()
-    {
-        return fields;
+        requireNonNull(node, "node is null");
+        fields = ImmutableList.copyOf(fields);
     }
 }

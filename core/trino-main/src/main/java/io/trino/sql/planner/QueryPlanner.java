@@ -268,7 +268,7 @@ class QueryPlanner
         // This is necessary to successfully unroll recursion: the recursion step relation must follow
         // the same layout while it might not have duplicate outputs where the anchor plan did
         NodeAndMappings disambiguatedAnchorPlan = disambiguateOutputs(prunedAnchorPlan, symbolAllocator, idAllocator);
-        anchorPlan = new RelationPlan(disambiguatedAnchorPlan.getNode(), analysis.getScope(query), disambiguatedAnchorPlan.getFields(), outerContext);
+        anchorPlan = new RelationPlan(disambiguatedAnchorPlan.node(), analysis.getScope(query), disambiguatedAnchorPlan.fields(), outerContext);
 
         recursionSteps.add(copy(anchorPlan.getRoot(), anchorPlan.getFieldMappings()));
 
@@ -296,8 +296,8 @@ class QueryPlanner
         }
 
         NodeAndMappings replacementSpot = new NodeAndMappings(anchorPlan.getRoot(), anchorPlan.getFieldMappings());
-        PlanNode recursionStep = coercedRecursionStep.getNode();
-        List<Symbol> mappings = coercedRecursionStep.getFields();
+        PlanNode recursionStep = coercedRecursionStep.node();
+        List<Symbol> mappings = coercedRecursionStep.fields();
 
         // unroll recursion
         int maxRecursionDepth = getMaxRecursionDepth(session);
@@ -322,7 +322,7 @@ class QueryPlanner
 
         WindowNode windowNode = new WindowNode(
                 idAllocator.getNextId(),
-                checkConvergenceStep.getNode(),
+                checkConvergenceStep.node(),
                 new DataOrganizationSpecification(ImmutableList.of(), Optional.empty()),
                 ImmutableMap.of(countSymbol, countFunction),
                 ImmutableSet.of(),
@@ -341,7 +341,7 @@ class QueryPlanner
                 TRUE);
         FilterNode filterNode = new FilterNode(idAllocator.getNextId(), windowNode, predicate);
 
-        recursionSteps.add(new NodeAndMappings(filterNode, checkConvergenceStep.getFields()));
+        recursionSteps.add(new NodeAndMappings(filterNode, checkConvergenceStep.fields()));
 
         // union all the recursion steps
         List<NodeAndMappings> recursionStepsToUnion = recursionSteps.build();
@@ -353,12 +353,12 @@ class QueryPlanner
         ImmutableListMultimap.Builder<Symbol, Symbol> unionSymbolMapping = ImmutableListMultimap.builder();
         for (NodeAndMappings plan : recursionStepsToUnion) {
             for (int i = 0; i < unionOutputSymbols.size(); i++) {
-                unionSymbolMapping.put(unionOutputSymbols.get(i), plan.getFields().get(i));
+                unionSymbolMapping.put(unionOutputSymbols.get(i), plan.fields().get(i));
             }
         }
 
         List<PlanNode> nodesToUnion = recursionStepsToUnion.stream()
-                .map(NodeAndMappings::getNode)
+                .map(NodeAndMappings::node)
                 .collect(toImmutableList());
 
         PlanNode result = new UnionNode(idAllocator.getNextId(), nodesToUnion, unionSymbolMapping.build(), unionOutputSymbols);
@@ -387,10 +387,10 @@ class QueryPlanner
     private PlanNode replace(PlanNode plan, NodeAndMappings replacementSpot, NodeAndMappings replacement)
     {
         checkArgument(
-                replacementSpot.getFields().size() == replacement.getFields().size(),
+                replacementSpot.fields().size() == replacement.fields().size(),
                 "mismatching outputs in replacement, expected: %s, got: %s",
-                replacementSpot.getFields().size(),
-                replacement.getFields().size());
+                replacementSpot.fields().size(),
+                replacement.fields().size());
 
         return SimplePlanRewriter.rewriteWith(new SimplePlanRewriter<Void>()
         {
@@ -399,13 +399,13 @@ class QueryPlanner
             {
                 return node.replaceChildren(node.getSources().stream()
                         .map(child -> {
-                            if (child == replacementSpot.getNode()) {
+                            if (child == replacementSpot.node()) {
                                 // add projection to adjust symbols
-                                Assignments.Builder assignments = Assignments.builderWithExpectedSize(replacement.getFields().size());
-                                for (int i = 0; i < replacementSpot.getFields().size(); i++) {
-                                    assignments.put(replacementSpot.getFields().get(i), replacement.getFields().get(i).toSymbolReference());
+                                Assignments.Builder assignments = Assignments.builderWithExpectedSize(replacement.fields().size());
+                                for (int i = 0; i < replacementSpot.fields().size(); i++) {
+                                    assignments.put(replacementSpot.fields().get(i), replacement.fields().get(i).toSymbolReference());
                                 }
-                                return new ProjectNode(idAllocator.getNextId(), replacement.getNode(), assignments.build());
+                                return new ProjectNode(idAllocator.getNextId(), replacement.node(), assignments.build());
                             }
                             return context.rewrite(child);
                         })
@@ -2155,14 +2155,14 @@ class QueryPlanner
 
     public static NodeAndMappings disambiguateOutputs(NodeAndMappings plan, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
-        Set<Symbol> distinctOutputs = ImmutableSet.copyOf(plan.getFields());
+        Set<Symbol> distinctOutputs = ImmutableSet.copyOf(plan.fields());
 
-        if (distinctOutputs.size() < plan.getFields().size()) {
+        if (distinctOutputs.size() < plan.fields().size()) {
             Assignments.Builder assignments = Assignments.builder();
             ImmutableList.Builder<Symbol> newOutputs = ImmutableList.builder();
             Set<Symbol> uniqueOutputs = new HashSet<>();
 
-            for (Symbol output : plan.getFields()) {
+            for (Symbol output : plan.fields()) {
                 if (uniqueOutputs.add(output)) {
                     assignments.putIdentity(output);
                     newOutputs.add(output);
@@ -2174,7 +2174,7 @@ class QueryPlanner
                 }
             }
 
-            return new NodeAndMappings(new ProjectNode(idAllocator.getNextId(), plan.getNode(), assignments.build()), newOutputs.build());
+            return new NodeAndMappings(new ProjectNode(idAllocator.getNextId(), plan.node(), assignments.build()), newOutputs.build());
         }
 
         return plan;

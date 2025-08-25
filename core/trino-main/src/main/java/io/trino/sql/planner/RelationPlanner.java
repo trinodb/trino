@@ -317,7 +317,7 @@ class RelationPlanner
 
             NodeAndMappings coerced = coerce(subPlan, types, symbolAllocator, idAllocator);
 
-            plan = new RelationPlan(coerced.getNode(), scope, coerced.getFields(), outerContext);
+            plan = new RelationPlan(coerced.node(), scope, coerced.fields(), outerContext);
         }
         else {
             TableHandle handle = analysis.getTableHandle(node);
@@ -349,7 +349,7 @@ class RelationPlanner
                         .collect(toImmutableList());
                 // apply required coercion and prune invisible fields from child outputs
                 NodeAndMappings coerced = coerce(plan, types, symbolAllocator, idAllocator);
-                plan = new RelationPlan(coerced.getNode(), scope, coerced.getFields(), outerContext);
+                plan = new RelationPlan(coerced.node(), scope, coerced.fields(), outerContext);
             }
         }
 
@@ -1897,10 +1897,10 @@ class RelationPlanner
                 planAndMappings = coerce(plan, types, symbolAllocator, idAllocator);
             }
             for (int i = 0; i < outputFields.getAllFields().size(); i++) {
-                symbolMapping.put(outputs.get(i), planAndMappings.getFields().get(i));
+                symbolMapping.put(outputs.get(i), planAndMappings.fields().get(i));
             }
 
-            sources.add(planAndMappings.getNode());
+            sources.add(planAndMappings.node());
         }
         return new SetOperationPlan(sources.build(), symbolMapping.build());
     }
