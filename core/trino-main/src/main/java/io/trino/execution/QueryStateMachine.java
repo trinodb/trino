@@ -46,6 +46,7 @@ import io.trino.server.ResultQueryInfo;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
+import io.trino.spi.eventlistener.ColumnLineageInfo;
 import io.trino.spi.eventlistener.RoutineInfo;
 import io.trino.spi.eventlistener.StageGcStatistics;
 import io.trino.spi.eventlistener.TableInfo;
@@ -177,6 +178,7 @@ public class QueryStateMachine
 
     private final AtomicReference<Set<Input>> inputs = new AtomicReference<>(ImmutableSet.of());
     private final AtomicReference<Optional<Output>> output = new AtomicReference<>(Optional.empty());
+    private final AtomicReference<List<ColumnLineageInfo>> selectColumnsLineageInfo = new AtomicReference<>(ImmutableList.of());
     private final AtomicReference<List<TableInfo>> referencedTables = new AtomicReference<>(ImmutableList.of());
     private final AtomicReference<List<RoutineInfo>> routines = new AtomicReference<>(ImmutableList.of());
     private final StateMachine<Optional<QueryInfo>> finalQueryInfo;
@@ -644,7 +646,8 @@ public class QueryStateMachine
                 queryType,
                 getRetryPolicy(session),
                 false,
-                version);
+                version,
+                selectColumnsLineageInfo.get());
     }
 
     private QueryStats getQueryStats(Optional<StagesInfo> stages)
@@ -981,6 +984,12 @@ public class QueryStateMachine
     {
         requireNonNull(output, "output is null");
         this.output.set(output);
+    }
+
+    public void setSelectColumnsLineageInfo(List<ColumnLineageInfo> selectOutputColumnsLineage)
+    {
+        requireNonNull(selectOutputColumnsLineage, "selectOutputColumnsLineage is null");
+        this.selectColumnsLineageInfo.set(ImmutableList.copyOf(selectOutputColumnsLineage));
     }
 
     public void setReferencedTables(List<TableInfo> tables)
@@ -1458,7 +1467,8 @@ public class QueryStateMachine
                 queryInfo.getQueryType(),
                 queryInfo.getRetryPolicy(),
                 true,
-                version);
+                version,
+                ImmutableList.of());
     }
 
     private static StagesInfo pruneStages(StagesInfo stages)
