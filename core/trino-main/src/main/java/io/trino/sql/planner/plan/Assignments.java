@@ -15,6 +15,7 @@ package io.trino.sql.planner.plan;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.spi.type.Type;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
@@ -133,7 +134,7 @@ public record Assignments(Map<Symbol, Expression> assignments)
         for (Entry<Symbol, Expression> entry : assignments.entrySet()) {
             Expression expression = entry.getValue();
             Symbol symbol = entry.getKey();
-            if (!(expression instanceof Reference reference && reference.name().equals(symbol.name()))) {
+            if (!(expression instanceof Reference(Type _, String name) && name.equals(symbol.name()))) {
                 return false;
             }
         }
