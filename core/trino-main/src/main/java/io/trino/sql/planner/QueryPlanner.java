@@ -401,7 +401,7 @@ class QueryPlanner
                         .map(child -> {
                             if (child == replacementSpot.getNode()) {
                                 // add projection to adjust symbols
-                                Assignments.Builder assignments = Assignments.builder();
+                                Assignments.Builder assignments = Assignments.builderWithExpectedSize(replacement.getFields().size());
                                 for (int i = 0; i < replacementSpot.getFields().size(); i++) {
                                     assignments.put(replacementSpot.getFields().get(i), replacement.getFields().get(i).toSymbolReference());
                                 }
@@ -539,7 +539,7 @@ class QueryPlanner
         MergeAnalysis mergeAnalysis = analysis.getMergeAnalysis().orElseThrow(() -> new IllegalArgumentException("Didn't find mergeAnalysis in analysis"));
 
         // Create a ProjectNode with the references
-        Assignments.Builder assignmentsBuilder = new Assignments.Builder();
+        Assignments.Builder assignmentsBuilder = Assignments.builder();
         ImmutableList.Builder<Symbol> columnSymbolsBuilder = ImmutableList.builder();
         for (ColumnHandle columnHandle : mergeAnalysis.getDataColumnHandles()) {
             int fieldIndex = requireNonNull(mergeAnalysis.getColumnHandleFieldNumbers().get(columnHandle), "Could not find field number for column handle");

@@ -461,12 +461,13 @@ public class LogicalPlanner
         CatalogHandle catalogHandle = metadata.getCatalogHandle(session, catalogName)
                 .orElseThrow(() -> semanticException(CATALOG_NOT_FOUND, query, "Destination catalog '%s' not found", catalogName));
 
-        Assignments.Builder assignmentsBuilder = Assignments.builder();
+        List<ColumnMetadata> columns = tableMetadata.getColumns();
+        Assignments.Builder assignmentsBuilder = Assignments.builderWithExpectedSize(columns.size());
         ImmutableList.Builder<ColumnMetadata> finalColumnsBuilder = ImmutableList.builder();
 
-        checkState(tableMetadata.getColumns().size() == visibleFieldMappings.size(), "Table and visible field count doesn't match");
+        checkState(columns.size() == visibleFieldMappings.size(), "Table and visible field count doesn't match");
 
-        forEachPair(tableMetadata.getColumns().stream(), visibleFieldMappings.stream(), (column, fieldMapping) -> {
+        forEachPair(columns.stream(), visibleFieldMappings.stream(), (column, fieldMapping) -> {
             assignmentsBuilder.put(
                     symbolAllocator.newSymbol(column.getName(), column.getType()),
                     coerceOrCastToTableType(fieldMapping, column.getType(), fieldMapping.type()));

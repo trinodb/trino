@@ -17,14 +17,12 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 
 import java.util.Collection;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -32,7 +30,6 @@ import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import java.util.stream.Collector;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Arrays.asList;
@@ -45,41 +42,53 @@ public class Assignments
         return new Builder();
     }
 
+    public static Builder builderWithExpectedSize(int expectedSize)
+    {
+        return new Builder(expectedSize);
+    }
+
     public static Assignments identity(Symbol... symbols)
     {
         return identity(asList(symbols));
     }
 
-    public static Assignments identity(Iterable<Symbol> symbols)
+    public static Assignments identity(Collection<Symbol> symbols)
     {
-        return builder().putIdentities(symbols).build();
+        return Assignments.builderWithExpectedSize(symbols.size())
+                .putIdentities(symbols)
+                .build();
     }
 
     public static Assignments copyOf(Map<Symbol, Expression> assignments)
     {
-        return builder()
+        return Assignments.builderWithExpectedSize(assignments.size())
                 .putAll(assignments)
                 .build();
     }
 
     public static Assignments of()
     {
-        return builder().build();
+        return new Assignments(ImmutableMap.of());
     }
 
     public static Assignments of(Symbol symbol, Expression expression)
     {
-        return builder().put(symbol, expression).build();
+        return Assignments.builderWithExpectedSize(1)
+                .put(symbol, expression)
+                .build();
     }
 
     public static Assignments of(Symbol symbol1, Expression expression1, Symbol symbol2, Expression expression2)
     {
-        return builder().put(symbol1, expression1).put(symbol2, expression2).build();
+        return Assignments.builderWithExpectedSize(2)
+                .put(symbol1, expression1)
+                .put(symbol2, expression2)
+                .build();
     }
 
     public static Assignments of(Collection<? extends Expression> expressions, SymbolAllocator symbolAllocator)
     {
-        Assignments.Builder assignments = Assignments.builder();
+        Assignments.Builder assignments = Assignments.builderWithExpectedSize(expressions.size());
 
         for (Expression expression : expressions) {
             assignments.put(symbolAllocator.newSymbol(expression), expression);
@@ -109,9 +118,11 @@ public class Assignments
 
     public Assignments rewrite(Function<Expression, Expression> rewrite)
     {
-        return assignments.entrySet().stream()
-                .map(entry -> Maps.immutableEntry(entry.getKey(), rewrite.apply(entry.getValue())))
-                .collect(toAssignments());
+        ImmutableMap.Builder<Symbol, Expression> builder = ImmutableMap.builderWithExpectedSize(assignments.size());
+        for (Map.Entry<Symbol, Expression> entry : assignments.entrySet()) {
+            builder.put(entry.getKey(), rewrite.apply(entry.getValue()));
+        }
+        return new Assignments(builder.buildOrThrow());
     }
 
     public Assignments filter(Collection<Symbol> symbols)
@@ -121,9 +132,13 @@ public class Assignments
 
     public Assignments filter(Predicate<Symbol> predicate)
     {
-        return assignments.entrySet().stream()
-                .filter(entry -> predicate.test(entry.getKey()))
-                .collect(toAssignments());
+        ImmutableMap.Builder<Symbol, Expression> builder = ImmutableMap.builder();
+        for (Map.Entry<Symbol, Expression> entry : assignments.entrySet()) {
+            if (predicate.test(entry.getKey())) {
+                builder.put(entry);
+            }
+        }
+        return new Assignments(builder.buildOrThrow());
     }
 
     public boolean isIdentity(Symbol output)
@@ -143,18 +158,6 @@ public class Assignments
             }
         }
         return true;
-    }
-
-    private Collector<Entry<Symbol, Expression>, Builder, Assignments> toAssignments()
-    {
-        return Collector.of(
-                Assignments::builder,
-                (builder, entry) -> builder.put(entry.getKey(), entry.getValue()),
-                (left, right) -> {
-                    left.putAll(right.build());
-                    return left;
-                },
-                Assignments.Builder::build);
     }
 
     public Collection<Expression> getExpressions()
@@ -237,7 +240,17 @@ public class Assignments
 
     public static class Builder
     {
-        private final Map<Symbol, Expression> assignments = new LinkedHashMap<>();
+        private final ImmutableMap.Builder<Symbol, Expression> assignments;
+
+        private Builder()
+        {
+            assignments = ImmutableMap.builder();
+        }
+
+        private Builder(int expectedSize)
+        {
+            assignments = ImmutableMap.builderWithExpectedSize(expectedSize);
+        }
 
         public Builder putAll(Assignments assignments)
         {
@@ -255,12 +268,7 @@ public class Assignments
         public Builder put(Symbol symbol, Expression expression)
         {
             checkArgument(symbol.type().equals(expression.type()), "Types don't match: %s vs %s, for %s and %s", symbol.type(), expression.type(), symbol, expression);
-
-            Expression replaced = assignments.put(symbol, expression);
-            if (replaced != null && !replaced.equals(expression)) {
-                assignments.put(symbol, replaced); // restore previous value
-                throw new IllegalStateException("Symbol %s already has assignment %s, while adding %s".formatted(symbol.name(), replaced, expression));
-            }
+            assignments.put(symbol, expression);
             return this;
         }
 
@@ -286,7 +294,7 @@ public class Assignments
 
         public Assignments build()
         {
-            return new Assignments(assignments);
+            return new Assignments(assignments.buildOrThrow());
         }
 
         public Builder add(Assignment assignment)
