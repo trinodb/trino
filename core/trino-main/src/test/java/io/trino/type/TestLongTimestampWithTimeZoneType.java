@@ -28,8 +28,8 @@ import java.util.stream.Stream;
 
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
-import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestLongTimestampWithTimeZoneType
@@ -116,7 +116,7 @@ public class TestLongTimestampWithTimeZoneType
     @MethodSource("testPreviousNextValueEveryPrecisionDataProvider")
     public void testPreviousValueEveryPrecision(int precision, long minValue, long maxValue, long step)
     {
-        Type type = createTimestampType(precision);
+        Type type = createTimestampWithTimeZoneType(precision);
 
         assertThat(type.getPreviousValue(minValue))
                 .isEqualTo(Optional.empty());
@@ -138,7 +138,7 @@ public class TestLongTimestampWithTimeZoneType
     @MethodSource("testPreviousNextValueEveryPrecisionDataProvider")
     public void testNextValueEveryPrecision(int precision, long minValue, long maxValue, long step)
     {
-        Type type = createTimestampType(precision);
+        Type type = createTimestampWithTimeZoneType(precision);
 
         assertThat(type.getNextValue(minValue))
                 .isEqualTo(Optional.of(minValue + step));
