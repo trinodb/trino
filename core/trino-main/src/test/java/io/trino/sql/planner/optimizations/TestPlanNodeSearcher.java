@@ -41,9 +41,9 @@ public class TestPlanNodeSearcher
     public void testFindAll()
     {
         int size = 10;
-        ProjectNode root = BUILDER.project(Assignments.of(), BUILDER.values());
+        ProjectNode root = BUILDER.project(Assignments.empty(), BUILDER.values());
         for (int i = 1; i < size; i++) {
-            root = BUILDER.project(Assignments.of(), root);
+            root = BUILDER.project(Assignments.empty(), root);
         }
 
         List<PlanNodeId> rootToBottomIds = new ArrayList<>();

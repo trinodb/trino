@@ -57,7 +57,7 @@ public record Assignments(Map<Symbol, Expression> assignments)
                 .build();
     }
 
-    public static Assignments of()
+    public static Assignments empty()
     {
         return new Assignments(ImmutableMap.of());
     }

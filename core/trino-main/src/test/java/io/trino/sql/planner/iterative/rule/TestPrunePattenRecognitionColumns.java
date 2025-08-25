@@ -225,7 +225,7 @@ public class TestPrunePattenRecognitionColumns
         // input symbol "a" is used only by the variable definition
         tester().assertThat(new PrunePattenRecognitionColumns())
                 .on(p -> p.project(
-                        Assignments.of(),
+                        Assignments.empty(),
                         p.patternRecognition(builder -> builder
                                 .addMeasure(p.symbol("measure", BIGINT), new Constant(BIGINT, 1L))
                                 .pattern(new IrLabel("X"))
@@ -255,7 +255,7 @@ public class TestPrunePattenRecognitionColumns
         ResolvedFunction maxBy = tester().getMetadata().resolveBuiltinFunction("max_by", fromTypes(BIGINT, BIGINT));
         tester().assertThat(new PrunePattenRecognitionColumns())
                 .on(p -> p.project(
-                        Assignments.of(),
+                        Assignments.empty(),
                         p.patternRecognition(builder -> builder
                                 .addMeasure(p.symbol("measure"), new Constant(BIGINT, 1L))
                                 .pattern(new IrLabel("X"))
@@ -318,7 +318,7 @@ public class TestPrunePattenRecognitionColumns
         // input symbol "a" is used only by PARTITION BY
         tester().assertThat(new PrunePattenRecognitionColumns())
                 .on(p -> p.project(
-                        Assignments.of(),
+                        Assignments.empty(),
                         p.patternRecognition(builder -> builder
                                 .partitionBy(ImmutableList.of(p.symbol("a")))
                                 .pattern(new IrLabel("X"))
@@ -342,7 +342,7 @@ public class TestPrunePattenRecognitionColumns
         // input symbol "a" is used only by ORDER BY
         tester().assertThat(new PrunePattenRecognitionColumns())
                 .on(p -> p.project(
-                        Assignments.of(),
+                        Assignments.empty(),
                         p.patternRecognition(builder -> builder
                                 .orderBy(new OrderingScheme(ImmutableList.of(p.symbol("a")), ImmutableMap.of(p.symbol("a"), ASC_NULLS_LAST)))
                                 .rowsPerMatch(ALL_SHOW_EMPTY)
@@ -404,7 +404,7 @@ public class TestPrunePattenRecognitionColumns
         // no symbols or pattern recognition inner structures are eligible for pruning
         tester().assertThat(new PrunePattenRecognitionColumns())
                 .on(p -> p.project(
-                        Assignments.of(),
+                        Assignments.empty(),
                         p.patternRecognition(builder -> builder
                                 .rowsPerMatch(ALL_SHOW_EMPTY)
                                 .pattern(new IrLabel("X"))

@@ -49,7 +49,7 @@ public class TestRuleIndex
                 .register(anyRule)
                 .build();
 
-        ProjectNode projectNode = planBuilder.project(Assignments.of(), planBuilder.values());
+        ProjectNode projectNode = planBuilder.project(Assignments.empty(), planBuilder.values());
         FilterNode filterNode = planBuilder.filter(Booleans.TRUE, planBuilder.values());
         ValuesNode valuesNode = planBuilder.values();
 

@@ -37,7 +37,7 @@ public class TestPruneUnionColumns
                     Symbol b = p.symbol("b");
                     Symbol c = p.symbol("c");
                     return p.project(
-                            Assignments.of(),
+                            Assignments.empty(),
                             p.union(
                                     ImmutableListMultimap.of(a, b, a, c),
                                     ImmutableList.of(

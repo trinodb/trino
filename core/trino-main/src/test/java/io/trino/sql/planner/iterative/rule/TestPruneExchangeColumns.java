@@ -62,7 +62,7 @@ public class TestPruneExchangeColumns
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
                     return p.project(
-                            Assignments.of(),
+                            Assignments.empty(),
                             p.exchange(e -> e
                                     .addSource(p.values(b))
                                     .addInputsSet(b)
@@ -81,7 +81,7 @@ public class TestPruneExchangeColumns
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
                     return p.project(
-                            Assignments.of(),
+                            Assignments.empty(),
                             p.exchange(e -> e
                                     .addSource(p.values(b))
                                     .addInputsSet(b)

@@ -208,7 +208,7 @@ public class TestPushProjectionIntoTableScan
                     .withSession(MOCK_SESSION)
                     // projection pushdown results in different table handle without partitioning
                     .on(p -> p.project(
-                            Assignments.of(),
+                            Assignments.empty(),
                             p.tableScan(
                                     ruleTester.getCurrentCatalogTableHandle(TEST_SCHEMA, TEST_TABLE),
                                     ImmutableList.of(p.symbol("col", VARCHAR)),
