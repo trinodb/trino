@@ -847,7 +847,7 @@ public class UnaliasSymbolReferences
             // Those symbols are supposed to represent constant semantics throughout the plan.
 
             Assignments assignments = node.getAssignments();
-            Set<Symbol> newlyAssignedSymbols = assignments.filter(output -> !assignments.isIdentity(output)).getSymbols();
+            Set<Symbol> newlyAssignedSymbols = assignments.filter(output -> !assignments.isIdentity(output)).symbols();
             Set<Symbol> symbolsInSourceMapping = ImmutableSet.<Symbol>builder()
                     .addAll(rewrittenSource.getMappings().keySet())
                     .addAll(rewrittenSource.getMappings().values())

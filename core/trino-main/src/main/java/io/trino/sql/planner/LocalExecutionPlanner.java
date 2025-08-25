@@ -2112,7 +2112,7 @@ public class LocalExecutionPlanner
 
             List<Expression> projections = new ArrayList<>();
             for (Symbol symbol : outputSymbols) {
-                projections.add(assignments.get(symbol));
+                projections.add(assignments.expression(symbol));
             }
 
             Optional<RowExpression> translatedFilter = staticFilters.map(filter -> toRowExpression(filter, sourceLayout));

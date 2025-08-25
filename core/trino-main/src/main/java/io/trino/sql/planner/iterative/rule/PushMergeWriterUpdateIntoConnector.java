@@ -93,7 +93,7 @@ public class PushMergeWriterUpdateIntoConnector
 
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(context.getSession(), mergeWriter.getTarget().getHandle());
         List<String> orderedColumnNames = mergeWriter.getTarget().getMergeParadigmAndTypes().getColumnNames();
-        Expression mergeRow = project.getAssignments().get(mergeProcessor.getMergeRowSymbol());
+        Expression mergeRow = project.getAssignments().expression(mergeProcessor.getMergeRowSymbol());
         Map<ColumnHandle, io.trino.spi.expression.Constant> assignments = buildAssignments(orderedColumnNames, mergeRow, columnHandles, context);
 
         if (assignments.isEmpty()) {

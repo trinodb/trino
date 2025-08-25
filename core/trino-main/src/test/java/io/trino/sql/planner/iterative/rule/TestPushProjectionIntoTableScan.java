@@ -147,7 +147,7 @@ public class TestPushProjectionIntoTableScan
                     identity, "projected_variable_" + connectorNames.get(identity),
                     dereference, "projected_dereference_" + connectorNames.get(dereference));
             Map<Symbol, Expression> constants = ImmutableMap.of(
-                    constant, requireNonNull(inputProjections.get(constant)));
+                    constant, requireNonNull(inputProjections.expression(constant)));
             Map<String, ColumnHandle> expectedColumns = newNames.entrySet().stream()
                     .collect(toImmutableMap(
                             Map.Entry::getValue,

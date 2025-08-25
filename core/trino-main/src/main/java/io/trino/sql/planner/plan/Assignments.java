@@ -59,9 +59,7 @@ public record Assignments(Map<Symbol, Expression> assignments)
 
     public static Assignments copyOf(Map<Symbol, Expression> assignments)
     {
-        return Assignments.builderWithExpectedSize(assignments.size())
-                .putAll(assignments)
-                .build();
+        return new Assignments(ImmutableMap.copyOf(assignments));
     }
 
     public static Assignments of()
@@ -71,17 +69,12 @@ public record Assignments(Map<Symbol, Expression> assignments)
 
     public static Assignments of(Symbol symbol, Expression expression)
     {
-        return Assignments.builderWithExpectedSize(1)
-                .put(symbol, expression)
-                .build();
+        return new Assignments(ImmutableMap.of(symbol, expression));
     }
 
     public static Assignments of(Symbol symbol1, Expression expression1, Symbol symbol2, Expression expression2)
     {
-        return Assignments.builderWithExpectedSize(2)
-                .put(symbol1, expression1)
-                .put(symbol2, expression2)
-                .build();
+        return new Assignments(ImmutableMap.of(symbol1, expression1, symbol2, expression2));
     }
 
     public static Assignments of(Collection<? extends Expression> expressions, SymbolAllocator symbolAllocator)
@@ -100,12 +93,12 @@ public record Assignments(Map<Symbol, Expression> assignments)
         assignments = ImmutableMap.copyOf(assignments);
     }
 
-    public List<Symbol> getOutputs()
+    public List<Symbol> outputs()
     {
         return ImmutableList.copyOf(assignments.keySet());
     }
 
-    public Map<Symbol, Expression> getMap()
+    public Map<Symbol, Expression> asMap()
     {
         return assignments;
     }
@@ -154,12 +147,12 @@ public record Assignments(Map<Symbol, Expression> assignments)
         return true;
     }
 
-    public Collection<Expression> getExpressions()
+    public Collection<Expression> expressions()
     {
         return assignments.values();
     }
 
-    public Set<Symbol> getSymbols()
+    public Set<Symbol> symbols()
     {
         return assignments.keySet();
     }
@@ -169,7 +162,7 @@ public record Assignments(Map<Symbol, Expression> assignments)
         return assignments.entrySet();
     }
 
-    public Expression get(Symbol symbol)
+    public Expression expression(Symbol symbol)
     {
         return assignments.get(symbol);
     }
@@ -214,7 +207,7 @@ public record Assignments(Map<Symbol, Expression> assignments)
 
         public Builder putAll(Assignments assignments)
         {
-            return putAll(assignments.getMap());
+            return putAll(assignments.asMap());
         }
 
         public Builder putAll(Map<Symbol, ? extends Expression> assignments)
@@ -241,7 +234,7 @@ public record Assignments(Map<Symbol, Expression> assignments)
         public Builder putIdentities(Iterable<Symbol> symbols)
         {
             for (Symbol symbol : symbols) {
-                putIdentity(symbol);
+                put(symbol, symbol.toSymbolReference());
             }
             return this;
         }

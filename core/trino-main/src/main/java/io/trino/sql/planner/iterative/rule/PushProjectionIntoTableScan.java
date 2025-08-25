@@ -99,7 +99,7 @@ public class PushProjectionIntoTableScan
 
         // Extract translatable components from projection expressions. Prepare a mapping from these internal
         // expression nodes to corresponding ConnectorExpression translations.
-        Map<NodeRef<Expression>, ConnectorExpression> partialTranslations = project.getAssignments().getMap().entrySet().stream()
+        Map<NodeRef<Expression>, ConnectorExpression> partialTranslations = project.getAssignments().asMap().entrySet().stream()
                 .flatMap(expression ->
                         extractPartialTranslations(
                                 expression.getValue(),

@@ -96,7 +96,7 @@ public class RemoveRedundantDistinctAggregation
         Set<Symbol> translated = new HashSet<>();
         Assignments assignments = projectNode.getAssignments();
         for (Symbol parentSymbol : groupingKeys) {
-            Expression expression = assignments.get(parentSymbol);
+            Expression expression = assignments.expression(parentSymbol);
             if (expression instanceof Reference reference) {
                 translated.add(Symbol.from(reference));
             }
