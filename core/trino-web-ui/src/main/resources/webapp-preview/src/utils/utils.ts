@@ -105,6 +105,29 @@ export function truncateString(inputString: string, length: number): string {
     return inputString
 }
 
+export function getStageNumber(stageId: string): number {
+    return Number.parseInt(stageId.slice(stageId.indexOf('.') + 1, stageId.length))
+}
+
+export function getTaskIdSuffix(taskId: string): string {
+    return taskId.slice(taskId.indexOf('.') + 1, taskId.length)
+}
+
+export function getHostname(url: string): string {
+    let hostname = new URL(url).hostname
+    if (hostname.charAt(0) === '[' && hostname.charAt(hostname.length - 1) === ']') {
+        hostname = hostname.substring(1, hostname.length - 1)
+    }
+    return hostname
+}
+
+export function computeRate(count: number, ms: number): number {
+    if (ms === 0) {
+        return 0
+    }
+    return (count / ms) * 1000.0
+}
+
 export function precisionRound(n: number | null): string {
     if (n === null) {
         return ''
