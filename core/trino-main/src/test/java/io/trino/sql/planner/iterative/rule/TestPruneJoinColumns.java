@@ -71,7 +71,7 @@ public class TestPruneJoinColumns
                     Symbol leftValue = p.symbol("leftValue");
                     Symbol rightValue = p.symbol("rightValue");
                     return p.project(
-                            Assignments.of(),
+                            Assignments.empty(),
                             p.join(
                                     INNER,
                                     p.values(leftValue),

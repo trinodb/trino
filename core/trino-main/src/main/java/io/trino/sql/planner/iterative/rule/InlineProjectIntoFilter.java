@@ -137,7 +137,7 @@ public class InlineProjectIntoFilter
 
         for (Expression conjunct : filterConjuncts) {
             if (simpleConjunctsToInline.contains(conjunct)) {
-                Expression expression = projectNode.getAssignments().get(Symbol.from(conjunct));
+                Expression expression = projectNode.getAssignments().expression(Symbol.from(conjunct));
                 if (expression == null || expression instanceof Reference) {
                     // expression == null -> The symbol is not produced by the underlying projection (i.e. it is a correlation symbol).
                     // expression instanceof SymbolReference -> Do not inline trivial projections.
@@ -159,14 +159,14 @@ public class InlineProjectIntoFilter
             return Result.empty();
         }
 
-        Set<Symbol> postFilterSymbols = postFilterAssignments.getSymbols();
+        Set<Symbol> postFilterSymbols = postFilterAssignments.symbols();
         // Remove inlined expressions from the underlying projection.
         newAssignments.putAll(projectNode.getAssignments().filter(symbol -> !postFilterSymbols.contains(symbol)));
 
         Map<Symbol, Expression> outputAssignments = new HashMap<>();
-        outputAssignments.putAll(Assignments.identity(node.getOutputSymbols()).getMap());
+        outputAssignments.putAll(Assignments.identity(node.getOutputSymbols()).asMap());
         // Restore inlined symbols.
-        outputAssignments.putAll(postFilterAssignments.getMap());
+        outputAssignments.putAll(postFilterAssignments.asMap());
 
         return Result.ofPlanNode(new ProjectNode(
                 context.getIdAllocator().getNextId(),

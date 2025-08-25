@@ -169,7 +169,7 @@ public class PreAggregateCaseAggregations
 
         Assignments.Builder preGroupingExpressionsBuilder = Assignments.builder();
         preGroupingExpressionsBuilder.putIdentities(extraGroupingKeys);
-        aggregationNode.getGroupingKeys().forEach(symbol -> preGroupingExpressionsBuilder.put(symbol, projectNode.getAssignments().get(symbol)));
+        aggregationNode.getGroupingKeys().forEach(symbol -> preGroupingExpressionsBuilder.put(symbol, projectNode.getAssignments().expression(symbol)));
         Assignments preGroupingExpressions = preGroupingExpressionsBuilder.build();
 
         ProjectNode preProjection = createPreProjection(
@@ -179,7 +179,7 @@ public class PreAggregateCaseAggregations
                 context);
         AggregationNode preAggregation = createPreAggregation(
                 preProjection,
-                preGroupingExpressions.getOutputs(),
+                preGroupingExpressions.outputs(),
                 preAggregations,
                 context);
         Map<CaseAggregation, Symbol> newProjectionSymbols = getNewProjectionSymbols(aggregations, context);
@@ -353,7 +353,7 @@ public class PreAggregateCaseAggregations
         }
 
         Symbol projectionSymbol = Symbol.from(aggregation.getArguments().get(0));
-        Expression projection = projectNode.getAssignments().get(projectionSymbol);
+        Expression projection = projectNode.getAssignments().expression(projectionSymbol);
         Expression unwrappedProjection;
         // unwrap top-level cast
         if (projection instanceof Cast cast) {

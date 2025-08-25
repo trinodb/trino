@@ -110,7 +110,7 @@ public final class ExpressionExtractor
         @Override
         public Void visitProject(ProjectNode node, Void context)
         {
-            node.getAssignments().getExpressions().forEach(consumer);
+            node.getAssignments().expressions().forEach(consumer);
             return super.visitProject(node, context);
         }
 
