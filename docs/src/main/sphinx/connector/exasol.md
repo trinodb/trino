@@ -101,6 +101,12 @@ Trino data type mapping:
   * - ``DATE``
     - ``DATE``
     -
+  * - ``INTERVAL YEAR(y) TO MONTH``
+    - ``BIGINT``
+    -  See :ref:`exasol-interval-year-month-mapping`
+  * - ``INTERVAL DAY(d) TO SECOND(s)``
+    - ``BIGINT``
+    -  See :ref:`exasol-interval-day-second-mapping`
 ```
 
 No other types are supported.
@@ -126,6 +132,54 @@ If no length is specified, the connector uses 2000000.
 
 Trino's `CHAR(n)` maps to `CHAR(n)` and vice versa if `n` is no greater than 2000.
 Exasol does not support longer values.
+
+(exasol-interval-year-month-mapping)=
+### Mapping `INTERVAL YEAR TO MONTH` Types
+
+Exasol `INTERVAL YEAR(y) TO MONTH` columns are mapped to Trino's `BIGINT` type (number of months)
+and vice versa, with the following exceptions:
+
+- **No precision `y` specified**:  
+  If the precision `y` is omitted (i.e., the column is defined as `INTERVAL YEAR TO MONTH`
+  without `(y)`), Exasol defaults to a precision of 2.
+
+- **Precision `y` greater than 9**:  
+  Exasol supports up to 9 digits for number of years.
+  If the precision `y` in Exasol exceeds 9, an exception is thrown
+
+- **Negative and zero `y` precisions**:  
+  Negative and zero values for precision `y` are invalid. If encountered,
+  an exception is thrown.
+
+(exasol-interval-day-second-mapping)=
+### Mapping `INTERVAL DAY TO SECOND` Types
+
+Exasol `INTERVAL DAY(d) TO SECOND(s)` columns are mapped to Trino's `BIGINT` type (number of milliseconds)
+and vice versa, with the following exceptions:
+
+- **No precision `d` is specified**:  
+  If the precision `d` is omitted (i.e., the column is defined as `INTERVAL DAY TO SECOND(s)` 
+  without `(d)`), Exasol defaults to a precision of 2.
+
+- **Precision `d` is greater than 9**:
+  Exasol supports up to 9 digits for precision `d`.
+  If the precision `d` in Exasol exceeds 9, an exception is thrown
+
+- **Negative and zero `d` precisions**:  
+  Negative and zero values for precision `d` are invalid. If encountered,
+  an exception is thrown.
+
+- **No fractional second precision `s` is specified**:  
+  If the fractional second precision `s` is omitted (i.e., the column is defined as `INTERVAL DAY(d) TO SECOND`
+  without `(s)`), Exasol defaults to a fractional second precision of 3.
+
+- **Fractional second precision `s` is greater than 9**:
+  Exasol supports up to 9 digits for fractional second precision `s`.
+  If the fractional second precision `s` in Exasol exceeds 9, an exception is thrown
+
+- **Negative fractional second precision `s`**:  
+  Negative values for fractional second precision `s` are invalid. If encountered,
+  an exception is thrown.
 
 ```{include} jdbc-type-mapping.fragment
 ```
