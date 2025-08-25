@@ -19,6 +19,7 @@ import io.airlift.compress.zstd.ZstdDecompressor;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
+import java.nio.ByteBuffer;
 import java.util.Optional;
 
 public class DecompressionUtils
@@ -47,8 +48,14 @@ public class DecompressionUtils
             ZstdDecompressor decompressor = new ZstdDecompressor();
             return decompressor.decompress(input, 0, input.length, output, 0, output.length);
         }
-
         return decompressNative(ZSTD_DECOMPRESSOR_CONSTRUCTOR.get(), input, output);
+    }
+
+    public static int decompressZstd(ByteBuffer input, ByteBuffer output)
+    {
+        ZstdDecompressor decompressor = new ZstdDecompressor();
+        decompressor.decompress(input, output);
+        return output.position();
     }
 
     private static int decompressNative(MethodHandle constructor, byte[] input, byte[] output)

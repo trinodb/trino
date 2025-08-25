@@ -22,6 +22,7 @@ import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.OptionalBinder;
 import com.google.inject.multibindings.ProvidesIntoSet;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.airlift.log.Logger;
 import io.trino.SystemSessionPropertiesProvider;
 import io.trino.server.ServerConfig;
 import io.trino.server.protocol.spooling.SpoolingConfig.SegmentRetrievalMode;
@@ -37,6 +38,8 @@ import static java.util.Objects.requireNonNull;
 public class SpoolingServerModule
         extends AbstractConfigurationAwareModule
 {
+    private static final Logger log = Logger.get(SpoolingServerModule.class);
+
     @Override
     protected void setup(Binder binder)
     {
@@ -45,6 +48,7 @@ public class SpoolingServerModule
         binder.bind(SpoolingManagerRegistry.class).in(Scopes.SINGLETON);
         OptionalBinder<SpoolingManager> spoolingManagerBinder = newOptionalBinder(binder, new TypeLiteral<>() {});
         newOptionalBinder(binder, SpoolingConfig.class);
+
         SpoolingEnabledConfig spoolingEnabledConfig = buildConfigObject(SpoolingEnabledConfig.class);
         if (!spoolingEnabledConfig.isEnabled()) {
             binder.bind(QueryDataEncoder.EncoderSelector.class).toInstance(noEncoder());
@@ -54,9 +58,9 @@ public class SpoolingServerModule
         newSetBinder(binder, SystemSessionPropertiesProvider.class).addBinding().to(SpoolingSessionProperties.class).in(Scopes.SINGLETON);
 
         boolean isCoordinator = buildConfigObject(ServerConfig.class).isCoordinator();
-        SpoolingConfig spoolingConfig = buildConfigObject(SpoolingConfig.class);
         binder.bind(QueryDataEncoder.EncoderSelector.class).to(PreferredQueryDataEncoderSelector.class).in(Scopes.SINGLETON);
 
+        SpoolingConfig spoolingConfig = buildConfigObject(SpoolingConfig.class);
         SegmentRetrievalMode mode = spoolingConfig.getRetrievalMode();
         if (isCoordinator) {
             jaxrsBinder(binder).bind(CoordinatorSegmentResource.class);

@@ -15,6 +15,7 @@ package io.trino.operator;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.client.spooling.DataAttributes;
@@ -70,6 +71,8 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 public class OutputSpoolingOperatorFactory
         implements OperatorFactory
 {
+    private static final Logger log = Logger.get(OutputSpoolingOperatorFactory.class);
+
     private final int operatorId;
     private final PlanNodeId planNodeId;
     private final SpoolingManager spoolingManager;
@@ -307,8 +310,12 @@ public class OutputSpoolingOperatorFactory
                 OperationTimer overallTimer = new OperationTimer(false);
                 try (OutputStream output = spoolingManager.createOutputStream(segmentHandle)) {
                     spooledSegmentsCount.incrementAndGet();
-                    DataAttributes attributes = queryDataEncoder.encodeTo(output, partition)
-                            .toBuilder()
+
+                    // Encode the partition data - encoder handles its own resource management
+                    DataAttributes attributes = queryDataEncoder.encodeTo(output, partition);
+
+                    // Build metadata after encoding is complete
+                    attributes = attributes.toBuilder()
                             .set(ROWS_COUNT, rows)
                             .set(EXPIRES_AT, ZonedDateTime.ofInstant(segmentHandle.expirationTime(), clientZoneId).toLocalDateTime().toString())
                             .build();
