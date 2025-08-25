@@ -347,4 +347,13 @@ public final class GeometrySerde
         right.merge(left);
         return right;
     }
+
+    public static boolean isMultiCollectionType(Slice shape)
+    {
+        requireNonNull(shape, "shape is null");
+        return switch (deserializeType(shape)) {
+            case GEOMETRY_COLLECTION, MULTI_POINT, MULTI_LINE_STRING, MULTI_POLYGON -> true;
+            default -> false;
+        };
+    }
 }
