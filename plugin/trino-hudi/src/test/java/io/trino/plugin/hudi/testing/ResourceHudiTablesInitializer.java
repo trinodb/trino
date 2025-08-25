@@ -333,6 +333,7 @@ public class ResourceHudiTablesInitializer
     public enum TestingTable
     {
         HUDI_NON_PART_COW(nonPartitionRegularColumns()),
+        HUDI_NON_PART_MOR(simpleRegularColumns(), ImmutableList.of(), ImmutableMap.of(), true),
         HUDI_TRIPS_COW_V8(tripsRegularColumns()),
         HUDI_COW_TABLE_WITH_FIELD_NAMES_IN_CAPS(hudiTableWithFieldNamesInCapsRegularColumns()),
         HUDI_COW_PT_TABLE_WITH_FIELD_NAMES_IN_CAPS(hudiTableWithFieldNamesInCapsRegularColumns(), hudiTableWithFieldNamesInCapsPartitionColumns(), hudiTableWithFieldNamesInCapsPartitions(), false), // delete
@@ -466,6 +467,14 @@ public class ResourceHudiTablesInitializer
         private static List<Column> hudiTableWithFieldNamesInCapsPartitionColumns()
         {
             return ImmutableList.of(column("country", HIVE_STRING));
+        }
+
+        private static List<Column> simpleRegularColumns()
+        {
+            return ImmutableList.of(
+                    column("id", HIVE_STRING),
+                    column("name", HIVE_STRING),
+                    column("age", HIVE_INT));
         }
 
         private static List<Column> tripsRegularColumns()

@@ -203,13 +203,24 @@ public class HudiColumnStatsIndexSupport
             TupleDomain<String> regularColumnPredicates,
             List<String> regularColumns)
     {
-        String fileSliceName = fileSlice.getBaseFile().map(BaseFile::getFileName).orElse("");
-        // If no stats exist for this specific file, we cannot prune it.
-        if (!domainsWithStats.containsKey(fileSliceName)) {
-            return false;
+        List<String> filesToLookUp = new ArrayList<>();
+        fileSlice.getBaseFile()
+                .map(BaseFile::getFileName)
+                .ifPresent(filesToLookUp::add);
+
+        if (fileSlice.hasLogFiles()) {
+            fileSlice.getLogFiles().forEach(logFile -> filesToLookUp.add(logFile.getFileName()));
         }
-        Map<String, Domain> fileDomainsWithStats = domainsWithStats.get(fileSliceName);
-        return !evaluateStatisticPredicate(regularColumnPredicates, fileDomainsWithStats, regularColumns);
+
+        // if any log or base file in the file slice matches the predicate, all files in the file slice needs to be read
+        return filesToLookUp.stream().allMatch(fileName -> {
+            // If no stats exist for this specific file, we cannot prune it.
+            if (!domainsWithStats.containsKey(fileName)) {
+                return false;
+            }
+            Map<String, Domain> fileDomainsWithStats = domainsWithStats.get(fileName);
+            return !evaluateStatisticPredicate(regularColumnPredicates, fileDomainsWithStats, regularColumns);
+        });
     }
 
     protected static boolean evaluateStatisticPredicate(

@@ -80,6 +80,7 @@ import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.Testing
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_MULTI_PT_V8_MOR;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_NON_EXTRACTABLE_PARTITION_PATH;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_NON_PART_COW;
+import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_NON_PART_MOR;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_STOCK_TICKS_COW;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_STOCK_TICKS_MOR;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_TIMESTAMP_KEYGEN_PT_EPOCH_TO_YYYY_MM_DD_HH_V8_MOR;
@@ -682,6 +683,35 @@ public class TestHudiSmokeTest
         assertThat(prunedSplits).isLessThan(totalSplits);
         // With colstats file skipping, only 1 split should be returned
         assertThat(prunedSplits).isEqualTo(1);
+    }
+
+    @Test
+    public void testColStatsFileSkippingMORTable()
+    {
+        Session session = SessionBuilder.from(getSession())
+                .withMdtEnabled(true)
+                .withColStatsIndexEnabled(true)
+                .withColumnStatsTimeout("1s")
+                .withRecordLevelIndexEnabled(false)
+                .withSecondaryIndexEnabled(false)
+                .withPartitionStatsIndexEnabled(false)
+                .build();
+        MaterializedResult roTableRes = getQueryRunner().execute(session, "SELECT id, name FROM " + HUDI_NON_PART_MOR + " where name = 'Alice'");
+        MaterializedResult rtTableRes = getQueryRunner().execute(session, "SELECT id, name FROM " + HUDI_NON_PART_MOR + "_rt where name = 'Cathy'");
+
+        // verify ro table returns results from base file
+        int roTableSplits = roTableRes.getStatementStats().get().getTotalSplits();
+        int roTableRows = roTableRes.getRowCount();
+        assertThat(roTableSplits).isEqualTo(1);
+        assertThat(roTableRows).isEqualTo(1);
+        assertThat(roTableRes.getMaterializedRows().getFirst().getField(1)).isEqualTo("Alice");
+
+        // verify rt table returns results from log file
+        int rtTableSplits = rtTableRes.getStatementStats().get().getTotalSplits();
+        int rtTableRows = rtTableRes.getRowCount();
+        assertThat(rtTableRows).isEqualTo(1);
+        assertThat(rtTableSplits).isEqualTo(1);
+        assertThat(rtTableRes.getMaterializedRows().getFirst().getField(1)).isEqualTo("Cathy");
     }
 
     @ParameterizedTest
