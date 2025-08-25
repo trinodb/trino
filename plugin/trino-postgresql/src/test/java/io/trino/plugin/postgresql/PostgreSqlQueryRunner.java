@@ -44,9 +44,9 @@ public final class PostgreSqlQueryRunner
     {
         return new Builder()
                 .addConnectorProperties(Map.of(
-                        "connection-url", server.getJdbcUrl(),
+                        "connection-url", "jdbc:"+ server.getJdbcUrl(),
                         "connection-user", server.getUser(),
-                        "connection-password", server.getPassword(),
+                        "connection-password", "x" + server.getPassword(),
                         "postgresql.include-system-tables", "true"));
     }
 
@@ -102,7 +102,7 @@ public final class PostgreSqlQueryRunner
                 runner.installPlugin(new PostgreSqlPlugin());
                 runner.createCatalog("postgresql", "postgresql", connectorProperties);
 
-                copyTpchTables(runner, "tpch", TINY_SCHEMA_NAME, initialTables);
+//                copyTpchTables(runner, "tpch", TINY_SCHEMA_NAME, initialTables);
             });
             return super.build();
         }
@@ -113,7 +113,7 @@ public final class PostgreSqlQueryRunner
     {
         QueryRunner queryRunner = builder(new TestingPostgreSqlServer(System.getProperty("testing.postgresql-image-name", DEFAULT_IMAGE_NAME), true))
                 .addCoordinatorProperty("http-server.http.port", "8080")
-                .setInitialTables(TpchTable.getTables())
+//                .setInitialTables(TpchTable.getTables())
                 .build();
 
         queryRunner.installPlugin(new JmxPlugin());
