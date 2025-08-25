@@ -14,6 +14,7 @@
 package io.trino.plugin.geospatial;
 
 import com.esri.core.geometry.Envelope;
+import com.esri.core.geometry.Geometry;
 import com.esri.core.geometry.Point;
 import com.esri.core.geometry.ogc.OGCGeometry;
 import com.google.common.collect.ImmutableList;
@@ -377,7 +378,7 @@ public final class BingTileFunctions
             for (int x = leftUpperTile.getX(); x <= rightLowerTile.getX(); x++) {
                 for (int y = leftUpperTile.getY(); y <= rightLowerTile.getY(); y++) {
                     BingTile tile = BingTile.fromCoordinates(x, y, zoomLevel);
-                    if (pointOrRectangle || !disjoint(tileToEnvelope(tile), ogcGeometry)) {
+                    if (pointOrRectangle || !disjoint(tileToGeometry(tile), ogcGeometry)) {
                         BIGINT.writeLong(blockBuilder, tile.encode());
                     }
                 }
@@ -533,15 +534,15 @@ public final class BingTileFunctions
         int tileZoomLevel = tile.getZoomLevel();
         checkArgument(tileZoomLevel <= zoomLevel);
 
-        Envelope tileEnvelope = tileToEnvelope(tile);
+        Geometry tileGeometry = tileToGeometry(tile);
         if (tileZoomLevel == zoomLevel) {
-            if (!disjoint(tileEnvelope, ogcGeometry)) {
+            if (!disjoint(tileGeometry, ogcGeometry)) {
                 BIGINT.writeLong(blockBuilder, tile.encode());
             }
             return;
         }
 
-        if (contains(ogcGeometry, tileEnvelope)) {
+        if (contains(ogcGeometry, tileGeometry)) {
             int subTileCount = 1 << (zoomLevel - tileZoomLevel);
             int minX = subTileCount * tile.getX();
             int minY = subTileCount * tile.getY();
@@ -553,7 +554,7 @@ public final class BingTileFunctions
             return;
         }
 
-        if (disjoint(tileEnvelope, ogcGeometry)) {
+        if (disjoint(tileGeometry, ogcGeometry)) {
             return;
         }
 
@@ -635,6 +636,13 @@ public final class BingTileFunctions
         Point upperLeftCorner = tileXYToLatitudeLongitude(tile.getX(), tile.getY(), tile.getZoomLevel());
         Point lowerRightCorner = tileXYToLatitudeLongitude(tile.getX() + 1, tile.getY() + 1, tile.getZoomLevel());
         return new Envelope(upperLeftCorner.getX(), lowerRightCorner.getY(), lowerRightCorner.getX(), upperLeftCorner.getY());
+    }
+
+    private static Geometry tileToGeometry(BingTile tile)
+    {
+        Point upperLeftCorner = tileXYToLatitudeLongitude(tile.getX(), tile.getY(), tile.getZoomLevel());
+        Point lowerRightCorner = tileXYToLatitudeLongitude(tile.getX() + 1, tile.getY() + 1, tile.getZoomLevel());
+        return OGCGeometry.createFromEsriGeometry(new Envelope(upperLeftCorner.getX(), lowerRightCorner.getY(), lowerRightCorner.getX(), upperLeftCorner.getY()), null).getEsriGeometry();
     }
 
     private static void checkZoomLevel(long zoomLevel)

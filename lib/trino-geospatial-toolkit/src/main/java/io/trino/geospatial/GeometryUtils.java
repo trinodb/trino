@@ -102,7 +102,7 @@ public final class GeometryUtils
         }
     }
 
-    public static boolean disjoint(Envelope envelope, OGCGeometry ogcGeometry)
+    public static boolean disjoint(Geometry polygon, OGCGeometry ogcGeometry)
     {
         GeometryCursor cursor = ogcGeometry.getEsriGeometryCursor();
         while (true) {
@@ -111,13 +111,13 @@ public final class GeometryUtils
                 return true;
             }
 
-            if (!GeometryEngine.disjoint(geometry, envelope, null)) {
+            if (!GeometryEngine.disjoint(geometry, polygon, null)) {
                 return false;
             }
         }
     }
 
-    public static boolean contains(OGCGeometry ogcGeometry, Envelope envelope)
+    public static boolean contains(OGCGeometry ogcGeometry, Geometry polygon)
     {
         GeometryCursor cursor = ogcGeometry.getEsriGeometryCursor();
         while (true) {
@@ -126,7 +126,7 @@ public final class GeometryUtils
                 return false;
             }
 
-            if (GeometryEngine.contains(geometry, envelope, null)) {
+            if (GeometryEngine.contains(geometry, polygon, null)) {
                 return true;
             }
         }
