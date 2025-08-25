@@ -323,7 +323,7 @@ public class PageProcessor
                 }
                 else {
                     if (pageProjectWork == null) {
-                        pageProjectWork = projection.project(session, yieldSignal, projection.getInputChannels().getInputChannels(page), positionsBatch);
+                        pageProjectWork = projection.project(session, projection.getInputChannels().getInputChannels(page), positionsBatch);
                     }
 
                     expressionProfiler.start();

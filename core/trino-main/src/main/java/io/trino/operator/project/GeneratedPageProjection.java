@@ -13,7 +13,6 @@
  */
 package io.trino.operator.project;
 
-import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.Work;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -58,7 +57,7 @@ public class GeneratedPageProjection
     }
 
     @Override
-    public Work<Block> project(ConnectorSession session, DriverYieldSignal yieldSignal, SourcePage page, SelectedPositions selectedPositions)
+    public Work<Block> project(ConnectorSession session, SourcePage page, SelectedPositions selectedPositions)
     {
         blockBuilder = blockBuilder.newBlockBuilderLike(selectedPositions.size(), null);
         try {

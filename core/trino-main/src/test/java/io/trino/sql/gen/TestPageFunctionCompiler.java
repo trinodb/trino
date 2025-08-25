@@ -15,7 +15,6 @@ package io.trino.sql.gen;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.TestingFunctionResolution;
-import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.Work;
 import io.trino.operator.project.PageProjection;
 import io.trino.operator.project.SelectedPositions;
@@ -81,7 +80,7 @@ public class TestPageFunctionCompiler
         String classSuffix = stageId + "_" + planNodeId;
         Supplier<PageProjection> projectionSupplier = functionCompiler.compileProjection(ADD_10_EXPRESSION, Optional.of(classSuffix));
         PageProjection projection = projectionSupplier.get();
-        Work<Block> work = projection.project(SESSION, new DriverYieldSignal(), SourcePage.create(createLongBlockPage(0)), SelectedPositions.positionsRange(0, 1));
+        Work<Block> work = projection.project(SESSION, SourcePage.create(createLongBlockPage(0)), SelectedPositions.positionsRange(0, 1));
         // class name should look like PageProjectionOutput_20170707_223500_67496_zguwn_2_7_XX
         assertThat(work.getClass().getSimpleName().startsWith("PageProjectionWork_" + stageId.replace('.', '_') + "_" + planNodeId)).isTrue();
     }
@@ -104,7 +103,7 @@ public class TestPageFunctionCompiler
 
     private Block project(PageProjection projection, Page page, SelectedPositions selectedPositions)
     {
-        Work<Block> work = projection.project(SESSION, new DriverYieldSignal(), SourcePage.create(page), selectedPositions);
+        Work<Block> work = projection.project(SESSION, SourcePage.create(page), selectedPositions);
         assertThat(work.process()).isTrue();
         return work.getResult();
     }

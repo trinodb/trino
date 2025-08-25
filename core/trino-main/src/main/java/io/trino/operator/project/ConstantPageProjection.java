@@ -15,7 +15,6 @@ package io.trino.operator.project;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.operator.CompletedWork;
-import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.Work;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RunLengthEncodedBlock;
@@ -50,7 +49,7 @@ public class ConstantPageProjection
     }
 
     @Override
-    public Work<Block> project(ConnectorSession session, DriverYieldSignal yieldSignal, SourcePage page, SelectedPositions selectedPositions)
+    public Work<Block> project(ConnectorSession session, SourcePage page, SelectedPositions selectedPositions)
     {
         return new CompletedWork<>(RunLengthEncodedBlock.create(value, selectedPositions.size()));
     }
