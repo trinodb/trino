@@ -22,9 +22,11 @@ import alluxio.conf.PropertyKey;
 import com.google.common.primitives.Ints;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
+import io.trino.filesystem.InputFileMetrics;
 import io.trino.filesystem.Location;
 
 import java.nio.ByteBuffer;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_LOCATION;
@@ -48,6 +50,7 @@ public class AlluxioInputHelper
     private final String cacheKey;
     private final CacheManager cacheManager;
     private final AlluxioCacheStats statistics;
+    private final Optional<InputFileMetrics> metrics;
     private final Location location;
     private final int pageSize;
     private final long fileLength;
@@ -58,7 +61,15 @@ public class AlluxioInputHelper
     private long bufferStartPosition;
     private long bufferEndPosition;
 
-    public AlluxioInputHelper(Tracer tracer, Location location, String cacheKey, URIStatus status, CacheManager cacheManager, AlluxioConfiguration configuration, AlluxioCacheStats statistics)
+    public AlluxioInputHelper(
+            Tracer tracer,
+            Location location,
+            String cacheKey,
+            URIStatus status,
+            CacheManager cacheManager,
+            AlluxioConfiguration configuration,
+            AlluxioCacheStats statistics,
+            Optional<InputFileMetrics> metrics)
     {
         this.tracer = requireNonNull(tracer, "tracer is null");
         this.status = requireNonNull(status, "status is null");
@@ -67,6 +78,7 @@ public class AlluxioInputHelper
         this.cacheManager = requireNonNull(cacheManager, "cacheManager is null");
         this.pageSize = (int) requireNonNull(configuration, "configuration is null").getBytes(PropertyKey.USER_CLIENT_CACHE_PAGE_SIZE);
         this.statistics = requireNonNull(statistics, "statistics is null");
+        this.metrics = requireNonNull(metrics, "metrics is null");
         this.location = requireNonNull(location, "location is null");
         // Buffer to reduce the cost of doing page aligned reads for small sequential reads pattern
         this.bufferSize = pageSize;
@@ -121,6 +133,7 @@ public class AlluxioInputHelper
         }
         int bytesRead = length - remainingLength;
         statistics.recordCacheRead(bytesRead);
+        metrics.ifPresent(metrics -> metrics.recordCacheRead(bytesRead));
         return bytesRead;
     }
 
