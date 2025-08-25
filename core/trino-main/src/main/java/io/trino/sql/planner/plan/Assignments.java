@@ -125,9 +125,7 @@ public record Assignments(Map<Symbol, Expression> assignments)
 
     public boolean isIdentity(Symbol output)
     {
-        Expression expression = assignments.get(output);
-
-        return expression instanceof Reference reference && reference.name().equals(output.name());
+        return assignments.get(output) instanceof Reference reference && reference.name().equals(output.name());
     }
 
     public boolean isIdentity()
