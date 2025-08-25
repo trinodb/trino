@@ -1,0 +1,50 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.trino.plugin.deltalake.metastore;
+
+import com.google.common.collect.ImmutableMap;
+
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.Map;
+import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
+
+public record VendedCredentials(Optional<String> tableId, Instant expireAt, Map<String, String> credentials)
+{
+    public VendedCredentials
+    {
+        requireNonNull(tableId, "tableId is null");
+        requireNonNull(expireAt, "expireAt is null");
+        credentials = ImmutableMap.copyOf(credentials);
+    }
+
+    public static VendedCredentials empty()
+    {
+        return new VendedCredentials(Optional.empty(), Instant.MAX, ImmutableMap.of());
+    }
+
+    public boolean isFresh()
+    {
+        // If the token expires after 2 mins, don't use it
+        // TODO: make the time configurable
+        return isFresh(Instant.now().plus(2, ChronoUnit.MINUTES));
+    }
+
+    private boolean isFresh(Instant now)
+    {
+        return !credentials.isEmpty() && now.isBefore(expireAt);
+    }
+}
