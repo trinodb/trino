@@ -13,7 +13,6 @@
  */
 package io.trino.operator.project;
 
-import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.Work;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorSession;
@@ -25,5 +24,5 @@ public interface PageProjection
 
     InputChannels getInputChannels();
 
-    Work<Block> project(ConnectorSession session, DriverYieldSignal yieldSignal, SourcePage page, SelectedPositions selectedPositions);
+    Work<Block> project(ConnectorSession session, SourcePage page, SelectedPositions selectedPositions);
 }

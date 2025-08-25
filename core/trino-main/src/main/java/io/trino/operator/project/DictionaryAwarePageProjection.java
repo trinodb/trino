@@ -14,7 +14,6 @@
 package io.trino.operator.project;
 
 import io.trino.operator.CompletedWork;
-import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.Work;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
@@ -63,16 +62,15 @@ public class DictionaryAwarePageProjection
     }
 
     @Override
-    public Work<Block> project(ConnectorSession session, DriverYieldSignal yieldSignal, SourcePage page, SelectedPositions selectedPositions)
+    public Work<Block> project(ConnectorSession session, SourcePage page, SelectedPositions selectedPositions)
     {
-        return new DictionaryAwarePageProjectionWork(session, yieldSignal, page.getBlock(0), selectedPositions);
+        return new DictionaryAwarePageProjectionWork(session, page.getBlock(0), selectedPositions);
     }
 
     private class DictionaryAwarePageProjectionWork
             implements Work<Block>
     {
         private final ConnectorSession session;
-        private final DriverYieldSignal yieldSignal;
         private final SelectedPositions selectedPositions;
 
         private Block block;
@@ -82,13 +80,12 @@ public class DictionaryAwarePageProjection
         // always prepare to fall back to a general block in case the dictionary does not apply or fails
         private Work<Block> fallbackProcessingProjectionWork;
 
-        public DictionaryAwarePageProjectionWork(@Nullable ConnectorSession session, DriverYieldSignal yieldSignal, Block block, SelectedPositions selectedPositions)
+        public DictionaryAwarePageProjectionWork(@Nullable ConnectorSession session, Block block, SelectedPositions selectedPositions)
         {
             this.session = session;
             this.block = block;
             this.selectedPositions = requireNonNull(selectedPositions, "selectedPositions is null");
 
-            this.yieldSignal = requireNonNull(yieldSignal, "yieldSignal is null");
             setupDictionaryBlockProjection();
         }
 
@@ -156,7 +153,7 @@ public class DictionaryAwarePageProjection
             // there is no dictionary handling or dictionary handling failed; fall back to general projection
             verify(dictionaryProcessingProjectionWork == null);
             verify(fallbackProcessingProjectionWork == null);
-            fallbackProcessingProjectionWork = projection.project(session, yieldSignal, SourcePage.create(block), selectedPositions);
+            fallbackProcessingProjectionWork = projection.project(session, SourcePage.create(block), selectedPositions);
             if (fallbackProcessingProjectionWork.process()) {
                 result = fallbackProcessingProjectionWork.getResult();
                 return true;
@@ -209,7 +206,7 @@ public class DictionaryAwarePageProjection
             lastOutputDictionary = Optional.empty();
 
             if (shouldProcessDictionary) {
-                return projection.project(session, yieldSignal, SourcePage.create(lastInputDictionary), SelectedPositions.positionsRange(0, lastInputDictionary.getPositionCount()));
+                return projection.project(session, SourcePage.create(lastInputDictionary), SelectedPositions.positionsRange(0, lastInputDictionary.getPositionCount()));
             }
             return null;
         }

@@ -13,7 +13,6 @@
  */
 package io.trino.operator.window.pattern;
 
-import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.Work;
 import io.trino.operator.project.PageProjection;
 import io.trino.operator.window.matcher.ArrayView;
@@ -108,7 +107,7 @@ public class MeasureComputation
         SourcePage page = SourcePage.create(new Page(1, blocks));
 
         // evaluate expression
-        Work<Block> work = projection.project(session, new DriverYieldSignal(), projection.getInputChannels().getInputChannels(page), positionsRange(0, 1));
+        Work<Block> work = projection.project(session, projection.getInputChannels().getInputChannels(page), positionsRange(0, 1));
         boolean done = false;
         while (!done) {
             done = work.process();
@@ -178,7 +177,7 @@ public class MeasureComputation
         SourcePage page = SourcePage.create(new Page(1, blocks));
 
         // evaluate expression
-        Work<Block> work = projection.project(session, new DriverYieldSignal(), projection.getInputChannels().getInputChannels(page), positionsRange(0, 1));
+        Work<Block> work = projection.project(session, projection.getInputChannels().getInputChannels(page), positionsRange(0, 1));
         boolean done = false;
         while (!done) {
             done = work.process();
