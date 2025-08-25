@@ -14,7 +14,6 @@
 package io.trino.operator.project;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.operator.Work;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DictionaryBlock;
@@ -160,16 +159,10 @@ public class TestDictionaryAwarePageProjection
         Block firstDictionaryBlock = DictionaryBlock.create(4, dictionary, new int[] {0, 1, 2, 3});
         Block secondDictionaryBlock = DictionaryBlock.create(4, dictionary, new int[] {3, 2, 1, 0});
 
-        Work<Block> firstWork = projection.project(null, SourcePage.create(firstDictionaryBlock), SelectedPositions.positionsList(new int[] {0, 1}, 0, 2));
-
-        assertThat(firstWork.process()).isTrue();
-        Block firstOutputBlock = firstWork.getResult();
+        Block firstOutputBlock = projection.project(null, SourcePage.create(firstDictionaryBlock), SelectedPositions.positionsList(new int[] {0, 1}, 0, 2));
         assertThat(firstOutputBlock).isInstanceOf(DictionaryBlock.class);
 
-        Work<Block> secondWork = projection.project(null, SourcePage.create(secondDictionaryBlock), SelectedPositions.positionsList(new int[] {0, 1}, 0, 2));
-
-        assertThat(secondWork.process()).isTrue();
-        Block secondOutputBlock = secondWork.getResult();
+        Block secondOutputBlock = projection.project(null, SourcePage.create(secondDictionaryBlock), SelectedPositions.positionsList(new int[] {0, 1}, 0, 2));
         assertThat(secondOutputBlock).isInstanceOf(DictionaryBlock.class);
 
         assertThat(firstOutputBlock).isNotSameAs(secondOutputBlock);
@@ -221,10 +214,7 @@ public class TestDictionaryAwarePageProjection
 
     private static void testProjectRange(Block block, Class<? extends Block> expectedResultType, DictionaryAwarePageProjection projection)
     {
-        Work<Block> work = projection.project(null, SourcePage.create(block), SelectedPositions.positionsRange(5, 10));
-        Block result;
-        assertThat(work.process()).isTrue();
-        result = work.getResult();
+        Block result = projection.project(null, SourcePage.create(block), SelectedPositions.positionsRange(5, 10));
 
         assertBlockEquals(
                 BIGINT,
@@ -236,10 +226,7 @@ public class TestDictionaryAwarePageProjection
     private static void testProjectList(Block block, Class<? extends Block> expectedResultType, DictionaryAwarePageProjection projection)
     {
         int[] positions = {0, 2, 4, 6, 8, 10};
-        Work<Block> work = projection.project(null, SourcePage.create(block), SelectedPositions.positionsList(positions, 0, positions.length));
-        Block result;
-        assertThat(work.process()).isTrue();
-        result = work.getResult();
+        Block result = projection.project(null, SourcePage.create(block), SelectedPositions.positionsList(positions, 0, positions.length));
 
         assertBlockEquals(
                 BIGINT,
@@ -271,55 +258,23 @@ public class TestDictionaryAwarePageProjection
         }
 
         @Override
-        public Work<Block> project(ConnectorSession session, SourcePage page, SelectedPositions selectedPositions)
+        public Block project(ConnectorSession session, SourcePage page, SelectedPositions selectedPositions)
         {
-            return new TestPageProjectionWork(page, selectedPositions);
-        }
-
-        private static class TestPageProjectionWork
-                implements Work<Block>
-        {
-            private final Block block;
-            private final SelectedPositions selectedPositions;
-
-            private BlockBuilder blockBuilder;
-            private Block result;
-
-            public TestPageProjectionWork(SourcePage page, SelectedPositions selectedPositions)
-            {
-                this.block = page.getBlock(0);
-                this.selectedPositions = selectedPositions;
-                this.blockBuilder = BIGINT.createFixedSizeBlockBuilder(selectedPositions.size());
-            }
-
-            @Override
-            public boolean process()
-            {
-                assertThat(result).isNull();
-                if (selectedPositions.isList()) {
-                    int offset = selectedPositions.getOffset();
-                    int[] positions = selectedPositions.getPositions();
-                    for (int index = offset; index < offset + selectedPositions.size(); index++) {
-                        BIGINT.writeLong(blockBuilder, verifyPositive(BIGINT.getLong(block, positions[index])));
-                    }
+            BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(selectedPositions.size());
+            Block block = page.getBlock(0);
+            int offset = selectedPositions.getOffset();
+            if (selectedPositions.isList()) {
+                int[] positions = selectedPositions.getPositions();
+                for (int index = offset; index < offset + selectedPositions.size(); index++) {
+                    BIGINT.writeLong(blockBuilder, verifyPositive(BIGINT.getLong(block, positions[index])));
                 }
-                else {
-                    int offset = selectedPositions.getOffset();
-                    for (int position = offset; position < offset + selectedPositions.size(); position++) {
-                        BIGINT.writeLong(blockBuilder, verifyPositive(BIGINT.getLong(block, position)));
-                    }
+            }
+            else {
+                for (int position = offset; position < offset + selectedPositions.size(); position++) {
+                    BIGINT.writeLong(blockBuilder, verifyPositive(BIGINT.getLong(block, position)));
                 }
-                result = blockBuilder.build();
-                blockBuilder = blockBuilder.newBlockBuilderLike(null);
-                return true;
             }
-
-            @Override
-            public Block getResult()
-            {
-                assertThat(result).isNotNull();
-                return result;
-            }
+            return blockBuilder.build();
         }
 
         private static long verifyPositive(long value)
