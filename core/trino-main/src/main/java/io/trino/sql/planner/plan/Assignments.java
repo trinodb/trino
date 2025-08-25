@@ -13,8 +13,6 @@
  */
 package io.trino.sql.planner.plan;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.ir.Expression;
@@ -35,7 +33,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 
-public class Assignments
+public record Assignments(Map<Symbol, Expression> assignments)
 {
     public static Builder builder()
     {
@@ -88,7 +86,7 @@ public class Assignments
 
     public static Assignments of(Collection<? extends Expression> expressions, SymbolAllocator symbolAllocator)
     {
-        Assignments.Builder assignments = Assignments.builderWithExpectedSize(expressions.size());
+        Builder assignments = Assignments.builderWithExpectedSize(expressions.size());
 
         for (Expression expression : expressions) {
             assignments.put(symbolAllocator.newSymbol(expression), expression);
@@ -97,12 +95,9 @@ public class Assignments
         return assignments.build();
     }
 
-    private final Map<Symbol, Expression> assignments;
-
-    @JsonCreator
-    public Assignments(@JsonProperty("assignments") Map<Symbol, Expression> assignments)
+    public Assignments
     {
-        this.assignments = ImmutableMap.copyOf(requireNonNull(assignments, "assignments is null"));
+        assignments = ImmutableMap.copyOf(assignments);
     }
 
     public List<Symbol> getOutputs()
@@ -110,7 +105,6 @@ public class Assignments
         return ImmutableList.copyOf(assignments.keySet());
     }
 
-    @JsonProperty("assignments")
     public Map<Symbol, Expression> getMap()
     {
         return assignments;
@@ -119,7 +113,7 @@ public class Assignments
     public Assignments rewrite(Function<Expression, Expression> rewrite)
     {
         ImmutableMap.Builder<Symbol, Expression> builder = ImmutableMap.builderWithExpectedSize(assignments.size());
-        for (Map.Entry<Symbol, Expression> entry : assignments.entrySet()) {
+        for (Entry<Symbol, Expression> entry : assignments.entrySet()) {
             builder.put(entry.getKey(), rewrite.apply(entry.getValue()));
         }
         return new Assignments(builder.buildOrThrow());
@@ -133,7 +127,7 @@ public class Assignments
     public Assignments filter(Predicate<Symbol> predicate)
     {
         ImmutableMap.Builder<Symbol, Expression> builder = ImmutableMap.builder();
-        for (Map.Entry<Symbol, Expression> entry : assignments.entrySet()) {
+        for (Entry<Symbol, Expression> entry : assignments.entrySet()) {
             if (predicate.test(entry.getKey())) {
                 builder.put(entry);
             }
@@ -150,7 +144,7 @@ public class Assignments
 
     public boolean isIdentity()
     {
-        for (Map.Entry<Symbol, Expression> entry : assignments.entrySet()) {
+        for (Entry<Symbol, Expression> entry : assignments.entrySet()) {
             Expression expression = entry.getValue();
             Symbol symbol = entry.getKey();
             if (!(expression instanceof Reference reference && reference.name().equals(symbol.name()))) {
@@ -195,46 +189,12 @@ public class Assignments
         assignments.forEach(consumer);
     }
 
-    @Override
-    public boolean equals(Object o)
+    public record Assignment(Symbol output, Expression expression)
     {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-
-        Assignments that = (Assignments) o;
-
-        return assignments.equals(that.assignments);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return assignments.hashCode();
-    }
-
-    public static class Assignment
-    {
-        private final Symbol output;
-        private final Expression expression;
-
-        public Assignment(Symbol output, Expression expression)
+        public Assignment
         {
-            this.output = requireNonNull(output, "output is null");
-            this.expression = requireNonNull(expression, "expression is null");
-        }
-
-        public Symbol getOutput()
-        {
-            return output;
-        }
-
-        public Expression getExpression()
-        {
-            return expression;
+            requireNonNull(output, "output is null");
+            requireNonNull(expression, "expression is null");
         }
     }
 
@@ -299,7 +259,7 @@ public class Assignments
 
         public Builder add(Assignment assignment)
         {
-            put(assignment.getOutput(), assignment.getExpression());
+            put(assignment.output(), assignment.expression());
             return this;
         }
     }
