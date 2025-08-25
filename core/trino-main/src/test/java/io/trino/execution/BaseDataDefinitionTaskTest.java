@@ -26,6 +26,7 @@ import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.MetadataManager;
+import io.trino.metadata.NameCanonicalizer;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.QualifiedTablePrefix;
 import io.trino.metadata.ResolvedFunction;
@@ -716,6 +717,12 @@ public abstract class BaseDataDefinitionTaskTest
             MockConnectorTableMetadata table = tables.get(tableName.asSchemaTableName());
             requireNonNull(table, "table is null");
             return table.branches().contains(branch);
+        }
+
+        @Override
+        public NameCanonicalizer getNameCanonicalizer(Session session, String catalogName)
+        {
+            return NameCanonicalizer.LEGACY_NAME_CANONICALIZER;
         }
 
         private static ColumnMetadata withComment(ColumnMetadata tableColumn, Optional<String> comment)

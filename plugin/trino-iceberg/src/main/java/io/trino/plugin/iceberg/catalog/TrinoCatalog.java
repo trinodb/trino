@@ -43,6 +43,7 @@ import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Locale.ENGLISH;
 
 /**
  * An interface to allow different Iceberg catalog implementations in IcebergMetadata.
@@ -200,4 +201,9 @@ public interface TrinoCatalog
     void updateColumnComment(ConnectorSession session, SchemaTableName schemaTableName, ColumnIdentity columnIdentity, Optional<String> comment);
 
     Optional<CatalogSchemaTableName> redirectTable(ConnectorSession session, SchemaTableName tableName, String hiveCatalogName);
+
+    default String canonicalize(String name, boolean delimited)
+    {
+        return name.toLowerCase(ENGLISH);
+    }
 }
