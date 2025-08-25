@@ -38,6 +38,7 @@ import io.trino.plugin.iceberg.TableStatisticsWriter;
 import io.trino.plugin.iceberg.catalog.file.IcebergFileMetastoreCatalogModule;
 import io.trino.plugin.iceberg.catalog.glue.IcebergGlueCatalogModule;
 import io.trino.plugin.iceberg.catalog.hms.IcebergHiveMetastoreCatalogModule;
+import io.trino.plugin.iceberg.catalog.polaris.IcebergPolarisMetastoreCatalogModule;
 import io.trino.plugin.iceberg.catalog.rest.DefaultIcebergFileSystemFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 
@@ -77,6 +78,7 @@ public class LakehouseIcebergModule
             case THRIFT -> new IcebergHiveMetastoreCatalogModule();
             case FILE -> new IcebergFileMetastoreCatalogModule();
             case GLUE -> new IcebergGlueCatalogModule();
+            case POLARIS -> new IcebergPolarisMetastoreCatalogModule();
         });
 
         binder.install(new IcebergExecutorModule());

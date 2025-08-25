@@ -25,6 +25,8 @@ public enum MetastoreErrorCode
 {
     HIVE_INVALID_METADATA(12, EXTERNAL),
     HIVE_UNSUPPORTED_FORMAT(19, EXTERNAL),
+    HIVE_CONCURRENT_MODIFICATION_DETECTED(22, EXTERNAL),
+    HIVE_METASTORE_ERROR(0, EXTERNAL),
     /**/;
 
     private final ErrorCode errorCode;
