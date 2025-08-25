@@ -34,6 +34,7 @@ import org.apache.hudi.util.Lazy;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.connector.SchemaTableName.schemaTableName;
@@ -56,7 +57,7 @@ public class HudiTableHandle
     // Coordinator-only
     private final transient Optional<Table> table;
     private final transient Optional<Lazy<HoodieTableMetaClient>> lazyMetaClient;
-    private final transient Optional<Lazy<String>> lazyLatestCommitTime;
+    private final transient Lazy<String> lazyLatestCommitTime;
 
     @JsonCreator
     public HudiTableHandle(
@@ -67,15 +68,16 @@ public class HudiTableHandle
             @JsonProperty("partitionColumns") List<HiveColumnHandle> partitionColumns,
             @JsonProperty("partitionPredicates") TupleDomain<HiveColumnHandle> partitionPredicates,
             @JsonProperty("regularPredicates") TupleDomain<HiveColumnHandle> regularPredicates,
-            @JsonProperty("tableSchemaStr") String tableSchemaStr)
+            @JsonProperty("tableSchemaStr") String tableSchemaStr,
+            @JsonProperty("latestCommitTime") String latestCommitTime)
     {
         this(Optional.empty(), Optional.empty(), schemaName, tableName, basePath, tableType, partitionColumns, ImmutableSet.of(),
-                partitionPredicates, regularPredicates, buildTableSchema(tableSchemaStr));
+                partitionPredicates, regularPredicates, buildTableSchema(tableSchemaStr), () -> latestCommitTime);
     }
 
     public HudiTableHandle(
-            Optional<Table> table,
-            Optional<Lazy<HoodieTableMetaClient>> lazyMetaClient,
+            Table table,
+            Lazy<HoodieTableMetaClient> lazyMetaClient,
             String schemaName,
             String tableName,
             String basePath,
@@ -86,15 +88,46 @@ public class HudiTableHandle
             TupleDomain<HiveColumnHandle> regularPredicates,
             Optional<Lazy<Schema>> hudiTableSchema)
     {
-        this.table = requireNonNull(table, "table is null");
-        this.lazyMetaClient = requireNonNull(lazyMetaClient, "lazyMetaClient is null");
-        this.lazyLatestCommitTime = Optional.of(Lazy.lazily(() ->
-                getMetaClient().getActiveTimeline()
+        this(
+                Optional.of(table),
+                Optional.of(lazyMetaClient),
+                schemaName,
+                tableName,
+                basePath,
+                tableType,
+                partitionColumns,
+                constraintColumns,
+                partitionPredicates,
+                regularPredicates,
+                hudiTableSchema,
+                () -> lazyMetaClient
+                        .get()
+                        .getActiveTimeline()
                         .getCommitsTimeline()
                         .filterCompletedInstants()
                         .lastInstant()
                         .map(HoodieInstant::requestedTime)
-                        .orElseThrow(() -> new TrinoException(HudiErrorCode.HUDI_NO_VALID_COMMIT, "Table has no valid commits"))));
+                        .orElseThrow(() -> new TrinoException(
+                                HudiErrorCode.HUDI_NO_VALID_COMMIT,
+                                "Table has no valid commits")));
+    }
+
+    HudiTableHandle(
+            Optional<Table> table,
+            Optional<Lazy<HoodieTableMetaClient>> lazyMetaClient,
+            String schemaName,
+            String tableName,
+            String basePath,
+            HoodieTableType tableType,
+            List<HiveColumnHandle> partitionColumns,
+            Set<HiveColumnHandle> constraintColumns,
+            TupleDomain<HiveColumnHandle> partitionPredicates,
+            TupleDomain<HiveColumnHandle> regularPredicates,
+            Optional<Lazy<Schema>> hudiTableSchema,
+            Supplier<String> latestCommitTimeSupplier)
+    {
+        this.table = requireNonNull(table, "table is null");
+        this.lazyMetaClient = requireNonNull(lazyMetaClient, "lazyMetaClient is null");
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.basePath = requireNonNull(basePath, "basePath is null");
@@ -104,6 +137,7 @@ public class HudiTableHandle
         this.partitionPredicates = requireNonNull(partitionPredicates, "partitionPredicates is null");
         this.regularPredicates = requireNonNull(regularPredicates, "regularPredicates is null");
         this.hudiTableSchema = requireNonNull(hudiTableSchema, "hudiTableSchema is null");
+        this.lazyLatestCommitTime = Lazy.lazily(latestCommitTimeSupplier);
     }
 
     /**
@@ -144,12 +178,10 @@ public class HudiTableHandle
         return lazyMetaClient.get().get();
     }
 
+    @JsonProperty
     public String getLatestCommitTime()
     {
-        checkArgument(lazyLatestCommitTime.isPresent(),
-                "getLatestCommitTime() called on a table handle that has no Hudi meta-client; "
-                        + "this is likely because it is called on the worker.");
-        return lazyLatestCommitTime.get().get();
+        return lazyLatestCommitTime.get();
     }
 
     @JsonProperty
@@ -237,7 +269,8 @@ public class HudiTableHandle
                 constraintColumns,
                 partitionPredicates.intersect(partitionTupleDomain),
                 regularPredicates.intersect(regularTupleDomain),
-                hudiTableSchema);
+                hudiTableSchema,
+                this::getLatestCommitTime);
     }
 
     @Override

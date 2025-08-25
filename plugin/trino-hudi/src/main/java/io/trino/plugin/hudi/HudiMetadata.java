@@ -166,8 +166,8 @@ public class HudiMetadata
                 Optional.of(Lazy.lazily(() -> getLatestTableSchema(lazyMetaClient.get(), tableName.getTableName()))) : Optional.empty();
 
         return new HudiTableHandle(
-                Optional.of(table),
-                Optional.of(lazyMetaClient),
+                table,
+                lazyMetaClient,
                 tableName.getSchemaName(),
                 tableName.getTableName(),
                 table.getStorage().getLocation(),

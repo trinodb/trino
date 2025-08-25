@@ -219,7 +219,6 @@ public class HudiPageSourceProvider
         // TODO: Move this into HudiTableHandle
         HoodieTableMetaClient metaClient = buildTableMetaClient(
                 fileSystemFactory.create(session), hudiTableHandle.getSchemaTableName().toString(), hudiTableHandle.getBasePath());
-        String latestCommitTime = metaClient.getCommitsTimeline().lastInstant().get().requestedTime();
 
         HudiTrinoReaderContext readerContext = new HudiTrinoReaderContext(
                 dataPageSource,
@@ -237,7 +236,7 @@ public class HudiPageSourceProvider
                         readerContext,
                         new HudiTrinoStorage(fileSystemFactory.create(session), new TrinoStorageConfiguration()),
                         hudiTableHandle.getBasePath(),
-                        latestCommitTime,
+                        hudiTableHandle.getLatestCommitTime(),
                         convertToFileSlice(hudiSplit, hudiTableHandle.getBasePath()),
                         dataSchema,
                         requestedSchema,

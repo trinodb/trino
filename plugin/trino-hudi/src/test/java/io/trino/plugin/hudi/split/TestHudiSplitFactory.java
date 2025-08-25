@@ -183,7 +183,8 @@ public class TestHudiSplitFactory
                 ImmutableList.of(),
                 TupleDomain.all(),
                 TupleDomain.all(),
-                "");
+                "",
+                "101");
     }
 
     private static FileSlice createFileSlice(DataSize baseFileSize, Option<DataSize> logFileSize)
