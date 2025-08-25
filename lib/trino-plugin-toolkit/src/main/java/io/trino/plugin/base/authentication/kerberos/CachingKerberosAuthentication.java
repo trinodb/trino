@@ -11,14 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.base.authentication;
+package io.trino.plugin.base.authentication.kerberos;
 
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 
 import javax.security.auth.Subject;
 import javax.security.auth.kerberos.KerberosTicket;
 
-import static io.trino.plugin.base.authentication.KerberosTicketUtils.getTicketGrantingTicket;
+import static io.trino.plugin.base.authentication.kerberos.KerberosTicketUtils.getTicketGrantingTicket;
 import static java.util.Objects.requireNonNull;
 
 public class CachingKerberosAuthentication

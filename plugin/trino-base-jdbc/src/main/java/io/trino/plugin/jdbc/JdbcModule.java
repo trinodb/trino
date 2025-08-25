@@ -19,6 +19,8 @@ import com.google.inject.Provider;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.plugin.base.authentication.cache.IdentityCacheMapping;
+import io.trino.plugin.base.authentication.cache.SingletonIdentityCacheMapping;
 import io.trino.plugin.base.mapping.IdentifierMappingModule;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifierModule;

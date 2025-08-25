@@ -11,11 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.base.authentication;
+package io.trino.plugin.base.authentication.kerberos;
 
 import org.junit.jupiter.api.Test;
 
-import static io.trino.plugin.base.authentication.KerberosConfiguration.Builder.getServerPrincipal;
+import static io.trino.plugin.base.authentication.kerberos.KerberosConfiguration.Builder.getServerPrincipal;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestKerberosConfiguration
