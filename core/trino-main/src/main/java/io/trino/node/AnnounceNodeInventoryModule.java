@@ -43,7 +43,7 @@ public class AnnounceNodeInventoryModule
         configBinder(binder).bindConfig(AnnounceNodeAnnouncerConfig.class);
         install(internalHttpClientModule("announcer", ForAnnouncer.class)
                 .withConfigDefaults(config -> {
-                    config.setIdleTimeout(new Duration(3, SECONDS));
+                    config.setIdleTimeout(new Duration(30, SECONDS));
                     config.setRequestTimeout(new Duration(3, SECONDS));
                 }).build());
     }
