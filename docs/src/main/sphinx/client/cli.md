@@ -25,7 +25,7 @@ Versions before 350 are not supported.
 (cli-installation)=
 ## Installation
 
-Download {maven_download}`cli`, rename it to `trino`, make it executable with
+Download {github_release_download}`cli`, rename it to `trino`, make it executable with
 `chmod +x`, and run it to show the version of the CLI:
 
 ```text
