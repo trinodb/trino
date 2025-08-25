@@ -21,10 +21,8 @@ import io.airlift.units.Duration;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.metadata.TestingFunctionResolution;
-import io.trino.operator.CompletedWork;
 import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.TestingSourcePage;
-import io.trino.operator.Work;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.VariableWidthBlock;
@@ -426,7 +424,6 @@ public class TestPageProcessor
         ExpressionProfiler profiler = new ExpressionProfiler(testingTicker, SPLIT_RUN_QUANTA);
         for (int i = 0; i < 100; i++) {
             profiler.start();
-            Work<Block> work = projection.project(SESSION, page, SelectedPositions.positionsRange(0, page.getPositionCount()));
             if (i < 10) {
                 // increment the ticker with a large value to mark the expression as expensive
                 testingTicker.increment(10, SECONDS);
@@ -438,7 +435,7 @@ public class TestPageProcessor
                 profiler.stop(page.getPositionCount());
                 assertThat(profiler.isExpressionExpensive()).isFalse();
             }
-            work.process();
+            projection.project(SESSION, page, SelectedPositions.positionsRange(0, page.getPositionCount()));
         }
     }
 
@@ -557,7 +554,7 @@ public class TestPageProcessor
         }
 
         @Override
-        public Work<Block> project(ConnectorSession session, SourcePage page, SelectedPositions selectedPositions)
+        public Block project(ConnectorSession session, SourcePage page, SelectedPositions selectedPositions)
         {
             setInvocationCount(getInvocationCount() + 1);
             return delegate.project(session, page, selectedPositions);
@@ -590,9 +587,9 @@ public class TestPageProcessor
         }
 
         @Override
-        public Work<Block> project(ConnectorSession session, SourcePage page, SelectedPositions selectedPositions)
+        public Block project(ConnectorSession session, SourcePage page, SelectedPositions selectedPositions)
         {
-            return new CompletedWork<>(page.getBlock(0));
+            return page.getBlock(0);
         }
     }
 

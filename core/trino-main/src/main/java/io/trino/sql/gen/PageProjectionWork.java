@@ -11,17 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.project;
+package io.trino.sql.gen;
 
 import io.trino.spi.block.Block;
-import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.SourcePage;
 
-public interface PageProjection
+public interface PageProjectionWork
 {
-    boolean isDeterministic();
-
-    InputChannels getInputChannels();
-
-    Block project(ConnectorSession session, SourcePage page, SelectedPositions selectedPositions);
+    Block process();
 }
