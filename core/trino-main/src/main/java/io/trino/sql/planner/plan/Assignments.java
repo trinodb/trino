@@ -57,11 +57,6 @@ public record Assignments(Map<Symbol, Expression> assignments)
                 .build();
     }
 
-    public static Assignments copyOf(Map<Symbol, Expression> assignments)
-    {
-        return new Assignments(ImmutableMap.copyOf(assignments));
-    }
-
     public static Assignments of()
     {
         return new Assignments(ImmutableMap.of());
