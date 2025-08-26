@@ -804,7 +804,7 @@
             <dependency>
                 <groupId>io.dropwizard.metrics</groupId>
                 <artifactId>metrics-core</artifactId>
-                <version>4.2.33</version>
+                <version>4.2.34</version>
             </dependency>
 
             <dependency>
