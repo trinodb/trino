@@ -14,13 +14,8 @@
 package io.trino.plugin.iceberg.catalog.glue;
 
 import com.google.common.collect.ImmutableMap;
-import io.opentelemetry.api.OpenTelemetry;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.filesystem.s3.S3FileSystemConfig;
-import io.trino.filesystem.s3.S3FileSystemFactory;
-import io.trino.filesystem.s3.S3FileSystemStats;
 import io.trino.plugin.iceberg.BaseIcebergConnectorSmokeTest;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.plugin.iceberg.SchemaInitializer;
@@ -46,6 +41,7 @@ import java.util.List;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.metastore.glue.GlueConverter.getTableTypeNullable;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -67,7 +63,6 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
     private final String bucketName;
     private final String schemaName;
     private final GlueClient glueClient;
-    private final TrinoFileSystemFactory fileSystemFactory;
 
     public TestIcebergGlueCatalogConnectorSmokeTest()
     {
@@ -75,8 +70,6 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
         this.bucketName = requireEnv("S3_BUCKET");
         this.schemaName = "test_iceberg_smoke_" + randomNameSuffix();
         glueClient = GlueClient.create();
-
-        this.fileSystemFactory = new S3FileSystemFactory(OpenTelemetry.noop(), new S3FileSystemConfig(), new S3FileSystemStats());
     }
 
     @Override
@@ -225,7 +218,7 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
     @Override
     protected boolean isFileSorted(Location path, String sortColumnName)
     {
-        TrinoFileSystem fileSystem = fileSystemFactory.create(SESSION);
+        TrinoFileSystem fileSystem = getFileSystemFactory(getDistributedQueryRunner()).create(SESSION);
         return checkParquetFileSorting(fileSystem.newInputFile(path), sortColumnName);
     }
 

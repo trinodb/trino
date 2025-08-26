@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.DataSize;
 import io.minio.messages.Event;
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.Session;
@@ -349,12 +350,24 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
     protected String getMetadataLocation(String tableName)
     {
         HiveMetastore metastore = new BridgingHiveMetastore(
-                testingThriftHiveMetastoreBuilder(new S3FileSystemFactory(OpenTelemetry.noop(), new S3FileSystemConfig(), new S3FileSystemStats()))
+                testingThriftHiveMetastoreBuilder(createS3FileSystemFactory())
                         .metastoreClient(hiveMinioDataLake.getHiveMetastoreEndpoint())
                         .build(this::closeAfterClass));
         return metastore
                 .getTable(schemaName, tableName).orElseThrow()
                 .getParameters().get("metadata_location");
+    }
+
+    private S3FileSystemFactory createS3FileSystemFactory()
+    {
+        return new S3FileSystemFactory(OpenTelemetry.noop(), new S3FileSystemConfig()
+                .setEndpoint(hiveMinioDataLake.getMinio().getMinioAddress())
+                .setRegion(MINIO_REGION)
+                .setPathStyleAccess(true)
+                .setAwsAccessKey(MINIO_ACCESS_KEY)
+                .setAwsSecretKey(MINIO_SECRET_KEY)
+                .setSupportsExclusiveCreate(true)
+                .setStreamingPartSize(DataSize.valueOf("5.5MB")), new S3FileSystemStats());
     }
 
     @Override
