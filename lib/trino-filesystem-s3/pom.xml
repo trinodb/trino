@@ -206,7 +206,6 @@
         <dependency>
             <groupId>eu.rekawek.toxiproxy</groupId>
             <artifactId>toxiproxy-java</artifactId>
-            <version>2.1.7</version>
             <scope>test</scope>
         </dependency>
 
