@@ -51,7 +51,8 @@ public class TestingIcebergConnectorFactory
         this.icebergCatalogModule = requireNonNull(icebergCatalogModule, "icebergCatalogModule is null");
         this.module = binder -> {
             newMapBinder(binder, String.class, TrinoFileSystemFactory.class)
-                    .addBinding("local").toInstance(new LocalFileSystemFactory(localFileSystemRootPath));
+                    .permitDuplicates()
+                    .addBinding("local").toInstance(new LocalFileSystemFactory(Path.of("/")));
             configBinder(binder).bindConfigDefaults(FileHiveMetastoreConfig.class, config -> config.setCatalogDirectory("local:///"));
         };
     }

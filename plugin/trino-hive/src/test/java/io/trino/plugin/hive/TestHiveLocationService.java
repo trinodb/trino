@@ -14,7 +14,7 @@
 package io.trino.plugin.hive;
 
 import io.trino.filesystem.Location;
-import io.trino.filesystem.memory.MemoryFileSystemFactory;
+import io.trino.filesystem.local.LocalFileSystemFactory;
 import io.trino.plugin.hive.LocationService.WriteInfo;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -80,7 +80,7 @@ public class TestHiveLocationService
 
         public Assertion(LocationHandle locationHandle, boolean overwrite)
         {
-            LocationService service = new HiveLocationService(new MemoryFileSystemFactory(), new HiveConfig());
+            LocationService service = new HiveLocationService(new LocalFileSystemFactory(), new HiveConfig());
             this.actual = service.getTableWriteInfo(locationHandle, overwrite);
         }
 

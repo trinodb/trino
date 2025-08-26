@@ -154,10 +154,12 @@ public class FileSystemModule
     {
         Optional<TrinoFileSystemFactory> hdfsFactory = hdfsFileSystemLoader.map(HdfsFileSystemLoader::create);
 
-        Function<Location, TrinoFileSystemFactory> loader = location -> location.scheme()
-                .map(factories::get)
-                .or(() -> hdfsFactory)
-                .orElseThrow(() -> new IllegalArgumentException("No factory for location: " + location));
+        Function<Location, TrinoFileSystemFactory> loader = location ->
+            location.scheme()
+                    .or(() -> hdfsFactory.isEmpty() ? Optional.of("file") : Optional.empty())
+                    .map(factories::get)
+                    .or(() -> hdfsFactory)
+                    .orElseThrow(() -> new IllegalArgumentException("No factory for location: " + location));
 
         TrinoFileSystemFactory delegate = new SwitchingFileSystemFactory(loader);
         delegate = new TracingFileSystemFactory(tracer, delegate);

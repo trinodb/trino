@@ -15,7 +15,6 @@ package io.trino.plugin.hive;
 
 import io.trino.filesystem.Location;
 import io.trino.filesystem.local.LocalFileSystemFactory;
-import io.trino.filesystem.memory.MemoryFileSystemFactory;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.hive.orc.OriginalFilesUtils;
@@ -48,7 +47,7 @@ public class TestOriginalFilesUtils
         long rowCountResult = OriginalFilesUtils.getPrecedingRowCount(
                 originalFileInfoList,
                 tablePath.appendPath("000001_0"),
-                new MemoryFileSystemFactory(),
+                new LocalFileSystemFactory(Path.of("/")),
                 SESSION.getIdentity(),
                 new OrcReaderOptions(),
                 new FileFormatDataSourceStats());
