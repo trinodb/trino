@@ -28,7 +28,7 @@ public class ProtobufSequenceFilePageSourceFactory
     public ProtobufSequenceFilePageSourceFactory(TrinoFileSystemFactory trinoFileSystemFactory, HiveConfig config)
     {
         super(trinoFileSystemFactory,
-                new ProtobufDeserializerFactory(config.getProtobufDescriptors(), config.getProtobufDescriptorsUpdateInterval()),
+                new ProtobufDeserializerFactory(config.getProtobufDescriptorsLocation(), config.getProtobufDescriptorsCacheRefreshInterval(), config.getProtobufDescriptorsCacheMaxSize()),
                 new SequenceFileReaderFactory(1024, toIntExact(config.getTextMaxLineLength().toBytes())));
     }
 }

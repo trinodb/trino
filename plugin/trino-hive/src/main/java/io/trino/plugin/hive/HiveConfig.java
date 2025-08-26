@@ -179,8 +179,9 @@ public class HiveConfig
 
     private int metadataParallelism = 8;
 
-    private Path protobufDescriptors;
-    private Duration protobufDescriptorsUpdateInterval = new Duration(1, TimeUnit.HOURS);
+    private Path protobufDescriptorsLocation;
+    private Duration protobufDescriptorsCacheRefreshInterval = new Duration(1, TimeUnit.DAYS);
+    private long protobufDescriptorsCacheMaxSize = 64;
 
     public boolean isSingleStatementWritesOnly()
     {
@@ -1302,29 +1303,42 @@ public class HiveConfig
         return this;
     }
 
-    public Path getProtobufDescriptors()
+    public Path getProtobufDescriptorsLocation()
     {
-        return protobufDescriptors;
+        return protobufDescriptorsLocation;
     }
 
-    @ConfigDescription("Directory where protobuf descriptors are stored to use for deserializing protobufs")
-    @Config("hive.protobufs.descriptors.location")
-    public HiveConfig setProtobufDescriptors(Path protobufDescriptors)
+    @ConfigDescription("Directory where binary protobuf descriptors are stored to use for deserializing protobufs")
+    @Config("hive.protobuf.descriptors.location")
+    public HiveConfig setProtobufDescriptorsLocation(Path protobufDescriptorsLocation)
     {
-        this.protobufDescriptors = protobufDescriptors;
+        this.protobufDescriptorsLocation = protobufDescriptorsLocation;
         return this;
     }
 
-    public Duration getProtobufDescriptorsUpdateInterval()
+    public long getProtobufDescriptorsCacheMaxSize()
     {
-        return protobufDescriptorsUpdateInterval;
+        return protobufDescriptorsCacheMaxSize;
     }
 
-    @ConfigDescription("Periodic refresh period of the \"hive.protobufs.descriptors\" location in seconds")
-    @Config("hive.protobufs.descriptors.refresh-interval")
-    public HiveConfig setProtobufDescriptorsUpdateInterval(Duration updateInterval)
+    @ConfigDescription("The maximum amount of protobuf descriptors to keep in memory")
+    @Config("hive.protobuf.descriptors.cache.max-size")
+    public HiveConfig setProtobufDescriptorsCacheMaxSize(long size)
     {
-        this.protobufDescriptorsUpdateInterval = updateInterval;
+        this.protobufDescriptorsCacheMaxSize = size;
+        return this;
+    }
+
+    public Duration getProtobufDescriptorsCacheRefreshInterval()
+    {
+        return protobufDescriptorsCacheRefreshInterval;
+    }
+
+    @ConfigDescription("Interval on when loaded descriptors should be refreshed")
+    @Config("hive.protobuf.descriptors.cache.refresh-interval")
+    public HiveConfig setProtobufDescriptorsCacheRefreshInterval(Duration refreshInterval)
+    {
+        this.protobufDescriptorsCacheRefreshInterval = refreshInterval;
         return this;
     }
 }

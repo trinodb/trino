@@ -121,8 +121,9 @@ public class TestHiveConfig
                 .setPartitionProjectionEnabled(true)
                 .setS3GlacierFilter(S3GlacierFilter.READ_ALL)
                 .setMetadataParallelism(8)
-                .setProtobufDescriptors(null)
-                .setProtobufDescriptorsUpdateInterval(new Duration(1, TimeUnit.HOURS)));
+                .setProtobufDescriptorsLocation(null)
+                .setProtobufDescriptorsCacheRefreshInterval(new Duration(1, TimeUnit.DAYS))
+                .setProtobufDescriptorsCacheMaxSize(64));
     }
 
     @Test
@@ -210,8 +211,9 @@ public class TestHiveConfig
                 .put("hive.partition-projection-enabled", "false")
                 .put("hive.s3-glacier-filter", "READ_NON_GLACIER_AND_RESTORED")
                 .put("hive.metadata.parallelism", "10")
-                .put("hive.protobufs.descriptors.location", "/tmp")
-                .put("hive.protobufs.descriptors.refresh-interval", "10s")
+                .put("hive.protobuf.descriptors.location", "/tmp")
+                .put("hive.protobuf.descriptors.cache.max-size", "8")
+                .put("hive.protobuf.descriptors.cache.refresh-interval", "10s")
                 .buildOrThrow();
 
         HiveConfig expected = new HiveConfig()
@@ -296,8 +298,9 @@ public class TestHiveConfig
                 .setPartitionProjectionEnabled(false)
                 .setS3GlacierFilter(S3GlacierFilter.READ_NON_GLACIER_AND_RESTORED)
                 .setMetadataParallelism(10)
-                .setProtobufDescriptors(Path.of("/tmp"))
-                .setProtobufDescriptorsUpdateInterval(new Duration(10, TimeUnit.SECONDS));
+                .setProtobufDescriptorsLocation(Path.of("/tmp"))
+                .setProtobufDescriptorsCacheMaxSize(8)
+                .setProtobufDescriptorsCacheRefreshInterval(new Duration(10, TimeUnit.SECONDS));
 
         assertFullMapping(properties, expected);
     }

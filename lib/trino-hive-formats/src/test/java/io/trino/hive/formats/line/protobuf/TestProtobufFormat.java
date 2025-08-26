@@ -164,7 +164,7 @@ class TestProtobufFormat
                                 field("enumArrayField", new ArrayType(VARCHAR)),
                                 field("bytesArrayField", new ArrayType(VARBINARY))))))), 33));
 
-        ProtobufDeserializerFactory factory = new ProtobufDeserializerFactory(Paths.get(getClass().getResource("/protobuf/descriptors").toURI()), new Duration(1, HOURS));
+        ProtobufDeserializerFactory factory = new ProtobufDeserializerFactory(Paths.get(getClass().getResource("/protobuf/descriptors").toURI()), new Duration(1, HOURS), 1);
         ProtobufDeserializer deserializer = factory.create(columns, Map.of("serialization.class", "io.trino.hive.formats.line.protobuf.examples.DataRecordProtos$DataRecord"));
 
         LineBuffer lineBuffer = new LineBuffer(128, 1024);

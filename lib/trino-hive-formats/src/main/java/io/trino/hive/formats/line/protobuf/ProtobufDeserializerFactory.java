@@ -19,6 +19,7 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.protobuf.DescriptorProtos.FileDescriptorProto;
 import com.google.protobuf.DescriptorProtos.FileDescriptorSet;
 import com.google.protobuf.Descriptors.Descriptor;
@@ -39,10 +40,10 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.cache.CacheBuilder.newBuilder;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static com.google.protobuf.DescriptorProtos.FileDescriptorSet.parseFrom;
 import static com.google.protobuf.Descriptors.FileDescriptor.buildFrom;
+import static io.trino.cache.EvictableCacheBuilder.newBuilder;
 import static io.trino.hive.formats.line.protobuf.ProtobufConstants.HIVE_SERDE_CLASS_NAMES;
 import static java.nio.file.Files.isDirectory;
 import static java.nio.file.Files.newDirectoryStream;
@@ -55,13 +56,14 @@ public class ProtobufDeserializerFactory
 {
     private LoadingCache<String, Descriptor> cache;
 
-    public ProtobufDeserializerFactory(Path descriptorsDirectory, Duration updateInterval)
+    public ProtobufDeserializerFactory(Path descriptorsDirectory, Duration updateInterval, long maximumSize)
     {
         if (descriptorsDirectory != null) {
             // When no directory is set in the config, the factory will fail when create() is used
             // as the cache is null
             cache = newBuilder()
                     .refreshAfterWrite(updateInterval.toJavaTime())
+                    .maximumSize(maximumSize)
                     .build(new DescriptorCacheLoader(descriptorsDirectory));
         }
     }
@@ -85,7 +87,7 @@ public class ProtobufDeserializerFactory
             extends CacheLoader<String, Descriptor>
     {
         private final Path descriptorsDirectory;
-        private final ListeningExecutorService executor = listeningDecorator(newFixedThreadPool(1));
+        private final ListeningExecutorService executor = listeningDecorator(newFixedThreadPool(1, new ThreadFactoryBuilder().setNameFormat("protobuf-descriptors-%s").build()));
 
         DescriptorCacheLoader(Path descriptorsDirectory)
         {
