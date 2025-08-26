@@ -132,6 +132,7 @@ public class ProtobufDeserializerFactory
             throw new IllegalArgumentException("No file descriptor found for serialization class " + serializationClass);
         }
 
+        @Override
         public ListenableFuture<Descriptor> reload(String serializationClass, Descriptor oldValue)
         {
             checkNotNull(serializationClass);
