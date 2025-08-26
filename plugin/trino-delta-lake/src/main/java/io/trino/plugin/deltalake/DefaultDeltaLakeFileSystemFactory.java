@@ -14,12 +14,22 @@
 package io.trino.plugin.deltalake;
 
 import com.google.inject.Inject;
+import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.cache.CacheKeyProvider;
+import io.trino.filesystem.cache.TrinoFileSystemCache;
+import io.trino.filesystem.manager.FileSystemConfig;
+import io.trino.filesystem.manager.HdfsFileSystemLoader;
+import io.trino.filesystem.memory.MemoryFileSystemCache;
 import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.security.ConnectorIdentity;
 
+import java.util.Map;
+import java.util.Optional;
+
+import static io.trino.filesystem.manager.FileSystemUtils.createDefaultFileSystemFactory;
 import static java.util.Objects.requireNonNull;
 
 public class DefaultDeltaLakeFileSystemFactory
@@ -28,6 +38,18 @@ public class DefaultDeltaLakeFileSystemFactory
     private final TrinoFileSystemFactory fileSystemFactory;
 
     @Inject
+    public DefaultDeltaLakeFileSystemFactory(
+            FileSystemConfig config,
+            Optional<HdfsFileSystemLoader> hdfsFileSystemLoader,
+            Map<String, TrinoFileSystemFactory> factories,
+            Optional<TrinoFileSystemCache> fileSystemCache,
+            Optional<MemoryFileSystemCache> memoryFileSystemCache,
+            Optional<CacheKeyProvider> keyProvider,
+            Tracer tracer)
+    {
+        this.fileSystemFactory = createDefaultFileSystemFactory(config, hdfsFileSystemLoader, factories, fileSystemCache, memoryFileSystemCache, keyProvider, tracer);
+    }
+
     public DefaultDeltaLakeFileSystemFactory(TrinoFileSystemFactory fileSystemFactory)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
@@ -45,9 +67,10 @@ public class DefaultDeltaLakeFileSystemFactory
         return fileSystemFactory.create(session.getIdentity());
     }
 
+    @Deprecated
     @Override
     public TrinoFileSystem create(ConnectorIdentity identity)
     {
-        throw new UnsupportedOperationException();
+        return fileSystemFactory.create(identity);
     }
 }

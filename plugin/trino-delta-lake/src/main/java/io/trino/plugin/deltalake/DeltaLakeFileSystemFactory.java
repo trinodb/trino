@@ -14,13 +14,12 @@
 package io.trino.plugin.deltalake;
 
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.deltalake.metastore.DeltaMetastoreTable;
 import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.security.ConnectorIdentity;
 
 public interface DeltaLakeFileSystemFactory
-        extends TrinoFileSystemFactory
 {
     default TrinoFileSystem create(ConnectorSession session, DeltaLakeTableHandle table)
     {
@@ -39,8 +38,7 @@ public interface DeltaLakeFileSystemFactory
      */
     TrinoFileSystem create(ConnectorSession session, String tableLocation);
 
-    @Override
-    default TrinoFileSystem create(ConnectorSession session)
+    default TrinoFileSystem create(ConnectorIdentity identity)
     {
         throw new UnsupportedOperationException();
     }

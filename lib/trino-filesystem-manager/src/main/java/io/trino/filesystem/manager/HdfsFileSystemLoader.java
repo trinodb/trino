@@ -34,7 +34,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Streams.stream;
 import static java.nio.file.Files.newDirectoryStream;
 
-final class HdfsFileSystemLoader
+public final class HdfsFileSystemLoader
 {
     private final HdfsClassLoader classLoader;
     private final Object manager;

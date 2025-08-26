@@ -161,9 +161,14 @@ public class FileHiveMetastore
 
     public FileHiveMetastore(NodeVersion nodeVersion, TrinoFileSystemFactory fileSystemFactory, boolean hideDeltaLakeTables, FileHiveMetastoreConfig config)
     {
+        this(nodeVersion, fileSystemFactory.create(ConnectorIdentity.ofUser(config.getMetastoreUser())), hideDeltaLakeTables, config);
+    }
+
+    public FileHiveMetastore(NodeVersion nodeVersion, TrinoFileSystem fileSystem, boolean hideDeltaLakeTables, FileHiveMetastoreConfig config)
+    {
         this.currentVersion = nodeVersion.toString();
         this.versionCompatibility = requireNonNull(config.getVersionCompatibility(), "config.getVersionCompatibility() is null");
-        this.fileSystem = fileSystemFactory.create(ConnectorIdentity.ofUser(config.getMetastoreUser()));
+        this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
         this.catalogDirectory = Location.of(requireNonNull(config.getCatalogDirectory(), "catalogDirectory is null"));
         this.disableLocationChecks = config.isDisableLocationChecks();
         this.hideDeltaLakeTables = hideDeltaLakeTables;

@@ -22,7 +22,7 @@ import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.json.JsonModule;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
-import io.trino.filesystem.manager.FileSystemModule;
+import io.trino.filesystem.manager.TrinoFileSystemModule;
 import io.trino.plugin.base.CatalogNameModule;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorAccessControl;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSinkProvider;
@@ -100,7 +100,7 @@ public class DeltaLakeConnectorFactory
                     new DeltaLakeModule(),
                     new DeltaLakeSecurityModule(),
                     new DeltaLakeSynchronizerModule(),
-                    new FileSystemModule(catalogName, context.getCurrentNode().isCoordinator(), context.getOpenTelemetry(), false),
+                    new TrinoFileSystemModule(catalogName, context.getCurrentNode().isCoordinator(), context.getOpenTelemetry(), false),
                     binder -> {
                         binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry());
                         binder.bind(Tracer.class).toInstance(context.getTracer());

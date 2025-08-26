@@ -11,26 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.filesystem.manager;
+package io.trino.plugin.deltalake;
 
 import com.google.inject.Binder;
-import com.google.inject.Provides;
-import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.opentelemetry.api.OpenTelemetry;
-import io.opentelemetry.api.trace.Tracer;
-import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.filesystem.cache.CacheKeyProvider;
-import io.trino.filesystem.cache.TrinoFileSystemCache;
-import io.trino.filesystem.memory.MemoryFileSystemCache;
+import io.trino.filesystem.manager.TrinoFileSystemModule;
 
-import java.util.Map;
-import java.util.Optional;
-
-import static io.trino.filesystem.manager.FileSystemUtils.createDefaultFileSystemFactory;
 import static java.util.Objects.requireNonNull;
 
-public class FileSystemModule
+public class DeltaLakeFileSystemModule
         extends AbstractConfigurationAwareModule
 {
     private final String catalogName;
@@ -38,7 +28,7 @@ public class FileSystemModule
     private final OpenTelemetry openTelemetry;
     private final boolean coordinatorFileCaching;
 
-    public FileSystemModule(String catalogName, boolean isCoordinator, OpenTelemetry openTelemetry, boolean coordinatorFileCaching)
+    public DeltaLakeFileSystemModule(String catalogName, boolean isCoordinator, OpenTelemetry openTelemetry, boolean coordinatorFileCaching)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.isCoordinator = isCoordinator;
@@ -52,17 +42,18 @@ public class FileSystemModule
         install(new TrinoFileSystemModule(catalogName, isCoordinator, openTelemetry, coordinatorFileCaching));
     }
 
-    @Provides
-    @Singleton
-    static TrinoFileSystemFactory createFileSystemFactory(
-            FileSystemConfig config,
-            Optional<HdfsFileSystemLoader> hdfsFileSystemLoader,
-            Map<String, TrinoFileSystemFactory> factories,
-            Optional<TrinoFileSystemCache> fileSystemCache,
-            Optional<MemoryFileSystemCache> memoryFileSystemCache,
-            Optional<CacheKeyProvider> keyProvider,
-            Tracer tracer)
-    {
-        return createDefaultFileSystemFactory(config, hdfsFileSystemLoader, factories, fileSystemCache, memoryFileSystemCache, keyProvider, tracer);
-    }
+//    @Provides
+//    @Singleton
+//    static DeltaLakeFileSystemFactory createFileSystemFactory(
+//            FileSystemConfig config,
+//            Optional<HdfsFileSystemLoader> hdfsFileSystemLoader,
+//            Map<String, TrinoFileSystemFactory> factories,
+//            Optional<TrinoFileSystemCache> fileSystemCache,
+//            Optional<MemoryFileSystemCache> memoryFileSystemCache,
+//            Optional<CacheKeyProvider> keyProvider,
+//            Tracer tracer)
+//    {
+//        TrinoFileSystemFactory defaultFileSystemFactory = createDefaultFileSystemFactory(config, hdfsFileSystemLoader, factories, fileSystemCache, memoryFileSystemCache, keyProvider, tracer);
+//        return new DefaultDeltaLakeFileSystemFactory(defaultFileSystemFactory);
+//    }
 }
