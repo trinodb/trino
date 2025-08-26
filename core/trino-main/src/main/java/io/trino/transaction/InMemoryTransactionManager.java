@@ -423,7 +423,7 @@ public class InMemoryTransactionManager
                     .distinct()
                     .map(key -> registeredCatalogs.getOrDefault(key, Optional.empty()))
                     .flatMap(Optional::stream)
-                    .map(catalog -> new CatalogInfo(catalog.getCatalogName().toString(), catalog.getCatalogHandle(), catalog.getConnectorName()))
+                    .map(catalog -> new CatalogInfo(catalog.getCatalogName().toString(), catalog.getCatalogHandle(), catalog.getConnectorName(), catalog.isLoaded()))
                     .collect(toImmutableList());
         }
 
@@ -436,7 +436,7 @@ public class InMemoryTransactionManager
             return registeredCatalogs.values().stream()
                     .filter(Optional::isPresent)
                     .map(Optional::get)
-                    .map(catalog -> new CatalogInfo(catalog.getCatalogName().toString(), catalog.getCatalogHandle(), catalog.getConnectorName()))
+                    .map(catalog -> new CatalogInfo(catalog.getCatalogName().toString(), catalog.getCatalogHandle(), catalog.getConnectorName(), catalog.isLoaded()))
                     .collect(toImmutableList());
         }
 
