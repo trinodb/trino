@@ -57,6 +57,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.metastore.Partitions.makePartName;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getHiveBasicStatistics;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -97,7 +98,7 @@ abstract class BaseTestHiveOnDataLake
     {
         this.hiveMinioDataLake.start();
         this.metastoreClient = new BridgingHiveMetastore(
-                testingThriftHiveMetastoreBuilder()
+                testingThriftHiveMetastoreBuilder(HDFS_FILE_SYSTEM_FACTORY)
                         .metastoreClient(hiveMinioDataLake.getHiveMetastoreEndpoint())
                         .build(this::closeAfterClass));
         return S3HiveQueryRunner.builder(hiveMinioDataLake)

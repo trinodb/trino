@@ -131,7 +131,7 @@ public class TestTrinoHiveCatalogWithHiveMetastore
                         .setRegion(MINIO_REGION)
                         .setPathStyleAccess(true),
                 new S3FileSystemStats());
-        ThriftMetastore thriftMetastore = testingThriftHiveMetastoreBuilder()
+        ThriftMetastore thriftMetastore = testingThriftHiveMetastoreBuilder(fileSystemFactory)
                 .thriftMetastoreConfig(new ThriftMetastoreConfig()
                         // Read timed out sometimes happens with the default timeout
                         .setReadTimeout(new Duration(1, MINUTES)))

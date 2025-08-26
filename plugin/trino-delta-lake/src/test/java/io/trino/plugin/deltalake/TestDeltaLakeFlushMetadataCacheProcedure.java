@@ -22,6 +22,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
 import static io.trino.plugin.hive.containers.HiveHadoop.HIVE3_IMAGE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -42,7 +43,7 @@ public class TestDeltaLakeFlushMetadataCacheProcedure
         Hive3MinioDataLake hiveMinioDataLake = closeAfterClass(new Hive3MinioDataLake(bucketName, HIVE3_IMAGE));
         hiveMinioDataLake.start();
         metastore = new BridgingHiveMetastore(
-                testingThriftHiveMetastoreBuilder()
+                testingThriftHiveMetastoreBuilder(HDFS_FILE_SYSTEM_FACTORY)
                         .metastoreClient(hiveMinioDataLake.getHiveMetastoreEndpoint())
                         .build(this::closeAfterClass));
 

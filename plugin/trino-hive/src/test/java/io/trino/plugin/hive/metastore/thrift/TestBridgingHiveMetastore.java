@@ -34,6 +34,7 @@ import static com.google.common.reflect.Reflection.newProxy;
 import static io.trino.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -69,7 +70,7 @@ final class TestBridgingHiveMetastore
             return result;
         });
 
-        metastore = new BridgingHiveMetastore(testingThriftHiveMetastoreBuilder()
+        metastore = new BridgingHiveMetastore(testingThriftHiveMetastoreBuilder(HDFS_FILE_SYSTEM_FACTORY)
                 .metastoreClient(hiveHadoop.getHiveMetastoreEndpoint(), metastoreClientAdapterProvider)
                 .thriftMetastoreConfig(new ThriftMetastoreConfig().setDeleteFilesOnDrop(true))
                 .build(closer::register));

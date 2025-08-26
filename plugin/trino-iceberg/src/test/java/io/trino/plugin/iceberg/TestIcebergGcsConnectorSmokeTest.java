@@ -17,7 +17,11 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import io.airlift.log.Logger;
 import io.trino.filesystem.Location;
+import io.trino.filesystem.gcs.GcsFileSystemConfig;
+import io.trino.filesystem.gcs.GcsFileSystemFactory;
+import io.trino.filesystem.gcs.GcsStorageFactory;
 import io.trino.metastore.HiveMetastore;
+import io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder;
 import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.testing.QueryRunner;
@@ -173,18 +177,28 @@ public class TestIcebergGcsConnectorSmokeTest
     protected void dropTableFromMetastore(String tableName)
     {
         HiveMetastore metastore = new BridgingHiveMetastore(
-                testingThriftHiveMetastoreBuilder()
+                TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder(createGcsStorageFactory())
                         .metastoreClient(hiveHadoop.getHiveMetastoreEndpoint())
                         .build(this::closeAfterClass));
         metastore.dropTable(schema, tableName, false);
         assertThat(metastore.getTable(schema, tableName)).isEmpty();
     }
 
+    private static GcsFileSystemFactory createGcsStorageFactory()
+    {
+        try {
+            return new GcsFileSystemFactory(new GcsFileSystemConfig(), new GcsStorageFactory(new GcsFileSystemConfig()));
+        }
+        catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     @Override
     protected String getMetadataLocation(String tableName)
     {
         HiveMetastore metastore = new BridgingHiveMetastore(
-                testingThriftHiveMetastoreBuilder()
+                testingThriftHiveMetastoreBuilder(createGcsStorageFactory())
                         .metastoreClient(hiveHadoop.getHiveMetastoreEndpoint())
                         .build(this::closeAfterClass));
         return metastore

@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.hive;
 
+import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.thrift.MetastoreClientAdapterProvider;
 import io.trino.plugin.hive.metastore.thrift.TestingTokenAwareMetastoreClientFactory;
@@ -33,30 +33,38 @@ import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.plugin.base.security.UserNameProvider.SIMPLE_USER_NAME_PROVIDER;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.plugin.hive.metastore.thrift.TestingTokenAwareMetastoreClientFactory.TIMEOUT;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 
 public final class TestingThriftHiveMetastoreBuilder
 {
+    private static final Optional<HostAndPort> SOCKS_PROXY = Optional.ofNullable(System.getProperty("hive.metastore.thrift.client.socks-proxy"))
+            .map(HostAndPort::fromString);
     private TokenAwareMetastoreClientFactory tokenAwareMetastoreClientFactory;
     private ThriftMetastoreConfig thriftMetastoreConfig = new ThriftMetastoreConfig();
-    private TrinoFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS);
+    private TrinoFileSystemFactory fileSystemFactory;
 
-    public static TestingThriftHiveMetastoreBuilder testingThriftHiveMetastoreBuilder()
+//    public static TestingThriftHiveMetastoreBuilder testingThriftHiveMetastoreBuilder()
+//    {
+//        return testingThriftHiveMetastoreBuilder(new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS));
+//    }
+
+    public static TestingThriftHiveMetastoreBuilder testingThriftHiveMetastoreBuilder(TrinoFileSystemFactory fileSystemFactory)
     {
-        return new TestingThriftHiveMetastoreBuilder();
+        return new TestingThriftHiveMetastoreBuilder(fileSystemFactory);
     }
 
-    private TestingThriftHiveMetastoreBuilder() {}
+    private TestingThriftHiveMetastoreBuilder(TrinoFileSystemFactory fileSystemFactory)
+    {
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
+    }
 
     public TestingThriftHiveMetastoreBuilder metastoreClient(URI metastoreUri)
     {
         requireNonNull(metastoreUri, "metastoreUri is null");
         checkState(tokenAwareMetastoreClientFactory == null, "Metastore client already set");
-        tokenAwareMetastoreClientFactory = new TestingTokenAwareMetastoreClientFactory(HiveTestUtils.SOCKS_PROXY, metastoreUri);
+        tokenAwareMetastoreClientFactory = new TestingTokenAwareMetastoreClientFactory(SOCKS_PROXY, metastoreUri);
         return this;
     }
 
@@ -65,7 +73,7 @@ public final class TestingThriftHiveMetastoreBuilder
         requireNonNull(address, "address is null");
         requireNonNull(timeout, "timeout is null");
         checkState(tokenAwareMetastoreClientFactory == null, "Metastore client already set");
-        tokenAwareMetastoreClientFactory = new TestingTokenAwareMetastoreClientFactory(HiveTestUtils.SOCKS_PROXY, address, timeout);
+        tokenAwareMetastoreClientFactory = new TestingTokenAwareMetastoreClientFactory(SOCKS_PROXY, address, timeout);
         return this;
     }
 
@@ -73,7 +81,7 @@ public final class TestingThriftHiveMetastoreBuilder
     {
         requireNonNull(uri, "uri is null");
         checkState(tokenAwareMetastoreClientFactory == null, "Metastore client already set");
-        tokenAwareMetastoreClientFactory = new TestingTokenAwareMetastoreClientFactory(HiveTestUtils.SOCKS_PROXY, uri, TIMEOUT, metastoreClientAdapterProvider);
+        tokenAwareMetastoreClientFactory = new TestingTokenAwareMetastoreClientFactory(SOCKS_PROXY, uri, TIMEOUT, metastoreClientAdapterProvider);
         return this;
     }
 

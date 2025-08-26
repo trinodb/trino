@@ -81,6 +81,7 @@ import static io.trino.metastore.StatisticsUpdateMode.MERGE_INCREMENTAL;
 import static io.trino.metastore.cache.CachingHiveMetastore.createPerTransactionCache;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.computePartitionKeyFilter;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.makePartitionName;
@@ -164,7 +165,7 @@ public class TestCachingHiveMetastore
 
     private ThriftMetastore createThriftHiveMetastore(ThriftMetastoreClient client)
     {
-        return testingThriftHiveMetastoreBuilder()
+        return testingThriftHiveMetastoreBuilder(HDFS_FILE_SYSTEM_FACTORY)
                 .metastoreClient(client)
                 .build(closer::register);
     }
