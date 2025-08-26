@@ -36,6 +36,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -135,8 +136,8 @@ public class ProtobufDeserializerFactory
         @Override
         public ListenableFuture<Descriptor> reload(String serializationClass, Descriptor oldValue)
         {
-            checkNotNull(serializationClass);
-            checkNotNull(oldValue);
+            requireNonNull(serializationClass);
+            requireNonNull(oldValue);
 
             SettableFuture<Descriptor> future = SettableFuture.create();
             // This executor executes using only one thread at a time,
