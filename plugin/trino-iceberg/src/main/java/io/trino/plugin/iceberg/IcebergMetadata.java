@@ -3756,12 +3756,6 @@ public class IcebergMetadata
     }
 
     @Override
-    public boolean delegateMaterializedViewRefreshToConnector(ConnectorSession session, SchemaTableName viewName)
-    {
-        return false;
-    }
-
-    @Override
     public ConnectorInsertTableHandle beginRefreshMaterializedView(
             ConnectorSession session,
             ConnectorTableHandle tableHandle,

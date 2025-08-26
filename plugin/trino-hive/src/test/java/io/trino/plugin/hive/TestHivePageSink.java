@@ -72,7 +72,6 @@ import static io.trino.plugin.hive.HiveCompressionOption.LZ4;
 import static io.trino.plugin.hive.HiveCompressionOption.NONE;
 import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
 import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.HiveTestUtils.PAGE_SORTER;
 import static io.trino.plugin.hive.HiveTestUtils.getDefaultHiveFileWriterFactories;
 import static io.trino.plugin.hive.HiveTestUtils.getDefaultHivePageSourceFactories;
@@ -388,14 +387,14 @@ public class TestHivePageSink
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
         HivePageSinkProvider provider = new HivePageSinkProvider(
                 getDefaultHiveFileWriterFactories(config, fileSystemFactory),
-                HDFS_FILE_SYSTEM_FACTORY,
+                fileSystemFactory,
                 PAGE_SORTER,
                 HiveMetastoreFactory.ofInstance(metastore),
                 new GroupByHashPageIndexerFactory(new FlatHashStrategyCompiler(new TypeOperators())),
                 TESTING_TYPE_MANAGER,
                 config,
                 sortingFileWriterConfig,
-                new HiveLocationService(HDFS_FILE_SYSTEM_FACTORY, config),
+                new HiveLocationService(fileSystemFactory, config),
                 partitionUpdateCodec,
                 stats);
         return provider.createPageSink(transaction, getHiveSession(config), handle, TESTING_PAGE_SINK_ID);

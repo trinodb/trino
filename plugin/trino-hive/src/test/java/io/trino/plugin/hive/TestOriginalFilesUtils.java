@@ -14,17 +14,19 @@
 package io.trino.plugin.hive;
 
 import io.trino.filesystem.Location;
+import io.trino.filesystem.local.LocalFileSystemFactory;
+import io.trino.filesystem.memory.MemoryFileSystemFactory;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.hive.orc.OriginalFilesUtils;
 import org.junit.jupiter.api.Test;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
 import static com.google.common.io.Resources.getResource;
 import static io.trino.plugin.hive.AcidInfo.OriginalFileInfo;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -46,7 +48,7 @@ public class TestOriginalFilesUtils
         long rowCountResult = OriginalFilesUtils.getPrecedingRowCount(
                 originalFileInfoList,
                 tablePath.appendPath("000001_0"),
-                HDFS_FILE_SYSTEM_FACTORY,
+                new MemoryFileSystemFactory(),
                 SESSION.getIdentity(),
                 new OrcReaderOptions(),
                 new FileFormatDataSourceStats());
@@ -67,7 +69,7 @@ public class TestOriginalFilesUtils
         long rowCountResult = OriginalFilesUtils.getPrecedingRowCount(
                 originalFileInfos,
                 tablePath.appendPath("000002_0_copy_2"),
-                HDFS_FILE_SYSTEM_FACTORY,
+                new LocalFileSystemFactory(Path.of("/")),
                 SESSION.getIdentity(),
                 new OrcReaderOptions(),
                 new FileFormatDataSourceStats());

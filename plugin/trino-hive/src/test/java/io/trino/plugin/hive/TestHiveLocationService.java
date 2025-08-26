@@ -14,11 +14,11 @@
 package io.trino.plugin.hive;
 
 import io.trino.filesystem.Location;
+import io.trino.filesystem.memory.MemoryFileSystemFactory;
 import io.trino.plugin.hive.LocationService.WriteInfo;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY;
 import static io.trino.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_NEW_DIRECTORY;
 import static io.trino.plugin.hive.LocationHandle.WriteMode.STAGE_AND_MOVE_TO_TARGET_DIRECTORY;
@@ -80,7 +80,7 @@ public class TestHiveLocationService
 
         public Assertion(LocationHandle locationHandle, boolean overwrite)
         {
-            LocationService service = new HiveLocationService(HDFS_FILE_SYSTEM_FACTORY, new HiveConfig());
+            LocationService service = new HiveLocationService(new MemoryFileSystemFactory(), new HiveConfig());
             this.actual = service.getTableWriteInfo(locationHandle, overwrite);
         }
 

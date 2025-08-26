@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.local.LocalFileSystemFactory;
 import io.trino.metastore.TableInfo;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
@@ -49,7 +50,6 @@ import java.util.Optional;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.airlift.json.JsonCodec.jsonCodec;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 import static io.trino.plugin.iceberg.IcebergSchemaProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
@@ -66,6 +66,7 @@ public class TestTrinoGlueCatalog
         extends BaseTrinoCatalogTest
 {
     private static final Logger LOG = Logger.get(TestTrinoGlueCatalog.class);
+    private final TrinoFileSystemFactory fileSystemFactory = new LocalFileSystemFactory(Path.of("/"));
 
     @Override
     protected TrinoCatalog createTrinoCatalog(boolean useUniqueTableLocations)
@@ -79,12 +80,12 @@ public class TestTrinoGlueCatalog
         IcebergGlueCatalogConfig catalogConfig = new IcebergGlueCatalogConfig();
         return new TrinoGlueCatalog(
                 new CatalogName("catalog_name"),
-                HDFS_FILE_SYSTEM_FACTORY,
+                fileSystemFactory,
                 FILE_IO_FACTORY,
                 new TestingTypeManager(),
                 catalogConfig.isCacheTableMetadata(),
                 new GlueIcebergTableOperationsProvider(
-                        HDFS_FILE_SYSTEM_FACTORY,
+                        fileSystemFactory,
                         FILE_IO_FACTORY,
                         TESTING_TYPE_MANAGER,
                         catalogConfig,
@@ -214,7 +215,6 @@ public class TestTrinoGlueCatalog
         Path tmpDirectory = Files.createTempDirectory("test_glue_catalog_default_location_");
         tmpDirectory.toFile().deleteOnExit();
 
-        TrinoFileSystemFactory fileSystemFactory = HDFS_FILE_SYSTEM_FACTORY;
         GlueClient glueClient = GlueClient.create();
         IcebergGlueCatalogConfig catalogConfig = new IcebergGlueCatalogConfig();
         TrinoCatalog catalogWithDefaultLocation = new TrinoGlueCatalog(

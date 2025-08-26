@@ -19,6 +19,7 @@ import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.local.LocalFileSystemFactory;
 import io.trino.metastore.HiveMetastore;
 import io.trino.plugin.iceberg.catalog.file.TestingIcebergFileMetastoreCatalogModule;
 import io.trino.plugin.tpch.TpchPlugin;
@@ -53,7 +54,6 @@ import java.util.regex.Pattern;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
@@ -83,7 +83,7 @@ public class TestIcebergRegisterTableProcedure
     {
         metastoreDir = Files.createTempDirectory("test_iceberg_register_table").toFile();
         metastoreDir.deleteOnExit();
-        metastore = createTestingFileHiveMetastore(HDFS_FILE_SYSTEM_FACTORY, Location.of(metastoreDir.getAbsolutePath()));
+        metastore = createTestingFileHiveMetastore(new LocalFileSystemFactory(Path.of("/")), Location.of(metastoreDir.getAbsolutePath()));
 
         // TODO: convert to IcebergQueryRunner when there is a replacement for HadoopTables that works with TrinoFileSystem
         QueryRunner queryRunner = DistributedQueryRunner.builder(testSessionBuilder()
