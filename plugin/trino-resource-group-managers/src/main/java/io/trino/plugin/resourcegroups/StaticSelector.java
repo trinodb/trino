@@ -85,13 +85,13 @@ public class StaticSelector
                     return new PatternMatcher(variableNames, sourceRegexValue, criteria -> criteria.getSource().orElse(""));
                 }))
                 .add(userGroupRegex.map(userGroupRegexValue ->
-                    new BasicMatcher(criteria -> criteria.getUserGroups().stream().anyMatch(userGroup -> userGroupRegexValue.matcher(userGroup).matches()))))
+                            new BasicMatcher(criteria -> criteria.getUserGroups().stream().anyMatch(userGroup -> userGroupRegexValue.matcher(userGroup).matches()))))
                 .add(queryType.map(queryTypeValue ->
-                    new BasicMatcher(criteria -> queryTypeValue.equalsIgnoreCase(criteria.getQueryType().orElse("")))))
+                            new BasicMatcher(criteria -> queryTypeValue.equalsIgnoreCase(criteria.getQueryType().orElse("")))))
                 .add(selectorResourceEstimate.map(selectorResourceEstimateValue ->
-                    new BasicMatcher(criteria -> selectorResourceEstimateValue.match(criteria.getResourceEstimates()))))
+                            new BasicMatcher(criteria -> selectorResourceEstimateValue.match(criteria.getResourceEstimates()))))
                 .add(clientTags.map(clientTagsValue ->
-                    new BasicMatcher(criteria -> criteria.getTags().containsAll(clientTagsValue))))
+                            new BasicMatcher(criteria -> criteria.getTags().containsAll(clientTagsValue))))
                 .build()
                 .stream()
                 .flatMap(Optional::stream) // remove any empty optionals
