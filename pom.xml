@@ -199,7 +199,7 @@
         <dep.httpcore5.version>5.3.4</dep.httpcore5.version>
         <dep.iceberg.version>1.9.2</dep.iceberg.version>
         <dep.jna.version>5.17.0</dep.jna.version>
-        <dep.jsonwebtoken.version>0.12.7</dep.jsonwebtoken.version>
+        <dep.jsonwebtoken.version>0.13.0</dep.jsonwebtoken.version>
         <dep.jts.version>1.20.0</dep.jts.version>
         <dep.kafka-clients.version>4.0.0</dep.kafka-clients.version>
         <dep.okhttp.version>5.1.0</dep.okhttp.version>
