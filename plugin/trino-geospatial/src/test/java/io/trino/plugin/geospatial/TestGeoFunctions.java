@@ -2239,42 +2239,42 @@ public class TestGeoFunctions
     }
 
     @Test
-    public void testGeometryJsonConversion()
+    public void testSphericalGeographyJsonConversion()
     {
         // empty geometries should return empty
         // empty geometries are represented by an empty JSON array in GeoJSON
-        assertGeoToAndFromJson("POINT EMPTY");
-        assertGeoToAndFromJson("LINESTRING EMPTY");
-        assertGeoToAndFromJson("POLYGON EMPTY");
-        assertGeoToAndFromJson("MULTIPOINT EMPTY");
-        assertGeoToAndFromJson("MULTILINESTRING EMPTY");
-        assertGeoToAndFromJson("MULTIPOLYGON EMPTY");
-        assertGeoToAndFromJson("GEOMETRYCOLLECTION EMPTY");
+        assertGeographyToAndFromJson("POINT EMPTY");
+        assertGeographyToAndFromJson("LINESTRING EMPTY");
+        assertGeographyToAndFromJson("POLYGON EMPTY");
+        assertGeographyToAndFromJson("MULTIPOINT EMPTY");
+        assertGeographyToAndFromJson("MULTILINESTRING EMPTY");
+        assertGeographyToAndFromJson("MULTIPOLYGON EMPTY");
+        assertGeographyToAndFromJson("GEOMETRYCOLLECTION EMPTY");
 
         // valid nonempty geometries should return as is.
-        assertGeoToAndFromJson("POINT (1 2)");
-        assertGeoToAndFromJson("MULTIPOINT ((1 2), (3 4))");
-        assertGeoToAndFromJson("LINESTRING (0 0, 1 2, 3 4)");
-        assertGeoToAndFromJson("MULTILINESTRING (" +
+        assertGeographyToAndFromJson("POINT (1 2)");
+        assertGeographyToAndFromJson("MULTIPOINT ((1 2), (3 4))");
+        assertGeographyToAndFromJson("LINESTRING (0 0, 1 2, 3 4)");
+        assertGeographyToAndFromJson("MULTILINESTRING (" +
                 "(1 1, 5 1), " +
                 "(2 4, 4 4))");
-        assertGeoToAndFromJson("POLYGON (" +
+        assertGeographyToAndFromJson("POLYGON (" +
                 "(0 0, 1 0, 1 1, 0 1, 0 0))");
-        assertGeoToAndFromJson("POLYGON (" +
+        assertGeographyToAndFromJson("POLYGON (" +
                 "(0 0, 3 0, 3 3, 0 3, 0 0), " +
                 "(1 1, 1 2, 2 2, 2 1, 1 1))");
-        assertGeoToAndFromJson("MULTIPOLYGON (" +
+        assertGeographyToAndFromJson("MULTIPOLYGON (" +
                 "((1 1, 3 1, 3 3, 1 3, 1 1)), " +
                 "((2 4, 6 4, 6 6, 2 6, 2 4)))");
-        assertGeoToAndFromJson("GEOMETRYCOLLECTION (" +
+        assertGeographyToAndFromJson("GEOMETRYCOLLECTION (" +
                 "POINT (1 2), " +
                 "LINESTRING (0 0, 1 2, 3 4), " +
                 "POLYGON ((0 0, 1 0, 1 1, 0 1, 0 0)))");
 
         // invalid geometries should return as is.
-        assertGeoToAndFromJson("MULTIPOINT ((0 0), (0 1), (1 1), (0 1))");
-        assertGeoToAndFromJson("LINESTRING (0 0, 0 1, 0 1, 1 1, 1 0, 0 0)");
-        assertGeoToAndFromJson("LINESTRING (0 0, 1 1, 1 0, 0 1)");
+        assertGeographyToAndFromJson("MULTIPOINT ((0 0), (0 1), (1 1), (0 1))");
+        assertGeographyToAndFromJson("LINESTRING (0 0, 0 1, 0 1, 1 1, 1 0, 0 0)");
+        assertGeographyToAndFromJson("LINESTRING (0 0, 1 1, 1 0, 0 1)");
 
         // extra properties are stripped from JSON
         assertValidGeometryJson("{\"type\":\"Point\", \"coordinates\":[0,0], \"mykey\":\"myvalue\"}", "POINT (0 0)");
@@ -2306,7 +2306,7 @@ public class TestGeoFunctions
                 "Invalid GeoJSON: Unexpected token RIGHT BRACE(}) at position 30.");
     }
 
-    private void assertGeoToAndFromJson(String wkt)
+    private void assertGeographyToAndFromJson(String wkt)
     {
         assertThat(assertions.function("ST_AsText", "to_geometry(from_geojson_geometry(to_geojson_geometry(to_spherical_geography(ST_GeometryFromText('%s')))))".formatted(wkt)))
                 .hasType(VARCHAR)
@@ -2324,6 +2324,52 @@ public class TestGeoFunctions
     {
         assertTrinoExceptionThrownBy(assertions.function("from_geojson_geometry", "'%s'".formatted(json))::evaluate)
                 .hasMessage(message);
+    }
+
+    @Test
+    public void testGeometryJsonConversion()
+    {
+        // empty geometries should return empty
+        // empty geometries are represented by an empty JSON array in GeoJSON
+        assertGeometryToAndFromJson("POINT EMPTY");
+        assertGeometryToAndFromJson("LINESTRING EMPTY");
+        assertGeometryToAndFromJson("POLYGON EMPTY");
+        assertGeometryToAndFromJson("MULTIPOINT EMPTY");
+        assertGeometryToAndFromJson("MULTILINESTRING EMPTY");
+        assertGeometryToAndFromJson("MULTIPOLYGON EMPTY");
+        assertGeometryToAndFromJson("GEOMETRYCOLLECTION EMPTY");
+
+        // valid nonempty geometries should return as is.
+        assertGeometryToAndFromJson("POINT (1 2)");
+        assertGeometryToAndFromJson("MULTIPOINT ((1 2), (3 4))");
+        assertGeometryToAndFromJson("LINESTRING (0 0, 1 2, 3 4)");
+        assertGeometryToAndFromJson("MULTILINESTRING (" +
+                "(1 1, 5 1), " +
+                "(2 4, 4 4))");
+        assertGeometryToAndFromJson("POLYGON (" +
+                "(0 0, 1 0, 1 1, 0 1, 0 0))");
+        assertGeometryToAndFromJson("POLYGON (" +
+                "(0 0, 3 0, 3 3, 0 3, 0 0), " +
+                "(1 1, 1 2, 2 2, 2 1, 1 1))");
+        assertGeometryToAndFromJson("MULTIPOLYGON (" +
+                "((1 1, 3 1, 3 3, 1 3, 1 1)), " +
+                "((2 4, 6 4, 6 6, 2 6, 2 4)))");
+        assertGeometryToAndFromJson("GEOMETRYCOLLECTION (" +
+                "POINT (1 2), " +
+                "LINESTRING (0 0, 1 2, 3 4), " +
+                "POLYGON ((0 0, 1 0, 1 1, 0 1, 0 0)))");
+
+        // invalid geometries should return as is.
+        assertGeometryToAndFromJson("MULTIPOINT ((0 0), (0 1), (1 1), (0 1))");
+        assertGeometryToAndFromJson("LINESTRING (0 0, 0 1, 0 1, 1 1, 1 0, 0 0)");
+        assertGeometryToAndFromJson("LINESTRING (0 0, 1 1, 1 0, 0 1)");
+    }
+
+    private void assertGeometryToAndFromJson(String wkt)
+    {
+        assertThat(assertions.function("ST_AsText", "to_geometry(from_geojson_geometry(to_geojson_geometry(ST_GeometryFromText('%s'))))".formatted(wkt)))
+                .hasType(VARCHAR)
+                .isEqualTo(wkt);
     }
 
     @Test
