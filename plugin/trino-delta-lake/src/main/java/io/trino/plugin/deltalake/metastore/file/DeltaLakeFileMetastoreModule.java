@@ -14,28 +14,13 @@
 package io.trino.plugin.deltalake.metastore.file;
 
 import com.google.inject.Binder;
-import com.google.inject.Inject;
 import com.google.inject.Key;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.opentelemetry.api.trace.Tracer;
-import io.trino.metastore.HiveMetastore;
-import io.trino.metastore.HiveMetastoreFactory;
-import io.trino.metastore.RawHiveMetastoreFactory;
 import io.trino.plugin.deltalake.AllowDeltaLakeManagedTableRename;
-import io.trino.plugin.deltalake.DeltaLakeFileSystemFactory;
 import io.trino.plugin.deltalake.MaxTableParameterLength;
 import io.trino.plugin.deltalake.metastore.DeltaLakeTableOperationsProvider;
-import io.trino.plugin.hive.AllowHiveTableRename;
-import io.trino.plugin.hive.HideDeltaLakeTables;
-import io.trino.plugin.hive.NodeVersion;
-import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
-import io.trino.plugin.hive.metastore.file.FileHiveMetastoreFactory;
-import io.trino.spi.security.ConnectorIdentity;
-
-import java.util.Optional;
-
-import static io.airlift.configuration.ConfigBinder.configBinder;
+import io.trino.plugin.hive.metastore.file.FileMetastoreModule;
 
 public class DeltaLakeFileMetastoreModule
         extends AbstractConfigurationAwareModule
@@ -43,46 +28,9 @@ public class DeltaLakeFileMetastoreModule
     @Override
     protected void setup(Binder binder)
     {
-        configBinder(binder).bindConfig(FileHiveMetastoreConfig.class);
-        binder.bind(HiveMetastoreFactory.class).annotatedWith(RawHiveMetastoreFactory.class).to(DeltaLakeFileHiveMetastoreFactory.class).in(Scopes.SINGLETON);
-        binder.bind(Key.get(boolean.class, AllowHiveTableRename.class)).toInstance(true);
+        install(new FileMetastoreModule());
         binder.bind(DeltaLakeTableOperationsProvider.class).to(DeltaLakeFileMetastoreTableOperationsProvider.class).in(Scopes.SINGLETON);
         binder.bind(Key.get(boolean.class, AllowDeltaLakeManagedTableRename.class)).toInstance(true);
         binder.bind(Key.get(int.class, MaxTableParameterLength.class)).toInstance(Integer.MAX_VALUE);
-    }
-
-    // This class is to remove the dep on the TrinoFileSystemFactory
-    private static class DeltaLakeFileHiveMetastoreFactory
-            implements HiveMetastoreFactory
-    {
-        private final HiveMetastoreFactory delegate;
-
-        @Inject
-        public DeltaLakeFileHiveMetastoreFactory(
-                NodeVersion nodeVersion,
-                DeltaLakeFileSystemFactory fileSystemFactory,
-                @HideDeltaLakeTables boolean hideDeltaLakeTables,
-                FileHiveMetastoreConfig config,
-                Tracer tracer)
-        {
-            this.delegate = new FileHiveMetastoreFactory(
-                    nodeVersion,
-                    fileSystemFactory.create(ConnectorIdentity.forUser(config.getMetastoreUser()).build()),
-                    hideDeltaLakeTables,
-                    config,
-                    tracer);
-        }
-
-        @Override
-        public boolean isImpersonationEnabled()
-        {
-            return delegate.isImpersonationEnabled();
-        }
-
-        @Override
-        public HiveMetastore createMetastore(Optional<ConnectorIdentity> identity)
-        {
-            return delegate.createMetastore(identity);
-        }
     }
 }
