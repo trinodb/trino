@@ -21,8 +21,11 @@ import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.connector.system.GlobalSystemConnector;
+import io.trino.metadata.Catalog;
+import io.trino.metadata.CatalogManager;
 import io.trino.plugin.base.util.AutoCloseableCloser;
 import io.trino.spi.TrinoException;
+import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.catalog.CatalogProperties;
 import io.trino.spi.connector.ConnectorName;
 import jakarta.annotation.PreDestroy;
@@ -32,7 +35,9 @@ import java.util.Deque;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -228,5 +233,39 @@ public class WorkerDynamicCatalogManager
         finally {
             catalogLoadingLock.unlock();
         }
+    }
+
+    public static class NoOpWorkerCatalogManager
+            implements CatalogManager
+    {
+        @Override
+        public Set<CatalogName> getCatalogNames()
+        {
+            return Set.of();
+        }
+
+        @Override
+        public Optional<Catalog> getCatalog(CatalogName catalogName)
+        {
+            return Optional.empty();
+        }
+
+        @Override
+        public Optional<CatalogProperties> getCatalogProperties(CatalogHandle catalogHandle)
+        {
+            return Optional.empty();
+        }
+
+        @Override
+        public Set<CatalogHandle> getActiveCatalogs()
+        {
+            return Set.of();
+        }
+
+        @Override
+        public void createCatalog(CatalogName catalogName, ConnectorName connectorName, Map<String, String> properties, boolean notExists) {}
+
+        @Override
+        public void dropCatalog(CatalogName catalogName, boolean exists) {}
     }
 }
