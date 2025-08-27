@@ -52,7 +52,7 @@ public class TestingIcebergConnectorFactory
         this.module = binder -> {
             newMapBinder(binder, String.class, TrinoFileSystemFactory.class)
                     .permitDuplicates()
-                    .addBinding("local").toInstance(new LocalFileSystemFactory(Path.of("/")));
+                    .addBinding("local").toInstance(new LocalFileSystemFactory(localFileSystemRootPath));
             configBinder(binder).bindConfigDefaults(FileHiveMetastoreConfig.class, config -> config.setCatalogDirectory("local:///"));
         };
     }

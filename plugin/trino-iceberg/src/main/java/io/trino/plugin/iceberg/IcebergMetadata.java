@@ -1302,7 +1302,7 @@ public class IcebergMetadata
                     .orElseGet(() -> catalog.defaultTableLocation(session, tableMetadata.getTable()));
         }
         transaction = newCreateTableTransaction(catalog, tableMetadata, session, replace, tableLocation, allowedExtraProperties);
-        Location location = Location.of("local://" + transaction.table().location());
+        Location location = Location.of(transaction.table().location());
         try {
             // S3 Tables internally assigns a unique location for each table
             if (!isS3Tables(location.toString())) {
@@ -3753,6 +3753,12 @@ public class IcebergMetadata
     public void dropMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
         catalog.dropMaterializedView(session, viewName);
+    }
+
+    @Override
+    public boolean delegateMaterializedViewRefreshToConnector(ConnectorSession session, SchemaTableName viewName)
+    {
+        return false;
     }
 
     @Override

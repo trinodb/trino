@@ -61,7 +61,7 @@ class LocalFileIterator
                         }
 
                         files.add(new FileEntry(
-                                Location.of("local:///" + rootPath.relativize(file)),
+                                Location.of(file.toString()),
                                 attributes.size(),
                                 attributes.lastModifiedTime().toInstant(),
                                 Optional.empty()));

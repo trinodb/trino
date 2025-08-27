@@ -281,7 +281,7 @@ public class LocalFileSystem
     private Path toPath(Location location)
     {
         // ensure path isn't something like '../../data'
-        Path localPath = rootPath.resolve(location.path()).normalize();
+        Path localPath = Path.of("/").resolve(location.path()).normalize();
         checkArgument(localPath.startsWith(rootPath), "Location references data outside of the root: %s", location);
         return localPath;
     }
