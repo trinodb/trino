@@ -150,12 +150,12 @@ public abstract class BaseJdbcConnectorTest
         return switch (connectorBehavior) {
             case SUPPORTS_UPDATE -> true;
             case SUPPORTS_ADD_COLUMN_WITH_POSITION,
-                 SUPPORTS_CREATE_MATERIALIZED_VIEW,
-                 SUPPORTS_CREATE_VIEW,
-                 SUPPORTS_DEFAULT_COLUMN_VALUE,
-                 SUPPORTS_MERGE,
-                 SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN,
-                 SUPPORTS_ROW_LEVEL_UPDATE -> false;
+                    SUPPORTS_CREATE_MATERIALIZED_VIEW,
+                    SUPPORTS_CREATE_VIEW,
+                    SUPPORTS_DEFAULT_COLUMN_VALUE,
+                    SUPPORTS_MERGE,
+                    SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN,
+                    SUPPORTS_ROW_LEVEL_UPDATE -> false;
             // Dynamic filters can be pushed down only if predicate push down is supported.
             // It is possible for a connector to have predicate push down support but not push down dynamic filters.
             // TODO default SUPPORTS_DYNAMIC_FILTER_PUSHDOWN to SUPPORTS_PREDICATE_PUSHDOWN
@@ -1275,7 +1275,7 @@ public abstract class BaseJdbcConnectorTest
         try (TestTable nationLowercaseTable = newTrinoTable(
                 // If a connector supports Join pushdown, but does not allow CTAS, we need to make the table creation here overridable.
                 "nation_lowercase",
-                "AS SELECT nationkey, lower(name) name, regionkey FROM nation")) {
+                getNationLowerCaseTableDefinition())) {
             for (JoinOperator joinOperator : JoinOperator.values()) {
                 log.info("Testing joinOperator=%s", joinOperator);
 
@@ -1290,12 +1290,7 @@ public abstract class BaseJdbcConnectorTest
                         .setSystemProperty("enable_dynamic_filtering", "false")
                         .build();
 
-                List<String> nonEqualities = Stream.concat(
-                                Stream.of(JoinCondition.Operator.values())
-                                        .filter(operator -> operator != JoinCondition.Operator.EQUAL && operator != JoinCondition.Operator.IDENTICAL)
-                                        .map(JoinCondition.Operator::getValue),
-                                Stream.of("IS DISTINCT FROM", "IS NOT DISTINCT FROM"))
-                        .collect(toImmutableList());
+                List<String> nonEqualities = getSupportedJoinConditionNonEqualities();
 
                 // basic case
                 assertThat(query(session, format("SELECT r.name, n.name FROM nation n %s region r ON n.regionkey = r.regionkey", joinOperator))).isFullyPushedDown();
@@ -1407,6 +1402,35 @@ public abstract class BaseJdbcConnectorTest
                         .isFullyPushedDown();
             }
         }
+    }
+
+    protected List<String> getSupportedJoinConditionNonEqualitiesWithoutDistinctFrom()
+    {
+        List<String> result = new ArrayList<>();
+        for (JoinCondition.Operator op : JoinCondition.Operator.values()) {
+            if (op != JoinCondition.Operator.EQUAL && op != JoinCondition.Operator.IDENTICAL) {
+                result.add(op.getValue());
+            }
+        }
+        return result;
+    }
+
+    protected List<String> getSupportedJoinConditionNonEqualitiesWithDistinctFrom()
+    {
+        List<String> result = new ArrayList<>(getSupportedJoinConditionNonEqualitiesWithoutDistinctFrom());
+        result.add("IS DISTINCT FROM");
+        result.add("IS NOT DISTINCT FROM");
+        return result;
+    }
+
+    protected List<String> getSupportedJoinConditionNonEqualities()
+    {
+        return getSupportedJoinConditionNonEqualitiesWithDistinctFrom();
+    }
+
+    protected String getNationLowerCaseTableDefinition()
+    {
+        return "AS SELECT nationkey, lower(name) name, regionkey FROM nation";
     }
 
     @Test

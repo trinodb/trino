@@ -23,6 +23,7 @@ import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
+import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Isolated;
 
@@ -38,6 +39,7 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 @Isolated
 final class TestExasolConnectorTest
@@ -59,27 +61,27 @@ final class TestExasolConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
+            case SUPPORTS_JOIN_PUSHDOWN -> true;
             // Tests requires write access which is not implemented
             case SUPPORTS_AGGREGATION_PUSHDOWN,
-                 SUPPORTS_JOIN_PUSHDOWN,
-                 SUPPORTS_LIMIT_PUSHDOWN,
-                 SUPPORTS_TOPN_PUSHDOWN -> false;
+                    SUPPORTS_TOPN_PUSHDOWN,
+                    SUPPORTS_LIMIT_PUSHDOWN -> false;
 
             // Parallel writing is not supported due to restrictions of the Exasol JDBC driver.
             case SUPPORTS_ADD_COLUMN,
-                 SUPPORTS_ARRAY,
-                 SUPPORTS_COMMENT_ON_TABLE,
-                 SUPPORTS_CREATE_SCHEMA,
-                 SUPPORTS_CREATE_TABLE,
-                 SUPPORTS_DELETE,
-                 SUPPORTS_INSERT,
-                 SUPPORTS_MAP_TYPE,
-                 SUPPORTS_NEGATIVE_DATE, // min date is 0001-01-01
-                 SUPPORTS_RENAME_COLUMN,
-                 SUPPORTS_RENAME_TABLE,
-                 SUPPORTS_ROW_TYPE,
-                 SUPPORTS_SET_COLUMN_TYPE,
-                 SUPPORTS_UPDATE -> false;
+                     SUPPORTS_ARRAY,
+                     SUPPORTS_COMMENT_ON_TABLE,
+                     SUPPORTS_CREATE_SCHEMA,
+                     SUPPORTS_CREATE_TABLE,
+                     SUPPORTS_DELETE,
+                     SUPPORTS_INSERT,
+                     SUPPORTS_MAP_TYPE,
+                     SUPPORTS_NEGATIVE_DATE, // min date is 0001-01-01
+                     SUPPORTS_RENAME_COLUMN,
+                     SUPPORTS_RENAME_TABLE,
+                     SUPPORTS_ROW_TYPE,
+                     SUPPORTS_SET_COLUMN_TYPE,
+                     SUPPORTS_UPDATE -> false;
 
             default -> super.hasBehavior(connectorBehavior);
         };
@@ -124,6 +126,27 @@ final class TestExasolConnectorTest
                 onRemoteDatabase(),
                 TEST_SCHEMA + ".test_unsupported_col",
                 "(one NUMBER(19), two GEOMETRY, three VARCHAR(10 CHAR))");
+    }
+
+    @Override
+    // Override, because read-only Exasol connector does not support CREATE TABLE and INSERT statements
+    protected TestTable newTrinoTable(String namePrefix, @Language("SQL") String tableDefinition, List<String> rowsToInsert)
+    {
+        return new TestTable(exasolServer.getSqlExecutor(), TEST_SCHEMA + "." + namePrefix, tableDefinition, rowsToInsert);
+    }
+
+    @Override
+    // Override to add test schema prefix to the name of the nation table
+    protected String getNationLowerCaseTableDefinition()
+    {
+        return "AS SELECT nationkey, lower(name) name, regionkey FROM %s.nation".formatted(TEST_SCHEMA);
+    }
+
+    @Override
+    // Override, because Exasol doesn't support "IS DISTINCT FROM" and "IS NOT DISTINCT FROM" inequalities
+    protected List<String> getSupportedJoinConditionNonEqualities()
+    {
+        return getSupportedJoinConditionNonEqualitiesWithoutDistinctFrom();
     }
 
     @Test
@@ -325,6 +348,20 @@ final class TestExasolConnectorTest
                 .mapToObj(value -> getLongInClause(value * 1_000, 1_000))
                 .collect(joining(" OR "));
         onRemoteDatabase().execute(format("SELECT count(*) FROM %s.orders WHERE %s", TEST_SCHEMA, longInClauses));
+    }
+
+    @Override
+    @Test
+    public void testNativeQueryInsertStatementTableExists()
+    {
+        abort("Read-only Exasol connector does not support CREATE TABLE and INSERT statements");
+    }
+
+    @Override
+    @Test
+    public void testNativeQuerySelectFromTestTable()
+    {
+        abort("Read-only Exasol connector does not support CREATE TABLE and INSERT statements");
     }
 
     private static String getLongInClause(int start, int length)
