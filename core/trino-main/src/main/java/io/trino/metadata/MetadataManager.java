@@ -87,6 +87,7 @@ import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
+import io.trino.spi.connector.UpdateKind;
 import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
@@ -270,11 +271,23 @@ public final class MetadataManager
     @Override
     public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName table)
     {
-        return getTableHandle(session, table, Optional.empty(), Optional.empty());
+        return getTableHandle(session, table, Optional.empty(), Optional.empty(), Optional.empty());
+    }
+
+    @Override
+    public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName table, Optional<UpdateKind> updateKind)
+    {
+        return getTableHandle(session, table, Optional.empty(), Optional.empty(), updateKind);
     }
 
     @Override
     public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName table, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion)
+    {
+        return getTableHandle(session, table, startVersion, endVersion, Optional.empty());
+    }
+
+    @Override
+    public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName table, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion, Optional<UpdateKind> updateKind)
     {
         requireNonNull(table, "table is null");
         if (cannotExist(table)) {
@@ -294,7 +307,8 @@ public final class MetadataManager
                     connectorSession,
                     table.asSchemaTableName(),
                     startTableVersion,
-                    endTableVersion);
+                    endTableVersion,
+                    updateKind);
             return Optional.ofNullable(tableHandle)
                     .map(connectorTableHandle -> new TableHandle(
                             catalogHandle,
@@ -1925,18 +1939,24 @@ public final class MetadataManager
     @Override
     public RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName)
     {
-        return getRedirectionAwareTableHandle(session, tableName, Optional.empty(), Optional.empty());
+        return getRedirectionAwareTableHandle(session, tableName, Optional.empty(), Optional.empty(), Optional.empty());
     }
 
     @Override
-    public RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion)
+    public RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName, Optional<UpdateKind> updateKind)
+    {
+        return getRedirectionAwareTableHandle(session, tableName, Optional.empty(), Optional.empty(), updateKind);
+    }
+
+    @Override
+    public RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion, Optional<UpdateKind> updateKind)
     {
         QualifiedObjectName targetTableName = getRedirectedTableName(session, tableName, startVersion, endVersion);
         if (targetTableName.equals(tableName)) {
-            return noRedirection(getTableHandle(session, tableName, startVersion, endVersion));
+            return noRedirection(getTableHandle(session, tableName, startVersion, endVersion, updateKind));
         }
 
-        Optional<TableHandle> tableHandle = getTableHandle(session, targetTableName, startVersion, endVersion);
+        Optional<TableHandle> tableHandle = getTableHandle(session, targetTableName, startVersion, endVersion, updateKind);
         if (tableHandle.isPresent()) {
             return withRedirectionTo(targetTableName, tableHandle.get());
         }

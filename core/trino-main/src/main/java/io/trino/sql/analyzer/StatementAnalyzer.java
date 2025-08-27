@@ -72,6 +72,7 @@ import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.PointerType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableProcedureMetadata;
+import io.trino.spi.connector.UpdateKind;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.FunctionKind;
 import io.trino.spi.function.OperatorType;
@@ -516,13 +517,6 @@ class StatementAnalyzer
                 .process(relation, Optional.empty());
     }
 
-    private enum UpdateKind
-    {
-        DELETE,
-        UPDATE,
-        MERGE,
-    }
-
     /**
      * Visitor context represents local query scope (if exists). The invariant is
      * that the local query scopes hierarchy should always have outer query scope
@@ -597,7 +591,7 @@ class StatementAnalyzer
                 endVersion = Optional.of(toTableVersion(branch));
             }
             // verify the insert destination columns match the query
-            RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, targetTable, Optional.empty(), endVersion);
+            RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, targetTable, Optional.empty(), endVersion, Optional.of(UpdateKind.DELETE));
             Optional<TableHandle> targetTableHandle = redirection.tableHandle();
             targetTable = redirection.redirectedTableName().orElse(targetTable);
             if (targetTableHandle.isEmpty()) {
@@ -853,7 +847,7 @@ class StatementAnalyzer
                 }
                 endVersion = Optional.of(toTableVersion(branch));
             }
-            RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, originalName, Optional.empty(), endVersion);
+            RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, originalName, Optional.empty(), endVersion, Optional.of(UpdateKind.DELETE));
             QualifiedObjectName tableName = redirection.redirectedTableName().orElse(originalName);
             TableHandle handle = redirection.tableHandle()
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", tableName));
@@ -2303,7 +2297,7 @@ class StatementAnalyzer
             }
 
             // This can only be a table
-            RedirectionAwareTableHandle redirection = getTableHandle(table, name, scope);
+            RedirectionAwareTableHandle redirection = getTableHandle(table, name, scope, updateKind);
             Optional<TableHandle> tableHandle = redirection.tableHandle();
             QualifiedObjectName targetTableName = redirection.redirectedTableName().orElse(name);
             analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), targetTableName);
@@ -2383,7 +2377,7 @@ class StatementAnalyzer
 
         private void checkStorageTableNotRedirected(QualifiedObjectName source)
         {
-            metadata.getRedirectionAwareTableHandle(session, source).redirectedTableName().ifPresent(name -> {
+            metadata.getRedirectionAwareTableHandle(session, source, updateKind).redirectedTableName().ifPresent(name -> {
                 throw new TrinoException(NOT_SUPPORTED, format("Redirection of materialized view storage table '%s' to '%s' is not supported", source, name));
             });
         }
@@ -3489,7 +3483,7 @@ class StatementAnalyzer
                 }
                 endVersion = Optional.of(toTableVersion(branch));
             }
-            RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, originalName, Optional.empty(), endVersion);
+            RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, originalName, Optional.empty(), endVersion, Optional.of(UpdateKind.UPDATE));
             QualifiedObjectName tableName = redirection.redirectedTableName().orElse(originalName);
             TableHandle handle = redirection.tableHandle()
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", tableName));
@@ -3628,7 +3622,7 @@ class StatementAnalyzer
 
             analysis.setUpdateType("MERGE");
 
-            RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, originalTableName, Optional.empty(), endVersion);
+            RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, originalTableName, Optional.empty(), endVersion, Optional.of(UpdateKind.MERGE));
             QualifiedObjectName tableName = redirection.redirectedTableName().orElse(originalTableName);
             TableHandle targetTableHandle = redirection.tableHandle()
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", tableName));
@@ -6022,21 +6016,21 @@ class StatementAnalyzer
          * Helper function that analyzes any versioning and returns the appropriate table handle.
          * If no for clause exists, this is just a wrapper around getRedirectionAwareTableHandle in MetadataManager.
          */
-        private RedirectionAwareTableHandle getTableHandle(Table table, QualifiedObjectName name, Optional<Scope> scope)
+        private RedirectionAwareTableHandle getTableHandle(Table table, QualifiedObjectName name, Optional<Scope> scope, Optional<UpdateKind> updateKind)
         {
             if (table.getQueryPeriod().isPresent()) {
                 verify(table.getBranch().isEmpty(), "branch must be empty");
                 Optional<TableVersion> startVersion = extractTableVersion(table, table.getQueryPeriod().get().getStart(), scope);
                 Optional<TableVersion> endVersion = extractTableVersion(table, table.getQueryPeriod().get().getEnd(), scope);
-                return metadata.getRedirectionAwareTableHandle(session, name, startVersion, endVersion);
+                return metadata.getRedirectionAwareTableHandle(session, name, startVersion, endVersion, updateKind);
             }
             if (table.getBranch().isPresent()) {
                 verify(table.getQueryPeriod().isEmpty(), "query period must be empty");
                 String branch = table.getBranch().get().getValue();
                 Optional<TableVersion> endVersion = Optional.of(toTableVersion(branch));
-                return metadata.getRedirectionAwareTableHandle(session, name, Optional.empty(), endVersion);
+                return metadata.getRedirectionAwareTableHandle(session, name, Optional.empty(), endVersion, updateKind);
             }
-            return metadata.getRedirectionAwareTableHandle(session, name, Optional.empty(), Optional.empty());
+            return metadata.getRedirectionAwareTableHandle(session, name, Optional.empty(), Optional.empty(), updateKind);
         }
 
         /**

@@ -178,8 +178,11 @@ final class TestIcebergRestCatalogNestedNamespaceConnectorSmokeTest
                         "WITH \\(\n" +
                         "   format = '" + format.name() + "',\n" +
                         "   format_version = 2,\n" +
-                        format("   location = '.*/" + schemaName + "/region.*'\n") +
-                        "\\)");
+                        format("   location = '.*/" + schemaName + "/region.*',\n" +
+                        "   write_delete_mode = 'MOR',\n" +
+                        "   write_merge_mode = 'MOR',\n" +
+                        "   write_update_mode = 'MOR'\n" +
+                        "\\)"));
     }
 
     @Test

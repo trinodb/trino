@@ -116,6 +116,26 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Returns a table handle for the specified table name, version and updateKind, or {@code null} if {@code tableName} relation does not exist
+     * or is not a table (e.g. is a view, or a materialized view).
+     *
+     * @throws TrinoException implementation can throw this exception when {@code tableName} refers to a table that
+     * cannot be queried.
+     * @see #getView(ConnectorSession, SchemaTableName)
+     * @see #getMaterializedView(ConnectorSession, SchemaTableName)
+     */
+    @Nullable
+    default ConnectorTableHandle getTableHandle(
+            ConnectorSession session,
+            SchemaTableName tableName,
+            Optional<ConnectorTableVersion> startVersion,
+            Optional<ConnectorTableVersion> endVersion,
+            Optional<UpdateKind> updateKind)
+    {
+        return getTableHandle(session, tableName, startVersion, endVersion);
+    }
+
+    /**
      * Create initial handle for execution of table procedure. The handle will be used through planning process. It will be converted to final
      * handle used for execution via @{link {@link ConnectorMetadata#beginTableExecute}
      * <p>
@@ -394,7 +414,7 @@ public interface ConnectorMetadata
                         return RelationCommentMetadata.forRedirectedTable(tableName);
                     }
                     try {
-                        ConnectorTableHandle tableHandle = getTableHandle(session, tableName, Optional.empty(), Optional.empty());
+                        ConnectorTableHandle tableHandle = getTableHandle(session, tableName, Optional.empty(), Optional.empty(), Optional.empty());
                         if (tableHandle == null) {
                             // disappeared during listing
                             return null;
@@ -967,7 +987,7 @@ public interface ConnectorMetadata
      * Gets the view data for the specified view name. Returns {@link Optional#empty()} if {@code viewName}
      * relation does not or is not a view (e.g. is a table, or a materialized view).
      *
-     * @see #getTableHandle(ConnectorSession, SchemaTableName, Optional, Optional)
+     * @see #getTableHandle(ConnectorSession, SchemaTableName, Optional, Optional, Optional)
      * @see #getMaterializedView(ConnectorSession, SchemaTableName)
      */
     default Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
@@ -1755,7 +1775,7 @@ public interface ConnectorMetadata
      * Gets the materialized view data for the specified materialized view name. Returns {@link Optional#empty()}
      * if {@code viewName} relation does not or is not a materialized view (e.g. is a table, or a view).
      *
-     * @see #getTableHandle(ConnectorSession, SchemaTableName, Optional, Optional)
+     * @see #getTableHandle(ConnectorSession, SchemaTableName, Optional, Optional, Optional)
      * @see #getView(ConnectorSession, SchemaTableName)
      */
     default Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)

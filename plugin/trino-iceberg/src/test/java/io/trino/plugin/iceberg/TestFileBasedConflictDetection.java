@@ -211,10 +211,10 @@ class TestFileBasedConflictDetection
                 {"partitionValues":[40]}
                 """;
         CommitTaskData commitTaskData1 = new CommitTaskData("test_location/data/new.parquet", IcebergFileFormat.PARQUET, 0, new MetricsWrapper(new Metrics()), PartitionSpecParser.toJson(currentPartitionSpec),
-                Optional.of(partitionDataJson), DATA, Optional.empty(), Optional.empty());
+                Optional.of(partitionDataJson), DATA, Optional.empty(), Optional.empty(), false);
         // Remove file from version with previous partition specification
         CommitTaskData commitTaskData2 = new CommitTaskData("test_location/data/old.parquet", IcebergFileFormat.PARQUET, 0, new MetricsWrapper(new Metrics()), PartitionSpecParser.toJson(previousPartitionSpec),
-                Optional.of(partitionDataJson), POSITION_DELETES, Optional.empty(), Optional.empty());
+                Optional.of(partitionDataJson), POSITION_DELETES, Optional.empty(), Optional.empty(), false);
         TupleDomain<IcebergColumnHandle> icebergColumnHandleTupleDomain = extractTupleDomainsFromCommitTasks(getIcebergTableHandle(currentPartitionSpec), icebergTable, List.of(commitTaskData1, commitTaskData2), null);
         assertThat(icebergColumnHandleTupleDomain.getDomains().orElseThrow()).isEmpty();
 
@@ -233,7 +233,8 @@ class TestFileBasedConflictDetection
                 partitionDataJson,
                 DATA,
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                false);
         CommitTaskData commitTaskData2 = new CommitTaskData(
                 "test_location/data/old.parquet",
                 IcebergFileFormat.PARQUET,
@@ -243,7 +244,8 @@ class TestFileBasedConflictDetection
                 partitionDataJson,
                 POSITION_DELETES,
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                false);
 
         return List.of(commitTaskData1, commitTaskData2);
     }
@@ -270,7 +272,8 @@ class TestFileBasedConflictDetection
                 false,
                 Optional.empty(),
                 ImmutableSet.of(),
-                Optional.of(false));
+                Optional.of(false),
+                Optional.empty());
     }
 
     private static Table createIcebergTable(PartitionSpec partitionSpec)

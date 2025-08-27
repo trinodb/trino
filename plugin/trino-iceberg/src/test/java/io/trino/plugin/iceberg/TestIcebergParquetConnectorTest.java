@@ -35,6 +35,7 @@ import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getParquetFileMetadata;
 import static io.trino.plugin.iceberg.IcebergTestUtils.withSmallRowGroups;
+import static io.trino.plugin.iceberg.WriteChangeMode.MOR;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -44,7 +45,7 @@ public class TestIcebergParquetConnectorTest
 {
     public TestIcebergParquetConnectorTest()
     {
-        super(PARQUET);
+        super(PARQUET, MOR);
     }
 
     @Override
