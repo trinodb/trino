@@ -32,7 +32,6 @@ import io.trino.plugin.jdbc.credential.CredentialProvider;
 import java.sql.Driver;
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.util.Optional;
 import java.util.Properties;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -93,26 +92,39 @@ public class TeradataClientModule
         Driver driver = DriverManager.getDriver(config.getConnectionUrl());
         String longMech = LogonMechanism.fromString(teradataConfig.getLogMech()).getMechanism();
         connectionProperties.put("LOGMECH", longMech);
+        String clientId;
         switch (longMech) {
             case "TD2":
                 break;
             case "BEARER":
-                Optional<String> clientId = teradataConfig.getOidcClientId();
-                clientId.ifPresent(s -> connectionProperties.put("oidc_clientid", s));
-                Optional<String> privateKey = teradataConfig.getOidcJWSPrivateKey();
-                privateKey.ifPresent(s -> connectionProperties.put("jws_private_key", s));
-                Optional<String> certificate = teradataConfig.getOidcJWSCertificate();
-                certificate.ifPresent(s -> connectionProperties.put("jws_cert", s));
+                clientId = teradataConfig.getOidcClientId();
+                if (clientId != null && !clientId.isEmpty()) {
+                    connectionProperties.put("oidc_clientid", clientId);
+                }
+                String privateKey = teradataConfig.getOidcJWSPrivateKey();
+                if (privateKey != null && !privateKey.isEmpty()) {
+                    connectionProperties.put("jws_private_key", privateKey);
+                }
+                String certificate = teradataConfig.getOidcJWSCertificate();
+                if (certificate != null && !certificate.isEmpty()) {
+                    connectionProperties.put("jws_cert", certificate);
+                }
                 break;
             case "JWT":
-                Optional<String> token = teradataConfig.getOidcJwtToken();
-                token.ifPresent(s -> connectionProperties.put("LOGDATA", token.get()));
+                String token = teradataConfig.getOidcJwtToken();
+                if (token != null && !token.trim().isEmpty()) {
+                    connectionProperties.put("LOGDATA", token);
+                }
                 break;
             case "SECRET":
                 clientId = teradataConfig.getOidcClientId();
-                clientId.ifPresent(s -> connectionProperties.put("oidc_clientid", s));
-                Optional<String> clientSecret = teradataConfig.getOidcClientSecret();
-                clientSecret.ifPresent(s -> connectionProperties.put("LOGDATA", clientSecret.get()));
+                if (clientId != null && !clientId.isEmpty()) {
+                    connectionProperties.put("oidc_clientid", clientId);
+                }
+                String clientSecret = teradataConfig.getOidcClientSecret();
+                if (clientSecret != null && !clientSecret.isEmpty()) {
+                    connectionProperties.put("LOGDATA", clientSecret);
+                }
                 break;
             default:
                 throw new IllegalArgumentException("Unsupported logon mechanism: " + longMech);
