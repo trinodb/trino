@@ -34,11 +34,13 @@ import java.time.ZoneId;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.exasol.TestingExasolServer.TEST_SCHEMA;
+import static io.trino.plugin.exasol.config.ExasolSessionProperties.MAP_HASHTYPE_AS_CHAR;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
@@ -278,10 +280,150 @@ final class TestExasolTypeMapping
     @Test
     void testHashtype()
     {
+        testHashtypeAsVarbinaryMapping();
+        testHashTypeAsCharMapping();
+    }
+
+    private void testHashtypeAsVarbinaryMapping()
+    {
         SqlDataTypeTest.create()
+                // Null
+                .addRoundTrip("hashtype", "NULL", VARBINARY, "from_hex(NULL)")
+
+                // Explicit 16-byte
+                .addRoundTrip("hashtype(16 byte)", "'550e8400-e29b-11d4-a716-446655440000'", VARBINARY, "from_hex('550e8400e29b11d4a716446655440000')")
+
+                // Explicit 32-byte
+                .addRoundTrip("hashtype(32 byte)", "'00112233-44556677-8899AABB-CCDDEEFF-00112233-44556677-8899AABB-CCDDEEFF'", VARBINARY,
+                        "from_hex('00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF')")
+                .addRoundTrip("hashtype(32 byte)", "'FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF'", VARBINARY,
+                        "from_hex('FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF')")
+
+                // Boundary: minimum size (1 byte)
+                .addRoundTrip("hashtype(1 byte)", "'FF'", VARBINARY, "from_hex('FF')")
+
+                // Boundary: maximum size (1024 byte) - use repeated pattern
+                .addRoundTrip("hashtype(1024 byte)", "'" + "AA".repeat(1024) + "'", VARBINARY, "from_hex('" + "AA".repeat(1024) + "')")
+
+                .execute(getQueryRunner(), exasolCreateAndInsert(TEST_SCHEMA + "." + "test_hashtype_as_varbinary_mapping"));
+    }
+
+    private void testHashTypeAsCharMapping()
+    {
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty("exasol", MAP_HASHTYPE_AS_CHAR, "true")
+                .build();
+
+        SqlDataTypeTest.create()
+                // Null
                 .addRoundTrip("hashtype", "NULL", createCharType(32), "CAST(NULL AS char(32))")
-                .addRoundTrip("hashtype", "'550e8400-e29b-11d4-a716-446655440000'", createCharType(32), "CAST('550e8400e29b11d4a716446655440000' AS char(32))")
-                .execute(getQueryRunner(), exasolCreateAndInsert(TEST_SCHEMA + "." + "test_hashtype"));
+
+                // Explicit 16-byte
+                .addRoundTrip("hashtype(16 byte)", "'550e8400-e29b-11d4-a716-446655440000'", createCharType(32), "CAST('550e8400e29b11d4a716446655440000' AS char(32))")
+
+                // Explicit 32-byte
+                .addRoundTrip("hashtype(32 byte)", "'00112233-44556677-8899AABB-CCDDEEFF-00112233-44556677-8899AABB-CCDDEEFF'", createCharType(64),
+                        "CAST('00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff' AS char(64))")
+                .addRoundTrip("hashtype(32 byte)", "'FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF'", createCharType(64),
+                        "CAST('ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff' AS char(64))")
+
+                // Boundary: minimum size (1 byte)
+                .addRoundTrip("hashtype(1 byte)", "'FF'", createCharType(2), "CAST('ff' AS char(2))")
+
+                // Boundary: maximum size (1024 byte) - use repeated pattern
+                .addRoundTrip("hashtype(1024 byte)", "'" + "AA".repeat(1024) + "'", createCharType(2048), "CAST('" + "aa".repeat(1024) + "' AS char(2048))")
+
+                .execute(getQueryRunner(), session, exasolCreateAndInsert(TEST_SCHEMA + "." + "test_hashtype_as_char_mapping"));
+    }
+
+    @Test
+    // See for more details: https://docs.exasol.com/saas/microcontent/Resources/MicroContent/general/hash-data-type.htm
+    void testUnsupportedHashTypeValues()
+    {
+        // Too few bytes (< 1)
+        testUnsupportedHashTypeValues(
+                "HASHTYPE(0 BYTE)",
+                "'00'",
+                "'00'",
+                "the given size of HASHTYPE is too small. A minimum of 1 bytes are required");
+
+        // Too many bytes (> 1024)
+        testUnsupportedHashTypeValues(
+                "HASHTYPE(1025 BYTE)",
+                "'00'",
+                "'00'",
+                "the given size of HASHTYPE is too large. At most 1024 bytes are allowed");
+
+        // Too few bits (< 8)
+        testUnsupportedHashTypeValues(
+                "HASHTYPE(7 BIT)",
+                "'00'",
+                "'00'",
+                "the given size of HASHTYPE is too small. A minimum of 8 bits are required");
+
+        // Too many bits (> 8192)
+        testUnsupportedHashTypeValues(
+                "HASHTYPE(8193 BIT)",
+                "'00'",
+                "'00'",
+                "the given size of HASHTYPE is too large. At most 8192 bits are allowed");
+
+        // Bits not divisible by 8
+        testUnsupportedHashTypeValues(
+                "HASHTYPE(9 BIT)",
+                "'00'",
+                "'00'",
+                "Bit size of HASHTYPE has to be a multiple of 8");
+
+        // Invalid hex character
+        testUnsupportedHashTypeValues(
+                "HASHTYPE(4 BYTE)",
+                "'GGGGGGGG'",
+                "'GGGGGGGG'",
+                "data exception - Invalid hash format");
+
+        // Too short for declared size (expecting 4 bytes = 8 hex chars, got 6)
+        testUnsupportedHashTypeValues(
+                "HASHTYPE(4 BYTE)",
+                "'AABBCC'",
+                "'AABBCC'",
+                "data exception - Invalid hash format");
+
+        // Too short for declared size (expecting 16 bytes = 32 hex chars, got 31)
+        testUnsupportedHashTypeValues(
+                "HASHTYPE(16 BYTE)",
+                "'550e8400-e29b-11d4-a716-44665544000'",
+                "'550e8400-e29b-11d4-a716-44665544000'",
+                "data exception - Invalid hash format");
+
+        // Too long for declared size (expecting 4 bytes = 8 hex chars, got 10)
+        testUnsupportedHashTypeValues(
+                "HASHTYPE(4 BYTE)",
+                "'AABBCCDDEE'",
+                "'AABBCCDDEE'",
+                "data exception - Invalid hash format");
+
+        // Unexpected symbol inside
+        testUnsupportedHashTypeValues(
+                "HASHTYPE(4 BYTE)",
+                "'AABB-CCZZ'",
+                "'AABB-CCZZ'",
+                "data exception - Invalid hash format");
+    }
+
+    private void testUnsupportedHashTypeValues(
+            String exasolType,
+            String inputLiteral,
+            String expectedValue,
+            String expectedException)
+    {
+        assertThatThrownBy(() ->
+                SqlDataTypeTest.create()
+                        .addRoundTrip(exasolType, inputLiteral, VARBINARY, expectedValue)
+                        .execute(getQueryRunner(),
+                                exasolCreateAndInsert(TEST_SCHEMA + "." + "test_unsupported_hashtype")))
+                .cause()
+                .hasMessageContaining(expectedException);
     }
 
     @Test
