@@ -147,7 +147,7 @@ public class TeradataConfig
      *   <li>AS_DEFINED - as defined by Teradata</li>
      * </ul>
      */
-    enum TeradataCaseSensitivity
+    public enum TeradataCaseSensitivity
     {
         CASE_INSENSITIVE, CASE_SENSITIVE, AS_DEFINED
     }

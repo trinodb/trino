@@ -12,14 +12,14 @@
  * limitations under the License.
  */
 
-package io.trino.plugin.teradata;
+package io.trino.plugin.integration;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.MoreCollectors;
 import io.trino.Session;
+import io.trino.plugin.integration.clearscape.ClearScapeEnvironmentUtils;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.plugin.jdbc.JoinOperator;
-import io.trino.plugin.teradata.clearscape.ClearScapeEnvironmentUtils;
 import io.trino.spi.connector.JoinCondition;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.FilterNode;

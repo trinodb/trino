@@ -12,18 +12,7 @@
  * limitations under the License.
  */
 
-package io.trino.plugin.teradata.clearscape;
+package io.trino.plugin.integration.clearscape;
 
-public class Error5xxException
-        extends BaseException
-{
-    public Error5xxException(int statusCode, String body, String reason)
-    {
-        super(statusCode, body, reason);
-    }
-
-    public Error5xxException(int statusCode, String body)
-    {
-        super(statusCode, body);
-    }
-}
+public record OperationRequest(
+        String operation) {}

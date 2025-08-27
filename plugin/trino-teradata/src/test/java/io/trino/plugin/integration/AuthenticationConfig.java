@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.trino.plugin.teradata;
+package io.trino.plugin.integration;
 
 public class AuthenticationConfig
 {
