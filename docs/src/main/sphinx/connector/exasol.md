@@ -100,7 +100,10 @@ Trino data type mapping:
     -
   * - ``DATE``
     - ``DATE``
-    -
+    -       
+  * - ``HASHTYPE``
+    - ``VARBINARY``
+    -   
 ```
 
 No other types are supported.

@@ -15,6 +15,7 @@ package io.trino.plugin.exasol;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
+import io.airlift.slice.Slices;
 import io.trino.plugin.base.mapping.IdentifierMapping;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
@@ -29,6 +30,8 @@ import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.LongReadFunction;
 import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.QueryBuilder;
+import io.trino.plugin.jdbc.SliceReadFunction;
+import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.WriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
@@ -45,6 +48,7 @@ import java.sql.Connection;
 import java.sql.Date;
 import java.sql.Types;
 import java.time.LocalDate;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -65,6 +69,7 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.util.Locale.ENGLISH;
 
 public class ExasolClient
@@ -206,6 +211,9 @@ public class ExasolClient
         if (mapping.isPresent()) {
             return mapping;
         }
+        if (isHashType(typeHandle)) {
+            return Optional.of(hashTypeColumnMapping());
+        }
         switch (typeHandle.jdbcType()) {
             case Types.BOOLEAN:
                 return Optional.of(booleanColumnMapping());
@@ -237,6 +245,13 @@ public class ExasolClient
         return Optional.empty();
     }
 
+    private boolean isHashType(JdbcTypeHandle typeHandle)
+    {
+        return typeHandle.jdbcType() == Types.CHAR
+                && typeHandle.jdbcTypeName().isPresent()
+                && typeHandle.jdbcTypeName().get().equalsIgnoreCase("HASHTYPE");
+    }
+
     private static ColumnMapping dateColumnMapping()
     {
         // Exasol driver does not support LocalDate
@@ -259,6 +274,32 @@ public class ExasolClient
         return LongWriteFunction.of(Types.DATE, (statement, index, value) -> {
             LocalDate localDate = LocalDate.ofEpochDay(value);
             statement.setDate(index, Date.valueOf(localDate));
+        });
+    }
+
+    private static ColumnMapping hashTypeColumnMapping()
+    {
+        return ColumnMapping.sliceMapping(
+                VARBINARY,
+                hashTypeReadFunction(),
+                hashTypeWriteFunction());
+    }
+
+    private static SliceReadFunction hashTypeReadFunction()
+    {
+        return (resultSet, columnIndex) -> {
+            String hex = resultSet.getString(columnIndex);
+            byte[] bytes = HexFormat.of().parseHex(hex);
+            return Slices.wrappedBuffer(bytes);
+        };
+    }
+
+    private static SliceWriteFunction hashTypeWriteFunction()
+    {
+        return SliceWriteFunction.of(Types.CHAR, (statement, index, slice) -> {
+            byte[] bytes = slice.getBytes();
+            String hex = HexFormat.of().formatHex(bytes);
+            statement.setString(index, hex);
         });
     }
 
