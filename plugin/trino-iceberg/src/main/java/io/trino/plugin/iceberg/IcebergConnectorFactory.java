@@ -114,11 +114,11 @@ public class IcebergConnectorFactory
         private final boolean isCoordinator;
         private final OpenTelemetry openTelemetry;
 
-        public IcebergFileSystemModule(String catalogName, boolean isCoordinator, OpenTelemetry openTelemetry1)
+        public IcebergFileSystemModule(String catalogName, boolean isCoordinator, OpenTelemetry openTelemetry)
         {
             this.catalogName = requireNonNull(catalogName, "catalogName is null");
             this.isCoordinator = isCoordinator;
-            this.openTelemetry = openTelemetry1;
+            this.openTelemetry = requireNonNull(openTelemetry, "openTelemetry is null");
         }
 
         @Override
