@@ -21,6 +21,8 @@ import io.trino.matching.PatternVisitor;
 import java.util.List;
 import java.util.stream.Stream;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 public class OrPattern<T>
         extends Pattern<T>
 {
@@ -40,8 +42,15 @@ public class OrPattern<T>
     @Override
     public <C> Stream<Match> accept(Object object, Captures captures, C context)
     {
-        return patterns.stream()
-                .flatMap(pattern -> pattern.accept(object, captures, context));
+        // Check patterns in order, and return the first match
+        for (Pattern<T> pattern : patterns) {
+            List<Match> matches = pattern.accept(object, captures, context)
+                    .collect(toImmutableList());
+            if (!matches.isEmpty()) {
+                return matches.stream();
+            }
+        }
+        return Stream.of();
     }
 
     @Override
