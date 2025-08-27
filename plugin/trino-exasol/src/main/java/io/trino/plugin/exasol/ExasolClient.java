@@ -15,6 +15,7 @@ package io.trino.plugin.exasol;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
+import io.airlift.slice.Slices;
 import io.trino.plugin.base.mapping.IdentifierMapping;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
@@ -29,6 +30,8 @@ import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.LongReadFunction;
 import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.QueryBuilder;
+import io.trino.plugin.jdbc.SliceReadFunction;
+import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.WriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
@@ -40,6 +43,7 @@ import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.VarbinaryType;
 
 import java.sql.Connection;
 import java.sql.Date;
@@ -51,6 +55,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 
+import static io.trino.plugin.exasol.config.ExasolSessionProperties.MAP_HASHTYPE_AS_CHAR;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
@@ -206,6 +211,13 @@ public class ExasolClient
         if (mapping.isPresent()) {
             return mapping;
         }
+        if (isHashTypeMapping(typeHandle)) {
+            Boolean useToCharMapping = session.getProperty(MAP_HASHTYPE_AS_CHAR, Boolean.class);
+            if (useToCharMapping) {
+                return Optional.of(charColumnMapping(typeHandle));
+            }
+            return Optional.of(hashTypeVarBinaryColumnMapping());
+        }
         switch (typeHandle.jdbcType()) {
             case Types.BOOLEAN:
                 return Optional.of(booleanColumnMapping());
@@ -222,7 +234,7 @@ public class ExasolClient
                 int columnSize = typeHandle.requiredColumnSize();
                 return Optional.of(decimalColumnMapping(createDecimalType(columnSize, decimalDigits)));
             case Types.CHAR:
-                return Optional.of(defaultCharColumnMapping(typeHandle.requiredColumnSize(), true));
+                return Optional.of(charColumnMapping(typeHandle));
             case Types.VARCHAR:
                 // String data is sorted by its binary representation.
                 // https://docs.exasol.com/db/latest/sql/select.htm#UsageNotes
@@ -235,6 +247,18 @@ public class ExasolClient
             return mapToUnboundedVarchar(typeHandle);
         }
         return Optional.empty();
+    }
+
+    private boolean isHashTypeMapping(JdbcTypeHandle typeHandle)
+    {
+        return typeHandle.jdbcType() == Types.CHAR
+                && typeHandle.jdbcTypeName().isPresent()
+                && typeHandle.jdbcTypeName().get().equalsIgnoreCase("HASHTYPE");
+    }
+
+    private ColumnMapping charColumnMapping(JdbcTypeHandle typeHandle)
+    {
+        return defaultCharColumnMapping(typeHandle.requiredColumnSize(), true);
     }
 
     private static ColumnMapping dateColumnMapping()
@@ -260,6 +284,74 @@ public class ExasolClient
             LocalDate localDate = LocalDate.ofEpochDay(value);
             statement.setDate(index, Date.valueOf(localDate));
         });
+    }
+
+    private static ColumnMapping hashTypeVarBinaryColumnMapping()
+    {
+        return ColumnMapping.sliceMapping(
+                VarbinaryType.VARBINARY,
+                hashTypeReadFunction(),
+                hashTypeWriteFunction());
+    }
+
+    private static SliceReadFunction hashTypeReadFunction()
+    {
+        return (resultSet, columnIndex) -> {
+            String hex = resultSet.getString(columnIndex);
+            byte[] bytes = hexStringToByteArray(hex);
+            return Slices.wrappedBuffer(bytes);
+        };
+    }
+
+    private static SliceWriteFunction hashTypeWriteFunction()
+    {
+        return SliceWriteFunction.of(Types.CHAR, (statement, index, slice) -> {
+            byte[] bytes = slice.getBytes();
+            String hex = byteArrayToHexString(bytes);
+            statement.setString(index, hex);
+        });
+    }
+
+    // Converts a hexadecimal string (e.g. "0A1B2C") into a byte array.
+    private static byte[] hexStringToByteArray(String hexString)
+    {
+        // Get the number of characters in the hex string.
+        int stringLength = hexString.length();
+
+        // Each byte is represented by 2 hex characters, so allocate half as many bytes.
+        byte[] byteArray = new byte[stringLength / 2];
+
+        // Process two characters (1 byte) at a time.
+        for (int charIndex = 0; charIndex < stringLength; charIndex += 2) {
+            // Convert the first hex character (the "high 4 bits") into a number 0–15.
+            int highValue = Character.digit(hexString.charAt(charIndex), 16);
+
+            // Convert the second hex character (the "low 4 bits") into a number 0–15.
+            int lowValue = Character.digit(hexString.charAt(charIndex + 1), 16);
+
+            // Combine high and low values into a single byte:
+            // shift the high 4 bits left (highValue << 4) and add the low 4 bits.
+            byteArray[charIndex / 2] = (byte) ((highValue << 4) + lowValue);
+        }
+
+        // Return the resulting byte array.
+        return byteArray;
+    }
+
+    // Converts a byte array into a hexadecimal string (e.g. [10, 27, 44] -> "0a1b2c").
+    private static String byteArrayToHexString(byte[] byteArray)
+    {
+        // Allocate a StringBuilder with capacity = 2 chars per byte.
+        StringBuilder stringBuilder = new StringBuilder(byteArray.length * 2);
+
+        // Process each byte one by one.
+        for (byte singleByte : byteArray) {
+            // Format the byte as a 2-digit lowercase hex string (e.g. 0x0A -> "0a").
+            stringBuilder.append(String.format("%02x", singleByte));
+        }
+
+        // Return the complete hex string.
+        return stringBuilder.toString();
     }
 
     @Override
