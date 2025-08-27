@@ -12,9 +12,10 @@
  * limitations under the License.
  */
 
-package io.trino.plugin.teradata;
+package io.trino.plugin.integration;
 
-import io.trino.plugin.teradata.util.TeradataTestConstants;
+import io.trino.plugin.integration.util.TeradataTestConstants;
+import io.trino.plugin.teradata.LogonMechanism;
 import org.apache.commons.lang3.StringUtils;
 
 import java.util.HashMap;

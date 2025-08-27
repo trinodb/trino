@@ -12,9 +12,9 @@
  * limitations under the License.
  */
 
-package io.trino.plugin.teradata;
+package io.trino.plugin.integration;
 
-import io.trino.plugin.teradata.clearscape.ClearScapeEnvironmentUtils;
+import io.trino.plugin.integration.clearscape.ClearScapeEnvironmentUtils;
 import io.trino.testing.datatype.SqlDataTypeTest;
 import org.junit.jupiter.api.Test;
 

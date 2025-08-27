@@ -117,9 +117,7 @@ public class TeradataClientModule
             default:
                 throw new IllegalArgumentException("Unsupported logon mechanism: " + longMech);
         }
-        DriverConnectionFactory factory = DriverConnectionFactory.builder(driver, config.getConnectionUrl(), credentialProvider).setConnectionProperties(connectionProperties).setOpenTelemetry(openTelemetry).build();
-
-        return factory;
+        return DriverConnectionFactory.builder(driver, config.getConnectionUrl(), credentialProvider).setConnectionProperties(connectionProperties).setOpenTelemetry(openTelemetry).build();
     }
 
     /**

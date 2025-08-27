@@ -12,10 +12,13 @@
  * limitations under the License.
  */
 
-package io.trino.plugin.teradata.clearscape;
+package io.trino.plugin.integration.clearscape;
 
-public record DeleteEnvironmentRequest(
+public record CreateEnvironmentRequest(
 
-        String name
+        String name,
 
+        String region,
+
+        String password
 ) {}

@@ -12,18 +12,11 @@
  * limitations under the License.
  */
 
-package io.trino.plugin.teradata;
+package io.trino.plugin.integration.clearscape;
 
-import io.trino.plugin.jdbc.aggregation.BaseImplementAvgBigint;
+public record EnvironmentRequest(
 
-public class ImplementAvgBigint
-        extends BaseImplementAvgBigint
-{
-    @Override
-    public String getRewriteFormatExpression()
-    {
-        // Teradata uses FLOAT for double precision floating-point
-        // CAST to FLOAT ensures proper decimal division for AVG
-        return "avg(CAST(%s AS FLOAT))";
-    }
-}
+        String name,
+
+        OperationRequest request
+) {}

@@ -12,10 +12,10 @@
  * limitations under the License.
  */
 
-package io.trino.plugin.teradata;
+package io.trino.plugin.integration;
 
-import io.trino.plugin.teradata.clearscape.ClearScapeSetup;
-import io.trino.plugin.teradata.clearscape.Model;
+import io.trino.plugin.integration.clearscape.ClearScapeSetup;
+import io.trino.plugin.integration.clearscape.Model;
 import io.trino.testing.sql.SqlExecutor;
 
 import java.sql.Connection;

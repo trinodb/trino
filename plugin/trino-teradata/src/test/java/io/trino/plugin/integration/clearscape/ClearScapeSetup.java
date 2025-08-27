@@ -12,9 +12,9 @@
  * limitations under the License.
  */
 
-package io.trino.plugin.teradata.clearscape;
+package io.trino.plugin.integration.clearscape;
 
-import io.trino.plugin.teradata.util.TeradataTestConstants;
+import io.trino.plugin.integration.util.TeradataTestConstants;
 
 public class ClearScapeSetup
 {

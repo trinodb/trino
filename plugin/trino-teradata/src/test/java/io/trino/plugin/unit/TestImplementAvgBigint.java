@@ -12,18 +12,21 @@
  * limitations under the License.
  */
 
-package io.trino.plugin.teradata;
+package io.trino.plugin.unit;
 
-import io.trino.plugin.jdbc.aggregation.BaseImplementAvgBigint;
+import io.trino.plugin.teradata.ImplementAvgBigint;
+import org.junit.jupiter.api.Test;
 
-public class ImplementAvgBigint
-        extends BaseImplementAvgBigint
+import static org.assertj.core.api.Assertions.assertThat;
+
+public class TestImplementAvgBigint
 {
-    @Override
-    public String getRewriteFormatExpression()
+    @Test
+    public void testGetRewriteFormatExpression()
     {
-        // Teradata uses FLOAT for double precision floating-point
-        // CAST to FLOAT ensures proper decimal division for AVG
-        return "avg(CAST(%s AS FLOAT))";
+        ImplementAvgBigint implementAvgBigint = new ImplementAvgBigint();
+        String formatExpression = implementAvgBigint.getRewriteFormatExpression();
+        // Replace with the expected SQL expression for Teradata
+        assertThat(formatExpression).isEqualTo("avg(CAST(%s AS FLOAT))");
     }
 }
