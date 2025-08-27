@@ -1399,6 +1399,36 @@ public abstract class BaseIcebergConnectorTest
         }
     }
 
+    @Test // regression test for https://github.com/trinodb/trino/issues/26492
+    public void testAlterPartitionColumnPreservesExistingPartitions()
+    {
+        try (TestTable table = newTrinoTable("test_alter_partition", "(part_day timestamp, part_month timestamp, ts timestamp) WITH (partitioning = ARRAY['day(part_day)'])")) {
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES partitioning = ARRAY['day(part_day)','ts']");
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (TIMESTAMP '2021-07-24 03:43:57.987654', TIMESTAMP '2021-07-24 03:43:57.987654', TIMESTAMP '2021-09-01 03:43:57.987654')", 1);
+
+            assertThat(query("TABLE " + table.getName()))
+                    .matches("VALUES (TIMESTAMP '2021-07-24 03:43:57.987654', TIMESTAMP '2021-07-24 03:43:57.987654', TIMESTAMP '2021-09-01 03:43:57.987654')");
+            assertThat(query("SELECT partition.part_day_day FROM \"" + table.getName() + "$partitions\""))
+                    .matches("VALUES DATE '2021-07-24'");
+            assertThat(query("SELECT partition.ts FROM \"" + table.getName() + "$partitions\""))
+                    .matches("VALUES TIMESTAMP '2021-09-01 03:43:57.987654'");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("partitioning = ARRAY['day(part_day)','ts']");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES partitioning = ARRAY['day(part_day)', 'month(part_month)']");
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (TIMESTAMP '2021-07-24 03:43:57.987654', TIMESTAMP '2021-07-24 03:43:57.987654', TIMESTAMP '2021-09-01 03:43:57.987654')", 1);
+            assertThat(query("TABLE " + table.getName()))
+                    .matches("VALUES (TIMESTAMP '2021-07-24 03:43:57.987654', TIMESTAMP '2021-07-24 03:43:57.987654', TIMESTAMP '2021-09-01 03:43:57.987654'), " +
+                            "(TIMESTAMP '2021-07-24 03:43:57.987654', TIMESTAMP '2021-07-24 03:43:57.987654', TIMESTAMP '2021-09-01 03:43:57.987654')");
+            assertThat(query("SELECT partition.part_day_day FROM \"" + table.getName() + "$partitions\""))
+                    .matches("VALUES DATE '2021-07-24', DATE '2021-07-24'");
+            assertThat(query("SELECT partition.ts FROM \"" + table.getName() + "$partitions\""))
+                    .matches("VALUES NULL, TIMESTAMP '2021-09-01 03:43:57.987654'");
+            assertThat(query("SELECT partition.part_month_month FROM \"" + table.getName() + "$partitions\""))
+                    .matches("VALUES NULL, 618");
+        }
+    }
+
     @Test
     public void testSortByAllTypes()
     {
