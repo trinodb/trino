@@ -43,4 +43,9 @@ public interface TrinoInput
         int read = readTail(buffer, 0, length);
         return Slices.wrappedBuffer(buffer, 0, read);
     }
+
+    default InputFileMetrics getMetrics()
+    {
+        return InputFileMetrics.EMPTY;
+    }
 }
