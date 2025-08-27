@@ -3172,7 +3172,6 @@ public class DeltaLakeMetadata
         return lastCheckpoint.map(LastCheckpoint::version).orElse(0L);
     }
 
-    // TODO: revisit, remove tableId if we are not going to support write for vendedCredentials vending
     private void writeCheckpointIfNeeded(
             ConnectorSession session,
             SchemaTableName table,
