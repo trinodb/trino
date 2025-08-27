@@ -177,6 +177,7 @@ export interface QueryInfo extends QueryInfoBase {
     sessionSource: string
     sessionUser: string
     queryDataEncoding: string
+    traceToken: string
 }
 
 export interface Session {
