@@ -1357,6 +1357,24 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testAlterPartitionColumn()
+    {
+        try (TestTable table = newTrinoTable("test_alter_partition", "(_time timestamp, ts timestamp) WITH (partitioning = ARRAY['day(_time)'])")) {
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES partitioning = ARRAY['day(_time)','ts']");
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (TIMESTAMP '2021-07-24 03:43:57.987654', TIMESTAMP '2021-09-01 03:43:57.987654')", 1);
+
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES (TIMESTAMP '2021-07-24 03:43:57.987654', TIMESTAMP '2021-09-01 03:43:57.987654')");
+            assertThat(query("SELECT partition._time_day FROM \"" + table.getName() + "$partitions\""))
+                    .matches("VALUES DATE '2021-07-24'");
+            assertThat(query("SELECT partition.ts FROM \"" + table.getName() + "$partitions\""))
+                    .matches("VALUES TIMESTAMP '2021-09-01 03:43:57.987654'");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("partitioning = ARRAY['day(_time)','ts']");
+        }
+    }
+
+    @Test
     public void testSortByAllTypes()
     {
         String tableName = "test_sort_by_all_types_" + randomNameSuffix();
