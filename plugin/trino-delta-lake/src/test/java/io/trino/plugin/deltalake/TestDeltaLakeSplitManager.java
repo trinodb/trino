@@ -252,7 +252,7 @@ public class TestDeltaLakeSplitManager
                 transactionLogAccess,
                 newDirectExecutorService(),
                 deltaLakeConfig,
-                HDFS_FILE_SYSTEM_FACTORY,
+                new DefaultDeltaLakeFileSystemFactory(HDFS_FILE_SYSTEM_FACTORY),
                 deltaLakeTransactionManager,
                 new DefaultCachingHostAddressProvider());
     }
