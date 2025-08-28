@@ -302,7 +302,7 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.32.30</version>
+                <version>2.32.31</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
