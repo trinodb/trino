@@ -25,11 +25,11 @@ public class TestTeradataConfig
     public void testDefaults()
     {
         TeradataConfig config = new TeradataConfig();
-        assertThat(config.getOidcClientId()).isEmpty();
-        assertThat(config.getOidcClientSecret()).isEmpty();
-        assertThat(config.getOidcJWSCertificate()).isEmpty();
-        assertThat(config.getOidcJWSPrivateKey()).isEmpty();
-        assertThat(config.getOidcJwtToken()).isEmpty();
+        assertThat(config.getOidcClientId()).isNull();
+        assertThat(config.getOidcClientSecret()).isNull();
+        assertThat(config.getOidcJWSCertificate()).isNull();
+        assertThat(config.getOidcJWSPrivateKey()).isNull();
+        assertThat(config.getOidcJwtToken()).isNull();
         assertThat(config.getLogMech()).isEqualTo("TD2");
         assertThat(config.getTeradataCaseSensitivity()).isEqualTo(TeradataConfig.TeradataCaseSensitivity.CASE_SENSITIVE);
     }
