@@ -1533,7 +1533,7 @@ public class TestEventListenerBasic
         assertThat(event.getSelectColumnsLineageInfo().getFirst().sourceColumns()).containsExactly(new ColumnDetail("tpch", "tiny", "nation", "nationkey"));
 
         assertThat(event.getSelectColumnsLineageInfo().get(1).name()).isEqualTo("test_name");
-        assertThat(event.getSelectColumnsLineageInfo().get(1).name()).isEqualTo(1);
+        assertThat(event.getSelectColumnsLineageInfo().get(1).index()).isEqualTo(1);
         assertThat(event.getSelectColumnsLineageInfo().get(1).sourceColumns()).containsExactly(new ColumnDetail("tpch", "tiny", "nation", "name"));
 
         assertThat(event.getSelectColumnsLineageInfo().get(2).name()).isEqualTo("");
