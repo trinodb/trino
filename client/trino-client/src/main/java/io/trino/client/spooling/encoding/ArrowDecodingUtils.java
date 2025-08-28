@@ -22,6 +22,7 @@ import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.FixedSizeBinaryVector;
 import org.apache.arrow.vector.IntervalDayVector;
+import org.apache.arrow.vector.IntervalYearVector;
 import org.apache.arrow.vector.TimeMicroVector;
 import org.apache.arrow.vector.TimeMilliVector;
 import org.apache.arrow.vector.TimeNanoVector;
@@ -44,19 +45,16 @@ import org.apache.arrow.vector.util.TransferPair;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.OffsetTime;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
-import java.time.temporal.ChronoField;
-import java.time.temporal.TemporalAccessor;
-import java.time.temporal.ValueRange;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -73,24 +71,29 @@ import static io.trino.client.ClientStandardTypes.DECIMAL;
 import static io.trino.client.ClientStandardTypes.DOUBLE;
 import static io.trino.client.ClientStandardTypes.INTEGER;
 import static io.trino.client.ClientStandardTypes.INTERVAL_DAY_TO_SECOND;
+import static io.trino.client.ClientStandardTypes.INTERVAL_YEAR_TO_MONTH;
+import static io.trino.client.ClientStandardTypes.JSON;
 import static io.trino.client.ClientStandardTypes.MAP;
 import static io.trino.client.ClientStandardTypes.REAL;
+import static io.trino.client.ClientStandardTypes.ROW;
 import static io.trino.client.ClientStandardTypes.SMALLINT;
 import static io.trino.client.ClientStandardTypes.TIME;
-import static io.trino.client.ClientStandardTypes.TIME_WITH_TIME_ZONE;
 import static io.trino.client.ClientStandardTypes.TIMESTAMP;
 import static io.trino.client.ClientStandardTypes.TIMESTAMP_WITH_TIME_ZONE;
+import static io.trino.client.ClientStandardTypes.TIME_WITH_TIME_ZONE;
 import static io.trino.client.ClientStandardTypes.TINYINT;
 import static io.trino.client.ClientStandardTypes.UUID;
 import static io.trino.client.ClientStandardTypes.VARCHAR;
 import static io.trino.client.IntervalDayTime.formatMillis;
+import static java.time.temporal.ChronoField.NANO_OF_SECOND;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.nameUUIDFromBytes;
-import static java.time.temporal.ChronoField.NANO_OF_SECOND;
+import io.trino.client.ClientTypeSignatureParameter;
+import io.trino.client.NamedClientTypeSignature;
 
 public class ArrowDecodingUtils
 {
@@ -109,7 +112,7 @@ public class ArrowDecodingUtils
             TransferPair transferPair = vectors.get(i).getTransferPair(allocator);
             transferPair.getTo().allocateNew();
             transferPair.transfer();
-            decoders[i] = debugging(createVectorTypeDecoder(columns.get(i).getTypeSignature(), transferPair.getTo()));
+            decoders[i] = createVectorTypeDecoder(columns.get(i).getTypeSignature(), transferPair.getTo());
         }
         return decoders;
     }
@@ -148,18 +151,19 @@ public class ArrowDecodingUtils
                 return new DecimalDecoder(checkedCast(vector, DecimalVector.class));
             case INTERVAL_DAY_TO_SECOND:
                 return new IntervalDayTimeDecoder(checkedCast(vector, IntervalDayVector.class));
+            case INTERVAL_YEAR_TO_MONTH:
+                return new IntervalYearMonthDecoder(checkedCast(vector, IntervalYearVector.class));
             case TIME:
                 return new TimeDecoder(vector);
             case TIME_WITH_TIME_ZONE:
                 return new TimeWithTimeZoneDecoder(vector);
             case TIMESTAMP_WITH_TIME_ZONE:
                 return new TimestampWithTimeZoneDecoder(vector);
-//            case ROW:
-//            case JSON:
-//            case TIME:
-//            case TIME_WITH_TIME_ZONE:
-//            case TIMESTAMP_WITH_TIME_ZONE:
-//            case INTERVAL_YEAR_TO_MONTH:
+            case ROW:
+                return new RowDecoder(signature, checkedCast(vector, StructVector.class));
+            case JSON:
+                return new JsonDecoder(checkedCast(vector, VarCharVector.class));
+
 //            case IPADDRESS:
 //            case GEOMETRY:
 //            case SPHERICAL_GEOGRAPHY:
@@ -170,7 +174,6 @@ public class ArrowDecodingUtils
 //            case P4_HYPER_LOG_LOG:
 //            case HYPER_LOG_LOG:
 //            case SET_DIGEST:
-//            case VARBINARY:
             default:
                 return new PassThroughDecoder(vector);
         }
@@ -242,8 +245,8 @@ public class ArrowDecodingUtils
             StructVector structVector = (StructVector) vector.getDataVector();
 
             checkArgument(signature.getRawType().equals(MAP), "not a map type signature: %s", signature);
-            this.keyDecoder = debugging(createVectorTypeDecoder(signature.getArgumentsAsTypeSignatures().get(0), structVector.getChild("key")));
-            this.valueDecoder = debugging(createVectorTypeDecoder(signature.getArgumentsAsTypeSignatures().get(1), structVector.getChild("value")));
+            this.keyDecoder = createVectorTypeDecoder(signature.getArgumentsAsTypeSignatures().get(0), structVector.getChild("key"));
+            this.valueDecoder = createVectorTypeDecoder(signature.getArgumentsAsTypeSignatures().get(1), structVector.getChild("value"));
         }
 
         @Override
@@ -285,7 +288,7 @@ public class ArrowDecodingUtils
             requireNonNull(signature, "signature is null");
             this.vector = requireNonNull(vector, "vector is null");
             checkArgument(signature.getRawType().equals(ARRAY), "not an array type signature: %s", signature);
-            this.valueDecoder = debugging(createVectorTypeDecoder(signature.getArgumentsAsTypeSignatures().get(0), vector.getDataVector()));
+            this.valueDecoder = createVectorTypeDecoder(signature.getArgumentsAsTypeSignatures().get(0), vector.getDataVector());
         }
 
         @Override
@@ -383,10 +386,10 @@ public class ArrowDecodingUtils
             if (vector.isNull(position)) {
                 return null;
             }
-            
+
             LocalDateTime dateTime;
             int precision;
-            
+
             if (vector instanceof TimeStampSecVector) {
                 long seconds = ((TimeStampSecVector) vector).get(position);
                 dateTime = LocalDateTime.ofInstant(Instant.ofEpochSecond(seconds), ZoneOffset.UTC);
@@ -412,15 +415,15 @@ public class ArrowDecodingUtils
             else {
                 throw new UnsupportedOperationException("Unsupported timestamp vector type: " + vector.getClass());
             }
-            
+
             // Format with fixed precision (showing trailing zeros when needed)
             DateTimeFormatterBuilder builder = new DateTimeFormatterBuilder()
                     .appendPattern("uuuu-MM-dd HH:mm:ss");
-                    
+
             if (precision > 0) {
                 builder.appendFraction(NANO_OF_SECOND, precision, precision, true);
             }
-            
+
             DateTimeFormatter formatter = builder.toFormatter();
             return formatter.format(dateTime);
         }
@@ -515,6 +518,47 @@ public class ArrowDecodingUtils
         }
     }
 
+    private static class IntervalYearMonthDecoder
+            implements VectorTypeDecoder
+    {
+        private final IntervalYearVector vector;
+
+        public IntervalYearMonthDecoder(IntervalYearVector vector)
+        {
+            this.vector = requireNonNull(vector, "vector is null");
+        }
+
+        @Override
+        public Object decode(int position)
+        {
+            if (vector.isNull(position)) {
+                return null;
+            }
+
+            // IntervalYearVector stores months directly as int
+            int months = vector.get(position);
+            
+            // Handle negative intervals properly
+            if (months < 0) {
+                int absoluteMonths = Math.abs(months);
+                int years = absoluteMonths / 12;
+                int remainingMonths = absoluteMonths % 12;
+                return String.format("-%d-%d", years, remainingMonths);
+            }
+            else {
+                int years = months / 12;
+                int remainingMonths = months % 12;
+                return String.format("%d-%d", years, remainingMonths);
+            }
+        }
+
+        @Override
+        public void close()
+        {
+            vector.close();
+        }
+    }
+
     private static class TimeDecoder
             implements VectorTypeDecoder
     {
@@ -531,7 +575,7 @@ public class ArrowDecodingUtils
             if (vector.isNull(position)) {
                 return null;
             }
-            
+
             LocalTime time;
             if (vector instanceof TimeSecVector) {
                 int seconds = ((TimeSecVector) vector).get(position);
@@ -552,7 +596,7 @@ public class ArrowDecodingUtils
             else {
                 throw new UnsupportedOperationException("Unsupported time vector type: " + vector.getClass());
             }
-            
+
             // Format the time to match TestingTrinoClient expectations
             return DateTimeFormatter.ISO_LOCAL_TIME.format(time);
         }
@@ -580,7 +624,7 @@ public class ArrowDecodingUtils
             if (vector.isNull(position)) {
                 return null;
             }
-            
+
             LocalTime time;
             if (vector instanceof TimeSecVector) {
                 int seconds = ((TimeSecVector) vector).get(position);
@@ -601,7 +645,7 @@ public class ArrowDecodingUtils
             else {
                 throw new UnsupportedOperationException("Unsupported time with time zone vector type: " + vector.getClass());
             }
-            
+
             // Since the time zone was normalized to UTC during encoding,
             // we return the time with UTC offset
             return DateTimeFormatter.ISO_OFFSET_TIME.format(time.atOffset(ZoneOffset.UTC));
@@ -630,10 +674,10 @@ public class ArrowDecodingUtils
             if (vector.isNull(position)) {
                 return null;
             }
-            
+
             ZonedDateTime zonedDateTime;
             int precision;
-            
+
             if (vector instanceof TimeStampSecTZVector) {
                 long seconds = ((TimeStampSecTZVector) vector).get(position);
                 zonedDateTime = ZonedDateTime.ofInstant(Instant.ofEpochSecond(seconds), ZoneOffset.UTC);
@@ -659,19 +703,94 @@ public class ArrowDecodingUtils
             else {
                 throw new UnsupportedOperationException("Unsupported timestamp with time zone vector type: " + vector.getClass());
             }
-            
+
             // Format with fixed precision (showing trailing zeros when needed) and UTC zone
             DateTimeFormatterBuilder builder = new DateTimeFormatterBuilder()
                     .appendPattern("uuuu-MM-dd HH:mm:ss");
-                    
+
             if (precision > 0) {
                 builder.appendFraction(NANO_OF_SECOND, precision, precision, true);
             }
-            
+
             builder.appendLiteral(' ').appendZoneId();
             DateTimeFormatter formatter = builder.toFormatter();
-            
+
             return formatter.format(zonedDateTime);
+        }
+
+        @Override
+        public void close()
+        {
+            vector.close();
+        }
+    }
+
+    private static class RowDecoder
+            implements VectorTypeDecoder
+    {
+        private final List<VectorTypeDecoder> fieldDecoders;
+        private final StructVector vector;
+
+        public RowDecoder(ClientTypeSignature signature, StructVector vector)
+        {
+            requireNonNull(signature, "signature is null");
+            this.vector = requireNonNull(vector, "vector is null");
+
+            checkArgument(signature.getRawType().equals(ROW), "not a row type signature: %s", signature);
+            List<FieldVector> children = vector.getChildrenFromFields();
+            
+            // ROW types use named type signatures, not plain type signatures
+            this.fieldDecoders = new ArrayList<>();
+            for (int i = 0; i < children.size(); i++) {
+                ClientTypeSignatureParameter parameter = signature.getArguments().get(i);
+                NamedClientTypeSignature namedTypeSignature = parameter.getNamedTypeSignature();
+                this.fieldDecoders.add(createVectorTypeDecoder(namedTypeSignature.getTypeSignature(), children.get(i)));
+            }
+        }
+
+        @Override
+        public Object decode(int position)
+        {
+            if (vector.isNull(position)) {
+                return null;
+            }
+
+            List<Object> values = new ArrayList<>();
+            for (VectorTypeDecoder fieldDecoder : fieldDecoders) {
+                values.add(fieldDecoder.decode(position));
+            }
+            return unmodifiableList(values);
+        }
+
+        @Override
+        public void close()
+                throws IOException
+        {
+            for (VectorTypeDecoder fieldDecoder : fieldDecoders) {
+                fieldDecoder.close();
+            }
+            vector.close();
+        }
+    }
+
+    private static class JsonDecoder
+            implements VectorTypeDecoder
+    {
+        private final VarCharVector vector;
+
+        public JsonDecoder(VarCharVector vector)
+        {
+            this.vector = requireNonNull(vector, "vector is null");
+        }
+
+        @Override
+        public Object decode(int position)
+        {
+            if (vector.isNull(position)) {
+                return null;
+            }
+            // Return the raw UTF-8 string instead of parsed JSON
+            return new String(vector.get(position), StandardCharsets.UTF_8);
         }
 
         @Override

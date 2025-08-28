@@ -21,6 +21,8 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.Type;
+import io.trino.type.IntervalDayTimeType;
+import io.trino.type.IntervalYearMonthType;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.DateDayVector;
@@ -30,6 +32,7 @@ import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.IntervalDayVector;
+import org.apache.arrow.vector.IntervalYearVector;
 import org.apache.arrow.vector.NullVector;
 import org.apache.arrow.vector.SmallIntVector;
 import org.apache.arrow.vector.TimeMicroVector;
@@ -71,6 +74,7 @@ public final class VectorWriters
             case DateDayVector vector -> new DateWriter(vector);
             case DecimalVector vector -> new DecimalWriter(vector, (DecimalType) type);
             case IntervalDayVector vector -> new IntervalDayWriter(vector);
+            case IntervalYearVector vector -> new IntervalYearMonthWriter(vector);
             case FixedSizeBinaryVector vector -> new UuidWriter(vector);
             case TimeSecVector vector -> type instanceof TimeWithTimeZoneType ? 
                 new TimeWithTimeZoneSecWriter(vector, (TimeWithTimeZoneType) type) : 

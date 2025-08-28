@@ -14,17 +14,13 @@
 package io.trino.server.protocol.spooling.encoding.arrow;
 
 import io.trino.spi.block.Block;
-import io.trino.type.IntervalDayTimeType;
-import org.apache.arrow.vector.IntervalDayVector;
+import io.trino.type.IntervalYearMonthType;
+import org.apache.arrow.vector.IntervalYearVector;
 
-import static java.lang.Math.toIntExact;
-
-public final class IntervalDayWriter
-        extends FixedWidthWriter<IntervalDayVector>
+public final class IntervalYearMonthWriter
+        extends FixedWidthWriter<IntervalYearVector>
 {
-    private static final int MILLIS_IN_DAY = 24 * 60 * 60 * 1000;
-
-    public IntervalDayWriter(IntervalDayVector vector)
+    public IntervalYearMonthWriter(IntervalYearVector vector)
     {
         super(vector);
     }
@@ -38,9 +34,7 @@ public final class IntervalDayWriter
     @Override
     protected void writeValue(Block block, int position)
     {
-        long intervalDayTime = IntervalDayTimeType.INTERVAL_DAY_TIME.getLong(block, position);
-        int days = toIntExact(intervalDayTime / MILLIS_IN_DAY);
-        int millis = toIntExact((intervalDayTime % MILLIS_IN_DAY));
-        vector.set(position, days, millis);
+        int months = IntervalYearMonthType.INTERVAL_YEAR_MONTH.getInt(block, position);
+        vector.set(position, months);
     }
-}
+} 

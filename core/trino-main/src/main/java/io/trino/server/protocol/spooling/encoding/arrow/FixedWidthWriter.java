@@ -25,6 +25,7 @@ public abstract sealed class FixedWidthWriter<V extends FixedWidthVector>
         DoubleWriter,
         IntegerWriter,
         IntervalDayWriter,
+        IntervalYearMonthWriter,
         RealWriter,
         SmallIntWriter,
         TimeSecWriter,

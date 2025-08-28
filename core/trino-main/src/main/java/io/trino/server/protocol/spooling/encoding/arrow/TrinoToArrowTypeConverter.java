@@ -38,18 +38,23 @@ import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import io.trino.type.IntervalDayTimeType;
+import io.trino.type.IntervalYearMonthType;
+import io.trino.type.JsonType;
 import io.trino.type.UnknownType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static org.apache.arrow.vector.types.DateUnit.DAY;
 import static org.apache.arrow.vector.types.FloatingPointPrecision.DOUBLE;
 import static org.apache.arrow.vector.types.FloatingPointPrecision.SINGLE;
 import static org.apache.arrow.vector.types.IntervalUnit.DAY_TIME;
+import static org.apache.arrow.vector.types.IntervalUnit.YEAR_MONTH;
 import static org.apache.arrow.vector.types.TimeUnit.MICROSECOND;
 import static org.apache.arrow.vector.types.TimeUnit.MILLISECOND;
 import static org.apache.arrow.vector.types.TimeUnit.NANOSECOND;
@@ -65,7 +70,7 @@ public final class TrinoToArrowTypeConverter
     {
         return switch (type) {
             case ArrayType t -> new Field(name, new FieldType(true, new ArrowType.List(), null), List.of(
-                    new Field("element", new FieldType(true, toArrowField(t.getElementType()), null), null)));
+                    toArrowField("element", t.getElementType(), true)));
             case MapType mapType -> {
                 Field entries = new Field("entries",
                         notNullable(ArrowType.Struct.INSTANCE),
@@ -73,12 +78,30 @@ public final class TrinoToArrowTypeConverter
                 yield new Field(name, nullable(new ArrowType.Map(false)), List.of(entries));
             }
             case RowType rowType -> {
-                List<Field> children = rowType.getFields().stream()
-                        .map(field -> toArrowField(field.getName().orElse(""), field.getType(), nullable))
+                List<Field> children = IntStream.range(0, rowType.getFields().size())
+                        .mapToObj(i -> {
+                            RowType.Field field = rowType.getFields().get(i);
+                            String fieldName = field.getName().orElse("field" + i);
+                            return toArrowField(fieldName, field.getType(), nullable);
+                        })
                         .collect(toImmutableList());
                 yield new Field(name, nullable(ArrowType.Struct.INSTANCE), children);
             }
-            default -> new Field(name, nullableField(toArrowField(type), nullable), null);
+            case UuidType _ -> {
+                Map<String, String> metadata = Map.of(
+                        "ARROW:extension:name", "arrow.uuid",
+                        "ARROW:extension:metadata", "");
+                FieldType fieldType = new FieldType(nullable, new ArrowType.FixedSizeBinary(16), null, metadata);
+                yield new Field(name, fieldType, null);
+            }
+            default -> {
+                ArrowType arrowType = toArrowField(type);
+                FieldType fieldType;
+
+                fieldType = nullableField(arrowType, nullable);
+
+                yield new Field(name, fieldType, null);
+            }
         };
     }
 
@@ -100,6 +123,7 @@ public final class TrinoToArrowTypeConverter
                 case 3 -> new ArrowType.Time(MILLISECOND, 32);
                 case 6 -> new ArrowType.Time(MICROSECOND, 64);
                 case 9 -> new ArrowType.Time(NANOSECOND, 64);
+                case 12 -> new ArrowType.Time(NANOSECOND, 64); // Cast picoseconds to nanoseconds
                 default -> throw new UnsupportedOperationException("Unsupported time precision: " + time.getPrecision());
             };
             case TimeWithTimeZoneType timeWithTimeZone -> switch (timeWithTimeZone.getPrecision()) {
@@ -107,6 +131,7 @@ public final class TrinoToArrowTypeConverter
                 case 3 -> new ArrowType.Time(MILLISECOND, 32);
                 case 6 -> new ArrowType.Time(MICROSECOND, 64);
                 case 9 -> new ArrowType.Time(NANOSECOND, 64);
+                case 12 -> new ArrowType.Time(NANOSECOND, 64); // Cast picoseconds to nanoseconds
                 default -> throw new UnsupportedOperationException("Unsupported time with time zone precision: " + timeWithTimeZone.getPrecision());
             };
             case TimestampType timestamp -> switch (timestamp.getPrecision()) {
@@ -114,6 +139,7 @@ public final class TrinoToArrowTypeConverter
                 case 3 -> new ArrowType.Timestamp(MILLISECOND, null);
                 case 6 -> new ArrowType.Timestamp(MICROSECOND, null);
                 case 9 -> new ArrowType.Timestamp(NANOSECOND, null);
+                case 12 -> new ArrowType.Timestamp(NANOSECOND, null); // Cast picoseconds to nanoseconds
                 default -> throw new UnsupportedOperationException("Unsupported timestamp precision: " + timestamp.getPrecision());
             };
             case TimestampWithTimeZoneType timestampWithTimeZone -> switch (timestampWithTimeZone.getPrecision()) {
@@ -121,6 +147,7 @@ public final class TrinoToArrowTypeConverter
                 case 3 -> new ArrowType.Timestamp(MILLISECOND, "UTC");
                 case 6 -> new ArrowType.Timestamp(MICROSECOND, "UTC");
                 case 9 -> new ArrowType.Timestamp(NANOSECOND, "UTC");
+                case 12 -> new ArrowType.Timestamp(NANOSECOND, "UTC"); // Cast picoseconds to nanoseconds
                 default -> throw new UnsupportedOperationException("Unsupported timestamp with time zone precision: " + timestampWithTimeZone.getPrecision());
             };
             case DecimalType decimal -> new ArrowType.Decimal(decimal.getPrecision(), decimal.getScale(), 128);
@@ -130,6 +157,8 @@ public final class TrinoToArrowTypeConverter
             case MapType _ -> new ArrowType.Map(false);
             case RowType _ -> new ArrowType.Struct();
             case IntervalDayTimeType _ -> new ArrowType.Interval(DAY_TIME);
+            case IntervalYearMonthType _ -> new ArrowType.Interval(YEAR_MONTH);
+            case JsonType _ -> new ArrowType.Utf8();
             case UnknownType _ -> new ArrowType.Null();
             default -> throw new UnsupportedOperationException("Unsupported type: " + type);
         };

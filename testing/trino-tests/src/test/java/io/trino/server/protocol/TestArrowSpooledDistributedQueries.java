@@ -33,7 +33,7 @@ public class TestArrowSpooledDistributedQueries
     @Override
     public void testTimestampWithTimeZoneLiterals()
     {
-        // TODO: Arrow spooling by design converts all timestamps with time zone to UTC
+        // TODO: Arrow serialization by design converts all timestamps with time zone to UTC
         // The original time zone information is not preserved in the Arrow format
         assertThatThrownBy(super::testTimestampWithTimeZoneLiterals)
                 .hasMessageContaining("expected: 1960-01-22T03:04:05+06:00")
@@ -44,7 +44,7 @@ public class TestArrowSpooledDistributedQueries
     @Override
     public void testTimeWithTimeZoneLiterals()
     {
-        // TODO: Arrow spooling by design converts all time with time zone to UTC
+        // TODO: Arrow serialization by design converts all time with time zone to UTC
         // The original time zone information is not preserved in the Arrow format
         assertThatThrownBy(super::testTimeWithTimeZoneLiterals)
                 .hasMessageContaining("expected: 03:04:05+06:00")
@@ -55,7 +55,7 @@ public class TestArrowSpooledDistributedQueries
     @Override
     public void testIn()
     {
-        // TODO: Arrow spooling by design converts all timestamps with time zone to UTC
+        // TODO: Arrow serialization by design converts all timestamps with time zone to UTC
         // The original time zone information is not preserved in the Arrow format
         assertThatThrownBy(super::testIn)
                 .hasMessageContaining("1970-01-01T08:01+08:00")
@@ -66,19 +66,11 @@ public class TestArrowSpooledDistributedQueries
     @Override
     public void testAtTimeZone()
     {
-        // TODO: Arrow spooling by design converts all timestamps with time zone to UTC
+        // TODO: Arrow serialization by design converts all timestamps with time zone to UTC
         // The original time zone information is not preserved in the Arrow format
         assertThatThrownBy(super::testAtTimeZone)
                 .hasMessageContaining("2012-10-30T18:09+07:09")
                 .hasMessageContaining("2012-10-30T11:00Z");
-    }
-
-    @Test
-    @Override
-    public void testSelectLargeInterval()
-    {
-        assertThatThrownBy(super::testSelectLargeInterval)
-                .hasMessageContaining("Output columns [OutputColumn[sourcePageChannel=0, columnName=_col0, type=interval year to month]] are not supported for spooling encoding '%s'".formatted(encoding()));
     }
 
     @Override
