@@ -35,6 +35,14 @@ public abstract sealed class FixedWidthWriter<V extends FixedWidthVector>
         TimestampMilliWriter,
         TimestampMicroWriter,
         TimestampNanoWriter,
+        TimestampWithTimeZoneSecWriter,
+        TimestampWithTimeZoneMilliWriter,
+        TimestampWithTimeZoneMicroWriter,
+        TimestampWithTimeZoneNanoWriter,
+        TimeWithTimeZoneSecWriter,
+        TimeWithTimeZoneMilliWriter,
+        TimeWithTimeZoneMicroWriter,
+        TimeWithTimeZoneNanoWriter,
         TinyIntWriter,
         UuidWriter
 {

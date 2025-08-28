@@ -22,6 +22,18 @@ import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.FixedSizeBinaryVector;
 import org.apache.arrow.vector.IntervalDayVector;
+import org.apache.arrow.vector.TimeMicroVector;
+import org.apache.arrow.vector.TimeMilliVector;
+import org.apache.arrow.vector.TimeNanoVector;
+import org.apache.arrow.vector.TimeSecVector;
+import org.apache.arrow.vector.TimeStampMicroTZVector;
+import org.apache.arrow.vector.TimeStampMicroVector;
+import org.apache.arrow.vector.TimeStampMilliTZVector;
+import org.apache.arrow.vector.TimeStampMilliVector;
+import org.apache.arrow.vector.TimeStampNanoTZVector;
+import org.apache.arrow.vector.TimeStampNanoVector;
+import org.apache.arrow.vector.TimeStampSecTZVector;
+import org.apache.arrow.vector.TimeStampSecVector;
 import org.apache.arrow.vector.TimeStampVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VarCharVector;
@@ -33,9 +45,18 @@ import org.apache.arrow.vector.util.TransferPair;
 import java.io.Closeable;
 import java.io.IOException;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.OffsetTime;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.temporal.ChronoField;
+import java.time.temporal.TemporalAccessor;
+import java.time.temporal.ValueRange;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -55,7 +76,10 @@ import static io.trino.client.ClientStandardTypes.INTERVAL_DAY_TO_SECOND;
 import static io.trino.client.ClientStandardTypes.MAP;
 import static io.trino.client.ClientStandardTypes.REAL;
 import static io.trino.client.ClientStandardTypes.SMALLINT;
+import static io.trino.client.ClientStandardTypes.TIME;
+import static io.trino.client.ClientStandardTypes.TIME_WITH_TIME_ZONE;
 import static io.trino.client.ClientStandardTypes.TIMESTAMP;
+import static io.trino.client.ClientStandardTypes.TIMESTAMP_WITH_TIME_ZONE;
 import static io.trino.client.ClientStandardTypes.TINYINT;
 import static io.trino.client.ClientStandardTypes.UUID;
 import static io.trino.client.ClientStandardTypes.VARCHAR;
@@ -66,6 +90,7 @@ import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.nameUUIDFromBytes;
+import static java.time.temporal.ChronoField.NANO_OF_SECOND;
 
 public class ArrowDecodingUtils
 {
@@ -123,6 +148,12 @@ public class ArrowDecodingUtils
                 return new DecimalDecoder(checkedCast(vector, DecimalVector.class));
             case INTERVAL_DAY_TO_SECOND:
                 return new IntervalDayTimeDecoder(checkedCast(vector, IntervalDayVector.class));
+            case TIME:
+                return new TimeDecoder(vector);
+            case TIME_WITH_TIME_ZONE:
+                return new TimeWithTimeZoneDecoder(vector);
+            case TIMESTAMP_WITH_TIME_ZONE:
+                return new TimestampWithTimeZoneDecoder(vector);
 //            case ROW:
 //            case JSON:
 //            case TIME:
@@ -339,8 +370,6 @@ public class ArrowDecodingUtils
     private static class TimestampDecoder
             implements VectorTypeDecoder
     {
-        private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss");
-
         private final TimeStampVector vector;
 
         public TimestampDecoder(TimeStampVector vector)
@@ -354,28 +383,46 @@ public class ArrowDecodingUtils
             if (vector.isNull(position)) {
                 return null;
             }
-            return formatTimestamp((LocalDateTime) vector.getObject(position));
-        }
-
-        private static String formatTimestamp(LocalDateTime dateTime)
-        {
-            return TIMESTAMP_FORMATTER.format(dateTime);
-            // TODO: fix me
-//            if (precision > 0) {
-//                long scaledFraction = picoFraction / POWERS_OF_TEN[MAX_PRECISION - precision];
-//                builder.append('.');
-//                builder.setLength(builder.length() + precision);
-//                int index = builder.length() - 1;
-//
-//                // Append the fractional the decimal digits in reverse order
-//                // comparable to format("%0" + precision + "d", scaledFraction);
-//                for (int i = 0; i < precision; i++) {
-//                    long temp = scaledFraction / 10;
-//                    int digit = (int) (scaledFraction - (temp * 10));
-//                    scaledFraction = temp;
-//                    builder.setCharAt(index - i, (char) ('0' + digit));
-//                }
-//            }
+            
+            LocalDateTime dateTime;
+            int precision;
+            
+            if (vector instanceof TimeStampSecVector) {
+                long seconds = ((TimeStampSecVector) vector).get(position);
+                dateTime = LocalDateTime.ofInstant(Instant.ofEpochSecond(seconds), ZoneOffset.UTC);
+                precision = 0;
+            }
+            else if (vector instanceof TimeStampMilliVector) {
+                long millis = ((TimeStampMilliVector) vector).get(position);
+                dateTime = LocalDateTime.ofInstant(Instant.ofEpochMilli(millis), ZoneOffset.UTC);
+                precision = 3;
+            }
+            else if (vector instanceof TimeStampMicroVector) {
+                long micros = ((TimeStampMicroVector) vector).get(position);
+                Instant instant = Instant.EPOCH.plus(Duration.ofNanos(micros * 1_000));
+                dateTime = LocalDateTime.ofInstant(instant, ZoneOffset.UTC);
+                precision = 6;
+            }
+            else if (vector instanceof TimeStampNanoVector) {
+                long nanos = ((TimeStampNanoVector) vector).get(position);
+                Instant instant = Instant.EPOCH.plus(Duration.ofNanos(nanos));
+                dateTime = LocalDateTime.ofInstant(instant, ZoneOffset.UTC);
+                precision = 9;
+            }
+            else {
+                throw new UnsupportedOperationException("Unsupported timestamp vector type: " + vector.getClass());
+            }
+            
+            // Format with fixed precision (showing trailing zeros when needed)
+            DateTimeFormatterBuilder builder = new DateTimeFormatterBuilder()
+                    .appendPattern("uuuu-MM-dd HH:mm:ss");
+                    
+            if (precision > 0) {
+                builder.appendFraction(NANO_OF_SECOND, precision, precision, true);
+            }
+            
+            DateTimeFormatter formatter = builder.toFormatter();
+            return formatter.format(dateTime);
         }
 
         @Override
@@ -459,6 +506,172 @@ public class ArrowDecodingUtils
 
             Duration duration = vector.getObject(position);
             return formatMillis(duration.toNanos() / 1_000_000);
+        }
+
+        @Override
+        public void close()
+        {
+            vector.close();
+        }
+    }
+
+    private static class TimeDecoder
+            implements VectorTypeDecoder
+    {
+        private final ValueVector vector;
+
+        public TimeDecoder(ValueVector vector)
+        {
+            this.vector = requireNonNull(vector, "vector is null");
+        }
+
+        @Override
+        public Object decode(int position)
+        {
+            if (vector.isNull(position)) {
+                return null;
+            }
+            
+            LocalTime time;
+            if (vector instanceof TimeSecVector) {
+                int seconds = ((TimeSecVector) vector).get(position);
+                time = LocalTime.ofSecondOfDay(seconds);
+            }
+            else if (vector instanceof TimeMilliVector) {
+                int millis = ((TimeMilliVector) vector).get(position);
+                time = LocalTime.ofNanoOfDay(millis * 1_000_000L);
+            }
+            else if (vector instanceof TimeMicroVector) {
+                long micros = ((TimeMicroVector) vector).get(position);
+                time = LocalTime.ofNanoOfDay(micros * 1_000L);
+            }
+            else if (vector instanceof TimeNanoVector) {
+                long nanos = ((TimeNanoVector) vector).get(position);
+                time = LocalTime.ofNanoOfDay(nanos);
+            }
+            else {
+                throw new UnsupportedOperationException("Unsupported time vector type: " + vector.getClass());
+            }
+            
+            // Format the time to match TestingTrinoClient expectations
+            return DateTimeFormatter.ISO_LOCAL_TIME.format(time);
+        }
+
+        @Override
+        public void close()
+        {
+            vector.close();
+        }
+    }
+
+    private static class TimeWithTimeZoneDecoder
+            implements VectorTypeDecoder
+    {
+        private final ValueVector vector;
+
+        public TimeWithTimeZoneDecoder(ValueVector vector)
+        {
+            this.vector = requireNonNull(vector, "vector is null");
+        }
+
+        @Override
+        public Object decode(int position)
+        {
+            if (vector.isNull(position)) {
+                return null;
+            }
+            
+            LocalTime time;
+            if (vector instanceof TimeSecVector) {
+                int seconds = ((TimeSecVector) vector).get(position);
+                time = LocalTime.ofSecondOfDay(seconds);
+            }
+            else if (vector instanceof TimeMilliVector) {
+                int millis = ((TimeMilliVector) vector).get(position);
+                time = LocalTime.ofNanoOfDay(millis * 1_000_000L);
+            }
+            else if (vector instanceof TimeMicroVector) {
+                long micros = ((TimeMicroVector) vector).get(position);
+                time = LocalTime.ofNanoOfDay(micros * 1_000L);
+            }
+            else if (vector instanceof TimeNanoVector) {
+                long nanos = ((TimeNanoVector) vector).get(position);
+                time = LocalTime.ofNanoOfDay(nanos);
+            }
+            else {
+                throw new UnsupportedOperationException("Unsupported time with time zone vector type: " + vector.getClass());
+            }
+            
+            // Since the time zone was normalized to UTC during encoding,
+            // we return the time with UTC offset
+            return DateTimeFormatter.ISO_OFFSET_TIME.format(time.atOffset(ZoneOffset.UTC));
+        }
+
+        @Override
+        public void close()
+        {
+            vector.close();
+        }
+    }
+
+    private static class TimestampWithTimeZoneDecoder
+            implements VectorTypeDecoder
+    {
+        private final ValueVector vector;
+
+        public TimestampWithTimeZoneDecoder(ValueVector vector)
+        {
+            this.vector = requireNonNull(vector, "vector is null");
+        }
+
+        @Override
+        public Object decode(int position)
+        {
+            if (vector.isNull(position)) {
+                return null;
+            }
+            
+            ZonedDateTime zonedDateTime;
+            int precision;
+            
+            if (vector instanceof TimeStampSecTZVector) {
+                long seconds = ((TimeStampSecTZVector) vector).get(position);
+                zonedDateTime = ZonedDateTime.ofInstant(Instant.ofEpochSecond(seconds), ZoneOffset.UTC);
+                precision = 0;
+            }
+            else if (vector instanceof TimeStampMilliTZVector) {
+                long millis = ((TimeStampMilliTZVector) vector).get(position);
+                zonedDateTime = ZonedDateTime.ofInstant(Instant.ofEpochMilli(millis), ZoneOffset.UTC);
+                precision = 3;
+            }
+            else if (vector instanceof TimeStampMicroTZVector) {
+                long micros = ((TimeStampMicroTZVector) vector).get(position);
+                Instant instant = Instant.EPOCH.plus(Duration.ofNanos(micros * 1_000));
+                zonedDateTime = ZonedDateTime.ofInstant(instant, ZoneOffset.UTC);
+                precision = 6;
+            }
+            else if (vector instanceof TimeStampNanoTZVector) {
+                long nanos = ((TimeStampNanoTZVector) vector).get(position);
+                Instant instant = Instant.EPOCH.plus(Duration.ofNanos(nanos));
+                zonedDateTime = ZonedDateTime.ofInstant(instant, ZoneOffset.UTC);
+                precision = 9;
+            }
+            else {
+                throw new UnsupportedOperationException("Unsupported timestamp with time zone vector type: " + vector.getClass());
+            }
+            
+            // Format with fixed precision (showing trailing zeros when needed) and UTC zone
+            DateTimeFormatterBuilder builder = new DateTimeFormatterBuilder()
+                    .appendPattern("uuuu-MM-dd HH:mm:ss");
+                    
+            if (precision > 0) {
+                builder.appendFraction(NANO_OF_SECOND, precision, precision, true);
+            }
+            
+            builder.appendLiteral(' ').appendZoneId();
+            DateTimeFormatter formatter = builder.toFormatter();
+            
+            return formatter.format(zonedDateTime);
         }
 
         @Override

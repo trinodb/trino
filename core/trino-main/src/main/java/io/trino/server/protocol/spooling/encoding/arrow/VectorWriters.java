@@ -18,6 +18,8 @@ import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
+import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.Type;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
@@ -34,9 +36,13 @@ import org.apache.arrow.vector.TimeMicroVector;
 import org.apache.arrow.vector.TimeMilliVector;
 import org.apache.arrow.vector.TimeNanoVector;
 import org.apache.arrow.vector.TimeSecVector;
+import org.apache.arrow.vector.TimeStampMicroTZVector;
 import org.apache.arrow.vector.TimeStampMicroVector;
+import org.apache.arrow.vector.TimeStampMilliTZVector;
 import org.apache.arrow.vector.TimeStampMilliVector;
+import org.apache.arrow.vector.TimeStampNanoTZVector;
 import org.apache.arrow.vector.TimeStampNanoVector;
+import org.apache.arrow.vector.TimeStampSecTZVector;
 import org.apache.arrow.vector.TimeStampSecVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.ValueVector;
@@ -66,14 +72,26 @@ public final class VectorWriters
             case DecimalVector vector -> new DecimalWriter(vector, (DecimalType) type);
             case IntervalDayVector vector -> new IntervalDayWriter(vector);
             case FixedSizeBinaryVector vector -> new UuidWriter(vector);
-            case TimeSecVector vector -> new TimeSecWriter(vector);
-            case TimeMilliVector vector -> new TimeMilliWriter(vector);
-            case TimeMicroVector vector -> new TimeMicroWriter(vector);
-            case TimeNanoVector vector -> new TimeNanoWriter(vector);
+            case TimeSecVector vector -> type instanceof TimeWithTimeZoneType ? 
+                new TimeWithTimeZoneSecWriter(vector, (TimeWithTimeZoneType) type) : 
+                new TimeSecWriter(vector);
+            case TimeMilliVector vector -> type instanceof TimeWithTimeZoneType ? 
+                new TimeWithTimeZoneMilliWriter(vector, (TimeWithTimeZoneType) type) : 
+                new TimeMilliWriter(vector);
+            case TimeMicroVector vector -> type instanceof TimeWithTimeZoneType ? 
+                new TimeWithTimeZoneMicroWriter(vector, (TimeWithTimeZoneType) type) : 
+                new TimeMicroWriter(vector);
+            case TimeNanoVector vector -> type instanceof TimeWithTimeZoneType ? 
+                new TimeWithTimeZoneNanoWriter(vector, (TimeWithTimeZoneType) type) : 
+                new TimeNanoWriter(vector);
             case TimeStampSecVector vector -> new TimestampSecWriter(vector);
             case TimeStampMilliVector vector -> new TimestampMilliWriter(vector);
             case TimeStampMicroVector vector -> new TimestampMicroWriter(vector);
             case TimeStampNanoVector vector -> new TimestampNanoWriter(vector);
+            case TimeStampSecTZVector vector -> new TimestampWithTimeZoneSecWriter(vector, (TimestampWithTimeZoneType) type);
+            case TimeStampMilliTZVector vector -> new TimestampWithTimeZoneMilliWriter(vector, (TimestampWithTimeZoneType) type);
+            case TimeStampMicroTZVector vector -> new TimestampWithTimeZoneMicroWriter(vector, (TimestampWithTimeZoneType) type);
+            case TimeStampNanoTZVector vector -> new TimestampWithTimeZoneNanoWriter(vector, (TimestampWithTimeZoneType) type);
             case MapVector vector -> new MapWriter(vector, (MapType) type);
             case ListVector vector -> new ArrayWriter(vector, (ArrayType) type);
             case StructVector vector -> new RowWriter(vector, (RowType) type);
