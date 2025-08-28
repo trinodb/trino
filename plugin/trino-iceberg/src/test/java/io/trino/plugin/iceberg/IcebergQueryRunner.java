@@ -88,6 +88,7 @@ public final class IcebergQueryRunner
         private ImmutableMap.Builder<String, String> icebergProperties = ImmutableMap.builder();
         private Optional<SchemaInitializer> schemaInitializer = Optional.of(SchemaInitializer.builder().build());
         private boolean tpcdsCatalogEnabled;
+        private boolean skipLocalFileSystemBinding;
 
         protected Builder()
         {
@@ -154,6 +155,12 @@ public final class IcebergQueryRunner
             return self();
         }
 
+        public Builder skipLocalFileSystemBinding()
+        {
+            this.skipLocalFileSystemBinding = true;
+            return self();
+        }
+
         @Override
         public DistributedQueryRunner build()
                 throws Exception
@@ -174,7 +181,7 @@ public final class IcebergQueryRunner
                 }
 
                 Path dataDir = metastoreDirectory.map(File::toPath).orElseGet(() -> queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data"));
-                queryRunner.installPlugin(new TestingIcebergPlugin(dataDir));
+                queryRunner.installPlugin(new TestingIcebergPlugin(dataDir, skipLocalFileSystemBinding));
                 queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", icebergProperties.buildOrThrow());
                 schemaInitializer.ifPresent(initializer -> initializer.accept(queryRunner));
 

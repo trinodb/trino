@@ -29,17 +29,24 @@ public class TestingIcebergPlugin
 {
     private final Path localFileSystemRootPath;
     private final Optional<Module> icebergCatalogModule;
+    private final boolean skipLocalFileSystemBinding;
 
     public TestingIcebergPlugin(Path localFileSystemRootPath)
     {
-        this(localFileSystemRootPath, Optional.empty());
+        this(localFileSystemRootPath, Optional.empty(), false);
+    }
+
+    public TestingIcebergPlugin(Path localFileSystemRootPath, boolean skipLocalFileSystemBinding)
+    {
+        this(localFileSystemRootPath, Optional.empty(), skipLocalFileSystemBinding);
     }
 
     @Deprecated
-    public TestingIcebergPlugin(Path localFileSystemRootPath, Optional<Module> icebergCatalogModule)
+    public TestingIcebergPlugin(Path localFileSystemRootPath, Optional<Module> icebergCatalogModule, boolean skipLocalFileSystemBinding)
     {
         this.localFileSystemRootPath = requireNonNull(localFileSystemRootPath, "localFileSystemRootPath is null");
         this.icebergCatalogModule = requireNonNull(icebergCatalogModule, "icebergCatalogModule is null");
+        this.skipLocalFileSystemBinding = skipLocalFileSystemBinding;
     }
 
     @Override
@@ -48,6 +55,6 @@ public class TestingIcebergPlugin
         List<ConnectorFactory> connectorFactories = ImmutableList.copyOf(super.getConnectorFactories());
         verify(connectorFactories.size() == 1, "Unexpected connector factories: %s", connectorFactories);
 
-        return ImmutableList.of(new TestingIcebergConnectorFactory(localFileSystemRootPath, icebergCatalogModule));
+        return ImmutableList.of(new TestingIcebergConnectorFactory(localFileSystemRootPath, icebergCatalogModule, skipLocalFileSystemBinding));
     }
 }

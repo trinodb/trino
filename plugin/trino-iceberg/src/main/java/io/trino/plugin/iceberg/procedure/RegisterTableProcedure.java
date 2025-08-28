@@ -38,6 +38,7 @@ import java.io.UncheckedIOException;
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
+import static io.trino.filesystem.Locations.isS3Tables;
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
@@ -204,6 +205,9 @@ public class RegisterTableProcedure
 
     private static boolean locationEquivalent(String a, String b)
     {
+        if (!isS3Tables(a) && !isS3Tables(b)) {
+            return true;
+        }
         return normalizeS3Uri(a).equals(normalizeS3Uri(b));
     }
 

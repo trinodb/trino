@@ -39,19 +39,23 @@ public class TestingIcebergConnectorFactory
 
     public TestingIcebergConnectorFactory(Path localFileSystemRootPath)
     {
-        this(localFileSystemRootPath, Optional.empty());
+        this(localFileSystemRootPath, Optional.empty(), false);
     }
 
     @Deprecated
     public TestingIcebergConnectorFactory(
             Path localFileSystemRootPath,
-            Optional<Module> icebergCatalogModule)
+            Optional<Module> icebergCatalogModule,
+            boolean skipLocalFileSystemBinding)
     {
         boolean ignored = localFileSystemRootPath.toFile().mkdirs();
         this.icebergCatalogModule = requireNonNull(icebergCatalogModule, "icebergCatalogModule is null");
         this.module = binder -> {
-            newMapBinder(binder, String.class, TrinoFileSystemFactory.class)
-                    .addBinding("local").toInstance(new LocalFileSystemFactory(localFileSystemRootPath));
+            if (!skipLocalFileSystemBinding) {
+                newMapBinder(binder, String.class, TrinoFileSystemFactory.class)
+                        .permitDuplicates()
+                        .addBinding("local").toInstance(new LocalFileSystemFactory(localFileSystemRootPath));
+            }
             configBinder(binder).bindConfigDefaults(FileHiveMetastoreConfig.class, config -> config.setCatalogDirectory("local:///"));
         };
     }
