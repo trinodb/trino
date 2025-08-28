@@ -16,7 +16,7 @@
 
     <properties>
         <!-- Nessie version (compatible with Iceberg release) must be bumped along with Iceberg version bump to avoid compatibility issues -->
-        <dep.nessie.version>0.104.4</dep.nessie.version>
+        <dep.nessie.version>0.104.10</dep.nessie.version>
     </properties>
 
     <dependencyManagement>
