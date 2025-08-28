@@ -27,6 +27,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.filesystem.local.LocalFileSystem.validateLocalLocation;
 import static io.trino.filesystem.local.LocalUtils.handleException;
 import static java.util.Objects.requireNonNull;
 
@@ -118,6 +119,7 @@ public class LocalInputFile
     public boolean exists()
             throws IOException
     {
+        validateLocalLocation(location);
         return Files.exists(path);
     }
 
