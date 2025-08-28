@@ -1594,9 +1594,7 @@ class StatementAnalyzer
                     .build();
 
             analysis.setScope(node, queryScope);
-            if (isTopLevel) {
-                analysis.setSelectColumnLineage(queryScope);
-            }
+            analysis.setSelectColumnLineage(node, queryScope);
             return queryScope;
         }
 
@@ -3196,6 +3194,9 @@ class StatementAnalyzer
             if (node.getOrderBy().isPresent() && node.getSelect().isDistinct()) {
                 verifySelectDistinct(node, orderByExpressions, outputExpressions, sourceScope, orderByScope.orElseThrow());
             }
+
+            // Capture column lineage information from SelectExpressions
+            analysis.setSelectColumnLineage(node, outputScope);
 
             return outputScope;
         }

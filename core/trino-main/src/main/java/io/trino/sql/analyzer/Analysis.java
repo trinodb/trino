@@ -280,8 +280,13 @@ public class Analysis
         this.queryType = requireNonNull(queryType, "queryType is null");
     }
 
-    public void setSelectColumnLineage(Scope scope)
+    public void setSelectColumnLineage(Node node, Scope scope)
     {
+        // Only compute lineage for top-level Query nodes (no outer query parent)
+        if (!(node instanceof Query) || scope.getOuterQueryParent().isPresent()) {
+            return;
+        }
+
         List<Field> outputFields = scope.getRelationType().getVisibleFields().stream().toList();
         List<Integer> outputFieldIndices = outputFields.stream()
                 .map(scope.getRelationType()::indexOf)
