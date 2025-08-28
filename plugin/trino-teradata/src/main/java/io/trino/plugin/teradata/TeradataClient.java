@@ -27,7 +27,6 @@ import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
-import io.trino.plugin.jdbc.JdbcJoinCondition;
 import io.trino.plugin.jdbc.JdbcMetadata;
 import io.trino.plugin.jdbc.JdbcOutputTableHandle;
 import io.trino.plugin.jdbc.JdbcSortItem;
@@ -77,7 +76,6 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.SchemaTableName;
@@ -138,7 +136,6 @@ import java.util.function.BiFunction;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
@@ -470,10 +467,9 @@ public class TeradataClient
         return Optional.of(new JdbcTypeHandle(Types.NUMERIC, Optional.of("decimal"), Optional.of(decimalType.getPrecision()), Optional.of(decimalType.getScale()), Optional.empty(), Optional.empty()));
     }
 
-    private static SliceWriteFunction typedVarcharWriteFunction(String jdbcTypeName)
+    private static SliceWriteFunction typedVarcharWriteFunction()
     {
-        requireNonNull(jdbcTypeName, "jdbcTypeName is null");
-        String bindExpression = format("CAST(? AS %s)", jdbcTypeName.toUpperCase());
+        String bindExpression = format("CAST(? AS %s)", "json".toUpperCase());
 
         return new SliceWriteFunction()
         {
@@ -496,23 +492,13 @@ public class TeradataClient
         };
     }
 
-    /**
-     * Determines the case sensitivity for a type based on Teradata configuration.
-     *
-     * @param typeHandleCaseSensitivity optional case sensitivity from type metadata
-     * @return true if case sensitive, false otherwise
-     */
-    private boolean deriveCaseSensitivity(Optional<CaseSensitivity> typeHandleCaseSensitivity)
+    private boolean deriveCaseSensitivity(CaseSensitivity caseSensitivity)
     {
-        switch (teradataJDBCCaseSensitivity) {
-            case CASE_INSENSITIVE:
-                return false;
-            case CASE_SENSITIVE:
-                return true;
-            case AS_DEFINED:
-            default:
-                return typeHandleCaseSensitivity.orElse(CASE_INSENSITIVE) == CASE_SENSITIVE;
-        }
+        return switch (teradataJDBCCaseSensitivity) {
+            case CASE_INSENSITIVE -> false;
+            case CASE_SENSITIVE -> true;
+            default -> caseSensitivity != null;
+        };
     }
 
     @Override
@@ -702,65 +688,12 @@ public class TeradataClient
     }
 
     @Override
-    public Optional<PreparedQuery> legacyImplementJoin(
-            ConnectorSession session,
-            JoinType joinType,
-            PreparedQuery leftSource,
-            PreparedQuery rightSource,
-            List<JdbcJoinCondition> joinConditions,
-            Map<JdbcColumnHandle, String> rightAssignments,
-            Map<JdbcColumnHandle, String> leftAssignments,
-            JoinStatistics statistics)
-    {
-        if (joinType == JoinType.FULL_OUTER) {
-            return Optional.empty();
-        }
-
-        return implementJoinCostAware(
-                session,
-                joinType,
-                leftSource,
-                rightSource,
-                statistics,
-                () -> super.legacyImplementJoin(session, joinType, leftSource, rightSource, joinConditions, rightAssignments, leftAssignments, statistics));
-    }
-
-    @Override
-    protected boolean isSupportedJoinCondition(ConnectorSession session, JdbcJoinCondition joinCondition)
-    {
-        JoinCondition.Operator operator = joinCondition.getOperator();
-
-        if (operator == JoinCondition.Operator.IDENTICAL) {
-            return false;
-        }
-
-        boolean isVarcharJoin = Stream.of(joinCondition.getLeftColumn(), joinCondition.getRightColumn())
-                .map(JdbcColumnHandle::getColumnType)
-                .allMatch(type -> type instanceof CharType || type instanceof VarcharType);
-
-        if (!isVarcharJoin) {
-            // Non-VARCHAR join: allow common operators
-            return switch (operator) {
-                case EQUAL, NOT_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> true;
-                default -> false;
-            };
-        }
-
-        // For VARCHAR joins: allow only equality checks
-        return switch (operator) {
-            case EQUAL, NOT_EQUAL -> true;
-            default -> false;
-        };
-    }
-
-    @Override
     public Optional<JdbcExpression> implementAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
     {
         return aggregateFunctionRewriter.rewrite(session, aggregate, assignments);
     }
 
     protected void createSchema(ConnectorSession session, Connection connection, String remoteSchemaName)
-            throws SQLException
     {
         execute(session, format(
                 "CREATE DATABASE %s AS PERMANENT = 60000000, SPOOL = 120000000",
@@ -895,7 +828,7 @@ public class TeradataClient
     /**
      * Builds the expression rewriter for translating connector expressions
      * into SQL fragments understood by Teradata.
-     * Currently supports numeric equality expressions and quoted identifiers.
+     * Currently, supports numeric equality expressions and quoted identifiers.
      */
     private void buildExpressionRewriter()
     {
@@ -989,7 +922,7 @@ public class TeradataClient
      * @param connection JDBC connection to the Teradata database
      * @param schemaTableName schema and table name within the connector
      * @param remoteTableName the fully qualified remote table name
-     * @return map of column name to case sensitivity (case sensitive or insensitive)
+     * @return map of column name to case sensitivity (case-sensitive or insensitive)
      */
     @Override
     protected Map<String, CaseSensitivity> getCaseSensitivityForColumns(ConnectorSession session, Connection connection, SchemaTableName schemaTableName, RemoteTableName remoteTableName)
@@ -1045,9 +978,9 @@ public class TeradataClient
             case "NUMBER":
                 return numberMapping(typeHandle);
             case "CHARACTER":
-                return Optional.of(charColumnMapping(typeHandle.requiredColumnSize(), deriveCaseSensitivity(typeHandle.caseSensitivity())));
+                return Optional.of(charColumnMapping(typeHandle.requiredColumnSize(), deriveCaseSensitivity(typeHandle.caseSensitivity().orElse(null))));
             case "ARRAY":
-                return Optional.of(arrayColumnMapping(session, connection, typeHandle));
+                return Optional.of(arrayColumnMapping());
         }
 
         switch (typeHandle.jdbcType()) {
@@ -1070,10 +1003,10 @@ public class TeradataClient
             case Types.DECIMAL:
                 return numberMapping(typeHandle);
             case Types.CHAR:
-                return Optional.of(charColumnMapping(typeHandle.requiredColumnSize(), deriveCaseSensitivity(typeHandle.caseSensitivity())));
+                return Optional.of(charColumnMapping(typeHandle.requiredColumnSize(), deriveCaseSensitivity(typeHandle.caseSensitivity().orElse(null))));
             case Types.VARCHAR:
                 // see prior note on trino case sensitivity
-                return Optional.of(varcharColumnMapping(typeHandle.requiredColumnSize(), deriveCaseSensitivity(typeHandle.caseSensitivity())));
+                return Optional.of(varcharColumnMapping(typeHandle.requiredColumnSize(), deriveCaseSensitivity(typeHandle.caseSensitivity().orElse(null))));
             case Types.CLOB:
                 return Optional.of(ColumnMapping.sliceMapping(
                         createUnboundedVarcharType(),
@@ -1124,7 +1057,7 @@ public class TeradataClient
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
         return switch (type) {
-            case Type t when t.equals(jsonType) -> WriteMapping.sliceMapping("JSON", typedVarcharWriteFunction("json"));
+            case Type t when t.equals(jsonType) -> WriteMapping.sliceMapping("JSON", typedVarcharWriteFunction());
             case Type t when t == TINYINT -> WriteMapping.longMapping("smallint", tinyintWriteFunction());
             case Type t when t == SMALLINT -> WriteMapping.longMapping("smallint", smallintWriteFunction());
             case Type t when t == INTEGER -> WriteMapping.longMapping("integer", integerWriteFunction());
@@ -1162,7 +1095,7 @@ public class TeradataClient
         return ColumnMapping.sliceMapping(
                 jsonType,
                 jsonReadFunction(),
-                typedVarcharWriteFunction("json"),
+                typedVarcharWriteFunction(),
                 DISABLE_PUSHDOWN);
     }
 
@@ -1177,7 +1110,7 @@ public class TeradataClient
         };
     }
 
-    private ColumnMapping arrayColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
+    private ColumnMapping arrayColumnMapping()
     {
         // Default to VARCHAR element type - you can enhance this to detect actual element type
         Type elementType = createUnboundedVarcharType();
@@ -1237,11 +1170,9 @@ public class TeradataClient
         });
     }
 
-    private static class TeradataStatisticsDao
+    private record TeradataStatisticsDao(Handle handle)
     {
-        private final Handle handle;
-
-        public TeradataStatisticsDao(Handle handle)
+        private TeradataStatisticsDao(Handle handle)
         {
             this.handle = requireNonNull(handle, "handle is null");
         }
@@ -1277,7 +1208,7 @@ public class TeradataClient
                                     "WHERE DatabaseName = :schema AND TableName = :table")
                     .bind("schema", schema)
                     .bind("table", tableName)
-                    .map((rs, ctx) -> {
+                    .map((rs, _) -> {
                         String column = rs.getString("ColumnName");
                         if (column == null) {
                             // skip this row by returning null
@@ -1302,7 +1233,7 @@ public class TeradataClient
             String schema = remote.getSchemaName().orElseThrow();
             String tableName = remote.getTableName();
 
-            String sql = String.format("SELECT COUNT(*) * 100 AS estimated_count FROM %s.%s SAMPLE 1", schema, tableName);
+            String sql = format("SELECT COUNT(*) * 100 AS estimated_count FROM %s.%s SAMPLE 1", schema, tableName);
 
             try (Statement stmt = connection.createStatement();
                     ResultSet rs = stmt.executeQuery(sql)) {

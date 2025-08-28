@@ -18,8 +18,6 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 
-import java.util.Optional;
-
 /**
  * Configuration class for Teradata connector properties.
  * <p>
@@ -34,15 +32,15 @@ import java.util.Optional;
 public class TeradataConfig
         extends BaseJdbcConfig
 {
-    private Optional<String> oidcJWTToken = Optional.empty();
-    private Optional<String> oidcClientSecret = Optional.empty();
-    private Optional<String> oidcJWSCertificate = Optional.empty();
-    private Optional<String> oidcJWSPrivateKey = Optional.empty();
-    private Optional<String> oidcClientId = Optional.empty();
+    private String oidcJWTToken;
+    private String oidcClientSecret;
+    private String oidcJWSCertificate;
+    private String oidcJWSPrivateKey;
+    private String oidcClientId;
     private String logMech = "TD2";
     private TeradataCaseSensitivity teradataCaseSensitivity = TeradataCaseSensitivity.CASE_SENSITIVE;
 
-    public Optional<String> getOidcClientId()
+    public String getOidcClientId()
     {
         return oidcClientId;
     }
@@ -50,11 +48,11 @@ public class TeradataConfig
     @Config("oidc.client-id")
     public TeradataConfig setOidcClientId(String clientId)
     {
-        this.oidcClientId = Optional.ofNullable(clientId);
+        this.oidcClientId = clientId;
         return this;
     }
 
-    public Optional<String> getOidcJWSPrivateKey()
+    public String getOidcJWSPrivateKey()
     {
         return oidcJWSPrivateKey;
     }
@@ -62,11 +60,11 @@ public class TeradataConfig
     @Config("oidc.jws-private-key")
     public TeradataConfig setOidcJWSPrivateKey(String privateKey)
     {
-        this.oidcJWSPrivateKey = Optional.ofNullable(privateKey);
+        this.oidcJWSPrivateKey = privateKey;
         return this;
     }
 
-    public Optional<String> getOidcJWSCertificate()
+    public String getOidcJWSCertificate()
     {
         return oidcJWSCertificate;
     }
@@ -74,11 +72,11 @@ public class TeradataConfig
     @Config("oidc.jws-certificate")
     public TeradataConfig setOidcJWSCertificate(String certificate)
     {
-        this.oidcJWSCertificate = Optional.ofNullable(certificate);
+        this.oidcJWSCertificate = certificate;
         return this;
     }
 
-    public Optional<String> getOidcClientSecret()
+    public String getOidcClientSecret()
     {
         return oidcClientSecret;
     }
@@ -86,11 +84,11 @@ public class TeradataConfig
     @Config("oidc.client-secret")
     public TeradataConfig setOidcClientSecret(String clientSecret)
     {
-        this.oidcClientSecret = Optional.ofNullable(clientSecret);
+        this.oidcClientSecret = clientSecret;
         return this;
     }
 
-    public Optional<String> getOidcJwtToken()
+    public String getOidcJwtToken()
     {
         return oidcJWTToken;
     }
@@ -98,7 +96,7 @@ public class TeradataConfig
     @Config("jwt.token")
     public TeradataConfig setOidcJwtToken(String jwtToken)
     {
-        this.oidcJWTToken = Optional.ofNullable(jwtToken);
+        this.oidcJWTToken = jwtToken;
         return this;
     }
 
