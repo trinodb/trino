@@ -50,9 +50,12 @@ import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
+import io.trino.spi.connector.SortItem;
+import io.trino.spi.connector.SortOrder;
 import io.trino.spi.connector.SortingProperty;
 import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.FieldDereference;
 import io.trino.spi.expression.Variable;
@@ -72,6 +75,8 @@ import io.trino.spi.type.VarcharType;
 import org.bson.Document;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -622,7 +627,61 @@ public class MongoMetadata
                         handle.filter(),
                         handle.constraint(),
                         handle.projectedColumns(),
+                        handle.sort(),
                         OptionalInt.of(toIntExact(limit))),
+                true,
+                false));
+    }
+
+    @Override
+    public Optional<TopNApplicationResult<ConnectorTableHandle>> applyTopN(ConnectorSession session, ConnectorTableHandle table, long topNCount, List<SortItem> sortItems, Map<String, ColumnHandle> assignments)
+    {
+        MongoTableHandle handle = (MongoTableHandle) table;
+
+        for (Map.Entry<String, ColumnHandle> columnHandleEntry : assignments.entrySet()) {
+            MongoColumnHandle columnHandle = (MongoColumnHandle) columnHandleEntry.getValue();
+            if (!columnHandleEntry.getKey().equals(columnHandle.baseName())) {
+                // We don't support complex nested queries
+                return Optional.empty();
+            }
+        }
+
+        // Convert Trino sort items to a BSON sort document for MongoDB.
+        Document sortDocument = new Document();
+        Document sortNullFieldsDocument = null;
+        for (SortItem sortItem : sortItems) {
+            String columnName = sortItem.getName();
+            int direction = (sortItem.getSortOrder() == SortOrder.ASC_NULLS_FIRST || sortItem.getSortOrder() == SortOrder.ASC_NULLS_LAST) ? 1 : -1;
+
+            // MongoDB considers null values to be less than any other value.
+            // When we have sort items with SortOrder.ASC_NULLS_LAST or SortOrder.DESC_NULLS_FIRST,
+            // we need to add computed fields to sort correctly.
+            if (sortItem.getSortOrder() == SortOrder.ASC_NULLS_LAST || sortItem.getSortOrder() == SortOrder.DESC_NULLS_FIRST) {
+                String sortColumnName = "_sortNulls_" + columnName;
+                Document condition = new Document();
+                condition.append("$cond", List.of(new Document("$eq", new ArrayList<>(Arrays.asList("$" + columnName, null))), 1, 0));
+                if (sortNullFieldsDocument == null) {
+                    sortNullFieldsDocument = new Document();
+                }
+                sortNullFieldsDocument.append(sortColumnName, condition);
+                sortDocument.append(sortColumnName, direction);
+            }
+
+            sortDocument.append(columnName, direction);
+        }
+        List<MongoTableSort> tableSortList = handle.sort().orElse(new ArrayList<>());
+        MongoTableSort tableSort = new MongoTableSort(sortDocument, sortNullFieldsDocument == null ? Optional.empty() : Optional.of(sortNullFieldsDocument), toIntExact(topNCount));
+        tableSortList.add(tableSort);
+
+        return Optional.of(new TopNApplicationResult<>(
+                new MongoTableHandle(
+                        handle.schemaTableName(),
+                        handle.remoteTableName(),
+                        handle.filter(),
+                        handle.constraint(),
+                        handle.projectedColumns(),
+                        Optional.of(tableSortList),
+                        OptionalInt.empty()),
                 true,
                 false));
     }
@@ -670,6 +729,7 @@ public class MongoMetadata
                 handle.filter(),
                 newDomain,
                 handle.projectedColumns(),
+                handle.sort(),
                 handle.limit());
 
         return Optional.of(new ConstraintApplicationResult<>(handle, remainingFilter, constraint.getExpression(), false));
