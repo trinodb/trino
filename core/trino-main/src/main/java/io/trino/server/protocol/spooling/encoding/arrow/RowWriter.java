@@ -50,7 +50,7 @@ public final class RowWriter
             ArrowWriter columnWriter = writerForVector(children.get(i), childType);
             columnWriter.write(childBlock);
         }
-        
+
         // Set the validity buffer for the struct vector
         RowBlock rowBlock = (RowBlock) block;
         for (int position = 0; position < block.getPositionCount(); position++) {

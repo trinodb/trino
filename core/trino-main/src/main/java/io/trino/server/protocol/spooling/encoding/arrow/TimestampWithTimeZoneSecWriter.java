@@ -41,7 +41,7 @@ public final class TimestampWithTimeZoneSecWriter
     protected void writeValue(Block block, int position)
     {
         int precision = type.getPrecision();
-        
+
         long epochMillis;
         if (precision <= TimestampWithTimeZoneType.MAX_SHORT_PRECISION) {
             long packed = type.getLong(block, position);
@@ -51,7 +51,7 @@ public final class TimestampWithTimeZoneSecWriter
             LongTimestampWithTimeZone timestamp = (LongTimestampWithTimeZone) type.getObject(block, position);
             epochMillis = timestamp.getEpochMillis();
         }
-        
+
         vector.set(position, epochMillis / 1_000);
     }
-} 
+}

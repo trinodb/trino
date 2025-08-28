@@ -23,8 +23,8 @@ import static io.trino.spi.type.DateTimeEncoding.unpackTimeNanos;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MINUTE;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_SECOND;
-import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MINUTE;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MINUTE;
 import static java.lang.Math.floorMod;
 
 public final class TimeWithTimeZoneSecWriter
@@ -59,7 +59,7 @@ public final class TimeWithTimeZoneSecWriter
             long normalizedPicos = floorMod(time.getPicoseconds() - time.getOffsetMinutes() * PICOSECONDS_PER_MINUTE, PICOSECONDS_PER_DAY);
             normalizedNanos = normalizedPicos / 1000; // convert picoseconds to nanoseconds
         }
-        
+
         vector.set(position, (int) (normalizedNanos / NANOSECONDS_PER_SECOND));
     }
-} 
+}

@@ -22,7 +22,6 @@ import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.OptionalBinder;
 import com.google.inject.multibindings.ProvidesIntoSet;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.airlift.log.Logger;
 import io.trino.SystemSessionPropertiesProvider;
 import io.trino.server.ServerConfig;
 import io.trino.server.protocol.spooling.SpoolingConfig.SegmentRetrievalMode;
@@ -38,8 +37,6 @@ import static java.util.Objects.requireNonNull;
 public class SpoolingServerModule
         extends AbstractConfigurationAwareModule
 {
-    private static final Logger log = Logger.get(SpoolingServerModule.class);
-
     @Override
     protected void setup(Binder binder)
     {

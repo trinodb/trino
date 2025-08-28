@@ -59,7 +59,7 @@ public final class TimeWithTimeZoneMicroWriter
             long normalizedPicos = floorMod(time.getPicoseconds() - time.getOffsetMinutes() * PICOSECONDS_PER_MINUTE, PICOSECONDS_PER_DAY);
             normalizedNanos = normalizedPicos / 1000; // convert picoseconds to nanoseconds
         }
-        
+
         vector.set(position, normalizedNanos / NANOSECONDS_PER_MICROSECOND);
     }
-} 
+}

@@ -37,4 +37,4 @@ public final class IntervalYearMonthWriter
         int months = IntervalYearMonthType.INTERVAL_YEAR_MONTH.getInt(block, position);
         vector.set(position, months);
     }
-} 
+}

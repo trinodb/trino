@@ -23,12 +23,10 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.server.protocol.spooling.SpoolingConfig.SegmentRetrievalMode.COORDINATOR_STORAGE_REDIRECT;
 import static io.trino.server.protocol.spooling.SpoolingConfig.SegmentRetrievalMode.STORAGE;
-import static io.trino.server.protocol.spooling.SpoolingConfig.SegmentRetrievalMode.WORKER_PROXY;
 import static io.trino.util.Ciphers.createRandomAesEncryptionKey;
 
 class TestSpoolingConfig
@@ -44,7 +42,7 @@ class TestSpoolingConfig
                 .setRetrievalMode(STORAGE)
                 .setInitialSegmentSize(DataSize.of(8, MEGABYTE))
                 .setMaximumSegmentSize(DataSize.of(16, MEGABYTE))
-                .setMaxConcurrentSegmentSerialization(1)
+                .setMaxConcurrentSegmentSerialization(5)
                 .setArrowMaxAllocation(DataSize.of(200, MEGABYTE)));
     }
 
@@ -62,6 +60,7 @@ class TestSpoolingConfig
                 .put("protocol.spooling.inlining.max-rows", "10000")
                 .put("protocol.spooling.inlining.max-size", "1MB")
                 .put("protocol.spooling.arrow.max-allocation", "512MB")
+                .put("protocol.spooling.arrow.max-concurrent-serialization", "10")
                 .buildOrThrow();
 
         SpoolingConfig expected = new SpoolingConfig()
@@ -72,7 +71,8 @@ class TestSpoolingConfig
                 .setInliningMaxRows(10000)
                 .setInliningMaxSize(DataSize.of(1, MEGABYTE))
                 .setInliningEnabled(false)
-                .setArrowMaxAllocation(DataSize.of(512, MEGABYTE));
+                .setArrowMaxAllocation(DataSize.of(512, MEGABYTE))
+                .setMaxConcurrentSegmentSerialization(10);
 
         assertFullMapping(properties, expected);
     }

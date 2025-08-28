@@ -14,7 +14,9 @@
 package io.trino.client.spooling.encoding;
 
 import io.trino.client.ClientTypeSignature;
+import io.trino.client.ClientTypeSignatureParameter;
 import io.trino.client.Column;
+import io.trino.client.NamedClientTypeSignature;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.DateDayVector;
@@ -92,8 +94,6 @@ import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.nameUUIDFromBytes;
-import io.trino.client.ClientTypeSignatureParameter;
-import io.trino.client.NamedClientTypeSignature;
 
 public class ArrowDecodingUtils
 {
@@ -537,7 +537,7 @@ public class ArrowDecodingUtils
 
             // IntervalYearVector stores months directly as int
             int months = vector.get(position);
-            
+
             // Handle negative intervals properly
             if (months < 0) {
                 int absoluteMonths = Math.abs(months);
@@ -738,7 +738,7 @@ public class ArrowDecodingUtils
 
             checkArgument(signature.getRawType().equals(ROW), "not a row type signature: %s", signature);
             List<FieldVector> children = vector.getChildrenFromFields();
-            
+
             // ROW types use named type signatures, not plain type signatures
             this.fieldDecoders = new ArrayList<>();
             for (int i = 0; i < children.size(); i++) {

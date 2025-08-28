@@ -41,7 +41,7 @@ public final class TimestampWithTimeZoneMicroWriter
     protected void writeValue(Block block, int position)
     {
         int precision = type.getPrecision();
-        
+
         long epochMillis;
         int picosOfMilli = 0;
         if (precision <= TimestampWithTimeZoneType.MAX_SHORT_PRECISION) {
@@ -53,7 +53,7 @@ public final class TimestampWithTimeZoneMicroWriter
             epochMillis = timestamp.getEpochMillis();
             picosOfMilli = timestamp.getPicosOfMilli();
         }
-        
+
         vector.set(position, epochMillis * 1_000 + (picosOfMilli / 1_000_000));
     }
-} 
+}

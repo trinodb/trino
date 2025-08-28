@@ -14,12 +14,12 @@
 package io.trino.server.protocol.spooling.encoding;
 
 import com.google.inject.Inject;
+import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.client.spooling.DataAttributes;
 import io.trino.server.protocol.OutputColumn;
 import io.trino.server.protocol.spooling.ForArrowEncoder;
 import io.trino.server.protocol.spooling.QueryDataEncoder;
-import io.airlift.log.Logger;
 import io.trino.server.protocol.spooling.encoding.arrow.PageWriter;
 import io.trino.server.protocol.spooling.encoding.arrow.TrinoToArrowTypeConverter;
 import io.trino.spi.Page;
@@ -127,20 +127,18 @@ public class ArrowQueryDataEncoder
         int availablePermits = semaphore.availablePermits();
         int queueLength = semaphore.getQueueLength();
         boolean hasQueuedThreads = semaphore.hasQueuedThreads();
-        log.debug("Thread %d - Arrow semaphore state before acquire - Available permits: %d, Queue length: %d, Has queued threads: %s", 
+        log.debug("Thread %d - Arrow semaphore state before acquire - Available permits: %d, Queue length: %d, Has queued threads: %s",
                 threadId, availablePermits, queueLength, hasQueuedThreads);
-        
         // Warn if there's Arrow serialization backpressure
         if (queueLength > 0) {
             log.warn("Thread %d - Arrow serialization backpressure detected with %d threads waiting. " +
-                    "Consider increasing 'protocol.spooling.arrow.max-concurrent-serialization' (current: %d available permits)", 
+                    "Consider increasing 'protocol.spooling.arrow.max-concurrent-serialization' (current: %d available permits)",
                     threadId, queueLength, availablePermits);
         }
-        
+
         semaphore.acquireUninterruptibly();
-        
         // Log state after successful acquisition
-        log.debug("Thread %d - Arrow semaphore acquired successfully - Available permits now: %d, Queue length: %d", 
+        log.debug("Thread %d - Arrow semaphore acquired successfully - Available permits now: %d, Queue length: %d",
                 threadId, semaphore.availablePermits(), semaphore.getQueueLength());
     }
 
@@ -148,11 +146,10 @@ public class ArrowQueryDataEncoder
     {
         long threadId = Thread.currentThread().getId();
         // Log state before release
-        log.debug("Thread %d - Releasing Arrow semaphore - Available permits before release: %d, Queue length: %d", 
+        log.debug("Thread %d - Releasing Arrow semaphore - Available permits before release: %d, Queue length: %d",
                 threadId, semaphore.availablePermits(), semaphore.getQueueLength());
-        
+
         semaphore.release();
-        
         // Log state after release
         log.debug("Thread %d - Arrow semaphore released - Available permits after release: %d, Queue length: %d, Has queued threads: %s",
                 threadId, semaphore.availablePermits(), semaphore.getQueueLength(), semaphore.hasQueuedThreads());

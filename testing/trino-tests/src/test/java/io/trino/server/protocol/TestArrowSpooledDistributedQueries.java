@@ -15,20 +15,14 @@ package io.trino.server.protocol;
 
 import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.Test;
-import io.airlift.log.Logger;
-import io.airlift.log.Logging;
-import io.airlift.log.Level;
 
 import java.util.Map;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
-import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestArrowSpooledDistributedQueries
         extends AbstractSpooledQueryDataDistributedQueries
 {
-    private static final Logger log = Logger.get(TestArrowSpooledDistributedQueries.class);
-    
     @Override
     protected Map<String, String> spoolingConfig()
     {
