@@ -113,6 +113,41 @@ and transfer demands vary with the query workload on your cluster.
 Segments on object storage are encrypted, compressed, and can only be used by
 the specific client who initiated the query.
 
+### Arrow format support
+
+The spooling protocol supports Apache Arrow columnar format as an alternative to
+JSON encoding, providing significant performance improvements for large result sets:
+
+* **50x speedup** with Arrow-compatible clients versus Trino Java client
+* **up to 400x speedup** versus pure Python clients
+* Eliminates JSON serialization/deserialization overhead
+* Enables zero-copy data transfer and parallel processing
+* Particularly beneficial for queries returning large volumes of data
+
+To enable Arrow format, add the following JVM options to your Trino configuration:
+
+```
+--enable-native-access=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED
+```
+
+Then enable Arrow encoding in [](config-properties):
+
+```properties
+protocol.spooling.encoding.arrow.enabled=true
+protocol.spooling.encoding.arrow+zstd.enabled=true
+```
+
+Arrow uses off-heap memory for buffer allocations, which requires explicit
+memory controls. Configure these optional settings as needed:
+
+```properties
+# Maximum concurrent Arrow segment encoding operations (default: 5)
+protocol.spooling.arrow.max-concurrent-serialization=5
+
+# Maximum memory for Arrow buffer allocation (default: 200MB)
+protocol.spooling.arrow.max-allocation=200MB
+```
+
 The following client drivers and client applications support the spooling protocol.
 
 * [Trino JDBC driver](jdbc-spooling-protocol), version 466 and newer

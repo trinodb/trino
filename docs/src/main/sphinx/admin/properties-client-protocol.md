@@ -81,6 +81,40 @@ segments.
 
 Threshold for enabling compression with larger segments.
 
+### `protocol.spooling.encoding.arrow.enabled`
+
+- **Type:** [](prop-type-boolean)
+- **Default value:** `false`
+
+Activate support for using Apache Arrow columnar format encoding for spooled
+segments. Provides significant performance improvements for large result sets.
+
+### `protocol.spooling.encoding.arrow+zstd.enabled`
+
+- **Type:** [](prop-type-boolean)
+- **Default value:** `false`
+
+Activate support for using Apache Arrow format with Zstandard compression for
+spooled segments.
+
+### `protocol.spooling.arrow.max-concurrent-serialization`
+
+- **Type:** [](prop-type-integer)
+- **Default value:** `5`
+- **Minimum value:** `1`
+
+Maximum number of Arrow segments that can be encoded concurrently per JVM.
+Controls parallelism to prevent resource exhaustion during heavy query processing.
+
+### `protocol.spooling.arrow.max-allocation`
+
+- **Type:** [](prop-type-data-size)
+- **Default value:** `200MB`
+
+Maximum memory budget for Arrow buffer allocation across all operations. Arrow
+uses off-heap memory (native memory outside JVM heap) that is not managed by
+Java's garbage collector. This limit prevents unbounded memory consumption.
+
 ### `protocol.spooling.initial-segment-size`
 
 - **Type:** [](prop-type-data-size)

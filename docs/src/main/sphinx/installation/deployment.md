@@ -143,6 +143,13 @@ The following provides a good starting point for creating `etc/jvm.config`:
 -XX:+EnableDynamicAgentLoading
 ```
 
+For Arrow format support in spooling, add the following options:
+
+```text
+--enable-native-access=ALL-UNNAMED
+--add-opens=java.base/java.nio=ALL-UNNAMED
+```
+
 You must adjust the value for the memory used by Trino, specified with `-Xmx`
 to the available memory on your nodes. Typically, values representing 70 to 85
 percent of the total available memory is recommended. For example, if all
