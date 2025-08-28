@@ -26,11 +26,11 @@ import io.trino.metastore.HivePartition;
 import io.trino.metastore.HiveType;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HivePartitionKey;
-import io.trino.plugin.hive.HivePartitionManager;
 import io.trino.plugin.hive.avro.AvroHiveFileUtils;
 import io.trino.plugin.hudi.storage.HudiTrinoStorage;
 import io.trino.plugin.hudi.storage.TrinoStorageConfiguration;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
@@ -69,6 +69,7 @@ import java.util.stream.IntStream;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.plugin.hive.util.HiveUtil.checkCondition;
+import static io.trino.plugin.hive.util.HiveUtil.parsePartitionValue;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMNS;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_TYPES;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_BAD_DATA;
@@ -146,10 +147,30 @@ public final class HudiUtil
             List<String> partitionValues,
             TupleDomain<HiveColumnHandle> constraintSummary)
     {
-        HivePartition partition = HivePartitionManager.parsePartition(
+        HivePartition partition = parsePartition(
                 tableName, hivePartitionName, partitionColumnHandles, partitionValues);
 
         return partitionMatches(partitionColumnHandles, constraintSummary, partition);
+    }
+
+    /**
+     * Copied from {@link io.trino.plugin.hive.HivePartitionManager#parsePartition}
+     * to keep partition parsing logic self-contained within {@code trino-hudi}.
+     */
+    private static HivePartition parsePartition(
+            SchemaTableName tableName,
+            String partitionName,
+            List<HiveColumnHandle> partitionColumns,
+            List<String> partitionValues)
+    {
+        ImmutableMap.Builder<ColumnHandle, NullableValue> builder = ImmutableMap.builderWithExpectedSize(partitionColumns.size());
+        for (int i = 0; i < partitionColumns.size(); i++) {
+            HiveColumnHandle column = partitionColumns.get(i);
+            NullableValue parsedValue = parsePartitionValue(partitionName, partitionValues.get(i), column.getType());
+            builder.put(column, parsedValue);
+        }
+        Map<ColumnHandle, NullableValue> values = builder.buildOrThrow();
+        return new HivePartition(tableName, partitionName, values);
     }
 
     public static boolean partitionMatches(List<HiveColumnHandle> partitionColumns, TupleDomain<HiveColumnHandle> constraintSummary, HivePartition partition)
