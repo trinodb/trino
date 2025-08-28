@@ -42,6 +42,9 @@ public class SpoolingConfig
     private DataSize inliningMaxSize = DataSize.of(3, MEGABYTE);
     private DataSize initialSegmentSize = DataSize.of(8, MEGABYTE);
     private DataSize maximumSegmentSize = DataSize.of(16, MEGABYTE);
+    private int maxConcurrentSegmentSerialization = 5;
+    // Default: 200MB for spooling arrow allocator
+    private DataSize arrowMaxAllocation = DataSize.of(200, MEGABYTE);
 
     @NotNull
     public SecretKey getSharedSecretKey()
@@ -102,6 +105,19 @@ public class SpoolingConfig
         return this;
     }
 
+    public int getMaxConcurrentSegmentSerialization()
+    {
+        return maxConcurrentSegmentSerialization;
+    }
+
+    @Config("protocol.spooling.arrow.max-concurrent-serialization")
+    @ConfigDescription("Maximum number of Arrow segments that can be encoded concurrently")
+    public SpoolingConfig setMaxConcurrentSegmentSerialization(int maxConcurrentSegmentSerialization)
+    {
+        this.maxConcurrentSegmentSerialization = maxConcurrentSegmentSerialization;
+        return this;
+    }
+
     public boolean isInliningEnabled()
     {
         return inliningEnabled;
@@ -142,6 +158,19 @@ public class SpoolingConfig
     public SpoolingConfig setInliningMaxSize(DataSize inliningMaxSize)
     {
         this.inliningMaxSize = inliningMaxSize;
+        return this;
+    }
+
+    public DataSize getArrowMaxAllocation()
+    {
+        return arrowMaxAllocation;
+    }
+
+    @Config("protocol.spooling.arrow.max-allocation")
+    @ConfigDescription("Maximum memory allocation allowed for Arrow buffer allocator in spooling")
+    public SpoolingConfig setArrowMaxAllocation(DataSize arrowMaxAllocation)
+    {
+        this.arrowMaxAllocation = arrowMaxAllocation;
         return this;
     }
 

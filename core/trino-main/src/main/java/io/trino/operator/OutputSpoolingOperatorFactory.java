@@ -15,6 +15,7 @@ package io.trino.operator;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.client.spooling.DataAttributes;
@@ -70,6 +71,8 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 public class OutputSpoolingOperatorFactory
         implements OperatorFactory
 {
+    private static final Logger log = Logger.get(OutputSpoolingOperatorFactory.class);
+
     private final int operatorId;
     private final PlanNodeId planNodeId;
     private final SpoolingManager spoolingManager;

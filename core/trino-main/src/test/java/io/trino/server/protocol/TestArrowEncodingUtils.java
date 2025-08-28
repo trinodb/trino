@@ -53,6 +53,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.Arrays;
 
@@ -135,7 +136,7 @@ public class TestArrowEncodingUtils
 
     protected QueryDataEncoder createEncoder(List<OutputColumn> columns)
     {
-        return new ArrowQueryDataEncoder.Factory(allocator).create(TEST_SESSION, columns);
+        return new ArrowQueryDataEncoder.Factory(allocator, Optional.empty()).create(TEST_SESSION, columns);
     }
 
     @Test
