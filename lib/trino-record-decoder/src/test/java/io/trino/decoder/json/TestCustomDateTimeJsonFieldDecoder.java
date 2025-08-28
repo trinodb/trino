@@ -14,7 +14,6 @@
 package io.trino.decoder.json;
 
 import com.google.common.collect.ImmutableSet;
-import io.airlift.json.ObjectMapperProvider;
 import io.trino.decoder.DecoderTestColumnHandle;
 import io.trino.decoder.RowDecoderSpec;
 import io.trino.spi.TrinoException;
@@ -100,7 +99,7 @@ public class TestCustomDateTimeJsonFieldDecoder
                 false,
                 false,
                 false);
-        assertThatThrownBy(() -> new JsonRowDecoderFactory(new ObjectMapperProvider().get()).create(TESTING_SESSION, new RowDecoderSpec(JsonRowDecoder.NAME, emptyMap(), ImmutableSet.of(columnHandle))))
+        assertThatThrownBy(() -> new JsonRowDecoderFactory(new NoOpJsonPayloadProvider()).create(TESTING_SESSION, new RowDecoderSpec(JsonRowDecoder.NAME, emptyMap(), ImmutableSet.of(columnHandle))))
                 .isInstanceOf(TrinoException.class)
                 .hasMessageMatching("invalid Joda Time pattern 'XXMM/yyyy/dd H:m:sXX' passed as format hint for column 'some_column'");
     }

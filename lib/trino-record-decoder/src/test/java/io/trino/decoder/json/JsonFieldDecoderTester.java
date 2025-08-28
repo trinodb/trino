@@ -14,7 +14,6 @@
 package io.trino.decoder.json;
 
 import com.google.common.collect.ImmutableSet;
-import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slice;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.DecoderTestColumnHandle;
@@ -38,7 +37,7 @@ import static org.assertj.core.util.Preconditions.checkArgument;
 
 public class JsonFieldDecoderTester
 {
-    private static final JsonRowDecoderFactory DECODER_FACTORY = new JsonRowDecoderFactory(new ObjectMapperProvider().get());
+    private static final JsonRowDecoderFactory DECODER_FACTORY = new JsonRowDecoderFactory(new NoOpJsonPayloadProvider());
 
     private final Optional<String> dataFormat;
     private final Optional<String> formatHint;
