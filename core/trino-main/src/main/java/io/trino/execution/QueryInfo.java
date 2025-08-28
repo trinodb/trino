@@ -198,7 +198,7 @@ public class QueryInfo
         this.retryPolicy = retryPolicy;
         this.pruned = pruned;
         this.version = version;
-        this.selectColumnLineageInfo = selectColumnLineageInfo;
+        this.selectColumnLineageInfo = ImmutableList.copyOf(selectColumnLineageInfo);
     }
 
     @JsonProperty

@@ -7444,27 +7444,27 @@ public class TestAnalyzer
 
         // Check first column lineage
         ColumnLineageInfo colA = lineageInfos.getFirst();
-        assertThat(colA.getName()).isEqualTo("a");
-        assertThat(colA.getSourceColumns()).isEmpty(); // 'a' is a direct value from the VALUES clause
-        assertThat(colA.getIndex()).isEqualTo(0);
+        assertThat(colA.name()).isEqualTo("a");
+        assertThat(colA.sourceColumns()).isEmpty(); // 'a' is a direct value from the VALUES clause
+        assertThat(colA.index()).isEqualTo(0);
 
         // Check second column lineage
         ColumnLineageInfo colB1 = lineageInfos.get(1);
-        assertThat(colB1.getName()).isEqualTo("b1");
-        assertThat(colB1.getSourceColumns()).isEmpty(); // 'b1' is derived from 'b + 1', which is a direct value from the VALUES clause
-        assertThat(colB1.getIndex()).isEqualTo(1);
+        assertThat(colB1.name()).isEqualTo("b1");
+        assertThat(colB1.sourceColumns()).isEmpty(); // 'b1' is derived from 'b + 1', which is a direct value from the VALUES clause
+        assertThat(colB1.index()).isEqualTo(1);
 
         // Check third column lineage
         ColumnLineageInfo colLiteral = lineageInfos.get(2);
-        assertThat(colLiteral.getName()).isEqualTo("literal");
-        assertThat(colLiteral.getSourceColumns()).isEmpty(); // 'literal' is a literal value
-        assertThat(colLiteral.getIndex()).isEqualTo(2);
+        assertThat(colLiteral.name()).isEqualTo("literal");
+        assertThat(colLiteral.sourceColumns()).isEmpty(); // 'literal' is a literal value
+        assertThat(colLiteral.index()).isEqualTo(2);
 
         // Check fourth column lineage
         ColumnLineageInfo colAB = lineageInfos.get(3);
-        assertThat(colAB.getName()).isEqualTo(""); // anonymous
-        assertThat(colAB.getSourceColumns()).isEmpty(); // 'a + b' is derived from the values in the VALUES clause
-        assertThat(colAB.getIndex()).isEqualTo(3);
+        assertThat(colAB.name()).isEqualTo(""); // anonymous
+        assertThat(colAB.sourceColumns()).isEmpty(); // 'a + b' is derived from the values in the VALUES clause
+        assertThat(colAB.index()).isEqualTo(3);
     }
 
     @Test
@@ -7478,9 +7478,9 @@ public class TestAnalyzer
 
         // Check the column lineage
         ColumnLineageInfo colCount = lineageInfos.getFirst();
-        assertThat(colCount.getName()).isEqualTo(""); // anonymous
-        assertThat(colCount.getSourceColumns()).isNotEmpty();
-        assertThat(colCount.getSourceColumns()).containsExactlyInAnyOrder(
+        assertThat(colCount.name()).isEqualTo(""); // anonymous
+        assertThat(colCount.sourceColumns()).isNotEmpty();
+        assertThat(colCount.sourceColumns()).containsExactlyInAnyOrder(
                 new ColumnDetail("tpch", "s1", "t1", "a"));
     }
 
@@ -7496,9 +7496,9 @@ public class TestAnalyzer
 
         // Check the column lineage
         ColumnLineageInfo colA = lineageInfo.getFirst();
-        assertThat(colA.getName()).isEqualTo("unionized");
-        assertThat(colA.getSourceColumns()).hasSize(3);
-        assertThat(colA.getSourceColumns()).containsExactlyInAnyOrder(
+        assertThat(colA.name()).isEqualTo("unionized");
+        assertThat(colA.sourceColumns()).hasSize(3);
+        assertThat(colA.sourceColumns()).containsExactlyInAnyOrder(
                 new ColumnDetail("tpch","s1","t1", "c"),
                 new ColumnDetail("tpch","s1","t2", "b"),
                 new ColumnDetail("tpch","s1","t3", "a"));
@@ -7516,10 +7516,10 @@ public class TestAnalyzer
 
         // Check the column lineage
         ColumnLineageInfo colA = lineageInfo.getFirst();
-        assertThat(colA.getName()).isEqualTo("a");
-        assertThat(colA.getSourceColumns()).hasSize(2);
+        assertThat(colA.name()).isEqualTo("a");
+        assertThat(colA.sourceColumns()).hasSize(2);
         // The source columns should include both 'a' from t1 and 'b' from t2
-        assertThat(colA.getSourceColumns()).containsExactlyInAnyOrder(
+        assertThat(colA.sourceColumns()).containsExactlyInAnyOrder(
                 new ColumnDetail("tpch","s1","t1", "a"),
                 new ColumnDetail("tpch","s1","t2", "b"));
     }
@@ -7536,10 +7536,10 @@ public class TestAnalyzer
 
         // Check the column lineage
         ColumnLineageInfo colA = lineageInfo.getFirst();
-        assertThat(colA.getName()).isEqualTo("min_max");
-        assertThat(colA.getSourceColumns()).hasSize(3);
+        assertThat(colA.name()).isEqualTo("min_max");
+        assertThat(colA.sourceColumns()).hasSize(3);
         // The source columns should include both 'a' and 'b' from t2 in the subquery and t3.a from the union
-        assertThat(colA.getSourceColumns()).containsExactlyInAnyOrder(
+        assertThat(colA.sourceColumns()).containsExactlyInAnyOrder(
                 new ColumnDetail("tpch","s1","t2", "a"),
                 new ColumnDetail("tpch","s1","t2", "b"),
                 new ColumnDetail("tpch","s1","t3", "a"));
@@ -7557,10 +7557,10 @@ public class TestAnalyzer
 
         // Check the column lineage
         ColumnLineageInfo colA = lineageInfo.getFirst();
-        assertThat(colA.getName()).isEqualTo("a");
-        assertThat(colA.getSourceColumns()).hasSize(3);
+        assertThat(colA.name()).isEqualTo("a");
+        assertThat(colA.sourceColumns()).hasSize(3);
         // The source columns should include both 'a' from the subquery and 'b' from t2
-        assertThat(colA.getSourceColumns()).containsExactlyInAnyOrder(
+        assertThat(colA.sourceColumns()).containsExactlyInAnyOrder(
                 new ColumnDetail("tpch","s1","t1", "a"),
                 new ColumnDetail("tpch","s1","t2", "b"),
                 new ColumnDetail("tpch","s1","t3", "b"));
@@ -7578,10 +7578,10 @@ public class TestAnalyzer
 
         // Check the column lineage
         ColumnLineageInfo colA = lineageInfo.getFirst();
-        assertThat(colA.getName()).isEqualTo("x");
-        assertThat(colA.getSourceColumns()).hasSize(1);
+        assertThat(colA.name()).isEqualTo("x");
+        assertThat(colA.sourceColumns()).hasSize(1);
         // The source column should include 'a' from t1
-        assertThat(colA.getSourceColumns()).containsExactlyInAnyOrder(
+        assertThat(colA.sourceColumns()).containsExactlyInAnyOrder(
                 new ColumnDetail("tpch", "s1", "t1", "a"));
     }
 

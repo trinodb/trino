@@ -17,66 +17,32 @@ package io.trino.spi.eventlistener;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import java.util.Objects;
 import java.util.Set;
 
-/**
- * This class is JSON serializable for storing column lineage information for select queries.
- */
-public class ColumnLineageInfo
-{
-    private final String name;
-    private final int index;
-    private final Set<ColumnDetail> sourceColumns;
+import static java.util.Objects.requireNonNull;
 
+/**
+ * This record is JSON serializable for storing column lineage information for select queries.
+ */
+public record ColumnLineageInfo(
+        @JsonProperty String name,
+        /*
+          The index of the column in the select list.
+          This is useful for identifying the position of the column in the result set.
+         */
+        @JsonProperty int index,
+        @JsonProperty Set<ColumnDetail> sourceColumns)
+{
     @JsonCreator
-    public ColumnLineageInfo(@JsonProperty String name, @JsonProperty int index, @JsonProperty Set<ColumnDetail> sourceColumns)
+    public ColumnLineageInfo(String name, int index, Set<ColumnDetail> sourceColumns)
     {
+        requireNonNull(name, "name is null");
+        requireNonNull(sourceColumns, "sourceColumns is null");
+        if (index < 0) {
+            throw new IllegalArgumentException("index is negative");
+        }
         this.name = name;
         this.index = index;
         this.sourceColumns = Set.copyOf(sourceColumns);
-    }
-
-    @JsonProperty
-    public String getName()
-    {
-        return name;
-    }
-
-    /**
-     * Returns the index of the column in the select list.
-     * This is useful for identifying the position of the column in the result set.
-     */
-    @JsonProperty
-    public int getIndex()
-    {
-        return index;
-    }
-
-    @JsonProperty
-    public Set<ColumnDetail> getSourceColumns()
-    {
-        return sourceColumns;
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        ColumnLineageInfo that = (ColumnLineageInfo) o;
-        return Objects.equals(name, that.name)
-                && Objects.equals(sourceColumns, that.sourceColumns)
-                && index == that.index;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(name, sourceColumns, index);
     }
 }

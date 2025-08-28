@@ -296,7 +296,7 @@ public class Analysis
             lineageInfo.add(new ColumnLineageInfo(outputColumnName, outputFieldIndices.get(i), sources));
         }
         // always sort lineageInfo by index to ensure consistent ordering
-        lineageInfo.sort(Comparator.comparingInt(ColumnLineageInfo::getIndex));
+        lineageInfo.sort(Comparator.comparingInt(ColumnLineageInfo::index));
         this.selectColumnLineageInfo = ImmutableList.copyOf(lineageInfo);
     }
 
