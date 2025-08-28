@@ -22,6 +22,7 @@ import com.dylibso.chicory.wasi.WasiOptions;
 import com.dylibso.chicory.wasi.WasiPreview1;
 import com.dylibso.chicory.wasm.ChicoryException;
 import com.dylibso.chicory.wasm.WasmModule;
+import com.dylibso.chicory.wasm.types.FunctionType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
 import com.google.common.jimfs.Configuration;
@@ -36,7 +37,8 @@ import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.Type;
-import io.trino.wasm.python.PythonModule;
+import io.trino.wasm.python.Python;
+import io.trino.wasm.python.PythonMachine;
 
 import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
@@ -50,7 +52,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
-import static com.dylibso.chicory.wasm.types.ValueType.I32;
+import static com.dylibso.chicory.wasm.types.ValType.I32;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.plugin.functions.python.TrinoTypes.binaryToJava;
@@ -78,7 +80,7 @@ final class PythonEngine
     private static final Map<Integer, ErrorCodeSupplier> ERROR_CODES = Stream.of(StandardErrorCode.values())
             .collect(toImmutableMap(error -> error.toErrorCode().getCode(), identity()));
 
-    private static final WasmModule PYTHON_MODULE = PythonModule.load();
+    private static final WasmModule PYTHON_MODULE = Python.load();
 
     private final Closer closer = Closer.create();
     private final LimitedOutputStream stderr = new LimitedOutputStream();
@@ -123,7 +125,7 @@ final class PythonEngine
                 .build();
 
         Instance instance = Instance.builder(PYTHON_MODULE)
-                .withMachineFactory(PythonModule::create)
+                .withMachineFactory(PythonMachine::new)
                 .withImportValues(importValues)
                 .build();
 
@@ -276,8 +278,7 @@ final class PythonEngine
         return new HostFunction(
                 "trino",
                 "return_error",
-                List.of(I32, I32, I32, I32, I32),
-                List.of(),
+                FunctionType.of(List.of(I32, I32, I32, I32, I32), List.of()),
                 this::returnError);
     }
 
