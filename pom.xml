@@ -204,7 +204,7 @@
         <dep.kafka-clients.version>4.0.0</dep.kafka-clients.version>
         <dep.okhttp.version>5.1.0</dep.okhttp.version>
         <dep.okio.version>3.16.0</dep.okio.version>
-        <dep.parquet.version>1.15.2</dep.parquet.version>
+        <dep.parquet.version>1.16.0</dep.parquet.version>
         <dep.plugin.failsafe.version>${dep.plugin.surefire.version}</dep.plugin.failsafe.version>
         <!-- TODO: https://github.com/apache/maven-javadoc-plugin/issues/1241 -->
         <dep.plugin.javadoc.version>3.11.2</dep.plugin.javadoc.version>
@@ -2450,6 +2450,14 @@
             </dependency>
         </dependencies>
     </dependencyManagement>
+
+    <repositories>
+        <repository>
+            <id>parquet-release-candidate</id>
+            <name>Parquet Release Candidate</name>
+            <url>https://repository.apache.org/content/groups/staging/</url>
+        </repository>
+    </repositories>
 
     <build>
         <pluginManagement>
