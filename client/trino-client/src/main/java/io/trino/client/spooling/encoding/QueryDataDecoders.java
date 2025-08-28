@@ -24,14 +24,17 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.String.format;
 import static java.util.function.Function.identity;
-import static java.util.stream.Collectors.joining;
 
 public class QueryDataDecoders
 {
     private static final List<Factory> decoders = ImmutableList.of(
             new JsonQueryDataDecoder.ZstdFactory(),
             new JsonQueryDataDecoder.Lz4Factory(),
-            new JsonQueryDataDecoder.Factory());
+            new JsonQueryDataDecoder.Factory(),
+            new ArrowQueryDataDecoder.Factory(),
+            new ArrowQueryDataDecoder.ZstdFactory());
+
+    private static final String preferredEncodings = "json+zstd,json+lz4,json";
 
     private static final Map<String, Factory> encodingMap = factoriesMap();
 
@@ -60,9 +63,7 @@ public class QueryDataDecoders
 
     public static String getPreferredEncodings()
     {
-        return decoders.stream()
-                .map(Factory::encoding)
-                .collect(joining(","));
+        return preferredEncodings;
     }
 
     private static Map<String, Factory> factoriesMap()

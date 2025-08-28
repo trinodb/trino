@@ -13,6 +13,10 @@
     <name>${project.artifactId}</name>
     <description>Trino - Tests</description>
 
+    <properties>
+        <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default} --add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED</air.test.jvm.additional-arguments>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>org.jetbrains</groupId>
@@ -114,6 +118,12 @@
         <dependency>
             <groupId>jakarta.ws.rs</groupId>
             <artifactId>jakarta.ws.rs-api</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.arrow</groupId>
+            <artifactId>arrow-memory-unsafe</artifactId>
             <scope>runtime</scope>
         </dependency>
 

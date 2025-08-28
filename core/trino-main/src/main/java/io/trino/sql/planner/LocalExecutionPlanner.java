@@ -356,6 +356,7 @@ import static io.trino.operator.window.pattern.PhysicalValuePointer.CLASSIFIER;
 import static io.trino.operator.window.pattern.PhysicalValuePointer.MATCH_NUMBER;
 import static io.trino.spi.StandardErrorCode.COMPILER_ERROR;
 import static io.trino.spi.StandardErrorCode.QUERY_EXCEEDED_COMPILER_LIMIT;
+import static io.trino.spi.StandardErrorCode.SERIALIZATION_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
@@ -988,23 +989,28 @@ public class LocalExecutionPlanner
                 return operation;
             }
 
-            QueryDataEncoder.Factory encoderFactory = session
-                    .getQueryDataEncoding()
-                    .map(encoders::get)
-                    .orElseThrow(() -> new IllegalStateException("Spooled query encoding was not found"));
+            QueryDataEncoder.Factory encoderFactory = encoders.get(session.getQueryDataEncoding().orElseThrow());
 
+            // Build output columns for the encoder
             List<String> columnNames = node.getColumnNames();
             List<Symbol> outputSymbols = node.getOutputSymbols();
             ImmutableList.Builder<OutputColumn> outputColumnBuilder = ImmutableList.builderWithExpectedSize(node.getColumnNames().size());
             for (int i = 0; i < columnNames.size(); i++) {
                 outputColumnBuilder.add(new OutputColumn(operation.layout.get(outputSymbols.get(i)), columnNames.get(i), outputSymbols.get(i).type()));
             }
-            List<OutputColumn> encodingLayout = outputColumnBuilder.build();
+            List<OutputColumn> outputColumns = outputColumnBuilder.build();
 
+            // Check for unsupported columns
+            List<OutputColumn> unsupported = encoderFactory.unsupported(outputColumns);
+            if (!unsupported.isEmpty()) {
+                throw new TrinoException(SERIALIZATION_ERROR, "Output columns %s are not supported for spooling encoding '%s'".formatted(unsupported, encoderFactory.encoding()));
+            }
+
+            QueryDataEncoder queryDataEncoder = encoderFactory.create(session, outputColumns);
             OutputSpoolingOperatorFactory outputSpoolingOperatorFactory = new OutputSpoolingOperatorFactory(
                     context.getNextOperatorId(),
                     node.getId(),
-                    () -> encoderFactory.create(session, encodingLayout),
+                    () -> queryDataEncoder,
                     spoolingManager.orElseThrow());
 
             return new SpooledPhysicalOperation(outputSpoolingOperatorFactory, operation);
