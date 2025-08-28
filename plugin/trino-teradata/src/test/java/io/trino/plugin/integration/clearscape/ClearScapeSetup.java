@@ -59,8 +59,13 @@ public class ClearScapeSetup
 
     public void cleanup()
     {
-        if (destoryEnv && manager != null) {
-            manager.teardown();
+        if (manager == null) {
+            return;
         }
+        if (destoryEnv) {
+            manager.teardown();
+            return;
+        }
+        manager.stop();
     }
 }
