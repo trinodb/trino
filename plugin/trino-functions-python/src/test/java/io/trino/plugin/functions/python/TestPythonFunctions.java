@@ -108,6 +108,25 @@ public class TestPythonFunctions
     }
 
     @Test
+    public void testImportingAndRunningBleach()
+    {
+        assertThat(assertions.query(
+                """
+                WITH FUNCTION sanitize_html(html_input VARCHAR)
+                    RETURNS VARCHAR
+                    LANGUAGE PYTHON
+                    WITH (handler = 'sanitize_html')
+                    AS $$
+                    import bleach
+                    def sanitize_html(html_input):
+                        return bleach.clean(html_input, tags={'b'}, attributes={}, strip=True)
+                    $$
+                SELECT sanitize_html('<b><i>an example</i></b>')
+                """))
+                .matches("VALUES varchar '<b>an example</b>'");
+    }
+
+    @Test
     public void testInvalidHandler()
     {
         assertThat(assertions.query(
