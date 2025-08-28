@@ -27,13 +27,13 @@ import java.util.List;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.sql.ir.IrUtils.combinePredicates;
 import static io.trino.sql.ir.IrUtils.extractPredicates;
 import static io.trino.sql.ir.Logical.Operator.OR;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static java.util.Collections.emptySet;
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toSet;
 
 public final class ExtractCommonPredicatesExpressionRewriter
 {
@@ -170,7 +170,7 @@ public final class ExtractCommonPredicatesExpressionRewriter
         {
             return predicates.stream()
                     .filter(DeterminismEvaluator::isDeterministic)
-                    .collect(toSet());
+                    .collect(toImmutableSet());
         }
 
         private static <T> List<T> removeAll(Collection<T> collection, Collection<T> elementsToRemove)
