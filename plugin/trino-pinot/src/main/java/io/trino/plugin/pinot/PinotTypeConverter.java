@@ -125,6 +125,7 @@ public class PinotTypeConverter
             case STRING -> VarcharType.VARCHAR;
             case JSON -> jsonTypeSupplier.get();
             case BYTES -> VarbinaryType.VARBINARY;
+            case TIMESTAMP -> TimestampType.TIMESTAMP_MILLIS;
             case INT_ARRAY -> new ArrayType(IntegerType.INTEGER);
             case LONG_ARRAY -> new ArrayType(BigintType.BIGINT);
             case DOUBLE_ARRAY -> new ArrayType(DoubleType.DOUBLE);

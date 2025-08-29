@@ -19,7 +19,11 @@ import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.google.inject.Binder;
+import com.google.inject.Module;
+import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import com.google.inject.Singleton;
+import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -30,14 +34,21 @@ import io.trino.plugin.pinot.client.PinotGrpcDataFetcher;
 import io.trino.plugin.pinot.client.PinotGrpcServerQueryClientConfig;
 import io.trino.plugin.pinot.client.PinotGrpcServerQueryClientTlsConfig;
 import io.trino.plugin.pinot.client.PinotHostMapper;
+import io.trino.plugin.pinot.deepstore.DeepStore;
+import io.trino.plugin.pinot.deepstore.PinotDeepStore;
+import io.trino.plugin.pinot.deepstore.s3.PinotS3Module;
+import io.trino.spi.NodeManager;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import org.apache.pinot.common.response.broker.BrokerResponseNative;
 import org.apache.pinot.common.utils.DataSchema;
 
 import java.io.IOException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -46,17 +57,22 @@ import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class PinotModule
         extends AbstractConfigurationAwareModule
 {
     private final String catalogName;
+    private final NodeManager nodeManager;
 
-    public PinotModule(String catalogName)
+    public PinotModule(String catalogName, NodeManager nodeManager)
     {
         this.catalogName = catalogName;
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
     }
 
     @Override
@@ -67,13 +83,14 @@ public class PinotModule
         binder.bind(PinotMetadata.class).in(Scopes.SINGLETON);
         binder.bind(PinotSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(PinotPageSourceProvider.class).in(Scopes.SINGLETON);
+        binder.bind(PinotPageSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(PinotClient.class).in(Scopes.SINGLETON);
         binder.bind(PinotTypeConverter.class).in(Scopes.SINGLETON);
         binder.bind(ExecutorService.class).annotatedWith(ForPinot.class)
                 .toInstance(newCachedThreadPool(threadsNamed("pinot-metadata-fetcher-" + catalogName)));
 
         binder.bind(PinotSessionProperties.class).in(Scopes.SINGLETON);
-        binder.bind(PinotNodePartitioningProvider.class).in(Scopes.SINGLETON);
+        //binder.bind(PinotNodePartitioningProvider.class).in(Scopes.SINGLETON);
         httpClientBinder(binder).bindHttpClient("pinot", ForPinot.class)
                 .withConfigDefaults(cfg -> {
                     cfg.setIdleTimeout(new Duration(300, SECONDS));
@@ -90,8 +107,12 @@ public class PinotModule
         jsonBinder(binder).addDeserializerBinding(BrokerResponseNative.class).to(BrokerResponseNativeDeserializer.class);
 
         PinotClient.addJsonBinders(jsonCodecBinder(binder));
+        binder.bind(NodeManager.class).toInstance(nodeManager);
         binder.bind(ConnectorNodePartitioningProvider.class).to(PinotNodePartitioningProvider.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, PinotHostMapper.class).setDefault().to(IdentityPinotHostMapper.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, DeepStore.class);
+        bindDeepStore(PinotDeepStore.DeepStoreProvider.NONE, new EmptyModule());
+        bindDeepStore(PinotDeepStore.DeepStoreProvider.S3, new PinotS3Module());
 
         install(new PinotGrpcModule());
     }
@@ -148,5 +169,45 @@ public class PinotModule
                         tlsBinder.bind(PinotGrpcDataFetcher.GrpcQueryClientFactory.class).to(PinotGrpcDataFetcher.TlsGrpcQueryClientFactory.class).in(Scopes.SINGLETON);
                     }));
         }
+    }
+
+    @Provides
+    @Singleton
+    @ForPinotInsert
+    public static ExecutorService createCoreInsertExecutor()
+    {
+        return newCachedThreadPool(daemonThreadsNamed("pinot-insert-%s"));
+    }
+
+    @Provides
+    @Singleton
+    @ForPinotInsert
+    public static BoundedExecutor craateSegmentBuilderExecutor(PinotConfig config)
+    {
+        // Block on submit if queue size is exceeded
+        return new BoundedExecutor(new ThreadPoolExecutor(0, Integer.MAX_VALUE, 60_000, MILLISECONDS, new PinotPageSinkProvider.TimedBlockingQueue<>(config.getSegmentBuilderQueueSize(), config.getSegmentBuilderQueueTimeout().toMillis()), daemonThreadsNamed("pinot-segment-builder-%s")), config.getSegmentBuilderParallelism());
+    }
+
+    @Provides
+    @Singleton
+    @ForPinotInsert
+    public static ScheduledExecutorService createInsertTimeoutExecutor(PinotConfig config)
+    {
+        return newScheduledThreadPool(config.getInsertTimeoutThreads(), daemonThreadsNamed("pinot-insert-timeout-%s"));
+    }
+
+    public void bindDeepStore(PinotDeepStore.DeepStoreProvider provider, Module module)
+    {
+        install(conditionalModule(
+                PinotConfig.class,
+                config -> config.getDeepStoreProvider() == provider,
+                module));
+    }
+
+    public static class EmptyModule
+            implements Module
+    {
+        @Override
+        public void configure(Binder binder) {}
     }
 }

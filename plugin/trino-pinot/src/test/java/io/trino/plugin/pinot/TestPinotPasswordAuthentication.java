@@ -20,6 +20,8 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.kafka.TestingKafka;
 import org.junit.jupiter.api.Test;
 
+import java.util.Optional;
+
 import static io.trino.plugin.pinot.TestingPinotCluster.PINOT_LATEST_IMAGE_NAME;
 import static io.trino.tpch.TpchTable.REGION;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -33,7 +35,7 @@ final class TestPinotPasswordAuthentication
     {
         TestingKafka kafka = closeAfterClass(TestingKafka.createWithSchemaRegistry());
         kafka.start();
-        TestingPinotCluster pinot = closeAfterClass(new TestingPinotCluster(PINOT_LATEST_IMAGE_NAME, kafka.getNetwork(), true));
+        TestingPinotCluster pinot = closeAfterClass(new TestingPinotCluster(PINOT_LATEST_IMAGE_NAME, kafka.getNetwork(), true, false, Optional.empty()));
         pinot.start();
 
         return PinotQueryRunner.builder()
