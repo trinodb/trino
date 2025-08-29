@@ -92,10 +92,11 @@ public class ProtobufDeserializer
         }
 
         builder.declarePosition();
-        this.columns.forEach(column -> {
-            BlockBuilder blockBuilder = builder.getBlockBuilder(column.ordinal());
+        for (int columnIndex = 0; columnIndex < this.columns.size(); columnIndex++) {
+            Column column = columns.get(columnIndex);
+            BlockBuilder blockBuilder = builder.getBlockBuilder(columnIndex);
             writeObject(blockBuilder, column.type(), getValue(message, this.descriptorFields, column.name()));
-        });
+        }
     }
 
     private static Object getValue(DynamicMessage message, Map<String, FieldDescriptor> fieldNameLookup, String fieldName)
@@ -120,8 +121,7 @@ public class ProtobufDeserializer
                 }
             });
         }
-        else if (value == null || (value instanceof DynamicMessage message && message.getAllFields().isEmpty())) {
-            // In the Hive implementation, a struct where all fields are null is returned as null
+        else if (value == null) {
             blockBuilder.appendNull();
         }
         else if (type instanceof BigintType t && value instanceof Long l) {
@@ -143,18 +143,24 @@ public class ProtobufDeserializer
             t.writeLong(blockBuilder, floatToRawIntBits(f));
         }
         else if (type instanceof RowType rowType && value instanceof DynamicMessage rowMessage) {
-            ((RowBlockBuilder) blockBuilder).buildEntry(fieldBuilders -> {
-                Map<String, FieldDescriptor> fieldNameLookup = collectFieldsToDeserialize(rowMessage);
-                for (int i = 0; i < rowType.getFields().size(); i++) {
-                    RowType.Field rowField = rowType.getFields().get(i);
-                    if (rowField.getName().isPresent()) {
-                        writeObject(fieldBuilders.get(i), rowField.getType(), getValue(rowMessage, fieldNameLookup, rowField.getName().get()));
+            Map<String, FieldDescriptor> fieldNameLookup = collectFieldsToDeserialize(rowMessage);
+            if (fieldNameLookup.isEmpty()) {
+                // The message has no set values nor default values
+                // In the Hive implementation, a struct where all fields are null is returned as null
+                blockBuilder.appendNull();
+            }
+            else {
+                ((RowBlockBuilder) blockBuilder).buildEntry(fieldBuilders -> {
+                    for (int i = 0; i < rowType.getFields().size(); i++) {
+                        RowType.Field rowField = rowType.getFields().get(i);
+                        if (rowField.getName().isPresent()) {
+                            writeObject(fieldBuilders.get(i), rowField.getType(), getValue(rowMessage, fieldNameLookup, rowField.getName().get()));
+                        } else {
+                            throw new IllegalStateException("Unable to apply value to row field with no name: " + i);
+                        }
                     }
-                    else {
-                        throw new IllegalStateException("Unable to apply value to row field with no name: " + i);
-                    }
-                }
-            });
+                });
+            }
         }
         else if (type instanceof VarcharType t && value instanceof String s) {
             t.writeSlice(blockBuilder, utf8Slice(s));
