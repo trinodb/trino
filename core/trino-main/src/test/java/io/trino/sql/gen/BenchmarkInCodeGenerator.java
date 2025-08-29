@@ -188,7 +188,6 @@ public class BenchmarkInCodeGenerator
 
             FunctionManager functionManager = createTestingFunctionManager();
             processor = new ExpressionCompiler(
-                    new CursorProcessorCompiler(functionManager),
                     new PageFunctionCompiler(functionManager, 0),
                     new ColumnarFilterCompiler(functionManager, 0))
                     .compilePageProcessor(
