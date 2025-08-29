@@ -36,11 +36,9 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static com.google.protobuf.DescriptorProtos.FileDescriptorSet.parseFrom;
 import static com.google.protobuf.Descriptors.FileDescriptor.buildFrom;

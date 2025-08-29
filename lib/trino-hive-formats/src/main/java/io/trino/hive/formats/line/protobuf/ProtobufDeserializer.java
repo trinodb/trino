@@ -155,7 +155,8 @@ public class ProtobufDeserializer
                         RowType.Field rowField = rowType.getFields().get(i);
                         if (rowField.getName().isPresent()) {
                             writeObject(fieldBuilders.get(i), rowField.getType(), getValue(rowMessage, fieldNameLookup, rowField.getName().get()));
-                        } else {
+                        }
+                        else {
                             throw new IllegalStateException("Unable to apply value to row field with no name: " + i);
                         }
                     }
