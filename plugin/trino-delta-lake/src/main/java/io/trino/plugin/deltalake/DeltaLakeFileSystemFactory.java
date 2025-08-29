@@ -18,6 +18,7 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.deltalake.metastore.DeltaMetastoreTable;
 import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.security.ConnectorIdentity;
 
 public interface DeltaLakeFileSystemFactory
         extends TrinoFileSystemFactory
@@ -39,6 +40,24 @@ public interface DeltaLakeFileSystemFactory
      */
     TrinoFileSystem create(ConnectorSession session, String tableLocation);
 
+    /**
+     * @deprecated Use {@link #create(ConnectorSession, VendedCredentialsHandle)} or {@link #create(ConnectorSession, String)}
+     * instead. The new methods can potentially support vending credentials and may pass more information
+     * when creating {@link TrinoFileSystem} in the future.
+     */
+    @Deprecated
+    @Override
+    default TrinoFileSystem create(ConnectorIdentity identity)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    /**
+     * @deprecated Use {@link #create(ConnectorSession, VendedCredentialsHandle)} or {@link #create(ConnectorSession, String)}
+     * instead. The new methods can potentially support vending credentials and may pass more information
+     * when creating {@link TrinoFileSystem} in the future.
+     */
+    @Deprecated
     @Override
     default TrinoFileSystem create(ConnectorSession session)
     {

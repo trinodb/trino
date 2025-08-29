@@ -18,7 +18,6 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.security.ConnectorIdentity;
 
 import static java.util.Objects.requireNonNull;
 
@@ -43,11 +42,5 @@ public class DefaultDeltaLakeFileSystemFactory
     public TrinoFileSystem create(ConnectorSession session, String tableLocation)
     {
         return fileSystemFactory.create(session.getIdentity());
-    }
-
-    @Override
-    public TrinoFileSystem create(ConnectorIdentity identity)
-    {
-        throw new UnsupportedOperationException();
     }
 }
