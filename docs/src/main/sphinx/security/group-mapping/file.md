@@ -16,10 +16,21 @@ file.group-file=/path/to/group.txt
 
 The following configuration properties are available:
 
-| Property              | Description                                           |
-| --------------------- | ----------------------------------------------------- |
-| `file.group-file`     | Path of the group file.                               |
-| `file.refresh-period` | How often to reload the group file. Defaults to `5s`. |
+:::{list-table} File group provider configuration
+:widths: 35, 50, 15
+:header-rows: 1
+
+* - Property Name
+  - Description
+  - Default
+
+* - `file.group-file`
+  - Path of the group file
+  -
+* - `file.refresh-period`
+  - How often to reload the group file
+  - `5s`
+:::
 
 ## Group files
 
