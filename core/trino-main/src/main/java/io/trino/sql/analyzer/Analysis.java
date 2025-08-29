@@ -43,6 +43,7 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.eventlistener.BaseViewReferenceInfo;
 import io.trino.spi.eventlistener.ColumnDetail;
 import io.trino.spi.eventlistener.ColumnInfo;
+import io.trino.spi.eventlistener.ColumnLineageInfo;
 import io.trino.spi.eventlistener.ColumnMaskReferenceInfo;
 import io.trino.spi.eventlistener.MaterializedViewReferenceInfo;
 import io.trino.spi.eventlistener.RoutineInfo;
@@ -100,6 +101,7 @@ import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -269,11 +271,43 @@ public class Analysis
     private final Set<NodeRef<TableFunctionInvocation>> polymorphicTableFunctions = new LinkedHashSet<>();
     private final Map<NodeRef<Table>, List<Field>> materializedViewStorageTableFields = new LinkedHashMap<>();
 
+    private List<ColumnLineageInfo> selectColumnLineageInfo = ImmutableList.of();
+
     public Analysis(@Nullable Statement root, Map<NodeRef<Parameter>, Expression> parameters, QueryType queryType)
     {
         this.root = root;
         this.parameters = ImmutableMap.copyOf(requireNonNull(parameters, "parameters is null"));
         this.queryType = requireNonNull(queryType, "queryType is null");
+    }
+
+    public void setSelectColumnLineage(Node node, Scope scope)
+    {
+        // Only compute lineage for top-level Query nodes (no outer query parent)
+        if (!(node instanceof Query) || scope.getOuterQueryParent().isPresent()) {
+            return;
+        }
+
+        List<Field> outputFields = scope.getRelationType().getVisibleFields().stream().toList();
+        List<Integer> outputFieldIndices = outputFields.stream()
+                .map(scope.getRelationType()::indexOf)
+                .collect(toImmutableList());
+        List<ColumnLineageInfo> lineageInfo = new ArrayList<>();
+        for (int i = 0; i < outputFields.size(); i++) {
+            Field field = outputFields.get(i);
+            String outputColumnName = field.getName().orElse("");
+            ImmutableSet<ColumnDetail> sources = getSourceColumns(field).stream()
+                    .map(SourceColumn::getColumnDetail)
+                    .collect(toImmutableSet());
+            lineageInfo.add(new ColumnLineageInfo(outputColumnName, outputFieldIndices.get(i), sources));
+        }
+        // always sort lineageInfo by index to ensure consistent ordering
+        lineageInfo.sort(Comparator.comparingInt(ColumnLineageInfo::index));
+        this.selectColumnLineageInfo = ImmutableList.copyOf(lineageInfo);
+    }
+
+    public List<ColumnLineageInfo> getSelectColumnLineageInfo()
+    {
+        return selectColumnLineageInfo;
     }
 
     public Statement getStatement()
