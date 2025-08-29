@@ -17,6 +17,7 @@ import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.airlift.units.Duration;
+import io.trino.plugin.base.cache.identity.IdentityCacheMapping;
 
 import java.util.Set;
 

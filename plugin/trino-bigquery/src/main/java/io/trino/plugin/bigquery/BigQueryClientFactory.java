@@ -19,6 +19,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.inject.Inject;
 import io.airlift.units.Duration;
 import io.trino.cache.NonEvictableCache;
+import io.trino.plugin.base.cache.identity.IdentityCacheMapping;
 import io.trino.spi.connector.ConnectorSession;
 
 import java.util.Optional;

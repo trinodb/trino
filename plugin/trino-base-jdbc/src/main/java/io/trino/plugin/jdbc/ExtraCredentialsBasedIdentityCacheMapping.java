@@ -14,6 +14,7 @@
 package io.trino.plugin.jdbc;
 
 import com.google.inject.Inject;
+import io.trino.plugin.base.cache.identity.IdentityCacheMapping;
 import io.trino.plugin.jdbc.credential.ExtraCredentialConfig;
 import io.trino.spi.connector.ConnectorSession;
 
