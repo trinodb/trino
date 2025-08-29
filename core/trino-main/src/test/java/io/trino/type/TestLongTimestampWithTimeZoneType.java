@@ -57,6 +57,8 @@ public class TestLongTimestampWithTimeZoneType
         return blockBuilder.buildValueBlock();
     }
 
+    private static final int PICOS_OF_MILLI = 1_000_000_000;
+
     @Override
     protected Object getGreaterValue(Object value)
     {
@@ -114,54 +116,48 @@ public class TestLongTimestampWithTimeZoneType
 
     @ParameterizedTest
     @MethodSource("testPreviousNextValueEveryPrecisionDataProvider")
-    public void testPreviousValueEveryPrecision(int precision, long minValue, long maxValue, int step)
+    public void testPreviousValueEveryPrecision(int precision, LongTimestampWithTimeZone minValue, LongTimestampWithTimeZone maxValue, int step)
     {
         long middleRangeEpochMillis = 123_456_789_000_000L;
-        int oneMsInPicos = 1_000_000_000;
-
         Type type = createTimestampWithTimeZoneType(precision);
+
         LongTimestampWithTimeZone zeroValueType = LongTimestampWithTimeZone.fromEpochMillisAndFraction(0, 0, UTC_KEY);
         LongTimestampWithTimeZone sequenceValueType = LongTimestampWithTimeZone.fromEpochMillisAndFraction(middleRangeEpochMillis, 0, UTC_KEY);
-        LongTimestampWithTimeZone minValueType = LongTimestampWithTimeZone.fromEpochMillisAndFraction(minValue, 0, UTC_KEY);
-        LongTimestampWithTimeZone nextToMinValueType = LongTimestampWithTimeZone.fromEpochMillisAndFraction(minValue, step, UTC_KEY);
-        LongTimestampWithTimeZone previousToMaxValueType = LongTimestampWithTimeZone.fromEpochMillisAndFraction(maxValue, oneMsInPicos - (2 * step), UTC_KEY);
-        LongTimestampWithTimeZone maxValueType = LongTimestampWithTimeZone.fromEpochMillisAndFraction(maxValue, oneMsInPicos - step, UTC_KEY);
+        LongTimestampWithTimeZone nextToMinValueType = LongTimestampWithTimeZone.fromEpochMillisAndFraction(minValue.getEpochMillis(), step, UTC_KEY);
+        LongTimestampWithTimeZone previousToMaxValueType = LongTimestampWithTimeZone.fromEpochMillisAndFraction(maxValue.getEpochMillis(), PICOS_OF_MILLI - (2 * step), UTC_KEY);
 
-        assertThat(type.getPreviousValue(minValueType))
+        assertThat(type.getPreviousValue(minValue))
                 .isEqualTo(Optional.empty());
         assertThat(type.getPreviousValue(nextToMinValueType))
-                .isEqualTo(Optional.of(minValueType));
+                .isEqualTo(Optional.of(minValue));
 
         assertThat(type.getPreviousValue(zeroValueType))
-                .isEqualTo(Optional.of(LongTimestampWithTimeZone.fromEpochMillisAndFraction(-1, oneMsInPicos - step, UTC_KEY)));
+                .isEqualTo(Optional.of(LongTimestampWithTimeZone.fromEpochMillisAndFraction(-1, PICOS_OF_MILLI - step, UTC_KEY)));
         assertThat(type.getPreviousValue(sequenceValueType))
-                .isEqualTo(Optional.of(LongTimestampWithTimeZone.fromEpochMillisAndFraction(middleRangeEpochMillis - 1, oneMsInPicos - step, UTC_KEY)));
+                .isEqualTo(Optional.of(LongTimestampWithTimeZone.fromEpochMillisAndFraction(middleRangeEpochMillis - 1, PICOS_OF_MILLI - step, UTC_KEY)));
 
-        assertThat(type.getPreviousValue(maxValueType))
-                .isEqualTo(Optional.of(LongTimestampWithTimeZone.fromEpochMillisAndFraction(maxValue, oneMsInPicos - (2 * step), UTC_KEY)));
+        assertThat(type.getPreviousValue(maxValue))
+                .isEqualTo(Optional.of(LongTimestampWithTimeZone.fromEpochMillisAndFraction(maxValue.getEpochMillis(), PICOS_OF_MILLI - (2 * step), UTC_KEY)));
         assertThat(type.getPreviousValue(previousToMaxValueType))
-                .isEqualTo(Optional.of(LongTimestampWithTimeZone.fromEpochMillisAndFraction(maxValue, oneMsInPicos - (3 * step), UTC_KEY)));
+                .isEqualTo(Optional.of(LongTimestampWithTimeZone.fromEpochMillisAndFraction(maxValue.getEpochMillis(), PICOS_OF_MILLI - (3 * step), UTC_KEY)));
     }
 
     @ParameterizedTest
     @MethodSource("testPreviousNextValueEveryPrecisionDataProvider")
-    public void testNextValueEveryPrecision(int precision, long minValue, long maxValue, int step)
+    public void testNextValueEveryPrecision(int precision, LongTimestampWithTimeZone minValue, LongTimestampWithTimeZone maxValue, int step)
     {
         long middleRangeEpochMillis = 123_456_789_000_000L;
-        int oneMsInPicos = 1_000_000_000;
 
         Type type = createTimestampWithTimeZoneType(precision);
         LongTimestampWithTimeZone zeroValueType = LongTimestampWithTimeZone.fromEpochMillisAndFraction(0, 0, UTC_KEY);
         LongTimestampWithTimeZone sequenceValueType = LongTimestampWithTimeZone.fromEpochMillisAndFraction(middleRangeEpochMillis, 0, UTC_KEY);
-        LongTimestampWithTimeZone minValueType = LongTimestampWithTimeZone.fromEpochMillisAndFraction(minValue, 0, UTC_KEY);
-        LongTimestampWithTimeZone nextToMinValueType = LongTimestampWithTimeZone.fromEpochMillisAndFraction(minValue, step, UTC_KEY);
-        LongTimestampWithTimeZone previousToMaxValueType = LongTimestampWithTimeZone.fromEpochMillisAndFraction(maxValue, oneMsInPicos - (2 * step), UTC_KEY);
-        LongTimestampWithTimeZone maxValueType = LongTimestampWithTimeZone.fromEpochMillisAndFraction(maxValue, oneMsInPicos - step, UTC_KEY);
+        LongTimestampWithTimeZone nextToMinValueType = LongTimestampWithTimeZone.fromEpochMillisAndFraction(minValue.getEpochMillis(), step, UTC_KEY);
+        LongTimestampWithTimeZone previousToMaxValueType = LongTimestampWithTimeZone.fromEpochMillisAndFraction(maxValue.getEpochMillis(), PICOS_OF_MILLI - (2 * step), UTC_KEY);
 
-        assertThat(type.getNextValue(minValueType))
+        assertThat(type.getNextValue(minValue))
                 .isEqualTo(Optional.of(nextToMinValueType));
         assertThat(type.getNextValue(nextToMinValueType))
-                .isEqualTo(Optional.of(LongTimestampWithTimeZone.fromEpochMillisAndFraction(minValue, 2 * step, UTC_KEY)));
+                .isEqualTo(Optional.of(LongTimestampWithTimeZone.fromEpochMillisAndFraction(minValue.getEpochMillis(), 2 * step, UTC_KEY)));
 
         assertThat(type.getNextValue(zeroValueType))
                 .isEqualTo(Optional.of(LongTimestampWithTimeZone.fromEpochMillisAndFraction(0, step, UTC_KEY)));
@@ -169,23 +165,59 @@ public class TestLongTimestampWithTimeZoneType
                 .isEqualTo(Optional.of(LongTimestampWithTimeZone.fromEpochMillisAndFraction(middleRangeEpochMillis, step, UTC_KEY)));
 
         assertThat(type.getNextValue(previousToMaxValueType))
-                .isEqualTo(Optional.of(maxValueType));
-        assertThat(type.getNextValue(maxValueType))
+                .isEqualTo(Optional.of(maxValue));
+        assertThat(type.getNextValue(maxValue))
                 .isEqualTo(Optional.empty());
     }
 
-    public static Stream<Arguments> testPreviousNextValueEveryPrecisionDataProvider()
-    {
+    public static Stream<Arguments> testPreviousNextValueEveryPrecisionDataProvider() {
         return Stream.of(
-                Arguments.of(4, Long.MIN_VALUE, Long.MAX_VALUE, 100_000_000),
-                Arguments.of(5, Long.MIN_VALUE, Long.MAX_VALUE, 10_000_000),
-                Arguments.of(6, Long.MIN_VALUE, Long.MAX_VALUE, 1_000_000),
-                Arguments.of(7, Long.MIN_VALUE, Long.MAX_VALUE, 100_000),
-                Arguments.of(8, Long.MIN_VALUE, Long.MAX_VALUE, 10_000),
-                Arguments.of(9, Long.MIN_VALUE, Long.MAX_VALUE, 1_000),
-                Arguments.of(10, Long.MIN_VALUE, Long.MAX_VALUE, 100),
-                Arguments.of(11, Long.MIN_VALUE, Long.MAX_VALUE, 10),
-                Arguments.of(12, Long.MIN_VALUE, Long.MAX_VALUE, 1));
+                Arguments.of(
+                        4,
+                        LongTimestampWithTimeZone.fromEpochMillisAndFraction(Long.MIN_VALUE, 0, UTC_KEY),
+                        LongTimestampWithTimeZone.fromEpochMillisAndFraction(Long.MAX_VALUE, PICOS_OF_MILLI - 100_000_000, UTC_KEY),
+                        100_000_000),
+                Arguments.of(
+                        5,
+                        LongTimestampWithTimeZone.fromEpochMillisAndFraction(Long.MIN_VALUE, 0, UTC_KEY),
+                        LongTimestampWithTimeZone.fromEpochMillisAndFraction(Long.MAX_VALUE, PICOS_OF_MILLI - 10_000_000, UTC_KEY),
+                        10_000_000),
+                Arguments.of(
+                        6,
+                        LongTimestampWithTimeZone.fromEpochMillisAndFraction(Long.MIN_VALUE, 0, UTC_KEY),
+                        LongTimestampWithTimeZone.fromEpochMillisAndFraction(Long.MAX_VALUE, PICOS_OF_MILLI - 1_000_000, UTC_KEY),
+                        1_000_000),
+                Arguments.of(
+                        7,
+                        LongTimestampWithTimeZone.fromEpochMillisAndFraction(Long.MIN_VALUE, 0, UTC_KEY),
+                        LongTimestampWithTimeZone.fromEpochMillisAndFraction(Long.MAX_VALUE, PICOS_OF_MILLI - 100_000, UTC_KEY),
+                        100_000),
+                Arguments.of(
+                        8,
+                        LongTimestampWithTimeZone.fromEpochMillisAndFraction(Long.MIN_VALUE, 0, UTC_KEY),
+                        LongTimestampWithTimeZone.fromEpochMillisAndFraction(Long.MAX_VALUE, PICOS_OF_MILLI - 10_000, UTC_KEY),
+                        10_000),
+                Arguments.of(
+                        9,
+                        LongTimestampWithTimeZone.fromEpochMillisAndFraction(Long.MIN_VALUE, 0, UTC_KEY),
+                        LongTimestampWithTimeZone.fromEpochMillisAndFraction(Long.MAX_VALUE, PICOS_OF_MILLI - 1_000, UTC_KEY),
+                        1_000),
+                Arguments.of(
+                        10,
+                        LongTimestampWithTimeZone.fromEpochMillisAndFraction(Long.MIN_VALUE, 0, UTC_KEY),
+                        LongTimestampWithTimeZone.fromEpochMillisAndFraction(Long.MAX_VALUE, PICOS_OF_MILLI - 100, UTC_KEY),
+                        100),
+                Arguments.of(
+                        11,
+                        LongTimestampWithTimeZone.fromEpochMillisAndFraction(Long.MIN_VALUE, 0, UTC_KEY),
+                        LongTimestampWithTimeZone.fromEpochMillisAndFraction(Long.MAX_VALUE, PICOS_OF_MILLI - 10, UTC_KEY),
+                        10),
+                Arguments.of(
+                        12,
+                        LongTimestampWithTimeZone.fromEpochMillisAndFraction(Long.MIN_VALUE, 0, UTC_KEY),
+                        LongTimestampWithTimeZone.fromEpochMillisAndFraction(Long.MAX_VALUE, PICOS_OF_MILLI - 1, UTC_KEY),
+                        1)
+        );
     }
 
     @Test
