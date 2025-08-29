@@ -29,7 +29,6 @@ public record MemoryDataFragment(HostAddress hostAddress, long rows)
     public MemoryDataFragment
     {
         requireNonNull(hostAddress, "hostAddress is null");
-        checkArgument(rows >= 0, "Rows number cannot be negative");
     }
 
     public Slice toSlice()
