@@ -47,7 +47,10 @@ In the case of serializable formats, only specific
 
 - RCText - RCFile using `ColumnarSerDe`
 - RCBinary - RCFile using `LazyBinaryColumnarSerDe`
-- SequenceFile
+- SequenceFile with `org.apache.hadoop.io.Text`
+- SequenceFile with `org.apache.hadoop.io.BytesWritable` containing protocol
+  buffer records using
+  `com.twitter.elephantbird.hive.serde.ProtobufDeserializer`
 - CSV - using `org.apache.hadoop.hive.serde2.OpenCSVSerde`
 - JSON - using `org.apache.hive.hcatalog.data.JsonSerDe`
 - OPENX_JSON - OpenX JSON SerDe from `org.openx.data.jsonserde.JsonSerDe`. Find
@@ -314,6 +317,18 @@ Hive connector documentation.
   - Number of threads used for retrieving metadata. Currently, only table loading
     is parallelized.
   - `8`
+* - `hive.protobuf.descriptors.location`
+  - Path to a directory where binary Protocol Buffer descriptor files are 
+    stored to be used for reading tables stored in the
+    `com.twitter.elephantbird.hive.serde.ProtobufDeserializer` format.
+  -
+* - `hive.protobuf.descriptors.cache.max-size`
+  - Maximum size of the Protocol Buffer descriptors cache
+  - `64`
+* - `hive.protobuf.descriptors.cache.refresh-interval`
+  - Duration after which loaded Protocol Buffer descriptors should be reloaded
+    from disk.
+  - `1d`
 :::
 
 (hive-file-system-configuration)=
