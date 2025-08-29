@@ -11,9 +11,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.jdbc;
+package io.trino.plugin.base.cache.identity;
 
-import io.trino.plugin.base.cache.identity.IdentityCacheMapping;
 import io.trino.spi.connector.ConnectorSession;
 
 public final class SingletonIdentityCacheMapping
