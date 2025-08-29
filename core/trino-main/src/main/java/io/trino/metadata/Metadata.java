@@ -54,6 +54,7 @@ import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
+import io.trino.spi.connector.UpdateKind;
 import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
@@ -106,6 +107,21 @@ public interface Metadata
      * Returns a table handle for the specified table name.
      */
     Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName);
+
+    /**
+     * Returns a table handle for the specified table name with updateKind.
+     */
+    Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName, Optional<UpdateKind> updateKind);
+
+    /**
+     * Returns a table handle for the specified table name with a specified version.
+     */
+    Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion);
+
+    /**
+     * Returns a table handle for the specified table name with a specified version and updateKind.
+     */
+    Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion, Optional<UpdateKind> updateKind);
 
     Optional<SystemTable> getSystemTable(Session session, QualifiedObjectName tableName);
 
@@ -851,14 +867,14 @@ public interface Metadata
     RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName);
 
     /**
-     * Get the target table handle after performing redirection with a table version.
+     * Get the target table handle after performing redirection with updateKind.
      */
-    RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion);
+    RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName, Optional<UpdateKind> updateKind);
 
     /**
-     * Returns a table handle for the specified table name with a specified version
+     * Get the target table handle after performing redirection with a table version and updateKind.
      */
-    Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion);
+    RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion, Optional<UpdateKind> updateKind);
 
     /**
      * Returns maximum number of tasks that can be created while writing data to specific connector.
