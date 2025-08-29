@@ -70,7 +70,7 @@ public class FormatInterpolator<Context>
                 .equals(format);
     }
 
-    interface InterpolatedValue<Context>
+    public interface InterpolatedValue<Context>
     {
         String name();
 
