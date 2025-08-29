@@ -21,6 +21,8 @@ import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.local.LocalOutputFile;
 import io.trino.orc.OrcWriteValidation.OrcWriteValidationMode;
+import io.trino.orc.metadata.CalendarKind;
+import io.trino.orc.metadata.CompressionKind;
 import io.trino.orc.metadata.Footer;
 import io.trino.orc.metadata.OrcMetadataReader;
 import io.trino.orc.metadata.OrcType;
@@ -32,15 +34,20 @@ import io.trino.orc.stream.OrcInputStream;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.VariableWidthBlockBuilder;
+import io.trino.spi.type.SqlDate;
+import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.orc.OrcTester.READER_OPTIONS;
@@ -48,9 +55,12 @@ import static io.trino.orc.StripeReader.isIndexStream;
 import static io.trino.orc.TestingOrcPredicate.ORC_ROW_GROUP_SIZE;
 import static io.trino.orc.TestingOrcPredicate.ORC_STRIPE_SIZE;
 import static io.trino.orc.metadata.CompressionKind.NONE;
+import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestOrcWriter
@@ -76,6 +86,45 @@ public class TestOrcWriter
             data[i] = "LONG_STRING";
         }
         testWriteOutput(columnNameBuilder.build(), data);
+    }
+
+    @Test
+    public void testWritingFooter()
+    {
+        List<String> strings = ImmutableList.of("aaa1", "qwerty", "asdf", "zxcvb", "1234");
+        testWritingFooter(VARCHAR, strings, CalendarKind.UNKNOWN_CALENDAR);
+
+        List<SqlDate> dates = ImmutableList.of("2020-01-01", "2021-02-02", "2022-03-03", "2023-04-04", "2024-05-05").stream()
+                .map(LocalDate::parse)
+                .map(LocalDate::toEpochDay)
+                .map(Math::toIntExact)
+                .map(SqlDate::new)
+                .collect(toImmutableList());
+        testWritingFooter(DATE, dates, CalendarKind.PROLEPTIC_GREGORIAN);
+
+        List<SqlTimestamp> timestamps = ImmutableList.of("2023-04-11T05:16:12.123", "2021-04-11T05:16:12.123", "1999-04-11T05:16:12.123").stream()
+                .map(LocalDateTime::parse)
+                .map(ldt -> SqlTimestamp.fromSeconds(TIMESTAMP_MILLIS.getPrecision(), ldt.toEpochSecond(UTC), ldt.getNano()))
+                .collect(toImmutableList());
+        testWritingFooter(TIMESTAMP_MILLIS, timestamps, CalendarKind.PROLEPTIC_GREGORIAN);
+    }
+
+    private static void testWritingFooter(Type type, List<?> values, CalendarKind expectedCalendarKind)
+    {
+        try (TempFile tempFile = new TempFile()) {
+            OrcTester.writeOrcColumnTrino(tempFile.getFile(), CompressionKind.NONE, type, values.iterator(), new OrcWriterStats());
+
+            OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), READER_OPTIONS);
+            Footer footer = OrcReader.createOrcReader(orcDataSource, READER_OPTIONS)
+                    .orElseThrow(() -> new RuntimeException("File is empty"))
+                    .getFooter();
+
+            assertThat(footer.getCalendar().isPresent()).isTrue();
+            assertThat(footer.getCalendar().get()).isEqualTo(expectedCalendarKind);
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private void testWriteOutput(List<String> columnNames, String[] data)
