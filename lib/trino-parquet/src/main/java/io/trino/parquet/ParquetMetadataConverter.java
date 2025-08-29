@@ -79,6 +79,8 @@ import static org.apache.parquet.schema.LogicalTypeAnnotation.dateType;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.decimalType;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.enumType;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.float16Type;
+import static org.apache.parquet.schema.LogicalTypeAnnotation.geographyType;
+import static org.apache.parquet.schema.LogicalTypeAnnotation.geometryType;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.intType;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.jsonType;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.listType;
@@ -87,6 +89,7 @@ import static org.apache.parquet.schema.LogicalTypeAnnotation.stringType;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.timeType;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.timestampType;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.uuidType;
+import static org.apache.parquet.schema.LogicalTypeAnnotation.variantType;
 
 // based on org.apache.parquet.format.converter.ParquetMetadataConverter
 public final class ParquetMetadataConverter
@@ -156,6 +159,9 @@ public final class ParquetMetadataConverter
             }
             case UUID -> uuidType();
             case FLOAT16 -> float16Type();
+            case VARIANT -> variantType((byte) 1);
+            case GEOMETRY -> geometryType("OGC:CRS84");
+            case GEOGRAPHY -> geographyType();
         };
     }
 
