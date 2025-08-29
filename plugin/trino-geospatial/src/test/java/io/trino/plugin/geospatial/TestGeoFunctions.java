@@ -2005,6 +2005,25 @@ public class TestGeoFunctions
     }
 
     @Test
+    public void testSTMulti()
+    {
+        assertSTMulti("POINT (0 0)", "MULTIPOINT ((0 0))");
+        assertSTMulti("MULTIPOINT ((1 1))", "MULTIPOINT ((1 1))");
+        assertSTMulti("LINESTRING (1 2, 3 4, 5 6, 7 8)", "MULTILINESTRING ((1 2, 3 4, 5 6, 7 8))");
+        assertSTMulti("MULTILINESTRING ((1 2, 3 4, 5 6, 7 8))", "MULTILINESTRING ((1 2, 3 4, 5 6, 7 8))");
+        assertSTMulti("POLYGON ((0 0, 1 0, 1 1, 0 1, 0 0))", "MULTIPOLYGON (((0 0, 1 0, 1 1, 0 1, 0 0)))");
+        assertSTMulti("MULTIPOLYGON (((1 1, 4 1, 4 4, 1 4, 1 1)), ((1 1, 4 1, 4 4, 1 4, 1 1)))", "MULTIPOLYGON (((1 1, 4 1, 4 4, 1 4, 1 1)), ((1 1, 4 1, 4 4, 1 4, 1 1)))");
+    }
+
+    public void assertSTMulti(String wkt, String expected)
+    {
+        assertThat(assertions.expression("ST_AsText(ST_Multi(geometry))")
+                .binding("geometry", "ST_GeometryFromText('%s')".formatted(wkt)))
+                .hasType(VARCHAR)
+                .isEqualTo(expected);
+    }
+
+    @Test
     public void testSTPointN()
     {
         assertPointN("LINESTRING(1 2, 3 4, 5 6, 7 8)", 1, "POINT (1 2)");
