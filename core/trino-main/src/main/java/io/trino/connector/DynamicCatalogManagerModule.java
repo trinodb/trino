@@ -42,9 +42,19 @@ public class DynamicCatalogManagerModule
             binder.bind(CatalogManager.class).to(CoordinatorDynamicCatalogManager.class).in(Scopes.SINGLETON);
             binder.bind(CoordinatorLazyRegister.class).asEagerSingleton();
 
+            // TODO: Refresh Config (only in coordinator)
             configBinder(binder).bindConfig(CatalogPruneTaskConfig.class);
             binder.bind(CatalogPruneTask.class).in(Scopes.SINGLETON);
             install(internalHttpClientModule("catalog-prune", ForCatalogPrune.class)
+                    .withConfigDefaults(config -> {
+                        config.setIdleTimeout(new Duration(30, SECONDS));
+                        config.setRequestTimeout(new Duration(10, SECONDS));
+                    }).build());
+
+            // Catalog Refresh Task
+            configBinder(binder).bindConfig(RefreshCatalogsTaskConfig.class);
+            binder.bind(RefreshCatalogsTask.class).in(Scopes.SINGLETON);
+            install(internalHttpClientModule("catalog-refresh", ForCatalogRefresh.class)
                     .withConfigDefaults(config -> {
                         config.setIdleTimeout(new Duration(30, SECONDS));
                         config.setRequestTimeout(new Duration(10, SECONDS));
