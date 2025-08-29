@@ -467,7 +467,7 @@ public interface Metadata
     Optional<CatalogHandle> getCatalogHandle(Session session, String catalogName);
 
     /**
-     * Gets all the loaded catalogs
+     * Lists all catalogs
      */
     List<CatalogInfo> listCatalogs(Session session);
 
