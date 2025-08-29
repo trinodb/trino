@@ -16,6 +16,7 @@ package io.trino.plugin.jdbc;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
+import io.trino.plugin.base.cache.identity.IdentityCacheMapping;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 
