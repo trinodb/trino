@@ -26,6 +26,8 @@ import io.trino.plugin.deltalake.cache.DeltaLakeCacheKeyProvider;
 import io.trino.plugin.deltalake.functions.tablechanges.TableChangesFunctionProvider;
 import io.trino.plugin.deltalake.functions.tablechanges.TableChangesProcessorProvider;
 import io.trino.plugin.deltalake.metastore.DeltaLakeTableMetadataScheduler;
+import io.trino.plugin.deltalake.metastore.NoOpVendedCredentialsProvider;
+import io.trino.plugin.deltalake.metastore.VendedCredentialsProvider;
 import io.trino.plugin.deltalake.procedure.DropExtendedStatsProcedure;
 import io.trino.plugin.deltalake.procedure.FlushMetadataCacheProcedure;
 import io.trino.plugin.deltalake.procedure.OptimizeTableProcedure;
@@ -146,6 +148,9 @@ public class DeltaLakeModule
         binder.bind(TableChangesProcessorProvider.class).in(Scopes.SINGLETON);
 
         newOptionalBinder(binder, CacheKeyProvider.class).setBinding().to(DeltaLakeCacheKeyProvider.class).in(Scopes.SINGLETON);
+
+        newOptionalBinder(binder, DeltaLakeFileSystemFactory.class).setDefault().to(DefaultDeltaLakeFileSystemFactory.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, VendedCredentialsProvider.class).setDefault().to(NoOpVendedCredentialsProvider.class).in(Scopes.SINGLETON);
 
         binder.install(new DeltaLakeExecutorModule());
     }

@@ -130,7 +130,9 @@ public class HiveMetastoreBackedDeltaLakeMetastore
         return new DeltaMetastoreTable(
                 new SchemaTableName(table.getDatabaseName(), table.getTableName()),
                 table.getTableType().equals(MANAGED_TABLE.name()),
-                getTableLocation(table));
+                getTableLocation(table),
+                false,
+                Optional.empty());
     }
 
     public static String getTableLocation(Table table)

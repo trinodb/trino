@@ -17,11 +17,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
+import io.trino.plugin.deltalake.DeltaLakeFileSystemFactory;
 import io.trino.plugin.deltalake.DeltaLakePageSourceProvider;
 import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.trino.spi.Page;
@@ -75,7 +75,7 @@ public class TableChangesFunctionProcessor
 
     public TableChangesFunctionProcessor(
             ConnectorSession session,
-            TrinoFileSystemFactory fileSystemFactory,
+            DeltaLakeFileSystemFactory fileSystemFactory,
             DateTimeZone parquetDateTimeZone,
             int domainCompactionThreshold,
             FileFormatDataSourceStats fileFormatDataSourceStats,
@@ -162,7 +162,7 @@ public class TableChangesFunctionProcessor
 
     private static ConnectorPageSource createDeltaLakePageSource(
             ConnectorSession session,
-            TrinoFileSystemFactory fileSystemFactory,
+            DeltaLakeFileSystemFactory fileSystemFactory,
             DateTimeZone parquetDateTimeZone,
             int domainCompactionThreshold,
             FileFormatDataSourceStats fileFormatDataSourceStats,
@@ -170,7 +170,7 @@ public class TableChangesFunctionProcessor
             TableChangesTableFunctionHandle handle,
             TableChangesSplit split)
     {
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session);
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session, handle.credentialsHandle());
         TrinoInputFile inputFile = fileSystem.newInputFile(Location.of(split.path()), split.fileSize());
         Map<String, Optional<String>> partitionKeys = split.partitionKeys();
 

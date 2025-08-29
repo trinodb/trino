@@ -14,6 +14,7 @@
 package io.trino.plugin.deltalake.transactionlog.writer;
 
 import io.trino.plugin.deltalake.DeltaLakeTableHandle;
+import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.spi.connector.ConnectorSession;
@@ -22,9 +23,9 @@ public interface TransactionLogWriterFactory
 {
     TransactionLogWriter createWriter(ConnectorSession session, DeltaLakeTableHandle tableHandle);
 
-    TransactionLogWriter createWriter(ConnectorSession session, String tableLocation, MetadataEntry metadataEntry, ProtocolEntry protocolEntry);
+    TransactionLogWriter createWriter(ConnectorSession session, String tableLocation, MetadataEntry metadataEntry, ProtocolEntry protocolEntry, VendedCredentialsHandle credentialsHandle);
 
-    TransactionLogWriter createFileSystemWriter(ConnectorSession session, String tableLocation);
+    TransactionLogWriter createFileSystemWriter(ConnectorSession session, String tableLocation, VendedCredentialsHandle credentialsHandle);
 
-    TransactionLogWriter newWriterWithoutTransactionIsolation(ConnectorSession session, String tableLocation);
+    TransactionLogWriter newWriterWithoutTransactionIsolation(ConnectorSession session, String tableLocation, VendedCredentialsHandle credentialsHandle);
 }
