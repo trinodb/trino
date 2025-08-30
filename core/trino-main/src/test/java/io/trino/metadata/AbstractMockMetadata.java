@@ -537,6 +537,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public Optional<List<ColumnHandle>> getColumnHandlesForExecute(Session session, TableExecuteHandle tableExecuteHandle, TableHandle tableHandle)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Optional<PartitioningHandle> getUpdateLayout(Session session, TableHandle tableHandle)
     {
         throw new UnsupportedOperationException();

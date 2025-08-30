@@ -15,6 +15,7 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.MustBeClosed;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slices;
@@ -120,6 +121,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -981,13 +983,46 @@ public class LogicalPlanner
             sourcePlanBuilder = sourcePlanBuilder.withNewRoot(new FilterNode(idAllocator.getNextId(), sourcePlanBuilder.getRoot(), sourcePlanBuilder.rewrite(whereExpression)));
         }
 
-        PlanNode sourcePlanRoot = sourcePlanBuilder.getRoot();
+        List<String> columnNames;
+        List<Symbol> symbols;
 
-        TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
-        List<String> columnNames = tableMetadata.columns().stream()
-                .filter(column -> !column.isHidden()) // todo this filter is redundant
-                .map(ColumnMetadata::getName)
-                .collect(toImmutableList());
+        Optional<List<ColumnHandle>> columnHandlesForExecute = metadata.getColumnHandlesForExecute(session, executeHandle, tableHandle);
+
+        if (columnHandlesForExecute.isPresent()) {
+            columnNames = columnHandlesForExecute.get().stream()
+                    .map(columnHandle -> metadata.getColumnMetadata(session, tableHandle, columnHandle))
+                    .map(ColumnMetadata::getName)
+                    .collect(toImmutableList());
+
+            Set<ColumnHandle> columnHandlesForPredicate = ImmutableSet.copyOf(columnHandlesForExecute.get());
+
+            ImmutableList.Builder<Symbol> symbolBuilder = ImmutableList.builder();
+
+            List<Symbol> tableScanOutputs = sourcePlanBuilder.getRoot().getOutputSymbols();
+            RelationType tableScanRelationType = sourcePlanBuilder.getScope().getRelationType();
+
+            for (Field field : sourcePlanBuilder.getScope().getRelationType().getAllFields()) {
+                if (columnHandlesForPredicate.contains(analysis.getColumn(field))) {
+                    symbolBuilder.add(tableScanOutputs.get(tableScanRelationType.indexOf(field)));
+                }
+            }
+
+            symbols = symbolBuilder.build();
+
+            sourcePlanBuilder = sourcePlanBuilder.withNewRoot(new ProjectNode(idAllocator.getNextId(), sourcePlanBuilder.getRoot(), Assignments.identity(symbols)));
+        }
+
+        else {
+            TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
+            columnNames = tableMetadata.columns().stream()
+                    .filter(column -> !column.isHidden()) // todo this filter is redundant
+                    .map(ColumnMetadata::getName)
+                    .collect(toImmutableList());
+
+            symbols = visibleFields(tableScanPlan);
+        }
+
+        PlanNode sourcePlanRoot = sourcePlanBuilder.getRoot();
 
         TableWriterNode.TableExecuteTarget tableExecuteTarget = new TableWriterNode.TableExecuteTarget(
                 executeHandle,
@@ -996,8 +1031,6 @@ public class LogicalPlanner
                 metadata.getInsertWriterScalingOptions(session, tableHandle));
 
         Optional<TableLayout> layout = metadata.getLayoutForTableExecute(session, executeHandle);
-
-        List<Symbol> symbols = visibleFields(tableScanPlan);
 
         // todo extract common method to be used here and in createTableWriterPlan()
         Optional<PartitioningScheme> partitioningScheme = Optional.empty();
