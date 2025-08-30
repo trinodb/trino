@@ -761,9 +761,9 @@ public final class PropertyDerivations
         {
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
 
-            Map<Symbol, Symbol> identities = computeIdentityTranslations(node.getAssignments().getMap());
+            Map<Symbol, Symbol> identities = computeIdentityTranslations(node.getAssignments().asMap());
 
-            ActualProperties translatedProperties = properties.translate(column -> Optional.ofNullable(identities.get(column)), expression -> rewriteExpression(node.getAssignments().getMap(), expression));
+            ActualProperties translatedProperties = properties.translate(column -> Optional.ofNullable(identities.get(column)), expression -> rewriteExpression(node.getAssignments().asMap(), expression));
 
             // Extract additional constants
             Map<Symbol, NullableValue> constants = new HashMap<>();

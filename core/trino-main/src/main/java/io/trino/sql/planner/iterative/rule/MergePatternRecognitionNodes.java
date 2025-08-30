@@ -137,7 +137,7 @@ public final class MergePatternRecognitionNodes
                 // put prerequisite assignments in the source of merged node,
                 // and the remaining assignments on top of merged node
                 Assignments remainingAssignments = project.getAssignments()
-                        .filter(symbol -> !prerequisites.getSymbols().contains(symbol));
+                        .filter(symbol -> !prerequisites.symbols().contains(symbol));
 
                 merged = (PatternRecognitionNode) merged.replaceChildren(ImmutableList.of(new ProjectNode(
                         context.getIdAllocator().getNextId(),
@@ -236,7 +236,7 @@ public final class MergePatternRecognitionNodes
                 .forEach(parentInputs::addAll);
 
         return parentInputs.build().stream()
-                .map(assignments::get)
+                .map(assignments::expression)
                 .map(SymbolsExtractor::extractAll)
                 .flatMap(Collection::stream)
                 .anyMatch(sourceCreatedOutputs::contains);

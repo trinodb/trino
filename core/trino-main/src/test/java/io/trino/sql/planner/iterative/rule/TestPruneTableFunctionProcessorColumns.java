@@ -37,7 +37,7 @@ public class TestPruneTableFunctionProcessorColumns
     {
         tester().assertThat(new PruneTableFunctionProcessorColumns())
                 .on(p -> p.project(
-                        Assignments.of(),
+                        Assignments.empty(),
                         p.tableFunctionProcessor(
                                 builder -> builder
                                         .name("test_function")
@@ -54,7 +54,7 @@ public class TestPruneTableFunctionProcessorColumns
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
                     return p.project(
-                            Assignments.of(),
+                            Assignments.empty(),
                             p.tableFunctionProcessor(
                                     builder -> builder
                                             .name("test_function")
@@ -79,7 +79,7 @@ public class TestPruneTableFunctionProcessorColumns
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
                     return p.project(
-                            Assignments.of(),
+                            Assignments.empty(),
                             p.tableFunctionProcessor(
                                     builder -> builder
                                             .name("test_function")
@@ -182,7 +182,7 @@ public class TestPruneTableFunctionProcessorColumns
     {
         tester().assertThat(new PruneTableFunctionProcessorColumns())
                 .on(p -> p.project(
-                        Assignments.of(),
+                        Assignments.empty(),
                         p.tableFunctionProcessor(
                                 builder -> builder
                                         .name("test_function")

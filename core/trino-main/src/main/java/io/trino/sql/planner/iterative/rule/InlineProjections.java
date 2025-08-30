@@ -137,7 +137,7 @@ public class InlineProjections
     private static Expression inlineReferences(Expression expression, Assignments assignments)
     {
         Function<Symbol, Expression> mapping = symbol -> {
-            Expression result = assignments.get(symbol);
+            Expression result = assignments.expression(symbol);
             if (result != null) {
                 return result;
             }
@@ -161,14 +161,14 @@ public class InlineProjections
         Set<Symbol> childOutputSet = ImmutableSet.copyOf(child.getOutputSymbols());
 
         Map<Symbol, Long> dependencies = parent.getAssignments()
-                .getExpressions().stream()
+                .expressions().stream()
                 .flatMap(expression -> SymbolsExtractor.extractAll(expression).stream())
                 .filter(childOutputSet::contains)
                 .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
 
         // find references to simple constants or symbol references
         Set<Symbol> basicReferences = dependencies.keySet().stream()
-                .filter(input -> child.getAssignments().get(input) instanceof Constant || child.getAssignments().get(input) instanceof Reference)
+                .filter(input -> child.getAssignments().expression(input) instanceof Constant || child.getAssignments().expression(input) instanceof Reference)
                 .filter(input -> !child.getAssignments().isIdentity(input)) // skip identities, otherwise, this rule will keep firing forever
                 .collect(toSet());
 
@@ -177,7 +177,7 @@ public class InlineProjections
                 .filter(entry -> !child.getAssignments().isIdentity(entry.getKey())) // skip identities, otherwise, this rule will keep firing forever
                 .filter(entry -> {
                     // skip dereferences, otherwise, inlining can cause conflicts with PushdownDereferences
-                    Expression assignment = child.getAssignments().get(entry.getKey());
+                    Expression assignment = child.getAssignments().expression(entry.getKey());
 
                     if (assignment instanceof FieldReference fieldReference) {
                         return !(fieldReference.base().type() instanceof RowType);
