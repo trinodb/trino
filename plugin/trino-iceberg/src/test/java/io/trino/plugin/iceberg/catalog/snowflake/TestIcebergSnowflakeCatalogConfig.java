@@ -13,17 +13,18 @@
  */
 package io.trino.plugin.iceberg.catalog.snowflake;
 
-import com.google.common.collect.ImmutableMap;
-import org.junit.jupiter.api.Test;
+import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import java.net.URI;
 import java.sql.SQLException;
 import java.util.Map;
 
-import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
-import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
-import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.Test;
+
+import com.google.common.collect.ImmutableMap;
 
 public class TestIcebergSnowflakeCatalogConfig
 {
@@ -33,6 +34,7 @@ public class TestIcebergSnowflakeCatalogConfig
         assertRecordedDefaults(recordDefaults(IcebergSnowflakeCatalogConfig.class)
                 .setUser(null)
                 .setPassword(null)
+                .setPrivateKey(null)
                 .setDatabase(null)
                 .setUri(null)
                 .setRole(null));
@@ -57,6 +59,47 @@ public class TestIcebergSnowflakeCatalogConfig
                 .setDatabase("database");
 
         assertFullMapping(properties, expected);
+    }
+
+    @Test
+    public void testPrivateKeyPropertyMapping()
+    {
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("iceberg.snowflake-catalog.private-key", "private-key-content")
+                .put("iceberg.snowflake-catalog.user", "user")
+                .put("iceberg.snowflake-catalog.role", "role")
+                .put("iceberg.snowflake-catalog.account-uri", "jdbc:snowflake://sample.url")
+                .put("iceberg.snowflake-catalog.database", "database")
+                .buildOrThrow();
+
+        IcebergSnowflakeCatalogConfig expected = new IcebergSnowflakeCatalogConfig()
+                .setPrivateKey("private-key-content")
+                .setUser("user")
+                .setRole("role")
+                .setUri(URI.create("jdbc:snowflake://sample.url"))
+                .setDatabase("database");
+
+        assertFullMapping(properties, expected);
+    }
+
+    @Test
+    public void testPasswordOnlyPropertyMapping() {
+            Map<String, String> properties = ImmutableMap.<String, String>builder()
+                            .put("iceberg.snowflake-catalog.password", "password-content")
+                            .put("iceberg.snowflake-catalog.user", "user")
+                            .put("iceberg.snowflake-catalog.role", "role")
+                            .put("iceberg.snowflake-catalog.account-uri", "jdbc:snowflake://sample.url")
+                            .put("iceberg.snowflake-catalog.database", "database")
+                            .buildOrThrow();
+
+            IcebergSnowflakeCatalogConfig expected = new IcebergSnowflakeCatalogConfig()
+                            .setPassword("password-content")
+                            .setUser("user")
+                            .setRole("role")
+                            .setUri(URI.create("jdbc:snowflake://sample.url"))
+                            .setDatabase("database");
+
+            assertFullMapping(properties, expected);
     }
 
     @Test

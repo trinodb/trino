@@ -13,14 +13,15 @@
  */
 package io.trino.plugin.snowflake;
 
-import com.google.common.collect.ImmutableMap;
-import org.junit.jupiter.api.Test;
-
-import java.util.Map;
-
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+
+import java.util.Map;
+
+import org.junit.jupiter.api.Test;
+
+import com.google.common.collect.ImmutableMap;
 
 public class TestSnowflakeConfig
 {
@@ -32,7 +33,8 @@ public class TestSnowflakeConfig
                 .setDatabase(null)
                 .setRole(null)
                 .setWarehouse(null)
-                .setHttpProxy(null));
+                .setHttpProxy(null)
+                .setPrivateKey(null));
     }
 
     @Test
@@ -44,6 +46,7 @@ public class TestSnowflakeConfig
                 .put("snowflake.role", "MYROLE")
                 .put("snowflake.warehouse", "MYWAREHOUSE")
                 .put("snowflake.http-proxy", "MYPROXY")
+                .put("snowflake.private-key", "MYPRIVATEKEY")
                 .buildOrThrow();
 
         SnowflakeConfig expected = new SnowflakeConfig()
@@ -51,7 +54,28 @@ public class TestSnowflakeConfig
                 .setDatabase("MYDATABASE")
                 .setRole("MYROLE")
                 .setWarehouse("MYWAREHOUSE")
-                .setHttpProxy("MYPROXY");
+                .setHttpProxy("MYPROXY")
+                .setPrivateKey("MYPRIVATEKEY");
+
+        assertFullMapping(properties, expected);
+    }
+
+    @Test
+    public void testPrivateKeyOnlyMapping() {
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("snowflake.account", "MYACCOUNT")
+                .put("snowflake.database", "MYDATABASE")
+                .put("snowflake.role", "MYROLE")
+                .put("snowflake.warehouse", "MYWAREHOUSE")
+                .put("snowflake.private-key", "MYPRIVATEKEY")
+                .buildOrThrow();
+
+        SnowflakeConfig expected = new SnowflakeConfig()
+                .setAccount("MYACCOUNT")
+                .setDatabase("MYDATABASE")
+                .setRole("MYROLE")
+                .setWarehouse("MYWAREHOUSE")
+                .setPrivateKey("MYPRIVATEKEY");
 
         assertFullMapping(properties, expected);
     }

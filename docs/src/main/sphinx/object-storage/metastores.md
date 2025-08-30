@@ -689,7 +689,9 @@ properties:
 * - `iceberg.snowflake-catalog.user`
   - Snowflake user (required).
 * - `iceberg.snowflake-catalog.password`
-  - Snowflake password (required).
+  - Snowflake password (this or private-key required).
+* - `iceberg.snowflake-catalog.private-key`
+  - Private key content in PEM format (this or password required).
 * - `iceberg.snowflake-catalog.database`
   - Snowflake database name (required).
 * - `iceberg.snowflake-catalog.role`

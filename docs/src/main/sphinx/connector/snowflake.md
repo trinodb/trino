@@ -1,8 +1,9 @@
 ---
 myst:
-  substitutions:
-    default_domain_compaction_threshold: "`256`"
+    substitutions:
+        default_domain_compaction_threshold: "`256`"
 ---
+
 # Snowflake connector
 
 ```{raw} html
@@ -27,11 +28,17 @@ connector.name=snowflake
 connection-url=jdbc:snowflake://<account>.snowflakecomputing.com
 connection-user=root
 connection-password=secret
+snowflake.private-key=unencrypted-private-key-contentsnowflake.account=account
 snowflake.account=account
 snowflake.database=database
 snowflake.role=role
 snowflake.warehouse=warehouse
 ```
+
+:::{note}
+Use private-key for RSA based authentication.
+Password based authentication is deprecated by Snowflake.
+:::
 
 The Snowflake connector uses Apache Arrow as the serialization format when
 reading from Snowflake. Add the following required, additional JVM argument
@@ -50,15 +57,19 @@ or want to connect to multiple Snowflake accounts, you must configure
 multiple instances of the Snowflake connector.
 
 ```{include} jdbc-common-configurations.fragment
+
 ```
 
 ```{include} query-comment-format.fragment
+
 ```
 
 ```{include} jdbc-domain-compaction-threshold.fragment
+
 ```
 
 ```{include} jdbc-case-insensitive-matching.fragment
+
 ```
 
 % snowflake-type-mapping:
@@ -82,80 +93,80 @@ this table:
 :widths: 30, 30, 40
 :header-rows: 1
 
-* - Snowflake type
-  - Trino type
-  - Notes
-* - `BOOLEAN`
-  - `BOOLEAN`
-  -
-* - `INT`, `INTEGER`, `BIGINT`, `SMALLINT`, `TINYINT`, `BYTEINT`
-  - `DECIMAL(38,0)`
-  - Synonymous with `NUMBER(38,0)`. See Snowflake
-    [data types for fixed point numbers](https://docs.snowflake.com/en/sql-reference/data-types-numeric#data-types-for-fixed-point-numbers)
-    for more information.
-* - `FLOAT`, `FLOAT4`, `FLOAT8`
-  - `DOUBLE`
-  - The names `FLOAT`, `FLOAT4`, and `FLOAT8` are for compatibility with other systems; Snowflake treats all three as
-    64-bit floating-point numbers. See Snowflake
-    [data types for floating point numbers](https://docs.snowflake.com/en/sql-reference/data-types-numeric#data-types-for-floating-point-numbers)
-    for more information.
-* - `DOUBLE`, `DOUBLE PRECISION`, `REAL`
-  - `DOUBLE`
-  - Synonymous with `FLOAT`. See Snowflake
-    [data types for floating point numbers](https://docs.snowflake.com/en/sql-reference/data-types-numeric#data-types-for-floating-point-numbers)
-    for more information.
-* - `NUMBER`
-  - `DECIMAL`
-  - Default precision and scale are (38,0).
-* - `DECIMAL`, `NUMERIC`
-  - `DECIMAL`
-  - Synonymous with `NUMBER`. See Snowflake
-    [data types for fixed point numbers](https://docs.snowflake.com/en/sql-reference/data-types-numeric#data-types-for-fixed-point-numbers)
-    for more information.
-* - `VARCHAR`
-  - `VARCHAR`
-  -
-* - `CHAR`, `CHARACTER`
-  - `VARCHAR`
-  - Synonymous with `VARCHAR` except default length is `VARCHAR(1)`. See Snowflake
-    [String & Binary Data Types](https://docs.snowflake.com/en/sql-reference/data-types-text)
-    for more information.
-* - `STRING`, `TEXT`
-  - `VARCHAR`
-  - Synonymous with `VARCHAR`. See Snowflake
-    [String & Binary Data Types](https://docs.snowflake.com/en/sql-reference/data-types-text)
-    for more information.
-* - `BINARY`
-  - `VARBINARY`
-  -
-* - `VARBINARY`
-  - `VARBINARY`
-  - Synonymous with `BINARY`. See Snowflake
-    [String & Binary Data Types](https://docs.snowflake.com/en/sql-reference/data-types-text)
-    for more information.
-* - `DATE`
-  - `DATE`
-  -
-* - `TIME`
-  - `TIME`
-  -
-* - `TIMESTAMP_NTZ`
-  - `TIMESTAMP`
-  - TIMESTAMP with no time zone; time zone, if provided, is not stored. See Snowflake
-    [Date & Time Data Types](https://docs.snowflake.com/en/sql-reference/data-types-datetime)
-    for more information.
-* - `DATETIME`
-  - `TIMESTAMP`
-  - Alias for `TIMESTAMP_NTZ`. See Snowflake
-    [Date & Time Data Types](https://docs.snowflake.com/en/sql-reference/data-types-datetime)
-    for more information.
-* - `TIMESTAMP`
-  - `TIMESTAMP`
-  - Alias for one of the `TIMESTAMP` variations (`TIMESTAMP_NTZ` by default). This connector always sets `TIMESTAMP_NTZ` as the variant.
-* - `TIMESTAMP_TZ`
-  - `TIMESTAMP WITH TIME ZONE`
-  - TIMESTAMP with time zone.
-:::
+-   -   Snowflake type
+    -   Trino type
+    -   Notes
+-   -   `BOOLEAN`
+    -   `BOOLEAN`
+    -
+-   -   `INT`, `INTEGER`, `BIGINT`, `SMALLINT`, `TINYINT`, `BYTEINT`
+    -   `DECIMAL(38,0)`
+    -   Synonymous with `NUMBER(38,0)`. See Snowflake
+        [data types for fixed point numbers](https://docs.snowflake.com/en/sql-reference/data-types-numeric#data-types-for-fixed-point-numbers)
+        for more information.
+-   -   `FLOAT`, `FLOAT4`, `FLOAT8`
+    -   `DOUBLE`
+    -   The names `FLOAT`, `FLOAT4`, and `FLOAT8` are for compatibility with other systems; Snowflake treats all three as
+        64-bit floating-point numbers. See Snowflake
+        [data types for floating point numbers](https://docs.snowflake.com/en/sql-reference/data-types-numeric#data-types-for-floating-point-numbers)
+        for more information.
+-   -   `DOUBLE`, `DOUBLE PRECISION`, `REAL`
+    -   `DOUBLE`
+    -   Synonymous with `FLOAT`. See Snowflake
+        [data types for floating point numbers](https://docs.snowflake.com/en/sql-reference/data-types-numeric#data-types-for-floating-point-numbers)
+        for more information.
+-   -   `NUMBER`
+    -   `DECIMAL`
+    -   Default precision and scale are (38,0).
+-   -   `DECIMAL`, `NUMERIC`
+    -   `DECIMAL`
+    -   Synonymous with `NUMBER`. See Snowflake
+        [data types for fixed point numbers](https://docs.snowflake.com/en/sql-reference/data-types-numeric#data-types-for-fixed-point-numbers)
+        for more information.
+-   -   `VARCHAR`
+    -   `VARCHAR`
+    -
+-   -   `CHAR`, `CHARACTER`
+    -   `VARCHAR`
+    -   Synonymous with `VARCHAR` except default length is `VARCHAR(1)`. See Snowflake
+        [String & Binary Data Types](https://docs.snowflake.com/en/sql-reference/data-types-text)
+        for more information.
+-   -   `STRING`, `TEXT`
+    -   `VARCHAR`
+    -   Synonymous with `VARCHAR`. See Snowflake
+        [String & Binary Data Types](https://docs.snowflake.com/en/sql-reference/data-types-text)
+        for more information.
+-   -   `BINARY`
+    -   `VARBINARY`
+    -
+-   -   `VARBINARY`
+    -   `VARBINARY`
+    -   Synonymous with `BINARY`. See Snowflake
+        [String & Binary Data Types](https://docs.snowflake.com/en/sql-reference/data-types-text)
+        for more information.
+-   -   `DATE`
+    -   `DATE`
+    -
+-   -   `TIME`
+    -   `TIME`
+    -
+-   -   `TIMESTAMP_NTZ`
+    -   `TIMESTAMP`
+    -   TIMESTAMP with no time zone; time zone, if provided, is not stored. See Snowflake
+        [Date & Time Data Types](https://docs.snowflake.com/en/sql-reference/data-types-datetime)
+        for more information.
+-   -   `DATETIME`
+    -   `TIMESTAMP`
+    -   Alias for `TIMESTAMP_NTZ`. See Snowflake
+        [Date & Time Data Types](https://docs.snowflake.com/en/sql-reference/data-types-datetime)
+        for more information.
+-   -   `TIMESTAMP`
+    -   `TIMESTAMP`
+    -   Alias for one of the `TIMESTAMP` variations (`TIMESTAMP_NTZ` by default). This connector always sets `TIMESTAMP_NTZ` as the variant.
+-   -   `TIMESTAMP_TZ`
+        -   `TIMESTAMP WITH TIME ZONE`
+        -   TIMESTAMP with time zone.
+            :::
 
 No other types are supported.
 
@@ -168,65 +179,66 @@ this table:
 :widths: 30, 30, 40
 :header-rows: 1
 
-* - Trino type
-  - Snowflake type
-  - Notes
-* - `BOOLEAN`
-  - `BOOLEAN`
-  -
-* - `TINYINT`
-  - `NUMBER(3, 0)`
-  -
-* - `SMALLINT`
-  - `NUMBER(5, 0)`
-  -
-* - `INTEGER`
-  - `NUMBER(10, 0)`
-  -
-* - `BIGINT`
-  - `NUMBER(19, 0)`
-  -
-* - `REAL`
-  - `DOUBLE`
-  -
-* - `DOUBLE`
-  - `DOUBLE`
-  -
-* - `DECIMAL`
-  - `NUMBER`
-  -
-* - `VARCHAR`
-  - `VARCHAR`
-  -
-* - `CHAR`
-  - `VARCHAR`
-  -
-* - `VARBINARY`
-  - `BINARY`
-  -
-* - `VARBINARY`
-  - `VARBINARY`
-  -
-* - `DATE`
-  - `DATE`
-  -
-* - `TIME`
-  - `TIME`
-  -
-* - `TIMESTAMP`
-  - `TIMESTAMP_NTZ`
-  -
-* - `TIMESTAMP WITH TIME ZONE`
-  - `TIMESTAMP_TZ`
-  -
-:::
+-   -   Trino type
+    -   Snowflake type
+    -   Notes
+-   -   `BOOLEAN`
+    -   `BOOLEAN`
+    -
+-   -   `TINYINT`
+    -   `NUMBER(3, 0)`
+    -
+-   -   `SMALLINT`
+    -   `NUMBER(5, 0)`
+    -
+-   -   `INTEGER`
+    -   `NUMBER(10, 0)`
+    -
+-   -   `BIGINT`
+    -   `NUMBER(19, 0)`
+    -
+-   -   `REAL`
+    -   `DOUBLE`
+    -
+-   -   `DOUBLE`
+    -   `DOUBLE`
+    -
+-   -   `DECIMAL`
+    -   `NUMBER`
+    -
+-   -   `VARCHAR`
+    -   `VARCHAR`
+    -
+-   -   `CHAR`
+    -   `VARCHAR`
+    -
+-   -   `VARBINARY`
+    -   `BINARY`
+    -
+-   -   `VARBINARY`
+    -   `VARBINARY`
+    -
+-   -   `DATE`
+    -   `DATE`
+    -
+-   -   `TIME`
+    -   `TIME`
+    -
+-   -   `TIMESTAMP`
+    -   `TIMESTAMP_NTZ`
+    -
+-   -   `TIMESTAMP WITH TIME ZONE`
+        -   `TIMESTAMP_TZ`
+        -   :::
 
 No other types are supported.
 
 ```{include} jdbc-type-mapping.fragment
+
 ```
 
 (snowflake-sql-support)=
+
 ## SQL support
 
 The connector provides read access and write access to data and metadata in a
@@ -234,37 +246,45 @@ Snowflake database. In addition to the [globally
 available](sql-globally-available) and [read operation](sql-read-operations)
 statements, the connector supports the following features:
 
-- [](/sql/insert), see also [](snowflake-insert)
-- [](/sql/delete)
-- [](/sql/truncate)
-- [](/sql/create-table)
-- [](/sql/create-table-as)
-- [](/sql/drop-table)
-- [](/sql/alter-table)
-- [](/sql/create-schema)
-- [](/sql/drop-schema)
-- [](snowflake-procedures)
-- [](snowflake-table-functions)
+-   [](/sql/insert), see also [](snowflake-insert)
+-   [](/sql/delete)
+-   [](/sql/truncate)
+-   [](/sql/create-table)
+-   [](/sql/create-table-as)
+-   [](/sql/drop-table)
+-   [](/sql/alter-table)
+-   [](/sql/create-schema)
+-   [](/sql/drop-schema)
+-   [](snowflake-procedures)
+-   [](snowflake-table-functions)
 
 (snowflake-insert)=
+
 ```{include} non-transactional-insert.fragment
+
 ```
 
 (snowflake-procedures)=
+
 ### Procedures
 
 ```{include} jdbc-procedures-flush.fragment
+
 ```
+
 ```{include} procedures-execute.fragment
+
 ```
 
 (snowflake-table-functions)=
+
 ### Table functions
 
 The connector provides specific [table functions](/functions/table) to
 access Snowflake.
 
 (snowflake-query-function)=
+
 #### `query(varchar) -> table`
 
 The `query` function allows you to query the underlying database directly. It
@@ -281,6 +301,7 @@ joins](https://docs.snowflake.com/en/sql-reference/constructs/join-lateral) and
 other statements and functions.
 
 ```{include} query-passthrough-warning.fragment
+
 ```
 
 As a simple example, query the `example` catalog and select an entire table:
@@ -320,6 +341,7 @@ FROM
 ```
 
 ```{include} query-table-function-ordering.fragment
+
 ```
 
 ## Performance
@@ -328,31 +350,33 @@ The connector includes a number of performance improvements, detailed in the
 following sections.
 
 (snowflake-pushdown)=
+
 ### Pushdown
 
 The connector supports pushdown for a number of operations:
 
-- [](limit-pushdown)
-- [](topn-pushdown)
+-   [](limit-pushdown)
+-   [](topn-pushdown)
 
 {ref}`Aggregate pushdown <aggregation-pushdown>` for the following functions:
 
-- {func}`avg`
-- {func}`count`
-- {func}`max`
-- {func}`min`
-- {func}`sum`
-- {func}`stddev`
-- {func}`stddev_pop`
-- {func}`stddev_samp`
-- {func}`variance`
-- {func}`var_pop`
-- {func}`var_samp`
-- {func}`covar_pop`
-- {func}`covar_samp`
-- {func}`corr`
-- {func}`regr_intercept`
-- {func}`regr_slope`
+-   {func}`avg`
+-   {func}`count`
+-   {func}`max`
+-   {func}`min`
+-   {func}`sum`
+-   {func}`stddev`
+-   {func}`stddev_pop`
+-   {func}`stddev_samp`
+-   {func}`variance`
+-   {func}`var_pop`
+-   {func}`var_samp`
+-   {func}`covar_pop`
+-   {func}`covar_samp`
+-   {func}`corr`
+-   {func}`regr_intercept`
+-   {func}`regr_slope`
 
 ```{include} pushdown-correctness-behavior.fragment
+
 ```

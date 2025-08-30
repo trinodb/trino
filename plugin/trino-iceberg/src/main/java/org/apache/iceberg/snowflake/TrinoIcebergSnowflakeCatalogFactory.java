@@ -73,6 +73,7 @@ public class TrinoIcebergSnowflakeCatalogFactory
                 snowflakeCatalogConfig.getUri(),
                 snowflakeCatalogConfig.getUser(),
                 snowflakeCatalogConfig.getPassword(),
+                snowflakeCatalogConfig.getPrivateKey(),
                 snowflakeCatalogConfig.getRole());
         this.snowflakeDatabase = snowflakeCatalogConfig.getDatabase();
         this.snowflakeConnectionPool = new JdbcClientPool(snowflakeCatalogConfig.getUri().toString(), snowflakeDriverProperties);
@@ -98,7 +99,7 @@ public class TrinoIcebergSnowflakeCatalogFactory
         return new TrinoSnowflakeCatalog(icebergSnowflakeCatalog, catalogName, typeManager, fileSystemFactory, fileIoFactory, tableOperationsProvider, snowflakeDatabase);
     }
 
-    public static Map<String, String> getSnowflakeDriverProperties(URI snowflakeUri, String snowflakeUser, String snowflakePassword, Optional<String> snowflakeRole)
+    public static Map<String, String> getSnowflakeDriverProperties(URI snowflakeUri, String snowflakeUser, String snowflakePassword, String snowflakePrivateKey, Optional<String> snowflakeRole)
     {
         // Below property values are copied from https://github.com/apache/iceberg/blob/apache-iceberg-1.5.0/snowflake/src/main/java/org/apache/iceberg/snowflake/SnowflakeCatalog.java#L122-L129
 
@@ -110,13 +111,20 @@ public class TrinoIcebergSnowflakeCatalogFactory
         ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
         properties
                 .put(PROPERTY_PREFIX + "user", snowflakeUser)
-                .put(PROPERTY_PREFIX + "password", snowflakePassword)
                 .put("uri", snowflakeUri.toString())
                 .put(PROPERTY_PREFIX + "JDBC_QUERY_RESULT_FORMAT", "JSON")
                 // Populate application identifier in jdbc client
                 .put(PROPERTY_PREFIX + JDBC_APPLICATION_PROPERTY, uniqueAppIdentifier)
                 // Adds application identifier to the user agent header of the JDBC requests.
                 .put(PROPERTY_PREFIX + JDBC_USER_AGENT_SUFFIX_PROPERTY, userAgentSuffix);
+        
+        // Use private key authentication if available, otherwise use password
+        if (snowflakePrivateKey != null) {
+            properties.put(PROPERTY_PREFIX + "privateKey", snowflakePrivateKey);
+        } else {
+            properties.put(PROPERTY_PREFIX + "password", snowflakePassword);
+        }
+        
         snowflakeRole.ifPresent(role -> properties.put(PROPERTY_PREFIX + "role", role));
 
         return properties.buildOrThrow();
