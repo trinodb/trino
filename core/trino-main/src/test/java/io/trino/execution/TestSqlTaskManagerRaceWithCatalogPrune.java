@@ -120,13 +120,14 @@ public class TestSqlTaskManagerRaceWithCatalogPrune
         @Override
         public CatalogConnector createCatalog(CatalogProperties catalogProperties)
         {
-            Connector connector = MockConnectorFactory.create().create(catalogProperties.catalogHandle().getCatalogName().toString(), catalogProperties.properties(), new TestingConnectorContext());
+            Connector connector = MockConnectorFactory.create().create(catalogProperties.name().toString(), catalogProperties.properties(), new TestingConnectorContext());
+            CatalogHandle catalogHandle = createRootCatalogHandle(catalogProperties.name(), catalogProperties.version());
             ConnectorServices noOpConnectorService = new ConnectorServices(
                     Tracing.noopTracer(),
-                    catalogProperties.catalogHandle(),
+                    catalogHandle,
                     connector);
             return new CatalogConnector(
-                    catalogProperties.catalogHandle(),
+                    catalogHandle,
                     new ConnectorName("mock"),
                     noOpConnectorService,
                     noOpConnectorService,
@@ -277,7 +278,8 @@ public class TestSqlTaskManagerRaceWithCatalogPrune
     {
         return PLAN_FRAGMENT.withActiveCatalogs(ImmutableList.of(
                 new CatalogProperties(
-                        catalogHandle,
+                        catalogHandle.getCatalogName(),
+                        catalogHandle.getVersion(),
                         new ConnectorName("mock"),
                         ImmutableMap.of())));
     }

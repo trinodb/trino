@@ -48,6 +48,7 @@ import java.util.concurrent.ConcurrentMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.connector.CatalogHandle.createInformationSchemaCatalogHandle;
+import static io.trino.spi.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.spi.connector.CatalogHandle.createSystemTablesCatalogHandle;
 import static java.util.Objects.requireNonNull;
 
@@ -120,13 +121,14 @@ public class DefaultCatalogFactory
         ConnectorFactory connectorFactory = connectorFactories.get(catalogProperties.connectorName());
         checkArgument(connectorFactory != null, "No factory for connector '%s'. Available factories: %s", catalogProperties.connectorName(), connectorFactories.keySet());
 
+        CatalogHandle catalogHandle = createRootCatalogHandle(catalogProperties.name(), catalogProperties.version());
         Connector connector = createConnector(
-                catalogProperties.catalogHandle().getCatalogName(),
+                catalogProperties.name(),
                 connectorFactory,
                 secretsResolver.getResolvedConfiguration(catalogProperties.properties()));
 
         return createCatalog(
-                catalogProperties.catalogHandle(),
+                catalogHandle,
                 catalogProperties.connectorName(),
                 connector,
                 Optional.of(catalogProperties));

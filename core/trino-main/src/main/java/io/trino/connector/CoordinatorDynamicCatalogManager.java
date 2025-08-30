@@ -139,16 +139,16 @@ public class CoordinatorDynamicCatalogManager
                                 CatalogProperties catalog = null;
                                 try {
                                     catalog = storedCatalog.loadProperties();
-                                    verify(catalog.catalogHandle().getCatalogName().equals(storedCatalog.name()), "Catalog name does not match catalog handle");
+                                    verify(catalog.name().equals(storedCatalog.name()), "Catalog name does not match catalog properties");
                                     CatalogConnector newCatalog = catalogFactory.createCatalog(catalog);
                                     activeCatalogs.put(storedCatalog.name(), newCatalog.getCatalog());
-                                    allCatalogs.put(catalog.catalogHandle(), newCatalog);
+                                    allCatalogs.put(newCatalog.getCatalogHandle(), newCatalog);
                                     log.debug("-- Added catalog %s using connector %s --", storedCatalog.name(), catalog.connectorName());
                                 }
                                 catch (Throwable e) {
-                                    CatalogHandle catalogHandle = catalog != null ? catalog.catalogHandle() : createRootCatalogHandle(storedCatalog.name(), new CatalogVersion("failed"));
+                                    CatalogVersion catalogVersion = catalog != null ? catalog.version() : new CatalogVersion("failed");
                                     ConnectorName connectorName = catalog != null ? catalog.connectorName() : new ConnectorName("unknown");
-                                    activeCatalogs.put(storedCatalog.name(), failedCatalog(storedCatalog.name(), catalogHandle, connectorName));
+                                    activeCatalogs.put(storedCatalog.name(), failedCatalog(storedCatalog.name(), catalogVersion, connectorName));
                                     log.error(e, "-- Failed to load catalog %s using connector %s --", storedCatalog.name(), connectorName);
                                 }
                                 return null;
@@ -184,7 +184,7 @@ public class CoordinatorDynamicCatalogManager
     public void ensureCatalogsLoaded(Session session, List<CatalogProperties> catalogs)
     {
         List<CatalogProperties> missingCatalogs = catalogs.stream()
-                .filter(catalog -> !allCatalogs.containsKey(catalog.catalogHandle()))
+                .filter(catalog -> !allCatalogs.containsKey(createRootCatalogHandle(catalog.name(), catalog.version())))
                 .collect(toImmutableList());
 
         if (!missingCatalogs.isEmpty()) {
@@ -274,8 +274,8 @@ public class CoordinatorDynamicCatalogManager
 
             // get or create catalog for the handle
             CatalogConnector catalog = allCatalogs.computeIfAbsent(
-                    catalogProperties.catalogHandle(),
-                    handle -> catalogFactory.createCatalog(catalogProperties));
+                    createRootCatalogHandle(catalogName, catalogProperties.version()),
+                    _ -> catalogFactory.createCatalog(catalogProperties));
             catalogStore.addOrReplaceCatalog(catalogProperties);
             activeCatalogs.put(catalogName, catalog.getCatalog());
 

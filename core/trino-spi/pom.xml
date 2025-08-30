@@ -787,6 +787,15 @@
                                     <old>method io.trino.spi.connector.CatalogHandle.CatalogVersion io.trino.spi.eventlistener.QueryOutputMetadata::getCatalogVersion()</old>
                                     <new>method io.trino.spi.connector.CatalogVersion io.trino.spi.eventlistener.QueryOutputMetadata::getCatalogVersion()</new>
                                 </item>
+                                <item>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.catalog.CatalogProperties::&lt;init&gt;(io.trino.spi.connector.CatalogHandle, io.trino.spi.connector.ConnectorName, java.util.Map&lt;java.lang.String, java.lang.String&gt;)</old>
+                                    <new>method void io.trino.spi.catalog.CatalogProperties::&lt;init&gt;(io.trino.spi.catalog.CatalogName, io.trino.spi.connector.CatalogVersion, io.trino.spi.connector.ConnectorName, java.util.Map&lt;java.lang.String, java.lang.String&gt;)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.connector.CatalogHandle io.trino.spi.catalog.CatalogProperties::catalogHandle()</old>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
