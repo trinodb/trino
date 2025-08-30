@@ -13,7 +13,9 @@
  */
 package io.trino.plugin.snowflake;
 
-import org.intellij.lang.annotations.Language;
+import static io.trino.plugin.snowflake.SnowflakeClientModule.setOutputProperties;
+import static io.trino.testing.TestingProperties.optionalSystemProperty;
+import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -22,42 +24,40 @@ import java.sql.Statement;
 import java.util.Optional;
 import java.util.Properties;
 
-import static io.trino.plugin.snowflake.SnowflakeClientModule.setOutputProperties;
-import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
+import org.intellij.lang.annotations.Language;
 
-public final class TestingSnowflakeServer
-{
-    private TestingSnowflakeServer() {}
+public final class TestingSnowflakeServer {
+    private TestingSnowflakeServer() {
+    }
 
     public static final String TEST_URL = requiredNonEmptySystemProperty("snowflake.test.server.url");
     public static final String TEST_USER = requiredNonEmptySystemProperty("snowflake.test.server.user");
-    public static final String TEST_PASSWORD = requiredNonEmptySystemProperty("snowflake.test.server.password");
+    public static final Optional<String> TEST_PASSWORD = optionalSystemProperty("snowflake.test.server.password");
+    public static final Optional<String> TEST_PRIVATE_KEY = optionalSystemProperty("snowflake.test.server.private-key");
     public static final String TEST_DATABASE = requiredNonEmptySystemProperty("snowflake.test.server.database");
     public static final String TEST_WAREHOUSE = requiredNonEmptySystemProperty("snowflake.test.server.warehouse");
-    public static final Optional<String> TEST_ROLE = Optional.ofNullable(System.getProperty("snowflake.test.server.role"));
+    public static final Optional<String> TEST_ROLE = Optional
+            .ofNullable(System.getProperty("snowflake.test.server.role"));
     public static final String TEST_SCHEMA = "tpch";
 
-    public static void execute(@Language("SQL") String sql)
-    {
+    public static void execute(@Language("SQL") String sql) {
         execute(TEST_URL, getProperties(), sql);
     }
 
-    private static void execute(String url, Properties properties, String sql)
-    {
+    private static void execute(String url, Properties properties, String sql) {
         try (Connection connection = DriverManager.getConnection(url, properties);
                 Statement statement = connection.createStatement()) {
             statement.execute(sql);
-        }
-        catch (SQLException e) {
+        } catch (SQLException e) {
             throw new RuntimeException(e);
         }
     }
 
-    private static Properties getProperties()
-    {
+    private static Properties getProperties() {
         Properties properties = new Properties();
         properties.setProperty("user", TEST_USER);
-        properties.setProperty("password", TEST_PASSWORD);
+        TEST_PRIVATE_KEY.ifPresent(privateKey -> properties.setProperty("privateKey", privateKey));
+        TEST_PASSWORD.ifPresent(password -> properties.setProperty("password", password));
         properties.setProperty("db", TEST_DATABASE);
         properties.setProperty("schema", TEST_SCHEMA);
         properties.setProperty("warehouse", TEST_WAREHOUSE);

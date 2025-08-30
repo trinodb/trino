@@ -25,6 +25,7 @@ import java.util.Properties;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.testing.TestingProperties.optionalSystemProperty;
 import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 
 public class TestingSnowflakeServer
@@ -38,7 +39,10 @@ public class TestingSnowflakeServer
 
     public static final String SNOWFLAKE_JDBC_URI = requiredNonEmptySystemProperty("testing.snowflake.catalog.account-url");
     public static final String SNOWFLAKE_USER = requiredNonEmptySystemProperty("testing.snowflake.catalog.user");
-    public static final String SNOWFLAKE_PASSWORD = requiredNonEmptySystemProperty("testing.snowflake.catalog.password");
+    public static final Optional<String> SNOWFLAKE_PASSWORD = optionalSystemProperty(
+            "testing.snowflake.catalog.password");
+    public static final Optional<String> SNOWFLAKE_PRIVATE_KEY = optionalSystemProperty(
+            "testing.snowflake.catalog.private-key");
     public static final String SNOWFLAKE_ROLE = requiredNonEmptySystemProperty("testing.snowflake.catalog.role");
     public static final String SNOWFLAKE_WAREHOUSE = requiredNonEmptySystemProperty("testing.snowflake.catalog.warehouse");
     public static final String SNOWFLAKE_TEST_DATABASE = requiredNonEmptySystemProperty("testing.snowflake.catalog.database");
@@ -71,7 +75,9 @@ public class TestingSnowflakeServer
     {
         Properties properties = new Properties();
         properties.put("user", SNOWFLAKE_USER);
-        properties.put("password", SNOWFLAKE_PASSWORD);
+        SNOWFLAKE_PRIVATE_KEY.ifPresent(privateKey -> properties.put("privateKey", privateKey));
+        SNOWFLAKE_PASSWORD.ifPresent(password -> properties.put("password", password));
+
         properties.put("role", SNOWFLAKE_ROLE);
         properties.put("warehouse", SNOWFLAKE_WAREHOUSE);
         properties.put("db", SNOWFLAKE_TEST_DATABASE);

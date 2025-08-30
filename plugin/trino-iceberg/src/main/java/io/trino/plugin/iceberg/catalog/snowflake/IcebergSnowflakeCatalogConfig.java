@@ -30,6 +30,7 @@ public class IcebergSnowflakeCatalogConfig
     private URI uri;
     private String user;
     private String password;
+    private String privateKey;
     private String database;
     private Optional<String> role = Optional.empty();
 
@@ -81,6 +82,20 @@ public class IcebergSnowflakeCatalogConfig
     public IcebergSnowflakeCatalogConfig setPassword(String password)
     {
         this.password = password;
+        return this;
+    }
+
+    public String getPrivateKey()
+    {
+        return privateKey;
+    }
+
+    @Config("iceberg.snowflake-catalog.private-key")
+    @ConfigDescription("Private key content in PEM format for key pair authentication")
+    @ConfigSecuritySensitive
+    public IcebergSnowflakeCatalogConfig setPrivateKey(String privateKey)
+    {
+        this.privateKey = privateKey;
         return this;
     }
 
