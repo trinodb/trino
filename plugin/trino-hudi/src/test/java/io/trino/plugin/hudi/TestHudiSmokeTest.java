@@ -727,6 +727,7 @@ public class TestHudiSmokeTest
                 .withRecordLevelIndexEnabled(false)
                 .withSecondaryIndexEnabled(false)
                 .withPartitionStatsIndexEnabled(false)
+                .withResolveColumnNameCasingEnabled(true)
                 .build();
         MaterializedResult prunedRes = getQueryRunner().execute(session, "SELECT * FROM  " + table + " WHERE name='Alice'");
         MaterializedResult totalRes = getQueryRunner().execute(session, "SELECT * FROM " + table);
@@ -751,6 +752,7 @@ public class TestHudiSmokeTest
                 .withRecordIndexTimeout("1s")
                 .withSecondaryIndexEnabled(false)
                 .withPartitionStatsIndexEnabled(false)
+                .withResolveColumnNameCasingEnabled(true)
                 .build();
         MaterializedResult totalRes = getQueryRunner().execute(session, "SELECT * FROM " + HUDI_COW_TABLE_WITH_FIELD_NAMES_IN_CAPS);
         MaterializedResult prunedRes = getQueryRunner().execute(session, "SELECT * FROM  " + HUDI_COW_TABLE_WITH_FIELD_NAMES_IN_CAPS + " WHERE id='1'");
@@ -775,6 +777,7 @@ public class TestHudiSmokeTest
                 .withRecordIndexTimeout("1s")
                 .withSecondaryIndexEnabled(false)
                 .withPartitionStatsIndexEnabled(false)
+                .withResolveColumnNameCasingEnabled(true)
                 .build();
         MaterializedResult totalRes = getQueryRunner().execute(session, "SELECT * FROM " + HUDI_COW_TABLE_WITH_MULTI_KEYS_AND_FIELD_NAMES_IN_CAPS);
         MaterializedResult prunedRes = getQueryRunner().execute(session, "SELECT * FROM  " + HUDI_COW_TABLE_WITH_MULTI_KEYS_AND_FIELD_NAMES_IN_CAPS + " WHERE id='1' and age=30");

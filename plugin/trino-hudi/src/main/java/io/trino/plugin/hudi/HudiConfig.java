@@ -55,7 +55,7 @@ public class HudiConfig
     private boolean queryPartitionFilterRequired;
     private boolean ignoreAbsentPartitions;
     private Duration dynamicFilteringWaitTimeout = new Duration(1, SECONDS);
-    private boolean resolveColumnNameCasingEnabled = true;
+    private boolean resolveColumnNameCasingEnabled;
 
     // Internal configuration for debugging and testing
     private boolean isRecordLevelIndexEnabled = true;
