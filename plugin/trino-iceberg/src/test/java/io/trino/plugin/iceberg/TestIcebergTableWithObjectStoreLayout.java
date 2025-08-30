@@ -39,6 +39,7 @@ final class TestIcebergTableWithObjectStoreLayout
     {
         DistributedQueryRunner queryRunner = IcebergQueryRunner.builder()
                 .addIcebergProperty("iceberg.object-store-layout.enabled", "true")
+                .addIcebergProperty("fs.hadoop.enabled", "false")
                 .build();
 
         metastore = getHiveMetastore(queryRunner);

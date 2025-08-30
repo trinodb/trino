@@ -76,6 +76,7 @@ import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.EXTENDED_STAT
 import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.getConnectorService;
 import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.getTableActiveFiles;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.TRANSACTION_LOG_DIRECTORY;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.QueryAssertions.getTrinoExceptionCause;
@@ -169,7 +170,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
 
         this.hiveHadoop = closeAfterClass(createHiveHadoop());
         this.metastore = new BridgingHiveMetastore(
-                testingThriftHiveMetastoreBuilder()
+                testingThriftHiveMetastoreBuilder(HDFS_FILE_SYSTEM_FACTORY)
                         .metastoreClient(hiveHadoop.getHiveMetastoreEndpoint())
                         .build(this::closeAfterClass));
 

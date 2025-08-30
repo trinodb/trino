@@ -34,6 +34,7 @@ import java.util.Locale;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
 import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
@@ -162,7 +163,7 @@ public final class S3HiveQueryRunner
             addHiveProperty("s3.aws-secret-key", s3SecretKey);
             addHiveProperty("s3.path-style-access", "true");
             setMetastore(distributedQueryRunner -> new BridgingHiveMetastore(
-                    testingThriftHiveMetastoreBuilder()
+                    testingThriftHiveMetastoreBuilder(HDFS_FILE_SYSTEM_FACTORY)
                             .metastoreClient(hiveMetastoreEndpoint, thriftMetastoreTimeout)
                             .thriftMetastoreConfig(thriftMetastoreConfig)
                             .build(distributedQueryRunner::registerResource)));
