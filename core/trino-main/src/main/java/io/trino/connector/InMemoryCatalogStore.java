@@ -25,7 +25,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 import static io.trino.connector.FileCatalogStore.computeCatalogVersion;
-import static io.trino.spi.connector.CatalogHandle.createRootCatalogHandle;
 import static java.util.Objects.requireNonNull;
 
 public class InMemoryCatalogStore
@@ -43,7 +42,8 @@ public class InMemoryCatalogStore
     public CatalogProperties createCatalogProperties(CatalogName catalogName, ConnectorName connectorName, Map<String, String> properties)
     {
         return new CatalogProperties(
-                createRootCatalogHandle(catalogName, computeCatalogVersion(catalogName, connectorName, properties)),
+                catalogName,
+                computeCatalogVersion(catalogName, connectorName, properties),
                 connectorName,
                 properties);
     }
@@ -51,7 +51,7 @@ public class InMemoryCatalogStore
     @Override
     public void addOrReplaceCatalog(CatalogProperties catalogProperties)
     {
-        CatalogName catalogName = catalogProperties.catalogHandle().getCatalogName();
+        CatalogName catalogName = catalogProperties.name();
         catalogs.put(catalogName, new InMemoryStoredCatalog(catalogName, catalogProperties));
     }
 

@@ -56,7 +56,6 @@ import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_AVAILABLE;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.trino.spi.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.util.Executors.executeUntilFailure;
 import static java.util.Objects.requireNonNull;
 
@@ -108,7 +107,8 @@ public class StaticCatalogManager
             }
 
             catalogProperties.add(new CatalogProperties(
-                    createRootCatalogHandle(new CatalogName(catalogName), new CatalogVersion("default")),
+                    new CatalogName(catalogName),
+                    new CatalogVersion("default"),
                     new ConnectorName(connectorName),
                     ImmutableMap.copyOf(properties)));
         }
@@ -156,7 +156,7 @@ public class StaticCatalogManager
                 executor,
                 catalogProperties.stream()
                         .map(catalog -> (Callable<?>) () -> {
-                            CatalogName catalogName = catalog.catalogHandle().getCatalogName();
+                            CatalogName catalogName = catalog.name();
                             log.info("-- Loading catalog %s --", catalogName);
                             CatalogConnector newCatalog = catalogFactory.createCatalog(catalog);
                             catalogs.put(catalogName, newCatalog);
@@ -183,7 +183,7 @@ public class StaticCatalogManager
     public void ensureCatalogsLoaded(Session session, List<CatalogProperties> catalogs)
     {
         List<CatalogProperties> missingCatalogs = catalogs.stream()
-                .filter(catalog -> !this.catalogs.containsKey(catalog.catalogHandle().getCatalogName()))
+                .filter(catalog -> !this.catalogs.containsKey(catalog.name()))
                 .collect(toImmutableList());
 
         if (!missingCatalogs.isEmpty()) {

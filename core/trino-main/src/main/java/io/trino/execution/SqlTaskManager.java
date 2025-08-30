@@ -51,7 +51,6 @@ import io.trino.operator.scalar.JoniRegexpReplaceLambdaFunction;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.VersionEmbedder;
-import io.trino.spi.catalog.CatalogProperties;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spiller.LocalSpillManager;
@@ -95,6 +94,7 @@ import static io.trino.operator.RetryPolicy.TASK;
 import static io.trino.spi.StandardErrorCode.ABANDONED_TASK;
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
+import static io.trino.spi.connector.CatalogHandle.createRootCatalogHandle;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.lang.System.lineSeparator;
@@ -548,7 +548,7 @@ public class SqlTaskManager
         fragment.map(PlanFragment::getActiveCatalogs)
                 .ifPresent(activeCatalogs -> {
                     Set<CatalogHandle> catalogHandles = activeCatalogs.stream()
-                            .map(CatalogProperties::catalogHandle)
+                            .map(catalogProperties -> createRootCatalogHandle(catalogProperties.name(), catalogProperties.version()))
                             .collect(toImmutableSet());
                     sqlTask.setCatalogs(catalogHandles);
                     if (!sqlTask.catalogsLoaded()) {
