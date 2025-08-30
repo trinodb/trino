@@ -85,6 +85,10 @@ def maven_filename(artifact, version, packaging, classifier):
     classifier = '-' + classifier if classifier else ''
     return '%s-%s%s.%s' % (artifact, version, classifier, packaging)
 
+def github_release_download(group, artifact, version, packaging, classifier):
+    base = 'https://github.com/trinodb/trino/releases/download/'
+    filename = maven_filename(artifact, version, packaging, classifier)
+    return base + '/' + version + '/' + filename
 
 def maven_download(group, artifact, version, packaging, classifier):
     base = 'https://repo1.maven.org/maven2/'
@@ -95,7 +99,7 @@ def maven_download(group, artifact, version, packaging, classifier):
 
 def setup(app):
     # noinspection PyDefaultArgument,PyUnusedLocal
-    def download_link_role(role, rawtext, text, lineno, inliner, options={}, content=[]):
+    def maven_link_role(role, rawtext, text, lineno, inliner, options={}, content=[]):
         version = app.config.release
 
         if not text in ARTIFACTS:
@@ -110,7 +114,25 @@ def setup(app):
         node = nodes.reference(title, title, internal=False, refuri=uri)
 
         return [node], []
-    app.add_role('maven_download', download_link_role)
+
+    def github_link_role(role, rawtext, text, lineno, inliner, options={}, content=[]):
+        version = app.config.release
+
+        if not text in ARTIFACTS:
+            inliner.reporter.error('Unsupported download type: ' + text, line=lineno)
+            return [], []
+
+        artifact, packaging, classifier = ARTIFACTS[text]
+
+        title = maven_filename(artifact, version, packaging, classifier)
+        uri = github_release_download(GROUP_ID, artifact, version, packaging, classifier)
+
+        node = nodes.reference(title, title, internal=False, refuri=uri)
+
+        return [node], []
+
+    app.add_role('maven_download', maven_link_role)
+    app.add_role('github_release_download', github_link_role)
 
     return {
         'parallel_read_safe': True,
