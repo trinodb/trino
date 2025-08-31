@@ -4,7 +4,7 @@
 
 * {{breaking}} Remove the HTTP server event listener plugin from the tar.gz
   archive and the Docker container. ({issue}`25967`)
-* {{breaking}} All catalogs are required to be deployed to all nodes.
+* {{breaking}} Require catalogs to be deployed in all nodes.
   ({issue}`26063`)
 * Add {doc}`/connector/lakehouse`. ({issue}`25347`)
 * Add support for [
@@ -24,7 +24,7 @@
 * Add the `coordinatorId` to the `/v1/info` endpoint. ({issue}`23910`)
 * Add support for [`ALTER VIEW ... REFRESH`](/sql/alter-view).
   ({issue}`25906`)
-* Add support for branching.
+* Add support for managing and querying table branches.
   ({issue}`25751`, {issue}`26300`, {issue}`26136`)
 * Add physical data scan tracking to resource groups. ({issue}`25003`)
 * Add DNS node inventory for use in K8s-like environments that provide a DNS
@@ -48,8 +48,8 @@
 * Partition large pages to avoid `OutOfMemoryError` while serializing data in
   the spooling protocol. ({issue}`25999`)
 * Fix spill files leaking in aggregation queries. ({issue}`26141`)
-* Reduce memory required for distinct and ordered grouped aggregations.
-  ({issue}`26276`)
+* Reduce memory required for queries containing aggregations with a `DISTINCT`
+  or `ORDER BY` clause. ({issue}`26276`)
 * Fix memory tracking for ordered grouped aggregations. ({issue}`26276`)
 * Fix access control check when access is granted through groups in
   `SET SESSION AUTHORIZATION`. ({issue}`26344`)
