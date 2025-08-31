@@ -130,6 +130,7 @@ The `context` object contains all other contextual information about the query:
   following two fields:
   - `user`: username
   - `groups`: list of groups this user belongs to
+- `queryId`: query_id
 - `softwareStack`: Information about the software stack issuing the request to
   OPA. The following information is included:
   - `trinoVersion`: Version of Trino used
@@ -157,7 +158,8 @@ Accessing a table results in a query similar to the following example:
     "identity": {
       "user": "foo",
       "groups": ["some-group"]
-    },
+    }, 
+    "queryId": "20250718_081710_03427_trino",
     "softwareStack": {
       "trinoVersion": "434"
     }
@@ -190,6 +192,7 @@ The `targetResource` is used in cases where a new resource, distinct from the on
       "user": "foo",
       "groups": ["some-group"]
     },
+    "queryId": "20250718_081710_03427_trino",
     "softwareStack": {
       "trinoVersion": "434"
     }
@@ -373,6 +376,7 @@ A batch column masking request is similar to the following example:
             "user": "foo",
             "groups": ["some-group"]
         },
+        "queryId": "20250718_081710_03427_trino",
         "softwareStack": {
             "trinoVersion": "434"
         }
