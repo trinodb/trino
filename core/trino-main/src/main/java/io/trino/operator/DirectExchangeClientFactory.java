@@ -14,7 +14,6 @@
 package io.trino.operator;
 
 import com.google.inject.Inject;
-import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpClientConfig;
 import io.airlift.node.NodeInfo;
@@ -29,17 +28,14 @@ import io.trino.memory.context.LocalMemoryContext;
 import io.trino.spi.QueryId;
 import io.trino.spi.exchange.ExchangeId;
 import jakarta.annotation.PreDestroy;
-import org.weakref.jmx.Managed;
-import org.weakref.jmx.Nested;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadPoolExecutor;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.concurrent.Threads.virtualThreadsNamed;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.Executors.newFixedThreadPool;
+import static java.util.concurrent.Executors.newThreadPerTaskExecutor;
 
 public class DirectExchangeClientFactory
         implements DirectExchangeClientSupplier
@@ -54,7 +50,6 @@ public class DirectExchangeClientFactory
     private final DataSize maxResponseSize;
     private final boolean acknowledgePages;
     private final ScheduledExecutorService scheduler;
-    private final ThreadPoolExecutorMBean executorMBean;
     private final ExecutorService pageBufferClientCallbackExecutor;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
 
@@ -78,7 +73,6 @@ public class DirectExchangeClientFactory
                 config.getConcurrentRequestMultiplier(),
                 config.getMaxErrorDuration(),
                 config.isAcknowledgePages(),
-                config.getPageBufferClientMaxCallbackThreads(),
                 httpClient,
                 scheduler,
                 exchangeManagerRegistry);
@@ -94,7 +88,6 @@ public class DirectExchangeClientFactory
             int concurrentRequestMultiplier,
             Duration maxErrorDuration,
             boolean acknowledgePages,
-            int pageBufferClientMaxCallbackThreads,
             HttpClient httpClient,
             ScheduledExecutorService scheduler,
             ExchangeManagerRegistry exchangeManagerRegistry)
@@ -116,8 +109,7 @@ public class DirectExchangeClientFactory
 
         this.scheduler = requireNonNull(scheduler, "scheduler is null");
 
-        this.pageBufferClientCallbackExecutor = newFixedThreadPool(pageBufferClientMaxCallbackThreads, daemonThreadsNamed("page-buffer-client-callback-%s"));
-        this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) pageBufferClientCallbackExecutor);
+        this.pageBufferClientCallbackExecutor = newThreadPerTaskExecutor(virtualThreadsNamed("page-buffer-client-callback-%s"));
 
         checkArgument(maxBufferedBytes.toBytes() > 0, "maxBufferSize must be at least 1 byte: %s", maxBufferedBytes);
         checkArgument(maxResponseSize.toBytes() > 0, "maxResponseSize must be at least 1 byte: %s", maxResponseSize);
@@ -129,13 +121,6 @@ public class DirectExchangeClientFactory
     public void stop()
     {
         pageBufferClientCallbackExecutor.shutdownNow();
-    }
-
-    @Managed
-    @Nested
-    public ThreadPoolExecutorMBean getExecutor()
-    {
-        return executorMBean;
     }
 
     @Override
