@@ -32,7 +32,6 @@ import io.trino.spi.VersionEmbedder;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.catalog.CatalogProperties;
 import io.trino.spi.classloader.ThreadContextClassLoader;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
@@ -47,9 +46,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.spi.connector.CatalogHandle.createInformationSchemaCatalogHandle;
-import static io.trino.spi.connector.CatalogHandle.createRootCatalogHandle;
-import static io.trino.spi.connector.CatalogHandle.createSystemTablesCatalogHandle;
+import static io.trino.connector.CatalogHandle.createInformationSchemaCatalogHandle;
+import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
+import static io.trino.connector.CatalogHandle.createSystemTablesCatalogHandle;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe

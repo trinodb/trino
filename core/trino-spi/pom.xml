@@ -794,6 +794,14 @@
                                 </item>
                                 <item>
                                     <code>java.method.removed</code>
+                                    <old>method io.trino.connector.CatalogHandle io.trino.spi.catalog.CatalogProperties::catalogHandle()</old>
+                                </item>
+                                <item>
+                                    <code>java.class.removed</code>
+                                    <old>io.trino.spi.connector.CatalogHandle</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
                                     <old>method io.trino.spi.connector.CatalogHandle io.trino.spi.catalog.CatalogProperties::catalogHandle()</old>
                                 </item>
                             </differences>

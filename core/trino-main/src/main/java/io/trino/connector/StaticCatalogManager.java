@@ -28,7 +28,6 @@ import io.trino.server.ForStartup;
 import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.catalog.CatalogProperties;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.CatalogVersion;
 import io.trino.spi.connector.ConnectorName;
 import jakarta.annotation.PreDestroy;
