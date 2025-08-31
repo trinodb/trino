@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.mongodb;
 
+import com.google.common.collect.ImmutableList;
 import org.bson.Document;
 
 import java.util.List;
@@ -38,8 +39,7 @@ public record MongoTableSort(Document sort, Optional<Document> sortNullFields, i
                 .toList();
         builder.append(", orderBy = ").append(sortEntries);
         if (sortNullFields.isPresent()) {
-            List<String> nullFields = sortNullFields.get().keySet().stream()
-                    .toList();
+            List<String> nullFields = ImmutableList.copyOf(sortNullFields.get().keySet());
             builder.append(", nullFields=").append(nullFields);
         }
         return builder.toString();

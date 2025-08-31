@@ -558,7 +558,7 @@ public class MongoSession
                 for (String sortField : tableSort.sort().keySet()) {
                     // Sorting on the field does not work unless we add it to the projection
                     if (!projection.containsKey(sortField)) {
-                        projection.append(sortField, 1);
+                        projection.append(sortField, MongoMetadata.MONGO_SORT_ASC);
                     }
                 }
             }

@@ -137,6 +137,9 @@ public class MongoMetadata
 
     private static final int MAX_QUALIFIED_IDENTIFIER_BYTE_LENGTH = 120;
 
+    public static final int MONGO_SORT_ASC = 1;
+    private static final int MONGO_SORT_DESC = -1;
+
     private final MongoSession mongoSession;
 
     private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
@@ -634,7 +637,12 @@ public class MongoMetadata
     }
 
     @Override
-    public Optional<TopNApplicationResult<ConnectorTableHandle>> applyTopN(ConnectorSession session, ConnectorTableHandle table, long topNCount, List<SortItem> sortItems, Map<String, ColumnHandle> assignments)
+    public Optional<TopNApplicationResult<ConnectorTableHandle>> applyTopN(
+            ConnectorSession session,
+            ConnectorTableHandle table,
+            long topNCount,
+            List<SortItem> sortItems,
+            Map<String, ColumnHandle> assignments)
     {
         MongoTableHandle handle = (MongoTableHandle) table;
 
@@ -651,7 +659,7 @@ public class MongoMetadata
         Document sortNullFieldsDocument = null;
         for (SortItem sortItem : sortItems) {
             String columnName = sortItem.getName();
-            int direction = (sortItem.getSortOrder() == SortOrder.ASC_NULLS_FIRST || sortItem.getSortOrder() == SortOrder.ASC_NULLS_LAST) ? 1 : -1;
+            int direction = (sortItem.getSortOrder() == SortOrder.ASC_NULLS_FIRST || sortItem.getSortOrder() == SortOrder.ASC_NULLS_LAST) ? MONGO_SORT_ASC : MONGO_SORT_DESC;
 
             // MongoDB considers null values to be less than any other value.
             // When we have sort items with SortOrder.ASC_NULLS_LAST or SortOrder.DESC_NULLS_FIRST,
@@ -659,7 +667,7 @@ public class MongoMetadata
             if (sortItem.getSortOrder() == SortOrder.ASC_NULLS_LAST || sortItem.getSortOrder() == SortOrder.DESC_NULLS_FIRST) {
                 String sortColumnName = "_sortNulls_" + columnName;
                 Document condition = new Document();
-                condition.append("$cond", List.of(new Document("$eq", new ArrayList<>(Arrays.asList("$" + columnName, null))), 1, 0));
+                condition.append("$cond", ImmutableList.of(new Document("$eq", Arrays.asList("$" + columnName, null)), 1, 0));
                 if (sortNullFieldsDocument == null) {
                     sortNullFieldsDocument = new Document();
                 }
@@ -670,7 +678,7 @@ public class MongoMetadata
             sortDocument.append(columnName, direction);
         }
         List<MongoTableSort> tableSortList = handle.sort().orElse(new ArrayList<>());
-        MongoTableSort tableSort = new MongoTableSort(sortDocument, sortNullFieldsDocument == null ? Optional.empty() : Optional.of(sortNullFieldsDocument), toIntExact(topNCount));
+        MongoTableSort tableSort = new MongoTableSort(sortDocument, Optional.ofNullable(sortNullFieldsDocument), toIntExact(topNCount));
         tableSortList.add(tableSort);
 
         return Optional.of(new TopNApplicationResult<>(
