@@ -11,18 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.spi.connector;
+package io.trino.connector;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import io.trino.spi.catalog.CatalogName;
+import io.trino.spi.connector.CatalogVersion;
 
 import java.util.Objects;
 
 import static io.airlift.slice.SizeOf.instanceSize;
-import static io.trino.spi.connector.CatalogHandle.CatalogHandleType.INFORMATION_SCHEMA;
-import static io.trino.spi.connector.CatalogHandle.CatalogHandleType.NORMAL;
-import static io.trino.spi.connector.CatalogHandle.CatalogHandleType.SYSTEM;
+import static io.trino.connector.CatalogHandle.CatalogHandleType.INFORMATION_SCHEMA;
+import static io.trino.connector.CatalogHandle.CatalogHandleType.NORMAL;
+import static io.trino.connector.CatalogHandle.CatalogHandleType.SYSTEM;
 import static java.util.Locale.ROOT;
 import static java.util.Objects.requireNonNull;
 

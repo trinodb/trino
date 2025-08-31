@@ -29,7 +29,6 @@ import io.trino.metadata.CatalogManager;
 import io.trino.node.AllNodes;
 import io.trino.node.InternalNode;
 import io.trino.node.InternalNodeManager;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.transaction.TransactionManager;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;

@@ -14,9 +14,9 @@
 package io.trino.metadata;
 
 import com.google.common.collect.ImmutableSet;
+import io.trino.connector.CatalogHandle;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.catalog.CatalogProperties;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorName;
 
 import java.util.Map;

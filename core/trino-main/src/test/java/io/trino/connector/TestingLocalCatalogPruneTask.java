@@ -21,7 +21,6 @@ import io.trino.execution.SqlTaskManager;
 import io.trino.metadata.CatalogManager;
 import io.trino.node.InternalNode;
 import io.trino.node.TestingInternalNodeManager;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.transaction.TransactionManager;
 
 import java.net.URI;
