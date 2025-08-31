@@ -24,6 +24,12 @@ import org.bson.Document;
 import java.util.List;
 import java.util.Optional;
 
+import static io.trino.plugin.mongodb.MongoSession.COLLECTION_NAME;
+import static io.trino.plugin.mongodb.MongoSession.COLLECTION_NAME_NATIVE;
+import static io.trino.plugin.mongodb.MongoSession.DATABASE_NAME;
+import static io.trino.plugin.mongodb.MongoSession.DATABASE_NAME_NATIVE;
+import static io.trino.plugin.mongodb.MongoSession.ID;
+import static io.trino.plugin.mongodb.MongoSession.ID_NATIVE;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -35,9 +41,26 @@ public record MongoColumnHandle(String baseName, List<String> dereferenceNames, 
     public MongoColumnHandle
     {
         requireNonNull(baseName, "baseName is null");
-        dereferenceNames = ImmutableList.copyOf(requireNonNull(dereferenceNames, "dereferenceNames is null"));
+        requireNonNull(dereferenceNames, "dereferenceNames is null");
         requireNonNull(type, "type is null");
         requireNonNull(comment, "comment is null");
+
+        if (dbRefField) {
+            String leafColumnName = dereferenceNames.getLast();
+            String leafDBRefNativeName = switch (leafColumnName) {
+                case DATABASE_NAME -> DATABASE_NAME_NATIVE;
+                case COLLECTION_NAME -> COLLECTION_NAME_NATIVE;
+                case ID -> ID_NATIVE;
+                default -> leafColumnName;
+            };
+            dereferenceNames = ImmutableList.<String>builder()
+                .addAll(dereferenceNames.subList(0, dereferenceNames.size() - 1))
+                .add(leafDBRefNativeName)
+                .build();
+        }
+        else {
+            dereferenceNames = ImmutableList.copyOf(dereferenceNames);
+        }
     }
 
     public ColumnMetadata toColumnMetadata()
