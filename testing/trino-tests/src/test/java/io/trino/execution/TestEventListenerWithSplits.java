@@ -144,7 +144,6 @@ public class TestEventListenerWithSplits
         assertThat(statistics.getProcessedInputRows()).isEqualTo(expectedCompletedPositions);
         assertThat(statistics.getInternalNetworkBytes()).isEqualTo(132);
         assertThat(statistics.getInternalNetworkRows()).isEqualTo(3);
-        assertThat(statistics.getTotalBytes()).isEqualTo(0);
         assertThat(statistics.getOutputBytes()).isEqualTo(9);
         assertThat(statistics.getOutputRows()).isEqualTo(1);
         assertThat(statistics.isComplete()).isTrue();
@@ -182,7 +181,7 @@ public class TestEventListenerWithSplits
         QueryCompletedEvent queryCompletedEvent = queryEvents.getQueryCompletedEvent();
         assertThat(queryCompletedEvent.getContext().getResourceGroupId()).isPresent();
         assertThat(queryCompletedEvent.getContext().getResourceGroupId().get()).isEqualTo(createResourceGroupId("global", "user-user"));
-        assertThat(queryCompletedEvent.getStatistics().getTotalRows()).isEqualTo(0L);
+        assertThat(queryCompletedEvent.getStatistics().getProcessedInputRows()).isEqualTo(0L);
         assertThat(queryCompletedEvent.getContext().getClientInfo().get()).isEqualTo("{\"clientVersion\":\"testVersion\"}");
         assertThat(queryCreatedEvent.getMetadata().getQueryId()).isEqualTo(queryCompletedEvent.getMetadata().getQueryId());
         assertThat(queryCompletedEvent.getMetadata().getPreparedQuery()).isEmpty();
