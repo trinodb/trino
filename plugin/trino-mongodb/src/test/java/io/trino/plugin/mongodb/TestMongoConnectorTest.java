@@ -102,6 +102,7 @@ public class TestMongoConnectorTest
         return switch (connectorBehavior) {
             case SUPPORTS_ADD_COLUMN_WITH_POSITION,
                  SUPPORTS_ADD_FIELD,
+                 SUPPORTS_AGGREGATION_PUSHDOWN,
                  SUPPORTS_CREATE_MATERIALIZED_VIEW,
                  SUPPORTS_CREATE_VIEW,
                  SUPPORTS_DEFAULT_COLUMN_VALUE,
@@ -111,6 +112,7 @@ public class TestMongoConnectorTest
                  SUPPORTS_RENAME_FIELD,
                  SUPPORTS_RENAME_SCHEMA,
                  SUPPORTS_SET_FIELD_TYPE,
+                 SUPPORTS_TOPN_PUSHDOWN,
                  SUPPORTS_TRUNCATE,
                  SUPPORTS_UPDATE -> false;
             default -> super.hasBehavior(connectorBehavior);
@@ -980,10 +982,8 @@ public class TestMongoConnectorTest
     }
 
     @Test
-    public void testLimitPushdown()
+    void testLimitWithLowerAndUpperBound()
     {
-        assertThat(query("SELECT name FROM nation LIMIT 30")).isFullyPushedDown(); // Use high limit for result determinism
-
         // Make sure LIMIT 0 returns empty result because cursor.limit(0) means no limit in MongoDB
         assertThat(query("SELECT name FROM nation LIMIT 0")).returnsEmptyResult();
 

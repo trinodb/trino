@@ -287,6 +287,7 @@ public abstract class BaseHiveConnectorTest
                  SUPPORTS_CREATE_MATERIALIZED_VIEW,
                  SUPPORTS_DEFAULT_COLUMN_VALUE,
                  SUPPORTS_DROP_FIELD,
+                 SUPPORTS_LIMIT_PUSHDOWN,
                  SUPPORTS_MERGE,
                  SUPPORTS_NOT_NULL_CONSTRAINT,
                  SUPPORTS_REFRESH_VIEW,
