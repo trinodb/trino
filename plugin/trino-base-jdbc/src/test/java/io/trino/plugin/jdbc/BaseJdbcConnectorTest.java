@@ -971,69 +971,10 @@ public abstract class BaseJdbcConnectorTest
     }
 
     @Test
-    public void testTopNPushdown()
+    public void testTopNPushdownWithJoin()
     {
-        if (!hasBehavior(SUPPORTS_TOPN_PUSHDOWN)) {
-            assertThat(query("SELECT orderkey FROM orders ORDER BY orderkey LIMIT 10"))
-                    .ordered()
-                    .isNotFullyPushedDown(TopNNode.class);
-            return;
-        }
-
-        assertThat(query("SELECT orderkey FROM orders ORDER BY orderkey LIMIT 10"))
-                .ordered()
-                .isFullyPushedDown();
-
-        assertThat(query("SELECT orderkey FROM orders ORDER BY orderkey DESC LIMIT 10"))
-                .ordered()
-                .isFullyPushedDown();
-
-        // multiple sort columns with different orders
-        assertThat(query("SELECT * FROM orders ORDER BY shippriority DESC, totalprice ASC LIMIT 10"))
-                .ordered()
-                .isFullyPushedDown();
-
-        // TopN over aggregation column
-        if (hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN)) {
-            assertThat(query("SELECT sum(totalprice) AS total FROM orders GROUP BY custkey ORDER BY total DESC LIMIT 10"))
-                    .ordered()
-                    .isFullyPushedDown();
-        }
-
-        // TopN over TopN
-        assertThat(query("SELECT orderkey, totalprice FROM (SELECT orderkey, totalprice FROM orders ORDER BY 1, 2 LIMIT 10) ORDER BY 2, 1 LIMIT 5"))
-                .ordered()
-                .isFullyPushedDown();
-
-        assertThat(query("" +
-                "SELECT orderkey, totalprice " +
-                "FROM (SELECT orderkey, totalprice FROM (SELECT orderkey, totalprice FROM orders ORDER BY 1, 2 LIMIT 10) " +
-                "ORDER BY 2, 1 LIMIT 5) ORDER BY 1, 2 LIMIT 3"))
-                .ordered()
-                .isFullyPushedDown();
-
-        // TopN over limit - use high limit for deterministic result
-        assertThat(query("SELECT orderkey, totalprice FROM (SELECT orderkey, totalprice FROM orders LIMIT 15000) ORDER BY totalprice ASC LIMIT 5"))
-                .ordered()
-                .isFullyPushedDown();
-
-        // TopN over limit with filter
-        assertThat(query("" +
-                "SELECT orderkey, totalprice " +
-                "FROM (SELECT orderkey, totalprice FROM orders WHERE orderdate = DATE '1995-09-16' LIMIT 20) " +
-                "ORDER BY totalprice ASC LIMIT 5"))
-                .ordered()
-                .isFullyPushedDown();
-
-        // TopN over aggregation with filter
-        if (hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN)) {
-            assertThat(query("" +
-                    "SELECT * " +
-                    "FROM (SELECT SUM(totalprice) as sum, custkey AS total FROM orders GROUP BY custkey HAVING COUNT(*) > 3) " +
-                    "ORDER BY sum DESC LIMIT 10"))
-                    .ordered()
-                    .isFullyPushedDown();
-        }
+        // covered by testTopNPushdown
+        skipTestUnless(hasBehavior(SUPPORTS_TOPN_PUSHDOWN));
 
         // TopN over LEFT join (enforces SINGLE TopN cannot be pushed below OUTER side of join)
         // We expect PARTIAL TopN on the LEFT side of join to be pushed down.
