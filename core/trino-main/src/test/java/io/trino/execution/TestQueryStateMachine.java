@@ -577,8 +577,7 @@ public class TestQueryStateMachine
         assertThat(stats.getRunningDrivers()).isEqualTo(expectedStatsValue);
         assertThat(stats.getCompletedDrivers()).isEqualTo(expectedStatsValue);
         assertThat(stats.getBlockedDrivers()).isEqualTo(expectedStatsValue);
-        assertThat(stats.getRawInputDataSize()).isEqualTo(succinctBytes(expectedStatsValue));
-        assertThat(stats.getRawInputPositions()).isEqualTo(expectedStatsValue);
+        assertThat(stats.getProcessedInputPositions()).isEqualTo(expectedStatsValue);
         assertThat(stats.getPhysicalInputDataSize()).isEqualTo(succinctBytes(expectedStatsValue));
         assertThat(stats.getPhysicalWrittenDataSize()).isEqualTo(succinctBytes(expectedStatsValue));
         assertThat(stats.getSpilledDataSize()).isEqualTo(succinctBytes(expectedStatsValue));
@@ -631,7 +630,6 @@ public class TestQueryStateMachine
                 DataSize.of(value, DataSize.Unit.BYTE),
                 DataSize.of(value, DataSize.Unit.BYTE),
                 value,
-                DataSize.of(value, DataSize.Unit.BYTE),
                 value,
                 DataSize.of(value, DataSize.Unit.BYTE),
                 value,

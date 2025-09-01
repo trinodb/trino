@@ -99,7 +99,9 @@ class StageStatistics extends React.Component<StageStatisticsProps, StageStatist
                     {'Q:' + stats.queuedDrivers + ', R:' + stats.runningDrivers + ', F:' + stats.completedDrivers}
                     <hr />
                     Input:{' '}
-                    {parseAndFormatDataSize(stats.rawInputDataSize) + ' / ' + formatRows(stats.rawInputPositions)}
+                    {parseAndFormatDataSize(stats.processedInputDataSize) +
+                        ' / ' +
+                        formatRows(stats.processedInputPositions)}
                 </div>
             </div>
         )

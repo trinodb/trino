@@ -54,8 +54,6 @@ public class TestDriverStats
             DataSize.ofBytes(132),
             142,
 
-            DataSize.ofBytes(13),
-            14,
             new Duration(15, NANOSECONDS),
 
             DataSize.ofBytes(16),
@@ -107,8 +105,6 @@ public class TestDriverStats
         assertThat(actual.getInternalNetworkInputDataSize()).isEqualTo(DataSize.ofBytes(132));
         assertThat(actual.getInternalNetworkInputPositions()).isEqualTo(142);
 
-        assertThat(actual.getRawInputDataSize()).isEqualTo(DataSize.ofBytes(13));
-        assertThat(actual.getRawInputPositions()).isEqualTo(14);
         assertThat(actual.getRawInputReadTime()).isEqualTo(new Duration(15, NANOSECONDS));
 
         assertThat(actual.getProcessedInputDataSize()).isEqualTo(DataSize.ofBytes(16));

@@ -52,8 +52,7 @@ public class BasicQueryStats
     private final int completedDrivers;
     private final int blockedDrivers;
 
-    private final DataSize rawInputDataSize;
-    private final long rawInputPositions;
+    private final long processedInputPositions;
     private final DataSize spilledDataSize;
     private final DataSize physicalInputDataSize;
     private final DataSize physicalWrittenDataSize;
@@ -92,8 +91,7 @@ public class BasicQueryStats
             @JsonProperty("runningDrivers") int runningDrivers,
             @JsonProperty("completedDrivers") int completedDrivers,
             @JsonProperty("blockedDrivers") int blockedDrivers,
-            @JsonProperty("rawInputDataSize") DataSize rawInputDataSize,
-            @JsonProperty("rawInputPositions") long rawInputPositions,
+            @JsonProperty("processedInputPositions") long processedInputPositions,
             @JsonProperty("spilledDataSize") DataSize spilledDataSize,
             @JsonProperty("physicalInputDataSize") DataSize physicalInputDataSize,
             @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
@@ -138,8 +136,7 @@ public class BasicQueryStats
         checkArgument(blockedDrivers >= 0, "blockedDrivers is negative");
         this.blockedDrivers = blockedDrivers;
 
-        this.rawInputDataSize = requireNonNull(rawInputDataSize, "rawInputDataSize is null");
-        this.rawInputPositions = rawInputPositions;
+        this.processedInputPositions = processedInputPositions;
         this.spilledDataSize = spilledDataSize;
         this.physicalInputDataSize = physicalInputDataSize;
         this.physicalWrittenDataSize = physicalWrittenDataSize;
@@ -180,8 +177,7 @@ public class BasicQueryStats
                 queryStats.getRunningDrivers(),
                 queryStats.getCompletedDrivers(),
                 queryStats.getBlockedDrivers(),
-                queryStats.getRawInputDataSize(),
-                queryStats.getRawInputPositions(),
+                queryStats.getProcessedInputPositions(),
                 queryStats.getSpilledDataSize(),
                 queryStats.getPhysicalInputDataSize(),
                 queryStats.getPhysicalWrittenDataSize(),
@@ -221,7 +217,6 @@ public class BasicQueryStats
                 0,
                 0,
                 0,
-                DataSize.ofBytes(0),
                 0,
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
@@ -314,15 +309,9 @@ public class BasicQueryStats
     }
 
     @JsonProperty
-    public DataSize getRawInputDataSize()
+    public long getProcessedInputPositions()
     {
-        return rawInputDataSize;
-    }
-
-    @JsonProperty
-    public long getRawInputPositions()
-    {
-        return rawInputPositions;
+        return processedInputPositions;
     }
 
     @JsonProperty

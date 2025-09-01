@@ -140,7 +140,6 @@ public class MockManagedQueryExecution
                         8,
                         9,
                         5,
-                        DataSize.ofBytes(14),
                         15,
                         DataSize.ofBytes(13),
                         physicalInputDataUsage,
@@ -244,11 +243,6 @@ public class MockManagedQueryExecution
                         DataSize.ofBytes(242),
                         DataSize.ofBytes(0),
                         252,
-                        0,
-
-                        DataSize.ofBytes(25),
-                        DataSize.ofBytes(0),
-                        26,
                         0,
 
                         DataSize.ofBytes(27),

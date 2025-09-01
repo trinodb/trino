@@ -177,8 +177,6 @@ public class TestQueryInfo
         assertThat(queryStats.getCompletedDrivers()).isEqualTo(basicQueryStats.getCompletedDrivers());
         assertThat(queryStats.getRunningDrivers()).isEqualTo(basicQueryStats.getRunningDrivers());
         assertThat(queryStats.getBlockedDrivers()).isEqualTo(basicQueryStats.getBlockedDrivers());
-        assertThat(queryStats.getRawInputPositions()).isEqualTo(basicQueryStats.getRawInputPositions());
-        assertThat(queryStats.getRawInputDataSize()).isEqualTo(basicQueryStats.getRawInputDataSize());
         assertThat(queryStats.getPhysicalInputDataSize()).isEqualTo(basicQueryStats.getPhysicalInputDataSize());
         assertThat(queryStats.getPhysicalWrittenDataSize()).isEqualTo(basicQueryStats.getPhysicalWrittenDataSize());
         assertThat(queryStats.getSpilledDataSize()).isEqualTo(basicQueryStats.getSpilledDataSize());
@@ -309,10 +307,6 @@ public class TestQueryInfo
                 value,
                 Duration.succinctDuration(value, SECONDS),
                 Duration.succinctDuration(value, SECONDS),
-                succinctBytes(value),
-                succinctBytes(value),
-                value,
-                value,
                 succinctBytes(value),
                 succinctBytes(value),
                 value,
