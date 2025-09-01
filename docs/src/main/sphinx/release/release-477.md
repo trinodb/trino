@@ -32,6 +32,7 @@
 * Add `discovery.type` to set node inventory system. The value can be
   `announce`, `dns` or `airlift-discovery`. ({issue}`26119`)
 * Add the {func}`cosine_distance` function for sparse vectors. ({issue}`24027`)
+* Add support for more complex Python-based UDFs. ({issue}`26515`)
 * Improve reliability of spilling for aggregation. ({issue}`25892`)
 * Improve spilling reliability for join queries. ({issue}`25976`)
 * Improve precision and scale inference for arithmetic operations between
@@ -53,6 +54,8 @@
 * Fix memory tracking for ordered grouped aggregations. ({issue}`26276`)
 * Fix access control check when access is granted through groups in
   `SET SESSION AUTHORIZATION`. ({issue}`26344`)
+* Fix failure when `geometry_to_bing_tiles` doesn't cover the full geometry
+  area, ensuring complete tile coverage. ({issue}`26459`)
 
 ## Security
 
@@ -61,6 +64,7 @@
 * Enhance UI responsiveness for Trino clusters without external network
   access. ({issue}`26031`)
 * Add query details page to the Preview Web UI. ({issue}`25554`)
+* Add query JSON page to the Preview Web UI. ({issue}`26319`)
 
 ## JDBC driver
 
