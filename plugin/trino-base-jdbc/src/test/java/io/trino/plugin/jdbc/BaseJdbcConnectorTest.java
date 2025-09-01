@@ -937,71 +937,13 @@ public abstract class BaseJdbcConnectorTest
     }
 
     @Test
-    public void testLimitPushdown()
+    public void testLimitPushdownWithDistinctAndJoin()
     {
-        if (!hasBehavior(SUPPORTS_LIMIT_PUSHDOWN)) {
-            assertThat(query("SELECT name FROM nation LIMIT 30")).isNotFullyPushedDown(LimitNode.class); // Use high limit for result determinism
-            return;
-        }
-
-        assertThat(query("SELECT name FROM nation LIMIT 30")).isFullyPushedDown(); // Use high limit for result determinism
-        assertThat(query("SELECT name FROM nation LIMIT 3")).skipResultsCorrectnessCheckForPushdown().isFullyPushedDown();
-
-        // with filter over numeric column
-        assertThat(query("SELECT name FROM nation WHERE regionkey = 3 LIMIT 5")).isFullyPushedDown();
-
-        // with filter over varchar column
-        PlanMatchPattern filterOverTableScan = node(FilterNode.class, node(TableScanNode.class));
-        assertConditionallyPushedDown(
-                getSession(),
-                "SELECT name FROM nation WHERE name < 'EEE' LIMIT 5",
-                hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY),
-                filterOverTableScan);
-
-        // with aggregation
-        PlanMatchPattern aggregationOverTableScan = node(AggregationNode.class, anyTree(node(TableScanNode.class)));
-        assertConditionallyPushedDown(
-                getSession(),
-                "SELECT max(regionkey) FROM nation LIMIT 5", // global aggregation, LIMIT removed
-                hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN),
-                aggregationOverTableScan);
-        assertConditionallyPushedDown(
-                getSession(),
-                "SELECT regionkey, max(nationkey) FROM nation GROUP BY regionkey LIMIT 5",
-                hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN),
-                aggregationOverTableScan);
+        // covered by testLimitPushdown
+        skipTestUnless(hasBehavior(SUPPORTS_LIMIT_PUSHDOWN));
 
         // distinct limit can be pushed down even without aggregation pushdown
         assertThat(query("SELECT DISTINCT regionkey FROM nation LIMIT 5")).isFullyPushedDown();
-
-        // with aggregation and filter over numeric column
-        assertConditionallyPushedDown(
-                getSession(),
-                "SELECT regionkey, count(*) FROM nation WHERE nationkey < 5 GROUP BY regionkey LIMIT 3",
-                hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN),
-                aggregationOverTableScan);
-        // with aggregation and filter over varchar column
-        if (hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY)) {
-            assertConditionallyPushedDown(
-                    getSession(),
-                    "SELECT regionkey, count(*) FROM nation WHERE name < 'EGYPT' GROUP BY regionkey LIMIT 3",
-                    hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN),
-                    aggregationOverTableScan);
-        }
-
-        // with TopN over numeric column
-        PlanMatchPattern topnOverTableScan = project(node(TopNNode.class, anyTree(node(TableScanNode.class))));
-        assertConditionallyPushedDown(
-                getSession(),
-                "SELECT * FROM (SELECT regionkey FROM nation ORDER BY nationkey ASC LIMIT 10) LIMIT 5",
-                hasBehavior(SUPPORTS_TOPN_PUSHDOWN),
-                topnOverTableScan);
-        // with TopN over varchar column
-        assertConditionallyPushedDown(
-                getSession(),
-                "SELECT * FROM (SELECT regionkey FROM nation ORDER BY name ASC LIMIT 10) LIMIT 5",
-                hasBehavior(SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR),
-                topnOverTableScan);
 
         // with join
         PlanMatchPattern joinOverTableScans = node(JoinNode.class,
@@ -1437,19 +1379,6 @@ public abstract class BaseJdbcConnectorTest
         assertExplainAnalyze(
                 "EXPLAIN ANALYZE VERBOSE SELECT * FROM nation a",
                 "Physical input time: .*s");
-    }
-
-    protected QueryAssert assertConditionallyPushedDown(
-            Session session,
-            @Language("SQL") String query,
-            boolean condition,
-            PlanMatchPattern otherwiseExpected)
-    {
-        QueryAssert queryAssert = assertThat(query(session, query));
-        if (condition) {
-            return queryAssert.isFullyPushedDown();
-        }
-        return queryAssert.isNotFullyPushedDown(otherwiseExpected);
     }
 
     protected QueryAssert assertJoinConditionallyPushedDown(
