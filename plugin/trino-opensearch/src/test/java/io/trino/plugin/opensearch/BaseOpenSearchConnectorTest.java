@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
 import io.trino.Session;
 import io.trino.spi.type.VarcharType;
-import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.testing.AbstractTestQueries;
 import io.trino.testing.BaseConnectorTest;
@@ -1677,13 +1676,6 @@ public abstract class BaseOpenSearchConnectorTest
                 .matches("VALUES (VARCHAR 'Türkiye')");
         assertThat(query("SELECT text_column FROM filter_charset_pushdown WHERE text_column = 'Türkiye'"))
                 .matches("VALUES (VARCHAR 'Türkiye')");
-    }
-
-    @Test
-    public void testLimitPushdown()
-            throws IOException
-    {
-        assertThat(query("SELECT name FROM nation LIMIT 30")).isNotFullyPushedDown(LimitNode.class); // Use high limit for result determinism
     }
 
     @Test
