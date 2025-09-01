@@ -27,6 +27,7 @@ import io.airlift.http.client.HttpClientConfig;
 import io.airlift.http.client.HttpRequestFilter;
 import io.airlift.http.client.Request;
 import io.trino.failuredetector.FailureDetectorModule;
+import io.trino.server.Internal;
 import io.trino.server.InternalAuthenticationManager;
 import io.trino.server.InternalCommunicationConfig;
 import io.trino.server.NodeResource;
@@ -69,6 +70,7 @@ public class AirliftNodeInventoryModule
 
             // selector
             discoveryBinder(binder).bindSelector("trino");
+            discoveryBinder(binder).bindSelector("trino-internal");
 
             // coordinator announcement
             discoveryBinder(binder).bindHttpAnnouncement("trino-coordinator");
@@ -88,6 +90,10 @@ public class AirliftNodeInventoryModule
         install(new DiscoveryModule());
         binder.bind(Announcer.class).to(AirliftAnnouncer.class).in(Scopes.SINGLETON);
         discoveryBinder(binder).bindHttpAnnouncement("trino")
+                .addProperty("node_version", nodeVersion)
+                .addProperty("coordinator", String.valueOf(coordinator));
+
+        discoveryBinder(binder).bindHttpAnnouncement("trino-internal", Internal.class)
                 .addProperty("node_version", nodeVersion)
                 .addProperty("coordinator", String.valueOf(coordinator));
 

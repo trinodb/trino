@@ -11,32 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.node;
+package io.trino.server;
 
-import io.airlift.configuration.Config;
-import jakarta.validation.constraints.NotNull;
+import com.google.inject.BindingAnnotation;
 
-public class NodeInventoryConfig
+import java.lang.annotation.Retention;
+
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
+
+@BindingAnnotation
+@Retention(RUNTIME)
+public @interface Internal
 {
-    public enum NodeInventoryType
-    {
-        ANNOUNCE,
-        DNS,
-        AIRLIFT_DISCOVERY,
-    }
-
-    private NodeInventoryType type = NodeInventoryType.AIRLIFT_DISCOVERY;
-
-    @NotNull
-    public NodeInventoryType getType()
-    {
-        return type;
-    }
-
-    @Config("discovery.type")
-    public NodeInventoryConfig setType(NodeInventoryType type)
-    {
-        this.type = type;
-        return this;
-    }
 }

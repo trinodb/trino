@@ -32,16 +32,19 @@ public class AirliftNodeInventory
         implements NodeInventory
 {
     private final ServiceSelector serviceSelector;
+    private final ServiceSelector internalServiceSelector;
     private final FailureDetector failureDetector;
     private final boolean httpsRequired;
 
     @Inject
     public AirliftNodeInventory(
             @ServiceType("trino") ServiceSelector serviceSelector,
+            @ServiceType("trino-internal") ServiceSelector internalServiceSelector,
             FailureDetector failureDetector,
             InternalCommunicationConfig internalCommunicationConfig)
     {
         this.serviceSelector = requireNonNull(serviceSelector, "serviceSelector is null");
+        this.internalServiceSelector = requireNonNull(internalServiceSelector, "internalServiceSelector is null");
         this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
         this.httpsRequired = internalCommunicationConfig.isHttpsRequired();
     }
@@ -49,6 +52,8 @@ public class AirliftNodeInventory
     @Override
     public Set<URI> getNodes()
     {
+        System.out.println("INTERNAL NODES " + internalServiceSelector.selectAllServices());
+
         // This is a deny-list.
         Set<ServiceDescriptor> failed = failureDetector.getFailed();
         return serviceSelector.selectAllServices().stream()

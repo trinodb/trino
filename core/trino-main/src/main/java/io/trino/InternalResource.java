@@ -11,32 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.node;
+package io.trino;
 
-import io.airlift.configuration.Config;
-import jakarta.validation.constraints.NotNull;
+import io.trino.server.DisableHttpCache;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Path;
 
-public class NodeInventoryConfig
+@Path("/")
+@DisableHttpCache
+public class InternalResource
 {
-    public enum NodeInventoryType
+    @GET
+    public String ping()
     {
-        ANNOUNCE,
-        DNS,
-        AIRLIFT_DISCOVERY,
-    }
-
-    private NodeInventoryType type = NodeInventoryType.AIRLIFT_DISCOVERY;
-
-    @NotNull
-    public NodeInventoryType getType()
-    {
-        return type;
-    }
-
-    @Config("discovery.type")
-    public NodeInventoryConfig setType(NodeInventoryType type)
-    {
-        this.type = type;
-        return this;
+        return "pong";
     }
 }
