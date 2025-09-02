@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.openlineage;
 
-import io.airlift.log.Logger;
 import io.trino.SessionRepresentation;
 import io.trino.testing.QueryRunner;
 
@@ -24,14 +23,11 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 
 final class TestOpenLineageEventListenerMarquezIntegration
         extends BaseTestOpenLineageQueries
 {
-    private static final Logger logger = Logger.get(TestOpenLineageEventListenerMarquezIntegration.class);
-
     private static MarquezServer server;
     private static String marquezURI;
     private static final HttpClient client = HttpClient.newHttpClient();
@@ -191,10 +187,13 @@ final class TestOpenLineageEventListenerMarquezIntegration
 
             HttpResponse<String> responseJob = client.send(requestJob, HttpResponse.BodyHandlers.ofString());
 
-            logger.info(responseJob.body());
+            assertThat(responseJob.statusCode())
+                    .withFailMessage("Marquez responded with status %s: %s", responseJob.statusCode(), responseJob.body())
+                    .isEqualTo(200);
 
-            assertThat(responseJob.statusCode()).isEqualTo(200);
-            assertThat(responseJob.body().toLowerCase(ENGLISH)).contains("complete");
+            assertThat(responseJob.body())
+                    .withFailMessage("Expected job %s to be completed: %s", expectedJobName, responseJob.body())
+                    .containsIgnoringCase("complete");
         }
         catch (Exception e) {
             throw new RuntimeException(e);
