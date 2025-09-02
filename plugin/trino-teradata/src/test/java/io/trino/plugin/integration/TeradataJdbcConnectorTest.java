@@ -572,7 +572,6 @@ public class TeradataJdbcConnectorTest
     public void testTimestampWithTimeZoneCastToDatePredicate()
     {
         skipTestUnless(this.hasBehavior(TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_DATA));
-
         TestTable table;
         try {
             table = this.newTrinoTable("timestamptz_to_date", "(i varchar(20), t TIMESTAMP)",
@@ -610,7 +609,6 @@ public class TeradataJdbcConnectorTest
     public void testTimestampWithTimeZoneCastToTimestampPredicate()
     {
         skipTestUnless(this.hasBehavior(TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_DATA));
-
         TestTable table;
         try {
             table = this.newTrinoTable(
