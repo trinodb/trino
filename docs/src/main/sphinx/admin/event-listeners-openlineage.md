@@ -210,6 +210,11 @@ event-listener.config-files=etc/openlineage-event-listener.properties,...
     - List of custom url params to be added to final HTTP Request. See
     [](openlineage-event-listener-custom-url-params) for more details.
     - Empty
+*
+    - openlineage-event-listener.transport.compression
+    - Compression codec used for reducing size of HTTP body.
+      Allowed values: `none`, `gzip`.
+    - `none`
 
 :::
 
