@@ -314,8 +314,8 @@ public class ServerMainModule
         binder.bind(OrderingCompiler.class).in(Scopes.SINGLETON);
         newExporter(binder).export(OrderingCompiler.class).withGeneratedName();
         binder.bind(PagesIndex.Factory.class).to(PagesIndex.DefaultFactory.class);
-        binder.bind(PagesInputStreamFactory.class);
         jaxrsBinder(binder).bind(IoExceptionSuppressingWriterInterceptor.class);
+        jaxrsBinder(binder).bind(PagesResponseWriter.class);
 
         // exchange client
         binder.bind(DirectExchangeClientSupplier.class).to(DirectExchangeClientFactory.class).in(Scopes.SINGLETON);
