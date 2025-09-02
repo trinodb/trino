@@ -23,6 +23,7 @@ import io.trino.plugin.openlineage.transport.OpenLineageTransportCreator;
 import java.net.URI;
 import java.util.Map;
 
+import static io.trino.plugin.openlineage.transport.http.OpenLineageHttpTransportConfig.Compression;
 import static java.lang.Math.toIntExact;
 
 public class OpenLineageHttpTransport
@@ -34,6 +35,7 @@ public class OpenLineageHttpTransport
     private final TokenProvider tokenProvider;
     private final Map<String, String> urlParams;
     private final Map<String, String> headers;
+    private final Compression compression;
 
     @Inject
     public OpenLineageHttpTransport(OpenLineageHttpTransportConfig config)
@@ -44,6 +46,7 @@ public class OpenLineageHttpTransport
         this.tokenProvider = config.getApiKey().map(OpenLineageHttpTransport::createTokenProvider).orElse(null);
         this.urlParams = config.getUrlParams();
         this.headers = config.getHeaders();
+        this.compression = config.getCompression();
     }
 
     @Override
@@ -57,7 +60,7 @@ public class OpenLineageHttpTransport
                         this.tokenProvider,
                         this.urlParams,
                         this.headers,
-                        null,
+                        this.compression == Compression.GZIP ? HttpConfig.Compression.GZIP : null,
                         new HttpSslContextConfig()));
     }
 
