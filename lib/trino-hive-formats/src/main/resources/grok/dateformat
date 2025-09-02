@@ -1,0 +1,154 @@
+DATE_US
+MM/dd/yy
+MM/dd/yyyy
+MM-dd-yy
+MM-dd-yyyy
+
+DATE_EU
+dd/MM/yy
+dd/MM/yyyy
+dd-MM-yy
+dd-MM-yyyy
+dd.MM.yy
+dd.MM.yyyy
+
+TIMESTAMP_ISO8601
+yy-MM-dd HH:mm
+yy-MM-dd HH:mm:ss
+yy-MM-dd HH:mm:ss.SSS
+yy-MM-dd HH:mm'Z'
+yy-MM-dd HH:mm:ss'Z'
+yy-MM-dd HH:mm:ss.SSS'Z'
+yy-MM-dd HH:mmXXX
+yy-MM-dd HH:mm:ssXXX
+yy-MM-dd HH:mm:ss.SSSXXX
+yy-MM-dd HH:mmZ
+yy-MM-dd HH:mm:ssZ
+yy-MM-dd HH:mm:ss.SSSZ
+yyyy-MM-dd HH:mm
+yyyy-MM-dd HH:mm:ss
+yyyy-MM-dd HH:mm:ss.SSS
+yyyy-MM-dd HH:mm'Z'
+yyyy-MM-dd HH:mm:ss'Z'
+yyyy-MM-dd HH:mm:ss.SSS'Z'
+yyyy-MM-dd HH:mmXXX
+yyyy-MM-dd HH:mm:ssXXX
+yyyy-MM-dd HH:mm:ss.SSSXXX
+yyyy-MM-dd HH:mmZ
+yyyy-MM-dd HH:mm:ssZ
+yyyy-MM-dd HH:mm:ss.SSSZ
+yy-MM-ddTHH:mm
+yy-MM-ddTHH:mm:ss
+yy-MM-ddTHH:mm:ss.SSS
+yy-MM-ddTHH:mm'Z'
+yy-MM-ddTHH:mm:ss'Z'
+yy-MM-ddTHH:mm:ss.SSS'Z'
+yy-MM-ddTHH:mmXXX
+yy-MM-ddTHH:mm:ssXXX
+yy-MM-ddTHH:mm:ss.SSSXXX
+yy-MM-ddTHH:mmZ
+yy-MM-ddTHH:mm:ssZ
+yy-MM-ddTHH:mm:ss.SSSZ
+yyyy-MM-ddTHH:mm
+yyyy-MM-ddTHH:mm:ss
+yyyy-MM-ddTHH:mm:ss.SSS
+yyyy-MM-ddTHH:mm'Z'
+yyyy-MM-ddTHH:mm:ss'Z'
+yyyy-MM-ddTHH:mm:ss.SSS'Z'
+yyyy-MM-ddTHH:mmXXX
+yyyy-MM-ddTHH:mm:ssXXX
+yyyy-MM-ddTHH:mm:ss.SSSXXX
+yyyy-MM-ddTHH:mmZ
+yyyy-MM-ddTHH:mm:ssZ
+yyyy-MM-ddTHH:mm:ss.SSSZ
+
+DATESTAMP_US
+MM/dd/yy HH:mm:ss
+MM/dd/yyyy HH:mm:ss
+MM-dd-yy HH:mm:ss
+MM-dd-yyyy HH:mm:ss
+MM/dd/yy-HH:mm:ss
+MM/dd/yyyy-HH:mm:ss
+MM-dd-yy-HH:mm:ss
+MM-dd-yyyy-HH:mm:ss
+MM/dd/yy HH:mm:ss.SSS
+MM/dd/yyyy HH:mm:ss.SSS
+MM-dd-yy HH:mm:ss.SSS
+MM-dd-yyyy HH:mm:ss.SSS
+MM/dd/yy-HH:mm:ss.SSS
+MM/dd/yyyy-HH:mm:ss.SSS
+MM-dd-yy-HH:mm:ss.SSS
+MM-dd-yyyy-HH:mm:ss.SSS
+
+DATESTAMP_EU
+dd/MM/yy HH:mm:ss
+dd/MM/yyyy HH:mm:ss
+dd-MM-yy HH:mm:ss
+dd-MM-yyyy HH:mm:ss
+dd.MM.yy HH:mm:ss
+dd.MM.yyyy HH:mm:ss
+dd/MM/yy-HH:mm:ss
+dd/MM/yyyy-HH:mm:ss
+dd-MM-yy-HH:mm:ss
+dd-MM-yyyy-HH:mm:ss
+dd.MM.yy-HH:mm:ss
+dd.MM.yyyy-HH:mm:ss
+dd/MM/yy HH:mm:ss.SSS
+dd/MM/yyyy HH:mm:ss.SSS
+dd-MM-yy HH:mm:ss.SSS
+dd-MM-yyyy HH:mm:ss.SSS
+dd.MM.yy HH:mm:ss.SSS
+dd.MM.yyyy HH:mm:ss.SSS
+dd/MM/yy-HH:mm:ss.SSS
+dd/MM/yyyy-HH:mm:ss.SSS
+dd-MM-yy-HH:mm:ss.SSS
+dd-MM-yyyy-HH:mm:ss.SSS
+dd.MM.yy-HH:mm:ss.SSS
+dd.MM.yyyy-HH:mm:ss.SSS
+
+DATESTAMP_RFC822
+EEE MMM dd yy HH:mm:ss z
+EEE MMM dd yyyy HH:mm:ss z
+EEE MMM dd yy HH:mm:ss.SSS z
+EEE MMM dd yyyy HH:mm:ss.SSS z
+
+DATESTAMP_RFC2822
+EEE, dd MM yy HH:mm:ss 'Z'
+EEE, dd MM yy HH:mm:ss XXX
+EEE, dd MM yy HH:mm:ss Z
+EEE, dd MM yyyy HH:mm:ss 'Z'
+EEE, dd MM yyyy HH:mm:ss XXX
+EEE, dd MM yyyy HH:mm:ss Z
+EEE, dd MM yy HH:mm:ss.SSS 'Z'
+EEE, dd MM yy HH:mm:ss.SSS XXX
+EEE, dd MM yy HH:mm:ss.SSS Z
+EEE, dd MM yyyy HH:mm:ss.SSS 'Z'
+EEE, dd MM yyyy HH:mm:ss.SSS XXX
+EEE, dd MM yyyy HH:mm:ss.SSS Z
+
+DATESTAMP_OTHER
+EEE MMM dd HH:mm:ss z yy
+EEE MMM dd HH:mm:ss z yyyy
+EEE MMM dd HH:mm:ss.SSS z yy
+EEE MMM dd HH:mm:ss.SSS z yyyy
+
+DATESTAMP_EVENTLOG
+yyMMddHHmmss
+yyyyMMddHHmmss
+yyMMddHHmmss.SSS
+yyyyMMddHHmmss.SSS
+
+SYSLOGTIMESTAMP
+MMM +dd HH:mm:ss
+MMM +dd HH:mm:ss.SSS
+
+HTTPDATE
+dd/MMM/yy:HH:mm:ss Z
+dd/MMM/yyyy:HH:mm:ss Z
+dd/MMM/yy:HH:mm:ss.SSS Z
+dd/MMM/yyyy:HH:mm:ss.SSS Z
+
+CISCOTIMESTAMP
+MMM dd HH:mm:ss
+MMM dd HH:mm:ss.SSS
+

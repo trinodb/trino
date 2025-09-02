@@ -161,7 +161,7 @@ public class RegexDeserializer
         }
     }
 
-    private static void serializeDecimal(String value, DecimalType decimalType, BlockBuilder builder)
+    public static void serializeDecimal(String value, DecimalType decimalType, BlockBuilder builder)
     {
         BigDecimal bigDecimal;
         try {
