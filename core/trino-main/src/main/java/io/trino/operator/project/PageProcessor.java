@@ -320,8 +320,9 @@ public class PageProcessor
                     blocks[i] = previouslyComputedResults[i].getRegion(0, batchSize);
                 }
                 else {
+                    SourcePage inputChannelsSourcePage = projection.getInputChannels().getInputChannels(page);
                     expressionProfiler.start();
-                    Block result = projection.project(session, projection.getInputChannels().getInputChannels(page), positionsBatch);
+                    Block result = projection.project(session, inputChannelsSourcePage, positionsBatch);
                     long projectionTimeNanos = expressionProfiler.stop(positionsBatch.size());
                     metrics.recordProjectionTime(projectionTimeNanos);
 
