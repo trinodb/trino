@@ -24,6 +24,7 @@ import io.trino.plugin.deltalake.transactionlog.checkpoint.MetadataAndProtocolEn
 import io.trino.spi.TrinoException;
 
 import java.io.BufferedReader;
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Iterator;
@@ -60,7 +61,9 @@ public final class TransactionLogEntries
                 this.cachedEntries = Optional.empty();
             }
             else {
-                this.cachedEntries = Optional.of(ImmutableList.copyOf(new TransactionLogEntryIterator(entryNumber, inputFile)));
+                try (TransactionLogEntryIterator logEntryIterator = new TransactionLogEntryIterator(entryNumber, inputFile)) {
+                    this.cachedEntries = Optional.of(ImmutableList.copyOf(logEntryIterator));
+                }
             }
         }
         catch (IOException e) {
@@ -122,6 +125,7 @@ public final class TransactionLogEntries
 
     private static final class TransactionLogEntryIterator
             extends AbstractIterator<DeltaLakeTransactionLogEntry>
+            implements Closeable
     {
         private final long entryNumber;
         private final Location location;
@@ -163,6 +167,7 @@ public final class TransactionLogEntries
             return deltaLakeTransactionLogEntry;
         }
 
+        @Override
         public void close()
         {
             try {
