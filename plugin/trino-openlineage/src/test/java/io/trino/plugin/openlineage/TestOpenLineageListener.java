@@ -53,7 +53,7 @@ final class TestOpenLineageListener
         assertThat(result)
                 .extracting(RunEvent::getRun)
                 .extracting(Run::getRunId)
-                 // random UUID part may differ, but prefix is timestamp based
+                // random UUID part may differ, but prefix is timestamp based
                 .matches(uuid -> uuid.toString().startsWith("01967c23-ae78-7"));
 
         assertThat(result)
@@ -66,8 +66,7 @@ final class TestOpenLineageListener
                 .extracting(Job::getName)
                 .isEqualTo("queryId");
 
-        Map<String, Object> trinoQueryMetadata =
-                result
+        Map<String, Object> trinoQueryMetadata = result
                 .getRun()
                 .getFacets()
                 .getAdditionalProperties()
@@ -82,11 +81,11 @@ final class TestOpenLineageListener
 
         Map<String, Object> trinoQueryContext =
                 result
-                .getRun()
-                .getFacets()
-                .getAdditionalProperties()
-                .get("trino_query_context")
-                .getAdditionalProperties();
+                        .getRun()
+                        .getFacets()
+                        .getAdditionalProperties()
+                        .get("trino_query_context")
+                        .getAdditionalProperties();
 
         assertThat(trinoQueryContext)
                 .containsOnly(
@@ -124,7 +123,7 @@ final class TestOpenLineageListener
         assertThat(result)
                 .extracting(RunEvent::getRun)
                 .extracting(Run::getRunId)
-                 // random UUID part may differ, but prefix is timestamp based
+                // random UUID part may differ, but prefix is timestamp based
                 .matches(uuid -> uuid.toString().startsWith("01967c23-ae78-7"));
 
         assertThat(result)
@@ -137,8 +136,7 @@ final class TestOpenLineageListener
                 .extracting(Job::getName)
                 .isEqualTo("queryId");
 
-        Map<String, Object> trinoQueryMetadata =
-                result
+        Map<String, Object> trinoQueryMetadata = result
                 .getRun()
                 .getFacets()
                 .getAdditionalProperties()
@@ -151,8 +149,7 @@ final class TestOpenLineageListener
                         entry("transaction_id", "transactionId"),
                         entry("query_plan", "queryPlan"));
 
-        Map<String, Object> trinoQueryContext =
-                result
+        Map<String, Object> trinoQueryContext = result
                 .getRun()
                 .getFacets()
                 .getAdditionalProperties()

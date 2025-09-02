@@ -1,11 +1,11 @@
 server:
     applicationConnectors:
-        - type: http
-          port: ${MARQUEZ_PORT:-5000}
-          httpCompliance: RFC7230_LEGACY
+        -   type: http
+            port: ${MARQUEZ_PORT:-5000}
+            httpCompliance: RFC7230_LEGACY
     adminConnectors:
-        - type: http
-          port: ${MARQUEZ_ADMIN_PORT:-5001}
+        -   type: http
+            port: ${MARQUEZ_ADMIN_PORT:-5001}
 
 db:
     driverClass: org.postgresql.Driver
@@ -21,10 +21,10 @@ graphql:
 logging:
     level: INFO
     appenders:
-        - type: console
+        -   type: console
 
 tags:
-    - name: PII
-      description: Personally identifiable information
-    - name: SENSITIVE
-      description: Contains sensitive information
+    -   name: PII
+        description: Personally identifiable information
+    -   name: SENSITIVE
+        description: Contains sensitive information

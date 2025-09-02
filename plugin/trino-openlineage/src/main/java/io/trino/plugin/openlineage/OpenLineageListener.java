@@ -88,9 +88,7 @@ public class OpenLineageListener
         this.jobNamespace = listenerConfig.getNamespace().orElse(trinoURI.toString());
         this.datasetNamespace = trinoURI.toString();
         this.includeQueryTypes = ImmutableSet.copyOf(listenerConfig.getIncludeQueryTypes());
-        this.interpolator = new FormatInterpolator(
-                                listenerConfig.getJobNameFormat(),
-                                OpenLineageJobInterpolatedValues.values());
+        this.interpolator = new FormatInterpolator<>(listenerConfig.getJobNameFormat(), OpenLineageJobInterpolatedValues.values());
     }
 
     @Override
@@ -291,9 +289,9 @@ public class OpenLineageListener
                 .namespace(this.jobNamespace)
                 .name(interpolator.interpolate(new OpenLineageJobContext(queryContext, queryMetadata)))
                 .facets(openLineage.newJobFacetsBuilder()
-                            .jobType(openLineage.newJobTypeJobFacet("BATCH", "TRINO", "QUERY"))
-                            .sql(openLineage.newSQLJobFacet(queryMetadata.getQuery(), "trino"))
-                            .build());
+                        .jobType(openLineage.newJobTypeJobFacet("BATCH", "TRINO", "QUERY"))
+                        .sql(openLineage.newSQLJobFacet(queryMetadata.getQuery(), "trino"))
+                        .build());
     }
 
     private List<InputDataset> buildInputs(QueryMetadata queryMetadata)

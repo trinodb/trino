@@ -125,7 +125,7 @@ final class TestOpenLineageListenerConfig
     private static OpenLineageListenerConfig configWithFormat(String format)
     {
         return new OpenLineageListenerConfig()
-            .setTrinoURI(URI.create("http://testtrino"))
-            .setJobNameFormat(format);
+                .setTrinoURI(URI.create("http://testtrino"))
+                .setJobNameFormat(format);
     }
 }

@@ -31,9 +31,9 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
-* - TestOpenLineageEventsFromQueries requires sequential execution to properly reset memory listener
-* - TestOpenLineageEventListenerMarquezIntegration multiple parallel tests are flaky, as they increase wait time for marquez to register events
-*/
+ * - TestOpenLineageEventsFromQueries requires sequential execution to properly reset memory listener
+ * - TestOpenLineageEventListenerMarquezIntegration multiple parallel tests are flaky, as they increase wait time for marquez to register events
+ */
 @Execution(ExecutionMode.SAME_THREAD)
 public abstract class BaseTestOpenLineageQueries
         extends AbstractTestQueryFramework
