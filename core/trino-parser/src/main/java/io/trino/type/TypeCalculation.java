@@ -125,8 +125,6 @@ public final class TypeCalculation
         {
             BigInteger left = visit(ctx.left);
             BigInteger right = visit(ctx.right);
-            BigInteger ifTrue = visit(ctx.ifTrue);
-            BigInteger ifFalse = visit(ctx.ifFalse);
 
             boolean condition = switch (ctx.operator.getText()) {
                 case ">" -> left.compareTo(right) > 0;
@@ -138,7 +136,11 @@ public final class TypeCalculation
                 default -> throw new IllegalStateException("Unsupported if operator " + ctx.operator.getText());
             };
 
-            return condition ? ifTrue : ifFalse;
+            if (condition) {
+                return visit(ctx.ifTrue);
+            }
+
+            return visit(ctx.ifFalse);
         }
 
         @Override

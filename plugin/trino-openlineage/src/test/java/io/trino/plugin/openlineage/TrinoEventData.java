@@ -51,8 +51,7 @@ public class TrinoEventData
         throw new UnsupportedOperationException("This is a utility class and cannot be instantiated");
     }
 
-    static
-    {
+    static {
         queryIOMetadata = new QueryIOMetadata(Collections.emptyList(), Optional.empty());
 
         queryContext = new QueryContext(

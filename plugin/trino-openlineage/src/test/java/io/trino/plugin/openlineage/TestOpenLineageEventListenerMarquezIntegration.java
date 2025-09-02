@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.openlineage;
 
-import io.airlift.log.Logger;
 import io.trino.SessionRepresentation;
 import io.trino.testing.QueryRunner;
 
@@ -24,14 +23,11 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 
 final class TestOpenLineageEventListenerMarquezIntegration
         extends BaseTestOpenLineageQueries
 {
-    private static final Logger logger = Logger.get(TestOpenLineageEventListenerMarquezIntegration.class);
-
     private static MarquezServer server;
     private static String marquezURI;
     private static final HttpClient client = HttpClient.newHttpClient();
@@ -53,9 +49,9 @@ final class TestOpenLineageEventListenerMarquezIntegration
     @Override
     public void assertCreateTableAsSelectFromTable(String queryId, String query, String fullTableName, LineageTestTableType tableType, SessionRepresentation session)
     {
-        String expectedQueryId = URLEncoder.encode(queryId, UTF_8);
+        String expectedJobName = URLEncoder.encode(queryId, UTF_8);
 
-        checkJobRegistration(client, expectedQueryId);
+        checkJobRegistration(client, expectedJobName);
     }
 
     @Override
@@ -70,45 +66,45 @@ final class TestOpenLineageEventListenerMarquezIntegration
             SessionRepresentation session)
     {
         {
-            String expectedQueryId = URLEncoder.encode(createViewQueryId, UTF_8);
-            checkJobRegistration(client, expectedQueryId);
+            String expectedJobName = URLEncoder.encode(createViewQueryId, UTF_8);
+            checkJobRegistration(client, expectedJobName);
         }
         {
-            String expectedQueryId = URLEncoder.encode(createTableQueryId, UTF_8);
-            checkJobRegistration(client, expectedQueryId);
+            String expectedJobName = URLEncoder.encode(createTableQueryId, UTF_8);
+            checkJobRegistration(client, expectedJobName);
         }
     }
 
     @Override
     public void assertCreateTableWithJoin(String createTableQueryId, String createTableQuery, SessionRepresentation session)
     {
-        String expectedQueryId = URLEncoder.encode(createTableQueryId, UTF_8);
+        String expectedJobName = URLEncoder.encode(createTableQueryId, UTF_8);
 
-        checkJobRegistration(client, expectedQueryId);
+        checkJobRegistration(client, expectedJobName);
     }
 
     @Override
     public void assertCreateTableWithCTE(String createTableQueryId, String createTableQuery, SessionRepresentation session)
     {
-        String expectedQueryId = URLEncoder.encode(createTableQueryId, UTF_8);
+        String expectedJobName = URLEncoder.encode(createTableQueryId, UTF_8);
 
-        checkJobRegistration(client, expectedQueryId);
+        checkJobRegistration(client, expectedJobName);
     }
 
     @Override
     public void assertCreateTableWithSubquery(String createTableQueryId, String createTableQuery, SessionRepresentation session)
     {
-        String expectedQueryId = URLEncoder.encode(createTableQueryId, UTF_8);
+        String expectedJobName = URLEncoder.encode(createTableQueryId, UTF_8);
 
-        checkJobRegistration(client, expectedQueryId);
+        checkJobRegistration(client, expectedJobName);
     }
 
     @Override
     public void assertCreateTableWithUnion(String createTableQueryId, String createTableQuery, String fullTableName, SessionRepresentation session)
     {
-        String expectedQueryId = URLEncoder.encode(createTableQueryId, UTF_8);
+        String expectedJobName = URLEncoder.encode(createTableQueryId, UTF_8);
 
-        checkJobRegistration(client, expectedQueryId);
+        checkJobRegistration(client, expectedJobName);
     }
 
     @Override
@@ -121,12 +117,12 @@ final class TestOpenLineageEventListenerMarquezIntegration
             SessionRepresentation session)
     {
         {
-            String expectedQueryId = URLEncoder.encode(createTableQueryId, UTF_8);
-            checkJobRegistration(client, expectedQueryId);
+            String expectedJobName = URLEncoder.encode(createTableQueryId, UTF_8);
+            checkJobRegistration(client, expectedJobName);
         }
         {
-            String expectedQueryId = URLEncoder.encode(insertQueryId, UTF_8);
-            checkJobRegistration(client, expectedQueryId);
+            String expectedJobName = URLEncoder.encode(insertQueryId, UTF_8);
+            checkJobRegistration(client, expectedJobName);
         }
     }
 
@@ -142,16 +138,16 @@ final class TestOpenLineageEventListenerMarquezIntegration
             SessionRepresentation session)
     {
         {
-            String expectedQueryId = URLEncoder.encode(createSchemaQueryId, UTF_8);
-            checkJobRegistration(client, expectedQueryId);
+            String expectedJobName = URLEncoder.encode(createSchemaQueryId, UTF_8);
+            checkJobRegistration(client, expectedJobName);
         }
         {
-            String expectedQueryId = URLEncoder.encode(createTableQueryId, UTF_8);
-            checkJobRegistration(client, expectedQueryId);
+            String expectedJobName = URLEncoder.encode(createTableQueryId, UTF_8);
+            checkJobRegistration(client, expectedJobName);
         }
         {
-            String expectedQueryId = URLEncoder.encode(deleteQueryId, UTF_8);
-            checkJobRegistration(client, expectedQueryId);
+            String expectedJobName = URLEncoder.encode(deleteQueryId, UTF_8);
+            checkJobRegistration(client, expectedJobName);
         }
     }
 
@@ -167,34 +163,37 @@ final class TestOpenLineageEventListenerMarquezIntegration
             SessionRepresentation session)
     {
         {
-            String expectedQueryId = URLEncoder.encode(createSchemaQueryId, UTF_8);
-            checkJobRegistration(client, expectedQueryId);
+            String expectedJobName = URLEncoder.encode(createSchemaQueryId, UTF_8);
+            checkJobRegistration(client, expectedJobName);
         }
         {
-            String expectedQueryId = URLEncoder.encode(createTableQueryId, UTF_8);
-            checkJobRegistration(client, expectedQueryId);
+            String expectedJobName = URLEncoder.encode(createTableQueryId, UTF_8);
+            checkJobRegistration(client, expectedJobName);
         }
         {
-            String expectedQueryId = URLEncoder.encode(mergeQueryId, UTF_8);
-            checkJobRegistration(client, expectedQueryId);
+            String expectedJobName = URLEncoder.encode(mergeQueryId, UTF_8);
+            checkJobRegistration(client, expectedJobName);
         }
     }
 
-    private void checkJobRegistration(HttpClient client, String expectedQueryId)
+    private void checkJobRegistration(HttpClient client, String expectedJobName)
     {
         try {
             String encodedNamespace = URLEncoder.encode(OPEN_LINEAGE_NAMESPACE, UTF_8);
             HttpRequest requestJob = HttpRequest.newBuilder()
-                    .uri(new URI(marquezURI + "/api/v1/namespaces/" + encodedNamespace + "/jobs/" + expectedQueryId))
+                    .uri(new URI(marquezURI + "/api/v1/namespaces/" + encodedNamespace + "/jobs/" + expectedJobName))
                     .GET()
                     .build();
 
             HttpResponse<String> responseJob = client.send(requestJob, HttpResponse.BodyHandlers.ofString());
 
-            logger.info(responseJob.body());
+            assertThat(responseJob.statusCode())
+                    .withFailMessage("Marquez responded with status %s: %s", responseJob.statusCode(), responseJob.body())
+                    .isEqualTo(200);
 
-            assertThat(responseJob.statusCode()).isEqualTo(200);
-            assertThat(responseJob.body().toLowerCase(ENGLISH)).contains("complete");
+            assertThat(responseJob.body())
+                    .withFailMessage("Expected job %s to be completed: %s", expectedJobName, responseJob.body())
+                    .containsIgnoringCase("complete");
         }
         catch (Exception e) {
             throw new RuntimeException(e);

@@ -30,7 +30,6 @@ import io.trino.operator.ScanFilterAndProjectOperator.ScanFilterAndProjectOperat
 import io.trino.operator.SourceOperator;
 import io.trino.operator.SourceOperatorFactory;
 import io.trino.operator.TableScanOperator.TableScanOperatorFactory;
-import io.trino.operator.project.CursorProcessor;
 import io.trino.operator.project.PageProcessor;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
@@ -48,7 +47,6 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
-import io.trino.sql.gen.CursorProcessorCompiler;
 import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
@@ -141,7 +139,6 @@ public class TestOrcPageSourceMemoryTracking
     private static final int STRIPE_ROWS = 20000;
     private static final FunctionManager functionManager = createTestingFunctionManager();
     private static final ExpressionCompiler EXPRESSION_COMPILER = new ExpressionCompiler(
-            new CursorProcessorCompiler(functionManager),
             new PageFunctionCompiler(functionManager, 0),
             new ColumnarFilterCompiler(functionManager, 0));
     private static final ConnectorSession UNCACHED_SESSION = HiveTestUtils.getHiveSession(new HiveConfig(), new OrcReaderConfig().setTinyStripeThreshold(DataSize.of(0, BYTE)));
@@ -615,14 +612,12 @@ public class TestOrcPageSourceMemoryTracking
             for (int i = 0; i < types.size(); i++) {
                 projectionsBuilder.add(field(i, types.get(i)));
             }
-            Supplier<CursorProcessor> cursorProcessor = EXPRESSION_COMPILER.compileCursorProcessor(Optional.empty(), projectionsBuilder.build(), "key");
             Supplier<PageProcessor> pageProcessor = EXPRESSION_COMPILER.compilePageProcessor(Optional.empty(), projectionsBuilder.build());
             SourceOperatorFactory sourceOperatorFactory = new ScanFilterAndProjectOperatorFactory(
                     0,
                     new PlanNodeId("test"),
                     new PlanNodeId("0"),
                     (catalog) -> (session, split, table, columnHandles, dynamicFilter) -> pageSource,
-                    cursorProcessor,
                     (_) -> pageProcessor.get(),
                     TEST_TABLE_HANDLE,
                     columns.stream().map(ColumnHandle.class::cast).collect(toList()),

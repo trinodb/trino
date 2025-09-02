@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>288</version>
+        <version>296</version>
     </parent>
 
     <groupId>io.trino</groupId>
@@ -182,7 +182,7 @@
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}</air.test.jvm.additional-arguments>
 
         <!-- keep dependency properties sorted -->
-        <dep.airlift.version>347</dep.airlift.version>
+        <dep.airlift.version>352</dep.airlift.version>
         <dep.alluxio.version>2.9.6</dep.alluxio.version>
         <dep.antlr.version>4.13.2</dep.antlr.version>
         <dep.avro.version>1.12.0</dep.avro.version>
@@ -192,31 +192,29 @@
         <dep.confluent.version>7.8.0</dep.confluent.version>
         <dep.docker.images.version>119</dep.docker.images.version>
         <dep.drift.version>1.23</dep.drift.version>
-        <dep.flyway.version>11.11.1</dep.flyway.version>
+        <dep.flyway.version>11.11.2</dep.flyway.version>
         <dep.frontend-maven-plugin.version>1.15.1</dep.frontend-maven-plugin.version>
         <dep.frontend-node.version>v22.14.0</dep.frontend-node.version>
         <dep.frontend-npm.version>11.2.0</dep.frontend-npm.version>
         <dep.gib.version>4.5.4</dep.gib.version>
-        <dep.httpcore5.version>5.3.4</dep.httpcore5.version>
+        <dep.httpcore5.version>5.3.5</dep.httpcore5.version>
         <dep.iceberg.version>1.9.2</dep.iceberg.version>
         <dep.jna.version>5.17.0</dep.jna.version>
-        <dep.jsonwebtoken.version>0.12.7</dep.jsonwebtoken.version>
+        <dep.jsonwebtoken.version>0.13.0</dep.jsonwebtoken.version>
         <dep.jts.version>1.20.0</dep.jts.version>
         <dep.kafka-clients.version>4.0.0</dep.kafka-clients.version>
         <dep.okhttp.version>5.1.0</dep.okhttp.version>
         <dep.okio.version>3.16.0</dep.okio.version>
         <dep.parquet.version>1.15.2</dep.parquet.version>
         <dep.plugin.failsafe.version>${dep.plugin.surefire.version}</dep.plugin.failsafe.version>
-        <!-- TODO: https://github.com/apache/maven-javadoc-plugin/issues/1241 -->
-        <dep.plugin.javadoc.version>3.11.2</dep.plugin.javadoc.version>
         <dep.protobuf.version>3.25.8</dep.protobuf.version>
-        <dep.snowflake.version>3.26.0</dep.snowflake.version>
+        <dep.snowflake.version>3.26.1</dep.snowflake.version>
         <dep.swagger.version>2.2.36</dep.swagger.version>
         <dep.takari.version>2.3.2</dep.takari.version>
-        <dep.tcnative.version>2.0.72.Final</dep.tcnative.version>
+        <dep.tcnative.version>2.0.73.Final</dep.tcnative.version>
         <dep.tempto.version>202</dep.tempto.version>
         <dep.wire.version>5.2.1</dep.wire.version>
-        <dep.zookeeper.version>3.9.3</dep.zookeeper.version>
+        <dep.zookeeper.version>3.9.4</dep.zookeeper.version>
         <extraJavaVectorArgs>--add-modules=jdk.incubator.vector</extraJavaVectorArgs>
         <!--
         Instructs Provisio to write runtime dependencies in the format groupId_artifactId-version.jar.
@@ -239,7 +237,7 @@
             <dependency>
                 <groupId>com.google.cloud</groupId>
                 <artifactId>libraries-bom</artifactId>
-                <version>26.66.0</version>
+                <version>26.67.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -303,7 +301,7 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.32.25</version>
+                <version>2.33.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -311,7 +309,7 @@
             <dependency>
                 <groupId>com.adobe.testing</groupId>
                 <artifactId>s3mock-testcontainers</artifactId>
-                <version>4.7.0</version>
+                <version>4.8.0</version>
             </dependency>
 
             <dependency>
@@ -424,7 +422,7 @@
             <dependency>
                 <groupId>com.exasol</groupId>
                 <artifactId>exasol-jdbc</artifactId>
-                <version>25.2.4</version>
+                <version>25.2.5</version>
             </dependency>
 
             <dependency>
@@ -448,7 +446,7 @@
             <dependency>
                 <groupId>com.github.docker-java</groupId>
                 <artifactId>docker-java-api</artifactId>
-                <version>3.5.3</version>
+                <version>3.6.0</version>
             </dependency>
 
             <dependency>
@@ -472,7 +470,7 @@
             <dependency>
                 <groupId>com.google.cloud.bigdataoss</groupId>
                 <artifactId>gcs-connector</artifactId>
-                <version>3.1.3</version>
+                <version>3.1.5</version>
                 <classifier>shaded</classifier>
                 <exclusions>
                     <exclusion>
@@ -552,7 +550,7 @@
             <dependency>
                 <groupId>com.nimbusds</groupId>
                 <artifactId>oauth2-oidc-sdk</artifactId>
-                <version>11.27.1</version>
+                <version>11.28</version>
                 <classifier>jdk11</classifier>
             </dependency>
 
@@ -620,6 +618,12 @@
                 <groupId>dev.failsafe</groupId>
                 <artifactId>failsafe</artifactId>
                 <version>3.3.2</version>
+            </dependency>
+
+            <dependency>
+                <groupId>eu.rekawek.toxiproxy</groupId>
+                <artifactId>toxiproxy-java</artifactId>
+                <version>2.1.11</version>
             </dependency>
 
             <dependency>
@@ -805,7 +809,7 @@
             <dependency>
                 <groupId>io.dropwizard.metrics</groupId>
                 <artifactId>metrics-core</artifactId>
-                <version>4.2.33</version>
+                <version>4.2.36</version>
             </dependency>
 
             <dependency>
@@ -861,6 +865,13 @@
                 <artifactId>netty-tcnative</artifactId>
                 <version>${dep.tcnative.version}</version>
                 <classifier>linux-aarch_64-fedora</classifier>
+            </dependency>
+
+            <dependency>
+                <groupId>io.netty</groupId>
+                <artifactId>netty-tcnative</artifactId>
+                <version>${dep.tcnative.version}</version>
+                <classifier>osx-aarch_64</classifier>
             </dependency>
 
             <dependency>
@@ -2232,7 +2243,7 @@
             <dependency>
                 <groupId>org.checkerframework</groupId>
                 <artifactId>checker-qual</artifactId>
-                <version>3.49.5</version>
+                <version>3.50.0</version>
             </dependency>
 
             <dependency>
@@ -2287,7 +2298,7 @@
             <dependency>
                 <groupId>org.jetbrains</groupId>
                 <artifactId>annotations</artifactId>
-                <version>26.0.2</version>
+                <version>26.0.2-1</version>
             </dependency>
 
             <dependency>
@@ -2380,7 +2391,7 @@
             <dependency>
                 <groupId>org.yaml</groupId>
                 <artifactId>snakeyaml</artifactId>
-                <version>2.4</version>
+                <version>2.5</version>
             </dependency>
 
             <dependency>
@@ -2479,12 +2490,6 @@
                     <configuration>
                         <dependencyReducedPomLocation>${project.build.directory}/pom.xml</dependencyReducedPomLocation>
                     </configuration>
-                </plugin>
-
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-wrapper-plugin</artifactId>
-                    <version>3.3.2</version>
                 </plugin>
 
                 <plugin>

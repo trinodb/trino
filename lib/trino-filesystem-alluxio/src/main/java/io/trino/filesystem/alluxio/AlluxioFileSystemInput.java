@@ -43,6 +43,9 @@ public class AlluxioFileSystemInput
     {
         ensureOpen();
         checkFromIndexSize(bufferOffset, bufferLength, buffer.length);
+        if (position < 0) {
+            throw new IOException("Negative seek offset");
+        }
         if (position + bufferLength > inputFile.length()) {
             throw new IOException("readFully position overflow %s. pos %d + buffer length %d > file size %d"
                     .formatted(inputFile.location(), position, bufferLength, inputFile.length()));

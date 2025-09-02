@@ -11,21 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.jdbc;
+package io.trino.plugin.openlineage.job;
 
-import com.google.inject.Binder;
-import com.google.inject.Module;
-import com.google.inject.Scopes;
-import io.trino.plugin.base.cache.identity.IdentityCacheMapping;
+import io.trino.spi.eventlistener.QueryContext;
+import io.trino.spi.eventlistener.QueryMetadata;
 
-import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+import static java.util.Objects.requireNonNull;
 
-public class ExtraCredentialsBasedIdentityCacheMappingModule
-        implements Module
+public record OpenLineageJobContext(QueryContext queryContext, QueryMetadata queryMetadata)
 {
-    @Override
-    public void configure(Binder binder)
+    public OpenLineageJobContext
     {
-        newOptionalBinder(binder, IdentityCacheMapping.class).setBinding().to(ExtraCredentialsBasedIdentityCacheMapping.class).in(Scopes.SINGLETON);
+        requireNonNull(queryContext, "queryContext is null");
+        requireNonNull(queryMetadata, "queryMetadata is null");
     }
 }

@@ -14,6 +14,8 @@
 import React, { ReactNode, useState } from 'react'
 import { useLocation, useParams } from 'react-router-dom'
 import { Alert, Box, Divider, Grid2 as Grid, Tabs, Tab, Typography } from '@mui/material'
+import { QueryJson } from './QueryJson'
+import { QueryReferences } from './QueryReferences'
 import { QueryOverview } from './QueryOverview'
 import { Texts } from '../constant.ts'
 
@@ -24,8 +26,8 @@ const tabComponentMap: Record<TabValue, ReactNode> = {
     livePlan: <Alert severity="error">{Texts.Error.NotImplemented}</Alert>,
     stagePerformance: <Alert severity="error">{Texts.Error.NotImplemented}</Alert>,
     splits: <Alert severity="error">{Texts.Error.NotImplemented}</Alert>,
-    json: <Alert severity="error">{Texts.Error.NotImplemented}</Alert>,
-    references: <Alert severity="error">{Texts.Error.NotImplemented}</Alert>,
+    json: <QueryJson />,
+    references: <QueryReferences />,
 }
 export const QueryDetails = () => {
     const { queryId } = useParams()
@@ -58,8 +60,8 @@ export const QueryDetails = () => {
                                 <Tab value="livePlan" label="Live plan" disabled />
                                 <Tab value="stagePerformance" label="Stage performance" disabled />
                                 <Tab value="splits" label="Splits" disabled />
-                                <Tab value="json" label="JSON" disabled />
-                                <Tab value="references" label="References" disabled />
+                                <Tab value="json" label="JSON" />
+                                <Tab value="references" label="References" />
                             </Tabs>
                         </Box>
                     </Grid>

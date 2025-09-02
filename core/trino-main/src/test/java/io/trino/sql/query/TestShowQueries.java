@@ -317,6 +317,12 @@ public class TestShowQueries
                           mock_table""");
     }
 
+    @Test
+    void testShowBranchesEmptyResult()
+    {
+        assertions.assertQueryReturnsEmptyResult("SHOW BRANCHES FROM TABLE mock.mockSchema.mockTable");
+    }
+
     private static ColumnMetadata columnMetadata(String name, Type type, String value)
     {
         return ColumnMetadata.builder().setName(name).setType(type).setDefaultValue(Optional.of(value)).build();

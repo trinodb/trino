@@ -225,7 +225,6 @@ public class TestDeltaLakeFileOperations
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", "InputFile.length"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", "InputFile.length"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", "InputFile.length"))
-                        .add(new FileOperation(TRINO_EXTENDED_STATS_JSON, "extended_stats.json", "InputFile.newStream"))
                         .addCopies(new FileOperation(DATA, "no partition", "InputFile.newInput"), 2)
                         .build());
 
@@ -319,7 +318,6 @@ public class TestDeltaLakeFileOperations
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", "InputFile.length"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", "InputFile.length"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", "InputFile.length"))
-                        .add(new FileOperation(TRINO_EXTENDED_STATS_JSON, "extended_stats.json", "InputFile.newStream"))
                         .addCopies(new FileOperation(DATA, "key=p1/", "InputFile.newInput"), 2)
                         .addCopies(new FileOperation(DATA, "key=p2/", "InputFile.newInput"), 2)
                         .build());
@@ -337,7 +335,6 @@ public class TestDeltaLakeFileOperations
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", "InputFile.length"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", "InputFile.length"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", "InputFile.length"))
-                        .add(new FileOperation(TRINO_EXTENDED_STATS_JSON, "extended_stats.json", "InputFile.newStream"))
                         .build());
 
         // Read partition column only, one partition only
@@ -368,7 +365,6 @@ public class TestDeltaLakeFileOperations
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", "InputFile.length"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", "InputFile.length"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", "InputFile.length"))
-                        .add(new FileOperation(TRINO_EXTENDED_STATS_JSON, "extended_stats.json", "InputFile.newStream"))
                         .build());
 
         // Read only row count
@@ -419,7 +415,6 @@ public class TestDeltaLakeFileOperations
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", "InputFile.length"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", "InputFile.length"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", "InputFile.length"))
-                        .add(new FileOperation(TRINO_EXTENDED_STATS_JSON, "extended_stats.json", "InputFile.newStream"))
                         .build());
 
         // Read only row count

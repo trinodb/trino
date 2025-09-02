@@ -114,7 +114,6 @@
         <dependency>
             <groupId>org.antlr</groupId>
             <artifactId>antlr4-runtime</artifactId>
-            <version>${dep.antlr.version}</version>
         </dependency>
 
         <dependency>

@@ -13,17 +13,17 @@
  */
 package io.trino.operator.project;
 
-import io.trino.operator.DriverYieldSignal;
-import io.trino.operator.Work;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SourcePage;
+import io.trino.sql.gen.PageProjectionWork;
 import io.trino.sql.relational.RowExpression;
 
 import java.lang.invoke.MethodHandle;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Objects.requireNonNull;
 
 public class GeneratedPageProjection
@@ -58,14 +58,14 @@ public class GeneratedPageProjection
     }
 
     @Override
-    public Work<Block> project(ConnectorSession session, DriverYieldSignal yieldSignal, SourcePage page, SelectedPositions selectedPositions)
+    public Block project(ConnectorSession session, SourcePage page, SelectedPositions selectedPositions)
     {
         blockBuilder = blockBuilder.newBlockBuilderLike(selectedPositions.size(), null);
         try {
-            return (Work<Block>) pageProjectionWorkFactory.invoke(blockBuilder, session, page, selectedPositions);
+            return ((PageProjectionWork) pageProjectionWorkFactory.invoke(blockBuilder, session, page, selectedPositions)).process();
         }
-        catch (Throwable e) {
-            throw new RuntimeException(e);
+        catch (Throwable throwable) {
+            throw propagate(throwable);
         }
     }
 
@@ -75,5 +75,14 @@ public class GeneratedPageProjection
         return toStringHelper(this)
                 .add("projection", projection)
                 .toString();
+    }
+
+    private static RuntimeException propagate(Throwable throwable)
+    {
+        if (throwable instanceof InterruptedException) {
+            Thread.currentThread().interrupt();
+        }
+        throwIfUnchecked(throwable);
+        throw new RuntimeException(throwable);
     }
 }

@@ -13,21 +13,16 @@
  */
 package io.trino.operator.project;
 
-import io.trino.operator.CompletedWork;
-import io.trino.operator.DriverYieldSignal;
-import io.trino.operator.Work;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.DictionaryId;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SourcePage;
-import jakarta.annotation.Nullable;
 
 import java.util.Optional;
 import java.util.function.Function;
 
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.trino.spi.block.DictionaryBlock.createProjectedDictionaryBlock;
 import static java.util.Objects.requireNonNull;
@@ -63,156 +58,88 @@ public class DictionaryAwarePageProjection
     }
 
     @Override
-    public Work<Block> project(ConnectorSession session, DriverYieldSignal yieldSignal, SourcePage page, SelectedPositions selectedPositions)
+    public Block project(ConnectorSession session, SourcePage page, SelectedPositions selectedPositions)
     {
-        return new DictionaryAwarePageProjectionWork(session, yieldSignal, page.getBlock(0), selectedPositions);
+        Block block = page.getBlock(0);
+        Optional<Block> dictionary = Optional.empty();
+        if (block instanceof RunLengthEncodedBlock runLengthEncodedBlock) {
+            dictionary = Optional.of(runLengthEncodedBlock.getValue());
+        }
+        else if (block instanceof DictionaryBlock dictionaryBlock) {
+            dictionary = Optional.of(dictionaryBlock.getDictionary());
+        }
+
+        // Try use dictionary processing first; if it fails, fall back to the generic case
+        // if the block is RLE or dictionary block, we may use dictionary processing
+        Optional<Block> dictionaryOutput = Optional.empty();
+        try {
+            Block dictionaryProcessingProjection = createDictionaryBlockProjection(session, dictionary, block.getPositionCount());
+            if (dictionaryProcessingProjection != null) {
+                dictionaryOutput = Optional.of(dictionaryProcessingProjection);
+                lastOutputDictionary = dictionaryOutput;
+            }
+        }
+        catch (Exception _) {
+            // Processing of dictionary failed, but we ignore the exception here
+            // and force reprocessing of the whole block using the normal code.
+            // The second pass may not fail due to filtering.
+            // todo dictionary processing should be able to tolerate failures of unused elements
+            lastOutputDictionary = Optional.empty();
+        }
+
+        if (block instanceof DictionaryBlock) {
+            // Record the usage count regardless of dictionary processing choice, so we have stats for next time.
+            // This guarantees recording will happen once and only once regardless of whether dictionary processing was attempted and whether it succeeded.
+            lastDictionaryUsageCount += selectedPositions.size();
+        }
+
+        if (dictionaryOutput.isPresent()) {
+            if (block instanceof RunLengthEncodedBlock) {
+                // single value block is always considered effective, but the processing could have thrown
+                // in that case we fallback and process again so the correct error message sent
+                return RunLengthEncodedBlock.create(dictionaryOutput.get(), selectedPositions.size());
+            }
+
+            if (block instanceof DictionaryBlock dictionaryBlock) {
+                // if dictionary was processed, produce a dictionary block; otherwise do normal processing
+                int[] outputIds = filterDictionaryIds(dictionaryBlock, selectedPositions);
+                return createProjectedDictionaryBlock(selectedPositions.size(), dictionaryOutput.get(), outputIds, sourceIdFunction.apply(dictionaryBlock));
+            }
+
+            throw new UnsupportedOperationException("unexpected block type " + block.getClass());
+        }
+
+        // there is no dictionary handling or dictionary handling failed; fall back to general projection
+        return projection.project(session, SourcePage.create(block), selectedPositions);
     }
 
-    private class DictionaryAwarePageProjectionWork
-            implements Work<Block>
+    private Block createDictionaryBlockProjection(ConnectorSession session, Optional<Block> dictionary, int blockPositionsCount)
     {
-        private final ConnectorSession session;
-        private final DriverYieldSignal yieldSignal;
-        private final SelectedPositions selectedPositions;
-
-        private Block block;
-        private Block result;
-        // if the block is RLE or dictionary block, we may use dictionary processing
-        private Work<Block> dictionaryProcessingProjectionWork;
-        // always prepare to fall back to a general block in case the dictionary does not apply or fails
-        private Work<Block> fallbackProcessingProjectionWork;
-
-        public DictionaryAwarePageProjectionWork(@Nullable ConnectorSession session, DriverYieldSignal yieldSignal, Block block, SelectedPositions selectedPositions)
-        {
-            this.session = session;
-            this.block = block;
-            this.selectedPositions = requireNonNull(selectedPositions, "selectedPositions is null");
-
-            this.yieldSignal = requireNonNull(yieldSignal, "yieldSignal is null");
-            setupDictionaryBlockProjection();
-        }
-
-        @Override
-        public boolean process()
-        {
-            return processInternal();
-        }
-
-        private boolean processInternal()
-        {
-            checkState(result == null, "result has been generated");
-            if (fallbackProcessingProjectionWork != null) {
-                if (fallbackProcessingProjectionWork.process()) {
-                    result = fallbackProcessingProjectionWork.getResult();
-                    return true;
-                }
-                return false;
-            }
-
-            Optional<Block> dictionaryOutput = Optional.empty();
-            if (dictionaryProcessingProjectionWork != null) {
-                try {
-                    if (!dictionaryProcessingProjectionWork.process()) {
-                        // dictionary processing yielded.
-                        return false;
-                    }
-                    dictionaryOutput = Optional.of(dictionaryProcessingProjectionWork.getResult());
-                    lastOutputDictionary = dictionaryOutput;
-                }
-                catch (Exception _) {
-                    // Processing of dictionary failed, but we ignore the exception here
-                    // and force reprocessing of the whole block using the normal code.
-                    // The second pass may not fail due to filtering.
-                    // todo dictionary processing should be able to tolerate failures of unused elements
-                    lastOutputDictionary = Optional.empty();
-                    dictionaryProcessingProjectionWork = null;
-                }
-            }
-
-            if (block instanceof DictionaryBlock) {
-                // Record the usage count regardless of dictionary processing choice, so we have stats for next time.
-                // This guarantees recording will happen once and only once regardless of whether dictionary processing was attempted and whether it succeeded.
-                lastDictionaryUsageCount += selectedPositions.size();
-            }
-
-            if (dictionaryOutput.isPresent()) {
-                if (block instanceof RunLengthEncodedBlock) {
-                    // single value block is always considered effective, but the processing could have thrown
-                    // in that case we fallback and process again so the correct error message sent
-                    result = RunLengthEncodedBlock.create(dictionaryOutput.get(), selectedPositions.size());
-                    return true;
-                }
-
-                if (block instanceof DictionaryBlock dictionaryBlock) {
-                    // if dictionary was processed, produce a dictionary block; otherwise do normal processing
-                    int[] outputIds = filterDictionaryIds(dictionaryBlock, selectedPositions);
-                    result = createProjectedDictionaryBlock(selectedPositions.size(), dictionaryOutput.get(), outputIds, sourceIdFunction.apply(dictionaryBlock));
-                    return true;
-                }
-
-                throw new UnsupportedOperationException("unexpected block type " + block.getClass());
-            }
-
-            // there is no dictionary handling or dictionary handling failed; fall back to general projection
-            verify(dictionaryProcessingProjectionWork == null);
-            verify(fallbackProcessingProjectionWork == null);
-            fallbackProcessingProjectionWork = projection.project(session, yieldSignal, SourcePage.create(block), selectedPositions);
-            if (fallbackProcessingProjectionWork.process()) {
-                result = fallbackProcessingProjectionWork.getResult();
-                return true;
-            }
-            return false;
-        }
-
-        @Override
-        public Block getResult()
-        {
-            checkState(result != null, "result has not been generated");
-            return result;
-        }
-
-        private void setupDictionaryBlockProjection()
-        {
-            Optional<Block> dictionary = Optional.empty();
-            if (block instanceof RunLengthEncodedBlock runLengthEncodedBlock) {
-                dictionary = Optional.of(runLengthEncodedBlock.getValue());
-            }
-            else if (block instanceof DictionaryBlock dictionaryBlock) {
-                dictionary = Optional.of(dictionaryBlock.getDictionary());
-            }
-
-            // Try use dictionary processing first; if it fails, fall back to the generic case
-            dictionaryProcessingProjectionWork = createDictionaryBlockProjection(dictionary, block.getPositionCount());
-        }
-
-        private Work<Block> createDictionaryBlockProjection(Optional<Block> dictionary, int blockPositionsCount)
-        {
-            if (dictionary.isEmpty()) {
-                lastOutputDictionary = Optional.empty();
-                return null;
-            }
-
-            if (lastInputDictionary == dictionary.get()) {
-                // we must have fallen back last time if lastOutputDictionary is null
-                return lastOutputDictionary.map(CompletedWork::new).orElse(null);
-            }
-
-            // Process dictionary if:
-            //   dictionary positions count is not greater than block positions count
-            //   this is the first block
-            //   the last dictionary was used for more positions than were in the dictionary
-            boolean shouldProcessDictionary = dictionary.get().getPositionCount() <= blockPositionsCount || lastInputDictionary == null || lastDictionaryUsageCount >= lastInputDictionary.getPositionCount();
-
-            // record the usage count regardless of dictionary processing choice, so we have stats for next time
-            lastDictionaryUsageCount = 0;
-            lastInputDictionary = dictionary.get();
+        if (dictionary.isEmpty()) {
             lastOutputDictionary = Optional.empty();
-
-            if (shouldProcessDictionary) {
-                return projection.project(session, yieldSignal, SourcePage.create(lastInputDictionary), SelectedPositions.positionsRange(0, lastInputDictionary.getPositionCount()));
-            }
             return null;
         }
+
+        if (lastInputDictionary == dictionary.get()) {
+            // we must have fallen back last time if lastOutputDictionary is null
+            return lastOutputDictionary.orElse(null);
+        }
+
+        // Process dictionary if:
+        //   dictionary positions count is not greater than block positions count
+        //   this is the first block
+        //   the last dictionary was used for more positions than were in the dictionary
+        boolean shouldProcessDictionary = dictionary.get().getPositionCount() <= blockPositionsCount || lastInputDictionary == null || lastDictionaryUsageCount >= lastInputDictionary.getPositionCount();
+
+        // record the usage count regardless of dictionary processing choice, so we have stats for next time
+        lastDictionaryUsageCount = 0;
+        lastInputDictionary = dictionary.get();
+        lastOutputDictionary = Optional.empty();
+
+        if (shouldProcessDictionary) {
+            return projection.project(session, SourcePage.create(lastInputDictionary), SelectedPositions.positionsRange(0, lastInputDictionary.getPositionCount()));
+        }
+        return null;
     }
 
     private static int[] filterDictionaryIds(DictionaryBlock dictionaryBlock, SelectedPositions selectedPositions)

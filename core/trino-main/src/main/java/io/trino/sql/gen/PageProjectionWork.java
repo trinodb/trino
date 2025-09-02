@@ -11,14 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.project;
+package io.trino.sql.gen;
 
-import io.trino.operator.DriverYieldSignal;
-import io.trino.spi.PageBuilder;
-import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.RecordCursor;
+import io.trino.spi.block.Block;
 
-public interface CursorProcessor
+public interface PageProjectionWork
 {
-    CursorProcessorOutput process(ConnectorSession session, DriverYieldSignal yieldSignal, RecordCursor cursor, PageBuilder pageBuilder);
+    Block process();
 }

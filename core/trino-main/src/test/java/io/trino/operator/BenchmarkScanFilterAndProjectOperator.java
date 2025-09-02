@@ -23,7 +23,6 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.Split;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory;
-import io.trino.operator.project.CursorProcessor;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ColumnHandle;
@@ -32,7 +31,6 @@ import io.trino.spi.connector.FixedPageSource;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.gen.CursorProcessorCompiler;
 import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
@@ -161,14 +159,12 @@ public class BenchmarkScanFilterAndProjectOperator
                     .mapToObj(i -> new TestingColumnHandle(Integer.toString(i)))
                     .collect(toImmutableList());
 
-            CursorProcessorCompiler cursorProcessorCompiler = new CursorProcessorCompiler(PLANNER_CONTEXT.getFunctionManager());
             PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(PLANNER_CONTEXT.getFunctionManager(), 0);
             ColumnarFilterCompiler compiler = new ColumnarFilterCompiler(PLANNER_CONTEXT.getFunctionManager(), 0);
-            PageProcessor pageProcessor = new ExpressionCompiler(cursorProcessorCompiler, pageFunctionCompiler, compiler).compilePageProcessor(Optional.of(getFilter(type)), projections).get();
-            CursorProcessor cursorProcessor = new ExpressionCompiler(cursorProcessorCompiler, pageFunctionCompiler, compiler).compileCursorProcessor(Optional.of(getFilter(type)), projections, "key").get();
+            PageProcessor pageProcessor = new ExpressionCompiler(pageFunctionCompiler, compiler).compilePageProcessor(Optional.of(getFilter(type)), projections).get();
 
             createTaskContext();
-            createScanFilterAndProjectOperatorFactories(createInputPages(types), pageProcessor, cursorProcessor, columnHandles, types);
+            createScanFilterAndProjectOperatorFactories(createInputPages(types), pageProcessor, columnHandles, types);
         }
 
         @TearDown
@@ -178,14 +174,13 @@ public class BenchmarkScanFilterAndProjectOperator
             scheduledExecutor.shutdownNow();
         }
 
-        private void createScanFilterAndProjectOperatorFactories(List<Page> inputPages, PageProcessor pageProcessor, CursorProcessor cursorProcessor, List<ColumnHandle> columnHandles, List<Type> types)
+        private void createScanFilterAndProjectOperatorFactories(List<Page> inputPages, PageProcessor pageProcessor, List<ColumnHandle> columnHandles, List<Type> types)
         {
             operatorFactory = new ScanFilterAndProjectOperatorFactory(
                     0,
                     new PlanNodeId("test"),
                     new PlanNodeId("test_source"),
                     (catalog) -> (session, split, table, columns, dynamicFilter) -> new FixedPageSource(inputPages),
-                    () -> cursorProcessor,
                     (_) -> pageProcessor,
                     TEST_TABLE_HANDLE,
                     columnHandles,

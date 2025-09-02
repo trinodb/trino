@@ -11,21 +11,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.jdbc;
+package io.trino.geospatial;
 
-import com.google.inject.Binder;
-import com.google.inject.Module;
-import com.google.inject.Scopes;
-import io.trino.plugin.base.cache.identity.IdentityCacheMapping;
+import org.junit.jupiter.api.Test;
+import org.locationtech.jts.io.ParseException;
+import org.locationtech.jts.io.WKTReader;
 
-import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+import static io.trino.geospatial.GeometryUtils.jsonFromJtsGeometry;
+import static org.assertj.core.api.Assertions.assertThat;
 
-public class ExtraCredentialsBasedIdentityCacheMappingModule
-        implements Module
+final class TestGeometryUtils
 {
-    @Override
-    public void configure(Binder binder)
+    @Test
+    void testJsonFromJtsGeometry()
+            throws ParseException
     {
-        newOptionalBinder(binder, IdentityCacheMapping.class).setBinding().to(ExtraCredentialsBasedIdentityCacheMapping.class).in(Scopes.SINGLETON);
+        String json = jsonFromJtsGeometry(new WKTReader().read("POINT (1 1)"));
+        assertThat(json)
+                .isNotNull()
+                .doesNotContain("crs");
     }
 }
