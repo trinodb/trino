@@ -58,8 +58,6 @@ public class DriverStats
     private final DataSize internalNetworkInputDataSize;
     private final long internalNetworkInputPositions;
 
-    private final DataSize rawInputDataSize;
-    private final long rawInputPositions;
     private final Duration rawInputReadTime;
 
     private final DataSize processedInputDataSize;
@@ -102,8 +100,6 @@ public class DriverStats
         this.internalNetworkInputDataSize = DataSize.ofBytes(0);
         this.internalNetworkInputPositions = 0;
 
-        this.rawInputDataSize = DataSize.ofBytes(0);
-        this.rawInputPositions = 0;
         this.rawInputReadTime = new Duration(0, MILLISECONDS);
 
         this.processedInputDataSize = DataSize.ofBytes(0);
@@ -147,8 +143,6 @@ public class DriverStats
             @JsonProperty("internalNetworkInputDataSize") DataSize internalNetworkInputDataSize,
             @JsonProperty("internalNetworkInputPositions") long internalNetworkInputPositions,
 
-            @JsonProperty("rawInputDataSize") DataSize rawInputDataSize,
-            @JsonProperty("rawInputPositions") long rawInputPositions,
             @JsonProperty("rawInputReadTime") Duration rawInputReadTime,
 
             @JsonProperty("processedInputDataSize") DataSize processedInputDataSize,
@@ -191,9 +185,6 @@ public class DriverStats
         checkArgument(internalNetworkInputPositions >= 0, "internalNetworkInputPositions is negative");
         this.internalNetworkInputPositions = internalNetworkInputPositions;
 
-        this.rawInputDataSize = requireNonNull(rawInputDataSize, "rawInputDataSize is null");
-        checkArgument(rawInputPositions >= 0, "rawInputPositions is negative");
-        this.rawInputPositions = rawInputPositions;
         this.rawInputReadTime = requireNonNull(rawInputReadTime, "rawInputReadTime is null");
 
         this.processedInputDataSize = requireNonNull(processedInputDataSize, "processedInputDataSize is null");
@@ -321,18 +312,6 @@ public class DriverStats
     public long getInternalNetworkInputPositions()
     {
         return internalNetworkInputPositions;
-    }
-
-    @JsonProperty
-    public DataSize getRawInputDataSize()
-    {
-        return rawInputDataSize;
-    }
-
-    @JsonProperty
-    public long getRawInputPositions()
-    {
-        return rawInputPositions;
     }
 
     @JsonProperty

@@ -149,7 +149,8 @@ public class TestDeltaLakeNodeLocalDynamicSplitPruning
                             Optional.empty(),
                             Optional.empty(),
                             0,
-                            false),
+                            false,
+                            Optional.empty()),
                     transaction);
 
             TupleDomain<ColumnHandle> splitPruningPredicate = TupleDomain.withColumnDomains(
@@ -249,7 +250,8 @@ public class TestDeltaLakeNodeLocalDynamicSplitPruning
                             Optional.empty(),
                             Optional.empty(),
                             0,
-                            false),
+                            false,
+                            Optional.empty()),
                     transaction);
 
             // Simulate situations where the dynamic filter (e.g.: while performing a JOIN with another table) reduces considerably
@@ -326,7 +328,7 @@ public class TestDeltaLakeNodeLocalDynamicSplitPruning
     {
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
         DeltaLakePageSourceProvider provider = new DeltaLakePageSourceProvider(
-                new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS),
+                new DefaultDeltaLakeFileSystemFactory(new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS)),
                 stats,
                 PARQUET_READER_CONFIG,
                 deltaLakeConfig,

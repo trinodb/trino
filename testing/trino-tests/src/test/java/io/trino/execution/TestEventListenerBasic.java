@@ -931,8 +931,6 @@ public class TestEventListenerBasic
         assertThat(statistics.getPhysicalInputRows()).isEqualTo(queryStats.getPhysicalInputPositions());
         assertThat(statistics.getInternalNetworkBytes()).isEqualTo(queryStats.getInternalNetworkInputDataSize().toBytes());
         assertThat(statistics.getInternalNetworkRows()).isEqualTo(queryStats.getInternalNetworkInputPositions());
-        assertThat(statistics.getTotalBytes()).isEqualTo(queryStats.getRawInputDataSize().toBytes());
-        assertThat(statistics.getTotalRows()).isEqualTo(queryStats.getRawInputPositions());
         assertThat(statistics.getOutputBytes()).isEqualTo(queryStats.getOutputDataSize().toBytes());
         assertThat(statistics.getOutputRows()).isEqualTo(queryStats.getOutputPositions());
         assertThat(statistics.getWrittenBytes()).isEqualTo(queryStats.getLogicalWrittenDataSize().toBytes());

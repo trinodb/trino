@@ -123,7 +123,6 @@ final class TestKafkaRecordBuilder
         assertThat(jsonNode.get("metadata").get("queryId").isNull()).isFalse();
         assertThat(jsonNode.get("metadata").get("payload")).isNull();
         assertThat(jsonNode.get("statistics").isNull()).isFalse();
-        assertThat(jsonNode.get("statistics").get("totalBytes").isNull()).isFalse();
         assertThat(jsonNode.get("statistics").get("stageGcStatistics")).isNull();
         assertThat(jsonNode.get("statistics").get("planNodeStatsAndCosts")).isNull();
         assertThat(jsonNode.get("statistics").get("operatorSummaries")).isNull();

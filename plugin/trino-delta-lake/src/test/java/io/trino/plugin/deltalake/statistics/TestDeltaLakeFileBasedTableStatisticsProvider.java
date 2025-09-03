@@ -17,10 +17,12 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import io.airlift.json.JsonCodecFactory;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
+import io.trino.plugin.deltalake.DefaultDeltaLakeFileSystemFactory;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
 import io.trino.plugin.deltalake.DeltaLakeSessionProperties;
 import io.trino.plugin.deltalake.DeltaLakeTableHandle;
+import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
@@ -85,19 +87,19 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
 
         FileFormatDataSourceStats fileFormatDataSourceStats = new FileFormatDataSourceStats();
 
-        transactionLogReaderFactory = new FileSystemTransactionLogReaderFactory(HDFS_FILE_SYSTEM_FACTORY);
+        transactionLogReaderFactory = new FileSystemTransactionLogReaderFactory(new DefaultDeltaLakeFileSystemFactory(HDFS_FILE_SYSTEM_FACTORY));
 
         transactionLogAccess = new TransactionLogAccess(
                 typeManager,
                 checkpointSchemaManager,
                 new DeltaLakeConfig(),
                 fileFormatDataSourceStats,
-                HDFS_FILE_SYSTEM_FACTORY,
+                new DefaultDeltaLakeFileSystemFactory(HDFS_FILE_SYSTEM_FACTORY),
                 new ParquetReaderConfig(),
                 newDirectExecutorService(),
                 transactionLogReaderFactory);
 
-        statistics = new CachingExtendedStatisticsAccess(new MetaDirStatisticsAccess(HDFS_FILE_SYSTEM_FACTORY, new JsonCodecFactory().jsonCodec(ExtendedStatistics.class)));
+        statistics = new CachingExtendedStatisticsAccess(new MetaDirStatisticsAccess(new DefaultDeltaLakeFileSystemFactory(HDFS_FILE_SYSTEM_FACTORY), new JsonCodecFactory().jsonCodec(ExtendedStatistics.class)));
         tableStatisticsProvider = new FileBasedTableStatisticsProvider(
                 typeManager,
                 transactionLogAccess,
@@ -120,7 +122,7 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
         catch (IOException e) {
             throw new RuntimeException(e);
         }
-        MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(SESSION, tableSnapshot);
+        MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(SESSION, HDFS_FILE_SYSTEM_FACTORY.create(SESSION), tableSnapshot);
         return new DeltaLakeTableHandle(
                 schemaTableName.getSchemaName(),
                 schemaTableName.getTableName(),
@@ -136,7 +138,8 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
                 Optional.empty(),
                 Optional.empty(),
                 0,
-                false);
+                false,
+                Optional.empty());
     }
 
     @Test
@@ -268,7 +271,8 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
                 tableHandle.getUpdateRowIdColumns(),
                 tableHandle.getAnalyzeHandle(),
                 0,
-                tableHandle.isTimeTravel());
+                tableHandle.isTimeTravel(),
+                Optional.empty());
         stats = getTableStatistics(SESSION, tableHandleWithUnenforcedConstraint);
         columnStatistics = stats.getColumnStatistics().get(COLUMN_HANDLE);
         assertThat(columnStatistics.getRange().get().getMin()).isEqualTo(0.0);
@@ -294,7 +298,8 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
                 tableHandle.getUpdateRowIdColumns(),
                 tableHandle.getAnalyzeHandle(),
                 0,
-                tableHandle.isTimeTravel());
+                tableHandle.isTimeTravel(),
+                Optional.empty());
         DeltaLakeTableHandle tableHandleWithNoneUnenforcedConstraint = new DeltaLakeTableHandle(
                 tableHandle.getSchemaName(),
                 tableHandle.getTableName(),
@@ -310,7 +315,8 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
                 tableHandle.getUpdateRowIdColumns(),
                 tableHandle.getAnalyzeHandle(),
                 0,
-                tableHandle.isTimeTravel());
+                tableHandle.isTimeTravel(),
+                Optional.empty());
         // If either the table handle's constraint or the provided Constraint are none, it will cause a 0 record count to be reported
         assertEmptyStats(getTableStatistics(SESSION, tableHandleWithNoneEnforcedConstraint));
         assertEmptyStats(getTableStatistics(SESSION, tableHandleWithNoneUnenforcedConstraint));
@@ -483,6 +489,6 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
     {
         SchemaTableName name = new SchemaTableName("some_ignored_schema", "some_ignored_name");
         String tableLocation = Resources.getResource(tableLocationResourceName).toExternalForm();
-        return statistics.readExtendedStatistics(SESSION, name, tableLocation);
+        return statistics.readExtendedStatistics(SESSION, name, tableLocation, VendedCredentialsHandle.empty(tableLocation));
     }
 }

@@ -13,23 +13,25 @@
  */
 package io.trino.plugin.deltalake.metastore;
 
-import io.trino.spi.connector.SchemaTableName;
+import com.google.common.collect.ImmutableMap;
 
+import java.time.Instant;
+import java.util.Map;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public record DeltaMetastoreTable(
-        SchemaTableName schemaTableName,
-        boolean managed,
-        String location,
-        boolean catalogOwned,
-        Optional<VendedCredentials> vendedCredentials)
+public record VendedCredentials(Optional<String> tableId, Instant expireAt, Map<String, String> credentials)
 {
-    public DeltaMetastoreTable
+    public VendedCredentials
     {
-        requireNonNull(schemaTableName, "schemaTableName is null");
-        requireNonNull(location, "location is null");
-        requireNonNull(vendedCredentials, "vendedCredentials is null");
+        requireNonNull(tableId, "tableId is null");
+        requireNonNull(expireAt, "expireAt is null");
+        credentials = ImmutableMap.copyOf(credentials);
+    }
+
+    public static VendedCredentials empty()
+    {
+        return new VendedCredentials(Optional.empty(), Instant.MAX, ImmutableMap.of());
     }
 }

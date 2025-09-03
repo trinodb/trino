@@ -72,9 +72,6 @@ public class TestPipelineStats
             DataSize.ofBytes(142),
             152,
 
-            DataSize.ofBytes(14),
-            15,
-
             DataSize.ofBytes(16),
             17,
 
@@ -137,9 +134,6 @@ public class TestPipelineStats
 
         assertThat(actual.getInternalNetworkInputDataSize()).isEqualTo(DataSize.ofBytes(142));
         assertThat(actual.getInternalNetworkInputPositions()).isEqualTo(152);
-
-        assertThat(actual.getRawInputDataSize()).isEqualTo(DataSize.ofBytes(14));
-        assertThat(actual.getRawInputPositions()).isEqualTo(15);
 
         assertThat(actual.getProcessedInputDataSize()).isEqualTo(DataSize.ofBytes(16));
         assertThat(actual.getProcessedInputPositions()).isEqualTo(17);

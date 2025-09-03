@@ -113,8 +113,6 @@ export interface QueryStats {
     progressPercentage: number
     queuedDrivers: number
     queuedTime: string
-    rawInputDataSize: string
-    rawInputPositions: number
     processedInputPositions: number
     failedProcessedInputPositions: number
     processedInputDataSize: string
