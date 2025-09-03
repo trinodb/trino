@@ -38,6 +38,8 @@ import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.CatalogHandle.CatalogVersion;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnSchema;
+import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.ConnectorTableLocation;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.eventlistener.BaseViewReferenceInfo;
@@ -667,7 +669,18 @@ public class Analysis
                                 rowFilterScopes.isEmpty() &&
                                 columnMaskScopes.isEmpty(),
                         viewText,
-                        referenceChain));
+                        referenceChain,
+                        handle
+                                .map(TableHandle::connectorHandle)
+                                .flatMap(Analysis::resolveTableLocation)));
+    }
+
+    private static Optional<String> resolveTableLocation(ConnectorTableHandle catalogHandle)
+    {
+        if (catalogHandle instanceof ConnectorTableLocation tableLocation) {
+            return tableLocation.getTableLocation();
+        }
+        return Optional.empty();
     }
 
     public Set<ResolvedFunction> getResolvedFunctions()
@@ -1233,7 +1246,8 @@ public class Analysis
                             columns,
                             info.isDirectlyReferenced(),
                             info.getViewText(),
-                            info.getReferenceChain());
+                            info.getReferenceChain(),
+                            info.getLocation());
                 })
                 .collect(toImmutableList());
     }
@@ -2134,6 +2148,7 @@ public class Analysis
         private final boolean directlyReferenced;
         private final Optional<String> viewText;
         private final List<TableReferenceInfo> referenceChain;
+        private final Optional<String> location;
 
         public TableEntry(
                 Optional<TableHandle> handle,
@@ -2142,7 +2157,8 @@ public class Analysis
                 Scope accessControlScope,
                 boolean directlyReferenced,
                 Optional<String> viewText,
-                Iterable<TableReferenceInfo> referenceChain)
+                Iterable<TableReferenceInfo> referenceChain,
+                Optional<String> location)
         {
             this.handle = requireNonNull(handle, "handle is null");
             this.name = requireNonNull(name, "name is null");
@@ -2151,6 +2167,7 @@ public class Analysis
             this.directlyReferenced = directlyReferenced;
             this.viewText = requireNonNull(viewText, "viewText is null");
             this.referenceChain = ImmutableList.copyOf(requireNonNull(referenceChain, "referenceChain is null"));
+            this.location = requireNonNull(location, "location is null");
         }
 
         public Optional<TableHandle> getHandle()
@@ -2186,6 +2203,11 @@ public class Analysis
         public List<TableReferenceInfo> getReferenceChain()
         {
             return referenceChain;
+        }
+
+        public Optional<String> getLocation()
+        {
+            return location;
         }
     }
 

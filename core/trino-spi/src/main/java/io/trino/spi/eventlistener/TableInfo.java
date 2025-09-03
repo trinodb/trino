@@ -37,6 +37,7 @@ public class TableInfo
     private final boolean directlyReferenced;
     private final Optional<String> viewText;
     private final List<TableReferenceInfo> referenceChain;
+    private final Optional<String> location;
 
     @JsonCreator
     @Unstable
@@ -49,7 +50,8 @@ public class TableInfo
             List<ColumnInfo> columns,
             boolean directlyReferenced,
             Optional<String> viewText,
-            List<TableReferenceInfo> referenceChain)
+            List<TableReferenceInfo> referenceChain,
+            Optional<String> location)
     {
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
@@ -60,6 +62,7 @@ public class TableInfo
         this.directlyReferenced = directlyReferenced;
         this.viewText = requireNonNull(viewText, "viewText is null");
         this.referenceChain = List.copyOf(requireNonNull(referenceChain, "referenceChain is null"));
+        this.location = requireNonNull(location, "location is null");
     }
 
     @JsonProperty
@@ -144,5 +147,11 @@ public class TableInfo
     public List<TableReferenceInfo> getReferenceChain()
     {
         return referenceChain;
+    }
+
+    @JsonProperty
+    public Optional<String> getLocation()
+    {
+        return location;
     }
 }
