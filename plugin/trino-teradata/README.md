@@ -1,6 +1,6 @@
 # Teradata Connector Developer Notes
 The Teradata connector module has both unit tests and integration tests. 
-The integration tests require access to a Teradata ClearScape environment.
+The integration tests require access to a [Teradata ClearScape Analytics™ Experience](https://clearscape.teradata.com/sign-in)
 You can follow the steps below to be able to run the integration tests locally.
 
 
