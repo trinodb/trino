@@ -16,9 +16,26 @@ package io.trino.plugin.teradata;
 
 import io.trino.plugin.jdbc.aggregation.BaseImplementAvgBigint;
 
+/**
+ * Implements the AVG aggregation for BIGINT columns in Teradata.
+ * <p>
+ * Teradata uses FLOAT for double precision floating-point arithmetic.
+ * This class ensures that the AVG function casts BIGINT values to FLOAT,
+ * providing correct decimal division semantics.
+ * </p>
+ */
 public class ImplementAvgBigint
         extends BaseImplementAvgBigint
 {
+    /**
+     * Returns the SQL expression format for rewriting AVG aggregation.
+     * <p>
+     * The expression casts the input to FLOAT before applying AVG,
+     * ensuring proper floating-point division in Teradata.
+     * </p>
+     *
+     * @return the SQL format string for AVG aggregation
+     */
     @Override
     public String getRewriteFormatExpression()
     {
@@ -27,3 +44,4 @@ public class ImplementAvgBigint
         return "avg(CAST(%s AS FLOAT))";
     }
 }
+

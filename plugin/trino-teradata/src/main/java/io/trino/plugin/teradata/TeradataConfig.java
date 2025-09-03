@@ -32,11 +32,31 @@ import io.trino.plugin.jdbc.BaseJdbcConfig;
 public class TeradataConfig
         extends BaseJdbcConfig
 {
+    /**
+     * OIDC JWT token used for authentication.
+     */
     private String oidcJWTToken;
+
+    /**
+     * OIDC client secret used for authentication.
+     */
     private String oidcClientSecret;
+    /**
+     * OIDC JWS certificate for validating JWT signatures.
+     */
     private String oidcJWSCertificate;
+
+    /**
+     * OIDC JWS private key for signing JWTs.
+     */
     private String oidcJWSPrivateKey;
+    /**
+     * OIDC client ID used for authentication.
+     */
     private String oidcClientId;
+    /**
+     * Logon mechanism for Teradata authentication (default: TD2).
+     */
     private String logMech = "TD2";
     private TeradataCaseSensitivity teradataCaseSensitivity = TeradataCaseSensitivity.CASE_SENSITIVE;
 

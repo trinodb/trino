@@ -14,6 +14,13 @@
 
 package io.trino.plugin.teradata;
 
+/**
+ * Enum representing supported logon mechanisms for Teradata authentication.
+ * <p>
+ * Each mechanism corresponds to a specific authentication method
+ * such as TD2, JWT, BEARER, or SECRET.
+ * </p>
+ */
 public enum LogonMechanism
 {
     TD2("TD2"),
