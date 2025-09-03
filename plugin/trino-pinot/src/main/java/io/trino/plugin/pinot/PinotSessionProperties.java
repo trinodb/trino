@@ -25,6 +25,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.durationProperty;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
+import static io.trino.spi.session.PropertyMetadata.enumProperty;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
 
 public class PinotSessionProperties
@@ -37,6 +38,7 @@ public class PinotSessionProperties
     private static final String SEGMENTS_PER_SPLIT = "segments_per_split";
     private static final String AGGREGATION_PUSHDOWN_ENABLED = "aggregation_pushdown_enabled";
     private static final String COUNT_DISTINCT_PUSHDOWN_ENABLED = "count_distinct_pushdown_enabled";
+    public static final String INSERT_EXISTING_SEGMENTS_BEHAVIOR = "insert_existing_segments_behavior";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -84,6 +86,12 @@ public class PinotSessionProperties
                         COUNT_DISTINCT_PUSHDOWN_ENABLED,
                         "Enable count distinct pushdown",
                         pinotConfig.isCountDistinctPushdownEnabled(),
+                        false),
+                enumProperty(
+                        INSERT_EXISTING_SEGMENTS_BEHAVIOR,
+                        "Behavior on insert existing segments; this session property doesn't control behavior on tables without time columns, ex. dimension tables.",
+                        InsertExistingSegmentsBehavior.class,
+                        pinotConfig.getInsertExistingSegmentsBehavior(),
                         false));
     }
 
@@ -130,8 +138,20 @@ public class PinotSessionProperties
         return session.getProperty(COUNT_DISTINCT_PUSHDOWN_ENABLED, Boolean.class);
     }
 
+    public static InsertExistingSegmentsBehavior getInsertExistingSegmentsBehavior(
+            ConnectorSession session)
+    {
+        return session.getProperty(INSERT_EXISTING_SEGMENTS_BEHAVIOR, InsertExistingSegmentsBehavior.class);
+    }
+
     public List<PropertyMetadata<?>> getSessionProperties()
     {
         return sessionProperties;
+    }
+
+    public enum InsertExistingSegmentsBehavior
+    {
+        APPEND,
+        OVERWRITE,
     }
 }

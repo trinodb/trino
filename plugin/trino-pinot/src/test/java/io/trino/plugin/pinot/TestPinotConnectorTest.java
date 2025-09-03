@@ -21,22 +21,34 @@ import io.trino.testing.kafka.TestingKafka;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
+import java.util.List;
+import java.util.Optional;
+
+import static io.trino.plugin.pinot.PinotQueryRunner.PINOT_CATALOG;
 import static io.trino.plugin.pinot.TestingPinotCluster.PINOT_LATEST_IMAGE_NAME;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
+import static java.lang.String.join;
+import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestPinotConnectorTest
         extends BaseConnectorTest
 {
+    private static final String OFFLINE_INSERT_TABLE = "offline_insert";
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
         TestingKafka kafka = closeAfterClass(TestingKafka.createWithSchemaRegistry());
         kafka.start();
-        TestingPinotCluster pinot = closeAfterClass(new TestingPinotCluster(PINOT_LATEST_IMAGE_NAME, kafka.getNetwork(), false));
+        TestingPinotCluster pinot = closeAfterClass(new TestingPinotCluster(PINOT_LATEST_IMAGE_NAME, kafka.getNetwork(), false, false, Optional.empty()));
         pinot.start();
+        createOfflineInsert(pinot);
 
         return PinotQueryRunner.builder()
                 .setKafka(kafka)
@@ -89,14 +101,14 @@ public class TestPinotConnectorTest
     }
 
     @Test
-    @Override // Override because updated_at_seconds column exists
+    @Override
     public void testShowColumns()
     {
-        assertThat(query("SHOW COLUMNS FROM orders")).result().matches(getDescribeOrdersResult());
+        assertEqualsIgnoreOrder(computeActual("SHOW COLUMNS FROM orders"), getDescribeOrdersResult());
     }
 
     @Test
-    @Override // Override because updated_at_seconds column exists
+    @Override
     public void testSelectAll()
     {
         assertQuery("SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment FROM orders");
@@ -148,5 +160,71 @@ public class TestPinotConnectorTest
         assertExplain(
                 "EXPLAIN SELECT name FROM nation WHERE nationkey = 42",
                 "columnName=nationkey", "dataType=bigint", "\\s\\{\\[42\\]\\}");
+    }
+
+    @Test
+    @Override
+    public void testInsert()
+    {
+        String insertedNullValues = "(NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, bigint '31536000', NULL, NULL)";
+        assertUpdate(getInsertStatement(OFFLINE_INSERT_TABLE, getColumnList(), getValuesClause(List.of(insertedNullValues))), 1);
+    }
+
+    @Test
+    @Override
+    public void testInsertNegativeDate()
+    {
+        String insertedNegativeTimestampValues = "(NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, bigint '-31536000', NULL, NULL)";
+        assertThatThrownBy(() -> getQueryRunner().execute(
+                getInsertStatement(OFFLINE_INSERT_TABLE, getColumnList(), getValuesClause(List.of(insertedNegativeTimestampValues)))))
+                .hasMessageContaining("Invalid segment start/end time")
+                .hasMessageContaining("must be between");
+    }
+
+    private List<String> getColumnList()
+    {
+        return List.of(
+            "string_col",
+            "bool_col",
+            "bytes_col",
+            "string_array_col",
+            "bool_array_col",
+            "int_array_col",
+            "int_array_col_with_pinot_default",
+            "float_array_col",
+            "double_array_col",
+            "long_array_col",
+            "timestamp_col",
+            "timestamp_array_col",
+            "json_col",
+            "int_col",
+            "float_col",
+            "double_col",
+            "long_col",
+            "updated_at_seconds",
+            "updated_at_hours",
+            "ts");
+    }
+
+    private static String getValuesClause(List<String>... values)
+    {
+        return "VALUES " + join(",\n", Arrays.stream(values).flatMap(List::stream).collect(toUnmodifiableList()));
+    }
+
+    private static String getInsertStatement(String tableName, List<String> columnNames, String valuesClause)
+    {
+        return "INSERT INTO " + PINOT_CATALOG + ".default." + tableName + "(" + getColumnListSql(columnNames) + ")\n  " + valuesClause;
+    }
+
+    private static String getColumnListSql(List<String> columnNames)
+    {
+        return join(", ", columnNames);
+    }
+
+    private void createOfflineInsert(TestingPinotCluster pinot)
+            throws Exception
+    {
+        pinot.createSchema("offline_insert_schema.json", OFFLINE_INSERT_TABLE);
+        pinot.addOfflineTable("offline_insert_spec.json", OFFLINE_INSERT_TABLE);
     }
 }
