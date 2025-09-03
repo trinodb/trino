@@ -20,7 +20,10 @@ import io.trino.spi.connector.SourcePage;
 import io.trino.sql.gen.PageProjectionWork;
 import io.trino.sql.relational.RowExpression;
 
+import java.lang.invoke.MethodHandle;
+
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Objects.requireNonNull;
 
 public class GeneratedPageProjection
@@ -29,16 +32,16 @@ public class GeneratedPageProjection
     private final RowExpression projection;
     private final boolean isDeterministic;
     private final InputChannels inputChannels;
-    private final PageProjectionWork pageProjectionWork;
+    private final MethodHandle pageProjectionWorkFactory;
 
     private BlockBuilder blockBuilder;
 
-    public GeneratedPageProjection(RowExpression projection, boolean isDeterministic, InputChannels inputChannels, PageProjectionWork pageProjectionWork)
+    public GeneratedPageProjection(RowExpression projection, boolean isDeterministic, InputChannels inputChannels, MethodHandle pageProjectionWorkFactory)
     {
         this.projection = requireNonNull(projection, "projection is null");
         this.isDeterministic = isDeterministic;
         this.inputChannels = requireNonNull(inputChannels, "inputChannels is null");
-        this.pageProjectionWork = requireNonNull(pageProjectionWork, "pageProjectionWork is null");
+        this.pageProjectionWorkFactory = requireNonNull(pageProjectionWorkFactory, "pageProjectionWorkFactory is null");
         this.blockBuilder = projection.type().createBlockBuilder(null, 1);
     }
 
@@ -58,7 +61,12 @@ public class GeneratedPageProjection
     public Block project(ConnectorSession session, SourcePage page, SelectedPositions selectedPositions)
     {
         blockBuilder = blockBuilder.newBlockBuilderLike(selectedPositions.size(), null);
-        return pageProjectionWork.process(session, page, selectedPositions, blockBuilder);
+        try {
+            return ((PageProjectionWork) pageProjectionWorkFactory.invoke(blockBuilder, session, page, selectedPositions)).process();
+        }
+        catch (Throwable throwable) {
+            throw propagate(throwable);
+        }
     }
 
     @Override
@@ -67,5 +75,14 @@ public class GeneratedPageProjection
         return toStringHelper(this)
                 .add("projection", projection)
                 .toString();
+    }
+
+    private static RuntimeException propagate(Throwable throwable)
+    {
+        if (throwable instanceof InterruptedException) {
+            Thread.currentThread().interrupt();
+        }
+        throwIfUnchecked(throwable);
+        throw new RuntimeException(throwable);
     }
 }
