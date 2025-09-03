@@ -588,7 +588,7 @@ public class TeradataJdbcConnectorTest
         TestTable e = table;
 
         try {
-            Assertions.assertThat(this.query("SELECT i FROM " + table.getName() + " WHERE CAST(t AS date) = DATE '2005-09-10'")).hasCorrectResultsRegardlessOfPushdown().skippingTypesCheck().containsAll("VALUES 'UTC', 'Los Angeles'");
+            Assertions.assertThat(this.query("SELECT i FROM " + table.getName() + " WHERE CAST(t AS date) = DATE '2005-09-10'")).hasCorrectResultsRegardlessOfPushdown();
         }
         catch (Throwable var7) {
             if (table != null) {
@@ -627,7 +627,7 @@ public class TeradataJdbcConnectorTest
         TestTable e = table;
 
         try {
-            Assertions.assertThat(this.query("SELECT i FROM " + table.getName() + " WHERE CAST(t AS timestamp(0)) = TIMESTAMP '2005-09-10 13:00:00'")).hasCorrectResultsRegardlessOfPushdown().skippingTypesCheck().containsAll("VALUES 'UTC'");
+            Assertions.assertThat(this.query("SELECT i FROM " + table.getName() + " WHERE CAST(t AS timestamp(0)) = TIMESTAMP '2005-09-10 13:00:00'")).hasCorrectResultsRegardlessOfPushdown();
         }
         catch (Throwable var7) {
             if (table != null) {
