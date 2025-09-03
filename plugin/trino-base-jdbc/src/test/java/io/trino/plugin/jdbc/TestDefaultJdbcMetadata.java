@@ -445,7 +445,8 @@ public class TestDefaultJdbcMetadata
                 Optional.of(ImmutableSet.of()),
                 0,
                 Optional.empty(),
-                ImmutableList.of());
+                ImmutableList.of(),
+                baseTableHandle.getTableLocation());
 
         // redirection is not applied if constraintExpressions is present
         assertThat(metadata.applyTableScanRedirect(session, filterWithConstraintExpressionResult)).isEmpty();

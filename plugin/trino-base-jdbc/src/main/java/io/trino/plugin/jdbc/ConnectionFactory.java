@@ -18,6 +18,7 @@ import jakarta.annotation.PreDestroy;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.Optional;
 
 @FunctionalInterface
 public interface ConnectionFactory
@@ -25,6 +26,11 @@ public interface ConnectionFactory
 {
     Connection openConnection(ConnectorSession session)
             throws SQLException;
+
+    default Optional<String> getConnectionUrl()
+    {
+        return Optional.empty();
+    }
 
     @Override
     @PreDestroy

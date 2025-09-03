@@ -288,7 +288,8 @@ public class DefaultJdbcMetadata
                 handle.getOtherReferencedTables(),
                 handle.getNextSyntheticColumnId(),
                 handle.getAuthorization(),
-                handle.getUpdateAssignments());
+                handle.getUpdateAssignments(),
+                handle.getTableLocation());
 
         return Optional.of(new ConstraintApplicationResult<>(handle, remainingFilter, remainingExpression, precalculateStatisticsForPushdown));
     }
@@ -308,7 +309,8 @@ public class DefaultJdbcMetadata
                 handle.getAllReferencedTables(),
                 handle.getNextSyntheticColumnId(),
                 handle.getAuthorization(),
-                handle.getUpdateAssignments());
+                handle.getUpdateAssignments(),
+                handle.getTableLocation());
     }
 
     @Override
@@ -367,7 +369,8 @@ public class DefaultJdbcMetadata
                         handle.getOtherReferencedTables(),
                         handle.getNextSyntheticColumnId(),
                         handle.getAuthorization(),
-                        handle.getUpdateAssignments()),
+                        handle.getUpdateAssignments(),
+                        handle.getTableLocation()),
                 projections,
                 assignments.entrySet().stream()
                         .map(assignment -> new Assignment(
@@ -927,7 +930,8 @@ public class DefaultJdbcMetadata
                 handle.getOtherReferencedTables(),
                 handle.getNextSyntheticColumnId(),
                 handle.getAuthorization(),
-                handle.getUpdateAssignments());
+                handle.getUpdateAssignments(),
+                handle.getTableLocation());
 
         return Optional.of(new LimitApplicationResult<>(handle, jdbcClient.isLimitGuaranteed(session), precalculateStatisticsForPushdown));
     }

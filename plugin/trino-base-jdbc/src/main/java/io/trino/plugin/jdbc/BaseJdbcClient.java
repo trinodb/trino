@@ -238,7 +238,7 @@ public abstract class BaseJdbcClient
             try (ResultSet resultSet = getTables(connection, Optional.of(remoteSchema), Optional.of(remoteTable))) {
                 List<JdbcTableHandle> tableHandles = new ArrayList<>();
                 while (resultSet.next()) {
-                    tableHandles.add(new JdbcTableHandle(schemaTableName, getRemoteTable(resultSet), getTableComment(resultSet)));
+                    tableHandles.add(new JdbcTableHandle(schemaTableName, getRemoteTable(resultSet), getTableComment(resultSet), connectionFactory.getConnectionUrl()));
                 }
                 if (tableHandles.isEmpty()) {
                     return Optional.empty();
@@ -1229,7 +1229,7 @@ public abstract class BaseJdbcClient
 
         List<JdbcColumnHandle> columns = getColumns(session, schemaTableName, remoteTableName);
 
-        JdbcTableHandle plainTable = new JdbcTableHandle(schemaTableName, remoteTableName, Optional.empty());
+        JdbcTableHandle plainTable = new JdbcTableHandle(schemaTableName, remoteTableName, Optional.empty(), handle.getTableLocation());
 
         JdbcOutputTableHandle outputTableHandle = beginInsertTable(session, plainTable, columns);
         rollbackActions.add(() -> rollbackCreateTable(session, outputTableHandle));

@@ -23,6 +23,7 @@ import io.trino.spi.security.ConnectorIdentity;
 import java.sql.Connection;
 import java.sql.Driver;
 import java.sql.SQLException;
+import java.util.Optional;
 import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -50,6 +51,12 @@ public class DriverConnectionFactory
         this.connectionProperties.putAll(requireNonNull(connectionProperties, "connectionProperties is null"));
         this.credentialPropertiesProvider = requireNonNull(credentialPropertiesProvider, "credentialPropertiesProvider is null");
         this.dataSource = new TracingDataSource(requireNonNull(openTelemetry, "openTelemetry is null"), driver, connectionUrl);
+    }
+
+    @Override
+    public Optional<String> getConnectionUrl()
+    {
+        return Optional.of(connectionUrl);
     }
 
     @Override

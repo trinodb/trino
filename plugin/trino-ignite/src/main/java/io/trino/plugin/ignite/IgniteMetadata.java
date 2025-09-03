@@ -163,7 +163,8 @@ public class IgniteMetadata
                     handle.getOtherReferencedTables(),
                     handle.getNextSyntheticColumnId(),
                     handle.getAuthorization(),
-                    handle.getUpdateAssignments());
+                    handle.getUpdateAssignments(),
+                    handle.getTableLocation());
         }
 
         return new IgniteMergeTableHandle(
