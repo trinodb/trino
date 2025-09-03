@@ -13,13 +13,9 @@
  */
 package io.trino.sql.gen;
 
-import io.trino.operator.project.SelectedPositions;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.SourcePage;
 
 public interface PageProjectionWork
 {
-    Block process(ConnectorSession session, SourcePage page, SelectedPositions selectedPositions, BlockBuilder builder);
+    Block process();
 }
