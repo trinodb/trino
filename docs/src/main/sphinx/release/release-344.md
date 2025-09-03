@@ -44,7 +44,7 @@ Please, read these release notes carefully.
 * Change file-based system and catalog access controls to only show catalogs, schemas, and tables a user
   has permissions on. ({issue}`5039`)
 * Change file-based catalog access control to deny permissions inspection and manipulation. ({issue}`5039`)
-* Add [file-based group provider](/security/group-file). ({issue}`5028`)
+* Add [file-based group provider](/security/group-mapping). ({issue}`5028`)
 
 ## Hive connector
 
