@@ -84,6 +84,7 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.and;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantBoolean;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
+import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.lessThan;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newArray;
@@ -327,8 +328,14 @@ public class PageFunctionCompiler
                 .body(new BytecodeBlock()
                         .append(thisVariable.invoke("evaluate", void.class, session, index))));
 
-        body.comment("return this.blockBuilder.build();")
-                .append(thisVariable.getField(blockBuilderField).invoke("build", Block.class))
+        body.comment("nullify object fields to allow for GC")
+                .append(thisVariable.setField(blockBuilderField, constantNull(BlockBuilder.class)));
+        for (FieldDefinition field : blockFields) {
+            body.append(thisVariable.setField(field, constantNull(Block.class)));
+        }
+
+        body.comment("return blockBuilder.build();")
+                .append(blockBuilder.invoke("build", Block.class))
                 .retObject();
     }
 
