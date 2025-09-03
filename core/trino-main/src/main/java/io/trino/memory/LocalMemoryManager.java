@@ -17,8 +17,10 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.inject.Inject;
+import com.sun.management.UnixOperatingSystemMXBean;
 import io.airlift.units.DataSize;
 
+import java.lang.management.ManagementFactory;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Verify.verify;
@@ -63,7 +65,7 @@ public final class LocalMemoryManager
 
     public MemoryInfo getInfo()
     {
-        return new MemoryInfo(AVAILABLE_PROCESSORS.get(), memoryPool.getInfo());
+        return new MemoryInfo(AVAILABLE_PROCESSORS.get(), ((UnixOperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean()).getCpuLoad(), memoryPool.getInfo());
     }
 
     public MemoryPool getMemoryPool()
