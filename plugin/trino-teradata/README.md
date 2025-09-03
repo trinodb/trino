@@ -5,7 +5,7 @@ You can follow the steps below to be able to run the integration tests locally.
 
 
 ## Requirements
-* Access to a Teradata ClearScape account. You can create one by visiting the [Teradata ClearScape portal](https://clearscape.teradata.com/sign-in).
+* Access to Teradata ClearScape Analytics™ Experience. You can register by visiting the [Teradata ClearScape Analytics™ Experience](https://clearscape.teradata.com/sign-in).
 * Valid Teradata ClearScape API credentials (token and environment name).
 
 ## Steps
