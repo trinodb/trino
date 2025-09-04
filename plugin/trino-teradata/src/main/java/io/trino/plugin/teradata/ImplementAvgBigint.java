@@ -44,4 +44,3 @@ public class ImplementAvgBigint
         return "avg(CAST(%s AS FLOAT))";
     }
 }
-
