@@ -16,6 +16,7 @@ package io.trino.jdbc;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logging;
+import io.trino.client.CloseableLimitingIterator;
 import io.trino.plugin.blackhole.BlackHolePlugin;
 import io.trino.server.testing.TestingTrinoServer;
 import org.junit.jupiter.api.AfterAll;
@@ -25,12 +26,14 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.lang.reflect.Field;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
@@ -158,6 +161,35 @@ public class TestJdbcStatement
                     .allMatch(errorCode -> "TRANSACTION_ALREADY_ABORTED".equals(errorCode) || "USER_CANCELED".equals(errorCode))
                     .hasSize(1);
         }
+    }
+
+    @Test
+    public void testMaxCacheRows()
+            throws Exception
+    {
+        try (Connection connection = createConnection()) {
+            int maxCacheSize = 10;
+            TrinoStatement statement = (TrinoStatement) connection.createStatement();
+            statement.setMaxCacheRows(maxCacheSize);
+            TrinoResultSet resultSet = (TrinoResultSet) statement.executeQuery("SELECT * FROM TABLE(sequence(start => 1, stop => 100))");
+            // trigger fetch
+            resultSet.next();
+
+            assertThat(getAsyncResultIteratorQueueSize(resultSet)).isEqualTo(maxCacheSize);
+        }
+    }
+
+    private int getAsyncResultIteratorQueueSize(TrinoResultSet resultSet)
+            throws Exception
+    {
+        CloseableLimitingIterator results = (CloseableLimitingIterator) AbstractTrinoResultSet.class.getDeclaredField("results").get(resultSet);
+        Field asyncResultIteratorField = CloseableLimitingIterator.class.getDeclaredField("delegate");
+        asyncResultIteratorField.setAccessible(true);
+        AsyncResultIterator asyncResultIterator = (AsyncResultIterator) asyncResultIteratorField.get(results);
+        Field rowQueueField = AsyncResultIterator.class.getDeclaredField("rowQueue");
+        rowQueueField.setAccessible(true);
+        BlockingQueue rowQueue = (BlockingQueue) rowQueueField.get(asyncResultIterator);
+        return rowQueue.size();
     }
 
     private Connection createConnection()

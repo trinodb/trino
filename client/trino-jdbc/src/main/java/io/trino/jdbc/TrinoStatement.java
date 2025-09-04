@@ -52,6 +52,7 @@ public class TrinoStatement
     private final AtomicLong currentUpdateCount = new AtomicLong(-1);
     private final AtomicReference<String> currentUpdateType = new AtomicReference<>();
     private final AtomicReference<Consumer<QueryStats>> progressCallback = new AtomicReference<>();
+    private final AtomicInteger maxCacheRows = new AtomicInteger();
 
     TrinoStatement(TrinoConnection connection, Consumer<TrinoStatement> onClose)
     {
@@ -273,7 +274,7 @@ public class TrinoStatement
             executingClient.set(client);
             WarningsManager warningsManager = new WarningsManager();
             currentWarningsManager.set(warningsManager);
-            resultSet = TrinoResultSet.create(this, client, maxRows.get(), this::progressCallback, warningsManager);
+            resultSet = TrinoResultSet.create(this, client, maxRows.get(), maxCacheRows.get(), this::progressCallback, warningsManager);
 
             // check if this is a query
             if (client.currentStatusInfo().getUpdateType() == null) {
@@ -629,6 +630,23 @@ public class TrinoStatement
                 resultSet.partialCancel();
             }
         }
+    }
+
+    public int getMaxCacheRows()
+            throws SQLException
+    {
+        checkOpen();
+        return maxCacheRows.get();
+    }
+
+    public void setMaxCacheRows(int rows)
+            throws SQLException
+    {
+        checkOpen();
+        if (rows < 0) {
+            throw new SQLException("Max cache rows must be positive");
+        }
+        maxCacheRows.set(rows);
     }
 
     protected final void checkOpen()
