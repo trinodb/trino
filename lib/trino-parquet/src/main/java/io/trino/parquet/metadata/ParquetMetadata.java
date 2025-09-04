@@ -114,7 +114,13 @@ public class ParquetMetadata
                 List<ColumnChunk> columns = rowGroup.getColumns();
                 validateParquet(!columns.isEmpty(), dataSourceId, "No columns in row group: %s", rowGroup);
                 String filePath = columns.get(0).getFile_path();
+
+                // make sure split either contains or does not contain all column chunks of a row group
                 long rowGroupStart = getRowGroupStart(columns, messageType);
+                for (int i = 1; i < columns.size(); i++) {
+                    long columnStart = getRowGroupStart(columns.get(i), messageType);
+                    validateParquet(columnStart == rowGroupStart, dataSourceId, "all column chunks of the same row group must start at the same position (%s vs %s)", rowGroupStart, columnStart);
+                }
                 boolean splitContainsRowGroup = splitStart <= rowGroupStart && rowGroupStart < splitStart + splitLength;
                 if (!splitContainsRowGroup) {
                     continue;
@@ -145,9 +151,14 @@ public class ParquetMetadata
 
     private static long getRowGroupStart(List<ColumnChunk> columns, MessageType messageType)
     {
+        return getRowGroupStart(columns.getFirst(), messageType);
+    }
+
+    private static long getRowGroupStart(ColumnChunk column, MessageType messageType)
+    {
         // Note: Do not rely on org.apache.parquet.format.RowGroup.getFile_offset or org.apache.parquet.format.ColumnChunk.getFile_offset
         // because some versions of parquet-cpp-arrow (and potentially other writers) set it incorrectly
-        ColumnChunkMetadata columnChunkMetadata = toColumnChunkMetadata(columns.getFirst(), null, messageType);
+        ColumnChunkMetadata columnChunkMetadata = toColumnChunkMetadata(column, null, messageType);
         return columnChunkMetadata.getStartingPos();
     }
 
