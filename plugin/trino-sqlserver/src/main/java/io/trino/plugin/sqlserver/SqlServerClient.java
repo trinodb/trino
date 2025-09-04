@@ -119,6 +119,7 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -372,6 +373,29 @@ public class SqlServerClient
         JdbcOutputTableHandle table = super.beginInsertTable(session, tableHandle, columns);
         enableTableLockOnBulkLoadTableOption(session, table);
         return table;
+    }
+
+    @Override
+    public Collection<String> listSchemas(Connection connection)
+    {
+        // Avoid using DatabaseMetaData.getSchemas method because
+        // https://github.com/microsoft/mssql-jdbc/commit/351c2bec2ed88249cf9d68804224b717015d1625 introduced a filtering
+        // of internal (predefined) schemas.
+        try (PreparedStatement statement = connection.prepareStatement("SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA");
+                ResultSet resultSet = statement.executeQuery()) {
+            ImmutableSet.Builder<String> schemaNames = ImmutableSet.builder();
+            while (resultSet.next()) {
+                String schemaName = resultSet.getString("SCHEMA_NAME");
+                // skip internal schemas
+                if (filterSchema(schemaName)) {
+                    schemaNames.add(schemaName);
+                }
+            }
+            return schemaNames.build();
+        }
+        catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     protected void enableTableLockOnBulkLoadTableOption(ConnectorSession session, JdbcOutputTableHandle table)
