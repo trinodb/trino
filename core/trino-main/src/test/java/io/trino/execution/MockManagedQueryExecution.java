@@ -294,7 +294,6 @@ public class MockManagedQueryExecution
                 RetryPolicy.NONE,
                 false,
                 new NodeVersion("test"));
-
     }
 
     @Override

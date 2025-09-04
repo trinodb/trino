@@ -648,7 +648,6 @@ public class QueryStateMachine
                 getRetryPolicy(session),
                 false,
                 version);
-
     }
 
     private QueryStats getQueryStats(Optional<StagesInfo> stages)
