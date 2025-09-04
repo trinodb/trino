@@ -147,7 +147,7 @@ public class TrinoEventData
                 queryStatistics,
                 queryContext,
                 queryIOMetadata,
-                Collections.emptyList(),
+                Optional.empty(),
                 Optional.empty(),
                 Collections.emptyList(),
                 Instant.parse("2025-04-28T11:23:55.384424Z"),

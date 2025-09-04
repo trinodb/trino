@@ -81,13 +81,13 @@ public class QueryInfo
     private final List<TrinoWarning> warnings;
     private final Set<Input> inputs;
     private final Optional<Output> output;
+    private final Optional<List<ColumnLineageInfo>> selectColumnLineageInfo;
     private final boolean finalQueryInfo;
     private final Optional<ResourceGroupId> resourceGroupId;
     private final Optional<QueryType> queryType;
     private final RetryPolicy retryPolicy;
     private final boolean pruned;
     private final NodeVersion version;
-    private final Optional<List<ColumnLineageInfo>> selectColumnLineageInfo;
 
     @JsonCreator
     public QueryInfo(
@@ -119,6 +119,7 @@ public class QueryInfo
             @JsonProperty("warnings") List<TrinoWarning> warnings,
             @JsonProperty("inputs") Set<Input> inputs,
             @JsonProperty("output") Optional<Output> output,
+            @JsonProperty("selectColumnLineageInfo") Optional<List<ColumnLineageInfo>> selectColumnLineageInfo,
             @JsonProperty("referencedTables") List<TableInfo> referencedTables,
             @JsonProperty("routines") List<RoutineInfo> routines,
             @JsonProperty("finalQueryInfo") boolean finalQueryInfo,
@@ -126,8 +127,7 @@ public class QueryInfo
             @JsonProperty("queryType") Optional<QueryType> queryType,
             @JsonProperty("retryPolicy") RetryPolicy retryPolicy,
             @JsonProperty("pruned") boolean pruned,
-            @JsonProperty("version") NodeVersion version,
-            @JsonProperty("selectColumnLineageInfo") Optional<List<ColumnLineageInfo>> selectColumnLineageInfo)
+            @JsonProperty("version") NodeVersion version)
 
     {
         requireNonNull(queryId, "queryId is null");
@@ -492,6 +492,7 @@ public class QueryInfo
                 warnings,
                 inputs,
                 output,
+                selectColumnLineageInfo,
                 referencedTables,
                 routines,
                 finalQueryInfo,
@@ -499,7 +500,6 @@ public class QueryInfo
                 queryType,
                 retryPolicy,
                 pruned,
-                version,
-                selectColumnLineageInfo);
+                version);
     }
 }

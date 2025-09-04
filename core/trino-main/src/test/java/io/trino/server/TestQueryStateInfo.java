@@ -205,6 +205,7 @@ public class TestQueryStateInfo
                 ImmutableList.of(),
                 ImmutableSet.of(),
                 Optional.empty(),
+                Optional.empty(),
                 ImmutableList.of(),
                 ImmutableList.of(),
                 false,
@@ -212,7 +213,6 @@ public class TestQueryStateInfo
                 Optional.of(QueryType.SELECT),
                 RetryPolicy.NONE,
                 false,
-                new NodeVersion("version"),
-                Optional.empty());
+                new NodeVersion("version"));
     }
 }

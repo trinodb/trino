@@ -223,7 +223,7 @@ final class TestHttpEventListener
                 queryStatistics,
                 queryContext,
                 queryIOMetadata,
-                ImmutableList.of(),
+                Optional.empty(),
                 Optional.empty(),
                 Collections.emptyList(),
                 Instant.now(),

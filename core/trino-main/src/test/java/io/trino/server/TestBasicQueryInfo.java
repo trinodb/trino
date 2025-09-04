@@ -160,6 +160,7 @@ public class TestBasicQueryInfo
                         ImmutableList.of(),
                         ImmutableSet.of(),
                         Optional.empty(),
+                        Optional.empty(),
                         ImmutableList.of(),
                         ImmutableList.of(),
                         false,
@@ -167,8 +168,7 @@ public class TestBasicQueryInfo
                         Optional.of(QueryType.SELECT),
                         RetryPolicy.NONE,
                         false,
-                        new NodeVersion("test"),
-                        Optional.empty()));
+                        new NodeVersion("test")));
 
         assertThat(basicInfo.getQueryId().getId()).isEqualTo("0");
         assertThat(basicInfo.getState()).isEqualTo(RUNNING);

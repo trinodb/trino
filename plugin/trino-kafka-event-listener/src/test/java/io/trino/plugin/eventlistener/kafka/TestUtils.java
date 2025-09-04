@@ -14,7 +14,6 @@
 
 package io.trino.plugin.eventlistener.kafka;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.ErrorType;
@@ -194,7 +193,7 @@ public final class TestUtils
                 queryStatistics,
                 queryContext,
                 queryIOMetadata,
-                ImmutableList.of(),
+                Optional.empty(),
                 queryFailureInfo,
                 List.of(new TrinoWarning(new WarningCode(101, "TestCode"), "Test error message")),
                 Instant.now(),

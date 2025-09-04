@@ -639,6 +639,7 @@ public class QueryStateMachine
                 warningCollector.getWarnings(),
                 inputs.get(),
                 output.get(),
+                selectColumnsLineageInfo.get(),
                 referencedTables.get(),
                 routines.get(),
                 finalInfo,
@@ -646,8 +647,8 @@ public class QueryStateMachine
                 queryType,
                 getRetryPolicy(session),
                 false,
-                version,
-                selectColumnsLineageInfo.get());
+                version);
+
     }
 
     private QueryStats getQueryStats(Optional<StagesInfo> stages)
@@ -1464,6 +1465,7 @@ public class QueryStateMachine
                 queryInfo.getWarnings(),
                 queryInfo.getInputs(),
                 queryInfo.getOutput(),
+                Optional.empty(),
                 queryInfo.getReferencedTables(),
                 queryInfo.getRoutines(),
                 queryInfo.isFinalQueryInfo(),
@@ -1471,8 +1473,7 @@ public class QueryStateMachine
                 queryInfo.getQueryType(),
                 queryInfo.getRetryPolicy(),
                 true,
-                version,
-                Optional.empty());
+                version);
     }
 
     private static StagesInfo pruneStages(StagesInfo stages)
