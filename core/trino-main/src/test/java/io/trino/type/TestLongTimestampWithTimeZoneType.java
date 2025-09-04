@@ -170,7 +170,8 @@ public class TestLongTimestampWithTimeZoneType
                 .isEqualTo(Optional.empty());
     }
 
-    public static Stream<Arguments> testPreviousNextValueEveryPrecisionDataProvider() {
+    public static Stream<Arguments> testPreviousNextValueEveryPrecisionDataProvider()
+    {
         return Stream.of(
                 Arguments.of(
                         4,
@@ -216,8 +217,7 @@ public class TestLongTimestampWithTimeZoneType
                         12,
                         LongTimestampWithTimeZone.fromEpochMillisAndFraction(Long.MIN_VALUE, 0, UTC_KEY),
                         LongTimestampWithTimeZone.fromEpochMillisAndFraction(Long.MAX_VALUE, PICOS_OF_MILLI - 1, UTC_KEY),
-                        1)
-        );
+                        1));
     }
 
     @Test
