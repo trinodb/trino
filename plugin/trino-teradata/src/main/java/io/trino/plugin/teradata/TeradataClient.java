@@ -1,12 +1,23 @@
-/**
- * Unpublished work.
- * Copyright 2025 by Teradata Corporation. All rights reserved
- * TERADATA CORPORATION CONFIDENTIAL AND TRADE SECRET
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package io.trino.plugin.teradata;
 
 import com.google.inject.Inject;
+import io.airlift.slice.Slice;
+import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
+import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.plugin.base.mapping.IdentifierMapping;
 import io.trino.plugin.jdbc.BaseJdbcClient;
@@ -14,23 +25,69 @@ import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.CaseSensitivity;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
+import io.trino.plugin.jdbc.JdbcColumnHandle;
+import io.trino.plugin.jdbc.JdbcExpression;
+import io.trino.plugin.jdbc.JdbcMetadata;
+import io.trino.plugin.jdbc.JdbcOutputTableHandle;
+import io.trino.plugin.jdbc.JdbcSortItem;
+import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.LongReadFunction;
 import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.ObjectReadFunction;
 import io.trino.plugin.jdbc.ObjectWriteFunction;
+import io.trino.plugin.jdbc.PredicatePushdownController;
+import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
+import io.trino.plugin.jdbc.SliceReadFunction;
+import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
+import io.trino.plugin.jdbc.aggregation.ImplementAvgDecimal;
+import io.trino.plugin.jdbc.aggregation.ImplementAvgFloatingPoint;
+import io.trino.plugin.jdbc.aggregation.ImplementCorr;
+import io.trino.plugin.jdbc.aggregation.ImplementCount;
+import io.trino.plugin.jdbc.aggregation.ImplementCountAll;
+import io.trino.plugin.jdbc.aggregation.ImplementCountDistinct;
+import io.trino.plugin.jdbc.aggregation.ImplementCovariancePop;
+import io.trino.plugin.jdbc.aggregation.ImplementCovarianceSamp;
+import io.trino.plugin.jdbc.aggregation.ImplementMinMax;
+import io.trino.plugin.jdbc.aggregation.ImplementRegrIntercept;
+import io.trino.plugin.jdbc.aggregation.ImplementRegrSlope;
+import io.trino.plugin.jdbc.aggregation.ImplementStddevPop;
+import io.trino.plugin.jdbc.aggregation.ImplementStddevSamp;
+import io.trino.plugin.jdbc.aggregation.ImplementSum;
+import io.trino.plugin.jdbc.aggregation.ImplementVariancePop;
+import io.trino.plugin.jdbc.aggregation.ImplementVarianceSamp;
+import io.trino.plugin.jdbc.expression.ComparisonOperator;
 import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
 import io.trino.plugin.jdbc.expression.ParameterizedExpression;
+import io.trino.plugin.jdbc.expression.RewriteCaseSensitiveComparison;
+import io.trino.plugin.jdbc.expression.RewriteIn;
+import io.trino.plugin.jdbc.expression.RewriteLikeEscapeWithCaseSensitivity;
+import io.trino.plugin.jdbc.expression.RewriteLikeWithCaseSensitivity;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.JoinStatistics;
+import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.ValueSet;
+import io.trino.spi.statistics.ColumnStatistics;
+import io.trino.spi.statistics.Estimate;
+import io.trino.spi.statistics.TableStatistics;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.CharType;
+import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.TimeType;
@@ -38,12 +95,22 @@ import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.VarcharType;
+import org.jdbi.v3.core.Handle;
+import org.jdbi.v3.core.Jdbi;
 import org.weakref.jmx.$internal.guava.collect.ImmutableMap;
+import org.weakref.jmx.$internal.guava.collect.ImmutableSet;
 
+import java.sql.Array;
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.Instant;
@@ -54,37 +121,76 @@ import java.time.OffsetTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoField;
+import java.util.AbstractMap.SimpleEntry;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Set;
+import java.util.function.BiFunction;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Verify.verify;
+import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
 import static io.trino.plugin.jdbc.CaseSensitivity.CASE_INSENSITIVE;
 import static io.trino.plugin.jdbc.CaseSensitivity.CASE_SENSITIVE;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static io.trino.plugin.jdbc.JdbcJoinPushdownUtil.implementJoinCostAware;
+import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.getDomainCompactionThreshold;
+import static io.trino.plugin.jdbc.PredicatePushdownController.CASE_INSENSITIVE_CHARACTER_PUSHDOWN;
 import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
+import static io.trino.plugin.jdbc.PredicatePushdownController.FULL_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
-import static io.trino.plugin.jdbc.StandardColumnMappings.charColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.charReadFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.charWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.dateColumnMappingUsingLocalDate;
+import static io.trino.plugin.jdbc.StandardColumnMappings.dateWriteFunctionUsingLocalDate;
 import static io.trino.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.doubleWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.fromTrinoTime;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.longDecimalWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.realWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timestampColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.timestampWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryColumnMapping;
-import static io.trino.plugin.jdbc.StandardColumnMappings.varcharColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.varcharReadFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateTimeEncoding.packTimeWithTimeZone;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateTimeEncoding.unpackZoneKey;
+import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.StandardTypes.JSON;
 import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
@@ -93,34 +199,82 @@ import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.round;
+import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.Math.floorDiv;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toMap;
 
 /**
- * TeradataClient is a JDBC client implementation for the Teradata database.
- * It extends BaseJdbcClient to provide Teradata-specific handling for
- * data types, case sensitivity, and SQL expression rewriting.
+ * TeradataClient provides a Trino connector implementation for Teradata databases.
  * <p>
- * This client supports reading data from Teradata but does not support
- * schema creation or delete operations.
+ * It handles Teradata-specific SQL translation, type mapping, statistics retrieval,
+ * and enforces read-only semantics. The class extends {@link BaseJdbcClient} and
+ * customizes behavior for Teradata's SQL dialect and metadata.
  * </p>
- * <p>
- * It includes custom mappings for Teradata-specific types such as
- * TIMESTAMP WITH TIME ZONE and TIME WITH TIME ZONE, as well as JSON.
- * </p>
- * <p>
- * The client also defines how case sensitivity is handled based on the Teradata
- * JDBC case sensitivity setting.
- * </p>
- *
- * <p>Unpublished work. Copyright 2025 by Teradata Corporation. All rights reserved.</p>
  */
 public class TeradataClient
         extends BaseJdbcClient
 {
+    /**
+     * Predicate pushdown controller for Teradata string columns.
+     * Ensures correct pushdown behavior for case-sensitive and case-insensitive domains.
+     */
+    private static final PredicatePushdownController TERADATA_STRING_PUSHDOWN = (session, domain) -> {
+        // 1. NULL-only filters are always safe
+        if (domain.isOnlyNull()) {
+            return FULL_PUSHDOWN.apply(session, domain);
+        }
+
+        Domain simplifiedDomain = domain.simplify(getDomainCompactionThreshold(session));
+        if (!simplifiedDomain.getValues().isDiscreteSet()) {
+            // Push down inequality predicate
+            ValueSet complement = simplifiedDomain.getValues().complement();
+            if (complement.isDiscreteSet()) {
+                return FULL_PUSHDOWN.apply(session, simplifiedDomain);
+            }
+            // Domain#simplify can turn a discrete set into a range predicate
+            // Push down of range predicate for varchar/char types could lead to incorrect results
+            // when the remote database is case-insensitive
+            return DISABLE_PUSHDOWN.apply(session, domain);
+        }
+        return FULL_PUSHDOWN.apply(session, simplifiedDomain);
+    };
+    /**
+     * Maximum fallback number of distinct values (NDV) for statistics estimation.
+     */
+    private static final long MAX_FALLBACK_NDV = 1_000_000L;
+    /**
+     * Default fallback fraction for NDV estimation (10% of row count).
+     */
+    private static final double DEFAULT_FALLBACK_FRACTION = 0.1;
+    /**
+     * Maximum supported timestamp precision in Teradata.
+     */
+    private static final int TERADATA_MAX_SUPPORTED_TIMESTAMP_PRECISION = 6;
+    /**
+     * Trino type representing JSON columns.
+     */
+    private final Type jsonType;
+    /**
+     * Teradata String case sensitivity mode.
+     */
     private final TeradataConfig.TeradataCaseSensitivity teradataJDBCCaseSensitivity;
+    /**
+     * Flag indicating if statistics collection is enabled.
+     */
+    private final boolean statisticsEnabled;
+    /**
+     * Expression rewriter for translating connector expressions to Teradata SQL.
+     */
     private ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
+    /**
+     * Aggregate function rewriter for translating Trino aggregates to Teradata SQL.
+     */
+    private AggregateFunctionRewriter<JdbcExpression, ?> aggregateFunctionRewriter;
 
     /**
      * Constructs a new TeradataClient instance.
@@ -133,12 +287,14 @@ public class TeradataClient
      * @param remoteQueryModifier optional modifier for remote queries
      */
     @Inject
-    public TeradataClient(BaseJdbcConfig config, TeradataConfig teradataConfig, ConnectionFactory connectionFactory, QueryBuilder queryBuilder, IdentifierMapping identifierMapping, RemoteQueryModifier remoteQueryModifier)
+    public TeradataClient(BaseJdbcConfig config, TeradataConfig teradataConfig, JdbcStatisticsConfig statisticsConfig, ConnectionFactory connectionFactory, QueryBuilder queryBuilder, TypeManager typeManager, IdentifierMapping identifierMapping, RemoteQueryModifier remoteQueryModifier)
     {
         super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, remoteQueryModifier, true);
+        this.jsonType = typeManager.getType(new TypeSignature(JSON));
         this.teradataJDBCCaseSensitivity = teradataConfig.getTeradataCaseSensitivity();
+        this.statisticsEnabled = statisticsConfig.isEnabled();
         buildExpressionRewriter();
-        // TODO         this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(
+        buildAggregateRewriter();
     }
 
     /**
@@ -155,7 +311,7 @@ public class TeradataClient
 
     /**
      * Returns a function to read TIME values from JDBC result set,
-     * converting SQL Timestamp to Trino's internal representation.
+     * converting SQL Timestamp to Trino internal representation.
      *
      * @param timeType Trino TimeType
      * @return LongReadFunction for TIME values
@@ -204,17 +360,6 @@ public class TeradataClient
     {
         return ColumnMapping.longMapping(createTimeWithTimeZoneType(precision), shortTimeWithTimeZoneReadFunction(), shortTimeWithTimeZoneWriteFunction(), DISABLE_PUSHDOWN);
     }
-
-    // TODO
-    // public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle)
-    // public Optional<PreparedQuery> implementJoin(
-    // public Optional<PreparedQuery> legacyImplementJoin(
-    // public Optional<JdbcExpression> implementAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
-    // public boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<AggregateFunction> aggregates, Map<String, ColumnHandle> assignments, List<List<ColumnHandle>> groupingSets)
-    // public boolean isLimitGuaranteed(ConnectorSession session)
-    // public boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<JdbcSortItem> sortOrder)
-    // public boolean isTopNGuaranteed(ConnectorSession session)
-    // public Optional<JdbcExpression> convertProjection(ConnectorSession session, JdbcTableHandle handle, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
 
     /**
      * Reads TIME WITH TIME ZONE values from JDBC ResultSet.
@@ -278,8 +423,6 @@ public class TeradataClient
         };
     }
 
-    // --- Static utility methods for Teradata time and timestamp types ---
-
     /**
      * Writes TIMESTAMP WITH TIME ZONE values with short precision to JDBC PreparedStatement.
      *
@@ -329,16 +472,363 @@ public class TeradataClient
     }
 
     /**
-     * Teradata does not support creating schemas through this connector.
+     * Creates a ColumnMapping for Teradata CHAR columns.
+     * <p>
+     * If the specified length exceeds the maximum allowed for CHAR, the column is mapped as VARCHAR.
+     * The mapping also applies the appropriate predicate pushdown controller based on case sensitivity.
+     * </p>
      *
-     * @param session connector session
-     * @param schemaName schema name to create
-     * @throws TrinoException always thrown with NOT_SUPPORTED error code
+     * @param charLength the length of the CHAR column
+     * @param isCaseSensitive true if the column is case-sensitive, false otherwise
+     * @return ColumnMapping for the CHAR or VARCHAR column
      */
-    @Override
-    public void createSchema(ConnectorSession session, String schemaName)
+    private static ColumnMapping charColumnMapping(int charLength, boolean isCaseSensitive)
     {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating schemas");
+        if (charLength > CharType.MAX_LENGTH) {
+            return varcharColumnMapping(charLength, isCaseSensitive);
+        }
+        CharType charType = createCharType(charLength);
+        return ColumnMapping.sliceMapping(
+                charType,
+                charReadFunction(charType),
+                charWriteFunction(),
+                isCaseSensitive ? TERADATA_STRING_PUSHDOWN : CASE_INSENSITIVE_CHARACTER_PUSHDOWN);
+    }
+
+    /**
+     * Creates a ColumnMapping for Teradata VARCHAR columns.
+     * <p>
+     * If the specified length exceeds the maximum allowed for VARCHAR, the column is mapped as unbounded VARCHAR.
+     * The mapping also applies the appropriate predicate pushdown controller based on case sensitivity.
+     * </p>
+     *
+     * @param varcharLength the length of the VARCHAR column
+     * @param isCaseSensitive true if the column is case-sensitive, false otherwise
+     * @return ColumnMapping for the VARCHAR column
+     */
+    private static ColumnMapping varcharColumnMapping(int varcharLength, boolean isCaseSensitive)
+    {
+        VarcharType varcharType = varcharLength <= VarcharType.MAX_LENGTH
+                ? createVarcharType(varcharLength)
+                : createUnboundedVarcharType();
+        return ColumnMapping.sliceMapping(
+                varcharType,
+                varcharReadFunction(varcharType),
+                varcharWriteFunction(),
+                isCaseSensitive ? TERADATA_STRING_PUSHDOWN : CASE_INSENSITIVE_CHARACTER_PUSHDOWN);
+    }
+
+    /**
+     * Converts a Trino DecimalType to a JDBC type handle for NUMERIC/DECIMAL columns.
+     *
+     * @param decimalType the Trino DecimalType
+     * @return Optional containing the corresponding JdbcTypeHandle
+     */
+    private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
+    {
+        return Optional.of(new JdbcTypeHandle(Types.NUMERIC, Optional.of("decimal"), Optional.of(decimalType.getPrecision()), Optional.of(decimalType.getScale()), Optional.empty(), Optional.empty()));
+    }
+
+    /**
+     * Returns a SliceWriteFunction for writing JSON values as typed VARCHAR to JDBC.
+     *
+     * @return SliceWriteFunction for JSON columns
+     */
+    private static SliceWriteFunction typedVarcharWriteFunction()
+    {
+        String bindExpression = format("CAST(? AS %s)", "json".toUpperCase());
+
+        return new SliceWriteFunction()
+        {
+            @Override
+            public String getBindExpression()
+            {
+                return bindExpression;
+            }
+
+            @Override
+            public void set(PreparedStatement statement, int index, Slice value)
+                    throws SQLException
+            {
+                if (value == null) {
+                    statement.setNull(index, Types.OTHER);
+                    return;
+                }
+                statement.setString(index, value.toStringUtf8());
+            }
+        };
+    }
+
+    /**
+     * Determines case sensitivity for string columns based on configuration and metadata.
+     *
+     * @param caseSensitivity the case sensitivity from metadata
+     * @return true if case-sensitive, false otherwise
+     */
+    private boolean deriveCaseSensitivity(CaseSensitivity caseSensitivity)
+    {
+        return switch (teradataJDBCCaseSensitivity) {
+            case CASE_INSENSITIVE -> false;
+            case CASE_SENSITIVE -> true;
+            default -> caseSensitivity != null;
+        };
+    }
+
+    @Override
+    protected Optional<BiFunction<String, Long, String>> limitFunction()
+    {
+        return Optional.of((sql, limit) -> {
+            return sql.replaceFirst("(?i)^SELECT", "SELECT TOP " + limit);
+        });
+    }
+
+    @Override
+    public boolean isLimitGuaranteed(ConnectorSession session)
+    {
+        return true;
+    }
+
+    @Override
+    public boolean isTopNGuaranteed(ConnectorSession session)
+    {
+        return true;
+    }
+
+    @Override
+    public boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<JdbcSortItem> sortOrder)
+    {
+        // Teradata supports TOP N with ORDER BY for all data types
+        return true;
+    }
+
+    @Override
+    protected Optional<TopNFunction> topNFunction()
+    {
+        return Optional.of((query, sortItems, limit) -> {
+            // Collect selected columns
+            Set<String> selectColumns = new HashSet<>();
+            Matcher matcher = Pattern.compile("(?i)SELECT\\s+(.*?)\\s+FROM").matcher(query);
+            if (matcher.find()) {
+                String[] cols = matcher.group(1).split(",");
+                for (String col : cols) {
+                    selectColumns.add(col.trim().replaceAll("\"", ""));
+                }
+            }
+
+            // Add missing ORDER BY columns to SELECT
+            List<String> extraColumns = new ArrayList<>();
+            for (JdbcSortItem sortItem : sortItems) {
+                String columnName = sortItem.column().getColumnName();
+                if (!selectColumns.contains(columnName)) {
+                    extraColumns.add("\"" + columnName + "\"");
+                }
+            }
+
+            String modifiedQuery = query;
+            if (!extraColumns.isEmpty()) {
+                String allColumns = String.join(", ", selectColumns.stream().map(c -> "\"" + c + "\"").toList());
+                allColumns += ", " + String.join(", ", extraColumns);
+                modifiedQuery = query.replaceFirst("(?i)SELECT\\s+(.*?)\\s+FROM", "SELECT " + allColumns + " FROM");
+            }
+
+            String orderBy = sortItems.stream()
+                    .map(sortItem -> {
+                        String columnName = quoted(sortItem.column().getColumnName());
+                        boolean asc = sortItem.sortOrder().isAscending();
+                        String direction = asc ? "ASC" : "DESC";
+                        String nullsHandling = sortItem.sortOrder().isNullsFirst() ? "NULLS FIRST" : "NULLS LAST";
+                        return columnName + " " + direction + " " + nullsHandling;
+                    })
+                    .collect(Collectors.joining(", "));
+
+            // Remove schema qualification (e.g. trino.nation → nation)
+            String baseQuery = modifiedQuery.replaceAll("\\w+\\.\\w+\\.", "");
+
+            return format("SELECT TOP %d * FROM (%s) AS t ORDER BY %s", limit, baseQuery, orderBy);
+        });
+    }
+
+    @Override
+    public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle)
+    {
+        if (!statisticsEnabled) {
+            return TableStatistics.empty();
+        }
+        if (!handle.isNamedRelation()) {
+            return TableStatistics.empty();
+        }
+        try {
+            return readTableStatistics(session, handle);
+        }
+        catch (SQLException | RuntimeException e) {
+            throwIfInstanceOf(e, TrinoException.class);
+            throw new TrinoException(JDBC_ERROR, "Failed fetching statistics for table: " + handle, e);
+        }
+    }
+
+    private TableStatistics readTableStatistics(ConnectorSession session, JdbcTableHandle table)
+            throws SQLException
+    {
+        checkArgument(table.isNamedRelation(), "Relation is not a table: %s", table);
+
+        try (Connection connection = connectionFactory.openConnection(session);
+                Handle handle = Jdbi.open(connection)) {
+            TeradataStatisticsDao dao = new TeradataStatisticsDao(handle);
+            long rowCount = dao.estimateRowCount(table);
+
+            // Fallback to SAMPLE
+            if (rowCount <= 0) {
+                OptionalLong fallbackCount = dao.sampleRowCountEstimate(table, connection);
+                if (fallbackCount.isEmpty()) {
+                    return TableStatistics.empty();
+                }
+                rowCount = fallbackCount.getAsLong();
+            }
+
+            Map<String, TeradataStatisticsDao.ColumnIndexStatistics> stats = dao.getColumnIndexStatistics(table);
+            TableStatistics.Builder tableStats = TableStatistics.builder().setRowCount(Estimate.of(rowCount));
+
+            for (JdbcColumnHandle column : JdbcMetadata.getColumns(session, this, table)) {
+                String columnName = column.getColumnName().toLowerCase();
+                TeradataStatisticsDao.ColumnIndexStatistics stat = stats.get(columnName);
+
+                ColumnStatistics.Builder columnStats = ColumnStatistics.builder();
+
+                if (stat != null) {
+                    columnStats.setNullsFraction(Estimate.of((double) stat.nullCount() / rowCount));
+
+                    long distinctValues = stat.distinctValues();
+                    if (distinctValues <= 0) {
+                        // No NDV info from Teradata, fallback
+                        columnStats.setDistinctValuesCount(Estimate.of(computeFallbackNDV(rowCount)));
+                    }
+                    else {
+                        columnStats.setDistinctValuesCount(Estimate.of(distinctValues));
+                    }
+                }
+                else {
+                    // No stats at all for this column, fallback both null fraction and NDV
+                    columnStats.setNullsFraction(Estimate.of(0.0));
+                    columnStats.setDistinctValuesCount(Estimate.of(computeFallbackNDV(rowCount)));
+                }
+
+                tableStats.setColumnStatistics(column, columnStats.build());
+            }
+
+            return tableStats.build();
+        }
+    }
+
+    /**
+     * Compute fallback NDV based on table row count.
+     * - Uses a fraction (e.g., 10%) of rowCount as fallback NDV,
+     * - capped at MAX_FALLBACK_NDV,
+     * - minimum fallback of 1 to avoid zero distinct count.
+     */
+    private long computeFallbackNDV(long rowCount)
+    {
+        if (rowCount <= 0) {
+            return 1; // minimal fallback for empty or invalid row count
+        }
+
+        long fallback = (long) (rowCount * DEFAULT_FALLBACK_FRACTION);
+        fallback = Math.max(fallback, 1); // at least 1 distinct value
+        fallback = Math.min(fallback, MAX_FALLBACK_NDV); // cap at max fallback
+
+        return fallback;
+    }
+
+    @Override
+    public Optional<PreparedQuery> implementJoin(
+            ConnectorSession session,
+            JoinType joinType,
+            PreparedQuery leftSource,
+            Map<JdbcColumnHandle, String> leftProjections,
+            PreparedQuery rightSource,
+            Map<JdbcColumnHandle, String> rightProjections,
+            List<ParameterizedExpression> joinConditions,
+            JoinStatistics statistics)
+    {
+        return implementJoinCostAware(
+                session,
+                joinType,
+                leftSource,
+                rightSource,
+                statistics,
+                () -> super.implementJoin(session, joinType, leftSource, leftProjections, rightSource, rightProjections, joinConditions, statistics));
+    }
+
+    @Override
+    public Optional<JdbcExpression> implementAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
+    {
+        return aggregateFunctionRewriter.rewrite(session, aggregate, assignments);
+    }
+
+    protected void createSchema(ConnectorSession session, Connection connection, String remoteSchemaName)
+    {
+        execute(session, format(
+                "CREATE DATABASE %s AS PERMANENT = 60000000, SPOOL = 120000000",
+                quoted(remoteSchemaName)));
+    }
+
+    @Override
+    protected void copyTableSchema(ConnectorSession session, Connection connection, String catalogName, String schemaName, String tableName, String newTableName, List<String> columnNames)
+    {
+        String tableCopyFormat = "CREATE TABLE %s AS ( SELECT * FROM %s ) WITH DATA";
+        String sql = format(
+                tableCopyFormat,
+                quoted(catalogName, schemaName, newTableName),
+                quoted(catalogName, schemaName, tableName));
+        try {
+            execute(session, connection, sql);
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
+    }
+
+    @Override
+    protected void verifySchemaName(DatabaseMetaData databaseMetadata, String schemaName)
+            throws SQLException
+    {
+        int schemaNameLimit = databaseMetadata.getMaxSchemaNameLength();
+        if (schemaName.length() > schemaNameLimit) {
+            throw new TrinoException(NOT_SUPPORTED, format("Schema name must be shorter than or equal to '%s' characters but got '%s'", schemaNameLimit, schemaName.length()));
+        }
+    }
+
+    @Override
+    protected void verifyTableName(DatabaseMetaData databaseMetadata, String tableName)
+            throws SQLException
+    {
+        if (tableName.length() > databaseMetadata.getMaxTableNameLength()) {
+            throw new TrinoException(NOT_SUPPORTED, format("Table name must be shorter than or equal to '%s' characters but got '%s'", databaseMetadata.getMaxTableNameLength(), tableName.length()));
+        }
+    }
+
+    @Override
+    protected void verifyColumnName(DatabaseMetaData databaseMetadata, String columnName)
+            throws SQLException
+    {
+        if (columnName.length() > databaseMetadata.getMaxColumnNameLength()) {
+            throw new TrinoException(NOT_SUPPORTED, format("Column name must be shorter than or equal to '%s' characters but got '%s': '%s'", databaseMetadata.getMaxColumnNameLength(), columnName.length(), columnName));
+        }
+    }
+
+    protected void dropSchema(ConnectorSession session, Connection connection, String remoteSchemaName, boolean cascade)
+            throws SQLException
+    {
+        if (cascade) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping schemas with CASCADE option");
+        }
+        String dropSchema = "DROP DATABASE " + quoted(remoteSchemaName);
+        execute(session, connection, dropSchema);
+    }
+
+    @Override
+    public void renameSchema(ConnectorSession session, String schemaName, String newSchemaName)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming schema");
     }
 
     /**
@@ -352,18 +842,163 @@ public class TeradataClient
     @Override
     public OptionalLong delete(ConnectorSession session, JdbcTableHandle handle)
     {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support delete operations");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support modifying table rows");
+    }
+
+    /**
+     * Truncate operations are not supported by the Teradata connector.
+     *
+     * @param session connector session
+     * @param handle table handle identifying the target table
+     * @throws TrinoException always thrown with NOT_SUPPORTED error code
+     */
+    @Override
+    public void truncateTable(ConnectorSession session, JdbcTableHandle handle)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support truncating tables");
+    }
+
+    /**
+     * Drop column operations are not supported by the Teradata connector.
+     *
+     * @param session connector session
+     * @param handle table handle identifying the target table
+     * @param column column handle identifying the column to drop
+     * @throws TrinoException always thrown with NOT_SUPPORTED error code
+     */
+    @Override
+    public void dropColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping columns");
+    }
+
+    /**
+     * Rename column operations are not supported by the Teradata connector.
+     *
+     * @param session connector session
+     * @param handle table handle identifying the target table
+     * @param jdbcColumn column handle identifying the column to rename
+     * @param newColumnName new name for the column
+     * @throws TrinoException always thrown with NOT_SUPPORTED error code
+     */
+    @Override
+    public void renameColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming columns");
+    }
+
+    /**
+     * Rename table operations are not supported by the Teradata connector.
+     *
+     * @param session connector session
+     * @param handle table handle identifying the target table
+     * @param newTableName new name for the table
+     * @throws TrinoException always thrown with NOT_SUPPORTED error code
+     */
+    @Override
+    public void renameTable(ConnectorSession session, JdbcTableHandle handle, SchemaTableName newTableName)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming tables");
+    }
+
+    @Override
+    public JdbcOutputTableHandle beginInsertTable(ConnectorSession session, JdbcTableHandle tableHandle, List<JdbcColumnHandle> columns)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support inserts");
+    }
+
+    @Override
+    public void setColumnType(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Type type)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting column types");
+    }
+
+    @Override
+    public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column, ColumnPosition position)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support add column operations");
+    }
+
+    @Override
+    public void dropNotNullConstraint(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping a not null constraint");
     }
 
     /**
      * Builds the expression rewriter for translating connector expressions
      * into SQL fragments understood by Teradata.
-     * Currently supports numeric equality expressions and quoted identifiers.
+     * Currently, supports numeric equality expressions and quoted identifiers.
      */
     private void buildExpressionRewriter()
     {
-        // TODO add additional rules with test cases (see sqlserver's)
-        this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder().addStandardRules(this::quoted).map("$equal(left: numeric_type, right: numeric_type)").to("left = right").build();
+        this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
+                .addStandardRules(this::quoted)
+                .add(new RewriteIn())
+                .add(new RewriteLikeWithCaseSensitivity())
+                .add(new RewriteLikeEscapeWithCaseSensitivity())
+                .withTypeClass("integer_type", ImmutableSet.of("tinyint", "smallint", "integer", "bigint"))
+                .withTypeClass("numeric_type", ImmutableSet.of("tinyint", "smallint", "integer", "bigint", "decimal", "real", "double"))
+                .map("$equal(left: numeric_type, right: numeric_type)").to("left = right")
+                .map("$not_equal(left: numeric_type, right: numeric_type)").to("left <> right")
+                .map("$less_than(left: numeric_type, right: numeric_type)").to("left < right")
+                .map("$less_than_or_equal(left: numeric_type, right: numeric_type)").to("left <= right")
+                .map("$greater_than(left: numeric_type, right: numeric_type)").to("left > right")
+                .map("$greater_than_or_equal(left: numeric_type, right: numeric_type)").to("left >= right")
+                .add(new RewriteCaseSensitiveComparison(ImmutableSet.of(ComparisonOperator.EQUAL, ComparisonOperator.NOT_EQUAL)))
+                .map("$add(left: integer_type, right: integer_type)").to("left + right")
+                .map("$subtract(left: integer_type, right: integer_type)").to("left - right")
+                .map("$multiply(left: integer_type, right: integer_type)").to("left * right")
+                .map("$divide(left: integer_type, right: integer_type)").to("left / right")
+                .map("$modulus(left: integer_type, right: integer_type)").to("MOD(left, right)")
+                .map("$negate(value: integer_type)").to("-value")
+                .map("$not($is_null(value))").to("value IS NOT NULL")
+                .map("$not(value: boolean)").to("NOT value")
+                .map("$is_null(value)").to("value IS NULL")
+                .map("$nullif(first, second)").to("NULLIF(first, second)")
+                .build();
+    }
+
+    /**
+     * Initializes the aggregate function rewriter for Teradata.
+     * <p>
+     * This method sets up the {@link AggregateFunctionRewriter} with a set of rules for translating Trino aggregate functions
+     * into SQL expressions supported by Teradata. Supported aggregates include COUNT, SUM, AVG, MIN, MAX, statistical functions,
+     * and regression/correlation functions. The rewriter uses the connector's expression rewriter for SQL translation.
+     * </p>
+     */
+    private void buildAggregateRewriter()
+    {
+        JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+
+        this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(
+                this.connectorExpressionRewriter,
+                ImmutableSet.<AggregateFunctionRule<JdbcExpression, ParameterizedExpression>>builder()
+                        // Basic aggregates
+                        .add(new ImplementCountAll(bigintTypeHandle))
+                        .add(new ImplementCount(bigintTypeHandle))
+                        .add(new ImplementCountDistinct(bigintTypeHandle, false))
+                        .add(new ImplementMinMax(false))
+                        .add(new ImplementSum(TeradataClient::toTypeHandle))
+
+                        // AVG
+                        .add(new ImplementAvgFloatingPoint())
+                        .add(new ImplementAvgDecimal())
+                        .add(new ImplementAvgBigint())
+
+                        // Statistical aggregates (numeric types only)
+                        .add(new ImplementStddevSamp())
+                        .add(new ImplementStddevPop())
+                        .add(new ImplementVarianceSamp())
+                        .add(new ImplementVariancePop())
+
+                        // Correlation and regression
+                        .add(new ImplementCovarianceSamp())
+                        .add(new ImplementCovariancePop())
+                        .add(new ImplementCorr())
+                        .add(new ImplementRegrIntercept())
+                        .add(new ImplementRegrSlope())
+                        .build());
     }
 
     /**
@@ -381,6 +1016,12 @@ public class TeradataClient
         return this.connectorExpressionRewriter.rewrite(session, expression, assignments);
     }
 
+    @Override
+    public boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<AggregateFunction> aggregates, Map<String, ColumnHandle> assignments, List<List<ColumnHandle>> groupingSets)
+    {
+        return preventTextualTypeAggregationPushdown(groupingSets);
+    }
+
     /**
      * Returns a mapping of column names to their case sensitivity,
      * derived from the metadata of a query "SELECT * FROM schema.table WHERE 0=1".
@@ -389,7 +1030,7 @@ public class TeradataClient
      * @param connection JDBC connection to the Teradata database
      * @param schemaTableName schema and table name within the connector
      * @param remoteTableName the fully qualified remote table name
-     * @return map of column name to case sensitivity (case sensitive or insensitive)
+     * @return map of column name to case sensitivity (case-sensitive or insensitive)
      */
     @Override
     protected Map<String, CaseSensitivity> getCaseSensitivityForColumns(ConnectorSession session, Connection connection, SchemaTableName schemaTableName, RemoteTableName remoteTableName)
@@ -397,7 +1038,7 @@ public class TeradataClient
         // try to use result set metadata from select * from table to populate the mapping
         try {
             HashMap<String, CaseSensitivity> caseMap = new HashMap<>();
-            String sql = String.format("select * from %s.%s where 0=1", schemaTableName.getSchemaName(), schemaTableName.getTableName());
+            String sql = format("select * from %s.%s where 0=1", schemaTableName.getSchemaName(), schemaTableName.getTableName());
             PreparedStatement pstmt = connection.prepareStatement(sql);
             ResultSetMetaData rsmd = pstmt.getMetaData();
             int columnCount = rsmd.getColumnCount();
@@ -410,25 +1051,6 @@ public class TeradataClient
         catch (SQLException e) {
             // behavior of base jdbc
             return ImmutableMap.of();
-        }
-    }
-
-    /**
-     * Determines the case sensitivity for a type based on Teradata configuration.
-     *
-     * @param typeHandleCaseSensitivity optional case sensitivity from type metadata
-     * @return true if case sensitive, false otherwise
-     */
-    private boolean deriveCaseSensitivity(Optional<CaseSensitivity> typeHandleCaseSensitivity)
-    {
-        switch (teradataJDBCCaseSensitivity) {
-            case NOT_CASE_SPECIFIC:
-                return false;
-            case CASE_SPECIFIC:
-                return true;
-            case AS_DEFINED:
-            default:
-                return typeHandleCaseSensitivity.orElse(CASE_INSENSITIVE) == CASE_SENSITIVE;
         }
     }
 
@@ -453,21 +1075,22 @@ public class TeradataClient
         }
 
         // switch by names as some types overlap other types going by jdbc type alone
-        String jdbcTypeName = typeHandle.jdbcTypeName().orElseThrow(() -> new TrinoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
+        String jdbcTypeName = typeHandle.jdbcTypeName().orElse("VARCHAR");
         switch (jdbcTypeName.toUpperCase()) {
             case "TIMESTAMP WITH TIME ZONE":
-                // TODO review correctness
                 return Optional.of(timestampWithTimeZoneColumnMapping(typeHandle.requiredDecimalDigits()));
             case "TIME WITH TIME ZONE":
-                // TODO review correctness
                 return Optional.of(timeWithTimeZoneColumnMapping(typeHandle.requiredDecimalDigits()));
             case "JSON":
-                // TODO map to trino json value
-                return mapToUnboundedVarchar(typeHandle);
+                return Optional.of(jsonColumnMapping());
+            case "NUMBER":
+                return numberMapping(typeHandle);
+            case "CHARACTER":
+                return Optional.of(charColumnMapping(typeHandle.requiredColumnSize(), deriveCaseSensitivity(typeHandle.caseSensitivity().orElse(null))));
+            case "ARRAY":
+                return Optional.of(arrayColumnMapping());
         }
 
-        // switch by jdbc type
-        // TODO missing types interval, array, etc
         switch (typeHandle.jdbcType()) {
             case Types.TINYINT:
                 return Optional.of(tinyintColumnMapping());
@@ -486,22 +1109,21 @@ public class TeradataClient
                 return Optional.of(doubleColumnMapping());
             case Types.NUMERIC:
             case Types.DECIMAL:
-                // also applies to teradata number type
-                // this is roughly logic see used by sql server
-                int precision = typeHandle.requiredColumnSize();
-                int scale = typeHandle.requiredDecimalDigits();
-                if (precision > Decimals.MAX_PRECISION) {
-                    // this will trigger for number(*) as precision is 40
-                    break;
-                }
-                return Optional.of(decimalColumnMapping(createDecimalType(precision, scale)));
+                return numberMapping(typeHandle);
             case Types.CHAR:
-                return Optional.of(charColumnMapping(createCharType(typeHandle.requiredColumnSize()), deriveCaseSensitivity(typeHandle.caseSensitivity())));
+                return Optional.of(charColumnMapping(typeHandle.requiredColumnSize(), deriveCaseSensitivity(typeHandle.caseSensitivity().orElse(null))));
             case Types.VARCHAR:
                 // see prior note on trino case sensitivity
-                return Optional.of(varcharColumnMapping(createVarcharType(typeHandle.requiredColumnSize()), deriveCaseSensitivity(typeHandle.caseSensitivity())));
+                return Optional.of(varcharColumnMapping(typeHandle.requiredColumnSize(), deriveCaseSensitivity(typeHandle.caseSensitivity().orElse(null))));
+            case Types.CLOB:
+                return Optional.of(ColumnMapping.sliceMapping(
+                        createUnboundedVarcharType(),
+                        (resultSet, columnIndex) -> utf8Slice(resultSet.getString(columnIndex)),
+                        varcharWriteFunction(),
+                        DISABLE_PUSHDOWN));
             case Types.BINARY:
             case Types.VARBINARY:
+            case Types.BLOB:
                 // trino only has varbinary
                 return Optional.of(varbinaryColumnMapping());
             case Types.DATE:
@@ -520,6 +1142,24 @@ public class TeradataClient
     }
 
     /**
+     * Maps a JDBC NUMERIC/DECIMAL type to a Trino DecimalType column mapping.
+     * Handles precision and scale constraints.
+     *
+     * @param typeHandle the JDBC type handle
+     * @return Optional containing the ColumnMapping for the decimal type
+     */
+    private Optional<ColumnMapping> numberMapping(JdbcTypeHandle typeHandle)
+    {
+        int precision = typeHandle.requiredColumnSize();
+        int scale = typeHandle.requiredDecimalDigits();
+        if (precision > Decimals.MAX_PRECISION) {
+            // this will trigger for number(*) as precision is 40
+            return Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, scale)));
+        }
+        return Optional.of(decimalColumnMapping(createDecimalType(precision, scale)));
+    }
+
+    /**
      * This connector is read-only and does not support writing to Teradata.
      * This method always throws a NOT_SUPPORTED exception.
      *
@@ -531,7 +1171,258 @@ public class TeradataClient
     @Override
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
-        // connector is read-only
-        throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
+        return switch (type) {
+            case Type t when t.equals(jsonType) -> WriteMapping.sliceMapping("JSON", typedVarcharWriteFunction());
+            case Type t when t == TINYINT -> WriteMapping.longMapping("smallint", tinyintWriteFunction());
+            case Type t when t == SMALLINT -> WriteMapping.longMapping("smallint", smallintWriteFunction());
+            case Type t when t == INTEGER -> WriteMapping.longMapping("integer", integerWriteFunction());
+            case Type t when t == BIGINT -> WriteMapping.longMapping("bigint", bigintWriteFunction());
+            case Type t when t == REAL -> WriteMapping.longMapping("FLOAT", realWriteFunction());
+            case Type t when t == DOUBLE -> WriteMapping.doubleMapping("double precision", doubleWriteFunction());
+            case Type t when VARBINARY.equals(t) -> WriteMapping.sliceMapping("blob", varbinaryWriteFunction());
+            case Type t when t == DATE -> WriteMapping.longMapping("date", dateWriteFunctionUsingLocalDate());
+            case DecimalType decimalType -> {
+                String dataType = format("decimal(%s, %s)", decimalType.getPrecision(), decimalType.getScale());
+                if (decimalType.isShort()) {
+                    yield WriteMapping.longMapping(dataType, shortDecimalWriteFunction(decimalType));
+                }
+                yield WriteMapping.objectMapping(dataType, longDecimalWriteFunction(decimalType));
+            }
+            case CharType charType -> WriteMapping.sliceMapping("char(" + charType.getLength() + ")", charWriteFunction());
+            case VarcharType varcharType -> {
+                String dataType = varcharType.isUnbounded() ? "clob" : "varchar(" + varcharType.getBoundedLength() + ")";
+                yield WriteMapping.sliceMapping(dataType, varcharWriteFunction());
+            }
+            case TimeType timeType -> {
+                verify(timeType.getPrecision() <= TERADATA_MAX_SUPPORTED_TIMESTAMP_PRECISION);
+                yield WriteMapping.longMapping(format("time(%s)", timeType.getPrecision()), timeWriteFunction(timeType.getPrecision()));
+            }
+            case TimestampType timestampType -> {
+                verify(timestampType.getPrecision() <= TERADATA_MAX_SUPPORTED_TIMESTAMP_PRECISION);
+                yield WriteMapping.longMapping(format("timestamp(%s)", timestampType.getPrecision()), timestampWriteFunction(timestampType));
+            }
+            default -> throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
+        };
+    }
+
+    /**
+     * Creates a ColumnMapping for Teradata JSON columns.
+     *
+     * @return ColumnMapping for the JSON column
+     */
+    private ColumnMapping jsonColumnMapping()
+    {
+        return ColumnMapping.sliceMapping(
+                jsonType,
+                jsonReadFunction(),
+                typedVarcharWriteFunction(),
+                DISABLE_PUSHDOWN);
+    }
+
+    /**
+     * Reads JSON values from a JDBC ResultSet and parses them as Trino slices.
+     *
+     * @return SliceReadFunction for JSON columns
+     */
+    private SliceReadFunction jsonReadFunction()
+    {
+        return (resultSet, columnIndex) -> {
+            String json = resultSet.getString(columnIndex);
+            if (json == null) {
+                return null;
+            }
+            return jsonParse(utf8Slice(json));
+        };
+    }
+
+    /**
+     * Creates a ColumnMapping for Teradata ARRAY columns (defaulting to VARCHAR element type).
+     *
+     * @return ColumnMapping for the ARRAY column
+     */
+    private ColumnMapping arrayColumnMapping()
+    {
+        // Default to VARCHAR element type - you can enhance this to detect actual element type
+        Type elementType = createUnboundedVarcharType();
+        Type arrayType = new ArrayType(elementType);
+
+        return ColumnMapping.objectMapping(
+                arrayType,
+                arrayReadFunction(elementType),
+                arrayWriteFunction(elementType),
+                DISABLE_PUSHDOWN);
+    }
+
+    /**
+     * Reads ARRAY values from a JDBC ResultSet and converts them to Trino blocks.
+     *
+     * @param elementType the Trino type of array elements
+     * @return ObjectReadFunction for ARRAY columns
+     */
+    private ObjectReadFunction arrayReadFunction(Type elementType)
+    {
+        return ObjectReadFunction.of(Block.class, (resultSet, columnIndex) -> {
+            Array sqlArray = resultSet.getArray(columnIndex);
+            if (sqlArray == null) {
+                return null;
+            }
+
+            Object[] elements = (Object[]) sqlArray.getArray();
+            BlockBuilder blockBuilder = elementType.createBlockBuilder(null, elements.length);
+
+            for (Object element : elements) {
+                if (element == null) {
+                    blockBuilder.appendNull();
+                }
+                else {
+                    elementType.writeSlice(blockBuilder, utf8Slice(element.toString()));
+                }
+            }
+
+            return blockBuilder.build();
+        });
+    }
+
+    /**
+     * Writes ARRAY values from Trino blocks to a JDBC PreparedStatement.
+     *
+     * @param elementType the Trino type of array elements
+     *
+     */
+    private ObjectWriteFunction arrayWriteFunction(Type elementType)
+    {
+        return ObjectWriteFunction.of(Block.class, (statement, index, block) -> {
+            if (block == null) {
+                statement.setNull(index, Types.ARRAY);
+                return;
+            }
+
+            Object[] elements = new Object[block.getPositionCount()];
+            for (int i = 0; i < block.getPositionCount(); i++) {
+                if (block.isNull(i)) {
+                    elements[i] = null;
+                }
+                else {
+                    elements[i] = elementType.getSlice(block, i).toStringUtf8();
+                }
+            }
+
+            Array sqlArray = statement.getConnection().createArrayOf("VARCHAR", elements);
+            statement.setArray(index, sqlArray);
+        });
+    }
+
+    /**
+     * TeradataStatisticsDao provides methods to retrieve table and column statistics from Teradata's system tables.
+     * <p>
+     * It estimates row counts, retrieves column-level statistics such as null counts and distinct value counts,
+     * and provides a fallback mechanism for row count estimation using sampling. This class is used internally
+     * by {@link TeradataClient} to support statistics-related features for query planning and optimization.
+     * </p>
+     */
+    private record TeradataStatisticsDao(Handle handle)
+    {
+        /**
+         * Constructs a TeradataStatisticsDao with the provided JDBI handle.
+         *
+         * @param handle JDBI handle for database access
+         */
+        private TeradataStatisticsDao(Handle handle)
+        {
+            this.handle = requireNonNull(handle, "handle is null");
+        }
+
+        /**
+         * Estimates the row count for a table using the maximum RowCount from DBC.StatsV.
+         *
+         * @param table the JDBC table handle
+         * @return estimated row count, or 0 if unavailable
+         */
+        public long estimateRowCount(JdbcTableHandle table)
+        {
+            RemoteTableName remote = table.getRequiredNamedRelation().getRemoteTableName();
+            String schema = remote.getSchemaName().orElseThrow();
+            String tableName = remote.getTableName();
+
+            return handle.createQuery(
+                            "SELECT MAX(RowCount) AS est_row_count " +
+                                    "FROM DBC.StatsV " +
+                                    "WHERE DatabaseName = :schema AND TableName = :table")
+                    .bind("schema", schema)
+                    .bind("table", tableName)
+                    .mapTo(Long.class)
+                    .findOne()
+                    .orElse(0L);
+        }
+
+        /**
+         * Retrieves column-level statistics (null count, distinct value count) from DBC.StatsV.
+         *
+         * @param table the JDBC table handle
+         * @return map of column name to column statistics
+         */
+        public Map<String, ColumnIndexStatistics> getColumnIndexStatistics(JdbcTableHandle table)
+        {
+            RemoteTableName remote = table.getRequiredNamedRelation().getRemoteTableName();
+            String schema = remote.getSchemaName().orElseThrow();
+            String tableName = remote.getTableName();
+
+            return handle.createQuery(
+                            "SELECT ColumnName, NullCount, UniqueValueCount " +
+                                    "FROM DBC.StatsV " +
+                                    "WHERE DatabaseName = :schema AND TableName = :table")
+                    .bind("schema", schema)
+                    .bind("table", tableName)
+                    .map((rs, _) -> {
+                        String column = rs.getString("ColumnName");
+                        if (column == null) {
+                            // skip this row by returning null
+                            return null;
+                        }
+                        long nullCount = rs.getLong("NullCount");
+                        long distinct = rs.getLong("UniqueValueCount");
+
+                        return new SimpleEntry<>(
+                                column.trim().toLowerCase(),
+                                new ColumnIndexStatistics(nullCount > 0, distinct, nullCount));
+                    })
+                    // Filter out nulls before collecting to map
+                    .filter(Objects::nonNull)
+                    .collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
+        }
+
+        /**
+         * Estimates the row count using a SAMPLE query as a fallback when direct statistics are unavailable.
+         *
+         * @param table the JDBC table handle
+         * @param connection JDBC connection
+         * @return OptionalLong containing the estimated row count, or empty if unavailable
+         */
+        public OptionalLong sampleRowCountEstimate(JdbcTableHandle table, Connection connection)
+        {
+            RemoteTableName remote = table.getRequiredNamedRelation().getRemoteTableName();
+            String schema = remote.getSchemaName().orElseThrow();
+            String tableName = remote.getTableName();
+
+            String sql = format("SELECT COUNT(*) * 100 AS estimated_count FROM %s.%s SAMPLE 1", schema, tableName);
+
+            try (Statement stmt = connection.createStatement();
+                    ResultSet rs = stmt.executeQuery(sql)) {
+                if (rs.next()) {
+                    long estimated = rs.getLong("estimated_count");
+                    return OptionalLong.of(estimated);
+                }
+            }
+            catch (SQLException e) {
+                throw new TrinoException(JDBC_ERROR, "Sampling fallback failed: " + e);
+            }
+
+            return OptionalLong.empty();
+        }
+
+        /**
+         * ColumnIndexStatistics holds statistics for a single column, including nullability, distinct value count, and null count.
+         */
+        public record ColumnIndexStatistics(boolean nullable, long distinctValues, long nullCount) {}
     }
 }

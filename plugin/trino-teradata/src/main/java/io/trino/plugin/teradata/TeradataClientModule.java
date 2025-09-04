@@ -1,7 +1,15 @@
-/**
- * Unpublished work.
- * Copyright 2025 by Teradata Corporation. All rights reserved.
- * TERADATA CORPORATION CONFIDENTIAL AND TRADE SECRET
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package io.trino.plugin.teradata;
@@ -17,8 +25,11 @@ import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
+import io.trino.plugin.jdbc.JdbcJoinPushdownSupportModule;
+import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 
+import java.sql.Driver;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Properties;
@@ -78,12 +89,47 @@ public class TeradataClientModule
             throws SQLException
     {
         Properties connectionProperties = new Properties();
-
-        // Set Teradata JDBC-specific connection properties
-        // TODO: Retire all properties that could be included in the connection URL instead
-        // TODO: Incorporate query banding support if needed
-
-        return DriverConnectionFactory.builder(DriverManager.getDriver(config.getConnectionUrl()), config.getConnectionUrl(), credentialProvider).setConnectionProperties(connectionProperties).setOpenTelemetry(openTelemetry).build();
+        Driver driver = DriverManager.getDriver(config.getConnectionUrl());
+        String longMech = LogonMechanism.fromString(teradataConfig.getLogMech()).getMechanism();
+        connectionProperties.put("LOGMECH", longMech);
+        String clientId;
+        switch (longMech) {
+            case "TD2":
+                break;
+            case "BEARER":
+                clientId = teradataConfig.getOidcClientId();
+                if (clientId != null && !clientId.isEmpty()) {
+                    connectionProperties.put("oidc_clientid", clientId);
+                }
+                String privateKey = teradataConfig.getOidcJWSPrivateKey();
+                if (privateKey != null && !privateKey.isEmpty()) {
+                    connectionProperties.put("jws_private_key", privateKey);
+                }
+                String certificate = teradataConfig.getOidcJWSCertificate();
+                if (certificate != null && !certificate.isEmpty()) {
+                    connectionProperties.put("jws_cert", certificate);
+                }
+                break;
+            case "JWT":
+                String token = teradataConfig.getOidcJwtToken();
+                if (token != null && !token.trim().isEmpty()) {
+                    connectionProperties.put("LOGDATA", token);
+                }
+                break;
+            case "SECRET":
+                clientId = teradataConfig.getOidcClientId();
+                if (clientId != null && !clientId.isEmpty()) {
+                    connectionProperties.put("oidc_clientid", clientId);
+                }
+                String clientSecret = teradataConfig.getOidcClientSecret();
+                if (clientSecret != null && !clientSecret.isEmpty()) {
+                    connectionProperties.put("LOGDATA", clientSecret);
+                }
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported logon mechanism: " + longMech);
+        }
+        return DriverConnectionFactory.builder(driver, config.getConnectionUrl(), credentialProvider).setConnectionProperties(connectionProperties).setOpenTelemetry(openTelemetry).build();
     }
 
     /**
@@ -101,5 +147,7 @@ public class TeradataClientModule
     {
         configBinder(binder).bindConfig(TeradataConfig.class);
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(TeradataClient.class).in(Scopes.SINGLETON);
+        configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
+        install(new JdbcJoinPushdownSupportModule());
     }
 }
