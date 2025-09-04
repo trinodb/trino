@@ -228,7 +228,7 @@
             <dependency>
                 <groupId>com.azure</groupId>
                 <artifactId>azure-sdk-bom</artifactId>
-                <version>1.2.37</version>
+                <version>1.2.38</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -936,7 +936,7 @@
             <dependency>
                 <groupId>io.projectreactor.netty</groupId>
                 <artifactId>reactor-netty-core</artifactId>
-                <version>1.1.31</version>
+                <version>1.2.8</version>
             </dependency>
 
             <!-- io.confluent:kafka-avro-serializer uses multiple versions of this transitive dependency -->
