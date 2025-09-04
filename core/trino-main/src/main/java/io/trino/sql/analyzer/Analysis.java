@@ -271,8 +271,6 @@ public class Analysis
     private final Set<NodeRef<TableFunctionInvocation>> polymorphicTableFunctions = new LinkedHashSet<>();
     private final Map<NodeRef<Table>, List<Field>> materializedViewStorageTableFields = new LinkedHashMap<>();
 
-    private List<ColumnLineageInfo> selectColumnLineageInfo = ImmutableList.of();
-
     public Analysis(@Nullable Statement root, Map<NodeRef<Parameter>, Expression> parameters, QueryType queryType)
     {
         this.root = root;
@@ -280,16 +278,13 @@ public class Analysis
         this.queryType = requireNonNull(queryType, "queryType is null");
     }
 
-    public void setSelectColumnLineage(Node node, Scope scope)
+    public List<ColumnLineageInfo> getSelectColumnLineageInfo()
     {
-        // Only compute lineage for top-level Query nodes (no outer query parent)
-        if (!(node instanceof Query) || scope.getOuterQueryParent().isPresent()) {
-            return;
-        }
+        Scope rootScope = getRootScope();
 
-        List<Field> outputFields = scope.getRelationType().getVisibleFields().stream().toList();
+        List<Field> outputFields = rootScope.getRelationType().getVisibleFields().stream().toList();
         List<Integer> outputFieldIndices = outputFields.stream()
-                .map(scope.getRelationType()::indexOf)
+                .map(rootScope.getRelationType()::indexOf)
                 .collect(toImmutableList());
         List<ColumnLineageInfo> lineageInfo = new ArrayList<>();
         for (int i = 0; i < outputFields.size(); i++) {
@@ -302,12 +297,7 @@ public class Analysis
         }
         // always sort lineageInfo by index to ensure consistent ordering
         lineageInfo.sort(Comparator.comparingInt(ColumnLineageInfo::index));
-        this.selectColumnLineageInfo = ImmutableList.copyOf(lineageInfo);
-    }
-
-    public List<ColumnLineageInfo> getSelectColumnLineageInfo()
-    {
-        return selectColumnLineageInfo;
+        return ImmutableList.copyOf(lineageInfo);
     }
 
     public Statement getStatement()
