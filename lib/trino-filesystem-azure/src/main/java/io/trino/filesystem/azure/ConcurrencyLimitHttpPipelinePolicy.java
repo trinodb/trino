@@ -37,12 +37,8 @@ public final class ConcurrencyLimitHttpPipelinePolicy
     @Override
     public Mono<HttpResponse> process(HttpPipelineCallContext context, HttpPipelineNextPolicy next)
     {
-        try {
-            semaphore.acquire();
-        }
-        catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return Mono.error(e);
+        if (!semaphore.tryAcquire()) {
+            return Mono.error(new RuntimeException("Exceeded max concurrent HTTP requests limit"));
         }
         return next.process().doAfterTerminate(semaphore::release);
     }
