@@ -217,6 +217,46 @@ export interface QueryRoutine {
     authorization: string
 }
 
+export interface QueryStagePlan {
+    id: string
+    jsonRepresentation: string
+    root: {
+        id: string
+    }
+}
+
+export interface QueryStageStats {
+    completedDrivers: number
+    fullyBlocked: boolean
+    totalCpuTime: string
+    totalScheduledTime: string
+    userMemoryReservation: string
+    queuedDrivers: number
+    runningDrivers: number
+    blockedDrivers: number
+    runningTasks: number
+    completedTasks: number
+    totalTasks: number
+    processedInputDataSize: string
+    processedInputPositions: number
+    bufferedDataSize: string
+    outputDataSize: string
+    outputPositions: number
+}
+
+export interface QueryStage {
+    coordinatorOnly: boolean
+    plan: QueryStagePlan
+    stageId: string
+    state: string
+    stageStats: QueryStageStats
+}
+
+export interface QueryStages {
+    outputStageId: string
+    stages: QueryStage[]
+}
+
 export interface QueryStatusInfo extends QueryInfoBase {
     session: Session
     query: string
@@ -227,6 +267,7 @@ export interface QueryStatusInfo extends QueryInfoBase {
     finalQueryInfo: boolean
     referencedTables: QueryTable[]
     routines: QueryRoutine[]
+    stages: QueryStages
 }
 
 export async function statsApi(): Promise<ApiResponse<Stats>> {

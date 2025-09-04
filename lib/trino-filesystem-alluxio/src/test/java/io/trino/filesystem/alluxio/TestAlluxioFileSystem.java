@@ -32,8 +32,6 @@ import org.junit.jupiter.api.TestInstance;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy;
 import org.testcontainers.containers.wait.strategy.Wait;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
 import java.io.IOException;
@@ -41,7 +39,6 @@ import java.time.Duration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@Testcontainers
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class TestAlluxioFileSystem
         extends AbstractTestTrinoFileSystem
@@ -49,12 +46,8 @@ public class TestAlluxioFileSystem
     private static final String IMAGE_NAME = "alluxio/alluxio:2.9.5";
     private static final DockerImageName ALLUXIO_IMAGE = DockerImageName.parse(IMAGE_NAME);
 
-    @Container
-    private static final GenericContainer<?> ALLUXIO_MASTER_CONTAINER = createAlluxioMasterContainer();
-
-    @Container
-    private static final GenericContainer<?> ALLUXIO_WORKER_CONTAINER = createAlluxioWorkerContainer();
-
+    private GenericContainer<?> alluxioMaster;
+    private GenericContainer<?> alluxioWorker;
     private TrinoFileSystem fileSystem;
     private Location rootLocation;
     private FileSystem alluxioFs;
@@ -63,6 +56,8 @@ public class TestAlluxioFileSystem
     @BeforeAll
     void setup()
     {
+        alluxioMaster = createAlluxioMasterContainer();
+        alluxioWorker = createAlluxioWorkerContainer();
         this.rootLocation = Location.of("alluxio:///");
         InstancedConfiguration conf = Configuration.copyGlobal();
         FileSystemContext fsContext = FileSystemContext.create(conf);
@@ -77,6 +72,12 @@ public class TestAlluxioFileSystem
     @AfterAll
     void tearDown()
     {
+        if (alluxioMaster != null) {
+            alluxioMaster.close();
+        }
+        if (alluxioWorker != null) {
+            alluxioWorker.close();
+        }
         fileSystem = null;
         alluxioFs = null;
         rootLocation = null;
@@ -154,6 +155,7 @@ public class TestAlluxioFileSystem
                 .waitingFor(new LogMessageWaitStrategy()
                         .withRegEx(".*Primary started*\n")
                         .withStartupTimeout(Duration.ofMinutes(3)));
+        container.start();
         return container;
     }
 
@@ -172,8 +174,8 @@ public class TestAlluxioFileSystem
                                 + "-Dalluxio.security.authorization.permission.enabled=false "
                                 + "-Dalluxio.security.authorization.plugins.enabled=false ")
                 .withAccessToHost(true)
-                .dependsOn(ALLUXIO_MASTER_CONTAINER)
                 .waitingFor(Wait.forLogMessage(".*Alluxio worker started.*\n", 1));
+        container.start();
         return container;
     }
 }

@@ -262,10 +262,7 @@ public abstract class BaseIcebergSystemTables
         assertMetadataLogEntries(latestSchemaIds, latestSequenceNumbers);
 
         assertUpdate("INSERT INTO test_schema.test_metadata_log_entries VALUES (1)", 1);
-        // INSERT create two commits (https://github.com/trinodb/trino/issues/15439) and share a same snapshotId
         latestSchemaIds.add(0);
-        latestSchemaIds.add(0);
-        latestSequenceNumbers.add(2L);
         latestSequenceNumbers.add(2L);
         assertMetadataLogEntries(latestSchemaIds, latestSequenceNumbers);
 
@@ -279,11 +276,8 @@ public abstract class BaseIcebergSystemTables
         latestSequenceNumbers.add(3L);
         assertMetadataLogEntries(latestSchemaIds, latestSequenceNumbers);
 
-        // OPTIMIZE create two commits: update snapshot and rewrite statistics
         assertUpdate("ALTER TABLE test_schema.test_metadata_log_entries execute optimize");
         latestSchemaIds.add(1);
-        latestSchemaIds.add(1);
-        latestSequenceNumbers.add(4L);
         latestSequenceNumbers.add(4L);
         assertMetadataLogEntries(latestSchemaIds, latestSequenceNumbers);
 
@@ -293,8 +287,6 @@ public abstract class BaseIcebergSystemTables
         assertMetadataLogEntries(latestSchemaIds, latestSequenceNumbers);
 
         assertUpdate("INSERT INTO test_schema.test_metadata_log_entries VALUES (1)", 1);
-        latestSchemaIds.add(2);
-        latestSequenceNumbers.add(6L);
         latestSchemaIds.add(2);
         latestSequenceNumbers.add(6L);
         assertMetadataLogEntries(latestSchemaIds, latestSequenceNumbers);
