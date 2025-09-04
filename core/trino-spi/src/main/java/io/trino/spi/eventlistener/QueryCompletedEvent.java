@@ -34,7 +34,7 @@ public class QueryCompletedEvent
     private final QueryStatistics statistics;
     private final QueryContext context;
     private final QueryIOMetadata ioMetadata;
-    private final List<ColumnLineageInfo> selectColumnsLineageInfo;
+    private final Optional<List<ColumnLineageInfo>> selectColumnsLineageInfo;
     private final Optional<QueryFailureInfo> failureInfo;
     private final List<TrinoWarning> warnings;
 
@@ -49,7 +49,7 @@ public class QueryCompletedEvent
             QueryStatistics statistics,
             QueryContext context,
             QueryIOMetadata ioMetadata,
-            List<ColumnLineageInfo> selectColumnsLineageInfo,
+            Optional<List<ColumnLineageInfo>> selectColumnsLineageInfo,
             Optional<QueryFailureInfo> failureInfo,
             List<TrinoWarning> warnings,
             Instant createTime,
@@ -69,7 +69,7 @@ public class QueryCompletedEvent
     }
 
     @JsonProperty
-    public List<ColumnLineageInfo> getSelectColumnsLineageInfo()
+    public Optional<List<ColumnLineageInfo>> getSelectColumnsLineageInfo()
     {
         return selectColumnsLineageInfo;
     }

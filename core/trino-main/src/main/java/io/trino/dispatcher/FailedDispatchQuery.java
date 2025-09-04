@@ -257,7 +257,7 @@ public class FailedDispatchQuery
                 RetryPolicy.NONE,
                 false,
                 version,
-                ImmutableList.of());
+                Optional.empty());
 
         return queryInfo;
     }

@@ -213,6 +213,6 @@ public class TestQueryStateInfo
                 RetryPolicy.NONE,
                 false,
                 new NodeVersion("version"),
-                ImmutableList.of());
+                Optional.empty());
     }
 }

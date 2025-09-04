@@ -250,7 +250,7 @@ public class TestQueryInfo
                 RetryPolicy.TASK,
                 false,
                 new NodeVersion("test"),
-                ImmutableList.of());
+                Optional.empty());
     }
 
     private StagesInfo createStagesInfo(int count, StageState state, int baseValue)

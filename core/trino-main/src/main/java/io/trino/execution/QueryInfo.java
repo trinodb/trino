@@ -87,7 +87,7 @@ public class QueryInfo
     private final RetryPolicy retryPolicy;
     private final boolean pruned;
     private final NodeVersion version;
-    private final List<ColumnLineageInfo> selectColumnLineageInfo;
+    private final Optional<List<ColumnLineageInfo>> selectColumnLineageInfo;
 
     @JsonCreator
     public QueryInfo(
@@ -127,7 +127,7 @@ public class QueryInfo
             @JsonProperty("retryPolicy") RetryPolicy retryPolicy,
             @JsonProperty("pruned") boolean pruned,
             @JsonProperty("version") NodeVersion version,
-            @JsonProperty("selectColumnLineageInfo") List<ColumnLineageInfo> selectColumnLineageInfo)
+            @JsonProperty("selectColumnLineageInfo") Optional<List<ColumnLineageInfo>> selectColumnLineageInfo)
 
     {
         requireNonNull(queryId, "queryId is null");
@@ -198,11 +198,11 @@ public class QueryInfo
         this.retryPolicy = retryPolicy;
         this.pruned = pruned;
         this.version = version;
-        this.selectColumnLineageInfo = ImmutableList.copyOf(selectColumnLineageInfo);
+        this.selectColumnLineageInfo = selectColumnLineageInfo.map(ImmutableList::copyOf);
     }
 
     @JsonProperty
-    public List<ColumnLineageInfo> getSelectColumnLineageInfo()
+    public Optional<List<ColumnLineageInfo>> getSelectColumnLineageInfo()
     {
         return selectColumnLineageInfo;
     }

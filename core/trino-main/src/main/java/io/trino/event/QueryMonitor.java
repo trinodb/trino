@@ -250,7 +250,7 @@ public class QueryMonitor
                         queryInfo.getQueryType(),
                         queryInfo.getRetryPolicy()),
                 new QueryIOMetadata(ImmutableList.of(), Optional.empty()),
-                ImmutableList.of(),
+                Optional.empty(),
                 createQueryFailureInfo(failure, Optional.empty()),
                 ImmutableList.of(),
                 queryInfo.getQueryStats().getCreateTime(),

@@ -293,7 +293,7 @@ public class MockManagedQueryExecution
                 RetryPolicy.NONE,
                 false,
                 new NodeVersion("test"),
-                ImmutableList.of());
+                Optional.empty());
     }
 
     @Override
