@@ -48,6 +48,7 @@ public class EnvMultinodeSnowflake
                         .withEnv("SNOWFLAKE_URL", requireEnv("SNOWFLAKE_URL"))
                         .withEnv("SNOWFLAKE_USER", requireEnv("SNOWFLAKE_USER"))
                         .withEnv("SNOWFLAKE_PASSWORD", requireEnv("SNOWFLAKE_PASSWORD"))
+                        .withEnv("SNOWFLAKE_PRIVATE_KEY", requireEnv("SNOWFLAKE_PRIVATE_KEY"))
                         .withEnv("SNOWFLAKE_DATABASE", requireEnv("SNOWFLAKE_DATABASE"))
                         .withEnv("SNOWFLAKE_ROLE", requireEnv("SNOWFLAKE_ROLE"))
                         .withEnv("SNOWFLAKE_WAREHOUSE", requireEnv("SNOWFLAKE_WAREHOUSE"));
