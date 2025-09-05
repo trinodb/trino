@@ -41,9 +41,13 @@ public final class SnowflakeQueryRunner
         Builder builder = new Builder()
                 .addConnectorProperty("connection-url", TestingSnowflakeServer.TEST_URL)
                 .addConnectorProperty("connection-user", TestingSnowflakeServer.TEST_USER)
-                .addConnectorProperty("connection-password", TestingSnowflakeServer.TEST_PASSWORD)
                 .addConnectorProperty("snowflake.database", TestingSnowflakeServer.TEST_DATABASE)
                 .addConnectorProperty("snowflake.warehouse", TestingSnowflakeServer.TEST_WAREHOUSE);
+
+        TestingSnowflakeServer.TEST_PRIVATE_KEY
+                .ifPresent(privateKey -> builder.addConnectorProperty("snowflake.private-key", privateKey));
+        TestingSnowflakeServer.TEST_PASSWORD
+                .ifPresent(password -> builder.addConnectorProperty("connection-password", password));
         TestingSnowflakeServer.TEST_ROLE.ifPresent(role -> builder.addConnectorProperty("snowflake.role", role));
         return builder;
     }
