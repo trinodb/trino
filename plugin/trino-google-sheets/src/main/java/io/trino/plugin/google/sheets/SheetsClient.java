@@ -295,7 +295,7 @@ public class SheetsClient
             throws IOException
     {
         GoogleCredential credential = GoogleCredential.fromStream(inputStream).createScoped(SCOPES);
-        delegatedUserEmail.ifPresent(credential::createDelegated);
+        return delegatedUserEmail.map(credential::createDelegated).orElse(credential);
         return credential;
     }
 
