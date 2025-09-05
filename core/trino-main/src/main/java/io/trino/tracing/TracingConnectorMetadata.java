@@ -68,6 +68,7 @@ import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
+import io.trino.spi.connector.UpdateKind;
 import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
@@ -141,6 +142,15 @@ public class TracingConnectorMetadata
         Span span = startSpan("getTableHandle", tableName);
         try (var _ = scopedSpan(span)) {
             return delegate.getTableHandle(session, tableName, startVersion, endVersion);
+        }
+    }
+
+    @Override
+    public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion, Optional<UpdateKind> updateKind)
+    {
+        Span span = startSpan("getTableHandle", tableName);
+        try (var _ = scopedSpan(span)) {
+            return delegate.getTableHandle(session, tableName, startVersion, endVersion, updateKind);
         }
     }
 

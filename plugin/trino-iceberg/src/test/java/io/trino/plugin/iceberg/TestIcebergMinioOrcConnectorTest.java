@@ -31,6 +31,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.io.Resources.getResource;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkOrcFileSorting;
+import static io.trino.plugin.iceberg.WriteChangeMode.MOR;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
@@ -50,7 +51,7 @@ public class TestIcebergMinioOrcConnectorTest
 
     public TestIcebergMinioOrcConnectorTest()
     {
-        super(ORC);
+        super(ORC, MOR);
     }
 
     @Override

@@ -41,6 +41,7 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.UpdateKind;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
@@ -141,6 +142,9 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPER
 import static io.trino.plugin.iceberg.IcebergTableProperties.PROTECTED_ICEBERG_NATIVE_PROPERTIES;
 import static io.trino.plugin.iceberg.IcebergTableProperties.SORTED_BY_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.SUPPORTED_PROPERTIES;
+import static io.trino.plugin.iceberg.IcebergTableProperties.WRITE_DELETE_MODE;
+import static io.trino.plugin.iceberg.IcebergTableProperties.WRITE_MERGE_MODE;
+import static io.trino.plugin.iceberg.IcebergTableProperties.WRITE_UPDATE_MODE;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getSortOrder;
 import static io.trino.plugin.iceberg.IcebergTableProperties.validateCompression;
@@ -152,6 +156,7 @@ import static io.trino.plugin.iceberg.TrinoMetricsReporter.TRINO_METRICS_REPORTE
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergType;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergTypeForNewColumn;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
+import static io.trino.plugin.iceberg.WriteChangeMode.MOR;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzFromMicros;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
@@ -187,7 +192,9 @@ import static org.apache.iceberg.TableProperties.AVRO_COMPRESSION;
 import static org.apache.iceberg.TableProperties.COMMIT_NUM_RETRIES;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT_DEFAULT;
+import static org.apache.iceberg.TableProperties.DELETE_MODE;
 import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
+import static org.apache.iceberg.TableProperties.MERGE_MODE;
 import static org.apache.iceberg.TableProperties.OBJECT_STORE_ENABLED;
 import static org.apache.iceberg.TableProperties.OBJECT_STORE_ENABLED_DEFAULT;
 import static org.apache.iceberg.TableProperties.ORC_BLOOM_FILTER_COLUMNS;
@@ -195,6 +202,7 @@ import static org.apache.iceberg.TableProperties.ORC_BLOOM_FILTER_FPP;
 import static org.apache.iceberg.TableProperties.ORC_COMPRESSION;
 import static org.apache.iceberg.TableProperties.PARQUET_BLOOM_FILTER_COLUMN_ENABLED_PREFIX;
 import static org.apache.iceberg.TableProperties.PARQUET_COMPRESSION;
+import static org.apache.iceberg.TableProperties.UPDATE_MODE;
 import static org.apache.iceberg.TableProperties.WRITE_DATA_LOCATION;
 import static org.apache.iceberg.TableProperties.WRITE_LOCATION_PROVIDER_IMPL;
 import static org.apache.iceberg.TableUtil.formatVersion;
@@ -367,6 +375,12 @@ public final class IcebergUtil
 
         if (parseBoolean(icebergTable.properties().getOrDefault(OBJECT_STORE_ENABLED, "false"))) {
             properties.put(OBJECT_STORE_LAYOUT_ENABLED_PROPERTY, true);
+        }
+
+        for (String tableChangeMode : new String[] {UPDATE_MODE, DELETE_MODE, MERGE_MODE}) {
+            if (icebergTable.properties().containsKey(tableChangeMode)) {
+                properties.put(toTrinoIcebergPropertyName(tableChangeMode), WriteChangeMode.fromIcebergString(icebergTable.properties().get(tableChangeMode)));
+            }
         }
 
         Optional<String> dataLocation = Optional.ofNullable(icebergTable.properties().get(WRITE_DATA_LOCATION));
@@ -902,7 +916,9 @@ public final class IcebergUtil
         ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builder();
         IcebergFileFormat fileFormat = IcebergTableProperties.getFileFormat(tableMetadata.getProperties());
         propertiesBuilder.put(DEFAULT_FILE_FORMAT, fileFormat.toIceberg().toString());
-        propertiesBuilder.put(FORMAT_VERSION, Integer.toString(IcebergTableProperties.getFormatVersion(tableMetadata.getProperties())));
+
+        int formatVersion = IcebergTableProperties.getFormatVersion(tableMetadata.getProperties());
+        propertiesBuilder.put(FORMAT_VERSION, Integer.toString(formatVersion));
         IcebergTableProperties.getMaxCommitRetry(tableMetadata.getProperties())
                 .ifPresent(value -> propertiesBuilder.put(COMMIT_NUM_RETRIES, Integer.toString(value)));
 
@@ -953,6 +969,16 @@ public final class IcebergUtil
 
         if (tableMetadata.getComment().isPresent()) {
             propertiesBuilder.put(TABLE_COMMENT, tableMetadata.getComment().get());
+        }
+
+        Optional<WriteChangeMode> writeDeleteMode = IcebergTableProperties.getWriteDeleteMode(tableMetadata.getProperties());
+        Optional<WriteChangeMode> writeUpdateMode = IcebergTableProperties.getWriteUpdateMode(tableMetadata.getProperties());
+        Optional<WriteChangeMode> writeMergeMode = IcebergTableProperties.getWriteMergeMode(tableMetadata.getProperties());
+
+        if (formatVersion >= 2) {
+            propertiesBuilder.put(DELETE_MODE, writeDeleteMode.orElse(MOR).toIcebergString());
+            propertiesBuilder.put(UPDATE_MODE, writeUpdateMode.orElse(MOR).toIcebergString());
+            propertiesBuilder.put(MERGE_MODE, writeMergeMode.orElse(MOR).toIcebergString());
         }
 
         Map<String, String> baseProperties = propertiesBuilder.buildOrThrow();
@@ -1249,6 +1275,40 @@ public final class IcebergUtil
         return switch (manifest.content()) {
             case DATA -> ManifestFiles.read(manifest, fileIO);
             case DELETES -> ManifestFiles.readDeleteManifest(manifest, fileIO, specsById);
+        };
+    }
+
+    public static WriteChangeMode getWriteChangeMode(Map<String, String> storageProperties, UpdateKind updateKind)
+    {
+        return WriteChangeMode.fromIcebergString(storageProperties.getOrDefault(getChangeName(updateKind), MOR.toIcebergString()));
+    }
+
+    public static String getChangeName(UpdateKind updateKind)
+    {
+        return switch (updateKind) {
+            case DELETE -> DELETE_MODE;
+            case UPDATE -> UPDATE_MODE;
+            case MERGE -> MERGE_MODE;
+        };
+    }
+
+    public static String toIcebergPropertyName(String icebergPropertyName)
+    {
+        return switch (icebergPropertyName) {
+            case WRITE_DELETE_MODE -> DELETE_MODE;
+            case WRITE_UPDATE_MODE -> UPDATE_MODE;
+            case WRITE_MERGE_MODE -> MERGE_MODE;
+            default -> throw new IllegalStateException("Unexpected icebergPropertyName: " + icebergPropertyName);
+        };
+    }
+
+    public static String toTrinoIcebergPropertyName(String icebergPropertyName)
+    {
+        return switch (icebergPropertyName) {
+            case DELETE_MODE -> WRITE_DELETE_MODE;
+            case UPDATE_MODE -> WRITE_UPDATE_MODE;
+            case MERGE_MODE -> WRITE_MERGE_MODE;
+            default -> throw new IllegalStateException("Unexpected icebergPropertyName: " + icebergPropertyName);
         };
     }
 }

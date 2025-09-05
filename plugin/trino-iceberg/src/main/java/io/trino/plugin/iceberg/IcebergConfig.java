@@ -98,6 +98,9 @@ public class IcebergConfig
     private int metadataParallelism = 8;
     private boolean bucketExecutionEnabled = true;
     private boolean fileBasedConflictDetectionEnabled = true;
+    private WriteChangeMode writeDeleteMode = WriteChangeMode.MOR;
+    private WriteChangeMode writeUpdateMode = WriteChangeMode.MOR;
+    private WriteChangeMode writeMergeMode = WriteChangeMode.MOR;
 
     public CatalogType getCatalogType()
     {
@@ -620,6 +623,45 @@ public class IcebergConfig
     public IcebergConfig setFileBasedConflictDetectionEnabled(boolean fileBasedConflictDetectionEnabled)
     {
         this.fileBasedConflictDetectionEnabled = fileBasedConflictDetectionEnabled;
+        return this;
+    }
+
+    public WriteChangeMode getWriteDeleteMode()
+    {
+        return writeDeleteMode;
+    }
+
+    @Config("iceberg.write-delete-mode")
+    @ConfigDescription("Set mode used for table delete command: copy-on-write or merge-on-read")
+    public IcebergConfig setWriteDeleteMode(WriteChangeMode writeDeleteMode)
+    {
+        this.writeDeleteMode = writeDeleteMode;
+        return this;
+    }
+
+    public WriteChangeMode getWriteUpdateMode()
+    {
+        return writeUpdateMode;
+    }
+
+    @Config("iceberg.write-update-mode")
+    @ConfigDescription("Set mode used for table update command: copy-on-write or merge-on-read")
+    public IcebergConfig setWriteUpdateMode(WriteChangeMode writeUpdateMode)
+    {
+        this.writeUpdateMode = writeUpdateMode;
+        return this;
+    }
+
+    public WriteChangeMode getWriteMergeMode()
+    {
+        return writeMergeMode;
+    }
+
+    @Config("iceberg.write-merge-mode")
+    @ConfigDescription("Set mode used for table merge command: copy-on-write or merge-on-read")
+    public IcebergConfig setWriteMergeMode(WriteChangeMode writeMergeMode)
+    {
+        this.writeMergeMode = writeMergeMode;
         return this;
     }
 }

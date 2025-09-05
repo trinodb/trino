@@ -298,7 +298,10 @@ public class TestHiveRedirectionToIceberg
                         "   format = 'PARQUET',\n" +
                         "   format_version = 2,\n" +
                         format("   location = 'hdfs://hadoop-master:9000/user/hive/warehouse/%s-\\E.*\\Q',\n", tableName) +
-                        "   partitioning = ARRAY['regionkey']\n" + // 'partitioning' comes from Iceberg
+                        "   partitioning = ARRAY['regionkey'],\n" + // 'partitioning' comes from Iceberg
+                        "   write_delete_mode = 'MOR',\n" +
+                        "   write_merge_mode = 'MOR',\n" +
+                        "   write_update_mode = 'MOR'\n" +
                         ")\\E");
 
         onTrino().executeQuery("DROP TABLE " + icebergTableName);
