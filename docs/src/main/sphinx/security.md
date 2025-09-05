@@ -40,7 +40,7 @@ security/jwt
 :maxdepth: 1
 
 security/user-mapping
-security/group-file
+security/group-mapping
 ```
 
 (security-access-control)=
