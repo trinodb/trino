@@ -2414,6 +2414,7 @@ public class IcebergMetadata
         Optional<String> totalDeleteFiles = Optional.ofNullable(summary.get(TOTAL_DELETE_FILES_PROP));
 
         return Optional.of(new IcebergInputInfo(
+                icebergTableHandle.getFormatVersion(),
                 icebergTableHandle.getSnapshotId(),
                 partitionFields,
                 getFileFormat(icebergTableHandle.getStorageProperties()).name(),
