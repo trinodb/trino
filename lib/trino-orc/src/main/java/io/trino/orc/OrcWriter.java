@@ -72,8 +72,10 @@ import static io.trino.orc.OrcWriterStats.FlushReason.CLOSED;
 import static io.trino.orc.OrcWriterStats.FlushReason.DICTIONARY_FULL;
 import static io.trino.orc.OrcWriterStats.FlushReason.MAX_BYTES;
 import static io.trino.orc.OrcWriterStats.FlushReason.MAX_ROWS;
+import static io.trino.orc.metadata.CalendarKind.PROLEPTIC_GREGORIAN;
 import static io.trino.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
 import static io.trino.orc.metadata.OrcColumnId.ROOT_COLUMN;
+import static io.trino.orc.metadata.OrcType.TEMPORAL_TYPES;
 import static io.trino.orc.metadata.PostScript.MAGIC;
 import static io.trino.orc.stream.OrcDataOutput.createDataOutput;
 import static io.trino.orc.writer.ColumnWriters.createColumnWriter;
@@ -529,7 +531,8 @@ public final class OrcWriter
                 orcTypes,
                 fileStats,
                 userMetadata,
-                Optional.empty()); // writer id will be set by MetadataWriter
+                Optional.empty(), // writer id will be set by MetadataWriter
+                containsTemporalType(orcTypes) ? Optional.of(PROLEPTIC_GREGORIAN) : Optional.empty());
 
         closedStripes.clear();
         closedStripesRetainedBytes = 0;
@@ -542,6 +545,11 @@ public final class OrcWriter
         outputData.add(createDataOutput(postscriptSlice));
         outputData.add(createDataOutput(Slices.wrappedBuffer(UnsignedBytes.checkedCast(postscriptSlice.length()))));
         return outputData;
+    }
+
+    private boolean containsTemporalType(ColumnMetadata<OrcType> orcTypes)
+    {
+        return orcTypes.stream().map(OrcType::getOrcTypeKind).anyMatch(TEMPORAL_TYPES::contains);
     }
 
     private void recordValidation(Consumer<OrcWriteValidationBuilder> task)
