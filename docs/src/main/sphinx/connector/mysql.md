@@ -105,37 +105,6 @@ creates a catalog named `sales` using the configured connector.
 The connector supports {doc}`/admin/fault-tolerant-execution` of query
 processing. Read and write operations are both supported with any retry policy.
 
-## Table properties
-
-Table property usage example:
-
-```
-CREATE TABLE person (
-  id INT NOT NULL,
-  name VARCHAR,
-  age INT,
-  birthday DATE 
-)
-WITH (
-  primary_key = ARRAY['id']
-);
-```
-
-The following are supported MySQL table properties: 
-
-:::{list-table}
-:widths: 30, 10, 60
-:header-rows: 1
-
-* - Property name
-  - Required
-  - Description
-* - `primary_key`
-  - No
-  - The primary key of the table, can choose multi columns as the table primary key.
-    All key columns must be defined as `NOT NULL`.
-:::
-
 (mysql-type-mapping)=
 ## Type mapping
 
@@ -376,6 +345,7 @@ following features:
 - [](/sql/drop-table)
 - [](/sql/create-schema)
 - [](/sql/drop-schema)
+- [](mysql-schema-and-table-management)
 - [](mysql-procedures)
 - [](mysql-table-functions)
 
@@ -394,6 +364,72 @@ following features:
 (mysql-merge)=
 ```{include} non-transactional-merge.fragment
 ```
+
+(mysql-schema-and-table-management)=
+### Schema and table management
+
+#### Table properties
+
+Table property usage example:
+
+```
+CREATE TABLE person (
+  id INT NOT NULL,
+  name VARCHAR,
+  age INT,
+  birthday DATE 
+)
+WITH (
+  primary_key = ARRAY['id']
+);
+```
+
+The following are supported MySQL table properties:
+
+:::{list-table}
+:widths: 30, 10, 60
+:header-rows: 1
+
+* - Property name
+  - Required
+  - Description
+* - `primary_key`
+  - No
+  - The primary key of the table, can choose multi columns as the table primary key.
+    All key columns must be defined as `NOT NULL`.
+:::
+
+#### Column properties
+
+Column property usage example:
+
+```
+CREATE TABLE person (
+  id INT NOT NULL WITH (auto_increment = true),
+  name VARCHAR,
+  age INT,
+  birthday DATE
+)
+WITH (
+  primary_key = ARRAY['id']
+);
+```
+
+The following are supported MySQL column properties:
+
+:::{list-table}
+:widths: 30, 10, 60
+:header-rows: 1
+
+* - Property name
+  - Required
+  - Description
+* - `auto_increment`
+  - No
+  - Auto generate a unique identity for new rows. There can be only one auto increment column
+    and must be defined as the first key. Only applies to integer types (`TINYINT`,
+    `SMALLINT`, `INTEGER`, `BIGINT`) column.
+:::
 
 (mysql-procedures)=
 ### Procedures
