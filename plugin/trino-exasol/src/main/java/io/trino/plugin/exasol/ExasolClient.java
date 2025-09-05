@@ -15,6 +15,7 @@ package io.trino.plugin.exasol;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
+import io.airlift.slice.Slices;
 import io.trino.plugin.base.mapping.IdentifierMapping;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
@@ -29,6 +30,8 @@ import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.LongReadFunction;
 import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.QueryBuilder;
+import io.trino.plugin.jdbc.SliceReadFunction;
+import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.WriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
@@ -40,17 +43,20 @@ import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.VarbinaryType;
 
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.Types;
 import java.time.LocalDate;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 
+import static io.trino.plugin.exasol.config.ExasolSessionProperties.MAP_HASHTYPE_AS_CHAR;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
@@ -206,6 +212,13 @@ public class ExasolClient
         if (mapping.isPresent()) {
             return mapping;
         }
+        if (isHashTypeMapping(typeHandle)) {
+            Boolean useToCharMapping = session.getProperty(MAP_HASHTYPE_AS_CHAR, Boolean.class);
+            if (useToCharMapping) {
+                return Optional.of(charColumnMapping(typeHandle));
+            }
+            return Optional.of(hashTypeVarbinaryColumnMapping());
+        }
         switch (typeHandle.jdbcType()) {
             case Types.BOOLEAN:
                 return Optional.of(booleanColumnMapping());
@@ -222,7 +235,7 @@ public class ExasolClient
                 int columnSize = typeHandle.requiredColumnSize();
                 return Optional.of(decimalColumnMapping(createDecimalType(columnSize, decimalDigits)));
             case Types.CHAR:
-                return Optional.of(defaultCharColumnMapping(typeHandle.requiredColumnSize(), true));
+                return Optional.of(charColumnMapping(typeHandle));
             case Types.VARCHAR:
                 // String data is sorted by its binary representation.
                 // https://docs.exasol.com/db/latest/sql/select.htm#UsageNotes
@@ -235,6 +248,18 @@ public class ExasolClient
             return mapToUnboundedVarchar(typeHandle);
         }
         return Optional.empty();
+    }
+
+    private boolean isHashTypeMapping(JdbcTypeHandle typeHandle)
+    {
+        return typeHandle.jdbcType() == Types.CHAR
+                && typeHandle.jdbcTypeName().isPresent()
+                && typeHandle.jdbcTypeName().get().equalsIgnoreCase("HASHTYPE");
+    }
+
+    private ColumnMapping charColumnMapping(JdbcTypeHandle typeHandle)
+    {
+        return defaultCharColumnMapping(typeHandle.requiredColumnSize(), true);
     }
 
     private static ColumnMapping dateColumnMapping()
@@ -259,6 +284,32 @@ public class ExasolClient
         return LongWriteFunction.of(Types.DATE, (statement, index, value) -> {
             LocalDate localDate = LocalDate.ofEpochDay(value);
             statement.setDate(index, Date.valueOf(localDate));
+        });
+    }
+
+    private static ColumnMapping hashTypeVarbinaryColumnMapping()
+    {
+        return ColumnMapping.sliceMapping(
+                VarbinaryType.VARBINARY,
+                hashTypeReadFunction(),
+                hashTypeWriteFunction());
+    }
+
+    private static SliceReadFunction hashTypeReadFunction()
+    {
+        return (resultSet, columnIndex) -> {
+            String hex = resultSet.getString(columnIndex);
+            byte[] bytes = HexFormat.of().parseHex(hex);
+            return Slices.wrappedBuffer(bytes);
+        };
+    }
+
+    private static SliceWriteFunction hashTypeWriteFunction()
+    {
+        return SliceWriteFunction.of(Types.CHAR, (statement, index, slice) -> {
+            byte[] bytes = slice.getBytes();
+            String hex = HexFormat.of().formatHex(bytes);
+            statement.setString(index, hex);
         });
     }
 
